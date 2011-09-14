@@ -4,9 +4,15 @@
 template<int dim>
 GappyOfflineOnlyPseudo<dim>::GappyOfflineOnlyPseudo(Communicator *_com, IoData
 		&_ioData, Domain &dom, DistGeoState *_geoState) : GappyOffline<dim>(_com,
-			_ioData, dom, _geoState), podHatTmp(0, dom.getNodeDistInfo() ) ,
-		notRestricted(this->ioData->Rob.notRestricted){ 
-			//TODO: define notRestricted
+			_ioData, dom, _geoState), podHatTmp(0, dom.getNodeDistInfo() ) { 
+
+			if (this->ioData->gnat.sampleMeshUsed == GNATData::SAMPLE_MESH_NOT_USED)
+				noSampleMesh = 1;
+			else
+				noSampleMesh = 0;
+
+			if (noSampleMesh == 0)
+				this->outputOnlineMatricesFull = true;
 
 }
 
@@ -16,7 +22,7 @@ void GappyOfflineOnlyPseudo<dim>::setUpGreedy() {
 }
 
 template<int dim>
-void GappyOfflineOnlyPseudo<dim>::readInPodResJac(int * podFiles) {
+void GappyOfflineOnlyPseudo<dim>::readInPodResJac() {
 
 	for (int i = 0 ; i < this->nPodBasis ; ++i){	// only do for number of required bases
 		this->podHat[i].resize(this->nPod[i]);
@@ -24,9 +30,22 @@ void GappyOfflineOnlyPseudo<dim>::readInPodResJac(int * podFiles) {
 
 	//	read in both bases
 	this->com->fprintf(stderr, " ... Reading POD bases for the residual and/or Jacobian ...\n");
-	this->domain.readMultiPodBasis(this->input->podFileResJacHat, this->podHat.a,
-			this->nPod, this->nPodBasis, podFiles);
-	if (notRestricted) {
+
+	//this->domain.readMultiPodBasis(this->input->podFileResJacHat, this->podHat.a,
+	//		this->nPod, this->nPodBasis, podFiles);
+
+	//this->domain.readPodBasis(this->input->podFileResHat, this->nPod[0], this->podHat[0]);
+
+	//if (this->nPodBasis == 2) {
+	//	this->domain.readPodBasis(this->input->podFileJacHat, this->nPod[1], this->podHat[1]);
+	//}
+	this->domain.readPodBasis(this->input->podFileRes, this->nPod[0], this->podHat[0]);
+
+	if (this->nPodBasis == 2) {
+		this->domain.readPodBasis(this->input->podFileJac, this->nPod[1], this->podHat[1]);
+	}
+
+	if (noSampleMesh) {
 		podHatTmp.resize(this->nPod[0]);
 		for (int iPod = 0; iPod < this->nPod[0]; ++iPod) {
 			podHatTmp[iPod] = 0.0;
@@ -42,7 +61,7 @@ void GappyOfflineOnlyPseudo<dim>::computePodTPod() {
 	FILE *onlineMatrix;
 	int sp = strlen(this->ioData->output.transient.prefix);
 	char *onlineMatrixFile = new char[sp +
-		strlen(this->ioData->output.transient.onlineMatrix)+strlen(onlineMatExtension)+1];
+		strlen(this->ioData->output.rom.onlineMatrix)+strlen(onlineMatExtension)+1];
 	onlineMatrix = fopen(onlineMatrixFile, "r");
 
 	if (this->thisCPU == 0) { 
@@ -83,7 +102,7 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 					cpuTmp = this->thisCPU;
 					subDTmp = iSub;
 					locNodeTmp = iLocNode;
-					if (notRestricted) {
+					if (noSampleMesh) {
 						assert(this->nPodBasis == 1);
 						for (int iPod = 0; iPod < this->nPod[0]; ++iPod) {
 							locPodHat = this->podHat[0][iPod].subData(iSub);
@@ -106,7 +125,7 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 		this->globalNodeToLocalNodesMap.insert(pair<int, int > (globalSampleNode, locNodeTmp));
 	}
 
-	if (notRestricted) 
+	if (noSampleMesh) 
 		this->podHat.a[0] = &podHatTmp;	// set podHatTmp to be the right one
 }
 

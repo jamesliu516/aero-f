@@ -106,7 +106,7 @@ void Timer::setIoData(IoData &_ioData)
 
 ioData = &_ioData;
 
-/*if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
+/*if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_)
   numTimings += 4;
 else if (ioData->problem.alltype == ProblemData::_ROM_AEROELASTIC_)
   numTimings += 3;  
@@ -868,7 +868,7 @@ void Timer::print(Timer *str, FILE *fp)
   data[comm] = data[localCom] + data[globalCom] + data[rmaCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
   
-  if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
+  if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_)
     data[podConstr] -= data[io];
 
   int i;
@@ -941,7 +941,7 @@ void Timer::print(Timer *str, FILE *fp)
   }
   com->fprintf(fp, "\n");
 
-  if (ioData->problem.alltype == ProblemData::_UNSTEADY_ROM_)  {
+  if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_)  {
     com->fprintf(fp, "  Residual evaluation         : %10.2f %10.2f %10.2f %9d\n",
               tmin[residual], tmax[residual], tavg[residual],
 							counter[residual]);
@@ -999,7 +999,7 @@ void Timer::print(Timer *str, FILE *fp)
 
 
   // Output POD Timers
-  if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
+  if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_) {
     com->fprintf(fp, "POD Basis Construction        : %10.2f %10.2f %10.2f         -\n",
                tmin[podConstr], tmax[podConstr], tavg[podConstr]);
     com->fprintf(fp, "  Snapshot Linear Solver      : %10.2f %10.2f %10.2f %9d\n",

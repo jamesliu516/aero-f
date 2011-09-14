@@ -19,10 +19,6 @@ class SurfMeshGen : public GappyOffline<dim> {
 
 	void addSampleNodesAndNeighbors() { ;}
 
-
-
-
-
 	public:
 	SurfMeshGen(Communicator *, IoData &, Domain &, DistGeoState *);
 };

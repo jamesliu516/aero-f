@@ -54,7 +54,7 @@ int EdgeSet::find(int first, int second)
 
   if (v == mp->end()) { 
     (*mp)[ Pair(first, second) ] = numEdges;
-		//++numSampledEdges;
+		++numSampledEdges;
     return numEdges++;
   }
 

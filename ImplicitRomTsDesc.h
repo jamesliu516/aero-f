@@ -37,7 +37,7 @@ protected:
   
   int nPod;
 	int subtractIC;	// =1 if you subtract IC from basis
-  virtual void readPodBasis();  
+  virtual void readPodBasis(const char *);
 
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
@@ -70,6 +70,8 @@ protected:
 	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
 	virtual bool breakloop1(const bool);
 	virtual bool breakloop2(const bool);
+	void determineFileName(const char *fileNameInput, const char
+		*currentExtension, const char *prefix, string &fileName);
 
 public:
   

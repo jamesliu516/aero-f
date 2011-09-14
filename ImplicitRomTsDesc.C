@@ -27,8 +27,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
 
   // read Pod Basis
-  nPod = ioData->Rob.numROB;
-	readPodBasis();
+  nPod = ioData->rom.dimension;
+	readPodBasis(this->input->podFileState);
 
 	char *snapRefSolFile = this->input->snapRefSolutionFile;
 	FILE *inRSFP = fopen(snapRefSolFile, "r");
@@ -66,12 +66,12 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 	for (int iPod = 0; iPod < nPod; ++iPod)
 		dUnormAccum[1][iPod] = sqrt(dUnormAccum[1][iPod]);	// to complete 2-norm definition
 
-	const char *dUnormAccumFile = ioData->output.transient.dUnormAccum;
+	const char *dUnormAccumFile = ioData->output.rom.dUnormAccum;
 	if (strcmp(dUnormAccumFile, "") != 0)  {
-		char *outdUnormAccumFile = new char[strlen(ioData->output.transient.prefix) +
+		char *outdUnormAccumFile = new char[strlen(ioData->output.rom.prefix) +
 			strlen(dUnormAccumFile)+1];
 		if (this->com->cpuNum() ==0) sprintf(outdUnormAccumFile, "%s%s",
-				ioData->output.transient.prefix, dUnormAccumFile);
+				ioData->output.rom.prefix, dUnormAccumFile);
 		FILE *writingFile;
 		if (this->com->cpuNum() ==0) writingFile = fopen(outdUnormAccumFile, "wt");
 		this->com->fprintf(writingFile, "PodCoefficient NetContribution(1norm) NetContribution(2norm)\n");
@@ -152,7 +152,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
         //++fsIt;
       }
       else{
-        this->com->fprintf(stderr, "***Exiting\n");
+        this->com->fprintf(stderr, "*** Exiting\n");
         exit(1);
       }
     }
@@ -173,7 +173,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
 	// output POD coordinates
 
-  return it;
+  return (maxItsNewton == 0) ? 1 : it;
 
 }
                                                                                                            
@@ -723,10 +723,13 @@ void ImplicitRomTsDesc<dim>::savedUnormAccum() {
 }
 
 template<int dim>
-void ImplicitRomTsDesc<dim>::readPodBasis() {
+void ImplicitRomTsDesc<dim>::readPodBasis(const char *fileName) {
 
-  this->domain->readPodBasis(this->input->podFile, nPod, pod,this->ioData->Rob.basisType == 0);
-	
+	string fileNameState;
+	determineFileName(fileName, ".reducedPodState", ioData->input.gnatPrefix, fileNameState);
+
+	this->domain->readPodBasis(fileNameState.c_str(), nPod,
+		pod,this->ioData->rom.basisType == ModelReductionData::SNAPSHOTS);
 }
 
 template<int dim>
@@ -741,5 +744,18 @@ bool ImplicitRomTsDesc<dim>::breakloop2(const bool breakloop) {
 
 	return false;
 
+}
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::determineFileName(const char *fileNameInput, const char
+		*fileNameExtension, const char *prefix, string &fileName) {
+
+	if (strcmp(fileNameInput,"") == 0) {
+		fileName = prefix;
+	 	fileName +=	fileNameExtension;
+	}
+	else {
+		fileName = fileNameInput;
+	}
 }
 

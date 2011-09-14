@@ -4131,6 +4131,7 @@ void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,
 		readPodBasis(podFile[whichFiles[iData]], nPod[iData],*(pod[iData]));
 	}
 }
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -4158,6 +4159,9 @@ void Domain::readPodBasis(const char *podFile, int &nPod,
     com->fprintf(stderr, " ... WARNING: there are only %d POD Vectors \n", nPodVecs);
     nPod = nPodVecs;
   }
+	else if (nPod < 0)  {	// if negative value specified, read in all vectors
+		nPod = nPodVecs;
+	}
   else
     nPodVecs = nPod;
 

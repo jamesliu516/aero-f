@@ -90,11 +90,17 @@ InputData::InputData()
 	snapRefSolutionFile = "";
 	staterom = "";
 	snapFile = "";
+
+	// gnat
+	gnatPrefix = "";
 	sampleNodes = "";
-	aMatrix = "";
-	bMatrix = "";
-  podFileResJac = "";
-  podFileResJacHat = "";
+	resMatrix = "";
+	jacMatrix = "";
+  podFileState = "";
+  podFileRes = "";
+  podFileJac = "";
+  podFileResHat = "";
+  podFileJacHat = "";
   mesh = "";
   reducedfullnodemap = "";
 
@@ -128,15 +134,23 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "SnapshotData", this, &InputData::snapFile);
-  new ClassStr<InputData>(ca, "SampleNodes", this, &InputData::sampleNodes);
-  new ClassStr<InputData>(ca, "AMatrix", this, &InputData::aMatrix);
-  new ClassStr<InputData>(ca, "BMatrix", this, &InputData::bMatrix);
-  new ClassStr<InputData>(ca, "PODResJac", this, &InputData::podFileResJac);
-  new ClassStr<InputData>(ca, "PODResJacHat", this, &InputData::podFileResJacHat);
   new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolutionFile);
-  new ClassStr<InputData>(ca, "StateReducedCoordinates", this, &InputData::staterom);
+  new ClassStr<InputData>(ca, "ROBStateCoordinates", this, &InputData::staterom);
+
+	// sample mesh
+  new ClassStr<InputData>(ca, "GNATPrefix", this, &InputData::gnatPrefix);
+  new ClassStr<InputData>(ca, "SampleNodes", this, &InputData::sampleNodes);
+  new ClassStr<InputData>(ca, "GappyJacMat", this, &InputData::jacMatrix);
+  new ClassStr<InputData>(ca, "GappyResMat", this, &InputData::resMatrix);
+  new ClassStr<InputData>(ca, "ROBState", this, &InputData::podFileState);
+  new ClassStr<InputData>(ca, "ROBResidual", this, &InputData::podFileRes);
+  new ClassStr<InputData>(ca, "ROBJacobian", this, &InputData::podFileJac);
+  new ClassStr<InputData>(ca, "ROBResidualSampleMesh", this, &InputData::podFileResHat);
+  new ClassStr<InputData>(ca, "ROBJacobianSampleMesh", this, &InputData::podFileJacHat);
+	// ???
   new ClassStr<InputData>(ca, "ReducedMesh", this, &InputData::mesh);
   new ClassStr<InputData>(ca, "ReducedFullNodeMap", this, &InputData::reducedfullnodemap);
+
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
@@ -189,6 +203,7 @@ void OutputData::setup(const char *name, ClassAssigner *father)
   transient.setup("Postpro", ca);
   restart.setup("Restart", ca);
   transient.probes.setup("Probes", ca);
+	rom.setup("ROM", ca);
 }
 
 //------------------------------------------------------------------------------
@@ -295,22 +310,6 @@ TransientData::TransientData()
   philevel = "";
   controlvolume = "";
   fluidid="";
-// Gappy POD
-
-  mesh = "";
-  reducedfullnodemap = "";
-  sampleNodes = "";
-  sampleNodesFull = "";
-  onlineMatrix = "";
-  onlineMatrixFull = "";
-  podStateRed = "";
-  wallDistanceRed = "";
-  newtonresiduals = "";
-  reducedjacxdurom = "";
-  reducedjac = "";
-  staterom = "";
-  error = "";
-  dUnormAccum = "";
 
 // Included (MB)
   velocitynorm = "";
@@ -424,21 +423,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
 
 	// Gappy POD offline
-  new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
-  new ClassStr<TransientData>(ca, "ReducedFullNodeMap", this, &TransientData::reducedfullnodemap);
-  new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
-  new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesFull);
-  new ClassStr<TransientData>(ca, "OnlineMatrix", this, &TransientData::onlineMatrix);
-  new ClassStr<TransientData>(ca, "OnlineMatrixFullMesh", this, &TransientData::onlineMatrixFull);
-  new ClassStr<TransientData>(ca, "PODStateReduced", this, &TransientData::podStateRed);
-  new ClassStr<TransientData>(ca, "WallDistanceReduced", this, &TransientData::wallDistanceRed);
 	// Gappy POD snapshots
-  new ClassStr<TransientData>(ca, "NewtonResiduals", this, &TransientData::newtonresiduals);
-  new ClassStr<TransientData>(ca, "ReducedJacxdUrom", this, &TransientData::reducedjacxdurom);
-  new ClassStr<TransientData>(ca, "ReducedJac", this, &TransientData::reducedjac);
-  new ClassStr<TransientData>(ca, "StateReducedCoordinates", this, &TransientData::staterom);
-  new ClassStr<TransientData>(ca, "Error", this, &TransientData::error);
-  new ClassStr<TransientData>(ca, "NetStateReducedCoordinates", this, &TransientData::dUnormAccum);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "StateVectorSensitivity", this, &TransientData::dSolutions); //KW(Aug.17,2010): used to be SolutionSensitivity
@@ -462,8 +447,79 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<TransientData>(ca, "BubbleRadius", this, &TransientData::bubbleRadius);
 
+	//do defaults
+
 }
 
+ROMOutputData::ROMOutputData()
+{
+  prefix = "";
+
+  solution = "";
+  newtonresiduals = "";
+  jacobiandeltastate = "";
+  reducedjac = "";
+  stateRom = "";
+
+  gnatPrefix = "";
+
+  sampleNodes = "";
+  onlineMatrix = "";
+  podStateRed = "";
+  wallDistanceRed = "";
+  staterom = "";
+  error = "";
+  dUnormAccum = "";
+
+  sampleNodesFull = "";
+  onlineMatrixFull = "";
+  mesh = "";
+  reducedfullnodemap = "";
+
+  frequency = 0;
+  frequency_dt = -1.0;
+// Gappy POD
+
+  //mesh = "";
+  //reducedfullnodemap = "";
+  //sampleNodes = "";
+  //sampleNodesFull = "";
+  //onlineMatrix = "";
+  //onlineMatrixFull = "";
+  //podStateRed = "";
+  //wallDistanceRed = "";
+  //newtonresiduals = "";
+  //jacobiandeltastate = "";
+  //reducedjac = "";
+  //staterom = "";
+  //error = "";
+  //dUnormAccum = "";
+}
+
+void ROMOutputData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 15, father); 
+
+  new ClassStr<ROMOutputData>(ca, "Prefix", this, &ROMOutputData::prefix);
+	
+  new ClassStr<ROMOutputData>(ca, "State", this, &ROMOutputData::solution);
+  new ClassStr<ROMOutputData>(ca, "Residual", this, &ROMOutputData::newtonresiduals);
+  new ClassStr<ROMOutputData>(ca, "JacobianDeltaState", this, &ROMOutputData::jacobiandeltastate);
+  new ClassStr<ROMOutputData>(ca, "ReducedJac", this, &ROMOutputData::reducedjac);
+
+  new ClassStr<ROMOutputData>(ca, "GNATPrefix", this, &ROMOutputData::gnatPrefix);
+  new ClassStr<ROMOutputData>(ca, "StateReducedCoordinates", this, &ROMOutputData::staterom);
+  new ClassStr<ROMOutputData>(ca, "SampleNodes", this, &ROMOutputData::sampleNodes);
+  new ClassStr<ROMOutputData>(ca, "OnlineMatrix", this, &ROMOutputData::onlineMatrix);
+  new ClassStr<ROMOutputData>(ca, "PODStateReduced", this, &ROMOutputData::podStateRed);
+  new ClassStr<ROMOutputData>(ca, "WallDistanceReduced", this, &ROMOutputData::wallDistanceRed);
+  new ClassStr<ROMOutputData>(ca, "Error", this, &ROMOutputData::error);
+  new ClassStr<ROMOutputData>(ca, "NetStateReducedCoordinates", this, &ROMOutputData::dUnormAccum);
+  new ClassStr<ROMOutputData>(ca, "SampleNodesFullMesh", this, &ROMOutputData::sampleNodesFull);
+  new ClassStr<ROMOutputData>(ca, "OnlineMatrixFullMesh", this, &ROMOutputData::onlineMatrixFull);
+  new ClassStr<ROMOutputData>(ca, "SampleMesh", this, &ROMOutputData::mesh);
+  new ClassStr<ROMOutputData>(ca, "ReducedFullNodeMap", this, &ROMOutputData::reducedfullnodemap);
+}
 
 //------------------------------------------------------------------------------
 
@@ -568,22 +624,23 @@ ProblemData::ProblemData()
 void ProblemData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 29,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 32,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
 		 "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11,
 		 "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
-		 "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
+		 "UnsteadyLinearized", 15, "ROBConstruction", 16, "ROMAeroelastic", 17,
 		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
 		 "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "1DProgrammedBurn", 23, "UnsteadyROM", 24, "GappyPODConstruction", 25 ,
-		 "SurfaceMeshConstruction",26, "ReducedMeshShapeChange", 27,
-		 "GappyPODNoPseudo", 28, "GappyPODOnlyPseudo", 29);
+		 "1DProgrammedBurn", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
+		 "NonlinearROMSurfaceMeshConstruction",26, "SampleMeshShapeChange", 27,
+		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
+		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -2928,72 +2985,148 @@ void DeformingData::setup(const char *name, ClassAssigner *father)
 
 }
 
-//------------------------------------------------------------------------------
+ModelReductionData::ModelReductionData()
+{
+	projection = PETROV_GALERKIN;
+	systemApproximation = SYSTEM_APPROXIMATION_NONE;
+	basisType = POD;
+	dimension = 0;
+}
 
-ROB::ROB()
+SnapshotsData::SnapshotsData()
+{
+	normalizeSnaps = NORMALIZE_FALSE;
+	incrementalSnaps = INCREMENTAL_FALSE;
+	subtractIC = SUBTRACT_IC_FALSE;
+	sampleFreq = 1;	
+	snapshotWeights = UNIFORM;
+}
+
+DataCompressionData::DataCompressionData()
+{
+	type = POD;
+	podMethod = SVD;
+	maxVecStorage = 0;
+	energyOnly = ENERGY_ONLY_FALSE;	// if ROB computation should only compute total energy of snapshots
+  tolerance = 1e-8;
+}
+
+GNATData::GNATData()
 {
 
-  tolerance = 1e-8;
-  numROB = 0;
-  numROBJac = 0;
-  numROBRes = 0;
-  nSampleNodes = 0;
-  sampleNodeFactor = -1;
-	nPodGreedy = 0;
-  romsolver = PG; 
-	liftFaces = 0;	// by default, do not include lift faces
-	layers = 2;	// by default, include two layers of nodes
-	normalizeSnapshots = 0;	// by default, do not normalize snapshots
-		// 1: all snapshots have magnitude = 1
-		// 2: snapshots first given magnitude 1, then RBF weight
-	skipFreq = 1;	
-	incrementalSnapshots = 0;	
-		// 0: do not do incremental snapshots
-		// 1: do incremental snapshots
-	maxVecStorage = 0;	// maximum vectors for limited memory SVD (0: typical SVD)
-	energyOnly = 0;	// if pod computation should only compute total energy of snapshots
-	podMethod = 0;	// 0: SVD, 1: EVD
-	pseudoInverseNodes = 20;	// if pod computation should only compute total energy of snapshots
-	subtractIC = 0;	// if pod computation should only compute total energy of snapshots
-	basisType = 1;	// use pod by default
-	notRestricted = 0;	// already restricted by default
-	errorBasis = -1;
-	computeAMat = 1;	// if 0, only output things corresponding to the residual (first pod basis), and assume podTpod = I. Useful when you want to use another basis for determining sample nodes
+	nRobState = -1;
+	robNonlinear = UNSPECIFIED_NONLIN;
+	nRobNonlin = -1;
+	nRobRes = -1;
+	nRobJac = -1;
 
+	robGreedy = UNSPECIFIED_GREEDY;
+	nRobGreedy = 0;
+  sampleNodeFactor = -1;	// specify default of 2.0 elsewhere
+  nSampleNodes = 0;
+	layers = 2;	// by default, include two layers of nodes (2nd-order flux)
+
+	includeLiftFaces = NONE_LIFTFACE;
+
+	computeGappyRes = YES_GAPPYRES;
+	// if NO, only output things corresponding to the jacobian (first pod basis),
+	// and assume podTpod = I. Useful when you want to use another basis for
+	// determining sample nodes
+
+	sampleMeshUsed = SAMPLE_MESH_USED;
+	pseudoInverseNodes = 20;	// if pod computation should only compute total energy of snapshots
 }
 
 //------------------------------------------------------------------------------
 
-void ROB::setup(const char *name, ClassAssigner *father)
+void ModelReductionData::setup(const char *name, ClassAssigner *father)
 {
+
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+
+  new ClassInt<ModelReductionData>(ca, "Dimension", this, &ModelReductionData::dimension);
+	new ClassToken<ModelReductionData> (ca, "Projection", this, reinterpret_cast<int
+			ModelReductionData::*>(&ModelReductionData::projection), 3, "PetrovGalerkin", 0, "Galerkin", 1,
+			"ProjError", 2);	// ProjErrorcomputes projection error onto a basis
+	new ClassToken<ModelReductionData> (ca, "SystemApproximation", this, reinterpret_cast<int
+			ModelReductionData::*>(&ModelReductionData::systemApproximation), 3,
+			"None", 0, "GNAT", 1, "Collocation", 2, "Broyden", 3);
+	new ClassToken<ModelReductionData> (ca, "BasisType", this, reinterpret_cast<int
+			ModelReductionData::*>(&ModelReductionData::basisType), 3, "Snaps", 0, "POD", 1,
+			"None", 2);
+}
+
+//------------------------------------------------------------------------------
+
+void SnapshotsData::setup(const char *name, ClassAssigner *father)
+{
+
+	ClassAssigner *ca = new ClassAssigner(name, 7, father);
+
+	new ClassToken<SnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::normalizeSnaps), 2, "False", 0, "True", 1);
+	new ClassToken<SnapshotsData> (ca, "IncrementalSnaps", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::incrementalSnaps), 2, "False", 0, "True", 1);
+	new ClassToken<SnapshotsData> (ca, "SubtractIC", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::subtractIC), 2, "False", 0, "True", 1); 
+  new ClassInt<SnapshotsData>(ca, "SampleFrequency", this, &SnapshotsData::sampleFreq);
+
+	new ClassToken<SnapshotsData> (ca, "SnapshotWeights", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::snapshotWeights), 2, "Uniform", 0, "RBF", 1);
+
+	dataCompression.setup("DataCompression",ca);
+
+}
+
+void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
-  new ClassDouble<ROB>(ca, "Tolerance", this, &ROB::tolerance);
-  new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
-  new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
-  new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
-  new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
-  new ClassInt<ROB>(ca, "SampleNodes", this, &ROB::nSampleNodes);
-  new ClassInt<ROB>(ca, "NumROBGreedy", this, &ROB::nPodGreedy);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 8, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4, "ProjError", 5, "CollLS", 6, "CollGal",7);	// PostProcess reads in pod coordinates, ProjErrorcomputes projection error onto a basis
-  new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
-  new ClassInt<ROB>(ca, "Layers", this, &ROB::layers);
-  new ClassInt<ROB>(ca, "NormalizeSnaps", this, &ROB::normalizeSnapshots);
-  new ClassInt<ROB>(ca, "SkipFrequency", this, &ROB::skipFreq);
-  new ClassInt<ROB>(ca, "IncrementalSnaps", this, &ROB::incrementalSnapshots);
-  new ClassInt<ROB>(ca, "MaxVectorsSVD", this, &ROB::maxVecStorage);
-  new ClassInt<ROB>(ca, "EnergyOnly", this, &ROB::energyOnly);
-  new ClassToken<ROB> (ca, "PODMethod", this, reinterpret_cast<int ROB::*>(&ROB::podMethod), 2, "SVD", 0, "Eig", 1);
-  new ClassInt<ROB>(ca, "PseudoInvNodes", this, &ROB::pseudoInverseNodes);
-  new ClassInt<ROB>(ca, "SubtractIC", this, &ROB::subtractIC);
-  new ClassToken<ROB> (ca, "BasisType", this, reinterpret_cast<int ROB::*>(&ROB::basisType), 3, "Snaps", 0, "POD", 1, "None", 2);
-  new ClassInt<ROB>(ca, "NotRestricted", this, &ROB::notRestricted);
-  new ClassInt<ROB>(ca, "ErrorBasis", this, &ROB::errorBasis);
-  new ClassInt<ROB>(ca, "ComputeAMat", this, &ROB::computeAMat);
+	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
+	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
+			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
+  new ClassInt<DataCompressionData>(ca, "MaxVectorsStorage", this, &DataCompressionData::maxVecStorage);
+	new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
+			DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
+  new ClassDouble<DataCompressionData>(ca, "Tolerance", this, &DataCompressionData::tolerance);
 
 }
 
+void GNATData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
+
+	// optional: document
+  new ClassInt<GNATData>(ca, "DimensionROBState", this, &GNATData::nRobState);	// default: full size
+
+	new ClassToken<GNATData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int GNATData::*>(&GNATData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);	// ProjErrorcomputes projection error onto a basis
+
+
+	new ClassToken<GNATData>(ca, "ROBNonlinear", this, reinterpret_cast<int GNATData::*>(&GNATData::robNonlinear), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);
+
+  new ClassInt<GNATData>(ca, "DimensionROBNonlinear", this, &GNATData::nRobNonlin);	// default: 0 (make sure C file reads in everything)
+  new ClassInt<GNATData>(ca, "DimensionROBResidual", this, &GNATData::nRobRes);	// default: nRobNonlin
+  new ClassInt<GNATData>(ca, "DimensionROBJacobian", this, &GNATData::nRobJac);	// default: nRobNonlin
+
+
+	new ClassToken<GNATData>(ca, "ROBGreedy", this, reinterpret_cast<int GNATData::*>(&GNATData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);	// ProjErrorcomputes projection error onto a basis
+  new ClassInt<GNATData>(ca, "DimensionROBGreedy", this, &GNATData::nRobGreedy);
+
+
+  new ClassDouble<GNATData>(ca, "SampleNodeFactor", this, &GNATData::sampleNodeFactor); // default: 2
+  new ClassInt<GNATData>(ca, "NumSampleNodes", this, &GNATData::nSampleNodes); // overrides SampleNodeFactor to determine the number of sample nodes
+  new ClassInt<GNATData>(ca, "SampleMeshLayers", this, &GNATData::layers);	// default: 2
+
+	// optional: undocumented
+	new ClassToken<GNATData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
+			GNATData::*>(&GNATData::computeGappyRes), 2, "False", 0, "True", 1);	
+
+	new ClassToken<GNATData> (ca, "SampleMeshUsed", this, reinterpret_cast<int
+			GNATData::*>(&GNATData::sampleMeshUsed), 2, "False", 0, "True", 1);	
+
+  new ClassInt<GNATData>(ca, "PseudoInvNodesAtATime", this, &GNATData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
+
+}
 //------------------------------------------------------------------------------
 
 LinearizedData::LinearizedData()
@@ -3025,7 +3158,7 @@ LinearizedData::LinearizedData()
 void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 15, father);
+  ClassAssigner *ca = new ClassAssigner(name, 16, father);
 
   new ClassToken<LinearizedData> (ca, "Type", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::type), 3, "Default", 0, "Rom", 1, "Forced", 2);
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
@@ -3044,7 +3177,7 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
 
   pade.setup("Pade", ca);
-
+	dataCompression.setup("DataCompression", ca);
 
 }
 
@@ -3533,7 +3666,9 @@ void IoData::setupCmdFileVariables()
   rmesh.setup("Accelerated");
   aero.setup("Aeroelastic");
   forced.setup("Forced");
-	Rob.setup("ROB");
+	rom.setup("ModelReduction");
+	gnat.setup("GNAT");
+	snapshots.setup("Snapshots");
   linearizedData.setup("Linearized");
   surfaces.setup("Surfaces");
   rotations.setup("Velocity");
@@ -3613,7 +3748,7 @@ void IoData::resetInputValues()
     problem.type[i] = false;
 
   if (problem.alltype == ProblemData::_UNSTEADY_ ||
-      problem.alltype == ProblemData::_UNSTEADY_ROM_ ||
+      problem.alltype == ProblemData::_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
@@ -3654,15 +3789,16 @@ void IoData::resetInputValues()
 
   if (problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_ ||
+      problem.alltype == ProblemData::_ROB_CONSTRUCTION_ ||
       problem.alltype == ProblemData::_POD_CONSTRUCTION_ ||
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
-			problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_ ||
-			problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_NO_PSEUDO_ ||
-			problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_ ||
+			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
+			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
+			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
 			problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
-			problem.alltype == ProblemData::_REDUCED_MESH_SHAPE_CHANGE_) 
+			problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2

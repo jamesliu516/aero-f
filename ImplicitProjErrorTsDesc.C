@@ -5,8 +5,8 @@ ImplicitProjErrorTsDesc<dim>::ImplicitProjErrorTsDesc(IoData &ioData, GeoSource 
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom), Uold(dom->getNodeDistInfo()), Unew(dom->getNodeDistInfo()), dUtrue(dom->getNodeDistInfo()), dUproj(dom->getNodeDistInfo()), dUerr(dom->getNodeDistInfo()) {
 
 		// assume vectors are orthonormal if not a snapshot basis
-		snapshotBasis = (this->ioData->Rob.basisType == 0);
-		noBasis = (this->ioData->Rob.basisType == 2);	// no basis used: just for generating output files
+		snapshotBasis = (this->ioData->rom.basisType == 0);
+		noBasis = (this->ioData->rom.basisType == 2);	// no basis used: just for generating output files
 		this->maxItsNewton = 0;	// do 1 iteration
 
 		// jac = phi^T phi

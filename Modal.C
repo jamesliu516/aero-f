@@ -125,24 +125,24 @@ void ModalSolver<dim>::solve()  {
 
  if (ioData->problem.alltype == ProblemData::_INTERPOLATION_)
    interpolatePOD();
- else if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_ && snapsFile){
+ else if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile){
    t0 = modalTimer->getTime(); //CBM--check
    buildGlobalPOD();
    modalTimer->addPodConstrTime(t0);
  }
- else if (ioData->problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_){
+ else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
 	 GappyOffline<dim> gappy(com,*ioData,domain,geoState);
 	 gappy.buildReducedModel();
  }
- else if (ioData->problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_NO_PSEUDO_){
+ else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
 	 GappyOfflineNoPseudo<dim> gappy(com,*ioData,domain,geoState);
 	 gappy.buildReducedModel();
  }
- else if (ioData->problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_){
+ else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
 	 GappyOfflineOnlyPseudo<dim> gappy(com,*ioData,domain,geoState);
@@ -154,7 +154,7 @@ void ModalSolver<dim>::solve()  {
 	 SurfMeshGen<dim> surfMeshBuilder(com,*ioData,domain,geoState);
 	 surfMeshBuilder.buildReducedModel();	
  }
- else if (ioData->problem.alltype == ProblemData::_REDUCED_MESH_SHAPE_CHANGE_){
+ else if (ioData->problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_){
 	 //KTC: CHANGE!!!
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
@@ -192,7 +192,7 @@ void ModalSolver<dim>::solve()  {
  else  {
    preProcess();
    modalTimer->setSetupTime();
-   if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
+   if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_) {
      t0 = modalTimer->getTime();
      constructPOD();
      modalTimer->addPodConstrTime(t0);
@@ -1734,7 +1734,9 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
  Timer *modalTimer = domain.getTimer();
 
  if (nPOD == 0)
-	 nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->Rob.numROB; // CBM--check   
+	 nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->rom.dimension; // CBM--check   
+ if (nPOD == 0)
+	 nPOD = nSnaps;
 
  int nconv = 0;
  if (nPOD > nSnaps) {
@@ -1778,14 +1780,14 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
       rVals[(i+1)*i/2 + j] = snaps[j] * snaps[i];
   }
 
-  //double tolerance = ioData->linearizedData.tolerance;
-  double tolerance = (ioData->linearizedData.tolerance) ? ioData->linearizedData.tolerance : ioData->Rob.tolerance; //CBM--check   
+  double tolerance = ioData->snapshots.dataCompression.tolerance;
 
 	com->barrier();
   ARdsSymMatrix<double> pod(nSnaps, rVals, 'U');
   com->fprintf(stderr, " ... Factoring Correlation Matrix\n");
 
 	double t0 = modalTimer->getTime();
+	int iSnap;
 	pod.FactorA();
   ARluSymStdEig<double> podEigProb(nPOD, pod, "LM", nSnaps-1, tolerance, 300*nPOD);
   modalTimer->addCorrelMatrixTime(t0);
@@ -1841,7 +1843,9 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	char snapFile1[500];
 	int *numSnaps = new int[nData];
 	int *numSkip = new int[nData];
-	int skipFreq = ioData->Rob.skipFreq;
+	int sampleFreq = ioData->snapshots.sampleFreq;
+	if (sampleFreq > 1)
+		com->fprintf(stderr, " ... skipping %d snapshots at a time (taking every %dn snapshots for n=1,...)\n", sampleFreq-1,sampleFreq);
 	double *snapWeight = new double[nData];
 	int nSnap, nSkip;
 	double weight;
@@ -1883,21 +1887,34 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	int nTotSnaps = 0;
 	for (int iData = 0; iData < nData; ++iData) {
 		for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
-			if (iSnap>=numSkip[iData] && iSnap % skipFreq == 0 ) {
+			if (iSnap>=numSkip[iData] && iSnap % sampleFreq == 0 ) {
 				++nTotSnaps;
 			}
 		}
 	}
 
-	int incrementalSnapshots = ioData->Rob.incrementalSnapshots;	// change in solution should be used as a snapshot
-	if (incrementalSnapshots) {	// do not use last snapshot if incremental approach
+	int incrementalSnapshots = ioData->snapshots.incrementalSnaps;	// change in solution should be used as a snapshot
+	bool subtractInitialCondition = false;
+	if (ioData->snapshots.subtractIC==SnapshotsData::SUBTRACT_IC_TRUE)
+		subtractInitialCondition = true;
+	if (incrementalSnapshots || subtractInitialCondition) {	// do not use last snapshot if incremental approach
 		nTotSnaps -= nData;
-		for (int iData = 0 ; iData < nData; ++iData)
-			--numSnaps[iData];
+		//for (int iData = 0 ; iData < nData; ++iData)
+		//	--numSnaps[iData];
+		if (incrementalSnapshots) com->fprintf(stderr, " ... using incremental snapshots (increment in state at each time step) ...\n");
 	}
 
-	podMethod = ioData->Rob.podMethod;
-	int maxVecStorage = ioData->Rob.maxVecStorage;
+
+	if (ioData->snapshots.dataCompression.podMethod == DataCompressionData::Eig) {
+		podMethod = 1;	// eigenvalue decomposition
+		com->fprintf(stderr, " ... using eigenvalue decomposition to compute POD basis ...\n");
+	}
+	else {
+		podMethod = 0;	// SVD
+		com->fprintf(stderr, " ... using SVD to compute POD basis ...\n");
+	}
+
+	int maxVecStorage = ioData->snapshots.dataCompression.maxVecStorage;
 	if (maxVecStorage > 0 && podMethod == 1){	// eigenvalue problem
 		com->fprintf(stderr, "*** Warning: Not using limited memory POD (not implemented with eigenvalue decomposition) \n");
 		maxVecStorage = 0;
@@ -1907,7 +1924,10 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	if (limitedMemorySVD && maxVecStorage > nTotSnaps) {	// do not need to use limited memory algorithm
 		limitedMemorySVD = false;
 	}
-	int energyOnly = ioData->Rob.energyOnly;
+
+	bool energyOnly = false;
+	if (ioData->snapshots.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE)
+		energyOnly = true;
 	bool computeSVD = true;
 	if (energyOnly)
 		computeSVD = false;
@@ -1950,22 +1970,27 @@ void ModalSolver<dim>::buildGlobalPOD() {
 
 	int numCurrentSnapshots = 0;
 	bool endOfFile;
-	int iSnap;
-	int normalizeSnapshots = ioData->Rob.normalizeSnapshots;
+	int normalizeSnapshots = ioData->snapshots.normalizeSnaps;
+	if (normalizeSnapshots) com->fprintf(stderr, " ... snapshots normalized ...\n");
 	int iStoredSnaps = 0;	// how many snapshots have been stored so far
+
+	if (subtractInitialCondition && inRSFP)
+		com->fprintf(stderr, " ... WARNING: not using reference solution file. Subtracting initial condition instead ...\n");
 
 	for (int iData=0; iData < nData; ++iData){
 		// read in Snapshot Vectors
 		if (inRSFP)
 			domain.readVectorFromFile(refSnapFile[iData], 0, 0, snapRefSol);
 		for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
-			if (!(incrementalSnapshots == 1 && skipFreq == 1)) // always read unless incremental snapshots and not skipping at all
-			endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
-			if (iSnap >= numSkip[iData] && iSnap % skipFreq == 0 ) {	// use snapshot
+			if (!(incrementalSnapshots == 1 && sampleFreq == 1)) // always read unless incremental snapshots and not skipping at all
+				endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
+			if (subtractInitialCondition && iSnap == 0)
+				snapRefSol = snapBuf;
+			if (iSnap >= numSkip[iData] && iSnap % sampleFreq == 0  && !(subtractInitialCondition && iSnap == 0)) {	// use snapshot
 				snap[numCurrentSnapshots] = snapBuf;
 				eig[numCurrentSnapshots] = eigBuf;
-				if (inRSFP && incrementalSnapshots == 0) snap[numCurrentSnapshots] -= snapRefSol;	// do not need to subtract snapRefSol if using incremental snapshots
-				if (incrementalSnapshots == 1 ) {
+				if ((inRSFP || subtractInitialCondition) && incrementalSnapshots == 0) snap[numCurrentSnapshots] -= snapRefSol;	// do not need to subtract snapRefSol if using incremental snapshots
+				if (incrementalSnapshots == 1) {
 					endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
 					snap[numCurrentSnapshots] -= snapBuf;
 				}
@@ -2010,7 +2035,7 @@ void ModalSolver<dim>::buildGlobalPOD() {
 // void ModalSolver<dim>::projectFullSoltn() {		// this function is no longer supported
 // 
 //  // read in POD Basis
-//  int nPodVecs = ioData->Rob.numROB;
+//  int nPodVecs = ioData->rom.dimension;
 //  VecSet<DistSVec<double, dim> > podVecs(nPodVecs, domain.getNodeDistInfo());
 //  readPodVecs(podVecs, nPodVecs);
 // 
@@ -2620,7 +2645,7 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
 	 sValsFile = fopen(sValsFileName, "wt");
 
  com->fprintf(sValsFile,"%d\n", nPOD);
- com->fprintf(stderr, " ... Writing %d (%f)podVecs to File\n", nPOD, (double) nPOD);
+ com->fprintf(stderr, " ... Writing %d (%f)POD vectors to File\n", nPOD, (double) nPOD);
 
  com->fprintf(sValsFile,"Singular values\n");
  domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);
@@ -2784,7 +2809,7 @@ void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSna
 	if (magnitude == 0.0)
 		magnitude = 1.0;
 	scalingFactor = 1.0/magnitude;
-	if (ioData->Rob.normalizeSnapshots == 2) {
+	if (ioData->snapshots.snapshotWeights == SnapshotsData::RBF) {
 		double distanceWeight = exp(pow((double)iSnap,2)/tau);
 		scalingFactor *= distanceWeight;
 		com->fprintf(stderr, "%d: %e\n", iSnap, distanceWeight);

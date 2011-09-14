@@ -1,12 +1,12 @@
-#ifndef _GAPPY_NO_PSEUDO_H_
-#define _GAPPY_NO_PSEUDO_H_
+#ifndef _GAPPY_STEP_1_H_
+#define _GAPPY_STEP_1_H_
 
 #include <GappyOffline.h>
 
 template <int dim>
 class GappyOfflineNoPseudo : public GappyOffline<dim> {
 
-	int computeAMat;
+	int computeGappyRes;
 	virtual void computePseudoInverse();	// do nothing
 	virtual void assembleOnlineMatrices();	// do nothing
 	virtual void computePodTPod();
