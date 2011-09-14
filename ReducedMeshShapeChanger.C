@@ -112,9 +112,9 @@ void ReducedMeshShapeChanger<dim>::readWriteTopFile(const char *inputTopFileName
 
 	// new reduced mesh top file
 	char *outputTopFileName = new char[strlen(this->ioData->output.transient.prefix) +
-		strlen(this->ioData->output.transient.mesh)+1];
+		strlen(this->ioData->output.rom.mesh)+1];
 	strcpy(outputTopFileName,this->ioData->output.transient.prefix);
-	strcat(outputTopFileName,this->ioData->output.transient.mesh);
+	strcat(outputTopFileName,this->ioData->output.rom.mesh);
 
 	ofstream outputTopFile(outputTopFileName);
 	outputTopFile.setf(ios::scientific);

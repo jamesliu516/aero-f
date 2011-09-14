@@ -11,54 +11,57 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	leastSquaresSolver(this->com, this->com->size(), 1)// all cpus along rows
 {
 
-	// NOTE: Amat corresponds to RESIDUAL, Bmat corresponds to JACOBIAN
-  nPodJac = ioData.Rob.numROBJac; 
+	// read in gappy POD matrix for residual
+  VecSet<DistSVec<double, dim> > resMatrixFull(0,dom->getNodeDistInfo());
+	gnatPrefix = ioData.input.gnatPrefix;
+	string fileNameRes;
+	ImplicitRomTsDesc<dim>::determineFileName(this->input->resMatrix, ".gappyRes", gnatPrefix, fileNameRes);
+  nPodJac = -1;
+	dom->readPodBasis(fileNameRes.c_str(), nPodJac, resMatrixFull);
 
-	nSampleNodes = 0;
-
-	if (ioData.Rob.sampleNodeFactor != -1) {
-		nSampleNodes = static_cast<int>(ceil(double(nPodJac *
-						ioData.Rob.sampleNodeFactor)/double(dim)));
+	// read in gappy POD matrix for Jacobian
+  VecSet<DistSVec<double, dim> > jacMatrixFull(0,dom->getNodeDistInfo());
+	string fileNameJac;
+	ImplicitRomTsDesc<dim>::determineFileName(this->input->jacMatrix, ".gappyJac", gnatPrefix, fileNameJac);
+	ifstream jacMatFile(fileNameJac.c_str());
+	if (jacMatFile.good()) {	// not specified
+		numResJacMat = 2;	// same matrix
+	}
+	else {
+		numResJacMat = 1;	// different matrices
 	}
 
-	dom->readSampleNodes(sampleNodes, nSampleNodes, this->input->sampleNodes);
+	// read in sample nodes
+	nSampleNodes = 0;
+	string fileNameSample;
+	ImplicitRomTsDesc<dim>::determineFileName(this->input->sampleNodes, ".sampleNodes", gnatPrefix, fileNameSample);
+	dom->readSampleNodes(sampleNodes, nSampleNodes, fileNameSample.c_str());
 
 	// assume we have nPodJac
-
 	leastSquaresSolver.blockSizeIs(32);
 	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
 	
-	// read in Afull, Bfull (temporary) (binary files because in reduced mesh)
-  VecSet<DistSVec<double, dim> > Afull(0,dom->getNodeDistInfo());
-  VecSet<DistSVec<double, dim> > Bfull(0,dom->getNodeDistInfo());
-	if (*(this->input->aMatrix) != '\0')
-		dom->readPodBasis(this->input->aMatrix, nPodJac,Afull);
-	if (*(this->input->bMatrix) == '\0') {	// not specified
-		numABmat = 1;	// same matrix
-	}
-	else {
-		numABmat = 2;	// different matrices
-	}
+	// read in resMatrixFull, jacMatrixFull (temporary) (binary files because in reduced mesh)
 
 	// determine mapping to restricted nodes
 	restrictionMapping.reset(new RestrictionMapping<dim>(dom, sampleNodes.begin(), sampleNodes.end()));
 
-	// allocate memory for Amat, Bmat using restrictedDistInfo
-	Amat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
+	// allocate memory for resMat, jacMat using restrictedDistInfo
+	resMat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
 
-	if (numABmat == 1) {
-		Bmat = Amat;
+	if (numResJacMat == 1) {
+		jacMat = resMat;
 	}
 	else {
-		dom->readPodBasis(this->input->bMatrix, nPodJac,Bfull);
-		Bmat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
+		dom->readPodBasis(fileNameJac.c_str(), nPodJac, jacMatrixFull);
+		jacMat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
 	}
 
-	// restrict Afull and Bfull to be Amat, Bmat
+	// restrict resMatrixFull and jacMatrixFull to be resMat, jacMat
 	for (int i = 0; i < nPodJac; ++i) {
-		restrictionMapping->restriction(Afull[i],(*Amat)[i]);
-		if (numABmat == 2)
-			restrictionMapping->restriction(Bfull[i],(*Bmat)[i]);
+		restrictionMapping->restriction(resMatrixFull[i],(*resMat)[i]);
+		if (numResJacMat == 2)
+			restrictionMapping->restriction(jacMatrixFull[i],(*jacMat)[i]);
 	}
 
 	jactmp = new double [nPodJac * this->nPod];
@@ -72,9 +75,9 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 template<int dim>
 ImplicitGappyTsDesc<dim>::~ImplicitGappyTsDesc() 
 {
-	delete Amat;
-	if (numABmat == 2)
-		delete Bmat;
+	delete resMat;
+	if (numResJacMat == 2)
+		delete jacMat;
 	if (jactmp) delete [] jactmp;
 	if (column) delete [] column;
 }
@@ -93,8 +96,9 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
   this->spaceOp->applyBCsToResidual(Q, this->F);
 
 	double t0 = this->timer->getTime();
-	// Restrict down
+
 	restrictMapping()->restriction(this->F, *ResRestrict);
+
 	this->timer->addRestrictionTime(t0);
 
 }
@@ -128,7 +132,7 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   // Form A * of and distribute
 
 	double t0 = this->timer->getTime();
-	transMatMatProd(*Bmat, *AJRestrict,jactmp);
+	transMatMatProd(*jacMat, *AJRestrict,jactmp);
 
   for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {
 		const int globalColIdx = leastSquaresSolver.globalColIdx(iCol);
@@ -142,7 +146,7 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   // Form B * ResRestrict and distribute
 	// NOTE: do not check if current CPU has rhs
 
-	transMatVecProd(*Amat, *ResRestrict, column);
+	transMatVecProd(*resMat, *ResRestrict, column);
 
 	for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
 		const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
@@ -191,4 +195,3 @@ bool ImplicitGappyTsDesc<dim>::breakloop2(const bool breakloop) {
 	return breakloop;
 
 }
-

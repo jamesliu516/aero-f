@@ -18,12 +18,11 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),
 	geoState(_geoState), X(_geoState->getXn()),
-	residual(0), jacobian(1)
+	residual(0), jacobian(1), outputOnlineMatricesFull(false)
 {
-	//TODO: FIGURE OUT WHICH ONE IS RESIDUAL!!!
 	// create temporary objects to build postOp, which is needed for lift
 	// surfaces
-	twoLayers = ioData->Rob.layers == 2;
+	twoLayers = ioData->gnat.layers == 2;
 	geoSourceTmp = new GeoSource(*ioData);
 	tsDescTmp = new TsDesc<dim>(*ioData, *geoSourceTmp, &domain);
   bcDataTmp = tsDescTmp->createBcData(*ioData);
@@ -31,7 +30,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
   postOp = new PostOperator<dim>(*ioData, varFcnTmp, bcDataTmp, geoState, &domain);
 
 	input = new TsInput(_ioData);
-	includeLiftFaces = ioData->Rob.liftFaces;
+	includeLiftFaces = ioData->gnat.includeLiftFaces;
 
 	// initialize vectors to point to the approprite bases
 
@@ -213,42 +212,49 @@ void GappyOffline<dim>::setUp() {
 template<int dim>
 void GappyOffline<dim>::setUpPodResJac() {
 
-	nPod[0] = ioData->Rob.numROBRes;	// number of POD basis vectors 
-	nPod[1] = ioData->Rob.numROBJac;
+	// if same file name, then use that basis
+	//
+	//
+
+	if (strcmp(input->podFileRes,input->podFileJac)==0) 
+		nPodBasis = 1;
+	else 
+		nPodBasis = 2;
+	
+	nPod[0] = ioData->gnat.nRobRes ;	// number of POD basis vectors 
+	if (nPod[0] == -1)
+		nPod[0] = ioData->gnat.nRobNonlin ;	// number of POD basis vectors 
+
+	nPod[1] = ioData->gnat.nRobJac ;
+	if (nPod[1] == -1)
+		nPod[1] = ioData->gnat.nRobNonlin ;	// number of POD basis vectors 
+
 	int podFiles [2] = {0, 1};	// which pod files should be read
 
 	nPodMax = max(nPod[0],nPod[1]);	// compute maximum nPod
 
-	nPodBasis = 2;
-
-	if (nPod[1] == 0) {	// only need one basis (shared between jacobian and residual)
-		nPodBasis = 1;
+	if (nPodBasis == 1) {
 		pod.a[1] = &podRes;
 		podHat.a[1] = &podHatRes;	// make pod point to res and jac
 		error.a[1] = &errorRes;	
 		podFiles[1]= -1;	// do not read the file for the Jacobian
 	}
-	else if (nPod[0] ==0) {
-		nPodBasis = 1;
-		pod.a[0] = &podJac;
-		podHat.a[0] = &podHatJac;
-		error.a[0] = &errorJac;	
-		podFiles[0]= 1;	// only read file for the Jacobian
-		podFiles[1]= -1;	// do not read the file for the Jacobian
-		nPod[0] = nPod[1];	// from now on, only deal with the first basis
-	}
 
-	int errorBasisOnly = ioData->Rob.errorBasis;
-	if (errorBasisOnly == -1) {
+	if (ioData->gnat.robGreedy == GNATData::UNSPECIFIED_GREEDY || ioData->gnat.robGreedy ==
+			GNATData::BOTH_GREEDY) {
 		errorBasis[0] = 0;
-		errorBasis[1] = nPodBasis;
+		errorBasis[1] = nPodBasis-1;
 	}
-	else {
-		errorBasis[0] = errorBasisOnly;
-		errorBasis[1] = errorBasisOnly;
+	else if (ioData->gnat.robGreedy == GNATData::RESIDUAL_GREEDY) {
+		errorBasis[0] = 0;
+		errorBasis[1] = 0;
+	}
+	else if (ioData->gnat.robGreedy == GNATData::JACOBIAN_GREEDY) {
+		errorBasis[0] = 1;
+		errorBasis[1] = 1;
 	}
 
-	readInPodResJac(podFiles);
+	readInPodResJac();
 
 }
 
@@ -284,12 +290,19 @@ void GappyOffline<dim>::setUpGreedy() {
 	// 	1) require nPodGreedy < nSampleNodes * dim to avoid underdetermined system
 	//==================================================================
 
-	nPodGreedy = ioData->Rob.nPodGreedy;
+	nPodGreedy = ioData->gnat.nRobGreedy;
 	if (nPodGreedy == 0 || nPodGreedy > nPodMax)
 		nPodGreedy = nPodMax;
-	nSampleNodes = ioData->Rob.nSampleNodes;
-	if (nSampleNodes == 0)
-		nSampleNodes = static_cast<int>(ceil(double(nPodMax * ioData->Rob.sampleNodeFactor)/double(dim)));	// this will give interpolation or the smallest possible least squares
+	nSampleNodes = ioData->gnat.nSampleNodes;
+
+	if (nSampleNodes == 0) {
+		int sampleNodeFactor = ioData->gnat.sampleNodeFactor;
+		if (sampleNodeFactor == -1.0)
+			sampleNodeFactor = 2.0;
+		nSampleNodes = static_cast<int>(ceil(double(nPodMax *
+						sampleNodeFactor)/double(dim)));
+		// this will give interpolation or the smallest possible least squares
+	}
 
 	if (nSampleNodes * dim < nPodGreedy) {	
 		int nSampleNodesOld = nSampleNodes; 
@@ -1295,9 +1308,12 @@ void GappyOffline<dim>::outputTopFile() {
 
 	// initialize file
 
-	int sp = strlen(ioData->output.transient.prefix);
-	char *outMeshFile = new char[sp + strlen(ioData->output.transient.mesh)+1];
-	if (thisCPU == 0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
+	int sp = strlen(ioData->output.rom.prefix);
+	const char *fileName;
+	const char *fileNameExtension;
+	determineFileName(ioData->output.rom.mesh, ".top",fileName,fileNameExtension);
+	char *outMeshFile = new char[sp + strlen(fileName)+ strlen(fileNameExtension) +1];
+	if (thisCPU == 0) sprintf(outMeshFile, "%s%s%s", ioData->output.rom.prefix, fileName, fileNameExtension);
 	FILE *reducedMesh;
 	if (thisCPU == 0) reducedMesh = fopen(outMeshFile, "w");
 
@@ -1412,22 +1428,25 @@ void GappyOffline<dim>::outputSampleNodes() {
 	// write out sample node numbers in reduced mesh node numbering system
 
 	com->fprintf(stderr," ... Writing sample node file with respect to reduced mesh...\n");
-	outputSampleNodesGeneral(reducedSampleNodes,ioData->output.transient.sampleNodes);
+	outputSampleNodesGeneral(reducedSampleNodes,ioData->output.rom.sampleNodes,".sampleNodes");
 
 	com->fprintf(stderr," ... Writing sample node file with respect to full mesh...\n");
-	outputSampleNodesGeneral(globalSampleNodes,ioData->output.transient.sampleNodesFull);
+	outputSampleNodesGeneral(globalSampleNodes,ioData->output.rom.sampleNodesFull,".sampleNodesFull");
 
 	reducedSampleNodes.resize(0);
 	globalSampleNodes.resize(0);
 }
 
 template<int dim>
-void GappyOffline<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile) {
+void GappyOffline<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile,const char *sampleNodeFileExtension) {
 
-	char *outSampleNodeFile = new char[strlen(ioData->output.transient.prefix) +
-		strlen(sampleNodeFile)+1];
-	if (thisCPU ==0) sprintf(outSampleNodeFile, "%s%s",
-			ioData->output.transient.prefix, sampleNodeFile);
+	const char *fileName;
+	const char *fileNameExtension;
+	determineFileName(sampleNodeFile, sampleNodeFileExtension,fileName,fileNameExtension);
+	char *outSampleNodeFile = new char[strlen(ioData->output.rom.prefix) +
+		strlen(fileName)+strlen(fileNameExtension)+1];
+	if (thisCPU ==0) sprintf(outSampleNodeFile, "%s%s%s",
+			ioData->output.rom.prefix, fileName,fileNameExtension);
 	FILE *writingFile;
 	if (thisCPU ==0) writingFile = fopen(outSampleNodeFile, "wt");
 
@@ -1474,7 +1493,7 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 
 	// generate pseudoInvRhs in chunks
 
-	int nNodesAtATime = ioData->Rob.pseudoInverseNodes;	
+	int nNodesAtATime = ioData->gnat.pseudoInverseNodes;	
 	bool lastTime = false;
 	nNodesAtATime = min(nSampleNodes,nNodesAtATime);	// fix if needed
 	int numRhs = nNodesAtATime * dim;
@@ -1631,12 +1650,12 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	com->fprintf(stderr," ... Writing online matrices ...\n");
 
 	// reduced mesh
-	if (ioData->output.transient.onlineMatrix[0] != 0)
-		outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrix,
-				nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
+	/// KTC TODOif (ioData->output.rom.onlineMatrix[0] != 0)
+	outputOnlineMatricesGeneral(ioData->output.rom.onlineMatrix,
+			nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
 	
-	if (ioData->output.transient.onlineMatrixFull[0] != 0) 
-		outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrixFull,
+	if (ioData->output.rom.onlineMatrixFull[0] != 0 || outputOnlineMatricesFull) 
+		outputOnlineMatricesGeneral(ioData->output.rom.onlineMatrixFull,
 				numFullNodes, globalSampleNodeRankMap, globalSampleNodes);
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
@@ -1666,11 +1685,17 @@ void GappyOffline<dim>::outputStateReduced() {
 	// globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
 
 	com->fprintf(stderr," ... Writing POD state and initial condition in reduced mesh coordinates ...\n");
-	int sp = strlen(ioData->output.transient.prefix);
-	char *outPodStateFile= new char[sp + strlen(ioData->output.transient.podStateRed)+1];
-	char *outInitialConditionFile= new char[sp + strlen(ioData->output.restart.solutions)+1];
-	if (thisCPU ==0) sprintf(outPodStateFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podStateRed);
-	if (thisCPU ==0) sprintf(outInitialConditionFile, "%s%s", ioData->output.restart.prefix, ioData->output.restart.solutions);
+	int sp = strlen(ioData->output.rom.prefix);
+	const char *fileName;
+	const char *fileNameExtension;
+	determineFileName(ioData->output.rom.podStateRed, ".reducedPodState",fileName,fileNameExtension);
+	char *outPodStateFile= new char[sp + strlen(fileName) + strlen(fileNameExtension)+1];
+	const char *fileName2;
+	const char *fileNameExtension2;
+	determineFileName(ioData->output.rom.solution, ".ss.sol",fileName2,fileNameExtension2);
+	char *outInitialConditionFile= new char[sp + strlen(fileName2) + strlen(fileNameExtension2)+1];
+	if (thisCPU ==0) sprintf(outPodStateFile, "%s%s%s", ioData->output.rom.prefix, fileName,fileNameExtension);
+	if (thisCPU ==0) sprintf(outInitialConditionFile, "%s%s%s", ioData->output.rom.prefix, fileName2, fileNameExtension2);
 
 	FILE *outPodState;
 	if (thisCPU ==0) outPodState = fopen(outPodStateFile, "wt");
@@ -1691,9 +1716,9 @@ void GappyOffline<dim>::outputStateReduced() {
 	// note: need to output the first POD basis vector twice
 
 	com->fprintf(stderr, " ... Reading POD basis for the state ...\n");
-	nPodState = ioData->Rob.numROB;
+	nPodState = ioData->gnat.nRobState;
 	SetOfVec *podState = new SetOfVec(0, domain.getNodeDistInfo() );	// need to put podState in reduced coordinates
-	domain.readPodBasis(input->podFile, nPodState, *podState);	// want to read in all (nPodState should be all)
+	domain.readPodBasis(input->podFileState, nPodState, *podState);	// want to read in all (nPodState should be all)
 	com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
 	com->fprintf(outPodState,"%d\n", nReducedNodes);
 	outputReducedSVec((*podState)[0],outPodState,nPodState);	// dummy output
@@ -1756,10 +1781,13 @@ void GappyOffline<dim>::outputWallDistanceReduced() {
 		// must subtract off for input files (see DistGeoState.C constructor)
 	d2wallOutput += *d2wall;
 
-	char *outWallDistFile= new char[strlen(ioData->output.transient.prefix) +
-		strlen(ioData->output.transient.wallDistanceRed)+1];
-	if (thisCPU ==0) sprintf(outWallDistFile, "%s%s", ioData->output.transient.prefix,
-			ioData->output.transient.wallDistanceRed);
+	int sp = strlen(ioData->output.rom.prefix);
+	const char *fileName;
+	const char *fileNameExtension;
+	determineFileName(ioData->output.rom.wallDistanceRed, ".dwall",fileName,fileNameExtension);
+	char *outWallDistFile = new char[sp + strlen(fileName)+ strlen(fileNameExtension) +1];
+	if (thisCPU ==0) sprintf(outWallDistFile, "%s%s%s", ioData->output.rom.prefix,
+			fileName, fileNameExtension);
 
 	FILE *outWallDist;
 	if (thisCPU ==0) outWallDist = fopen(outWallDistFile, "wt");
@@ -1799,9 +1827,13 @@ void GappyOffline<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* o
 template<int dim>
 void GappyOffline<dim>::outputReducedToFullNodes() {
 
-	int sp = strlen(ioData->output.transient.prefix);
-	char *outMeshFile = new char[sp + strlen(ioData->output.transient.reducedfullnodemap)+1];
-	if (thisCPU ==0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.reducedfullnodemap);
+	int sp = strlen(ioData->output.rom.prefix);
+
+	const char *fileName;
+	const char *fileNameExtension;
+	determineFileName(ioData->output.rom.reducedfullnodemap, ".reducedFullNodeMap",fileName,fileNameExtension);
+	char *outMeshFile = new char[sp + strlen(fileName)+strlen(fileNameExtension)+1];
+	if (thisCPU ==0) sprintf(outMeshFile, "%s%s%s", ioData->output.rom.prefix, fileName, fileNameExtension);
 	FILE *outMesh;
 	if (thisCPU ==0) outMesh = fopen(outMeshFile, "wt");
 
@@ -1871,18 +1903,22 @@ void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 
 	char *onlineMatrixFile;
 	FILE *onlineMatrix;
-	int sp = strlen(ioData->output.transient.prefix);
-	const char *(onlineMatExtension [2]) = {".AMat",".BMat"};
+	int sp = strlen(ioData->output.rom.prefix);
+	const char *(onlineMatExtension [2]) = {".gappyRes",".gappyJac"};
 	int nPodJac = (nPod[1] == 0) ? nPod[0] : nPod[1];
 
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {	
+	const char *onlineMatricesNameUse;
+	const char *onlineMatricesNameUseExtension;
 
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {	
+		determineFileName(onlineMatricesName,
+				onlineMatExtension[iPodBasis],onlineMatricesNameUse,onlineMatricesNameUseExtension);
 		onlineMatrixFile = new char[sp +
-			strlen(onlineMatricesName)+strlen(onlineMatExtension[iPodBasis])+1];
+			strlen(onlineMatricesNameUse)+strlen(onlineMatricesNameUseExtension)+1];
 		if (thisCPU ==0){
 			sprintf(onlineMatrixFile, "%s%s%s",
-					ioData->output.transient.prefix, onlineMatricesName,
-					onlineMatExtension[iPodBasis]); 
+					ioData->output.rom.prefix, onlineMatricesNameUse,
+					onlineMatricesNameUseExtension); 
 			onlineMatrix = fopen(onlineMatrixFile, "wt");
 		}
 
@@ -1917,7 +1953,6 @@ void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 							onlineMatrices[iPodBasis][sampleNodeRank * dim + iDim][iPod]);
 					else // must output zeros if it is not a sample node
 						com->fprintf(onlineMatrix,"%8.15e ", 0.0);
-						//com->fprintf(onlineMatrix,"%8.15e ", 0.0);
 				}
 				com->fprintf(onlineMatrix,"\n");
 			}
@@ -1927,7 +1962,7 @@ void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 }
 
 template<int dim>
-void GappyOffline<dim>::readInPodResJac(int *podFiles) {
+void GappyOffline<dim>::readInPodResJac() {
 
 	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
 		pod[i].resize(nPod[i]);
@@ -1935,6 +1970,27 @@ void GappyOffline<dim>::readInPodResJac(int *podFiles) {
 
 	//	read in both bases
 	com->fprintf(stderr, " ... Reading POD bases for the residual and/or Jacobian ...\n");
-  domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
+  //domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
 
+	domain.readPodBasis(input->podFileRes, nPod[0],pod[0]);	// always read in basis for residual
+
+	if (nPodBasis == 2) {
+		domain.readPodBasis(input->podFileJac, nPod[1],pod[1]);
+	}
+
+}
+
+template<int dim>
+void GappyOffline<dim>::determineFileName(const char *fileNameInput, const char
+		*currentExtension, const char *(&fileNameBase), const char
+		*(&fileNameExtension)) {
+
+	if (strcmp(fileNameInput,"") == 0) {
+		fileNameBase = ioData->output.rom.gnatPrefix;
+		fileNameExtension = currentExtension;
+	}
+	else {
+		fileNameBase = fileNameInput;
+		fileNameExtension = "";
+	}
 }

@@ -16,13 +16,16 @@ struct TsInput {
   char *snapRefSolutionFile;
 
 // Gappy offline
-  char *podFileResJac;
-  char *podFileResJacHat;
+  char *podFileState;
+  char *podFileRes;
+  char *podFileJac;
+  char *podFileResHat;
+  char *podFileJacHat;
 
 // Gappy online
   char *sampleNodes;
-  char *aMatrix;
-  char *bMatrix;
+  char *jacMatrix;
+  char *resMatrix;
   char *staterom;
   char *reducedfullnodemap;
   char *mesh;

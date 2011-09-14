@@ -5,7 +5,7 @@ GappyOfflineNoPseudo<dim>::GappyOfflineNoPseudo(Communicator *_com, IoData
 		&_ioData, Domain &dom, DistGeoState *_geoState) : GappyOffline<dim>(_com,
 			_ioData, dom, _geoState) {
 
-	computeAMat = this->ioData->Rob.computeAMat;
+	computeGappyRes = this->ioData->gnat.computeGappyRes;
 }
 
 template<int dim>
@@ -25,7 +25,7 @@ void GappyOfflineNoPseudo<dim>::assembleOnlineMatrices() {
 template<int dim>
 void GappyOfflineNoPseudo<dim>::computePodTPod() {
 
-	if (computeAMat==0)
+	if (computeGappyRes==0)
 		return;
 
 	GappyOffline<dim>::computePodTPod();
@@ -37,10 +37,10 @@ void GappyOfflineNoPseudo<dim>::computePodTPod() {
 
 	int sp = strlen(this->ioData->output.transient.prefix);
 	char *onlineMatrixFile = new char[sp +
-		strlen(this->ioData->output.transient.onlineMatrix)+strlen(onlineMatExtension)+1];
+		strlen(this->ioData->output.rom.onlineMatrix)+strlen(onlineMatExtension)+1];
 	if (this->thisCPU ==0){
 		sprintf(onlineMatrixFile, "%s%s%s",
-				this->ioData->output.transient.prefix, this->ioData->output.transient.onlineMatrix,
+				this->ioData->output.transient.prefix, this->ioData->output.rom.onlineMatrix,
 				onlineMatExtension); 
 		onlineMatrix = fopen(onlineMatrixFile, "wt");
 	}
@@ -62,26 +62,30 @@ template<int dim>
 void GappyOfflineNoPseudo<dim>::outputOnlineMatricesGeneral(const
 		char *onlineMatricesName, int numNodes, const std::map<int,int>
 		&sampleNodeMap, const std::vector<int> &sampleNodeVec) {
-	// write out matrices
 
 	// prepare files
 
 	char *onlineMatrixFile;
 	FILE *onlineMatrix;
 	int sp = strlen(this->ioData->output.transient.prefix);
-	const char *(onlineMatExtension [2]) = {".PodResHat",".PodJacHat"};
-
+	const char *(onlineMatExtension [2]) = {".gappyResSample",".gappyJacSample"};
 
 	int nPodBasisMax = this->nPodBasis;
-	if (computeAMat==0)
+	if (computeGappyRes==0)
 		nPodBasisMax = 1;	// only output one of the matrices
 
-	for (int iPodBasis = 0; iPodBasis < nPodBasisMax; ++iPodBasis) {	
+	const char *onlineMatricesNameUse;
+	const char *onlineMatricesNameUseExtension;
 
+	for (int iPodBasis = 0; iPodBasis < nPodBasisMax; ++iPodBasis) {	
+		GappyOffline<dim>::determineFileName(onlineMatricesName,
+				onlineMatExtension[iPodBasis],onlineMatricesNameUse,onlineMatricesNameUseExtension);
 		onlineMatrixFile = new char[sp +
-			strlen(onlineMatricesName)+strlen(onlineMatExtension[iPodBasis])+1];
+			strlen(onlineMatricesNameUse)+strlen(onlineMatricesNameUseExtension)+1];
 		if (this->thisCPU ==0){
-			sprintf(onlineMatrixFile, "%s%s%s", this->ioData->output.transient.prefix, onlineMatricesName, onlineMatExtension[iPodBasis]); 
+			sprintf(onlineMatrixFile, "%s%s%s",
+					this->ioData->output.rom.prefix, onlineMatricesNameUse,
+					onlineMatricesNameUseExtension); 
 			onlineMatrix = fopen(onlineMatrixFile, "wt");
 		}
 

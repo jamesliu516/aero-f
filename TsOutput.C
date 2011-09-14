@@ -48,23 +48,23 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     solutions = 0;
 
   // GAPPY POD STUFF (CBM+KTC)
-  if (iod.output.transient.newtonresiduals[0] != 0) {
-    newtonresiduals = new char[sp + strlen(iod.output.transient.newtonresiduals)];
-    sprintf(newtonresiduals, "%s%s", iod.output.transient.prefix, iod.output.transient.newtonresiduals);
+  if (iod.output.rom.newtonresiduals[0] != 0) {
+    newtonresiduals = new char[sp + strlen(iod.output.rom.newtonresiduals)];
+    sprintf(newtonresiduals, "%s%s", iod.output.rom.prefix, iod.output.rom.newtonresiduals);
   }
   else
     newtonresiduals = 0;
 
-  if (iod.output.transient.reducedjacxdurom[0] != 0) {
-    reducedjacxdurom = new char[sp + strlen(iod.output.transient.reducedjacxdurom)];
-    sprintf(reducedjacxdurom, "%s%s", iod.output.transient.prefix, iod.output.transient.reducedjacxdurom);
+  if (iod.output.rom.jacobiandeltastate[0] != 0) {
+    jacobiandeltastate = new char[sp + strlen(iod.output.rom.jacobiandeltastate)];
+    sprintf(jacobiandeltastate, "%s%s", iod.output.rom.prefix, iod.output.rom.jacobiandeltastate);
   }
   else
-    reducedjacxdurom = 0;
+    jacobiandeltastate = 0;
 
-  if (iod.output.transient.reducedjac[0] != 0) {
-    reducedjac = new char[sp + strlen(iod.output.transient.reducedjac)];
-    sprintf(reducedjac, "%s%s", iod.output.transient.prefix, iod.output.transient.reducedjac);
+  if (iod.output.rom.reducedjac[0] != 0) {
+    reducedjac = new char[sp + strlen(iod.output.rom.reducedjac)];
+    sprintf(reducedjac, "%s%s", iod.output.rom.prefix, iod.output.rom.reducedjac);
   }
   else
     reducedjac = 0;
@@ -448,16 +448,16 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
-      if (iod.output.transient.staterom[0] != 0) {
-    staterom = new char[sp + strlen(iod.output.transient.staterom)];
-    sprintf(staterom, "%s%s", iod.output.transient.prefix, iod.output.transient.staterom);
+      if (iod.output.rom.staterom[0] != 0) {
+    staterom = new char[sp + strlen(iod.output.rom.staterom)];
+    sprintf(staterom, "%s%s", iod.output.rom.prefix, iod.output.rom.staterom);
   }
   else
     staterom = 0;
 
-  if (iod.output.transient.error[0] != 0) {
-    error = new char[sp + strlen(iod.output.transient.error)];
-    sprintf(error, "%s%s", iod.output.transient.prefix, iod.output.transient.error);
+  if (iod.output.rom.error[0] != 0) {
+    error = new char[sp + strlen(iod.output.rom.error)];
+    sprintf(error, "%s%s", iod.output.rom.prefix, iod.output.rom.error);
   }
   else
     error = 0;
@@ -2181,11 +2181,11 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
 		domain->writeVectorToFile(newtonresiduals, *output_newton_step, tag, *U1);	//TODO: output_newton_step should accumulate over restarts
 	}
 
-	if (reducedjacxdurom && U2)  {
+	if (jacobiandeltastate && U2)  {
 		DistSVec<double,dim> soltn(*U2);
 		if (refVal->mode == RefVal::DIMENSIONAL)
 			domain->scaleSolution(soltn, refVal);
-		domain->writeVectorToFile(reducedjacxdurom, *output_newton_step, tag, *U2);	//TODO: output_newton_step should accumulate over restarts
+		domain->writeVectorToFile(jacobiandeltastate, *output_newton_step, tag, *U2);	//TODO: output_newton_step should accumulate over restarts
 	}
 
 	if (reducedjac && U3)  {	// entire JPhi

@@ -1,5 +1,5 @@
-#ifndef _GAPPY_ONLY_PSEUDO_H_
-#define _GAPPY_ONLY_PSEUDO_H_
+#ifndef _GAPPY_STEP_2_H_
+#define _GAPPY_STEP_2_H_
 
 #include <GappyOffline.h>
 
@@ -9,11 +9,11 @@ class GappyOfflineOnlyPseudo : public GappyOffline<dim> {
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	SetOfVec podHatTmp;
 
-	int notRestricted;	// true if reading in full pod basis`
+	int noSampleMesh;	// true if reading in full pod basis`
 
 	virtual void setUpGreedy();
 
-	virtual void readInPodResJac(int *);
+	virtual void readInPodResJac();
 
 	virtual void computePodTPod();
 

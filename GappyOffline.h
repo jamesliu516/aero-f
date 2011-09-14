@@ -188,6 +188,7 @@ protected:
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
 		//above maps have been defined for vector entries [iSampleNode][0:j]
 	int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
+	bool outputOnlineMatricesFull;
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -218,14 +219,14 @@ protected:
 	virtual void outputTopFile();
 	virtual void outputSampleNodes();
 	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const
-			char *sampleNodeFile);
+			char *sampleNodeFile, const char *sampleNodeFileExtension);
 
 	// A and B matrices functions
 
 	// pseudo-inverse functions
 	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
 	virtual void computePseudoInverse();
-	virtual void readInPodResJac(int *podFiles);
+	virtual void readInPodResJac();
 	void computePseudoInverse(int iPodBasis);
 	//void computePseudoInverseRHS();
 	void checkConsistency();
@@ -249,6 +250,9 @@ protected:
 	virtual void outputWallDistanceReduced();
 	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
 	void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
+	void determineFileName(const char *fileNameInput, const char
+			*currentExtension, const char *(&fileNameBase), const char
+			*(&fileNameExtension));
 
 public:
 	GappyOffline(Communicator *, IoData &, Domain &, DistGeoState *);

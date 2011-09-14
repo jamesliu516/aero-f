@@ -15,7 +15,7 @@ class ImplicitGappyTsDesc : public ImplicitRomTsDesc<dim> {
 
 protected:
 
-	// Amat, Bmat, sampleNodes
+	// resMat, jacMat, sampleNodes
 	// nSampleNodes, nPodJac
 	// scalapack stuff
 	// nPod in ImplicitRomTsDesc
@@ -24,10 +24,11 @@ protected:
 	int nSampleNodes, nPodJac;	//nPodJac specified under ROB{ NumROB2 }
 	std::vector<int> sampleNodes;
 	double sampleNodeFactor;
+	const char *gnatPrefix;
 
-	int numABmat;	// number of matrices for A and B (1 if they use the same)
-  //std::auto_ptr< VecSet < DistSVec < double, dim> > > Amat, Bmat;
-  VecSet < DistSVec < double, dim> > *Amat, *Bmat;
+	int numResJacMat ;	// number of matrices for A and B (1 if they use the same)
+  //std::auto_ptr< VecSet < DistSVec < double, dim> > > resMat, jacMat;
+  VecSet < DistSVec < double, dim> > *resMat, *jacMat;
 	std::auto_ptr< VecSet < DistSVec<double, dim> > > AJRestrict;
 	std::auto_ptr< DistSVec<double, dim> > ResRestrict;
 
@@ -39,7 +40,7 @@ protected:
 	const RestrictionMapping<dim> * restrictMapping() const { return restrictionMapping.get(); } 
 
 	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q);
-	virtual void computeAJ(int it, DistSVec<double, dim> &Q);
+	virtual void computeAJ(int, DistSVec<double, dim> &);
 	virtual bool breakloop1(const bool);
 	virtual bool breakloop2(const bool);
 

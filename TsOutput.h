@@ -80,7 +80,7 @@ private:
 
 	// Gappy POD
   char *newtonresiduals;
-	char *reducedjacxdurom;
+	char *jacobiandeltastate;
 	char *reducedjac;
 	char *staterom;
 	char *error;
