@@ -115,6 +115,8 @@ class Domain {
   CommPattern<double> *vec3DPat;
   CommPattern<double> *volPat;
   CommPattern<int> *levelPat;
+  CommPattern<bool> *bool2Pat;
+  CommPattern<bool> *bool3Pat;
 
   CommPattern<double> *weightPat;
   CommPattern<double> *edgePat;
@@ -334,6 +336,8 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
+  template<int dimLS>
+  void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
@@ -935,7 +939,7 @@ public:
   template<int dim>
     void computeRecSurfBasedForceLoadNew(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
 					 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
-					 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
+					 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistVec<int>* fid);
   template<int dim>
   void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
 
@@ -943,11 +947,18 @@ public:
   void computePrdtPhiCtrlVolRatio(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistVec<double> &, DistGeoState &);
 
   template<int dim>
-    void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
+  void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
+
+  template<int dimLS>
+  void updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId);
+
+  template<int dim, int dimLS>
+  void debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<double,dim> &U);
 
   template<int dim, class Obj>
-    void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
-				   int npt);
+  void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+                         int npt);
+ 
  };
 
 //------------------------------------------------------------------------------

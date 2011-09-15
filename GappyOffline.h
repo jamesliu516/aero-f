@@ -188,7 +188,7 @@ protected:
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
 		//above maps have been defined for vector entries [iSampleNode][0:j]
 	int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
-	bool outputOnlineMatricesFull;
+	bool outputOnlineMatricesFull, outputOnlineMatricesSample;
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for

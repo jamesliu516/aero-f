@@ -642,7 +642,7 @@ void OneDimensional::load1DMesh(IoData& ioData,int& numPts,double* &meshPoints) 
     numPts = ioData.oneDimensionalInfo.numPoints;
     meshPoints = new double[numPts];
     for (int i = 0; i < numPts; ++i)
-      meshPoints[i] = (double)i / (numPts-1)*ioData.oneDimensionalInfo.maxDistance;
+      meshPoints[i] = (double)i / (numPts-1)*ioData.oneDimensionalInfo.maxDistance;// + 0.25*((double)rand()/RAND_MAX-0.5)/(numPts-1)*ioData.oneDimensionalInfo.maxDistance;
   }
 }
 //------------------------------------------------------------------------------
@@ -697,9 +697,15 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   for(int i=0; i<numPoints; i++){
     if(X[i][0]<data.interfacePosition){
       if (varFcn->getType(1) != VarFcnBase::TAIT) {
-	V[i][0] = data.density1;
-	V[i][1] = data.velocity1;
-	V[i][4] = data.pressure1;
+	//if (X[i][0] < 3.8) {
+	  V[i][0] = data.density1;
+	  V[i][1] = data.velocity1;
+	  V[i][4] = data.pressure1;
+	  /*} else {
+	  V[i][0] = data.density1;
+	  V[i][1] = data.velocity1;
+	  V[i][4] = data.pressure1*10.0;
+	  }*/
       } else {
 	V[i][0] = data.density1;
 	V[i][1] = data.velocity1;

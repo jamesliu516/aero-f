@@ -64,6 +64,24 @@ int EdgeSet::find(int first, int second)
 
 //------------------------------------------------------------------------------
 
+int EdgeSet::findOnly(int first, int second)
+{
+
+  if (first > second) swap(first, second);
+
+  MapPair::iterator v = mp->find(Pair(first, second));
+
+  if (v == mp->end()) {
+    fprintf(stderr,"ERROR: Failed in finding an edge connecting %d and %d. (local index).\n", first, second);
+    exit(-1);
+  }
+
+  return (*v).second;
+
+}
+
+//-----------------------------------------------------------
+
 void EdgeSet::createPointers(Vec<int> &newNum)
 {
 

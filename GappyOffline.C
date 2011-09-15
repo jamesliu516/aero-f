@@ -18,7 +18,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),
 	geoState(_geoState), X(_geoState->getXn()),
-	residual(0), jacobian(1), outputOnlineMatricesFull(false)
+	residual(0), jacobian(1), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true)
 {
 	// create temporary objects to build postOp, which is needed for lift
 	// surfaces
@@ -1651,7 +1651,7 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 
 	// reduced mesh
 	/// KTC TODOif (ioData->output.rom.onlineMatrix[0] != 0)
-	outputOnlineMatricesGeneral(ioData->output.rom.onlineMatrix,
+	outputOnlineMatricesGeneral(ioData->output.rom.onlineMatrix || outputOnlineMatricesSample,
 			nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
 	
 	if (ioData->output.rom.onlineMatrixFull[0] != 0 || outputOnlineMatricesFull) 

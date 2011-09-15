@@ -9,7 +9,7 @@ class GappyOfflineOnlyPseudo : public GappyOffline<dim> {
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	SetOfVec podHatTmp;
 
-	int noSampleMesh;	// true if reading in full pod basis`
+	bool usingSampleMesh;	// true if reading in full pod basis`
 
 	virtual void setUpGreedy();
 

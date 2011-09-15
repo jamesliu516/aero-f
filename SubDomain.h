@@ -891,6 +891,9 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
   template<int dimLS>
+  void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
+
+  template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
 
   template<int dim>
@@ -1147,7 +1150,7 @@ public:
   template<int dim>
     void computeRecSurfBasedForceLoadNew(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
 					 SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
-					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
+					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,Vec<int>* fid);
   int getPolygon(int, LevelSetStructure&, int[4][2]);
   int getPolygons(int, LevelSetStructure&, PolygonReconstructionData*);
   void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
@@ -1172,17 +1175,23 @@ public:
 
 
   template<int dim>
-    void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
+  void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
+
+  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll);
+  template<int dimLS>
+  void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, Vec<int> &fluidId, bool *masterFlag);
+
+  template<int dim, int dimLS>
+  void debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, Vec<int> &fluidId, SVec<double,dim> &U);
 
   template<int dim, class Obj>
-    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
-				   int npt);
+  void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+                         int npt);
 
   template<int dim> 
   void interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
-                           int* status,int* last,int* nid);
-  
+                           int* status,int* last,int* nid);  
 };
 //------------------------------------------------------------------------------
 

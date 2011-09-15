@@ -4714,29 +4714,23 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 // who: active and "swept" nodes
 // what: phi and U
 // how: pull from neighbours which are visible, not swept, and have the same fluid Id.
-// TODO: should distinguish master nodes and non-master nodes
+// TODO: more efficent in an "edge loop".
 template<int dim, int dimLS>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                                                 SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, 
                                                 Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId)
 {
+  bool* masterEdge = edges.getMasterFlag();
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<nodes.size();++currentNode) { 
-//    bool bug = (locToGlobNodeMap[currentNode]+1==150516) ? true : false;
-//    if(bug)
-//      fprintf(stderr,"*** Node 150516: Id = %d, solidId = %d, isSwept = %d, isActive = %d, isOccluded = %d.\n", fluidId[currentNode], LSS.fluidModel(0.0,currentNode), LSS.isSwept(0.0,currentNode), LSS.isActive(0.0,currentNode), LSS.isOccluded(0.0,currentNode));
-
-    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
+    if(LSS.isSwept(0.0,currentNode) && !LSS.isOccluded(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         int yourId = fluidId[neighborNode];
-//        if(bug)
-//          fprintf(stderr,"     - Neighbour of 150516: Node %d, Id = %d, solidId = %d, isSwept = %d, isActive = %d, isOccluded = %d, X = %d.\n", locToGlobNodeMap[neighborNode]+1, yourId, LSS.fluidModel(0.0,neighborNode), LSS.isSwept(0.0,neighborNode), LSS.isActive(0.0,neighborNode), LSS.isOccluded(0.0,currentNode), LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode));
-
-        if(currentNode == neighborNode || LSS.isSwept(0.0,neighborNode) || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode) ||
-           myId!=yourId){
-          continue;}
+        if(currentNode==neighborNode || LSS.isSwept(0.0,neighborNode) || myId!=yourId) continue;
+        int l = edges.findOnly(currentNode,neighborNode);
+        if(LSS.edgeIntersectsStructure(0.0,l) || !masterEdge[l]){continue;}
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
           for(int i=0;i<5;++i)
@@ -4769,9 +4763,12 @@ void SubDomain::extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    int Idi = LSS.fluidModel(0.0,i), Idj = LSS.fluidModel(0.0,j);
-    if(Idi!=0 || Idj!=0) //meaning isolated by structure
-      continue;
+    if(!LSS.withCracking()) {
+      int Idi = LSS.fluidModel(0.0,i), Idj = LSS.fluidModel(0.0,j);
+      if(Idi!=0 || Idj!=0) //meaning one of them is isolated by structure
+        continue;
+    }
+
     bool iSwept = LSS.isSwept(0.0,i), jSwept = LSS.isSwept(0.0,j);
  
     // pull data from j to i?
@@ -5003,7 +5000,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
       i = edgePtr[l][enode];
       j = edgePtr[l][(int)(!enode)];
       // for V and Phi
-      if(LSS.isSwept(0.0,i) && LSS.isActive(0.0,i)) { // phase change occurred && need an update
+      if(LSS.isSwept(0.0,i) && !LSS.isOccluded(0.0,i)) { // phase change occurred && need an update
         if(Wstar[l][0]>1.0e-8 && fluidId0[j]==fluidId[i]) { //use Wstar 
           if(Weights[i]<1.0e-6) { // first touch of node i
             Weights[i] = 1.0;
@@ -5088,14 +5085,29 @@ void SubDomain::storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId,
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
+// only the pressure in the volumes that have an id=0 (outside part of a cylinder phi>0)
+// are updated. It is assumed that the input and output states are uniform!
 
-  double V[dim];
+  bool found = false;
+  double Uc[dim];
+
+  for(int i=0; i<nodes.size(); i++) {
+    if(!found) {//fill Uc[dim]
+      double V[dim];
+      vf->conservativeToPrimitive(U[i],V);
+      vf->setPressure(p,V); //for Tait it actually modifies density.
+      vf->primitiveToConservative(V,Uc);
+      found = true;
+    }
+    for(int k=0; k<dim; k++)
+      U[i][k] = Uc[k];
+  }
+
+/*  double V[dim];
   vf->conservativeToPrimitive(U[0],V);
   vf->setPressure(p,V);
   double rhoe = vf->computeRhoEnergy(V);
 
-// only the pressure in the volumes that have an id=0 (outside part of a cylinder phi>0)
-// are updated. It is assumed that the input and output states are uniform!
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
     if (elems[iElem].getVolumeID() == 0)  {
@@ -5104,12 +5116,31 @@ void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
         U[nodeNums[iNode]][4] = rhoe;
     }
   }
-
+*/
 }
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<int> &fluidId){
+// only the pressure with fluidId = 0 (outside part)
+// are updated. It is assumed that the input and output states are uniform!
 
+  bool found = false;
+  double Uc[dim];
+
+  for(int i=0; i<nodes.size(); i++) {
+    if(fluidId[i]!=0)
+      continue;
+    if(!found) {//fill Uc[dim]
+      double V[dim];
+      vf->conservativeToPrimitive(U[i],V,fluidId[i]);
+      vf->setPressure(p,V,fluidId[i]); //for Tait it actually modifies density.
+      vf->primitiveToConservative(V,Uc,fluidId[i]);
+      found = true;
+    }
+    for(int k=0; k<dim; k++)
+      U[i][k] = Uc[k];
+  }
+/*
   bool found = false;
   double rhoe = -1.0; 
 
@@ -5127,6 +5158,7 @@ void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<
     }    
     U[i][4] = rhoe;
   }
+*/
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -5419,7 +5451,11 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 {
 
   for(int i=0; i<nodes.size(); i++){
-    int fModel = LSS ? LSS->fluidModel(0.0, i) : 0;  //if fModel>0 (isolated), Phi is not used at all
+    int fModel;//if fModel>0 (isolated), Phi is not used at all
+    if(LSS && !LSS->withCracking()) 
+      fModel = LSS->fluidModel(0.0, i); 
+    else
+      fModel = 0;
     bool swept = LSS ? LSS->isSwept(0.0, i) : 0; // if swept, Phin is not reliable!
     for(int j=0; j<dimLS; j++){
       if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
@@ -5457,6 +5493,7 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
         nNeighs = NodeToNode->num(i);
         for(k=0;k<nNeighs;k++){
           nei = (*NodeToNode)[i][k];
+          if(nei==i) continue;
           if(Tag[nei]==0) Tag[nei] = level+1;
         }
 
@@ -5466,6 +5503,36 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 
 
 }
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS)
+{
+  Tag = false;
+
+  int i,j;
+  int (*ptr)[2] = edges.getPtr(); 
+  for(int l=0; l<edges.size(); l++) {
+    i = ptr[l][0];
+    j = ptr[l][1];
+
+    if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0){
+      if(LSS->edgeIntersectsStructure(0.0, l))
+        Tag[i][0] = Tag[j][0] = true;
+      else
+        Tag[i][1] = Tag[j][1] = true;
+    } else { 
+      if(LSS->edgeIntersectsStructure(0.0,l)) {
+        Tag[i][0] = Tag[j][0] = true;
+//        fprintf(stderr,"BUG: Sub %d: (%d,%d) intersects but phi[i]=%e, phi[j]=%e.\n", globSubNum, 
+//                locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, Phi[i][lsdim], Phi[j][lsdim]);
+//        fprintf(stderr,"  %d: occluded(%d), swept(%d).\n", locToGlobNodeMap[i]+1, LSS->isOccluded(0,i),LSS->isSwept(0,i));
+//        fprintf(stderr,"  %d: occluded(%d), swept(%d).\n", locToGlobNodeMap[j]+1, LSS->isOccluded(0,j),LSS->isSwept(0,j));
+      }
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 template<int dimLS>
 void SubDomain::printPhi(SVec<double, 3> &X, SVec<double,dimLS> &Phi, int it)
@@ -5563,9 +5630,14 @@ void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, i
 template<int dimLS>
 void SubDomain::copyCloseNodes(int lsdim, int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,1> &Psi)
 {
-  for(int i=0; i<nodes.size(); i++)
+  for(int i=0; i<nodes.size(); i++) {
     if(Tag[i]==level)
       Psi[i][0] = fabs(Phi[i][lsdim]);
+    //DEBUG
+//    if(locToGlobNodeMap[i]+1==115697)
+//      fprintf(stderr,"Sub %d, level = %d, Tag[%d] = %d. Phi = %e, Psi = %e.\n", globSubNum, level, locToGlobNodeMap[i]+1,
+//              Tag[i], Phi[i][0], Psi[i][0]);
+  }
 
 }
 //------------------------------------------------------------------------------
@@ -5827,7 +5899,7 @@ template<int dim>
 void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
 						double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, double pInfty, 
 						SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
-						Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+						Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,Vec<int>* fid)
 {
   double oneThird = 1.0/3.0;
   int T[4];          // nodes in a tet.
@@ -5837,6 +5909,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 
   // not used, but required by postFcn->computeForces(...). May be useful in the future.
   double d2w[3];
+  int fid_local[4];
   d2w[0] = 0.0;d2w[1] = 0.0;d2w[2] = 0.0;
   double dPdx[3][3];
   for(int i=0;i<3;++i) {for(int j=0;j<3;++j) dPdx[i][j] = 0.0;}
@@ -5909,6 +5982,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      int localI=0, localJ=0;
 	      while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
 	      while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
+              fid_local[k] = (fid?(*fid)[i]:0);
 	      double alpha = lsRes[k].alpha;
 	      for(int m=0;m<3;++m)   Xinter3[k][m] = (1.0-alpha)*X[j][m] + alpha*X[i][m];
 	      if(ghostPoints) // Interpolation at the intersection Points, possibly using the ghost States
@@ -5941,7 +6015,6 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      int N1 = lsRes[k].trNodes[0];
 	      int N2 = lsRes[k].trNodes[1];
 	      int N3 = lsRes[k].trNodes[2];
-	      LSS.isPointOnSurface(Xinter3[k], N1, N2, N3);
 	      double dist = LSS.isPointOnSurface(Xinter3[k], N1, N2, N3);
 	      if (dist>1e-2) {
 		fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface (%d %d %d)! dist = %e.\n",N1+1, N2+1, N3+1, dist); 
@@ -5953,7 +6026,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	  // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
 	  // That is why we pass -nf, so the force on the face is -p.nf + D.n
 	  for(int i=0;i<3;++i) {Xface[i] = &Xinter3[i][0];Vface[i] = &Vinter3[i][0];}
-	  postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+	  postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	  if(ghostPoints)
 	    {
 	      fv *= oneThird;
@@ -5985,6 +6058,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      int i = polygon[k][0];
 	      int j = polygon[k][1];
 	      int localI=0, localJ=0;
+              fid_local[k] = (fid?(*fid)[i]:0);
 	      while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
 	      while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
 	      double alpha = lsRes[k].alpha;
@@ -6033,7 +6107,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
 	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
 	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i][0];Vface[i] = &Vinter4[i][0];}
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;
@@ -6049,7 +6123,10 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      // Xface[0] points on Xinter4[0][0]. No nead to be changed. Same for Vface.
 	      Xface[1] = &Xinter4[2][0];Vface[1] = &Vinter4[2][0]; 
 	      Xface[2] = &Xinter4[3][0];Vface[2] = &Vinter4[3][0];
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+ 
+              fid_local[1] = fid_local[2];
+              fid_local[2] = fid_local[3];
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;
@@ -6068,7 +6145,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
 	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
 	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i+1][0];Vface[i] = &Vinter4[i+1][0];}
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local+1);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;
@@ -6084,7 +6161,8 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      Xface[0] = &Xinter4[0][0];Vface[0] = &Vinter4[0][0]; 
 	      Xface[1] = &Xinter4[1][0];Vface[1] = &Vinter4[1][0];
 	      // Xface[2] points on Xinter4[3][0]. No nead to be changed. Same for Vface.
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+              fid_local[2] = fid_local[3];
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;
@@ -6215,6 +6293,9 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
   }
 }
 
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weight)
 {
@@ -6235,6 +6316,218 @@ void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weig
     weight[currentNode] = (double)nToN.num(currentNode);
   }
 }
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, 
+                                 Vec<int> &fluidId, bool *masterFlag)
+{
+  const Connectivity &Node2Node = *getNodeToNode();
+  // ------- Determine status for grid-points swept by FS interface -------
+  // Rule No.1: If this grid point is "occluded", set its status to "numPhases".
+  // Rule No.2: If its "visible && !occluded && !swept" neighbors have the same status, use this one. 
+  // Rule No.3: Otherwise, consider the sign of "PhiV". (PhiV should have been "blurred".)
+  
+  for(int i=0; i<PhiV.size(); i++) {
+    bool swept = LSS.isSwept(0.0,i);
+    bool occluded = LSS.isOccluded(0.0,i);
+
+    //DEBUG
+/*    int myNode = 300363;
+    if(locToGlobNodeMap[i]+1==myNode){
+      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", myNode, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][0], poll[i][0], poll[i][1], poll[i][2]);
+      for(int j=0; j<Node2Node.num(i); j++) { 
+        if(Node2Node[i][j]==i) continue;
+        fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
+                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
+                          LSS.edgeIntersectsStructure(0.0,i,Node2Node[i][j]), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][0]); 
+      }
+
+    }
+*/
+    if(!swept) {//nothing to be done
+      if(!poll[i][fluidId[i]]) fprintf(stderr,"TOO BAD!\n");
+      continue;
+    }
+
+    if(occluded) { // Rule No.1
+      fluidId[i] = LSS.numOfFluids();
+      if(!poll[i][LSS.numOfFluids()]) fprintf(stderr,"TOO BAD TOO!\n");
+      continue;
+    }
+
+    int count = (int)poll[i][0] + (int)poll[i][1] + (int)poll[i][2];
+    switch (count) {
+      case 0: //no info
+        fprintf(stderr,"WARNING: More than one layer of nodes are swept in one step (near Node %d).\n", locToGlobNodeMap[i]+1);
+        break;
+      case 1: // Rule No.2
+        for(int j=0; j<3; j++)
+          if(poll[i][j]) fluidId[i] = j;
+        break;
+    } 
+
+    if(count==1) //already applied Rule No.2
+      continue;
+
+    // Rule No.3
+    bool done = false;
+    for(int k=0; k<dimLS; k++)
+      if(PhiV[i][k]>0.0) {
+        fluidId[i] = k+1;
+        done = true;
+        break;
+      }
+    if(!done)
+      fluidId[i] = 0;
+  }
+}
+
+//------------------------------------------------------------------------------
+/*
+template<int dimLS> 
+void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, Vec<int> &fluidId, bool *masterFlag)
+{
+  // ------- Determine status for grid-points swept by FS interface -------
+  // Rule No.1: If this grid point is "occluded", set its status to "numPhases".
+  // Rule No.2: If its "visible && !occluded && !swept" neighbors have the same status, use this one. 
+  // Rule No.3: Otherwise, consider the sign of "PhiV". (PhiV should have been "blurred".)
+
+  const Connectivity &Node2Node = *getNodeToNode();
+  
+  for(int i=0; i<PhiV.size(); i++) {
+    bool swept = LSS.isSwept(0.0,i);
+    bool occluded = LSS.isOccluded(0.0,i);
+
+    //DEBUG
+    int myNode = 284121;
+    if(locToGlobNodeMap[i]+1==myNode){
+      int myrank;
+      MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+      fprintf(stderr,"Node %d(%d), CPU = %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e.\n", myNode, i, myrank, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][0]);
+      for(int j=0; j<Node2Node.num(i); j++) { 
+        if(Node2Node[i][j]==i) continue;
+        fprintf(stderr,"  Nei(%d,%d) on CPU %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,myrank,
+                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
+                          LSS.edgeIntersectsStructure(0.0,i,Node2Node[i][j]), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][0]); 
+      }
+
+    }
+
+
+    if(!swept) // nothing to be done.
+      continue;
+    if(!masterFlag[i]) {//will get Id from another subdomain (TODO: May need something more sophisticated... (KW).)
+      fluidId[i] = 0;
+      continue;
+    }
+
+    // Rule No.1
+    if(occluded) {
+      fluidId[i] = LSS.numOfFluids();
+      continue;
+    }
+
+    // Rule No.2
+    int myId = -1;
+    int iNei, count = 0;
+    bool consistent = false;
+    for(int j=0; j<Node2Node.num(i); j++) {
+      iNei = Node2Node[i][j];
+      if(i==iNei)
+        continue;
+      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,i,iNei))
+        continue;
+      count++;
+      if(myId==-1) {
+        myId = fluidId[iNei];
+        consistent = true;
+      } else if(myId!=fluidId[iNei]) {
+        consistent = false;
+        break;
+      }
+    }
+    if(count==0)
+      fprintf(stderr,"WARNING: More than one layer of nodes are swept in one step (near Node %d).\n", locToGlobNodeMap[i]+1);
+
+    if(consistent) {
+      fluidId[i] = myId;
+      continue;
+    }
+
+    // Rule No.3
+    bool done = false;
+    for(int k=0; k<dimLS; k++)
+      if(PhiV[i][k]>0.0) {
+        fluidId[i] = k+1;
+        done = true;
+      }
+    if(!done)
+      fluidId[i] = 0;
+  }
+}
+*/
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void SubDomain::debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, Vec<int> &fluidId, SVec<double,dim> &U)
+{
+  for(int i=0; i<nodes.size(); i++) {
+    switch (fluidId[i]) {
+      case 0:
+        if(PhiV[i][0]>=0.0)
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][0]);
+        if(LSS.isOccluded(0,i))
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d, PhiV = %e,  but occluded!\n", globSubNum, locToGlobNodeMap[i]+1, 
+                          fluidId[i], PhiV[i][0]);
+        break;
+      case 1:
+        if(PhiV[i][0]<=0.0)
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][0]);
+        if(LSS.isOccluded(0,i))
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d, PhiV = %e,  but occluded!\n", globSubNum, locToGlobNodeMap[i]+1, 
+                          fluidId[i], PhiV[i][0]);
+        break;
+      case 2:
+        if(fabs(PhiV[i][0])>1.0e-8)
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][0]);
+        if(!LSS.isOccluded(0,i))
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d, PhiV = %e,  but NOT occluded!\n", globSubNum, locToGlobNodeMap[i]+1, 
+                          fluidId[i], PhiV[i][0]);
+        break;
+      default:
+        fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d!\n",  globSubNum, locToGlobNodeMap[i]+1, fluidId[i]);
+    }
+  }
+
+/*
+  int debugNode1 = 202747, debugNode2 = 202765;
+  for(int i=0; i<nodes.size(); i++)
+    if(locToGlobNodeMap[i]+1==debugNode1 || locToGlobNodeMap[i]+1==debugNode2) {
+      fprintf(stderr,"%d: Node %d: Id = %d, PhiV = %e, occluded(%d), swept(%d), d2wall(%e), U(%e,%e,%e,%e,%e).\n",
+              globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][0], LSS.isOccluded(0,i), LSS.isSwept(0,i), LSS.distToInterface(0,i),
+              U[i][0], U[i][1], U[i][2], U[i][3], U[i][4]);
+      for(int j=0; j<NodeToNode->num(i); j++) {
+        int yId = (*NodeToNode)[i][j];
+        if(yId==i) continue;
+        fprintf(stderr,"%d:    Nei(%d)=%d: Id = %d, PhiV = %e, occluded(%d), swept(%d), d2wall(%e), X(%d).\n", globSubNum,
+                locToGlobNodeMap[i]+1, locToGlobNodeMap[yId]+1, fluidId[yId], PhiV[yId][0], LSS.isOccluded(0,yId), LSS.isSwept(0,yId),
+                LSS.distToInterface(0,yId), LSS.edgeIntersectsStructure(0,i,yId));
+        if((locToGlobNodeMap[i]+1==debugNode1 && locToGlobNodeMap[yId]+1==debugNode2) ||
+           (locToGlobNodeMap[i]+1==debugNode2 && locToGlobNodeMap[yId]+1==debugNode1)) {
+          LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,i,yId);
+          fprintf(stderr,"** (%d,%d): alpha(%e), Tr(%d,%d,%d), Normal(%e,%e,%e), xi(%e,%e,%e).\n",locToGlobNodeMap[i]+1,locToGlobNodeMap[yId]+1,
+                  resij.alpha, resij.trNodes[0], resij.trNodes[1], resij.trNodes[2], resij.gradPhi[0], resij.gradPhi[1], resij.gradPhi[2],
+                  resij.xi[0], resij.xi[1], resij.xi[2]);
+        }
+      }
+    }
+*/
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim, class Obj>
 void SubDomain::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
@@ -6265,4 +6558,6 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
     }
   }
 }
-  
+
+//------------------------------------------------------------------------------
+

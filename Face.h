@@ -409,7 +409,7 @@ public:
 
   int* nodes(int* d = NULL) {  
     if (d)
-      for (int i; i<numNodes(); i++) d[i] = nodeNum(i); 
+      for (int i=0; i<numNodes(); i++) d[i] = nodeNum(i); 
     return nodeNum();
   }
   

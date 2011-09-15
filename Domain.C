@@ -3594,11 +3594,14 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
   DistVec<double> pstarij(Wstarij.info());
   DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    int (*ptr)[2] = subDomain[iSub]->getEdges().getPtr();
     for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],fid?(*fid)(iSub)[i]:0);
-      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],fid?(*fid)(iSub)[i]:0);
+      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],fid?(*fid)(iSub)[ptr[i][0]]:0);
+      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],fid?(*fid)(iSub)[ptr[i][1]]:0);
     }
+  }
+ 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
@@ -3688,8 +3691,8 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
       }
     } else {
       for (int i=0; i<Wstarij(iSub).size(); i++) {
-	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],ptr[i][0]);//Wstarij(iSub)[i][4];
-	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],ptr[i][1]);//Wstarji(iSub)[i][4];
+	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],0);//Wstarij(iSub)[i][4];
+	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],0);//Wstarji(iSub)[i][4];
       }
 
     }
@@ -3763,7 +3766,7 @@ void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, 
 					     double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS, double pInfty, 
 					     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
 					     DistSVec<double,dim> &V, 
-					     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+					     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistVec<int>* fid)
 {
   //PJSA double subFs[numLocSub][sizeFs][3];
   typedef double array3d[3];
@@ -3777,7 +3780,7 @@ void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, 
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
     subDomain[iSub]->computeRecSurfBasedForceLoadNew(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
 						     (*distLSS)(iSub), pInfty, 
-						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn);
+						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn,fid?&((*fid)(iSub)):0);
   }
   for (int is=0; is<sizeFs; is++) {
     Fs[is][0] = subFs[0][is][0];
@@ -3846,11 +3849,11 @@ void Domain::setupPhiVolumesInitialConditions(const int volid, const int fluidId
 }
 
 //------------------------------------------------------------------------------
+
 template<int dimLS>
 void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi,
                                int level)
 {
-
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
@@ -3863,10 +3866,26 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
-
-
-
 }
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi,
+                               DistLevelSetStructure *distLSS)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub), Phi(iSub), &((*distLSS)(iSub)));
+    subDomain[iSub]->sndData(*bool2Pat, reinterpret_cast<bool (*)[2]>(Tag.subData(iSub)));
+  }
+  bool2Pat->exchange();
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->maxRcvData(*bool2Pat, reinterpret_cast<bool (*)[2]>(Tag.subData(iSub)));
+}
+
 //------------------------------------------------------------------------------
 /*template<int dimLS>
 void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi,
@@ -3982,7 +4001,7 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
 {
   double res(_res);
 
-  if(copy==MultiFluidData::TRUE && level==2){
+  if(copy==MultiFluidData::TRUE && level==2){ //KW: why?
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->copyCloseNodes(lsdim, 2,Tag(iSub),Phi(iSub),Psi(iSub));
@@ -4053,6 +4072,65 @@ void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
 
 }
 
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId)
+{
+  if(dimLS!=1) {fprintf(stderr,"ERROR: For Multi-Phase Cracking, dimLS must be 1. (Here it is %d).\n", dimLS);exit(-1);}
+  DistSVec<bool,3> poll(getNodeDistInfo());
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) {
+    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub));
+    subDomain[iSub]->sndData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+  }
+
+  bool3Pat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->maxRcvData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), poll(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
+//    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+  }
+
+//  levelPat->exchange();
+
+//#pragma omp parallel for
+//  for (iSub = 0; iSub < numLocSub; ++iSub)
+//    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+
+/*
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
+    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+  }
+
+  levelPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+*/
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void Domain::debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, 
+                               DistVec<int> &fluidId, DistSVec<double,dim> &U)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->debugMultiPhysics(distLSS(iSub), PhiV(iSub), fluidId(iSub), U(iSub)); 
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, class Obj>
 void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
 			       int npt) {
@@ -4071,7 +4149,6 @@ void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,di
     subDomain[iSub]->addRcvData(*volPat, V(iSub));
   }
 }
-
 
 //------------------------------------------------------------------------------
 

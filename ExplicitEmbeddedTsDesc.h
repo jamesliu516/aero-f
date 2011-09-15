@@ -4,7 +4,6 @@
 #include <EmbeddedTsDesc.h>
 
 #include <IoData.h>
-#include <Domain.h>
 
 struct DistInfo;
 

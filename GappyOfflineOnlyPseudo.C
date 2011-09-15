@@ -7,12 +7,14 @@ GappyOfflineOnlyPseudo<dim>::GappyOfflineOnlyPseudo(Communicator *_com, IoData
 			_ioData, dom, _geoState), podHatTmp(0, dom.getNodeDistInfo() ) { 
 
 			if (this->ioData->gnat.sampleMeshUsed == GNATData::SAMPLE_MESH_NOT_USED)
-				noSampleMesh = 1;
+				usingSampleMesh = false;
 			else
-				noSampleMesh = 0;
+				usingSampleMesh = true;
 
-			if (noSampleMesh == 0)
+			if (usingSampleMesh) {
 				this->outputOnlineMatricesFull = true;
+				this->outputOnlineMatricesSample = false;
+			}
 
 }
 
@@ -45,7 +47,7 @@ void GappyOfflineOnlyPseudo<dim>::readInPodResJac() {
 		this->domain.readPodBasis(this->input->podFileJac, this->nPod[1], this->podHat[1]);
 	}
 
-	if (noSampleMesh) {
+	if (!usingSampleMesh) {
 		podHatTmp.resize(this->nPod[0]);
 		for (int iPod = 0; iPod < this->nPod[0]; ++iPod) {
 			podHatTmp[iPod] = 0.0;
@@ -102,7 +104,7 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 					cpuTmp = this->thisCPU;
 					subDTmp = iSub;
 					locNodeTmp = iLocNode;
-					if (noSampleMesh) {
+					if (!usingSampleMesh) {
 						assert(this->nPodBasis == 1);
 						for (int iPod = 0; iPod < this->nPod[0]; ++iPod) {
 							locPodHat = this->podHat[0][iPod].subData(iSub);
@@ -125,7 +127,7 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 		this->globalNodeToLocalNodesMap.insert(pair<int, int > (globalSampleNode, locNodeTmp));
 	}
 
-	if (noSampleMesh) 
+	if (!usingSampleMesh) 
 		this->podHat.a[0] = &podHatTmp;	// set podHatTmp to be the right one
 }
 

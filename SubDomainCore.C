@@ -4250,8 +4250,13 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     if (!masterFlag[l]) continue;
     i = ptr[l][0];
     j = ptr[l][1];
-    iActive = LSS.isActive(0,i);
-    jActive = LSS.isActive(0,j);
+    if(LSS.withCracking()) {
+      iActive = !LSS.isOccluded(0,i);
+      jActive = !LSS.isOccluded(0,j);
+    } else {
+      iActive = LSS.isActive(0,i);
+      jActive = LSS.isActive(0,j);
+    }
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
@@ -4429,7 +4434,9 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
             Xinter[k][1] = alpha*X[vertex1][1] + (1.0-alpha)*X[vertex2][1];
             Xinter[k][2] = alpha*X[vertex1][2] + (1.0-alpha)*X[vertex2][2];
 
-            if(LSS.isActive(0,vertex1)){pStar[k] = (vertex1<vertex2) ? pstarij[l] : pstarji[l];}
+            if((LSS.withCracking()   && LSS.isOccluded(0,vertex1)) ||
+               (!LSS.withCracking()) && LSS.isActive(0,vertex1)) {
+              pStar[k] = (vertex1<vertex2) ? pstarij[l] : pstarji[l];}
             else{pStar[k] = pInfty;}}
 
         switch(polygon.numberOfEdges){
@@ -4730,8 +4737,60 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
     }
   }
 }
+// ASSUME Max FLUID-ID IS 2
+void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll)
+{
+  /* poll[0,1,2]  |   indication
+     -------------+---------------
+     1  0  0      |     Id = 0
+     0  1  0      |     Id = 1
+     0  0  1      |     Id = 2(occluded)
+     0  0  0      |     no info available
+     1  1  1      |     can't decide */
+  
+  if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
+  const Connectivity &Node2Node = *getNodeToNode();
+  
+  for(int i=0; i<nodes.size(); i++) {
+    poll[i][0] = poll[i][1] = poll[i][2] = false;
+    bool swept = LSS.isSwept(0.0,i);
+    bool occluded = LSS.isOccluded(0.0,i);
 
-//-----------------------------------------------------------------------------------------------
+    if(!swept){ //fluidId should not change.
+      poll[i][fluidId[i]] = true;
+      continue;
+    }
+    if(occluded){ //set Id to 2
+      poll[i][2] = true;
+      continue;
+    }
+
+    int myId = -1;
+    int iNei;
+    bool consistent = false;
+    for(int j=0; j<Node2Node.num(i); j++) {
+      iNei = Node2Node[i][j];
+      if(i==iNei)
+        continue;
+      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,i,iNei))
+        continue;
+      if(myId==-1) {
+        myId = fluidId[iNei];
+        consistent = true;
+      } else if(myId!=fluidId[iNei]) {
+        consistent = false;
+        break;
+      }
+    }
+    
+    if(consistent)
+      poll[i][myId] = true; //its visible neighbors have the same id
+    else
+      poll[i][0] = poll[i][1] = poll[i][2] = (myId!=-1); //either 'no info' or 'can't decide'.
+  }
+}
+
+//------------------------------------------------------------------------------
 
 void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_, const std::vector<int> &globalNeighborNodes) 
 {
@@ -4745,3 +4804,7 @@ void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_
 	faces.computeConnectedFaces(locSampleNodes);
 
 }
+
+
+
+

@@ -7,6 +7,7 @@ class IoData;
 class Domain;
 class TimeData;
 class Communicator;
+struct ClosestPoint;
 
 #ifndef _DNDGRAD_TMPL_
 #define _DNDGRAD_TMPL_
@@ -66,7 +67,8 @@ class LevelSet {
   // initialization routines
   template<int dim>
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-             DistSVec<double,dimLS> &Phi, IoData &iod,FluidSelector*, VarFcn*);
+             DistSVec<double,dimLS> &Phi, IoData &iod,FluidSelector*, VarFcn*,
+             DistVec<ClosestPoint>* =0, DistVec<int>* =0);
   void setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,dimLS> &Phi);
   
   template<int dim>
@@ -77,6 +79,8 @@ class LevelSet {
 
   void setupPhiMultiFluidInitialConditions(IoData &iod, 
                               DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
+  void setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, 
+                              DistVec<ClosestPoint> &closest, DistVec<int> &fsId);
 
   // update the members of the class and writing them to the disk
   void checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi);
@@ -84,14 +88,8 @@ class LevelSet {
   void writeToDisk(char *name);
 
   // reinitialization routines
-  template<int dim>
-  void reinitializeLevelSet(DistGeoState &geoState,
-                            DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                            DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi);
-  template<int dim>
-  void reinitializeLevelSetFM(DistGeoState &geoState,
-                            DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                            DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi);
+  void reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2 = true);
+  void reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2 = true);
 
   // switching from conservative (rho*phi) to primitive (phi) and vice-versa
   template<int dim>

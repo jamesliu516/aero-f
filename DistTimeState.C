@@ -215,12 +215,9 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
   setupUVolumesInitialConditions(iod);
-  
   setupUMultiFluidInitialConditions(iod,X);
-  
   setupUOneDimensionalSolution(iod,X);
-
-  if(point_based_id && iod.eqs.numPhase>=2) 
+  if(point_based_id)
     setupUFluidIdInitialConditions(iod, *point_based_id);
 
   if (name[0] != 0) {
@@ -512,8 +509,7 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int
       }
     }
   } else {
-    domain->getCommunicator()->fprintf(stderr, "ERROR: FluidId-based initial conditions could not be found.\n");
-    exit(-1);
+    domain->getCommunicator()->fprintf(stderr, "NOTE: FluidId-based initial conditions not specified.\n");
   }
 } 
 

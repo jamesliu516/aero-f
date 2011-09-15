@@ -1927,6 +1927,7 @@ struct EmbeddedFramework {
   int nLevelset; //number of level-sets. Currently only consider bubbles.
   
   //Debug variables
+  enum CrackingWithLevelSet {OFF = 0, ON = 1} crackingWithLevelset;
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;

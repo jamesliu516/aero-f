@@ -3749,7 +3749,7 @@ class FSJac {
   FSJac(LocalRiemannFluidStructure<dim>* _ls,VarFcn* _vf, int _Id,double _ui) : vf(_vf), Id(_Id),ls(_ls),U_i(_ui) {}
   void Compute(const double u[3],double f[3]) const {
 
-    ls->eriemannfs(u[0],u[1],u[2],f[0],U_i,f[2],vf,Id); //caution: U_i will not be modified!
+    ls->eriemannfs_tait(u[0],u[1],u[2],f[0],U_i,f[2],vf,Id); //caution: U_i will not be modified!
   }
 };
 
@@ -3774,6 +3774,7 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   U_1 = vni;
   P_1  = vf->getPressure(Vi,Id);
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
+  P_i = vf->getPressure(Wstar,Id);
   switch (vf->getType(Id)) {
   case VarFcnBase::STIFFENEDGAS:
   case VarFcnBase::PERFECTGAS:
@@ -3785,9 +3786,11 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   }
 
   // Checking jacobian
-  //double u[3] = {R_1,U_1,P_1};
-  //double f[3] = {R_i,U_i,P_i};
-  //DebugTools::CheckJacobian<3>(dWdW, u,f,FSJac<dim>(this,vf,Id,U_i), "FSJacobian\n-------------------------\n"); 
+  double u[3] = {R_1,U_1,P_1};
+  double f[3] = {R_i,U_i,P_i};
+  //std::cout << R_1 << " " << U_1 << " " << P_1 << " " << R_i << " " << U_i << " " << P_i << std::endl;
+  //if (Id == 0)
+  //  DebugTools::CheckJacobian<3>(dWdW, u,f,FSJac<dim>(this,vf,Id,U_i), "FSJacobian\n-------------------------\n"); 
 
   if(dim == 6)
     {
@@ -3984,7 +3987,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
   double a = vf->getAlphaWater(Id);
   double b = vf->getBetaWater(Id);
   double pref  = vf->getPrefWater(Id);
-
+  double Udummy[5],Vdummy[5]={0,0,0,0,0};
   if(u==ui){ // contact
     rhoi = rho;
     pi   = p;
@@ -3994,15 +3997,19 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
   if(ui<u){ // rarefaction
     
     double ud = u-ui;
-    double q = sqrt(a*b)*(b-3.0)*0.5f;
-    rhoi = pow(-ud/q+pow(rho,(b-5.0)*0.5), -(b-5.0)*0.5);
+    double q = 2.0*sqrt(a*b)/(b-1.0);
+    rhoi = pow(-ud/q+pow(rho,(b-1.0)*0.5), 2.0/(b-1.0));
+    //pi = a*pow(rhoi,b)+pref;
+    Vdummy[0] = rhoi;
+    vf->getVarFcnBase(Id)->verification(0,Udummy,Vdummy);
+    rhoi = Vdummy[0];
     pi = a*pow(rhoi,b)+pref;
   }
   else{ // shock
     
     // Must solve a nonlinear equation.  I can't find an
     // analytical solution.
-    rhoi = 1.05*rho;
+    rhoi = 1.001*rho;
     pi = a*pow(rhoi,b)+pref;
     double V,dV,dpdrho;
     int i = 0;
@@ -4011,14 +4018,18 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
       dpdrho = a*b*pow(rhoi, b-1.0);
       V = sqrt(fabs( (p-pi)*(1.0/rhoi-1.0/rho) ) );
       dV = 0.5/V*(-dpdrho*(1.0/rhoi-1.0/rho) - (p-pi)*(1.0/(rhoi*rhoi) ) );
+      assert(rhoi >= rho);
 
-      if (fabs(u-ui-V) < 1.0e-8)
+      if (fabs(V+u-ui) < 1.0e-8)
 	break;
 
-      rhoi += 0.5*(u-ui-V) / dV;
+      rhoi -= (V+u-ui) / dV;
       pi = a*pow(rhoi,b)+pref;
       ++i;
     } while (i < 100);      
+    if (i == 100) {
+      fprintf(stderr,"%d %lf %lf %lf %lf %lf %lf %lf\n",i,rho,u,p,rhoi,ui,pi,fabs(u-ui+V));
+    }
   }
 }
 
@@ -4042,23 +4053,24 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait_grad(double rho, double u,
     return;
   }
 
-  double dpdrho = a*b*pow(rhoi, b-1.0);
+  double dpdrho = a*b*pow(rho, b-1.0);
+  double dpdrhos = a*b*pow(rhoi, b-1.0);
   double dVdrho,dVdrhos; 
   if(ui<u){ // rarefaction
      
-    dVdrho = sqrt(a*b)*(b-3.0)*(b-5.0)/4.0*pow(rho, (b-7.0)*0.5);
-    dVdrhos = -sqrt(a*b)*(b-3.0)*(b-5.0)/4.0*pow(rhoi, (b-7.0)*0.5);    
+    dVdrho = -sqrt(a*b*pow(rho,b-3.0));//sqrt(a*b)*(b-3.0)*(b-5.0)/4.0*pow(rho, (b-7.0)*0.5);
+    dVdrhos = sqrt(a*b*pow(rhoi,b-3.0));//-sqrt(a*b)*(b-3.0)*(b-5.0)/4.0*pow(rhoi, (b-7.0)*0.5);    
   }
   else{ // shock
     
     double V;
     V = sqrt(fabs( (p-pi)*(1.0/rhoi-1.0/rho) ) );
-    dVdrhos = 0.5/V*(-dpdrho*(1.0/rhoi-1.0/rho) - (p-pi)*(1.0/(rhoi*rhoi) ) );
-    dVdrho = 0.5/V*(dpdrho*(1.0/rhoi-1.0/rho) + (p-pi)*(1.0/(rho*rho) ) );
+    dVdrhos = 0.5/V*(-dpdrhos*(1.0/rhoi-1.0/rho) - (p-pi)*(1.0/(rhoi*rhoi) ) );
+    dVdrho = 0.5/V*((dpdrho)*(1.0/rhoi-1.0/rho) + (p-pi)*(1.0/(rho*rho) ) );
   }
 
   dWidWi[0] = -dVdrho / dVdrhos;
-  dWidWi[1] = 1.0 / dVdrhos;
+  dWidWi[1] = -1.0 / dVdrhos;//*(ui<u?1.0:-1.0);
   dWidWi[2] = 0.0;
 
   dWidWi[8] = 1.0;
