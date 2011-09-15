@@ -664,8 +664,17 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
   Vec<double> &ndot = geoState.getFaceNormalVel();
   SVec<double,dim> &Ub = bcData.getFaceStateVector();
 
-  for (int i=0; i<numFaces; ++i)
-    faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluxes);
+	if (sampleMesh) {
+		int i;
+		for (int iFace=0; iFace<numSampledFaces; ++iFace) {
+			i = facesConnectedToSampleNode[iFace];
+			faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluxes);
+		}
+	}
+	else {
+		for (int i=0; i<numFaces; ++i) 
+			faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluxes);
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -830,8 +839,17 @@ void FaceSet::computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet,
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
-  for (int i=0; i<numFaces; ++i) 
+	if (sampleMesh) {
+		int i;
+		for (int iFace=0; iFace<numSampledFaces; ++iFace) {
+			i = facesConnectedToSampleNode[iFace];
+			faces[i]->computeGalerkinTerm(elems, fet, X, d2wall, Vwall[i], V, R);
+		}
+	}
+	else {
+		for (int i=0; i<numFaces; ++i) 
     faces[i]->computeGalerkinTerm(elems, fet, X, d2wall, Vwall[i], V, R, LSS);
+	}
 
 }
 

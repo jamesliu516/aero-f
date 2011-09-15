@@ -1626,29 +1626,33 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 
 //#pragma omp parallel for
   if(ghostPoints)
+  {
+    if(!LSS) 
     {
-      if(!LSS) 
-	{
-	  cout<<"LSS has to be provided in the case of a viscous simulation\n";
-	  exit(1);
-	}
+      cout<<"LSS has to be provided in the case of a viscous simulation\n";
+      exit(1);
+    }
       //Vec<GhostPoint<dim>*> *gp;
+
 #pragma omp parallel for
-      for (int iSub = 0; iSub < numLocSub; ++iSub)
-	{
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+    {
 	  //gp     = ghostPoints->operator[](iSub);
-	  subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
+      subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
 					       X(iSub), V(iSub), R(iSub), ghostPoints->operator[](iSub),
                                                &(LSS->operator()(iSub)));
-	}
     }
+  }
   else
-    {
+  {
+
 #pragma omp parallel for
-      for (int iSub = 0; iSub < numLocSub; ++iSub)
-	subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					     X(iSub), V(iSub), R(iSub));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+    {
+      subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
+          X(iSub), V(iSub), R(iSub));
     }
+  }
   timer->addFiniteElementTermTime(t0);
 
 }
@@ -2856,7 +2860,7 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
   if (step >= numSteps)
     return false;
 
-  com->barrier(); //For timing (of i/o) purpose.
+//  com->barrier(); //For timing (of i/o) purpose.
   double t0 = timer->getTime();
 
 #pragma omp parallel for
@@ -2937,8 +2941,8 @@ void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
 
     SVec<Scalar, dim> &subData = data(iSub);
 
-    for (int i = 0; i < data.size(); ++i)
-      for (int j = 0; i < dim; ++i)
+    for (int i = 0; i < subData.size(); ++i)
+      for (int j = 0; j < dim; ++j)
         subData[i][j] *= scale[j];
   }
 
@@ -3021,7 +3025,6 @@ int Domain::checkSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistVec<int> 
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
 template<int dim>
 void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<double,dim> &dU,DistVec<int>* fluidId)
 {
@@ -3227,10 +3230,9 @@ void Domain::computeForceDerivs(VarFcn *varFcn, DistSVec<double,3> &X, DistSVec<
 template<int dim>
 void Domain::zeroInternalVals(DistSVec<double, dim> &v)  {
 
-  int iSub;
 //#pragma omp parallel for reduction(+: ierr)
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub)
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->zeroInternalVals(v(iSub));
 }
 
@@ -4006,12 +4008,14 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
     return;
   }
 
-#pragma omp parallel for reduction(+: res)
+double locRes = 0.0;
+#pragma omp parallel for reduction(+: locRes)
   for (int iSub = 0; iSub < numLocSub; ++iSub){
-    res+=subDomain[iSub]->computeDistanceLevelNodes(lsdim, Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
+    locRes += subDomain[iSub]->computeDistanceLevelNodes(lsdim, Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
     //subDomain[iSub]->sndData(*phiVecPat, Psi.subData(iSub));
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
   }
+  res += locRes;
 
   volPat->exchange();
 
@@ -4041,8 +4045,6 @@ void Domain::setupUVolumesInitialConditions(const int volid, double UU[dim],
     subDomain[iSub]->setupUVolumesInitialConditions(volid, UU, U(iSub));
 
 }
-
-//------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
@@ -4150,4 +4152,183 @@ void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,di
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded = 0, int *whichFiles = NULL) {	
 
+	//	multiPodFile: file containing names of bases
+	//	pod: array of pointers to POD bases. Each one is individually uninitialized
+	//	nPod: vector of number of required POD basis vectors
+	//	nBasesNeeded: number of bases needed for the problem (default is zero, meaning ignore)
+	//	whichFiles: indicates which files should be read. if [1 -1], it means
+		//	you should read only second file in the list of files. if [0 1], it
+		//	means you should read both
+
+
+	if (whichFiles == NULL) 	// by default, just take the files in the order prescribed
+		for (int i = 0; i < nBasesNeeded; ++i)
+			whichFiles[i] = i;
+
+	const char *vecFile = multiPodFile;	// already read into the function
+	if (!vecFile)
+		vecFile = "multiPodFile.in";	// default filename
+	FILE *inFP = fopen(vecFile, "r");
+	if (!inFP)  {
+		com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
+		exit (-1);
+	}
+
+	// =====================================================
+	// read in file containing filenames for multiple bases
+	// =====================================================
+
+	int nData; // number of available bases in the file
+	fscanf(inFP, "%d",&nData);	// first entry is the number of bases in the file
+
+	if (nBasesNeeded > 0 && nData < nBasesNeeded) {
+		com->fprintf(stderr," ... ERROR: expecting %d POD files, found %d\n",nBasesNeeded,nData);
+		com->fprintf(stderr," ... Exiting\n");
+		exit(-1); 
+	}
+
+	com->fprintf(stderr," ... reading in %d POD files\n",nBasesNeeded);
+
+	char **podFile = new char *[nData];	// files as they appear in the list input file
+
+	for (int iData = 0; iData < nData; ++iData){
+		podFile[iData] = new char[1000];
+		fscanf(inFP, "%s", podFile[iData]);
+	}
+
+	// ================================
+	// read individual POD bases
+	// ================================
+
+	for (int iData=0; iData < nBasesNeeded; ++iData){	// loop over bases
+		com->fprintf(stderr, " ... Reading POD from %s \n", podFile[whichFiles[iData]]);
+		readPodBasis(podFile[whichFiles[iData]], nPod[iData],*(pod[iData]));
+	}
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::readPodBasis(const char *podFile, int &nPod,
+		VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps = false) {
+
+  // read in POD Vectors
+  const char *vecFile = podFile;
+
+  double eigValue;
+  int nPodVecs;
+
+  // read number of vecs
+  DistSVec<double,dim> tmpVec(getNodeDistInfo());
+
+	if (useSnaps)	// reading snapshots, not a pod basis
+		nPodVecs = nPod;
+	else {
+		readVectorFromFile(vecFile, 0, &eigValue, tmpVec);
+		nPodVecs = (int) eigValue;
+		com->fprintf(stderr, " ... There are %d total podVecs \n", nPodVecs);	// unique POD vectors (first one repeated)
+	}
+
+  if (nPod > nPodVecs)  {
+    com->fprintf(stderr, " ... WARNING: there are only %d POD Vectors \n", nPodVecs);
+    nPod = nPodVecs;
+  }
+	else if (nPod < 0)  {	// if negative value specified, read in all vectors
+		nPod = nPodVecs;
+	}
+  else
+    nPodVecs = nPod;
+
+  com->fprintf(stderr, " ... Reading %d POD Vectors from file %s\n", nPodVecs, vecFile);
+
+  podVecs.resize(nPodVecs);
+
+  int iVec;
+  double firstEig;
+  for (iVec = 0; iVec < nPodVecs; iVec++) { 
+    readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);	// read in one more
+		if (iVec == 0)
+			firstEig = eigValue;
+	}
+
+	double firstEigDisplayed;
+	if (firstEig == 0){
+		firstEigDisplayed = 1.0;
+	}
+	else{
+		firstEigDisplayed = firstEig;
+	}
+  com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEigDisplayed, eigValue/firstEigDisplayed);
+}
+
+template<typename Scalar>
+void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
+		int *alreadyCommunicatedArray = NULL){	
+	
+	// loop over iIslands
+		// figure out how many total entries each cpu has for the iIsland
+		// 	numNeigh = {0 9 15 58} means that the first cpu has 9, second has 6, etc.
+		// initiate memory for the total number of globalNodes (using last entry in above vector)
+		// fill out entries [iCpu] to [iCpu+1] in above array using vector
+		// do a global sum
+		// overwrite node and element vectors with this global data (for each cpu)
+	
+	int* numNeigh = new int [com->size() + 1];
+	int offset;	// initial values to not communicate (if already communicated some)
+	for (int iArraySize = 0; iArraySize < arraySize; ++iArraySize) {
+		if (com->cpuNum() > 0 && alreadyCommunicatedArray != NULL)
+			offset = alreadyCommunicatedArray[iArraySize];
+		else
+			offset = 0;
+		for (int i = 0; i <=com->size(); ++i)	// initialize
+			numNeigh[i] = 0;
+		numNeigh[com->cpuNum()+1] = nodeOrEle[iArraySize].size() - offset;	// number of entries on this cpu
+		com->globalSum(com->size()+1,numNeigh);
+		for (int i = 1; i <=com->size(); ++i)	// accumulate
+			numNeigh[i] += numNeigh[i-1];
+		int totalNodeOrEle = numNeigh[com->size()];	// total across all processors
+
+		Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
+			if (iNeighbor >= numNeigh[com->cpuNum()] && iNeighbor < numNeigh[com->cpuNum()+1]) 
+				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[com->cpuNum()] + offset];	// fill in this cpu's contribution
+			else
+				nodeOrEleArray[iNeighbor] = 0;
+		}
+
+		com->globalSum(totalNodeOrEle,nodeOrEleArray);
+
+		// fill in the array with all global entries
+		nodeOrEle[iArraySize].clear();
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
+			nodeOrEle[iArraySize].push_back(nodeOrEleArray[iNeighbor]);
+
+		delete [] nodeOrEleArray;
+		
+	}
+	delete [] numNeigh;
+}
+
+template<typename Scalar>
+void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length = 1) {
+
+	// remove redundant entries from a vector <int> nodeOrEle *
+	// apply to nodeOrEle and elements
+
+	vector<int>::iterator it;
+
+	// put all on one vector
+	for (int iIsland = 1; iIsland < length; ++iIsland) {
+		for (int iEntry = 0; iEntry < nodeOrEle[iIsland].size(); ++iEntry) {
+			nodeOrEle[0].push_back(nodeOrEle[iIsland][iEntry]);
+		}
+		nodeOrEle[iIsland].erase(nodeOrEle[iIsland].begin(),nodeOrEle[iIsland].end());	// no longer need that vector
+	}
+
+	sort(nodeOrEle[0].begin(), nodeOrEle[0].end());	// sort: puts in order
+	it = unique(nodeOrEle[0].begin(), nodeOrEle[0].end()); // remove duplicate consecutive elements (reason for sort)
+	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
+}

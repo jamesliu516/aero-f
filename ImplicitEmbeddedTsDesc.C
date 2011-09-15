@@ -321,7 +321,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 // call routines below from this same file or from LevelSetTsDesc
 //------------------------------------------------------------------------------
 template<int dim>
-int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 { 
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());

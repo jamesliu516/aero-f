@@ -571,6 +571,107 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 }
 
+template<int dim>
+void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+		DistSVec<double,dim> &U,
+		DistSVec<double,dim> &R,
+		DistTimeState<dim> *timeState,
+		RestrictionMapping<dim> & restrictionMapping, bool compatF3D)
+{
+	std::vector<std::vector<int> > sampledLocNodes =
+		restrictionMapping.getRestrictedToOriginLocNode() ;
+
+	R = 0.0;
+	varFcn->conservativeToPrimitive(U, *V);
+
+	// need everywhere
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0) {
+    double t0 = timer->getTime();
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    timer->addNodalGradTime(t0); 
+	}
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
+  if (xpol){
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+  }
+
+  if (vms)
+    vms->compute(geoState->getConfig(), ctrlVol, X, *V, R);
+
+  if (smag)
+    domain->computeSmagorinskyLESTerm(smag, X, *V, R);
+
+  if (wale)
+     domain->computeWaleLESTerm(wale, X, *V, R);
+
+  if (dles)
+    dles->compute(ctrlVol, *bcData, X, *V, R);
+
+  DistVec<double> *irey;
+  if(timeState)
+    irey = timeState->getInvReynolds();
+  else{
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
+  if (fet) {	// KTC: made efficient
+    domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
+    bcData->computeNodeValue(X);
+  }
+
+  //new source term: need dVdXj (warning for jac if limited rec -> recompute gradients)
+  //domain->computePointWiseSourceTerm(*geoState, ctrlVol, *ngrad, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);	// MORE EFF??
+
+	// KTC: made efficient
+	domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn,
+			*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift);
+
+// Included
+	// KTC: not needed
+  //domain->getGradP(*ngrad);	 // not needed
+
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  if(dvms)
+    dvms->compute(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState,
+                  timeState, X, U, *V, R, failsafe, rshift);
+
+// Modified (MB)
+  if (compatF3D) {
+    if (use_modal == false)  {
+			int i;
+      int numLocSub = R.numLocSub();
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = ctrlVol.subData(iSub);
+        double (*r)[dim] = R.subData(iSub);
+				for (int iSampledNode=0; iSampledNode<sampledLocNodes[iSub].size(); ++iSampledNode) {
+					i = sampledLocNodes[iSub][iSampledNode];
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
+      }
+    }
+  }
+
+  // Delete the pointer for consistency
+  if (timeState == 0)
+  {
+    if (irey)
+      delete irey;
+  }
+  irey = 0;
+
+}
 //------------------------------------------------------------------------------
 
 // Modified (MB)
