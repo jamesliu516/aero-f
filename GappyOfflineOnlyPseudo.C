@@ -145,15 +145,15 @@ void GappyOfflineOnlyPseudo<dim>::outputTopFile() {
 /*
 template<int dim>
 void GappyOfflineOnlyPseudo<dim>::assembleOnlineMatrices() {
-	// do SAME
+	// do same
 }
 */
 
 /*
 template<int dim>
 void GappyOfflineOnlyPseudo<dim>::outputOnlineMatrices() {
-	// do SOMETHING
-	// NEED numFullNodes, globalSampleNodeRankMap
+	// do same
+	
 }
 */
 

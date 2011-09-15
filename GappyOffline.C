@@ -1651,7 +1651,8 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 
 	// reduced mesh
 	/// KTC TODOif (ioData->output.rom.onlineMatrix[0] != 0)
-	outputOnlineMatricesGeneral(ioData->output.rom.onlineMatrix || outputOnlineMatricesSample,
+	if (ioData->output.rom.onlineMatrix[0] != 0 || outputOnlineMatricesSample) 
+	outputOnlineMatricesGeneral(ioData->output.rom.onlineMatrix,
 			nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
 	
 	if (ioData->output.rom.onlineMatrixFull[0] != 0 || outputOnlineMatricesFull) 
