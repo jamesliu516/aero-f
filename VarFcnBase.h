@@ -44,7 +44,8 @@ public:
     verif_clipping = false;//true;
   }
   virtual ~VarFcnBase() {}
-
+  
+  virtual bool equal(VarFcnBase* oth) { return false; }
 
   //----- Transformation Operators -----//
   virtual void conservativeToPrimitive(double *U, double *V) = 0; 

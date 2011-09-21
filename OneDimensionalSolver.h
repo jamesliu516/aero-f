@@ -144,6 +144,8 @@ class OneDimensional {
 
   int* loctag;
 
+  bool isSixthOrder;
+
   class Veval {
 
     int findNode(const double* loc,double& localRadius) {
