@@ -121,6 +121,12 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   setupOutputFiles(ioData);
 
   setupFixes(ioData);
+
+
+  if (ioData.schemes.ns.dissipation == SchemeData::SIXTH_ORDER) {
+    isSixthOrder = true;
+  } else
+    isSixthOrder = false;
 }
 //------------------------------------------------------------------------------
 OneDimensional::~OneDimensional(){
@@ -804,7 +810,8 @@ void OneDimensional::computeTimeSteps(SVec<double,1> &timeSteps){
 
   for(int i=0; i<numPoints; i++){
     c = varFcn->computeSoundSpeed(V[i],fluidId[i]);
-    //std::cout << "c = " << c <<  " " << fluidId[i] <<  std::endl;
+    if (c == 0.0)
+      std::cout << "c = " << c <<  " " << fluidId[i] <<  std::endl;
     timeSteps[i][0] = 0.5*(Y[i+1][0]-Y[i][0])/c;
   }
 
@@ -917,10 +924,31 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
     i = iEdge;
     j = iEdge+1;
 
-    double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim];
+    double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
+    if (!isSixthOrder || !(i > 0 && fluidId[i] == fluidId[i+1] && 
+			   fluidId[i] == fluidId[i+2] && fluidId[i] == fluidId[i-1])) {
+      
+      for (k = 0; k < dim; ++k) {
+	VslopeI[k] = Vslope[i][k];
+	VslopeJ[k] = Vslope[j][k];
+      }
+    } else {
+
+      for (k = 0; k < dim; ++k) {
+	VslopeI[k] = (2.0/3.0)*(V[j][k]-V[i][k])+(1.0/3.0)*(V[i][k]-V[i-1][k])+
+	  (-1.0/30.0)*((V[j+1][k]-V[j][k])-2.0*(V[j][k]-V[i][k])+(V[i][k]-V[i-1][k]))+
+	  (-2.0/15.0)*(Vslope[i-1][k]-2.0*Vslope[i][k]+Vslope[j][k]);
+	
+	VslopeJ[k] = (2.0/3.0)*(V[j][k]-V[i][k])+(1.0/3.0)*(V[j+1][k]-V[j][k])+
+	  (-1.0/30.0)*((V[j+1][k]-V[j][k])-2.0*(V[j][k]-V[i][k])+(V[i][k]-V[i-1][k]))+
+	  (-2.0/15.0)*(Vslope[j+1][k]-2.0*Vslope[j][k]+Vslope[i][k]);
+      }
+      
+    }
+
     for (k = 0; k < dim; ++k) {
-      Vsi[k] = Vslope[i][k]*(X[j][0]-X[i][0]);
-      Vsj[k] = Vslope[j][k]*(X[j][0]-X[i][0]);
+      Vsi[k] = VslopeI[k]*(X[j][0]-X[i][0]);
+      Vsj[k] = VslopeJ[k]*(X[j][0]-X[i][0]);
 			  
     }
     

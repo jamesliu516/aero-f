@@ -258,11 +258,11 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
   Vec3D bbox[2];
   memset(status, 0, sizeof(int)*locs.size());
  
-  bool found_all = true; 
+  int found_all = 1; 
   for (int j = 0; j < locs.size(); ++j) {
     Elem& E = *elems[last[j]];
     status[j] = E.interpolateSolution(X, U, locs[j], sol[j]);
-    if (!status[j]) found_all = false;
+    if (!status[j]) found_all = 0;
   }
 
   if (found_all) 
