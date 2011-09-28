@@ -125,6 +125,9 @@ public:
     typename AuxilliaryRows::iterator itr = A.find( ij );
     if (itr == A.end()) {
       Scalar* s = new Scalar[dim*dim];
+      for (int i=0; i<dim*dim; i++) {
+				s[i]=0;
+			}
       A[ij] = s;
       return s;
     }
