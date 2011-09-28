@@ -1460,10 +1460,15 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
         for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
           subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
                                                &locU, &stat,&last[i],&nid);
-          fid = fluidId(iSub)[nid];
-          varFcn->conservativeToPrimitive(locU,locV, fid);
-          Vec3D vel = varFcn->getVelocity(locV, fid);
-          status[i] += stat;
+					if (stat) {
+	          fid = fluidId(iSub)[nid];
+            varFcn->conservativeToPrimitive(locU,locV, fid);
+            Vec3D vel = varFcn->getVelocity(locV, fid);
+            result[3*i] += vel[0];
+            result[3*i+1] += vel[1];
+            result[3*i+2] += vel[2];
+            status[i] += stat;
+          }
         }       
       }
     }
