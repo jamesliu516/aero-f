@@ -35,6 +35,15 @@ public:
    
   virtual Scalar* getGhostGhostElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
  
+
+  // Return the edge data corresponding to real node i and ghost node j
+  virtual Scalar* queryRealNodeElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
+
+  // Return the edge data correponding to ghost node i and real node j
+  virtual Scalar* queryGhostNodeElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
+   
+  virtual Scalar* queryGhostGhostElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
+
   struct AuxilliaryIterator {
     int row,col;
     Scalar* pData;
