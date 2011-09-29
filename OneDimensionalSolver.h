@@ -146,6 +146,8 @@ class OneDimensional {
 
   bool isSixthOrder;
 
+  double beta;
+
   class Veval {
 
     int findNode(const double* loc,double& localRadius) {

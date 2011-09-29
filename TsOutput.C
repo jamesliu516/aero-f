@@ -2288,7 +2288,7 @@ void TsOutput<dim>::cleanProbesFile() {
         sprintf(nn,"%s.back",nodal_scalars[i]);
         FILE* scalar_file = fopen(nodal_scalars[i],"w");
         FILE* scalar_file_old = fopen(nn,"r");
-        while (1) {
+        while (!feof(scalar_file_old)) {
           fscanf(scalar_file_old,"%d",&iter);
           fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)

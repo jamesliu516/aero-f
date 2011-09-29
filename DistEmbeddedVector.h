@@ -874,7 +874,7 @@ DistEmbeddedVec<Scalar,dim>::operator=(const EmbeddedExpr<T, Scalar> &expr)
     for (std::set<int>::iterator itr = ghostNodes[iSub].begin(); itr != ghostNodes[iSub].end(); ++itr) {
 
       for (int j = 0; j < dim; ++j)
-        realVec.subData(iSub)[*itr][j] = expr.real(iSub,*itr,j);
+        ghostVec.subData(iSub)[*itr][j] = expr.ghost(iSub,*itr,j);
       
     }
   }
@@ -906,7 +906,7 @@ DistEmbeddedVec<Scalar,dim>::operator+=(const EmbeddedExpr<T, Scalar> &expr)
     for (std::set<int>::iterator itr = ghostNodes[iSub].begin(); itr != ghostNodes[iSub].end(); ++itr) {
 
       for (int j = 0; j < dim; ++j)
-        realVec.subData(iSub)[*itr][j] += expr.real(iSub,*itr,j);
+        ghostVec.subData(iSub)[*itr][j] += expr.ghost(iSub,*itr,j);
       
     }
   }
@@ -938,7 +938,7 @@ DistEmbeddedVec<Scalar,dim>::operator-=(const EmbeddedExpr<T, Scalar> &expr)
     for (std::set<int>::iterator itr = ghostNodes[iSub].begin(); itr != ghostNodes[iSub].end(); ++itr) {
 
       for (int j = 0; j < dim; ++j)
-        realVec.subData(iSub)[*itr][j] -= expr.real(iSub,*itr,j);
+        ghostVec.subData(iSub)[*itr][j] -= expr.ghost(iSub,*itr,j);
       
     }
   }
