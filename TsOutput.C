@@ -440,6 +440,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     conservation = 0;
 
   it0 = iod.restart.iteration;
+  //std::cout << "it0 = " << it0 << std::endl;
   numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
   frequency_dt = iod.output.transient.frequency_dt;
