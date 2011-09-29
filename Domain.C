@@ -2404,6 +2404,19 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvOffDiagBlocks(*matPat, A(iSub));
+  
+  if (ghostPoints) {
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->sndGhostOffDiagBlocks(*matPat, A(iSub));
+    }
+    
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvGhostOffDiagBlocks(*matPat, A(iSub));
+  }
 
   com->printf(6, "FE Jacobian matrix computation: %f s\n", t);
 

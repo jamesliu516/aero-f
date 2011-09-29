@@ -56,7 +56,21 @@ public:
   Scalar* getGhostGhostElem_ij(int i,int j) {
     return getAuxilliaryRow(ghostGhostAuxilliaryRows,i,j);
   }
+ 
+  // Return the edge data corresponding to real node i and ghost node j
+  Scalar* queryRealNodeElem_ij(int i,int j) {
+    return queryAuxilliaryRow(realAuxilliaryRows,i,j);
+  }
 
+  // Return the edge data correponding to ghost node i and real node j
+  Scalar* queryGhostNodeElem_ij(int i,int j) {
+    return queryAuxilliaryRow(ghostAuxilliaryRows,i,j);
+  }
+  
+  // Return the edge data correponding to ghost node i and ghost node j
+  Scalar* queryGhostGhostElem_ij(int i,int j) {
+    return queryAuxilliaryRow(ghostGhostAuxilliaryRows,i,j);
+  }
 
   struct MvpAuxilliaryIterator : public GenMat<Scalar,dim>::AuxilliaryIterator {
     typename AuxilliaryRows::iterator itr;
@@ -125,11 +139,19 @@ public:
     typename AuxilliaryRows::iterator itr = A.find( ij );
     if (itr == A.end()) {
       Scalar* s = new Scalar[dim*dim];
-      for (int i=0; i<dim*dim; i++) {
-				s[i]=0;
-			}
+      memset(s,0,sizeof(Scalar)*dim*dim);
       A[ij] = s;
       return s;
+    }
+    else
+      return itr->second;
+  }
+
+  Scalar* queryAuxilliaryRow(AuxilliaryRows& A, int i, int j) {
+    std::pair<int,int> ij(i,j);
+    typename AuxilliaryRows::iterator itr = A.find( ij );
+    if (itr == A.end()) {
+      return NULL;
     }
     else
       return itr->second;

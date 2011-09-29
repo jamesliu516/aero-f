@@ -861,6 +861,11 @@ public:
   template<class Scalar, int dim>
   void addRcvOffDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
 
+  template<class Scalar, int dim>
+  void sndGhostOffDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
+
+  template<class Scalar, int dim>
+  void addRcvGhostOffDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
   // test
 
   void testNormals(Vec<Vec3D> &, Vec<double> &, Vec<Vec3D> &, Vec<double> &);

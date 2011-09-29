@@ -3358,6 +3358,107 @@ void SubDomain::addRcvOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> 
 
 }
 
+template<class Scalar, int dim>
+void SubDomain::sndGhostOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> &A)
+{
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<Scalar> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    Scalar (*buffer)[2][dim*dim] = reinterpret_cast<Scalar (*)[2][dim*dim]>(sInfo.data);
+    int (*ptr)[2] = edges.getPtr();
+
+    for (int iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
+
+      int edgeNum = sharedEdges[iSub][iEdge].edgeNum;
+      int i = ptr[edgeNum][0],j = ptr[edgeNum][1];
+
+      Scalar *aij, *aji;
+
+      if (sharedEdges[iSub][iEdge].sign > 0) {
+	aij = A.queryRealNodeElem_ij(i,j);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(i,j);
+	aji = A.queryRealNodeElem_ij(j,i);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(j,i);
+      }
+      else {
+	aji = A.queryRealNodeElem_ij(i,j);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(i,j);
+	aij = A.queryRealNodeElem_ij(j,i);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(j,i);
+      }
+
+      if (aij && aji) {
+	for (int k=0; k<dim*dim; ++k) {
+	  buffer[iEdge][0][k] = aij[k];
+	  buffer[iEdge][1][k] = aji[k];
+	}
+      }
+      else {
+	for (int k=0; k<dim*dim; ++k) {
+	  buffer[iEdge][0][k] = 0.0;
+	  buffer[iEdge][1][k] = 0.0;
+	}
+      }
+
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::addRcvGhostOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> &A)
+{
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    int (*ptr)[2] = edges.getPtr();
+    Scalar (*buffer)[2][dim*dim] = reinterpret_cast<Scalar (*)[2][dim*dim]>(sInfo.data);
+
+    for (int iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
+      
+      int edgeNum = sharedEdges[iSub][iEdge].edgeNum;
+      int i = ptr[edgeNum][0],j = ptr[edgeNum][1];
+
+      Scalar *aij, *aji;
+
+      if (sharedEdges[iSub][iEdge].sign > 0) {
+	aij = A.queryRealNodeElem_ij(i,j);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(i,j);
+	aji = A.queryRealNodeElem_ij(j,i);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(j,i);
+      }
+      else {
+	aji = A.queryRealNodeElem_ij(i,j);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(i,j);
+	aij = A.queryRealNodeElem_ij(j,i);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(j,i);
+      }
+
+      if (aij && aji) {
+	for (int k=0; k<dim*dim; ++k) {
+	  aij[k] += buffer[iEdge][0][k];
+	  aji[k] += buffer[iEdge][1][k];
+	}
+      }
+    }
+
+  }
+
+}
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>

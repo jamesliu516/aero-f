@@ -39,6 +39,17 @@ private:
 public:
   VarFcnSGEuler(FluidModelData &data);
   ~VarFcnSGEuler() { delete [] pname; }
+  
+  virtual bool equal(VarFcnBase* oth) {
+    if (oth->type == VarFcnBase::STIFFENEDGAS || oth->type == VarFcnBase::PERFECTGAS) {
+      VarFcnSGEuler* othsg = dynamic_cast<VarFcnSGEuler*>(oth);
+      if (gam == othsg->gam && Pstiff == othsg->Pstiff)
+        return true;
+      else
+        return false;
+    } else
+      return false;
+  }
 
   //----- Transformation Operators -----//
   void conservativeToPrimitive(double *U, double *V);

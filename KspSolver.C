@@ -361,6 +361,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
     g = 0.0;
     g[0] = beta;
 
+    //std::cout << "V = " << V[0].norm() << std::endl;
     int j;
     for (j=0; j<numVec; ++j) {
 
