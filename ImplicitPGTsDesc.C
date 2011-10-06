@@ -58,7 +58,15 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		return;	// do not solve the system
 	}
 
-	if (lsSolver == 0){	// normal equations
+	if (lsSolver == 0){	// ScaLAPACK least-squares
+
+		RefVec<DistSVec<double, dim> > residualRef2(this->F);
+		parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
+		for (int iPod=0; iPod<this->nPod; ++iPod)
+			this->dUrom[iPod] = -lsCoeff[0][iPod];
+	}
+
+	else if (lsSolver == 1)	{		// normal equations
 
 		transMatMatProd(this->AJ,this->AJ,jactmp);	// TODO: make symmetric product
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
@@ -68,13 +76,5 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		} 
 
 		solveLinearSystem(it, rhs, this->dUrom);
-	}
-
-	else if (lsSolver == 1)	{// ScaLAPACK least-squares
-
-		 RefVec<DistSVec<double, dim> > residualRef2(this->F);
-		 parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
-		 for (int iPod=0; iPod<this->nPod; ++iPod)
-		 this->dUrom[iPod] = -lsCoeff[0][iPod];
 	}
 }
