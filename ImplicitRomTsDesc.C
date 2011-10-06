@@ -544,14 +544,10 @@ void ImplicitRomTsDesc<dim>::expandVector(Vec<double> &romV, DistSVec<double, di
 template<int dim>
 void ImplicitRomTsDesc<dim>::projectVector(VecSet<DistSVec<double, dim> > &leftProj, DistSVec<double,dim> &fullV, Vec<double> &romV)  {
 
-	// TODO KTC: this is not very efficient because of the delay time (latency) to
-	// establish communication for each vector-vector product. Currently,
-	// communiction is done after every vector-vector product. It would be
-	// better to express leftProj as DistMat insteat of a VecSet<DistSVec> so
-	// that communication is done only once. Or, introduce a multiplication
-	// function within the VecSet to minimize communication 
+	transMatVecProd(leftProj,fullV,projVectorTmp);
+
   for (int iVec = 0; iVec < pod.numVectors(); iVec++)
-    romV[iVec] = leftProj[iVec]*fullV;
+    romV[iVec] = projVectorTmp[iVec];
 }
 
 //------------------------------------------------------------------------------
@@ -726,7 +722,7 @@ template<int dim>
 void ImplicitRomTsDesc<dim>::readPodBasis(const char *fileName) {
 
 	string fileNameState;
-	determineFileName(fileName, ".reducedPodState", ioData->input.gnatPrefix, fileNameState);
+	determineFileName(fileName, ".robStateSample", ioData->input.gnatPrefix, fileNameState);
 
 	this->domain->readPodBasis(fileNameState.c_str(), nPod,
 		pod,this->ioData->rom.basisType == ModelReductionData::SNAPSHOTS);

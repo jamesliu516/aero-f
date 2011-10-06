@@ -27,6 +27,7 @@ protected:
 public:
   
   ImplicitProjErrorTsDesc(IoData &, GeoSource &, Domain *);
+  ~ImplicitProjErrorTsDesc();
 
 };
 

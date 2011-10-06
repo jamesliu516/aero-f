@@ -1,15 +1,15 @@
 #ifndef _GAPPY_STEP_2_H_
 #define _GAPPY_STEP_2_H_
 
-#include <GappyOffline.h>
+#include <GnatPreprocessing.h>
 
 template <int dim>
-class GappyOfflineOnlyPseudo : public GappyOffline<dim> {
+class GnatPreprocessingStep2 : public GnatPreprocessing<dim> {
 
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	SetOfVec podHatTmp;
 
-	bool usingSampleMesh;	// true if reading in full pod basis`
+	bool backupPlan;	// true if reading in full pod basis`
 
 	virtual void setUpGreedy();
 
@@ -34,8 +34,8 @@ class GappyOfflineOnlyPseudo : public GappyOffline<dim> {
 
 public:
 
-	GappyOfflineOnlyPseudo(Communicator *, IoData &, Domain &, DistGeoState *);
+	GnatPreprocessingStep2(Communicator *, IoData &, Domain &, DistGeoState *);
 
 };
-#include "GappyOfflineOnlyPseudo.C"
+#include "GnatPreprocessingStep2.C"
 #endif

@@ -2,11 +2,11 @@
 #define _REDUCED_MESH_SHAPE_CHANGER_H_
 
 #include <SubDomain.h>
-#include <GappyOffline.h>
+#include <GnatPreprocessing.h>
 #include <iostream>
 #include <string>
 template <int dim>
-class ReducedMeshShapeChanger : public GappyOffline<dim> {
+class ReducedMeshShapeChanger : public GnatPreprocessing<dim> {
 
 	double **xyz;	// xyz[iReducedNodes][iXYZ] is the iXYZ coordinte of the iReducedNodes node
 

@@ -6,7 +6,7 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
+ImplicitGnatTsDesc<dim>::ImplicitGnatTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom),
 	leastSquaresSolver(this->com, this->com->size(), 1)// all cpus along rows
 {
@@ -73,7 +73,7 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 }
 
 template<int dim>
-ImplicitGappyTsDesc<dim>::~ImplicitGappyTsDesc() 
+ImplicitGnatTsDesc<dim>::~ImplicitGnatTsDesc() 
 {
 	delete resMat;
 	if (numResJacMat == 2)
@@ -81,10 +81,11 @@ ImplicitGappyTsDesc<dim>::~ImplicitGappyTsDesc()
 	if (jactmp) delete [] jactmp;
 	if (column) delete [] column;
 }
+
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q) {
+void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q) {
 
 	// Evaluate residual on full mesh
 
@@ -106,7 +107,7 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
+void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
 	// Evaluate action of Jacobian on full mesh
 
@@ -128,7 +129,7 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
+void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
   // Form A * of and distribute
 
 	double t0 = this->timer->getTime();
@@ -183,14 +184,14 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
 }
 
 template<int dim>
-bool ImplicitGappyTsDesc<dim>::breakloop1(const bool breakloop) {
+bool ImplicitGnatTsDesc<dim>::breakloop1(const bool breakloop) {
 
 	return false;
 	
 }
 
 template<int dim>
-bool ImplicitGappyTsDesc<dim>::breakloop2(const bool breakloop) {
+bool ImplicitGnatTsDesc<dim>::breakloop2(const bool breakloop) {
 
 	return breakloop;
 

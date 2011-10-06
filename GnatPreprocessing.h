@@ -79,7 +79,7 @@ class StaticArray {	//used for the value of a map
 };
 
 template <int dim>
-class GappyOffline {
+class GnatPreprocessing {
 
 protected:
 
@@ -156,7 +156,7 @@ protected:
 
 	// least squares parameters
 	
-	void initializeGappyLeastSquares();
+	void initializeLeastSquares();
 
 	// distribution info
 
@@ -189,6 +189,7 @@ protected:
 		//above maps have been defined for vector entries [iSampleNode][0:j]
 	int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
 	bool outputOnlineMatricesFull, outputOnlineMatricesSample;
+	bool initializeLeastSquaresDone; 
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -255,10 +256,10 @@ protected:
 			*(&fileNameExtension));
 
 public:
-	GappyOffline(Communicator *, IoData &, Domain &, DistGeoState *);
-	~GappyOffline();
+	GnatPreprocessing(Communicator *, IoData &, Domain &, DistGeoState *);
+	~GnatPreprocessing();
 	virtual void buildReducedModel();	// build all offline info (do everything)
 
 };
-#include "GappyOffline.C"
+#include "GnatPreprocessing.C"
 #endif

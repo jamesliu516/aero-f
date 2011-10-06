@@ -73,6 +73,7 @@ protected:
 	void determineFileName(const char *fileNameInput, const char
 		*currentExtension, const char *prefix, string &fileName);
 
+	double *projVectorTmp; // temporary vector for projectVector
 public:
   
   ImplicitRomTsDesc(IoData &, GeoSource &, Domain *);

@@ -1,8 +1,8 @@
-#include <GappyOffline.h>
+#include <GnatPreprocessing.h>
 #include <TsDesc.h>
 
 template<int dim>
-GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
+GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, Domain
 		&dom, DistGeoState *_geoState) : 
 	domain(dom), 	com(_com), ioData(&_ioData), 
 	podRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
@@ -18,10 +18,11 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),
 	geoState(_geoState), X(_geoState->getXn()),
-	residual(0), jacobian(1), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true)
+	residual(0), jacobian(1), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true),
+	initializeLeastSquaresDone(false)
 {
-	// create temporary objects to build postOp, which is needed for lift
-	// surfaces
+	// create temporary objects to build postOp, which is needed for surfaces
+
 	twoLayers = ioData->gnat.layers == 2;
 	geoSourceTmp = new GeoSource(*ioData);
 	tsDescTmp = new TsDesc<dim>(*ioData, *geoSourceTmp, &domain);
@@ -43,7 +44,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	error.a[1] = &errorJac;
 
 	handledVectors[0] = 0;	// have not yet handled any vectors
-	handledVectors[1] = 0;	// have not yet handled any vectors
+	handledVectors[1] = 0;
 	nRhs[0] = 0;
 	nRhs[1] = 0;
 
@@ -82,8 +83,10 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	onlyInletOutletBC = true;	// first node should be on inlet/outlet
 }
 
+//----------------------------------------------
+
 template<int dim>
-GappyOffline<dim>::~GappyOffline() 
+GnatPreprocessing<dim>::~GnatPreprocessing() 
 {
   if (input) delete input;
 	if (postOp) delete postOp;
@@ -97,24 +100,19 @@ GappyOffline<dim>::~GappyOffline()
 
 
 }
-	//---------------------------------------------------------------------------------------
+
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::buildReducedModel() {
-	//int dbgWait = 1;
-	//
-	//if (thisCPU == 1)
-	//	dbgWait = 0;
-	//while (dbgWait == 0) {}
-	//com->barrier();
+void GnatPreprocessing<dim>::buildReducedModel() {
 
 	setUp();
 
-	// compute the reduced mesh used by Gappy POD
+	// compute the sample mesh used by Gappy POD
 
 	//======================================
 	// PURPOSE
-	// 	build reduced mesh by selecting sample globalNodes
+	// 	build sample mesh by selecting sample globalNodes
 	// INPUTS
 	// 	nPod[0], nPod[1], nSampleNodes
 	// 	full domain decomposition: pod[0], pod[1]
@@ -127,24 +125,15 @@ void GappyOffline<dim>::buildReducedModel() {
 	// nRhsMax = number of POD vectors for each interpolation node that is
 	// selected. It can be 1 to dim, where dim corresponds to interpolation.
 	//
-	// Mesh will be entirely disconnected, which makes decomposition trivial
-	// (tradeoff: possibly more (redundant) unknowns, but no communication
-	//
 	// Fix the size of PhiHat using trick 1
 	//
 	// First compute a node, then compute the associated mask
 	//
-	// First node captures the inlet boundary conditions
 	//======================================
 
 	//======================================
 	// compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
 	//======================================
-
-	//==================
-	// Option 1: build on a reduced mesh, which is currently unknown
-	// *Option 2*: build on the full mesh, which is currently known (easier, but slower computations)
-	//==================
 
 	determineSampleNodes();	// use greedy algorithm to determine sample nodes
 
@@ -177,27 +166,17 @@ void GappyOffline<dim>::buildReducedModel() {
 
 	// STRATEGY
 	// compute the mesh for the masked domain
-	// 	Advantages: can use existing data structures. Can use typical decomposition techniques (e.g. DistSVec), which will make integration with ScaLapack much easier. For connectivity, assume a bunch of "islands" which do not connect.
-	// put zeros in the pod[0], pod[1] on the masked quantities that aren't restricted
-	// don't evaluate rhat and jphihat for masked quantities that aren't restricted
-	// the association between the restricted and full domain is through the ordering of the POD basis vectors! This is all hidden in matrices A,B
+	// put zeros in the pod[0], pod[1] on unsampled nodes
+	// don't evaluate rhat and jphihat for unsampled nodes
 
-	// TRICKS
-	// 1) you can add zero rows to matrices and it will have no effect on the qr decomposition!
-
-	// ?
-	// -how to build a mesh here? can you create a new object with connectivity, decomposition, etc.?
-	// -how to specify PODData?
-
-	// INPUT NOTES
-	// nPod[1] = 0 indicates that the same basis is used for the jacobian and residual
+	// TRICK: adding zero rows to matrices has no effect on the qr decomposition
 
 } 
 
-//---------------------------------------------------------------------------------------
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::setUp() {
+void GnatPreprocessing<dim>::setUp() {
 
 	// determine whether one or two pod bases are used
 
@@ -207,27 +186,26 @@ void GappyOffline<dim>::setUp() {
 
 }
 
-//---------------------------------------------------------------------------------------
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::setUpPodResJac() {
+void GnatPreprocessing<dim>::setUpPodResJac() {
 
-	// if same file name, then use that basis
-	//
-	//
+	// use one basis if 1) same file name, or 2) podFileJac unspecified
 
-	if (strcmp(input->podFileRes,input->podFileJac)==0) 
+	if (strcmp(input->podFileRes,input->podFileJac)==0 ||
+			strcmp(input->podFileJac,"")==0) 
 		nPodBasis = 1;
 	else 
 		nPodBasis = 2;
 	
-	nPod[0] = ioData->gnat.nRobRes ;	// number of POD basis vectors 
+	nPod[0] = ioData->gnat.nRobRes; 
 	if (nPod[0] == -1)
-		nPod[0] = ioData->gnat.nRobNonlin ;	// number of POD basis vectors 
+		nPod[0] = ioData->gnat.nRobNonlin;
 
-	nPod[1] = ioData->gnat.nRobJac ;
+	nPod[1] = ioData->gnat.nRobJac;
 	if (nPod[1] == -1)
-		nPod[1] = ioData->gnat.nRobNonlin ;	// number of POD basis vectors 
+		nPod[1] = ioData->gnat.nRobNonlin;
 
 	int podFiles [2] = {0, 1};	// which pod files should be read
 
@@ -240,8 +218,8 @@ void GappyOffline<dim>::setUpPodResJac() {
 		podFiles[1]= -1;	// do not read the file for the Jacobian
 	}
 
-	if (ioData->gnat.robGreedy == GNATData::UNSPECIFIED_GREEDY || ioData->gnat.robGreedy ==
-			GNATData::BOTH_GREEDY) {
+	if (ioData->gnat.robGreedy == GNATData::UNSPECIFIED_GREEDY ||
+			ioData->gnat.robGreedy == GNATData::BOTH_GREEDY) {
 		errorBasis[0] = 0;
 		errorBasis[1] = nPodBasis-1;
 	}
@@ -258,21 +236,22 @@ void GappyOffline<dim>::setUpPodResJac() {
 
 }
 
-//---------------------------------------------------------------------------------------
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::setUpPseudoInverse() {
+void GnatPreprocessing<dim>::setUpPseudoInverse() {
 
 	// compute pod[0]^Tpod[1] (so you can delete these from memory sooner)
 	if (nPodBasis == 2)
 		computePodTPod();
 
+	initializeLeastSquares();	// no least squares the first greedy it
 }
 
-//---------------------------------------------------------------------------------------
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::setUpGreedy() {
+void GnatPreprocessing<dim>::setUpGreedy() {
 
 	//==================================================================
 	// PURPOSE: compute number of POD basis vectors (nRhsMax) and globalNodes and handled by each
@@ -286,10 +265,6 @@ void GappyOffline<dim>::setUpGreedy() {
 	// 	(nRhsMax is 1)
 	//==================================================================
 	
-	//==================================================================
-	// 	1) require nPodGreedy < nSampleNodes * dim to avoid underdetermined system
-	//==================================================================
-
 	nPodGreedy = ioData->gnat.nRobGreedy;
 	if (nPodGreedy == 0 || nPodGreedy > nPodMax)
 		nPodGreedy = nPodMax;
@@ -301,7 +276,7 @@ void GappyOffline<dim>::setUpGreedy() {
 			sampleNodeFactor = 2.0;
 		nSampleNodes = static_cast<int>(ceil(double(nPodMax *
 						sampleNodeFactor)/double(dim)));
-		// this will give interpolation or the smallest possible least squares
+			// this will give interpolation or the smallest possible least squares
 	}
 
 	if (nSampleNodes * dim < nPodGreedy) {	
@@ -312,7 +287,7 @@ void GappyOffline<dim>::setUpGreedy() {
 
 	nRhsMax = static_cast<int>(ceil(double(nPodGreedy)/double(nSampleNodes))); // nSampleNodes * nRhsMax >= max(nPod[0],nPod[1])
 
-	// the following should always hold !this should always be true because of the above fix (safeguard)!
+	// the following should always hold because of the above fix (safeguard)
 	
 	if (nRhsMax > dim) {
 		com->fprintf(stderr,"Warning: nRhsMax > dim. More nodes should have been added.");
@@ -342,7 +317,7 @@ void GappyOffline<dim>::setUpGreedy() {
 		}
 	}
 
-	// initialize restricted pod basis and error vectors
+	// initialize sampled pod basis and error vectors
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
 		podHat[iPodBasis].resize(nPod[iPodBasis]);
@@ -355,14 +330,13 @@ void GappyOffline<dim>::setUpGreedy() {
 	// initialize the least squares problems
 	//===============================================
 	
-	if (nGreedyIt > 1)
-		initializeGappyLeastSquares();	// no least squares the first greedy it
+	initializeLeastSquares();	// no least squares the first greedy it
 }
 
-//---------------------------------------------------------------------------------------
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
+void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
 		locSub, const int locNode, const int globalNode) {
 
 	//===============================================
@@ -388,11 +362,11 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
 	for (int i=0; i<3; ++i)
 		xyz[i]=0.0;
 
-	// ensure only ONE cpu enters this loop
+	// ensure only one cpu enters this loop
 
-	int cpuHasMaxVal = 0;	// indicates if CPU ha
+	int cpuHasMaxVal = 0;	// indicates if CPU has max value
 	int cpuNumWithMaxVal = nTotCpus;
-	if (myMaxNorm == globalMaxNorm) {  // if this CPU has the maximum value
+	if (myMaxNorm == globalMaxNorm) {
 		cpuHasMaxVal = 1;
 		cpuNumWithMaxVal = thisCPU;
 	}
@@ -413,7 +387,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
 		assert(locSubTemp!=-1 && locNodeTemp !=-1 && globalNodeTemp != -1);
 		computeXYZ(locSub, locNode, xyz);
 
-		// fill out restricted matrices (all columns for the current rows)
+		// fill out sampled matrices (all columns for the current rows)
 
 		SubDomainData<dim> locPod, locPodHat;
 
@@ -422,7 +396,8 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
 				locPod = pod[iPodBasis][iPod].subData(locSub);	// cannot access iDim entry
 				locPodHat = podHat[iPodBasis][iPod].subData(locSub);
 				for (int iDim = 0; iDim < dim ; ++iDim) {
-					locPodHat[locNode][iDim] = locPod[locNode][iDim];	// zeros everywhere except at the chosen sample nodes
+					locPodHat[locNode][iDim] = locPod[locNode][iDim];
+						// zeros everywhere except at sample nodes
 				}
 			}
 		}
@@ -450,19 +425,23 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
 
 	// define maps for SAMPLE nodes
 	
-	globalSampleNodeRankMap.insert(pair<int, int > (globalNodeTemp, handledNodes));
-	globalNodeToCpuMap.insert(pair<int, int > (globalNodeTemp, cpuTemp));
-	globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalNodeTemp, locSubTemp));
-	globalNodeToLocalNodesMap.insert(pair<int, int > (globalNodeTemp, locNodeTemp));
-	StaticArray<double, 3> XYZ(xyz); 
-	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeTemp, XYZ));
+	globalSampleNodeRankMap.insert(pair<int, int > (globalNodeTemp,
+				handledNodes)); globalNodeToCpuMap.insert(pair<int, int >
+				(globalNodeTemp, cpuTemp));
+	globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalNodeTemp,
+				locSubTemp)); globalNodeToLocalNodesMap.insert(pair<int, int >
+				(globalNodeTemp, locNodeTemp)); StaticArray<double, 3> XYZ(xyz);
+	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeTemp,
+				XYZ));
 
 	++handledNodes;
 
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::determineSampleNodes() {
+void GnatPreprocessing<dim>::determineSampleNodes() {
 
 	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt)  {
 		com->fprintf(stderr,"... greedy iteration %d ...\n", greedyIt);
@@ -474,7 +453,8 @@ void GappyOffline<dim>::determineSampleNodes() {
 		if (nRhsGreedy[iPodBasis]) delete [] nRhsGreedy[iPodBasis];
 	}
 
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){	// pod no longer needed
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
+		// pod no longer needed
 		pod[iPodBasis].resize(0);
 		error[iPodBasis].resize(0);
 	}
@@ -487,13 +467,14 @@ void GappyOffline<dim>::determineSampleNodes() {
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::greedyIteration(int greedyIt) {
+void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
 
 	// Differences for 1st iteration compared with other greedy iterations:
 	// 1) no least squares problem is solved (just take the maximum entry)
 	// 2) look at the inlet face to ensure boundary condition is handled
-	//
 
 	double myMaxNorm;
 	int locSub, locNode, globalNode;  // temporary global subdomain and local node
@@ -501,7 +482,7 @@ void GappyOffline<dim>::greedyIteration(int greedyIt) {
 	bool doLeastSquares = true;
 
 	if (greedyIt == 0) {	
-		doLeastSquares = false;// don't do least squares if first iteration
+		doLeastSquares = false;	// don't do least squares if first iteration
 	}
 
 	// determine number of rhs for each
@@ -512,7 +493,7 @@ void GappyOffline<dim>::greedyIteration(int greedyIt) {
 	assert(max(nRhs[0],nRhs[1]) > 0);		// must have at least one RHS
 
 	if (doLeastSquares) {
-		leastSquaresReconstruction();		// solve the least squares reconstruction
+		leastSquaresReconstruction();		// solve the least-squares reconstruction
 	}
 
 	for (int iFillNode = 0; iFillNode < nodesToHandle[greedyIt]; ++iFillNode) {	// fill up the appropriate number of nodes
@@ -549,21 +530,26 @@ void GappyOffline<dim>::greedyIteration(int greedyIt) {
 
 }
 
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::initializeGappyLeastSquares() {
+void GnatPreprocessing<dim>::initializeLeastSquares() {
 
 	// initialize least squares problems
 	// TODO: only allocate memory for required columns!
+	if (initializeLeastSquaresDone == true) return;
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
 		parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis], nPodGreedy);
 	}
 
+	initializeLeastSquaresDone = true;
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::makeNodeMaxIfUnique(double nodeError, double
+void GnatPreprocessing<dim>::makeNodeMaxIfUnique(double nodeError, double
 		&myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int
 		&globalNode) {
 
@@ -603,8 +589,10 @@ void GappyOffline<dim>::makeNodeMaxIfUnique(double nodeError, double
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError) {
+void GnatPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError) {
 
 	// PURPOSE: compute the sum of squares of node error for all RHS, both bases
 	// 	at the locNodeNum node
@@ -627,8 +615,11 @@ void GappyOffline<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, do
 	 }
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::getSubDomainError(int iSub) {
+void GnatPreprocessing<dim>::getSubDomainError(int iSub) {
+
 	// INPUT 
 	// 	Passed: iSub
 	// 	Global: nPodBasis, error
@@ -644,14 +635,16 @@ void GappyOffline<dim>::getSubDomainError(int iSub) {
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::leastSquaresReconstruction() {
+void GnatPreprocessing<dim>::leastSquaresReconstruction() {
 
 	// PURPOSE: compute least squares reconstruction error of the pod basis
 	// vectors
 	// INPUT
 	// 	Global: nPodBasis, nRhs, error, podHat, error
-	//
+
 	double ** (lsCoeff[2]);
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
 		lsCoeff[iPodBasis] = new double * [ nRhs[iPodBasis] ];
@@ -672,13 +665,15 @@ void GappyOffline<dim>::leastSquaresReconstruction() {
 			}
 		}
 		for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs)  
-			delete [] lsCoeff[iPodBasis][iRhs];
-		delete [] lsCoeff[iPodBasis];
+			if (lsCoeff[iPodBasis][iRhs]) delete [] lsCoeff[iPodBasis][iRhs];
+		if (lsCoeff[iPodBasis]) delete [] lsCoeff[iPodBasis];
 
 	}
 }
 
-template<int dim> void GappyOffline<dim>::subDFindMaxError(int iSub, bool
+//----------------------------------------------
+
+template<int dim> void GnatPreprocessing<dim>::subDFindMaxError(int iSub, bool
 		onlyInletOutletBC, double &myMaxNorm, int &locSub, int &locNode, int
 		&globalNode) {
 
@@ -721,21 +716,25 @@ template<int dim> void GappyOffline<dim>::subDFindMaxError(int iSub, bool
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
+void GnatPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 
 	bool lsCoeffAllCPU = true; // all cpus need solution
 	parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
 			handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff, lsCoeffAllCPU);
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::buildRemainingMesh() {
+void GnatPreprocessing<dim>::buildRemainingMesh() {
 
 	// globalNodes[iIsland][0] is the sample node itself 
 	// globalNodes[iIsland][iNode] is the iNode neighbor of iIsland.
 
-	// quantities for entire reduced mesh (not just sample nodes)
+	// quantities for entire sample mesh (not just sample nodes)
 
 	globalNodes = new std::vector <int> [nSampleNodes];
 	cpus = new std::vector <int> [nSampleNodes];
@@ -799,14 +798,16 @@ void GappyOffline<dim>::buildRemainingMesh() {
 	computeBCFaces(false);	// compute BC faces already in mesh
 	communicateBCFaces();
 
-	nReducedNodes = globalNodes[0].size();	// number of nodes in the reduced mesh
+	nReducedNodes = globalNodes[0].size();	// number of nodes in the sample mesh
 
-	delete [] nodeOffset; 
+	if (nodeOffset) delete [] nodeOffset; 
 
 } 
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::addSampleNodesAndNeighbors() {
+void GnatPreprocessing<dim>::addSampleNodesAndNeighbors() {
 
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
 		com->fprintf(stderr," ... adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
@@ -829,8 +830,10 @@ void GappyOffline<dim>::addSampleNodesAndNeighbors() {
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0) {
+void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0) {
 
 	// add all global neighbor globalNodes/elements in the iIslands row of and elements to the iIsland node set
 	
@@ -901,10 +904,12 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 	}
 }
 
-template<int dim>
-void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
+//----------------------------------------------
 
-	// PURPOSE: determine which faces of the reduced mesh are on the boundary
+template<int dim>
+void GnatPreprocessing<dim>::computeBCFaces(bool liftContribution) {
+
+	// PURPOSE: determine which faces of the sample mesh are on the boundary
 	// INPUT: liftContribution (true: adding faces contributing to lift; false:
 	//   adding other BC faces)
 	// ASSUME: call with liftContribution = true first!
@@ -912,7 +917,6 @@ void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
 	// NOTE: this is done in parallel; thus, a communication is needed to make
 	// sure all cpus have the same copy
 		// determine if any faces are boundary conditions
-		// KTC: how to check which faces are attached to an element???
 
 	int faceBCCode = 0;
 	bool includeFace;
@@ -925,7 +929,7 @@ void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
 			int codeIsPos = faceBCCode >0;
 			if (faceBCCode != 0) {
 				
-				// check if the face is in the reduced mesh
+				// check if the face is in the sample mesh
 				 if (liftContribution && includeLiftFaces > 0) {	// including lift faces
 					 includeFace = checkFaceContributesToLift(currentFaces,
 							 iFace, iSub, locToGlobNodeMap);
@@ -962,8 +966,10 @@ void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::communicateAll() {
+void GnatPreprocessing<dim>::communicateAll() {
 
 	domain.communicateMesh(globalNodes, nSampleNodes, totalNodesCommunicated);
 	domain.communicateMesh(cpus, nSampleNodes, totalNodesCommunicated);
@@ -982,8 +988,10 @@ void GappyOffline<dim>::communicateAll() {
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::defineMaps() {
+void GnatPreprocessing<dim>::defineMaps() {
 
 	// defines nodesXYZmap and elemToNodeMap
 
@@ -1041,8 +1049,10 @@ for (int i = 0; i < 3; ++i)
 
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::communicateBCFaces(){
+void GnatPreprocessing<dim>::communicateBCFaces(){
 	
 	int BC_CODE_EXTREME = max(BC_MAX_CODE, -BC_MIN_CODE)+1;
 
@@ -1054,12 +1064,13 @@ void GappyOffline<dim>::communicateBCFaces(){
 	}
 }
 
+//----------------------------------------------
 
 template<int dim>
-bool GappyOffline<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap){
+bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap){
 
-	// PURPOSE: determine wheteher or not currentFace is in the reduced mesh
-	// OUTPUT: faceInMesh = true if the face is in the reduced mesh
+	// PURPOSE: determine wheteher or not currentFace is in the sample mesh
+	// OUTPUT: faceInMesh = true if the face is in the sample mesh
 
 	bool faceInMesh = false;
 	bool faceSomewhereInMesh;
@@ -1121,14 +1132,16 @@ bool GappyOffline<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, 
 		faceInMesh = true;
 	}
 	
-	delete [] globalNodeNum;
-	delete [] nodeSomewhereInMesh;
+	if (globalNodeNum) delete [] globalNodeNum;
+	if (nodeSomewhereInMesh) delete [] nodeSomewhereInMesh;
 
 	return faceInMesh;
 }
 
+//----------------------------------------------
+
 template<int dim>
-bool GappyOffline<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
+bool GnatPreprocessing<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
 		iSub, const int iFace){
 	bool includeFace;
 	std::set<StaticArray <int, 3> >::iterator bcFacesInfoIt;	// {iCPU,iSub,iFace}
@@ -1142,18 +1155,22 @@ bool GappyOffline<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
 	return includeFace;
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::addFaceNodesElements(FaceSet&
+void GnatPreprocessing<dim>::addFaceNodesElements(FaceSet&
 		currentFaces, const int iFace, const int iSub, const int
 		*locToGlobNodeMap){
 	int *locNodeNums = new int [currentFaces[iFace].numNodes()];
 	addNodesOnFace(currentFaces, iFace, iSub, locToGlobNodeMap, locNodeNums);// add nodes
 	addElementOfFace(currentFaces, iFace, iSub, locToGlobNodeMap, locNodeNums);
-	delete [] locNodeNums ;
+	if (locNodeNums) delete [] locNodeNums ;
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::addNodesOnFace(FaceSet&
+void GnatPreprocessing<dim>::addNodesOnFace(FaceSet&
 		currentFaces, const int iFace, const int iSub, const int
 		*locToGlobNodeMap, int *locNodeNums = NULL){
 	// output: locNodeNums
@@ -1180,8 +1197,10 @@ void GappyOffline<dim>::addNodesOnFace(FaceSet&
 
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::addElementOfFace(FaceSet&
+void GnatPreprocessing<dim>::addElementOfFace(FaceSet&
 		currentFaces, const int iFace, const int iSub, const int
 		*locToGlobNodeMap, const int *locNodeNums){
 
@@ -1261,11 +1280,13 @@ void GappyOffline<dim>::addElementOfFace(FaceSet&
 		}
 	}
 
-	delete nodeToEle;
+	if (nodeToEle) delete nodeToEle;
 }
 
+//----------------------------------------------
+
 template<int dim>
-bool GappyOffline<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFace, const int iSub, const int *locToGlobNodeMap ){
+bool GnatPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFace, const int iSub, const int *locToGlobNodeMap ){
 
 	bool faceContributesToLift;
 	map<int, int> surfOutMap = postOp->getSurfMap();
@@ -1283,14 +1304,6 @@ bool GappyOffline<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFa
 	}
 	else
 		idx = -1;
-	/*else {	// include face if it is on any moving wall (perhaps remove)
-		if(faces[iFace].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
-				faces[iFace].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-				faces[iFace].getCode() == BC_SLIP_WALL_MOVING)
-			idx = 0;
-		else
-			idx = -1;
-	}*/
 
 	if(idx >= 0) 
 		faceContributesToLift = true;
@@ -1299,10 +1312,11 @@ bool GappyOffline<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFa
 	return faceContributesToLift; 
 
 }
-//---------------------------------------------------------------------------------------
+
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::outputTopFile() {
+void GnatPreprocessing<dim>::outputTopFile() {
 
 	com->fprintf(stderr," ... Writing TOP file ...\n");
 
@@ -1315,7 +1329,7 @@ void GappyOffline<dim>::outputTopFile() {
 	char *outMeshFile = new char[sp + strlen(fileName)+ strlen(fileNameExtension) +1];
 	if (thisCPU == 0) sprintf(outMeshFile, "%s%s%s", ioData->output.rom.prefix, fileName, fileNameExtension);
 	FILE *reducedMesh;
-	if (thisCPU == 0) reducedMesh = fopen(outMeshFile, "w");
+	if (thisCPU == 0) reducedMesh = fopen(outMeshFile, "wt");
 
 	// write out globalNodes
 
@@ -1333,7 +1347,7 @@ void GappyOffline<dim>::outputTopFile() {
 	for (int j = 0; j < nReducedNodes; ++j) {
 
 		// compute xyz position of the node
-		globalNodeNum = globalNodes[0][j];	// global node numbers on reduced mesh have been sorted in increasing order
+		globalNodeNum = globalNodes[0][j];	// global node numbers on sample mesh have been sorted in increasing order
 		xyzVals = nodesXYZmap.find(globalNodeNum)->second;
 		com->fprintf(reducedMesh, "%d %8.15e %8.15e %8.15e \n", j+1, xyzVals[0], xyzVals[1], xyzVals[2]);	
 
@@ -1344,7 +1358,7 @@ void GappyOffline<dim>::outputTopFile() {
 		std::map<int, int>::const_iterator sampleNodeMapLoc = globalSampleNodeRankMap.find(globalNodeNum);
 		if ( sampleNodeMapLoc != globalSampleNodeRankMap.end()) {
 			int globalNodeRank = sampleNodeMapLoc->second;
-			reducedSampleNodes[globalNodeRank] = j;	// the globalNodeRank sample node is node j in reduced mesh
+			reducedSampleNodes[globalNodeRank] = j;	// the globalNodeRank sample node is node j in sample mesh
 			reducedSampleNodeRankMap.insert(pair<int,int>( j , globalNodeRank));
 		}
 	}
@@ -1411,34 +1425,39 @@ void GappyOffline<dim>::outputTopFile() {
 		}
 	}
 
-	delete [] outMeshFile;
+	if (thisCPU == 0) fclose(reducedMesh);
+	if (outMeshFile) delete [] outMeshFile;
 
 	for (int i = 0; i < 2; ++i) {
-		for (int j = 0; j < 3; ++j)
-			delete [] bcFaces[i][j];
-		delete [] bcFaceSurfID[i];
+		for (int j = 0; j < 3; ++j) {
+			if (bcFaces[i][j]) delete [] bcFaces[i][j];
+		}
+		if (bcFaceSurfID[i]) delete [] bcFaceSurfID[i];
 	}
 	if (elements) delete [] elements;
-
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputSampleNodes() {
+void GnatPreprocessing<dim>::outputSampleNodes() {
 
-	// write out sample node numbers in reduced mesh node numbering system
+	// write out sample node numbers in sample mesh node numbering system
 
-	com->fprintf(stderr," ... Writing sample node file with respect to reduced mesh...\n");
+	com->fprintf(stderr," ... writing sample node file with respect to sample mesh...\n");
 	outputSampleNodesGeneral(reducedSampleNodes,ioData->output.rom.sampleNodes,".sampleNodes");
 
-	com->fprintf(stderr," ... Writing sample node file with respect to full mesh...\n");
+	com->fprintf(stderr," ... writing sample node file with respect to full mesh...\n");
 	outputSampleNodesGeneral(globalSampleNodes,ioData->output.rom.sampleNodesFull,".sampleNodesFull");
 
 	reducedSampleNodes.resize(0);
 	globalSampleNodes.resize(0);
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile,const char *sampleNodeFileExtension) {
+void GnatPreprocessing<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile,const char *sampleNodeFileExtension) {
 
 	const char *fileName;
 	const char *fileNameExtension;
@@ -1457,12 +1476,14 @@ void GappyOffline<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleN
 	}
 
 	delete [] outSampleNodeFile;
+	if (thisCPU == 0) fclose(writingFile);
 
 }
 
-//---------------------------------------------------------------------------------------
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
+void GnatPreprocessing<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 	
 	// input: iSub, iLocNode
 	// output: x,y,z coordinates of the iLocNode located on iSub
@@ -1471,13 +1492,10 @@ void GappyOffline<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 	for (int i = 0; i < 3; ++i) xyz[i] = Xsub[iLocNode][i];	
 }
 
-//---------------------------------------------------------------------------------------
-
-
-//---------------------------------------------------------------------------------------
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
+void GnatPreprocessing<dim>::computePseudoInverse(int iPodBasis) {
 
 //======================================
 // Purpose
@@ -1505,7 +1523,7 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 		pseudoInvRhs[iRhs] = 0.0;
 
 	if (thisCPU == 0) {
-		podHatPseudoInv[iPodBasis] = new double * [nSampleNodes * dim] ;	// TODO: only on CPU = 0
+		podHatPseudoInv[iPodBasis] = new double * [nSampleNodes * dim] ;
 		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)  
 			podHatPseudoInv[iPodBasis][iRhs] = new double [nPod[iPodBasis] ] ;
 	}
@@ -1527,14 +1545,14 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 			}
 		}
 		iVector += dim;
-
+		com->barrier();	// temporary debugging
 		// compute part of pseudo-inverse
 
 		if (thisCPU == 0)	// directly store computed value on cpu 0
 			podHatPseudoInvTmp = podHatPseudoInv[iPodBasis]+nHandledVectors;
 
 		if (((iSampleNodes + 1)  % nNodesAtATime == 0 && !lastTime) || iSampleNodes == nSampleNodes - 1) {
-			com->fprintf(stderr," computing Pseudo Inverse at sample node %d of %d \n", iSampleNodes+1, nSampleNodes);
+			com->fprintf(stderr," computing pseudo inverse at sample node %d of %d \n", iSampleNodes+1, nSampleNodes);
 			parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
 					nPod[iPodBasis], numRhs, podHatPseudoInvTmp, false);
 
@@ -1557,15 +1575,16 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 	if (thisCPU == 0 && iPodBasis == 0) {
 		podHatPseudoInv[1] = podHatPseudoInv[0];
 	}
-
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::computePseudoInverse() {
+void GnatPreprocessing<dim>::computePseudoInverse() {
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
 		computePseudoInverse(iPodBasis);
-	//checkConsistency();	// TODO: remove
+	//checkConsistency();	// debugging check
 
 	// podHat no longer needed
 
@@ -1573,10 +1592,11 @@ void GappyOffline<dim>::computePseudoInverse() {
 		podHat[iPodBasis].resize(0);
 
 }
-//---------------------------------------------------------------------------------------
+
+//----------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::computePodTPod() {
+void GnatPreprocessing<dim>::computePodTPod() {
 
 	// podTpod is nPod[1] x nPod[0] array
 	//
@@ -1600,8 +1620,10 @@ void GappyOffline<dim>::computePodTPod() {
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::assembleOnlineMatrices() {
+void GnatPreprocessing<dim>::assembleOnlineMatrices() {
 
 	// Purpose: assemble matrices that are used online
 	// Inputs: podHatPseudoInv, podTpod
@@ -1631,26 +1653,27 @@ void GappyOffline<dim>::assembleOnlineMatrices() {
 		}
 		// no longer need podTpod
 
-		for (int i = 0; i < nPod[1]; ++i)
+		for (int i = 0; i < nPod[1]; ++i) {
 			if (podTpod[i]) delete [] podTpod[i];
+		}
 		if (podTpod) delete [] podTpod;
 	}
-
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputOnlineMatrices() {
+void GnatPreprocessing<dim>::outputOnlineMatrices() {
 
 	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
-	// DistSVec defined on the reduced mesh. Each column in this VecSet
+	// DistSVec defined on the sample mesh. Each column in this VecSet
 	// corresponds to a row of A or B.
 
 	outputReducedToFullNodes();
 
 	com->fprintf(stderr," ... Writing online matrices ...\n");
 
-	// reduced mesh
-	/// KTC TODOif (ioData->output.rom.onlineMatrix[0] != 0)
+	// sample mesh
 	if (ioData->output.rom.onlineMatrix[0] != 0 || outputOnlineMatricesSample) 
 	outputOnlineMatricesGeneral(ioData->output.rom.onlineMatrix,
 			nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
@@ -1671,29 +1694,32 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	if (nPodBasis == 2) {	// only need to delete memory if 2 POD bases 
 												// (see assembleOnlineMatrices)
 		if (onlineMatrices[0]) {
-			for (int i = 0; i < nSampleNodes * dim; ++i)  
+			for (int i = 0; i < nSampleNodes * dim; ++i) {
 				if (onlineMatrices[0][i]) delete [] onlineMatrices[0][i];
-			delete [] onlineMatrices[0];
+			}
+			if (onlineMatrices[0]) delete [] onlineMatrices[0];
 		}
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputStateReduced() {
+void GnatPreprocessing<dim>::outputStateReduced() {
 	//INPUTS
 	// ioData, nReducedNodes, domain
 	// needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
 	// globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
 
-	com->fprintf(stderr," ... Writing POD state and initial condition in reduced mesh coordinates ...\n");
+	com->fprintf(stderr," ... Writing POD state and initial condition in sample mesh coordinates ...\n");
 	int sp = strlen(ioData->output.rom.prefix);
 	const char *fileName;
 	const char *fileNameExtension;
-	determineFileName(ioData->output.rom.podStateRed, ".reducedPodState",fileName,fileNameExtension);
+	determineFileName(ioData->output.rom.podStateRed, ".robStateSample",fileName,fileNameExtension);
 	char *outPodStateFile= new char[sp + strlen(fileName) + strlen(fileNameExtension)+1];
 	const char *fileName2;
 	const char *fileNameExtension2;
-	determineFileName(ioData->output.rom.solution, ".ss.sol",fileName2,fileNameExtension2);
+	determineFileName(ioData->output.rom.solution, ".sol",fileName2,fileNameExtension2);
 	char *outInitialConditionFile= new char[sp + strlen(fileName2) + strlen(fileNameExtension2)+1];
 	if (thisCPU ==0) sprintf(outPodStateFile, "%s%s%s", ioData->output.rom.prefix, fileName,fileNameExtension);
 	if (thisCPU ==0) sprintf(outInitialConditionFile, "%s%s%s", ioData->output.rom.prefix, fileName2, fileNameExtension2);
@@ -1712,7 +1738,7 @@ void GappyOffline<dim>::outputStateReduced() {
 	double tmp;
 	domain.readVectorFromFile(ioData->input.solutions, 0, &tmp, *initialCondition);
 	outputReducedSVec(*initialCondition,outInitialCondition,0);
-	delete initialCondition;
+	if (initialCondition) delete initialCondition;
 
 	// note: need to output the first POD basis vector twice
 
@@ -1727,20 +1753,24 @@ void GappyOffline<dim>::outputStateReduced() {
 	for (int iPod = 0; iPod < nPodState; ++iPod) {	// # rows in A and B
 		outputReducedSVec((*podState)[iPod],outPodState,iPod);
 	}
-	delete podState;
+	if (podState) delete podState;
 
-	delete [] outInitialConditionFile;
-	delete [] outPodStateFile;
+	if (outInitialConditionFile) delete [] outInitialConditionFile;
+	if (outPodStateFile) delete [] outPodStateFile;
+	if (thisCPU == 0) fclose(outPodState);
+	if (thisCPU == 0) fclose(outInitialCondition );
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
+void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
 		&distSVec, FILE* outFile , int iVector) {
 
 	// INPUTS: vector, output file name, vector index
 	// globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
-	com->barrier();	// temporary debugging
+	com->barrier();
 	com->fprintf(outFile,"%d\n", iVector);
 
 	// save the reduced node number for the sample node
@@ -1767,12 +1797,14 @@ void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputWallDistanceReduced() {
+void GnatPreprocessing<dim>::outputWallDistanceReduced() {
 	// INPUTS: geoState, ioData, nReducedNodes
 	// needed by outputReducedVec: globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
-	com->fprintf(stderr," ... Writing wall distance for reduced mesh ...\n");
+	com->fprintf(stderr," ... Writing wall distance for sample mesh ...\n");
 
 	// load in wall distance
 
@@ -1799,11 +1831,14 @@ void GappyOffline<dim>::outputWallDistanceReduced() {
 	com->fprintf(outWallDist,"%d\n", nReducedNodes);
 	outputReducedVec(d2wallOutput,outWallDist,0);
 
-	delete [] outWallDistFile;
+	if (outWallDistFile) delete [] outWallDistFile;
+	if (thisCPU == 0) fclose(outWallDist);
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
+void GnatPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
 
 	com->fprintf(outFile,"%d\n", iVector);
 
@@ -1825,8 +1860,10 @@ void GappyOffline<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* o
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputReducedToFullNodes() {
+void GnatPreprocessing<dim>::outputReducedToFullNodes() {
 
 	int sp = strlen(ioData->output.rom.prefix);
 
@@ -1842,11 +1879,16 @@ void GappyOffline<dim>::outputReducedToFullNodes() {
 	for (int j = 0; j < globalNodes[0].size(); ++j) {
 		com->fprintf(outMesh,"%d \n", globalNodes[0][j]+1);
 	}
-
+	if (thisCPU == 0) fclose(outMesh);
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::checkConsistency() { 	//TODO: remove
+void GnatPreprocessing<dim>::checkConsistency() {
+
+	// PURPOSE: debugging
+
 	int numRhs = nSampleNodes * dim;	// number of RHS treated
 	double **consistency = new double * [numRhs];
 	for (int i = 0; i < numRhs; ++i)
@@ -1886,14 +1928,17 @@ void GappyOffline<dim>::checkConsistency() { 	//TODO: remove
 		int asdf = 0;
 	}
 
-	for (int i = 0; i < numRhs; ++i)
-		delete [] consistency[i];
-	delete [] consistency;
+	for (int i = 0; i < numRhs; ++i) {
+		if (consistency[i]) delete [] consistency[i];
+	}
+	if (consistency) delete [] consistency;
 
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
+void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(const char
 		*onlineMatricesName, int numNodes,
 		const std::map<int,int> &sampleNodeMap, const std::vector<int>
 		&sampleNodeVec) {
@@ -1949,21 +1994,25 @@ void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 				}
 
 				for (int iDim = 0; iDim < dim; ++iDim) { 
-					if (isSampleNode)
+					if (isSampleNode) {
 						com->fprintf(onlineMatrix,"%8.15e ",
 							onlineMatrices[iPodBasis][sampleNodeRank * dim + iDim][iPod]);
+					}
 					else // must output zeros if it is not a sample node
 						com->fprintf(onlineMatrix,"%8.15e ", 0.0);
 				}
 				com->fprintf(onlineMatrix,"\n");
 			}
 		}
-		delete [] onlineMatrixFile;
+		if (onlineMatrixFile) delete [] onlineMatrixFile;
+		if (thisCPU == 0) fclose(onlineMatrix);
 	}
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::readInPodResJac() {
+void GnatPreprocessing<dim>::readInPodResJac() {
 
 	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
 		pod[i].resize(nPod[i]);
@@ -1971,7 +2020,6 @@ void GappyOffline<dim>::readInPodResJac() {
 
 	//	read in both bases
 	com->fprintf(stderr, " ... Reading POD bases for the residual and/or Jacobian ...\n");
-  //domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
 
 	domain.readPodBasis(input->podFileRes, nPod[0],pod[0]);	// always read in basis for residual
 
@@ -1981,8 +2029,10 @@ void GappyOffline<dim>::readInPodResJac() {
 
 }
 
+//----------------------------------------------
+
 template<int dim>
-void GappyOffline<dim>::determineFileName(const char *fileNameInput, const char
+void GnatPreprocessing<dim>::determineFileName(const char *fileNameInput, const char
 		*currentExtension, const char *(&fileNameBase), const char
 		*(&fileNameExtension)) {
 
