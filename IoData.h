@@ -271,7 +271,6 @@ struct ROMOutputData {
 
   const char *prefix;
 
-  const char *solution;
   const char *newtonresiduals;
   const char *jacobiandeltastate;
   const char *reducedjac;
@@ -284,6 +283,8 @@ struct ROMOutputData {
   const char *sampleNodes;
   const char *onlineMatrix;
   const char *podStateRed;
+  const char *podNonlinRed;
+  const char *solution;
   const char *wallDistanceRed;
   const char *staterom;
   const char *error;
@@ -1729,6 +1730,7 @@ struct ModelReductionData {
 	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1,
 		COLLOCATION = 2, BROYDEN = 3} systemApproximation;
 	enum BasisType {POD = 0, SNAPSHOTS = 1, BASIS_TYPE_NONE = 2} basisType;
+	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1} lsSolver;
 
 	int dimension;	// used by all nonlinear ROMs
 	int dimensionROBJacobian;	// used by GNAT

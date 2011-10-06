@@ -2,7 +2,9 @@
 
 template<int dim>
 ImplicitProjErrorTsDesc<dim>::ImplicitProjErrorTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  ImplicitRomTsDesc<dim>(ioData, geoSource, dom), Uold(dom->getNodeDistInfo()), Unew(dom->getNodeDistInfo()), dUtrue(dom->getNodeDistInfo()), dUproj(dom->getNodeDistInfo()), dUerr(dom->getNodeDistInfo()) {
+	ImplicitRomTsDesc<dim>(ioData, geoSource, dom), Uold(dom->getNodeDistInfo()),
+	Unew(dom->getNodeDistInfo()), dUtrue(dom->getNodeDistInfo()),
+	dUproj(dom->getNodeDistInfo()), dUerr(dom->getNodeDistInfo()) {
 
 		// assume vectors are orthonormal if not a snapshot basis
 		snapshotBasis = (this->ioData->rom.basisType == 0);
@@ -23,11 +25,17 @@ ImplicitProjErrorTsDesc<dim>::ImplicitProjErrorTsDesc(IoData &ioData, GeoSource 
 			this->jac.factor();
 		}
 
+		this->projVectorTmp = new double [this->nPod];
 
 }
 
-//------------------------------------------------------------------------------
+template<int dim>
+ImplicitProjErrorTsDesc<dim>::~ImplicitProjErrorTsDesc(){
 
+	if (this->projVectorTmp) delete [] this->projVectorTmp;
+
+}
+//------------------------------------------------------------------------------
 
 template<int dim>
 void ImplicitProjErrorTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {

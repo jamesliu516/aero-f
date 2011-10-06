@@ -11,7 +11,7 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-class ImplicitGappyTsDesc : public ImplicitRomTsDesc<dim> {
+class ImplicitGnatTsDesc : public ImplicitRomTsDesc<dim> {
 
 protected:
 
@@ -23,7 +23,6 @@ protected:
 	bool performRestriction;
 	int nSampleNodes, nPodJac;	//nPodJac specified under ROB{ NumROB2 }
 	std::vector<int> sampleNodes;
-	double sampleNodeFactor;
 	const char *gnatPrefix;
 
 	int numResJacMat ;	// number of matrices for A and B (1 if they use the same)
@@ -47,15 +46,15 @@ protected:
 	double *jactmp, *column;
 public:
   
-  ImplicitGappyTsDesc(IoData &, GeoSource &, Domain *);
-  ~ImplicitGappyTsDesc();
+  ImplicitGnatTsDesc(IoData &, GeoSource &, Domain *);
+  ~ImplicitGnatTsDesc();
 
 };
 
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX
-#include <ImplicitGappyTsDesc.C>
+#include <ImplicitGnatTsDesc.C>
 #endif
 
 #endif

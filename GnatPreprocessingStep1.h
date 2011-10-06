@@ -1,10 +1,10 @@
 #ifndef _GAPPY_STEP_1_H_
 #define _GAPPY_STEP_1_H_
 
-#include <GappyOffline.h>
+#include <GnatPreprocessing.h>
 
 template <int dim>
-class GappyOfflineNoPseudo : public GappyOffline<dim> {
+class GnatPreprocessingStep1 : public GnatPreprocessing<dim> {
 
 	int computeGappyRes;
 	virtual void computePseudoInverse();	// do nothing
@@ -15,9 +15,9 @@ class GappyOfflineNoPseudo : public GappyOffline<dim> {
 			std::vector<int> &sampleNodeVec);
 
 public:
-	GappyOfflineNoPseudo(Communicator *, IoData &, Domain &, DistGeoState *);
-	//~GappyOfflineNoPseudo();
+	GnatPreprocessingStep1(Communicator *, IoData &, Domain &, DistGeoState *);
+	//~GnatPreprocessingStep1();
 
 };
-#include "GappyOfflineNoPseudo.C"
+#include "GnatPreprocessingStep1.C"
 #endif

@@ -748,7 +748,7 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 
 	// info to keep track of the subMatrixEntry for each cpu and the current cpu that is filling lsSol
 
-	int currentCpu = 0;	// start with cpu 0 then move up
+	int currentCpu;	// start with cpu 0 then move up
 	int *subMatEntry = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
 	int *subMatLLDset = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
 
@@ -765,6 +765,7 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 	// compute lsSol from distributed data
 
   for (int iRhs = 0; iRhs < nRhs; ++iRhs) {
+		currentCpu = 0;
 		for (int j = 0; j < n; ++j)
 		  lsSolTmp[j] = 0.0;
 		
@@ -773,11 +774,12 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 		  subMatEntry[iCpu] = iRhs * subMatLLDset[iCpu];
 	  for (int lsSolCount = 0; lsSolCount < n; ++lsSolCount) {	// loop on entries of the solution
 			// currentCpu: cpu which is filling up lsSol
-		  if (thisCPU == currentCpu)	// fill lsSol with appropriate subMatB entry
+		  if (thisCPU == currentCpu){	// fill lsSol with appropriate subMatB entry
 			  lsSolTmp[lsSolCount] = subMatB[subMatEntry[currentCpu]];
-		  ++subMatEntry[currentCpu];	// current cpu has moved on
-			//KTC CHECK 
-			if (subMatEntry[currentCpu] % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu 
+			}
+			++subMatEntry[currentCpu];	// current cpu (not thisCPU necessarily) has moved on
+			//KTC CHECK  XXX
+			if ((subMatEntry[currentCpu] - iRhs * subMatLLDset[currentCpu]) % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu 
 				++currentCpu;
 			  if (currentCpu == nTotCpus) 	// should cycle back to zero 
 				  currentCpu = 0;
@@ -791,8 +793,6 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 			for (int j = 0; j < n; ++j)
 				lsSol[iRhs][j] = lsSolTmp[j];	// only store solution on cpu 0 or if all cpus need it
 		}
-
-		currentCpu = 0;
 	}
 
 	delete[] lsSolTmp;

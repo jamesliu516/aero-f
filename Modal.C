@@ -133,19 +133,19 @@ void ModalSolver<dim>::solve()  {
  else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 GappyOffline<dim> gappy(com,*ioData,domain,geoState);
+	 GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);
 	 gappy.buildReducedModel();
  }
  else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 GappyOfflineNoPseudo<dim> gappy(com,*ioData,domain,geoState);
+	 GnatPreprocessingStep1<dim> gappy(com,*ioData,domain,geoState);
 	 gappy.buildReducedModel();
  }
  else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 GappyOfflineOnlyPseudo<dim> gappy(com,*ioData,domain,geoState);
+	 GnatPreprocessingStep2<dim> gappy(com,*ioData,domain,geoState);
 	 gappy.buildReducedModel();
  }
  else if (ioData->problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_){

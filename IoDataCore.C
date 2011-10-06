@@ -455,7 +455,6 @@ ROMOutputData::ROMOutputData()
 {
   prefix = "";
 
-  solution = "";
   newtonresiduals = "";
   jacobiandeltastate = "";
   reducedjac = "";
@@ -466,6 +465,8 @@ ROMOutputData::ROMOutputData()
   sampleNodes = "";
   onlineMatrix = "";
   podStateRed = "";
+  podNonlinRed = "";
+  solution = "";
   wallDistanceRed = "";
   staterom = "";
   error = "";
@@ -502,7 +503,6 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
   new ClassStr<ROMOutputData>(ca, "Prefix", this, &ROMOutputData::prefix);
 	
-  new ClassStr<ROMOutputData>(ca, "State", this, &ROMOutputData::solution);
   new ClassStr<ROMOutputData>(ca, "Residual", this, &ROMOutputData::newtonresiduals);
   new ClassStr<ROMOutputData>(ca, "JacobianDeltaState", this, &ROMOutputData::jacobiandeltastate);
   new ClassStr<ROMOutputData>(ca, "ReducedJac", this, &ROMOutputData::reducedjac);
@@ -510,15 +510,17 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "GNATPrefix", this, &ROMOutputData::gnatPrefix);
   new ClassStr<ROMOutputData>(ca, "StateReducedCoordinates", this, &ROMOutputData::staterom);
   new ClassStr<ROMOutputData>(ca, "SampleNodes", this, &ROMOutputData::sampleNodes);
-  new ClassStr<ROMOutputData>(ca, "OnlineMatrix", this, &ROMOutputData::onlineMatrix);
-  new ClassStr<ROMOutputData>(ca, "PODStateReduced", this, &ROMOutputData::podStateRed);
-  new ClassStr<ROMOutputData>(ca, "WallDistanceReduced", this, &ROMOutputData::wallDistanceRed);
+  new ClassStr<ROMOutputData>(ca, "GappyPODMatrix", this, &ROMOutputData::onlineMatrix);
+  new ClassStr<ROMOutputData>(ca, "ROBStateSample", this, &ROMOutputData::podStateRed);
+  new ClassStr<ROMOutputData>(ca, "ROBNonlinearSample", this, &ROMOutputData::podNonlinRed);
+  new ClassStr<ROMOutputData>(ca, "SolutionSample", this, &ROMOutputData::solution);
+  new ClassStr<ROMOutputData>(ca, "WallDistanceSample", this, &ROMOutputData::wallDistanceRed);
   new ClassStr<ROMOutputData>(ca, "Error", this, &ROMOutputData::error);
   new ClassStr<ROMOutputData>(ca, "NetStateReducedCoordinates", this, &ROMOutputData::dUnormAccum);
   new ClassStr<ROMOutputData>(ca, "SampleNodesFullMesh", this, &ROMOutputData::sampleNodesFull);
-  new ClassStr<ROMOutputData>(ca, "OnlineMatrixFullMesh", this, &ROMOutputData::onlineMatrixFull);
+  new ClassStr<ROMOutputData>(ca, "GappyPODMatrixFullMesh", this, &ROMOutputData::onlineMatrixFull);
   new ClassStr<ROMOutputData>(ca, "SampleMesh", this, &ROMOutputData::mesh);
-  new ClassStr<ROMOutputData>(ca, "ReducedFullNodeMap", this, &ROMOutputData::reducedfullnodemap);
+  new ClassStr<ROMOutputData>(ca, "SampleFullNodeMap", this, &ROMOutputData::reducedfullnodemap);
 }
 
 //------------------------------------------------------------------------------
@@ -2990,6 +2992,7 @@ ModelReductionData::ModelReductionData()
 	projection = PETROV_GALERKIN;
 	systemApproximation = SYSTEM_APPROXIMATION_NONE;
 	basisType = POD;
+	lsSolver = QR;
 	dimension = 0;
 }
 
@@ -3049,11 +3052,13 @@ void ModelReductionData::setup(const char *name, ClassAssigner *father)
 			ModelReductionData::*>(&ModelReductionData::projection), 3, "PetrovGalerkin", 0, "Galerkin", 1,
 			"ProjError", 2);	// ProjErrorcomputes projection error onto a basis
 	new ClassToken<ModelReductionData> (ca, "SystemApproximation", this, reinterpret_cast<int
-			ModelReductionData::*>(&ModelReductionData::systemApproximation), 3,
+			ModelReductionData::*>(&ModelReductionData::systemApproximation), 4,
 			"None", 0, "GNAT", 1, "Collocation", 2, "Broyden", 3);
 	new ClassToken<ModelReductionData> (ca, "BasisType", this, reinterpret_cast<int
 			ModelReductionData::*>(&ModelReductionData::basisType), 3, "Snaps", 0, "POD", 1,
 			"None", 2);
+	new ClassToken<ModelReductionData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
+			ModelReductionData::*>(&ModelReductionData::lsSolver), 2, "QR", 0, "NormalEquations", 1);
 }
 
 //------------------------------------------------------------------------------

@@ -6,16 +6,26 @@ ImplicitBroydenTsDesc<dim>::ImplicitBroydenTsDesc(IoData &ioData, GeoSource &geo
   
   JacSkipNewton = ioData.ts.implicit.newton.JacSkip;
   Fromold.resize(this->nPod);
+
+	this->projVectorTmp = new double [this->nPod];
+	jactmp = new double [this->nPod * this->nPod];
+	this->jac.setNewSize(this->nPod,this->nPod);
 }
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+ImplicitBroydenTsDesc<dim>::~ImplicitBroydenTsDesc() 
+{
+	if (this->projVectorTmp) delete [] this->projVectorTmp;
+	if (jactmp) delete [] jactmp;
+}
+//------------------------------------------------------------------------------
 
 template<int dim>
 void ImplicitBroydenTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
-		if (it==0 && (Git % JacSkipNewton)==0) {
-			this->com->fprintf(stderr," ... Computing exact reduced Jacobian \n");
+		if (it==0 && (totTimeSteps % JacSkipNewton)==0) {
 			projectVector(this->AJ, this->F, From);
 		}
 		else {
@@ -49,12 +59,10 @@ void ImplicitBroydenTsDesc<dim>::solveNewtonSystem(const int &it, double &res, b
 
 		// TODO KTC: computing AJ[iRom]AJ[iCol] requires communication after every
 		// vec-vec product. We could express 
-		this->jac.setNewSize(this->nPod,this->nPod);
+		transMatMatProd(this->AJ,this->AJ,jactmp);	// TODO: make symmetric product
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
-			for (int iCol = 0; iCol <= iRow; ++iCol) {
-				this->jac[iRow][iCol] = this->AJ[iRow]*this->AJ[iCol];
-				if (iRow > iCol)
-					this->jac[iCol][iRow] = this->jac[iRow][iCol];
+			for (int iCol = 0; iCol < this->nPod; ++iCol) {
+				this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
 			}
 		} 
 
@@ -68,7 +76,8 @@ void ImplicitBroydenTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
 	// do not compute each time
 
-	if (it==0 && (Git % JacSkipNewton)==0) {
+	if (it==0 && (totTimeSteps % JacSkipNewton)==0) {
+		this->com->fprintf(stderr," ... Computing exact reduced Jacobian \n");
 		ImplicitRomTsDesc<dim>::computeAJ(it, Q);
 	}
 
