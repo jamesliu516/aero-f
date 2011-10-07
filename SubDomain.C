@@ -3404,6 +3404,107 @@ void SubDomain::addRcvOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> 
 
 }
 
+template<class Scalar, int dim>
+void SubDomain::sndGhostOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> &A)
+{
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<Scalar> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    Scalar (*buffer)[2][dim*dim] = reinterpret_cast<Scalar (*)[2][dim*dim]>(sInfo.data);
+    int (*ptr)[2] = edges.getPtr();
+
+    for (int iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
+
+      int edgeNum = sharedEdges[iSub][iEdge].edgeNum;
+      int i = ptr[edgeNum][0],j = ptr[edgeNum][1];
+
+      Scalar *aij, *aji;
+
+      if (sharedEdges[iSub][iEdge].sign > 0) {
+	aij = A.queryRealNodeElem_ij(i,j);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(i,j);
+	aji = A.queryRealNodeElem_ij(j,i);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(j,i);
+      }
+      else {
+	aji = A.queryRealNodeElem_ij(i,j);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(i,j);
+	aij = A.queryRealNodeElem_ij(j,i);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(j,i);
+      }
+
+      if (aij && aji) {
+	for (int k=0; k<dim*dim; ++k) {
+	  buffer[iEdge][0][k] = aij[k];
+	  buffer[iEdge][1][k] = aji[k];
+	}
+      }
+      else {
+	for (int k=0; k<dim*dim; ++k) {
+	  buffer[iEdge][0][k] = 0.0;
+	  buffer[iEdge][1][k] = 0.0;
+	}
+      }
+
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::addRcvGhostOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> &A)
+{
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    int (*ptr)[2] = edges.getPtr();
+    Scalar (*buffer)[2][dim*dim] = reinterpret_cast<Scalar (*)[2][dim*dim]>(sInfo.data);
+
+    for (int iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
+      
+      int edgeNum = sharedEdges[iSub][iEdge].edgeNum;
+      int i = ptr[edgeNum][0],j = ptr[edgeNum][1];
+
+      Scalar *aij, *aji;
+
+      if (sharedEdges[iSub][iEdge].sign > 0) {
+	aij = A.queryRealNodeElem_ij(i,j);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(i,j);
+	aji = A.queryRealNodeElem_ij(j,i);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(j,i);
+      }
+      else {
+	aji = A.queryRealNodeElem_ij(i,j);
+	if (!aji)
+	  aji = A.queryGhostNodeElem_ij(i,j);
+	aij = A.queryRealNodeElem_ij(j,i);
+	if (!aij)
+	  aij = A.queryGhostNodeElem_ij(j,i);
+      }
+
+      if (aij && aji) {
+	for (int k=0; k<dim*dim; ++k) {
+	  aij[k] += buffer[iEdge][0][k];
+	  aji[k] += buffer[iEdge][1][k];
+	}
+      }
+    }
+
+  }
+
+}
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -5701,595 +5802,348 @@ void SubDomain::getSignedDistance(int lsdim, SVec<double,1> &Psi, SVec<double,di
 //-----------------------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeRecSurfBasedForceLoadViscous(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
-						    double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, double pInfty, 
-						    SVec<double,dim> &V, Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<double,3> &X,
+                                             double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, double pInfty, 
+                                             SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
+                                             Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, VarFcn* vf, Vec<int>* fid)
 {
-  double oneThird = 1.0/3.0;
-  int T[4]; //nodes in a tet.
-  double x[4][3]; //coords of nodes in a tet.
-  int count; //count = 3: get a triangle;  = 4: get a quadrangle.
-  int polygon[4][2]; // Intersection data
+  if (forceApp!=3) 
+    {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
 
-  // not used, but required by postFcn->computeForces(...). May be useful in the future.
-  double d2w[3];
-  d2w[0] = 0.0;d2w[1] = 0.0;d2w[2] = 0.0;
-  double dPdx[3][3];
-  for(int i=0;i<3;++i) {for(int j=0;j<3;++j) dPdx[i][j] = 0.0;}
+  // ---------------
+  //   Preparation
+  // ---------------
+  int T[4];       //nodes in a tet.
 
-  Vec3D fi0,fi1,fi2,fv,FNodal; // forces storage
-  double *Xface[3],*Vface[3]; // When the intersection is a quadrangle, it is split into two triangles and these vectors point toward the coordinates and states of each triangular face.
-
-  for (int iElem=0; iElem<elems.size(); iElem++) 
-    {
-      for (int i=0; i<4; i++) T[i] = elems[iElem][i];
-      if(LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[1]) && 
-	 LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[2]) && 
-	 LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[3]))
-	continue; // this tet is away from interface. (Doesn't work for membranes.)
-    
-      for (int i=0; i<4; i++)  {for(int j=0;j<3;++j) x[i][j] = X[T[i]][j];} // Coordinates
-      double *v[4] = {V[T[0]],V[T[1]],V[T[2]],V[T[3]]}; // States
-      if(ghostPoints) // For non active nodes, replace its state by its ghost State
-	{
-	  GhostPoint<dim> *gp;
-	  for(int i=0;i<4;++i)
-	    {
-	      if(!(LSS.isActive(0,T[i])))
-		{
-		  gp   = ghostPoints->operator[](T[i]);
-		  v[i] = gp->getPrimitiveState();
-		}
-	    }
-	}
-      double dp1dxj[4][3];
-      elems[iElem].computeGradientP1Function(X, dp1dxj);
-    
-      count = getPolygon(iElem, LSS, polygon);
-
-      if (count==3) 
-	{ //get a triangle
-	  LevelSetResult lsRes[3];
-	  for (int k=0; k<3; k++) 
-	    {
-	      lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
-	      if (lsRes[k].alpha<0) {
-		fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
-		exit(-1);
-	      }
-	    }
-	  
-	  Vec3D Xinter3[3];
-	  double Vinter3[3][dim];
-	  for (int k=0; k<3; k++) 
-	    {
-	      //     int l = edges.find(polygon[k][0], polygon[k][1]);
-	      int i = polygon[k][0];
-	      int j = polygon[k][1];
-	      int localI=0, localJ=0;
-	      while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
-	      while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
-	      double alpha = lsRes[k].alpha;
-	      for(int l=0;l<3;++l)   Xinter3[k][l] = (1.0-alpha)*X[j][l] + alpha*X[i][l];
-	      for(int l=0;l<dim;++l) Vinter3[k][l] = (1.0-alpha)*v[localJ][l] + alpha*v[localI][l];
-	    }
-	  
-	  for (int k=0; k<3; k++) 
-	    {
-	      int N1 = lsRes[k].trNodes[0];
-	      int N2 = lsRes[k].trNodes[1];
-	      int N3 = lsRes[k].trNodes[2];
-	      LSS.isPointOnSurface(Xinter3[k], N1, N2, N3);
-	      double dist = LSS.isPointOnSurface(Xinter3[k], N1, N2, N3);
-	      if (dist>1e-2) {
-		fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface (%d %d %d)! dist = %e.\n",N1+1, N2+1, N3+1, dist); 
-	      }
-	    }
-	  
-	  Vec3D nf = -0.5*(Xinter3[1]-Xinter3[0])^(Xinter3[2]-Xinter3[0]); 
-	  // In the case of a NS simulation, postFcn->computeForce calls 2 functions. One for the pressure component, one for 
-	  // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
-	  // That is why we pass -nf, so the force on the face is -p.nf + D.n
-	  for(int i=0;i<3;++i) {Xface[i] = &Xinter3[i][0];Vface[i] = &Vinter3[i][0];}
-	  postFcn->computeForce(dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
-	  fv *= oneThird;
-	  fi0+=fv; 
-	  sendLocalForce(fi0,lsRes[0],Fs);
-	  fi1+=fv; 
-	  sendLocalForce(fi1,lsRes[1],Fs);
-	  fi2+=fv; 
-	  sendLocalForce(fi2,lsRes[2],Fs);
-	}
-      else if (count==4) 
-	{ //get a quadrangle.
-
-	  LevelSetResult lsRes[4];
-	  for (int k=0; k<4; k++) {
-	    lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
-	    if (lsRes[k].alpha<0) {
-	      fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
-	      exit(-1);
-	    }
-	  }
-
-	  Vec3D Xinter4[4];
-	  double Vinter4[4][dim];
-	  for (int k=0; k<4; k++) {
-	    //  int l = edges.find(polygon[k][0], polygon[k][1]);
-	    int i = polygon[k][0];
-	    int j = polygon[k][1];
-	    int localI=0, localJ=0;
-	    while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
-	    while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
-	    double alpha = lsRes[k].alpha;
-	    for(int l=0;l<3;++l)   Xinter4[k][l] = (1.0-alpha)*X[j][l] + alpha*X[i][l];
-	    for(int l=0;l<dim;++l) Vinter4[k][l] = (1.0-alpha)*v[localJ][l] + alpha*v[localI][l];
-	  }
-	  // check if intersection point is really on surface.
-	  for (int k=0; k<4; k++) {
-	    int N1 = lsRes[k].trNodes[0];
-	    int N2 = lsRes[k].trNodes[1];
-	    int N3 = lsRes[k].trNodes[2];
-	    double dist = LSS.isPointOnSurface(Xinter4[k], N1, N2, N3);
-	    if (dist>1e-2) {
-	      fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface! dist = %e.\n",dist);
-	    }
-	  }
-
-	  double dist02 = (Xinter4[2]-Xinter4[0]).norm();
-	  double dist13 = (Xinter4[3]-Xinter4[1]).norm();
-	  if (dist02<dist13) 
-	    { // connect 0,2.
-	      Vec3D nf = -0.5*(Xinter4[1]-Xinter4[0])^(Xinter4[2]-Xinter4[0]);
-	      // In the case of a NS simulation, postFcn->computeForce calls 2 functions. One for the pressure component, one for 
-	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
-	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
-	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i][0];Vface[i] = &Vinter4[i][0];}
-	      postFcn->computeForce(dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
-	      fv *= oneThird;
-	      FNodal = fi0+fv; sendLocalForce(FNodal,lsRes[0],Fs);
-	      FNodal = fi1+fv; sendLocalForce(FNodal,lsRes[1],Fs);
-	      FNodal = fi2+fv; sendLocalForce(FNodal,lsRes[2],Fs);
-	      
-	      nf = -0.5*(Xinter4[2]-Xinter4[0])^(Xinter4[3]-Xinter4[0]);
-	      // Xface[0] points on Xinter4[0][0]. No nead to be changed. Same for Vface.
-	      Xface[1] = &Xinter4[2][0];Vface[1] = &Vinter4[2][0]; 
-	      Xface[2] = &Xinter4[3][0];Vface[2] = &Vinter4[3][0];
-	      postFcn->computeForce(dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
-	      fv *= oneThird;
-	      FNodal = fi0+fv; sendLocalForce(FNodal,lsRes[0],Fs);
-	      FNodal = fi1+fv; sendLocalForce(FNodal,lsRes[1],Fs);
-	      FNodal = fi2+fv; sendLocalForce(FNodal,lsRes[2],Fs);
-	    } 
-	  else 
-	    { // connect 1,3.
-	      Vec3D nf = -0.5*(Xinter4[2]-Xinter4[1])^(Xinter4[3]-Xinter4[1]);
-	      // In the case of a NS simulation, postFcn->computeForce calls 2 functions. One for the pressure component, one for 
-	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
-	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
-	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i+1][0];Vface[i] = &Vinter4[i+1][0];}
-	      postFcn->computeForce(dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
-	      fv *= oneThird;
-	      FNodal = fi0+fv; sendLocalForce(FNodal,lsRes[0],Fs);
-	      FNodal = fi1+fv; sendLocalForce(FNodal,lsRes[1],Fs);
-	      FNodal = fi2+fv; sendLocalForce(FNodal,lsRes[2],Fs);
-		
-	      nf = -0.5*(Xinter4[1]-Xinter4[0])^(Xinter4[3]-Xinter4[0]);
-	      Xface[0] = &Xinter4[0][0];Vface[0] = &Vinter4[0][0]; 
-	      Xface[1] = &Xinter4[1][0];Vface[1] = &Vinter4[1][0];
-	      // Xface[2] points on Xinter4[3][0]. No nead to be changed. Same for Vface.
-	      postFcn->computeForce(dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
-	      fv *= oneThird;
-	      FNodal = fi0+fv; sendLocalForce(FNodal,lsRes[0],Fs);
-	      FNodal = fi1+fv; sendLocalForce(FNodal,lsRes[1],Fs);
-	      FNodal = fi2+fv; sendLocalForce(FNodal,lsRes[2],Fs);
-	    }
-	} 
-      else {
-	fprintf(stderr,"Error: contradiction in getPolygon. (edgeCount = %d). Abort.\n", count);
-	exit(-1);
-      }
-    }
-  return;
-}
-
-//-----------------------------------------------------------------------------------------------
-
-template<int dim>
-void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
-						double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, double pInfty, 
-						SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
-						Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,Vec<int>* fid)
-{
-  double oneThird = 1.0/3.0;
-  int T[4];          // nodes in a tet.
-  double x[4][3];    // coordinates of nodes in a tet.
-  int count;         // count = 3: get a triangle;  = 4: get a quadrangle.
-  int polygon[4][2]; // Intersection data
-
-  // not used, but required by postFcn->computeForces(...). May be useful in the future.
-  double d2w[3];
+  double d2w[3]; // not used, but required by postFcn->computeForces(...)..
   int fid_local[4];
-  d2w[0] = 0.0;d2w[1] = 0.0;d2w[2] = 0.0;
-  double dPdx[3][3];
-  for(int i=0;i<3;++i) {for(int j=0;j<3;++j) dPdx[i][j] = 0.0;}
+  double dPdx[3][3];  // not used, but required by postFcn->computeForces(...)..
   double dp1dxj[4][3]; // Gradient of the P1 basis functions
+  d2w[0] = d2w[1] = d2w[2] = 0.0;
+  for(int i=0;i<3;++i) for(int j=0;j<3;++j) dPdx[i][j] = 0.0;
+  for(int i=0;i<4;++i) for(int j=0;j<3;++j) dp1dxj[i][j] = 0.0;
 
-  Vec3D fi0,fi1,fi2,fv,FNodal; // forces storage
-  double *Xface[3],*Vface[3]; // When the intersection is a quadrangle, it is split into two triangles and these vectors point toward the coordinates and states of each triangular face.
+  // -------------------------------------------------------------------------
+  //   Loop through elements. Reconstruct the interface and compute the force 
+  // -------------------------------------------------------------------------
+  for (int iElem=0; iElem<elems.size(); iElem++) {
+    map<int,int> global2local;
+    for (int i=0; i<4; i++) {
+      T[i] = elems[iElem][i];
+      global2local[elems[iElem][i]] = i;
+    }
 
-  for (int iElem=0; iElem<elems.size(); iElem++) 
-    {
-      for (int i=0; i<4; i++) T[i] = elems[iElem][i];
-      if(LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[1]) && 
-	 LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[2]) && 
-	 LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[3]))
-	continue; // this tet is away from interface. (Doesn't work for membranes.)
-    
-      for (int i=0; i<4; i++)  {for(int j=0;j<3;++j) x[i][j] = X[T[i]][j];} // Coordinates
-      double *v[4] = {V[T[0]],V[T[1]],V[T[2]],V[T[3]]}; // States
-      if(ghostPoints) // For non active nodes, replace its state by its ghost State
-	{
-	  GhostPoint<dim> *gp;
-	  for(int i=0;i<4;++i)
-	    {
-	      if(!(LSS.isActive(0,T[i])))
-		{
-		  gp   = ghostPoints->operator[](T[i]);
-		  v[i] = gp->getPrimitiveState();
-		}
-	    }
-	}
-    
+    if(ghostPoints) //dp1dxj is needed only for the computation of viscous force.
       elems[iElem].computeGradientP1Function(X, dp1dxj);
-      /*
-      if(orderOfAccuracy>1)
-	{
-	  for(int m=0;m<3;++m) dPdx[0][m] = v[0][4]*dp1dxj[0][m];
-	  for(int i=1;i<4;++i)
-	    {
-	      for(int m=0;m<3;++m) dPdx[0][m] += v[i][4]*dp1dxj[i][m];
-	    }
-	  for(int m=0;m<3;++m) 
-	    {
-	      dPdx[1][m] = dPdx[0][m];
-	      dPdx[2][m] = dPdx[0][m];
-	    }
-	}
-      */
+    PolygonReconstructionData polygons[4];
 
-      count = getPolygon(iElem, LSS, polygon);
+    // find polygons.
+    int numberOfPolygons = getPolygons(iElem, LSS, polygons); 
+    assert(numberOfPolygons<=4);
+    int index,vertex1,vertex2;
 
-      if (count==3) 
-	{ //get a triangle
-	  LevelSetResult lsRes[3];
-	  for (int k=0; k<3; k++) 
-	    {
-	      lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
-	      if (lsRes[k].alpha<0) {
-		fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
-		exit(-1);
-	      }
-	    }
-	  
-	  Vec3D Xinter3[3];
-	  double Vinter3[3][dim];
-	  for (int k=0; k<3; k++) 
-	    {
-	      int l = edges.find(polygon[k][0], polygon[k][1]);
-	      int i = polygon[k][0];
-	      int j = polygon[k][1];
-	      int localI=0, localJ=0;
-	      while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
-	      while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
-              fid_local[k] = (fid?(*fid)[i]:0);
-	      double alpha = lsRes[k].alpha;
-	      for(int m=0;m<3;++m)   Xinter3[k][m] = (1.0-alpha)*X[j][m] + alpha*X[i][m];
-	      if(ghostPoints) // Interpolation at the intersection Points, possibly using the ghost States
-		{
-		  for(int m=0;m<dim;++m) Vinter3[k][m] = (1.0-alpha)*v[localJ][m] + alpha*v[localI][m];
-		}
-	      else
-		{
-		  switch (LSS.numOfFluids()) {
-		  case 1:
-		    if(i<j) {for(int m=0;m<dim;++m) Vinter3[k][m] = Wstarij[l][m];}	
-		    else    {for(int m=0;m<dim;++m) Vinter3[k][m] = Wstarji[l][m];}
-		    break;
-		  case 2:
-		  case 3:
-		  case 4:
-		    if(i<j) {for(int m=0;m<dim;++m) Vinter3[k][m] = Wstarij[l][m]-Wstarji[l][m];}	
-		    else    {for(int m=0;m<dim;++m) Vinter3[k][m] = Wstarji[l][m]-Wstarij[l][m];}
-		    pInfty = 0;
-		    break;
-		  default:
-		    fprintf(stderr,"ERROR: (force calculation) numFluid = %d\n", LSS.numOfFluids());
-		    exit(-1);
-		  }
-		}
-	    }
-	  
-	  for (int k=0; k<3; k++) 
-	    {
-	      int N1 = lsRes[k].trNodes[0];
-	      int N2 = lsRes[k].trNodes[1];
-	      int N3 = lsRes[k].trNodes[2];
-	      double dist = LSS.isPointOnSurface(Xinter3[k], N1, N2, N3);
-	      if (dist>1e-2) {
-		fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface (%d %d %d)! dist = %e.\n",N1+1, N2+1, N3+1, dist); 
-	      }
-	    }
-	  
-	  Vec3D nf = -0.5*(Xinter3[1]-Xinter3[0])^(Xinter3[2]-Xinter3[0]); 
-	  // In the case of a NS simulation, postFcn->computeForce calls 2 functions. One for the pressure component, one for 
-	  // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
-	  // That is why we pass -nf, so the force on the face is -p.nf + D.n
-	  for(int i=0;i<3;++i) {Xface[i] = &Xinter3[i][0];Vface[i] = &Vinter3[i][0];}
-	  postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
-	  if(ghostPoints)
-	    {
-	      fv *= oneThird;
-	      fi0+=fv; 
-	      fi1+=fv; 
-	      fi2+=fv; 
-	    }
-	  sendLocalForce(fi0,lsRes[0],Fs);
-	  sendLocalForce(fi1,lsRes[1],Fs);
-	  sendLocalForce(fi2,lsRes[2],Fs);
-	}
-      else if (count==4) 
-	{ //get a quadrangle.
+    // loop through each polygon
+    for(int i=0; i < numberOfPolygons; ++i){
 
-	  LevelSetResult lsRes[4];
-	  for (int k=0; k<4; k++) {
-	    lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
-	    if (lsRes[k].alpha<0) {
-	      fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
-	      exit(-1);
-	    }
-	  }
+      PolygonReconstructionData& polygon=polygons[i];
+      int nEdges = polygon.numberOfEdges;
 
-	  Vec3D Xinter4[4];
-	  double Vinter4[4][dim];
-	  for (int k=0; k<4; k++) 
-	    {
-	      int l = edges.find(polygon[k][0], polygon[k][1]);
-	      int i = polygon[k][0];
-	      int j = polygon[k][1];
-	      int localI=0, localJ=0;
-              fid_local[k] = (fid?(*fid)[i]:0);
-	      while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
-	      while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
-	      double alpha = lsRes[k].alpha;
-	      for(int l=0;l<3;++l)   Xinter4[k][l] = (1.0-alpha)*X[j][l] + alpha*X[i][l];	      
-	      if(ghostPoints) // Interpolation at the intersection Points, possibly using the ghost States
-		{
-		  for(int m=0;m<dim;++m) Vinter4[k][m] = (1.0-alpha)*v[localJ][m] + alpha*v[localI][m];
-		}
-	      else
-		{
-		  switch (LSS.numOfFluids()) {
-		  case 1:
-		    if(i<j) {for(int m=0;m<dim;++m) Vinter4[k][m] = Wstarij[l][m];}	
-		    else    {for(int m=0;m<dim;++m) Vinter4[k][m] = Wstarji[l][m];}
-		    break;
-		  case 2:
-		  case 3:
-		  case 4:
-		    if(i<j) {for(int m=0;m<dim;++m) Vinter4[k][m] = Wstarij[l][m]-Wstarji[l][m];}	
-		    else    {for(int m=0;m<dim;++m) Vinter4[k][m] = Wstarji[l][m]-Wstarij[l][m];}
-		    pInfty = 0;
-		    break;
-		  default:
-		    fprintf(stderr,"ERROR: (force calculation) numFluid = %d\n", LSS.numOfFluids());
-		    exit(-1);
-		  }
-		}
-	    }
-	  // check if intersection point is really on surface.
-	  for (int k=0; k<4; k++) {
-	    int N1 = lsRes[k].trNodes[0];
-	    int N2 = lsRes[k].trNodes[1];
-	    int N3 = lsRes[k].trNodes[2];
-	    double dist = LSS.isPointOnSurface(Xinter4[k], N1, N2, N3);
-	    if (dist>1e-2) {
-	      fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface! dist = %e.\n",dist);
-	    }
-	  }
+      // get intersection information.
+      LevelSetResult lsRes[nEdges];
+      if(!nEdges) continue; //KW: why need this?
+      for (int k=0; k<nEdges; ++k) {
+        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edgeWithVertex[k][0],polygon.edgeWithVertex[k][1]);
+        if (lsRes[k].alpha<0) {fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n"); exit(-1);}
+      }
 
-	  double dist02 = (Xinter4[2]-Xinter4[0]).norm();
-	  double dist13 = (Xinter4[3]-Xinter4[1]).norm();
-	  if (dist02<dist13) 
-	    { // connect 0,2.
-	      Vec3D nf = -0.5*(Xinter4[1]-Xinter4[0])^(Xinter4[2]-Xinter4[0]);
-	      // In the case of a NS simulation, postFcn->computeForce calls 2 functions. One for the pressure component, one for 
-	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
-	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
-	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i][0];Vface[i] = &Vinter4[i][0];}
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
-	      if(ghostPoints)
-		{
-		  fv *= oneThird;
-		  fi0+=fv; 
-		  fi1+=fv; 
-		  fi2+=fv; 
-		}
-	      sendLocalForce(fi0,lsRes[0],Fs);
-	      sendLocalForce(fi1,lsRes[1],Fs);
-	      sendLocalForce(fi2,lsRes[2],Fs);
-	      
-	      nf = -0.5*(Xinter4[2]-Xinter4[0])^(Xinter4[3]-Xinter4[0]);
-	      // Xface[0] points on Xinter4[0][0]. No nead to be changed. Same for Vface.
-	      Xface[1] = &Xinter4[2][0];Vface[1] = &Vinter4[2][0]; 
-	      Xface[2] = &Xinter4[3][0];Vface[2] = &Vinter4[3][0];
- 
-              fid_local[1] = fid_local[2];
-              fid_local[2] = fid_local[3];
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
-	      if(ghostPoints)
-		{
-		  fv *= oneThird;
-		  fi0+=fv; 
-		  fi1+=fv; 
-		  fi2+=fv; 
-		}
-	      sendLocalForce(fi0,lsRes[0],Fs);
-	      sendLocalForce(fi1,lsRes[2],Fs);
-	      sendLocalForce(fi2,lsRes[3],Fs);
-	    } 
-	  else 
-	    { // connect 1,3.
-	      Vec3D nf = -0.5*(Xinter4[2]-Xinter4[1])^(Xinter4[3]-Xinter4[1]);
-	      // In the case of a NS simulation, postFcn->computeForce calls 2 functions. One for the pressure component, one for 
-	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
-	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
-	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i+1][0];Vface[i] = &Vinter4[i+1][0];}
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local+1);
-	      if(ghostPoints)
-		{
-		  fv *= oneThird;
-		  fi0+=fv; 
-		  fi1+=fv; 
-		  fi2+=fv; 
-		}
-	      sendLocalForce(fi0,lsRes[1],Fs);
-	      sendLocalForce(fi1,lsRes[2],Fs);
-	      sendLocalForce(fi2,lsRes[3],Fs);
-	      
-	      nf = -0.5*(Xinter4[1]-Xinter4[0])^(Xinter4[3]-Xinter4[0]);
-	      Xface[0] = &Xinter4[0][0];Vface[0] = &Vinter4[0][0]; 
-	      Xface[1] = &Xinter4[1][0];Vface[1] = &Vinter4[1][0];
-	      // Xface[2] points on Xinter4[3][0]. No nead to be changed. Same for Vface.
-              fid_local[2] = fid_local[3];
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
-	      if(ghostPoints)
-		{
-		  fv *= oneThird;
-		  fi0+=fv; 
-		  fi1+=fv; 
-		  fi2+=fv; 
-		}
-	      sendLocalForce(fi0,lsRes[0],Fs);
-	      sendLocalForce(fi1,lsRes[1],Fs);
-	      sendLocalForce(fi2,lsRes[3],Fs);
-	    }
-	} 
-      else {
-	fprintf(stderr,"Error: contradiction in getPolygon. (edgeCount = %d). Abort.\n", count);
-	exit(-1);
+      // determine if we are applying a force from the "real fluid" or "ghost" side. From the "ghost" side, only a pressure
+      // force (using pInfty) is applied, even for viscous flows.
+      bool applyRealForce = true;
+      for(int k=0; k<nEdges; k++)
+        if(!LSS.isActive(0,polygon.edgeWithVertex[k][0])) {
+          applyRealForce = false;
+          break;
+        }
+
+      // get the correct states (mix of real and ghost) for this tet. This info is needed for viscous simulation only.
+      double *v[4];
+      if(ghostPoints && applyRealForce) {
+        for(int k=0; k<4; k++)
+          v[k] = V[T[k]];
+
+        GhostPoint<dim> *gp;
+        for(int k=0; k<nEdges; k++) {
+          int vertex2 = polygon.edgeWithVertex[k][1];
+          gp = ghostPoints->operator[](vertex2);
+          v[global2local[vertex2]] = gp->getPrimitiveState(); 
+        }
+      }
+
+      // get information at intersection points (3 for triangles, 4 for quadrangles).
+      Vec3D Xinter[nEdges];
+      double Vinter[nEdges][dim];
+      Vec3D start_vertex;
+      for(int k=0; k<nEdges; ++k) {
+        vertex1 = polygon.edgeWithVertex[k][0];
+        vertex2 = polygon.edgeWithVertex[k][1];
+        if(k==0) {start_vertex[0]=X[vertex1][0]; start_vertex[1]=X[vertex1][1]; start_vertex[2]=X[vertex1][2];}
+        int l = edges.find(polygon.edgeWithVertex[k][0], polygon.edgeWithVertex[k][1]);
+        double alpha = lsRes[k].alpha;
+        for(int m=0; m<3; m++)
+          Xinter[k][m] = alpha*X[vertex1][m] + (1.0-alpha)*X[vertex2][m];
+
+        fid_local[k] = fid?(*fid)[vertex1]:0;
+        if(!applyRealForce)
+          Vinter[k][4] = pInfty; //this is enough even for Tait (look at postFcn->computeEmbeddedForce(...))
+        else {
+          if(ghostPoints)  //viscous
+            for(int m=0; m<dim; m++)
+              Vinter[k][m] = alpha*v[global2local[vertex1]][m] + (1.0-alpha)*v[global2local[vertex2]][m];
+          else { // inviscid
+            if(vertex1<vertex2) // apply Wstarij
+              for(int m=0; m<dim; m++)
+                Vinter[k][m] = Wstarij[l][m];
+            else //apply Wstarji
+              for(int m=0; m<dim; m++)
+                Vinter[k][m] = Wstarji[l][m];
+          }
+        }
+      } 
+
+      // compute force...
+      double dist13,dist02;
+      double *Xface[3], *Vface[3];
+      int fid_face[3];
+      double oneThird = 1.0/3.0;
+      Vec3D nf;
+      Vec3D fi0,fi1,fi2,fv,FNodal; // forces storage
+
+      switch(nEdges){
+        case 3: //got a triangle
+          nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
+          if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;
+          for(int m=0; m<3; m++) {
+            Xface[m] = &Xinter[m][0];
+            Vface[m] = &Vinter[m][0];
+            fid_face[m] = fid_local[m]; 
+          }
+          postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+                                        fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+          if(ghostPoints && applyRealForce) {
+            fv *= oneThird;
+            fi0+=fv;
+            fi1+=fv;
+            fi2+=fv;
+          }
+          sendLocalForce(fi0,lsRes[0],Fs);
+          sendLocalForce(fi1,lsRes[1],Fs);
+          sendLocalForce(fi2,lsRes[2],Fs);
+          break;
+        case 4: //got a quadrangle. cut it into two triangles.
+          dist02 = (Xinter[2]-Xinter[0]).norm();
+          dist13 = (Xinter[3]-Xinter[1]).norm();
+          if(dist02<dist13){ // connect 0,2.
+            //for triangle 012
+            nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
+            if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;
+            Xface[0] = &Xinter[0][0];  Vface[0] = &Vinter[0][0];  fid_face[0] = fid_local[0];
+            Xface[1] = &Xinter[1][0];  Vface[1] = &Vinter[1][0];  fid_face[1] = fid_local[1];
+            Xface[2] = &Xinter[2][0];  Vface[2] = &Vinter[2][0];  fid_face[2] = fid_local[2];
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+                                          fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+            if(ghostPoints && applyRealForce) {
+              fv *= oneThird;
+              fi0+=fv;
+              fi1+=fv;
+              fi2+=fv;
+            }
+            sendLocalForce(fi0,lsRes[0],Fs);
+            sendLocalForce(fi1,lsRes[1],Fs);
+            sendLocalForce(fi2,lsRes[2],Fs);
+
+            //for triangle 023
+            nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
+            if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;
+            Xface[0] = &Xinter[0][0];  Vface[0] = &Vinter[0][0];  fid_face[0] = fid_local[0];
+            Xface[1] = &Xinter[2][0];  Vface[1] = &Vinter[2][0];  fid_face[1] = fid_local[2];
+            Xface[2] = &Xinter[3][0];  Vface[2] = &Vinter[3][0];  fid_face[2] = fid_local[3];
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+                                          fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+            if(ghostPoints && applyRealForce) {
+              fv *= oneThird;
+              fi0+=fv;
+              fi1+=fv;
+              fi2+=fv;
+            }
+            sendLocalForce(fi0,lsRes[0],Fs);
+            sendLocalForce(fi1,lsRes[2],Fs);
+            sendLocalForce(fi2,lsRes[3],Fs);
+
+          }else{ // connect 1,3.
+            //for triangle 123
+            nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
+            if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;
+            Xface[0] = &Xinter[1][0];  Vface[0] = &Vinter[1][0];  fid_face[0] = fid_local[1]; 
+            Xface[1] = &Xinter[2][0];  Vface[1] = &Vinter[2][0];  fid_face[1] = fid_local[2];
+            Xface[2] = &Xinter[3][0];  Vface[2] = &Vinter[3][0];  fid_face[2] = fid_local[3];
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+                                          fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+            if(ghostPoints && applyRealForce) {
+              fv *= oneThird;
+              fi0+=fv;
+              fi1+=fv;
+              fi2+=fv;
+            }
+            sendLocalForce(fi0,lsRes[1],Fs);
+            sendLocalForce(fi1,lsRes[2],Fs);
+            sendLocalForce(fi2,lsRes[3],Fs);
+
+            //for triangle 013
+            nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
+            if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;
+            Xface[0] = &Xinter[0][0];  Vface[0] = &Vinter[0][0];  fid_face[0] = fid_local[0];
+            Xface[1] = &Xinter[1][0];  Vface[1] = &Vinter[1][0];  fid_face[1] = fid_local[1];
+            Xface[2] = &Xinter[3][0];  Vface[2] = &Vinter[3][0];  fid_face[2] = fid_local[3];
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+                                          fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+            if(ghostPoints && applyRealForce) {
+              fv *= oneThird;
+              fi0+=fv;
+              fi1+=fv;
+              fi2+=fv;
+            }
+            sendLocalForce(fi0,lsRes[0],Fs);
+            sendLocalForce(fi1,lsRes[1],Fs);
+            sendLocalForce(fi2,lsRes[3],Fs);
+          }
+
+          break;
+#if 0
+        default: fprintf(stderr,"ANOTHER PROBLEM!!!\n");break;
+#endif
+        default: break;
       }
     }
-  return;
+  }
 }
-
 //-----------------------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy, GeoState& geoState,
-					       SVec<double,3> &X, double (*Fs)[3], int sizeFs,
-					       LevelSetStructure &LSS, double pInfty, 
-					       SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji,
-					       SVec<double,dim> &V, Vec<GhostPoint<dim>*> *ghostPoints,
-					       PostFcn *postFcn, NodalGrad<dim, double> &ngrad)
+void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
+                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs,
+                                        LevelSetStructure &LSS, double pInfty, 
+                                        SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji,
+                                        SVec<double,dim> &V, Vec<GhostPoint<dim>*> *ghostPoints,
+                                        PostFcn *postFcn, NodalGrad<dim, double> &ngrad, VarFcn *vf, Vec<int>* fid)
 {
+  if (forceApp!=1) 
+    {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
+
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   bool* masterFlag = edges.getMasterFlag();
   int (*ptr)[2];
   int i,j;
   ptr = edges.getPtr();
-  Vec3D vectorIJ,gradP;
+  bool iActive, jActive, intersect;
+  // for the viscous force
+  Vec3D vectorIJ, gradP;
   SVec<double,dim> gradX = ngrad.getX();
   SVec<double,dim> gradY = ngrad.getY();
   SVec<double,dim> gradZ = ngrad.getZ();
-  bool iActive, jActive, intersect;
   double dudxj[3][3];
 
   for (int l=0; l<edges.size(); l++) {
     if (!masterFlag[l]) continue;
     i = ptr[l][0];
     j = ptr[l][1];
-    iActive = LSS.isActive(0,i);
-    jActive = LSS.isActive(0,j);
+    if(LSS.withCracking()) {
+      iActive = !LSS.isOccluded(0,i);
+      jActive = !LSS.isOccluded(0,j);
+    } else {
+      iActive = LSS.isActive(0,i);
+      jActive = LSS.isActive(0,j);
+    }
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
-    if (iActive && jActive && !intersect) continue; 
-
+    if (!intersect) continue; 
     // now (i,j) must intersect the structure.
+
     double *v[2] = {V[i],V[j]};  
-    if(ghostPoints) // For non active nodes, replace its state by its ghost State
-      {
-	GhostPoint<dim> *gp;
-	if(!iActive) {gp = ghostPoints->operator[](i);v[0] = gp->getPrimitiveState();}
-	if(!jActive) {gp = ghostPoints->operator[](j);v[1] = gp->getPrimitiveState();}
-      }
-    for(int m=0;m<3;++m) vectorIJ[m] = X[j][m] - X[i][m];
-    LevelSetResult lsRes;
-    Vec3D flocal(0.0,0.0,0.0); //It MUST be initialized to 0 for the following lines to work!
+    if(ghostPoints) {// For non active nodes, replace its state by its ghost State
+      GhostPoint<dim> *gp;
+      if(!iActive) {gp = ghostPoints->operator[](i);v[0] = gp->getPrimitiveState();}
+      if(!jActive) {gp = ghostPoints->operator[](j);v[1] = gp->getPrimitiveState();}
+      for(int m=0;m<3;++m) 
+        vectorIJ[m] = X[j][m] - X[i][m];
+    }
+
     if (iActive) {
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
-      if(ghostPoints) // Viscous Simulation
-	{
-	  gradP[0] = gradX[i][4];
-	  gradP[1] = gradY[i][4];
-	  gradP[2] = gradZ[i][4];
-	  flocal   = (v[0][4] + 0.5*(gradP*vectorIJ))*normal[l];
-	  // Compute Velocity Gradient
-	  // ***************** Method 1 **********************
-	  dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
-	  dudxj[1][0] = gradX[i][2]; dudxj[1][1] = gradY[i][2]; dudxj[1][2] = gradZ[i][2];
-	  dudxj[2][0] = gradX[i][3]; dudxj[2][1] = gradY[i][3]; dudxj[2][2] = gradZ[i][3];
-	  // ***************** Method 2 **********************
-	  /*
-	  double norm = vectorIJ.norm();
-	  double deltaU = (v[0][1]-v[1][1])/(norm*norm);
-	  dudxj[0][0] = deltaU*vectorIJ[0];dudxj[0][1] = deltaU*vectorIJ[1];dudxj[0][2] = deltaU*vectorIJ[2];
-	  double deltaU = (v[0][2]-v[1][2])/(norm*norm);
-	  dudxj[1][0] = deltaU*vectorIJ[0];dudxj[1][1] = deltaU*vectorIJ[1];dudxj[1][2] = deltaU*vectorIJ[2];
-	  double deltaU = (v[0][3]-v[1][3])/(norm*norm);
-	  dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
-	  */
-	  flocal  += postFcn->computeViscousForceCVBoundary(normal[l],v[0],dudxj);
-	}
-      else
-	{
-	  flocal = (Wstarij[l][4]-pInfty)*normal[l];
-	}
+      Vec3D flocal(0.0,0.0,0.0); 
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
+      if(ghostPoints) {// Viscous Simulation
+        gradP[0] = gradX[i][4];
+        gradP[1] = gradY[i][4];
+        gradP[2] = gradZ[i][4];
+        double pp = vf->getPressure(v[0], fid?(*fid)[i]:0);
+        flocal = (pp - pInfty + 0.5*(gradP*vectorIJ))*normal[l];
+        // Compute Velocity Gradient
+        // ***************** Method 1 **********************
+        dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
+        dudxj[1][0] = gradX[i][2]; dudxj[1][1] = gradY[i][2]; dudxj[1][2] = gradZ[i][2];
+        dudxj[2][0] = gradX[i][3]; dudxj[2][1] = gradY[i][3]; dudxj[2][2] = gradZ[i][3];
+        // ***************** Method 2 **********************
+        /*
+        double norm = vectorIJ.norm();
+        double deltaU = (v[0][1]-v[1][1])/(norm*norm);
+        dudxj[0][0] = deltaU*vectorIJ[0];dudxj[0][1] = deltaU*vectorIJ[1];dudxj[0][2] = deltaU*vectorIJ[2];
+        double deltaU = (v[0][2]-v[1][2])/(norm*norm);
+        dudxj[1][0] = deltaU*vectorIJ[0];dudxj[1][1] = deltaU*vectorIJ[1];dudxj[1][2] = deltaU*vectorIJ[2];
+        double deltaU = (v[0][3]-v[1][3])/(norm*norm);
+        dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
+        */
+        flocal += postFcn->computeViscousForceCVBoundary(normal[l],v[0],dudxj);
+      }
+      else {
+        double pp = vf->getPressure(Wstarij[l],fid?(*fid)[i]:0);
+        flocal = (pp-pInfty)*normal[l];
+      }
+      sendLocalForce(flocal, lsRes, Fs);
     }
     if (jActive) {
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if(ghostPoints) // Viscous Simulation
-	{
-	  gradP[0] = gradX[j][4];
-	  gradP[1] = gradY[j][4];
-	  gradP[2] = gradZ[j][4];
-	  // Minus, cause the normal points toward j
-	  flocal   -= (v[0][4] - 0.5*(gradP*vectorIJ))*normal[l];
-	  // Compute Velocity Gradient
-	  // ***************** Method 1 **********************
-	  dudxj[0][0] = gradX[j][1]; dudxj[0][1] = gradY[j][1]; dudxj[0][2] = gradZ[j][1];
-	  dudxj[1][0] = gradX[j][2]; dudxj[1][1] = gradY[j][2]; dudxj[1][2] = gradZ[j][2];
-	  dudxj[2][0] = gradX[j][3]; dudxj[2][1] = gradY[j][3]; dudxj[2][2] = gradZ[j][3];
-	  // ***************** Method 2 **********************
-	  /*
-	  double norm = vectorIJ.norm();
-	  double deltaU = -(v[1][1]-v[0][1])/(norm*norm);
-	  dudxj[0][0] = deltaU*vectorIJ[0];dudxj[0][1] = deltaU*vectorIJ[1];dudxj[0][2] = deltaU*vectorIJ[2];
-	  double deltaU = -(v[1][2]-v[0][2])/(norm*norm);
-	  dudxj[1][0] = deltaU*vectorIJ[0];dudxj[1][1] = deltaU*vectorIJ[1];dudxj[1][2] = deltaU*vectorIJ[2];
-	  double deltaU = -(v[1][3]-v[0][3])/(norm*norm);
-	  dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
-	  */
-	  // Minus, cause the normal points toward j
-	  flocal  -= postFcn->computeViscousForceCVBoundary(normal[l],v[1],dudxj);
-	}
-      else
-	{
-	  flocal += -(Wstarji[l][4]-pInfty)*normal[l];
-	}
+      Vec3D flocal(0.0,0.0,0.0);
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
+      if(ghostPoints) {// Viscous Simulation
+        gradP[0] = gradX[j][4];
+        gradP[1] = gradY[j][4];
+        gradP[2] = gradZ[j][4];
+        double pp = vf->getPressure(v[1], fid?(*fid)[j]:0);
+        // Minus, cause the normal points toward j
+        flocal = -(pp - pInfty - 0.5*(gradP*vectorIJ))*normal[l];
+        // Compute Velocity Gradient
+        // ***************** Method 1 **********************
+        dudxj[0][0] = gradX[j][1]; dudxj[0][1] = gradY[j][1]; dudxj[0][2] = gradZ[j][1];
+        dudxj[1][0] = gradX[j][2]; dudxj[1][1] = gradY[j][2]; dudxj[1][2] = gradZ[j][2];
+        dudxj[2][0] = gradX[j][3]; dudxj[2][1] = gradY[j][3]; dudxj[2][2] = gradZ[j][3];
+        // ***************** Method 2 **********************
+        /*
+        double norm = vectorIJ.norm();
+        double deltaU = -(v[1][1]-v[0][1])/(norm*norm);
+        dudxj[0][0] = deltaU*vectorIJ[0];dudxj[0][1] = deltaU*vectorIJ[1];dudxj[0][2] = deltaU*vectorIJ[2];
+        double deltaU = -(v[1][2]-v[0][2])/(norm*norm);
+        dudxj[1][0] = deltaU*vectorIJ[0];dudxj[1][1] = deltaU*vectorIJ[1];dudxj[1][2] = deltaU*vectorIJ[2];
+        double deltaU = -(v[1][3]-v[0][3])/(norm*norm);
+        dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
+        */
+        // Minus, cause the normal points toward j
+        flocal -= postFcn->computeViscousForceCVBoundary(normal[l],v[1],dudxj);
+      }
+      else {
+        double pp = vf->getPressure(Wstarji[l],fid?(*fid)[j]:0);
+        flocal = -(pp-pInfty)*normal[l];
+      }
+      sendLocalForce(flocal, lsRes, Fs);
     }
-    sendLocalForce(flocal, lsRes, Fs);
   }
 }
 

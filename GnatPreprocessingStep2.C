@@ -74,10 +74,6 @@ void GnatPreprocessingStep2<dim>::determineSampleNodes() {
 
 	// set globalSampleNodes, nSampleNodes
 
-	//int dbgWait = 0;
-	//if (this->thisCPU == 1)
-	//	dbgWait = 1;
-	//while (dbgWait==1);
 	this->com->barrier();
 	this->nSampleNodes = 0;
 	this->domain.readSampleNodes(this->globalSampleNodes, this->nSampleNodes,

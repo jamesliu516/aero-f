@@ -60,7 +60,7 @@ public:
   double computeTemperature(double *V) const {
     if (isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
-      exit(1);
+      throw std::exception();
     }
     return invgam1 * (V[4]+gam*Pstiff) / V[0];
   }

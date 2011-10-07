@@ -4232,7 +4232,7 @@ void SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, const
 
 
 //-----------------------------------------------------------------------------------------------
-
+/*
 void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
                                         SVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                         LevelSetStructure &LSS, Vec<double> &pstarij, 
@@ -4244,7 +4244,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
   int i,j;
   ptr = edges.getPtr();
   bool iActive, jActive, intersect;
-  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
+  if (forceApp!=1) {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
 
   for (int l=0; l<edges.size(); l++) {
     if (!masterFlag[l]) continue;
@@ -4267,110 +4267,21 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     if (iActive) {
       Vec3D flocal(0.0,0.0,0.0);
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
-      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
-      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      flocal = (pstarij[l]-pInfty)*normal[l];
       sendLocalForce(flocal, lsRes, Fs);
     }
     if (jActive) {
       Vec3D flocal(0.0,0.0,0.0);
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if (forceApp==1) flocal = -(pstarji[l]-pInfty)*normal[l];
-      else flocal = -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      flocal = -(pstarji[l]-pInfty)*normal[l];
       sendLocalForce(flocal, lsRes, Fs);
     }
   }
 }
-
-//-----------------------------------------------------------------------------------------------
-/*
-void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
-                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs,
-                                        LevelSetStructure &LSS, Vec<double> &pstarij,
-                                        Vec<double> &pstarji, double pInfty)
-{
-  Vec<Vec3D>& normal = geoState.getEdgeNormal();
-  bool* masterFlag = edges.getMasterFlag();
-  int (*ptr)[2];
-  int i,j;
-  ptr = edges.getPtr();
-  bool iActive, jActive, intersect;
-  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
-
-  for (int l=0; l<edges.size(); l++) {
-    if (!masterFlag[l]) continue;
-    i = ptr[l][0];
-    j = ptr[l][1];
-    iActive = LSS.isActive(0,i);
-    jActive = LSS.isActive(0,j);
-    intersect = LSS.edgeIntersectsStructure(0,i,j);
-
-    if (!iActive && !jActive) continue; //both inside structure
-    if (iActive && jActive && !intersect) continue;
-
-    // now (i,j) must intersect the structure.
-    LevelSetResult lsRes;
-    Vec3D flocal(0.0,0.0,0.0); //It MUST be initialized to 0 for the following lines to work!
-    if (iActive) {
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
-      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
-      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
-    }
-    if (jActive) {
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if (forceApp==1) flocal += -(pstarji[l]-pInfty)*normal[l];
-      else flocal += -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
-    }
-    sendLocalForce(flocal, lsRes, Fs);
-  }
-}
 */
 //-----------------------------------------------------------------------------------------------
-
-struct PolygonReconstructionData {
-    PolygonReconstructionData() : numberOfEdges(0) {}
-    int numberOfEdges;
-    int edgeWithVertex[4][2];
-
-    void AssignSingleEdge(int n1, int n2){ //for PhysBAM only
-        numberOfEdges=1;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-    }
-
-    void AssignTwoEdges(int n1, int n2, int n3){ //for PhysBAM only
-        numberOfEdges=2;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
-    }
-
-    void AssignTriangle(int n1, int n2, int n3, int n4,bool owned_by_single_vertex=true){
-        numberOfEdges=3;
-        if(owned_by_single_vertex){
-            edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-            edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
-            edgeWithVertex[2][0]=n1; edgeWithVertex[2][1]=n4;}
-        else{
-            edgeWithVertex[0][0]=n2; edgeWithVertex[0][1]=n1;
-            edgeWithVertex[1][0]=n3; edgeWithVertex[1][1]=n1;
-            edgeWithVertex[2][0]=n4; edgeWithVertex[2][1]=n1;}
-    }
-
-    void AssignQuadTriangle(int n1, int n2, int n3, int n4){ //for PhysBAM only
-        numberOfEdges=3;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
-        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n3;
-    }
-
-    void AssignQuadrilateral(int n1, int n2, int n3, int n4){
-        numberOfEdges=4;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
-        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n4;
-        edgeWithVertex[3][0]=n2; edgeWithVertex[3][1]=n3;
-    }
-};
-
-void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
+/*
+void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<double,3> &X,
                                              double (*Fs)[3], int sizeFs, LevelSetStructure &LSS,
                                              Vec<double> &pstarij, Vec<double> &pstarji, double pInfty)
 {
@@ -4519,6 +4430,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   if(nodeFile) fclose(nodeFile);
   if(elemFile) fclose(elemFile);
 }
+*/
 
 //--------------------------------------------------------------------------
 
@@ -4674,15 +4586,6 @@ void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double
     return;
   }
   if (METHOD==2) {
-    flocal = -1.0/3.0*p1*(nf*lsRes1.gradPhi)*lsRes1.gradPhi;
-    sendLocalForce(flocal, lsRes1, Fs);
-    flocal = -1.0/3.0*p2*(nf*lsRes2.gradPhi)*lsRes2.gradPhi;
-    sendLocalForce(flocal, lsRes2, Fs);
-    flocal = -1.0/3.0*p3*(nf*lsRes3.gradPhi)*lsRes3.gradPhi;
-    sendLocalForce(flocal, lsRes3, Fs);
-    return;
-  }
-  if (METHOD==3) {
     double c1 = 1.0/6.0, c2 = 1.0/12.0;
     flocal = -(c1*p1 + c2*(p2+p3))*nf;
     sendLocalForce(flocal, lsRes1, Fs);
