@@ -286,58 +286,35 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
 
 void PostFcnEuler::computeForceEmbedded(int orderOfAccuracy, double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
 					double *Vwall, double *Vface[3], double *Vtet[4],
-					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro, int* fid)
+					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
+                                        int hydro, int* fid, bool applyRealForce)
 {
-
+  if(hydro!=0) {fprintf(stderr,"hydro parameter (%d) not supported...\n"); exit(-1);}
   Vec3D p;
-  double pcgin;
-  int i;
-
-  switch(hydro)
-    {
-    case 0:
-      for(i=0;i<3;i++) p[i] = varFcn->getPressure(Vface[i],(fid?fid[i]:0));
-      break;
-    case 1: // hydrostatic pressure
-      for(i=0;i<3;i++) p[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
-      break;
-    case 2: // hydrodynamic pressure
-      for(i=0;i<3;i++) p[i] = varFcn->hydrodynamicPressure(Vface[i],Xface[i]);
-      break;
-    default:
-      fprintf(stderr,"hydro parameter is not correct. Pressure at the face cannot be computed. hydro = %d\n",hydro);
-      exit(-1);
-    }
-
-  if (pin)
-    pcgin = *pin;
+  if(applyRealForce)
+    for(int i=0;i<3;i++) 
+      p[i] = varFcn->getPressure(Vface[i],(fid?fid[i]:0));
   else
-    if (hydro == 0)
-      pcgin = pinfty;
-    else
-      pcgin = 0.0;
+    for(int i=0;i<3;i++)
+      p[i] = Vface[i][4];
 
-  p -= pcgin;
-
- // Computes Int_{T} (N_i * Sum_{j\in T} p_j N_j) dx
- // At first order, N_j = Chi_j (constant per control volume)
- // At second order, N_j = Phi_j (P1 lagrangian basis functions within T)
- switch (orderOfAccuracy)
-   {
-   case 1: 
-     Fi0 = (p[0]/3.0)*n;
-     Fi1 = (p[1]/3.0)*n;
-     Fi2 = (p[2]/3.0)*n;
-     break;
-   case 2:
-     double c1 = 1.0/6.0, c2 = 1.0/12.0;
-     Fi0 = (c1*p[0]+c2*(p[1]+p[2]))*n;
-     Fi1 = (c1*p[1]+c2*(p[2]+p[0]))*n;
-     Fi2 = (c1*p[2]+c2*(p[0]+p[1]))*n;
-     break;
-   }     
-     
- Fv = 0.0;
+  // Computes Int_{T} (N_i * Sum_{j\in T} p_j N_j) dx
+  // At first order, N_j = Chi_j (constant per control volume)
+  // At second order, N_j = Phi_j (P1 lagrangian basis functions within T)
+  switch (orderOfAccuracy) {
+    case 1: 
+      Fi0 = (p[0]/3.0)*n;
+      Fi1 = (p[1]/3.0)*n;
+      Fi2 = (p[2]/3.0)*n;
+      break;
+    case 2:
+      double c1 = 1.0/6.0, c2 = 1.0/12.0;
+      Fi0 = (c1*p[0]+c2*(p[1]+p[2]))*n;
+      Fi1 = (c1*p[1]+c2*(p[2]+p[0]))*n;
+      Fi2 = (c1*p[2]+c2*(p[0]+p[1]))*n;
+      break;
+  }     
+  Fv = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -980,12 +957,17 @@ void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, do
 
 void PostFcnNS::computeForceEmbedded(int orderOfAccuracy,double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
 				     double *Vwall, double *Vface[3], double *Vtet[4], 
-				     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro, int* fid)
+				     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
+                                     int hydro, int* fid, bool applyRealForce)
 {
 
-  PostFcnEuler::computeForceEmbedded(orderOfAccuracy,dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro,fid);
+  PostFcnEuler::computeForceEmbedded(orderOfAccuracy,dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, 
+                                     hydro, fid, applyRealForce);
 
-  Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+  if(applyRealForce)
+    Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+  else
+    Fv = 0.0;
 
 }
 

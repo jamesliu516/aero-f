@@ -65,7 +65,10 @@ public:
   double computeSoundSpeed(double *V)  const{ 
     double c2 = a_ * b_ * pow(V[0], b_ - 1.0);
     if (c2>0) return sqrt(c2);
-    return 0.0;
+    else {
+      std::cout << "Negative c2 for Tait EOS: " << V[0] << "; c^2 = " << c2 << std::endl;
+      return 0.0;
+    }
   }
   double computeSoundSpeed(const double density, const double entropy) const{
     double c2 = a_ * b_ * pow(density, b_ - 1.0);

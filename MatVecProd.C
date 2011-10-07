@@ -701,6 +701,7 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmb
     this->subDomain[iSub]->sndData(*this->vecPat, prod.real().subData(iSub));
   }
 
+
   this->vecPat->exchange();
 
 #pragma omp parallel for

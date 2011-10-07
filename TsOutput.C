@@ -480,6 +480,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     conservation = 0;
 
   it0 = iod.restart.iteration;
+  //std::cout << "it0 = " << it0 << std::endl;
   numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
   frequency_dt = iod.output.transient.frequency_dt;
@@ -2398,7 +2399,7 @@ void TsOutput<dim>::cleanProbesFile() {
         sprintf(nn,"%s.back",nodal_scalars[i]);
         FILE* scalar_file = fopen(nodal_scalars[i],"w");
         FILE* scalar_file_old = fopen(nn,"r");
-        while (1) {
+        while (!feof(scalar_file_old)) {
           fscanf(scalar_file_old,"%d",&iter);
           fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
