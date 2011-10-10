@@ -4403,7 +4403,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
             Xinter[k][1] = alpha*X[vertex1][1] + (1.0-alpha)*X[vertex2][1];
             Xinter[k][2] = alpha*X[vertex1][2] + (1.0-alpha)*X[vertex2][2];
 
-            if(LSS.isActive(0,vertex1)){pStar[k] = (vertex1<vertex2) ? pstarij[l] : pstarji[l];}
+            if(LSS.isActive(0,vertex1)){pStar[k] = (vertex1<vertex2) ? pstarij[l] : pstarji[l]; }
             else{pStar[k] = pInfty;}}
 
         switch(polygon.numberOfEdges){

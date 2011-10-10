@@ -274,14 +274,14 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
   }
 
 //KW: set gradients = 0 for cells near interface.
-  if(!linRecFSI)  
+  if(!linRecFSI)
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
-
-      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) 
+      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) {
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
+      }
     }
 
 }

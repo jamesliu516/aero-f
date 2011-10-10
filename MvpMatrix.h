@@ -23,6 +23,8 @@ public:
   MvpMat<Scalar,dim> &operator= (const Scalar x) { a = x; return *this; }
   MvpMat<Scalar,dim> &operator*= (const Scalar x) { a *= x; return *this; }
 
+  double norm() {return a.norm();}
+
   int numNonZeroBlocks() const { return a.size(); }
   Scalar (*data())[dim*dim] { return a.data(); }
 

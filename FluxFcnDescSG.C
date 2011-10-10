@@ -1470,6 +1470,16 @@ void FluxFcnSGWallSA3D::computeJacobian(double length, double irey, double *norm
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGGhidagliaSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                   double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  F77NAME(genbcfluxgas)(1, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGOutflowSA3D::compute(double length, double irey, double *normal, double normalVel,
                                  double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1582,6 +1592,23 @@ void FluxFcnSGWallSAturb3D::computeJacobian(double length, double irey, double *
 {
 
   jacL[0] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGGhidagliaSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                             double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double flux[6];
+  F77NAME(genbcfluxgas)(1, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+
+  double updir = 1.0;
+  if(flux[0]<0.0)  updir = 0.0;
+  else if(flux[0]==0.0) updir = 0.5;
+
+  jacL[0] = flux[0] * updir / V[0];
 
 }
 
@@ -1897,6 +1924,16 @@ void FluxFcnSGWallKE3D::computeJacobian(double length, double irey, double *norm
 }
 
 //------------------------------------------------------------------------------
+
+void FluxFcnSGGhidagliaKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                   double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  F77NAME(genbcfluxgas)(2, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnSGOutflowKE3D::compute(double length, double irey, double *normal, double normalVel,
                                  double *V, double *Ub, double *flux, bool useLimiter)
@@ -1944,6 +1981,26 @@ void FluxFcnSGWallKEturb3D::computeJacobian(double length, double irey, double *
   jacL[1] = 0.0;
   jacL[2] = 0.0;
   jacL[3] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGGhidagliaKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                             double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double flux[7];
+  F77NAME(genbcfluxgas)(2, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+
+  double updir = 1.0;
+  if(flux[0]<0.0)  updir = 0.0;
+  else if(flux[0]==0.0) updir = 0.5;
+
+  jacL[0] = flux[0] * updir / V[0];
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = jacL[0];
 
 }
 

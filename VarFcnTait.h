@@ -62,6 +62,21 @@ public:
 
   //checks that the Euler equations are still hyperbolic
   double checkPressure(double *V) const{ return getPressure(V); }
+  bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe) const{
+    bool error = false;
+    if(V[0] <= 0.0){
+      error = true;
+      if (failsafe)
+        fprintf(stdout, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+      else
+        fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+    }
+    // no check of pressure or temperature since hyperbolicity of the Euler equations with Tait EOS relies
+    // only on the square of the speed of sound which is a_ * b_ * pow(V[0], b_ - 1.0)
+    return error;
+  }
 
   double computeTemperature(double *V) const{ return V[4]; }
   double computeRhoEnergy(double *V)   const{
