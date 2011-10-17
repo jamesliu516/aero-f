@@ -107,7 +107,9 @@ class ModalSolver {
                           VecSet<Vec<double> > &gMat, VecSet<DistSVec<double, dim> > &podVecs,
                           int nSteps, int nPodVecs, double *delU, double *delY, double sdt);
 
-    void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
+   // void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &, VecSet<Vec<double> > &, Vec<double> &);
+   // void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &, VecSet<Vec<double> > &, Vec<double> &);
+   void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void outputModalDisp(double *, double *, double, int, int, FILE *);
     void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int);
