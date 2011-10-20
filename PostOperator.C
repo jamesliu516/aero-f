@@ -483,28 +483,29 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&rieman
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
-    double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
-                       Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
-		       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
-		       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
-    com->globalSum(12, coef);
+    {
+      double coef[12] = { Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
+                          Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
+                          Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
+                          Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2] };
+      com->globalSum(12, coef);
 
-    Fi[iSurf][0] = coef[0]; 
-    Fi[iSurf][1] = coef[1];
-    Fi[iSurf][2] = coef[2];
+      Fi[iSurf][0] = coef[0]; 
+      Fi[iSurf][1] = coef[1];
+      Fi[iSurf][2] = coef[2];
 
-    Mi[iSurf][0] = coef[3]; 
-    Mi[iSurf][1] = coef[4];
-    Mi[iSurf][2] = coef[5];
+      Mi[iSurf][0] = coef[3]; 
+      Mi[iSurf][1] = coef[4];
+      Mi[iSurf][2] = coef[5];
 
-    Fv[iSurf][0] = coef[6]; 
-    Fv[iSurf][1] = coef[7];
-    Fv[iSurf][2] = coef[8];
+      Fv[iSurf][0] = coef[6]; 
+      Fv[iSurf][1] = coef[7];
+      Fv[iSurf][2] = coef[8];
 
-    Mv[iSurf][0] = coef[9]; 
-    Mv[iSurf][1] = coef[10];
-    Mv[iSurf][2] = coef[11];
- 
+      Mv[iSurf][0] = coef[9]; 
+      Mv[iSurf][1] = coef[10];
+      Mv[iSurf][2] = coef[11];
+    }
   }
 
   map<int, int>::iterator it;
@@ -560,9 +561,11 @@ void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3>& X,
 
     for(int iSurf = 0; iSurf < numSurfHF; ++iSurf) {
 //#pragma omp critical
-       double coef[2] = {HF[iSurf], HF[iSurf]};
-       com->globalSum(2, coef);
-       HF[iSurf] = coef[1];
+      {
+        double coef[2] = {HF[iSurf], HF[iSurf]};
+        com->globalSum(2, coef);
+        HF[iSurf] = coef[1];
+      }
     }
 
 map<int, int>::iterator it;
@@ -582,8 +585,8 @@ map<int, int>::iterator it;
 
 template<int dim>
 void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-                                                                                                             DistSVec<double,dim> &U, DistSVec<double,dim> &dU, double dS[3],
-                                                                                                             Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+                                                          DistSVec<double,dim> &U, DistSVec<double,dim> &dU, double dS[3],
+                                                          Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
 {
 
   int iSurf;
@@ -630,28 +633,29 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
-    double dCoef[12] = {dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
-                        dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
-		        dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],
-		        dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2]};
-    com->globalSum(12, dCoef);
+    {
+      double dCoef[12] = { dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
+                           dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
+                           dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],
+                           dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2] };
+      com->globalSum(12, dCoef);
 
-    dFi[iSurf][0] = dCoef[0]; 
-    dFi[iSurf][1] = dCoef[1];
-    dFi[iSurf][2] = dCoef[2];
+      dFi[iSurf][0] = dCoef[0]; 
+      dFi[iSurf][1] = dCoef[1];
+      dFi[iSurf][2] = dCoef[2];
 
-    dMi[iSurf][0] = dCoef[3]; 
-    dMi[iSurf][1] = dCoef[4];
-    dMi[iSurf][2] = dCoef[5];
+      dMi[iSurf][0] = dCoef[3]; 
+      dMi[iSurf][1] = dCoef[4];
+      dMi[iSurf][2] = dCoef[5];
 
-    dFv[iSurf][0] = dCoef[6]; 
-    dFv[iSurf][1] = dCoef[7];
-    dFv[iSurf][2] = dCoef[8];
+      dFv[iSurf][0] = dCoef[6]; 
+      dFv[iSurf][1] = dCoef[7];
+      dFv[iSurf][2] = dCoef[8];
 
-    dMv[iSurf][0] = dCoef[9]; 
-    dMv[iSurf][1] = dCoef[10];
-    dMv[iSurf][2] = dCoef[11];
-
+      dMv[iSurf][0] = dCoef[9]; 
+      dMv[iSurf][1] = dCoef[10];
+      dMv[iSurf][2] = dCoef[11];
+    }
   }
 
   map<int, int>::iterator it;

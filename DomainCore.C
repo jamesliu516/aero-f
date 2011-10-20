@@ -109,6 +109,11 @@ Domain::Domain()
   embedCom = allCom[EMBED_ID];
 
   meshMotionBCs = 0; //HB
+
+	numGlobNode = 0;	// only compute if needed
+
+	output_newton_step = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -758,7 +763,6 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
 int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &dCtrlVol)
 {
 
@@ -1528,3 +1532,165 @@ void Domain::computeMaterialVolumes(double *Vol, int size, DistVec<double> &A, D
 }
 
 //-------------------------------------------------------------------------------
+
+void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&globalSubSet, int *&locNodeSet) { // for Gappy Pod
+
+  // read in nIntNodes, globalSubSet and locNodeSet
+  com->fprintf(stderr," ... Reading InterpNode File \n");
+  const char *vecFile = interpNodeFile;
+
+  if (!vecFile) vecFile = "interpNodeFile.in";
+  FILE *interpNodeFP = fopen(vecFile, "r");
+  if (!interpNodeFP)  {
+    com->fprintf(stderr, "*** Warning: No Data in %s\n", vecFile);
+    exit (-1);
+  }
+
+  int globalSub, locNode;
+  fscanf(interpNodeFP, "%d",&nIntNodes);
+
+  if(globalSubSet == 0)
+    globalSubSet = new int[nIntNodes];
+  else fprintf(stderr, "globalSubSet in DomainCore is not zero!\n");
+  if(locNodeSet == 0)
+    locNodeSet = new int[nIntNodes];
+  else fprintf(stderr, "locNodeSet in DomainCore is not zero!\n");
+
+  for (int iData = 0; iData < nIntNodes; ++iData){
+    fscanf(interpNodeFP, "%d %d", &globalSub, &locNode);
+    globalSubSet[iData] = globalSub;
+    locNodeSet[iData] = locNode;
+  }
+
+}
+
+//-------------------------------------------------------------------------------
+
+void Domain::readInterpMatrix(const char *interpMatrixFile, int &dimInterpMat, FullM &interpMat) { // for Gappy Pod
+
+
+  // Read interpMat
+  com->fprintf(stderr," ... Reading InterpMatrix File \n");
+  const char *vecFile = interpMatrixFile;
+  if (!vecFile) vecFile = "interpMatrixFile.in";
+  FILE *interpMatrixFP = fopen(vecFile, "r");
+  if (!interpMatrixFP)  {
+    com->fprintf(stderr, "*** Warning: No Data in %s\n", vecFile);
+    exit (-1);
+  }
+
+  double MatrixEntry;
+  fscanf(interpMatrixFP, "%d",&dimInterpMat);
+  interpMat.setNewSize(dimInterpMat,dimInterpMat);
+  //if (dimInterpMat != nIntNodes*dim) {
+  //  com->fprintf(stderr, "*** ERROR: dimInterpMat =  %d, but nNode*dim = %d\n", dimInterpMat, nIntNodes*dim);
+  //  exit (-1);
+  //}
+
+  for (int i = 0; i < dimInterpMat; ++i) {
+    for (int j = 0; j < dimInterpMat; ++j) {
+      fscanf(interpMatrixFP, "%le  ", &MatrixEntry);
+      interpMat[i][j] = MatrixEntry;
+    }
+  }
+
+}
+
+int Domain::getNumGlobNode() {
+
+	if (numGlobNode == 0)	// has not yet been computed
+		computeNumGlobNode();
+
+	return numGlobNode;
+
+}
+
+void Domain::computeNumGlobNode() {
+
+	numGlobNode = 0;	// ensure it is zero
+	bool *locMasterFlag;	// indicates which node is master (avoid double-counting)
+	for (int iSub = 0 ; iSub < numLocSub ; ++iSub) {	// requires domain
+		locMasterFlag = nodeDistInfo->getMasterFlag(iSub); // master nodes on subdomain
+		for (int iLocNode = 0; iLocNode < subDomain[iSub]->numNodes(); ++iLocNode) {	// all local nodes in subdomain
+			if (locMasterFlag[iLocNode])
+				numGlobNode +=1;
+		}
+	}
+	com->barrier();
+	com->globalSum(1, &numGlobNode);
+}
+
+void Domain::readSampleNodes(std::vector<int> &sampleNodes, int &nSampleNodes,
+		const char *sampleNodeFileName) {
+
+	// INPUT: sample node file name
+	// OUTPUT: nSampleNodes, sampleNodes
+
+	FILE *sampleNodeFile = fopen(sampleNodeFileName, "r");
+	int nSampleNodesTmp;
+	fscanf(sampleNodeFile, "%d",&nSampleNodesTmp);	// first entry is the number of sample nodes
+
+	if (nSampleNodes == 0) {
+		nSampleNodes = nSampleNodesTmp;
+	}
+	sampleNodes.reserve(nSampleNodes);	// know it will be nSampleNodes long (efficiency)
+
+	int index, currentSampleNode;
+	for (int i = 0; i < nSampleNodes; ++i){
+		fscanf(sampleNodeFile, "%d",&index);
+		fscanf(sampleNodeFile, "%d",&currentSampleNode);
+		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
+	}
+}
+
+void Domain::computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes) {
+
+	// compute global node numbers for neighbors
+
+	std::vector <int> globalNeighborNodes;
+
+	// INPUT: locSampleNodes, OUTPUT: globalNeighborNodes
+  computeConnectedNodes(locSampleNodes,globalNeighborNodes);
+
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+		subDomain[iSub]->computeConnectedTopology(locSampleNodes[iSub],globalNeighborNodes);
+	}
+
+}
+
+void Domain::computeConnectedNodes(const std::vector<std::vector<int> > &locSampleNodes_,
+		std::vector<int> &globalNeighborNodes) 
+{
+
+	int iLocNode, nNodesToAdd, locNodeNum;
+	int *nToNpointer;
+	Connectivity *nodeToNode;
+	int *locToGlobNodeMap;
+
+	for (int iSub = 0; iSub < numLocSub; ++iSub) {
+		int *locToGlobNodeMap = subDomain[iSub]->getNodeMap();
+		nodeToNode = subDomain[iSub]->createElemBasedConnectivity();
+		nToNpointer = nodeToNode->ptr();
+
+		for (int iSampleNodes = 0; iSampleNodes < locSampleNodes_[iSub].size() ; ++iSampleNodes) {
+
+			iLocNode = locSampleNodes_[iSub][iSampleNodes];
+			nNodesToAdd = nToNpointer[iLocNode+1] - nToNpointer[iLocNode];  // number of neighbors this node has
+
+			// figure out neighbors
+			for (int iNodeToAdd = 0; iNodeToAdd < nNodesToAdd; ++iNodeToAdd) {
+				locNodeNum = *((*nodeToNode)[iLocNode]+iNodeToAdd);
+
+				// local to global node numbers
+				globalNeighborNodes.push_back(locToGlobNodeMap[locNodeNum]);
+			}
+		}
+	}
+
+	// communicate mesh
+
+	communicateMesh(&globalNeighborNodes, 1, NULL);
+	//makeUnique(&globalNeighborNodes, 1);	// KTC remove?
+
+}
+

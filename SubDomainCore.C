@@ -219,6 +219,12 @@ Connectivity *SubDomain::createElementToElementConnectivity()
 
 //------------------------------------------------------------------------------
 
+Connectivity *SubDomain::createElementToNodeConnectivity()
+{
+  return new Connectivity (&elems);
+}
+//------------------------------------------------------------------------------
+
 Connectivity *SubDomain::createEdgeBasedConnectivity()
 {
 
@@ -3456,7 +3462,7 @@ void SubDomain::multiPointsDeltaFreq(int mFreqStart, double *freqCoarse, int nPo
 {
   int i;
   if (nPoints % 2 == 1)
-    midFreq[0] = int(floor(nPoints/2)+1)-1;
+    midFreq[0] = int(floor(nPoints/2.0)+1)-1;
   else
     midFreq[0] = nPoints/2-1;
   for (i=0; i<nPoints; i++) {
@@ -3602,7 +3608,7 @@ void SubDomain::buildDeltaFreq(double *deltaFreqCoarse,int numFreqCoarse, double
 
   int i;
   if (numFreqCoarse % 2 == 1)
-    midFreq[0] = int(floor(numFreqCoarse/2)+1)-1;
+    midFreq[0] = int(floor(numFreqCoarse/2.0)+1)-1;
   else
     midFreq[0] = numFreqCoarse/2-1;
   for (i=0; i<numFreqCoarse; i++)
@@ -4634,8 +4640,6 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
     }
   }
 }
-
-//-----------------------------------------------------------------------------------------------
 // ASSUME Max FLUID-ID IS 2
 void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll)
 {
@@ -4690,4 +4694,20 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
 }
 
 //------------------------------------------------------------------------------
+
+void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_, const std::vector<int> &globalNeighborNodes) 
+{
+
+	sampleMesh = true;
+	locSampleNodes = locSampleNodes_;
+	numSampledNodes = locSampleNodes.size();
+	elems.computeConnectedElems(locSampleNodes);
+	edges.computeConnectedEdges(locSampleNodes);
+	edges.computeGlobalConnectedEdges(globalNeighborNodes,locToGlobNodeMap);
+	faces.computeConnectedFaces(locSampleNodes);
+
+}
+
+
+
 

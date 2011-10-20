@@ -201,6 +201,11 @@ class SubDomain {
   int numOffDiagEntries;
   double *dGradP[3];
 
+	bool sampleMesh;
+	int numSampledNodes;
+	std::vector<int> locSampleNodes;	// for Gappy ROM
+
+
 public:
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
@@ -209,6 +214,7 @@ public:
 
   // topology
   int *getNodeMap()    { return locToGlobNodeMap; }
+  int *getElemMap()  { return locToGlobElemMap; }
   int getGlobSubNum()  { return globSubNum; }
   int getLocSubNum()   { return locSubNum; }
   int getNumNeighb()   { return numNeighb; }
@@ -218,9 +224,12 @@ public:
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
 
+	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
+
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();
   Connectivity *createElementToElementConnectivity();
+  Connectivity *createElementToNodeConnectivity();
   Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToSubDomainConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
@@ -233,13 +242,14 @@ public:
   int numFaces() { return(faces.size()); }
   int numElems() { return(elems.size()); }
   int numEdges() { return(edges.size()); }
+	FaceSet& getFaces() {return faces;};
+	ElemSet& getElems() {return elems;};
 
   int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
 
   // Get the local node number in the subdomain of the global node <id>
   // Returns -1 if it does not exist.  Warning: This method is O(N)
   int getLocalNodeNum(int globNodeNum) const;
-
   // geometry
 
   void setFaceType(int *);
