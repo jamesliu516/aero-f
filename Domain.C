@@ -4203,3 +4203,4 @@ void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length = 1) {
 	it = unique(nodeOrEle[0].begin(), nodeOrEle[0].end()); // remove duplicate consecutive elements (reason for sort)
 	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
 }
+

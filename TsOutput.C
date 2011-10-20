@@ -12,6 +12,7 @@
 #include <DistExactRiemannSolver.h>
 #include <BinFileHandler.h>
 #include <VectorSet.h>
+#include <GhostPoint.h>
 
 //------------------------------------------------------------------------------
 
@@ -631,6 +632,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   // Initialize nodal output structures
   Probes& myProbes = iod.output.transient.probes;
+  nodal_output.step = 0;
   nodal_output.results = new double[Probes::MAXNODES*3];
   nodal_output.subId = new int[Probes::MAXNODES];
   nodal_output.locNodeId = new int[Probes::MAXNODES];
@@ -2348,7 +2350,7 @@ static void copyFile(const char* fname) {
   char* buffer = new char[lSize];
   fread (buffer,1,lSize,f);
   fclose(f);
-  
+
   char nn[256];
   sprintf(nn,"%s.back",fname);
   f = fopen(nn,"wb");
@@ -2379,11 +2381,12 @@ void TsOutput<dim>::cleanProbesFile() {
           fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
             break;          
-          fprintf(scalar_file,"%d\n%e\n",iter,time);
+          fprintf(scalar_file,"%d %e ",iter,time);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k) {
 	    fscanf(scalar_file_old,"%lf",&res);
-            fprintf(scalar_file,"%e\n",res);
+            fprintf(scalar_file,"%e ",res);
           }
+          fprintf(scalar_file,"\n");
 	}
         fclose(scalar_file);
         fclose(scalar_file_old);
@@ -2395,26 +2398,26 @@ void TsOutput<dim>::cleanProbesFile() {
     if (nodal_vectors[i]) {
 	
       if (com->cpuNum() == 0) {
-        copyFile(nodal_scalars[i]);
-        sprintf(nn,"%s.back",nodal_scalars[i]);
-        FILE* scalar_file = fopen(nodal_scalars[i],"w");
-        FILE* scalar_file_old = fopen(nn,"r");
-        while (!feof(scalar_file_old)) {
-          fscanf(scalar_file_old,"%d",&iter);
-          fscanf(scalar_file_old,"%lf",&time);
+        copyFile(nodal_vectors[i]);
+        sprintf(nn,"%s.back",nodal_vectors[i]);
+        FILE* vector_file = fopen(nodal_vectors[i],"w");
+        FILE* vector_file_old = fopen(nn,"r");
+        while (!feof(vector_file_old)) {
+          fscanf(vector_file_old,"%d",&iter);
+          fscanf(vector_file_old,"%lf",&time);
           if (iter > it0)
             break;          
-          fprintf(scalar_file,"%d\n%e\n",iter,time);
+          fprintf(vector_file,"%d %e ",iter,time);
           for (int k =0 ; k < nodal_output.numNodes; ++k) {
             for (int l = 0; l < 3; ++l) {
-	      fscanf(scalar_file_old,"%lf",&res);
-              fprintf(scalar_file,"%e ",res);
+	      fscanf(vector_file_old,"%lf",&res);
+              fprintf(vector_file,"%e ",res);
             }
-	    fprintf(scalar_file,"\n");
           }
+          fprintf(vector_file,"\n");
 	}
-        fclose(scalar_file);
-        fclose(scalar_file_old);
+        fclose(vector_file);
+        fclose(vector_file_old);
       }
     }
   }
@@ -2424,13 +2427,13 @@ template<int dim>
 template<int dimLS>
 void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
 				      DistVec<double> &A, DistSVec<double,dim> &U, 
-				      DistTimeState<dim> *timeState,
-				      DistVec<int> &fluidId,DistSVec<double,dimLS>* Phi)
+				      DistTimeState<dim> *timeState, DistVec<int> &fluidId,
+                                      DistSVec<double,dimLS>* Phi, DistLevelSetStructure *distLSS,
+                                      DistVec<GhostPoint<dim>*> *ghostPoints)
 {
   //if (toWrite(it,lastIt,t)) {
   if (nodal_output.numNodes == 0)
     return;
-
     double tag;
     if (rmmh)
       tag = rmmh->getTagValue(t);
@@ -2453,16 +2456,18 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 				      nodal_output.subId, nodal_output.locNodeId,
 				      nodal_output.last,nodal_output.numNodes,nodal_output.results,
                                       nodal_output.locations,
-                                      Phi);
+                                      Phi, distLSS, ghostPoints);
 	if (com->cpuNum() == 0) {
 	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
-	  fprintf(scalar_file,"%d\n%e\n",nodal_output.step+it0, tag);
+	  fprintf(scalar_file,"%d %e ",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
-	    fprintf(scalar_file,"%e\n",nodal_output.results[k]*sscale[i]);
+	    fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
+          fprintf(scalar_file,"\n");
 	  fclose(scalar_file);
 	}
       }
     }
+
     for (i=0; i<PostFcn::VSIZE; ++i) {
       if (nodal_vectors[i]) {
 	
@@ -2470,16 +2475,17 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 				      nodal_output.subId, nodal_output.locNodeId,
 				      nodal_output.last,nodal_output.numNodes,nodal_output.results,
                                       nodal_output.locations,
-				      fluidId);
+				      fluidId, distLSS, ghostPoints);
 
 	if (com->cpuNum() == 0) {
 	  FILE* vector_file = fopen(nodal_vectors[i],mode);
-	  fprintf(vector_file,"%d\n%e\n",nodal_output.step+it0, tag);
+	  fprintf(vector_file,"%d %e ",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
-	    fprintf(vector_file,"%e\n%e\n%e\n",
+	    fprintf(vector_file,"%e %e %e ",
 		    nodal_output.results[k*3]*vscale[i],
 		    nodal_output.results[k*3+1]*vscale[i],
 		    nodal_output.results[k*3+2]*vscale[i]);
+          fprintf(vector_file,"\n");
 	  fclose(vector_file);
 	}
       }
@@ -2503,9 +2509,10 @@ template<int dim>
 void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
 				      DistVec<double> &A, DistSVec<double,dim> &U, 
 				      DistTimeState<dim> *timeState,
-				      DistVec<int> &fluidId)
+				      DistVec<int> &fluidId, DistLevelSetStructure *distLSS,
+                                      DistVec<GhostPoint<dim>*> *ghostPoints)
 {
-  writeProbesToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
+  writeProbesToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0, distLSS, ghostPoints);
 }
 
 //----------------------------------------------------------------------------------------
