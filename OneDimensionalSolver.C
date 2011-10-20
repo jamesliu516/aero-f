@@ -64,7 +64,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   source = 0;
   if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
     if(coordType == OneDimensionalInfo::CARTESIAN)
-      source = new CartesianOneDSourceTerm(varFcn);
+      { }//source = new CartesianOneDSourceTerm(varFcn);
     else if(coordType == OneDimensionalInfo::CYLINDRICAL)
       source = new CylindricalOneDSourceTerm(varFcn);
     else if(coordType == OneDimensionalInfo::SPHERICAL)
@@ -702,6 +702,8 @@ void OneDimensional::temporalSetup(){
 void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   V = 0.0;
   // initialize V
+  data.pressure1 = data.pressure2;
+  std::cout << "p2 = " << data.pressure2 << std::endl;
   for(int i=0; i<numPoints; i++){
     if(X[i][0]<data.interfacePosition){
       if (varFcn->getType(1) != VarFcnBase::TAIT) {
@@ -731,13 +733,15 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
       }
     }
 
-    //V[i][0] = 1.0;
+    V[i][0] = 1.0;
     if (fabs(X[i][0]-data.interfacePosition) < 0.2)
-      V[i][4] = 10.0*exp(-0.2*0.2/((X[i][0]-data.interfacePosition+0.2)*(-X[i][0]+data.interfacePosition+0.2)))+data.pressure2;
+      V[i][4] = 10000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+data.pressure2;
     else
-      V[i][4] = data.pressure2;
+    V[i][4] = data.pressure2;
     V[i][1] = 0.0;
   }
+
+  isSinglePhase = varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1));
 
   //cout << data.density1 << " " << data.velocity1 << " " << data.pressure1 << " " << data.temperature1 << endl;
   //cout << data.density2 << " " << data.velocity2 << " " << data.pressure2 << " " << data.temperature2 << endl;
@@ -914,7 +918,6 @@ void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
     for(int idim=0; idim<dim; idim++)
       k[i][idim] = -R[i][idim] / ctrlVol[i][0];
   }
-  //std::cout << k*k << " " << y*y << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -934,8 +937,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
     j = iEdge+1;
 
     double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
-    if (!isSixthOrder || !(i > 0)/* && fluidId[i] == fluidId[i+1] && 
-			fluidId[i] == fluidId[i+2] && fluidId[i] == fluidId[i-1])*/) {
+    if (!isSixthOrder || !(i > 0 && i < numPoints-3 && (fluidId[i] == fluidId[i+1] && 
+				     fluidId[i] == fluidId[i+2] && fluidId[i] == fluidId[i-1] || isSinglePhase))) {
       
       for (k = 0; k < dim; ++k) {
 	VslopeI[k] = Vslope[i][k];
@@ -948,7 +951,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	  (-1.0/30.0)*((V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])-2.0*(V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0]))/beta+
 	  (-2.0/15.0)*(Vslope[i-1][k]-2.0*Vslope[i][k]+Vslope[j][k])/beta;
 	
-	VslopeJ[k] = (V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])+
+	  VslopeJ[k] = (V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])+
 	  (-1.0/30.0)*((V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])-2.0*(V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0]))/beta+
 	  (-2.0/15.0)*(Vslope[j+1][k]-2.0*Vslope[j][k]+Vslope[i][k])/beta;
 	
@@ -988,14 +991,23 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
     length = (X[j][0]-X[i][0]);
 
-    if(fluidId[i] == fluidId[j]||varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1))){
+    if(fluidId[i] == fluidId[j]|| isSinglePhase){
 
       fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fluidId[i]);
       for(int k=0; k<dim; ++k) {
         R[i][k] += ctrlSurf[iEdge+1][0]*flux[k];
         R[j][k] -= ctrlSurf[iEdge+1][0]*flux[k];
       }
-
+      /*if (i == 0) {
+	std::cout << Vi[0] << " " << Vi[1] << " " << Vi[2] << " " << Vi[3] << " " << Vi[4] << std::endl;
+	std::cout << Vj[0] << " " << Vj[1] << " " << Vj[2] << " " << Vj[3] << " " << Vj[4] << std::endl;
+	std::cout << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " << V[i][3] << " " << V[i][4] << std::endl;
+	std::cout << Vsi[0] << " " << Vsi[1] << " " << Vsi[2] << " " << Vsi[3] << " " << Vsi[4] << std::endl;
+	std::cout << Vsj[0] << " " << Vsj[1] << " " << Vsj[2] << " " << Vsj[3] << " " << Vsj[4] << std::endl;
+	
+	std::cout << "fold = " << flux[0] << " " << flux[1] << " " << flux[2] << " " << flux[3] << " " << flux[4] << std::endl;
+      }
+      */
     }else{
       double gradphi[3] = {1.0, 0.0, 0.0};
       double Wi[2*dim], Wj[2*dim];
@@ -1043,6 +1055,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   else if(coordType == OneDimensionalInfo::SPHERICAL)
     fluxFcn[1]->compute(0.0, 0.0, normal, normalVel, V[0], dummy, flux, fluidId[0]);
 
+  //std::cout << "fnew = " << flux[0] << " " << flux[1] << " " << flux[2] << " " << flux[3] << " " << flux[4] << std::endl;
+
   for (int k=0; k<dim; ++k)
     R[0][k] -= ctrlSurf[0][0]*flux[k];
 
@@ -1083,7 +1097,14 @@ void OneDimensional::computeLevelSetFluxes(SVec<double,1>& y){
 
   double uroe,flux;
 
+  SVec<double,1> prim_ls(y);
+
   varFcn->conservativeToPrimitive(U,V,&fluidId);
+  
+  for (int i = 0; i < numPoints; ++i) {
+    prim_ls[i][0] /= V[i][0];
+  }
+  
 
   computeSlopes(y,Phislope,fluidId,false);
   double Phii[1],Phij[1],Phisi[1],Phisj[1];
@@ -1091,9 +1112,25 @@ void OneDimensional::computeLevelSetFluxes(SVec<double,1>& y){
     int i = iEdge;
     int j = iEdge+1;
 
-    Phisi[0] = Phislope[i][0]*(X[j][0]-X[i][0]);
-    Phisj[0] = Phislope[j][0]*(X[j][0]-X[i][0]);
+    if (!isSixthOrder || !(i > 0)) {
+      
+      Phisi[0] = Phislope[i][0]*(X[j][0]-X[i][0]);
+      Phisj[0] = Phislope[j][0]*(X[j][0]-X[i][0]);
+    } else {
 
+      Phisi[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0])+
+	(-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
+	(-2.0/15.0)*(Phislope[i-1][0]-2.0*Phislope[i][0]+Vslope[j][0])/beta;
+      
+      Phisj[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])+
+	(-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
+	(-2.0/15.0)*(Phislope[j+1][0]-2.0*Phislope[j][0]+Phislope[i][0])/beta;
+      
+      Phisi[0] *= 0.5*(X[j][0]-X[i][0]);
+      Phisj[0] *= 0.5*(X[j][0]-X[i][0]);
+      
+    }
+    
     recFcnLS->compute(y[i], Phisi,y[j], Phisj, Phii, Phij);
 
     double uav = 0.5*(V[i][1]+V[j][1]);
@@ -1226,6 +1263,8 @@ void OneDimensional::restartOutput(double time, int iteration){
   //sprintf(str,"%d",iteration);
   //char *currentfile = new char[sp + strlen(str) ];
   output.open(outfile, fstream::out | fstream::trunc);
+  output.setf(ios::scientific);
+  output.precision(10);
 
   cout << "outputting last results in file "<<outfile<<endl;
 
@@ -1263,18 +1302,18 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     if (loctag[i])
       continue;
     
-    if (crossInterface) {
+    //if (crossInterface) {
       if (i > 0 && i < numPoints-1 &&
-	  fid[i] == fid[i+1] &&
-	  fid[i] == fid[i-1])
+	  (fid[i] == fid[i+1] &&
+	  fid[i] == fid[i-1] || !crossInterface))
 	stat = 0;
-      else if (i < numPoints-1 &&fid[i] == fid[i+1])
+      else if (i < numPoints-1 && (fid[i] == fid[i+1] || !crossInterface))
 	stat = 1;
-      else if (i > 0 && fid[i] == fid[i-1])
+      else if (i > 0 && (fid[i] == fid[i-1] || !crossInterface) )
 	stat = 2;
       else
 	stat = 3;
-    }
+      //}
     //std::cout << stat << std::endl;
     for (j = 0; j < neq; ++j) {
 

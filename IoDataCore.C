@@ -5176,7 +5176,7 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 						    programmedBurn.cjDensity, programmedBurn.cjPressure,
 						    programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
       
-      com->fprintf(stderr,"Computed CJ state for JWL gas %d as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
+      com->fprintf(stderr,"Computed CJ state for JWL gas as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
 		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity, programmedBurn.cjEnergy,
 		   programmedBurn.cjDetonationVelocity);
       
@@ -5191,7 +5191,7 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 						   programmedBurn.cjDensity, programmedBurn.cjPressure,
 						   programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
       
-      com->fprintf(stderr,"Computed CJ state for PG gas %e as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
+      com->fprintf(stderr,"Computed CJ state for PG gas as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
 		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity,programmedBurn.cjEnergy,
 		   programmedBurn.cjDetonationVelocity);
       

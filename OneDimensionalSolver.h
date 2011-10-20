@@ -146,6 +146,8 @@ class OneDimensional {
 
   bool isSixthOrder;
 
+  bool isSinglePhase;
+
   double beta;
 
   class Veval {

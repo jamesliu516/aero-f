@@ -2268,11 +2268,13 @@ void TsOutput<dim>::cleanProbesFile() {
           fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
             break;          
-          fprintf(scalar_file,"%d\n%e\n",iter,time);
+          fprintf(scalar_file,"%d %e ",iter,time);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k) {
 	    fscanf(scalar_file_old,"%lf",&res);
-            fprintf(scalar_file,"%e\n",res);
+            fprintf(scalar_file,"%e ",res);
           }
+	  fprintf(scalar_file,"\n");
+	  
 	}
         fclose(scalar_file);
         fclose(scalar_file_old);
@@ -2293,14 +2295,15 @@ void TsOutput<dim>::cleanProbesFile() {
           fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
             break;          
-          fprintf(scalar_file,"%d\n%e\n",iter,time);
+          fprintf(scalar_file,"%d %e ",iter,time);
           for (int k =0 ; k < nodal_output.numNodes; ++k) {
             for (int l = 0; l < 3; ++l) {
 	      fscanf(scalar_file_old,"%lf",&res);
               fprintf(scalar_file,"%e ",res);
             }
-	    fprintf(scalar_file,"\n");
+	    fprintf(scalar_file," ");
           }
+	  fprintf(scalar_file,"\n");
 	}
         fclose(scalar_file);
         fclose(scalar_file_old);
@@ -2345,9 +2348,10 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
                                       Phi);
 	if (com->cpuNum() == 0) {
 	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
-	  fprintf(scalar_file,"%d\n%e\n",nodal_output.step+it0, tag);
+	  fprintf(scalar_file,"%d %e",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
-	    fprintf(scalar_file,"%e\n",nodal_output.results[k]*sscale[i]);
+	    fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
+	  fprintf(scalar_file,"\n");
 	  fclose(scalar_file);
 	}
       }
@@ -2363,12 +2367,13 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
 	if (com->cpuNum() == 0) {
 	  FILE* vector_file = fopen(nodal_vectors[i],mode);
-	  fprintf(vector_file,"%d\n%e\n",nodal_output.step+it0, tag);
+	  fprintf(vector_file,"%d %e ",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
-	    fprintf(vector_file,"%e\n%e\n%e\n",
+	    fprintf(vector_file,"%e %e %e ",
 		    nodal_output.results[k*3]*vscale[i],
 		    nodal_output.results[k*3+1]*vscale[i],
 		    nodal_output.results[k*3+2]*vscale[i]);
+	  fprintf(vector_file,"\n");
 	  fclose(vector_file);
 	}
       }
