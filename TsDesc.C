@@ -95,6 +95,8 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   else if (ioData.sa.fixsol == 1)
     fixSol = 1;
 
+	timeState = 0;
+	mmh = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -506,6 +508,8 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    writeStateRomToDisk(it, 0.0);
+    writeErrorToDisk(it, 0.0);
   }
 }
 
@@ -527,7 +531,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
+	writeStateRomToDisk(it, cpu);
   output->writeMaterialVolumesToDisk(it, t, *A);
+	writeErrorToDisk(it, cpu);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeProbesToDisk(*lastIt, it, t, *X, *A, U, timeState,fluidIdDummy);
@@ -875,11 +881,12 @@ void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<doubl
 
 //----------------------------------------------------------------------------
 
+template<int dim>
+void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
+		DistSVec<double,dim> *F1 = NULL, DistSVec<double,dim> *F2 = NULL, VecSet< DistSVec<double,dim> > *F3 = NULL)
 
+{
 
+  output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
 
-
-
-
-
-
+}

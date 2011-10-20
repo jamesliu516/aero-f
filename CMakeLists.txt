@@ -90,21 +90,25 @@ IF(UNIX)
       SET(BLACSCLIB "BLACSCLIB-NOTFOUND")
     ENDIF(NOT WITH_BLACS EQUAL 0)
 
-    #SET(USE_SCALAPACK 0)
+    SET(USE_SCALAPACK 1)
     IF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
       MESSAGE("-- SCALAPACK library " ${SCALAPACKLIB} " found.")
       MESSAGE("-- BLACS library " ${BLACSLIB},${BLACSCLIB} " found.")    
-      add_definitions(-DDO_SCALAPACK)
-      SET(EXTRALIBRARIES
+	    MESSAGE("Found LAPACK:     " ${LAPACK_LIBRARIES})
+	
+	    add_definitions(-DDO_SCALAPACK)
+	    SET(EXTRALIBRARIES
           ${SCALAPACKLIB} ${BLACSCLIB} ${BLACSLIB} 
-          ${EXTRALIBRARIES})
-      SET(USE_SCALAPACK 1)
-    ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB)
-      SET(USE_SCALAPACK 0)
+		      ${EXTRALIBRARIES} ${BLACSLIB} ${BLACSCLIB})
+																	      
+		  SET(USE_SCALAPACK 1)
+		ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB AND LAPACK_FOUND)
+			SET(USE_SCALAPACK 0)
     ENDIF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
-    
-  ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+
+	ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)	
 ENDIF(UNIX)
+
 
 SET(BINDIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
@@ -133,7 +137,8 @@ ADD_LIBRARY(FluidBase
              ConnectivityCore.C 
              CorotSolver.C 
              CurvatureDetection.C 
-             DistGeoState.C 
+             DistGeoState.C
+             DistLeastSquareSolver.C
              DistMacroCellCore.C 
              DomainCore.C 
              EdgeCore.C 
@@ -286,7 +291,8 @@ export(TARGETS FluidBase FILE ${CMAKE_CURRENT_BINARY_DIR}/base-exports.cmake)
 	
 IF(MERCURIAL_EXECUTABLE)
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
+                   COMMAND echo "const char *THE_VERSION = \\\"" 
+                   `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
                  DEPENDS Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ELSE (MERCURIAL_EXECUTABLE)
@@ -440,7 +446,9 @@ f77src/roejac5waterdissprec.f
 f77src/roejac6.f
 f77src/roejac6jwl.f
 f77src/roejacwaterdissprim.f
-f77src/torsionspring.f)
+f77src/torsionspring.f
+f77src/dgecp.f
+f77src/dgers.f)
 
 SET_TARGET_PROPERTIES(FortranLib
                       PROPERTIES
@@ -451,7 +459,8 @@ SET_TARGET_PROPERTIES(FortranLib
 IF (USE_SCALAPACK)
   ADD_LIBRARY(FortranScalapackLib
               f77src/thinsvd.f
-              f77src/lworksize.f)
+              f77src/lworksizesvd.f
+              f77src/globalmatrices.f)
   SET_TARGET_PROPERTIES(FortranScalapackLib
                         PROPERTIES
                         COMPILE_FLAGS -fPIC
@@ -474,7 +483,7 @@ IF(MPI_FOUND)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES 
                           LIBRARY_OUTPUT_DIRECTORY ${BINDIR}
-                          RELEASE_OUTPUT_NAME aerof
+                          RELEASE_OUTPUT_NAME aerof.opt
                           DEBUG_OUTPUT_NAME aerof.debug
                           PREFIX ""
                          )
@@ -504,13 +513,9 @@ IF(NOT USE_SCALAPACK)
 ELSE(NOT USE_SCALAPACK)
   TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib FortranScalapackLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
 ENDIF(NOT USE_SCALAPACK)
-SET_TARGET_PROPERTIES(fluid 
-                      PROPERTIES 
-		        RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
-			RELEASE_OUTPUT_NAME aerof
-			DEBUG_OUTPUT_NAME aerof.debug
-		      )
 
+SET_TARGET_PROPERTIES(fluid PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
+	RELEASE_OUTPUT_NAME aerof.opt DEBUG_OUTPUT_NAME aerof.debug)
 
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)

@@ -100,7 +100,9 @@ ElemSet::ElemSet(int value)
 {
 
   numElems = value;
+	numSampledElems = value;
   elems = new Elem*[value];
+	sampleMesh = false;
 }
 
 //------------------------------------------------------------------------------
@@ -194,4 +196,30 @@ int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *el
 
   return numClusElems;
 
+}
+
+
+void ElemSet::computeConnectedElems(const std::vector<int> &locSampleNodes) 
+{
+
+	sampleMesh = true;
+
+	int nSampleNode = locSampleNodes.size();
+  for(int l=0; l<numElems; l++){
+		bool connectedElement = false;
+		for (int iNode = 0; iNode < (*elems[l]).numNodes(); ++iNode) {
+			for (int iSampleNode = 0; iSampleNode < nSampleNode; ++iSampleNode) {
+				if ((*elems[l])[iNode] == locSampleNodes[iSampleNode]) {
+					elemsConnectedToSampleNode.push_back(l);
+					connectedElement = true;
+					break;
+				}
+			}
+			if (connectedElement)
+				break;
+		}
+	}
+
+	numSampledElems = elemsConnectedToSampleNode.size();
+	int tmp;
 }

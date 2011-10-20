@@ -144,7 +144,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
 
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
+  virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
   void setCurrentTime(double t,DistSVec<double,dim>& U);
 };

@@ -68,11 +68,37 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
-  for (int i=0; i<numElems; ++i) {
-    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-  }
+
+	if (sampleMesh) {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
+	else {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState, 
+				  SVec<double,3> &X, SVec<double,dim> &V, 
+				  SVec<double,dim> &R,const std::vector<int> &sampledLocElem,
+				  Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+	int i;
+	for (int iElem=0; iElem<numSampledElems; ++iElem) {
+		i = sampleMesh ? elemsConnectedToSampleNode[iElem]: iElem;
+    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+	}
+
+}
 //------------------------------------------------------------------------------
 
 // Included

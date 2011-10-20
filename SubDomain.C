@@ -177,7 +177,7 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &R,
 	        SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
-	        SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {
+	        SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {	//KTC: CANNOT MODIFY
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -186,34 +186,71 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
-  for (int l=0; l<edges.size(); ++l) {
+	if (sampleMesh) {
 
-    if (!edgeFlag[l])
-      continue;
+		for (int iEdge=0; iEdge<edges.getNumTwoLayersEdges(); ++iEdge) {
 
-    int i = edgePtr[l][0];
-    int j = edgePtr[l][1];
+			int l = edges.edgesTwoLayersSampleNode[iEdge];
 
-    double Wi[3], Wj[3];
-    Scalar deltaVar;
+			if (!edgeFlag[l])
+				continue;
 
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    computeLocalWeightsLeastSquares(dx, R[i], Wi);
+			int i = edgePtr[l][0];
+			int j = edgePtr[l][1];
 
-    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-    computeLocalWeightsLeastSquares(dx, R[j], Wj);
+			double Wi[3], Wj[3];
+			Scalar deltaVar;
 
-    for (int k=0; k<dim; ++k) {
-      deltaVar = var[j][k] - var[i][k];
+			double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+			computeLocalWeightsLeastSquares(dx, R[i], Wi);
 
-      ddx[i][k] += Wi[0] * deltaVar;
-      ddy[i][k] += Wi[1] * deltaVar;
-      ddz[i][k] += Wi[2] * deltaVar;
-      ddx[j][k] -= Wj[0] * deltaVar;
-      ddy[j][k] -= Wj[1] * deltaVar;
-      ddz[j][k] -= Wj[2] * deltaVar;
-    }
-  }
+			dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+			computeLocalWeightsLeastSquares(dx, R[j], Wj);
+
+			for (int k=0; k<dim; ++k) {
+				deltaVar = var[j][k] - var[i][k];
+
+				ddx[i][k] += Wi[0] * deltaVar;
+				ddy[i][k] += Wi[1] * deltaVar;
+				ddz[i][k] += Wi[2] * deltaVar;
+				ddx[j][k] -= Wj[0] * deltaVar;
+				ddy[j][k] -= Wj[1] * deltaVar;
+				ddz[j][k] -= Wj[2] * deltaVar;
+			}
+		}
+
+	}
+
+	else {
+		for (int l=0; l<edges.size(); ++l) {
+
+			if (!edgeFlag[l])
+				continue;
+
+			int i = edgePtr[l][0];
+			int j = edgePtr[l][1];
+
+			double Wi[3], Wj[3];
+			Scalar deltaVar;
+
+			double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+			computeLocalWeightsLeastSquares(dx, R[i], Wi);
+
+			dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+			computeLocalWeightsLeastSquares(dx, R[j], Wj);
+
+			for (int k=0; k<dim; ++k) {
+				deltaVar = var[j][k] - var[i][k];
+
+				ddx[i][k] += Wi[0] * deltaVar;
+				ddy[i][k] += Wi[1] * deltaVar;
+				ddz[i][k] += Wi[2] * deltaVar;
+				ddx[j][k] -= Wj[0] * deltaVar;
+				ddy[j][k] -= Wj[1] * deltaVar;
+				ddz[j][k] -= Wj[2] * deltaVar;
+			}
+		}
+	}
 
 }
 
@@ -1212,6 +1249,7 @@ void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 
 }
 
+
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -1920,12 +1958,20 @@ void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
   // to them. 
   bool isActive = true; 
 
-  for (int i=0; i<nodes.size(); ++i)
-    {
-      if(LSS) isActive = LSS->isActive(0.0,i);
-      if (nodeType[i] != BC_INTERNAL && isActive)
-	bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
-    }
+	if (sampleMesh) {
+		int i;
+		for (int iNode=0; iNode<numSampledNodes; ++iNode) {
+			i = locSampleNodes[iNode];
+			if (nodeType[i] != BC_INTERNAL && isActive)
+				bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+		}
+	}
+	else {
+		for (int i=0; i<nodes.size(); ++i) {
+			if (nodeType[i] != BC_INTERNAL)
+				bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+		}
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -2824,7 +2870,7 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
 
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
-      for (int j = 0; j < dim; ++j)  {
+      for (int j = 0; j < dim; ++j)  {	// KTC: COULD DO ONLY FOR ONE LAYER OF NODES AWAY
 	w[ (*sharedNodes)[iSub][iNode] ][j] += buffer[iNode][j];
       }
   }
@@ -3703,8 +3749,18 @@ void SubDomain::computeNodeBcValue(SVec<double,3> &X, SVec<double,dim1> &Uface,
 
   Unode = 0.0;
 
-  for (int i=0; i<faces.size(); ++i)
-    faces[i].template computeNodeBcValue<dim1,dim2>(X, Uface[i], Unode);
+	if (sampleMesh) {
+		int i;
+		for (int iFace=0; iFace<faces.getNumSampledFaces(); ++iFace) {
+			i = faces.facesConnectedToSampleNode[iFace];
+			faces[i].template computeNodeBcValue<dim1,dim2>(X, Uface[i], Unode);
+		}
+
+	}
+	else {
+		for (int i=0; i<faces.size(); ++i)
+			faces[i].template computeNodeBcValue<dim1,dim2>(X, Uface[i], Unode);
+	}
 
 }
 
@@ -3911,6 +3967,40 @@ void SubDomain::computeForceAndMoment(ExactRiemannSolver<dim> &riemann, VarFcn *
 
 }
 
+/*
+template<int dim>
+void SubDomain::computeLiftSurfaces(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
+				      GeoState &geoState, SVec<double,3> &X,
+				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
+				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
+                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i) {
+    int idx;
+    map<int,int>::iterator it = surfOutMap.find(faces[i].getSurfaceID());
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
+         faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
+         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+        idx = 0;
+      else
+        idx = -1;
+    }
+
+    if(idx >= 0)  {
+      faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0,
+                       Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro, mX, genCF);
+    }
+  }
+
+}
+*/
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeHeatFluxes(map<int,int> & surfOutMapHF, PostFcn* postFcn, BcData<dim>& bcData,

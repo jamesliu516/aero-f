@@ -865,9 +865,12 @@ public:
 class ElemSet {
 
   int numElems;
+	int numSampledElems;
 
   Elem **elems;
   BlockAlloc memElems;
+	bool sampleMesh;
+	std::vector<int> elemsConnectedToSampleNode;	// for Gappy ROM
 
 public:
 
@@ -891,6 +894,10 @@ public:
 			   SVec<double,dim> &, SVec<double,dim> &,
 			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
+  template<int dim>
+  void computeGalerkinTermRestrict(FemEquationTerm *, GeoState &, SVec<double,3> &, 
+			   SVec<double,dim> &, SVec<double,dim> &, const std::vector<int> &,
+			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, 
 			 SVec<double,dim> &, SVec<double,dim> &);
@@ -946,6 +953,7 @@ public:
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
+	void computeConnectedElems(const std::vector<int> &);
 
   template<int dim, class Obj>
   void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int);

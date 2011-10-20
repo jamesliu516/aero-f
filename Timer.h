@@ -10,16 +10,15 @@ class IoData;
 class Timer {
 
   enum TimerIndex {
-    setup, run, total,
-    fluid, nodalWeights, nodalGrad, fvTerm, feTerm, 
-    fvJac, feJac, vms, dvms, h2Assembly, fluidPrecSetup, fluidKsp, meshMetrics, structUpd, 
-    mesh, meshAssembly, meshPrecSetup, meshKsp,
-    podConstr, snapsLinSolv, padeReconstr, correlMatrix, eigSolv, gramSchmidt,
-    romSol, romConstr, romTimeInteg,
-    comm, localCom, globalCom, interCom, rmaCom,
-    io, binread, binwrite,
-    levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,lsPrecSetup,lsJac,
-    waitrec, timeStep, intersect, embedPhaseChange, eulerFSI, embedforce, NUMTIMINGS
+		setup, run, total, fluid, nodalWeights, nodalGrad, fvTerm, feTerm, fvJac,
+		feJac, vms, dvms, h2Assembly, fluidPrecSetup, fluidKsp, meshMetrics,
+		structUpd, mesh, meshAssembly, meshPrecSetup, meshKsp, podConstr,
+		snapsLinSolv, padeReconstr, correlMatrix, eigSolv, residual, restriction,
+		solutionIncrement, linearSystemForm, linearSystemSolve, checkConvergence, gramSchmidt, romSol,
+		romConstr, romTimeInteg, comm, localCom, globalCom, interCom, rmaCom, io,
+		binread, binwrite, levelSet, lsNodalWeightsAndGrad, lsFvTerm,
+		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
+		eulerFSI, embedforce, NUMTIMINGS
   };
 
   int numTimings;
@@ -67,10 +66,17 @@ public:
   double addMeshKspTime(double);
   double removeForceAndDispComm(double);
   double addPodConstrTime(double);
+  double addProjectTime(double); //CBM--check
   double addSnapsLinSolvTime(double);
   double addPadeReconstrTime(double);
   double addCorrelMatrixTime(double);
   double addEigSolvTime(double);
+  double addResidualTime(double);
+  double addRestrictionTime(double);
+  double addSolutionIncrementTime(double);
+  double addLinearSystemFormTime(double);
+  double addLinearSystemSolveTime(double);
+  double addCheckConvergenceTime(double);
   double addGramSchmidtTime(double);
   double addRomSolTime(double);
   double addRomConstrTime(double);

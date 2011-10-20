@@ -35,7 +35,7 @@ class ExplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   ExplicitMultiPhysicsTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitMultiPhysicsTsDesc();
 
-  int solveNonLinearSystem(DistSVec<double,dim> &U);
+  int solveNonLinearSystem(DistSVec<double,dim> &U, int);
 
  private:
 //  void solveNLSystemOneBlock(DistSVec<double,dim> &U);
