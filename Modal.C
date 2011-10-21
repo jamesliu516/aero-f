@@ -583,10 +583,10 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       }
       t0 = modalTimer->getTime();
      
-     if (cnt == 0) 
-      computeModalDispStep1(sdt0, deltmp, delW, delU, delY, refModalF);
-     else
-      computeModalDisp(sdt, deltmp, delW, delU, delY, refModalF);
+    // if (cnt == 0) 
+    //  computeModalDispStep1(sdt0, deltmp, delW, delU, delY, refModalF);
+    // else
+    //  computeModalDisp(sdt, deltmp, delW, delU, delY, refModalF);
 
       modalTimer->addStructUpdTime(t0);
 
@@ -815,12 +815,13 @@ for (i=0; i < nPodVecs; i++){
  
 
   //Precompute P*PHI
-//  VecSet<Vec<double> > PtimesPhi(nPodVecs, nStrMode);
+  VecSet<Vec<double> > PtimesPhi(nPodVecs, nStrMode);
 
- // for (int iVec = 0; iVec < nPodVecs; iVec++)  {
- //   postOp->computeForceDerivs(Xref, Uref, podVecs[iVec], modalF, mX);
- //   PtimesPhi[iVec] = modalF*ioData->ref.rv.force;
-//  }
+  for (int iVec = 0; iVec < nPodVecs; iVec++)  {
+    com->fprintf(stderr,"%d \n",iVec);
+    postOp->computeForceDerivs(Xref, Uref, podVecs[iVec], modalF, mX);
+    PtimesPhi[iVec] = ioData->ref.rv.force*modalF;
+  }
 
 //com->fprintf(stderr,"PtimesPhi = \n");
 //for (int i = 0; i < nStrMode; i++){
@@ -989,11 +990,6 @@ for (i=0; i < nPodVecs; i++){
     for (i = 0; i < nPodVecs; ++i)
       delWFull += podVecs[i] * delWRom[i];
 
-    // Output the reduced order vector
-     // if (cnt == 0)
-     //   computeModalDispStep1(sdt,deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
-     // else
-     //   computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
 
    if (ioData->problem.alltype == ProblemData::_ROM_AEROELASTIC_){
      for (int kk=0; kk < nStrMode; kk++){
@@ -1002,10 +998,16 @@ for (i=0; i < nPodVecs; i++){
      }
    }
 
+    // Output the reduced order vector
       if (cnt == 0)
-        computeModalDispStep1(sdt,deltmp, delWFull, delU, delY, refModalF);
+        computeModalDispStep1(sdt,deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
       else
-        computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF);
+        computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
+
+     // if (cnt == 0)
+     //   computeModalDispStep1(sdt,deltmp, delWFull, delU, delY, refModalF);
+     // else
+     //   computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF);
    
     // compute Cl, Cm
     deltmp = 0.0;
@@ -1485,20 +1487,19 @@ com->fprintf(stderr,"\n");
 //---------------------------------------------------------------------------------
 
 template<int dim>
-void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF)  {
-//void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, Vec<double> &delWRom)  {
+//void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF)  {
+void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, Vec<double> &delWRom)  {
 
-//int nPodVecs = 8;
+int nPodVecs = 8;
+Vec<double> modalF(nStrMode);
+modalF = ioData->ref.rv.force*refModalF;
+for (int i = 0; i < nPodVecs; i++)
+  modalF += delWRom[i]*PtimesPhi[i];
 
-//Vec<double> modalF(nStrMode);
-//modalF = refModalF*ioData->ref.rv.force;
-//for (int i = 0; i < nPodVecs; i++)
-//  modalF += delWRom[i]*PtimesPhi[i];
-
-  Vec<double> modalF(nStrMode);
-  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
+//  Vec<double> modalF(nStrMode);
+//  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
 //  modalF += refModalF;
-  modalF *= ioData->ref.rv.force;
+//  modalF *= ioData->ref.rv.force;
   // form struct rhs and solve u dof
   double sdt2 = sdt*sdt;
   double prevU, prevY;
@@ -1542,20 +1543,19 @@ delU[i] = 0.5*sdt*(prevY + delY[i]) + prevU;
 //---------------------------------------------------------------------------------
 
 template<int dim>
-void ModalSolver<dim>::computeModalDispStep1(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF)  {
-//void ModalSolver<dim>::computeModalDispStep1(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, Vec<double> &delWRom)  {
+//void ModalSolver<dim>::computeModalDispStep1(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF)  {
+void ModalSolver<dim>::computeModalDispStep1(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, Vec<double> &delWRom)  {
 
-//int nPodVecs = 8;
+int nPodVecs = 8;
+Vec<double> modalF(nStrMode);
+modalF = ioData->ref.rv.force*refModalF;
+for (int i = 0; i < nPodVecs; i++)
+  modalF+= delWRom[i]*PtimesPhi[i];
 
-//Vec<double> modalF(nStrMode);
-//modalF = refModalF*ioData->ref.rv.force;
-//for (int i = 0; i < nPodVecs; i++)
-//  modalF+= PtimesPhi[i]*delWRom[i];
-
-  Vec<double> modalF(nStrMode);
-  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
+//  Vec<double> modalF(nStrMode);
+//  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
 //  modalF += refModalF;
-  modalF *= ioData->ref.rv.force;
+//  modalF *= ioData->ref.rv.force;
 
   // form struct rhs and solve u dof
   double sdt2 = sdt*sdt;
