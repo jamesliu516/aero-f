@@ -4806,11 +4806,14 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       // if the gas is perfect, Pstiff = 0 and Cp = gamma*R/(gamma-1);
       ref.energy = (ref.pressure + gamma*Pstiff) / (ref.density * (gamma-1));
       double Cv = cpgas/gamma;
-      double viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
+      double viscosity = 1.0;
+      if (eqs.type == EquationsData::NAVIER_STOKES){
+        viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
         (1.0 + eqs.viscosityModel.sutherlandReferenceTemperature/ref.temperature);
-      if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT)
-	viscosity = eqs.viscosityModel.dynamicViscosity;
-      ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
+        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT)
+	  viscosity = eqs.viscosityModel.dynamicViscosity;
+        ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
+      }
 
 // Included (MB)
       double dvelocitydMach = sqrt(gamma * ref.pressure / ref.density);
