@@ -606,6 +606,20 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnSGGhidagliaSA3D : public FluxFcnGhidagliaSA3D {
+
+public:
+
+  FluxFcnSGGhidagliaSA3D(IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
+    FluxFcnGhidagliaSA3D(varFcnSGSA, tp) {}
+  ~FluxFcnSGGhidagliaSA3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnSGOutflowSA3D : public FluxFcnOutflowSA3D {
 
 public:
@@ -731,6 +745,20 @@ public:
   FluxFcnSGWallSAturb3D(IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
     FluxFcnWallSAturb3D(varFcnSGSA, tp) {}
   ~FluxFcnSGWallSAturb3D() { vf = 0; }
+
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnSGGhidagliaSAturb3D : public FluxFcnGhidagliaSAturb3D {
+
+public:
+  FluxFcnSGGhidagliaSAturb3D(IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
+    FluxFcnGhidagliaSAturb3D(varFcnSGSA, tp) {}
+  ~FluxFcnSGGhidagliaSAturb3D() { vf = 0; }
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
@@ -977,6 +1005,20 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnSGGhidagliaKE3D : public FluxFcnGhidagliaKE3D {
+
+public:
+
+  FluxFcnSGGhidagliaKE3D(IoData &ioData, VarFcnSGKE *varFcnSGKE, Type tp = CONSERVATIVE) :
+    FluxFcnGhidagliaKE3D(varFcnSGKE, tp) {}
+  ~FluxFcnSGGhidagliaKE3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnSGOutflowKE3D : public FluxFcnOutflowKE3D {
 
 public:
@@ -1032,6 +1074,20 @@ public:
   FluxFcnSGWallKEturb3D(IoData &ioData, VarFcnSGKE *varFcnSGKE, Type tp = CONSERVATIVE) :
     FluxFcnWallKEturb3D(varFcnSGKE, tp) {}
   ~FluxFcnSGWallKEturb3D() { vf = 0; }
+
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnSGGhidagliaKEturb3D : public FluxFcnGhidagliaKEturb3D {
+
+public:
+  FluxFcnSGGhidagliaKEturb3D(IoData &ioData, VarFcnSGKE *varFcnSGKE, Type tp = CONSERVATIVE) :
+    FluxFcnGhidagliaKEturb3D(varFcnSGKE, tp) {}
+  ~FluxFcnSGGhidagliaKEturb3D() { vf = 0; }
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);

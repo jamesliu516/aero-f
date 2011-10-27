@@ -255,7 +255,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
                                              FluidModelData &fm, double UU[dim])
 {
 
-  if(fm.fluid == FluidModelData::GAS){
+  if(fm.fluid == FluidModelData::PERFECT_GAS || fm.fluid == FluidModelData::STIFFENED_GAS){
     double gam = fm.gasModel.specificHeatRatio;
     double ps = fm.gasModel.pressureConstant;
 
@@ -307,7 +307,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
     double pref  = fm.liquidModel.Pref;
     double alpha = fm.liquidModel.alpha;
     double beta  = fm.liquidModel.beta;
-    double cv    = fm.liquidModel.Cv;
+    double cv    = fm.liquidModel.specificHeat;
 
     double rho = ic.density;
     double temperature = ic.temperature;
@@ -322,7 +322,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
     UU[1] = rho*u;
     UU[2] = rho*v;
     UU[3] = rho*w;
-    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel) - (pref + alpha*pow(rho, beta));
 
   }else{
     fprintf(stderr, "*** Error: no initial state could be computed\n");
@@ -1112,8 +1112,6 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
         double e = varFcn->computeRhoEnergy(V)/V[0];
         double locMach = varFcn->computeMachNumber(V); //local Preconditioning (ARL)
         double locbeta = tprec.getBeta(locMach,_irey[i]);
-        //double locbeta = fmax(k1*locMach, beta);
-        //locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta, cmach);
         double beta2 = (locbeta*locbeta);
         double beta2m1 = beta2 - 1.0;
         
@@ -1134,14 +1132,15 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
         for (int j=0; j<dim; j++)
 	  P[j][0] = beta2m1*V[j];
         P[0][0] = beta2;
-        P[4][0] = beta2m1*e;
+        double c = varFcn->computeSoundSpeed(V);
+        P[4][0] = beta2m1*(e+pressure/V[0]-c*c);
         
 	/* The preconditioning matrix is:
          * P[dim][dim] = { { beta2,           0.0, 0.0, 0.0, 0.0 , 0.0, 0.0 },
          *                 {(beta2-1.0)*V[1], 1.0, 0.0, 0.0, 0.0 , 0.0, 0.0 },
          *                 {(beta2-1.0)*V[2], 0.0, 1.0, 0.0, 0.0 , 0.0, 0.0 },
          *                 {(beta2-1.0)*V[3], 0.0, 0.0, 1.0, 0.0 , 0.0, 0.0 },
-         *                 {(beta2-1.0)*e,    0.0, 0.0, 0.0, 1.0 , 0.0, 0.0 },
+         *                 {(beta2-1.0)*(h-c2),0.0, 0.0, 0.0, 1.0 , 0.0, 0.0 },
 	 *		   {(beta2-1.0)*V[5], 0.0, 0.0, 0.0, 0.0 , 1.0, 0.0 },
 	 *		   {(beta2-1.0)*V[6], 0.0, 0.0, 0.0, 0.0 , 0.0, 1.0 } };
 	 * Take the first 5-by-5 matrix to get the Euler preconditioner

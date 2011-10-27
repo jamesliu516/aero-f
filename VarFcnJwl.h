@@ -56,6 +56,29 @@ public:
   double checkPressure(double *V) const{
     return V[4] - (computeFrho(V) - computeFrhop(V)*V[0])*invomegap1;
   }
+  bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe) const{
+    bool error = false;
+    if(V[0] <= 0.0){
+      error = true;
+      if (failsafe)
+        fprintf(stdout, "*** Warning:  negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+      else
+        fprintf(stderr, "*** Error:  negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+    }
+    double pressureCheck = checkPressure(V);
+    if(pressureCheck <= 0.0){
+      error = true;
+      if (failsafe)
+        fprintf(stdout, "*** Warning:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+            pressureCheck, nodeNum, V[0], nodeNum, phi, otherNodeNum, otherPhi);
+      else
+        fprintf(stderr, "*** Error:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+            pressureCheck, nodeNum, V[0], nodeNum, phi, otherNodeNum, otherPhi);
+    }
+    return error;
+  }
 
   double computeTemperature(double *V) const{
     return invomega * (V[4]-computeFrho(V)) / V[0]; 
