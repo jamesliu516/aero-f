@@ -5,10 +5,12 @@
 #include <DistVector.h>
 #include <Vector3D.h>
 #include <VarFcnJwl.h>
+#include <VarFcnSGEuler.h>
 #include <VarFcnSGSA.h>
 #include <VarFcnSGKE.h>
 #include <VarFcnTait.h>
-#include <VarFcnSGEuler.h>
+#include <VarFcnTaitSA.h>
+#include <VarFcnTaitKE.h>
 
 #include <cassert>
 #include <cmath>
@@ -134,6 +136,10 @@ public:
 
   //checks that the Euler equations are still hyperbolic
   double checkPressure(double *V, int tag=0) const{check(tag); return varFcn[tag]->checkPressure(V); }
+  bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe, int tag=0) const{check(tag);
+    return varFcn[tag]->checkReconstructedValues(V, nodeNum, otherNodeNum, phi, otherPhi, failsafe);
+    // failsafe indicates what kind of message to output: error if there is no failsafe, warning if there is one.
+  }
 
   double computeTemperature(double *V, int tag=0) const{check(tag); return varFcn[tag]->computeTemperature(V); }
   double computeRhoEnergy(double *V, int tag=0)   const{check(tag); return varFcn[tag]->computeRhoEnergy(V); }
@@ -162,6 +168,7 @@ public:
   double getDerivativeOfVelocityNorm(double *V, double *dV, int tag=0) { check(tag); return varFcn[tag]->getDerivativeOfVelocityNorm(V,dV); }
   double getDerivativeOfPressureConstant(int tag=0) { check(tag); return varFcn[tag]->getDerivativeOfPressureConstant(); }
 
+  double specificHeatCstPressure(int tag=0) const{ check(tag); return varFcn[tag]->specificHeatCstPressure(); }
   double computePressureCoefficient(double *V, double pinfty, double mach, bool dimFlag, int tag=0) const{ check(tag); return varFcn[tag]->computePressureCoefficient(V,pinfty,mach,dimFlag); }
 
   //----- Mesh Velocity Related Functions -----//
@@ -292,7 +299,8 @@ VarFcnBase *VarFcn::createVarFcnBase(IoData &iod, FluidModelData &fluidModel) {
   
   VarFcnBase *vf_;
  
-  if(fluidModel.fluid == FluidModelData::GAS) {
+  if(fluidModel.fluid == FluidModelData::PERFECT_GAS || 
+     fluidModel.fluid == FluidModelData::STIFFENED_GAS) {
     if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
         iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
@@ -310,8 +318,21 @@ VarFcnBase *VarFcn::createVarFcnBase(IoData &iod, FluidModelData &fluidModel) {
     }
   }
   else if(fluidModel.fluid == FluidModelData::LIQUID){
-    vf_ = new VarFcnTait(fluidModel);
-    //fprintf(stdout, "Debug: VarFcnSGTait created\n");
+    if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
+        iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
+      if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+          iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES){
+        vf_ = new VarFcnTaitSA(fluidModel);
+        //fprintf(stdout, "Debug: VarFcnTaitSA created\n");
+      }else if (iod.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE){
+        vf_ = new VarFcnTaitKE(fluidModel);
+        //fprintf(stdout, "Debug: VarFcnTaitKE created\n");
+      }
+    }
+    else{
+      vf_ = new VarFcnTait(fluidModel);
+      //fprintf(stdout, "Debug: VarFcnTaitEuler created\n");
+    }
   }else if(fluidModel.fluid == FluidModelData::JWL){
     vf_ = new VarFcnJwl(fluidModel);
     //fprintf(stdout, "Debug: VarFcnSGJwl created\n");

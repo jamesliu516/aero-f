@@ -131,90 +131,28 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
                                 double *originalVi, double *originalVj,
                                 int IDi, int IDj)
 {
+//proceed to checking positivity of certain quantities required in the computation of the fluxes for both nodes of an edge.
+//these quantities are the ones involved in the computation of the sound speed (most often pressure and density but not
+//always, see Tait for example).
 
-  double rho = 0.0;
-  double p   = 0.0;
-
-// at interface of two-phase flow simulations, reverts to original value of pressure/density if
-// the reconstructed ones are negative. 
-// checkPressure does not check that pressure > 0, it checks that c^2>0, ie 
-//     for stiffened gas, check that P+P_\infty>0
-//     for Tait         , check not really needed but checks that P>0
-/*  if(phii*phij<0){
-    if (vf->getDensity(Vi)          <=0.0) vf->setDensity(Vi,originalVi);
-    if (vf->checkPressure(Vi,phii) <= 0.0) vf->setPressure(Vi,originalVi,phii);
-
-    if (vf->getDensity(Vj)          <=0.0) vf->setDensity(Vj,originalVj);
-    if (vf->checkPressure(Vj,phij) <= 0.0) vf->setPressure(Vj,originalVj,phij);
-  }
-*/
-//proceed to checking positivity of pressure and density for both nodes of an edge.
   int ierr = 0;
 
-  rho = vf->getDensity(Vi,IDi);
-  p   = vf->checkPressure(Vi,IDi);
-
-  if (rho <= 0.0) {
-    if(!failsafe){
-      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
-              rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
-      ++ierr;
-    }
-    else {
-      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
-              rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
+  if (vf->checkReconstructedValues(Vi, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, IDi, IDj, failsafe)){
+    ++ierr;
+    if(failsafe)
       tag[i][0] = 1;
-      ++ierr;
-    }
-  }
-  if (p <= 0.0) {
-    if(!failsafe) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
-              p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
-      ++ierr;
-    }
-    else {
-      fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
-              p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
-      tag[i][0] = 1;
-      ++ierr;
-    }
   }
 
-
-  rho = vf->getDensity(Vj,IDj);
-  p   = vf->checkPressure(Vj,IDj);
-
-  if (rho <= 0.0) {
-    if(!failsafe){
-      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
-              rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
-      ++ierr;
-    }
-    else {
-      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
-              rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
+  if (vf->checkReconstructedValues(Vj, locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, IDj, IDi, failsafe)){
+    ++ierr;
+    if(failsafe)
       tag[j][0] = 1;
-      ++ierr;
-    }
-  }
-  if (p <= 0.0) {
-    if(!failsafe) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
-              p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
-      ++ierr;
-    }
-    else {
-      fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
-              p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
-      tag[j][0] = 1;
-      ++ierr;
-    }
   }
 
   return ierr;
 
 }
+
 //------------------------------------------------------------------------------
 
 #ifdef EDGE_LENGTH

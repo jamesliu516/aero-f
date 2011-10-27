@@ -1,4 +1,4 @@
-       SUBROUTINE ROEFLUX5WATERDISSPREC(type,gamma,Cv,Pr,alpha,beta,
+       SUBROUTINE ROEFLUX5WATERDISSPREC(type,gamma,Cp,Pr,alpha,beta,
      &     enormal,evitno,Ugr,Ug,Udr,Ud,phi,
      &     betaRef, k1, cmach, irey, prec)
 c-----------------------------------------------------------------------
@@ -6,6 +6,12 @@ c This routine computes the Flux of Roe for a fluid like water, taken at the vec
 c U refers to the primitive variables.
 c normal is the normal of the boundary concerned by the flux.
 c phi stores the resulting flux.
+c
+c EOS is
+c   Pressure = Pr + alpha*Density^beta
+c   h = cp*T
+c   where h is the internal enthalpy
+c         Pr, alpha, beta and cp are constants
 c
 c In this routine, the dissipation term is computed slightly differently:
 c   instead of considering |A|*(Wc_j-Wc_i), where Wc refers to conservative
@@ -25,10 +31,10 @@ c-----------------------------------------------------------------------
       REAL*8 dif1 , dif2 , dif3 , dif4 ,dif5
       REAL*8 cr , cr2 , qir, tet1, tet2, tet3
       REAL*8 vp1 , vp4 , vp5
-      REAL*8 uar1 , uar2 , uar3 , uar4 , uar5, uar6
+      REAL*8 uar1 , uar2 , uar3 , uar4 , uar5
       REAL*8 usro , squsrg , squsrd
       REAL*8 vitg2, vitd2
-      REAL*8 Pr, alpha, beta, Cv, Pg, Pd
+      REAL*8 Pr, alpha, beta, Cp, Pg, Pd
       REAL*8 beta1, Ugbeta, Udbeta
       REAL*8 coeff1, coeff2, coeff3, coeff4, coeff5, eps
       INTEGER type
@@ -36,7 +42,7 @@ c for precontioning
       REAL*8 k1, betaRef, cmach, irey
       REAL*8 vpa, vpb
       REAL*8 oob2, b2, betaPrec, locMach
-      REAL*8 Proeor, P1, P2
+      REAL*8 P1, P2
       REAL*8 r,s,rs,rps,smr,r2,s2,rp,sp
       REAL*8 nx, ny, nz
       INTEGER prec
@@ -68,7 +74,7 @@ c
       vitg2 = Ug(2)*Ug(2) + Ug(3)*Ug(3) + Ug(4)*Ug(4)
       Ugbeta = Ug(1)**beta
       Pg = Pr + alpha * Ugbeta
-      Hg = Cv*Ug(5) + Pg/Ug(1) + 0.5d0*vitg2
+      Hg = Cp*Ug(5) + 0.5d0*vitg2
       phi(1) = Ug(1)*(VdotN - vitno)
       phi(2) = phi(1)*Ug(2) + Pg*normal(1)
       phi(3) = phi(1)*Ug(3) + Pg*normal(2)
@@ -80,7 +86,7 @@ c
       vitd2 = Ud(2)*Ud(2) + Ud(3)*Ud(3) + Ud(4)*Ud(4)
       Udbeta = Ud(1)**beta
       Pd = Pr + alpha * Udbeta
-      Hd = Cv*Ud(5) + Pd/Ud(1) +0.5d0*vitd2
+      Hd = Cp*Ud(5) + 0.5d0*vitd2
       phi(1) = phi(1) + Ud(1)*VdotN
       phi(2) = phi(2) + Ud(1)*Ud(2)*VdotN + Pd*normal(1)
       phi(3) = phi(3) + Ud(1)*Ud(3)*VdotN + Pd*normal(2)
@@ -131,9 +137,6 @@ c precision
 
       uar5                      = (squsrg*Hg + 
      &                                squsrd*Hd)*usro
-     
-      uar6                      = Pr +alpha*uar1**beta  
-
 
 
 c
@@ -186,15 +189,13 @@ c  useful values
       s = VdotN - vp5
       rs = -b2*cr2
       rps = VdotN*(1.0d0-b2)
-      smr = s-r
+      smr = vp4 - vp5
       r2 = r*r
       s2 = s*s
       rp = uar1*r/(s*smr)
       sp = -uar1*s/(r*smr)
-      P1 = uar6/(uar1**2*rs*Cv)
+      P1 = cr2/(uar1*rs*Cp)
       P2 = P1*uar1*rps
-      Proeor = uar6/uar1
-      
 
       flur1 = dabs(vp1)*(
      &          P1*nx        *dif1  
@@ -239,12 +240,10 @@ c  useful values
      &      + (oob2*uar4*r2-r*cr2*nz)*flur4
      &      + (oob2*uar4*s2-s*cr2*nz)*flur5
 
-      diss5 = uar1*Cv*(flur1*nx + flur2*ny + flur3*nz)
+      diss5 = uar1*Cp*(flur1*nx + flur2*ny + flur3*nz)
      &      - uar1*(tet1*flur1 + tet2*flur2 + tet3*flur3)
-     &      + (oob2*uar5*r2+Proeor*(cr2-oob2*r2)
-     &                - VdotN*cr2*r)*flur4
-     &      + (oob2*uar5*s2+Proeor*(cr2-oob2*s2)
-     &                - VdotN*cr2*s)*flur5
+     &      + (oob2*(uar5-cr2)*r2+cr2*(cr2-VdotN*r))*flur4
+     &      + (oob2*(uar5-cr2)*s2+cr2*(cr2-VdotN*s))*flur5
 
       phi(1) = phi(1) - gamma*diss1
       phi(2) = phi(2) - gamma*diss2
@@ -257,6 +256,19 @@ c  useful values
       phi(3) = phi(3)*0.5d0*rnorm
       phi(4) = phi(4)*0.5d0*rnorm
       phi(5) = phi(5)*0.5d0*rnorm
+
+c
+c For one and two equation turbulence models
+c
+
+      if (type.eq.1) then
+         updir = 0.5d0 + dsign(0.5d0, phi(1))
+         phi(6) = phi(1) * (updir * Ugr(6) + (1.0d0 - updir) * Udr(6))
+      else if (type.eq.2) then
+         updir = 0.5d0 + dsign(0.5d0, phi(1))
+         phi(6) = phi(1) * (updir * Ugr(6) + (1.0d0 - updir) * Udr(6))
+         phi(7) = phi(1) * (updir * Ugr(7) + (1.0d0 - updir) * Udr(7))
+      endif
 
       END
 

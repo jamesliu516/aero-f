@@ -22,6 +22,10 @@ public:
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
   
+private:
+  void computeTransportCoefficients(const double T, double &mu, double &lambda, double &kappa);
+
+public:
   FemEquationTermNS(IoData &, VarFcn *);
   ~FemEquationTermNS() {}
   
@@ -97,7 +101,16 @@ public:
   bool trip;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
+  ConstantPrandtlThermalCondFcn turbThermalCondFcn;
   
+private:
+  void computeLaminarTransportCoefficients(const double T, 
+		  double &mu, double &lambda, double &kappa);
+  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
+		  const double mul, const double lambdal, double kappal,
+		  double &mutilde, double &mut, double &lambdat, double &kappat);
+
+public:
   FemEquationTermSA(IoData &, VarFcn *);
   ~FemEquationTermSA() {}
   
@@ -173,7 +186,16 @@ public:
   bool trip;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
+  ConstantPrandtlThermalCondFcn turbThermalCondFcn;
   
+private:
+  void computeLaminarTransportCoefficients(const double T, 
+		  double &mu, double &lambda, double &kappa);
+  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
+		  const double mul, const double lambdal, double kappal,
+		  double &mutilde, double &mut, double &lambdat, double &kappat);
+
+public:
   FemEquationTermDES(IoData &, VarFcn *);
   ~FemEquationTermDES() {}
   
@@ -258,7 +280,16 @@ public:
   bool trip;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
+  ConstantPrandtlThermalCondFcn turbThermalCondFcn;
   
+private:
+  void computeLaminarTransportCoefficients(const double T, 
+		  double &mu, double &lambda, double &kappa);
+  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
+		  const double mul, const double lambdal, double kappal,
+		  double &mutilde, double &mut, double &lambdat, double &kappat);
+
+public:
   FemEquationTermSAmean(IoData &, VarFcn *);
   ~FemEquationTermSAmean() {}
   
@@ -360,7 +391,16 @@ public:
   bool trip;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
-  
+  ConstantPrandtlThermalCondFcn turbThermalCondFcn;
+
+private:
+  void computeLaminarTransportCoefficients(const double T, 
+		  double &mu, double &lambda, double &kappa);
+  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
+		  const double mul, const double lambdal, double kappal,
+		  double &mutilde, double &mut, double &lambdat, double &kappat);
+
+public:
   FemEquationTermDESmean(IoData &, VarFcn *);
   ~FemEquationTermDESmean() {}
   
@@ -690,7 +730,16 @@ public:
   bool trip;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
+  ConstantPrandtlThermalCondFcn turbThermalCondFcn;
   
+private:
+  void computeLaminarTransportCoefficients(const double T, 
+		  double &mu, double &lambda, double &kappa);
+  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
+		  const double mul, const double lambdal, double kappal,
+		  double &rhok, double &rhoeps, double &mut, double &lambdat, double &kappat);
+
+public:
   FemEquationTermKE(IoData &, VarFcn *);
   ~FemEquationTermKE() {}
   
@@ -780,7 +829,16 @@ public:
   bool trip;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
+  ConstantPrandtlThermalCondFcn turbThermalCondFcn;
   
+private:
+  void computeLaminarTransportCoefficients(const double T, 
+		  double &mu, double &lambda, double &kappa);
+  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
+		  const double mul, const double lambdal, double kappal,
+		  double &rhok, double &rhoeps, double &mut, double &lambdat, double &kappat);
+
+public:
   FemEquationTermKEmean(IoData &, VarFcn *);
   ~FemEquationTermKEmean() {}
   

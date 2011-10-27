@@ -167,7 +167,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
 
-  if(fmodel.fluid == FluidModelData::GAS){
+  if(fmodel.fluid == FluidModelData::PERFECT_GAS || fmodel.fluid == FluidModelData::STIFFENED_GAS){
     if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
         iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
@@ -182,16 +182,24 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
-            if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL)
+            if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::STEGER_WARMING)
               localff = new FluxFcnSGOutflowSA3D(iod, vfsgsa, typeJac);
+            else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
+              localff = new FluxFcnSGGhidagliaSA3D(iod, vfsgsa, typeJac);
             else
               localff = new FluxFcnSGInternalOutflowSA3D(iod, vfsgsa, typeJac);
             break;
       
           case BC_INLET_FIXED:
           case BC_INLET_MOVING:
-            if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL)
+            if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::STEGER_WARMING)
               localff = new FluxFcnSGOutflowSA3D(iod, vfsgsa, typeJac);
+            else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
+              localff = new FluxFcnSGGhidagliaSA3D(iod, vfsgsa, typeJac);
             else
               localff = new FluxFcnSGInternalInflowSA3D(iod, vfsgsa, typeJac);
             break;
@@ -254,7 +262,10 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_OUTLET_MOVING:
           case BC_INLET_FIXED:
           case BC_INLET_MOVING:
-            localff = new FluxFcnSGOutflowKE3D(iod, vfsgke, typeJac);
+            if(iod.schemes.bc.type == BoundarySchemeData::STEGER_WARMING)
+              localff = new FluxFcnSGOutflowKE3D(iod, vfsgke, typeJac);
+            else 
+              localff = new FluxFcnSGGhidagliaKE3D(iod, vfsgke, typeJac);
             break;
   
           case BC_ADIABATIC_WALL_MOVING:
@@ -404,62 +415,170 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
     } // end - Euler or Navier-Stokes for Stiffened Gas 
   } // end - All Stiffened Gas
   else if (fmodel.fluid == FluidModelData::LIQUID){
-// Euler or Navier-Stokes for Tait EOS
-    VarFcnTait *vftait = dynamic_cast<VarFcnTait *>(vfb);
-    if(vftait == 0){
-      fprintf(stderr, "*** Error: a VarFcnTait is expected to create the associated FluxFcn\n");
-      exit(-1);
-    }
-    switch(ffType){
-
-      case BC_OUTLET_FIXED:
-      case BC_OUTLET_MOVING:
-        if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
-           iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
-          localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
-        else if (iod.bc.outlet.type == BcsFreeStreamData::INTERNAL)
-          localff = new FluxFcnTaitInternalOutflowEuler3D(iod, vftait, typeJac);
-        else{
-          fprintf(stderr, "*** Error: no outlet boundary flux has been selected for Tait\n");
+    if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
+        iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
+      if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+          iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+        VarFcnTaitSA *vftaitsa = dynamic_cast<VarFcnTaitSA *>(vfb);
+        if(vftaitsa == 0){
+          fprintf(stderr, "*** Error: a VarFcnTaitSA is expected to create the associated FluxFcn\n");
           exit(-1);
         }
-        break;
-    
-      case BC_INLET_FIXED:
-      case BC_INLET_MOVING:
-        if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
-           iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
-          localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
-        else if (iod.bc.inlet.type == BcsFreeStreamData::INTERNAL)
-          localff = new FluxFcnTaitInternalInflowEuler3D(iod, vftait, typeJac);
-        else{
-          fprintf(stderr, "*** Error: no inlet boundary flux has been selected for Tait\n");
+// Spalart-Allmaras for Barotropic Liquids 
+        switch(ffType){
+
+          case BC_OUTLET_FIXED:
+          case BC_OUTLET_MOVING:
+            if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL)
+              localff = new FluxFcnTaitGhidagliaSA3D(iod, vftaitsa, typeJac);
+            else{
+              fprintf(stderr,"Error... Internal flow boundary conditions are not available for a turbulent (SA) barotropic liquid. Aborting !!");
+              exit(1);
+	    }
+            break;
+      
+          case BC_INLET_FIXED:
+          case BC_INLET_MOVING:
+            if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL)
+              localff = new FluxFcnTaitGhidagliaSA3D(iod, vftaitsa, typeJac);
+            else{
+              fprintf(stderr,"Error... Internal flow boundary conditions are not available for a turbulent (SA) barotropic liquid. Aborting !!");
+              exit(1);
+	    }
+            break;
+
+          case BC_ADIABATIC_WALL_MOVING:
+          case BC_ADIABATIC_WALL_FIXED:
+          case BC_SLIP_WALL_MOVING:
+          case BC_SLIP_WALL_FIXED:
+          case BC_SYMMETRY:
+          case BC_ISOTHERMAL_WALL_MOVING:
+          case BC_ISOTHERMAL_WALL_FIXED:
+            localff = new FluxFcnTaitWallSA3D(iod, vftaitsa, typeJac);
+            break;
+
+          case BC_INTERNAL:
+            if (iod.schemes.ns.flux == SchemeData::ROE) {
+              localff = new FluxFcnTaitApprJacRoeSA3D(rshift, gamma, iod, vftaitsa, typeJac);
+            }
+            else{
+              fprintf(stderr,"Error... only the Roe flux is available for a turbulent (SA) barotropic liquid. Aborting !!");
+              exit(1);
+            }
+            break;
+
+        }
+      }
+      else if (iod.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+// k-epsilon turbulent model for Barotropic Liquids
+        VarFcnTaitKE *vftaitke = dynamic_cast<VarFcnTaitKE *>(vfb);
+        if(vftaitke == 0){
+          fprintf(stderr, "*** Error: a VarFcnTaitKE is expected to create the associated FluxFcn\n");
           exit(-1);
         }
-        break;
+        switch(ffType){
 
-      case BC_ADIABATIC_WALL_MOVING:
-      case BC_ADIABATIC_WALL_FIXED:
-      case BC_SLIP_WALL_MOVING:
-      case BC_SLIP_WALL_FIXED:
-      case BC_SYMMETRY:
-      case BC_ISOTHERMAL_WALL_MOVING:
-      case BC_ISOTHERMAL_WALL_FIXED:
-        localff = new FluxFcnTaitWallEuler3D(iod, vftait, typeJac);
-        break;
+          case BC_OUTLET_FIXED:
+          case BC_OUTLET_MOVING:
+            if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL)
+              localff = new FluxFcnTaitGhidagliaKE3D(iod, vftaitke, typeJac);
+            else{
+              fprintf(stderr,"Error... Internal flow boundary conditions are not available for a turbulent (KE) barotropic liquid. Aborting !!");
+              exit(1);
+	    }
+            break;
+      
+          case BC_INLET_FIXED:
+          case BC_INLET_MOVING:
+            if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL)
+              localff = new FluxFcnTaitGhidagliaKE3D(iod, vftaitke, typeJac);
+            else{
+              fprintf(stderr,"Error... Internal flow boundary conditions are not available for a turbulent (KE) barotropic liquid. Aborting !!");
+              exit(1);
+	    }
+            break;
 
-      case BC_INTERNAL:
-        if (iod.schemes.ns.flux == SchemeData::ROE &&
-            iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
-          localff = new FluxFcnTaitApprJacRoeEuler3D(rshift, gamma, iod, vftait, typeJac);
-        else{
-          fprintf(stderr, "*** Error: only the Roe flux is available for Tait\n");
-          exit(-1);
+          case BC_ADIABATIC_WALL_MOVING:
+          case BC_ADIABATIC_WALL_FIXED:
+          case BC_SLIP_WALL_MOVING:
+          case BC_SLIP_WALL_FIXED:
+          case BC_SYMMETRY:
+          case BC_ISOTHERMAL_WALL_MOVING:
+          case BC_ISOTHERMAL_WALL_FIXED:
+            localff = new FluxFcnTaitWallKE3D(iod, vftaitke, typeJac);
+            break;
+
+          case BC_INTERNAL:
+            if (iod.schemes.ns.flux == SchemeData::ROE) {
+              localff = new FluxFcnTaitApprJacRoeKE3D(rshift, gamma, iod, vftaitke, typeJac);
+            }
+            else{
+              fprintf(stderr,"Error... only the Roe flux is available for a turbulent (KE) barotropic liquid. Aborting !!");
+              exit(1);
+            }
+            break;
+
         }
-        break;
+      } // end - k-epsilon turbulent model for Stiffened Gas
+    } // end - turbulence
+    else{
+// Euler or Navier-Stokes for Stiffened Gas 
+      VarFcnTait *vftait = dynamic_cast<VarFcnTait *>(vfb);
+      if(vftait == 0){
+        fprintf(stderr, "*** Error: a VarFcnTait is expected to create the associated FluxFcn\n");
+        exit(-1);
+      }
+      switch(ffType){
 
-    }
-  } // end - Euler or Navier-Stokes for Tait EOS
+        case BC_OUTLET_FIXED:
+        case BC_OUTLET_MOVING:
+          if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+             iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
+            localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+          else if (iod.bc.outlet.type == BcsFreeStreamData::INTERNAL)
+            localff = new FluxFcnTaitInternalOutflowEuler3D(iod, vftait, typeJac);
+          else{
+            fprintf(stderr, "*** Error: no outlet boundary flux has been selected for Tait\n");
+            exit(-1);
+          }
+          break;
+      
+        case BC_INLET_FIXED:
+        case BC_INLET_MOVING:
+          if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+             iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
+            localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+          else if (iod.bc.inlet.type == BcsFreeStreamData::INTERNAL)
+            localff = new FluxFcnTaitInternalInflowEuler3D(iod, vftait, typeJac);
+          else{
+            fprintf(stderr, "*** Error: no inlet boundary flux has been selected for Tait\n");
+            exit(-1);
+          }
+          break;
+  
+        case BC_ADIABATIC_WALL_MOVING:
+        case BC_ADIABATIC_WALL_FIXED:
+        case BC_SLIP_WALL_MOVING:
+        case BC_SLIP_WALL_FIXED:
+        case BC_SYMMETRY:
+        case BC_ISOTHERMAL_WALL_MOVING:
+        case BC_ISOTHERMAL_WALL_FIXED:
+          localff = new FluxFcnTaitWallEuler3D(iod, vftait, typeJac);
+          break;
+  
+        case BC_INTERNAL:
+          if (iod.schemes.ns.flux == SchemeData::ROE &&
+              iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
+            localff = new FluxFcnTaitApprJacRoeEuler3D(rshift, gamma, iod, vftait, typeJac);
+          else{
+            fprintf(stderr, "*** Error: only the Roe flux is available for Tait\n");
+            exit(-1);
+          }
+          break;
+
+      }
+    } // end - Euler or Navier-Stokes for Tait EOS
+  }
   else if (fmodel.fluid == FluidModelData::JWL){
 // Euler or Navier-Stokes for JWL EOS
     VarFcnJwl *vfjwl = dynamic_cast<VarFcnJwl *>(vfb);
@@ -513,7 +632,7 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
 
-  if(fmodel.fluid == FluidModelData::GAS){
+  if(fmodel.fluid == FluidModelData::PERFECT_GAS || fmodel.fluid == FluidModelData::STIFFENED_GAS){
 // Euler or Navier-Stokes for Stiffened Gas 
     VarFcnSGEuler *vfsgeuler = new VarFcnSGEuler(fmodel);
 
@@ -566,8 +685,45 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
         break;
     }
   } // end - All Stiffened Gas
+  else if(fmodel.fluid == FluidModelData::LIQUID){
+    // Euler or Navier-Stokes for Tait
+    VarFcnTait *vftait = new VarFcnTait(fmodel);
+
+    switch(ffType){
+
+    case BC_OUTLET_FIXED:
+    case BC_OUTLET_MOVING:
+      if (iod.bc.outlet.type == BcsFreeStreamData::INTERNAL)
+        localff = new FluxFcnTaitInternalOutflowEuler3D(iod, vftait, typeJac);
+      else
+        localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+      break;
+
+    case BC_INLET_FIXED:
+    case BC_INLET_MOVING:
+      if (iod.bc.inlet.type == BcsFreeStreamData::INTERNAL)
+        localff = new FluxFcnTaitInternalInflowEuler3D(iod, vftait, typeJac);
+      else
+        localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+      break;
+
+    case BC_ADIABATIC_WALL_MOVING:
+    case BC_ADIABATIC_WALL_FIXED:
+    case BC_SLIP_WALL_MOVING:
+    case BC_SLIP_WALL_FIXED:
+    case BC_SYMMETRY:
+    case BC_ISOTHERMAL_WALL_MOVING:
+    case BC_ISOTHERMAL_WALL_FIXED:
+      localff = new FluxFcnTaitWallEuler3D(iod, vftait, typeJac);
+      break;
+
+    case BC_INTERNAL:
+      localff = new FluxFcnTaitApprJacRoeEuler3D(0, gamma, iod, vftait, typeJac);
+      break;
+    }
+  } // end - All Tait
   else {
-    fprintf(stderr, "Exiting: No turbulence model for Tait, JWL, or multiphase simulations\n");
+    fprintf(stderr, "Exiting: No turbulence model for JWL, or multiphase simulations\n");
     exit(-1);
   }
 
@@ -584,7 +740,7 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
 
-  if(fmodel.fluid == FluidModelData::GAS){
+  if(fmodel.fluid == FluidModelData::PERFECT_GAS || fmodel.fluid == FluidModelData::STIFFENED_GAS){
     if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
         iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
@@ -599,16 +755,24 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
-            if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL)
+            if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::STEGER_WARMING)
               localff = new FluxFcnSGOutflowSAturb3D(iod, vfsgsa, typeJac);
+            else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
+              localff = new FluxFcnSGGhidagliaSAturb3D(iod, vfsgsa, typeJac);
             else
               localff = new FluxFcnSGInternalOutflowSAturb3D(iod, vfsgsa, typeJac);
             break;
       
           case BC_INLET_FIXED:
           case BC_INLET_MOVING:
-            if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL)
+            if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::STEGER_WARMING)
               localff = new FluxFcnSGOutflowSAturb3D(iod, vfsgsa, typeJac);
+            else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
+              localff = new FluxFcnSGGhidagliaSAturb3D(iod, vfsgsa, typeJac);
             else
               localff = new FluxFcnSGInternalInflowSAturb3D(iod, vfsgsa, typeJac);
             break;
@@ -641,7 +805,10 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
           case BC_OUTLET_MOVING:
           case BC_INLET_FIXED:
           case BC_INLET_MOVING:
-            localff = new FluxFcnSGOutflowKEturb3D(iod, vfsgke, typeJac);
+            if (iod.schemes.bc.type == BoundarySchemeData::STEGER_WARMING)
+              localff = new FluxFcnSGOutflowKEturb3D(iod, vfsgke, typeJac);
+	    else
+	      localff = new FluxFcnSGGhidagliaKEturb3D(iod, vfsgke, typeJac);
             break;
   
           case BC_ADIABATIC_WALL_MOVING:
@@ -669,6 +836,74 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
       fprintf(stderr,"Error: Seg. solver is only implemented for Navier-Stokes Eqs.\n");
       exit(-1);
     }
+  } // end - Stiffened Gas
+  else if(fmodel.fluid == FluidModelData::LIQUID){
+    if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+        iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+      VarFcnTaitSA *vftaitsa = dynamic_cast<VarFcnTaitSA *>(vfb);
+      if(vftaitsa == 0){
+        fprintf(stderr, "Error: a VarFcnTaitSA is expected to create the associated FluxFcn.\n");
+	exit(-1);
+      }
+
+      // Spalart-Allmaras for Tait
+      switch(ffType){
+
+      case BC_OUTLET_FIXED:
+      case BC_OUTLET_MOVING:
+      case BC_INLET_FIXED:
+      case BC_INLET_MOVING:
+        localff = new FluxFcnTaitGhidagliaSAturb3D(iod, vftaitsa, typeJac);
+        break;
+
+      case BC_ADIABATIC_WALL_MOVING:
+      case BC_ADIABATIC_WALL_FIXED:
+      case BC_SLIP_WALL_MOVING:
+      case BC_SLIP_WALL_FIXED:
+      case BC_SYMMETRY:
+      case BC_ISOTHERMAL_WALL_MOVING:
+      case BC_ISOTHERMAL_WALL_FIXED:
+        localff = new FluxFcnTaitWallSAturb3D(iod, vftaitsa, typeJac);
+        break;
+
+      case BC_INTERNAL:
+        localff = new FluxFcnTaitRoeSAturb3D(gamma, iod, vftaitsa, typeJac);
+        break;
+      }
+    }
+    else if (iod.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+      // k-epsilon turbulent model for Tait
+      VarFcnTaitKE *vftaitke = dynamic_cast<VarFcnTaitKE *>(vfb);
+      if(vftaitke == 0){
+	fprintf(stderr, "Error: a VarFcnTaitKE is expected to create the associated FluxFcn.\n");
+	exit(-1);
+      }
+
+      switch(ffType){
+
+      case BC_OUTLET_FIXED:
+      case BC_OUTLET_MOVING:
+      case BC_INLET_FIXED:
+      case BC_INLET_MOVING:
+        localff = new FluxFcnTaitGhidagliaKEturb3D(iod, vftaitke, typeJac);
+        break;
+
+      case BC_ADIABATIC_WALL_MOVING:
+      case BC_ADIABATIC_WALL_FIXED:
+      case BC_SLIP_WALL_MOVING:
+      case BC_SLIP_WALL_FIXED:
+      case BC_SYMMETRY:
+      case BC_ISOTHERMAL_WALL_MOVING:
+      case BC_ISOTHERMAL_WALL_FIXED:
+        localff = new FluxFcnTaitWallKEturb3D(iod, vftaitke, typeJac);
+        break;
+
+      case BC_INTERNAL:
+        localff = new FluxFcnTaitRoeKEturb3D(gamma, iod, vftaitke, typeJac);
+        break;
+
+      }
+    } // end - k-epsilon turbulent model for Tait
   } else {
     fprintf(stderr, "Exiting: No turbulence model for Tait, JWL, or multiphase simulations\n");
     exit(-1);
