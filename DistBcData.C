@@ -287,6 +287,11 @@ void DistBcData<dim>::update(DistSVec<double,3> &X)  {
             unode[i][3] = xdot[i][2];
 	  }
         }
+        else  { // no rotation data -> use velocity from mesh motion if any
+          unode[i][1] = xdot[i][0];
+          unode[i][2] = xdot[i][1];
+          unode[i][3] = xdot[i][2];
+        }
         unode[i][4] = temp[i];
       }
     }

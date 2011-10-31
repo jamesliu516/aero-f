@@ -47,6 +47,8 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   globSubNum = globN;
   numClusNodes = nClNd;
 
+  sampleMesh = false;
+
   sprintf(suffix, "%s", clstN);
 
   locToGlobNodeMap = locNodeMap;
