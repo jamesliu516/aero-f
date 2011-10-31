@@ -76,7 +76,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
       source = new CylindricalOneDSourceTerm2(varFcn);
   }
 
-  bubbleRadiusFile = "";
+  strcpy(bubbleRadiusFile,"");
 
   recFcn = createRecFcn(ioData);
   recFcnLS = createRecFcnLS(ioData);

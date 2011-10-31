@@ -286,7 +286,7 @@ void PostFcnEuler::computeForceEmbedded(int orderOfAccuracy, double dp1dxj[4][3]
 					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
                                         int hydro, int* fid, bool applyRealForce)
 {
-  if(hydro!=0) {fprintf(stderr,"hydro parameter (%d) not supported...\n"); exit(-1);}
+  if(hydro!=0) {fprintf(stderr,"hydro parameter (%d) not supported...\n",hydro); exit(-1);}
   Vec3D p;
   if(applyRealForce)
     for(int i=0;i<3;i++) 
