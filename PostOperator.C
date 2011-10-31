@@ -1510,7 +1510,10 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
   com->globalSum(count*3,result);  
   com->globalSum(count,status);
   for (int i = 0; i < count*3; ++i) {
-    result[i] /= (double)status[i/3];
+    if (status[i/3]<0.1)
+      result[i] = 0.0;
+    else
+      result[i] /= (double)status[i/3];
   }
   delete [] status;
                                                                                              
