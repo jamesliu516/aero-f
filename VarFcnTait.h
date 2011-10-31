@@ -68,10 +68,10 @@ public:
       error = true;
       if (failsafe)
         fprintf(stdout, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
       else
         fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
     }
     // no check of pressure or temperature since hyperbolicity of the Euler equations with Tait EOS relies
     // only on the square of the speed of sound which is a_ * b_ * pow(V[0], b_ - 1.0)

@@ -497,6 +497,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
+  fpError = 0;
 
   int nSurf = postOp->getNumSurf();
   int nSurfHF = postOp->getNumSurfHF();
@@ -1458,7 +1459,6 @@ void TsOutput<dim>::openAsciiFiles()
 template<int dim>
 void TsOutput<dim>::closeAsciiFiles()
 {
-
   for (int iSurf = 0; iSurf < postOp->getNumSurf(); iSurf++)  {
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
@@ -1476,7 +1476,6 @@ void TsOutput<dim>::closeAsciiFiles()
   if (fpError) fclose(fpError);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
-
 }
 
 //------------------------------------------------------------------------------
@@ -2345,10 +2344,10 @@ static void copyFile(const char* fname) {
 
   FILE* f = fopen(fname,"rb");
   fseek (f , 0 , SEEK_END);
-  int lSize = ftell (f);
+  size_t lSize = ftell (f);
   rewind (f);
   char* buffer = new char[lSize];
-  fread (buffer,1,lSize,f);
+  size_t err = fread (buffer,1,lSize,f);
   fclose(f);
 
   char nn[256];
@@ -2364,7 +2363,7 @@ template<int dim>
 void TsOutput<dim>::cleanProbesFile() {
 
   char nn[256];
-  int iter,i;
+  int iter,i,n;
   double time,res;
   if (it0 == 0) 
     return;
@@ -2377,13 +2376,13 @@ void TsOutput<dim>::cleanProbesFile() {
         FILE* scalar_file = fopen(nodal_scalars[i],"w");
         FILE* scalar_file_old = fopen(nn,"r");
         while (!feof(scalar_file_old)) {
-          fscanf(scalar_file_old,"%d",&iter);
-          fscanf(scalar_file_old,"%lf",&time);
+          n = fscanf(scalar_file_old,"%d",&iter);
+          n = fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
             break;          
           fprintf(scalar_file,"%d %e ",iter,time);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k) {
-	    fscanf(scalar_file_old,"%lf",&res);
+	    n = fscanf(scalar_file_old,"%lf",&res);
             fprintf(scalar_file,"%e ",res);
           }
           fprintf(scalar_file,"\n");
@@ -2403,14 +2402,14 @@ void TsOutput<dim>::cleanProbesFile() {
         FILE* vector_file = fopen(nodal_vectors[i],"w");
         FILE* vector_file_old = fopen(nn,"r");
         while (!feof(vector_file_old)) {
-          fscanf(vector_file_old,"%d",&iter);
-          fscanf(vector_file_old,"%lf",&time);
+          n = fscanf(vector_file_old,"%d",&iter);
+          n = fscanf(vector_file_old,"%lf",&time);
           if (iter > it0)
             break;          
           fprintf(vector_file,"%d %e ",iter,time);
           for (int k =0 ; k < nodal_output.numNodes; ++k) {
             for (int l = 0; l < 3; ++l) {
-	      fscanf(vector_file_old,"%lf",&res);
+	      n = fscanf(vector_file_old,"%lf",&res);
               fprintf(vector_file,"%e ",res);
             }
           }

@@ -62,20 +62,20 @@ public:
       error = true;
       if (failsafe)
         fprintf(stdout, "*** Warning:  negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
       else
         fprintf(stderr, "*** Error:  negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-          V[0], nodeNum, nodeNum, phi, otherNodeNum, otherPhi);
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
     }
     double pressureCheck = checkPressure(V);
     if(pressureCheck <= 0.0){
       error = true;
       if (failsafe)
         fprintf(stdout, "*** Warning:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-            pressureCheck, nodeNum, V[0], nodeNum, phi, otherNodeNum, otherPhi);
+            pressureCheck, nodeNum, V[0], nodeNum, double(phi), otherNodeNum, double(otherPhi));
       else
         fprintf(stderr, "*** Error:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-            pressureCheck, nodeNum, V[0], nodeNum, phi, otherNodeNum, otherPhi);
+            pressureCheck, nodeNum, V[0], nodeNum, double(phi), otherNodeNum, double(otherPhi));
     }
     return error;
   }

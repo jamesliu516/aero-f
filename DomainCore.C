@@ -1546,8 +1546,8 @@ void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&gl
     exit (-1);
   }
 
-  int globalSub, locNode;
-  fscanf(interpNodeFP, "%d",&nIntNodes);
+  int globalSub, locNode, count;
+  count = fscanf(interpNodeFP, "%d",&nIntNodes);
 
   if(globalSubSet == 0)
     globalSubSet = new int[nIntNodes];
@@ -1557,7 +1557,7 @@ void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&gl
   else fprintf(stderr, "locNodeSet in DomainCore is not zero!\n");
 
   for (int iData = 0; iData < nIntNodes; ++iData){
-    fscanf(interpNodeFP, "%d %d", &globalSub, &locNode);
+    count = fscanf(interpNodeFP, "%d %d", &globalSub, &locNode);
     globalSubSet[iData] = globalSub;
     locNodeSet[iData] = locNode;
   }
@@ -1580,7 +1580,7 @@ void Domain::readInterpMatrix(const char *interpMatrixFile, int &dimInterpMat, F
   }
 
   double MatrixEntry;
-  fscanf(interpMatrixFP, "%d",&dimInterpMat);
+  int count = fscanf(interpMatrixFP, "%d",&dimInterpMat);
   interpMat.setNewSize(dimInterpMat,dimInterpMat);
   //if (dimInterpMat != nIntNodes*dim) {
   //  com->fprintf(stderr, "*** ERROR: dimInterpMat =  %d, but nNode*dim = %d\n", dimInterpMat, nIntNodes*dim);
@@ -1589,7 +1589,7 @@ void Domain::readInterpMatrix(const char *interpMatrixFile, int &dimInterpMat, F
 
   for (int i = 0; i < dimInterpMat; ++i) {
     for (int j = 0; j < dimInterpMat; ++j) {
-      fscanf(interpMatrixFP, "%le  ", &MatrixEntry);
+      count = fscanf(interpMatrixFP, "%le  ", &MatrixEntry);
       interpMat[i][j] = MatrixEntry;
     }
   }
@@ -1627,8 +1627,8 @@ void Domain::readSampleNodes(std::vector<int> &sampleNodes, int &nSampleNodes,
 	// OUTPUT: nSampleNodes, sampleNodes
 
 	FILE *sampleNodeFile = fopen(sampleNodeFileName, "r");
-	int nSampleNodesTmp;
-	fscanf(sampleNodeFile, "%d",&nSampleNodesTmp);	// first entry is the number of sample nodes
+	int nSampleNodesTmp, count;
+	count = fscanf(sampleNodeFile, "%d",&nSampleNodesTmp);	// first entry is the number of sample nodes
 
 	if (nSampleNodes == 0) {
 		nSampleNodes = nSampleNodesTmp;
@@ -1637,8 +1637,8 @@ void Domain::readSampleNodes(std::vector<int> &sampleNodes, int &nSampleNodes,
 
 	int index, currentSampleNode;
 	for (int i = 0; i < nSampleNodes; ++i){
-		fscanf(sampleNodeFile, "%d",&index);
-		fscanf(sampleNodeFile, "%d",&currentSampleNode);
+		count = fscanf(sampleNodeFile, "%d",&index);
+		count = fscanf(sampleNodeFile, "%d",&currentSampleNode);
 		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
 	}
 }
