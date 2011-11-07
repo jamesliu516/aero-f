@@ -1805,7 +1805,8 @@ struct SnapshotsData {
 	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
  	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
 	enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
-	int sampleFreq;
+	enum RelProjError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
+	// int sampleFreq; // this is now specified in the ascii snapshot file
 	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
 	DataCompressionData dataCompression;
 

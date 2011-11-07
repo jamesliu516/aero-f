@@ -1445,10 +1445,10 @@ void GnatPreprocessing<dim>::outputSampleNodes() {
 	// write out sample node numbers in sample mesh node numbering system
 
 	com->fprintf(stderr," ... writing sample node file with respect to sample mesh...\n");
-	outputSampleNodesGeneral(reducedSampleNodes,ioData->output.rom.sampleNodes,".sampleNodes");
+	outputSampleNodesGeneral(reducedSampleNodes,ioData->output.rom.sampleNodes,".sampledNodes");
 
 	com->fprintf(stderr," ... writing sample node file with respect to full mesh...\n");
-	outputSampleNodesGeneral(globalSampleNodes,ioData->output.rom.sampleNodesFull,".sampleNodesFull");
+	outputSampleNodesGeneral(globalSampleNodes,ioData->output.rom.sampleNodesFull,".sampledNodesFull");
 
 	reducedSampleNodes.resize(0);
 	globalSampleNodes.resize(0);
@@ -1715,7 +1715,7 @@ void GnatPreprocessing<dim>::outputStateReduced() {
 	int sp = strlen(ioData->output.rom.prefix);
 	const char *fileName;
 	const char *fileNameExtension;
-	determineFileName(ioData->output.rom.podStateRed, ".robStateSample",fileName,fileNameExtension);
+	determineFileName(ioData->output.rom.podStateRed, ".sampledROBState",fileName,fileNameExtension);
 	char *outPodStateFile= new char[sp + strlen(fileName) + strlen(fileNameExtension)+1];
 	const char *fileName2;
 	const char *fileNameExtension2;

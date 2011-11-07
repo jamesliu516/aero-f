@@ -139,14 +139,14 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
 	// sample mesh
   new ClassStr<InputData>(ca, "GNATPrefix", this, &InputData::gnatPrefix);
-  new ClassStr<InputData>(ca, "SampleNodes", this, &InputData::sampleNodes);
+  new ClassStr<InputData>(ca, "SampledNodes", this, &InputData::sampleNodes);
   new ClassStr<InputData>(ca, "GappyJacMat", this, &InputData::jacMatrix);
   new ClassStr<InputData>(ca, "GappyResMat", this, &InputData::resMatrix);
   new ClassStr<InputData>(ca, "ROBState", this, &InputData::podFileState);
   new ClassStr<InputData>(ca, "ROBResidual", this, &InputData::podFileRes);
   new ClassStr<InputData>(ca, "ROBJacobian", this, &InputData::podFileJac);
-  new ClassStr<InputData>(ca, "ROBResidualSampleMesh", this, &InputData::podFileResHat);
-  new ClassStr<InputData>(ca, "ROBJacobianSampleMesh", this, &InputData::podFileJacHat);
+  new ClassStr<InputData>(ca, "SampledROBResidual", this, &InputData::podFileResHat);
+  new ClassStr<InputData>(ca, "SampledROBJacobian", this, &InputData::podFileJacHat);
 	// ???
   new ClassStr<InputData>(ca, "ReducedMesh", this, &InputData::mesh);
   new ClassStr<InputData>(ca, "ReducedFullNodeMap", this, &InputData::reducedfullnodemap);
@@ -203,7 +203,7 @@ void OutputData::setup(const char *name, ClassAssigner *father)
   transient.setup("Postpro", ca);
   restart.setup("Restart", ca);
   transient.probes.setup("Probes", ca);
-	rom.setup("ROM", ca);
+	rom.setup("NonlinearROM", ca);
 }
 
 //------------------------------------------------------------------------------
@@ -509,18 +509,18 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
   new ClassStr<ROMOutputData>(ca, "GNATPrefix", this, &ROMOutputData::gnatPrefix);
   new ClassStr<ROMOutputData>(ca, "StateReducedCoordinates", this, &ROMOutputData::staterom);
-  new ClassStr<ROMOutputData>(ca, "SampleNodes", this, &ROMOutputData::sampleNodes);
+  new ClassStr<ROMOutputData>(ca, "SampledNodes", this, &ROMOutputData::sampleNodes);
   new ClassStr<ROMOutputData>(ca, "GappyPODMatrix", this, &ROMOutputData::onlineMatrix);
-  new ClassStr<ROMOutputData>(ca, "ROBStateSample", this, &ROMOutputData::podStateRed);
-  new ClassStr<ROMOutputData>(ca, "ROBNonlinearSample", this, &ROMOutputData::podNonlinRed);
-  new ClassStr<ROMOutputData>(ca, "SolutionSample", this, &ROMOutputData::solution);
-  new ClassStr<ROMOutputData>(ca, "WallDistanceSample", this, &ROMOutputData::wallDistanceRed);
+  new ClassStr<ROMOutputData>(ca, "SampledROBState", this, &ROMOutputData::podStateRed);
+  new ClassStr<ROMOutputData>(ca, "SampledROBNonlinear", this, &ROMOutputData::podNonlinRed);
+  new ClassStr<ROMOutputData>(ca, "SampledSolution", this, &ROMOutputData::solution);
+  new ClassStr<ROMOutputData>(ca, "SampledWallDistance", this, &ROMOutputData::wallDistanceRed);
   new ClassStr<ROMOutputData>(ca, "Error", this, &ROMOutputData::error);
   new ClassStr<ROMOutputData>(ca, "NetStateReducedCoordinates", this, &ROMOutputData::dUnormAccum);
-  new ClassStr<ROMOutputData>(ca, "SampleNodesFullMesh", this, &ROMOutputData::sampleNodesFull);
+  new ClassStr<ROMOutputData>(ca, "SampledNodesFullMesh", this, &ROMOutputData::sampleNodesFull);
   new ClassStr<ROMOutputData>(ca, "GappyPODMatrixFullMesh", this, &ROMOutputData::onlineMatrixFull);
-  new ClassStr<ROMOutputData>(ca, "SampleMesh", this, &ROMOutputData::mesh);
-  new ClassStr<ROMOutputData>(ca, "SampleFullNodeMap", this, &ROMOutputData::reducedfullnodemap);
+  new ClassStr<ROMOutputData>(ca, "SampledMesh", this, &ROMOutputData::mesh);
+  new ClassStr<ROMOutputData>(ca, "SampledFullNodeMap", this, &ROMOutputData::reducedfullnodemap);
 }
 
 //------------------------------------------------------------------------------
@@ -640,7 +640,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
 		 "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
 		 "1DProgrammedBurn", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
-		 "NonlinearROMSurfaceMeshConstruction",26, "SampleMeshShapeChange", 27,
+		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
 		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31);
 
@@ -3001,8 +3001,10 @@ SnapshotsData::SnapshotsData()
 	normalizeSnaps = NORMALIZE_FALSE;
 	incrementalSnaps = INCREMENTAL_FALSE;
 	subtractIC = SUBTRACT_IC_FALSE;
-	sampleFreq = 1;	
+	relProjError = REL_PROJ_ERROR_OFF;
+//	sampleFreq = 1; // this is now included in the snapshot ascii file	
 	snapshotWeights = UNIFORM;
+  
 }
 
 DataCompressionData::DataCompressionData()
@@ -3073,8 +3075,10 @@ void SnapshotsData::setup(const char *name, ClassAssigner *father)
 	new ClassToken<SnapshotsData> (ca, "IncrementalSnaps", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::incrementalSnaps), 2, "False", 0, "True", 1);
 	new ClassToken<SnapshotsData> (ca, "SubtractIC", this, reinterpret_cast<int
-			SnapshotsData::*>(&SnapshotsData::subtractIC), 2, "False", 0, "True", 1); 
-  new ClassInt<SnapshotsData>(ca, "SampleFrequency", this, &SnapshotsData::sampleFreq);
+			SnapshotsData::*>(&SnapshotsData::subtractIC), 2, "False", 0, "True", 1);
+ 	new ClassToken<SnapshotsData> (ca, "RelProjError", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::relProjError), 2, "Off", 0, "On", 1);
+ // new ClassInt<SnapshotsData>(ca, "Frequency", this, &SnapshotsData::sampleFreq);
 
 	new ClassToken<SnapshotsData> (ca, "SnapshotWeights", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::snapshotWeights), 2, "Uniform", 0, "RBF", 1);
@@ -3090,7 +3094,7 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
 	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
-  new ClassInt<DataCompressionData>(ca, "MaxVectorsStorage", this, &DataCompressionData::maxVecStorage);
+  new ClassInt<DataCompressionData>(ca, "MaxStorageVectors", this, &DataCompressionData::maxVecStorage);
 	new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
   new ClassDouble<DataCompressionData>(ca, "Tolerance", this, &DataCompressionData::tolerance);
@@ -3118,18 +3122,18 @@ void GNATData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<GNATData>(ca, "DimensionROBGreedy", this, &GNATData::nRobGreedy);
 
 
-  new ClassDouble<GNATData>(ca, "SampleNodeFactor", this, &GNATData::sampleNodeFactor); // default: 2
-  new ClassInt<GNATData>(ca, "NumSampleNodes", this, &GNATData::nSampleNodes); // overrides SampleNodeFactor to determine the number of sample nodes
-  new ClassInt<GNATData>(ca, "SampleMeshLayers", this, &GNATData::layers);	// default: 2
+  new ClassDouble<GNATData>(ca, "SampledNodeFactor", this, &GNATData::sampleNodeFactor); // default: 2
+  new ClassInt<GNATData>(ca, "NumSampledNodes", this, &GNATData::nSampleNodes); // overrides SampleNodeFactor to determine the number of sample nodes
+  new ClassInt<GNATData>(ca, "NumSampledMeshLayers", this, &GNATData::layers);	// default: 2
 
 	// optional: undocumented
 	new ClassToken<GNATData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
 			GNATData::*>(&GNATData::computeGappyRes), 2, "False", 0, "True", 1);	
 
-	new ClassToken<GNATData> (ca, "SampleMeshUsed", this, reinterpret_cast<int
+	new ClassToken<GNATData> (ca, "SampledMeshUsed", this, reinterpret_cast<int
 			GNATData::*>(&GNATData::sampleMeshUsed), 2, "False", 0, "True", 1);	
 
-  new ClassInt<GNATData>(ca, "PseudoInvNodesAtATime", this, &GNATData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
+  new ClassInt<GNATData>(ca, "NumPseudoInvNodesAtATime", this, &GNATData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
 
 }
 //------------------------------------------------------------------------------
@@ -3674,7 +3678,7 @@ void IoData::setupCmdFileVariables()
   rmesh.setup("Accelerated");
   aero.setup("Aeroelastic");
   forced.setup("Forced");
-	rom.setup("ModelReduction");
+	rom.setup("NonlinearModelReduction");
 	gnat.setup("GNAT");
 	snapshots.setup("Snapshots");
   linearizedData.setup("Linearized");
