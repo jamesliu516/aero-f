@@ -1842,11 +1842,11 @@ void ModalSolver<dim>::buildGlobalPOD() {
 		snapFile[iData] = new char[500];
 	char snapFile1[500];
 	int *numSnaps = new int[nData];
-	int *startSnaps = new int[nData]; //kmw
-  int *endSnaps = new int[nData];   //kmw
-  int *sampleFreq = new int[nData]; //kmw 
+	int *startSnaps = new int[nData];
+  int *endSnaps = new int[nData];  
+  int *sampleFreq = new int[nData]; 
 	double *snapWeight = new double[nData];
-	int nSnap, iStart, iEnd, iFreq; //kmw
+	int nSnap, iStart, iEnd, iFreq; 
 	double weight;
 
 	int relProjError = ioData->snapshots.relProjError;
@@ -2153,7 +2153,6 @@ void ModalSolver<dim>::buildGlobalPOD() {
 
 	}
 
-	//delete [] podFileName;
 	delete [] numSnaps;
 	delete [] startSnaps;
 	delete [] endSnaps;
