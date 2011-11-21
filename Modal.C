@@ -369,8 +369,15 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
   double r = dt/(2*dt0);
   double *prevU = new double[nStrMode];
   double *prevY = new double[nStrMode];
+  double *prevA = new double[nStrMode];
+
+ // for (i = 0; i < nStrMode; ++i)  {
+ //   deltmp += (delU[i]+sdt0/2*delY[i])*mX[i];
+ //   prevU[i] = delU[i];
+ //   prevY[i] = delY[i];
+ // }
   for (i = 0; i < nStrMode; ++i)  {
-    deltmp += (delU[i]+sdt0/2*delY[i])*mX[i];
+    deltmp += (delU[i]+sdt*delY[i])*mX[i];
     prevU[i] = delU[i];
     prevY[i] = delY[i];
   }
@@ -421,9 +428,18 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
   for (i= 0; i < nStrMode; i++)
     refModalF[i] = mX[i]*refNodalForce;
 
+  //Compute initial acceleration 
+  Vec<double> modalF(nStrMode);
+  postOp->computeForceDerivs(Xref, Uref, delW, modalF, mX);
+  modalF += refModalF;
+  modalF *= ioData->ref.rv.force;
+
+  for (i = 0; i < nStrMode; i++)
+    prevA[i] = modalF[i] - K[i]*prevU[i];
+
   int cntr = 0;
   int cntp1;
-
+  com->fprintf(stderr,"delW.norm = %.16e\n",delW.norm());
   // every step corresponds to solving for 2x each member of the BDF scheme
   FF *= (-2.0); 
   for (int cnt = 0; cnt < nSteps; ++cnt) {
@@ -432,8 +448,109 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
     t0 = modalTimer->getTime();  
     if (cnt == 0) {
+      /*
+      rhsA = 0.0;
+      rhsB = 0.0;
+      rhsC = 0.0;
+      rhsD = 0.0;
+      rhs  = 0.0;
+      delWtmp  = 0.0;
 
+     for (i = 0; i < nStrMode; ++i)  {
+        rhsA += DX[i]*delU[i];
+        rhsB += DX[i]*delY[i];
+        rhsC += DE[i]*delY[i];
+        rhsD += DE[i]*prevA[i];
+      }
+
+     //Step 1
       HOp2step1->apply(delWint,rhs);
+      rhs+= rhsA + rhsC - 0.5*FF;
+      rhs*= dt;
+      rhs /= controlVol;
+      com->fprintf(stderr,"rhs.norm = %.16e\n",rhs.norm());
+      delW = delWint - (1.0/6.0)*rhs;
+      rhs *= 0.5;
+      delWtmp = delWint - rhs;
+      com->fprintf(stderr,"delW.norm = %.16e\n",delW.norm());
+     
+      rhs = 0.0;
+      //Step 2
+      HOp2step1->apply(delWtmp,rhs);
+      com->fprintf(stderr,"rhsD.norm = %.16e\n",rhsD.norm());
+      rhs+= rhsA + 0.5*sdt*rhsB + rhsC + 0.0*0.5*sdt*rhsD - 0.5*FF;
+      rhs*= dt;
+      rhs /= controlVol;
+      com->fprintf(stderr,"rhs.norm = %.16e\n",rhs.norm());
+      delW += (-1.0/3.0)*rhs;
+      rhs *= 0.5;
+      delWtmp = delWint - rhs;
+      com->fprintf(stderr,"delW.norm = %.16e\n",delW.norm());
+
+
+      rhs = 0.0;
+      //Step 3
+      HOp2step1->apply(delWtmp,rhs);
+      com->fprintf(stderr,"rhs.norm = %.16e\n",rhs.norm());
+      com->fprintf(stderr,"rhsD.norm = %.16e\n",rhsD.norm());
+      rhs+= rhsA + 0.5*sdt*rhsB + rhsC + 0.0*0.5*sdt*rhsD - 0.5*FF;
+      rhs*= dt;
+      rhs /= controlVol;
+      com->fprintf(stderr,"rhs.norm = %.16e\n",rhs.norm());
+      delW += (-1.0/3.0)*rhs;
+      rhs *= 0.5;
+      delWtmp = delWint - rhs;
+      com->fprintf(stderr,"delW.norm = %.16e\n",delW.norm());
+
+
+      rhs = 0.0;
+      //Step 4
+      HOp2step1->apply(delWtmp,rhs);
+      com->fprintf(stderr,"rhs.norm = %.16e\n",rhs.norm());
+      com->fprintf(stderr,"rhsA.norm = %.16e\n",rhsA.norm());
+      com->fprintf(stderr,"rhsB.norm = %.16e\n",rhsB.norm());
+      com->fprintf(stderr,"rhsC.norm = %.16e\n",rhsC.norm());
+      com->fprintf(stderr,"rhsD.norm = %.16e\n",rhsD.norm());
+      rhs+= rhsA + sdt*rhsB + rhsC + 0.0*sdt*rhsD - 0.5*FF;
+     // rhs*= dt;
+//      rhs+= rhsA + sdt*rhsB + rhsC + 0.0*sdt*rhsD - 0.5*FF;
+      com->fprintf(stderr,"Before CV: rhs.norm = %.16e\n",rhs.norm());
+      rhs /= controlVol;
+      rhs*= dt;
+      com->fprintf(stderr,"After CV: rhs.norm = %.16e\n",rhs.norm());
+      delW += (-1.0/6.0)*rhs;
+      com->fprintf(stderr,"delW.norm = %.16e\n\n\n\n\n\n\n",delW.norm());
+     */ 
+
+
+      rhsA = 0.0;
+      rhsB = 0.0;
+      rhsC = 0.0;
+      rhsD = 0.0;
+      rhs  = 0.0;
+     for (i = 0; i < nStrMode; ++i)  {
+        rhsA += DX[i]*delU[i];
+        rhsB += DX[i]*delY[i];
+        rhsC += DE[i]*delY[i];
+        rhsD += DE[i]*prevA[i];
+      }
+
+     //Predictor step
+      HOp2step1->apply(delWint,rhs);
+      rhs+= rhsA + rhsC - 0.5*FF;
+      rhs*= 0.5*dt;
+      rhs /= controlVol;
+      delW = delWint - rhs;
+     
+      rhs = 0.0;
+      //Corrector step 
+      HOp2step1->apply(delW,rhs);
+      rhs+= rhsA + 0.5*sdt*rhsB + rhsC + 0.5*sdt*rhsD - 0.5*FF;
+      rhs*= dt;
+      rhs /= controlVol;
+      delW = delWint - rhs;
+
+     /* HOp2step1->apply(delWint,rhs);
 
       rhsA = 0.0;
       rhsB = 0.0;
@@ -459,12 +576,44 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       delWint /= controlVol;
       delWint *= dt0/2.0;
 
-      delW = delWint;
+      delW = delWint;*/
 
     }
     else if (cnt == 1) {
+      
+      rhs = delW*(6.0/dt) - delWnm1*(2.0/(3.0*dt));
+      rhs *= controlVol;
+
+      rhsA = 0.0;     
+      rhsB = 0.0;     
+      rhsC = 0.0;     
+      rhsD = 0.0;     
+
+      for (i = 0; i < nStrMode; ++i)  {
+         rhsA += DX[i]*delU[i];
+         rhsB += DX[i]*delY[i];
+         rhsC += DE[i]*delY[i];
+         rhsD += DE[i]*prevY[i];
+      }
  
-      rhs = delW*(2.0+2.0/r) - delWnm1*(2.0*r/(1.0+r));
+     rhsA *= 2.0;
+     rhsB *= sdt;
+     rhsC *= 3.0;
+
+     rhs -= rhsA;
+     rhs -= rhsB;
+     rhs -= rhsC;
+     rhs += rhsD;
+      
+     delWnm1 = delW;
+   
+     rhs += FF;
+
+     ksp2->solve(rhs, delW);
+     modalTimer->addKspTime(t0);
+  
+     
+     /* rhs = delW*(2.0+2.0/r) - delWnm1*(2.0*r/(1.0+r));
 
       rhs *= controlVol;
 
@@ -496,11 +645,43 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       rhs += FF;
 
       ksp2->solve(rhs, delW);
-      modalTimer->addKspTime(t0);      
+      modalTimer->addKspTime(t0);*/  
 
     }
     else if (cnt == 2) {
-      rhs = delW*3.0 - delWnm1*(1.0/3.0);
+  
+      rhs = delW*(6.0/dt) - delWnm1*(8.0/(3.0*dt));
+      rhs *= controlVol;
+
+      rhsA = 0.0;     
+      rhsB = 0.0;     
+      rhsC = 0.0;     
+      rhsD = 0.0;     
+
+      for (i = 0; i < nStrMode; ++i)  {
+         rhsA += DX[i]*delU[i];
+         rhsB += DX[i]*delY[i];
+         rhsC += DE[i]*delY[i];
+         rhsD += DE[i]*prevY[i];
+      }
+ 
+     rhsA *= 2.0;
+     rhsB *= sdt;
+     rhsC *= 3.0;
+
+     rhs -= rhsA;
+     rhs -= rhsB;
+     rhs -= rhsC;
+     rhs += rhsD;
+      
+     delWnm1 = delW;
+   
+     rhs += FF;
+
+     ksp3->solve(rhs, delW);
+     modalTimer->addKspTime(t0);
+
+     /* rhs = delW*3.0 - delWnm1*(1.0/3.0);
 
       rhs *= controlVol;
 
@@ -532,11 +713,43 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       rhs += FF;
 
       ksp3->solve(rhs, delW);
-      modalTimer->addKspTime(t0);
+      modalTimer->addKspTime(t0);*/
     }
 
     else {
-      rhs = (delW*4.0) - delWnm1;
+     
+      rhs = delW*(4.0/dt) - delWnm1*(1.0/dt);
+      rhs *= controlVol;
+
+      rhsA = 0.0;     
+      rhsB = 0.0;     
+      rhsC = 0.0;     
+      rhsD = 0.0;     
+
+      for (i = 0; i < nStrMode; ++i)  {
+         rhsA += DX[i]*delU[i];
+         rhsB += DX[i]*delY[i];
+         rhsC += DE[i]*delY[i];
+         rhsD += DE[i]*prevY[i];
+      }
+ 
+     rhsA *= 2.0;
+     rhsB *= sdt;
+     rhsC *= 3.0;
+
+     rhs -= rhsA;
+     rhs -= rhsB;
+     rhs -= rhsC;
+     rhs += rhsD;
+      
+     delWnm1 = delW;
+   
+     rhs += FF;
+
+     ksp->solve(rhs, delW);
+     modalTimer->addKspTime(t0);
+
+     /* rhs = (delW*4.0) - delWnm1;
 
       rhs *= controlVol;
 
@@ -560,7 +773,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
       rhs += FF;
       ksp->solve(rhs, delW);
-      modalTimer->addKspTime(t0);
+      modalTimer->addKspTime(t0);*/
     }
 
     // for forced oscillations          
@@ -582,7 +795,15 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
         prevY[kk] = delY[kk];
       }
       t0 = modalTimer->getTime();
-     
+
+
+      computeModalDisp(sdt, deltmp, delW, delU, delY, refModalF, cnt);
+
+//    if (cnt==0)
+//      computeModalDisp(sdt0, deltmp, delW, delU, delY, refModalF, cnt);
+//    else 
+//      computeModalDisp(sdt, deltmp, delW, delU, delY, refModalF, cnt);
+ 
     // if (cnt == 0) 
     //  computeModalDispStep1(sdt0, deltmp, delW, delU, delY, refModalF);
     // else
@@ -591,7 +812,9 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       modalTimer->addStructUpdTime(t0);
 
     }
-  
+    //com->fprintf(stderr,"delW.norm = %.16e\n",delW.norm());  
+    //com->fprintf(stderr,"deltmp.norm = %.16e\n",deltmp.norm());
+ 
     // compute updated position
     deltmp = 0.0;
     for (i = 0; i < nStrMode; ++i) {
@@ -610,9 +833,8 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
     delWtmp = Uref + delW;
     int ierr = domain.checkSolution(varFcn, delWtmp);
 
-    tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, cnt*dt+dt0, com->cpuNum(), tRestart->energy, deltmp, delWtmp);
-    tOutput->writeBinaryVectorsToDisk(false, cntp1, cnt*dt+dt0, deltmp, controlVol, delWtmp, tState);
-
+    tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, (cnt+1)*dt, com->cpuNum(), tRestart->energy, deltmp, delWtmp);
+    tOutput->writeBinaryVectorsToDisk(false, cntp1, (cnt+1)*dt, deltmp, controlVol, delWtmp, tState);
 
     if (ierr)  {
       com->fprintf(stderr, " ... WARNING: %d nodes have neg. rho/P \n", ierr);
@@ -624,7 +846,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
     }
 
     if (cnt % 20 == 1)
-      com->fprintf(stderr, " ... Iteration: %d   Time: %f\n", cnt, (cnt-1)*sdt+sdt0);   
+      com->fprintf(stderr, " ... Iteration: %d   Time: %f\n", cnt, cnt*sdt);   
  
     if (ioData->problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_ || 
         ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)  {
@@ -634,6 +856,16 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       }
     }
   }
+
+  for (i = 0; i < nStrMode; ++i) {
+    delU[i] = 0.5*(delU[i] + prevU[i]);
+    delY[i] = 0.5*(delY[i] + prevY[i]);
+  }
+ 
+  delete [] prevU;
+  delete [] prevY;
+  delete [] prevA;
+
 }
 
 //----------------------------------------------------------------------------------
@@ -999,10 +1231,12 @@ for (i=0; i < nPodVecs; i++){
    }
 
     // Output the reduced order vector
-      if (cnt == 0)
-        computeModalDispStep1(sdt,deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
-      else
-        computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
+    computeModalDisp(sdt, delWRom, delU, delY, refModalF, PtimesPhi, nPodVecs, cnt);
+
+    //  if (cnt == 0)
+    //    computeModalDispStep1(sdt,deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
+    //  else
+    //    computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF, PtimesPhi, delWRom);
 
      // if (cnt == 0)
      //   computeModalDispStep1(sdt,deltmp, delWFull, delU, delY, refModalF);
@@ -1019,8 +1253,8 @@ for (i=0; i < nPodVecs; i++){
 
     int ierr = domain.checkSolution(varFcn, delWFull);
 
-    tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, cnt*dt+dt0, com->cpuNum(), tRestart->energy, deltmp, delWFull);
-    tOutput->writeBinaryVectorsToDisk(false, cntp1, cnt*dt+dt0, deltmp, controlVol, delWFull, tState);
+    tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, (cnt+1)*dt, com->cpuNum(), tRestart->energy, deltmp, delWFull);
+    tOutput->writeBinaryVectorsToDisk(false, cntp1, (cnt+1)*dt, deltmp, controlVol, delWFull, tState);
 
     if (ierr)  {
       com->fprintf(stderr, " ... WARNING: %d nodes have neg. rho/P \n", ierr);
@@ -1291,14 +1525,18 @@ void ModalSolver<dim>::preProcess()  {
   //***This is (c1*A-c2*dt*H)
   HOp2->evaluate2(0, Xref, controlVol, Uref, FF);
   
-  tState->setGlobalTimeStep(delt0);
-  HOp2step1->evaluate(5, Xref, controlVol, Uref, FF,0.0);
-
-  tState->setGlobalTimeStep(delt0);
-  HOpstep2->evaluate(6, Xref, controlVol, Uref, FF,r);
+  //tState->setGlobalTimeStep(delt0);
+  tState->setGlobalTimeStep(dt);
+HOp2step1->evalH(0, Xref, controlVol, Uref); 
+// HOp2step1->evaluate(5, Xref, controlVol, Uref, FF,0.0);
+  //tState->setGlobalTimeStep(delt0);
+  tState->setGlobalTimeStep(dt);
+  HOpstep2->evaluate(8, Xref, controlVol, Uref, FF,0.0);
+//  HOpstep2->evaluate(6, Xref, controlVol, Uref, FF,r);
 
   tState->setGlobalTimeStep(dt);
-  HOpstep3->evaluate(7, Xref, controlVol, Uref, FF,0.0);
+  HOpstep3->evaluate(9, Xref, controlVol, Uref, FF,0.0);
+ // HOpstep3->evaluate(7, Xref, controlVol, Uref, FF,0.0);
 
   //set up preconditioner, GMRES Solver
   DistMat<PreScalar,dim> *_pc = dynamic_cast<DistMat<PreScalar,dim> *>(pc);
@@ -1487,6 +1725,74 @@ com->fprintf(stderr,"\n");
 //---------------------------------------------------------------------------------
 
 template<int dim>
+void ModalSolver<dim>::computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, int nPodVecs, int timeIt) {
+//For ROM
+Vec<double> modalF(nStrMode);
+modalF = ioData->ref.rv.force*refModalF;
+for (int i = 0; i < nPodVecs; i++)
+  modalF += delWRom[i]*PtimesPhi[i];
+
+  updateModalValues(sdt, delU, delY, modalF, timeIt);
+}
+
+//---------------------------------------------------------------------------------
+
+template<int dim>
+void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF, int timeIt) {
+//For FOM
+
+  Vec<double> modalF(nStrMode);
+  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
+  modalF += refModalF;
+  modalF *= ioData->ref.rv.force;
+
+  updateModalValues(sdt, delU, delY, modalF, timeIt);
+}
+
+//---------------------------------------------------------------------------------
+
+template<int dim>
+void ModalSolver<dim>::updateModalValues(double sdt, double *delU, double *delY, Vec<double> &modalF, int timeIt){
+//For both ROM and FOM
+  double prevU, prevY;
+  double *srhs = new double[nStrMode];
+double sdt2 = sdt*sdt;
+
+ if (timeIt == 0){
+    for (int i = 0; i < nStrMode; i++) {
+    //srhs[i] = delU[i] + sdt*delY[i] + 0.5*sdt2*modalF[i];
+    //prevU = delU[i];
+    //delU[i] = srhs[i] / (1+0.5*sdt2*K[i]);
+    //prevY = delY[i];
+    //delY[i] = 2.0 * (delU[i] - prevU)/sdt - prevY;
+    
+
+       prevU = delU[i];
+       prevY = delY[i];
+       srhs[i] =  modalF[i] - K[i]*prevU + (1/sdt - 0.5*sdt*K[i])*prevY;
+       delY[i] = srhs[i]/(1/sdt + 0.5*sdt*K[i]);
+       delU[i] = 0.5*sdt*(prevY + delY[i]) + prevU;
+    }
+  }else {
+    for (int i = 0; i < nStrMode; i++)  {
+    //srhs[i] = (1.0 - 0.25*sdt2*K[i])*delU[i] + sdt*delY[i] + 0.5*sdt2*modalF[i];
+   // prevU = delU[i];
+    //delU[i] = srhs[i] / (1+0.25*sdt2*K[i]);
+    //prevY = delY[i];
+    //delY[i] = 2.0 * (delU[i] - prevU)/sdt - prevY;
+
+       prevU = delU[i];
+       prevY = delY[i];
+       srhs[i] =  modalF[i] - K[i]*prevU + (1/sdt - 0.25*sdt*K[i])*prevY;
+       delY[i] = srhs[i]/(1/sdt + 0.25*sdt*K[i]);
+       delU[i] = 0.5*sdt*(prevY + delY[i]) + prevU;
+     }
+  }
+} 
+//---------------------------------------------------------------------------------
+
+/*
+template<int dim>
 //void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF)  {
 void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, Vec<double> &delWRom)  {
 
@@ -1592,6 +1898,7 @@ delU[i] = 0.5*sdt*(prevY + delY[i]) + prevU;
 //for (int j = 0; j < nStrMode; j++)
 //  com->fprintf(stderr,"%e \t",modalF[j]);
 }
+*/
 
 //-----------------------------------------------------------------------------
 
