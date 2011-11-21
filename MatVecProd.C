@@ -918,7 +918,13 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x,
          break;
        case 7:
          timeState->addToH2(*ctrlVol, *Q, *this, Scalar(8.0/3.0), 2.0);
-       break;
+         break;
+       case 8:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(16.0/3.0), 2.0);
+         break;
+       case 9:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(10.0/3.0), 2.0);
+         break;
 
     }
   }
