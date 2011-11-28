@@ -3094,7 +3094,7 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
 	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
-  new ClassInt<DataCompressionData>(ca, "MaxStorageVectors", this, &DataCompressionData::maxVecStorage);
+  new ClassInt<DataCompressionData>(ca, "MaxNumStoredVectors", this, &DataCompressionData::maxVecStorage);
 	new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
   new ClassDouble<DataCompressionData>(ca, "Tolerance", this, &DataCompressionData::tolerance);
