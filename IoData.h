@@ -1336,9 +1336,9 @@ struct NewtonData {
   enum FailSafe {NO = 0, YES = 1, ALWAYS = 2} failsafe;
   int maxIts;
   double eps;
-	int JacSkip;
+  int JacSkip;
   double epsAbsRes, epsAbsInc;
-
+  enum DescriptorForm {TRUE_DF = 1, FALSE_DF = 0} descriptorForm;
   GenericKrylov ksp;
 
   NewtonData();
