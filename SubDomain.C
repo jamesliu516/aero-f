@@ -313,14 +313,14 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
   }
 
 //KW: set gradients = 0 for cells near interface.
-  if(!linRecFSI)  
+  if(!linRecFSI)
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
-
-      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) 
+      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) {
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
+      }
     }
 
 }
@@ -6393,7 +6393,33 @@ void SubDomain::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V
 template<int dim> 
 void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
                                     const std::vector<Vec3D>& locs, double (*sol)[dim],
+                                    int* status,int* last,int* nid,
+                                    LevelSetStructure* LSS, Vec<GhostPoint<dim>*>* ghostPoints,
+                                    VarFcn *varFcn) {
+
+  elems.interpolateSolution(X,U,locs,sol,status,last,LSS,ghostPoints,varFcn);
+  for (int i = 0; i < locs.size(); ++i) {
+    int eid = last[i],nn;
+    Elem& E = elems[eid];
+    double mindist = std::numeric_limits<double>::max(),dst;
+    for (int j = 0; j < E.numNodes(); ++j) {
+      nn = E.nodeNum(j);
+      dst = sqrt((X[nn][0]-locs[i][0])*(X[nn][0]-locs[i][0])+
+                 (X[nn][1]-locs[i][1])*(X[nn][1]-locs[i][1])+
+                 (X[nn][2]-locs[i][2])*(X[nn][2]-locs[i][2]));
+      if (dst < mindist) {
+        mindist = dst;
+        nid[i] = nn;
+      }
+    }
+  }
+}
+
+template<int dim>
+void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
+                                    const std::vector<Vec3D>& locs, double (*sol)[dim],
                                     int* status,int* last,int* nid) {
+
 
   elems.interpolateSolution(X,U,locs,sol,status,last);
   for (int i = 0; i < locs.size(); ++i) {
@@ -6412,6 +6438,7 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
     }
   }
 }
+
 
 //------------------------------------------------------------------------------
 

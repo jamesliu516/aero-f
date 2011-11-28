@@ -12,6 +12,7 @@
 #include <cmath>
 #include <GeoState.h>
 #include <limits>
+#include <VarFcn.h>
 #include "LevelSet/LevelSetStructure.h"
 
 
@@ -278,7 +279,8 @@ void ElemSet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
 template<int dim> 
 void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
                                   const std::vector<Vec3D>& locs, double (*sol)[dim],
-                                  int* status,int* last) {
+                                  int* status, int* last, LevelSetStructure* LSS,
+                                  Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
   
   int nn;
   Vec3D bbox[2];
@@ -287,7 +289,7 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
   int found_all = 1; 
   for (int j = 0; j < locs.size(); ++j) {
     Elem& E = *elems[last[j]];
-    status[j] = E.interpolateSolution(X, U, locs[j], sol[j]);
+    status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
     if (!status[j]) found_all = 0;
   }
 
@@ -311,7 +313,7 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
             bbox[0][1] <= locs[j][1] && bbox[1][1] >= locs[j][1] &&
             bbox[0][2] <= locs[j][2] && bbox[1][2] >= locs[j][2]) {
           
-          status[j] = E.interpolateSolution(X, U, locs[j], sol[j]);
+          status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
           if (status[j]) 
             last[j] = i;
         }

@@ -16,18 +16,16 @@ class ViscoFcn {
 
 protected:
   double ooreynolds_mu;
-  double reynolds_lambda;
 // Included (MB)
   double dReMach;
   double dRe_muMach;
-  double dRe_lambdaMach;
 
 public:
 
-  ViscoFcn(IoData &iod) { ooreynolds_mu = 1.0/iod.ref.reynolds_mu; reynolds_lambda = iod.ref.reynolds_lambda;
+  ViscoFcn(IoData &iod) { 
+  ooreynolds_mu = 1.0/iod.ref.reynolds_mu; 
 // Included (MB)
   dRe_muMach = iod.ref.dRe_mudMach;
-  dRe_lambdaMach = iod.ref.dRe_lambdadMach;
   }
   ~ViscoFcn() {}
 
@@ -45,24 +43,24 @@ public:
 
 class ConstantViscoFcn : public ViscoFcn {
 
+  double bulkViscosity;
 public:
 
-  ConstantViscoFcn(IoData &iod):ViscoFcn(iod) {}
+  ConstantViscoFcn(IoData &iod):ViscoFcn(iod) { bulkViscosity = iod.eqs.viscosityModel.bulkViscosity;}
   ~ConstantViscoFcn() {}
 
   double compute_mu(double T) { return 1.0; }
-  double compute_lambda(double T, double mu) { return -twothird*mu*reynolds_lambda; }
-//  double compute_lambda(double T, double mu) { return mu;}
+  double compute_lambda(double T, double mu) { return bulkViscosity - twothird*mu; }
 
 // Included (MB)
   double compute_muDerivative(double T, double dT, double dMach) { return 0.0; }
-  double compute_lambdaDerivative(double mu, double dmu, double dMach) { return -twothird*dmu*reynolds_lambda-twothird*mu*dRe_lambdaMach*dMach; }
+  double compute_lambdaDerivative(double mu, double dmu, double dMach) { 
+    return -twothird*dmu;
+  }
 
   void rstVar(IoData &iod) {  
     ooreynolds_mu = 1.0/iod.ref.reynolds_mu; 
-    reynolds_lambda = iod.ref.reynolds_lambda;
     dRe_muMach = iod.ref.dRe_mudMach;
-    dRe_lambdaMach = iod.ref.dRe_lambdadMach;
   }
 
 };
@@ -96,8 +94,7 @@ public:
     return T * sqrt(T) * (1.0 + Ts) / (T + Ts); 
   }
   
-  double compute_lambda(double Tadim, double mu) { return -twothird*mu*reynolds_lambda; }
-//  double compute_lambda(double T, double mu) { return mu;}
+  double compute_lambda(double Tadim, double mu) { return -twothird*mu; }
 
 // Included (MB)
   double compute_muDerivative(double Tadim, double dTadim, double dMach)
@@ -107,14 +104,14 @@ public:
     double dT = dAlpha * Tadim + alpha * dTadim;
     return ( ( 1.5*(1.0 + Ts)*sqrt(T)*dT*(T + Ts) - T*sqrt(T)*(1.0 + Ts)*dT ) / ( (T + Ts)*(T + Ts) ) );
   }
-  double compute_lambdaDerivative(double mu, double dmu, double dMach) { return -twothird*dmu*reynolds_lambda-twothird*mu*dRe_lambdaMach*dMach; }
+  double compute_lambdaDerivative(double mu, double dmu, double dMach) { 
+    return -twothird*dmu;
+  }
 
   void rstVar(IoData &iod)
   {
     ooreynolds_mu = 1.0/iod.ref.reynolds_mu; 
-    reynolds_lambda = iod.ref.reynolds_lambda;
     dRe_muMach = iod.ref.dRe_mudMach;
-    dRe_lambdaMach = iod.ref.dRe_lambdadMach;
 
     double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
     alpha = gam*(gam - 1.0) * iod.ref.mach*iod.ref.mach; 
@@ -146,8 +143,7 @@ public:
   ~PrandtlViscoFcn() {}
 
   double compute_mu(double Tadim) { return alpha * Tadim; }
-  double compute_lambda(double Tadim, double mu) { return -twothird*mu*reynolds_lambda;}
-//  double compute_lambda(double T, double mu) { return mu;}
+  double compute_lambda(double Tadim, double mu) { return -twothird*mu;}
 
 // Included (MB)
   double compute_muDerivative(double Tadim, double dTadim, double dMach)
@@ -155,14 +151,14 @@ public:
     double dAlpha = dalpha*dMach;
     return (dAlpha * Tadim + alpha * dTadim);
   }
-  double compute_lambdaDerivative(double mu, double dmu, double dMach) { return -twothird*dmu*reynolds_lambda-twothird*mu*dRe_lambdaMach*dMach; }
+  double compute_lambdaDerivative(double mu, double dmu, double dMach) { 
+    return -twothird*dmu;
+  }
 
   void rstVar(IoData &iod)
   {
     ooreynolds_mu = 1.0/iod.ref.reynolds_mu; 
-    reynolds_lambda = iod.ref.reynolds_lambda;
     dRe_muMach = iod.ref.dRe_mudMach;
-    dRe_lambdaMach = iod.ref.dRe_lambdadMach;
 
     double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
     alpha = gam*(gam - 1.0) * iod.ref.mach*iod.ref.mach;
@@ -171,24 +167,6 @@ public:
 
 };
 
-//------------------------------------------------------------------------------
-
-/*class WaterViscoFcn : public ViscoFcn {
-
-  double ...
-
-public:
-
-  WaterViscoFcn(IoData &iod) : ViscoFcn(iod){
-  }
-  ~WaterViscoFcn() {}
-
-  double compute_mu() {}
-  double compute_lambda() {}
-
-
-};
-*/
 //------------------------------------------------------------------------------
 
 #endif

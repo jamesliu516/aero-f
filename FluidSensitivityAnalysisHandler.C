@@ -194,7 +194,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
 
     ioData.ref.mach = xmach;
     ioData.ref.dRe_mudMach = 0.0;
-    ioData.ref.dRe_lambdadMach = 0.0;
 
     if (ioData.sa.densFlag == false) {
       ioData.bc.inlet.density = 1.0;
@@ -290,14 +289,12 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     double viscosity = ioData.eqs.viscosityModel.sutherlandConstant * sqrt(ioData.ref.temperature) /
       (1.0 + ioData.eqs.viscosityModel.sutherlandReferenceTemperature/ioData.ref.temperature);
     ioData.ref.reynolds_mu = velocity * ioData.ref.length * ioData.ref.density / viscosity;
-    ioData.ref.reynolds_lambda = -3.0 * ioData.ref.reynolds_mu/2.0;
 
     if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
       this->com->fprintf(stderr, "\n\n Reynolds = %e \n\n",ioData.ref.reynolds_mu);
 
     double dvelocitydMach = sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
     ioData.ref.dRe_mudMach = dvelocitydMach * ioData.ref.length * ioData.ref.density / viscosity;
-    ioData.ref.dRe_lambdadMach = -3.0 * ioData.ref.dRe_mudMach/2.0;
 
     //
     // Step 2.2: Reset values in ioData.ref.rv
@@ -309,7 +306,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     ioData.ref.rv.pressure = ioData.ref.density * velocity*velocity;
     ioData.ref.rv.temperature = gamma*(gamma - 1.0) * ioData.ref.mach*ioData.ref.mach * (ioData.ref.pressure+Pstiff)/(R*ioData.ref.density);
     ioData.ref.rv.viscosity_mu = viscosity;
-    ioData.ref.rv.viscosity_lambda = -2.0/3.0 * viscosity;
     ioData.ref.rv.nutilde = viscosity / ioData.ref.density;
     ioData.ref.rv.kenergy = velocity*velocity;
     ioData.ref.rv.epsilon = velocity*velocity*velocity / ioData.ref.length;

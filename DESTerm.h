@@ -18,7 +18,6 @@ class DESTerm {
   
 // Included (MB)
   double dRe_mudMach;
-  double dRe_lambdadMach;
   
 protected:
 
@@ -43,6 +42,8 @@ public:
 
   double computeTurbulentViscosity(double *[4], double, double &);
   double computeTurbulentViscosity(double *, double);
+  double computeSecondTurbulentViscosity(double lambdal, double mul, double mut);
+  double computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal, double mul, double dmul, double mut, double dmut);
   double max(double a, double b) { return (a>b) ? a : b; }
   double min(double a, double b) { return (a<b) ? a : b; }
 
@@ -66,7 +67,6 @@ DESTerm::DESTerm(IoData &iod)
 
 // Included (MB)
   dRe_mudMach = iod.ref.dRe_mudMach;
-  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
 
   oorey = 1.0 / iod.ref.reynolds_mu;
   alpha = iod.eqs.fluidModel.gasModel.specificHeatRatio / iod.eqs.tc.prandtlTurbulent;
@@ -98,7 +98,6 @@ void DESTerm::rstVarDES(IoData &iod)
 {
 
   dRe_mudMach = iod.ref.dRe_mudMach;
-  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
   oorey = 1.0 / iod.ref.reynolds_mu;
   alpha = iod.eqs.fluidModel.gasModel.specificHeatRatio / iod.eqs.tc.prandtlTurbulent;
 
@@ -198,6 +197,27 @@ double DESTerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV, dou
   double dfv1 = dchi3 / (chi3 + cv1_pow3) - chi3 / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) ) * dchi3;
 
   return dmutilde*fv1 + mutilde*dfv1;
+
+}
+
+//------------------------------------------------------------------------------
+inline
+double DESTerm::computeSecondTurbulentViscosity(double lambdal, double mul, double mut)
+{
+
+  //simple model that remains true when the Stokes' hypothesis is assumed
+  return -2.0*mut/3.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+inline
+double DESTerm::computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal,
+    double mul, double dmul, double mut, double dmut)
+{
+
+  return -2.0*dmut/3.0;
 
 }
 

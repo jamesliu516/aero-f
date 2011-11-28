@@ -20,11 +20,11 @@ ImplicitRomPostproTsDesc<dim>::ImplicitRomPostproTsDesc(IoData &ioData, GeoSourc
 
  while (fgetc(readRedCoords) != '\n') ;	// ignore first line
 
- int tmp;
+ int tmp, _n;
  double tmp2;
- fscanf(readRedCoords, "%d %lf", &tmp, &tmp2);	// ignore first time step (initial condition)
+ _n = fscanf(readRedCoords, "%d %lf", &tmp, &tmp2);	// ignore first time step (initial condition)
  for (int iPod = 0; iPod < this->nPod; ++iPod) {
-	 fscanf(readRedCoords, "%lf", &tmp2);
+	 _n = fscanf(readRedCoords, "%lf", &tmp2);
  }
 }
 
@@ -60,11 +60,11 @@ void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int to
 		Uinitial = U;
 	}
 
-	int tmp;
+	int tmp, _n;
 	double tmp2;
-	fscanf(readRedCoords, "%d %lf", &tmp, &tmp2);
+	_n = fscanf(readRedCoords, "%d %lf", &tmp, &tmp2);
 	for (int iPod = 0; iPod < this->nPod; ++iPod) {
-		fscanf(readRedCoords, "%lf", &tmp2);
+		_n = fscanf(readRedCoords, "%lf", &tmp2);
 		this->UromTotal[iPod] = tmp2;	// set dUrom = UromTotal (subtract next)
 	}
 

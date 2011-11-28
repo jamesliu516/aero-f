@@ -3,6 +3,7 @@
 
 #include <PostFcn.h>
 #include <Vector3D.h>
+#include <GhostPoint.h>
 
 #include <cstdio>
 
@@ -189,7 +190,9 @@ public:
   void cleanProbesFile();
   
   void writeProbesToDisk(bool, int, double, DistSVec<double,3> &, 
-			 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+			 DistVec<double> &, DistSVec<double,dim> &,
+                         DistTimeState<dim> *, DistLevelSetStructure *distLSS = 0, 
+                         DistVec<GhostPoint<dim>*> *ghostPoints = 0);
   
   template<int dimLS>
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
@@ -198,17 +201,20 @@ public:
   
   template<int dimLS>
     void writeProbesToDisk(bool, int, double, DistSVec<double,3> &,
-			   DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-			   DistVec<int> &,DistSVec<double,dimLS>* = NULL);
+			   DistVec<double> &, DistSVec<double,dim> &,
+                           DistTimeState<dim> *, DistVec<int> &,DistSVec<double,dimLS>* = NULL,
+                           DistLevelSetStructure *distLSS = 0,
+                           DistVec<GhostPoint<dim>*> *ghostPoints = 0);
   
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
                                 DistVec<int> &);
 
   void writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
-			 DistVec<double> &A, DistSVec<double,dim> &U, 
-			 DistTimeState<dim> *timeState,
-			 DistVec<int> &fluidId);
+			 DistVec<double> &A, DistSVec<double,dim> &U,
+			 DistTimeState<dim> *timeState, DistVec<int> &fluidId,
+                         DistLevelSetStructure *distLSS = 0,
+                         DistVec<GhostPoint<dim>*> *ghostPoints = 0);
   
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);

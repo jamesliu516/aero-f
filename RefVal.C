@@ -18,7 +18,6 @@ RefVal::RefVal()
   pressure = 1.0;
   temperature = 1.0;
   viscosity_mu = 1.0;
-  viscosity_lambda = 1.0;
   nutilde = 1.0;
   kenergy = 1.0;
   epsilon = 1.0;
@@ -40,7 +39,7 @@ RefVal::RefVal()
 }
 
 //------------------------------------------------------------------------------
-RefVal::RefVal(IoData &ioData)
+/*RefVal::RefVal(IoData &ioData)
 {
 
 
@@ -52,7 +51,6 @@ RefVal::RefVal(IoData &ioData)
     pressure = 1.0;
     temperature = 1.0;
     viscosity_mu = 1.0;
-    viscosity_lambda = 1.0;
     nutilde = 1.0;
     kenergy = 1.0;
     epsilon = 1.0;
@@ -74,7 +72,8 @@ RefVal::RefVal(IoData &ioData)
   }
   else if (ioData.problem.mode  == ProblemData::DIMENSIONAL) {
     mode = DIMENSIONAL;
-    if(ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
+    if(ioData.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+       ioData.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS){
       double gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
       double R = ioData.eqs.fluidModel.gasModel.idealGasConstant;
       double Pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
@@ -112,14 +111,14 @@ RefVal::RefVal(IoData &ioData)
       dtimedMach = 1.0;
     }
     else if(ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      double Cv = ioData.eqs.fluidModel.liquidModel.Cv;
+      double C = ioData.eqs.fluidModel.liquidModel.specificHeat;
       double awater = ioData.eqs.fluidModel.liquidModel.alpha;
       double bwater = ioData.eqs.fluidModel.liquidModel.beta;
       mach = ioData.ref.mach;
       density = ioData.ref.density;
       velocity = mach * sqrt(awater*bwater*pow(density, bwater - 1.0));
       pressure = density * velocity*velocity;
-      temperature = velocity*velocity/Cv;
+      temperature = velocity*velocity/C;
       entropy = pow(density,1.0-bwater)*velocity*velocity;
     }
 
@@ -140,7 +139,7 @@ RefVal::RefVal(IoData &ioData)
   }
 
 }
-
+*/
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -155,7 +154,6 @@ void RefVal::rstVar(IoData &ioData)
     pressure = 1.0;
     temperature = 1.0;
     viscosity_mu = 1.0;
-    viscosity_lambda = 1.0;
     nutilde = 1.0;
     kenergy = 1.0;
     epsilon = 1.0;
@@ -176,7 +174,8 @@ void RefVal::rstVar(IoData &ioData)
   }
   else if (ioData.problem.mode  == ProblemData::DIMENSIONAL) {
     mode = DIMENSIONAL;
-    if(ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
+    if(ioData.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+       ioData.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS){
       double gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
       double R = ioData.eqs.fluidModel.gasModel.idealGasConstant;
       double Pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
@@ -187,16 +186,6 @@ void RefVal::rstVar(IoData &ioData)
       temperature = gam*(gam - 1.0) * mach*mach * (ioData.ref.pressure + Pstiff)/(density*R);
       dvelocitydMach = sqrt(gam * ioData.ref.pressure / density);
       dtimedMach = - length / (velocity * velocity) * dvelocitydMach;
-    }
-    else if(ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      double Cv = ioData.eqs.fluidModel.liquidModel.Cv;
-      double awater = ioData.eqs.fluidModel.liquidModel.alpha;
-      double bwater = ioData.eqs.fluidModel.liquidModel.beta;
-      mach = ioData.ref.mach;
-      density = ioData.ref.density;
-      velocity = mach * sqrt(awater*bwater*pow(density, bwater - 1.0));
-      pressure = density * velocity*velocity;
-      temperature = velocity*velocity/Cv;
     }
 
     length = ioData.ref.length;

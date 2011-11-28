@@ -30,7 +30,6 @@ public:
   double pressure;
   double temperature;
   double viscosity_mu;
-  double viscosity_lambda;
   double nutilde;
   double kenergy;
   double epsilon;
@@ -58,9 +57,8 @@ public:
 public:
 
   RefVal();
-  RefVal(IoData &ioData);
+  //RefVal(IoData &ioData);
   ~RefVal() {}
-  //RefVal(const RefVal&);
 
 // Included (MB)
   void rstVar(IoData &);

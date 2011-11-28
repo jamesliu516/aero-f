@@ -35,10 +35,22 @@ FemEquationTermNS::FemEquationTermNS(IoData &iod, VarFcn *vf) :
   length = iod.ref.rv.length; 
 
 // Included (MB)
-   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS)
      completeJac = true;
    else
      completeJac = false;
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermNS::computeTransportCoefficients(
+  const double T, double &mu, double &lambda, double &kappa)
+{
+
+  mu     = viscoFcn->compute_mu(T);
+  lambda = viscoFcn->compute_lambda(T,mu);
+  kappa  = thermalCondFcn->compute(T);
+
 }
 
 //------------------------------------------------------------------------------
@@ -91,72 +103,22 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
 
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-  double kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
-
+  double mu, lambda, kappa;
+  computeTransportCoefficients(Tcg, mu, lambda, kappa);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
+  kappa  *= ooreynolds_mu;
 
   double (*R)[5] = reinterpret_cast<double (*)[5]>(r);
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+  //
+  // Initialize PR (porous media term)
+  for (int j=0; j<3*4; ++j) PR[j] = 0.0; 
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-       porousmedia = true;
-
-       double RR[9], K[9];
-       double alpha[3], beta[3];
-       double volten = tetVol *(1.0/10.0);
-
-       // non-dimensionalization //
-
-       alpha[0] = it->second->alphax*length/density; 
-       alpha[1] = it->second->alphay*length/density;  
-       alpha[2] = it->second->alphaz*length/density;
-
-       beta[0]  = it->second->betax*length/(density*velocity);  
-       beta[1]  = it->second->betay*length/(density*velocity);   
-       beta[2]  = it->second->betaz*length/(density*velocity);
-
-       // transformation matrix // 
-
-       RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-       RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-       RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-       // permittivity matrix  //
-
-       computePermittivityTensor(alpha, beta, ucg, RR, K);
-
-       double SS[4][3];
-
-       SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-       SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-       SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                         
-       SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-       SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-       SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                         
-       SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-       SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-       SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                         
-       SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-       SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-       SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                         
-       // FE flux for the porous sink term //
-       
-       for (int j=0; j<12; ++j) PR[j] = 0.0; // initialize PR
-                                                                                                                         
-       for (int j=0; j<4; ++j) {
-         for (int k=0; k<3; ++k)
-           PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
-       }
-    } 
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      for (int j=0; j<12; ++j) PR[j] = 0.0; 
+       porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
     }
   }
  
@@ -206,18 +168,22 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
   double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dMach;
 
-  double dooreynolds_lambda = -1.0 / ( reynolds_lambdaNS * reynolds_lambdaNS ) * dRe_lambdadMachNS * dMach;
+  double mu, lambda, kappa;
+  computeTransportCoefficients(Tcg, mu, lambda, kappa);
 
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-  double kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
+  double dmu     = dooreynolds_mu * mu + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dMach);
+  double dlambda = dooreynolds_mu * lambda + ooreynolds_mu * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
+  double dkappa  = dooreynolds_mu * kappa + ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcg, dMach);
 
-  double dmu = dooreynolds_mu * viscoFcn->compute_mu(Tcg) + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dMach);
-  double dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
-  double dkappa = dooreynolds_mu * thermalCondFcn->compute(Tcg) + ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcg, dMach);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
+  kappa  *= ooreynolds_mu;
 
   double (*dR)[5] = reinterpret_cast<double (*)[5]>(dr);
   computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+
+  // Initialize PR (porous media term)
+  for (int j=0; j<3*4; ++j) dPR[j] = 0.0; 
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
@@ -226,9 +192,6 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
        fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the derivative related to porus media is not implemented *****\n");
        exit(1);
     } 
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      for (int j=0; j<12; ++j) dPR[j] = 0.0; 
-    }
   }
  
   dS[0] = 0.0;
@@ -246,7 +209,7 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 // This function was modified to account for the derivative of the mu with respect to the conservative variables
 // Included (MB*)
 bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
-						  double *V[4], double *drdu, double *dSdU, double *dpdu, double tetVol,
+						  double *V[4], double *drdu, double *dsdu, double *dpdu, double tetVol,
                                                   SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
@@ -254,9 +217,16 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
 
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-  double kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
+  double mu, lambda, kappa;
+  computeTransportCoefficients(Tcg, mu, lambda, kappa);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
+  kappa  *= ooreynolds_mu;
+
+  //fprintf(stdout, "mu = %e, lambda = %e, kappa = %e\n", mu, lambda, kappa);
+  //mu = 2.672612e-07;
+  //lambda = -1.781742e-07;
+  //kappa = 5.196746e-07;
 
   double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
   double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
@@ -275,6 +245,13 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   
   double dMach = 0.0;
 
+  for (int k=0; k<4*3*5*5; ++k)
+    drdu[k] = 0.0;
+  for (int k=0; k<4*5*5; ++k)
+    dsdu[k] = 0.0;
+  for (int k=0; k<4*4*5*5; ++k)
+    dpdu[k] = 0.0;
+
   for (int k=0; k<4; ++k) {
 
     if (completeJac) { 
@@ -291,342 +268,56 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
     dkappa[k][3] = ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcgdu3, dMach); 
     dkappa[k][4] = ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcgdu4, dMach); 
 
-    dmu[k][0] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu0, dMach);
-    dmu[k][1] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu1, dMach);
-    dmu[k][2] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu2, dMach);
-    dmu[k][3] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu3, dMach); 
-    dmu[k][4] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu4, dMach); 
+    dmu[k][0] = viscoFcn->compute_muDerivative(Tcg, dTcgdu0, dMach);
+    dmu[k][1] = viscoFcn->compute_muDerivative(Tcg, dTcgdu1, dMach);
+    dmu[k][2] = viscoFcn->compute_muDerivative(Tcg, dTcgdu2, dMach);
+    dmu[k][3] = viscoFcn->compute_muDerivative(Tcg, dTcgdu3, dMach); 
+    dmu[k][4] = viscoFcn->compute_muDerivative(Tcg, dTcgdu4, dMach); 
 
-    dlambda[k][0] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][0], dMach);
-    dlambda[k][1] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][1], dMach);
-    dlambda[k][2] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][2], dMach);
-    dlambda[k][3] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][3], dMach); 
-    dlambda[k][4] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][4], dMach); 
+    for(int i=0; i<5; ++i){
+      dlambda[k][i] = ooreynolds_mu * viscoFcn->compute_lambdaDerivative(mu/ooreynolds_mu, dmu[k][i], dMach);
+      dmu[k][i] *= ooreynolds_mu;
+    }
+    //fprintf(stdout, "node = %d -- dmu     = (%e %e %e %e %e)\n", k, dmu[k][0], dmu[k][1], dmu[k][2], dmu[k][3], dmu[k][4]);
+    //fprintf(stdout, "node = %d -- dlambda = (%e %e %e %e %e)\n", k, dlambda[k][0], dlambda[k][1], dlambda[k][2], dlambda[k][3], dlambda[k][4]);
+    //fprintf(stdout, "node = %d -- dkappa  = (%e %e %e %e %e)\n", k, dkappa[k][0], dkappa[k][1], dkappa[k][2], dkappa[k][3], dkappa[k][4]);
 
+    //for(int toto=0; toto<5; ++toto){
+    //  dmu[k][toto] = 0.0;
+    //  dlambda[k][toto] = 0.0;
+    //  dkappa[k][toto] = 0.0;
+    //}
   }
-  
+
+  //fprintf(stdout, "dp1dxj = %e %e %e %e %e %e %e %e %e %e %e %e\n", dp1dxj[0][0], dp1dxj[0][1], dp1dxj[0][2], dp1dxj[1][0], dp1dxj[1][1], dp1dxj[1][2], dp1dxj[2][0], dp1dxj[2][1], dp1dxj[2][2], dp1dxj[3][0], dp1dxj[3][1], dp1dxj[3][2]); 
+  //T[0] *= 1.1; T[1] *= 1.2; T[2] *= 0.9; T[3] *= 0.98;
+  //fprintf(stdout, " T = %e %e %e %e\n", T[0], T[1], T[2], T[3]);
+  //for(int toto=0; toto<5; ++toto){
+    //V[0][toto] *= 1.1;
+    //V[1][toto] *= 1.2;
+    //V[2][toto] *= 0.9;
+    //V[3][toto] *= 0.98;
+  //}
+  //for(int toto=0; toto<4; ++toto)
+  //fprintf(stdout, " V[%d] = %e %e %e %e %e\n", toto, V[toto][0], V[toto][1], V[toto][2], V[toto][3], V[toto][4]);
   computeJacobianVolumeTermNS(dp1dxj, mu, dmu, lambda, dlambda, kappa, dkappa, V, T, dRdU);
+  //fprintf(stdout, "dRdU = \n");
+  //for(int toto=0; toto<4*3*5*5; ++toto) fprintf(stdout, "   %e\n", drdu[toto]);
+  //fflush(stdout);
+  //exit(1);
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-       porousmedia = true;
-       double RR[9], K[9], B[9];
-       double alpha[3], beta[3];
-
-       double volten = tetVol *(1.0/10.0);
-       double onefourth = 1.0/4.0;
-       double onehalf = 1.0/2.0;
-  
-       double u[4][3], ucg[3];
-       computeVelocity(V, u, ucg);
-
-       // non-dimensionalization correction
-
-       alpha[0] = it->second->alphax*length/density;
-       alpha[1] = it->second->alphay*length/density;
-       alpha[2] = it->second->alphaz*length/density;
-
-       beta[0]  = it->second->betax*length/(density*velocity);
-       beta[1]  = it->second->betay*length/(density*velocity);
-       beta[2]  = it->second->betaz*length/(density*velocity);
-
-       // transformation matrix
-       RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-       RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-       RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-       // permittivity matrix
-       computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-       // gradient of permittivity matrix
-       computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-       double SS[4][3];
-
-       SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-       SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-       SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-       SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-       SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-       SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-       SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-       SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-       SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-       SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-       SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-       SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-       for (int k=0; k<4; ++k) {
-         double BB[3];
-         BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-         BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-         BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-         double BV[9];
-         BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-         BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-         BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-         for (int j=0; j<4; ++j) {
-           double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-           double KU[25];
-           multiplyBydVdU(v, K, KU, volten);
-           double BU[25];
-           multiplyBydVdU(v, BV, BU, 1.0);
-
-           if (k == j) {
-              dPdU[k][j][0][0] = 0.0; 
-              dPdU[k][j][0][1] = 0.0;
-              dPdU[k][j][0][2] = 0.0;
-              dPdU[k][j][0][3] = 0.0;
-              dPdU[k][j][0][4] = 0.0;
-
-              dPdU[k][j][1][0] = KU[5] + BU[5];
-              dPdU[k][j][1][1] = KU[6] + BU[6];
-              dPdU[k][j][1][2] = KU[7] + BU[7];
-              dPdU[k][j][1][3] = KU[8] + BU[8];
-              dPdU[k][j][1][4] = KU[9] + BU[9];
-
-              dPdU[k][j][2][0] = KU[10] + BU[10];
-              dPdU[k][j][2][1] = KU[11] + BU[11];
-              dPdU[k][j][2][2] = KU[12] + BU[12];
-              dPdU[k][j][2][3] = KU[13] + BU[13];
-              dPdU[k][j][2][4] = KU[14] + BU[14];
-          
-              dPdU[k][j][3][0] = KU[15] + BU[15];
-              dPdU[k][j][3][1] = KU[16] + BU[16];
-              dPdU[k][j][3][2] = KU[17] + BU[17];
-              dPdU[k][j][3][3] = KU[18] + BU[18];
-              dPdU[k][j][3][4] = KU[19] + BU[19];
-
-              dPdU[k][j][4][0] = 0.0; 
-              dPdU[k][j][4][1] = 0.0;
-              dPdU[k][j][4][2] = 0.0;
-              dPdU[k][j][4][3] = 0.0;
-              dPdU[k][j][4][4] = 0.0;
-          }
-          else {
-              dPdU[k][j][0][0] = 0.0; 
-              dPdU[k][j][0][1] = 0.0;
-              dPdU[k][j][0][2] = 0.0;
-              dPdU[k][j][0][3] = 0.0;
-              dPdU[k][j][0][4] = 0.0;
-
-              dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-              dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-              dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-              dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-              dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-
-              dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-              dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-              dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-              dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-              dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-          
-              dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-              dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-              dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-              dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-              dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-
-              dPdU[k][j][4][0] = 0.0; 
-              dPdU[k][j][4][1] = 0.0;
-              dPdU[k][j][4][2] = 0.0;
-              dPdU[k][j][4][3] = 0.0;
-              dPdU[k][j][4][4] = 0.0;
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      for(int i=0; i<5; ++i)
-         for(int j=0; j<5; ++j)
-           for(int k=0; k<5; ++k)
-             for(int l=0; l<5; ++l)
-                dPdU[i][j][k][l] = 0.0;
+      double u[4][3], ucg[3];
+      computeVelocity(V, u, ucg);
+      porousmedia = computeJacobianVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, dPdU);
     }
   }
 
   return (porousmedia);
 
 }
-
-//------------------------------------------------------------------------------
-
-// Original
-/*
-bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
-						  double *V[4], double *drdu, double *dSdU, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
-{
-
-  bool porousmedia = false;
-  double T[4], Tcg;
-  computeTemperature(V, T, Tcg);
-
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-  double kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
-
-  double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
-  double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
-
-  computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-  if(material_id>0) {
-    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-       porousmedia = true;
-       double RR[9], K[9], B[9];
-       double alpha[3], beta[3];
-
-       double volten = tetVol *(1.0/10.0);
-       double onefourth = 1.0/4.0;
-       double onehalf = 1.0/2.0;
-  
-       double u[4][3], ucg[3];
-       computeVelocity(V, u, ucg);
-
-       // non-dimensionalization correction
-
-       alpha[0] = it->second->alphax*length/density;
-       alpha[1] = it->second->alphay*length/density;
-       alpha[2] = it->second->alphaz*length/density;
-
-       beta[0]  = it->second->betax*length/(density*velocity);
-       beta[1]  = it->second->betay*length/(density*velocity);
-       beta[2]  = it->second->betaz*length/(density*velocity);
-
-       // transformation matrix
-       RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-       RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-       RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-       // permittivity matrix
-       computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-       // gradient of permittivity matrix
-       computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-       double SS[4][3];
-
-       SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-       SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-       SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-       SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-       SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-       SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-       SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-       SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-       SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-       SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-       SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-       SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-       for (int k=0; k<4; ++k) {
-         double BB[3];
-         BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-         BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-         BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-         double BV[9];
-         BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-         BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-         BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-         for (int j=0; j<4; ++j) {
-           double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-           double KU[25];
-           multiplyBydVdU(v, K, KU, volten);
-           double BU[25];
-           multiplyBydVdU(v, BV, BU, 1.0);
-
-           if (k == j) {
-              dPdU[k][j][0][0] = 0.0; 
-              dPdU[k][j][0][1] = 0.0;
-              dPdU[k][j][0][2] = 0.0;
-              dPdU[k][j][0][3] = 0.0;
-              dPdU[k][j][0][4] = 0.0;
-
-              dPdU[k][j][1][0] = KU[5] + BU[5];
-              dPdU[k][j][1][1] = KU[6] + BU[6];
-              dPdU[k][j][1][2] = KU[7] + BU[7];
-              dPdU[k][j][1][3] = KU[8] + BU[8];
-              dPdU[k][j][1][4] = KU[9] + BU[9];
-
-              dPdU[k][j][2][0] = KU[10] + BU[10];
-              dPdU[k][j][2][1] = KU[11] + BU[11];
-              dPdU[k][j][2][2] = KU[12] + BU[12];
-              dPdU[k][j][2][3] = KU[13] + BU[13];
-              dPdU[k][j][2][4] = KU[14] + BU[14];
-          
-              dPdU[k][j][3][0] = KU[15] + BU[15];
-              dPdU[k][j][3][1] = KU[16] + BU[16];
-              dPdU[k][j][3][2] = KU[17] + BU[17];
-              dPdU[k][j][3][3] = KU[18] + BU[18];
-              dPdU[k][j][3][4] = KU[19] + BU[19];
-
-              dPdU[k][j][4][0] = 0.0; 
-              dPdU[k][j][4][1] = 0.0;
-              dPdU[k][j][4][2] = 0.0;
-              dPdU[k][j][4][3] = 0.0;
-              dPdU[k][j][4][4] = 0.0;
-          }
-          else {
-              dPdU[k][j][0][0] = 0.0; 
-              dPdU[k][j][0][1] = 0.0;
-              dPdU[k][j][0][2] = 0.0;
-              dPdU[k][j][0][3] = 0.0;
-              dPdU[k][j][0][4] = 0.0;
-
-              dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-              dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-              dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-              dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-              dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-
-              dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-              dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-              dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-              dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-              dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-          
-              dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-              dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-              dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-              dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-              dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-
-              dPdU[k][j][4][0] = 0.0; 
-              dPdU[k][j][4][1] = 0.0;
-              dPdU[k][j][4][2] = 0.0;
-              dPdU[k][j][4][3] = 0.0;
-              dPdU[k][j][4][4] = 0.0;
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      for(int i=0; i<5; ++i)
-         for(int j=0; j<5; ++j)
-           for(int k=0; k<5; ++k)
-             for(int l=0; l<5; ++l)
-                dPdU[i][j][k][l] = 0.0;
-    }
-  }
-
-  return (porousmedia);
-
-}
-*/
 
 //------------------------------------------------------------------------------
 
@@ -702,7 +393,8 @@ void FemEquationTermNS::computeJacobianSurfaceTerm(double dp1dxj[4][3], int code
 //------------------------------------------------------------------------------
 
 FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap),
+  turbThermalCondFcn(iod, viscoFcn, vf)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -728,10 +420,48 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
   length = iod.ref.rv.length;
 
 // Included (MB)
-   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS)
      completeJac = true;
    else
      completeJac = false;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermSA::computeLaminarTransportCoefficients(
+  const double T, double &mul, double &lambdal, double &kappal)
+{
+
+  mul     = viscoFcn->compute_mu(T);
+  lambdal = viscoFcn->compute_lambda(T,mul);
+  kappal  = thermalCondFcn->compute(T);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermSA::computeTurbulentTransportCoefficients(
+  double *V[], int nodeNum[], SVec<double,3> &X,
+  const double mul, const double lambdal, const double kappal,
+  double &mutilde, double &mut, double &lambdat, double &kappat)
+{
+
+  mut = computeTurbulentViscosity(V, mul, mutilde);
+
+  //Applying the laminar-turbulent trip
+  if(trip) {
+    int in_trip = 0;
+    for (int k=0; k<3; k++)
+      if (X[nodeNum[k]][0]>=x0 && X[nodeNum[k]][0]<=x1 &&
+          X[nodeNum[k]][1]>=y0 && X[nodeNum[k]][1]<=y1 &&
+	  X[nodeNum[k]][2]>=z0 && X[nodeNum[k]][2]<=z1 )
+        in_trip = 1;
+
+    if (!in_trip) mut = 0.0;
+  }
+  lambdat = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
 }
 
@@ -817,31 +547,13 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
 
-  double mul = viscoFcn->compute_mu(Tcg);
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double mutilde;
-  double mut;
-  double lambda;
+  double mut, lambdat, kappat;
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
-  // Applying the laminar-turbulent trip
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       computeTurbulentViscosity(V, mul, mutilde);
-       mut = 0.0; 
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
-
-  double mu;
-  double kappa;
   double (*R)[6] = reinterpret_cast<double (*)[6]>(r);
 
   double absmutilde = fabs(mutilde);
@@ -901,90 +613,30 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   else {
     S[5] = 0.0;
   }
+  
+  // Initialize PR (porous media term)
+  for (int j=0; j<3*4; ++j) PR[j] = 0.0; 
 
   if(material_id>0) {
 
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
-
-      double RR[9], K[9];
-      double alpha[3], beta[3];
-      double volten = tetVol *(1.0/10.0);
-                                                                                                                                       
-      // non-dimensionalization correction //
-                                                                                                                                       
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-                                                                                                                                      
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-                                                                                                                                       
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-                                                                                                                                       
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-                                                                                                                                       
-      double SS[4][3];
-                                                                                                                                       
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                       
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                      
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                       
-      // FE flux for the porous sink term //
-                                                                                                                                       
-      for (int j=0; j<12; ++j) PR[j] = 0.0; // initialize PR
-                                                                                                                                       
-      for (int j=0; j<4; ++j) {
-        for (int k=0; k<3; ++k)
-          PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
-      }
+      porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
     }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
-     mu = ooreynolds_mu * (mul + mut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut); 
-     computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R); 
-     for (int j=0; j<12; ++j) PR[j] = 0.0;                
-   }
   }
-  else {
-     mu = ooreynolds_mu * (mul + mut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-     computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
-  }
+
+  // In all cases, porous media or not, compute viscous term for Navier-Stokes equations
+  double mu, lambda, kappa;
+  mu     = ooreynolds_mu * (mul + mut);
+  lambda = ooreynolds_mu * (lambdal + lambdat);
+  kappa  = ooreynolds_mu * (kappal + kappat);
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R); 
 
   return (porousmedia);
 }
@@ -1025,17 +677,19 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double ddTdxj[3];
   computeDerivativeOfTemperatureGradient(dp1dxj, ddp1dxj, T, dT, ddTdxj);
 
-  double mul = viscoFcn->compute_mu(Tcg);
+  double mul  = viscoFcn->compute_mu(Tcg);
   double dmul = viscoFcn->compute_muDerivative(Tcg, dTcg, dMach);
+  double lambdal  = viscoFcn->compute_lambda(Tcg, mul);
+  double dlambdal = viscoFcn->compute_lambdaDerivative(mul, dmul, dMach);
+  double kappal  = thermalCondFcn->compute(Tcg);
+  double dkappal = thermalCondFcn->computeDerivative(Tcg, dTcg, dMach);
 
 // Test
   double mutilde = 0.0;
   double dmutilde = 0.0;
 
-  double mut;
-  double dmut;
-  double lambda;
-  double dlambda;
+  double mut, lambdat;
+  double dmut, dlambdat;
   
   // Applying the laminar-turbulent trip
   if(trip){
@@ -1060,11 +714,15 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     dmut = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul, dmutilde);
   }
 
+  lambdat  = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  dlambdat = computeDerivativeOfSecondTurbulentViscosity(lambdal, dlambdal, mul, dmul, mut, dmut);
+
   double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dMach;
-  double dooreynolds_lambda = -1.0 / ( reynolds_lambdaNS * reynolds_lambdaNS ) * dRe_lambdadMachNS * dMach;
   
   double mu;
   double dmu;
+  double lambda;
+  double dlambda;
   double kappa;
   double dkappa;
 
@@ -1200,6 +858,8 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     dS[5] = 0.0;
   }
 
+  // Initialize PR (porous media term)
+  for (int j=0; j<3*4; ++j) dPR[j] = 0.0; 
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
@@ -1208,24 +868,23 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
       fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the derivative related to porus media is not implemented *****\n");
       exit(1);
     }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
-      mu = ooreynolds_mu * (mul + mut);
-      dmu = dooreynolds_mu * (mul + mut) + ooreynolds_mu * (dmul + dmut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      dkappa = dooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut) + ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcg, dMach) + alpha * dmut);
-      computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
-      for (int j=0; j<12; ++j) dPR[j] = 0.0;                
-   }
   }
-  else {
+
+  // If element wasn't flagged as porous media, treat it as standard fluid 
+  if (!porousmedia) {
     mu = ooreynolds_mu * (mul + mut);
     dmu = dooreynolds_mu * (mul + mut) + ooreynolds_mu * (dmul + dmut);
-    lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-    dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
-    kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-    dkappa = dooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut) + ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcg, dMach) + alpha * dmut);
+
+    lambda  = ooreynolds_mu * (lambdal + lambdat);
+    dlambda = 
+        dooreynolds_mu * (lambdal + lambdat) + ooreynolds_mu * (dlambdal + dlambdat);
+
+    double kappat = turbThermalCondFcn.turbulentConductivity(mut);
+    kappa  = ooreynolds_mu  * (kappal + kappat);
+    dkappa = 
+        dooreynolds_mu * (kappal + kappat) +
+        ooreynolds_mu  * (dkappal + turbThermalCondFcn.turbulentConductivityDerivative(dmut));
+
     computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
   }
 
@@ -1253,19 +912,16 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
 
-  double mul = viscoFcn->compute_mu(Tcg);
-  double mutilde = 0.0;
-  double mut;
-  double lambda;
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
 
-  mut = computeTurbulentViscosity(V, mul, mutilde);
+  double mutilde;
+  double mut, lambdat, kappat;
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
-  double mu;
-  double kappa;
-
-  mu = ooreynolds_mu * (mul + mut);
-  lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-  kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+  double mu     = ooreynolds_mu * (mul + mut);
+  double lambda = ooreynolds_mu * (lambdal + lambdat);
+  double kappa  = ooreynolds_mu * (kappal + kappat);
 
   int k;
   for (k=0; k<4*3*6*6; ++k)
@@ -1323,33 +979,22 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
     else
       dmutilde[k][5] = 0.0;
 
-    dmut[k][0] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][0], dmutilde[k][0]);
-    dmut[k][1] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][1], dmutilde[k][1]);
-    dmut[k][2] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][2], dmutilde[k][2]);
-    dmut[k][3] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][3], dmutilde[k][3]);
-    dmut[k][4] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][4], dmutilde[k][4]);
-    dmut[k][5] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][5], dmutilde[k][5]);
+    for(int i=0; i<5; ++i)
+      dmut[k][i] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][i], dmutilde[k][i]);
 
-    dkappa[k][0] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu0, dMach) + alpha * dmut[k][0]);
-    dkappa[k][1] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu1, dMach) + alpha * dmut[k][1]);
-    dkappa[k][2] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu2, dMach) + alpha * dmut[k][2]);
-    dkappa[k][3] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu3, dMach) + alpha * dmut[k][3]); 
-    dkappa[k][4] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu4, dMach) + alpha * dmut[k][4]); 
-    dkappa[k][5] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu5, dMach) + alpha * dmut[k][5]); 
+    dkappa[k][0] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu0, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][0]));
+    dkappa[k][1] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu1, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][1]));
+    dkappa[k][2] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu2, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][2]));
+    dkappa[k][3] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu3, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][3]));
+    dkappa[k][4] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu4, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][4]));
+    dkappa[k][5] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu5, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][5]));
 
-    dmu[k][0] = ooreynolds_mu * (dmul[k][0] + dmut[k][0]);
-    dmu[k][1] = ooreynolds_mu * (dmul[k][1] + dmut[k][1]);
-    dmu[k][2] = ooreynolds_mu * (dmul[k][2] + dmut[k][2]);
-    dmu[k][3] = ooreynolds_mu * (dmul[k][3] + dmut[k][3]); 
-    dmu[k][4] = ooreynolds_mu * (dmul[k][4] + dmut[k][4]); 
-    dmu[k][5] = ooreynolds_mu * (dmul[k][5] + dmut[k][5]); 
-
-    dlambda[k][0] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][0], dMach);
-    dlambda[k][1] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][1], dMach);
-    dlambda[k][2] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][2], dMach);
-    dlambda[k][3] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][3], dMach); 
-    dlambda[k][4] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][4], dMach); 
-    dlambda[k][5] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][5], dMach); 
+    for(int i=0; i<5; ++i){
+      dmu[k][i] = ooreynolds_mu * (dmul[k][i] + dmut[k][i]);
+      double dlambdal = viscoFcn->compute_lambdaDerivative(mu, dmu[k][i], dMach);
+      double dlambdat = computeDerivativeOfSecondTurbulentViscosity(lambdal, dlambdal, mul, dmul[k][i], mut, dmut[k][i]);
+      dlambda[k][i] = ooreynolds_mu * (dlambdal + dlambdat);
+    }
 
   }
   
@@ -1361,444 +1006,35 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
      
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
+    if(it!=  volInfo.end()) {
+      // if porous media with material_id has been defined in the input file
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
+      mu      = ooreynolds_mu * (mul + mut);
+      lambda  = ooreynolds_mu * (lambdal + lambdat);
+      kappa   = ooreynolds_mu * (kappal + kappat);
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-
+      // approximate jacobian for the viscous term
+      // (approximate = transport coefficients are frozen)
       computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
 
-      double RR[9], K[9], B[9];
-      double alpha[3], beta[3];
+      // jacobian for the porous term
+      porousmedia = computeJacobianVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, dPdU);
 
-      double volten = tetVol *(1.0/10.0);
-      double onefourth = 1.0/4.0;
-      double onehalf = 1.0/2.0;
-  
-      double u[4][3], ucg[3];
-      computeVelocity(V, u, ucg);
-
-      // non-dimensionalization correction //
-
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-      // gradient of permittivity matrix //
-
-      computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-      double SS[4][3];
-
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-      for (int k=0; k<4; ++k) {
-        double BB[3];
-        BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-        BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-        BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-        double BV[9];
-        BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-        BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-        BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-        for (int j=0; j<4; ++j) {
-          double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-          double KU[25];
-          multiplyBydVdU(v, K, KU, volten);
-          double BU[25];
-          multiplyBydVdU(v, BV, BU, 1.0);
-
-          if (k == j) {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = KU[5] + BU[5];
-             dPdU[k][j][1][1] = KU[6] + BU[6];
-             dPdU[k][j][1][2] = KU[7] + BU[7];
-             dPdU[k][j][1][3] = KU[8] + BU[8];
-             dPdU[k][j][1][4] = KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = KU[10] + BU[10];
-             dPdU[k][j][2][1] = KU[11] + BU[11];
-             dPdU[k][j][2][2] = KU[12] + BU[12];
-             dPdU[k][j][2][3] = KU[13] + BU[13];
-             dPdU[k][j][2][4] = KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = KU[15] + BU[15];
-             dPdU[k][j][3][1] = KU[16] + BU[16];
-             dPdU[k][j][3][2] = KU[17] + BU[17];
-             dPdU[k][j][3][3] = KU[18] + BU[18];
-             dPdU[k][j][3][4] = KU[19] + BU[19];
-             dPdU[k][j][3][5] =  0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-          else {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-             dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-             dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-             dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-             dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-             dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-             dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-             dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-             dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-             dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-             dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-             dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-             dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-             dPdU[k][j][3][5] = 0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      mu = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      computeJacobianVolumeTermNS(dp1dxj, mu, dmu, lambda, dlambda, kappa, dkappa, V, T, dRdU);
-
-      for(int i=0; i<5; ++i)
-        for(int j=0; j<5; ++j)
-          for(int k=0; k<5; ++k)
-            for(int l=0; l<5; ++l)
-               dPdU[i][j][k][l] = 0.0;
     }
   }
-  else {
-    computeJacobianVolumeTermNS(dp1dxj, mu, dmu, lambda, dlambda, kappa, dkappa, V, T, dRdU);
-  }
+
+  // If element wasn't flagged as porous media, treat it as standard fluid 
+  // jacobian takes into account derivatives of mu, lambda and kappa
+  if (!porousmedia)
+    computeJacobianVolumeTermNS(dp1dxj, mu, dmu, 
+        lambda, dlambda, kappa, dkappa, V, T, dRdU);
 
   return (porousmedia);
 
-}
-
-//------------------------------------------------------------------------------
-
-// Original
-/*
-bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
-						  double *V[4], double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
-{
-
-  bool porousmedia = false;
-
-  double u[4][3], ucg[3];
-  computeVelocity(V, u, ucg);
-
-  double T[4], Tcg;
-  computeTemperature(V, T, Tcg);
-
-  double dudxj[3][3];
-  computeVelocityGradient(dp1dxj, u, dudxj);
-
-  double mul = viscoFcn->compute_mu(Tcg);
-  double mutilde;
-  double mut;
-  double lambda;
-  mut = computeTurbulentViscosity(V, mul, mutilde);
-
-  double mu;
-  double kappa;
-
-  int k;
-  for (k=0; k<4*3*6*6; ++k)
-    drdu[k] = 0.0;
-  for (k=0; k<4*6*6; ++k)
-    dsdu[k] = 0.0;
-  for (k=0; k<4*4*6*6; ++k)
-    dpdu[k] = 0.0;
-
-  double (*dRdU)[3][6][6] = reinterpret_cast<double (*)[3][6][6]>(drdu);
-  double (*dSdU)[6][6] = reinterpret_cast<double (*)[6][6]>(dsdu);
-  double (*dPdU)[4][6][6] = reinterpret_cast<double (*)[4][6][6]>(dpdu);
-
-  computeJacobianVolumeTermSA<6,5>(dp1dxj, d2w, dudxj, mul, mutilde, V, dRdU, dSdU);
-
-  if(material_id>0) {
-    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
-
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      double RR[9], K[9], B[9];
-      double alpha[3], beta[3];
-
-      double volten = tetVol *(1.0/10.0);
-      double onefourth = 1.0/4.0;
-      double onehalf = 1.0/2.0;
-  
-      double u[4][3], ucg[3];
-      computeVelocity(V, u, ucg);
-
-      // non-dimensionalization correction //
-
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-      // gradient of permittivity matrix //
-
-      computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-      double SS[4][3];
-
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-      for (int k=0; k<4; ++k) {
-        double BB[3];
-        BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-        BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-        BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-        double BV[9];
-        BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-        BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-        BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-        for (int j=0; j<4; ++j) {
-          double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-          double KU[25];
-          multiplyBydVdU(v, K, KU, volten);
-          double BU[25];
-          multiplyBydVdU(v, BV, BU, 1.0);
-
-          if (k == j) {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = KU[5] + BU[5];
-             dPdU[k][j][1][1] = KU[6] + BU[6];
-             dPdU[k][j][1][2] = KU[7] + BU[7];
-             dPdU[k][j][1][3] = KU[8] + BU[8];
-             dPdU[k][j][1][4] = KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = KU[10] + BU[10];
-             dPdU[k][j][2][1] = KU[11] + BU[11];
-             dPdU[k][j][2][2] = KU[12] + BU[12];
-             dPdU[k][j][2][3] = KU[13] + BU[13];
-             dPdU[k][j][2][4] = KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = KU[15] + BU[15];
-             dPdU[k][j][3][1] = KU[16] + BU[16];
-             dPdU[k][j][3][2] = KU[17] + BU[17];
-             dPdU[k][j][3][3] = KU[18] + BU[18];
-             dPdU[k][j][3][4] = KU[19] + BU[19];
-             dPdU[k][j][3][5] =  0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-          else {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-             dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-             dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-             dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-             dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-             dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-             dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-             dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-             dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-             dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-             dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-             dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-             dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-             dPdU[k][j][3][5] = 0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      mu = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      for(int i=0; i<5; ++i)
-        for(int j=0; j<5; ++j)
-          for(int k=0; k<5; ++k)
-            for(int l=0; l<5; ++l)
-               dPdU[i][j][k][l] = 0.0;
-    }
-  }
-  else {
-    mu = ooreynolds_mu * (mul + mut);
-    lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-    kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-    computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-  }
-
-  return (porousmedia);
 
 }
-*/
 
 //------------------------------------------------------------------------------
 
@@ -1896,7 +1132,9 @@ void FemEquationTermSA::computeJacobianSurfaceTerm(double dp1dxj[4][3], int code
 //------------------------------------------------------------------------------
 
 FemEquationTermSAmean::FemEquationTermSAmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap),
+  turbThermalCondFcn(iod, viscoFcn, vf)
+
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -1915,6 +1153,44 @@ FemEquationTermSAmean::FemEquationTermSAmean(IoData &iod, VarFcn *vf) :
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermSAmean::computeLaminarTransportCoefficients(
+  const double T, double &mul, double &lambdal, double &kappal)
+{
+
+  mul     = viscoFcn->compute_mu(T);
+  lambdal = viscoFcn->compute_lambda(T,mul);
+  kappal  = thermalCondFcn->compute(T);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermSAmean::computeTurbulentTransportCoefficients(
+  double *V[], int nodeNum[], SVec<double,3> &X,
+  const double mul, const double lambdal, const double kappal,
+  double &mutilde, double &mut, double &lambdat, double &kappat)
+{
+
+  mut = computeTurbulentViscosity(V, mul, mutilde);
+
+  //Applying the laminar-turbulent trip
+  if(trip) {
+    int in_trip = 0;
+    for (int k=0; k<3; k++)
+      if (X[nodeNum[k]][0]>=x0 && X[nodeNum[k]][0]<=x1 &&
+          X[nodeNum[k]][1]>=y0 && X[nodeNum[k]][1]<=y1 &&
+	  X[nodeNum[k]][2]>=z0 && X[nodeNum[k]][2]<=z1 )
+        in_trip = 1;
+
+    if (!in_trip) mut = 0.0;
+  }
+  lambdat = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
 }
 
@@ -1995,206 +1271,37 @@ bool FemEquationTermSAmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doubl
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
                                                                                                                                                                    
-  double mul = viscoFcn->compute_mu(Tcg);
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double mutilde;
-  double mut;
-  double lambda;
-
-  // Applying the laminar-turbulent trip
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
-
-  double mu, kappa;
+  double mut, lambdat, kappat; //may be modified later if element is flagged as a porous media
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
   double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
   double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
+    if(it!=  volInfo.end()) {
+      // if porous media with material_id has been defined in the input file
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      // jacobian for the porous term
+      porousmedia = computeJacobianVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, dPdU);
 
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      double RR[9], K[9], B[9];
-      double alpha[3], beta[3];
-
-      double volten = tetVol *(1.0/10.0);
-      double onefourth = 1.0/4.0;
-      double onehalf = 1.0/2.0;
-  
-      double u[4][3], ucg[3];
-      computeVelocity(V, u, ucg);
-
-      // non-dimensionalization correction //
-
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-      // gradient of permittivity matrix //
-
-      computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-      double SS[4][3];
-
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-      for (int k=0; k<4; ++k) {
-        double BB[3];
-        BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-        BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-        BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-        double BV[9];
-        BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-        BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-        BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-        for (int j=0; j<4; ++j) {
-          double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-          double KU[25];
-          multiplyBydVdU(v, K, KU, volten);
-          double BU[25];
-          multiplyBydVdU(v, BV, BU, 1.0);
-
-          if (k == j) {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-
-             dPdU[k][j][1][0] = KU[5] + BU[5];
-             dPdU[k][j][1][1] = KU[6] + BU[6];
-             dPdU[k][j][1][2] = KU[7] + BU[7];
-             dPdU[k][j][1][3] = KU[8] + BU[8];
-             dPdU[k][j][1][4] = KU[9] + BU[9];
-
-             dPdU[k][j][2][0] = KU[10] + BU[10];
-             dPdU[k][j][2][1] = KU[11] + BU[11];
-             dPdU[k][j][2][2] = KU[12] + BU[12];
-             dPdU[k][j][2][3] = KU[13] + BU[13];
-             dPdU[k][j][2][4] = KU[14] + BU[14];
-          
-             dPdU[k][j][3][0] = KU[15] + BU[15];
-             dPdU[k][j][3][1] = KU[16] + BU[16];
-             dPdU[k][j][3][2] = KU[17] + BU[17];
-             dPdU[k][j][3][3] = KU[18] + BU[18];
-             dPdU[k][j][3][4] = KU[19] + BU[19];
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-
-          }
-          else {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-
-             dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-             dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-             dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-             dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-             dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-
-             dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-             dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-             dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-             dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-             dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-          
-             dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-             dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-             dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-             dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-             dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      mu = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      for(int i=0; i<5; ++i)
-        for(int j=0; j<5; ++j)
-          for(int k=0; k<5; ++k)
-            for(int l=0; l<5; ++l)
-               dPdU[i][j][k][l] = 0.0;
     }
   }
-  else {
-    mu = ooreynolds_mu * (mul + mut);
-    lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-    kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-    computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-  }
+
+  // In all cases, porous media or not, approximate jacobian of viscous term is computed
+  // (approximate = transport coefficients are frozen)
+  double mu, lambda, kappa;
+  mu = ooreynolds_mu * (mul + mut);
+  lambda  = ooreynolds_mu * (lambdal + lambdat);
+  kappa   = ooreynolds_mu * (kappal + kappat);
+  computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
 
   return (porousmedia);
 
@@ -2266,7 +1373,8 @@ bool FemEquationTermSAturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
 //------------------------------------------------------------------------------
 
 FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap),
+  turbThermalCondFcn(iod, viscoFcn, vf)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -2294,10 +1402,48 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
   length = iod.ref.rv.length;
 
 // Included (MB)
-   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS)
      completeJac = true;
    else
      completeJac = false;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermDES::computeLaminarTransportCoefficients(
+  const double T, double &mul, double &lambdal, double &kappal)
+{
+
+  mul     = viscoFcn->compute_mu(T);
+  lambdal = viscoFcn->compute_lambda(T,mul);
+  kappal  = thermalCondFcn->compute(T);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermDES::computeTurbulentTransportCoefficients(
+  double *V[], int nodeNum[], SVec<double,3> &X,
+  const double mul, const double lambdal, const double kappal,
+  double &mutilde, double &mut, double &lambdat, double &kappat)
+{
+
+  mut = computeTurbulentViscosity(V, mul, mutilde);
+
+  //Applying the laminar-turbulent trip
+  if(trip) {
+    int in_trip = 0;
+    for (int k=0; k<3; k++)
+      if (X[nodeNum[k]][0]>=x0 && X[nodeNum[k]][0]<=x1 &&
+          X[nodeNum[k]][1]>=y0 && X[nodeNum[k]][1]<=y1 &&
+	  X[nodeNum[k]][2]>=z0 && X[nodeNum[k]][2]<=z1 )
+        in_trip = 1;
+
+    if (!in_trip) mut = 0.0;
+  }
+  lambdat = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
 }
 
@@ -2384,31 +1530,12 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
                                                                                                    
-  double mul = viscoFcn->compute_mu(Tcg);
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double mutilde;
-  double mut;
-  double lambda;
-
-  // Applying the laminar-turbulent trip
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       computeTurbulentViscosity(V, mul, mutilde);
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
-
-  double mu;
-  double kappa;
+  double mut, lambdat, kappat; //may be modified later if element is flagged as a porous media
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
   double (*R)[6] = reinterpret_cast<double (*)[6]>(r);
 
@@ -2479,89 +1606,30 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     S[5] = 0.0;
   }
 
+  // Initialize PR (porous media term)
+  for (int j=0; j<3*4; ++j) PR[j] = 0.0; 
+
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
+    if(it!=  volInfo.end()) {
+      // if porous media with material_id has been defined in the input file
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+      porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
 
-      double RR[9], K[9];
-      double alpha[3], beta[3];
-      double volten = tetVol *(1.0/10.0);
-                                                                                                                                       
-      // non-dimensionalization correction //
-                                                                                                                                       
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-                                                                                                                                      
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-                                                                                                                                       
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-                                                                                                                                       
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-                                                                                                                                       
-      double SS[4][3];
-                                                                                                                                       
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                       
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                      
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                       
-      // FE flux for the porous sink term //
-                                                                                                                                       
-      for (int j=0; j<12; ++j) PR[j] = 0.0; // initialize PR
-                                                                                                                                       
-      for (int j=0; j<4; ++j) {
-        for (int k=0; k<3; ++k)
-          PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
-      }
     }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
-     mu = ooreynolds_mu * (mul + mut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut); 
-     computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R); 
-     for (int j=0; j<12; ++j) PR[j] = 0.0;                
-   }
   }
-  else {
-     mu = ooreynolds_mu * (mul + mut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-     computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
-  }
-                                                                                                                                       
+
+  // In all cases, porous media or not, compute viscous term for Navier-Stokes equations
+  double mu, lambda, kappa;
+  mu     = ooreynolds_mu * (mul + mut);
+  lambda = ooreynolds_mu * (lambdal + lambdat);
+  kappa  = ooreynolds_mu * (kappal + kappat);
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+
   return (porousmedia);
 
 }
@@ -2603,15 +1671,13 @@ bool FemEquationTermDES::computeJacobianVolumeTerm(double dp1dxj[4][3], double d
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
                                                                                                    
-  double mul = viscoFcn->compute_mu(Tcg);
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double mutilde;
-  double mut;
-  mut = computeTurbulentViscosity(V, mul, mutilde);
-                                                                                                   
-  double mu = ooreynolds_mu * (mul + mut);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-  double kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-                                                                                                   
+  double mut, lambdat, kappat; //may be modified later if element is flagged as a porous media
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
+
   int k;
   for (k=0; k<4*3*6*6; ++k)
     drdu[k] = 0.0;
@@ -2628,199 +1694,26 @@ bool FemEquationTermDES::computeJacobianVolumeTerm(double dp1dxj[4][3], double d
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
+    if(it!=  volInfo.end()) {
+      // if porous media with material_id has been defined in the input file
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
+      // jacobian for the porous term
+      porousmedia = computeJacobianVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, dPdU);
 
-      double RR[9], K[9], B[9];
-      double alpha[3], beta[3];
-
-      double volten = tetVol *(1.0/10.0);
-      double onefourth = 1.0/4.0;
-      double onehalf = 1.0/2.0;
-  
-      double u[4][3], ucg[3];
-      computeVelocity(V, u, ucg);
-
-      // non-dimensionalization correction //
-
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-      // gradient of permittivity matrix //
-
-      computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-      double SS[4][3];
-
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-      for (int k=0; k<4; ++k) {
-        double BB[3];
-        BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-        BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-        BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-        double BV[9];
-        BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-        BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-        BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-        for (int j=0; j<4; ++j) {
-          double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-          double KU[25];
-          multiplyBydVdU(v, K, KU, volten);
-          double BU[25];
-          multiplyBydVdU(v, BV, BU, 1.0);
-
-          if (k == j) {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = KU[5] + BU[5];
-             dPdU[k][j][1][1] = KU[6] + BU[6];
-             dPdU[k][j][1][2] = KU[7] + BU[7];
-             dPdU[k][j][1][3] = KU[8] + BU[8];
-             dPdU[k][j][1][4] = KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = KU[10] + BU[10];
-             dPdU[k][j][2][1] = KU[11] + BU[11];
-             dPdU[k][j][2][2] = KU[12] + BU[12];
-             dPdU[k][j][2][3] = KU[13] + BU[13];
-             dPdU[k][j][2][4] = KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = KU[15] + BU[15];
-             dPdU[k][j][3][1] = KU[16] + BU[16];
-             dPdU[k][j][3][2] = KU[17] + BU[17];
-             dPdU[k][j][3][3] = KU[18] + BU[18];
-             dPdU[k][j][3][4] = KU[19] + BU[19];
-             dPdU[k][j][3][5] =  0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-          else {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-             dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-             dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-             dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-             dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-             dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-             dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-             dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-             dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-             dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-             dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-             dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-             dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-             dPdU[k][j][3][5] = 0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      mu = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      for(int i=0; i<5; ++i)
-        for(int j=0; j<5; ++j)
-          for(int k=0; k<5; ++k)
-            for(int l=0; l<5; ++l)
-               dPdU[i][j][k][l] = 0.0;
     }
   }
-  else {
-    mu = ooreynolds_mu * (mul + mut);
-    lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-    kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-    computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-  }
+
+  // In all cases, porous media or not, approximate jacobian of viscous term is computed
+  // (approximate = transport coefficients are frozen)
+  double mu, lambda, kappa;
+  mu      = ooreynolds_mu * (mul + mut);
+  lambda  = ooreynolds_mu * (lambdal + lambdat);
+  kappa   = ooreynolds_mu * (kappal + kappat);
+  computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
 
   return (porousmedia);
 
@@ -2904,7 +1797,8 @@ void FemEquationTermDES::computeJacobianSurfaceTerm(double dp1dxj[4][3], int cod
 //------------------------------------------------------------------------------
 
 FemEquationTermDESmean::FemEquationTermDESmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap),
+  turbThermalCondFcn(iod, viscoFcn, vf)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -2923,6 +1817,44 @@ FemEquationTermDESmean::FemEquationTermDESmean(IoData &iod, VarFcn *vf) :
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermDESmean::computeLaminarTransportCoefficients(
+  const double T, double &mul, double &lambdal, double &kappal)
+{
+
+  mul     = viscoFcn->compute_mu(T);
+  lambdal = viscoFcn->compute_lambda(T,mul);
+  kappal  = thermalCondFcn->compute(T);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermDESmean::computeTurbulentTransportCoefficients(
+  double *V[], int nodeNum[], SVec<double,3> &X,
+  const double mul, const double lambdal, const double kappal,
+  double &mutilde, double &mut, double &lambdat, double &kappat)
+{
+
+  mut = computeTurbulentViscosity(V, mul, mutilde);
+
+  //Applying the laminar-turbulent trip
+  if(trip) {
+    int in_trip = 0;
+    for (int k=0; k<3; k++)
+      if (X[nodeNum[k]][0]>=x0 && X[nodeNum[k]][0]<=x1 &&
+          X[nodeNum[k]][1]>=y0 && X[nodeNum[k]][1]<=y1 &&
+	  X[nodeNum[k]][2]>=z0 && X[nodeNum[k]][2]<=z1 )
+        in_trip = 1;
+
+    if (!in_trip) mut = 0.0;
+  }
+  lambdat = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
 }
 
@@ -3002,207 +1934,39 @@ bool FemEquationTermDESmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doub
                                                                                                                                                                    
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
-                                                                                                                                                                   
-  double mul = viscoFcn->compute_mu(Tcg);
+
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double mutilde;
-  double mut;
-  double lambda;
-
-  // Applying the laminar-turbulent trip
-
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
-
-  double mu, kappa;
+  double mut, lambdat, kappat; //may be modified later if element is flagged as a porous media
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
   double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
   double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
+    if(it!=  volInfo.end()) {
+      // if porous media with material_id has been defined in the input file
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
+      // jacobian for the porous term
+      porousmedia = computeJacobianVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, dPdU);
 
-      double RR[9], K[9], B[9];
-      double alpha[3], beta[3];
-
-      double volten = tetVol *(1.0/10.0);
-      double onefourth = 1.0/4.0;
-      double onehalf = 1.0/2.0;
-  
-      double u[4][3], ucg[3];
-      computeVelocity(V, u, ucg);
-
-      // non-dimensionalization correction //
-
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-      // gradient of permittivity matrix //
-
-      computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-      double SS[4][3];
-
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-      for (int k=0; k<4; ++k) {
-        double BB[3];
-        BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-        BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-        BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-        double BV[9];
-        BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-        BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-        BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-        for (int j=0; j<4; ++j) {
-          double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-          double KU[25];
-          multiplyBydVdU(v, K, KU, volten);
-          double BU[25];
-          multiplyBydVdU(v, BV, BU, 1.0);
-
-          if (k == j) {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-
-             dPdU[k][j][1][0] = KU[5] + BU[5];
-             dPdU[k][j][1][1] = KU[6] + BU[6];
-             dPdU[k][j][1][2] = KU[7] + BU[7];
-             dPdU[k][j][1][3] = KU[8] + BU[8];
-             dPdU[k][j][1][4] = KU[9] + BU[9];
-
-             dPdU[k][j][2][0] = KU[10] + BU[10];
-             dPdU[k][j][2][1] = KU[11] + BU[11];
-             dPdU[k][j][2][2] = KU[12] + BU[12];
-             dPdU[k][j][2][3] = KU[13] + BU[13];
-             dPdU[k][j][2][4] = KU[14] + BU[14];
-          
-             dPdU[k][j][3][0] = KU[15] + BU[15];
-             dPdU[k][j][3][1] = KU[16] + BU[16];
-             dPdU[k][j][3][2] = KU[17] + BU[17];
-             dPdU[k][j][3][3] = KU[18] + BU[18];
-             dPdU[k][j][3][4] = KU[19] + BU[19];
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-          }
-          else {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-
-             dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-             dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-             dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-             dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-             dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-
-             dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-             dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-             dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-             dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-             dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-          
-             dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-             dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-             dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-             dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-             dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      mu = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      for(int i=0; i<5; ++i)
-        for(int j=0; j<5; ++j)
-          for(int k=0; k<5; ++k)
-            for(int l=0; l<5; ++l)
-               dPdU[i][j][k][l] = 0.0;
     }
   }
-  else {
-    mu = ooreynolds_mu * (mul + mut);
-    lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-    kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-    computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-  }
+
+  // In all cases, porous media or not, approximate jacobian of viscous term is computed
+  // (approximate = transport coefficients are frozen)
+  double mu, lambda, kappa;
+  mu     = ooreynolds_mu * (mul + mut);
+  lambda = ooreynolds_mu * (lambdal + lambdat);
+  kappa  = ooreynolds_mu * (kappal + kappat);
+  computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
 
   return (porousmedia);
 
@@ -3273,7 +2037,8 @@ bool FemEquationTermDESturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
 //------------------------------------------------------------------------------
 
 FemEquationTermKE::FemEquationTermKE(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap),
+  turbThermalCondFcn(iod, viscoFcn, vf)
 {
 
   wallFcn = new WallFcnKE(iod, varFcn, viscoFcn);
@@ -3298,10 +2063,48 @@ FemEquationTermKE::FemEquationTermKE(IoData &iod, VarFcn *vf) :
   length = iod.ref.rv.length;
 
 // Included (MB)
-   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS)
      completeJac = true;
    else
      completeJac = false;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermKE::computeLaminarTransportCoefficients(
+  const double T, double &mul, double &lambdal, double &kappal)
+{
+
+  mul     = viscoFcn->compute_mu(T);
+  lambdal = viscoFcn->compute_lambda(T,mul);
+  kappal  = thermalCondFcn->compute(T);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermKE::computeTurbulentTransportCoefficients(
+  double *V[], int nodeNum[], SVec<double,3> &X,
+  const double mul, const double lambdal, const double kappal,
+  double &rhok, double &rhoeps, double &mut, double &lambdat, double &kappat)
+{
+
+  mut = computeTurbulentViscosity(V, rhok, rhoeps);
+
+  //Applying the laminar-turbulent trip
+  if(trip) {
+    int in_trip = 0;
+    for (int k=0; k<3; k++)
+      if (X[nodeNum[k]][0]>=x0 && X[nodeNum[k]][0]<=x1 &&
+          X[nodeNum[k]][1]>=y0 && X[nodeNum[k]][1]<=y1 &&
+	  X[nodeNum[k]][2]>=z0 && X[nodeNum[k]][2]<=z1 )
+        in_trip = 1;
+
+    if (!in_trip) mut = 0.0;
+  }
+  lambdat = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
 }
 
@@ -3384,32 +2187,14 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
 
-  double mul = viscoFcn->compute_mu(Tcg);
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double rhok, rhoeps;
-  double mut;
-  double lambda;
+  double mut, lambdat, kappat; //may be modified later if element is flagged as a porous media
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, rhok, rhoeps, mut, lambdat, kappat);
 
-  // Applying the laminar-turbulent trip
-
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, rhok, rhoeps);}
-    else{
-       computeTurbulentViscosity(V, rhok, rhoeps);
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, rhok, rhoeps);
-  }
-
-  double mu;
-  double kappa;
+  // compute viscous term for k-epsilon turbulence model equation
 
   double (*R)[7] = reinterpret_cast<double (*)[7]>(r);
 
@@ -3447,88 +2232,30 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   S[5] = - rhoeps + prod;
   S[6] = (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) / rhok;
 
+  // initialize porous term
+  for (int j=0; j<3*4; ++j) PR[j] = 0.0; 
+
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
+    if(it!=  volInfo.end()) {
+      // if porous media with material_id has been defined in the input file
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+      // porous term
+      porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
 
-      double RR[9], K[9];
-      double alpha[3], beta[3];
-      double volten = tetVol *(1.0/10.0);
-                                                                                                                                       
-      // non-dimensionalization correction //
-                                                                                                                                       
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-                                                                                                                                      
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-                                                                                                                                       
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-                                                                                                                                       
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-                                                                                                                                       
-      double SS[4][3];
-                                                                                                                                       
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                       
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                      
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                       
-      // FE flux for the porous sink term //
-                                                                                                                                       
-      for (int j=0; j<12; ++j) PR[j] = 0.0; // initialize PR
-                                                                                                                                       
-      for (int j=0; j<4; ++j) {
-        for (int k=0; k<3; ++k)
-          PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
-      }
     }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
-     mu = ooreynolds_mu * (mul + mut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut); 
-     computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R); 
-     for (int j=0; j<12; ++j) PR[j] = 0.0;                
-   }
   }
-  else {
-     mu = ooreynolds_mu * (mul + mut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-     computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
-  }
+
+  // In all cases, porous media or not, compute viscous term for Navier-Stokes equations
+  double mu, lambda, kappa;
+  mu      = ooreynolds_mu * (mul + mut);
+  lambda  = ooreynolds_mu * (lambdal + lambdat);
+  kappa   = ooreynolds_mu * (kappal + kappat);
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
 
   return(porousmedia);
 
@@ -3568,46 +2295,40 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double ddTdxj[3];
   computeDerivativeOfTemperatureGradient(dp1dxj, ddp1dxj, T, dT, ddTdxj);
 
-  double mul = viscoFcn->compute_mu(Tcg);
-  double dmul = viscoFcn->compute_muDerivative(Tcg, dTcg, dMach);
+  double mul      = viscoFcn->compute_mu(Tcg);
+  double dmul     = viscoFcn->compute_muDerivative(Tcg, dTcg, dMach);
+  double lambdal  = viscoFcn->compute_lambda(Tcg, mul);
+  double dlambdal = viscoFcn->compute_lambdaDerivative(mul, dmul, dMach);
+  double kappal   = thermalCondFcn->compute(Tcg);
+  double dkappal  = thermalCondFcn->computeDerivative(Tcg, dTcg, dMach);
   double rhok, rhoeps;
-  double mut;
-  double lambda;
+  double mut, lambdat;
 
   double drhok, drhoeps;
-  double dmut;
-  double dlambda;
+  double dmut, dlambdat;
+
+  mut  = computeTurbulentViscosity(V, rhok, rhoeps);
+  dmut = computeDerivativeOfTurbulentViscosity(V, dV, drhok, drhoeps, dMach);     
 
   // Applying the laminar-turbulent trip
-  if(trip){
+  if(trip) {
+    int in_trip = 0;
+    for (int k=0; k<4; k++)
+      if ( X[nodeNum[k]][0]>=x0 && X[nodeNum[k]][0]<=x1 && 
+          X[nodeNum[k]][1]>=y0 && X[nodeNum[k]][1]<=y1 &&
+          X[nodeNum[k]][2]>=z0 && X[nodeNum[k]][2]<=z1 )
+        in_trip = 1;
 
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-    	X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-    	X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-    	(X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-    	X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-    	X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)) {
-        mut = computeTurbulentViscosity(V, rhok, rhoeps);
-        dmut = computeDerivativeOfTurbulentViscosity(V, dV, drhok, drhoeps, dMach);     
-    }
-    else{
-        computeTurbulentViscosity(V, rhok, rhoeps);
-        computeDerivativeOfTurbulentViscosity(V, dV, drhok, drhoeps, dMach);     
-        mut = 0.0; 
-        dmut = 0.0;
-    }
+    if (!in_trip)
+      mut = dmut = 0.0; 
   }
-  else{
-    mut = computeTurbulentViscosity(V, rhok, rhoeps);
-    dmut = computeDerivativeOfTurbulentViscosity(V, dV, drhok, drhoeps, dMach);
-  }
+  lambdat  = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  dlambdat = computeDerivativeOfSecondTurbulentViscosity(lambdal, dlambdal, mul, dmul, mut, dmut);
 
   double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dMach;
 
-  double dooreynolds_lambda = -1.0 / ( reynolds_lambdaNS * reynolds_lambdaNS ) * dRe_lambdadMachNS * dMach;
-
-  double mu;
-  double dmu;
+  double mu, lambda;
+  double dmu, dlambda;
   double kappa;
   double dkappa;
 
@@ -3671,6 +2392,9 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   dS[5] = - drhoeps + dprod;
   dS[6] = ( (sigma_eps1 * drhoeps * prod + sigma_eps1 * rhoeps * dprod  - sigma_eps2 * 2.0*rhoeps*drhoeps) * rhok -  (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) * drhok ) / ( rhok * rhok );
 
+  // Initialize dPR (porous media term)
+  for (int j=0; j<3*4; ++j) dPR[j] = 0.0; 
+
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
@@ -3679,25 +2403,24 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
       exit(1);
 
     }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
-     mu = ooreynolds_mu * (mul + mut);
-     dmu = dooreynolds_mu * (mul + mut) + ooreynolds_mu * (dmul + dmut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);												    
-     dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-     dkappa = dooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut) + ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcg, dMach) + alpha * dmut);
-     computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
-     for (int j=0; j<12; ++j) dPR[j] = 0.0;                
-   }
+
   }
-  else {
-     mu = ooreynolds_mu * (mul + mut);
-     dmu = dooreynolds_mu * (mul + mut) + ooreynolds_mu * (dmul + dmut);
-     lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-     dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
-     kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-     dkappa = dooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut) + ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcg, dMach) + alpha * dmut);
-     computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+
+  // If element wasn't flagged as porous media, treat it as standard fluid 
+  if (!porousmedia) {
+    mu  =  ooreynolds_mu * (mul + mut);
+    dmu = dooreynolds_mu * (mul + mut) + ooreynolds_mu * (dmul + dmut);
+
+    lambda  = ooreynolds_mu * (lambdal + lambdat);
+    dlambda = dooreynolds_mu * (lambdal + lambdat) + ooreynolds_mu * (dlambdal + dlambdat);
+
+    kappa  = ooreynolds_mu * (kappal + turbThermalCondFcn.turbulentConductivity(mut));
+    dkappa =
+        dooreynolds_mu * (kappal + turbThermalCondFcn.turbulentConductivity(mut)) +
+        ooreynolds_mu  * (dkappal + turbThermalCondFcn.turbulentConductivityDerivative(dmut));
+
+    computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, 
+	ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
   }
 
   return(porousmedia);
@@ -3719,15 +2442,12 @@ bool FemEquationTermKE::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
 
-  double mul = viscoFcn->compute_mu(Tcg);
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double rhok, rhoeps;
-  double mut;
-  double lambda;
-
-  mut = computeTurbulentViscosity(V, rhok, rhoeps);
-
-  double mu;
-  double kappa;
+  double mut, lambdat, kappat; //may be modified later if element is flagged as a porous media
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, rhok, rhoeps, mut, lambdat, kappat);
 
   int k;
   for (k=0; k<4*3*7*7; ++k)
@@ -3745,202 +2465,28 @@ bool FemEquationTermKE::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
+    if(it!=  volInfo.end()) {
+      // if porous media with material_id has been defined in the input file
+      //
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      // jacobian of the porous term
+      porousmedia = computeJacobianVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, dPdU);
 
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      double RR[9], K[9], B[9];
-      double alpha[3], beta[3];
-
-      double volten = tetVol *(1.0/10.0);
-      double onefourth = 1.0/4.0;
-      double onehalf = 1.0/2.0;
-  
-      double u[4][3], ucg[3];
-      computeVelocity(V, u, ucg);
-
-      // non-dimensionalization correction //
-
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-      // gradient of permittivity matrix //
-
-      computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-      double SS[4][3];
-
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-      for (int k=0; k<4; ++k) {
-        double BB[3];
-        BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-        BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-        BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-        double BV[9];
-        BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-        BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-        BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-        for (int j=0; j<4; ++j) {
-          double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-          double KU[25];
-          multiplyBydVdU(v, K, KU, volten);
-          double BU[25];
-          multiplyBydVdU(v, BV, BU, 1.0);
-
-          if (k == j) {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = KU[5] + BU[5];
-             dPdU[k][j][1][1] = KU[6] + BU[6];
-             dPdU[k][j][1][2] = KU[7] + BU[7];
-             dPdU[k][j][1][3] = KU[8] + BU[8];
-             dPdU[k][j][1][4] = KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = KU[10] + BU[10];
-             dPdU[k][j][2][1] = KU[11] + BU[11];
-             dPdU[k][j][2][2] = KU[12] + BU[12];
-             dPdU[k][j][2][3] = KU[13] + BU[13];
-             dPdU[k][j][2][4] = KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = KU[15] + BU[15];
-             dPdU[k][j][3][1] = KU[16] + BU[16];
-             dPdU[k][j][3][2] = KU[17] + BU[17];
-             dPdU[k][j][3][3] = KU[18] + BU[18];
-             dPdU[k][j][3][4] = KU[19] + BU[19];
-             dPdU[k][j][3][5] =  0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-          else {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-             dPdU[k][j][0][5] = 0.0;
-
-             dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-             dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-             dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-             dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-             dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-             dPdU[k][j][1][5] = 0.0;
-
-             dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-             dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-             dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-             dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-             dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-             dPdU[k][j][2][5] = 0.0;
-          
-             dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-             dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-             dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-             dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-             dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-             dPdU[k][j][3][5] = 0.0;
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-             dPdU[k][j][4][5] = 0.0;
-
-             dPdU[k][j][5][0] = 0.0; 
-             dPdU[k][j][5][1] = 0.0;
-             dPdU[k][j][5][2] = 0.0;
-             dPdU[k][j][5][3] = 0.0;
-             dPdU[k][j][5][4] = 0.0;
-             dPdU[k][j][5][5] = 0.0;
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      mu = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      for(int i=0; i<5; ++i)
-        for(int j=0; j<5; ++j)
-          for(int k=0; k<5; ++k)
-            for(int l=0; l<5; ++l)
-               dPdU[i][j][k][l] = 0.0;
     }
   }
-  else {
-    mu = ooreynolds_mu * (mul + mut);
-    lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-    kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-    computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-  }
+
+  // In all cases, porous media or not, approximate jacobian of viscous term is computed
+  // (approximate = transport coefficients are frozen)
+  double mu, lambda, kappa;
+  mu      = ooreynolds_mu * (mul + mut);
+  lambda  = ooreynolds_mu * (lambdal + lambdat);
+  kappa   = ooreynolds_mu * (kappal + kappat);
+  computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
 
   return (porousmedia);
-
 }
 
 //------------------------------------------------------------------------------
@@ -3988,7 +2534,8 @@ void FemEquationTermKE::computeJacobianSurfaceTerm(int code, Vec3D &n,
 //------------------------------------------------------------------------------
 
 FemEquationTermKEmean::FemEquationTermKEmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap),
+  turbThermalCondFcn(iod, viscoFcn, vf)
 {
 
   wallFcn = new WallFcn(iod, varFcn, viscoFcn);
@@ -4006,6 +2553,44 @@ FemEquationTermKEmean::FemEquationTermKEmean(IoData &iod, VarFcn *vf) :
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermKEmean::computeLaminarTransportCoefficients(
+  const double T, double &mul, double &lambdal, double &kappal)
+{
+
+  mul     = viscoFcn->compute_mu(T);
+  lambdal = viscoFcn->compute_lambda(T,mul);
+  kappal  = thermalCondFcn->compute(T);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FemEquationTermKEmean::computeTurbulentTransportCoefficients(
+  double *V[], int nodeNum[], SVec<double,3> &X,
+  const double mul, const double lambdal, const double kappal,
+  double &rhok, double &rhoeps, double &mut, double &lambdat, double &kappat)
+{
+
+  mut = computeTurbulentViscosity(V, rhok, rhoeps);
+
+  //Applying the laminar-turbulent trip
+  if(trip) {
+    int in_trip = 0;
+    for (int k=0; k<3; k++)
+      if (X[nodeNum[k]][0]>=x0 && X[nodeNum[k]][0]<=x1 &&
+          X[nodeNum[k]][1]>=y0 && X[nodeNum[k]][1]<=y1 &&
+	  X[nodeNum[k]][2]>=z0 && X[nodeNum[k]][2]<=z1 )
+        in_trip = 1;
+
+    if (!in_trip) mut = 0.0;
+  }
+  lambdat = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
 }
 
@@ -4079,38 +2664,19 @@ bool FemEquationTermKEmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doubl
                                                                                                                                                                    
   double u[4][3], ucg[3];
   computeVelocity(V, u, ucg);
-                                                                                                                                                                   
+
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
-                                                                                                                                                                   
+
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
-                                                                                                                                                                   
-  double mul = viscoFcn->compute_mu(Tcg);
+
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
   double rhok, rhoeps;
-  double mut;
-  double lambda;
-
-  // Applying the laminar-turbulent trip
-
-
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, rhok, rhoeps);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, rhok, rhoeps);
-  }
-
-  double mu, kappa;
+  double mut, lambdat, kappat; //may be modified later if element is flagged as a porous media
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, rhok, rhoeps, mut, lambdat, kappat);
 
   double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
   double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
@@ -4118,176 +2684,24 @@ bool FemEquationTermKEmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doubl
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
-      porousmedia = true;
-      double cmu = 0.09;
-      double coeff = 1.2247*pow(cmu,0.25);
-      double Idr = it->second->idr;                    // average turbulence intensity
-      double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
-      double vel = sqrt(ucg[0]*ucg[0] + ucg[1]*ucg[1] + ucg[2]*ucg[2]);
 
-      mut = coeff*Idr*Ldr*vel;
-      mu  = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
+      // jacobian for the porous term
+      porousmedia = computeJacobianVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, dPdU);
 
-      double RR[9], K[9], B[9];
-      double alpha[3], beta[3];
-
-      double volten = tetVol *(1.0/10.0);
-      double onefourth = 1.0/4.0;
-      double onehalf = 1.0/2.0;
-  
-      double u[4][3], ucg[3];
-      computeVelocity(V, u, ucg);
-
-      // non-dimensionalization correction //
-
-      alpha[0] = it->second->alphax*length/density;
-      alpha[1] = it->second->alphay*length/density;
-      alpha[2] = it->second->alphaz*length/density;
-
-      beta[0]  = it->second->betax*length/(density*velocity);
-      beta[1]  = it->second->betay*length/(density*velocity);
-      beta[2]  = it->second->betaz*length/(density*velocity);
-
-      // transformation matrix //
-
-      RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
-      RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
-      RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
-
-      // permittivity matrix //
-
-      computePermittivityTensor(alpha, beta, ucg, RR, K);
-      
-      // gradient of permittivity matrix //
-
-      computeGradPermittivityTensor(alpha, ucg, RR, B);
-
-      double SS[4][3];
-
-      SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
-      SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
-      SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
-                                                                                                                                                       
-      SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
-      SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
-      SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
-                                                                                                                                                         
-      SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
-      SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
-      SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
-                                                                                                                                                         
-      SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
-      SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
-      SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
-                                                                                                                                                         
-      for (int k=0; k<4; ++k) {
-        double BB[3];
-        BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
-        BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
-        BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
-
-        double BV[9];
-        BV[0] = ucg[0]*BB[0]; BV[1] = ucg[1]*BB[0]; BV[2] = ucg[2]*BB[0]; 
-        BV[3] = ucg[0]*BB[1]; BV[4] = ucg[1]*BB[1]; BV[5] = ucg[2]*BB[1]; 
-        BV[6] = ucg[0]*BB[2]; BV[7] = ucg[1]*BB[2]; BV[8] = ucg[2]*BB[2]; 
-         
-        for (int j=0; j<4; ++j) {
-          double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
-          double KU[25];
-          multiplyBydVdU(v, K, KU, volten);
-          double BU[25];
-          multiplyBydVdU(v, BV, BU, 1.0);
-
-          if (k == j) {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-
-             dPdU[k][j][1][0] = KU[5] + BU[5];
-             dPdU[k][j][1][1] = KU[6] + BU[6];
-             dPdU[k][j][1][2] = KU[7] + BU[7];
-             dPdU[k][j][1][3] = KU[8] + BU[8];
-             dPdU[k][j][1][4] = KU[9] + BU[9];
-
-             dPdU[k][j][2][0] = KU[10] + BU[10];
-             dPdU[k][j][2][1] = KU[11] + BU[11];
-             dPdU[k][j][2][2] = KU[12] + BU[12];
-             dPdU[k][j][2][3] = KU[13] + BU[13];
-             dPdU[k][j][2][4] = KU[14] + BU[14];
-          
-             dPdU[k][j][3][0] = KU[15] + BU[15];
-             dPdU[k][j][3][1] = KU[16] + BU[16];
-             dPdU[k][j][3][2] = KU[17] + BU[17];
-             dPdU[k][j][3][3] = KU[18] + BU[18];
-             dPdU[k][j][3][4] = KU[19] + BU[19];
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-
-          }
-          else {
-             dPdU[k][j][0][0] = 0.0; 
-             dPdU[k][j][0][1] = 0.0;
-             dPdU[k][j][0][2] = 0.0;
-             dPdU[k][j][0][3] = 0.0;
-             dPdU[k][j][0][4] = 0.0;
-
-             dPdU[k][j][1][0] = 0.5*KU[5] + BU[5];
-             dPdU[k][j][1][1] = 0.5*KU[6] + BU[6];
-             dPdU[k][j][1][2] = 0.5*KU[7] + BU[7];
-             dPdU[k][j][1][3] = 0.5*KU[8] + BU[8];
-             dPdU[k][j][1][4] = 0.5*KU[9] + BU[9];
-
-             dPdU[k][j][2][0] = 0.5*KU[10] + BU[10];
-             dPdU[k][j][2][1] = 0.5*KU[11] + BU[11];
-             dPdU[k][j][2][2] = 0.5*KU[12] + BU[12];
-             dPdU[k][j][2][3] = 0.5*KU[13] + BU[13];
-             dPdU[k][j][2][4] = 0.5*KU[14] + BU[14];
-          
-             dPdU[k][j][3][0] = 0.5*KU[15] + BU[15];
-             dPdU[k][j][3][1] = 0.5*KU[16] + BU[16];
-             dPdU[k][j][3][2] = 0.5*KU[17] + BU[17];
-             dPdU[k][j][3][3] = 0.5*KU[18] + BU[18];
-             dPdU[k][j][3][4] = 0.5*KU[19] + BU[19];
-
-             dPdU[k][j][4][0] = 0.0; 
-             dPdU[k][j][4][1] = 0.0;
-             dPdU[k][j][4][2] = 0.0;
-             dPdU[k][j][4][3] = 0.0;
-             dPdU[k][j][4][4] = 0.0;
-
-          }
-        }
-      }
-    }
-    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
-      mu = ooreynolds_mu * (mul + mut);
-      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-      computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-
-      for(int i=0; i<5; ++i)
-        for(int j=0; j<5; ++j)
-          for(int k=0; k<5; ++k)
-            for(int l=0; l<5; ++l)
-               dPdU[i][j][k][l] = 0.0;
     }
   }
-  else {
-    mu = ooreynolds_mu * (mul + mut);
-    lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-    kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
-    computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
-  }
+
+  // In all cases, porous media or not, approximate jacobian of viscous term is computed
+  // (approximate = transport coefficients are frozen)
+  double mu, lambda, kappa;
+  mu      = ooreynolds_mu * (mul + mut);
+  lambda  = ooreynolds_mu * (lambdal + lambdat);
+  kappa   = ooreynolds_mu * (kappal + kappat);
+  computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
 
   return (porousmedia);
 
