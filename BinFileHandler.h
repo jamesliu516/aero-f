@@ -144,7 +144,7 @@ inline
 BinFileHandler::OffType BinFileHandler::tell() 
 { 
 
-  int pos;
+  BinFileHandler::OffType pos;
 
   if (file) 
     pos = ftell(file);

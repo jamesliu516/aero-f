@@ -12,6 +12,7 @@
 #include <cmath>
 #include <GeoState.h>
 #include <limits>
+#include <VarFcn.h>
 #include "LevelSet/LevelSetStructure.h"
 
 
@@ -68,11 +69,37 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
-  for (int i=0; i<numElems; ++i) {
-    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-  }
+
+	if (sampleMesh) {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
+	else {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState, 
+				  SVec<double,3> &X, SVec<double,dim> &V, 
+				  SVec<double,dim> &R,const std::vector<int> &sampledLocElem,
+				  Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+	int i;
+	for (int iElem=0; iElem<numSampledElems; ++iElem) {
+		i = sampleMesh ? elemsConnectedToSampleNode[iElem]: iElem;
+    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+	}
+
+}
 //------------------------------------------------------------------------------
 
 // Included
@@ -252,17 +279,18 @@ void ElemSet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
 template<int dim> 
 void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
                                   const std::vector<Vec3D>& locs, double (*sol)[dim],
-                                  int* status,int* last) {
+                                  int* status, int* last, LevelSetStructure* LSS,
+                                  Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
   
   int nn;
   Vec3D bbox[2];
   memset(status, 0, sizeof(int)*locs.size());
  
-  bool found_all = true; 
+  int found_all = 1; 
   for (int j = 0; j < locs.size(); ++j) {
     Elem& E = *elems[last[j]];
-    status[j] = E.interpolateSolution(X, U, locs[j], sol[j]);
-    if (!status[j]) found_all = false;
+    status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
+    if (!status[j]) found_all = 0;
   }
 
   if (found_all) 
@@ -285,7 +313,7 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
             bbox[0][1] <= locs[j][1] && bbox[1][1] >= locs[j][1] &&
             bbox[0][2] <= locs[j][2] && bbox[1][2] >= locs[j][2]) {
           
-          status[j] = E.interpolateSolution(X, U, locs[j], sol[j]);
+          status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
           if (status[j]) 
             last[j] = i;
         }

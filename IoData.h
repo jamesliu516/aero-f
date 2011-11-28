@@ -74,9 +74,28 @@ struct InputData {
   const char *levelsets;
   const char *rstdata;
   const char *podFile;
-  const char *podFile2;
+  const char *snapFile;
+  const char *snapRefSolutionFile;
+  const char *staterom;
   const char *strModesFile;
   const char *embeddedSurface;
+  const char *oneDimensionalSolution;
+
+  const char *stateVecFile;//CBM
+
+	// Gappy POD
+
+  const char *gnatPrefix;
+  const char *sampleNodes;
+  const char *jacMatrix;
+  const char *resMatrix;
+  const char *podFileState;
+  const char *podFileRes;
+  const char *podFileJac;
+  const char *podFileResHat;
+  const char *podFileJacHat;
+  const char *mesh;
+  const char *reducedfullnodemap;
 
 // Included (MB)
   const char *shapederivatives;
@@ -183,6 +202,7 @@ struct TransientData {
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
+
 // Included (MB)
   const char *velocitynorm;
   const char *dSolutions;
@@ -247,10 +267,51 @@ struct RestartData {
 
 //------------------------------------------------------------------------------
 
+struct ROMOutputData {
+
+  const char *prefix;
+
+  const char *newtonresiduals;
+  const char *jacobiandeltastate;
+  const char *reducedjac;
+  const char *stateRom;
+
+	// specific gnat quantities
+  const char *gnatPrefix;
+
+  const char *mesh;
+  const char *sampleNodes;
+  const char *onlineMatrix;
+  const char *podStateRed;
+  const char *podNonlinRed;
+  const char *solution;
+  const char *wallDistanceRed;
+  const char *staterom;
+  const char *error;
+  const char *dUnormAccum;
+
+	// in full mesh coordinates (optional)
+  const char *sampleNodesFull;
+  const char *onlineMatrixFull;
+  const char *reducedfullnodemap;
+
+  int frequency;
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+
+  ROMOutputData();
+  ~ROMOutputData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct OutputData {
 
   TransientData transient;
   RestartData restart;
+  ROMOutputData rom;
 
   OutputData();
   ~OutputData() {}
@@ -270,6 +331,7 @@ struct RestartParametersData {
   double dt_nm2;
   double residual;
   double energy;
+  int output_newton_step;
 
   RestartParametersData();
   ~RestartParametersData() {}
@@ -291,10 +353,12 @@ struct ProblemData {
 		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
 		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-		_UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
+		_UNSTEADY_LINEARIZED_ = 15, _ROB_CONSTRUCTION_ = 16,
 		_ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ } alltype;
+		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
+		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
+		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -335,12 +399,11 @@ struct ReferenceStateData {
   double pressure;
   double temperature;
   double reynolds_mu;
-  double reynolds_lambda;
+  double energy;
   double length;
 
 // Included (MB)
   double dRe_mudMach;
-  double dRe_lambdadMach;
 
   RefVal rv;
 
@@ -431,6 +494,7 @@ struct GasModelData {
   double specificHeatRatio;
   double idealGasConstant;
   double pressureConstant;
+  double specificHeatPressure;
 
   GasModelData();
   ~GasModelData() {}
@@ -466,8 +530,7 @@ struct LiquidModelData {
   // the state equation is derived from a linearization of the bulk modulus wrt
   // pressure: K = k1 + k2 * P
   // the integration constant of the ODE is given by the couple (RHOrefwater,Prefwater)
-  double specificHeatRatio;
-  double Cv;
+  double specificHeat;
   double k1water;
   double k2water;
   double Prefwater;
@@ -490,7 +553,7 @@ struct LiquidModelData {
 
 struct FluidModelData {
 
-  enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
+  enum Fluid { PERFECT_GAS = 0, LIQUID = 1, JWL = 2, STIFFENED_GAS = 3, UNDEFINED = 4} fluid;
   double rhomin;
   double pmin;
 
@@ -511,10 +574,12 @@ struct FluidModelData {
 
 struct ViscosityModelData {
 
-  enum Type {CONSTANT = 0, SUTHERLAND = 1, PRANDTL = 2, WATER = 3} type;
+  enum Type {CONSTANT = 0, SUTHERLAND = 1, PRANDTL = 2} type;
 
   double sutherlandReferenceTemperature;
   double sutherlandConstant;
+  double dynamicViscosity;
+  double bulkViscosity;
 
   ViscosityModelData();
   ~ViscosityModelData() {}
@@ -527,9 +592,10 @@ struct ViscosityModelData {
 
 struct ThermalCondModelData {
 
-  enum Type {CONSTANT_PRANDTL = 0, WATER = 1} type;
+  enum Type {CONSTANT_PRANDTL = 0, CONSTANT = 1} type;
 
   double prandtl;
+  double conductivity;
 
   ThermalCondModelData();
   ~ThermalCondModelData() {}
@@ -1270,6 +1336,7 @@ struct NewtonData {
   enum FailSafe {NO = 0, YES = 1, ALWAYS = 2} failsafe;
   int maxIts;
   double eps;
+	int JacSkip;
   double epsAbsRes, epsAbsInc;
 
   GenericKrylov ksp;
@@ -1659,6 +1726,99 @@ struct PadeData {
 
 //------------------------------------------------------------------------------
 
+struct ModelReductionData {
+
+	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1, PROJECTION_ERROR = 2} projection;
+	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1,
+		COLLOCATION = 2, BROYDEN = 3} systemApproximation;
+	enum BasisType {POD = 0, SNAPSHOTS = 1, BASIS_TYPE_NONE = 2} basisType;
+	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1} lsSolver;
+
+	int dimension;	// used by all nonlinear ROMs
+	int dimensionROBJacobian;	// used by GNAT
+	int dimensionROBResidual;	// used by GNAT
+
+  ModelReductionData();
+  ~ModelReductionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct GNATData {
+
+	// optional: to document
+
+  int nRobState;
+
+	enum ROBNonlinear {UNSPECIFIED_NONLIN = -1, RESIDUAL_NONLIN = 0,
+		JACOBIAN_NONLIN  = 1, BOTH_NONLIN = 2} robNonlinear;	// default: -1
+
+  int nRobNonlin;
+  int nRobRes;	// default: nRobNonlin
+  int nRobJac;	// default: nRobNonlin
+
+	enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
+		JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;	// default: ROBNonlinear
+
+  int nRobGreedy;	// default: nRobNonlin
+
+  double sampleNodeFactor;	// default: 2.0
+  int nSampleNodes;
+	int layers;
+
+	enum IncludeLiftFaces {NONE_LIFTFACE = 0,
+		SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
+
+	enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
+
+	enum SampleMeshUsed {SAMPLE_MESH_NOT_USED = 0, SAMPLE_MESH_USED = 1} sampleMeshUsed;
+  int pseudoInverseNodes;
+
+  GNATData();
+  ~GNATData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+//------------------------------------------------------------------------------
+
+struct DataCompressionData {
+
+	enum Type {POD = 0, BALANCED_POD = 1} type;
+	enum PODMethod {SVD = 0, Eig = 1} podMethod;
+	int maxVecStorage;
+	enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
+	double tolerance;
+
+  DataCompressionData();
+  ~DataCompressionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct SnapshotsData {
+
+	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
+ 	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
+	enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
+	int sampleFreq;
+	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
+	DataCompressionData dataCompression;
+
+	SnapshotsData();
+	~SnapshotsData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
 struct LinearizedData {
 
   enum PadeReconstruction {TRUE = 1, FALSE = 0} padeReconst;
@@ -1683,6 +1843,7 @@ struct LinearizedData {
   int numPOD;
   int numStrModes;
   const char *romFile;
+	DataCompressionData dataCompression;
 
   PadeData pade;
 
@@ -1764,16 +1925,17 @@ struct EmbeddedFramework {
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
+  enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
 
   MultiInitialConditionsData embedIC;
   
   int nLevelset; //number of level-sets. Currently only consider bubbles.
   
   //Debug variables
+  enum CrackingWithLevelSet {OFF = 0, ON = 1} crackingWithLevelset;
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
-  enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2, AUTO = 3} riemannNormal;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
@@ -1782,6 +1944,7 @@ struct EmbeddedFramework {
 };
 
 //------------------------------------------------------------------------------
+
 struct OneDimensionalInfo {
   enum CoordinateType {CARTESIAN = 0, CYLINDRICAL = 1, SPHERICAL = 2} coordType;
   enum VolumeType { CONSTANT_VOLUME = 0, REAL_VOLUME = 1} volumeType;
@@ -1861,6 +2024,9 @@ public:
   RigidMeshMotionData rmesh;
   AeroelasticData aero;
   ForcedData forced;
+	ModelReductionData rom;
+	GNATData gnat;
+	SnapshotsData snapshots;
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
@@ -1902,12 +2068,13 @@ public:
   int checkInputValuesEquationOfState(FluidModelData &fluidModel, int fluidModelID);
   void nonDimensionalizeInitialConditions(InitialConditions &initialConditions);
   void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
+  void nonDimensionalizeViscosityModel(ViscosityModelData &vm);
+  void nonDimensionalizeThermalCondModel(ThermalCondModelData &tm);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
   int checkInputValuesEmbeddedFramework();
   void printDebug();
 
   void setupOneDimensional();
-
 };
 
 //------------------------------------------------------------------------------

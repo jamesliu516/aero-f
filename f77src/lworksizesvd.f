@@ -1,4 +1,4 @@
-      subroutine lworksize(ictxt, nprow, npcol, myrow, mycol, m, n, 
+      subroutine lworksizesvd(ictxt, nprow, npcol, myrow, mycol, m, n, 
      $           rowblock, colblock, lwork)
       integer ictxt, nprow, npcol, myrow, mycol, m, n, rowblock
       integer colblock, locLLD, icpu, rowindex, lwork

@@ -69,9 +69,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", fluid2);
 	    exit(1);
 	  }
+	  bool fluid1IsAGas = (it1->second->fluid  == FluidModelData::PERFECT_GAS || it1->second->fluid  == FluidModelData::STIFFENED_GAS);
+	  bool fluid2IsAGas = (it2->second->fluid  == FluidModelData::PERFECT_GAS || it2->second->fluid  == FluidModelData::STIFFENED_GAS);
 	  if(iod.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR){
-	    if(it1->second->fluid  == FluidModelData::GAS &&
-	       it2->second->fluid == FluidModelData::GAS)
+	    if(fluid1IsAGas && fluid2IsAGas)
 	      lriemann[iRiemann] = new LocalRiemannGfmpGasGas(vf,fluid1,fluid2);
 	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
 		    it2->second->fluid == FluidModelData::LIQUID)
@@ -79,19 +80,18 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    else if(it1->second->fluid  == FluidModelData::JWL &&
 		    it2->second->fluid == FluidModelData::JWL)
 	      lriemann[iRiemann] = new LocalRiemannGfmpJWLJWL(vf,fluid1,fluid2);
-	    else if(it1->second->fluid == FluidModelData::GAS &&
+	    else if(fluid1IsAGas &&
 		    it2->second->fluid == FluidModelData::JWL)
 	      lriemann[iRiemann] = new LocalRiemannGfmpGasJWL(vf,fluid1,fluid2);
 	    else{
 	      fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
 	    }
 	  }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
-	    if(it1->second->fluid  == FluidModelData::GAS &&
-	       it2->second->fluid == FluidModelData::GAS){
+	    if(fluid1IsAGas && fluid2IsAGas){
 	      lriemann[iRiemann] = new LocalRiemannGfmparGasGas(vf,fluid1,fluid2, iod.mf.typePhaseChange);
 	    }
 	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
-		    it2->second->fluid == FluidModelData::GAS){
+		    fluid2IsAGas){
 	      levelSetSign[fluid1][fluid2] = levelSetSign[fluid2][fluid1] = -1.0;
 	      lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid2,fluid1, iod.mf.typePhaseChange);
 	    }
@@ -99,11 +99,11 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 		    it2->second->fluid == FluidModelData::LIQUID){
 	      lriemann[iRiemann] = new LocalRiemannGfmparTaitTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
 	    }
-	    else if(it1->second->fluid  == FluidModelData::GAS &&
+	    else if(fluid1IsAGas && 
 		    it2->second->fluid == FluidModelData::LIQUID){
 	      lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
 	    }
-	    else if(it1->second->fluid  == FluidModelData::GAS &&
+	    else if(fluid1IsAGas && 
 		    it2->second->fluid == FluidModelData::JWL){
 	      lriemann[iRiemann] = new LocalRiemannGfmparGasJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,
 								iod.mf.jwlRelaxationFactor,

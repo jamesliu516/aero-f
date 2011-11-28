@@ -59,7 +59,6 @@ class FluidSelector;
 struct V6NodeData;
 struct Vec3D;
 struct compStruct;
-struct PolygonReconstructionData;
 struct ExtrapolationNodeData;
 
 template<int dimLS> class LevelSet;
@@ -76,6 +75,52 @@ template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
 #include "LevelSet/FluidTypeCriterion.h"
+//------------------------------------------------------------------------------
+
+struct PolygonReconstructionData { //for force computation under the embedded framework
+    PolygonReconstructionData() : numberOfEdges(0) {}
+    int numberOfEdges;
+    int edgeWithVertex[4][2];
+
+    void AssignSingleEdge(int n1, int n2){ //for PhysBAM only
+        numberOfEdges=1;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+    }
+
+    void AssignTwoEdges(int n1, int n2, int n3){ //for PhysBAM only
+        numberOfEdges=2;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
+    }
+
+    void AssignTriangle(int n1, int n2, int n3, int n4,bool owned_by_single_vertex=true){
+        numberOfEdges=3;
+        if(owned_by_single_vertex){
+            edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+            edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
+            edgeWithVertex[2][0]=n1; edgeWithVertex[2][1]=n4;}
+        else{
+            edgeWithVertex[0][0]=n2; edgeWithVertex[0][1]=n1;
+            edgeWithVertex[1][0]=n3; edgeWithVertex[1][1]=n1;
+            edgeWithVertex[2][0]=n4; edgeWithVertex[2][1]=n1;}
+    }
+
+    void AssignQuadTriangle(int n1, int n2, int n3, int n4){ //for PhysBAM only
+        numberOfEdges=3;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
+        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n3;
+    }
+
+    void AssignQuadrilateral(int n1, int n2, int n3, int n4){
+        numberOfEdges=4;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
+        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n4;
+        edgeWithVertex[3][0]=n2; edgeWithVertex[3][1]=n3;
+    }
+};
+
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
@@ -156,6 +201,11 @@ class SubDomain {
   int numOffDiagEntries;
   double *dGradP[3];
 
+	bool sampleMesh;
+	int numSampledNodes;
+	std::vector<int> locSampleNodes;	// for Gappy ROM
+
+
 public:
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
@@ -164,6 +214,7 @@ public:
 
   // topology
   int *getNodeMap()    { return locToGlobNodeMap; }
+  int *getElemMap()  { return locToGlobElemMap; }
   int getGlobSubNum()  { return globSubNum; }
   int getLocSubNum()   { return locSubNum; }
   int getNumNeighb()   { return numNeighb; }
@@ -173,9 +224,12 @@ public:
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
 
+	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
+
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();
   Connectivity *createElementToElementConnectivity();
+  Connectivity *createElementToNodeConnectivity();
   Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToSubDomainConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
@@ -188,13 +242,14 @@ public:
   int numFaces() { return(faces.size()); }
   int numElems() { return(elems.size()); }
   int numEdges() { return(edges.size()); }
+	FaceSet& getFaces() {return faces;};
+	ElemSet& getElems() {return elems;};
 
   int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
 
   // Get the local node number in the subdomain of the global node <id>
   // Returns -1 if it does not exist.  Warning: This method is O(N)
   int getLocalNodeNum(int globNodeNum) const;
-
   // geometry
 
   void setFaceType(int *);
@@ -816,6 +871,11 @@ public:
   template<class Scalar, int dim>
   void addRcvOffDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
 
+  template<class Scalar, int dim>
+  void sndGhostOffDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
+
+  template<class Scalar, int dim>
+  void addRcvGhostOffDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
   // test
 
   void testNormals(Vec<Vec3D> &, Vec<double> &, Vec<Vec3D> &, Vec<double> &);
@@ -880,6 +940,9 @@ public:
 
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
+  template<int dimLS>
+  void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
+
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
 
@@ -1123,25 +1186,18 @@ public:
 
   void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
-  void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
-                               Vec<double>&, Vec<double>&, double pInfty);
   template<int dim>
-    void computeCVBasedForceLoadViscous(int, int, GeoState &,SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
-					SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
-					Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad);
-  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
-                                    Vec<double>&, Vec<double>&, double pInfty);  
+  void computeCVBasedForceLoad(int, int, GeoState &,SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
+                               SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+                               Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int> *fid);
   template<int dim>
-    void computeRecSurfBasedForceLoadViscous(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
-					   SVec<double,dim> &V, Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);  
-  template<int dim>
-    void computeRecSurfBasedForceLoadNew(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
-					 SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
-					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
-  int getPolygon(int, LevelSetStructure&, int[4][2]);
+  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
+                                    SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+			                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, VarFcn *vf, Vec<int>* fid);
+  int getPolygon(int, LevelSetStructure&, int[4][2]); //not used?
   int getPolygons(int, LevelSetStructure&, PolygonReconstructionData*);
   void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
-                     LevelSetResult&, double(*)[3]);
+                     LevelSetResult&, double(*)[3]); //not used.
   void sendLocalForce(Vec3D, LevelSetResult&, double(*)[3]);
 
   void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
@@ -1162,17 +1218,33 @@ public:
 
 
   template<int dim>
-    void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
+  void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
+
+  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll);
+  template<int dimLS>
+  void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, Vec<int> &fluidId, bool *masterFlag);
+
+  template<int dim, int dimLS>
+  void debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, Vec<int> &fluidId, SVec<double,dim> &U);
 
   template<int dim, class Obj>
-    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
-				   int npt);
+  void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+                         int npt);
+
+  
 
   template<int dim> 
   void interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
-                           int* status,int* last,int* nid);
+			   int* status,int* last,int* nid,
+			   LevelSetStructure* LSS = 0, Vec<GhostPoint<dim>*>* ghostPoints = 0,
+                           VarFcn *varFcn = 0);
   
+  template<int dim>
+  void interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
+                           const std::vector<Vec3D>& locs, double (*sol)[dim],
+                           int* status,int* last,int* nid); 
+
 };
 //------------------------------------------------------------------------------
 

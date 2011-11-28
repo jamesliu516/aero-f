@@ -397,10 +397,10 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
     *faceNorm = 0.0;
     *faceNormVel = 0.0;
 
-    *Xsave = 0.5*(1.0-1.0/sqrt(3))*X + 0.5*(1.0+1.0/sqrt(3))*(*Xn);
+    *Xsave = 0.5*(1.0-1.0/sqrt(3.0))*X + 0.5*(1.0+1.0/sqrt(3.0))*(*Xn);
     domain->computeNormalsConfig(*Xsave, *Xdot, *edgeNorm, *edgeNormVel, *faceNorm, *faceNormVel, false);
 
-    *Xsave = 0.5*(1.0+1.0/sqrt(3))*X + 0.5*(1.0-1.0/sqrt(3))*(*Xn);
+    *Xsave = 0.5*(1.0+1.0/sqrt(3.0))*X + 0.5*(1.0-1.0/sqrt(3.0))*(*Xn);
     domain->computeNormalsConfig(*Xsave, *Xdot, *edgeNorm, *edgeNormVel, *faceNorm, *faceNormVel, true);
 
     *edgeNorm *= 0.5;

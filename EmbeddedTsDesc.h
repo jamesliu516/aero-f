@@ -4,13 +4,13 @@
 #include <TsDesc.h>
 
 #include <IoData.h>
-#include <Domain.h>
 #include <PostOperator.h>
 #include <GhostPoint.h>
 
 struct DistInfo;
 class DynamicNodalTransfer;
 class GeoSource;
+class Domain;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistExactRiemannSolver;
 
@@ -128,7 +128,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
   /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 
 
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
+  virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
   void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]);

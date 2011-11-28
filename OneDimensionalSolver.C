@@ -76,7 +76,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
       source = new CylindricalOneDSourceTerm2(varFcn);
   }
 
-  bubbleRadiusFile = "";
+  strcpy(bubbleRadiusFile,"");
 
   recFcn = createRecFcn(ioData);
   recFcnLS = createRecFcnLS(ioData);
@@ -121,6 +121,14 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   setupOutputFiles(ioData);
 
   setupFixes(ioData);
+
+
+  if (ioData.schemes.ns.dissipation == SchemeData::SIXTH_ORDER) {
+    isSixthOrder = true;
+  } else
+    isSixthOrder = false;
+
+  beta = ioData.schemes.ns.beta;
 }
 //------------------------------------------------------------------------------
 OneDimensional::~OneDimensional(){
@@ -642,7 +650,7 @@ void OneDimensional::load1DMesh(IoData& ioData,int& numPts,double* &meshPoints) 
     numPts = ioData.oneDimensionalInfo.numPoints;
     meshPoints = new double[numPts];
     for (int i = 0; i < numPts; ++i)
-      meshPoints[i] = (double)i / (numPts-1)*ioData.oneDimensionalInfo.maxDistance;
+      meshPoints[i] = (double)i / (numPts-1)*ioData.oneDimensionalInfo.maxDistance;// + 0.25*((double)rand()/RAND_MAX-0.5)/(numPts-1)*ioData.oneDimensionalInfo.maxDistance;
   }
 }
 //------------------------------------------------------------------------------
@@ -697,9 +705,15 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   for(int i=0; i<numPoints; i++){
     if(X[i][0]<data.interfacePosition){
       if (varFcn->getType(1) != VarFcnBase::TAIT) {
-	V[i][0] = data.density1;
-	V[i][1] = data.velocity1;
-	V[i][4] = data.pressure1;
+	//if (X[i][0] < 3.8) {
+	  V[i][0] = data.density1;
+	  V[i][1] = data.velocity1;
+	  V[i][4] = data.pressure1;
+	  /*} else {
+	  V[i][0] = data.density1;
+	  V[i][1] = data.velocity1;
+	  V[i][4] = data.pressure1*10.0;
+	  }*/
       } else {
 	V[i][0] = data.density1;
 	V[i][1] = data.velocity1;
@@ -716,6 +730,13 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
 	V[i][4] = data.temperature2;
       }
     }
+
+    //V[i][0] = 1.0;
+    if (fabs(X[i][0]-data.interfacePosition) < 0.2)
+      V[i][4] = 10.0*exp(-0.2*0.2/((X[i][0]-data.interfacePosition+0.2)*(-X[i][0]+data.interfacePosition+0.2)))+data.pressure2;
+    else
+      V[i][4] = data.pressure2;
+    V[i][1] = 0.0;
   }
 
   //cout << data.density1 << " " << data.velocity1 << " " << data.pressure1 << " " << data.temperature1 << endl;
@@ -798,7 +819,8 @@ void OneDimensional::computeTimeSteps(SVec<double,1> &timeSteps){
 
   for(int i=0; i<numPoints; i++){
     c = varFcn->computeSoundSpeed(V[i],fluidId[i]);
-    //std::cout << "c = " << c <<  " " << fluidId[i] <<  std::endl;
+    if (c == 0.0)
+      std::cout << "c = " << c <<  " " << fluidId[i] <<  std::endl;
     timeSteps[i][0] = 0.5*(Y[i+1][0]-Y[i][0])/c;
   }
 
@@ -843,7 +865,7 @@ void OneDimensional::singleTimeIntegration(double dt){
   fluidSelector.getFluidId(fluidId,Phi);
   for(int i=0; i<numPoints; i++){
 
-    if (fluidId[i] != fluidIdn[i]) { // Phase change
+    if (fluidId[i] != fluidIdn[i]&& !varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1))) { // Phase change
       
       if (!riemannStatus[i])
 	std::cout << "Have a problem!" << std::endl;
@@ -906,15 +928,40 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   int i,j,k;
 
   varFcn->conservativeToPrimitive(y,V,&fluidId);
-  computeSlopes(V,Vslope,fluidId,true);
+  computeSlopes(V,Vslope,fluidId,!varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1)));
   for(int iEdge=0; iEdge<numPoints-1; iEdge++){
     i = iEdge;
     j = iEdge+1;
 
-    double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim];
+    double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
+    if (!isSixthOrder || !(i > 0)/* && fluidId[i] == fluidId[i+1] && 
+			fluidId[i] == fluidId[i+2] && fluidId[i] == fluidId[i-1])*/) {
+      
+      for (k = 0; k < dim; ++k) {
+	VslopeI[k] = Vslope[i][k];
+	VslopeJ[k] = Vslope[j][k];
+      }
+    } else {
+
+      for (k = 0; k < dim; ++k) {
+	VslopeI[k] = (V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0])+
+	  (-1.0/30.0)*((V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])-2.0*(V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0]))/beta+
+	  (-2.0/15.0)*(Vslope[i-1][k]-2.0*Vslope[i][k]+Vslope[j][k])/beta;
+	
+	VslopeJ[k] = (V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])+
+	  (-1.0/30.0)*((V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])-2.0*(V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0]))/beta+
+	  (-2.0/15.0)*(Vslope[j+1][k]-2.0*Vslope[j][k]+Vslope[i][k])/beta;
+	
+	VslopeI[k] *= 0.5;
+	VslopeJ[k] *= 0.5;
+	
+      }
+      
+    }
+
     for (k = 0; k < dim; ++k) {
-      Vsi[k] = Vslope[i][k]*(X[j][0]-X[i][0]);
-      Vsj[k] = Vslope[j][k]*(X[j][0]-X[i][0]);
+      Vsi[k] = VslopeI[k]*(X[j][0]-X[i][0]);
+      Vsj[k] = VslopeJ[k]*(X[j][0]-X[i][0]);
 			  
     }
     
@@ -941,7 +988,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
     length = (X[j][0]-X[i][0]);
 
-    if(fluidId[i] == fluidId[j]){
+    if(fluidId[i] == fluidId[j]||varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1))){
 
       fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fluidId[i]);
       for(int k=0; k<dim; ++k) {

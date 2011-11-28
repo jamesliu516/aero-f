@@ -5,9 +5,9 @@
 #include "IoData.h"
 #include "Domain.h"
 #include "TimeData.h"
+#include <LevelSetStructure.h>
 
 #include <OneDimensionalSolver.h>
-
 using namespace std;
 
 //-------------------------------------------------------------------------
@@ -51,8 +51,8 @@ LevelSet<dimLS>::~LevelSet()
 template<int dimLS>
 template<int dim>
 void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-			    DistSVec<double,dimLS> &Phi, IoData &iod, FluidSelector* fs,
-			    VarFcn* vf)
+                            DistSVec<double,dimLS> &Phi, IoData &iod, FluidSelector* fs, VarFcn* vf,
+                            DistVec<ClosestPoint> *closest, DistVec<int> *fsId)
 {
 
   map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
@@ -60,7 +60,8 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
     exit(1);
   }
-  if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
+  if((iod.eqs.fluidModel.fluid  == FluidModelData::PERFECT_GAS ||
+      iod.eqs.fluidModel.fluid  == FluidModelData::STIFFENED_GAS) &&
      it->second->fluid == FluidModelData::LIQUID)
     invertGasLiquid = -1.0;
   else invertGasLiquid = 1.0;
@@ -74,6 +75,8 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
   setupPhiVolumesInitialConditions(iod, Phi0);
   setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
   setupPhiMultiFluidInitialConditions(iod,X, Phi0);
+  if(closest && fsId)
+    setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
   primitiveToConservative(Phi0, Phi, U);
 
   Phin   = Phi;
@@ -119,6 +122,11 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
       trueLevelSet[idim] = false;
     else trueLevelSet[idim] = true;
     //com->fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
+  }
+
+  if(closest && fsId) {//cracking...
+    if(dimLS!=1){fprintf(stderr,"ERROR: Multi-Phase FSI w/ Cracking supports only one level-set! dimLS = %d.\n", dimLS);exit(-1);}
+    trueLevelSet[0] = true;
   }
 
   // for reinitialization testing
@@ -328,6 +336,41 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
 
 }
 
+//---------------------------------------------------------------------------------------
+
+template<int dimLS>
+void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, 
+                                                              DistVec<ClosestPoint> &closest, DistVec<int> &status)
+{
+  trueLevelSet[0] = true; //this is a 'true' level-set.
+  //initialize the level-set near FS interface  
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      SVec<double,dimLS> &phi(Phi(iSub));
+      Vec<ClosestPoint> &clo(closest(iSub));
+      Vec<int> &stat(status(iSub));
+      for(int i=0; i<phi.size(); i++) {
+        switch (stat[i]) {
+          case 0 : //outside the structure
+            phi[i][0] = clo[i].nearInterface() ? -1.0*clo[i].dist : -1.0;
+            break;
+          case 1 : //inside the structure
+            phi[i][0] = clo[i].nearInterface() ?  1.0*clo[i].dist :  1.0;
+            break;
+          case 2 : //occluded
+            phi[i][0] = 0.0;
+            break;
+          default :
+            fprintf(stderr,"ERROR: Status cannot be %d.\n", stat[i]);
+            exit(-1);
+        }
+      }
+    }
+
+  //call "reinitialize"
+  reinitializeLevelSet(X, Phi, false);
+}
+
 //---------------------------------------------------------------------------------------------------------
 template<int dimLS>
 void LevelSet<dimLS>::checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi)
@@ -412,21 +455,15 @@ void LevelSet<dimLS>::primitiveToConservative(DistSVec<double,dimLS> &Prim, Dist
 
 //-------------------------------------------------------------------------
 template<int dimLS>
-template<int dim>
-void LevelSet<dimLS>::reinitializeLevelSet(DistGeoState &geoState, 
-				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
+void LevelSet<dimLS>::reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2)
 {
   // XXX reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
-  reinitializeLevelSetFM(geoState,X,ctrlVol,U,Phi);
+  reinitializeLevelSetFM(X,Phi,copylv2);
 
 }
 //-------------------------------------------------------------------------
 template<int dimLS>
-template<int dim>
-void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState, 
-				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
+void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2)
 {
 
   // reinitialize each LevelSet separately
@@ -460,13 +497,16 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
     double eps = conv_eps;
     int it=0;
     for (level=2; level<bandlevel; level++){
-   //   com->fprintf(stdout, "*** level = %d\n", level);
+      com->fprintf(stdout, "*** level = %d\n", level);
       res = 1.0;
       resn = 1.0; resnm1 = 1.0;
       it = 0;
       while(res>eps || it<=1){
         resnm1 = resn;
-        domain->computeDistanceLevelNodes(idim,Tag,level,X,Psi,resn,Phi,copy);
+        if(level==2 && !copylv2)
+          domain->computeDistanceLevelNodes(idim,Tag,level,X,Psi,resn,Phi,MultiFluidData::FALSE);
+        else
+          domain->computeDistanceLevelNodes(idim,Tag,level,X,Psi,resn,Phi,copy);
         res = fabs((resn-resnm1)/(resn+resnm1));
         it++;
       }

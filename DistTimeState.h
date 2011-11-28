@@ -128,6 +128,8 @@ public:
 
   void add_dAW_dt(int, DistGeoState &, DistVec<double> &, 
 		  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
+  void add_dAW_dtRestrict(int, DistGeoState &, DistVec<double> &, 
+			  DistSVec<double,dim> &, DistSVec<double,dim> &, const std::vector<std::vector<int> > &);
   template<int dimLS>
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, 
@@ -193,6 +195,8 @@ public:
   void rstVar(IoData &);
 
   DistVec<double>* getDerivativeOfInvReynolds(DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double);
+
+	int getOutputNewtonStep() const;
 
 };
 

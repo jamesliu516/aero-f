@@ -5,6 +5,7 @@
 #include <Vector.h>
 #include <BlockAlloc.h>
 #include <GhostPoint.h>
+#include <VarFcn.h>
 
 #include <PhysBAM_Geometry/Spatial_Acceleration/BOX_HIERARCHY.h>
 
@@ -181,7 +182,8 @@ public:
 
   // X is the deformed nodal location vector
   virtual
-  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) = 0;
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
+                          Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) = 0;
 
 };
 
@@ -309,8 +311,9 @@ public:
   }
 
   // X is the deformed nodal location vector
-  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
-    return t->interpolateSolution(X,U,loc,sol);
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
+                          Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
+    return t->interpolateSolution(X,U,loc,sol,LSS,ghostPoints,varFcn);
   }
 
 };
@@ -662,13 +665,14 @@ public:
   
   // X is the deformed nodal location vector
   template<int dim> 
-  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
+                          Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
 
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    return wrapper->interpolateSolution(X,U,loc,sol);
+    return wrapper->interpolateSolution(X,U,loc,sol,LSS,ghostPoints,varFcn);
   }
   
 // Level Set Reinitialization
@@ -823,7 +827,8 @@ public:
   
   // X is the deformed nodal location vector
   template<int dim> 
-  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
+                          Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
 
     fprintf(stderr, "Error: undefined function (interpolateSolution0 for this elem type\n"); exit(1);
     return -1;
@@ -865,9 +870,12 @@ public:
 class ElemSet {
 
   int numElems;
+	int numSampledElems;
 
   Elem **elems;
   BlockAlloc memElems;
+	bool sampleMesh;
+	std::vector<int> elemsConnectedToSampleNode;	// for Gappy ROM
 
 public:
 
@@ -891,6 +899,10 @@ public:
 			   SVec<double,dim> &, SVec<double,dim> &,
 			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
+  template<int dim>
+  void computeGalerkinTermRestrict(FemEquationTerm *, GeoState &, SVec<double,3> &, 
+			   SVec<double,dim> &, SVec<double,dim> &, const std::vector<int> &,
+			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, 
 			 SVec<double,dim> &, SVec<double,dim> &);
@@ -946,6 +958,7 @@ public:
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
+	void computeConnectedElems(const std::vector<int> &);
 
   template<int dim, class Obj>
   void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int);
@@ -953,7 +966,8 @@ public:
   // X is the deformed nodal location vector
   template<int dim> 
   void interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const std::vector<Vec3D>& locs,
-                           double (*sol)[dim], int* status,int* last);
+                           double (*sol)[dim], int* status,int* last, LevelSetStructure* LSS = 0,
+                           Vec<GhostPoint<dim>*>* ghostPoints = 0, VarFcn* varFcn = 0);
 };
 
 #ifdef TEMPLATE_FIX

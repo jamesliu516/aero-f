@@ -34,7 +34,7 @@ ExplicitTsDesc<dim>::~ExplicitTsDesc()
 //------------------------------------------------------------------------------
 
 template<int dim>
-int ExplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U)
+int ExplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U, int)
 {
 
   double t0 = this->timer->getTime();

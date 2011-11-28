@@ -115,6 +115,8 @@ class Domain {
   CommPattern<double> *vec3DPat;
   CommPattern<double> *volPat;
   CommPattern<int> *levelPat;
+  CommPattern<bool> *bool2Pat;
+  CommPattern<bool> *bool3Pat;
 
   CommPattern<double> *weightPat;
   CommPattern<double> *edgePat;
@@ -152,12 +154,18 @@ class Domain {
 // Included (MB)
   CommPattern<double> *weightDerivativePat;
 
+	int numGlobNode;
+	void computeNumGlobNode();
+
+	int output_newton_step;	// for writing newton residual snapshots
+
 public:
 
   Domain();
   ~Domain();
 
   int getNumLocSub() const { return numLocSub; }
+  int getNumGlobNode(); // compute if needed
   SubDomain **getSubDomain() const { return subDomain; }
   SubDTopo *getSubTopo() const { return subTopo; }
   int **getNodeType() const { return nodeType; }
@@ -167,6 +175,7 @@ public:
     int** empty = 0;
     return empty;
   }
+  int *getOutputNewtonStep() { return &output_newton_step; }	// allow functions to change it
   BCApplier* getMeshMotionBCs() const { return meshMotionBCs; } //HB
   CommPattern<double> *getVecPat() const { return vecPat; }
   CommPattern<bcomp> *getCompVecPat() const { return compVecPat; }
@@ -327,6 +336,8 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
+  template<int dimLS>
+  void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
@@ -711,6 +722,27 @@ public:
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
+	template<int dim>
+	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
+
+	void computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes);
+	void computeConnectedNodes(const std::vector<std::vector<int> > &,
+			std::vector<int> &);
+
+	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated);
+
+	template<typename Scalar> void makeUnique( std::vector <Scalar> *nodeOrEle, int length);
+
+  template<int dim>
+  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps);
+
+  void readInterpNode(const char *, int &, int *&, int *&); // for Gappy Pod
+
+  void readInterpMatrix(const char *, int &, FullM &); // for Gappy Pod
+
+	void readSampleNodes(std::vector<int> &, int &,
+			const char *);
+
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, Scalar* = 0);
 
@@ -888,26 +920,17 @@ public:
   void updatePhaseChange(DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *,
                          DistVec<int> &, DistVec<int> &);
+
   template<int dim>
-  void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int,
-                               DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty,
-			       VarFcn* vf, DistVec<int>* fid);
+  void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, 
+                               double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &V, 
+                               DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistNodalGrad<dim, double> *ngrad,
+                               VarFcn* vf, DistVec<int>* fid);
+
   template<int dim>
-  void computeCVBasedForceLoadViscous(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, 
-				      double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &V, 
-				      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistNodalGrad<dim, double> *ngrad);
-  template<int dim>
-  void computeRecSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
-                                    DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty,
-				    VarFcn* vf, DistVec<int>* fid);
-  template<int dim>
-  void computeRecSurfBasedForceLoadViscous(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
-					   double, DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
-					   PostFcn *postFcn);
-  template<int dim>
-    void computeRecSurfBasedForceLoadNew(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
-					 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
-					 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
+  void computeRecSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
+                                    DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
+                                    DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, VarFcn* vf, DistVec<int>* fid);
   template<int dim>
   void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
 
@@ -915,11 +938,18 @@ public:
   void computePrdtPhiCtrlVolRatio(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistVec<double> &, DistGeoState &);
 
   template<int dim>
-    void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
+  void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
+
+  template<int dimLS>
+  void updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId);
+
+  template<int dim, int dimLS>
+  void debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<double,dim> &U);
 
   template<int dim, class Obj>
-    void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
-				   int npt);
+  void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+                         int npt);
+ 
  };
 
 //------------------------------------------------------------------------------

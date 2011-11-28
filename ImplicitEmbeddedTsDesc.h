@@ -57,7 +57,7 @@ public:
 
   int commonPart(DistSVec<double,dim> &U);
 
-  int solveNonLinearSystem(DistSVec<double,dim> &U);
+  int solveNonLinearSystem(DistSVec<double,dim> &U, int);
   
   void computeFunction(int it, DistSVec<double,dim> &Q,
                        DistSVec<double,dim> &F);
