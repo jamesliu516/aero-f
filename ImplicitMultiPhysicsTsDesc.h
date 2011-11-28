@@ -39,7 +39,7 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   ImplicitMultiPhysicsTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitMultiPhysicsTsDesc();
 
-  int solveNonLinearSystem(DistSVec<double,dim> &U);
+  int solveNonLinearSystem(DistSVec<double,dim> &U, int);
 
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }

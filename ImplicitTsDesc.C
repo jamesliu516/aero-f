@@ -42,7 +42,7 @@ ImplicitTsDesc<dim>::~ImplicitTsDesc()
 //------------------------------------------------------------------------------
 
 template<int dim>
-int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, const int timeStep)
 {
 
   int its = 0;
@@ -50,7 +50,7 @@ int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 
   TsDesc<dim>::setFailSafe(false);
 
-  its = this->ns->solve(U);
+  its = this->ns->solve(U, timeStep);
   if(its<0){  //failSafe
     U = this->timeState->getUn();
     return its;

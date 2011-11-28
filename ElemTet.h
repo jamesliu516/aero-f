@@ -187,7 +187,8 @@ public:
 
   // X is the deformed nodal location vector
   template<int dim> 
-  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]);
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
+                          Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn);
 
 private:
 

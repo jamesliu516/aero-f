@@ -16,6 +16,8 @@ public:
 
   virtual Scalar (*data())[dim*dim] = 0;
 
+  virtual double norm() { fprintf(stderr, "No Implementation of GenMat::norm\n"); }
+
   virtual Scalar *getElem_ii(int) = 0;
   virtual Scalar *getElem_ij(int) = 0;
   virtual Scalar *getElem_ji(int) = 0;
@@ -35,6 +37,15 @@ public:
    
   virtual Scalar* getGhostGhostElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
  
+
+  // Return the edge data corresponding to real node i and ghost node j
+  virtual Scalar* queryRealNodeElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
+
+  // Return the edge data correponding to ghost node i and real node j
+  virtual Scalar* queryGhostNodeElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
+   
+  virtual Scalar* queryGhostGhostElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
+
   struct AuxilliaryIterator {
     int row,col;
     Scalar* pData;

@@ -1,18 +1,25 @@
-      SUBROUTINE GENBCFLUXTAIT(type,cv,ps,a,b,enormal,evitno,
-     &     U,Uinf,phi)
+      SUBROUTINE GENBCFLUXTAIT(type,cp,ps,a,b,enormal,evitno,
+     &     V,Uinf,phi)
 c-----------------------------------------------------------------------
 c This routine computes the Flux at the boundary using
 c left and right eigenvectors. See Ghidaglia
-c U and Vinf are values of primitive variables at node and infinity
+c V and Vinf are values of primitive variables at node and infinity
+c Vinf is obtained from the values of the conservative variables at
+c   infinity Uinf, given as input
 c normal is the normal of the boundary concerned by the flux.
 c phi stores the resulting flux.
 c gamma is the dissipation coefficient
-c cv,ps,a and b are constant coeff appearing in Tait's EOS
+c EOS is
+c   Pressure = ps + a*Density^b
+c   h = cp*T
+c   where h is the internal enthalpy
+c         ps, a, b and cp are constants
+c 
 c No Low Mach preconditioner is applied so far
 c-----------------------------------------------------------------------
       IMPLICIT NONE
       INTEGER type, i
-      REAL*8 U(*), Uinf(*), normal(3), enormal(3), evitno, phi(*)
+      REAL*8 V(*), Uinf(*), normal(3), enormal(3), evitno, phi(*)
       REAL*8 vitno, updir
       REAL*8 Vinf(10)
       REAL*8 VdotN , VdotNinf, rnorm, invnorm
@@ -21,7 +28,7 @@ c-----------------------------------------------------------------------
       REAL*8 temp(5), vp(5)
       REAL*8 enerinf , ener, enthinf, u2mhinf
       REAL*8 presinf , pres
-      REAL*8 cv,oocv,ps,a,b,bm1
+      REAL*8 cp,oocp,ps,a,b,bm1
       REAL*8 tet1 , tet2 , tet3
       REAL*8 vit2, vitinf2
       REAL*8 flux(5), fluxinf(5)
@@ -31,7 +38,7 @@ c
 c Initialisation
 c
       bm1 = b-1.0d0
-      oocv = 1.0d0/cv
+      oocp = 1.0d0/cp
 
       rnorm = DSQRT(enormal(1)*enormal(1) + enormal(2)*enormal(2) + 
      &             enormal(3)*enormal(3))
@@ -41,31 +48,31 @@ c
       normal(3) = enormal(3) * invnorm
       vitno = evitno * invnorm
 
+      presinf  = ps+a*Uinf(1)**b
+
       Vinf(1) = Uinf(1)
       Vinf(2) = Uinf(2)/Uinf(1)
       Vinf(3) = Uinf(3)/Uinf(1)
       Vinf(4) = Uinf(4)/Uinf(1)
-      Vinf(5) = oocv*(Uinf(5)/Uinf(1)-0.5d0*
-     &      (Vinf(2)**2+Vinf(3)**2+Vinf(4)**2))
-
+      Vinf(5) = oocp*(Uinf(5)/Uinf(1)-0.5d0*
+     &      (Vinf(2)**2+Vinf(3)**2+Vinf(4)**2) + presinf/Uinf(1))
 
 c A few useful values for the computation
       VdotNinf = Vinf(2)*normal(1)+Vinf(3)*normal(2)+Vinf(4)*normal(3)
-      VdotN    = U(2)*normal(1)+U(3)*normal(2)+U(4)*normal(3)
+      VdotN    = V(2)*normal(1)+V(3)*normal(2)+V(4)*normal(3)
       vitinf2  = Vinf(2)**2+Vinf(3)**2+Vinf(4)**2
-      vit2     = U(2)**2+U(3)**2+U(4)**2
+      vit2     = V(2)**2+V(3)**2+V(4)**2
       enerinf  = Uinf(5)
-      ener     = 0.5d0*U(1)*vit2 + U(1)*cv*U(5)
-      pres     = ps+a*U(1)**b
-      presinf  = ps+a*Vinf(1)**b
+      pres     = ps+a*V(1)**b
+      ener     = 0.5d0*V(1)*vit2 + V(1)*cp*V(5) - pres
       enthinf  = (enerinf+presinf)/Vinf(1)
       u2mhinf  = vitinf2-enthinf
 
 c Computation of the physical fluxes
-      flux(1) = U(1)*(VdotN-vitno)
-      flux(2) = flux(1)*U(2)+pres*normal(1)
-      flux(3) = flux(1)*U(3)+pres*normal(2)
-      flux(4) = flux(1)*U(4)+pres*normal(3)
+      flux(1) = V(1)*(VdotN-vitno)
+      flux(2) = flux(1)*V(2)+pres*normal(1)
+      flux(3) = flux(1)*V(3)+pres*normal(2)
+      flux(4) = flux(1)*V(4)+pres*normal(3)
       flux(5) = (ener+pres)*(VdotN-vitno) + pres*vitno
 
       fluxinf(1) = Vinf(1)*(VdotNinf-vitno)
@@ -222,12 +229,15 @@ c For one and two equation turbulence models
 c
 
       if (type.eq.1) then
+         Vinf(6) = Uinf(6) / Vinf(1)
          updir = 0.5d0 + dsign(0.5d0, phi(1))
-         phi(6) = phi(1) * (updir * U(6) + (1.0d0 - updir) * Vinf(6))
+         phi(6) = phi(1) * (updir * V(6) + (1.0d0 - updir) * Vinf(6))
       else if (type.eq.2) then
+         Vinf(6) = Uinf(6) / Vinf(1)
+         Vinf(7) = Uinf(7) / Vinf(1)
          updir = 0.5d0 + dsign(0.5d0, phi(1))
-         phi(6) = phi(1) * (updir * U(6) + (1.0d0 - updir) * Vinf(6))
-         phi(7) = phi(1) * (updir * U(7) + (1.0d0 - updir) * Vinf(7))
+         phi(6) = phi(1) * (updir * V(6) + (1.0d0 - updir) * Vinf(6))
+         phi(7) = phi(1) * (updir * V(7) + (1.0d0 - updir) * Vinf(7))
       endif
       
       END

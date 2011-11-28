@@ -4,8 +4,8 @@
 #include <ImplicitTsDesc.h>
 #include <KspPrec.h>
 #include <IoData.h>
-#include <Domain.h>
 
+class Domain;
 template<int dim, int neq> class MatVecProd;
 
 #ifndef _KSPSLVR_TMPL_

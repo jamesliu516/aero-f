@@ -22,6 +22,13 @@ template<int dim> class PostOperator;
 #include <TsInput.h>
 #include <TsOutput.h>
 #include <TsRestart.h>
+#include <GnatPreprocessing.h>
+#include <GnatPreprocessingStep1.h>
+#include <GnatPreprocessingStep2.h>
+#include <SurfMeshGen.h>
+#include <ReducedMeshShapeChanger.h>
+#include <ParallelRom.h> 
+#include <time.h> 
 
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>
@@ -30,7 +37,6 @@ template<int dim> class PostOperator;
 
 #include <complex>
 typedef std::complex<double> bcomp;
-
 
 //-----------------------------------------------------------------------------------
 
@@ -61,12 +67,13 @@ class ModalSolver {
 
     /*GmresSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp;
     GmresSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspComp;*/
-    KspSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp;
-    KspSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp2;
-    KspSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp3;
+    KspSolver<DistSVec<double,dim>, MatVecProd<dim, dim>, KspPrec<dim, double>, Communicator> *ksp;
+    KspSolver<DistSVec<double,dim>, MatVecProd<dim, dim>, KspPrec<dim, double>, Communicator> *ksp2;
+    KspSolver<DistSVec<double,dim>, MatVecProd<dim, dim>, KspPrec<dim, double>, Communicator> *ksp3;
 
-    KspSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspComp;
-    GcrSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspCompGcr;
+
+    KspSolver<DistSVec<bcomp,dim>, MatVecProd<dim, dim>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspComp;
+    GcrSolver<DistSVec<bcomp,dim>, MatVecProd<dim, dim>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspCompGcr;
 
     KspPrec<dim, double> *pc;
     KspPrec<dim, bcomp> *pcComplex;
@@ -79,11 +86,13 @@ class ModalSolver {
     double dt;
     double dt0;
     double *K;
+		int podMethod;
 
     VecSet< DistSVec<double,dim> > DX;
     VecSet< DistSVec<double,dim> > DE;
     DistVec<double> controlVol;
-    DistVec<bcomp> controlVolComp;   
+    DistVec<bcomp> controlVolComp;  // failing in this destructor
+		double totalEnergy;
  
   public:
     ModalSolver(Communicator *, IoData &, Domain &);
@@ -118,19 +127,19 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
    //void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
    // void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void outputModalDisp(double *, double *, double, int, int, FILE *);
-    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int);
+    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int, bool);
+    void buildGlobalPOD();
+    void wait(const int seconds);
+    void normalizeSnap(DistSVec<double, dim>  &, const int, const int);
+    //void projectFullSoltn();
     void interpolatePOD();
-    void parallelSVD(VecSet< DistSVec<double, dim> > &, VecSet<DistSVec<double, dim> > &, double *, FullM &, int );
-    void setTransfer(int*,int*,int&,int);
-    void transferData(VecSet< DistSVec<double, dim> > &,double*, int *, int *,int*, int, int, int);
-    void transferDataBack(double *, VecSet< DistSVec<double, dim> > &, int *, int *, int *, int);
     template<class Scalar>
     void readPodVecs(VecSet<DistSVec<Scalar, dim> > &, int &);
 #ifdef DO_MODAL
     void outputPODVectors(ARluSymStdEig<double> &podEigProb, VecSet<DistSVec<double, dim> > &, int nPod, int numSnaps);
-    void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
 #endif
-
+    void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
+    void computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod);
 };
 
 #include "Modal.C"

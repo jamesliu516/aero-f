@@ -409,7 +409,7 @@ public:
 
   int* nodes(int* d = NULL) {  
     if (d)
-      for (int i; i<numNodes(); i++) d[i] = nodeNum(i); 
+      for (int i=0; i<numNodes(); i++) d[i] = nodeNum(i); 
     return nodeNum();
   }
   
@@ -951,10 +951,14 @@ class FaceSet {
 
   int numFaces;
   int numFaceNorms;
+  int numSampledFaces;
 
   Face **faces;
   BlockAlloc memFaces;
   
+	bool sampleMesh;
+
+
 public:
 
   /* Need to define constructor and destructor! */
@@ -1051,6 +1055,11 @@ public:
 			      SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, 
 			      Vec<double> &, Vec<double> &, double, 
                               TimeLowMachPrec &);
+
+	void computeConnectedFaces(const std::vector<int> &);
+	std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
+
+	const int getNumSampledFaces() {return numSampledFaces;}
 
 };
 

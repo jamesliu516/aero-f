@@ -2,7 +2,6 @@
 #define _DIST_DYNAMIC_LES_TERM_H_
 
 #include <DistVector.h>
-#include <Domain.h>
 #include <IoData.h>
 #include <DynamicLESTerm.h>
 

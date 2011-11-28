@@ -246,6 +246,119 @@ void jacflux3Dwater(int type, VarFcnBase *vf, FluxFcnBase::Type localTypeJac, do
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+inline
+void roejactait3D(int type, double gamma, VarFcnBase *vf, FluxFcnBase::Type localTypeJac, double *normal,
+          double normalVel, double *VL, double *VR, SpatialLowMachPrec sprec, double irey,
+          double *jacL, double *jacR, bool useLimiter){
+
+
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+  const int dim2 = dim*dim;
+
+  double dfdUL[dim2], dfdUR[dim2];
+  for (int kk = 0; kk<dim2; kk++) dfdUR[kk] = 0.0;
+  double n[3] = {normal[0], normal[1], normal[2]};
+  F77NAME(roejac5waterdissprec)(type, gamma,
+                                vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+                                n, normalVel,
+                                VL, VR, dfdUL, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+  n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
+  F77NAME(roejac5waterdissprec)(type, gamma,
+                                vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+                                n, -normalVel,
+                                VR, VL, dfdUR, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+  for (int k=0; k<dim2; k++)
+    dfdUR[k] = -dfdUR[k];
+
+  // if type is non-zero, then a turbulence model is being considered.
+  if (type == 1 || type == 2) {
+    double dfdVL[dim2], dfdVR[dim2];
+    vf->postMultiplyBydUdV(VL, dfdUL, dfdVL);
+    vf->postMultiplyBydUdV(VR, dfdUR, dfdVR);
+
+    double flux[dim];
+    F77NAME(roeflux5waterdissprec)(type, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+            normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(),
+            sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+    double f1 = flux[0];
+
+    if (type == 1) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-6] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-6] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    else if (type == 2) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-14] = dfdVL[0]*VL[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VL[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VL[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VL[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VL[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VL[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VL[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VL[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VL[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VL[dimm2];
+        dfdVL[dim2-9] = f1;                  dfdVR[dim2-9] = 0.0;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-14] = dfdVL[0]*VR[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VR[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VR[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VR[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VR[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VR[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VR[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VR[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VR[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VR[dimm2];
+        dfdVL[dim2-9] = 0.0;                 dfdVR[dim2-9] = f1;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    vf->postMultiplyBydVdU(VL, dfdVL, dfdUL);
+    vf->postMultiplyBydVdU(VR, dfdVR, dfdUR);
+  }
+
+
+  int k;
+
+  if (localTypeJac == FluxFcnBase::CONSERVATIVE) {
+    for (k=0; k<dim2; ++k) {
+      jacL[k] = dfdUL[k];
+      jacR[k] = dfdUR[k];
+    }
+  }
+  else {
+    vf->postMultiplyBydUdV(VL, dfdUL, jacL);
+    vf->postMultiplyBydUdV(VR, dfdUR, jacR);
+  }
+
+}
+//------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
@@ -275,44 +388,8 @@ void FluxFcnTaitApprJacRoeEuler3D::computeJacobians(double length, double irey, 
 						double *VL, double *VR, 
 						double *jacL, double *jacR, bool useLimiter)
 {
-//void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, double vfa, 
-//                       double vfb, double vfp, FluxFcnBase::Type typeJac, double* normal, 
-//                       double normalVel, double* VL, double* VR, double* jacL, 
-//                       double* jacR, double irey, double betaRef, double k1, 
-//                       double cmach, double shockreducer, double length, int prec, int flag)
-  const int dim = 5;
-  const int dimm1 = dim-1;
-  const int dimm2 = dim-2;
-  const int dim2 = dim*dim;
-  const int type = 0; //no turbulence
-
-  double dfdUL[dim2], dfdUR[dim2];
-  for (int kk = 0; kk<dim2; kk++) dfdUR[kk] = 0.0;
-  double n[3] = {normal[0], normal[1], normal[2]};
-  F77NAME(roejac5waterdissprec)(type, gamma,
-                                vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
-                                n, normalVel, 
-                                VL, VR, dfdUL, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
-  n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
-  F77NAME(roejac5waterdissprec)(type, gamma,
-                                vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
-                                n, -normalVel,
-                                VR, VL, dfdUR, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
-  for (int k=0; k<dim2; k++)
-    dfdUR[k] = -dfdUR[k];
-  
-  int k;
-
-  if (typeJac == FluxFcnBase::CONSERVATIVE) {
-    for (k=0; k<dim2; ++k) { 
-      jacL[k] = dfdUL[k]; 
-      jacR[k] = dfdUR[k]; 
-    }
-  }
-  else {
-    vf->postMultiplyBydUdV(VL, dfdUL, jacL);
-    vf->postMultiplyBydUdV(VR, dfdUR, jacR);
-  }
+ 
+  roejactait3D<5>(0, gamma, vf, typeJac, normal, normalVel, VL, VR, sprec, irey, jacL, jacR, useLimiter);
 
 }
 
@@ -423,4 +500,219 @@ void FluxFcnTaitInternalOutflowEuler3D::computeJacobian(double length, double ir
 }
 
 //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitApprJacRoeSA3D::compute(double length, double irey, double *normal, double normalVel,
+               double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(roeflux5waterdissprec)(1, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+          normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(),
+          sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitApprJacRoeSA3D::computeJacobians(double length, double irey, double *normal, double normalVel,
+            double *VL, double *VR,
+            double *jacL, double *jacR, bool useLimiter)
+{
+
+  roejactait3D<6>(1, gamma, vf, typeJac, normal, normalVel, VL, VR, sprec, irey, jacL, jacR, useLimiter);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitWallSA3D::compute(double length, double irey, double *normal, double normalVel, 
+				   double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double P = vf->getPrefWater() + vf->getAlphaWater()*pow(V[0], vf->getBetaWater());
+  flux[0] = 0.0;
+  flux[1] = P * normal[0];
+  flux[2] = P * normal[1];
+  flux[3] = P * normal[2];
+  flux[4] = P * normalVel;
+  flux[5] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitGhidagliaSA3D::compute(double length, double irey, double *normal, double normalVel,
+           double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  F77NAME(genbcfluxtait)(1, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+// note: jacL = dFdUL and jacR = dFdUR
+
+void FluxFcnTaitRoeSAturb3D::computeJacobians(double length, double irey, double *normal, double normalVel,
+                                          double *VL, double *VR,
+                                          double *jacL, double *jacR, bool useLimiter)
+{
+
+  double flux[6];
+  F77NAME(roeflux5waterdissprec)(1, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+          normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(),
+          sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+
+  double updir = 1.0;
+  if(flux[0]<0.0)  updir = 0.0;
+  else if(flux[0]==0.0) updir = 0.5;
+
+  jacL[0] = flux[0] * updir / VL[0];
+  jacR[0] = flux[0] * (1.0 - updir) / VR[0];
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitWallSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                          double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  jacL[0] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitGhidagliaSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                             double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double flux[6];
+  F77NAME(genbcfluxtait)(1, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux);
+
+  double updir = 1.0;
+  if(flux[0]<0.0)  updir = 0.0;
+  else if(flux[0]==0.0) updir = 0.5;
+
+  jacL[0] = flux[0] * updir / V[0];
+
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitApprJacRoeKE3D::compute(double length, double irey, double *normal, double normalVel,
+               double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(roeflux5waterdissprec)(2, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+          normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(),
+          sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitApprJacRoeKE3D::computeJacobians(double length, double irey, double *normal, double normalVel,
+            double *VL, double *VR,
+            double *jacL, double *jacR, bool useLimiter)
+{
+
+  roejactait3D<7>(2, gamma, vf, typeJac, normal, normalVel, VL, VR, sprec, irey, jacL, jacR, useLimiter);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitWallKE3D::compute(double length, double irey, double *normal, double normalVel, 
+				   double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double P = vf->getPrefWater() + vf->getAlphaWater()*pow(V[0], vf->getBetaWater());
+  flux[0] = 0.0;
+  flux[1] = P * normal[0];
+  flux[2] = P * normal[1];
+  flux[3] = P * normal[2];
+  flux[4] = P * normalVel;
+  flux[5] = 0.0;
+  flux[6] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitGhidagliaKE3D::compute(double length, double irey, double *normal, double normalVel,
+           double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  F77NAME(genbcfluxtait)(2, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// note: jacL = dFdUL and jacR = dFdUR
+
+void FluxFcnTaitRoeKEturb3D::computeJacobians(double length, double irey, double *normal, double normalVel,
+                                          double *VL, double *VR,
+                                          double *jacL, double *jacR, bool useLimiter)
+{
+
+  double flux[7];
+  F77NAME(roeflux5waterdissprec)(2, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+          normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(),
+          sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+
+  double updir = 1.0;
+  if(flux[0]<0.0)  updir = 0.0;
+  else if(flux[0]==0.0) updir = 0.5;
+
+  double jacleft = flux[0] * updir / VL[0];
+  double jacright = flux[0] * (1.0 - updir) / VR[0];
+
+  jacL[0] = jacleft;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = jacL[0];
+
+  jacR[0] = jacright;
+  jacR[1] = 0.0;
+  jacR[2] = 0.0;
+  jacR[3] = jacR[0];
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitWallKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                          double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  jacL[0] = 0.0;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnTaitGhidagliaKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                             double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double flux[7];
+  F77NAME(genbcfluxtait)(2, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux);
+
+  double updir = 1.0;
+  if(flux[0]<0.0)  updir = 0.0;
+  else if(flux[0]==0.0) updir = 0.5;
+
+  jacL[0] = flux[0] * updir / V[0];
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = jacL[0];
+
+}
+
 

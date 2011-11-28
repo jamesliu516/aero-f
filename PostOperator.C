@@ -16,6 +16,8 @@
 #include <DistExactRiemannSolver.h>
 #include <SpaceOperator.h>
 #include <VectorSet.h>
+#include <GhostPoint.h>
+#include <LevelSet/FluidTypeCriterion.h>
 
 //------------------------------------------------------------------------------
 
@@ -483,28 +485,29 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&rieman
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
-    double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
-                       Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
-		       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
-		       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
-    com->globalSum(12, coef);
+    {
+      double coef[12] = { Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
+                          Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
+                          Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
+                          Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2] };
+      com->globalSum(12, coef);
 
-    Fi[iSurf][0] = coef[0]; 
-    Fi[iSurf][1] = coef[1];
-    Fi[iSurf][2] = coef[2];
+      Fi[iSurf][0] = coef[0]; 
+      Fi[iSurf][1] = coef[1];
+      Fi[iSurf][2] = coef[2];
 
-    Mi[iSurf][0] = coef[3]; 
-    Mi[iSurf][1] = coef[4];
-    Mi[iSurf][2] = coef[5];
+      Mi[iSurf][0] = coef[3]; 
+      Mi[iSurf][1] = coef[4];
+      Mi[iSurf][2] = coef[5];
 
-    Fv[iSurf][0] = coef[6]; 
-    Fv[iSurf][1] = coef[7];
-    Fv[iSurf][2] = coef[8];
+      Fv[iSurf][0] = coef[6]; 
+      Fv[iSurf][1] = coef[7];
+      Fv[iSurf][2] = coef[8];
 
-    Mv[iSurf][0] = coef[9]; 
-    Mv[iSurf][1] = coef[10];
-    Mv[iSurf][2] = coef[11];
- 
+      Mv[iSurf][0] = coef[9]; 
+      Mv[iSurf][1] = coef[10];
+      Mv[iSurf][2] = coef[11];
+    }
   }
 
   map<int, int>::iterator it;
@@ -560,9 +563,11 @@ void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3>& X,
 
     for(int iSurf = 0; iSurf < numSurfHF; ++iSurf) {
 //#pragma omp critical
-       double coef[2] = {HF[iSurf], HF[iSurf]};
-       com->globalSum(2, coef);
-       HF[iSurf] = coef[1];
+      {
+        double coef[2] = {HF[iSurf], HF[iSurf]};
+        com->globalSum(2, coef);
+        HF[iSurf] = coef[1];
+      }
     }
 
 map<int, int>::iterator it;
@@ -582,8 +587,8 @@ map<int, int>::iterator it;
 
 template<int dim>
 void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-                                                                                                             DistSVec<double,dim> &U, DistSVec<double,dim> &dU, double dS[3],
-                                                                                                             Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+                                                          DistSVec<double,dim> &U, DistSVec<double,dim> &dU, double dS[3],
+                                                          Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
 {
 
   int iSurf;
@@ -630,28 +635,29 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
-    double dCoef[12] = {dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
-                        dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
-		        dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],
-		        dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2]};
-    com->globalSum(12, dCoef);
+    {
+      double dCoef[12] = { dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
+                           dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
+                           dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],
+                           dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2] };
+      com->globalSum(12, dCoef);
 
-    dFi[iSurf][0] = dCoef[0]; 
-    dFi[iSurf][1] = dCoef[1];
-    dFi[iSurf][2] = dCoef[2];
+      dFi[iSurf][0] = dCoef[0]; 
+      dFi[iSurf][1] = dCoef[1];
+      dFi[iSurf][2] = dCoef[2];
 
-    dMi[iSurf][0] = dCoef[3]; 
-    dMi[iSurf][1] = dCoef[4];
-    dMi[iSurf][2] = dCoef[5];
+      dMi[iSurf][0] = dCoef[3]; 
+      dMi[iSurf][1] = dCoef[4];
+      dMi[iSurf][2] = dCoef[5];
 
-    dFv[iSurf][0] = dCoef[6]; 
-    dFv[iSurf][1] = dCoef[7];
-    dFv[iSurf][2] = dCoef[8];
+      dFv[iSurf][0] = dCoef[6]; 
+      dFv[iSurf][1] = dCoef[7];
+      dFv[iSurf][2] = dCoef[8];
 
-    dMv[iSurf][0] = dCoef[9]; 
-    dMv[iSurf][1] = dCoef[10];
-    dMv[iSurf][2] = dCoef[11];
-
+      dMv[iSurf][0] = dCoef[9]; 
+      dMv[iSurf][1] = dCoef[10];
+      dMv[iSurf][2] = dCoef[11];
+    }
   }
 
   map<int, int>::iterator it;
@@ -1145,16 +1151,17 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               int* last, int count,
 					      double* results,
                                               std::vector<Vec3D>& locations,
-					      DistSVec<double,dimLS> *Phi)
+					      DistSVec<double,dimLS> *Phi, DistLevelSetStructure *distLSS,
+                                              DistVec<GhostPoint<dim>*> *ghostPoints)
 {
+
   memset(results,0,count*sizeof(double));
   int* status = new int[count];
   int stat,nid,fid;
   double locV[dim],locU[dim],phi[dimLS];
   memset(status,0,sizeof(int)*count);
+  Vec<GhostPoint<dim>*> *gp=0;
   for (int i = 0; i < count; ++i) {
-    
-
     if (locations[i][0] < -1.0e19) {
       if (subId[i] < 0) continue; 
       int iSub = subId[i];
@@ -1168,10 +1175,17 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     } else {
 #pragma omp parallel for reduction(+: status[i])
       for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
-        subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                             &locU, &stat,&last[i],&nid);
+        if (ghostPoints) {
+          gp = ghostPoints->operator[](iSub);
+          subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                             &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
+        }
+        else {
+          subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                             &locU, &stat, &last[i], &nid);
+        }
         if (Phi)
-          subDomain[iSub]->interpolateSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
+          subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
                                                &phi, &stat,&last[i],&nid); 
 	if (stat) {
 	  fid = fluidId(iSub)[nid];
@@ -1186,7 +1200,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   com->globalSum(count,results);
   com->globalSum(count,status);
   for (int i = 0; i < count; ++i) {
-    results[i] /= (double)status[i];
+    if (status[i]<0.1)
+      results[i] = 0.0;
+    else
+      results[i] /= (double)status[i];
   }
   delete [] status;
 }
@@ -1429,7 +1446,9 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 					      int* subId,int* locNodeId,int* last,
 					      int count, double* result,
                                               std::vector<Vec3D>& locations,
-                                              DistVec<int> &fluidId)
+                                              DistVec<int> &fluidId,
+                                              DistLevelSetStructure *distLSS,
+                                              DistVec<GhostPoint<dim>*> *ghostPoints)
 {
                                                                                                                                                                                              
   int iSub;
@@ -1439,6 +1458,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
   int stat;
   memset(status,0,sizeof(int)*count);
   double locU[dim],locV[dim];
+  Vec<GhostPoint<dim>*> *gp=0;
   if (type == PostFcn::VELOCITY) {
     for (int i = 0; i < count; ++i) {
       if (locations[i][0] < -1.0e19) {
@@ -1458,12 +1478,25 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
         int fid,nid;
 #pragma omp parallel for reduction(+: status[i])
         for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
-          subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                               &locU, &stat,&last[i],&nid);
-          fid = fluidId(iSub)[nid];
-          varFcn->conservativeToPrimitive(locU,locV, fid);
-          Vec3D vel = varFcn->getVelocity(locV, fid);
-          status[i] += stat;
+          if (ghostPoints) {
+            gp = ghostPoints->operator[](iSub);
+            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                               &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
+          }
+          else {
+            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                               &locU, &stat, &last[i], &nid);
+          }
+
+	  if (stat) {
+	    fid = fluidId(iSub)[nid];
+	    varFcn->conservativeToPrimitive(locU,locV, fid);
+	    Vec3D vel = varFcn->getVelocity(locV, fid);
+	    result[3*i] += vel[0];
+	    result[3*i+1] += vel[1];
+	    result[3*i+2] += vel[2];
+	    status[i] += stat;
+	  }
         }       
       }
     }
@@ -1477,7 +1510,10 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
   com->globalSum(count*3,result);  
   com->globalSum(count,status);
   for (int i = 0; i < count*3; ++i) {
-    result[i] /= (double)status[i/3];
+    if (status[i/3]<0.1)
+      result[i] = 0.0;
+    else
+      result[i] /= (double)status[i/3];
   }
   delete [] status;
                                                                                              

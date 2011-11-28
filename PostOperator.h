@@ -3,7 +3,10 @@
 
 #include <PostFcn.h>
 #include <VectorSet.h>
+#include <GhostPoint.h>
 #include <map>
+#include <LevelSet/FluidTypeCriterion.h>
+
 using std::map;
 
 
@@ -128,7 +131,9 @@ public:
 			     DistVec<int> &,int* subId,int* locNodeId,
 			     int* last,int count, double* result,
                              std::vector<Vec3D>& locations,
-			     DistSVec<double,dimLS>* = NULL);
+			     DistSVec<double,dimLS>* = NULL,
+                             DistLevelSetStructure *distLSS = 0,
+                             DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
    void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
   //void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
@@ -145,7 +150,8 @@ public:
 			     int* subId,int* locNodeId,int* last,
 			     int count, double* results, 
                              std::vector<Vec3D>& locations,
-                             DistVec<int> &);
+                             DistVec<int> &, DistLevelSetStructure *distLSS = 0,
+                             DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
   void computeForceDerivs(DistSVec<double,3> &, DistSVec<double,dim> &,
                           DistSVec<double,dim> &,Vec<double> &,VecSet< DistSVec<double, 3> > &);

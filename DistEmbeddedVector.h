@@ -874,7 +874,7 @@ DistEmbeddedVec<Scalar,dim>::operator=(const EmbeddedExpr<T, Scalar> &expr)
     for (std::set<int>::iterator itr = ghostNodes[iSub].begin(); itr != ghostNodes[iSub].end(); ++itr) {
 
       for (int j = 0; j < dim; ++j)
-        realVec.subData(iSub)[*itr][j] = expr.real(iSub,*itr,j);
+        ghostVec.subData(iSub)[*itr][j] = expr.ghost(iSub,*itr,j);
       
     }
   }
@@ -906,7 +906,7 @@ DistEmbeddedVec<Scalar,dim>::operator+=(const EmbeddedExpr<T, Scalar> &expr)
     for (std::set<int>::iterator itr = ghostNodes[iSub].begin(); itr != ghostNodes[iSub].end(); ++itr) {
 
       for (int j = 0; j < dim; ++j)
-        realVec.subData(iSub)[*itr][j] += expr.real(iSub,*itr,j);
+        ghostVec.subData(iSub)[*itr][j] += expr.ghost(iSub,*itr,j);
       
     }
   }
@@ -938,7 +938,7 @@ DistEmbeddedVec<Scalar,dim>::operator-=(const EmbeddedExpr<T, Scalar> &expr)
     for (std::set<int>::iterator itr = ghostNodes[iSub].begin(); itr != ghostNodes[iSub].end(); ++itr) {
 
       for (int j = 0; j < dim; ++j)
-        realVec.subData(iSub)[*itr][j] -= expr.real(iSub,*itr,j);
+        ghostVec.subData(iSub)[*itr][j] -= expr.ghost(iSub,*itr,j);
       
     }
   }
@@ -1422,11 +1422,11 @@ void DistEmbeddedVec<Scalar,dim>::getGhost(DistVec<GhostPoint<dim>*>& gp,VarFcn*
   GhostPoint<dim>* gpi;
 #pragma omp parallel for
   for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
-    ghostNodes[iSub].clear();
+    //ghostNodes[iSub].clear();
     for (int i = 0; i < distInfo.subLen[iSub]; ++i) {
       gpi = gp.subData(iSub)[i];
       if (gpi) {
-        ghostNodes[iSub].insert(i);
+        //ghostNodes[iSub].insert(i);
         vf->conservativeToPrimitive(ghostVec.subData(iSub)[i],gpi->getPrimitiveState());
       } 
     }

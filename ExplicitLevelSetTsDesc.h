@@ -56,7 +56,7 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim,dimLS> {
   ExplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitLevelSetTsDesc();
 
-  int solveNonLinearSystem(DistSVec<double,dim> &U);
+  int solveNonLinearSystem(DistSVec<double,dim> &U, int);
 
  private:
   void solveNLSystemOneBlock(DistSVec<double,dim> &U);

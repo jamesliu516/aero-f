@@ -775,7 +775,14 @@ public:
 			    Scalar2 (*c)[6], int j) {
     DENSEMATRIXTIMESVECTOR6(=, a[k], b[i], c[j]);
   }
- 
+
+  static void applyToVector(bcomp (*a)[36], int k, double (*b)[6], int i,
+			    double (*c)[6], int j) {
+    fprintf(stderr, " ... Incompatible types in DenseMatrixOps<bcomp,6,36>::applyToVector\n");
+	  exit(-1);
+	} 
+
+
   template<class Scalar2>
   static void applyTransToVector(Scalar (*a)[36], int k, Scalar2 (*b)[6], int i,
                             Scalar2 (*c)[6], int j) {
@@ -792,11 +799,18 @@ public:
     exit(-1);
   }
 
+
   template<class Scalar2>
   static void applyAndAddToVector(Scalar (*a)[36], int k, Scalar2 (*b)[6], int i, 
 				  Scalar2 (*c)[6], int j) {
     DENSEMATRIXTIMESVECTOR6(+=, a[k], b[i], c[j]);
   }
+
+  static void applyAndAddToVector(bcomp (*a)[36], int k, double (*b)[6], int i,
+			                                  double (*c)[6], int j) {
+	  fprintf(stderr, " ... Incompatible types in DenseMatrixOps<bcomp, 6,36>::applyAndAddToVector\n");
+	  exit(-1);
+	} 
 
   template<class Scalar2>
   static void applyTransAndAddToVector(Scalar (*a)[36], int k, Scalar2 (*b)[6], int i,
@@ -805,16 +819,40 @@ public:
     exit(-1);
   }
 
+	
+  static void applyTransAndAddToVector(bcomp (*a)[36], int k, double (*b)[6], int i,
+			                                 double (*c)[6], int j) {
+		fprintf(stderr, " ... Incompatible types in DenseMatrixOps<bcomp, 6,36>::applyTransAndAddToVector\n");
+	  exit(-1);
+	} 
+
   template<class Scalar2>
   static void applyAndSubToVector(Scalar (*a)[36], int k, Scalar2 (*b)[6], int i, 
 				  Scalar2 (*c)[6], int j) {
     DENSEMATRIXTIMESVECTOR6(-=, a[k], b[i], c[j]); 
   }
 
-  static void applyTransAndSubToVector(Scalar (*a)[36], int k, double (*b)[6], int i,
-                                       double (*c)[6], int j) {
+	
+  static void applyAndSubToVector(bcomp (*a)[36], int k, double (*b)[6], int i,                                   double (*c)[6], int j) {
+
+		fprintf(stderr, " ... Incompatible types in DenseMatrixOps<bcomp, 6,36>::applyAndSubToVector\n");
+	  exit(-1);
+	}
+
+	template<class Scalar2> 
+  static void applyTransAndSubToVector(Scalar (*a)[36], int k, Scalar2 (*b)[6], int i,
+                                  Scalar2 (*c)[6], int j) { 
     fprintf(stderr, "*** Not Implemented applyTransAndSubToVector for dim of 6\n");
   }
+
+	
+  static void applyTransAndSubToVector(bcomp (*a)[36], int k, double (*b)[6], int i,
+			                                 double (*c)[6], int j) {
+
+		fprintf(stderr, " ... Incompatible types in DenseMatrixOps<bcomp, 6,36>::applyTransAndSubToVector\n");
+	  exit(-1);
+	}
+
 
   static void transpose(Scalar *a, Scalar *b) {
     b[0]=a[0]; b[1]=a[6]; b[2]=a[12]; b[3]=a[18]; b[4]=a[24]; b[5]=a[30];

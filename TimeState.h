@@ -34,6 +34,8 @@ public:
 
   void add_dAW_dt(bool *, GeoState &, Vec<double> &, 
 		  SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
+  void add_dAW_dtRestrict(bool *, GeoState &, Vec<double> &, 
+			  SVec<double,dim> &, SVec<double,dim> &, const std::vector<int> &sampledLocNodes) ;
   template<int dimLS>
   void add_dAW_dtLS(bool *, GeoState &, Vec<double> &, 
 		    SVec<double,dimLS> &, SVec<double,dimLS> &, SVec<double,dimLS> &, 

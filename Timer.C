@@ -106,7 +106,7 @@ void Timer::setIoData(IoData &_ioData)
 
 ioData = &_ioData;
 
-/*if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
+/*if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_)
   numTimings += 4;
 else if (ioData->problem.alltype == ProblemData::_ROM_AEROELASTIC_)
   numTimings += 3;  
@@ -495,6 +495,85 @@ double Timer::addEigSolvTime(double t0)
 
 //------------------------------------------------------------------------------
 
+double Timer::addResidualTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[residual]++;
+  data[residual] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addRestrictionTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[restriction]++;
+  data[restriction] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
+double Timer::addSolutionIncrementTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[solutionIncrement]++;
+  data[solutionIncrement] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
+double Timer::addLinearSystemFormTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[linearSystemForm]++;
+  data[linearSystemForm] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
+double Timer::addLinearSystemSolveTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[linearSystemSolve]++;
+  data[linearSystemSolve] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
+double Timer::addCheckConvergenceTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[checkConvergence]++;
+  data[checkConvergence] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
 double Timer::addGramSchmidtTime(double t0)
 {
 
@@ -789,7 +868,7 @@ void Timer::print(Timer *str, FILE *fp)
   data[comm] = data[localCom] + data[globalCom] + data[rmaCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
   
-  if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
+  if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_)
     data[podConstr] -= data[io];
 
   int i;
@@ -862,6 +941,27 @@ void Timer::print(Timer *str, FILE *fp)
   }
   com->fprintf(fp, "\n");
 
+  if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_)  {
+    com->fprintf(fp, "  Residual evaluation         : %10.2f %10.2f %10.2f %9d\n",
+              tmin[residual], tmax[residual], tavg[residual],
+							counter[residual]);
+    com->fprintf(fp, "  Solution increment          : %10.2f %10.2f %10.2f %9d\n",
+              tmin[solutionIncrement], tmax[solutionIncrement], tavg[solutionIncrement],
+							counter[solutionIncrement]);
+    com->fprintf(fp, "  Linear system form          : %10.2f %10.2f %10.2f %9d\n",
+              tmin[linearSystemForm], tmax[linearSystemForm], tavg[linearSystemForm],
+							counter[linearSystemForm]);
+    com->fprintf(fp, "  Linear system solve         : %10.2f %10.2f %10.2f %9d\n",
+              tmin[linearSystemSolve], tmax[linearSystemSolve], tavg[linearSystemSolve],
+							counter[linearSystemSolve]);
+    com->fprintf(fp, "  Restriction                 : %10.2f %10.2f %10.2f %9d\n",
+              tmin[restriction], tmax[restriction], tavg[restriction],
+							counter[restriction]);
+    com->fprintf(fp, "  Check convergence           : %10.2f %10.2f %10.2f %9d\n",
+              tmin[checkConvergence], tmax[checkConvergence], tavg[checkConvergence],
+							counter[checkConvergence]);
+	}
+
   // Output Mesh solution time (except for Euler FSI)
   if(ioData->problem.framework != ProblemData::EMBEDDED) {
     com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n", 
@@ -899,7 +999,7 @@ void Timer::print(Timer *str, FILE *fp)
 
 
   // Output POD Timers
-  if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
+  if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_) {
     com->fprintf(fp, "POD Basis Construction        : %10.2f %10.2f %10.2f         -\n",
                tmin[podConstr], tmax[podConstr], tavg[podConstr]);
     com->fprintf(fp, "  Snapshot Linear Solver      : %10.2f %10.2f %10.2f %9d\n",
@@ -910,7 +1010,7 @@ void Timer::print(Timer *str, FILE *fp)
     }
     com->fprintf(fp, "  Correlation Matrix          : %10.2f %10.2f %10.2f %9d\n",
                tmin[correlMatrix], tmax[correlMatrix], tavg[correlMatrix], counter[correlMatrix]);
-    com->fprintf(fp, "  SVD Solver                : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  SVD Solver                  : %10.2f %10.2f %10.2f %9d\n",
                tmin[eigSolv], tmax[eigSolv], tavg[eigSolv], counter[eigSolv]);
     com->fprintf(fp, "  Gram-Schmidt                : %10.2f %10.2f %10.2f %9d\n",
                tmin[gramSchmidt], tmax[gramSchmidt], tavg[gramSchmidt], counter[gramSchmidt]);

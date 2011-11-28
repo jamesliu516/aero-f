@@ -2,6 +2,7 @@
 #include <Domain.h>
 #include "Solvers/Solvers.h"
 #include <SparseGridGeneratorDesc.h>
+#include <ImplicitRomTsDesc.h>
 
 //-----------------------------------------------------------------------------
 
@@ -19,7 +20,8 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
         case 3 : NavierStokesMultiPhysicsEmbedded<5,3>::solve(ioData,geoSource,domain); break;
         // Feel free to add more here. e.g. case 4 : NavierStokesMultiPhysicsEmbedded<5,4>::solve(ioData,geoSource,domain); break;
         default: 
-          com->fprintf(stderr,"*** Error: %d level-sets detected. Only support 0 ~ 3 for now although it can be extended quickly.\n", ioData.embed.nLevelset); 
+          com->fprintf(stderr,"*** Error: %d level-sets detected. Only support 0 ~ 3 for now although it can be extended quickly.\n", 
+                       ioData.embed.nLevelset); 
           exit(-1);
       }
     }
@@ -74,8 +76,14 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
       else if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
 	if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
 	    ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
-	  if (ioData.ts.type == TsData::IMPLICIT &&
-              ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
+		if (ioData.ts.type == TsData::IMPLICIT &&
+				ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
+			if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_ || 
+					ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+				com->fprintf(stderr,"*** WARNING: Seg solver not implemented for UnsteadyROM, starting the coupled solver\n"); //CBM
+				NavierStokesCoupledSolver<6>::solve(ioData, geoSource, domain);
+			}
+			else
 	   // startNavierStokesSegSolver<6,5,1>(ioData, geoSource, domain);
 	    NavierStokesSegSolver<6,5,1>::solve(ioData, geoSource, domain);
 	  else
