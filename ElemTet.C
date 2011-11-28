@@ -2136,7 +2136,37 @@ void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
 
 // X is the deformed nodal location vector
 template<int dim> 
-int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
+                                 Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
+
+  SVec<double,dim> u = U;
+
+  // In the case of an embedded simulation, check if the tetrahedra is actually active.
+  bool isAtTheInterface = false;
+  if(ghostPoints) // Then LSS is also a non null pointer.
+    {
+      for(int i=0; i<4; ++i) {
+        for (int j=0; j<4; ++j) {
+          if (j != i) {
+            isAtTheInterface = (isAtTheInterface || LSS->edgeIntersectsStructure(0,nodeNum(i),nodeNum(j)));
+          }
+        }
+      }
+    }
+
+  // Embedded Case. Replace states in the structure by Ghost States
+  if(ghostPoints && isAtTheInterface) // Then LSS is also a non null pointer.
+    {
+      GhostPoint<dim> *gp;
+      for(int i=0;i<4;++i)
+        {
+          if(!(LSS->isActive(0,nodeNum(i))))
+            {
+              gp = ghostPoints->operator[](nodeNum(i));
+              varFcn->primitiveToConservative(gp->getPrimitiveState(),u[nodeNum(i)]);
+            }
+        }
+    }
 
   double bary[4];
   computeBarycentricCoordinates(X, loc, bary);
@@ -2150,7 +2180,7 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
   for (int i = 0; i < dim; ++i) {
     sol[i] = 0.0;
     for (int j = 0; j < 4; ++j)
-      sol[i] += U[ nodeNum(j) ][i]*bary[j];
+      sol[i] += u[ nodeNum(j) ][i]*bary[j];
   }
   return 1;
 }

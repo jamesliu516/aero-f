@@ -677,7 +677,6 @@ ReferenceStateData::ReferenceStateData()
   pressure = -1.0;
   temperature = -1.0;
   reynolds_mu = -1.0;
-  reynolds_lambda = -1.0;
   length = 1.0;
 
 }
@@ -687,7 +686,7 @@ ReferenceStateData::ReferenceStateData()
 void ReferenceStateData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassDouble<ReferenceStateData>(ca, "Mach", this, &ReferenceStateData::mach);
   new ClassDouble<ReferenceStateData>(ca, "Velocity", this, &ReferenceStateData::velocity);
@@ -695,7 +694,6 @@ void ReferenceStateData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<ReferenceStateData>(ca, "Pressure", this, &ReferenceStateData::pressure);
   new ClassDouble<ReferenceStateData>(ca, "Temperature", this, &ReferenceStateData::temperature);
   new ClassDouble<ReferenceStateData>(ca, "Reynolds", this, &ReferenceStateData::reynolds_mu);
-  new ClassDouble<ReferenceStateData>(ca, "ReynoldsL", this, &ReferenceStateData::reynolds_lambda);
   new ClassDouble<ReferenceStateData>(ca, "Length", this, &ReferenceStateData::length);
 
 }
@@ -825,6 +823,7 @@ GasModelData::GasModelData()
   type = IDEAL;
   specificHeatRatio = 1.4;
   idealGasConstant = 287.1;
+  specificHeatPressure = -1.0;
   pressureConstant = 0.0;
 
 }
@@ -834,7 +833,7 @@ GasModelData::GasModelData()
 void GasModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassToken<GasModelData>(ca, "Type", this,
 			       reinterpret_cast<int GasModelData::*>(&GasModelData::type), 2,
@@ -843,6 +842,8 @@ void GasModelData::setup(const char *name, ClassAssigner *father)
                                 &GasModelData::specificHeatRatio);
   new ClassDouble<GasModelData>(ca, "IdealGasConstant", this,
                                 &GasModelData::idealGasConstant);
+  new ClassDouble<GasModelData>(ca, "SpecificHeatAtConstantPressure", this,
+                                &GasModelData::specificHeatPressure);
   new ClassDouble<GasModelData>(ca, "PressureConstant", this,
                                 &GasModelData::pressureConstant);
 
@@ -893,8 +894,7 @@ LiquidModelData::LiquidModelData()
   //data is available in 'Properties of Water and Steam', Wagner & Kruse, Springer, 1997
   type = COMPRESSIBLE;
   check = YES;
-  specificHeatRatio = 1.0;
-  Cv          = -1.0;
+  specificHeat = -1.0;
   k1water     = 2.07e9;
   k2water     = 7.15;
   Prefwater   = -1.0;
@@ -914,7 +914,7 @@ LiquidModelData::LiquidModelData()
 void LiquidModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 11, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<LiquidModelData>(ca, "Type", this,
             reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::type), 1,
@@ -922,16 +922,10 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
   new ClassToken<LiquidModelData>(ca, "Check", this,
             reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2,
             "Yes", 0, "No", 1);
-  new ClassDouble<LiquidModelData>(ca, "SpecificHeatRatio", this,
-                                &LiquidModelData::specificHeatRatio);
-  new ClassDouble<LiquidModelData>(ca, "Cv", this, &LiquidModelData::Cv);
   new ClassDouble<LiquidModelData>(ca, "k1", this, &LiquidModelData::k1water);
   new ClassDouble<LiquidModelData>(ca, "k2", this, &LiquidModelData::k2water);
   new ClassDouble<LiquidModelData>(ca, "Pressure", this, &LiquidModelData::Prefwater);
   new ClassDouble<LiquidModelData>(ca, "Density", this, &LiquidModelData::RHOrefwater);
-  new ClassDouble<LiquidModelData>(ca, "Pref", this, &LiquidModelData::Pref);
-  new ClassDouble<LiquidModelData>(ca, "alpha", this, &LiquidModelData::alpha);
-  new ClassDouble<LiquidModelData>(ca, "beta", this, &LiquidModelData::beta);
 
 }
 
@@ -940,7 +934,7 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
 FluidModelData::FluidModelData()
 {
 
-  fluid = GAS;
+  fluid = PERFECT_GAS;
   rhomin = -1.e9;
   pmin = -1.e9;
 
@@ -955,7 +949,10 @@ Assigner *FluidModelData::getAssigner()
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
-                                 "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+                                 "PerfectGas",   FluidModelData::PERFECT_GAS,
+				 "Liquid",       FluidModelData::LIQUID,
+				 "StiffenedGas", FluidModelData::STIFFENED_GAS,
+				 "JWL",          FluidModelData::JWL);
   new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
@@ -976,7 +973,10 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
-                                 "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+                                 "PerfectGas",   FluidModelData::PERFECT_GAS,
+				 "Liquid",       FluidModelData::LIQUID,
+				 "StiffenedGas", FluidModelData::STIFFENED_GAS,
+				 "JWL",          FluidModelData::JWL);
   new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
@@ -1033,6 +1033,8 @@ ViscosityModelData::ViscosityModelData()
   type = SUTHERLAND;
   sutherlandReferenceTemperature = 110.6;
   sutherlandConstant = 1.458e-6;
+  dynamicViscosity   = -1.0;
+  bulkViscosity      = 0.0;
 
 }
 
@@ -1041,16 +1043,22 @@ ViscosityModelData::ViscosityModelData()
 void ViscosityModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassToken<ViscosityModelData>
     (ca, "Type", this, reinterpret_cast<int ViscosityModelData::*>
-                       (&ViscosityModelData::type), 4,
-                       "Constant", 0, "Sutherland", 1, "Prandtl", 2, "Water", 3);
+                       (&ViscosityModelData::type), 3,
+                       "Constant",   ViscosityModelData::CONSTANT, 
+		       "Sutherland", ViscosityModelData::SUTHERLAND, 
+		       "Prandtl",    ViscosityModelData::PRANDTL);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandReferenceTemperature", this,
 				      &ViscosityModelData::sutherlandReferenceTemperature);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandConstant", this,
 				      &ViscosityModelData::sutherlandConstant);
+  new ClassDouble<ViscosityModelData>(ca, "DynamicViscosity", this,
+				      &ViscosityModelData::dynamicViscosity);
+  new ClassDouble<ViscosityModelData>(ca, "BulkViscosity", this,
+				      &ViscosityModelData::bulkViscosity);
 
 }
 
@@ -1061,6 +1069,7 @@ ThermalCondModelData::ThermalCondModelData()
 
   type = CONSTANT_PRANDTL;
   prandtl = 0.72;
+  conductivity = 0.0;
 
 }
 
@@ -1069,15 +1078,18 @@ ThermalCondModelData::ThermalCondModelData()
 void ThermalCondModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 2, father);
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   new ClassToken<ThermalCondModelData>
      (ca, "Type", this, reinterpret_cast<int ThermalCondModelData::*>
      (&ThermalCondModelData::type), 2,
-     "ConstantPrandtl", 0, "Water", 1);
+     "ConstantPrandtl",      ThermalCondModelData::CONSTANT_PRANDTL,
+     "ConstantConductivity", ThermalCondModelData::CONSTANT);
 
   new ClassDouble<ThermalCondModelData>
      (ca, "Prandtl", this, &ThermalCondModelData::prandtl);
+  new ClassDouble<ThermalCondModelData>
+     (ca, "HeatConductivity", this, &ThermalCondModelData::conductivity);
 
 }
 
@@ -3841,9 +3853,9 @@ void IoData::resetInputValues()
       exit(1);
     }
 
-    if (eqs.fluidModel.fluid != FluidModelData::GAS) 
+    if (eqs.fluidModel.fluid != FluidModelData::PERFECT_GAS) 
     {
-      com->fprintf(stderr, " ----- SA >> Equations.FluidModel.Type has to be set to Gas -----\n");
+      com->fprintf(stderr, " ----- SA >> Equations.FluidModel.Type has to be set to Perfect Gas -----\n");
       exit(1);
     }
 
@@ -3949,7 +3961,8 @@ void IoData::resetInputValues()
       ts.implicit.mvp = ImplicitData::FD;
       ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
     }
-    if ((eqs.fluidModel.fluid != FluidModelData::GAS))
+    if (eqs.fluidModel.fluid != FluidModelData::PERFECT_GAS && 
+        eqs.fluidModel.fluid != FluidModelData::STIFFENED_GAS)
     {
       com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
       schemes.ns.flux = SchemeData::ROE;
@@ -3958,7 +3971,8 @@ void IoData::resetInputValues()
     {
       map<int, FluidModelData *>::iterator it;
       for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
-	if ((it->second->fluid != FluidModelData::GAS))
+	if (it->second->fluid != FluidModelData::PERFECT_GAS &&
+            it->second->fluid != FluidModelData::STIFFENED_GAS)
 	{
 	  com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
 	  schemes.ns.flux = SchemeData::ROE;
@@ -4199,6 +4213,8 @@ int IoData::checkInputValues()
   checkInputValuesTurbulence();
   checkInputValuesDefaultOutlet();
   nonDimensionalizeAllEquationsOfState(); 
+  nonDimensionalizeViscosityModel(eqs.viscosityModel);
+  nonDimensionalizeThermalCondModel(eqs.thermalCondModel);
   nonDimensionalizeForcedMotion();
 
   if(problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
@@ -4608,14 +4624,6 @@ int IoData::checkInputValuesNonDimensional()
         ++error;
       }
 
-      if (ref.reynolds_lambda < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
-        com->fprintf(stderr, "*** Error: no valid Reynolds number (%d) given for lambda\n", ref.reynolds_lambda);
-        ++error;
-      }
-      else if (eqs.fluidModel.fluid == FluidModelData::GAS && eqs.fluidModel.gasModel.type == GasModelData::IDEAL)
-        ref.reynolds_lambda = -3.0/2.0 * ref.reynolds_mu;
-
-
       if (eqs.viscosityModel.type == ViscosityModelData::SUTHERLAND && ref.temperature < 0.0) {
         com->fprintf(stderr, "*** Error: no valid reference temperature (%d) given\n", ref.temperature);
         ++error;
@@ -4624,7 +4632,6 @@ int IoData::checkInputValuesNonDimensional()
 
 // Included (MB)
     ref.dRe_mudMach = 0.0;
-    ref.dRe_lambdadMach = 0.0;
 
     if (bc.inlet.density < 0.0)
       sa.densFlag = false;
@@ -4663,7 +4670,8 @@ int IoData::checkInputValuesNonDimensional()
 
     // set up pressure
     if (bc.inlet.pressure < 0.0)
-      if (eqs.fluidModel.fluid == FluidModelData::GAS)
+      if (eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+          eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
         if(ref.mach>0.0)
           bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
         else
@@ -4725,6 +4733,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   double R = eqs.fluidModel.gasModel.idealGasConstant;
   double gamma = eqs.fluidModel.gasModel.specificHeatRatio;
   double Pstiff = eqs.fluidModel.gasModel.pressureConstant;
+  double cpgas  = eqs.fluidModel.gasModel.specificHeatPressure;
 
   double Rjwl   = eqs.fluidModel.jwlModel.idealGasConstant;
   double omegajwl  = eqs.fluidModel.jwlModel.omega;
@@ -4734,7 +4743,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   double R2jwl     = eqs.fluidModel.jwlModel.R2;
   double rhorefjwl = eqs.fluidModel.jwlModel.rhoref;
 
-  double Cv = eqs.fluidModel.liquidModel.Cv;
+  double Cwater = eqs.fluidModel.liquidModel.specificHeat;
   double k1water = eqs.fluidModel.liquidModel.k1water;
   double k2water = eqs.fluidModel.liquidModel.k2water;
   double Prefwater = eqs.fluidModel.liquidModel.Prefwater;
@@ -4748,7 +4757,8 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
 
   if (problem.mode == ProblemData::DIMENSIONAL) {
     if (bc.inlet.pressure < 0.0)  {
-      if(eqs.fluidModel.fluid == FluidModelData::GAS ||
+      if(eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+         eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS || 
          eqs.fluidModel.fluid == FluidModelData::JWL ){
         com->fprintf(stderr, "*** Error: no valid inlet pressure (%f) given\n", bc.inlet.pressure);
         ++error;
@@ -4758,7 +4768,8 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       }
     }
     if (bc.inlet.density < 0.0)
-      if(eqs.fluidModel.fluid == FluidModelData::GAS ||
+      if(eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+         eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS || 
          eqs.fluidModel.fluid == FluidModelData::JWL ){
         com->fprintf(stderr, "*** Error: no valid inlet density (%f) given\n", bc.inlet.density);
         ++error;
@@ -4770,8 +4781,10 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     }
 
     if(bc.inlet.temperature < 0.0) {
-      if(eqs.fluidModel.fluid == FluidModelData::GAS)
-        bc.inlet.temperature = (bc.inlet.pressure + gamma*Pstiff)/(R*bc.inlet.density);
+      if(eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+         eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
+        //bc.inlet.temperature = (bc.inlet.pressure + gamma*Pstiff)/(R*bc.inlet.density);
+        bc.inlet.temperature = gamma/(gamma-1.0) * (bc.inlet.pressure + Pstiff)/(cpgas*bc.inlet.density);
       else if(eqs.fluidModel.fluid == FluidModelData::JWL){
         double frhoref = A1jwl*(1-omegajwl*bc.inlet.density/(R1jwl*rhorefjwl))*exp(-R1jwl*rhorefjwl/bc.inlet.density) +
                          A2jwl*(1-omegajwl*bc.inlet.density/(R2jwl*rhorefjwl))*exp(-R2jwl*rhorefjwl/bc.inlet.density);
@@ -4783,7 +4796,8 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       }
     }
 
-    if(eqs.fluidModel.fluid == FluidModelData::GAS){
+    if(eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+       eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS){
       if (ref.density < 0.0)
         ref.density = bc.inlet.density;
       if (ref.pressure < 0.0)
@@ -4791,29 +4805,33 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       if (ref.mach <= 0.0)
         ref.mach = ref.velocity /sqrt(gamma * (ref.pressure+Pstiff) / ref.density);
       double velocity = ref.mach * sqrt(gamma * (ref.pressure+Pstiff) / ref.density);
-      ref.temperature = (ref.pressure + gamma*Pstiff)/ (ref.density * R);
-      double viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
+      //ref.temperature = (ref.pressure + gamma*Pstiff)/ (ref.density * R);
+      ref.temperature = gamma/(gamma-1.0) * (ref.pressure + Pstiff)/ (ref.density * cpgas);
+      // if the gas is perfect, Pstiff = 0 and Cp = gamma*R/(gamma-1);
+      ref.energy = (ref.pressure + gamma*Pstiff) / (ref.density * (gamma-1));
+      double Cv = cpgas/gamma;
+      double viscosity = 1.0;
+      if (eqs.type == EquationsData::NAVIER_STOKES){
+        viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
         (1.0 + eqs.viscosityModel.sutherlandReferenceTemperature/ref.temperature);
-      ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
-      ref.reynolds_lambda = -3.0 * ref.reynolds_mu/2.0;
-        //as we are considering a gas whose Lame coefficients respect the Stokes relation (3*lambda+2*mu=0)
-        // we have a relation between Re_mu and Re_lambda
+        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT)
+	  viscosity = eqs.viscosityModel.dynamicViscosity;
+        ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
+      }
 
 // Included (MB)
       double dvelocitydMach = sqrt(gamma * ref.pressure / ref.density);
       //if (eqs.type == EquationsData::NAVIER_STOKES)
         //com->fprintf(stderr, "\n\n Reynolds = %e \n\n",ref.reynolds_mu);
       ref.dRe_mudMach = dvelocitydMach * ref.length * ref.density / viscosity;
-      ref.dRe_lambdadMach = -3.0 * ref.dRe_mudMach/2.0;
             
       ref.rv.mode = RefVal::DIMENSIONAL;
       ref.rv.density = ref.density;
       ref.rv.velocity = velocity;
       ref.rv.pressure = ref.density * velocity*velocity;
-      ref.rv.temperature = gamma*(gamma - 1.0) * ref.mach*ref.mach * (ref.pressure+Pstiff)/(R*ref.density);
+      ref.rv.temperature = velocity*velocity/Cv;
 //      ref.rv.temperature = gamma*(gamma - 1.0) * ref.mach*ref.mach * ref.temperature;
       ref.rv.viscosity_mu = viscosity;
-      ref.rv.viscosity_lambda = -2.0/3.0 * viscosity;
       ref.rv.nutilde = viscosity / ref.density;
       ref.rv.kenergy = velocity*velocity;
       ref.rv.epsilon = velocity*velocity*velocity / ref.length;
@@ -4858,7 +4876,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.temperature = (ref.pressure - frhoref)/(ref.density * Rjwl);
       double viscosity = 0.0000000001;
       ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
-      ref.reynolds_lambda = -3.0 * ref.reynolds_mu/2.0;
 
       ref.rv.mode = RefVal::DIMENSIONAL;
       ref.rv.density = ref.density;
@@ -4866,7 +4883,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.pressure = ref.density * velocity*velocity;
       ref.rv.temperature = omegajwl*(omegajwl + 1.0) * ref.mach*ref.mach * ((omegajwl+1.0)*ref.pressure - frhoref + ref.density*frhorefp);
       ref.rv.viscosity_mu = viscosity;
-      ref.rv.viscosity_lambda = -2.0/3.0 * viscosity;
       ref.rv.nutilde = viscosity / ref.density;
       ref.rv.kenergy = velocity*velocity;
       ref.rv.epsilon = velocity*velocity*velocity / ref.length;
@@ -4891,10 +4907,15 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
         ref.mach = ref.velocity / sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double velocity = ref.mach * sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double soundvelocity = sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
-      double viscosity_mu = 0.000001; //NEEDS TO BE CHANGED ACCORDING TO THE VISCO LAW FOR WATER
-      double viscosity_lambda = 0.00000000001;
-      ref.reynolds_mu = velocity * ref.length * ref.density / viscosity_mu;
-      ref.reynolds_lambda = velocity * ref.length * ref.length / viscosity_lambda;
+//      Cwater has not been specified by user (not possible), we set it automatically using
+//      EOS compatibility condition and inlet BCs.
+      Cwater = awater*bwater*pow(bc.inlet.density, bwater-1.0)/((bwater-1.0)*bc.inlet.temperature);
+      eqs.fluidModel.liquidModel.specificHeat = Cwater;
+      ref.energy = Cwater * ref.temperature; // this is actually enthalpy, but for the sake of non-dimensionalization
+      double Cv = Cwater;
+
+      double viscosity = eqs.viscosityModel.dynamicViscosity;
+      ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
       ref.rv.mode = RefVal::DIMENSIONAL;
 
       ref.rv.density = ref.density;
@@ -4903,9 +4924,8 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.temperature = velocity * velocity / Cv;
 
 
-      ref.rv.viscosity_mu = viscosity_mu;
-      ref.rv.viscosity_lambda = viscosity_lambda;
-      ref.rv.nutilde = viscosity_mu / ref.density;
+      ref.rv.viscosity_mu = viscosity;
+      ref.rv.nutilde = viscosity / ref.density;
       ref.rv.kenergy = velocity*velocity;
       ref.rv.epsilon = velocity*velocity*velocity / ref.length;
       ref.rv.time = ref.length / velocity;
@@ -5207,7 +5227,9 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
     com->fprintf(stderr, "*** Error : an initial velocity norm or an initial mach number must be specified\n");
   }
 
-  if(fluidType == FluidModelData::GAS || fluidType == FluidModelData::JWL){
+  if(fluidType == FluidModelData::PERFECT_GAS || 
+     fluidType == FluidModelData::STIFFENED_GAS ||
+     fluidType == FluidModelData::JWL){
     if(initialConditions.density < 0){
       error++;
       com->fprintf(stderr, "*** Error : an initial density must be specified\n");
@@ -5240,6 +5262,10 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
 
   // ******* TAIT ******** //
   if (fluidModel.fluid == FluidModelData::LIQUID){
+    if (fluidModel.liquidModel.k2water <= 0.0){
+      com->fprintf(stderr, "*** Error: k2 in the barotropic liquid EOS cannot be zero or negative\n");
+      ++error;
+    }
     if (fluidModel.liquidModel.Prefwater < 0.0){
       com->fprintf(stderr, "*** Error: no valid reference pressure (%e) given for Tait's EOS (fluidModelID = %d)\n", fluidModel.liquidModel.Prefwater, fluidModelID);
       ++error;
@@ -5248,23 +5274,30 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
       com->fprintf(stderr, "*** Error: no valid reference density (%e) given for Tait's EOS (fluidModelID = %d)\n", fluidModel.liquidModel.RHOrefwater, fluidModelID);
       ++error;
     }
-    if (fluidModel.liquidModel.Cv < 0.0) {
-      com->fprintf(stderr, "*** Error: no valid reference specifinitialConditions heat coeffinitialConditionsient (%e) given for Tait's EOS (fluidModelID = %d)\n", fluidModel.liquidModel.Cv, fluidModelID);
-      ++error;
-    }
+    // eqs.fluidModel.liquidModel.specificHeat is determined from the inlet temperature and density and the other
+    // constants of the EOS.
   }
 
   // ******* PERFECT GAS ******** //
-  else if (fluidModel.fluid         == FluidModelData::GAS &&
-	   fluidModel.gasModel.type == GasModelData::IDEAL)
+  else if (fluidModel.fluid         == FluidModelData::PERFECT_GAS){
     fluidModel.gasModel.pressureConstant = 0.0;
+    double gamma = fluidModel.gasModel.specificHeatRatio;
+    fluidModel.gasModel.specificHeatPressure = gamma*fluidModel.gasModel.idealGasConstant/(gamma-1.0);
+  }
 
   // ******* STIFFENED GAS ******** //
-  else if (fluidModel.fluid         == FluidModelData::GAS &&
-	   fluidModel.gasModel.type == GasModelData::STIFFENED){
+  else if (fluidModel.fluid         == FluidModelData::STIFFENED_GAS){
     if (fluidModel.gasModel.pressureConstant < 0.0) {
       com->fprintf(stderr, "*** Error: no valid reference pressure constant (%e) given for Stiffened Gas EOS (fluidModelID = %d)\n", fluidModel.gasModel.pressureConstant, fluidModelID);
       ++error;
+    }
+    if(fluidModel.gasModel.specificHeatPressure < 0.0){
+      if(eqs.type == EquationsData::NAVIER_STOKES) {
+        com->fprintf(stderr, "*** Error: a specific heat at constant pressure must be specified for a stiffened gas in a viscous simulation.");
+        error++;
+      }
+      else if(eqs.type == EquationsData::EULER)
+        com->fprintf(stderr, "*** Error: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
     }
   }
 
@@ -5311,8 +5344,11 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
   fluidModel.rhomin /= ref.rv.density;
   fluidModel.pmin /= ref.rv.pressure;
 
-  if(fluidModel.fluid == FluidModelData::GAS)
+  if(fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+     fluidModel.fluid == FluidModelData::STIFFENED_GAS){
     fluidModel.gasModel.pressureConstant /= ref.rv.pressure;
+    fluidModel.gasModel.specificHeatPressure /= ref.rv.velocity*ref.rv.velocity/ref.rv.temperature;
+  }
 
   else if(fluidModel.fluid == FluidModelData::JWL){
     fluidModel.jwlModel.A1     /= ref.rv.pressure;
@@ -5325,9 +5361,7 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
     double awater = (fluidModel.liquidModel.Prefwater - Pref)/pow(fluidModel.liquidModel.RHOrefwater, fluidModel.liquidModel.k2water);
     double bwater = fluidModel.liquidModel.k2water;
 
-    fluidModel.liquidModel.Cv          /= 1.0;
-    fluidModel.liquidModel.Cv          /= (ref.rv.length*ref.rv.length/(ref.rv.time*ref.rv.time*ref.rv.temperature) );
-
+    fluidModel.liquidModel.specificHeat /= ref.rv.velocity*ref.rv.velocity/ref.rv.temperature;
     fluidModel.liquidModel.k1water     /= ref.rv.pressure;
     fluidModel.liquidModel.RHOrefwater /= ref.rv.density;
     fluidModel.liquidModel.Prefwater   /= ref.rv.pressure;
@@ -5337,6 +5371,24 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
     fluidModel.liquidModel.beta  = bwater;
   }
 
+}
+
+//------------------------------------------------------------------------------
+ 
+void IoData::nonDimensionalizeViscosityModel(ViscosityModelData &vm){
+
+  vm.bulkViscosity /= ref.rv.viscosity_mu;
+
+  //others do not need and must not be non-dimensionalized
+
+}
+
+//------------------------------------------------------------------------------
+
+void IoData::nonDimensionalizeThermalCondModel(ThermalCondModelData &tm){
+
+  double Cv = ref.rv.velocity*ref.rv.velocity/ref.rv.temperature;
+  tm.conductivity /= (ref.rv.viscosity_mu*Cv);
 }
 
 //------------------------------------------------------------------------------
@@ -5456,7 +5508,8 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity, programmedBurn.cjEnergy,
 		   programmedBurn.cjDetonationVelocity);
       
-    } else if (burnedData.fluid == FluidModelData::GAS) {
+    } else if (burnedData.fluid == FluidModelData::PERFECT_GAS ||
+               burnedData.fluid == FluidModelData::STIFFENED_GAS){
       if (burnedData.gasModel.pressureConstant != 0.0) {
 	com->fprintf(stderr,"*** Warning: Correct CJ state only computed with perfect gas.  You have specified a stiffened gas for the burned state\n");
       }
@@ -5493,7 +5546,7 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   
   LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
   // Set the initial energy of the Tait EOS appropriately
-  IC.temperature = programmedBurn.e0 / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
+  IC.temperature = programmedBurn.e0 / liq.specificHeat;//programmedBurn.cjEnergy / liq.Cv;
   //IC.temperature = programmedBurn.cjEnergy / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
   //std::cout << "T = " << IC.temperature << std::endl;
   return error;
@@ -5560,11 +5613,13 @@ void IoData::printDebug(){
       com->fprintf(stderr, "FluidModelData::fluid        = %d\n", it->second->fluid);
       com->fprintf(stderr, "FluidModelData::rhomin         = %e\n", it->second->rhomin);
       com->fprintf(stderr, "FluidModelData::pmin         = %e\n", it->second->pmin);
-      if(it->second->fluid == FluidModelData::GAS){
+      if(it->second->fluid == FluidModelData::PERFECT_GAS ||
+         it->second->fluid == FluidModelData::STIFFENED_GAS){
         com->fprintf(stderr, "GasModelData::type              = %d\n", it->second->gasModel.type);
         com->fprintf(stderr, "GasModelData::specificHeatRatio = %e\n", it->second->gasModel.specificHeatRatio);
         com->fprintf(stderr, "GasModelData::idealGasConstant  = %e\n", it->second->gasModel.idealGasConstant);
         com->fprintf(stderr, "GasModelData::pressureConstant  = %e\n", it->second->gasModel.pressureConstant);
+        com->fprintf(stderr, "GasModelData::specificHeatPressure  = %e\n", it->second->gasModel.specificHeatPressure);
       }
       else if(it->second->fluid == FluidModelData::JWL){
         com->fprintf(stderr, "JwlModelData::type              = %d\n", it->second->jwlModel.type);
@@ -5579,8 +5634,7 @@ void IoData::printDebug(){
       else if(it->second->fluid == FluidModelData::LIQUID){
         com->fprintf(stderr, "LiquidModelData::type           = %d\n", it->second->liquidModel.type);
         com->fprintf(stderr, "LiquidModelData::check          = %d\n", it->second->liquidModel.check);
-        com->fprintf(stderr, "LiquidModelData::specificHeatRatio = %e\n", it->second->liquidModel.specificHeatRatio);
-        com->fprintf(stderr, "LiquidModelData::Cv             = %e\n", it->second->liquidModel.Cv);
+        com->fprintf(stderr, "LiquidModelData::specificHeat   = %e\n", it->second->liquidModel.specificHeat);
         com->fprintf(stderr, "LiquidModelData::k1water        = %e\n", it->second->liquidModel.k1water);
         com->fprintf(stderr, "LiquidModelData::k2water        = %e\n", it->second->liquidModel.k2water);
         com->fprintf(stderr, "LiquidModelData::Prefwater      = %e\n", it->second->liquidModel.Prefwater);

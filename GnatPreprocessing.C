@@ -271,9 +271,9 @@ void GnatPreprocessing<dim>::setUpGreedy() {
 	nSampleNodes = ioData->gnat.nSampleNodes;
 
 	if (nSampleNodes == 0) {
-		int sampleNodeFactor = ioData->gnat.sampleNodeFactor;
-		if (sampleNodeFactor == -1.0)
-			sampleNodeFactor = 2.0;
+		int sampleNodeFactor = (int) ioData->gnat.sampleNodeFactor;
+		if (sampleNodeFactor == -1)
+			sampleNodeFactor = 2;
 		nSampleNodes = static_cast<int>(ceil(double(nPodMax *
 						sampleNodeFactor)/double(dim)));
 			// this will give interpolation or the smallest possible least squares

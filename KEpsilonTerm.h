@@ -21,7 +21,6 @@ private:
 
 // Included (MB)
   double dRe_mudMach;
-  double dRe_lambdadMach;
 
   double reynolds;
   double ooreynoldsKE;
@@ -43,6 +42,8 @@ public:
 
   double computeTurbulentViscosity(double *[4], double &, double &);
   double computeTurbulentViscosity(double *);
+  double computeSecondTurbulentViscosity(double lambdal, double mul, double mut);
+  double computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal, double mul, double dmul, double mut, double dmut);
 
   template<int neq, int shift>
   void computeJacobianVolumeTermKE(double [4][3], double, double, double, double,
@@ -63,7 +64,6 @@ KEpsilonTerm::KEpsilonTerm(IoData &iod)
 
 // Included (MB)
   dRe_mudMach = iod.ref.dRe_mudMach;
-  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
 
   reynolds = iod.ref.reynolds_mu;
   ooreynoldsKE = 1.0/ reynolds;
@@ -86,7 +86,6 @@ void KEpsilonTerm::rstVarKE(IoData &iod)
 
   reynolds = iod.ref.reynolds_mu;
   dRe_mudMach = iod.ref.dRe_mudMach;
-  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
   ooreynoldsKE = 1.0/reynolds;
 
 }
@@ -149,6 +148,27 @@ double KEpsilonTerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV
 {
 
   return (dRe_mudMach * dMach * c_mu * V[0] * V[5]*V[5] / V[6] +  reynolds * c_mu * dV[0] * V[5]*V[5] / V[6] + reynolds * c_mu * V[0] * 2.0*V[5]*dV[5] / V[6] - reynolds * c_mu * V[0] * V[5]*V[5] / (V[6] * V[6]) * dV[6]);
+
+}
+
+//------------------------------------------------------------------------------
+inline
+double KEpsilonTerm::computeSecondTurbulentViscosity(double lambdal, double mul, double mut)
+{
+
+  //simple model that remains true when the Stokes' hypothesis is assumed
+  return -2.0*mut/3.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+inline
+double KEpsilonTerm::computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal,
+    double mul, double dmul, double mut, double dmut)
+{
+
+  return -2.0*dmut/3.0;
 
 }
 

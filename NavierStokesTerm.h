@@ -11,11 +11,6 @@ class Communicator;
 
 struct Vec3D;
 //-----------------------------------------------------------------------------
-//CHANGES_FOR_WATER
-// same as in FemEquationTermDesc.C : Lame coefficients behave differently in 
-//  gas and water, thus we had to "split" them, and use the Stokes relation 
-//   only in the case of gas.
-//------------------------------------------------------------------------------
 
 class NavierStokesTerm {
 
@@ -27,7 +22,6 @@ protected:
 
   double ooreynolds;
   double ooreynolds_mu;
-  double ooreynolds_lambda;
 
   VarFcn *varFcn;
   ViscoFcn *viscoFcn;
@@ -58,10 +52,8 @@ protected:
 // Included (MB*)
   double reynoldsNS;
   double reynolds_muNS;
-  double reynolds_lambdaNS;
   double dRedMachNS;
   double dRe_mudMachNS;
-  double dRe_lambdadMachNS;
   void computeDerivativeOfVelocity(double *[4], double [4][3], double [3]);
   void computeDerivativeOfTemperature(double *[4], double *[4], double [4], double &);
   void computeDerivativeOfVelocityGradient(double [4][3], double [4][3], double [4][3], double [4][3], double [3][3]);
@@ -99,14 +91,11 @@ NavierStokesTerm::NavierStokesTerm(IoData &iod, VarFcn *vf) : varFcn(vf)
 // Included (MB)
   reynoldsNS = iod.ref.reynolds_mu;
   reynolds_muNS = iod.ref.reynolds_mu;
-  reynolds_lambdaNS = iod.ref.reynolds_lambda;
   dRedMachNS = iod.ref.dRe_mudMach;
   dRe_mudMachNS = iod.ref.dRe_mudMach;
-  dRe_lambdadMachNS = iod.ref.dRe_lambdadMach;
 
   ooreynolds = 1.0/iod.ref.reynolds_mu;
   ooreynolds_mu = 1.0/iod.ref.reynolds_mu;
-  ooreynolds_lambda = 1.0/iod.ref.reynolds_lambda;
 
   viscoFcn = 0;
   thermalCondFcn = 0;
@@ -117,13 +106,11 @@ NavierStokesTerm::NavierStokesTerm(IoData &iod, VarFcn *vf) : varFcn(vf)
     viscoFcn = new SutherlandViscoFcn(iod);
   else if (iod.eqs.viscosityModel.type == ViscosityModelData::PRANDTL)
     viscoFcn = new PrandtlViscoFcn(iod);
-//  else if (iod.eqs.viscosityModel.type == ViscosityModelData::WATER)
-//    viscoFcn = new WaterViscoFcn(iod);
 
   if (iod.eqs.thermalCondModel.type == ThermalCondModelData::CONSTANT_PRANDTL)
-    thermalCondFcn = new ConstantPrandtlThermalCondFcn(iod, viscoFcn);
-//  else if (iod.eqs.thermalCondModel.type == ThermalCondModelData::WATER)
-//    thermalCondFcn = new WaterThermalCondFcn(iod, viscoFcn);
+    thermalCondFcn = new ConstantPrandtlThermalCondFcn(iod, viscoFcn, varFcn);
+  else if (iod.eqs.thermalCondModel.type == ThermalCondModelData::CONSTANT)
+    thermalCondFcn = new ConstantThermalCondFcn(iod);
 
 }
 
@@ -147,13 +134,10 @@ void NavierStokesTerm::rstVarNS(IoData &iod, Communicator *com)
 
   reynoldsNS = iod.ref.reynolds_mu;
   reynolds_muNS = iod.ref.reynolds_mu;
-  reynolds_lambdaNS = iod.ref.reynolds_lambda;
   dRedMachNS = iod.ref.dRe_mudMach;
   dRe_mudMachNS = iod.ref.dRe_mudMach;
-  dRe_lambdadMachNS = iod.ref.dRe_lambdadMach;
   ooreynolds = 1.0 / iod.ref.reynolds_mu;
   ooreynolds_mu = 1.0 / iod.ref.reynolds_mu;
-  ooreynolds_lambda = 1.0 / iod.ref.reynolds_lambda;
   viscoFcn->rstVar(iod);
   thermalCondFcn->rstVar(iod);
 
@@ -168,13 +152,10 @@ void NavierStokesTerm::rstVar(IoData &iod, Communicator *com)
 
   reynoldsNS = iod.ref.reynolds_mu;
   reynolds_muNS = iod.ref.reynolds_mu;
-  reynolds_lambdaNS = iod.ref.reynolds_lambda;
   dRedMachNS = iod.ref.dRe_mudMach;
   dRe_mudMachNS = iod.ref.dRe_mudMach;
-  dRe_lambdadMachNS = iod.ref.dRe_lambdadMach;
   ooreynolds = 1.0 / iod.ref.reynolds_mu;
   ooreynolds_mu = 1.0 / iod.ref.reynolds_mu;
-  ooreynolds_lambda = 1.0 / iod.ref.reynolds_lambda;
   viscoFcn->rstVar(iod);
   thermalCondFcn->rstVar(iod);
 
@@ -1498,8 +1479,10 @@ void NavierStokesTerm::computeSurfaceTermNS(double dp1dxj[4][3], Vec3D &n,
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
 
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
+  double mu     = viscoFcn->compute_mu(Tcg);
+  double lambda = viscoFcn->compute_lambda(Tcg, mu);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
 
   double tij[3][3];
   computeStressTensor(mu, lambda, dudxj, tij);
@@ -1542,15 +1525,14 @@ void NavierStokesTerm::computeDerivativeOfSurfaceTermNS(double dp1dxj[4][3], dou
 
   double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dMach;
   
-  double dooreynolds_lambda = -1.0 / ( reynolds_lambdaNS * reynolds_lambdaNS ) * dRe_lambdadMachNS * dMach;
+  double mu     = viscoFcn->compute_mu(Tcg);
+  double lambda = viscoFcn->compute_lambda(Tcg, mu);
 
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
+  double dmu     = dooreynolds_mu * mu + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dMach);
+  double dlambda = dooreynolds_mu * lambda + ooreynolds_mu * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
 
-  double dmu = dooreynolds_mu * viscoFcn->compute_mu(Tcg) + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dMach);
-
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-
-  double dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dMach);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
 
   double tij[3][3];
   computeStressTensor(mu, lambda, dudxj, tij);
@@ -1587,8 +1569,10 @@ void NavierStokesTerm::computeJacobianSurfaceTermNS(double dp1dxj[4][3], Vec3D &
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
 
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
+  double mu     = viscoFcn->compute_mu(Tcg);
+  double lambda = viscoFcn->compute_lambda(Tcg, mu);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
 
   double dmu[4][5];
   double dlambda[4][5];
@@ -1615,17 +1599,16 @@ void NavierStokesTerm::computeJacobianSurfaceTermNS(double dp1dxj[4][3], Vec3D &
     dTcgdu3 = - 0.25 / V[k][0] * V[k][3];
     dTcgdu4 = 0.25 / V[k][0];
 
-    dmu[k][0] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu0, dMach);
-    dmu[k][1] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu1, dMach);
-    dmu[k][2] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu2, dMach);
-    dmu[k][3] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu3, dMach); 
-    dmu[k][4] = ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcgdu4, dMach); 
+    dmu[k][0] = viscoFcn->compute_muDerivative(Tcg, dTcgdu0, dMach);
+    dmu[k][1] = viscoFcn->compute_muDerivative(Tcg, dTcgdu1, dMach);
+    dmu[k][2] = viscoFcn->compute_muDerivative(Tcg, dTcgdu2, dMach);
+    dmu[k][3] = viscoFcn->compute_muDerivative(Tcg, dTcgdu3, dMach); 
+    dmu[k][4] = viscoFcn->compute_muDerivative(Tcg, dTcgdu4, dMach); 
 
-    dlambda[k][0] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][0], dMach);
-    dlambda[k][1] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][1], dMach);
-    dlambda[k][2] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][2], dMach);
-    dlambda[k][3] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][3], dMach); 
-    dlambda[k][4] = ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu[k][4], dMach); 
+    for(int i=0; i<5; ++i){
+      dlambda[k][i] = ooreynolds_mu * viscoFcn->compute_lambdaDerivative(mu/ooreynolds_mu, dmu[k][i], dMach);
+      dmu[k][i] *= ooreynolds_mu;
+    }
 
 //    dtijdu0[0][0] = twothird * mu * (-2.0 * dp1dxj[k][0] * V[k][1] + dp1dxj[k][1] * V[k][2] + dp1dxj[k][2] * V[k][3]) / V[k][0] + dmu[k][0] * twothird * (2.0 * dudxj[0][0] - dudxj[1][1] - dudxj[2][2]);
 //    dtijdu1[0][0] = 2.0 * twothird * mu * dp1dxj[k][0] / V[k][0] + dmu[k][1] * twothird * (2.0 * dudxj[0][0] - dudxj[1][1] - dudxj[2][2]);

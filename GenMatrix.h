@@ -16,6 +16,8 @@ public:
 
   virtual Scalar (*data())[dim*dim] = 0;
 
+  virtual double norm() { fprintf(stderr, "No Implementation of GenMat::norm\n"); }
+
   virtual Scalar *getElem_ii(int) = 0;
   virtual Scalar *getElem_ij(int) = 0;
   virtual Scalar *getElem_ji(int) = 0;

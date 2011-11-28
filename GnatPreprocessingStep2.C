@@ -63,7 +63,7 @@ void GnatPreprocessingStep2<dim>::computePodTPod() {
 			this->podTpod[i] = new double [this->nPod[0]];
 		for (int i = 0; i < this->nPod[1]; ++i)
 			for (int j = 0; j < this->nPod[0]; ++j) { 
-				fscanf(onlineMatrix, "%8.15e",&(this->podTpod[i][j]));
+				int _n = fscanf(onlineMatrix, "%8.15e",&(this->podTpod[i][j]));
 			}
 	}
 	delete [] onlineMatrixFile;
