@@ -92,7 +92,7 @@ class ModalSolver {
     VecSet< DistSVec<double,dim> > DE;
     DistVec<double> controlVol;
     DistVec<bcomp> controlVolComp;  // failing in this destructor
-		double totalEnergy;
+    double totalEnergy;
  
   public:
     ModalSolver(Communicator *, IoData &, Domain &);

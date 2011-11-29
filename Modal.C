@@ -1747,16 +1747,13 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
       Utrue[iSnap] /= controlVolSqrt;
   }
   modalTimer->addEigSolvTime(t0);  
-  com->fprintf(stderr," Here 1\n");
   if (outputToDisk) {
     outputPODVectors(Utrue, singVals, nPOD);
-    com->fprintf(stderr," Here 2\n");
   }
   else {	// overwrite snaps with Utrue and return
     for (int i = 0; i < nPOD; ++i) {
       snaps[i] = Utrue[i]*singVals[i];
     }
-    com->fprintf(stderr," Here 3\n");
   }
 #else
  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK \n");
@@ -2797,48 +2794,47 @@ void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
 template<int dim>
 void ModalSolver<dim>::computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod){
 
-	// TODO: optimize!
+  // TODO: optimize!
 
-	com->fprintf(sValsFile,"Relative energy: s(i)^2/sum(s(1:end).^2)\n");
-	std::vector<double> relEnergy;
-	int nSnap = sVals.size();
-	/*	// totalEnergy now computed when snapshots are read
-	if (totalEnergy == 0.0) {
-		for (int i = 0; i < nSnap; ++i)
-			totalEnergy += pow(sVals[i],2);
-	}
-	*/
+  com->fprintf(sValsFile,"Relative energy: s(i)^2/sum(s(1:end).^2)\n");
+  std::vector<double> relEnergy;
+  int nSnap = sVals.size();
 
-	for (int i = 0; i < nSnap; ++i) {
-		double currentRelEnergy = pow(sVals[i],2)/totalEnergy;
-		com->fprintf(sValsFile,"%d %e\n", i+1, currentRelEnergy);
-		relEnergy.push_back(currentRelEnergy);
-	}
-	com->fprintf(sValsFile,"Cumulative energy: sum(s(1:k).^2)/sum(s(1:end).^2)\n");
-	double cumulativeEnergy = 0.0;
-	double criteria [10] = {0.9, 0.95, 0.975, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999};
-	int energyIndex [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	int handledCriteria  [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	int critCounter = 0;
-	for (int i = 0; i < nSnap; ++i) {
-		cumulativeEnergy+=relEnergy[i];
-		com->fprintf(sValsFile,"%d %e\n", i+1, cumulativeEnergy);
+  if (totalEnergy == 0.0) {
+    for (int i = 0; i < nSnap; ++i)
+      totalEnergy += pow(sVals[i],2);
+  }
 
-		int critCounterTmp = 0;
-		for (int j = critCounter; j < 10;++j) {
-			if (cumulativeEnergy >= criteria[j] && handledCriteria[j] == 0) {
-				energyIndex[j] = i;
-				handledCriteria[j] = 1;
-				++critCounterTmp;
-			}
-		}
-		critCounter +=critCounterTmp;
-	}
-	com->fprintf(sValsFile,"Cumulative energy indices\n");
+  for (int i = 0; i < nSnap; ++i) {
+    double currentRelEnergy = pow(sVals[i],2)/totalEnergy;
+    com->fprintf(sValsFile,"%d %e\n", i+1, currentRelEnergy);
+    relEnergy.push_back(currentRelEnergy);
+  }
+  com->fprintf(sValsFile,"Cumulative energy: sum(s(1:k).^2)/sum(s(1:end).^2)\n");
+  double cumulativeEnergy = 0.0;
+  double criteria [10] = {0.9, 0.95, 0.975, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999};
+  int energyIndex [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  int handledCriteria  [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  int critCounter = 0;
+  for (int i = 0; i < nSnap; ++i) {
+    cumulativeEnergy+=relEnergy[i];
+    com->fprintf(sValsFile,"%d %e\n", i+1, cumulativeEnergy);
 
-	for (int i = 0; i < 10; ++i) {
-		com->fprintf(sValsFile,"%e: %d\n", criteria[i], energyIndex[i]+1);
-	}
+    int critCounterTmp = 0;
+    for (int j = critCounter; j < 10;++j) {
+      if (cumulativeEnergy >= criteria[j] && handledCriteria[j] == 0) {
+        energyIndex[j] = i;
+        handledCriteria[j] = 1;
+        ++critCounterTmp;
+      }
+    }
+    critCounter +=critCounterTmp;
+  }
+  com->fprintf(sValsFile,"Cumulative energy indices\n");
+
+  for (int i = 0; i < 10; ++i) {
+    com->fprintf(sValsFile,"%e: %d\n", criteria[i], energyIndex[i]+1);
+  }
 }
 
 //------------------------------------------------------------------------------
