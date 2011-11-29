@@ -16,7 +16,6 @@ NewtonData<GenericKrylov>::NewtonData()
   JacSkip = 1;
   epsAbsRes = std::numeric_limits<double>::epsilon();
   epsAbsInc = std::numeric_limits<double>::epsilon();
-  descriptorForm = FALSE_DF;
 }
 
 //------------------------------------------------------------------------------
@@ -25,7 +24,7 @@ template<class GenericKrylov>
 void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 7, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<NewtonData>
     (ca, "FailSafe", this, reinterpret_cast<int NewtonData::*>(&NewtonData::failsafe), 3,
@@ -36,7 +35,6 @@ void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
   //new ClassDouble<NewtonData>(ca, "EpsRelRes", this, &NewtonData::eps);
   new ClassDouble<NewtonData>(ca, "EpsAbsRes", this, &NewtonData::epsAbsRes);
   new ClassDouble<NewtonData>(ca, "EpsAbsInc", this, &NewtonData::epsAbsInc);
-  new ClassToken<NewtonData> (ca, "DescriptorForm", this, reinterpret_cast<int NewtonData::*>(&NewtonData::descriptorForm), 2, "False", 0, "True", 1);
 
   ksp.setup("LinearSolver", ca);
 

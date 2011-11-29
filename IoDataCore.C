@@ -2370,6 +2370,7 @@ ImplicitData::ImplicitData()
   mvp = H1;
   fdOrder = FIRST_ORDER;
   fvmers_3pbdf = BDF_SCHEME2;
+  descriptorForm = FALSE_DF;
   //normals = AUTO;
   //velocities = AUTO_VEL;
  
@@ -2383,7 +2384,7 @@ ImplicitData::ImplicitData()
 void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 7, father);
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
   new ClassToken<ImplicitData>
     (ca, "Type", this,
@@ -2417,6 +2418,8 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
     (ca, "FVMERSBDFScheme", this,
       reinterpret_cast<int ImplicitData::*>(&ImplicitData::fvmers_3pbdf), 2,
       "Scheme1", BDF_SCHEME1, "Scheme2", BDF_SCHEME2);
+ 
+  new ClassToken<ImplicitData> (ca, "DescriptorForm", this, reinterpret_cast<int ImplicitData::*>(&ImplicitData::descriptorForm), 2, "False", 0, "True", 1);
 
   /*new ClassToken<ImplicitData>
     (ca, "Normals", this,

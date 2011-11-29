@@ -86,7 +86,7 @@ class ModalSolver {
     double dt;
     double dt0;
     double *K;
-		int podMethod;
+    int podMethod;
 
     VecSet< DistSVec<double,dim> > DX;
     VecSet< DistSVec<double,dim> > DE;
@@ -135,6 +135,8 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void interpolatePOD();
     template<class Scalar>
     void readPodVecs(VecSet<DistSVec<Scalar, dim> > &, int &);
+
+    void checkROBType(VecSet<DistSVec<double, dim> > &, int );
 #ifdef DO_MODAL
     void outputPODVectors(ARluSymStdEig<double> &podEigProb, VecSet<DistSVec<double, dim> > &, int nPod, int numSnaps);
 #endif
