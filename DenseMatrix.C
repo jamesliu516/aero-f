@@ -391,6 +391,18 @@ GenFullM<Scalar>::zero()
    v[i] = 0.0;
 }
 
+template<class Scalar>
+double
+GenFullM<Scalar>::norm()
+{
+ double frobNorm = 0;
+ for(int i=0; i<nrow*ncolumn; ++i)
+   frobNorm += pow(v[i],2);
+
+ frobNorm = sqrt(frobNorm);
+
+ return frobNorm;
+}
 
 template<class Scalar>
 void
@@ -623,6 +635,21 @@ void SymFullM<Scalar>::zero()
  for (int i=0; i< n*(n+1)/2 ; ++i)
    v[i] = 0.0;
 }
+
+template<class Scalar>
+double SymFullM<Scalar>::norm()
+{
+ double frobNorm = 0;
+ for (int i = 0; i < n; ++i) {
+   frobNorm += pow((*this)[i][i],2);
+   for (int j = i+1; j < n; ++j)
+     frobNorm += 2.0*pow((*this)[j][i],2);
+ }
+ frobNorm = sqrt(frobNorm);
+
+ return frobNorm;
+}
+
 
 template<class Scalar>
 void SymFullM<Scalar>::factor()
