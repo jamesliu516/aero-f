@@ -722,7 +722,7 @@ template<int dim>
 void ImplicitRomTsDesc<dim>::readPodBasis(const char *fileName) {
 
 	string fileNameState;
-	determineFileName(fileName, ".robStateSample", ioData->input.gnatPrefix, fileNameState);
+	determineFileName(fileName, ".sampledROBState", ioData->input.gnatPrefix, fileNameState);
 
 	this->domain->readPodBasis(fileNameState.c_str(), nPod,
 		pod,this->ioData->rom.basisType == ModelReductionData::SNAPSHOTS);

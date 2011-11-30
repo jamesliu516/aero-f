@@ -154,7 +154,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
                   locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, &worktemp,
                   info, computeVint);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -175,7 +175,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
                   locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, work,
                   info, computeVint);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -295,7 +295,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 #ifdef DO_SCALAPACK
   F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);	
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -397,7 +397,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
 		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, &worktmp, lwork,
 		 info);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -419,7 +419,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
 		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork,
 		 info);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
  delete[] work;
