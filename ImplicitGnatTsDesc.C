@@ -34,7 +34,7 @@ ImplicitGnatTsDesc<dim>::ImplicitGnatTsDesc(IoData &ioData, GeoSource &geoSource
 	// read in sample nodes
 	nSampleNodes = 0;
 	string fileNameSample;
-	ImplicitRomTsDesc<dim>::determineFileName(this->input->sampleNodes, ".sampleNodes", gnatPrefix, fileNameSample);
+	ImplicitRomTsDesc<dim>::determineFileName(this->input->sampleNodes, ".sampledNodes", gnatPrefix, fileNameSample);
 	dom->readSampleNodes(sampleNodes, nSampleNodes, fileNameSample.c_str());
 
 	// assume we have nPodJac
