@@ -129,6 +129,7 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void outputModalDisp(double *, double *, double, int, int, FILE *);
     void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int, bool);
     void buildGlobalPOD();
+		void computeRelativeProjectionError( int, int, bool, bool, int, VecSet<DistSVec<double, dim> > &, int *, int *, int *);
     void wait(const int seconds);
     void normalizeSnap(DistSVec<double, dim>  &, const int, const int);
     //void projectFullSoltn();

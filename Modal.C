@@ -1821,9 +1821,12 @@ void ModalSolver<dim>::buildGlobalPOD() {
   com->fprintf(stderr, "When RelProjError=ON, only the first snapshot file is used \n");
 
 	for (int iData = 0; iData < nData; ++iData){
-		_n = fscanf(inFP, "%s %d %d %d %d %lf", snapFile1,&nSnap,&nSkip,&weight);
-		strcpy(snapFile[iData],snapFile1);
+		_n = fscanf(inFP, "%s %d %d %d %d %lf", snapFile1,&nSnap,&iStart,&iEnd,&iFreq,&weight);
+		if (iStart < 1) iStart = 1;
+		if (iEnd < 0) iEnd = 0;
+		if (iFreq < 1) iFreq = 1;
 		numSnaps[iData] = nSnap;
+		strcpy(snapFile[iData],snapFile1);
 		startSnaps[iData] = iStart;
     endSnaps[iData] = iEnd;
 		sampleFreq[iData] = iFreq;
@@ -2018,8 +2021,23 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	 	makeFreqPOD(snap, nStoredSnaps);
 	}
 
-
 	if (relProjError) {
+		computeRelativeProjectionError(iStoredSnaps, nStoredSnaps, limitedMemorySVD, computeSVD, numProjectedSnaps, projErrSnaps, startSnaps, endSnaps, numSnaps);
+	}
+
+	delete [] numSnaps;
+	delete [] startSnaps;
+	delete [] endSnaps;
+	delete [] sampleFreq;
+	delete [] snapWeight;
+	delete [] eig;
+
+}
+
+//-------------------------------------------------------------------------------------------------
+
+template<int dim>
+void ModalSolver<dim>::computeRelativeProjectionError( int iStoredSnaps, int nStoredSnaps, bool limitedMemorySVD, bool computeSVD, int numProjectedSnaps, VecSet<DistSVec<double, dim> > &projErrSnaps, int *startSnaps, int *endSnaps, int *numSnaps) {
 
 		// determine name of POD file
 		int sp = strlen(ioData->output.transient.prefix) + 1;
@@ -2043,11 +2061,9 @@ void ModalSolver<dim>::buildGlobalPOD() {
 			com->fprintf(stderr, " ... Reading vector %i \n", iVec);
 		}
 
-		// basis^T * snapshots
-		
+		// basis^T * snapshots		
 		Vec<double> tmpVec(nPodVecs);
 		VecSet<Vec<double> > tmpVecSet(numProjectedSnaps, nPodVecs);
-
 		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
 			for (int iVec = 0; iVec < nPodVecs; iVec++){
 				tmpVec[iVec] = podVecs[iVec] * projErrSnaps[iSnap];
@@ -2056,10 +2072,8 @@ void ModalSolver<dim>::buildGlobalPOD() {
 		}
 
 		// basis * result
-
 		DistSVec<double, dim> fullV(domain.getNodeDistInfo());
 		VecSet<DistSVec<double, dim> > projectedSnaps(numProjectedSnaps, domain.getNodeDistInfo());
-
 		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
 			fullV = 0.0;
 			for (int iVec = 0; iVec < nPodVecs; iVec++)
@@ -2068,7 +2082,6 @@ void ModalSolver<dim>::buildGlobalPOD() {
 		}
 
 		// snaps - projSnaps
-
 		VecSet<DistSVec<double, dim> > snapDifference(numProjectedSnaps, domain.getNodeDistInfo());
 		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
 		snapDifference[iSnap] = projErrSnaps[iSnap] - projectedSnaps[iSnap];
@@ -2083,8 +2096,7 @@ void ModalSolver<dim>::buildGlobalPOD() {
 			denominatorNorms[iSnap] = pow(projErrSnaps[iSnap].norm(),2);	
 		}
 
-		// compute relative errors for each interval of interest
-
+		// compute relative errors for each interval of interest (before training zone, during training zone, after training zone)
 		double numeratorBefore = 0;
 		double denominatorBefore = 0;
 		double numeratorDuring = 0;
@@ -2116,15 +2128,6 @@ void ModalSolver<dim>::buildGlobalPOD() {
 		if (startSnaps[0]>1) com->fprintf(stderr, " ... Relative Projection Error of Snapshots in Inteval_1 = %e \n", projErrBefore);
     com->fprintf(stderr, " ... Relative Projection Error of Snapshots in Inteval_2 = %e \n", projErrDuring);
     if (!((endSnaps[0]==0)||(endSnaps[0]>numSnaps[0]))) com->fprintf(stderr, " ... Relative Projection Error of Snapshots in Inteval_3 = %e \n", projErrAfter);
-
-	}
-
-	delete [] numSnaps;
-	delete [] startSnaps;
-	delete [] endSnaps;
-	delete [] sampleFreq;
-	delete [] snapWeight;
-	delete [] eig;
 
 }
 

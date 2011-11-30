@@ -148,13 +148,13 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
  if (computeV == false)
 	 computeVint = 0;
 
-#ifdef USE_SCALAPACK
+#ifdef DO_SCALAPACK
  F77NAME(thinsvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
                   nodesPerBlock, nodesPerBlock, subMat, maxLLD, locLLD, nSnaps,
                   locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, &worktemp,
                   info, computeVint);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -169,13 +169,13 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
 
  com->barrier();
 	// scalapack routine!
-#ifdef USE_SCALAPACK
+#ifdef DO_SCALAPACK
  F77NAME(thinsvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
                   nodesPerBlock, nodesPerBlock, subMat, maxLLD, locLLD, nSnaps,
                   locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, work,
                   info, computeVint);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -292,10 +292,10 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 	// output: desc_a, desc_b
 	
 	int nB = B.numVectors();
-#ifdef USE_SCALAPACK
+#ifdef DO_SCALAPACK
   F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);	
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -392,12 +392,12 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
 
  // when lwork = -1, pdgels returns the optimal lworksize in worktmp
 
-#ifdef USE_SCALAPACK
+#ifdef DO_SCALAPACK
  F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex,
 		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, &worktmp, lwork,
 		 info);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
 
@@ -414,12 +414,12 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
  //===============================
 
  // output: subMatB has been changed to contain the solution
-#ifdef USE_SCALAPACK
+#ifdef DO_SCALAPACK
  F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex,
 		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork,
 		 info);
 #else
- com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND USE_SCALAPACK Flag\n");
+ com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
  delete[] work;
