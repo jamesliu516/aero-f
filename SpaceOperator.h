@@ -91,6 +91,7 @@ protected:
   Communicator *com;
 
   bool use_modal;
+  bool use_descriptor;
   bool use_complex;
   int order;
   int failsafe;
@@ -274,6 +275,8 @@ public:
   bool useModal() 
   {return use_modal;}
 
+  bool useDescriptor()
+  {return use_descriptor;}
 
   // Included (MB)
   /// \note This function is implemented.

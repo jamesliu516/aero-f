@@ -38,6 +38,7 @@ public:
 
   bool use_freq;
   bool use_modal;
+  bool use_descriptor;
 
 public:
 

@@ -40,7 +40,7 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
     if(LSS) if(!(LSS->isActive(0.0,i))) continue;
 
     double invDt = 1.0 / dt[i];
-    if (data.use_modal == true)  {
+    if (data.use_modal || data.use_descriptor)  {
       c_np1 = data.alpha_np1 * ctrlVol[i];
       c_n   = data.alpha_n * ctrlVol_n[i];
       c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
@@ -82,7 +82,7 @@ void TimeState<dim>::add_dAW_dtRestrict(bool *nodeFlag, GeoState &geoState,
 		i = sampledLocNodes[iSampledNode];
 
     double invDt = 1.0 / dt[i];
-    if (data.use_modal == true)  {
+    if (data.use_modal || data.use_descriptor)  {
       c_np1 = data.alpha_np1 * ctrlVol[i];
       c_n   = data.alpha_n * ctrlVol_n[i];
       c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
@@ -126,7 +126,7 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
   for (int i=0; i<dt.size(); ++i) {
 
     double invDt = 1.0 / dt[i];
-    if (data.use_modal == true)  {
+    if (data.use_modal || data.use_descriptor)  {
       c_np1 = data.alpha_np1 * ctrlVol[i];
       c_n   = data.alpha_n * ctrlVol_n[i];
       c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
@@ -195,10 +195,12 @@ void TimeState<dim>::addToJacobianLS(bool* nodeFlag,Vec<double> &ctrlVol, GenMat
   double c_np1;
   for (int i=0; i<dt.size(); ++i)  {
 
-    if (data.use_modal == true)
+    if (data.use_modal || (data.use_descriptor && !requireSpecialBDF))
       c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
-    else if (requireSpecialBDF)
+    else if (requireSpecialBDF && !data.use_descriptor)
       c_np1 = 2.0/dt[i];
+    else if (requireSpecialBDF && data.use_descriptor)
+      c_np1 = 2.0 * ctrlVol[i] /dt[i];
     else
       c_np1 = data.alpha_np1 / dt[i];
 
@@ -214,7 +216,7 @@ void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol,
 					SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
-  if (data.use_modal == true)
+  if (data.use_modal || data.use_descriptor)
     c_np1 = data.alpha_np1 * vol / dt[i];
   else
     c_np1 = data.alpha_np1 / dt[i];
@@ -260,7 +262,7 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
 				double irey, SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
-  if (data.use_modal == true)
+  if (data.use_modal || data.use_descriptor)
     c_np1 = data.alpha_np1 * vol / dt[i];
   else
     c_np1 = data.alpha_np1 / dt[i];
@@ -357,7 +359,7 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
 {
 // ARL : turbulence preconditioning never tested ...
   double c_np1;
-  if (data.use_modal == true)
+  if (data.use_modal || data.use_descriptor)
     c_np1 = data.alpha_np1 * vol / dt[i];
   else
     c_np1 = data.alpha_np1 / dt[i];
@@ -418,7 +420,7 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar
 
     if (nodeFlag && !nodeFlag[i]) continue;
 
-    if (data.use_modal == true)
+    if (data.use_modal || data.use_descriptor)
       if (data.use_freq == true)
         c_np1 = data.alpha_np1 * ctrlVol[i];
       else
@@ -450,7 +452,7 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol,
   Scalar c_np1;
   for (int i=0; i<dt.size(); ++i) {
 
-    if (data.use_modal == true)  {
+    if (data.use_modal || data.use_descriptor)  {
       if (data.use_freq == true)
         c_np1 = shift * ctrlVol[i];
       else

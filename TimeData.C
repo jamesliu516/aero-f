@@ -47,6 +47,12 @@ TimeData::TimeData(IoData &ioData)
   else
     use_modal = false;
 
+  if (ioData.ts.implicit.descriptorForm == ImplicitData::TRUE_DF)
+    use_descriptor = true;
+  else
+    use_descriptor = false;
+
+
 // Included (MB)
   if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
     use_modal = true;

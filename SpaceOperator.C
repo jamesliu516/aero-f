@@ -125,6 +125,11 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     compNodalGrad = 0;
     use_modal = false;
 
+  if (ioData.ts.implicit.descriptorForm == ImplicitData::TRUE_DF)
+    use_descriptor = true;
+  else
+    use_descriptor = false;
+
 // Included (MB)
     if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
       use_modal = true;
@@ -174,7 +179,7 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   com = spo.com;
 
   use_modal = spo.use_modal;
-
+  use_descriptor = spo.use_descriptor;
 // Included (MB)
   iod = spo.iod;
 
@@ -545,7 +550,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 // Modified (MB)
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (use_modal == false && use_descriptor == false)  {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
@@ -646,7 +651,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 
 // Modified (MB)
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (use_modal == false && use_descriptor == false)  {
 			int i;
       int numLocSub = R.numLocSub();
 #pragma omp parallel for
@@ -743,7 +748,7 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
 
 // Modified (MB)
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (use_modal == false && use_descriptor == false) {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
@@ -876,7 +881,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidual
     dvms->computeDerivative(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState, timeState, X, U, *V, R, failsafe, rshift);
   }
 
-  if (use_modal == false)  {
+  if (use_modal == false && use_descriptor == false)  {
     int numLocSub = dR.numLocSub();
     int iSub;
 #pragma omp parallel for
@@ -964,7 +969,7 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
                   timeState, X, U, *V, R, failsafe, rshift);
 
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (use_modal == false && use_descriptor == false)  {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
@@ -1039,7 +1044,7 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
                   timeState, X, U, *V, R, failsafe, rshift);
 
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (use_modal == false && use_descriptor == false)  {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
@@ -1100,7 +1105,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, Wstarij, Wstarji, distLSS, linRecAtInterface, fluidId, Nriemann,
                                   Nsbar, *ngrad, egrad, R, it, failsafe,rshift);
-  if (use_modal == false)  {
+  if (use_modal == false && use_descriptor == false)  {
     int numLocSub = R.numLocSub();
     int iSub;
 #pragma omp parallel for
@@ -1322,7 +1327,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     *irey = 0.0;
   }
 
-  if (use_modal)  {
+  if (use_modal || use_descriptor)  {
     DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
     unitCtrlVol = 1.0;
     if (fet)
@@ -1441,7 +1446,7 @@ void SpaceOperator<dim>::computeViscousJacobian(DistSVec<double,3> &X, DistVec<d
 
   A = 0.0;
   if (fet)  {
-    if (use_modal)  {
+    if (use_modal || use_descriptor)  {
       DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
       unitCtrlVol = 1.0;
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
@@ -1587,7 +1592,7 @@ void SpaceOperator<dim>::computeH1(DistSVec<double,3> &X, DistVec<double> &ctrlV
 
   H1 = 0.0;
 
-  if (use_modal)  {
+  if (use_modal || use_descriptor)  {
     DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
     unitCtrlVol = 1.0;
     domain->computeH1(fluxFcn, *bcData, *geoState, unitCtrlVol, *V, H1);
@@ -1655,7 +1660,7 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
   }
 
 
-  if (use_modal)  {
+  if (use_modal || use_descriptor)  {
     DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
     unitCtrlVol = 1.0;
     domain->computeMatVecProdH2(recFcn, X, unitCtrlVol, H2, aij, aji, bij, bji, V2, *distNodalGrad, prod);
@@ -1909,7 +1914,7 @@ MultiPhaseSpaceOperator<dim,dimLS>::MultiPhaseSpaceOperator(const MultiPhaseSpac
   this->com = spo.com;
 
   this->use_modal = spo.use_modal;
-
+  this->use_descriptor = spo.use_descriptor;
 // Included (MB)
   this->iod = spo.iod;
 
@@ -2004,7 +2009,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
                                   *(this->geoState), X, *(this->V), fluidSelector, *(this->ngrad), this->egrad,
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
-  if (this->use_modal == false)  {
+  if (this->use_modal == false && this->use_descriptor == false)  {
     int numLocSub = R.numLocSub();
     int iSub;
 #pragma omp parallel for
@@ -2058,7 +2063,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),
                                     *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
 
-  if (this->use_modal == false)  {
+  if (this->use_modal == false && this->use_descriptor == false)  {
     int numLocSub = PhiF.numLocSub();
     int iSub;
 #pragma omp parallel for
@@ -2126,7 +2131,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
                                   Nriemann, Nsbar, *(this->ngrad), this->egrad,
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
-  if (this->use_modal == false)  {
+  if (this->use_modal == false && this->use_descriptor == false)  {
     int numLocSub = R.numLocSub();
     int iSub;
 #pragma omp parallel for
@@ -2169,8 +2174,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
   }
 
 
-  if (this->use_modal)  {
-    fprintf(stderr, "**Error: no modal for multiphase flows.. Exiting\n");
+  if (this->use_modal || this->use_descriptor)  {
+    fprintf(stderr, "**Error: no modal or descriptor form for multiphase flows.. Exiting\n");
     exit(1);
   }
   else  {
@@ -2215,8 +2220,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<
   }
 
 
-  if (this->use_modal)  {
-    fprintf(stderr, "**Error: no modal for multiphase flows.. Exiting\n");
+  if (this->use_modal || this->use_descriptor)  {
+    fprintf(stderr, "**Error: no modal or descriptor form for multiphase flows.. Exiting\n");
     exit(1);
   }
   else  {
