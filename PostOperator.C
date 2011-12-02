@@ -1503,8 +1503,14 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
   } 
   else if (type == PostFcn::DISPLACEMENT) {
     for (int i = 0; i < count; ++i) {
-      if (subId[i] < 0) continue;
-      subDomain[iSub]->computeDisplacement(X(iSub), &result[3*i], locNodeId[i]);
+      if (locations[i][0] < -1.0e19) {
+        if (subId[i] < 0) continue;
+        subDomain[subId[i]]->computeDisplacement(X(subId[i]), &result[3*i], locNodeId[i]);
+      }
+      else {
+        memset(result+3*i,0,sizeof(double)*3);
+      }
+      status[i] = 1;
     }
   }
   com->globalSum(count*3,result);  
