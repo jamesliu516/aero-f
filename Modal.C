@@ -1711,6 +1711,10 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 
  Timer *modalTimer = domain.getTimer();
  DistVec<double> controlVolSqrt(domain.getNodeDistInfo());
+ geoState = new DistGeoState(*ioData, &domain);
+ geoState->setup1(tInput->positions, &Xref, &controlVol);
+
+
  
  if (nPOD == 0)
 	 nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->rom.dimension; // CBM--check   
@@ -2822,7 +2826,7 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
 	 sprintf(sValsFileName, "%s%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile, sValExtension);
  FILE *sValsFile;
  if (com->cpuNum() == 0)	// only open with cpu 0
-	 sValsFile = fopen(sValsFileName, "wt");
+   sValsFile = fopen(sValsFileName, "wt");
 
  com->fprintf(sValsFile,"%d\n", nPOD);
  com->fprintf(stderr, " ... Writing %d (%f)POD vectors to File\n", nPOD, (double) nPOD);
