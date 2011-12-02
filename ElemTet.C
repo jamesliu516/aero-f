@@ -12,6 +12,7 @@
 #include <cmath>
 #include <GeoState.h>
 #include <BasicGeometry.h>
+#include <PolygonReconstructionData.h>
 
 //------------------------------------------------------------------------------
 //--------------functions in ElemTet class
@@ -2143,7 +2144,7 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
 
   // In the case of an embedded simulation, check if the tetrahedra is actually active.
   bool isAtTheInterface = false;
-  if(ghostPoints) // Then LSS is also a non null pointer.
+  if(LSS) // Then LSS is a non null pointer and we are in the embedded case.
     {
       for(int i=0; i<4; ++i) {
         for (int j=0; j<4; ++j) {
@@ -2154,18 +2155,32 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
       }
     }
 
-  // Embedded Case. Replace states in the structure by Ghost States
-  if(ghostPoints && isAtTheInterface) // Then LSS is also a non null pointer.
+  bool probeInside = false;
+
+  // Embedded Case at the interface.
+  if(LSS && isAtTheInterface) // Then LSS is a non null pointer.
     {
-      GhostPoint<dim> *gp;
-      for(int i=0;i<4;++i)
-        {
-          if(!(LSS->isActive(0,nodeNum(i))))
-            {
-              gp = ghostPoints->operator[](nodeNum(i));
-              varFcn->primitiveToConservative(gp->getPrimitiveState(),u[nodeNum(i)]);
-            }
+      // Check if the probe is inside the structure
+      Vec3D normal, Xinter;
+      double alpha;
+      PolygonReconstructionData polygons[4];
+      int numberOfPolygons = getPolygons(*this, *LSS, polygons);
+      for(int i=0; i < numberOfPolygons; ++i){
+        PolygonReconstructionData& polygon = polygons[i];
+        getPolygonNormal(X, normal, *LSS, polygon);
+        alpha = (LSS->getLevelSetDataAtEdgeCenter(0,polygon.edgeWithVertex[0][0],polygon.edgeWithVertex[0][1])).alpha;
+        for (int j=0; j<3; j++) {Xinter[j] = alpha*X[polygon.edgeWithVertex[0][0]][j]+(1.0-alpha)*X[polygon.edgeWithVertex[0][1]][j];}
+        if (normal*(loc-Xinter) < 0) {probeInside = true;}
+      }
+      if (ghostPoints && !probeInside) { // Viscous case: replace states in the structure by Ghost States.
+        GhostPoint<dim> *gp;
+        for(int i=0;i<4;++i) {
+          if(!(LSS->isActive(0,nodeNum(i)))) {
+            gp = ghostPoints->operator[](nodeNum(i));
+            varFcn->primitiveToConservative(gp->getPrimitiveState(),u[nodeNum(i)]);
+          }
         }
+      }
     }
 
   double bary[4];
@@ -2181,6 +2196,14 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
     sol[i] = 0.0;
     for (int j = 0; j < 4; ++j)
       sol[i] += u[ nodeNum(j) ][i]*bary[j];
+    if (isAtTheInterface && probeInside) {
+      for (int j = 0; j < 4; ++j) {
+        if (!(LSS->isActive(0,nodeNum(j)))) {
+          sol[i] = u[ nodeNum(j) ][i];
+          break;
+        }
+      }
+    }
   }
   return 1;
 }

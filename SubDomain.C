@@ -44,6 +44,7 @@ using std::max;
 #include <GhostPoint.h>
 #include <DenseMatrixOps.h>
 #include <limits>
+#include <PolygonReconstructionData.h> 
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -5838,7 +5839,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
     PolygonReconstructionData polygons[4];
 
     // find polygons.
-    int numberOfPolygons = getPolygons(iElem, LSS, polygons); 
+    int numberOfPolygons = getPolygons(elems[iElem], LSS, polygons); 
     assert(numberOfPolygons<=4);
     int index,vertex1,vertex2;
 
