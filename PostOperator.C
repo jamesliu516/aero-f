@@ -1175,18 +1175,22 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     } else {
 #pragma omp parallel for reduction(+: status[i])
       for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
-        if (ghostPoints) {
-          gp = ghostPoints->operator[](iSub);
+        if (distLSS) { // Then we are in the case of an Embedded simulation
+          if (ghostPoints) { // Embedded Navier-Stokes
+            gp = ghostPoints->operator[](iSub);
+            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
+          } else { // Embedded Euler
+            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)));
+          }
+        } else {
           subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                             &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
-        }
-        else {
-          subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                             &locU, &stat, &last[i], &nid);
+                                               &locU, &stat, &last[i], &nid);
         }
         if (Phi)
           subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
-                                               &phi, &stat,&last[i],&nid); 
+                                                  &phi, &stat,&last[i],&nid); 
 	if (stat) {
 	  fid = fluidId(iSub)[nid];
 	  varFcn->conservativeToPrimitive(locU, locV, fid);
@@ -1478,14 +1482,18 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
         int fid,nid;
 #pragma omp parallel for reduction(+: status[i])
         for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
-          if (ghostPoints) {
-            gp = ghostPoints->operator[](iSub);
+          if (distLSS) { // Then we are in the case of an Embedded simulation
+            if (ghostPoints) { // Embedded Navier-Stokes
+              gp = ghostPoints->operator[](iSub);
+              subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                   &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
+            } else { // Embedded Euler
+              subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                   &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)));
+            }
+          } else {
             subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                               &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
-          }
-          else {
-            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                               &locU, &stat, &last[i], &nid);
+                                                 &locU, &stat, &last[i], &nid);
           }
 
 	  if (stat) {

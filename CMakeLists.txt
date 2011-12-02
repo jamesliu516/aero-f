@@ -192,6 +192,7 @@ ADD_LIBRARY(FluidBase
              FluidSelectorCore.C
              OneDimensionalSolver.C
 	     Multigrid.C
+             PolygonReconstructionData.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
