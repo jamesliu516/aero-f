@@ -40,6 +40,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   int sp = strlen(iod.output.transient.prefix) + 1;
   int spn = strlen(iod.output.transient.probes.prefix) + 1;
+  int sprom = strlen(iod.output.rom.prefix) + 1;
 
   if (iod.output.transient.solutions[0] != 0) {
     solutions = new char[sp + strlen(iod.output.transient.solutions)];
@@ -50,21 +51,21 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   // GAPPY POD STUFF (CBM+KTC)
   if (iod.output.rom.newtonresiduals[0] != 0) {
-    newtonresiduals = new char[sp + strlen(iod.output.rom.newtonresiduals)];
+    newtonresiduals = new char[sprom + strlen(iod.output.rom.newtonresiduals)];
     sprintf(newtonresiduals, "%s%s", iod.output.rom.prefix, iod.output.rom.newtonresiduals);
   }
   else
     newtonresiduals = 0;
 
   if (iod.output.rom.jacobiandeltastate[0] != 0) {
-    jacobiandeltastate = new char[sp + strlen(iod.output.rom.jacobiandeltastate)];
+    jacobiandeltastate = new char[sprom + strlen(iod.output.rom.jacobiandeltastate)];
     sprintf(jacobiandeltastate, "%s%s", iod.output.rom.prefix, iod.output.rom.jacobiandeltastate);
   }
   else
     jacobiandeltastate = 0;
 
   if (iod.output.rom.reducedjac[0] != 0) {
-    reducedjac = new char[sp + strlen(iod.output.rom.reducedjac)];
+    reducedjac = new char[sprom + strlen(iod.output.rom.reducedjac)];
     sprintf(reducedjac, "%s%s", iod.output.rom.prefix, iod.output.rom.reducedjac);
   }
   else
@@ -450,14 +451,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     residuals = 0;
 
       if (iod.output.rom.staterom[0] != 0) {
-    staterom = new char[sp + strlen(iod.output.rom.staterom)];
+    staterom = new char[sprom + strlen(iod.output.rom.staterom)];
     sprintf(staterom, "%s%s", iod.output.rom.prefix, iod.output.rom.staterom);
   }
   else
     staterom = 0;
 
   if (iod.output.rom.error[0] != 0) {
-    error = new char[sp + strlen(iod.output.rom.error)];
+    error = new char[sprom + strlen(iod.output.rom.error)];
     sprintf(error, "%s%s", iod.output.rom.prefix, iod.output.rom.error);
   }
   else
