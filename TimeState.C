@@ -34,6 +34,7 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
   Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
 
   double c_np1, c_n, c_nm1, c_nm2;
+
   for (int i=0; i<dt.size(); ++i) {
     // If i lies in the structure, do nothing.
     if(LSS) if(!(LSS->isActive(0.0,i))) continue;
@@ -64,6 +65,47 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
   }
 }
 
+template<int dim>
+void TimeState<dim>::add_dAW_dtRestrict(bool *nodeFlag, GeoState &geoState, 
+					Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+					SVec<double,dim> &R, const std::vector<int> &sampledLocNodes)
+{
+
+  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+  Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
+  Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
+
+  double c_np1, c_n, c_nm1, c_nm2;
+
+  int i;
+  for (int iSampledNode=0; iSampledNode<sampledLocNodes.size(); ++iSampledNode) {
+		i = sampledLocNodes[iSampledNode];
+
+    double invDt = 1.0 / dt[i];
+    if (data.use_modal == true)  {
+      c_np1 = data.alpha_np1 * ctrlVol[i];
+      c_n   = data.alpha_n * ctrlVol_n[i];
+      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
+      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i];
+    }
+    else  {
+      double invCtrlVol = 1.0 / ctrlVol[i];
+      c_np1 = data.alpha_np1;
+      c_n   = data.alpha_n * ctrlVol_n[i] * invCtrlVol;
+      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i] * invCtrlVol;
+      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
+    }
+
+    for (int k=0; k<dim; ++k) {
+      double dAWdt = invDt * (c_np1*Q[i][k] + c_n*Un[i][k] +
+                            c_nm1*Unm1[i][k] + c_nm2*Unm2[i][k]);
+      if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+        R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
+      else
+        R[i][k] += dAWdt;
+    }
+  }
+}
 //------------------------------------------------------------------------------
 // Add Time Derivative Term, d(AW)/dt to the flux F
 // If running Non-Modal, adds invA*d(AW)/dt to the flux invA*F
@@ -142,6 +184,7 @@ void TimeState<dim>::addToJacobianNoPrec(bool *nodeFlag, Vec<double> &ctrlVol, G
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED) )
         addToJacobianNoPrecLocal(i, ctrlVol[i], U, A);
   }
+
 }
 
 template<int dim>
@@ -327,6 +370,9 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
     double V[dim];
     vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
     double e = vf->computeRhoEnergy(V)/V[0];
+    double pressure = vf->getPressure(V);
+    double c = vf->computeSoundSpeed(V);
+    double c2 = c*c;
     double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
     double beta = tprec.getBeta(locMach,irey);
     double oobeta2 = 1.0/(beta*beta);
@@ -336,13 +382,13 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
     for (int j=0; j<dim; j++)
       Pinv[j] = oobeta2m1*V[j];
     Pinv[0] = oobeta2;
-    Pinv[4] = oobeta2m1*e;
+    Pinv[4] = oobeta2m1*(e+pressure/V[0] - c2);
     /* The preconditioning matrix is:
      * Pinv[dim][dim] = { { oobeta2,           0.0, 0.0, 0.0, 0.0 , 0.0, 0.0 },
      *                    {(oobeta2-1.0)*V[1], 1.0, 0.0, 0.0, 0.0 , 0.0, 0.0 },
      *                    {(oobeta2-1.0)*V[2], 0.0, 1.0, 0.0, 0.0 , 0.0, 0.0 },
      *                    {(oobeta2-1.0)*V[3], 0.0, 0.0, 1.0, 0.0 , 0.0, 0.0 },
-     *                    {(oobeta2-1.0)*e,    0.0, 0.0, 0.0, 1.0 , 0.0, 0.0 },
+     *                    {(oobeta2-1.0)*(h-c2), 0.0, 0.0, 0.0, 1.0 , 0.0, 0.0 },
      *                    {(oobeta2-1.0)*V[5], 0.0, 0.0, 0.0, 0.0 , 1.0, 0.0 },
      *                    {(oobeta2-1.0)*V[6], 0.0, 0.0, 0.0, 0.0 , 0.0, 1.0 } };
      * Take the first 5-by-5 matrix to get the Euler preconditioner
@@ -465,6 +511,44 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
+                Vec<double> &ctrlVol, SVec<double,dim> &V,
+                GenMat<Scalar,neq> &A, Scalar shift)
+{
+
+  Scalar dfdUi[dim*dim], dfdVi[dim*dim];
+
+  //if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  if (data.use_modal && data.use_freq == false) A *= 0.5;
+
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && nodeFlag[i] == 0) continue;
+      Scalar c_np1;
+      if (data.use_freq == true)
+        c_np1 = shift*ctrlVol[i];
+      else
+        c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+
+    int k;
+    for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+    for (k=0; k<dim; ++k) dfdUi[k + k*dim] = c_np1;
+
+    varFcn->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+
+    Scalar *Aii = A.getElem_ii(i);
+
+    for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
 template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
@@ -506,44 +590,6 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 }
 
 
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-template<class Scalar, int neq>
-void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
-                Vec<double> &ctrlVol, SVec<double,dim> &V,
-                GenMat<Scalar,neq> &A, Scalar shift)
-{
-
-  Scalar dfdUi[dim*dim], dfdVi[dim*dim];
-
-  //if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
-
-  if (data.use_modal && data.use_freq == false) A *= 0.5;
-
-  for (int i=0; i<dt.size(); ++i) {
-
-    if (nodeFlag && nodeFlag[i] == 0) continue;
-      Scalar c_np1;
-      if (data.use_freq == true)
-        c_np1 = shift*ctrlVol[i];
-      else
-        c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
-
-    int k;
-    for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
-    for (k=0; k<dim; ++k) dfdUi[k + k*dim] = c_np1;
-
-    varFcn->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
-
-    Scalar *Aii = A.getElem_ii(i);
-
-    for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
-
-  }
-
-}
 
 //------------------------------------------------------------------------------
 template<int dim>

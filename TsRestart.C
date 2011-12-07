@@ -52,6 +52,7 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
       fprintf(fp, "  TimeStep2 = %e;\n", dt_nm2 * refVal->time);
       fprintf(fp, "  Residual = %e;\n", residual);
       fprintf(fp, "  Energy = %e;\n", energy[0] * refVal->energy);
+      fprintf(fp, "  NewtonOutputStep = %d;\n", timeState.getOutputNewtonStep());
       fprintf(fp, "}\n");
       fclose(fp);
     }

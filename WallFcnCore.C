@@ -19,7 +19,7 @@ WallFcn::WallFcn(IoData &iod, VarFcn *varf, ViscoFcn *visf) :
   varFcn(varf), viscoFcn(visf)
 {
 
-  gam = varFcn->getGamma();
+  gam = varFcn->specificHeatCstPressure();
   vkcst = 0.41;
   reynolds = iod.ref.reynolds_mu;
 

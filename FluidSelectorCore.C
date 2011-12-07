@@ -33,7 +33,6 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
   }
 
   programmedBurn = 0;
-
 }
 
 //------------------------------------------------------------------------------
@@ -80,8 +79,9 @@ void FluidSelector::getFluidId(Vec<int> &tag, Vec<double> &phi){
 
 void FluidSelector::getFluidId(DistVec<double> &Phi){
   int numLocSub = Phi.numLocSub();
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     double *phi = Phi.subData(iSub);
     int    *tag = fluidId->subData(iSub);
     for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
@@ -93,8 +93,9 @@ void FluidSelector::getFluidId(DistVec<double> &Phi){
 
 void FluidSelector::getFluidId(DistVec<int> &Tag, DistVec<double> &Phi){
   int numLocSub = Phi.numLocSub();
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     double *phi = Phi.subData(iSub);
     int    *tag = Tag.subData(iSub);
     for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
@@ -337,8 +338,9 @@ void FluidSelector::setupFluidIdMultiFluidInitialConditions(IoData &iod, DistSVe
 
 void FluidSelector::printFluidId(){
   int numLocSub = fluidId->numLocSub();
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     int    *tag = fluidId->subData(iSub);
     for (int i=0; i<fluidId->subSize(iSub); i++)
       fprintf(stdout, "fluidId[%d] = %d\n", i, tag[i]);

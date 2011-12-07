@@ -165,13 +165,18 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
 
     //recompute intersections
     double tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
+    if(this->withCracking && this->withMixedLS) // no need for the intersector to determine fluidId.
+      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, false);
+    else
+      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true);
+
+    if(this->riemannNormal==2)
+      this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
     this->timer->addIntersectionTime(tw);
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
-    if(this->riemannNormal==2)
-      this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
    
+    /* I AM HERE */
     this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
     this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
@@ -268,7 +273,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
 // call routines below from this same file or from LevelSetTsDesc
 //------------------------------------------------------------------------------
 template<int dim,int dimLS>
-int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 { 
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());

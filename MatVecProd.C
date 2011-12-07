@@ -102,6 +102,37 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 
 //------------------------------------------------------------------------------
 
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
+		DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f,
+		RestrictionMapping<dim> & restrictionMapping)
+{
+
+	std::vector<std::vector<int> > sampledLocNodes =
+		restrictionMapping.getRestrictedToOriginLocNode() ;
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  if (recFcnCon) {
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+
+    if (timeState)
+      timeState->add_dAW_dtRestrict(it, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  }
+  else  {
+    Feps = f;
+  }
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+  
+}
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv,
@@ -154,9 +185,7 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
   Feps.strip(F);
 
 }
-
 //------------------------------------------------------------------------------
-
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
 {
@@ -167,13 +196,20 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Qepstmp = Q + eps * p;
 
   Qepstmp.pad(Qeps);
+  
+  // Ghost-Points Population
+  if(this->isFSI && this->fsi.ghostPoints)
+    {
+      this->fsi.ghostPoints->deletePointers();
+      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+    }
 
   if (!this->isFSI)
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   else
     spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                              this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
-                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
 
   if (timeState)
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -183,7 +219,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Feps.strip(Fepstmp);
 
   if (fdOrder == 1) {
-    
+
     prod = (1.0/eps) * (Fepstmp - F);
  
   }
@@ -192,13 +228,19 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     Qepstmp = Q - eps * p;
     
     Qepstmp.pad(Qeps);
+  
+    if(this->isFSI && this->fsi.ghostPoints)
+    {
+      this->fsi.ghostPoints->deletePointers();
+      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+    }
 
     if (!this->isFSI)
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     else
       spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                                this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
-                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
  
     if (timeState)
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -249,6 +291,61 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   prod = (1.0/eps) * (Fepstmp - F);
 */
 
+}
+//------------------------------------------------------------------------------
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
+		DistSVec<double,neq> &prod, RestrictionMapping<dim> & restrictionMapping)
+{
+	std::vector<std::vector<int> > sampledLocNodes =
+		restrictionMapping.getRestrictedToOriginLocNode() ;
+
+  double eps = computeEpsilon(Q, p);
+
+// Included (MB)
+  Qepstmp = Q + eps * p;
+
+  Qepstmp.pad(Qeps);
+
+  spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+
+  if (timeState)
+    timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+  spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  Feps.strip(Fepstmp);
+
+  if (fdOrder == 1) {
+
+    prod = (1.0/eps) * (Fepstmp - F);
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qepstmp = Q - eps * p;
+    
+    Qepstmp.pad(Qeps);
+
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+
+    if (timeState)
+      timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+
+    prod = (0.5/eps) * (Fepstmp - Ftmp);
+
+  }
+
+}
+
+template<int dim, int neq>
+void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) {
+
+  apply(p.real(), prod.real());
 }
 
 //------------------------------------------------------------------------------
@@ -590,6 +687,47 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 
 }
 
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmbeddedVec<double,neq> &prod)
+{
+
+  int iSub;
+  
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->computeMatVecProdH1(p.real().getMasterFlag(iSub), *A[iSub],
+					       p.real()(iSub), prod.real()(iSub), 
+                                               p.ghost()(iSub), prod.ghost()(iSub) );
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.real().subData(iSub));
+  }
+
+
+  this->vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.real().subData(iSub));
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.ghost().subData(iSub));
+  }
+  this->vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.ghost().subData(iSub));
+}
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::clearGhost()
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+    A[iSub]->clearGhost();
+  }
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -878,7 +1016,13 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x,
          break;
        case 7:
          timeState->addToH2(*ctrlVol, *Q, *this, Scalar(8.0/3.0), 2.0);
-       break;
+         break;
+       case 8:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(16.0/3.0), 2.0);
+         break;
+       case 9:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(10.0/3.0), 2.0);
+         break;
 
     }
   }

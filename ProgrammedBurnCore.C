@@ -26,6 +26,8 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
     Burn burn;
     burn.pgData = &B;
     burn.ignited = B.ignited;
+    burn.finished = false;
+    //burn.finished = B.finished;
     computeNearestNode(x0n, burn.x0,burn.x0subdom,burn.x0id);
 
     myBurns.push_back(burn);
@@ -50,6 +52,8 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
 
     burn.pgData = &B;
     burn.ignited = B.ignited;
+    burn.finished = false;
+    //burn.finished = B.finished;
     //std::cout << "burn.ignited = " << burn.ignited << std::endl;
     computeNearestNode(x0n, burn.x0,burn.x0subdom,burn.x0id);
 
@@ -73,6 +77,7 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, SVec<double,1>* _nodeSet) {
   Burn burn;
   burn.pgData = &B;
   burn.ignited = B.ignited;
+  burn.finished = false;
   double min_dist = 1000000000.0;
   int id;
   for (int i = 0; i < nodeSet0->size(); ++i) {
@@ -219,6 +224,8 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
   int iSub;
   lastTime = t;
 
+  int cnt[5] = {0,0,0,0,0};
+
 #pragma omp parallel for
   for (iSub = 0; iSub < distInfo->numLocSub; ++iSub) {
     int* fid = fluidIds.subData(iSub);
@@ -230,6 +237,9 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
       
       for (int j = 0; j < myBurns.size(); ++j) {
 	Burn& B = myBurns[j];
+        if (B.finished)
+          continue;
+
 	r = sqrt((x[i][0]-B.x0[0])*(x[i][0]-B.x0[0])+
 		 (x[i][1]-B.x0[1])*(x[i][1]-B.x0[1])+
 		 (x[i][2]-B.x0[2])*(x[i][2]-B.x0[2]));
@@ -246,10 +256,18 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
 	  
 	  fid[i] = B.pgData->burnedEOS;
 	}
+        if (fid[i] == B.pgData->unburnedEOS)
+          cnt[j]++;
       }
     }
   }
   
+  distInfo->com->globalSum(5,cnt);
+
+  for (int j = 0; j < myBurns.size(); ++j) {
+    if (cnt[j] == 0)
+      myBurns[j].finished = true;
+  }
 }
 
 void ProgrammedBurn::setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U) {
@@ -257,11 +275,14 @@ void ProgrammedBurn::setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U)
   int iSub;
   double r;
   lastTime = t;
+  int cnt[5] = {0,0,0,0,0};
 
   for (int i = 0; i < fluidIds.size(); ++i) {
     
     for (int j = 0; j < myBurns.size(); ++j) {
       Burn& B = myBurns[j];
+      if (B.finished)
+        continue;
       r = sqrt(((*nodeSet0)[i][0]-B.x0[0])*((*nodeSet0)[i][0]-B.x0[0])+
 	       (B.x0[1])*(B.x0[1])+
 	       (B.x0[2])*(B.x0[2]));
@@ -276,9 +297,15 @@ void ProgrammedBurn::setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U)
 	*/
 	fluidIds[i] = B.pgData->burnedEOS;
       }
+      if (fluidIds[i] == B.pgData->unburnedEOS)
+        cnt[j]++;
     }
   }
   
+  for (int j = 0; j < myBurns.size(); ++j) {
+    if (cnt[j] == 0)
+      myBurns[j].finished = true;
+  } 
 }
 
 void ProgrammedBurn::getDetonationNormal(int tag,int i,int j, double xmid[3], double gradphi[3]) {

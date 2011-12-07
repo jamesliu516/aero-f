@@ -224,9 +224,12 @@ c For one and two equation turbulence models
 c
 
       if (type.eq.1) then
+         Vinf(6) = Uinf(6) / Vinf(1)
          updir = 0.5d0 + dsign(0.5d0, phi(1))
          phi(6) = phi(1) * (updir * U(6) + (1.0d0 - updir) * Vinf(6))
       else if (type.eq.2) then
+         Vinf(6) = Uinf(6) / Vinf(1)
+         Vinf(7) = Uinf(7) / Vinf(1)
          updir = 0.5d0 + dsign(0.5d0, phi(1))
          phi(6) = phi(1) * (updir * U(6) + (1.0d0 - updir) * Vinf(6))
          phi(7) = phi(1) * (updir * U(7) + (1.0d0 - updir) * Vinf(7))

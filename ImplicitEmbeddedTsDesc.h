@@ -12,7 +12,7 @@
 #include <KspSolver.h>
 #include <SpaceOperator.h>
 #include <NewtonSolver.h>
-
+#include <DistEmbeddedVector.h>
 
 #ifdef TYPE_PREC
 #define PrecScalar TYPE_PREC
@@ -29,7 +29,7 @@ class ImplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
 
   MatVecProd<dim,dim> *mvp;
   KspPrec<dim> *pc;
-  KspSolver<DistSVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
+  KspSolver<DistEmbeddedVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
 	
   NewtonSolver<ImplicitEmbeddedTsDesc<dim> > *ns;
 
@@ -40,6 +40,8 @@ class ImplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
 
   template <int neq>
   KspPrec<neq> *createPreconditioner(PcData &pcdata, Domain *dom);
+ 
+  DistEmbeddedVec<double,dim> embeddedU,embeddedB,embeddeddQ;
 
 public:
   
@@ -48,14 +50,14 @@ public:
   ~ImplicitEmbeddedTsDesc();
 
   template<int neq, class MatVecProdOp>
-  KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
+  KspSolver<DistEmbeddedVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
   createKrylovSolver(const DistInfo &info, KspData &kspdata,
                      MatVecProdOp *_mvp, KspPrec<neq> *_pc,
                      Communicator *_com);
 
   int commonPart(DistSVec<double,dim> &U);
 
-  int solveNonLinearSystem(DistSVec<double,dim> &U);
+  int solveNonLinearSystem(DistSVec<double,dim> &U, int);
   
   void computeFunction(int it, DistSVec<double,dim> &Q,
                        DistSVec<double,dim> &F);

@@ -28,6 +28,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistSVec<double,dimLS> Phi;           //conservative variables
   DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
+  DistSVec<double,dim> Utilde;
 
   DistVec<double> umax;
 
@@ -68,7 +69,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   
   void fixSolution(DistSVec<double,dim>& U, DistSVec<double,dim>& dU);
 
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
+  virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
   
   void setCurrentTime(double t,DistSVec<double,dim>& U);
 

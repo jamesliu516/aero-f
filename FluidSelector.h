@@ -86,7 +86,13 @@ public:
   void updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV);
 
   template<int dim> /*this dim is actually dimLS*/
+  void updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV);
+
+  template<int dim> /*this dim is actually dimLS*/
   void updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi);
+
+  template<int dim> /*this dim is actually dimLS*/
+  void updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi);
 
   template<int dim>
   void getFluidId(DistVec<int> &Tag, DistSVec<double,dim> &Phi, DistVec<int>* fsId=0);
@@ -99,6 +105,9 @@ public:
 
   template<int dim>
   void getFluidId(int &tag, double *phi);
+
+  template<int dim>
+  void checkLSConsistency(DistSVec<double,dim> &Phi);
 };
 
 //------------------------------------------------------------------------------

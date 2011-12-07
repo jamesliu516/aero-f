@@ -145,7 +145,7 @@ ImplicitLevelSetTsDesc<dim,dimLS>::createKrylovSolver(
 // call routines below from this same file or from LevelSetTsDesc
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>
-int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 {
   
   int its;
@@ -154,6 +154,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
 
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
+  this->Utilde = U;
   if(!(this->interfaceType==MultiFluidData::FSF)){
     this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
     this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);

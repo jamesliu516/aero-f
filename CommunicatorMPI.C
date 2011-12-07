@@ -15,6 +15,8 @@ using std::complex;
 
 #ifdef USE_MPI
 template<>
+MPI_Datatype CommTrace<bool>::MPIType = MPI::BOOL;
+template<>
 MPI_Datatype CommTrace<int>::MPIType = MPI_INTEGER;
 template<>
 MPI_Datatype CommTrace<float>::MPIType = MPI_FLOAT;
@@ -25,6 +27,8 @@ MPI_Datatype CommTrace<double>::MPIType = MPI_DOUBLE;
 template<>
 MPI_Datatype CommTrace<std::complex<double> >::MPIType = MPI_DOUBLE;
 
+template<>
+int CommTrace<bool>::multiplicity = 1;
 template<>
 int CommTrace<int>::multiplicity = 1;
 template<>

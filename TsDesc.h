@@ -6,7 +6,7 @@
 #include <TsOutput.h>
 #include <TsRestart.h>
 #include <TsParameters.h>
-#include <Domain.h>
+//#include <Domain.h>
 #include <DistVector.h>
 //#include <DistEulerStructGhostFluid.h>
 
@@ -69,7 +69,7 @@ protected:
   RefVal *refVal;
   VarFcn *varFcn;
 
-
+  DistVec<int> fluidIdDummy;
   DistTimeState<dim> *timeState;
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
@@ -134,6 +134,8 @@ public:
 			 	DistSVec<double,dim> &);
   virtual void outputToDisk(IoData &, bool*, int, int, int, double, double,
 				DistSVec<double,dim> &);
+	virtual void writeStateRomToDisk(int it, double cpu) {};
+	virtual void writeErrorToDisk(int it, double cpu) {};
 
   virtual void outputForces(IoData &, bool*, int, int, int, double, double,
 		    DistSVec<double,dim> &);
@@ -143,7 +145,7 @@ public:
   virtual void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
   virtual bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U){return true;}
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &U) { return 0; }
+  virtual int solveNonLinearSystem(DistSVec<double,dim> &U, int) { return 0; }
   virtual int checkSolution(DistSVec<double,dim> &);
 
   int getInitialIteration() const { return restart->iteration; }
@@ -157,6 +159,7 @@ public:
 
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
 
+  virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);

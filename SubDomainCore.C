@@ -47,6 +47,8 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   globSubNum = globN;
   numClusNodes = nClNd;
 
+  sampleMesh = false;
+
   sprintf(suffix, "%s", clstN);
 
   locToGlobNodeMap = locNodeMap;
@@ -217,6 +219,12 @@ Connectivity *SubDomain::createElementToElementConnectivity()
   return eToE;
 }
 
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createElementToNodeConnectivity()
+{
+  return new Connectivity (&elems);
+}
 //------------------------------------------------------------------------------
 
 Connectivity *SubDomain::createEdgeBasedConnectivity()
@@ -539,6 +547,18 @@ void SubDomain::getElementStatistics(int &numNodes, int &numEdges,
 
 }
 
+// Get the local node number in the subdomain of the global node <id>
+// Returns -1 if it does not exist.  Warning: This method is O(N)
+int SubDomain::getLocalNodeNum(int globNodeNum) const {
+
+  for (int i = 0; i < nodes.size(); ++i) {
+    if (locToGlobNodeMap[i] == globNodeNum)
+      return i;
+  }
+  
+  return -1;
+}
+
 //------------------------------------------------------------------------------
 
 int SubDomain::computeControlVolumes(int numInvElem, double lscale,
@@ -560,7 +580,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
 				     locToGlobElemMap, nodes, X);
     }
   }
-
+  
   return ierr;
 
 }
@@ -2551,6 +2571,16 @@ void SubDomain::computeDisplacement(SVec<double,3> &X, SVec<double,3> &dX)
 
 //------------------------------------------------------------------------------
 
+void SubDomain::computeDisplacement(SVec<double,3> &X, double* dX,int node)
+{
+
+  for (int k = 0; k < 3; ++k)
+    dX[k] = X[node][k] - nodes[node][k];
+
+}
+
+//------------------------------------------------------------------------------
+
 void SubDomain::makeMasterFlag(DistInfo &distInfo)
 {
 
@@ -3434,7 +3464,7 @@ void SubDomain::multiPointsDeltaFreq(int mFreqStart, double *freqCoarse, int nPo
 {
   int i;
   if (nPoints % 2 == 1)
-    midFreq[0] = int(floor(nPoints/2)+1)-1;
+    midFreq[0] = int(floor(nPoints/2.0)+1)-1;
   else
     midFreq[0] = nPoints/2-1;
   for (i=0; i<nPoints; i++) {
@@ -3580,7 +3610,7 @@ void SubDomain::buildDeltaFreq(double *deltaFreqCoarse,int numFreqCoarse, double
 
   int i;
   if (numFreqCoarse % 2 == 1)
-    midFreq[0] = int(floor(numFreqCoarse/2)+1)-1;
+    midFreq[0] = int(floor(numFreqCoarse/2.0)+1)-1;
   else
     midFreq[0] = numFreqCoarse/2-1;
   for (i=0; i<numFreqCoarse; i++)
@@ -4204,7 +4234,7 @@ void SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, const
 
 
 //-----------------------------------------------------------------------------------------------
-
+/*
 void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
                                         SVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                         LevelSetStructure &LSS, Vec<double> &pstarij, 
@@ -4216,14 +4246,19 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
   int i,j;
   ptr = edges.getPtr();
   bool iActive, jActive, intersect;
-  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
+  if (forceApp!=1) {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
 
   for (int l=0; l<edges.size(); l++) {
     if (!masterFlag[l]) continue;
     i = ptr[l][0];
     j = ptr[l][1];
-    iActive = LSS.isActive(0,i);
-    jActive = LSS.isActive(0,j);
+    if(LSS.withCracking()) {
+      iActive = !LSS.isOccluded(0,i);
+      jActive = !LSS.isOccluded(0,j);
+    } else {
+      iActive = LSS.isActive(0,i);
+      jActive = LSS.isActive(0,j);
+    }
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
@@ -4234,110 +4269,21 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     if (iActive) {
       Vec3D flocal(0.0,0.0,0.0);
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
-      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
-      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      flocal = (pstarij[l]-pInfty)*normal[l];
       sendLocalForce(flocal, lsRes, Fs);
     }
     if (jActive) {
       Vec3D flocal(0.0,0.0,0.0);
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if (forceApp==1) flocal = -(pstarji[l]-pInfty)*normal[l];
-      else flocal = -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      flocal = -(pstarji[l]-pInfty)*normal[l];
       sendLocalForce(flocal, lsRes, Fs);
     }
   }
 }
-
-//-----------------------------------------------------------------------------------------------
-/*
-void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
-                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs,
-                                        LevelSetStructure &LSS, Vec<double> &pstarij,
-                                        Vec<double> &pstarji, double pInfty)
-{
-  Vec<Vec3D>& normal = geoState.getEdgeNormal();
-  bool* masterFlag = edges.getMasterFlag();
-  int (*ptr)[2];
-  int i,j;
-  ptr = edges.getPtr();
-  bool iActive, jActive, intersect;
-  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
-
-  for (int l=0; l<edges.size(); l++) {
-    if (!masterFlag[l]) continue;
-    i = ptr[l][0];
-    j = ptr[l][1];
-    iActive = LSS.isActive(0,i);
-    jActive = LSS.isActive(0,j);
-    intersect = LSS.edgeIntersectsStructure(0,i,j);
-
-    if (!iActive && !jActive) continue; //both inside structure
-    if (iActive && jActive && !intersect) continue;
-
-    // now (i,j) must intersect the structure.
-    LevelSetResult lsRes;
-    Vec3D flocal(0.0,0.0,0.0); //It MUST be initialized to 0 for the following lines to work!
-    if (iActive) {
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
-      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
-      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
-    }
-    if (jActive) {
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if (forceApp==1) flocal += -(pstarji[l]-pInfty)*normal[l];
-      else flocal += -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
-    }
-    sendLocalForce(flocal, lsRes, Fs);
-  }
-}
 */
 //-----------------------------------------------------------------------------------------------
-
-struct PolygonReconstructionData {
-    PolygonReconstructionData() : numberOfEdges(0) {}
-    int numberOfEdges;
-    int edgeWithVertex[4][2];
-
-    void AssignSingleEdge(int n1, int n2){ //for PhysBAM only
-        numberOfEdges=1;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-    }
-
-    void AssignTwoEdges(int n1, int n2, int n3){ //for PhysBAM only
-        numberOfEdges=2;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
-    }
-
-    void AssignTriangle(int n1, int n2, int n3, int n4,bool owned_by_single_vertex=true){
-        numberOfEdges=3;
-        if(owned_by_single_vertex){
-            edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-            edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
-            edgeWithVertex[2][0]=n1; edgeWithVertex[2][1]=n4;}
-        else{
-            edgeWithVertex[0][0]=n2; edgeWithVertex[0][1]=n1;
-            edgeWithVertex[1][0]=n3; edgeWithVertex[1][1]=n1;
-            edgeWithVertex[2][0]=n4; edgeWithVertex[2][1]=n1;}
-    }
-
-    void AssignQuadTriangle(int n1, int n2, int n3, int n4){ //for PhysBAM only
-        numberOfEdges=3;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
-        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n3;
-    }
-
-    void AssignQuadrilateral(int n1, int n2, int n3, int n4){
-        numberOfEdges=4;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
-        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n4;
-        edgeWithVertex[3][0]=n2; edgeWithVertex[3][1]=n3;
-    }
-};
-
-void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
+/*
+void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<double,3> &X,
                                              double (*Fs)[3], int sizeFs, LevelSetStructure &LSS,
                                              Vec<double> &pstarij, Vec<double> &pstarji, double pInfty)
 {
@@ -4350,8 +4296,6 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   int CODE;
   if (forceApp==3 && orderOfAccuracy==1)  CODE = 1;
   else if (forceApp==3 && orderOfAccuracy==2)  CODE = 3;
-  else if (forceApp==4 && orderOfAccuracy==1)  CODE = 2;
-  else if (forceApp==4 && orderOfAccuracy==2)  CODE = 2;
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
   // for debugging: output the reconstructed surface.
@@ -4403,7 +4347,9 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
             Xinter[k][1] = alpha*X[vertex1][1] + (1.0-alpha)*X[vertex2][1];
             Xinter[k][2] = alpha*X[vertex1][2] + (1.0-alpha)*X[vertex2][2];
 
-            if(LSS.isActive(0,vertex1)){pStar[k] = (vertex1<vertex2) ? pstarij[l] : pstarji[l];}
+            if((LSS.withCracking()   && LSS.isOccluded(0,vertex1)) ||
+               (!LSS.withCracking()) && LSS.isActive(0,vertex1)) {
+              pStar[k] = (vertex1<vertex2) ? pstarij[l] : pstarji[l];}
             else{pStar[k] = pInfty;}}
 
         switch(polygon.numberOfEdges){
@@ -4486,146 +4432,10 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   if(nodeFile) fclose(nodeFile);
   if(elemFile) fclose(elemFile);
 }
+*/
 
 //--------------------------------------------------------------------------
 
-int SubDomain::getPolygons(int iElem, LevelSetStructure &LSS, PolygonReconstructionData* polygons)
-{
-    int numberOfPolygons=0;
-    int oppositeNodes[4][3] = {{1,2,3},{0,2,3},{0,1,3},{0,1,2}};
-    int edgeToNodes[6][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,3}, {2,3}};
-    int edgeToOppositeNodes[6][2] = {{2,3}, {0,3}, {3,1}, {1,2}, {0,2}, {0,1}};
-    int T[4]; for (int i=0; i<4; ++i) T[i] = elems[iElem][i]; //nodes in a tet.
-    bool isBlocked[4][4],exit_early(true);
-    for(int i=0; i<6; ++i){int ni=edgeToNodes[i][0],nj=edgeToNodes[i][1];
-        isBlocked[ni][nj] = isBlocked[nj][ni] = LSS.edgeIntersectsStructure(0,T[ni],T[nj]);
-        if(isBlocked[ni][nj]) exit_early=false;}
-
-    if(exit_early) return 0; // No intersections detected; don't bother finding a reconstructed surface that does not exist.
-
-    bool finished[4]; for(int i=0; i<4; ++i) finished[i]=false;
-
-    // First, identify any of the simple cases
-    for(int current_node=0; current_node<4; ++current_node){
-        int n0=oppositeNodes[current_node][0],n1=oppositeNodes[current_node][1],n2=oppositeNodes[current_node][2];
-        if(isBlocked[current_node][n0] && isBlocked[current_node][n1] && isBlocked[current_node][n2]){
-            finished[current_node]=true;
-            polygons[numberOfPolygons++].AssignTriangle(T[current_node],T[n0],T[n1],T[n2]);
-            if(!isBlocked[n0][n1] && !isBlocked[n0][n2] && !isBlocked[n1][n2]){
-                polygons[numberOfPolygons++].AssignTriangle(T[current_node],T[n0],T[n1],T[n2],false);
-                return numberOfPolygons;}}} // REALLY simple case...
-    
-    for(int current_node=0; current_node<4; ++current_node){if(finished[current_node]) continue;
-        for(int n=0; n<3; ++n){int neighbor_node=oppositeNodes[current_node][n];
-            int e0=oppositeNodes[current_node][(n+1)%3],e1=oppositeNodes[current_node][(n+2)%3];
-            if(!isBlocked[current_node][neighbor_node] && isBlocked[current_node][e0] && isBlocked[current_node][e1]){
-                if(isBlocked[neighbor_node][e0] && isBlocked[neighbor_node][e1]){
-                    finished[current_node] = finished[neighbor_node] = true;
-                    polygons[numberOfPolygons++].AssignQuadrilateral(T[current_node],T[neighbor_node],T[e0],T[e1]);}
-                else if(isBlocked[neighbor_node][e0]){
-                    finished[current_node] = finished[neighbor_node] = true;
-                    polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e0],T[e1]);}
-                else if(isBlocked[neighbor_node][e1]){
-                    finished[current_node] = finished[neighbor_node] = true;
-                    polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e1],T[e0]);}
-                else {
-                    finished[current_node] = true;
-                    polygons[numberOfPolygons++].AssignTwoEdges(T[current_node],T[e1],T[e0]);}}}}
-
-    // Finally, check for single-intersection edge cases
-    for(int current_node=0; current_node<4; ++current_node) if(!finished[current_node]){
-        for(int i=0; i<3; ++i) if(isBlocked[current_node][oppositeNodes[current_node][i]]){
-            polygons[numberOfPolygons++].AssignSingleEdge(T[current_node],T[oppositeNodes[current_node][i]]);}}
-
-    assert(numberOfPolygons);
-    return numberOfPolygons;
-}
-
-//--------------------------------------------------------------------------
-
-int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
-{
-  int facet[4][3] = {{0,1,3}, {1,2,3}, {0,3,2}, {0,2,1}};
-  int edgeIndex[4][3] = {{0,4,3}, {1,5,4}, {3,5,2}, {2,1,0}};
-  int edgeToNodes[6][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,3}, {2,3}};
-  int T[4]; //nodes in a tet.
-
-  for (int i=0; i<4; i++)
-    T[i] = elems[iElem][i];
-  for (int i=0; i<4; i++)
-    polygon[i][0] = polygon[i][1] = -1;
-
-  int nextEdge[6];
-  for (int i=0; i<6; i++) nextEdge[i] = -1;
-  int firstEdge = -1;
-
-  int outside_status=-5;
-  for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) if(LSS.fluidModel(0,T[facet[iFacet][j]])==0) outside_status=0;
-  if(outside_status != 0) for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) outside_status=std::max(outside_status,LSS.fluidModel(0,T[facet[iFacet][j]]));
-  for (int iFacet=0; iFacet<4; iFacet++) {
-    int status = 0;
-    for (int j=0; j<3; j++)
-      if(LSS.fluidModel(0,T[facet[iFacet][j]])==outside_status) // TODO(jontg): This DOES NOT WORK for thin-shells.
-         status |= 1 << j;  //KW: set the j-th (counting from 0) binary digit to 1
-    switch (status) {
-      case 1:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][0];
-        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][2];
-        break;
-      case 2:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][1];
-        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][0];
-        break;
-      case 3:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][1];
-        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][2];
-        break;
-      case 4:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][2];
-        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][1];
-        break;
-      case 5:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][0];
-        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][1];
-        break;
-      case 6:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][2];
-        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][0];
-        break;
-      default:
-        break;
-    }
-  }
-
-  if (firstEdge<0) return 0;
-  int curEdge = firstEdge;
-  int edgeCount = 0;
-  do {
-    if (edgeCount>4) {
-      fprintf(stderr,"Error in getPolygon. edgeCount = %d > 4, Abort...\n", edgeCount);
-      exit(-1);
-    }
-    if (LSS.fluidModel(0,T[edgeToNodes[curEdge][0]])==outside_status) {
-      polygon[edgeCount][0] = T[edgeToNodes[curEdge][0]];
-      polygon[edgeCount][1] = T[edgeToNodes[curEdge][1]];
-    }else {
-      polygon[edgeCount][0] = T[edgeToNodes[curEdge][1]];
-      polygon[edgeCount][1] = T[edgeToNodes[curEdge][0]];
-    }
-    edgeCount++;
-    curEdge = nextEdge[curEdge];
-  } while (curEdge>=0 && curEdge!=firstEdge);
-
-  return edgeCount;
-}
-
-//--------------------------------------------------------------------------
 void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double p3,
                               LevelSetResult& lsRes1, LevelSetResult& lsRes2, LevelSetResult& lsRes3,
                               double(*Fs)[3])
@@ -4641,15 +4451,6 @@ void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double
     return;
   }
   if (METHOD==2) {
-    flocal = -1.0/3.0*p1*(nf*lsRes1.gradPhi)*lsRes1.gradPhi;
-    sendLocalForce(flocal, lsRes1, Fs);
-    flocal = -1.0/3.0*p2*(nf*lsRes2.gradPhi)*lsRes2.gradPhi;
-    sendLocalForce(flocal, lsRes2, Fs);
-    flocal = -1.0/3.0*p3*(nf*lsRes3.gradPhi)*lsRes3.gradPhi;
-    sendLocalForce(flocal, lsRes3, Fs);
-    return;
-  }
-  if (METHOD==3) {
     double c1 = 1.0/6.0, c2 = 1.0/12.0;
     flocal = -(c1*p1 + c2*(p2+p3))*nf;
     sendLocalForce(flocal, lsRes1, Fs);
@@ -4704,6 +4505,74 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
     }
   }
 }
+// ASSUME Max FLUID-ID IS 2
+void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll)
+{
+  /* poll[0,1,2]  |   indication
+     -------------+---------------
+     1  0  0      |     Id = 0
+     0  1  0      |     Id = 1
+     0  0  1      |     Id = 2(occluded)
+     0  0  0      |     no info available
+     1  1  1      |     can't decide */
+  
+  if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
+  const Connectivity &Node2Node = *getNodeToNode();
+  
+  for(int i=0; i<nodes.size(); i++) {
+    poll[i][0] = poll[i][1] = poll[i][2] = false;
+    bool swept = LSS.isSwept(0.0,i);
+    bool occluded = LSS.isOccluded(0.0,i);
 
-//-----------------------------------------------------------------------------------------------
+    if(!swept){ //fluidId should not change.
+      poll[i][fluidId[i]] = true;
+      continue;
+    }
+    if(occluded){ //set Id to 2
+      poll[i][2] = true;
+      continue;
+    }
+
+    int myId = -1;
+    int iNei;
+    bool consistent = false;
+    for(int j=0; j<Node2Node.num(i); j++) {
+      iNei = Node2Node[i][j];
+      if(i==iNei)
+        continue;
+      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,i,iNei))
+        continue;
+      if(myId==-1) {
+        myId = fluidId[iNei];
+        consistent = true;
+      } else if(myId!=fluidId[iNei]) {
+        consistent = false;
+        break;
+      }
+    }
+    
+    if(consistent)
+      poll[i][myId] = true; //its visible neighbors have the same id
+    else
+      poll[i][0] = poll[i][1] = poll[i][2] = (myId!=-1); //either 'no info' or 'can't decide'.
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_, const std::vector<int> &globalNeighborNodes) 
+{
+
+	sampleMesh = true;
+	locSampleNodes = locSampleNodes_;
+	numSampledNodes = locSampleNodes.size();
+	elems.computeConnectedElems(locSampleNodes);
+	edges.computeConnectedEdges(locSampleNodes);
+	edges.computeGlobalConnectedEdges(globalNeighborNodes,locToGlobNodeMap);
+	faces.computeConnectedFaces(locSampleNodes);
+
+}
+
+
+
 

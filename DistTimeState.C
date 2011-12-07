@@ -105,8 +105,13 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
         //each volume (volIt->first) is setup using
   }
 
+	int *output_newton_step = domain->getOutputNewtonStep();
+	*output_newton_step = data->getOutputNewtonStep();
+
   isGFMPAR = (ioData.eqs.numPhase > 1 &&
               ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
+  
+  fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
 }
 
 //------------------------------------------------------------------------------
@@ -210,12 +215,9 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
   setupUVolumesInitialConditions(iod);
-  
-  setupUOneDimensionalSolution(iod,X);
-
   setupUMultiFluidInitialConditions(iod,X);
-
-  if(point_based_id && iod.eqs.numPhase>=2) 
+  setupUOneDimensionalSolution(iod,X);
+  if(point_based_id)
     setupUFluidIdInitialConditions(iod, *point_based_id);
 
   if (name[0] != 0) {
@@ -253,7 +255,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
                                              FluidModelData &fm, double UU[dim])
 {
 
-  if(fm.fluid == FluidModelData::GAS){
+  if(fm.fluid == FluidModelData::PERFECT_GAS || fm.fluid == FluidModelData::STIFFENED_GAS){
     double gam = fm.gasModel.specificHeatRatio;
     double ps = fm.gasModel.pressureConstant;
 
@@ -305,7 +307,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
     double pref  = fm.liquidModel.Pref;
     double alpha = fm.liquidModel.alpha;
     double beta  = fm.liquidModel.beta;
-    double cv    = fm.liquidModel.Cv;
+    double cv    = fm.liquidModel.specificHeat;
 
     double rho = ic.density;
     double temperature = ic.temperature;
@@ -320,7 +322,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
     UU[1] = rho*u;
     UU[2] = rho*v;
     UU[3] = rho*w;
-    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel) - (pref + alpha*pow(rho, beta));
 
   }else{
     fprintf(stderr, "*** Error: no initial state could be computed\n");
@@ -362,7 +364,7 @@ void DistTimeState<dim>::setupUOneDimensionalSolution(IoData &iod, DistSVec<doub
 {
   OneDimensional::read1DSolution(iod, *Un, 
 				 (DistSVec<double,1>*)NULL,NULL,
-				 varFcn, X,
+				 varFcn, X,*domain,
 				 OneDimensional::ModeU);
 }
 //------------------------------------------------------------------------------
@@ -507,8 +509,7 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int
       }
     }
   } else {
-    domain->getCommunicator()->fprintf(stderr, "ERROR: FluidId-based initial conditions could not be found.\n");
-    exit(-1);
+    domain->getCommunicator()->fprintf(stderr, "NOTE: FluidId-based initial conditions not specified.\n");
   }
 } 
 
@@ -721,6 +722,23 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
 
 }
                                                                                                                       
+//------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::add_dAW_dtRestrict(int it, DistGeoState &geoState, 
+					    DistVec<double> &ctrlVol,
+					    DistSVec<double,dim> &Q, 
+					    DistSVec<double,dim> &R, const std::vector<std::vector<int> > &sampledLocNodes)
+{
+
+  if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->add_dAW_dtRestrict(Q.getMasterFlag(iSub), geoState(iSub), 
+				   ctrlVol(iSub), Q(iSub), R(iSub), sampledLocNodes[iSub]);
+
+}
 //------------------------------------------------------------------------------
 template<int dim>
 template<int dimLS>
@@ -1094,8 +1112,6 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
         double e = varFcn->computeRhoEnergy(V)/V[0];
         double locMach = varFcn->computeMachNumber(V); //local Preconditioning (ARL)
         double locbeta = tprec.getBeta(locMach,_irey[i]);
-        //double locbeta = fmax(k1*locMach, beta);
-        //locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta, cmach);
         double beta2 = (locbeta*locbeta);
         double beta2m1 = beta2 - 1.0;
         
@@ -1116,14 +1132,15 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
         for (int j=0; j<dim; j++)
 	  P[j][0] = beta2m1*V[j];
         P[0][0] = beta2;
-        P[4][0] = beta2m1*e;
+        double c = varFcn->computeSoundSpeed(V);
+        P[4][0] = beta2m1*(e+pressure/V[0]-c*c);
         
 	/* The preconditioning matrix is:
          * P[dim][dim] = { { beta2,           0.0, 0.0, 0.0, 0.0 , 0.0, 0.0 },
          *                 {(beta2-1.0)*V[1], 1.0, 0.0, 0.0, 0.0 , 0.0, 0.0 },
          *                 {(beta2-1.0)*V[2], 0.0, 1.0, 0.0, 0.0 , 0.0, 0.0 },
          *                 {(beta2-1.0)*V[3], 0.0, 0.0, 1.0, 0.0 , 0.0, 0.0 },
-         *                 {(beta2-1.0)*e,    0.0, 0.0, 0.0, 1.0 , 0.0, 0.0 },
+         *                 {(beta2-1.0)*(h-c2),0.0, 0.0, 0.0, 1.0 , 0.0, 0.0 },
 	 *		   {(beta2-1.0)*V[5], 0.0, 0.0, 0.0, 0.0 , 1.0, 0.0 },
 	 *		   {(beta2-1.0)*V[6], 0.0, 0.0, 0.0, 0.0 , 0.0, 1.0 } };
 	 * Take the first 5-by-5 matrix to get the Euler preconditioner
@@ -1179,7 +1196,8 @@ struct MultiphaseRiemannCopy {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Qtilde,
+				DistVec<int> &fluidId,
                                 DistVec<int> *fluidIdnm1,
                                 DistExactRiemannSolver<dim> *riemann,
                                 DistLevelSetStructure* distLSS,bool increasingPressure)
@@ -1191,23 +1209,33 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1 && !increasingPressure) {
-    DistVec<int> tempInt(fluidId);
-    tempInt = 0;
-    if (distLSS) {
-      distLSS->getSwept(tempInt);
-    }    
-    DistVec<int> minus1(fluidId);
-    minus1 = -1;
-    if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
+    if (fvmers_3pbdf == ImplicitData::BDF_SCHEME2) {
+      DistVec<int> tempInt(fluidId);
+      tempInt = 0;
+      if (distLSS) {
+	distLSS->getSwept(tempInt);
+      }    
+      DistVec<int> minus1(fluidId);
+      minus1 = -1;
+      if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
+      
+      varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
+      DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
+      varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
+      *Unm1 = *Vn;
+      
+      riemann->updatePhaseChange(*Vn,fluidId,minus1);
+      *Un = Q;
+    } else {
+      *Unm1 = *Vn;
+      *Vn = Q;
+      double tau = data->getTauN();
+      double beta = (1.0+2.0*tau)/((1.0+tau)*(1.0+tau));
+      *Un = beta*Q+(1.0-beta)*Qtilde;
+    }
 
-    varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
-    DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
-    varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
-    *Unm1 = *Vn;
-
-    riemann->updatePhaseChange(*Vn,fluidId,minus1);
-    *Un = Q;
     data->exist_nm1 = true;
+      
   } else {
     *Vn = *Un = Q;
   }
@@ -1304,9 +1332,11 @@ void DistTimeState<dim>::get_dW_dt(bool doInitialTasks,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<int dim>
-DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-                                                          DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach)
+template<int dim> DistVec<double>*
+DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState,
+		DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol,
+		DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim>
+		&dV, double dMach)
 {
 
 //Remark: Error mesage for pointers
@@ -1331,3 +1361,8 @@ DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &ge
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim> 
+int DistTimeState<dim>::getOutputNewtonStep() const {
+	return *(domain->getOutputNewtonStep()); 
+}

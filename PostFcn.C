@@ -7,10 +7,6 @@
 #include <cstdio>
 
 const double PostFcnEuler::third = 1.0/3.0;
-//-----------------------------------------------------------------------------
-//CHANGES_FOR_WATER
-//	only in the way the constructor creates the PostFcnEuler class
-//	and to compute certain values for NS using lame coefficients (lambda and mu)
 //------------------------------------------------------------------------------
 
 PostFcn::PostFcn(VarFcn *vf)
@@ -61,7 +57,8 @@ double PostFcn::computeFaceScalarQuantity(ScalarType type, double dp1dxj[4][3],
 PostFcnEuler::PostFcnEuler(IoData &iod, VarFcn *vf) : PostFcn(vf)
 {
 
-  if (iod.eqs.fluidModel.fluid == FluidModelData::GAS){
+  if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+      iod.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS){
     mach = iod.ref.mach;
     pinfty = iod.bc.inlet.pressure;
 
@@ -215,7 +212,8 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
 
 void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
                                 double *Vwall, double *Vface[3], double *Vtet[4],
-				double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+				double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro,
+				int fid)
 {
 
   double pcg[3], p[3];
@@ -225,7 +223,7 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
   switch(hydro)
     {
     case 0:
-      for(i=0;i<3;i++) pcg[i] = varFcn->getPressure(Vface[i]);
+      for(i=0;i<3;i++) pcg[i] = varFcn->getPressure(Vface[i],fid);
       break;
     case 1: // hydrostatic pressure
       for(i=0;i<3;i++) pcg[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
@@ -285,58 +283,35 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
 
 void PostFcnEuler::computeForceEmbedded(int orderOfAccuracy, double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
 					double *Vwall, double *Vface[3], double *Vtet[4],
-					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
+                                        int hydro, int* fid, bool applyRealForce)
 {
-
+  if(hydro!=0) {fprintf(stderr,"hydro parameter (%d) not supported...\n",hydro); exit(-1);}
   Vec3D p;
-  double pcgin;
-  int i;
-
-  switch(hydro)
-    {
-    case 0:
-      for(i=0;i<3;i++) p[i] = varFcn->getPressure(Vface[i]);
-      break;
-    case 1: // hydrostatic pressure
-      for(i=0;i<3;i++) p[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
-      break;
-    case 2: // hydrodynamic pressure
-      for(i=0;i<3;i++) p[i] = varFcn->hydrodynamicPressure(Vface[i],Xface[i]);
-      break;
-    default:
-      fprintf(stderr,"hydro parameter is not correct. Pressure at the face cannot be computed. hydro = %d\n",hydro);
-      exit(-1);
-    }
-
-  if (pin)
-    pcgin = *pin;
+  if(applyRealForce)
+    for(int i=0;i<3;i++) 
+      p[i] = varFcn->getPressure(Vface[i],(fid?fid[i]:0));
   else
-    if (hydro == 0)
-      pcgin = pinfty;
-    else
-      pcgin = 0.0;
+    for(int i=0;i<3;i++)
+      p[i] = Vface[i][4];
 
-  p -= pcgin;
-
- // Computes Int_{T} (N_i * Sum_{j\in T} p_j N_j) dx
- // At first order, N_j = Chi_j (constant per control volume)
- // At second order, N_j = Phi_j (P1 lagrangian basis functions within T)
- switch (orderOfAccuracy)
-   {
-   case 1: 
-     Fi0 = (p[0]/3.0)*n;
-     Fi1 = (p[1]/3.0)*n;
-     Fi2 = (p[2]/3.0)*n;
-     break;
-   case 2:
-     double c1 = 1.0/6.0, c2 = 1.0/12.0;
-     Fi0 = (c1*p[0]+c2*(p[1]+p[2]))*n;
-     Fi1 = (c1*p[1]+c2*(p[2]+p[0]))*n;
-     Fi2 = (c1*p[2]+c2*(p[0]+p[1]))*n;
-     break;
-   }     
-     
- Fv = 0.0;
+  // Computes Int_{T} (N_i * Sum_{j\in T} p_j N_j) dx
+  // At first order, N_j = Chi_j (constant per control volume)
+  // At second order, N_j = Phi_j (P1 lagrangian basis functions within T)
+  switch (orderOfAccuracy) {
+    case 1: 
+      Fi0 = (p[0]/3.0)*n;
+      Fi1 = (p[1]/3.0)*n;
+      Fi2 = (p[2]/3.0)*n;
+      break;
+    case 2:
+      double c1 = 1.0/6.0, c2 = 1.0/12.0;
+      Fi0 = (c1*p[0]+c2*(p[1]+p[2]))*n;
+      Fi1 = (c1*p[1]+c2*(p[2]+p[0]))*n;
+      Fi2 = (c1*p[2]+c2*(p[0]+p[1]))*n;
+      break;
+  }     
+  Fv = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -450,8 +425,8 @@ void PostFcnEuler::computeDerivativeOfForce(double dp1dxj[4][3], double ddp1dxj[
 //-----------------------------------------------------------------------------------
 
 void PostFcnEuler::computeForceTransmitted(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
-                double *Vwall, double *Vface[3], double *Vtet[4],
-                double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+					   double *Vwall, double *Vface[3], double *Vtet[4],
+					   double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro,int fid)
 {
 
   double pcg[3], p[3];
@@ -460,7 +435,7 @@ void PostFcnEuler::computeForceTransmitted(double dp1dxj[4][3], double *Xface[3]
 
   if (hydro == 0) {
     for(i=0;i<3;i++)
-    pcg[i] = varFcn->getPressure(Vface[i]);
+      pcg[i] = varFcn->getPressure(Vface[i],fid);
   }
   else if (hydro == 1){ // hydrostatic pressure
      for(i=0;i<3;i++)
@@ -861,8 +836,10 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
     double dudxj[3][3];
     computeVelocityGradient(dp1dxj, u, dudxj);
 
-    double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-    double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
+    double mu     = viscoFcn->compute_mu(Tcg);
+    double lambda = viscoFcn->compute_lambda(Tcg, mu);
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
 
     double tij[3][3];
     computeStressTensor(mu, lambda, dudxj, tij);
@@ -891,8 +868,10 @@ Vec3D PostFcnNS::computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dud
   double T;
   computeTemperature(Vi,T);
   
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(T);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(T, mu);
+  double mu     = viscoFcn->compute_mu(T);
+  double lambda = viscoFcn->compute_lambda(T, mu);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
   
   double tij[3][3];
   computeStressTensor(mu, lambda, dudxj, tij);
@@ -936,15 +915,14 @@ Vec3D PostFcnNS::computeDerivativeOfViscousForce(double dp1dxj[4][3], double ddp
 
     double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dS[0];
 
-    double dooreynolds_lambda = -1.0 / ( reynolds_lambdaNS * reynolds_lambdaNS ) * dRe_lambdadMachNS * dS[0];
+    double mu     = viscoFcn->compute_mu(Tcg);
+    double lambda = viscoFcn->compute_lambda(Tcg, mu);
 
-    double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
+    double dmu = dooreynolds_mu * mu + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dS[0]);
+    double dlambda = dooreynolds_mu * lambda + ooreynolds_mu * viscoFcn->compute_lambdaDerivative(mu, dmu, dS[0]);
 
-    double dmu = dooreynolds_mu * viscoFcn->compute_mu(Tcg) + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dS[0]);
-
-    double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-
-    double dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dS[0]);
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
 
     double tij[3][3];
     computeStressTensor(mu, lambda, dudxj, tij);
@@ -966,10 +944,10 @@ Vec3D PostFcnNS::computeDerivativeOfViscousForce(double dp1dxj[4][3], double ddp
 
 void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
 			     double *Vwall, double *Vface[3], double *Vtet[4], 
-                    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+                    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro, int fid)
 {
 
-  PostFcnEuler::computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
+  PostFcnEuler::computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro,fid);
 
   Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
 
@@ -979,12 +957,17 @@ void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, do
 
 void PostFcnNS::computeForceEmbedded(int orderOfAccuracy,double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
 				     double *Vwall, double *Vface[3], double *Vtet[4], 
-				     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+				     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
+                                     int hydro, int* fid, bool applyRealForce)
 {
 
-  PostFcnEuler::computeForceEmbedded(orderOfAccuracy,dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
+  PostFcnEuler::computeForceEmbedded(orderOfAccuracy,dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, 
+                                     hydro, fid, applyRealForce);
 
-  Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+  if(applyRealForce)
+    Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+  else
+    Fv = 0.0;
 
 }
 
@@ -1009,10 +992,10 @@ void PostFcnNS::computeDerivativeOfForce(double dp1dxj[4][3], double ddp1dxj[4][
 
 void PostFcnNS::computeForceTransmitted(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
                              double *Vwall, double *Vface[3], double *Vtet[4],
-                    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+                    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro, int fid)
 {
 
-  PostFcnEuler::computeForceTransmitted(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
+  PostFcnEuler::computeForceTransmitted(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro,fid);
 
   Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
 }
@@ -1142,8 +1125,10 @@ double PostFcnNS::computeInterfaceWork(double dp1dxj[4][3], Vec3D& n, double ndo
     double dudxj[3][3];
     computeVelocityGradient(dp1dxj, u, dudxj);
 
-    double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-    double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
+    double mu     = viscoFcn->compute_mu(Tcg);
+    double lambda = viscoFcn->compute_lambda(Tcg, mu);
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
 
     double tij[3][3];
     computeStressTensor(mu, lambda, dudxj, tij);

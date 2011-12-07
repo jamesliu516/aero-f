@@ -49,7 +49,7 @@ ExplicitLevelSetTsDesc<dim,dimLS>::~ExplicitLevelSetTsDesc()
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
-int ExplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ExplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 {
 
   if(timeType == ExplicitData::FORWARD_EULER || 

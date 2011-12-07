@@ -12,6 +12,7 @@
 #include <DistExactRiemannSolver.h>
 #include <BinFileHandler.h>
 #include <VectorSet.h>
+#include <GhostPoint.h>
 
 //------------------------------------------------------------------------------
 
@@ -27,6 +28,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   TavL = 0;
   Qs = 0;
   Qv = 0;
+  output_newton_step = domain->getOutputNewtonStep();
   for (i=0; i<PostFcn::AVSSIZE; ++i) 
     {
       AvQs[i] = 0;
@@ -37,6 +39,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   com = domain->getCommunicator();
 
   int sp = strlen(iod.output.transient.prefix) + 1;
+  int spn = strlen(iod.output.transient.probes.prefix) + 1;
+  int sprom = strlen(iod.output.rom.prefix) + 1;
 
   if (iod.output.transient.solutions[0] != 0) {
     solutions = new char[sp + strlen(iod.output.transient.solutions)];
@@ -45,9 +49,32 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     solutions = 0;
 
+  // GAPPY POD STUFF (CBM+KTC)
+  if (iod.output.rom.newtonresiduals[0] != 0) {
+    newtonresiduals = new char[sprom + strlen(iod.output.rom.newtonresiduals)];
+    sprintf(newtonresiduals, "%s%s", iod.output.rom.prefix, iod.output.rom.newtonresiduals);
+  }
+  else
+    newtonresiduals = 0;
+
+  if (iod.output.rom.jacobiandeltastate[0] != 0) {
+    jacobiandeltastate = new char[sprom + strlen(iod.output.rom.jacobiandeltastate)];
+    sprintf(jacobiandeltastate, "%s%s", iod.output.rom.prefix, iod.output.rom.jacobiandeltastate);
+  }
+  else
+    jacobiandeltastate = 0;
+
+  if (iod.output.rom.reducedjac[0] != 0) {
+    reducedjac = new char[sprom + strlen(iod.output.rom.reducedjac)];
+    sprintf(reducedjac, "%s%s", iod.output.rom.prefix, iod.output.rom.reducedjac);
+  }
+  else
+    reducedjac = 0;
+
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
     scalars[i] = 0;
+    nodal_scalars[i] = 0;
   }
   for (i=0; i<PostFcn::AVSSIZE; ++i) {
     avsscale[i] = 1.0;
@@ -56,6 +83,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   for (i=0; i<PostFcn::VSIZE; ++i) {
     vscale[i] = 1.0;
     vectors[i] = 0;
+    nodal_vectors[i] = 0;
   }
   for (i=0; i<PostFcn::AVVSIZE; ++i) {
     avvscale[i] = 1.0;
@@ -422,12 +450,29 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
-  if (iod.output.transient.materialVolumes[0] != 0) {
-    material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
-    sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
+      if (iod.output.rom.staterom[0] != 0) {
+    staterom = new char[sprom + strlen(iod.output.rom.staterom)];
+    sprintf(staterom, "%s%s", iod.output.rom.prefix, iod.output.rom.staterom);
   }
   else
+    staterom = 0;
+
+  if (iod.output.rom.error[0] != 0) {
+    error = new char[sprom + strlen(iod.output.rom.error)];
+    sprintf(error, "%s%s", iod.output.rom.prefix, iod.output.rom.error);
+  }
+  else
+    error = 0;
+    
+     if (iod.output.transient.materialVolumes[0] != 0) {
+    material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
+    sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
+      }
+  else
     material_volumes = 0;
+
+
+
 
   if (iod.output.transient.conservation[0] != 0) {
     conservation = new char[sp + strlen(iod.output.transient.conservation)];
@@ -437,6 +482,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     conservation = 0;
 
   it0 = iod.restart.iteration;
+  //std::cout << "it0 = " << it0 << std::endl;
   numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
   frequency_dt = iod.output.transient.frequency_dt;
@@ -448,9 +494,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[2] = iod.output.transient.z0;
 
   fpResiduals = 0;
+  fpStateRom = 0;
   fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
+  fpError = 0;
 
   int nSurf = postOp->getNumSurf();
   int nSurfHF = postOp->getNumSurfHF();
@@ -583,6 +631,81 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     switchOpt = false;
   }
+
+  // Initialize nodal output structures
+  Probes& myProbes = iod.output.transient.probes;
+  nodal_output.step = 0;
+  nodal_output.results = new double[Probes::MAXNODES*3];
+  nodal_output.subId = new int[Probes::MAXNODES];
+  nodal_output.locNodeId = new int[Probes::MAXNODES];
+  nodal_output.last = new int[Probes::MAXNODES];
+  nodal_output.locations.resize(Probes::MAXNODES);
+					      
+  for (i = 0; i < Probes::MAXNODES; ++i) {
+    nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX,
+                                      myProbes.myNodes[i].locationY,
+                                      myProbes.myNodes[i].locationZ);
+     
+    nodal_output.last[i] = 0;
+    if (myProbes.myNodes[i].id >= 0) {
+
+      int flag = -1;
+      int locid = -1;
+      int lis = -1;
+#pragma omp parallel for
+      for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+	locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id );
+	fprintf(stdout,"locid = %i\n",locid);
+	if (locid >= 0) {
+	  lis = iSub;
+	  flag = com->cpuNum();
+	  break;
+	}
+      }
+
+      com->globalMax(1,&flag);
+
+      if ( flag == com->cpuNum() ) {
+	nodal_output.locNodeId[i] = locid;
+	nodal_output.subId[i] = lis;
+      } else {
+	nodal_output.locNodeId[i] = -1;
+	nodal_output.subId[i] = -1;
+      }
+    } else if (myProbes.myNodes[i].locationX < -1.0e10)
+      break;
+  }
+
+  com->fprintf(stdout,"Number of probing nodes is %d\n",i);
+
+  nodal_output.numNodes = i;
+
+  if (iod.output.transient.probes.density[0] != 0) {
+    nodal_scalars[PostFcn::DENSITY] = new char[spn + strlen(iod.output.transient.probes.density)];
+    sprintf(nodal_scalars[PostFcn::DENSITY], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.density);
+  }
+  if (iod.output.transient.probes.pressure[0] != 0) {
+    nodal_scalars[PostFcn::PRESSURE] = new char[spn + strlen(iod.output.transient.probes.pressure)];
+    sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.pressure);
+  }
+  if (iod.output.transient.probes.temperature[0] != 0) {
+    nodal_scalars[PostFcn::TEMPERATURE] = new char[spn + strlen(iod.output.transient.probes.temperature)];
+    sprintf(nodal_scalars[PostFcn::TEMPERATURE], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.temperature);
+  }
+  if (iod.output.transient.probes.velocity[0] != 0) {
+    nodal_vectors[PostFcn::VELOCITY] = new char[spn + strlen(iod.output.transient.probes.velocity)];
+    sprintf(nodal_vectors[PostFcn::VELOCITY], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.velocity);
+  }
+  if (iod.output.transient.probes.displacement[0] != 0) {
+    nodal_vectors[PostFcn::DISPLACEMENT] = new char[spn + strlen(iod.output.transient.probes.displacement)];
+    sprintf(nodal_vectors[PostFcn::DISPLACEMENT], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.displacement);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -630,6 +753,8 @@ TsOutput<dim>::~TsOutput()
   delete[] heatfluxes;
   delete[] residuals;
   delete[] material_volumes;
+  delete[] staterom;
+  delete[] error;
   delete[] conservation;
 
   delete[] lift;
@@ -1258,8 +1383,35 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpResiduals);
   }
+  
+    if (staterom) {
+    if (it0 != 0) 
+      fpStateRom = backupAsciiFile(staterom);
+    if (it0 == 0 || fpStateRom == 0) {
+      fpStateRom = fopen(staterom, "w");
+      if (!fpStateRom) {
+	fprintf(stderr, "*** Error: could not open \'%s\'\n", staterom);
+	exit(1);
+      }
+      fprintf(fpStateRom, "# TimeIteration ElapsedTime StatePodCoords \n");
+    }
+    fflush(fpStateRom);
+  }
+  if (error) {
+    if (it0 != 0) 
+      fpError = backupAsciiFile(error);
+    if (it0 == 0 || fpError == 0) {
+      fpError = fopen(error, "w");
+      if (!fpError) {
+	fprintf(stderr, "*** Error: could not open \'%s\'\n", error);
+	exit(1);
+      }
+      fprintf(fpError, "# TimeIteration ElapsedTime RelativeError AbsoluteError \n");
+    }
+    fflush(fpError);
+  }
 
-  if (material_volumes) {
+    if (material_volumes) {
     if (it0 != 0)
       fpMatVolumes = backupAsciiFile(material_volumes);
     if (it0 == 0 || fpMatVolumes == 0) {
@@ -1275,6 +1427,9 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpMatVolumes);
   }
+
+
+  
 
   if (conservation) {
     if (it0 != 0) 
@@ -1305,7 +1460,6 @@ void TsOutput<dim>::openAsciiFiles()
 template<int dim>
 void TsOutput<dim>::closeAsciiFiles()
 {
-
   for (int iSurf = 0; iSurf < postOp->getNumSurf(); iSurf++)  {
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
@@ -1319,9 +1473,10 @@ void TsOutput<dim>::closeAsciiFiles()
   }
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatVolumes) fclose(fpMatVolumes);
+  if (fpStateRom) fclose(fpStateRom);
+  if (fpError) fclose(fpError);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
-
 }
 
 //------------------------------------------------------------------------------
@@ -2016,6 +2171,42 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
+		DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL, VecSet< DistSVec<double,dim> > *U3 = NULL)
+{
+
+	double tag = 0.0;	// do not tag for now
+
+	if (newtonresiduals && U1)  {	// for both pg residuals and fom residuals
+		DistSVec<double,dim> soltn(*U1);
+		if (refVal->mode == RefVal::DIMENSIONAL)
+			domain->scaleSolution(soltn, refVal);
+		domain->writeVectorToFile(newtonresiduals, *output_newton_step, tag, *U1);	//TODO: output_newton_step should accumulate over restarts
+	}
+
+	if (jacobiandeltastate && U2)  {
+		DistSVec<double,dim> soltn(*U2);
+		if (refVal->mode == RefVal::DIMENSIONAL)
+			domain->scaleSolution(soltn, refVal);
+		domain->writeVectorToFile(jacobiandeltastate, *output_newton_step, tag, *U2);	//TODO: output_newton_step should accumulate over restarts
+	}
+
+	if (reducedjac && U3)  {	// entire JPhi
+		for (int i = 0; i < U3->numVectors(); ++i) {
+			DistSVec<double,dim> soltn((*U3)[i]);
+			if (refVal->mode == RefVal::DIMENSIONAL)
+				domain->scaleSolution(soltn, refVal);
+
+			domain->writeVectorToFile(reducedjac, *output_newton_step, tag, soltn);	//TODO: output_newton_step should accumulate over restarts
+		}
+	}
+
+	++(*output_newton_step);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag, 
                       DistSVec<double,3> &X, DistSVec<double,dim> &U){
 
@@ -2037,56 +2228,56 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
   if (toWrite(it,lastIt,t)) {
     int step = getStep(it,lastIt,t);
-    double tag;
-    if (rmmh)
-      tag = rmmh->getTagValue(t);
-    else
-      tag = t * refVal->time;
+		double tag;
+		if (rmmh)
+			tag = rmmh->getTagValue(t);
+		else
+			tag = t * refVal->time;
 
-    if (solutions)  {
-      DistSVec<double,dim> soltn(U);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(solutions, step, tag, soltn);
-    }
+		if (solutions)  {
+			DistSVec<double,dim> soltn(U);
+			if (refVal->mode == RefVal::DIMENSIONAL)
+				domain->scaleSolution(soltn, refVal);
+			domain->writeVectorToFile(solutions, step, tag, soltn);
+		}
 
-    int i;
-    for (i=0; i<PostFcn::SSIZE; ++i) {
-      if (scalars[i]) {
-	if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-	postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState);
-	DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
-	domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
-      }
-    }
-    for (i=0; i<PostFcn::VSIZE; ++i) {
-      if (vectors[i]) {
-        if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
+		int i;
+		for (i=0; i<PostFcn::SSIZE; ++i) {
+			if (scalars[i]) {
+				if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
+				postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState);
+				DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
+				domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
+			}
+		}
+		for (i=0; i<PostFcn::VSIZE; ++i) {
+			if (vectors[i]) {
+				if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
 
-        if (static_cast<PostFcn::VectorType>(i) == PostFcn::FLIGHTDISPLACEMENT)  {
+				if (static_cast<PostFcn::VectorType>(i) == PostFcn::FLIGHTDISPLACEMENT)  {
 
-          if (rmmh) {
-            DistSVec<double,3> &Xr = rmmh->getFlightPositionVector(t, X);
-            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
-          }
-          else
-            com->fprintf(stderr, "WARNING: Flight Displacement Output not available\n");
-        }
-        else if (static_cast<PostFcn::VectorType>(i) == PostFcn::LOCALFLIGHTDISPLACEMENT)  {
-          if (rmmh) {
-            DistSVec<double,3> &Xr = rmmh->getRelativePositionVector(t, X);
-            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
-          }
-          else
-            com->fprintf(stderr, "WARNING: Local Flight Displacement Output not available\n");
+					if (rmmh) {
+						DistSVec<double,3> &Xr = rmmh->getFlightPositionVector(t, X);
+						postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+					}
+					else
+						com->fprintf(stderr, "WARNING: Flight Displacement Output not available\n");
+				}
+				else if (static_cast<PostFcn::VectorType>(i) == PostFcn::LOCALFLIGHTDISPLACEMENT)  {
+					if (rmmh) {
+						DistSVec<double,3> &Xr = rmmh->getRelativePositionVector(t, X);
+						postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+					}
+					else
+						com->fprintf(stderr, "WARNING: Local Flight Displacement Output not available\n");
 
-        }
-        else
-          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv);
-        domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
-      }
-    }
-  }
+				}
+				else
+					postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv);
+				domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
+			}
+		}
+	}
 
 }
 
@@ -2150,6 +2341,159 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
 }
 
+static void copyFile(const char* fname) {
+
+  FILE* f = fopen(fname,"rb");
+  fseek (f , 0 , SEEK_END);
+  size_t lSize = ftell (f);
+  rewind (f);
+  char* buffer = new char[lSize];
+  size_t err = fread (buffer,1,lSize,f);
+  fclose(f);
+
+  char nn[256];
+  sprintf(nn,"%s.back",fname);
+  f = fopen(nn,"wb");
+  fwrite(buffer,1,lSize,f);
+  fclose(f);
+
+  delete [] buffer;
+}
+
+template<int dim>
+void TsOutput<dim>::cleanProbesFile() {
+
+  char nn[256];
+  int iter,i,n;
+  double time,res;
+  if (it0 == 0) 
+    return;
+
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    if (nodal_scalars[i]) {
+      if (com->cpuNum() == 0) {
+        copyFile(nodal_scalars[i]);
+        sprintf(nn,"%s.back",nodal_scalars[i]);
+        FILE* scalar_file = fopen(nodal_scalars[i],"w");
+        FILE* scalar_file_old = fopen(nn,"r");
+        while (!feof(scalar_file_old)) {
+          n = fscanf(scalar_file_old,"%d",&iter);
+          n = fscanf(scalar_file_old,"%lf",&time);
+          if (iter > it0)
+            break;          
+          fprintf(scalar_file,"%d %e ",iter,time);
+	  for (int k =0 ; k < nodal_output.numNodes; ++k) {
+	    n = fscanf(scalar_file_old,"%lf",&res);
+            fprintf(scalar_file,"%e ",res);
+          }
+          fprintf(scalar_file,"\n");
+	}
+        fclose(scalar_file);
+        fclose(scalar_file_old);
+      }
+    }
+  }
+  
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+    if (nodal_vectors[i]) {
+	
+      if (com->cpuNum() == 0) {
+        copyFile(nodal_vectors[i]);
+        sprintf(nn,"%s.back",nodal_vectors[i]);
+        FILE* vector_file = fopen(nodal_vectors[i],"w");
+        FILE* vector_file_old = fopen(nn,"r");
+        while (!feof(vector_file_old)) {
+          n = fscanf(vector_file_old,"%d",&iter);
+          n = fscanf(vector_file_old,"%lf",&time);
+          if (iter > it0)
+            break;          
+          fprintf(vector_file,"%d %e ",iter,time);
+          for (int k =0 ; k < nodal_output.numNodes; ++k) {
+            for (int l = 0; l < 3; ++l) {
+	      n = fscanf(vector_file_old,"%lf",&res);
+              fprintf(vector_file,"%e ",res);
+            }
+          }
+          fprintf(vector_file,"\n");
+	}
+        fclose(vector_file);
+        fclose(vector_file_old);
+      }
+    }
+  }
+}
+
+template<int dim>
+template<int dimLS>
+void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+				      DistVec<double> &A, DistSVec<double,dim> &U, 
+				      DistTimeState<dim> *timeState, DistVec<int> &fluidId,
+                                      DistSVec<double,dimLS>* Phi, DistLevelSetStructure *distLSS,
+                                      DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+  //if (toWrite(it,lastIt,t)) {
+  if (nodal_output.numNodes == 0)
+    return;
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+    
+    // if (solutions)
+    // domain->writeVectorToFile(solutions, step, tag, U);
+    
+    int i;
+    const char* mode = nodal_output.step ? "a" : "w";
+    if (it0 > 0)
+      mode = "a";
+
+    for (i=0; i<PostFcn::SSIZE; ++i) {
+      if (nodal_scalars[i]) {
+	
+	postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A,
+				      timeState,fluidId,
+				      nodal_output.subId, nodal_output.locNodeId,
+				      nodal_output.last,nodal_output.numNodes,nodal_output.results,
+                                      nodal_output.locations,
+                                      Phi, distLSS, ghostPoints);
+	if (com->cpuNum() == 0) {
+	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
+	  fprintf(scalar_file,"%d %e ",nodal_output.step+it0, tag);
+	  for (int k =0 ; k < nodal_output.numNodes; ++k)
+	    fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
+          fprintf(scalar_file,"\n");
+	  fclose(scalar_file);
+	}
+      }
+    }
+
+    for (i=0; i<PostFcn::VSIZE; ++i) {
+      if (nodal_vectors[i]) {
+	
+	postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U,
+				      nodal_output.subId, nodal_output.locNodeId,
+				      nodal_output.last,nodal_output.numNodes,nodal_output.results,
+                                      nodal_output.locations,
+				      fluidId, distLSS, ghostPoints);
+
+	if (com->cpuNum() == 0) {
+	  FILE* vector_file = fopen(nodal_vectors[i],mode);
+	  fprintf(vector_file,"%d %e ",nodal_output.step+it0, tag);
+	  for (int k =0 ; k < nodal_output.numNodes; ++k)
+	    fprintf(vector_file,"%e %e %e ",
+		    nodal_output.results[k*3]*vscale[i],
+		    nodal_output.results[k*3+1]*vscale[i],
+		    nodal_output.results[k*3+2]*vscale[i]);
+          fprintf(vector_file,"\n");
+	  fclose(vector_file);
+	}
+      }
+    }
+    // }
+    ++nodal_output.step;
+}
+
 //----------------------------------------------------------------------------------------
 
 template<int dim>
@@ -2159,6 +2503,16 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
                                              DistVec<int> &fluidId)
 {
   writeBinaryVectorsToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
+}
+
+template<int dim>
+void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+				      DistVec<double> &A, DistSVec<double,dim> &U, 
+				      DistTimeState<dim> *timeState,
+				      DistVec<int> &fluidId, DistLevelSetStructure *distLSS,
+                                      DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+  writeProbesToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0, distLSS, ghostPoints);
 }
 
 //----------------------------------------------------------------------------------------
@@ -2603,3 +2957,37 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<double> &UromTotal)
+{
+
+  if (com->cpuNum() != 0) return;
+
+  if (fpStateRom) {
+    fprintf(fpStateRom, "%d %e", it, cpu);
+		for (int iPod = 0; iPod < nPod; ++iPod) {
+			fprintf(fpStateRom, " %23.15e", UromTotal[iPod]);	// write out with high precision
+		}
+    fprintf(fpStateRom, "\n");
+    fflush(fpStateRom);
+  }
+
+}
+
+template<int dim>
+void TsOutput<dim>::writeErrorToDisk(const int it, const double cpu, const int nErr, const double *error)
+{
+
+  if (com->cpuNum() != 0) return;
+
+  if (fpError) {
+    fprintf(fpError, "%d %e", it, cpu);
+		for (int iErr = 0; iErr < nErr; ++iErr) {
+			fprintf(fpError, " %23.15e", error[iErr]);	// write out with high precision
+		}
+    fprintf(fpError, "\n");
+    fflush(fpError);
+  }
+
+}

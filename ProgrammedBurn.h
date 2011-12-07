@@ -45,6 +45,8 @@ class ProgrammedBurn {
   bool nodeInside(int tag,int sub, int i);
   bool nodeInside(int tag,int i);
 
+  bool isFinished(int tag) const { return myBurns[tag].finished; }
+
   //bool isBurned(int iSub,int i) { return bBurned->subData(iSub)[i]; }
 
   // Static methods.  Compute assorted values associated with a programmed burn
@@ -65,6 +67,7 @@ class ProgrammedBurn {
     double x0[3];
     int x0subdom, x0id;
     bool ignited;
+    bool finished;
   };
 
   template <int dim>

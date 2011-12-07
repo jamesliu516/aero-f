@@ -57,12 +57,35 @@ public:
   double checkPressure(double *V) const { 
     return V[4]+Pstiff; 
   }
+  bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe) const{
+    bool error = false;
+    if(V[0] <= 0.0){
+      error = true;
+      if (failsafe)
+        fprintf(stdout, "*** Warning:  negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
+      else
+        fprintf(stderr, "*** Error:  negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
+    }
+
+    if(V[4]+Pstiff <= 0.0){
+      error = true;
+      if (failsafe)
+        fprintf(stdout, "*** Warning:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+            V[4]+Pstiff, nodeNum, V[0], nodeNum, double(phi), otherNodeNum, double(otherPhi));
+      else
+        fprintf(stderr, "*** Error:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+            V[4]+Pstiff, nodeNum, V[0], nodeNum, double(phi), otherNodeNum, double(otherPhi));
+    }
+    return error;
+  }
   double computeTemperature(double *V) const {
     if (isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
-      exit(1);
+      throw std::exception();
     }
-    return invgam1 * (V[4]+gam*Pstiff) / V[0];
+    return invgam1 * (V[4]+Pstiff) / V[0];
   }
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
@@ -92,11 +115,12 @@ public:
   }
   double computeTotalPressure(double machr, double* V) const {
     double mach = computeMachNumber(V);
-    double machr2 = machr*machr;
-    double popr = V[4]*gam*machr2;
     double opmach = 1.0 + 0.5*gam1*mach*mach;
-    return V[4]*pow(opmach, gam*invgam1);
+    return (V[4]+Pstiff)*pow(opmach, gam*invgam1) - Pstiff;
   }
+  // specific heat at constant pressure is gamma for Perfect Gas
+  //                                             and Stiffened Gas with h = cp * T
+  double specificHeatCstPressure() const { return gam; }
 
   double computeDerivativeOfTemperature(double *V, double *dV) const {
     // Fix when Pstiff is non-zero.
@@ -119,13 +143,9 @@ public:
   double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dMach) const {
     double mach = computeMachNumber(V);
     double dmach = computeDerivativeOfMachNumber(V, dV, dMach);
-    double machr2 = machr*machr;
-    double dmachr2 = 2.0*machr*dmachr;
-    double popr = V[4]*gam*machr2;
-    double dpopr = dV[4]*gam*machr2 + V[4]*gam*dmachr2;
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     double dopmach = gam1*mach*dmach;
-    return dV[4]*pow(opmach, gam*invgam1) + V[4]*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
+    return dV[4]*pow(opmach, gam*invgam1) + (V[4]+Pstiff)*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
   }
   void rstVar(IoData &iod) {
     dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.bc.inlet.pressure*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
@@ -147,7 +167,7 @@ public:
 inline
 VarFcnSGSA::VarFcnSGSA(FluidModelData &data) : VarFcnBase(data) {
 
-  if(data.fluid != FluidModelData::GAS){
+  if(data.fluid != FluidModelData::PERFECT_GAS && data.fluid != FluidModelData::STIFFENED_GAS){
     fprintf(stderr, "*** Error: FluidModelData is not of type GAS\n");
     exit(1);
   }
