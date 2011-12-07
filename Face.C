@@ -330,8 +330,6 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 }
 
 //------------------------------------------------------------------------------
-//TODO: remaining issues...
-//      3) not sure if also works for implicitTsDesc
 
 template<int dim>
 void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
@@ -339,7 +337,9 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                    Vec<double> &normalVel, SVec<double,dim> &V,
                                    double *Ub, SVec<double,dim> &fluxes)
 {
-  if(code==BC_ADIABATIC_WALL_MOVING || code==BC_ADIABATIC_WALL_FIXED) {
+  if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
+     code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
+     code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
   // FS Riemann based flux calculation.
     double flux[dim], Wstar[2*dim], Vi[2*dim];
     int k;
@@ -353,7 +353,7 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       for(int iDim=0; iDim<dim; iDim++)
         Vi[iDim] = Vi[iDim+dim] = V[k][iDim];
 
-      riemann.computeFSIRiemannSolution(Vi, wallVel, -1.0*unitNormal, varFcn, Wstar, k); //<! "k" is passed in for updating phase-change, which is used only under the embedded framework. 
+      riemann.computeFSIRiemannSolution(Vi, wallVel, -1.0*unitNormal, varFcn, Wstar, k/*dummy variable here*/);
 
 //      fluxFcn[BC_INTERNAL]->compute(0.0, 0.0, getNormal(normals,l), getNormalVel(normalVel,l), V[k], Wstar, flux);
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), Wstar, Ub, flux);
@@ -363,7 +363,6 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     }
     return;
   }
-
 
   if(fluxFcn[code]){
     double flux[dim];
