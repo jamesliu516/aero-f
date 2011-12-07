@@ -2,6 +2,7 @@
 #include <DistExactRiemannSolver.h>
 #include <FSI/DynamicNodalTransfer.h>
 #include <FSI/CrackingSurface.h>
+#include <Domain.h>
 
 #ifdef DO_EMBEDDED
 #include <IntersectorFRG/IntersectorFRG.h>
@@ -59,14 +60,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
-    riemannNormal = (int)ioData.embed.riemannNormal;
-  else {//auto
-    if(ioData.problem.type[ProblemData::UNSTEADY] && !ioData.problem.type[ProblemData::FORCED])
-      riemannNormal = 1;
-    else //steady or forced
-      riemannNormal = 0;
-  }
+  riemannNormal = (int)ioData.embed.riemannNormal;
       
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false; 
@@ -301,9 +295,9 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   this->varFcn->conservativeToPrimitive(*U,VV,&nodeTag);
   SubDomain **subD = this->domain->getSubDomain();
 
-
+  int iSub;
 #pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
     SVec<double,dim> &subWij = (*Wij)(iSub);
     SVec<double,dim> &subWji = (*Wji)(iSub);
     SVec<double,dim> &subVV = VV(iSub);
@@ -437,6 +431,7 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
 
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
+  this->output->cleanProbesFile();
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
@@ -473,11 +468,12 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeMaterialVolumesToDisk(it, t, *this->A, &nodeTag);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
+  this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,nodeTag, this->distLSS, ghostPoints);
   this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
                                        //      it does not seem to understand the template
-  restart2->writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
+  restart2->template writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
   this->output->updatePrtout(t);
@@ -574,7 +570,7 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
-				  ghostPoints, this->postOp->getPostFcn());
+				  ghostPoints, this->postOp->getPostFcn(), &nodeTag);
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
@@ -637,28 +633,6 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
 
   // max pressure not reached, so we do not solve and we increase pressure and let structure react
   
-  // construct Wij, Wji from U. 
-  DistSVec<double,dim> VV(this->getVecInfo());
-  this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
-  SubDomain **subD = this->domain->getSubDomain();
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
-    SVec<double,dim> &subVV = VV(iSub);
-    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
-
-    for (int l=0; l<subWstarij.size(); l++) {
-      int i = ptr[l][0];
-      int j = ptr[l][1];
-      for (int k=0; k<dim; k++) {
-        subWstarij[l][k] = subVV[i][k];
-        subWstarji[l][k] = subVV[j][k];
-      }
-    }
-  }
-
   if(this->mmh && !inSubCycling) {
     //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
@@ -695,6 +669,29 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
     this->timer->removeIntersAndPhaseChange(tw);
   } 
   
+  // construct Wij, Wji from U. 
+  DistSVec<double,dim> VV(this->getVecInfo());
+  this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
+  SubDomain **subD = this->domain->getSubDomain();
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+    SVec<double,dim> &subVV = VV(iSub);
+    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
+
+    for (int l=0; l<subWstarij.size(); l++) {
+      int i = ptr[l][0];
+      int j = ptr[l][1];
+      for (int k=0; k<dim; k++) {
+        subWstarij[l][k] = subVV[i][k];
+        subWstarji[l][k] = subVV[j][k];
+      }
+    }
+  }
+
   this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
   this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, nodeTag);
 

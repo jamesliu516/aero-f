@@ -3,6 +3,7 @@
 
 #include <IoData.h>
 #include <GhostPoint.h>
+#include <RestrictionMapping.h>
 #include <complex>
 typedef std::complex<double> bcomp;
 
@@ -133,11 +134,14 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistTimeState<dim> *, bool=true);
+	void computeResidualRestrict(DistSVec<double,3> &, DistVec<double> &,
+			DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *,
+			RestrictionMapping<dim> &, bool=true);
 // Included (MB)
   void computeResidual(DistExactRiemannSolver<dim> *,
-                       DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistSVec<double,dim> &,
-                       DistTimeState<dim> *, bool=true);
+											 DistSVec<double,3> &, DistVec<double> &,
+											 DistSVec<double,dim> &, DistSVec<double,dim> &,
+											 DistTimeState<dim> *, bool=true);
 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
@@ -151,6 +155,12 @@ public:
                                        DistLevelSetStructure *distLSS, DistVec<int> *fluidId = 0);
 
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
+  
+  template <int neq>
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,neq> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag) {
+    fprintf(stderr,"PopulateGhostPoints<%d> not implemented!\n",neq);
+    exit(-1);
+  }
 
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V,
@@ -331,7 +341,7 @@ public:
   void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-			DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0);
+			DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0,DistVec<int>* fid = 0);
 };
 
 //------------------------------------------------------------------------------
@@ -388,6 +398,7 @@ public:
 
   // for phase-change update
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
+  void extrapolatePhiV2(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
@@ -403,7 +414,12 @@ public:
                          DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
                          DistSVec<double,dimLS> *PhiWeights,
                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
-
+  void updatePhaseChange2(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Weights, 
+                          DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
+                          DistSVec<double,dimLS> *PhiWeights,
+                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
+  void resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, 
+                                 DistSVec<bool,2> &Tag);
 };
 //------------------------------------------------------------------------------
 

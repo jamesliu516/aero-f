@@ -78,6 +78,7 @@ private:
   DistVec<double> *dIdtv;
 
   bool isGFMPAR;
+  int fvmers_3pbdf ;
 
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
@@ -100,7 +101,7 @@ public:
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
   void setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId);
   void update(DistSVec<double,dim> &,bool increasingPressure = false);
-  void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
+  void update(DistSVec<double,dim> &Q,  DistSVec<double,dim> &Qtilde,DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
               DistExactRiemannSolver<dim> *riemann,class DistLevelSetStructure* = 0, bool increasingPressure = false);
 
   void writeToDisk(char *);
@@ -127,6 +128,8 @@ public:
 
   void add_dAW_dt(int, DistGeoState &, DistVec<double> &, 
 		  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
+  void add_dAW_dtRestrict(int, DistGeoState &, DistVec<double> &, 
+			  DistSVec<double,dim> &, DistSVec<double,dim> &, const std::vector<std::vector<int> > &);
   template<int dimLS>
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, 
@@ -192,6 +195,8 @@ public:
   void rstVar(IoData &);
 
   DistVec<double>* getDerivativeOfInvReynolds(DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double);
+
+	int getOutputNewtonStep() const;
 
 };
 

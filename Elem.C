@@ -11,6 +11,8 @@
 #include <GenMatrix.h>
 #include <cmath>
 #include <GeoState.h>
+#include <limits>
+#include <VarFcn.h>
 #include "LevelSet/LevelSetStructure.h"
 
 
@@ -67,11 +69,37 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
-  for (int i=0; i<numElems; ++i) {
-    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-  }
+
+	if (sampleMesh) {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
+	else {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState, 
+				  SVec<double,3> &X, SVec<double,dim> &V, 
+				  SVec<double,dim> &R,const std::vector<int> &sampledLocElem,
+				  Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+	int i;
+	for (int iElem=0; iElem<numSampledElems; ++iElem) {
+		i = sampleMesh ? elemsConnectedToSampleNode[iElem]: iElem;
+    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+	}
+
+}
 //------------------------------------------------------------------------------
 
 // Included
@@ -241,3 +269,57 @@ void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
 // End of Level Set Reinitialization functions
 //-------------------------------------------------------------------------------
 
+template<int dim, class Obj>
+void ElemSet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt) {
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->integrateFunction(obj, X,V,F,npt);
+}
+
+template<int dim> 
+void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
+                                  const std::vector<Vec3D>& locs, double (*sol)[dim],
+                                  int* status, int* last, LevelSetStructure* LSS,
+                                  Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
+  
+  int nn;
+  Vec3D bbox[2];
+  memset(status, 0, sizeof(int)*locs.size());
+ 
+  int found_all = 1; 
+  for (int j = 0; j < locs.size(); ++j) {
+    Elem& E = *elems[last[j]];
+    status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
+    if (!status[j]) found_all = 0;
+  }
+
+  if (found_all) 
+    return;
+
+  for (int i = 0; i < numElems; ++i)  {
+    
+    Elem& E = *elems[i];
+    nn = E.numNodes(); 
+    bbox[0] = Vec3D( std::numeric_limits<double>::max() ); 
+    bbox[1] = Vec3D( -std::numeric_limits<double>::max() );
+    for (int j = 0; j < nn; ++j) {
+      const Vec3D& x = X[ E[j] ];
+      bbox[0] = min( bbox[0], x );
+      bbox[1] = max( bbox[1], x );
+    }
+    for (int j = 0; j < locs.size(); ++j) {
+      if (!status[j]) { 
+        if (bbox[0][0] <= locs[j][0] && bbox[1][0] >= locs[j][0] &&
+            bbox[0][1] <= locs[j][1] && bbox[1][1] >= locs[j][1] &&
+            bbox[0][2] <= locs[j][2] && bbox[1][2] >= locs[j][2]) {
+          
+          status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
+          if (status[j]) 
+            last[j] = i;
+        }
+      }
+    }
+  } 
+}
+
+//------------------------------------------------------------------------------

@@ -21,7 +21,7 @@
 template<int dim>
 ImplicitEmbeddedTsDesc<dim>::
 ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  EmbeddedTsDesc<dim>(ioData, geoSource, dom)
+  EmbeddedTsDesc<dim>(ioData, geoSource, dom), embeddedU(dom->getNodeDistInfo()), embeddedB(dom->getNodeDistInfo()),embeddeddQ(dom->getNodeDistInfo())
 {
   tag = 0;
   ImplicitData &implicitData = ioData.ts.implicit;
@@ -123,23 +123,23 @@ KspPrec<neq> *ImplicitEmbeddedTsDesc<dim>::createPreconditioner(PcData &pcdata, 
 
 template<int dim>
 template<int neq, class MatVecProdOp>
-KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
+KspSolver<DistEmbeddedVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
 ImplicitEmbeddedTsDesc<dim>::createKrylovSolver(
                                const DistInfo &info, KspData &kspdata,
                                MatVecProdOp *_mvp, KspPrec<neq> *_pc,
                                Communicator *_com)
 {
   
-  KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *_ksp = 0;
+  KspSolver<DistEmbeddedVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *_ksp = 0;
   
   if (kspdata.type == KspData::RICHARDSON)
-    _ksp = new RichardsonSolver<DistSVec<double,neq>, MatVecProdOp,
+    _ksp = new RichardsonSolver<DistEmbeddedVec<double,neq>, MatVecProdOp,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::CG)
-    _ksp = new CgSolver<DistSVec<double,neq>, MatVecProdOp,
+    _ksp = new CgSolver<DistEmbeddedVec<double,neq>, MatVecProdOp,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::GMRES)
-    _ksp = new GmresSolver<DistSVec<double,neq>, MatVecProdOp,
+    _ksp = new GmresSolver<DistEmbeddedVec<double,neq>, MatVecProdOp,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   
   return _ksp;
@@ -177,6 +177,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 
     //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+
 
     //recompute intersections
     double tw = this->timer->getTime();
@@ -304,6 +305,8 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     {
       this->ghostPoints->deletePointers();
       this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+      embeddedU.real() = U;
+      embeddedU.setGhost(*this->ghostPoints,this->varFcn); 
     }
   return 0;
 }
@@ -314,7 +317,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 // call routines below from this same file or from LevelSetTsDesc
 //------------------------------------------------------------------------------
 template<int dim>
-int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 { 
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());
@@ -359,9 +362,13 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 //  int BuggyNode = 340680;
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
+  if (this->ghostPoints) {
+    embeddedU.getGhost(*this->ghostPoints,this->varFcn); 
+  }
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
                                  this->linRecAtInterface, this->nodeTag, F, this->riemann, 
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+
 //  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
@@ -426,7 +433,16 @@ void ImplicitEmbeddedTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &
 							DistSVec<double,dim> &F)
 {
 
+  MatVecProdH1<dim,double,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
+  if (mvph1)  {
+    mvph1->clearGhost(); 
+  }
+
   mvp->evaluate(it,*(this->X) ,*(this->A), Q, F);
+
+  mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
+  if (mvph1 && this->ghostPoints) 
+    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
 
 }
 //------------------------------------------------------------------------------
@@ -475,13 +491,19 @@ template<int dim>
 int ImplicitEmbeddedTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &b,
 				                   DistSVec<double,dim> &dQ)
 {
+ 
+  double t0 = this->timer->getTime();  
+
+  embeddeddQ = 0.0;
+  embeddedB.ghost() = 0.0;
+  embeddedB.real() = b;
   
-  double t0 = this->timer->getTime();
-  dQ = 0.0;
+  ksp->setup(it, this->maxItsNewton, embeddedB);
   
-  ksp->setup(it, this->maxItsNewton, b);
-  
-  int lits = ksp->solve(b, dQ);
+  int lits = ksp->solve(embeddedB, embeddeddQ);
+ 
+  dQ = embeddeddQ.real();
+  embeddedU.ghost() += embeddeddQ.ghost();
   
   this->timer->addKspTime(t0);
   

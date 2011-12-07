@@ -92,7 +92,7 @@ struct DistInfo {
     */
   }
 
-  void print(char* mssg=0) //HB
+  void print(char* mssg=0) const 
   {
     com->sync();
     if(mssg) com->fprintf(stderr," DistInfo::print of %s\n",mssg);

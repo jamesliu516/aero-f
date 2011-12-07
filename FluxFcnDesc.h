@@ -347,6 +347,19 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnGhidagliaSA3D : public FluxFcnFD<6>{
+
+public:
+
+  FluxFcnGhidagliaSA3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<6>(vf,tp) {}
+
+  ~FluxFcnGhidagliaSA3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnOutflowSA3D : public FluxFcnFD<6> {
 
 public:
@@ -395,6 +408,18 @@ public:
     FluxFcnBase(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnRoeSAturb3D() {}
   
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnGhidagliaSAturb3D : public FluxFcnBase{
+
+public:
+  FluxFcnGhidagliaSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf,tp) {}
+
+  ~FluxFcnGhidagliaSAturb3D() {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -565,6 +590,19 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnGhidagliaKE3D : public FluxFcnFD<7>{
+
+public:
+
+  FluxFcnGhidagliaKE3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<7>(vf,tp) {}
+
+  ~FluxFcnGhidagliaKE3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnOutflowKE3D : public FluxFcnFD<7> {
 
 public:
@@ -600,6 +638,18 @@ public:
   FluxFcnWallKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnWallKEturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnGhidagliaKEturb3D : public FluxFcnBase{
+
+public:
+  FluxFcnGhidagliaKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf,tp) {}
+
+  ~FluxFcnGhidagliaKEturb3D() {}
 
 };
 

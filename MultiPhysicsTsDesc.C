@@ -26,7 +26,7 @@ template<int dim, int dimLS>
 MultiPhysicsTsDesc<dim,dimLS>::
 MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
-  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
+  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), InterfaceTag(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
   Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo()), programmedBurn(NULL)
 {
@@ -39,8 +39,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
-  this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
   if (numBurnableFluids > 0) {
+    this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
   }
@@ -64,7 +64,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   requireSpecialBDF = false;
   increasingPressure = false;
 
-  ioData.printDebug();
+//  ioData.printDebug();
 }
 
 //------------------------------------------------------------------------------
@@ -78,14 +78,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
-    riemannNormal = (int)ioData.embed.riemannNormal;
-  else {//auto
-    if(ioData.problem.type[ProblemData::UNSTEADY] && !ioData.problem.type[ProblemData::FORCED])
-      riemannNormal = 1;
-    else //steady or forced
-      riemannNormal = 0;
-  }
+  riemannNormal = (int)ioData.embed.riemannNormal;
 
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false;
@@ -218,6 +211,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupMultiPhaseFlowSolver(IoData &ioData)
 {
   LS = new LevelSet<dimLS>(ioData, this->domain);
   frequencyLS = ioData.mf.frequency;
+  withMixedLS = (ioData.embed.crackingWithLevelset==EmbeddedFramework::ON);
 }
 
 //------------------------------------------------------------------------------
@@ -262,8 +256,13 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+
   // Initialize level-sets 
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn);
+  if(withCracking && withMixedLS) 
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 
+              &(distLSS->getClosestPoints()), &(distLSS->getStatus()));
+  else
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0);
 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
@@ -291,8 +290,9 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->varFcn->conservativeToPrimitive(*U,VV,fluidSelector.fluidId);
   SubDomain **subD = this->domain->getSubDomain();
 
+  int iSub;
 #pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
     SVec<double,dim> &subWij = (*Wij)(iSub);
     SVec<double,dim> &subWji = (*Wji)(iSub);
     SVec<double,dim> &subVV = VV(iSub);
@@ -368,9 +368,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 {
   this->geoState->update(*this->X, *this->A);
   
+  if(withCracking && withMixedLS)
+    fluidSelector.checkLSConsistency(Phi);
+
   if(frequencyLS > 0 && it%frequencyLS == 0){
     LS->conservativeToPrimitive(Phi,PhiV,U);
-    LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
+    if(withCracking && withMixedLS) {
+      this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
+      LS->reinitializeLevelSet(*this->X, PhiV, false);
+    } else
+      LS->reinitializeLevelSet(*this->X, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
     LS->update(Phi);
     if (this->timeState->useNm1()) {
@@ -391,7 +398,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 
   fluidSelector.update();
 
-  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
+  this->timeState->update(U, U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
                             //fluidIdn, fluidIdnm1 and riemann are used only for implicit time-integrators
 }
 
@@ -422,6 +429,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *last
 
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
+  this->output->cleanProbesFile();
 
   if (it == 0) {
     this->multiPhaseSpaceOp->computeGradP(*this->X, *this->A, U); /*really used???*/
@@ -459,6 +467,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId, &Phi);
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
+  this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
@@ -584,7 +593,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::computeForceLoad(DistSVec<double,dim> *Wij, 
     numStructNodes = dynNodalTransfer->numStNodes();
   for (int i=0; i<numStructNodes; i++)
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, Fs, numStructNodes, distLSS, *Wij, *Wji,0,this->postOp->getPostFcn()); // 0 is the pointer to the GhostPoint structure. May be needed in the future. 
+  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, Fs, numStructNodes, distLSS, *Wij, *Wji,0,this->postOp->getPostFcn(),fluidSelector.fluidId); // 0 is the pointer to the GhostPoint structure. May be needed in the future. 
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
@@ -631,28 +640,6 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSV
 
   // max pressure not reached, so we do not solve and we increase pressure and let structure react
 
-  // construct Wij, Wji from U. 
-  DistSVec<double,dim> VV(this->getVecInfo());
-  this->varFcn->conservativeToPrimitive(U,VV,this->fluidSelector.fluidId);
-  SubDomain **subD = this->domain->getSubDomain();
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
-    SVec<double,dim> &subVV = VV(iSub);
-    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
-
-    for (int l=0; l<subWstarij.size(); l++) {
-      int i = ptr[l][0];
-      int j = ptr[l][1];
-      for (int k=0; k<dim; k++) {
-        subWstarij[l][k] = subVV[i][k];
-        subWstarji[l][k] = subVV[j][k];
-      }
-    }
-  }
-
   if(this->mmh && !inSubCycling) {
     //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
@@ -689,6 +676,29 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSV
     this->timer->addEmbedPhaseChangeTime(tw);
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
+  }
+
+  // construct Wij, Wji from U. 
+  DistSVec<double,dim> VV(this->getVecInfo());
+  this->varFcn->conservativeToPrimitive(U,VV,this->fluidSelector.fluidId);
+  SubDomain **subD = this->domain->getSubDomain();
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+    SVec<double,dim> &subVV = VV(iSub);
+    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
+
+    for (int l=0; l<subWstarij.size(); l++) {
+      int i = ptr[l][0];
+      int j = ptr[l][1];
+      for (int k=0; k<dim; k++) {
+        subWstarij[l][k] = subVV[i][k];
+        subWstarji[l][k] = subVV[j][k];
+      }
+    }
   }
 
   this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);

@@ -15,6 +15,7 @@ template<class Scalar> class Vec;
 template<int dim>
 class GhostPoint {
  public:
+  int ng_last;
   Vec<double> Vg; // Sum of the primitive States at the ghost-point. 
   int ng; // Number of neighbours in the fluid. State at GP is then equal to Vg/ng.
   // After all GP have been populated, Vg /= ng and ng=1.
@@ -33,6 +34,7 @@ class GhostPoint {
     {
       Vg = GP.Vg;
       ng = GP.ng;
+      ng_last = ng;
       ghostTag = GP.ghostTag;
       return *this;
     }
@@ -47,6 +49,7 @@ class GhostPoint {
 	}
       Vg += GP.Vg;
       ng += GP.ng;
+      ng_last = ng;
       return *this;
     }
   void addNeighbour(Vec<double> &Vi,double distanceRate, Vec3D interfaceVelocity, int tag)
@@ -55,6 +58,7 @@ class GhostPoint {
     // distanceRate is the rate of the distances from the GP and the neighbour to the interface = dg/di\
     
     ng++;
+    ng_last = ng;
 
     // We want the velocity to be zero at the interface and we obtain the 
     // state at the GP by linear interpolation.
@@ -94,6 +98,8 @@ class GhostPoint {
     Vg /= (double) ng;
     ng = 1;
   }
+  
+  int lastCount() { return ng_last; }
 };
 
 #endif

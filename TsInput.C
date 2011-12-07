@@ -1,86 +1,68 @@
-#include <cstring>
-
 #include <TsInput.h>
 
 #include <IoData.h>
 
+#include <string>
+#include <cstring>
+
 //------------------------------------------------------------------------------
 
-TsInput::TsInput(IoData &iod)
-{
+TsInput::TsInput(IoData &iod) {
+  const std::string prefix(iod.input.prefix); 
 
-  int sp = strlen(iod.input.prefix) + 1;
-
-  if (iod.input.solutions[0] != 0) {
-    solutions = new char[sp + strlen(iod.input.solutions)];
-    if (strncmp(iod.input.solutions, "/", 1) == 0)
-      sprintf(solutions, "%s", iod.input.solutions);
-    else
-      sprintf(solutions, "%s%s", iod.input.prefix, iod.input.solutions);
-  }
-  else {
-    solutions = new char[1];
-    sprintf(solutions, "");
-  }
-
-  if (iod.input.positions[0] != 0) {
-    positions = new char[sp + strlen(iod.input.positions)];
-    if (strncmp(iod.input.positions, "/", 1) == 0)
-      sprintf(positions, "%s", iod.input.positions);
-    else
-      sprintf(positions, "%s%s", iod.input.prefix, iod.input.positions);
-  }
-  else {
-    positions = new char[1];
-    sprintf(positions, "");
-  }
-
-  if (iod.input.levelsets[0] != 0) {
-    levelsets = new char[sp + strlen(iod.input.levelsets)];
-    if (strncmp(iod.input.levelsets, "/", 1) == 0)
-      sprintf(levelsets, "%s", iod.input.levelsets);
-    else
-      sprintf(levelsets, "%s%s", iod.input.prefix, iod.input.levelsets);
-  }
-  else {
-    levelsets = new char[1];
-    sprintf(levelsets, "");
-  }
-
-  if (iod.input.podFile[0] != 0) {
-    podFile = new char[sp + strlen(iod.input.podFile)];
-    sprintf(podFile, "%s%s", iod.input.prefix, iod.input.podFile);
-  }
-  else{
-    podFile = new char[1];
-    sprintf(podFile, "");
-  }
-
-// Included
-  if (iod.input.shapederivatives[0] != 0) {
-    shapederivatives = new char[sp + strlen(iod.input.shapederivatives)];
-    if (strncmp(iod.input.shapederivatives, "/", 1) == 0)
-      sprintf(shapederivatives, "%s", iod.input.shapederivatives);
-    else
-      sprintf(shapederivatives, "%s%s", iod.input.prefix, iod.input.shapederivatives);
-  }
-  else {
-    shapederivatives = new char[1];
-    sprintf(shapederivatives, "");
-  }
-
+  solutions = absolutePath(iod.input.solutions, prefix);
+  positions = absolutePath(iod.input.positions, prefix);
+  levelsets = absolutePath(iod.input.levelsets, prefix);
+  podFile   = absolutePath(iod.input.podFile,   prefix);
+  snapFile  = absolutePath(iod.input.snapFile,  prefix);
+  snapRefSolutionFile = absolutePath(iod.input.snapRefSolutionFile, prefix);
+  podFileState = absolutePath(iod.input.podFileState, prefix);
+  podFileRes = absolutePath(iod.input.podFileRes, prefix);
+  podFileJac = absolutePath(iod.input.podFileJac, prefix);
+  podFileResHat = absolutePath(iod.input.podFileResHat, prefix);
+  podFileJacHat = absolutePath(iod.input.podFileJacHat, prefix);
+  sampleNodes = absolutePath(iod.input.sampleNodes, prefix);
+  jacMatrix = absolutePath(iod.input.jacMatrix, prefix);
+  resMatrix = absolutePath(iod.input.resMatrix, prefix);
+  shapederivatives = absolutePath(iod.input.shapederivatives, prefix);
+  staterom = absolutePath(iod.input.staterom, prefix);
+  reducedfullnodemap = absolutePath(iod.input.reducedfullnodemap , prefix);
+  mesh = absolutePath(iod.input.mesh , prefix);
 }
 
 //------------------------------------------------------------------------------
-TsInput::~TsInput()
-{
 
-  if (solutions) delete [] solutions;
-  if (positions) delete [] positions;
-  if (levelsets) delete [] levelsets;
-  if (podFile)   delete [] podFile;
+char *
+TsInput::absolutePath(const std::string & rawPath, const std::string & prefix) {
+  const bool isRelativePath = rawPath.size() > 0 && rawPath[0] != '/';
+  const std::string finalPath(isRelativePath ? prefix + rawPath : rawPath);
 
-// Included
-  if (shapederivatives)   delete [] shapederivatives;
+  char * result = new char[finalPath.size() + 1];
+  std::strcpy(result, finalPath.c_str());
 
+  return result;
 }
+
+//------------------------------------------------------------------------------
+
+TsInput::~TsInput() {
+  delete[] solutions;
+  delete[] positions;
+  delete[] levelsets;
+  delete[] podFile;
+  delete[] snapFile;
+  delete[] snapRefSolutionFile;
+  delete[] podFileRes;
+  delete[] podFileJac;
+  delete[] podFileResHat;
+  delete[] podFileJacHat;
+  delete[] sampleNodes;
+  delete[] jacMatrix;
+  delete[] resMatrix;
+  delete[] shapederivatives; 
+  delete[] staterom;
+  delete[] reducedfullnodemap ;
+  delete[] mesh ;
+}
+
+//------------------------------------------------------------------------------

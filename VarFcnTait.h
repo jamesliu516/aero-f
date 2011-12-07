@@ -20,12 +20,16 @@
 //
 // EOS: Pressure = p + a*Density^b
 //
+// energy is given by
+//      energy = enthalpy - Pressure/Density
+//      enthalpy = cp * T
+//
 //--------------------------------------------------------------------------
 class VarFcnTait : public VarFcnBase {
 
-private:
-  double Cv_;
-  double invCv_;
+protected:
+  double C_;
+  double invC_;
   double a_;
   double b_;
   double p_;
@@ -35,8 +39,10 @@ private:
   int verification(int glob, double *U, double *V);
 
 public:
-  VarFcnTait(FluidModelData &data);
-  ~VarFcnTait() { delete [] pname; }
+  // baseClass determines if VarFcnTait is used as a base class
+  // for another class (like VarFcnTaitSA and VarFcnTaitKE)
+  VarFcnTait(FluidModelData &data, bool baseClass = false);
+  virtual ~VarFcnTait() {}
 
   //----- Transformation Operators -----//
   void conservativeToPrimitive(double *U, double *V);
@@ -48,6 +54,7 @@ public:
   void characteristicToPrimitiveVariations(double n[3], double *V, double *dW, double *dV);
 
   //----- General Functions -----//
+  double getPressure(const double density) const{ return p_ + a_ * pow(density, b_); }
   double getPressure(double *V) const{ return p_ + a_*pow(V[0],b_); }
 
   void setPressure(const double p, double *V){V[0] = pow( (p-p_)/a_ , 1.0/b_); }
@@ -55,28 +62,58 @@ public:
 
   //checks that the Euler equations are still hyperbolic
   double checkPressure(double *V) const{ return getPressure(V); }
+  bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe) const{
+    bool error = false;
+    if(V[0] <= 0.0){
+      error = true;
+      if (failsafe)
+        fprintf(stdout, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
+      else
+        fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          V[0], nodeNum, nodeNum, double(phi), otherNodeNum, double(otherPhi));
+    }
+    // no check of pressure or temperature since hyperbolicity of the Euler equations with Tait EOS relies
+    // only on the square of the speed of sound which is a_ * b_ * pow(V[0], b_ - 1.0)
+    return error;
+  }
 
   double computeTemperature(double *V) const{ return V[4]; }
   double computeRhoEnergy(double *V)   const{
     return computeRhoEpsilon(V) + 0.5 * V[0] * getVelocitySquare(V);
   }
-  //computes internal energy (=rho*e-0.5*rho*u^2)
-  double computeRhoEpsilon(double *V)  const{ return V[0] * Cv_ * V[4]; }
+  //computes internal energy (=rho*e-0.5*rho*u^2) knowing that h = cp * T
+  double computeRhoEpsilon(double *V)  const{
+    //return V[0] * C_ * V[4]; //version is epsilon = cv * T
+    return V[0] * C_ * V[4] - getPressure(V);
+  }
   double computeSoundSpeed(double *V)  const{ 
     double c2 = a_ * b_ * pow(V[0], b_ - 1.0);
     if (c2>0) return sqrt(c2);
-    return 0.0;
+    else {
+      std::cout << "Negative c2 for Tait EOS: " << V[0] << "; c^2 = " << c2 << std::endl;
+      return 0.0;
+    }
   }
   double computeSoundSpeed(const double density, const double entropy) const{
     double c2 = a_ * b_ * pow(density, b_ - 1.0);
     if (c2>0) return sqrt(c2);
     return 0.0;
   }
-  //double computeEntropy(const double density, const double pressure) const{ }
-  //double computeIsentropicPressure(const double entropy, const double density) const{ }
+  double getPressureDerivative(double *V) const { return computeSoundSpeed(V); }
+  double specificHeatCstPressure() const{ return C_; }
+  double computePressureCoefficient(double *V, double pinfty, double mach, bool dimFlag) const {
+    return 2.0 * (getPressure(V) - pinfty);
+  }
+  double computeTotalPressure(double machr, double* V) const {
+    double mach = computeMachNumber(V);
+    double opmach = 1.0 + 0.5*(b_-1.0)*mach*mach;
+    double total_density = V[0] * pow(opmach, 1.0/(b_-1.0));
+    return getPressure(total_density);
+  }
 
   //----- Equation of State Parameters -----//
-  double getCv()         const{ return Cv_; }
+  double getCv()         const{ return C_; }
   double getAlphaWater() const{ return a_; }
   double getBetaWater()  const{ return b_; }
   double getPrefWater()  const{ return p_; }
@@ -87,7 +124,7 @@ public:
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 inline
-VarFcnTait::VarFcnTait(FluidModelData &data) : VarFcnBase(data) {
+VarFcnTait::VarFcnTait(FluidModelData &data, bool baseClass) : VarFcnBase(data) {
 
   if(data.fluid != FluidModelData::LIQUID){
     fprintf(stderr, "*** Error: FluidModelData is not of type Tait\n");
@@ -96,19 +133,21 @@ VarFcnTait::VarFcnTait(FluidModelData &data) : VarFcnBase(data) {
 
   type = TAIT;
  
-  Cv_    = 1.0;
-  Cv_    = data.liquidModel.Cv;
-  invCv_ = 1.0/Cv_;
+  C_    = data.liquidModel.specificHeat;
+  if(C_ <= 0.0 ) fprintf(stderr, "*** Error: specific heat should not be %e in Tait EOS\n", C_);
+  invC_ = 1.0/C_;
   a_     = data.liquidModel.alpha;
   b_     = data.liquidModel.beta;
   p_     = data.liquidModel.Pref;
 
-  pname = new const char*[5];
-  pname[0] = "density";
-  pname[1] = "x-velocity";
-  pname[2] = "y-velocity";
-  pname[3] = "z-velocity";
-  pname[4] = "temperature";
+  if(!baseClass){
+    pname = new const char*[5];
+    pname[0] = "density";
+    pname[1] = "x-velocity";
+    pname[2] = "y-velocity";
+    pname[3] = "z-velocity";
+    pname[4] = "temperature";
+  }
 }
 //------------------------------------------------------------------------------
 inline
@@ -124,7 +163,8 @@ void VarFcnTait::conservativeToPrimitive(double *U, double *V){
       
   double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
     
-  V[4] = invRho * invCv_ * (U[4] - 0.5 * U[0] * vel2);
+  V[4] = invRho * invC_ * (U[4] - 0.5 * U[0] * vel2 + getPressure(V[0]));
+  //note that h = cp * T and not epsilon = cv * T
 
 }
 //------------------------------------------------------------------------------
@@ -134,15 +174,20 @@ int VarFcnTait::verification(int glob, double *U, double *V)
 //verification of pressure value
 //if pressure < pmin, set pressure to pmin
 //and rewrite V and U!!
-  double locPressure = p_ +a_*pow(V[0],b_);
+  double locPressure = getPressure(V);
   if(locPressure<pmin){
     if(verif_clipping)
       fprintf(stdout, "clip pressure[%d] in tait from %e to %e\n", glob, locPressure, pmin);
     V[0] = pow((pmin-p_)/a_, 1.0/b_);
-    primitiveToConservative(V,U);
+    U[0] = V[0];
+    U[1] = V[0]*V[1];
+    U[2] = V[0]*V[2];
+    U[3] = V[0]*V[3];
+    U[4] = V[0]*V[4]*C_+0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]) - getPressure(V);
     return 1;
   }
   return 0;
+
 }
 //------------------------------------------------------------------------------
 inline
@@ -153,7 +198,7 @@ void VarFcnTait::primitiveToConservative(double *V, double *U) {
   U[1] = V[0] * V[1];
   U[2] = V[0] * V[2];
   U[3] = V[0] * V[3];
-  U[4] = V[0] * Cv_ * V[4] + 0.5 * V[0] * vel2;
+  U[4] = V[0] * C_ * V[4] + 0.5 * V[0] * vel2 - getPressure(V);
 
 }
 //------------------------------------------------------------------------------
@@ -214,7 +259,7 @@ void VarFcnTait::extrapolateCharacteristic(double n[3], double un, double c,
   double dVn = dV[1]*n[0]+dV[2]*n[1]+dV[3]*n[2];
   double rhooc = Vb[0]/c;
   double P = p_ +a_*pow(Vb[0],b_);
-  double coeff1 = -P*dV[0]/Vb[0] + Vb[0]*Cv_*dV[4];
+  double coeff1 = -P*dV[0]/Vb[0] + Vb[0]*C_*dV[4];
 
 // step 1: primitive to characteristic variations
   double dW[5];
@@ -265,7 +310,7 @@ void VarFcnTait::extrapolateCharacteristic(double n[3], double un, double c,
   dV[1] = oorho*(n[2]*dW[1]-n[1]*dW[2]) + corho*n[0]*diff;
   dV[2] = oorho*(n[0]*dW[2]-n[2]*dW[0]) + corho*n[1]*diff;
   dV[3] = oorho*(n[1]*dW[0]-n[0]*dW[1]) + corho*n[2]*diff;
-  dV[4] = ( dW[0]*n[0]+dW[1]*n[1]+dW[2]*n[2] + P*sum*oorho)*oorho/Cv_;
+  dV[4] = ( dW[0]*n[0]+dW[1]*n[1]+dW[2]*n[2] + P*sum*oorho)*oorho/C_;
 
 }
 //------------------------------------------------------------------------------
@@ -276,7 +321,7 @@ void VarFcnTait::primitiveToCharacteristicVariations(double n[3], double *V,
 
   double Ptemp = -(p_+a_*pow(V[0],b_))/pow(V[0],2);
   double c = computeSoundSpeed(V)/V[0];
-  double coeff1 = Ptemp*dV[0]+ Cv_*dV[4];
+  double coeff1 = Ptemp*dV[0]+ C_*dV[4];
   double dVn = n[0]*dV[1]+n[1]*dV[2]+n[2]*dV[3];
 
   dW[0] = coeff1*n[0] - n[2]*dV[2] + n[1]*dV[3];
@@ -290,9 +335,9 @@ inline
 void VarFcnTait::characteristicToPrimitiveVariations(double n[3], double *V, 
                                                      double *dW, double *dV)
 {
-  double ooCv = 1.0/Cv_;
+  double ooCv = 1.0/C_;
   double c = computeSoundSpeed(V);
-  double Ptemp = (p_+a_*pow(V[0],b_))/(V[0]*Cv_*c);
+  double Ptemp = (p_+a_*pow(V[0],b_))/(V[0]*C_*c);
   double rho = V[0]/c;
 
   dV[0] = rho*(dW[3]+dW[4]);
@@ -307,7 +352,7 @@ inline
 void VarFcnTait::computedVdU(double *V, double *dVdU) {
 
   double invrho = 1.0 / V[0];
-  double invrhoCv = invrho*invCv_;
+  double invrhoCp = invrho*invC_;
   dVdU[0]  = 1.0;
   dVdU[5]  = -invrho * V[1];
   dVdU[6]  = invrho;
@@ -315,11 +360,12 @@ void VarFcnTait::computedVdU(double *V, double *dVdU) {
   dVdU[12] = invrho;
   dVdU[15] = -invrho * V[3];
   dVdU[18] = invrho;
-  dVdU[20] = invrhoCv * ( -Cv_*V[4] + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) );
-  dVdU[21] = -invrhoCv * V[1];
-  dVdU[22] = -invrhoCv * V[2];
-  dVdU[23] = -invrhoCv * V[3];
-  dVdU[24] = invrhoCv;
+  //dVdU[20] = invrhoCp * ( -C_*V[4]/b_ + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) + a_*(b_-1.0)*pow(V[0], b_-1.0));
+  dVdU[20] = invrhoCp * (getPressureDerivative(V) + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3])) - V[4]*invrho;
+  dVdU[21] = -invrhoCp * V[1];
+  dVdU[22] = -invrhoCp * V[2];
+  dVdU[23] = -invrhoCp * V[3];
+  dVdU[24] = invrhoCp;
 
 }
 //------------------------------------------------------------------------------
@@ -333,11 +379,11 @@ void VarFcnTait::computedUdV(double *V, double *dUdV) {
   dUdV[12] = V[0];
   dUdV[15] = V[3];
   dUdV[18] = V[0];
-  dUdV[20] = Cv_ * V[4] + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]);
+  dUdV[20] = C_ * V[4] + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) - getPressureDerivative(V);
   dUdV[21] = V[0] * V[1];
   dUdV[22] = V[0] * V[2];
   dUdV[23] = V[0] * V[3];
-  dUdV[24] = V[0] * Cv_;
+  dUdV[24] = V[0] * C_;
 
 }
 //------------------------------------------------------------------------------

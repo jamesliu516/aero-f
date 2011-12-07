@@ -4,7 +4,6 @@
 #include <EmbeddedTsDesc.h>
 
 #include <IoData.h>
-#include <Domain.h>
 
 struct DistInfo;
 
@@ -40,7 +39,7 @@ class ExplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
   ExplicitEmbeddedTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitEmbeddedTsDesc();
 
-  int solveNonLinearSystem(DistSVec<double,dim> &U);
+  int solveNonLinearSystem(DistSVec<double,dim> &U, int);
 
  private:
   void solveNLSystemOneBlock(DistSVec<double,dim> &U);

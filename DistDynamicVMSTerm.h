@@ -3,7 +3,6 @@
 
 #include <DistMacroCell.h>
 #include <DistVector.h>
-#include <Domain.h>
 #include <DynamicVMSTerm.h>
 #include <IoData.h>
 

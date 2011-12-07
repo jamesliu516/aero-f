@@ -41,10 +41,11 @@ public:
   VarFcnBase(FluidModelData &data) {
     rhomin = data.rhomin;
     pmin = data.pmin;
-    verif_clipping = true;
+    verif_clipping = false;//true;
   }
   virtual ~VarFcnBase() {}
-
+  
+  virtual bool equal(VarFcnBase* oth) { return false; }
 
   //----- Transformation Operators -----//
   virtual void conservativeToPrimitive(double *U, double *V) = 0; 
@@ -109,6 +110,10 @@ public:
   virtual double checkPressure(double *V) const{
     fprintf(stderr, "*** Error:  checkPressure Function not defined\n");
     exit(1); }
+  virtual bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe) const{
+    fprintf(stderr, "*** Error:  VarFcnBase::checkReconstructedValues not implemented for this equation of state (integer tag = %d)\n", type);
+    return false;
+  }
 
   virtual double computeTemperature(double *V) const{
     fprintf(stderr, "*** Error:  computeTemperature Function not defined\n");
@@ -139,16 +144,9 @@ public:
     fprintf(stderr, "*** Error:  computeTotalPressure Function not defined\n");
     exit(1); }
 
-  virtual double getTurbulentNuTilde(double *V)         const{
-    fprintf(stderr, "*** Error:  getTurbulentNuTilde Function not defined\n");
-    exit(1); }
-  virtual double getTurbulentKineticEnergy(double *V)   const{
-    fprintf(stderr, "*** Error:  getTurbulentKineticEnergy Function not defined\n");
-    exit(1); }
-  virtual double getTurbulentDissipationRate(double *V) const{
-    fprintf(stderr, "*** Error:  getTurbulentDissipationRate Function not defined\n");
-    exit(1); }
-
+  virtual double getTurbulentNuTilde(double *V)         const{ return V[5]; }
+  virtual double getTurbulentKineticEnergy(double *V)   const{ return V[5]; }
+  virtual double getTurbulentDissipationRate(double *V) const{ return V[6]; }
 
   virtual void rstVar(IoData &iod) {}
   virtual void rV(IoData &iod) { pmin = iod.eqs.fluidModel.pmin; }
@@ -162,6 +160,10 @@ public:
     return (V[1]*dV[1]+V[2]*dV[2]+V[3]*dV[3])/sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
 
+  virtual double specificHeatCstPressure() const{ 
+    fprintf(stderr, "*** Error: specificHeatCstPressure not defined\n");
+    exit(1);
+  }
   virtual double computePressureCoefficient(double *V, double pinfty, 
                                             double mach, bool dimFlag) const{ 
     fprintf(stderr, "*** Error: computePressureCoefficient not defined\n");
