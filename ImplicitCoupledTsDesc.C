@@ -84,7 +84,10 @@ void ImplicitCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q
 						 DistSVec<double,dim> &F)
 {
 
-  mvp->evaluate(it, *this->X, *this->A, Q, F);
+  if(this->wallRecType==BcsWallData::CONSTANT)
+    mvp->evaluate(it, *this->X, *this->A, Q, F);
+  else
+    mvp->evaluate(*this->riemann1, it, *this->X, *this->A, Q, F);
 
 #ifdef MVP_CHECK
   DistSVec<double,dim> p(this->getVecInfo());

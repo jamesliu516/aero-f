@@ -215,8 +215,11 @@ template<int dim, int neq1, int neq2>
 void ImplicitSegTsDesc<dim,neq1,neq2>::computeJacobian(int it, DistSVec<double,dim> &Q,
 						       DistSVec<double,dim> &F)
 {
+  if(this->wallRecType==BcsWallData::CONSTANT)
+    mvp1->evaluate(it, *this->X, *this->A, Q, F);
+  else
+    mvp1->evaluate(*this->riemann1, it, *this->X, *this->A, Q, F);
 
-  mvp1->evaluate(it, *this->X, *this->A, Q, F);
   mvp2->evaluate(it, *this->X, *this->A, Q, F);
 
 #ifdef MVP_CHECK
