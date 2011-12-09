@@ -636,6 +636,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   nodal_output.locNodeId = new int[Probes::MAXNODES];
   nodal_output.last = new int[Probes::MAXNODES];
   nodal_output.locations.resize(Probes::MAXNODES);
+
+  nodal_output.step = 0;
 					      
   for (i = 0; i < Probes::MAXNODES; ++i) {
     nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX,
@@ -2375,11 +2377,11 @@ void TsOutput<dim>::cleanProbesFile() {
         FILE* scalar_file = fopen(nodal_scalars[i],"w");
         FILE* scalar_file_old = fopen(nn,"r");
         while (!feof(scalar_file_old)) {
-          fscanf(scalar_file_old,"%d",&iter);
+          fscanf(scalar_file_old,"%i",&iter);
           fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
             break;          
-          fprintf(scalar_file,"%d %e ",iter,time);
+          fprintf(scalar_file,"%i %e ",iter,time);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k) {
 	    fscanf(scalar_file_old,"%lf",&res);
             fprintf(scalar_file,"%e ",res);
@@ -2402,11 +2404,11 @@ void TsOutput<dim>::cleanProbesFile() {
         FILE* scalar_file = fopen(nodal_scalars[i],"w");
         FILE* scalar_file_old = fopen(nn,"r");
         while (!feof(scalar_file_old)) {
-          fscanf(scalar_file_old,"%d",&iter);
+          fscanf(scalar_file_old,"%i",&iter);
           fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
             break;          
-          fprintf(scalar_file,"%d %e ",iter,time);
+          fprintf(scalar_file,"%i %e ",iter,time);
           for (int k =0 ; k < nodal_output.numNodes; ++k) {
             for (int l = 0; l < 3; ++l) {
 	      fscanf(scalar_file_old,"%lf",&res);
@@ -2459,9 +2461,9 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
                                       Phi);
 	if (com->cpuNum() == 0) {
 	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
-	  fprintf(scalar_file,"%d %e",nodal_output.step+it0, tag);
+	  fprintf(scalar_file,"%i %e ",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
-	    fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
+	    fprintf(scalar_file," %e ",nodal_output.results[k]*sscale[i]);
 	  fprintf(scalar_file,"\n");
 	  fclose(scalar_file);
 	}
@@ -2478,7 +2480,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
 	if (com->cpuNum() == 0) {
 	  FILE* vector_file = fopen(nodal_vectors[i],mode);
-	  fprintf(vector_file,"%d %e ",nodal_output.step+it0, tag);
+	  fprintf(vector_file,"%i %e ",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
 	    fprintf(vector_file,"%e %e %e ",
 		    nodal_output.results[k*3]*vscale[i],

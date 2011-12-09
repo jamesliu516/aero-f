@@ -280,7 +280,9 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 	// output: desc_a, desc_b
 	
 	int nB = B.numVectors();
+#ifndef DEBUG
   F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);	
+#endif
 
 }
 

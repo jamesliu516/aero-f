@@ -28,6 +28,11 @@ class RKIntegrator {
 
   ~RKIntegrator() {
       
+    if (k1) delete  k1;
+    if (k2) delete  k2;
+    if (k3) delete  k3;
+    if (k4) delete  k4;
+    if (ytemp) delete ytemp;
   }
 
   template <class Obj>

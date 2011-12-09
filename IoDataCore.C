@@ -1902,6 +1902,10 @@ MultiFluidData::MultiFluidData()
   interfaceType = FSF; //hidden
   jwlRelaxationFactor = 1.0;
 
+  interfaceTreatment = FIRSTORDER;
+  interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
+  levelSetMethod = SCALAR;//CONSERVATIVE;
+
 }
 
 //------------------------------------------------------------------------------
@@ -1915,7 +1919,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
              "None", 0, "GhostFluidForThePoor", 1, "FiniteVolumeWithExactTwoPhaseRiemann", 2);
   new ClassToken<MultiFluidData>(ca, "Problem", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
+				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
              "Bubble", 0, "ShockTube", 1);
   new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
@@ -1951,6 +1955,17 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "InterfaceType", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
              "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
+
+  new ClassToken<MultiFluidData>(ca, "InterfaceTreatment", this,
+				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
+				 "FirstOrder", 0, "SecondOrder", 1);
+  new ClassToken<MultiFluidData>(ca, "InterfaceExtrapolation", this,
+				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
+				 "FirstOrder", 0, "SecondOrder", 1);
+
+  new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
+				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),3,
+				 "Conservative", 0, "HJWENO", 1,"Scalar", 2);
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
 				  &MultiFluidData::jwlRelaxationFactor);
@@ -3533,6 +3548,8 @@ OneDimensionalInfo::OneDimensionalInfo(){
   coordType  = SPHERICAL;//CARTESIAN;
   volumeType = CONSTANT_VOLUME;//REAL_VOLUME;
 
+  mode = NORMAL;
+
   maxDistance = 0.0;
   numPoints = 101;
   interfacePosition = 0.5;
@@ -3559,6 +3576,7 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassDouble<OneDimensionalInfo>(ca, "Density0", this, &OneDimensionalInfo::density2);
   new ClassDouble<OneDimensionalInfo>(ca, "Velocity0", this, &OneDimensionalInfo::velocity2);
   new ClassDouble<OneDimensionalInfo>(ca, "Pressure0", this, &OneDimensionalInfo::pressure2);
+  new ClassToken<OneDimensionalInfo>(ca, "Mode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::mode), 2, "Normal", 0, "ConvergenceTest1", 1);
 
   programmedBurn.setup("ProgrammedBurn",ca);
   
