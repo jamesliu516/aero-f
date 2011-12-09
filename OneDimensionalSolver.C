@@ -10,6 +10,7 @@ using namespace std;
 #include "LocalRiemannDesc.h"
 #include "FluidSelector.h"
 #include "OneDimensionalSourceTerm.h"
+#include "OneDimensionalInterpolator.h"
 #include "RefVal.h"
 
 #include "IoData.h"
@@ -18,7 +19,7 @@ using namespace std;
 //------------------------------------------------------------------------------
 OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domain) : 
   numPoints(np),
-  ctrlVol(numPoints), ctrlSurf(numPoints+1), X(numPoints), Y(numPoints+1), 
+  ctrlVol(numPoints), ctrlSurf(numPoints+1), X(numPoints), Y(numPoints+1), cutCellStatus(numPoints+1),
   U(numPoints), V(numPoints), R(numPoints),
   gradV(numPoints), Phi(numPoints), Rphi(numPoints), gradPhi(numPoints),
   fluidId(numPoints),fluidIdn(numPoints),
@@ -31,6 +32,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   // equation modelling
   coordType  = ioData.oneDimensionalInfo.coordType;
   volumeType = ioData.oneDimensionalInfo.volumeType;
+  interfaceTreatment = 0;
 
   // time and space domain definition
   maxDistance = mesh[np-1];
@@ -63,17 +65,10 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
   source = 0;
   if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
-    if(coordType == OneDimensionalInfo::CARTESIAN)
-      { }//source = new CartesianOneDSourceTerm(varFcn);
-    else if(coordType == OneDimensionalInfo::CYLINDRICAL)
-      source = new CylindricalOneDSourceTerm(varFcn);
-    else if(coordType == OneDimensionalInfo::SPHERICAL)
-      source = new SphericalOneDSourceTerm(varFcn);
+    if(coordType == OneDimensionalInfo::CYLINDRICAL ||
+       coordType == OneDimensionalInfo::SPHERICAL)
+      source = new OneDimensionalSourceTerm();
   }else if(volumeType == OneDimensionalInfo::REAL_VOLUME){
-    if(coordType == OneDimensionalInfo::SPHERICAL)
-   {  source = new SphericalOneDSourceTerm2(varFcn); }
-    else if(coordType == OneDimensionalInfo::CYLINDRICAL)
-      source = new CylindricalOneDSourceTerm2(varFcn);
   }
 
   bubbleRadiusFile = "";
@@ -122,6 +117,8 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
   setupFixes(ioData);
 
+  cutCellStatus = 0;
+
 
   if (ioData.schemes.ns.dissipation == SchemeData::SIXTH_ORDER) {
     isSixthOrder = true;
@@ -129,6 +126,21 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
     isSixthOrder = false;
 
   beta = ioData.schemes.ns.beta;
+
+  if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER)
+    interfaceTreatment = 1;
+
+  levelSetMethod = 0;
+ 
+  interfaceExtrapolation = 0;
+  if (ioData.mf.interfaceExtrapolation == MultiFluidData::EXTRAPOLATIONSECONDORDER)
+    interfaceExtrapolation = 1;
+  
+  
+  if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
+    levelSetMethod = 1;
+  else if (ioData.mf.levelSetMethod == MultiFluidData::SCALAR)
+    levelSetMethod = 2;
 }
 //------------------------------------------------------------------------------
 OneDimensional::~OneDimensional(){
@@ -673,7 +685,6 @@ void OneDimensional::spatialSetup(){
   //cout << "computing control surfaces"<<endl;
   for(int i=0; i<numPoints+1; i++) ctrlSurf[i][0] = 1.0;
 
-
   // in case a real Finite Volume approach is considered
   // with real cylindrical/spherical volumes, the control volumes and
   // surfaces must be computed differently as follows:
@@ -694,6 +705,13 @@ void OneDimensional::spatialSetup(){
     }
   }
 
+  if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
+    if(coordType == OneDimensionalInfo::CYLINDRICAL)
+      source->initialize(1.0,1,X);
+    else if (coordType == OneDimensionalInfo::SPHERICAL)
+      source->initialize(2.0,1,X);
+  }
+   
 }
 //------------------------------------------------------------------------------
 void OneDimensional::temporalSetup(){
@@ -702,8 +720,11 @@ void OneDimensional::temporalSetup(){
 void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   V = 0.0;
   // initialize V
-  data.pressure1 = data.pressure2;
+  if (data.mode == OneDimensionalInfo::CONVTEST1) {
+    data.pressure1 = data.pressure2;
+  }
   std::cout << "p2 = " << data.pressure2 << std::endl;
+  interfaceLocation = data.interfacePosition;
   for(int i=0; i<numPoints; i++){
     if(X[i][0]<data.interfacePosition){
       if (varFcn->getType(1) != VarFcnBase::TAIT) {
@@ -733,12 +754,15 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
       }
     }
 
-    V[i][0] = 1.0;
-    if (fabs(X[i][0]-data.interfacePosition) < 0.2)
-      V[i][4] = 10000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+data.pressure2;
-    else
-    V[i][4] = data.pressure2;
-    V[i][1] = 0.0;
+    if (data.mode == OneDimensionalInfo::CONVTEST1) {
+      V[i][0] = 1.0;
+      if (fabs(X[i][0]-data.interfacePosition) < 0.2)
+	V[i][4] = //data.pressure2+100.0*pow(cos(3.14159265358979323846/2.0*(X[i][0]-data.interfacePosition)/0.2),2.0);
+	  100000000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+data.pressure2;
+      else
+	V[i][4] = data.pressure2;
+      V[i][1] = 0.0;
+    }
   }
 
   isSinglePhase = varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1));
@@ -748,8 +772,13 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   
 
   // initialize Phi
-  for(int i=0; i<numPoints; i++)
-    Phi[i][0]  = -V[i][0]*(X[i][0]-data.interfacePosition);
+  if (levelSetMethod == 0) {
+    for(int i=0; i<numPoints; i++)
+      Phi[i][0]  = -V[i][0]*(X[i][0]-data.interfacePosition);
+  } else {
+    for(int i=0; i<numPoints; i++)
+      Phi[i][0]  = -(X[i][0]-data.interfacePosition);
+  }
 
   // initialize fluidId and U
   fluidSelector.getFluidId(fluidId,Phi);
@@ -829,15 +858,88 @@ void OneDimensional::computeTimeSteps(SVec<double,1> &timeSteps){
   }
 
 }
+
+void OneDimensional::levelSetDerivative(double t0, Vec<double>& phi, Vec<double>& k) {
+  
+  double u;
+  if (interfaceTreatment == 1) {
+   
+    /*for(int i=0; i<numPoints-1; i++){
+      if (cutCellStatus[i] == 1)
+	V[i][1] = 0.5*(V[i-1][1]+V[i+1][1]);
+	}*/
+    for(int i=0; i<numPoints-1; i++){
+      if (cutCellStatus[i] == 1) {
+	double xi = phi[0];
+	double ul = V[i-1][1]*(xi-X[i-2][0])/(X[i-1][0]-X[i-2][0])+V[i-2][1]*(xi-X[i-1][0])/(X[i-2][0]-X[i-1][0]);
+	double ur = V[i+1][1]*(xi-X[i+2][0])/(X[i+1][0]-X[i+2][0])+V[i+2][1]*(xi-X[i+1][0])/(X[i+2][0]-X[i+1][0]);
+	k[0] = (ul+ur)*0.5;
+      }
+      
+    }
+  } else {
+    OneDimensionalInterpolator::Interpolate<5>(V,u , 1,
+					       X, phi[0] ,2);
+    
+    k[0] = u;
+    //std::cout << u << std::endl;
+  }
+}
+
 //------------------------------------------------------------------------------
 void OneDimensional::singleTimeIntegration(double dt){
 // for now, assume forward Euler
 
   double Vtemp[5];
   
+  if (levelSetMethod == 1 || levelSetMethod == 0) {
 
-  fluidSelector.getFluidId(fluidId,Phi);
+    fluidSelector.getFluidId(fluidId,Phi);
+  }
 
+  //std::cout << interfaceTreatment << " " << interfaceExtrapolation << std::endl;
+  if (interfaceTreatment == 1) {
+    //varFcn->conservativeToPrimitive(U,V,&fluidId);
+    for(int i=0; i<numPoints-1; i++){
+      
+      if (Y[i][0] < interfaceLocation && Y[i+1][0] >= interfaceLocation) {
+	for (int k = 0; k < 5; ++k) {
+	  if (interfaceLocation > X[i][0])
+	    V[i][k] = (2.0*V[i-2][k]-V[i-1][k]);
+	  else
+	    V[i][k] = (2.0*V[i+1][k]-V[i+2][k]);
+	}
+	cutCellStatus[i] = 1;
+      }
+      else {
+	if (cutCellStatus[i] == 1) {
+	  if (interfaceExtrapolation == 0) {
+	    memcpy(V[i],Wr[i],sizeof(double)*5);
+	    for (int k = 0; k < 5; ++k) {
+	      std::cout << V[i][k] << " ";
+	    }
+	  }
+	  else if (interfaceExtrapolation == 1) {
+
+	    // Linear extrapolation to populate the ghost state
+	    int j = i+1;
+	    if (fluidId[i-1] == fluidId[i])
+	      j = i-1;
+	    double xi = (X[j][0]+X[i][0])*0.5;
+	    for (int k = 0; k < 5; ++k) {
+	      V[i][k] = (X[i][0]-X[j][0])/(xi-X[j][0])*Wr[j][k]-
+		(X[i][0]-xi)/(xi-X[j][0])*V[j][k];
+	      std::cout << V[i][k] << " ";
+	    }
+	  }
+	  std::cout << std::endl;	
+	}
+	cutCellStatus[i] = 0;
+      }
+    }
+    varFcn->primitiveToConservative(V,U,&fluidId);
+  }
+  
   riemannStatus = 0;
   //std::cout << "U0 = " << U*U << std::endl;
 
@@ -848,25 +950,47 @@ void OneDimensional::singleTimeIntegration(double dt){
 
   //std::cout << "U1 = " << U*U << std::endl;
 
-  Phin = Phi;
-  Phiintegrator->integrate(this,&OneDimensional::PhiF,
-			   Phi,time,dt);
-  //Rphi = 0.0;
-  //computeLevelSetFluxes();
+  if (levelSetMethod == 1 || levelSetMethod == 0) {
+    Phin = Phi;
+    Phiintegrator->integrate(this,&OneDimensional::PhiF,
+			     Phi,time,dt);
+    //Rphi = 0.0;
+    //computeLevelSetFluxes();
+    
+    //preliminary update of U and Phi
+    for(int i=0; i<numPoints; i++){
+      if (Phi[i][0]*Phin[i][0] < 0.0 &&
+	  !riemannStatus[i])
+	Phi[i][0] = Phin[i][0];
+    }
 
-  //preliminary update of U and Phi
-  for(int i=0; i<numPoints; i++){
-    if (Phi[i][0]*Phin[i][0] < 0.0 &&
-	!riemannStatus[i])
-      Phi[i][0] = Phin[i][0];
+    // store previous primitive with old fluidId
+    varFcn->conservativeToPrimitive(U,V,&fluidId);
+    
+    // update fluidId
+    fluidIdn = fluidId;
+    fluidSelector.getFluidId(fluidId,Phi);
+  } else {
+
+    fluidIdn = fluidId;
+    Vec<double> phi(1);
+    phi[0] = interfaceLocation;
+    varFcn->conservativeToPrimitive(U,V,&fluidId);
+    RKIntegrator<Vec<double> > phiI( RKIntegrator< Vec<double> >::RK4, 1);
+    phiI.integrate(this, &OneDimensional::levelSetDerivative,
+		   phi,time,dt);
+    interfaceLocation = phi[0];
+    
+    //fprintf(stderr,"int. loc = %lf, x = %lf\n", interfaceLocation, X[75][0]);
+    for(int i=0; i<numPoints; i++){
+      if (X[i][0] < interfaceLocation)
+	fluidId[i] = 1;
+      else
+	fluidId[i] = 0;
+    }
+
   }
 
-  // store previous primitive with old fluidId
-  varFcn->conservativeToPrimitive(U,V,&fluidId);
-
-  // update fluidId
-  fluidIdn = fluidId;
-  fluidSelector.getFluidId(fluidId,Phi);
   for(int i=0; i<numPoints; i++){
 
     if (fluidId[i] != fluidIdn[i]&& !varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1))) { // Phase change
@@ -875,23 +999,50 @@ void OneDimensional::singleTimeIntegration(double dt){
 	std::cout << "Have a problem!" << std::endl;
       //fprintf(stderr,"Node %d changes phase!\n", i);
       //fprintf(stderr,"Wr[i] = %lf %lf %lf %lf %lf\n", Wr[i][0],Wr[i][1],Wr[i][2],Wr[i][3],Wr[i][4]);
-      memcpy(V[i],Wr[i],sizeof(double)*5);
+      if (interfaceTreatment == 0) {
+	if (interfaceExtrapolation == 0)
+	  memcpy(V[i],Wr[i],sizeof(double)*5);
+	else {
+
+	  // Linear extrapolation to populate the ghost state
+	  int j = i+1;
+	  if (fluidId[i-1] == fluidId[i])
+	    j = i-1;
+	  double xi = (X[j][0]+X[i][0])*0.5;
+	  for (int k = 0; k < 5; ++k) {
+	    V[i][k] = (X[i][0]-X[j][0])/(xi-X[j][0])*Wr[i][k]-
+	      (X[i][0]-xi)/(xi-X[j][0])*V[j][k];
+	  }
+	}
+      }	
     }
   }
 
   double interfaceLocation;
   // initialize Phi
-  /*for(int i=0; i<numPoints-1; i++) {
+  for(int i=0; i<numPoints-1; i++) {
 
-    if (Phi[i][0]*Phi[i+1][0] < 0.0) {
-      interfaceLocation = (double)i+(Phi[i][0]/V[i][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
+    if (Phi[i+1][0] < 0.0) {
+      if (levelSetMethod == 0)
+	interfaceLocation = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
+      else if (levelSetMethod == 1)
+	interfaceLocation = (X[i+1][0]*Phi[i][0]-X[i][0]*Phi[i+1][0])/(Phi[i][0]-Phi[i+1][0]);
       break;
     }
   }
+
     
-  for(int i=0; i<numPoints-1; i++) {
-    Phi[i][0]  = V[i][0]*(interfaceLocation-i);
-    }*/
+  if (levelSetMethod == 0) {
+    /*for(int i=0; i<numPoints-1; i++) {
+      Phi[i][0] = V[i][0]*(interfaceLocation-X[i][0]);
+      }*/
+  } else if (levelSetMethod == 1) {
+    for(int i=0; i<numPoints-1; i++) {
+      Phi[i][0] = (interfaceLocation-X[i][0]);
+    }
+
+  }
+  
 
   //update PhaseChange with new fluidId
   varFcn->primitiveToConservative(V,U,&fluidId);
@@ -902,7 +1053,7 @@ void OneDimensional::singleTimeIntegration(double dt){
       varFcn->conservativeToPrimitiveVerification(i+1, U[i], Vtemp, fluidId[i]);
     }
   }
-  
+   
   if (programmedBurn) {
 
     programmedBurn->setFluidIds(time, fluidId,U);
@@ -920,6 +1071,28 @@ void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
   }
 }
 
+class EulerSource {
+
+public:
+
+  EulerSource(VarFcn* _vf,Vec<int>& _fid) :  vf(_vf), fid(_fid) { }
+
+  ~EulerSource() { }
+
+  void compute(double* U, double* f,int i) {
+
+    double V[5];
+    vf->conservativeToPrimitive(U,V,fid[i]);
+    f[0] = U[1];
+    f[1] = U[1]*U[1]/U[0];
+    f[4] = (U[4]+vf->getPressure(V, fid[i]))*(U[1]/U[0]);
+    f[2] = f[3] = 0.0;
+  }
+
+  VarFcn* vf;
+  Vec<int>& fid;
+};
+
 //------------------------------------------------------------------------------
 void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
@@ -927,15 +1100,23 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   double length = 1.0;
   double normalVel = 0.0; // no ALE
   double flux[dim];
-  double Udummy[dim];
+  double Udummy[dim],Vtemp[dim];
   int i,j,k;
+
+  // Check solution (clip pressure, that is), if necessary
+  if (varFcn->doVerification()) {
+    for(int i=0; i<numPoints; i++){
+      varFcn->conservativeToPrimitiveVerification(i+1, y[i], Vtemp, fluidId[i]);
+    }
+  }
 
   varFcn->conservativeToPrimitive(y,V,&fluidId);
   computeSlopes(V,Vslope,fluidId,!varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1)));
+  
   for(int iEdge=0; iEdge<numPoints-1; iEdge++){
     i = iEdge;
     j = iEdge+1;
-
+  
     double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
     if (!isSixthOrder || !(i > 0 && i < numPoints-3 && (fluidId[i] == fluidId[i+1] && 
 				     fluidId[i] == fluidId[i+2] && fluidId[i] == fluidId[i-1] || isSinglePhase))) {
@@ -968,16 +1149,6 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 			  
     }
     
-    recFcn->compute(V[i], Vsi,V[j], Vsj, Vi, Vj);
-
-    //std::cout << "Hello" << std::endl;
-    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
-    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
-    for (k = 0; k < dim; ++k) {
-      Vi[k+dim] = V[i][k];
-      Vj[k+dim] = V[j][k];
-    }
-
     // One dimensional (source) term
     /*if(volumeType == OneDimensionalInfo::REAL_VOLUME){
       
@@ -991,52 +1162,168 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
     length = (X[j][0]-X[i][0]);
 
-    if(fluidId[i] == fluidId[j]|| isSinglePhase){
+    recFcn->compute(V[i], Vsi,V[j], Vsj, Vi, Vj);
+    
+    //std::cout << "Hello" << std::endl;
+    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
+    for (k = 0; k < dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
 
-      fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fluidId[i]);
-      for(int k=0; k<dim; ++k) {
-        R[i][k] += ctrlSurf[iEdge+1][0]*flux[k];
-        R[j][k] -= ctrlSurf[iEdge+1][0]*flux[k];
-      }
-      /*if (i == 0) {
-	std::cout << Vi[0] << " " << Vi[1] << " " << Vi[2] << " " << Vi[3] << " " << Vi[4] << std::endl;
-	std::cout << Vj[0] << " " << Vj[1] << " " << Vj[2] << " " << Vj[3] << " " << Vj[4] << std::endl;
-	std::cout << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " << V[i][3] << " " << V[i][4] << std::endl;
-	std::cout << Vsi[0] << " " << Vsi[1] << " " << Vsi[2] << " " << Vsi[3] << " " << Vsi[4] << std::endl;
-	std::cout << Vsj[0] << " " << Vsj[1] << " " << Vsj[2] << " " << Vsj[3] << " " << Vsj[4] << std::endl;
-	
-	std::cout << "fold = " << flux[0] << " " << flux[1] << " " << flux[2] << " " << flux[3] << " " << flux[4] << std::endl;
-      }
-      */
-    }else{
-      double gradphi[3] = {1.0, 0.0, 0.0};
-      double Wi[2*dim], Wj[2*dim];
-      double Wir[dim], Wjr[dim];
-      double wi, wj;
-      double dx[3] = {X[j][0]-X[i][0], 0.0, 0.0};
-      int iteration = 0;
-      double fluxi[dim], fluxj[dim];
-
-      riemann->computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-				      Wi,Wj,i,j,i,dx);
-
+    if (interfaceTreatment == 0) {
       
-      memcpy(Wr[i], Wj, sizeof(double)*5);
-      memcpy(Wr[j], Wi, sizeof(double)*5);
-      riemannStatus[i] = riemannStatus[j] = 1;
+      if(fluidId[i] == fluidId[j]|| isSinglePhase){
 
-      //fprintf(stderr,"Edge %d-%d crosses interface\n",i,j);
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fluidId[i]);
+        for(int k=0; k<dim; ++k) {
+          R[i][k] += ctrlSurf[iEdge+1][0]*flux[k];
+          R[j][k] -= ctrlSurf[iEdge+1][0]*flux[k];
+        }
+      }else{
+        double gradphi[3] = {1.0, 0.0, 0.0};
+        double Wi[2*dim], Wj[2*dim];
+        double Wir[2*dim], Wjr[2*dim];
+        double Vir[dim],Vjr[dim];
+        double wi, wj;
+        double dx[3] = {X[j][0]-X[i][0], 0.0, 0.0};
+        int iteration = 0;
+        double fluxi[dim], fluxj[dim];
 
-      fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Wi, fluxi, fluidId[i]);
-      fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wj, Vj, fluxj, fluidId[j]);
-      for (int k=0; k<dim; k++){
-        R[i][k] += ctrlSurf[iEdge+1][0]*fluxi[k];
-        R[j][k] -= ctrlSurf[iEdge+1][0]*fluxj[k];
+	memcpy(Vir, Vi, sizeof(double)*dim);
+	memcpy(Vjr, Vj, sizeof(double)*dim);
+	
+
+        riemann->computeRiemannSolution(Vir,Vjr,fluidId[i],fluidId[j],gradphi,varFcn,
+	  			      Wir,Wjr,i,j,i,dx);
+
+	memcpy(Wi, Wir, sizeof(double)*dim);
+	memcpy(Wj, Wjr, sizeof(double)*dim);
+      
+        memcpy(Wr[i], Wj, sizeof(double)*5);
+        memcpy(Wr[j], Wi, sizeof(double)*5);
+        riemannStatus[i] = riemannStatus[j] = 1;
+
+        //fprintf(stderr,"Edge %d-%d crosses interface\n",i,j);
+
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Wi, fluxi, fluidId[i]);
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wj, Vj, fluxj, fluidId[j]);
+        for (int k=0; k<dim; k++){
+          R[i][k] += ctrlSurf[iEdge+1][0]*fluxi[k];
+          R[j][k] -= ctrlSurf[iEdge+1][0]*fluxj[k];
+        }
+
       }
+    } else if (interfaceTreatment == 1) {
 
+      if(cutCellStatus[i] == 0 && cutCellStatus[j] == 0){
+
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fluidId[i]);
+        for(int k=0; k<dim; ++k) {
+          R[i][k] += ctrlSurf[iEdge+1][0]*flux[k];
+          R[j][k] -= ctrlSurf[iEdge+1][0]*flux[k];
+        }
+      }else{
+        double gradphi[3] = {1.0, 0.0, 0.0};
+        double Wi[2*dim], Wj[2*dim];
+        double Wir[2*dim], Wjr[2*dim];
+        double Vir[dim],Vjr[dim];
+        double wi, wj;
+        double dx[3] = {X[j][0]-X[i][0], 0.0, 0.0};
+        int iteration = 0;
+        double fluxi[dim], fluxj[dim];
+        int I,J;
+        if (cutCellStatus[j] == 1) {
+
+          if (interfaceExtrapolation == 1) {
+	    //std::cout << "\t" << X[i-1][0] << " " << X[i][0] << " " << X[j][0] << " " << X[j+1][0] << " " << X[j+2][0] << " " << interfaceLocation << std::endl;
+	    for (int k = 0; k < dim; ++k) {
+
+	      Vir[k] = (interfaceLocation-X[i-1][0])/(X[i][0]-X[i-1][0])*V[i][k] - (interfaceLocation-X[i][0])/(X[i][0]-X[i-1][0])*V[i-1][k];
+	      Vjr[k] = (interfaceLocation-X[j+2][0])/(X[j+1][0]-X[j+2][0])*V[j+1][k] - (interfaceLocation-X[j+1][0])/(X[j+1][0]-X[j+2][0])*V[j+2][k];
+	      //std::cout << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j+1][k] << " " << V[i-1][k] << " " << V[j+2][k] << std::endl;
+	    }
+          } else {
+	    memcpy(Vir, V[i], sizeof(double)*dim);
+	    memcpy(Vjr, V[j+1], sizeof(double)*dim);
+	    for (int k = 0; k < dim; ++k) {
+	      //std::cout << i << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
+	    }
+	    //std::cout << "p = " << varFcn->getPressure(Vjr,fluidId[j+1]) << std::endl;
+	  }
+        } else { // cutCellStatus[i] == 1
+          
+          if (interfaceExtrapolation == 1) {
+	    for (int k = 0; k < dim; ++k) {
+	      
+	      Vir[k] = (interfaceLocation-X[i-2][0])/(X[i-1][0]-X[i-2][0])*V[i-1][k] - (interfaceLocation-X[i-1][0])/(X[i-1][0]-X[i-2][0])*V[i-2][k];
+	      Vjr[k] = (interfaceLocation-X[j+1][0])/(X[j][0]-X[j+1][0])*V[j][k] - (interfaceLocation-X[j][0])/(X[j][0]-X[j+1][0])*V[j+1][k];
+	      //std::cout << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
+	    }
+          } else {
+	    memcpy(Vir, V[i-1], sizeof(double)*dim);
+	    memcpy(Vjr, V[j], sizeof(double)*dim);
+	    for (int k = 0; k < dim; ++k) {
+	      //std::cout << i << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
+	    }
+          }
+        }
+ 
+        memset(fluxi,0,sizeof(double)*dim);
+        memset(fluxj,0,sizeof(double)*dim);
+	varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vir);
+	varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vjr);
+
+        riemann->computeRiemannSolution(Vir,Vjr,fluidId[i-1],fluidId[j+1],gradphi,varFcn,
+	  			        Wir,Wjr,i,j,i,dx);
+
+        if (interfaceExtrapolation == 1) {
+          if (cutCellStatus[j] == 1) {
+	    for (int k = 0; k < dim; ++k) {
+	      Wi[k] = (Y[i+1][0]-X[i][0])/(interfaceLocation-X[i][0])*Wir[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[i][0])*V[i][k];
+	    }
+          } else {
+	    for (int k = 0; k < dim; ++k) {
+	      Wj[k] = (Y[i+1][0]-X[j][0])/(interfaceLocation-X[j][0])*Wjr[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[j][0])*V[j][k];
+            }
+          }
+	} else {
+          memcpy(Wi, Wir, sizeof(double)*dim);
+	  memcpy(Wj, Wjr, sizeof(double)*dim);
+        }
+
+	if (interfaceTreatment == 0) {
+	  memcpy(Wr[i], Wj, sizeof(double)*5);
+	  memcpy(Wr[j], Wi, sizeof(double)*5);
+	} else {
+	  if (cutCellStatus[j] == 1)
+	    memcpy(Wr[i], Wi, sizeof(double)*5);
+	  else
+	    memcpy(Wr[j], Wj, sizeof(double)*5);
+	  
+	}
+
+	  
+	riemannStatus[i] = riemannStatus[j] = 1;
+
+        //fprintf(stderr,"Edge %d-%d crosses interface\n",i,j);
+
+        if (cutCellStatus[j] == 1) {
+          fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wi, Wi, fluxi, fluidId[i]);
+        } else {
+
+          fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wj, Wj, fluxj, fluidId[j]);
+        }
+
+        for (int k=0; k<dim; k++){
+          R[i][k] += ctrlSurf[iEdge+1][0]*fluxi[k];
+          R[j][k] -= ctrlSurf[iEdge+1][0]*fluxj[k];
+        }
+      }
     }
   }
-
+	
   double dummy[dim];
   // flux at maxDistance
   fluxFcn[2]->compute(0.0, 0.0, normal, normalVel, V[numPoints-1], BC[1], flux, fluidId[numPoints-1]);
@@ -1059,24 +1346,13 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
   for (int k=0; k<dim; ++k)
     R[0][k] -= ctrlSurf[0][0]*flux[k];
-
-  // source term
-  if(source){
-    for(int i=0; i<numPoints-1; i++){
-      source->computeSourceTerm(V[i],V[i+1],Y[i+1][0],X[i],X[i+1],flux,fluidId[i],fluidId[i+1]);
-      for (int k=0; k<dim; ++k)
-        R[i+1][k] += flux[k];
-      //if (i > 0) {
-	source->computeSourceTerm(V[i],V[i+1],-Y[i+1][0],X[i],X[i+1],flux,fluidId[i],fluidId[i+1]);
-	for (int k=0; k<dim; ++k)
-	  R[i][k] += flux[k];
-	//}
-    }
-    /*source->computeSourceTerm(V[i+1],V[i],Y[i+1],X[i+1],X[i],flux,fluidId[i]);
-    for (int k=0; k<dim; ++k)
-    R[i][k] += flux[k];*/
-  }
   
+  
+  if (source) {
+    EulerSource E(varFcn,fluidId);
+    source->compute(E,y, R, X, Y,fluidId);
+  }
+
   //std::cout << R*R << std::endl;
 
   // for debug
@@ -1093,85 +1369,183 @@ void OneDimensional::PhiF(double t, SVec<double,1>& y,SVec<double,1>& k) {
   }
 }
 
+class LevelSetSource {
+
+public:
+
+  LevelSetSource(VarFcn* _vf,SVec<double,5>& _lu) :  vf(_vf), locU(_lu) { }
+
+  ~LevelSetSource() { }
+
+  void compute(double* U, double* f,int i) {
+
+    f[0] = locU[i][1]*U[0]/locU[i][0];
+  }
+
+  VarFcn* vf;
+  SVec<double,5>& locU;
+};
+
+double max(double e, double f) {
+  return (e > f ? e : f);
+}
+
+double max(double d, double e, double f) {
+  double q = max(e,f);
+  return (d > q ? d : q);
+}
+
+double max(double c,double d, double e, double f) {
+  double q = max(d,e,f);
+  return (c > q ? c : q);
+}
+
+double max(double b,double c,double d, double e, double f) {
+  double q = max(c,d,e,f);
+  return (b > q ? b : q);
+}
+
+double max(double a,double b,double c,double d, double e, double f) {
+  double q = max(b,c,d,e,f);
+  return (a > q ? a : q);
+}
+
 void OneDimensional::computeLevelSetFluxes(SVec<double,1>& y){
 
   double uroe,flux;
 
-  SVec<double,1> prim_ls(y);
-
   varFcn->conservativeToPrimitive(U,V,&fluidId);
   
-  for (int i = 0; i < numPoints; ++i) {
-    prim_ls[i][0] /= V[i][0];
-  }
-  
-
   computeSlopes(y,Phislope,fluidId,false);
-  double Phii[1],Phij[1],Phisi[1],Phisj[1];
-  for(int iEdge=0; iEdge<numPoints-1; iEdge++){
-    int i = iEdge;
-    int j = iEdge+1;
 
-    if (!isSixthOrder || !(i > 0)) {
+  if (levelSetMethod == 0) {
+    double Phii[1],Phij[1],Phisi[1],Phisj[1];
+    for(int iEdge=0; iEdge<numPoints-1; iEdge++){
+      int i = iEdge;
+      int j = iEdge+1;
       
-      Phisi[0] = Phislope[i][0]*(X[j][0]-X[i][0]);
-      Phisj[0] = Phislope[j][0]*(X[j][0]-X[i][0]);
-    } else {
-
-      Phisi[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0])+
-	(-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
-	(-2.0/15.0)*(Phislope[i-1][0]-2.0*Phislope[i][0]+Vslope[j][0])/beta;
+      if (!isSixthOrder || !(i > 0)) {
+	
+	Phisi[0] = Phislope[i][0]*(X[j][0]-X[i][0]);
+	Phisj[0] = Phislope[j][0]*(X[j][0]-X[i][0]);
+      } else {
+	
+	Phisi[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0])+
+	  (-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
+	  (-2.0/15.0)*(Phislope[i-1][0]-2.0*Phislope[i][0]+Phislope[j][0])/beta;
+	
+	Phisj[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])+
+	  (-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
+	  (-2.0/15.0)*(Phislope[j+1][0]-2.0*Phislope[j][0]+Phislope[i][0])/beta;
+	
+	Phisi[0] *= 0.5*(X[j][0]-X[i][0]);
+	Phisj[0] *= 0.5*(X[j][0]-X[i][0]);
+	
+      }
       
-      Phisj[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])+
-	(-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
-	(-2.0/15.0)*(Phislope[j+1][0]-2.0*Phislope[j][0]+Phislope[i][0])/beta;
+      recFcnLS->compute(y[i], Phisi,y[j], Phisj, Phii, Phij);
       
-      Phisi[0] *= 0.5*(X[j][0]-X[i][0]);
-      Phisj[0] *= 0.5*(X[j][0]-X[i][0]);
+      double uav = 0.5*(V[i][1]+V[j][1]);
       
+      if(uav > 0.0){
+	flux = Phii[0]*uav;
+      }
+      else{
+	flux = Phij[0]*uav;
+      }
+      Rphi[i][0] += flux*ctrlSurf[iEdge+1][0];
+      Rphi[j][0] -= flux*ctrlSurf[iEdge+1][0];
     }
     
-    recFcnLS->compute(y[i], Phisi,y[j], Phisj, Phii, Phij);
-
-    double uav = 0.5*(V[i][1]+V[j][1]);
-
-    if(uav > 0.0){
-      flux = Phii[0]*uav;
+    // flux at maxDistance
+    flux = (V[numPoints-1][1] > 0) ? Phi[numPoints-1][0]*V[numPoints-1][1] : V[numPoints-1][0]*BCphi[1]*V[numPoints-1][1];
+    Rphi[numPoints-1][0] += flux*ctrlSurf[numPoints][0];
+    
+    // flux at center is zero since u=0 for radial and spherical
+    // but for cartesian, flux needs to be computed
+    if(coordType == OneDimensionalInfo::CARTESIAN){
+      flux = (V[0][1] < 0) ? Phi[0][0]*V[0][1] : V[0][0]*BCphi[0]*V[0][1];
+      Rphi[0][0] -= flux*ctrlSurf[0][0];
     }
-    else{
-      flux = Phij[0]*uav;
+    
+    // source term
+    
+    if (source) {
+      LevelSetSource E(varFcn,U);
+      
+      source->compute(E,y, Rphi, X, Y,fluidId);
     }
-    Rphi[i][0] += flux*ctrlSurf[iEdge+1][0];
-    Rphi[j][0] -= flux*ctrlSurf[iEdge+1][0];
-  }
+  } else if (levelSetMethod == 1) // H-J WENO 
+    {
+      for(int i=0; i<numPoints; i++){
+	double u = V[i][1];
+	
+	double v1 = 0.0,v2=0.0,v3=0.0,v4=0.0,v5=0.0;
+	if (u > 0) {
+	  if (i > 2)
+	    v1 = (y[i-2][0]-y[i-3][0])/(X[i-2][0]-X[i-3][0]);
+	  if (i > 1)
+	    v2 = (y[i-1][0]-y[i-2][0])/(X[i-1][0]-X[i-2][0]);
+	  if (i > 0)
+	    v3 = (y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]);
+	  if (i < numPoints-1)
+	    v4 = (y[i+1][0]-y[i][0])/(X[i+1][0]-X[i][0]);
+	  if (i < numPoints-2)
+	    v5 = (y[i+2][0]-y[i+1][0])/(X[i+2][0]-X[i+1][0]);
+	} else {
+	  if (i > 1)
+	    v5 = (y[i-1][0]-y[i-2][0])/(X[i-1][0]-X[i-2][0]);
+	  if (i > 0)
+	    v4 = (y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]);
+	  if (i < numPoints-1)
+	    v3 = (y[i+1][0]-y[i][0])/(X[i+1][0]-X[i][0]);
+	  if (i < numPoints-2)
+	    v2 = (y[i+2][0]-y[i+1][0])/(X[i+2][0]-X[i+1][0]);
+	  if (i < numPoints-3)
+	    v1 = (y[i+3][0]-y[i+2][0])/(X[i+3][0]-X[i+2][0]);
+	}
 
-  // flux at maxDistance
-  flux = (V[numPoints-1][1] > 0) ? Phi[numPoints-1][0]*V[numPoints-1][1] : V[numPoints-1][0]*BCphi[1]*V[numPoints-1][1];
-  Rphi[numPoints-1][0] += flux*ctrlSurf[numPoints][0];
+	double S1 = 13.0/12.0*(v1-2.0*v2+v3)*(v1-2.0*v2+v3)+0.25*(v1-4.0*v2+3.0*v3)*(v1-4.0*v2+3.0*v3);
+	double S2 = 13.0/12.0*(v2-2.0*v3+v4)*(v2-2.0*v3+v4)+0.25*(v2-v4)*(v2-v4);
+	double S3 = 13.0/12.0*(v3-2.0*v4+v5)*(v3-2.0*v4+v5)+0.25*(3.0*v3-4.0*v4+v5)*(3.0*v3-4.0*v4+v5);
 
-  // flux at center is zero since u=0 for radial and spherical
-  // but for cartesian, flux needs to be computed
-  if(coordType == OneDimensionalInfo::CARTESIAN){
-    flux = (V[0][1] < 0) ? Phi[0][0]*V[0][1] : V[0][0]*BCphi[0]*V[0][1];
-    Rphi[0][0] -= flux*ctrlSurf[0][0];
-  }
-
-  // source term
-  if(source){
-    for(int i=0; i<numPoints-1; i++){
-      source->computeLevelSetSourceTerm(y[i],V[i],y[i+1],V[i+1],Y[i+1][0],X[i],X[i+1],&flux,fluidId[i]);
-        R[i+1][0] += flux;
-      //if (i > 0) {
-      source->computeLevelSetSourceTerm(y[i],V[i],y[i+1],V[i+1],-Y[i+1][0],X[i],X[i+1],&flux,fluidId[i]);
-      R[i][0] += flux;
-	//}
-    }
-    /*for(int i=0; i<numPoints; i++){
-      source->computeLevelSetSourceTerm(y[i], V[i], Y[i], Y[i+1], &flux, fluidId[i]);
-      Rphi[i][0] += flux;
-      }*/
-  }
-
+	double eps = 1e-6*max(v1*v1,v2*v2,v3*v3,v4*v4,v5*v5)+1.0e-30;
+	double alpha1 = 0.1/((S1+eps)*(S1+eps));
+	double alpha2 = 0.6/((S2+eps)*(S2+eps));
+	double alpha3 = 0.3/((S3+eps)*(S3+eps));
+	double asum = (alpha1+alpha2+alpha3);
+	double om1 = alpha1/asum, om2 = alpha2/asum, om3 = alpha3/asum;
+	
+	double phi1 = v1/3.0-7.0/6.0*v2+11.0/6.0*v3;
+	double phi2 = -v2/6.0+5.0/6.0*v3+1.0/3.0*v4;
+	double phi3 = v3/3.0+5.0/6.0*v4-v5/6.0;
+	double phix = om1*phi1+om2*phi2+om3*phi3;
+	/*double phix = 0.0;
+	if (u > 0) {
+	  if (i > 1) {
+	    double chi = (X[i][0]-X[i-1][0])/(X[i-1][0]-X[i-2][0]);
+	    phix = (1.0+2.0*chi)/(1.0+chi)*y[i][0] + (-1.0-chi)*y[i-1][0]+(-(1.0+2.0*chi)/(1.0+chi)+1.0+chi)*y[i-2][0];
+	    phix /= (X[i][0]-X[i-1][0]);
+	  } else if (i > 0)
+	    phix = (y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]);
+	} else if (u < 0) {
+	  if (i < numPoints-2) {
+	    double chi = (X[i][0]-X[i+1][0])/(X[i+1][0]-X[i+2][0]);
+	    phix = (1.0+2.0*chi)/(1.0+chi)*y[i][0] + (-1.0-chi)*y[i+1][0]+(-(1.0+2.0*chi)/(1.0+chi)+1.0+chi)*y[i+2][0];
+	    phix /= (X[i][0]-X[i+1][0]);
+	  } else if (i < numPoints-1)
+	    phix = (y[i+1][0]-y[i][0])/(X[i+1][0]-X[i][0]);
+	    }*/
+	Rphi[i][0] = u*phix * ctrlVol[i][0];
+	 
+      }   
+      
+      /*if (source) {
+	LevelSetSource E(varFcn,U);
+	
+	source->compute(E,y, Rphi, X, Y,fluidId);
+	}*/
+    }  
 }
 //------------------------------------------------------------------------------
 void OneDimensional::resultsOutput(double time, int iteration){
@@ -1245,7 +1619,12 @@ void OneDimensional::resultsOutput(double time, int iteration){
     double rad = 0.0;
     for (i=0; i<numPoints; ++i) {
       if (fluidId[i+1] == 0) {
-	rad = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
+	if (levelSetMethod == 0)
+	  rad = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
+	else if (levelSetMethod == 1)
+	  rad = (X[i+1][0]*Phi[i][0]-X[i][0]*Phi[i+1][0])/(Phi[i][0]-Phi[i+1][0]);
+	else
+	  rad = interfaceLocation;
 	break;
       }
     }
@@ -1264,7 +1643,7 @@ void OneDimensional::restartOutput(double time, int iteration){
   //char *currentfile = new char[sp + strlen(str) ];
   output.open(outfile, fstream::out | fstream::trunc);
   output.setf(ios::scientific);
-  output.precision(10);
+  output.precision(20);
 
   cout << "outputting last results in file "<<outfile<<endl;
 
@@ -1304,12 +1683,19 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     
     //if (crossInterface) {
       if (i > 0 && i < numPoints-1 &&
-	  (fid[i] == fid[i+1] &&
-	  fid[i] == fid[i-1] || !crossInterface))
+	  (interfaceTreatment == 0 && fid[i] == fid[i+1] && fid[i] == fid[i-1] ||
+	   interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] && cutCellStatus[i] == cutCellStatus[i+1]
+	   || !crossInterface))
 	stat = 0;
-      else if (i < numPoints-1 && (fid[i] == fid[i+1] || !crossInterface))
+      else if (i < numPoints-1 && 
+	       (interfaceTreatment == 0 && fid[i] == fid[i+1] ||
+		interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i+1] ||
+		!crossInterface))
 	stat = 1;
-      else if (i > 0 && (fid[i] == fid[i-1] || !crossInterface) )
+      else if (i > 0 && 
+	       (interfaceTreatment == 0 && fid[i] == fid[i-1] ||
+		interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] ||
+		!crossInterface) )
 	stat = 2;
       else
 	stat = 3;
@@ -1317,10 +1703,15 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     //std::cout << stat << std::endl;
     for (j = 0; j < neq; ++j) {
 
-      if (stat == 0)
-	slopes[i][j] = (VV[i+1][j]-VV[i-1][j])/(X[i+1][0]-X[i-1][0]);
-      else if (stat == 1)
+      if (stat == 0) {   
+	double dx1 = X[i+1][0]-X[i][0], dx2 = X[i-1][0]-X[i][0];
+	slopes[i][j] = ((V[i+1][j]-V[i][j])*dx1+(VV[i-1][j]-VV[i][j])*dx2)/(dx1*dx1+dx2*dx2); 
+	//slopes[i][j] = (VV[i+1][j]-VV[i-1][j])/(X[i+1][0]-X[i-1][0]);
+      }
+      else if (stat == 1) {
+	//double dx1 = X[i+1][0]-X[i][0], dx2 = X[i-1][0]-X[i][0];
 	slopes[i][j] = (VV[i+1][j]-VV[i][j])/(X[i+1][0]-X[i][0]);
+      }
       else if (stat == 2)
 	slopes[i][j] = (VV[i][j]-VV[i-1][j])/(X[i][0]-X[i-1][0]);
       else

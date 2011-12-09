@@ -54,7 +54,7 @@
 class FluxFcn;
 class VarFcn;
 class LocalRiemann;
-class OneDimensionalSourceTermBase;
+class OneDimensionalSourceTerm;
 
 //------------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ class OneDimensional {
   ExactRiemannSolver<5>* riemann;
   FluidSelector fluidSelector;
   // for cartesian, cylindrical and spherical one-D simulation with source term
-  OneDimensionalSourceTermBase *source; 
+  OneDimensionalSourceTerm *source; 
 
   int frequency; //postprocessing output frequency
   char *outfile;
@@ -108,6 +108,7 @@ class OneDimensional {
   SVec<double,1> Phislope;
 
   Vec<int> riemannStatus;
+  Vec<int> cutCellStatus;
 
   RecFcn* recFcn, *recFcnLS;
 
@@ -149,6 +150,12 @@ class OneDimensional {
   bool isSinglePhase;
 
   double beta;
+  double interfaceLocation;
+
+  int interfaceTreatment;
+  int interfaceExtrapolation;
+
+  int levelSetMethod;
 
   class Veval {
 
@@ -316,6 +323,8 @@ class OneDimensional {
   };
 
  public:
+
+    void levelSetDerivative(double t0, Vec<double>& phi, Vec<double>& k);
 
   void EulerF(double t, SVec<double,5>& y,SVec<double,5>& k);
   void PhiF(double t, SVec<double,1>& y,SVec<double,1>& k);
