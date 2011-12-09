@@ -485,6 +485,62 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 
 template<int dim, class Scalar, int neq>
 inline
+void Face::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, FluxFcn **fluxFcn, Vec<Vec3D> &normals,
+                                           Vec<double> &normalVel, SVec<double,dim> &V,
+                                           double *Ub, GenMat<Scalar,neq> &A)
+{
+  if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
+     code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
+     code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
+  // FS Riemann based flux calculation.
+    double flux[dim], Wstar[2*dim], Vi[2*dim];
+    double dUdU[neq*neq],dfdUi[neq*neq],dkk[neq*neq],dWdW[dim*dim],dWdU[dim*dim];
+
+    int k;
+    Vec3D wallVel, unitNormal;
+    VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+
+    for (int l=0; l<numNodes(); ++l) {
+      Scalar *Aii = A.getElem_ii(nodeNum(l));
+      k = nodeNum(l);
+      unitNormal = getNormal(normals,l)/(getNormal(normals,l).norm());
+      wallVel = getNormalVel(normalVel, l)/(getNormal(normals,l).norm())*unitNormal;
+      for(int iDim=0; iDim<dim; iDim++)
+        Vi[iDim] = Vi[iDim+dim] = V[k][iDim];
+
+      riemann.computeFSIRiemannSolution(Vi,wallVel,-1.0*unitNormal,varFcn,Wstar,k);
+      riemann.computeFSIRiemannJacobian(Vi,wallVel,-1.0*unitNormal,varFcn,Wstar,k,dWdW);
+
+      varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU);
+      varFcn->preMultiplyBydUdV(Vi, dWdU, dUdU);
+
+      fluxFcn[code]->computeJacobian(1.0, 0.0, getNormal(normals,l), getNormalVel(normalVel,l), Wstar, Ub, dfdUi);
+      DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUi,0,&dUdU, 0, &dkk,0);
+      Aii = A.getElem_ii(k);
+      for (int s=0; s<neq*neq; ++s) {
+        Aii[s] += dkk[s];
+      }
+    }
+    return;
+  }
+
+  double jac[neq*neq];
+  for (int l=0; l<numNodes(); ++l) {
+    Vec3D  normal = getNormal(normals, l);
+    double normVel= getNormalVel(normalVel, l);
+
+    fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+    Scalar *Aii = A.getElem_ii(nodeNum(l));
+    for (int k=0; k<neq*neq; ++k)
+      Aii[k] += jac[k];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+inline
 void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 					   Vec<double> &normalVel, SVec<double,dim> &V,
 					   double *Ub, GenMat<Scalar,neq> &A, int* nodeType)
@@ -760,6 +816,22 @@ void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bc
 
   for (int i=0; i<numFaces; ++i) 
     faces[i]->computeJacobianFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], A);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void FaceSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim> &riemann,
+                                              FluxFcn **fluxFcn, BcData<dim> &bcData,
+                                              GeoState &geoState, SVec<double,dim> &V,
+                                              GenMat<Scalar,neq> &A)
+{
+  Vec<Vec3D> &n = geoState.getFaceNormal();
+  Vec<double> &ndot = geoState.getFaceNormalVel();
+  SVec<double,dim> &Ub = bcData.getFaceStateVector();
+
+  for (int i=0; i<numFaces; ++i)
+    faces[i]->computeJacobianFiniteVolumeTerm(riemann, fluxFcn, n, ndot, V, Ub[i], A);
 }
 
 //------------------------------------------------------------------------------
