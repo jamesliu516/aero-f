@@ -43,6 +43,11 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
 
+  if (ioData.mf.levelSetMethod == MultiFluidData::PRIMITIVE)
+    lsMethod = 1;
+  else
+    lsMethod = 0;
+
   LS = new LevelSet<dimLS>(ioData, this->domain);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
@@ -82,7 +87,7 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
   // initalize solution
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, ioData);
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData,&fluidSelector,this->varFcn);
+  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData,&fluidSelector,this->varFcn,0,0,lsMethod);
   fluidSelector.initializeFluidIds(Phi, LS->Phinm1, LS->Phinm2); //setup fluidId in fluidSelector
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);

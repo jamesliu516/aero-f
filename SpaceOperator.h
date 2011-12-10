@@ -377,7 +377,8 @@ public:
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                          DistSVec<double,dimLS> &, DistVec<int> &, 
-                         DistSVec<double,dim> &,DistSVec<double,dimLS> &, DistLevelSetStructure* =0, bool = true);
+                         DistSVec<double,dim> &,DistSVec<double,dimLS> &, DistLevelSetStructure* =0, bool = true,
+			 int method = 0);
 
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
@@ -394,7 +395,8 @@ public:
 
   template<class Scalar>
   void computeJacobianLS(DistSVec<double,3> &X,DistSVec<double,dim> &V, DistVec<double> &ctrlVol,
-			 DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId,DistLevelSetStructure* distLSS);
+			 DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId,DistLevelSetStructure* distLSS,
+			 int method);
 
   // for phase-change update
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);

@@ -47,6 +47,8 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   bool requireSpecialBDF;
 
+  int lsMethod;
+
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~LevelSetTsDesc();

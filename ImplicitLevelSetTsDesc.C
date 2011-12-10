@@ -68,6 +68,7 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   pc->exportMemory(&mp);
   
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
+
 }
 
 //------------------------------------------------------------------------------
@@ -186,9 +187,16 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
 {
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 
-					   this->fluidSelector, F, this->riemann, 1);
+  if (this->lsMethod == 0) {
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
+    this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 
+					     this->fluidSelector, F, this->riemann, 1);
+  } else {
+
+    this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->Phi, 
+					     this->fluidSelector, F, this->riemann, 1);
+  }
+
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
 }
@@ -235,7 +243,10 @@ template<int dim, int dimLS>
 void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<double,dim> &Q,
 							DistSVec<double,dim> &F)
 {
-  mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, F);
+  if (this->lsMethod == 0) {
+    mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, F);
+  } else
+    mvp->evaluate(it, *this->X, *this->A, Q, this->Phi, F);
 }
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>
@@ -305,7 +316,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunctionLS(int it,
                                                     DistSVec<double,dim> &U,
                                                     DistSVec<double,dimLS> &PhiF)
 {
-  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, *this->fluidSelector.fluidId, U, PhiF);
+  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, *this->fluidSelector.fluidId, U, PhiF,0,0,this->lsMethod);
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
 			        this->LS->Phin, this->LS->Phinm1, 
@@ -320,7 +331,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobianLS(int it,
                                                     DistSVec<double,dimLS> &PhiF)
 {
   mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
-		  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF);
+		  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF, 0,this->lsMethod);
 }
 
 //------------------------------------------------------------------------------

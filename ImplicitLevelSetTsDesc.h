@@ -50,7 +50,6 @@ public:
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
 
-
  public:
   ImplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitLevelSetTsDesc();

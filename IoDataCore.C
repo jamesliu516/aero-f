@@ -1904,7 +1904,7 @@ MultiFluidData::MultiFluidData()
 
   interfaceTreatment = FIRSTORDER;
   interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
-  levelSetMethod = SCALAR;//CONSERVATIVE;
+  levelSetMethod = CONSERVATIVE;
 
 }
 
@@ -1964,8 +1964,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 				 "FirstOrder", 0, "SecondOrder", 1);
 
   new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
-				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),3,
-				 "Conservative", 0, "HJWENO", 1,"Scalar", 2);
+				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),4,
+				 "Conservative", 0, "HJWENO", 1,"Scalar", 2, "Primitive",3);
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
 				  &MultiFluidData::jwlRelaxationFactor);
