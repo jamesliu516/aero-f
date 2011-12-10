@@ -70,7 +70,7 @@ void GnatPreprocessingStep1<dim>::outputOnlineMatricesGeneral(const
 	char *onlineMatrixFile;
 	FILE *onlineMatrix;
 	int sp = strlen(this->ioData->output.rom.prefix);
-	const char *(onlineMatExtension [2]) = {".robResSample",".robJacSample"};
+	const char *(onlineMatExtension [2]) = {".sampledRes",".sampledJac"};
 
 	int nPodBasisMax = this->nPodBasis;
 	if (computeGappyRes==0)

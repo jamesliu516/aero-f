@@ -399,12 +399,11 @@ struct ReferenceStateData {
   double pressure;
   double temperature;
   double reynolds_mu;
-  double reynolds_lambda;
+  double energy;
   double length;
 
 // Included (MB)
   double dRe_mudMach;
-  double dRe_lambdadMach;
 
   RefVal rv;
 
@@ -495,6 +494,7 @@ struct GasModelData {
   double specificHeatRatio;
   double idealGasConstant;
   double pressureConstant;
+  double specificHeatPressure;
 
   GasModelData();
   ~GasModelData() {}
@@ -530,8 +530,7 @@ struct LiquidModelData {
   // the state equation is derived from a linearization of the bulk modulus wrt
   // pressure: K = k1 + k2 * P
   // the integration constant of the ODE is given by the couple (RHOrefwater,Prefwater)
-  double specificHeatRatio;
-  double Cv;
+  double specificHeat;
   double k1water;
   double k2water;
   double Prefwater;
@@ -554,7 +553,7 @@ struct LiquidModelData {
 
 struct FluidModelData {
 
-  enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
+  enum Fluid { PERFECT_GAS = 0, LIQUID = 1, JWL = 2, STIFFENED_GAS = 3, UNDEFINED = 4} fluid;
   double rhomin;
   double pmin;
 
@@ -575,10 +574,12 @@ struct FluidModelData {
 
 struct ViscosityModelData {
 
-  enum Type {CONSTANT = 0, SUTHERLAND = 1, PRANDTL = 2, WATER = 3} type;
+  enum Type {CONSTANT = 0, SUTHERLAND = 1, PRANDTL = 2} type;
 
   double sutherlandReferenceTemperature;
   double sutherlandConstant;
+  double dynamicViscosity;
+  double bulkViscosity;
 
   ViscosityModelData();
   ~ViscosityModelData() {}
@@ -591,9 +592,10 @@ struct ViscosityModelData {
 
 struct ThermalCondModelData {
 
-  enum Type {CONSTANT_PRANDTL = 0, WATER = 1} type;
+  enum Type {CONSTANT_PRANDTL = 0, CONSTANT = 1} type;
 
   double prandtl;
+  double conductivity;
 
   ThermalCondModelData();
   ~ThermalCondModelData() {}
@@ -1809,7 +1811,8 @@ struct SnapshotsData {
 	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
  	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
 	enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
-	int sampleFreq;
+	enum RelProjError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
+	// int sampleFreq; // this is now specified in the ascii snapshot file
 	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
 	DataCompressionData dataCompression;
 
@@ -2072,6 +2075,8 @@ public:
   int checkInputValuesEquationOfState(FluidModelData &fluidModel, int fluidModelID);
   void nonDimensionalizeInitialConditions(InitialConditions &initialConditions);
   void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
+  void nonDimensionalizeViscosityModel(ViscosityModelData &vm);
+  void nonDimensionalizeThermalCondModel(ThermalCondModelData &tm);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
   int checkInputValuesEmbeddedFramework();
   void printDebug();

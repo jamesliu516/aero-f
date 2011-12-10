@@ -58,7 +58,8 @@ void Extrapolation<dim>::removeHydroStaticContribution(int i, int n[3],SVec<doub
      */
   double p[3];
 
-  if(fluid==FluidModelData::GAS){
+  if(fluid==FluidModelData::PERFECT_GAS ||
+     fluid==FluidModelData::STIFFENED_GAS){
      /* perfect gas - stiffened gas EOS
       * Here, ptotal(V[4]) = phydrodynamic(p) + 
       *                      phydrostatic(rho*x*vec_gravity) */

@@ -7,10 +7,6 @@
 #include <cstdio>
 
 const double PostFcnEuler::third = 1.0/3.0;
-//-----------------------------------------------------------------------------
-//CHANGES_FOR_WATER
-//	only in the way the constructor creates the PostFcnEuler class
-//	and to compute certain values for NS using lame coefficients (lambda and mu)
 //------------------------------------------------------------------------------
 
 PostFcn::PostFcn(VarFcn *vf)
@@ -61,7 +57,8 @@ double PostFcn::computeFaceScalarQuantity(ScalarType type, double dp1dxj[4][3],
 PostFcnEuler::PostFcnEuler(IoData &iod, VarFcn *vf) : PostFcn(vf)
 {
 
-  if (iod.eqs.fluidModel.fluid == FluidModelData::GAS){
+  if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+      iod.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS){
     mach = iod.ref.mach;
     pinfty = iod.bc.inlet.pressure;
 
@@ -289,7 +286,7 @@ void PostFcnEuler::computeForceEmbedded(int orderOfAccuracy, double dp1dxj[4][3]
 					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
                                         int hydro, int* fid, bool applyRealForce)
 {
-  if(hydro!=0) {fprintf(stderr,"hydro parameter (%d) not supported...\n"); exit(-1);}
+  if(hydro!=0) {fprintf(stderr,"hydro parameter (%d) not supported...\n",hydro); exit(-1);}
   Vec3D p;
   if(applyRealForce)
     for(int i=0;i<3;i++) 
@@ -839,8 +836,10 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
     double dudxj[3][3];
     computeVelocityGradient(dp1dxj, u, dudxj);
 
-    double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-    double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
+    double mu     = viscoFcn->compute_mu(Tcg);
+    double lambda = viscoFcn->compute_lambda(Tcg, mu);
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
 
     double tij[3][3];
     computeStressTensor(mu, lambda, dudxj, tij);
@@ -869,8 +868,10 @@ Vec3D PostFcnNS::computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dud
   double T;
   computeTemperature(Vi,T);
   
-  double mu = ooreynolds_mu * viscoFcn->compute_mu(T);
-  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(T, mu);
+  double mu     = viscoFcn->compute_mu(T);
+  double lambda = viscoFcn->compute_lambda(T, mu);
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
   
   double tij[3][3];
   computeStressTensor(mu, lambda, dudxj, tij);
@@ -914,15 +915,14 @@ Vec3D PostFcnNS::computeDerivativeOfViscousForce(double dp1dxj[4][3], double ddp
 
     double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dS[0];
 
-    double dooreynolds_lambda = -1.0 / ( reynolds_lambdaNS * reynolds_lambdaNS ) * dRe_lambdadMachNS * dS[0];
+    double mu     = viscoFcn->compute_mu(Tcg);
+    double lambda = viscoFcn->compute_lambda(Tcg, mu);
 
-    double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
+    double dmu = dooreynolds_mu * mu + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dS[0]);
+    double dlambda = dooreynolds_mu * lambda + ooreynolds_mu * viscoFcn->compute_lambdaDerivative(mu, dmu, dS[0]);
 
-    double dmu = dooreynolds_mu * viscoFcn->compute_mu(Tcg) + ooreynolds_mu * viscoFcn->compute_muDerivative(Tcg, dTcg, dS[0]);
-
-    double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
-
-    double dlambda = dooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu) + ooreynolds_lambda * viscoFcn->compute_lambdaDerivative(mu, dmu, dS[0]);
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
 
     double tij[3][3];
     computeStressTensor(mu, lambda, dudxj, tij);
@@ -1125,8 +1125,10 @@ double PostFcnNS::computeInterfaceWork(double dp1dxj[4][3], Vec3D& n, double ndo
     double dudxj[3][3];
     computeVelocityGradient(dp1dxj, u, dudxj);
 
-    double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
-    double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
+    double mu     = viscoFcn->compute_mu(Tcg);
+    double lambda = viscoFcn->compute_lambda(Tcg, mu);
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
 
     double tij[3][3];
     computeStressTensor(mu, lambda, dudxj, tij);

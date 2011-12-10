@@ -45,7 +45,7 @@ public:
   void setup(int, int, VecType &);
 
   virtual int solve(VecType &, VecType &) = 0;
-  virtual int solveLS(VecType &, VecType &) { };
+  virtual int solveLS(VecType &, VecType &) { return 0; };
 
   void printParam() { ioOp->fprintf(stderr, " solver params: %d maxits, %e eps\n", maxits, eps);  }
 };

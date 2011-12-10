@@ -71,7 +71,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   }else if(volumeType == OneDimensionalInfo::REAL_VOLUME){
   }
 
-  bubbleRadiusFile = "";
+  strcpy(bubbleRadiusFile,"");
 
   recFcn = createRecFcn(ioData);
   recFcnLS = createRecFcnLS(ioData);

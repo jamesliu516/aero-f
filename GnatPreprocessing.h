@@ -60,7 +60,7 @@ class StaticArray {	//used for the value of a map
 		StaticArray() { for (int i=0; i<size; ++i) a[i] = static_cast<Scalar>(0);}
 		StaticArray(Scalar b [size]){ for (int i=0; i<size; ++i) a[i] = b[i];}
 		StaticArray(const StaticArray &other){ for (int i=0; i<size; ++i) a[i] = other.a[i];}
-		StaticArray& operator=(const StaticArray &other){ for (int i=0; i<size; ++i) a[i] = other.a[i];}
+		StaticArray& operator=(const StaticArray &other){ for (int i=0; i<size; ++i) a[i] = other.a[i]; return *this;}
 		Scalar& operator[] (int i){ return a[i];}
 		const Scalar &operator[] (int i) const{ return a[i];}
 		bool operator<(const StaticArray &other) const{ 

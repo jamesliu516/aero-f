@@ -53,6 +53,8 @@ public:
 
   double computeTurbulentViscosity(double *[4], double, double &);
   double computeTurbulentViscosity(double *, double);
+  double computeSecondTurbulentViscosity(double lambdal, double mul, double mut);
+  double computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal, double mul, double dmul, double mut, double dmut);
 
   template<int neq, int shift>
   void computeJacobianVolumeTermSA(double [4][3], double [4], double [3][3], double, 
@@ -154,6 +156,27 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4]
 
 
   return dmutilde*fv1 + mutilde*dfv1;
+
+}
+
+//------------------------------------------------------------------------------
+inline
+double SATerm::computeSecondTurbulentViscosity(double lambdal, double mul, double mut)
+{
+
+  //simple model that remains true when the Stokes' hypothesis is assumed
+  return -2.0*mut/3.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+inline
+double SATerm::computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal,
+    double mul, double dmul, double mut, double dmut)
+{
+
+  return -2.0*dmut/3.0;
 
 }
 

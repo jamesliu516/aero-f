@@ -1223,6 +1223,8 @@ GcrSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solveMRhs(VecType &b, VecT
                                                         
                                                         
   }
+
+  return iter;
 }
 //------------------------------------------------------------------------------
 /*template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>

@@ -133,7 +133,11 @@ void Communicator::split(int color, int maxcolor, Communicator** c)
   int rank;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm comm1;
+#ifdef __INTEL_COMPILER
+  MPI_Comm_split(comm, color + 1, 0, &comm1); //possible bug in openmpi1.4.3 compiled with intel compilerpro-12.0.2.137
+#else
   MPI_Comm_split(comm, color+1, rank, &comm1);
+#endif
   c[color] = new Communicator(comm1);
 
   int* leaders = new int[maxcolor];

@@ -37,11 +37,11 @@ class ParallelRom {
 
 	// Parallel operations
 	template<class VecContainer1, class VecContainer2> void parallelSVD(VecContainer1 &snaps,
-			VecContainer2 &Utrue, double *S, FullM &Vtrue, int nSnaps, bool computeV);
+			VecContainer2 &Utrue, double *S, FullM &Vtrue, int nSnaps, bool computeV=true);
 	template<class VecContainer1, class VecContainer2> void parallelLSMultiRHSInit(const VecContainer1
-			&A, const VecContainer2 &B, const int nA); 	// initialization
+			&A, const VecContainer2 &B, const int nA=0); 	// initialization
 	template<class VecContainer1, class VecContainer2> void parallelLSMultiRHS(const VecContainer1 &A,
-			const VecContainer2 &B, int n, int nRhs, double **lsSol, bool); // least-squares
+			const VecContainer2 &B, int n, int nRhs, double **lsSol, bool=true); // least-squares
 			// via QR with multiple RHS
 };
 #include "ParallelRom.C"

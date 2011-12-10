@@ -60,7 +60,8 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
     exit(1);
   }
-  if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
+  if((iod.eqs.fluidModel.fluid  == FluidModelData::PERFECT_GAS ||
+      iod.eqs.fluidModel.fluid  == FluidModelData::STIFFENED_GAS) &&
      it->second->fluid == FluidModelData::LIQUID)
     invertGasLiquid = -1.0;
   else invertGasLiquid = 1.0;

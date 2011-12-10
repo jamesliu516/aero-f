@@ -223,3 +223,4 @@ void ElemSet::computeConnectedElems(const std::vector<int> &locSampleNodes)
 	numSampledElems = elemsConnectedToSampleNode.size();
 	int tmp;
 }
+

@@ -204,11 +204,10 @@ void DistBcData<dim>::finalize(DistSVec<double,3> &X)
   double Pressure = this->vf->getPressure(Vin);
   com->printf(2, "Non-dimensionalized primitive state vector:\n");
   com->printf(2, "Inlet: ");
-  int k;
-  for (k=0; k<dim; ++k)
+  for (int k=0; k<dim; ++k)
     com->printf(2, " %g", Vin[k]);
   com->printf(2, "\nOutlet:");
-  for (k=0; k<dim; ++k)
+  for (int k=0; k<dim; ++k)
     com->printf(2, " %g", Vout[k]);
   com->printf(2,"\n");
 
@@ -287,6 +286,11 @@ void DistBcData<dim>::update(DistSVec<double,3> &X)  {
             unode[i][2] = xdot[i][1];
             unode[i][3] = xdot[i][2];
 	  }
+        }
+        else  { // no rotation data -> use velocity from mesh motion if any
+          unode[i][1] = xdot[i][0];
+          unode[i][2] = xdot[i][1];
+          unode[i][3] = xdot[i][2];
         }
         unode[i][4] = temp[i];
       }
@@ -827,19 +831,21 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquid(IoData &iod,
   }
   double velin  = sqrt(velin2);
   double velout = sqrt(velout2);
+  double pin    = P + a*pow(rhoin, b);
+  double pout   = P + a*pow(rhoout, b);
 
 // computation of boundary values "on average", ie at node of coordinates (0,0,0)
   this->Uin[0] = rhoin;
   this->Uin[1] = this->Uin[0] * velin * cos(iod.bc.inlet.alpha) * cos(iod.bc.inlet.beta);
   this->Uin[2] = this->Uin[0] * velin * cos(iod.bc.inlet.alpha) * sin(iod.bc.inlet.beta);
   this->Uin[3] = this->Uin[0] * velin * sin(iod.bc.inlet.alpha);
-  this->Uin[4] = this->Uin[0]*(c*iod.bc.inlet.temperature + 0.5 * velin2);
+  this->Uin[4] = this->Uin[0]*(c*iod.bc.inlet.temperature + 0.5 * velin2) - pin;
 
   this->Uout[0] = rhoout;
   this->Uout[1] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * cos(iod.bc.outlet.beta);
   this->Uout[2] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * sin(iod.bc.outlet.beta);
   this->Uout[3] = this->Uout[0] * velout * sin(iod.bc.outlet.alpha);
-  this->Uout[4] = this->Uout[0]*(c*iod.bc.outlet.temperature + 0.5 * velout2);
+  this->Uout[4] = this->Uout[0]*(c*iod.bc.outlet.temperature + 0.5 * velout2) - pout;
 
 
 // computation for each node according to its depth
@@ -1660,7 +1666,8 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
 {
 
   if (iod.eqs.numPhase == 1){
-    if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+    if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+        iod.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
       setBoundaryConditionsGas(iod, X);
     else if(iod.eqs.fluidModel.fluid == FluidModelData::LIQUID)
       setBoundaryConditionsLiquid(iod, X);
@@ -1673,8 +1680,10 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
       fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
       exit(1);
     }
-    if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
-        it->second->fluid == FluidModelData::GAS)
+    if ((iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+        iod.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS) &&
+        (it->second->fluid == FluidModelData::PERFECT_GAS ||
+        it->second->fluid == FluidModelData::STIFFENED_GAS))
       setBoundaryConditionsGasGas(iod, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
@@ -1682,14 +1691,17 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
       setBoundaryConditionsLiquidLiquid(iod, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-        it->second->fluid == FluidModelData::GAS)
+        (it->second->fluid == FluidModelData::PERFECT_GAS ||
+        it->second->fluid == FluidModelData::STIFFENED_GAS))
       setBoundaryConditionsGasLiquid(iod, X);
 
-    else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
+    else if ((iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+	    iod.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS) &&
         it->second->fluid == FluidModelData::LIQUID)
       setBoundaryConditionsLiquidGas(iod, X);
 
-    else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
+    else if ((iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
+	    iod.eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS) &&
         it->second->fluid == FluidModelData::JWL)
       setBoundaryConditionsJWLGas(iod,X);
 
@@ -1731,7 +1743,7 @@ void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X, Dist
 {
 
   if (iod.eqs.numPhase == 1){
-    if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+    if (iod.eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS)
       setDerivativeOfBoundaryConditionsGas(iod, X, dX, dM, dA, dB);
     else if(iod.eqs.fluidModel.fluid == FluidModelData::LIQUID || iod.eqs.fluidModel.fluid == FluidModelData::JWL) {
       fprintf(stderr, "*** Error: Function initializeSA (at DistBcData.C) does not support this option!\n");

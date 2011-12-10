@@ -116,11 +116,20 @@ class ModalSolver {
                           VecSet<Vec<double> > &gMat, VecSet<DistSVec<double, dim> > &podVecs,
                           int nSteps, int nPodVecs, double *delU, double *delY, double sdt);
 
-    void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
-    void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
+void updateModalValues(double sdt, double *delU, double *delY, Vec<double> &modalF, int timeIt);
+
+void computeModalDisp(double sdt, DistSVec<double, 3> &xPos, DistSVec<double, dim> &delW, double *delU, double *delY, Vec<double> &refModalF, int timeIt);
+
+void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, int nPodVecs, int timeIt);
+
+   // void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &, VecSet<Vec<double> > &, Vec<double> &);
+   // void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &, VecSet<Vec<double> > &, Vec<double> &);
+   //void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
+   // void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void outputModalDisp(double *, double *, double, int, int, FILE *);
     void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int, bool);
     void buildGlobalPOD();
+		void computeRelativeProjectionError( int, int, bool, bool, int, VecSet<DistSVec<double, dim> > &, int *, int *, int *);
     void wait(const int seconds);
     void normalizeSnap(DistSVec<double, dim>  &, const int, const int);
     //void projectFullSoltn();

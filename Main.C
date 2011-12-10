@@ -22,7 +22,7 @@ extern void startSparseGridGeneration(IoData &, Domain &);
 int interruptCode = 0;
 
 
-int  atexit(void (*function)(void)) { exit(-1);}
+//int  atexit(void (*function)(void)) { exit(-1);}
 
 //------------------------------------------------------------------------------
 

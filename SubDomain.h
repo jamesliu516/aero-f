@@ -15,6 +15,7 @@
 #include <DenseMatrix.h>
 #include "LevelSet/LevelSetStructure.h"
 #include <GhostPoint.h>
+#include <PolygonReconstructionData.h>
 
 #ifdef OLD_STL
 #include <map.h>
@@ -75,51 +76,6 @@ template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
 #include "LevelSet/FluidTypeCriterion.h"
-//------------------------------------------------------------------------------
-
-struct PolygonReconstructionData { //for force computation under the embedded framework
-    PolygonReconstructionData() : numberOfEdges(0) {}
-    int numberOfEdges;
-    int edgeWithVertex[4][2];
-
-    void AssignSingleEdge(int n1, int n2){ //for PhysBAM only
-        numberOfEdges=1;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-    }
-
-    void AssignTwoEdges(int n1, int n2, int n3){ //for PhysBAM only
-        numberOfEdges=2;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
-    }
-
-    void AssignTriangle(int n1, int n2, int n3, int n4,bool owned_by_single_vertex=true){
-        numberOfEdges=3;
-        if(owned_by_single_vertex){
-            edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
-            edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
-            edgeWithVertex[2][0]=n1; edgeWithVertex[2][1]=n4;}
-        else{
-            edgeWithVertex[0][0]=n2; edgeWithVertex[0][1]=n1;
-            edgeWithVertex[1][0]=n3; edgeWithVertex[1][1]=n1;
-            edgeWithVertex[2][0]=n4; edgeWithVertex[2][1]=n1;}
-    }
-
-    void AssignQuadTriangle(int n1, int n2, int n3, int n4){ //for PhysBAM only
-        numberOfEdges=3;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
-        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n3;
-    }
-
-    void AssignQuadrilateral(int n1, int n2, int n3, int n4){
-        numberOfEdges=4;
-        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
-        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
-        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n4;
-        edgeWithVertex[3][0]=n2; edgeWithVertex[3][1]=n3;
-    }
-};
 
 //------------------------------------------------------------------------------
 
@@ -1194,8 +1150,6 @@ public:
   void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
                                     SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
 			                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, VarFcn *vf, Vec<int>* fid);
-  int getPolygon(int, LevelSetStructure&, int[4][2]); //not used?
-  int getPolygons(int, LevelSetStructure&, PolygonReconstructionData*);
   void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
                      LevelSetResult&, double(*)[3]); //not used.
   void sendLocalForce(Vec3D, LevelSetResult&, double(*)[3]);
@@ -1231,10 +1185,20 @@ public:
   void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
                          int npt);
 
+  
+
   template<int dim> 
   void interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
-                           int* status,int* last,int* nid);  
+			   int* status,int* last,int* nid,
+			   LevelSetStructure* LSS = 0, Vec<GhostPoint<dim>*>* ghostPoints = 0,
+                           VarFcn *varFcn = 0);
+  
+  template<int dim>
+  void interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
+                           const std::vector<Vec3D>& locs, double (*sol)[dim],
+                           int* status,int* last,int* nid); 
+
 };
 //------------------------------------------------------------------------------
 

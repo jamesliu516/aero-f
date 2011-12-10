@@ -16,6 +16,8 @@
 #include <DistExactRiemannSolver.h>
 #include <SpaceOperator.h>
 #include <VectorSet.h>
+#include <GhostPoint.h>
+#include <LevelSet/FluidTypeCriterion.h>
 
 //------------------------------------------------------------------------------
 
@@ -1149,16 +1151,17 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               int* last, int count,
 					      double* results,
                                               std::vector<Vec3D>& locations,
-					      DistSVec<double,dimLS> *Phi)
+					      DistSVec<double,dimLS> *Phi, DistLevelSetStructure *distLSS,
+                                              DistVec<GhostPoint<dim>*> *ghostPoints)
 {
+
   memset(results,0,count*sizeof(double));
   int* status = new int[count];
   int stat,nid,fid;
   double locV[dim],locU[dim],phi[dimLS];
   memset(status,0,sizeof(int)*count);
+  Vec<GhostPoint<dim>*> *gp=0;
   for (int i = 0; i < count; ++i) {
-    
-
     if (locations[i][0] < -1.0e19) {
       if (subId[i] < 0) continue; 
       int iSub = subId[i];
@@ -1172,11 +1175,22 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     } else {
 #pragma omp parallel for reduction(+: status[i])
       for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
-        subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                             &locU, &stat,&last[i],&nid);
+        if (distLSS) { // Then we are in the case of an Embedded simulation
+          if (ghostPoints) { // Embedded Navier-Stokes
+            gp = ghostPoints->operator[](iSub);
+            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
+          } else { // Embedded Euler
+            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)));
+          }
+        } else {
+          subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                               &locU, &stat, &last[i], &nid);
+        }
         if (Phi)
-          subDomain[iSub]->interpolateSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
-                                               &phi, &stat,&last[i],&nid); 
+          subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                  &phi, &stat,&last[i],&nid); 
 	if (stat) {
 	  fid = fluidId(iSub)[nid];
 	  varFcn->conservativeToPrimitive(locU, locV, fid);
@@ -1190,7 +1204,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   com->globalSum(count,results);
   com->globalSum(count,status);
   for (int i = 0; i < count; ++i) {
-    results[i] /= (double)status[i];
+    if (status[i]<0.1)
+      results[i] = 0.0;
+    else
+      results[i] /= (double)status[i];
   }
   delete [] status;
 }
@@ -1433,7 +1450,9 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 					      int* subId,int* locNodeId,int* last,
 					      int count, double* result,
                                               std::vector<Vec3D>& locations,
-                                              DistVec<int> &fluidId)
+                                              DistVec<int> &fluidId,
+                                              DistLevelSetStructure *distLSS,
+                                              DistVec<GhostPoint<dim>*> *ghostPoints)
 {
                                                                                                                                                                                              
   int iSub;
@@ -1443,6 +1462,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
   int stat;
   memset(status,0,sizeof(int)*count);
   double locU[dim],locV[dim];
+  Vec<GhostPoint<dim>*> *gp=0;
   if (type == PostFcn::VELOCITY) {
     for (int i = 0; i < count; ++i) {
       if (locations[i][0] < -1.0e19) {
@@ -1462,8 +1482,20 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
         int fid,nid;
 #pragma omp parallel for reduction(+: status[i])
         for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
-          subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                               &locU, &stat,&last[i],&nid);
+          if (distLSS) { // Then we are in the case of an Embedded simulation
+            if (ghostPoints) { // Embedded Navier-Stokes
+              gp = ghostPoints->operator[](iSub);
+              subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                   &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
+            } else { // Embedded Euler
+              subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                   &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)));
+            }
+          } else {
+            subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                                 &locU, &stat, &last[i], &nid);
+          }
+
 	  if (stat) {
 	    fid = fluidId(iSub)[nid];
 	    varFcn->conservativeToPrimitive(locU,locV, fid);
@@ -1480,18 +1512,22 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
   else if (type == PostFcn::DISPLACEMENT) {
     for (int i = 0; i < count; ++i) {
       if (locations[i][0] < -1.0e19) {
-	if (subId[i] < 0) continue;
-	subDomain[subId[i]]->computeDisplacement(X(iSub), &result[3*i], locNodeId[i]);
-      } else {
-	memset(result+3*i,0,sizeof(double)*3);
+        if (subId[i] < 0) continue;
+        subDomain[subId[i]]->computeDisplacement(X(subId[i]), &result[3*i], locNodeId[i]);
       }
-      status[i] = 1;	
+      else {
+        memset(result+3*i,0,sizeof(double)*3);
+      }
+      status[i] = 1;
     }
   }
   com->globalSum(count*3,result);  
   com->globalSum(count,status);
   for (int i = 0; i < count*3; ++i) {
-    result[i] /= (double)status[i/3];
+    if (status[i/3]<0.1)
+      result[i] = 0.0;
+    else
+      result[i] /= (double)status[i/3];
   }
   delete [] status;
                                                                                              
