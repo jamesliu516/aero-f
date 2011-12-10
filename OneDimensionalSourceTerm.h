@@ -3,173 +3,121 @@
 
 #include <cmath>
 
-#include "VarFcn.h"
+#include <DenseMatrixOps.h>
 
-//------------------------------------------------------------------------------
-// This class computes the source terms encountered in the various forms of
-// the one-dimensional Euler equations and LevelSet equation.
-// See OneDimensionalSolver.h for more details on the various forms of the
-// one-dimensional Euler equations.
-// In addition, depending whether the cartesian, cylindrical or spherical
-// coordinates are considered, the source terms change.
-//------------------------------------------------------------------------------
+class OneDimensionalSourceTerm {
 
-class OneDimensionalSourceTermBase {
+  struct MyLU {
+    
+    double* a;
+    int* index;
+  };
 
-protected:
-  VarFcn *varFcn;
-
-public:
-  OneDimensionalSourceTermBase(VarFcn *vf) : varFcn(vf) {}
-  virtual ~OneDimensionalSourceTermBase() { varFcn = 0; }
-
-  virtual void computeSourceTerm(double *Vm,double* Vp,double x, double *Ym, double *Yp, double *res, int fluidId = 0,int fluidId2 = 0) = 0;
-  virtual void computeLevelSetSourceTerm(double *phim, double *Vm,double *phip, double *Vp,double x,  double *Ym, double *Yp, double *res, int fluidId = 0) { exit(-1); }
-
-};
-
-//------------------------------------------------------------------------------
-
-class CartesianOneDSourceTerm : public OneDimensionalSourceTermBase {
-
-public:
-  CartesianOneDSourceTerm(VarFcn *vf) : OneDimensionalSourceTermBase(vf) {}
-  ~CartesianOneDSourceTerm() { varFcn = 0; }
-
-  void computeSourceTerm(double *Vm,double* Vp,double x, double *Ym, double *Yp, double *res, int fluidId = 0,int fluidId2 = 0) { 
-    for(int i=0; i<5; i++) res[i] = 0.0;
-  }
-  void computeLevelSetSourceTerm(double *phi, double *V, double *Ym, double *Yp, double *res, int fluidId = 0) {
-    *res = 0.0;
-  }
-
-};
-
-//------------------------------------------------------------------------------
-
-class CylindricalOneDSourceTerm : public OneDimensionalSourceTermBase {
-
-public:
-  CylindricalOneDSourceTerm(VarFcn *vf) : OneDimensionalSourceTermBase(vf) {}
-  ~CylindricalOneDSourceTerm() { varFcn = 0; }
-
-  void computeSourceTerm(double *Vm,double* Vp,double x, double *Ym, double *Yp, double *res, int fluidId = 0,int fluidId2 = 0) {
-    for(int i=0; i<5; i++) res[i] = 0.0;
-    if(Ym[0]>0.0){
-      double logTerm = log(Yp[0]/Ym[0]);
-      res[0] = Vm[0]*Vm[1]*logTerm;
-      res[1] = Vm[0]*Vm[1]*Vm[1]*logTerm;
-      res[4] = (this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1]*logTerm;
-    }else{ //at center, assuming a linear variation of velocity from 0 to XXX while maintaining conservation
-      double velocityGrad = 2.0*Vm[1]; //actually velocity gradient * Yp[0]
-      res[0] = Vm[0]*velocityGrad;
-      res[1] = Vm[0]*velocityGrad*velocityGrad/2.0;
-      res[4] = (this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*velocityGrad;
-    }
-  }
-  void computeLevelSetSourceTerm(double *phi, double *V, double *Ym, double *Yp, double *res, int fluidId = 0) {
-    if(Ym[0]>0.0) *res = phi[0]*V[1]*log(Yp[0]/Ym[0]);
-    else          *res = phi[0]*2.0*V[1];
-  }
-
-};
-
-//------------------------------------------------------------------------------
-inline double sph_int_oned2(double q, double r0,double r1,double a, double b,double r) {
-
-  return q/(r0-r1)*(log(r)*(a*r0-b*r1)+r*(b-a));
-}
+ public:
  
-inline double sph_int_oned(double q, double r0,double r1,double a, double b, double ra) {
-  if (ra > 0.0) {
-    return sph_int_oned2(q,r0,r1,a,b,r1)-sph_int_oned2(q,r0,r1,a,b,ra);
-  } else {
-    return sph_int_oned2(q,r0,r1,a,b,-ra)-sph_int_oned2(q,r0,r1,a,b,r0);
+  OneDimensionalSourceTerm() { }
+
+  ~OneDimensionalSourceTerm() { }
+
+  int factorial(int i) { 
+    return (i == 0 ? 1 : i*factorial(i-1)); 
   }
-}
 
-class SphericalOneDSourceTerm : public OneDimensionalSourceTermBase {
+  void initialize(double _alpha, int _order, SVec<double,1>& X) {
+    
+    alpha = _alpha;
+    order = _order;
+    ludata = new MyLU[X.size()];
+    int j;
+    for (int i = 0; i < X.size(); ++i) {
+      
+      j = i-order/2;
+      if (j < 0)
+	j = 0;
+      else if (j+order > X.size())
+	j = X.size()-order;
 
-public:
-  SphericalOneDSourceTerm(VarFcn *vf) : OneDimensionalSourceTermBase(vf) {}
-  ~SphericalOneDSourceTerm() { varFcn = 0; } 
-
-  void computeSourceTerm(double *Vm,double* Vp,double x,double *Ym, double *Yp, double *res, int fluidId = 0,int fluidId2 = 0) {
-    for(int i=0; i<5; i++) res[i] = 0.0;
-    double A[25];
-    if(Ym[0]>0.0 || x > 0.0){
-      if (fluidId == fluidId2) {
-        res[0] = sph_int_oned(2.0,Ym[0],Yp[0],Vm[0]*Vm[1],Vp[0]*Vp[1],x);
-        res[1] = sph_int_oned(2.0,Ym[0],Yp[0],Vm[0]*Vm[1]*Vm[1],Vp[0]*Vp[1]*Vp[1],x);
-        res[4] = sph_int_oned(2.0,Ym[0],Yp[0],(this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1],(this->varFcn->computeRhoEnergy(Vp,fluidId2)+this->varFcn->getPressure(Vp,fluidId2))*Vp[1],x);
+      MyLU lu = {new double[order*order], new int[order]};
+      for (int k = 0; k < order; ++k) {
+	for (int l = 0; l < order; ++l) {
+	  if (l == 0)
+	    lu.a[k*order+l] = 1.0 / factorial(l);
+	  else
+	    lu.a[k*order+l] = pow( X[j+k][0]-X[i][0] , l) / factorial(l);
+	}
       }
-      else if (x > 0.0) {
-        res[0] = sph_int_oned(2.0,Ym[0],Yp[0],Vp[0]*Vp[1],Vp[0]*Vp[1],x);
-        res[1] = sph_int_oned(2.0,Ym[0],Yp[0],Vp[0]*Vp[1]*Vp[1],Vp[0]*Vp[1]*Vp[1],x);
-        res[4] = sph_int_oned(2.0,Ym[0],Yp[0],(this->varFcn->computeRhoEnergy(Vp,fluidId2)+this->varFcn->getPressure(Vp,fluidId2))*Vp[1],(this->varFcn->computeRhoEnergy(Vp,fluidId2)+this->varFcn->getPressure(Vp,fluidId2))*Vp[1],x);
-      }
-      else {
-        res[0] = sph_int_oned(2.0,Ym[0],Yp[0],Vm[0]*Vm[1],Vm[0]*Vm[1],x);
-        res[1] = sph_int_oned(2.0,Ym[0],Yp[0],Vm[0]*Vm[1]*Vm[1],Vm[0]*Vm[1]*Vm[1],x);
-        res[4] = sph_int_oned(2.0,Ym[0],Yp[0],(this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1],(this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1],x);      
-      } 
-    }else{ //at center, assuming a linear variation of velocity from 0 to XXX while maintaining conservation
-      res[0] = 2.0*Vp[0]*Vp[1]*(-x)/Yp[0];
-      res[1] = 2.0*Vp[0]*Vp[1]*Vp[1]*(-x)/Yp[0];//.0*Vm[0]*velocityGrad*velocityGrad/2.0;
-      res[4] = 2.0*(this->varFcn->computeRhoEnergy(Vp,fluidId2)+this->varFcn->getPressure(Vp,fluidId2))*Vp[1]*(-x)/Yp[0];
+      DenseMatrixOp<double,5,5>::ludec(lu.a, lu.index,1.0, order);
+      ludata[i] = lu;
     }
   }
-  void computeLevelSetSourceTerm(double *phim, double *Vm,double *phip, double *Vp,double x, double *Ym, double *Yp, double *res, int fluidId = 0) {
 
-    if(Ym[0]>0.0 || x > 0.0){
-      *res = sph_int_oned(2.0,Ym[0],Yp[0],phim[0]*Vm[1],phip[0]*Vp[1],x);
-    } else {
-      *res = 2.0*phip[0]*Vp[1]*(-x)/Yp[0];
+  int binomialTerm(int n, int k) {
+    return factorial(n)/(factorial(n-k)*factorial(k));
+  }
+
+  double computeIntegralTerm(double r1, double r0,double ri, int n) {
+    
+    double I = 0.0;
+    if (r0 > 0.0)
+      I = pow(-ri, n)*log(r1/r0);
+    for (int k = 1; k <= n; ++k) {
+      I += 1.0/k*binomialTerm(n,k)*(k==n?1.0 : pow(-ri,n-k))*(pow(r1,k)-pow(r0,k));
+    }
+    return I*alpha;
+  }
+
+  template <class FluxF,int dim>
+    void compute(FluxF& f, SVec<double,dim>& V, SVec<double,dim>& F, SVec<double,1>& X, SVec<double,1>& Y, Vec<int>& fluidId) {
+    
+    double* local = new double[dim*V.size()];
+    double* derivs = new double[order];
+
+    int j;
+    for (int i = 0; i < V.size(); ++i) {
+      f.compute(V[i], local+i*dim,i);
     }
 
-    //if(Ym[0]>0.0) *res = 2.0*phi[0]*V[1]*log(Yp[0]/Ym[0]);
-    //else          *res = 2.0*phi[0]*2.0*V[1];
+    for (int i = 0; i < V.size(); ++i) {
+      
+      j = i-order/2;
+      int fid = fluidId[i];
+      if (j < 0)
+	j = 0;
+      else if (j+order > X.size())
+	j = X.size()-order;
+
+      MyLU& lu = ludata[i];
+      for (int k = 0; k < dim; ++k) {
+	for (int l = 0; l < order; ++l) {
+          if (fluidId[j+l] == fid)
+	    derivs[l] = local[(j+l)*dim+k];
+          else
+            derivs[l] = local[i*dim+k];
+	}
+	
+	DenseMatrixOp<double,5,5>::ludfdbksb(lu.a, lu.index, derivs, order);
+	
+	double term = 0.0;
+	for (int l = 0; l < order; ++l) {
+	  term += computeIntegralTerm(Y[i+1][0],Y[i][0],X[i][0],l)*derivs[l]/factorial(l);
+	}
+        //std::cout << term << " ";
+	F[i][k] += term;
+      }
+    } 
+
+    delete [] local;
+    delete [] derivs;
   }
+  
+ private:
+
+  double alpha; // 1 for cylindrical, 2 for spherical
+
+  int order;
+
+  MyLU* ludata;
 
 };
-
-//------------------------------------------------------------------------------
-
-class CylindricalOneDSourceTerm2 : public OneDimensionalSourceTermBase {
-
-public:
-  CylindricalOneDSourceTerm2(VarFcn *vf) : OneDimensionalSourceTermBase(vf) {}
-  ~CylindricalOneDSourceTerm2() { varFcn = 0; } 
-
-  void computeSourceTerm(double *Vm,double* Vp,double x, double *Ym, double *Yp, double *res, int fluidId = 0,int fluidId2 = 0) {
-    for(int i=0; i<5; i++) res[i] = 0.0;
-    //res[1] = -this->varFcn->getPressure(V,fluidId)*(Yp[0]*Yp[0]-Ym[0]*Ym[0]);
-    // TODO
-  }
-  void computeLevelSetSourceTerm(double *phi, double *V, double *Ym, double *Yp, double *res, int fluidId = 0) {
-    *res = 0;
-  }
-
-};
-
-//------------------------------------------------------------------------------
-
-class SphericalOneDSourceTerm2 : public OneDimensionalSourceTermBase {
-
-public:
-  SphericalOneDSourceTerm2(VarFcn *vf) : OneDimensionalSourceTermBase(vf) {}
-  ~SphericalOneDSourceTerm2() { varFcn = 0; } 
-
-  void computeSourceTerm(double *Vm,double* Vp,double x, double *Ym, double *Yp, double *res, int fluidId = 0,int fluidId2 = 0) {
-    for(int i=0; i<5; i++) res[i] = 0.0;
-    res[1] = (-this->varFcn->getPressure(Vp,fluidId)*Yp[0]*Yp[0]+this->varFcn->getPressure(Vp,fluidId)*Ym[0]*Ym[0] );
-  }
-  void computeLevelSetSourceTerm(double *phi, double *V, double *Ym, double *Yp, double *res, int fluidId = 0) {
-    *res = 0;
-  }
-
-};
-
-//------------------------------------------------------------------------------
 
 #endif

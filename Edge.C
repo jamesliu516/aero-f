@@ -513,14 +513,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
-    //if (fluidId[i] == fluidId[j])
+    if (fluidId[i] == fluidId[j])
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-    /*else {
+    else {
       for (int k = 0; k < dim; ++k) {
         Vi[k] = V[i][k];
         Vj[k] = V[j][k];
       }      
-    }*/
+    }
 
     //if(Phi[i]*Phi[j] > 0.0) recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     //else                    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj, Phi[i], Phi[j]);

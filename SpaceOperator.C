@@ -2024,9 +2024,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                           DistSVec<double,dimLS> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
-                                           DistSVec<double,dimLS> &PhiF, DistLevelSetStructure *distLSS,
-                                           bool linRecAtFSInterface)
+							   DistSVec<double,dimLS> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
+							   DistSVec<double,dimLS> &PhiF, DistLevelSetStructure *distLSS,
+							   bool linRecAtFSInterface,int method)
 {
   PhiF = 0.0;
 
@@ -2065,10 +2065,15 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dimLS] = PhiF.subData(iSub);
+      NodalGrad<dim,double>& grad = this->ngrad->operator()(iSub);
       for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
         double invcv = 1.0 / cv[i];
         for (int idim=0; idim<dimLS; idim++)
           r[i][idim] *= invcv;
+	if (method == 1) {
+	  for (int idim=0; idim<dimLS; idim++)
+	    r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
+	}
       }
     }
   }
@@ -2244,10 +2249,26 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<
 template <int dim,int dimLS>
 template<class Scalar>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobianLS(DistSVec<double,3> &X,DistSVec<double,dim> &V, DistVec<double> &ctrlVol,
-							   DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId,DistLevelSetStructure* distLSS)
+							   DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId,DistLevelSetStructure* distLSS,
+							   int method)
 {
   A = 0.0;
   this->domain->computeJacobianFiniteVolumeTermLS(this->recFcn, recFcnLS,*(this->geoState),X,V,*(this->ngrad), *ngradLS,this->egrad,ctrlVol, Phi,A,distLSS);
+
+  if (this->use_modal == false)  {
+    int numLocSub = Phi.numLocSub();
+    int iSub;
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      NodalGrad<dim,double>& grad = this->ngrad->operator()(iSub);
+      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+	if (method == 1) {
+	  for (int idim=0; idim<dimLS; idim++)
+	    A(iSub).getElem_ii(i)[idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3]);
+	}
+      }
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

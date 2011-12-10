@@ -1037,6 +1037,10 @@ struct MultiFluidData {
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
   enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
+  
+  enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
+  enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
+  enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
   MultiInitialConditionsData multiInitialConditions;
 
@@ -1960,6 +1964,8 @@ struct OneDimensionalInfo {
   double density2, velocity2, pressure2,temperature2;
 
   ProgrammedBurnData programmedBurn;
+  
+  enum Mode { NORMAL=0, CONVTEST1 = 1 } mode;
 
   OneDimensionalInfo();
   ~OneDimensionalInfo() {}

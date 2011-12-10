@@ -640,6 +640,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   nodal_output.locNodeId = new int[Probes::MAXNODES];
   nodal_output.last = new int[Probes::MAXNODES];
   nodal_output.locations.resize(Probes::MAXNODES);
+
+  nodal_output.step = 0;
 					      
   for (i = 0; i < Probes::MAXNODES; ++i) {
     nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX,
@@ -2387,6 +2389,7 @@ void TsOutput<dim>::cleanProbesFile() {
             fprintf(scalar_file,"%e ",res);
           }
           fprintf(scalar_file,"\n");
+	  
 	}
         fclose(scalar_file);
         fclose(scalar_file_old);

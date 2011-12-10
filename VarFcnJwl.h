@@ -201,7 +201,7 @@ void VarFcnJwl::conservativeToPrimitive(double *U, double *V){
       
   double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
     
-  V[4] = omega*(U[4] - 0.5 * U[0] * vel2) + computeFrho(V[0]);
+  V[4] = omega*(U[4] - 0.5 * U[0] * vel2) + computeFrho(max(V[0],rhomin));
 }
 //------------------------------------------------------------------------------
 inline
