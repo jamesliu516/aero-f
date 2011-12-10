@@ -1120,12 +1120,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
 template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
-                                     DistBcData<dim>& bcData, DistGeoState& geoState,
-                                     DistSVec<double,3>& X, DistSVec<double,dim>& V,
-                                     DistNodalGrad<dim>& ngrad, DistNodalGrad<dimLS>& ngradLS,
-                                     DistEdgeGrad<dim>* egrad,
-                                     DistSVec<double,dimLS>& Phi, DistSVec<double,dimLS> &PhiF,
-                                     DistLevelSetStructure *distLSS)
+				       DistBcData<dim>& bcData, DistGeoState& geoState,
+				       DistSVec<double,3>& X, DistSVec<double,dim>& V,
+				       DistNodalGrad<dim>& ngrad, DistNodalGrad<dimLS>& ngradLS,
+				       DistEdgeGrad<dim>* egrad,
+				       DistSVec<double,dimLS>& Phi, DistSVec<double,dimLS> &PhiF,
+				       DistLevelSetStructure *distLSS)
 {
   double t0 = timer->getTime();
   int iSub;

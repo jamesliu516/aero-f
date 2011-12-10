@@ -1038,7 +1038,7 @@ struct MultiFluidData {
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
-  enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2} levelSetMethod;
+  enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
   MultiInitialConditionsData multiInitialConditions;
 

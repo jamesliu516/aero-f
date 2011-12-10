@@ -52,7 +52,7 @@ template<int dimLS>
 template<int dim>
 void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                             DistSVec<double,dimLS> &Phi, IoData &iod, FluidSelector* fs, VarFcn* vf,
-                            DistVec<ClosestPoint> *closest, DistVec<int> *fsId)
+                            DistVec<ClosestPoint> *closest, DistVec<int> *fsId,int lsMethod)
 {
 
   map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
@@ -76,7 +76,10 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
   setupPhiMultiFluidInitialConditions(iod,X, Phi0);
   if(closest && fsId)
     setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
-  primitiveToConservative(Phi0, Phi, U);
+  if (lsMethod == 0)
+    primitiveToConservative(Phi0, Phi, U);
+  else
+    Phi = Phi0;
 
   Phin   = Phi;
   Phinm1 = Phin;
@@ -110,7 +113,10 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
   // determine which level-sets must be updated and reinitialized
   //exit(-1);
-  conservativeToPrimitive(Phi,Phi0,U);
+  if (lsMethod == 0)
+    conservativeToPrimitive(Phi,Phi0,U);
+  else
+    Phi0 = Phi;
 
   double minDist[dimLS];
   double maxDist[dimLS];

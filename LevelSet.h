@@ -68,7 +68,7 @@ class LevelSet {
   template<int dim>
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
              DistSVec<double,dimLS> &Phi, IoData &iod,FluidSelector*, VarFcn*,
-             DistVec<ClosestPoint>* =0, DistVec<int>* =0);
+             DistVec<ClosestPoint>* =0, DistVec<int>* =0, int lsMethod = 0);
   void setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,dimLS> &Phi);
   
   template<int dim>
