@@ -60,6 +60,7 @@ int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, const int
                TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION )
     doErrorEstimation(U);
 
+  this->timer->addFluidSolutionTime(t0);
   return its;
 
 }

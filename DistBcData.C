@@ -1024,6 +1024,8 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
   double velin  = sqrt(velin2);
   double velout = sqrt(velout2);
 
+  //std::cout << "velout = " << iod.bc.outlet.velocity << std::endl;
+
   this->Uin[0] = rhoin;
   this->Uin[1] = this->Uin[0]*velin*cos(iod.bc.inlet.alpha)*cos(iod.bc.inlet.beta);
   this->Uin[2] = this->Uin[0]*velin*cos(iod.bc.inlet.alpha)*sin(iod.bc.inlet.beta);
