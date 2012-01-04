@@ -103,6 +103,35 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluate(DistExactRiemannSolver<dim> &riemann, int it, DistSVec<double,3> &x, DistVec<double> &cv,
+                                 DistSVec<double,dim> &q, DistSVec<double,dim> &f)
+{
+
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  if (recFcnCon && !this->isFSI) {
+    spaceOp->computeResidual(&riemann, *X, *ctrlVol, Qeps, Feps, timeState);
+
+    if (timeState)
+      timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  }
+  else  {
+    Feps = f;
+  }
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
 		DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f,
 		RestrictionMapping<dim> & restrictionMapping)
@@ -643,6 +672,23 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
     spaceOp->computeJacobian(X,ctrlVol, Q, this->fsi.LSS, *(this->fsi.fluidId), 
                              this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
                              this->fsi.ghostPoints, *this,timeState);
+
+  if (timeState)
+    timeState->addToJacobian(ctrlVol, *this, Q);
+
+  spaceOp->applyBCsToJacobian(Q, *this);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::evaluate(DistExactRiemannSolver<dim> &riemann,
+                                            int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                            DistSVec<double,dim> &Q, DistSVec<double,dim> &F)
+{
+
+  spaceOp->computeJacobian(&riemann, X, ctrlVol, Q, *this, timeState);
 
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
