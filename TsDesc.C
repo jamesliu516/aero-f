@@ -327,9 +327,16 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
-double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
+double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t, DistSVec<double,dim> &U)
 {
   double dt = 0.0;
+
+  if (mmh && mmh->structureSubcycling()) {
+    double dtleft = 0.0;
+    double dtf = this->computeTimeStep(it+1, &dtleft, U); 
+    mmh->storeFluidSuggestedTimestep(dtf);
+  }
+    
   if (mmh) {
     double t0 = timer->getTime();
     dt = mmh->updateStep1(lastIt, it, t, bcData->getVelocityVector(), *Xs, &data->maxTime);

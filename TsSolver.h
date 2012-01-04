@@ -100,7 +100,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
   /** for embedded method: send force (if it>0) and receive disp (from Struct). */
-  dts = probDesc->computePositionVector(&lastIt, it, t);
+  dts = probDesc->computePositionVector(&lastIt, it, t, U);
 
   if (lastIt)
     probDesc->outputPositionVectorToDisk(U);
@@ -120,8 +120,16 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
-      dt = probDesc->computeTimeStep(it, &dtLeft, U);
+
+      if(probDesc->structureSubcycling()) {//in this case AERO-F should never subcycle
+        dt = dtLeft;
+        dtLeft = 0.0;
+      }
+      else
+        dt = probDesc->computeTimeStep(it, &dtLeft, U);
+
       t += dt;
+//      fprintf(stderr,"t = %e, dt = %e.\n", t, dt);
 
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
@@ -158,7 +166,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
-    dts = probDesc->computePositionVector(&lastIt, it, t);
+    dts = probDesc->computePositionVector(&lastIt, it, t, U);
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
   }
   return 0;
