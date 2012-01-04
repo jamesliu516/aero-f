@@ -35,6 +35,9 @@ public:
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 			DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
 
+  virtual void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &, 
+			DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
+
   virtual void apply(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
   virtual void apply(DistVec<double> &, DistVec<double> &) { };
@@ -127,6 +130,8 @@ public:
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &, 
+		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
@@ -191,6 +196,8 @@ public:
   void exportMemory(MemoryPool *);
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
+		DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate(DistExactRiemannSolver<dim>&, int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &);
 
@@ -349,6 +356,8 @@ public:
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &) {}
   void evaluate(int , DistSVec<double,3> &, DistVec<double> &, 
                 DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
 

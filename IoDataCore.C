@@ -2483,7 +2483,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
-  new ClassToken<TsData>(ca, "TimeStepCalculation", this,
+  new ClassToken<TsData>(ca, "TimeStepAdaptation", this,
 			 reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
 			 "Cfl", 0, "ErrorEstimation", 1);
   new ClassToken<TsData>(ca, "Prec", this,
