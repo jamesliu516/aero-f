@@ -120,7 +120,6 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   /** Override the TsDesc routine because forces are sent to the structure
    * in a different way than the general case */
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
-//  double computePositionVector(bool *lastIt, int it, double t);
 
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );

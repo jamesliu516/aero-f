@@ -18,7 +18,7 @@
 
 //------------------------------------------------------------------------------
 
-DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc, Timer *tim): com(c) , F(1), 
+DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc, Timer *tim): com(c) , F(1),
                            fScale(iod.ref.rv.tforce), XScale(iod.ref.rv.tlength), UScale(iod.ref.rv.tvelocity),
                            tScale(iod.ref.rv.time), structure(iod,c,sc,tim)
 
@@ -68,6 +68,9 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
       XandUdot[i*3+j] *= 1.0/XScale;
       XandUdot[(N+i)*3+j] *= 1.0/UScale;
     }
+
+  structureSubcycling = (algNum==22) ? getStructSubcyclingInfo() : 0;
+    
 }
 
 //------------------------------------------------------------------------------
@@ -93,6 +96,15 @@ DynamicNodalTransfer::sendForce()
   winForce->fence(false);
 
   structure.processReceivedForce();
+}
+
+//------------------------------------------------------------------------------
+
+void
+DynamicNodalTransfer::sendFluidSuggestedTimestep(double dtf0)
+{
+  dtf0 *= tScale;
+  structure.sendFluidSuggestedTimestep(dtf0);
 }
 
 //------------------------------------------------------------------------------
@@ -162,6 +174,14 @@ DynamicNodalTransfer::getDisplacement()
       XandUdot[(N+i)*3+j] *= 1.0/UScale;
     }
   }
+}
+
+//------------------------------------------------------------------------------
+
+int DynamicNodalTransfer::getStructSubcyclingInfo()
+{
+  int subcyc = structure.sendSubcyclingInfo();
+  return subcyc;
 }
 
 //------------------------------------------------------------------------------
@@ -644,6 +664,20 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 
 //------------------------------------------------------------------------------
 
+int
+EmbeddedStructure::sendSubcyclingInfo(/*Communication::Window<int> *window*/)
+{
+/*  int subcyc = structExc->getSubcyclingInfo();
+  if(com.cpuNum()>0) return; // only proc. #1 will send.
+
+  for(int i = 0; i < com.size(); ++i)
+    window->put((int*)&subcyc, 0, 1, i, 0);
+*/
+  return structExc->getSubcyclingInfo();
+}
+
+//------------------------------------------------------------------------------
+
 void
 EmbeddedStructure::processReceivedForce()
 { 
@@ -683,6 +717,14 @@ EmbeddedStructure::processReceivedForce()
 */
 //  std::cout << "Total force (from AERO-F): " << fx << " " << fy << " " << fz << std::endl;
 
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::sendFluidSuggestedTimestep(double dtf0)
+{
+  structExc->sendFluidSuggestedTimestep(dtf0);
 }
 
 //------------------------------------------------------------------------------

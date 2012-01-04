@@ -119,7 +119,7 @@ public:
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
-  virtual double computePositionVector(bool *, int, double);
+  virtual double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
@@ -153,6 +153,7 @@ public:
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   DistInfo &getInletVecInfo() const {return domain->getInletNodeDistInfo(); }
   int getNumPhase() { return numPhase; }
+  int structureSubcycling() {return (mmh ? mmh->structureSubcycling() : 0);}
 
 // Included (MB)
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
