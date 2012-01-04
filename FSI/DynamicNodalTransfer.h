@@ -86,7 +86,9 @@ public:
   void sendInfo(Communication::Window<double> *window);
   void sendInitialPosition(Communication::Window<double> *window);
   void sendDisplacement(Communication::Window<double> *window);
+  int sendSubcyclingInfo(/*Communication::Window<int> *window*/);
   void processReceivedForce();
+  void sendFluidSuggestedTimestep(double dtf0);
 
   //if embedded mesh provided by FEM
   bool embeddedMeshByFEM() {return getSurfFromFEM;}
@@ -106,6 +108,7 @@ class DynamicNodalTransfer {
 	Communicator &com;
         Timer *timer;
         EmbeddedStructure structure;
+        int structureSubcycling;
 
         Communication::Window<double> *wintime;
         Communication::Window<double> *winForce;
@@ -130,6 +133,10 @@ public:
 	int getNewCracking();
         /** routine to receive the displacement of the structure.*/
 	void getDisplacement();
+        /** routine to receive a flag indicating whether or not the structure solver does subcycling. */
+        int getStructSubcyclingInfo();
+        /** send fluid suggested time-step when the structure solver is under subcycling. */
+        void sendFluidSuggestedTimestep(double dtf0);
 
         double getStructureTimeStep() {return dts;}
         double getStructureMaxTime() {return tMax;}
@@ -141,6 +148,7 @@ public:
         int  totStNodes() {return structure.totalNodes;}
         int  totStElems() {return structure.totalElems;}
         bool cracking()   {return (structure.cracking) ? true : false;}
+        int  structSubcycling() {return structureSubcycling;}
         double *getStNodes() {return XandUdot;}
         double *getStVelocity() {return XandUdot+structure.nNodes*3;}
         int    (*getStElems())[3] {return structure.Tria;}

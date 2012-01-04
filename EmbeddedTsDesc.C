@@ -392,6 +392,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   dtf = dt;
   dtfLeft = *dtLeft + dt;
 
+//  fprintf(stderr,"dt = %e, dtfLeft = %e, dtLeft = %e.\n", dt, dtfLeft, *dtLeft);
   return dt;
 }
 
