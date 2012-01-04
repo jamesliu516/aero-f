@@ -44,6 +44,8 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   for (int i = 0; i < np; ++i)
     X[i][0] = mesh[i];
   delete [] mesh;
+
+  bubbleRadiusFile = new char[256];
   
 
   // output

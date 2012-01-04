@@ -453,7 +453,7 @@ void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
                V[nodeNum(l)][3]*normal[2] ) -
              getNormalVel(normalVel, l);
       for (int k=0; k<dimLS; k++)
-        PhiF[ nodeNum(l) ][k] += Uf*Phi[nodeNum(l)][k];
+        PhiF[ nodeNum(l) ][k] += Uf*(-1.0);//Phi[nodeNum(l)][k];
     }
 
   }
@@ -582,7 +582,7 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
                V[nodeNum(l)][2]*normal[1] +
                V[nodeNum(l)][3]*normal[2] ) -
              getNormalVel(normalVel, l);
-      *Aii /*+= PhiF[ nodeNum(l) ]*/ += Uf;
+      *Aii /*+= PhiF[ nodeNum(l) ]*/ += 0.0;//Uf;
     }
 
   }

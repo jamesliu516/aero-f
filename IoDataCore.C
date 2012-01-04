@@ -914,7 +914,7 @@ LiquidModelData::LiquidModelData()
 void LiquidModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassToken<LiquidModelData>(ca, "Type", this,
             reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::type), 1,
@@ -926,6 +926,7 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LiquidModelData>(ca, "k2", this, &LiquidModelData::k2water);
   new ClassDouble<LiquidModelData>(ca, "Pressure", this, &LiquidModelData::Prefwater);
   new ClassDouble<LiquidModelData>(ca, "Density", this, &LiquidModelData::RHOrefwater);
+  new ClassDouble<LiquidModelData>(ca, "SpecificHeat", this, &LiquidModelData::specificHeat);
 
 }
 

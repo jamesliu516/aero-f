@@ -5,6 +5,8 @@
 
 #include <DenseMatrixOps.h>
 
+#include <sstream>
+
 class OneDimensionalSourceTerm {
 
   struct MyLU {
@@ -58,8 +60,10 @@ class OneDimensionalSourceTerm {
   double computeIntegralTerm(double r1, double r0,double ri, int n) {
     
     double I = 0.0;
-    if (r0 > 0.0)
+    if (r0 > 1.0e-8) {
+      //std::cout << "ri = " << ri << " r1 = " << r1 <<  std::endl;
       I = pow(-ri, n)*log(r1/r0);
+    }
     for (int k = 1; k <= n; ++k) {
       I += 1.0/k*binomialTerm(n,k)*(k==n?1.0 : pow(-ri,n-k))*(pow(r1,k)-pow(r0,k));
     }
@@ -76,6 +80,8 @@ class OneDimensionalSourceTerm {
     for (int i = 0; i < V.size(); ++i) {
       f.compute(V[i], local+i*dim,i);
     }
+
+    std::stringstream dummy;
 
     for (int i = 0; i < V.size(); ++i) {
       
@@ -96,13 +102,21 @@ class OneDimensionalSourceTerm {
 	}
 	
 	DenseMatrixOp<double,5,5>::ludfdbksb(lu.a, lu.index, derivs, order);
+	//std::cout << derivs[0] << " " << factorial(0) << std::endl;
 	
 	double term = 0.0;
 	for (int l = 0; l < order; ++l) {
+	  //std::cout << "hello" << std::endl;
 	  term += computeIntegralTerm(Y[i+1][0],Y[i][0],X[i][0],l)*derivs[l]/factorial(l);
+	  //l = l;
+	  //std::cout << order << std::endl;// exit(0);
+	  //std::cout << term << " ";
+	  dummy << "hello" << Y[i+1][0] << " " << Y[i][0] << " " << X[i][0] << " " << derivs[l] << std::endl;
 	}
         //std::cout << term << " ";
+	//exit(0);
 	F[i][k] += term;
+	//std::cout << term << " ";
       }
     } 
 
