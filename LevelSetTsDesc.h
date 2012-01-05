@@ -65,7 +65,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   void resetOutputToStructure(DistSVec<double,dim> &);
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
-  bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
+  bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
   
   void fixSolution(DistSVec<double,dim>& U, DistSVec<double,dim>& dU);
 
