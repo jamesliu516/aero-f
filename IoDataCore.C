@@ -3586,6 +3586,7 @@ ImplosionSetup::ImplosionSetup() {
   // for buckling of cylinder
   Prate = -1.0;
   Pinit = -1.0;
+  intersector_freq = 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -3594,6 +3595,7 @@ void ImplosionSetup::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 2, 0);
   new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+  new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
 MultigridInfo::MultigridInfo() {

@@ -103,6 +103,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double Prate;
   double Pinit;
   double Pscale;
+  int intersector_freq;
 
   ProgrammedBurn* programmedBurn;
 
@@ -141,7 +142,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]);
 
-  bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
+  bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 

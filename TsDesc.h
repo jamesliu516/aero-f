@@ -144,7 +144,7 @@ public:
   virtual void resetOutputToStructure(DistSVec<double,dim> &);
   virtual void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
-  virtual bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U){return true;}
+  virtual bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U){return true;}
   virtual int solveNonLinearSystem(DistSVec<double,dim> &U, int) { return 0; }
   virtual int checkSolution(DistSVec<double,dim> &);
 
