@@ -1976,6 +1976,8 @@ struct OneDimensionalInfo {
 
 struct ImplosionSetup {
   double Prate, Pinit;
+  int intersector_freq;
+
   ImplosionSetup();
   ~ImplosionSetup() {}
   void setup(const char *);
