@@ -22,6 +22,8 @@
 #define WET_SURF_TAG2 666
 #define WET_SURF_TAG3 888
 #define WET_SURF_TAG4 999
+#define SUBCYCLING_TAG 777
+#define SUGGEST_DT_TAG 444
 
 #define CRACK_TAG1 22
 #define CRACK_TAG2 33
@@ -409,6 +411,19 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 
+int StructExc::getSubcyclingInfo()
+{
+  double info;
+  if (strCom->cpuNum() == 0)
+    strCom->recFrom(SUBCYCLING_TAG, &info, 1);
+
+  com->broadcast(1, &info);
+
+  return (int)info;
+}
+
+//------------------------------------------------------------------------------
+
 void StructExc::getTemperature(DistVec<double>& Temp)
 {  
 
@@ -513,6 +528,18 @@ void StructExc::sendHeatPower(DistVec<double>& P)
 }
 
 //------------------------------------------------------------------------------
+
+void StructExc::sendFluidSuggestedTimestep(double dtf0)
+{
+  if(com->cpuNum()==0)
+    for (int iCpu=0; iCpu<numStrCPU; ++iCpu) {
+//      fprintf(stderr,"*** sending dtf = %e to DYNA!\n", dtf0);
+      strCom->sendTo(iCpu, SUGGEST_DT_TAG, &dtf0, 1);
+    }
+}
+
+//------------------------------------------------------------------------------
+
 void StructExc::getMdFreq(int &nf, double *&f)
 {
 

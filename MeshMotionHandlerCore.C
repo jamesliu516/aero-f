@@ -24,6 +24,7 @@ MeshMotionHandler::MeshMotionHandler(IoData &iod, Domain *dom) :
   tscale = iod.ref.rv.time;
   oolscale = 1.0 / iod.ref.rv.tlength;
   Wn = iod.restart.energy;
+  dtf0 = 0.0;
 
   Pin = iod.aero.pressure;
 
@@ -1584,6 +1585,9 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
 
     dynNodalTransfer->sendForce(); //send force to structure
+    if(dynNodalTransfer->structSubcycling()) {
+      dynNodalTransfer->sendFluidSuggestedTimestep(this->dtf0);
+    }
     dynNodalTransfer->updateInfo();
     dts = dynNodalTransfer->getStructureTimeStep(); //dts obtained at initialization (getInfo)
 
@@ -1595,6 +1599,8 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
 
   else if(it==it0) {
     dynNodalTransfer->sendForce(); //send force to structure
+    if(dynNodalTransfer->structSubcycling())
+      dynNodalTransfer->sendFluidSuggestedTimestep(this->dtf0);
     dynNodalTransfer->updateInfo(); // PJSA 11/24/2010
     dts = dynNodalTransfer->getStructureTimeStep();
   }
@@ -1605,6 +1611,8 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
 
   else if (it>1) {
     dynNodalTransfer->sendForce(); //send force to structure
+    if(dynNodalTransfer->structSubcycling())
+      dynNodalTransfer->sendFluidSuggestedTimestep(this->dtf0);
     dynNodalTransfer->updateInfo();
     dts = dynNodalTransfer->getStructureTimeStep(); //dts obtained at initialization (getInfo)
   }

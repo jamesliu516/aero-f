@@ -2499,7 +2499,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
-  new ClassToken<TsData>(ca, "TimeStepCalculation", this,
+  new ClassToken<TsData>(ca, "TimeStepAdaptation", this,
 			 reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
 			 "Cfl", 0, "ErrorEstimation", 1);
   new ClassToken<TsData>(ca, "Prec", this,
@@ -3605,6 +3605,7 @@ ImplosionSetup::ImplosionSetup() {
   // for buckling of cylinder
   Prate = -1.0;
   Pinit = -1.0;
+  intersector_freq = 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -3613,6 +3614,7 @@ void ImplosionSetup::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 2, 0);
   new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+  new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
 MultigridInfo::MultigridInfo() {

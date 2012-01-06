@@ -194,6 +194,11 @@ public:
 		       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
 		       DistTimeState<dim> *);
 
+  template<class Scalar, int neq>
+  void computeJacobian(DistExactRiemannSolver<dim> *riemann, DistSVec<double,3> &, DistVec<double> &,
+		       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
+		       DistTimeState<dim> *);
+
   template <class Scalar,int neq>
   void computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                        DistSVec<double,dim> &U,

@@ -531,7 +531,6 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 					   DistGeoState &geoState, DistSVec<double,3> &X,
 					   DistVec<double> &ctrlVol, DistSVec<double,dim> &U)
 {
-
   varFcn->conservativeToPrimitive(U, *V);
 
   domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, tprec, sprec);

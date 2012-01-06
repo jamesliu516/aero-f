@@ -81,6 +81,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double Prate;
   double Pinit;
   double Pscale;
+  int intersector_freq;
 
   // Adam 04/06/2010
   enum Type {EULER = 0, NAVIER_STOKES = 1} eqsType;
@@ -120,7 +121,6 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   /** Override the TsDesc routine because forces are sent to the structure
    * in a different way than the general case */
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
-//  double computePositionVector(bool *lastIt, int it, double t);
 
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
@@ -133,7 +133,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]);
 
-  bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
+  bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
 };
