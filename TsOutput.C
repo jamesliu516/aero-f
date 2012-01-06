@@ -2462,11 +2462,16 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
                                       Phi, distLSS, ghostPoints);
 	if (com->cpuNum() == 0) {
 	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
-	  fprintf(scalar_file,"%d %e ",nodal_output.step+it0, tag);
-	  for (int k =0 ; k < nodal_output.numNodes; ++k)
-	    fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
-          fprintf(scalar_file,"\n");
-	  fclose(scalar_file);
+          if (scalar_file != 0) {
+	    fprintf(scalar_file,"%d %e ",nodal_output.step+it0, tag);
+	    for (int k =0 ; k < nodal_output.numNodes; ++k)
+	      fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
+            fprintf(scalar_file,"\n");
+	    fclose(scalar_file);
+          } else {
+
+            this->com->fprintf(stderr,"Warning: Cannot open probe file %s",nodal_scalars[i]);
+          }
 	}
       }
     }
@@ -2482,14 +2487,19 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
 	if (com->cpuNum() == 0) {
 	  FILE* vector_file = fopen(nodal_vectors[i],mode);
-	  fprintf(vector_file,"%d %e ",nodal_output.step+it0, tag);
-	  for (int k =0 ; k < nodal_output.numNodes; ++k)
-	    fprintf(vector_file,"%e %e %e ",
-		    nodal_output.results[k*3]*vscale[i],
-		    nodal_output.results[k*3+1]*vscale[i],
-		    nodal_output.results[k*3+2]*vscale[i]);
-          fprintf(vector_file,"\n");
-	  fclose(vector_file);
+          if (vector_file != 0) {
+	    fprintf(vector_file,"%d %e ",nodal_output.step+it0, tag);
+	    for (int k =0 ; k < nodal_output.numNodes; ++k)
+	      fprintf(vector_file,"%e %e %e ",
+	  	      nodal_output.results[k*3]*vscale[i],
+		      nodal_output.results[k*3+1]*vscale[i],
+		      nodal_output.results[k*3+2]*vscale[i]);
+            fprintf(vector_file,"\n");
+	    fclose(vector_file);
+          } else {
+
+            this->com->fprintf(stderr,"Warning: Cannot open probe file %s",nodal_vectors[i]);
+          }
 	}
       }
     }
