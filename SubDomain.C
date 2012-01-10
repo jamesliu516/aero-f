@@ -4986,6 +4986,9 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 
   double B[neq*neq],tmp[neq*neq];
   double dUdV[neq*neq],dVdU[neq*neq];
+  memset(tmp,0,sizeof(double)*neq*neq);
+  memset(dUdV,0,sizeof(double)*neq*neq);
+  memset(dVdU,0,sizeof(double)*neq*neq);
   memset(B,0,sizeof(double)*neq*neq);
   B[0] = B[5*neq-1] = 1.0;
   for (k = 1; k < 4; ++k) {
