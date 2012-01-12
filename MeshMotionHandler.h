@@ -45,7 +45,7 @@ public:
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0) {return 0.0;} 
   virtual double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;}
-  virtual double storeFluidSuggestedTimestep(double dtf) {dtf0 = dtf;}
+  virtual void storeFluidSuggestedTimestep(double dtf) {dtf0 = dtf;}
   virtual int    structureSubcycling() {return 0;}
 
   template<int dim>
