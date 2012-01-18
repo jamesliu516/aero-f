@@ -16,7 +16,13 @@ TimeState<dim>::TimeState(TimeData &_data, Vec<double> &_dt, Vec<double> &_idti,
 			  SVec<double,dim> &_Rn) : 
   data(_data), dt(_dt), idti(_idti), idtv(_idtv), Un(_Un), Unm1(_Unm1), Unm2(_Unm2), Rn(_Rn)
 {
-
+  if (data.use_modal || data.descriptor_form == 1) {
+    descriptorCase = DESCRIPTOR;
+  } else if (data.descriptor_form == 2) {
+    descriptorCase = HYBRID;
+  } else { 
+    descriptorCase = NONDESCRIPTOR;
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -28,35 +34,20 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
 				SVec<double,dim> &R, LevelSetStructure *LSS)
 {
-
-  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
-  Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
-  Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
-
-  double c_np1, c_n, c_nm1, c_nm2;
-
   for (int i=0; i<dt.size(); ++i) {
-    // If i lies in the structure, do nothing.
-    if(LSS) if(!(LSS->isActive(0.0,i))) continue;
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
 
     double invDt = 1.0 / dt[i];
-    if (data.use_modal || data.use_descriptor)  {
-      c_np1 = data.alpha_np1 * ctrlVol[i];
-      c_n   = data.alpha_n * ctrlVol_n[i];
-      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
-      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i];
-    }
-    else  {
-      double invCtrlVol = 1.0 / ctrlVol[i];
-      c_np1 = data.alpha_np1;
-      c_n   = data.alpha_n * ctrlVol_n[i] * invCtrlVol;
-      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i] * invCtrlVol;
-      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
-    }
-
     for (int k=0; k<dim; ++k) {
-      double dAWdt = invDt * (c_np1*Q[i][k] + c_n*Un[i][k] +
-                            c_nm1*Unm1[i][k] + c_nm2*Unm2[i][k]);
+      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k] +
+                   coefs.c_nm1*Unm1[i][k] + coefs.c_nm2*Unm2[i][k];
+      double dAWdt = invDt * sum; 
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
         R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
       else
@@ -64,41 +55,26 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
     }
   }
 }
-
+//------------------------------------------------------------------------------
 template<int dim>
 void TimeState<dim>::add_dAW_dtRestrict(bool *nodeFlag, GeoState &geoState, 
 					Vec<double> &ctrlVol, SVec<double,dim> &Q, 
 					SVec<double,dim> &R, const std::vector<int> &sampledLocNodes)
 {
 
-  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
-  Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
-  Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
-
-  double c_np1, c_n, c_nm1, c_nm2;
-
   int i;
   for (int iSampledNode=0; iSampledNode<sampledLocNodes.size(); ++iSampledNode) {
-		i = sampledLocNodes[iSampledNode];
+    i = sampledLocNodes[iSampledNode];
+
+    TimeFDCoefs coefs;
+    computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
 
     double invDt = 1.0 / dt[i];
-    if (data.use_modal || data.use_descriptor)  {
-      c_np1 = data.alpha_np1 * ctrlVol[i];
-      c_n   = data.alpha_n * ctrlVol_n[i];
-      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
-      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i];
-    }
-    else  {
-      double invCtrlVol = 1.0 / ctrlVol[i];
-      c_np1 = data.alpha_np1;
-      c_n   = data.alpha_n * ctrlVol_n[i] * invCtrlVol;
-      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i] * invCtrlVol;
-      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
-    }
-
     for (int k=0; k<dim; ++k) {
-      double dAWdt = invDt * (c_np1*Q[i][k] + c_n*Un[i][k] +
-                            c_nm1*Unm1[i][k] + c_nm2*Unm2[i][k]);
+      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k] +
+                   coefs.c_nm1*Unm1[i][k] + coefs.c_nm2*Unm2[i][k];
+      double dAWdt = invDt * sum;
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
         R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
       else
@@ -125,37 +101,24 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
   double c_np1, c_n, c_nm1, c_nm2;
   for (int i=0; i<dt.size(); ++i) {
 
-    double invDt = 1.0 / dt[i];
-    if (data.use_modal || data.use_descriptor)  {
-      c_np1 = data.alpha_np1 * ctrlVol[i];
-      c_n   = data.alpha_n * ctrlVol_n[i];
-      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
-      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i];
-    }
-    else  {
-      double invCtrlVol = 1.0 / ctrlVol[i];
-      if (!requireSpecialBDF) {
-        c_np1 = data.alpha_np1;
-        c_n   = data.alpha_n * ctrlVol_n[i] * invCtrlVol;
-        c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i] * invCtrlVol;
-        c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
-      } else {
+    TimeFDCoefs coefs;
+    if (requireSpecialBDF)
+      computeTimeFDCoefsSpecialBDF(geoState, coefs, ctrlVol, i);
+    else  
+      computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
 
-        c_np1 = 2.0;
-        c_n = -2.0 * ctrlVol_n[i] * invCtrlVol;
-        c_nm1 = -0.5 * ctrlVol_n[i] * invCtrlVol;
-        c_nm2 = 0.0;
-      }
-    }
+    double invDt = 1.0 / dt[i];
 
     for (int idim=0; idim<dimLS; idim++){
-      double dAWdt;
+      double sum;
       if (!requireSpecialBDF)
-        dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] +
-                              c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim]);
+        sum = c_np1*Q[i][idim] + c_n*Qn[i][idim] 
+             + c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim];
       else
-        dAWdt =  invDt*(c_np1*Q[i][idim] + c_n*Qn[i][idim]) +c_nm1*Qnm1[i][idim];
+        sum =  c_np1*Q[i][idim] + c_n*Qn[i][idim] 
+              + c_nm1*Qnm1[i][idim];
 
+      double dAWdt = invDt*sum;
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
         R[i][idim] = dAWdt + 0.5 * (R[i][idim] + Rn[i][idim]);
       else
@@ -163,6 +126,68 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
    }
 
   }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void TimeState<dim>::computeTimeFDCoefs(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) { 
+  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+  Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
+  Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
+
+  coefs.c_np1 = data.alpha_np1;
+  coefs.c_n   = data.alpha_n * ctrlVol_n[i];
+  coefs.c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
+  coefs.c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i];
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      coefs.c_np1 *= ctrlVol[i];
+      break; }
+    case HYBRID:{
+      double invsqrtCtrlVol = 1.0 / sqrt(ctrlVol[i]);
+      coefs.c_np1 *= ctrlVol[i] * invsqrtCtrlVol;
+      coefs.c_n   *= invsqrtCtrlVol;
+      coefs.c_nm1 *= invsqrtCtrlVol;
+      coefs.c_nm2 *= invsqrtCtrlVol;
+      break; }
+    case NONDESCRIPTOR: {
+      double invCtrlVol = 1.0 / ctrlVol[i];
+      coefs.c_n   *= invCtrlVol;
+      coefs.c_nm1 *= invCtrlVol;
+      coefs.c_nm2 *= invCtrlVol;
+      break; }
+  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void TimeState<dim>::computeTimeFDCoefsSpecialBDF(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) {
+  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+  Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
+  Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
+
+
+  coefs.c_np1 = 2.0;
+  coefs.c_n   = -2.0 * ctrlVol_n[i];
+  coefs.c_nm1 = -0.5 * ctrlVol_nm1[i];
+  coefs.c_nm2 = 0.0;
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      coefs.c_np1 *= ctrlVol[i];
+      break; }
+    case HYBRID:{
+      double invsqrtCtrlVol = 1.0 / sqrt(ctrlVol[i]);
+      coefs.c_np1 *= ctrlVol[i] * invsqrtCtrlVol;
+      coefs.c_n   *= invsqrtCtrlVol;
+      coefs.c_nm1 *= invsqrtCtrlVol;
+      break; }
+    case NONDESCRIPTOR: {
+      double invCtrlVol = 1.0 / ctrlVol[i];
+      coefs.c_n   *= invCtrlVol;
+      coefs.c_nm1 *= invCtrlVol;
+      break; }
+  }
+
+
 }
 //-----------------------------------------------------------------------------
 template<int dim>
@@ -193,16 +218,24 @@ void TimeState<dim>::addToJacobianLS(bool* nodeFlag,Vec<double> &ctrlVol, GenMat
                                      SVec<double,dim> &U, bool requireSpecialBDF) {
 
   double c_np1;
+  double coef;
   for (int i=0; i<dt.size(); ++i)  {
-
-    if (data.use_modal || (data.use_descriptor && !requireSpecialBDF))
-      c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
-    else if (requireSpecialBDF && !data.use_descriptor)
-      c_np1 = 2.0/dt[i];
-    else if (requireSpecialBDF && data.use_descriptor)
-      c_np1 = 2.0 * ctrlVol[i] /dt[i];
+    if (requireSpecialBDF)
+      coef = 2.0;
     else
-      c_np1 = data.alpha_np1 / dt[i];
+      coef = data.alpha_np1; 
+
+   switch (descriptorCase) {
+     case DESCRIPTOR: {   
+       c_np1 = coef * ctrlVol[i] / dt[i];
+       break; }
+     case HYBRID: {
+       c_np1 = coef * sqrt(ctrlVol[i]) / dt[i];
+       break; }
+     case NONDESCRIPTOR: {
+       c_np1 = coef / dt[i];
+       break; }
+    }
 
     Scalar *Aii = A.getElem_ii(i);
     for (int k=0; k<neq; ++k)
@@ -216,11 +249,17 @@ void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol,
 					SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
-  if (data.use_modal || data.use_descriptor)
-    c_np1 = data.alpha_np1 * vol / dt[i];
-  else
-    c_np1 = data.alpha_np1 / dt[i];
-
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      c_np1 = data.alpha_np1 * vol / dt[i];
+      break; }
+    case HYBRID: {
+      c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      break; }
+    case NONDESCRIPTOR : { 
+      c_np1 = data.alpha_np1 / dt[i];
+      break; }
+  }
   Scalar *Aii = A.getElem_ii(i);
   for (int k=0; k<neq; ++k)
     Aii[k + k*neq] += c_np1;
@@ -262,10 +301,17 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
 				double irey, SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
-  if (data.use_modal || data.use_descriptor)
-    c_np1 = data.alpha_np1 * vol / dt[i];
-  else
-    c_np1 = data.alpha_np1 / dt[i];
+  switch (descriptorCase) {
+    case DESCRIPTOR: { 
+      c_np1 = data.alpha_np1 * vol / dt[i];
+      break; }
+    case HYBRID: {
+      c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      break; }
+    case NONDESCRIPTOR: {
+      c_np1 = data.alpha_np1 / dt[i];
+      break; }
+  }
 
   Scalar *Aii = A.getElem_ii(i);
 
@@ -359,11 +405,17 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
 {
 // ARL : turbulence preconditioning never tested ...
   double c_np1;
-  if (data.use_modal || data.use_descriptor)
-    c_np1 = data.alpha_np1 * vol / dt[i];
-  else
-    c_np1 = data.alpha_np1 / dt[i];
-
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      c_np1 = data.alpha_np1 * vol / dt[i];
+      break; }
+    case HYBRID: {
+      c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      break; }
+    case NONDESCRIPTOR: {
+      c_np1 = data.alpha_np1 / dt[i];
+      break; }
+  }
   Scalar *Aii = A.getElem_ii(i);
   if(neq<5){            //turbulence model equation in segregated solver
     for (int k=0; k<neq; ++k)
@@ -420,14 +472,20 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar
 
     if (nodeFlag && !nodeFlag[i]) continue;
 
-    if (data.use_modal || data.use_descriptor)
-      if (data.use_freq == true)
-        c_np1 = data.alpha_np1 * ctrlVol[i];
-      else
-        c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
-    else
-      c_np1 = data.alpha_np1 / dt[i];
-
+    switch (descriptorCase) {
+      case DESCRIPTOR: {
+        if (data.use_freq == true)
+          c_np1 = data.alpha_np1 * ctrlVol[i];
+        else
+          c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+        break; }
+      case HYBRID: {
+        c_np1 = data.alpha_np1 * sqrt(ctrlVol[i]) / dt[i];
+        break; }
+      case NONDESCRIPTOR: {
+        c_np1 = data.alpha_np1 / dt[i];
+        break; }
+    }
     Scalar *Aii = A.getElem_ii(i);
 
     for (int k=0; k<neq; ++k)
@@ -452,15 +510,23 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol,
   Scalar c_np1;
   for (int i=0; i<dt.size(); ++i) {
 
-    if (data.use_modal || data.use_descriptor)  {
-      if (data.use_freq == true)
-        c_np1 = shift * ctrlVol[i];
-      else
-        c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+    switch (descriptorCase)  {
+      case DESCRIPTOR: {
+        if (data.use_freq == true)
+          c_np1 = shift * ctrlVol[i];
+        else
+          c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+        break; }
+      case HYBRID: {
+        c_np1 = data.alpha_np1 * sqrt(ctrlVol[i]) / dt[i];
+        break; }
+      case NONDESCRIPTOR: {
+        if (data.use_freq == true)
+          c_np1 = shift;
+        else 
+          c_np1 = data.alpha_np1 / dt[i];
+        break; }
     }
-    else
-      c_np1 = data.alpha_np1 / dt[i];
-
     Scalar *Aii = A.getElem_ii(i);
 
     for (int k=0; k<neq; ++k) {

@@ -87,7 +87,7 @@ class ModalSolver {
     double dt0;
     double *K;
     int podMethod;
-
+    double pi;
     VecSet< DistSVec<double,dim> > DX;
     VecSet< DistSVec<double,dim> > DE;
     DistVec<double> controlVol;
