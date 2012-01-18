@@ -262,9 +262,7 @@ struct RestartData {
   ~RestartData() {}
 
   void setup(const char *, ClassAssigner * = 0);
-
 };
-
 //------------------------------------------------------------------------------
 
 struct ROMOutputData {
@@ -1957,6 +1955,8 @@ struct OneDimensionalInfo {
   
   int numPoints; //mesh has numPoints elements
   int fluidId2;
+
+  int sourceTermOrder;
 
   double interfacePosition;
 

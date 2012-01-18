@@ -3575,6 +3575,7 @@ OneDimensionalInfo::OneDimensionalInfo(){
   density2 = 1.0; velocity2 = 0.0; pressure2 = 1.0;
   temperature1 = 1.0; temperature2 = 1.0;
 
+  sourceTermOrder = 1;
 }
 //------------------------------------------------------------------------------
 void OneDimensionalInfo::setup(const char *name){
@@ -3585,6 +3586,7 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
   new ClassDouble<OneDimensionalInfo>(ca, "Radius", this, &OneDimensionalInfo::maxDistance);
   new ClassInt<OneDimensionalInfo>(ca, "NumberOfPoints", this, &OneDimensionalInfo::numPoints);
+  new ClassInt<OneDimensionalInfo>(ca, "SourceTermOrder", this, &OneDimensionalInfo::sourceTermOrder);
   new ClassDouble<OneDimensionalInfo>(ca, "InterfacePosition", this, &OneDimensionalInfo::interfacePosition);
 
   new ClassDouble<OneDimensionalInfo>(ca, "Density1", this, &OneDimensionalInfo::density1);
