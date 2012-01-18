@@ -91,14 +91,19 @@ protected:
   Communicator *com;
 
   bool use_modal;
-  bool use_descriptor;
   bool use_complex;
   int order;
   int failsafe;
   int rshift;
-
 // Included (MB)
   IoData *iod;
+
+  enum DescriptorCase {
+    DESCRIPTOR, HYBRID, NONDESCRIPTOR
+  };
+  DescriptorCase descriptorCase;
+
+
 
 public:
 
@@ -274,9 +279,6 @@ public:
   // Included (MB)
   bool useModal() 
   {return use_modal;}
-
-  bool useDescriptor()
-  {return use_descriptor;}
 
   // Included (MB)
   /// \note This function is implemented.

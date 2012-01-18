@@ -1358,7 +1358,6 @@ struct ImplicitData {
   enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
   enum FVMERS3PBDFSchme { BDF_SCHEME1 = 1, BDF_SCHEME2 = 0 } fvmers_3pbdf;
   NewtonData<KspFluidData> newton;
-  enum DescriptorForm {TRUE_DF = 1, FALSE_DF = 0} descriptorForm;
   /// UH (09/10)
   /// This flag is not visible from the input file.
   /// It governs the computation of the Jacobian of the flux function,
@@ -1382,6 +1381,7 @@ struct TsData {
   enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
 
   enum Prec {NO_PREC = 0, PREC = 1} prec;
+  enum Form {DESCRIPTOR = 1, NONDESCRIPTOR = 0, HYBRID = 2} form;
   double viscousCst;
 
   int maxIts;

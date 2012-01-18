@@ -69,9 +69,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   postOp = new PostOperator<dim>(ioData, varFcn, bcData, geoState, domain, V);
 
   data = new TsParameters(ioData);
-
   output = new TsOutput<dim>(ioData, refVal, domain, postOp);
-
   restart = new TsRestart(ioData, refVal);
 
   hth = createHeatTransferHandler(ioData, geoSource);

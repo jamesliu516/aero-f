@@ -51,7 +51,7 @@ ModalSolver<dim>::ModalSolver(Communicator *_com, IoData &_ioData, Domain &dom) 
 
  com = _com;
  double f = 0;
- double pi = 3.14159265358979;
+ pi = 3.14159265358979;
  ioData = &_ioData; 
  const char *modeFile = ioData->linearizedData.strModesFile;
 
@@ -433,7 +433,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
  DistSVec<double,dim> delWint(domain.getNodeDistInfo());
 
  // Uncomment for forced oscillations
- double pi = 3.14159265358979;
  double freq = 2.0*pi*ioData->linearizedData.frequency;
  double dMax = ioData->linearizedData.amplification;
 
@@ -443,10 +442,10 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
  double sdt0 = sdt*dt0/dt;
  double *prevU = new double[nStrMode];
  double *prevY = new double[nStrMode];
-  double *prevA = new double[nStrMode];
+ double *prevA = new double[nStrMode];
 
  for (i = 0; i < nStrMode; ++i)  {
-    deltmp += (delU[i]+sdt*delY[i])*mX[i];
+   deltmp += (delU[i]+sdt*delY[i])*mX[i];
    prevU[i] = delU[i];
    prevY[i] = delY[i];
  }
@@ -529,7 +528,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
        rhsA += DX[i]*delU[i];
        rhsB += DX[i]*delY[i];
        rhsC += DE[i]*delY[i];
-        rhsD += DE[i]*prevA[i];
+       rhsD += DE[i]*prevA[i];
      }
 
      //Predictor step
@@ -549,7 +548,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
    }
    else if (cnt == 1) {
       
-      rhs = delW*(6.0/dt) - delWnm1*(2.0/(3.0*dt));
+     rhs = delW*(6.0/dt) - delWnm1*(2.0/(3.0*dt));
      rhs *= controlVol;
 
      rhsA = 0.0;
@@ -582,7 +581,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
    }
    else if (cnt == 2) {
   
-      rhs = delW*(6.0/dt) - delWnm1*(8.0/(3.0*dt));
+     rhs = delW*(6.0/dt) - delWnm1*(8.0/(3.0*dt));
      rhs *= controlVol;
 
      rhsA = 0.0;
@@ -617,7 +616,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
    else {
      
       rhs = delW*(4.0/dt) - delWnm1*(1.0/dt);
-     rhs *= controlVol;
+      rhs *= controlVol;
 
       rhsA = 0.0;     
       rhsB = 0.0;     
@@ -771,7 +770,7 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
   delWFull -= Uref;
 
   // construct initial delWRom
-  if (ioData->ts.implicit.descriptorForm == ImplicitData::TRUE_DF) {
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
     DistSVec<double, dim> dummy(domain.getNodeDistInfo());
     dummy = delWFull;
     dummy *= controlVol;
@@ -1093,9 +1092,9 @@ void ModalSolver<dim>::preProcess()  {
  DE.resize(nStrMode);
 
  double eps = ioData->linearizedData.eps;
- double alpha = dt/ioData->linearizedData.eps2;
- double eps2 = eps*alpha;
- com->fprintf(stderr, "Alpha = %f\n", alpha);
+// double alpha = dt/ioData->linearizedData.eps2;
+// double eps2 = eps*alpha;
+// com->fprintf(stderr, "Alpha = %f\n", alpha);
 
  // Loop over the modes
 
@@ -1146,6 +1145,13 @@ void ModalSolver<dim>::preProcess()  {
 
    // Then DFDXdot*****************************************
    // Computing F(X0,V1) 
+   double Ti;
+   if (K[ic]>0.0)
+     Ti = (pi*2.0/sqrt(K[ic]) ) / ioData->ref.rv.time; 
+   else
+     Ti = 1.0;
+
+   double eps2 = 0.5*dt/Ti*eps;
 
    Xnp1 = Xref - eps2*(mX[ic]);
 
@@ -1177,7 +1183,7 @@ void ModalSolver<dim>::preProcess()  {
    // given displacement change by dt to define its velocity.
    // Thus with Xnp1 = X0+dt*eps*Xm and Xn = X0-dt*eps*Xm: V_n+1/2 = 2*eps*Xm
 
-   DV[ic] = (1.0/(2.0*eps))*(F1-F2);
+   DV[ic] = (Ti/(2.0*eps))*(F1-F2);
    DV[ic] *= ioData->ref.rv.time;
 
    com->fprintf(stderr, " ... Norm DV, Mode %i: %e\n",ic, DV[ic].norm());
@@ -1190,7 +1196,7 @@ void ModalSolver<dim>::preProcess()  {
  // Now setup H matrices
 
  double delt0;
-   delt0 = dt0;
+ delt0 = dt0;
 
  double r = dt/(2.0*delt0);
  // ***This is (c1*A+c2*dt*H)
@@ -1294,7 +1300,7 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
  com->barrier();
  for (iVec = 0; iVec < nPodVecs; iVec++)  {
    onlyHOp->apply(podVecs[iVec], tmpVec);
-   if (ioData->ts.implicit.descriptorForm == ImplicitData::FALSE_DF)
+   if (ioData->ts.form == TsData::NONDESCRIPTOR)
      tmpVec /= controlVol;
    for (jVec = 0; jVec < nPodVecs; jVec++)  {
      romVal = podVecs[jVec] * tmpVec;
@@ -1325,7 +1331,7 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
    tmpECvec = DE[iVec]; 
    tmpGvec = DX[iVec];
    
-   if (ioData->ts.implicit.descriptorForm == ImplicitData::FALSE_DF) {
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) {
      tmpECvec /= controlVol;
      tmpGvec /= controlVol;
    }
@@ -1732,7 +1738,7 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
  if (podMethod == 0) {	// svd
 #ifdef DO_SCALAPACK
   com->fprintf(stderr, "Inside DO_SCALAPACK \n");
-  if (ioData->ts.implicit.descriptorForm == ImplicitData::TRUE_DF) {
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
     controlVolSqrt.pow(controlVol,0.5);
     for (int iSnap = 0; iSnap < nSnaps; ++iSnap)
       snaps[iSnap] *= controlVolSqrt;
@@ -1746,7 +1752,7 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   ParallelRom<dim> parallelRom(domain,com);
   parallelRom.parallelSVD(snaps, Utrue, singVals.data(), VtrueDummy, nSnaps, false);
 
-  if (ioData->ts.implicit.descriptorForm == ImplicitData::TRUE_DF) {
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
     for (int iSnap = 0; iSnap < nSnaps; iSnap++)
       Utrue[iSnap] /= controlVolSqrt;
   }
@@ -1774,7 +1780,7 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 
   for (int i = 0; i < nSnaps; i++){
     com->fprintf(stderr," ... processing snap %d\n",i);//CBM
-    if (ioData->ts.implicit.descriptorForm == ImplicitData::TRUE_DF) {
+    if (ioData->ts.form == TsData::DESCRIPTOR) {
       CVsnap = snaps[i];
       CVsnap *= controlVol;
       for (int j = 0; j <= i; ++j) 
@@ -2560,7 +2566,7 @@ void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int
 
  for (iVec = 0; iVec < nPodVecs; iVec++)  {
    onlyHOp->apply(podVecs[iVec], tmpVec);
-   if (ioData->ts.implicit.descriptorForm == ImplicitData::FALSE_DF) 
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) 
      tmpVec /= controlVol;
    for (jVec = 0; jVec < nPodVecs; jVec++)
      romOperator[iVec][jVec] = (podVecs[jVec] * tmpVec) * timeDimConst;
@@ -2618,8 +2624,9 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
 
  for (iVec = 0; iVec < nPodVecs; iVec++)  {
    onlyHOp->apply(podVecs[iVec], tmpVec);
-   if (ioData->ts.implicit.descriptorForm == ImplicitData::FALSE_DF) 
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) 
      tmpVec /= controlVol;
+   
    for (jVec = 0; jVec < nPodVecs; jVec++)
      romOperator[iVec][jVec] = (podVecs[jVec] * tmpVec) * timeDimConst;
  }
@@ -2635,7 +2642,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
  for (iVec = 0; iVec < nStrMode; iVec++)  {
    tmpVec = DE[iVec] * invDt;
    tmpVec2 = DX[iVec];
-   if (ioData->ts.implicit.descriptorForm == ImplicitData::FALSE_DF) {
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) {
      tmpVec /= controlVol;
      tmpVec2 /= controlVol;
    }
@@ -2778,7 +2785,7 @@ void ModalSolver<dim>::checkROBType(VecSet<DistSVec<double, dim> > &podVecs, int
 
   DistSVec<double, dim> dummy(domain.getNodeDistInfo());  
   FullM B(nPodVecs);
-  if (ioData->ts.implicit.descriptorForm == ImplicitData::TRUE_DF) {
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
     for (int i = 0; i < nPodVecs; ++i){
       dummy = podVecs[i];
       dummy *= controlVol;
@@ -2796,7 +2803,7 @@ void ModalSolver<dim>::checkROBType(VecSet<DistSVec<double, dim> > &podVecs, int
   }
   double Bnorm = B.norm();
 
-  if (ioData->ts.implicit.descriptorForm == ImplicitData::TRUE_DF)
+  if (ioData->ts.form == TsData::DESCRIPTOR)
     com->fprintf(stderr, " ... Norm (Phi'*A*Phi - I) = %e\n",Bnorm);
   else 
     com->fprintf(stderr, " ... Norm (Phi'*Phi - I) = %e\n",Bnorm);
