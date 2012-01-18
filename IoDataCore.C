@@ -4046,6 +4046,9 @@ void IoData::resetInputValues()
 
   }
 
+  if (problem.type[ProblemData::LINEARIZED])
+    ts.form == TsData::DESCRIPTOR;
+
   if (problem.type[ProblemData::LINEARIZED] && ts.form == TsData::HYBRID) {
     com->fprintf(stderr, "*** Error: the hybrid form is not supported in the linearized module \n");
       exit(1);

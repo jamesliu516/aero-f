@@ -125,17 +125,18 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     compNodalGrad = 0;
     use_modal = false;
 
+// Included (MB)
+    if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
+      use_modal = true;
+  }
+
   if (use_modal || ioData.ts.form == TsData::DESCRIPTOR)
     descriptorCase = DESCRIPTOR;
   else if (ioData.ts.form == TsData::HYBRID)
     descriptorCase = HYBRID;
   else
-    descriptorCase = NONDESCRIPTOR;
+    descriptorCase = NONDESCRIPTOR;  
 
-// Included (MB)
-    if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
-      use_modal = true;
-  }
 
   if (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT)
     order = 1;
@@ -2320,8 +2321,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
   }
 
 
-  if (this->descriptorCase == this->DESCRIPTOR)  {
-    fprintf(stderr, "**Error: no modal or descriptor form for multiphase flows.. Exiting\n");
+  if (this->descriptorCase == this->DESCRIPTOR || this->descriptorCase == this->HYBRID)  {
+    fprintf(stderr, "**Error: no modal or descriptor/hybrid form for multiphase flows.. Exiting\n");
     exit(1);
   }
   else  {
@@ -2366,7 +2367,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<
   }
 
 
-  if (this->descriptorCase == this->DESCRIPTOR)  {
+  if (this->descriptorCase == this->DESCRIPTOR || this->descriptorCase == this->HYBRID)  {
     fprintf(stderr, "**Error: no modal or descriptor form for multiphase flows.. Exiting\n");
     exit(1);
   }
