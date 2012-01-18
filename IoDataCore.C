@@ -4302,7 +4302,8 @@ int IoData::checkInputValuesAllEquationsOfState(){
   if(eqs.numPhase > 1 && 
      (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
       !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
-      !mf.multiInitialConditions.prismMap.dataMap.empty() ))
+      !mf.multiInitialConditions.prismMap.dataMap.empty() || 
+      !input.oneDimensionalInput.dataMap.empty()))
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;
