@@ -288,12 +288,14 @@ class OneDimensional {
 	  varFcn->primitiveToConservative(ff,f,fid_new);
 	} else if (xrad <= rad) {
 	  varFcn->primitiveToConservative(boundaryStateL,f,fids[0]);
+	  fid_new = fids[0];
 	  for (int j = 1; j <= 3; ++j) {
 	    f[j] = boundaryStateL[0]*boundaryStateL[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
 	  }
 	    
 	} else {
 	  varFcn->primitiveToConservative(boundaryStateR,f,fids[numPoints-1]);
+	  fid_new = fids[numPoints-1];
 	  for (int j = 1; j <= 3; ++j) {
 	    f[j] = boundaryStateR[0]*boundaryStateR[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
 	  }	  
