@@ -987,16 +987,16 @@ void OneDimensional::singleTimeIntegration(double dt){
     
     //fprintf(stderr,"int. loc = %lf, x = %lf\n", interfaceLocation, X[75][0]);
     for(int i=0; i<numPoints; i++){
-      /*if (X[i][0] < interfaceLocation)
+      if (X[i][0] < interfaceLocation)
 	fluidId[i] = 1;
       else
 	fluidId[i] = 0;
-      */
-      Phi[i][0] = X[i][0] - interfaceLocation;
+      
+      //Phi[i][0] = X[i][0] - interfaceLocation;
     }
-    fluidIdn = fluidId;
+    /*fluidIdn = fluidId;
     fluidSelector.getFluidId(fluidId,Phi);
-
+    */
   }
 
   for(int i=0; i<numPoints; i++){
