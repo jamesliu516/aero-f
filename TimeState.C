@@ -110,15 +110,16 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
     double invDt = 1.0 / dt[i];
 
     for (int idim=0; idim<dimLS; idim++){
-      double sum;
-      if (!requireSpecialBDF)
-        sum = c_np1*Q[i][idim] + c_n*Qn[i][idim] 
-             + c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim];
-      else
-        sum =  c_np1*Q[i][idim] + c_n*Qn[i][idim] 
-              + c_nm1*Qnm1[i][idim];
+      double dAWdt;
+      if (!requireSpecialBDF) {
+        dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] 
+             + c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim]);
+      }
+      else {
+        dAWdt = invDt * ( c_np1*Q[i][idim] + c_n*Qn[i][idim]) 
+              + c_nm1*Qnm1[i][idim]; // here Qnm1 is dQdt^n, so no multiplication by invDt
+      }
 
-      double dAWdt = invDt*sum;
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
         R[i][idim] = dAWdt + 0.5 * (R[i][idim] + Rn[i][idim]);
       else
