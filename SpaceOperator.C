@@ -1445,6 +1445,18 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
       if (volForce)
         domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
       break; }
+  }
+
+  // Delete pointer for consistency
+  if (timeState == 0)
+  {
+    if (irey)
+      delete irey;
+  }
+  irey = 0;
+
+}
+//-----------------------------------------------------------------------------
 template<int dim>
 template<class Scalar, int neq>
 void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
@@ -1466,18 +1478,30 @@ void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, D
     *irey = 0.0;
   }
 
-  if (use_modal)  {
-    DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
-    unitCtrlVol = 1.0;
-    if (fet)
-      domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
+      unitCtrlVol = 1.0;
+      if (fet)
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
 
-    domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *irey, X, unitCtrlVol, *V, A);
+      domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *irey, X, unitCtrlVol, *V, A);
 
-    if (volForce)
+      if (volForce)
       domain->computeJacobianVolumicForceTerm(volForce, unitCtrlVol, *V, A);
-  }
-  else  {
+      break; }
+    case HYBRID: {
+      DistVec<double> sqrtCtrlVol(domain->getNodeDistInfo());
+      sqrtCtrlVol.pow(ctrlVol,0.5);
+      if (fet)
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, sqrtCtrlVol, *V, A);
+
+      domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *irey, X, sqrtCtrlVol, *V, A);
+
+      if (volForce)
+      domain->computeJacobianVolumicForceTerm(volForce, sqrtCtrlVol, *V, A);
+      break; }
+    case NONDESCRIPTOR: {
 
     if (fet)
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
@@ -1486,6 +1510,8 @@ void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, D
 
     if (volForce)
       domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
+    break; }
+
   }
 
   // Delete pointer for consistency
@@ -2240,11 +2266,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dimLS] = PhiF.subData(iSub);
+      NodalGrad<dim,double>& grad = this->ngrad->operator()(iSub);
       if (this->descriptorCase == this->HYBRID) {
         for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
           double invsqcv = 1.0 / sqrt(cv[i]);
           for (int idim=0; idim<dimLS; idim++) 
             r[i][idim] *= invsqcv;
+          if (method == 1) { // DJA: applicable to both cases?
+            for (int idim=0; idim<dimLS; idim++)
+              r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
+          }
         }
       }
       else if (this->descriptorCase == this->NONDESCRIPTOR) {
@@ -2252,12 +2283,12 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
           double invcv = 1.0 / cv[i];
           for (int idim=0; idim<dimLS; idim++) 
             r[i][idim] *= invcv;
-	if (method == 1) {
-	  for (int idim=0; idim<dimLS; idim++)
-	    r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
-	}
+          if (method == 1) { 
+            for (int idim=0; idim<dimLS; idim++)
+              r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
+          }
         }
-      }    
+      }
     }
   }
 }
@@ -2447,7 +2478,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobianLS(DistSVec<double,3> &X
   A = 0.0;
   this->domain->computeJacobianFiniteVolumeTermLS(this->recFcn, recFcnLS,*(this->geoState),X,V,*(this->ngrad), *ngradLS,this->egrad,ctrlVol, Phi,A,distLSS);
 
-  if (this->use_modal == false)  {
+  if (this->descriptorCase == this->NONDESCRIPTOR)  {
     int numLocSub = Phi.numLocSub();
     int iSub;
 #pragma omp parallel for
