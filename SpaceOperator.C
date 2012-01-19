@@ -2269,12 +2269,13 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
       NodalGrad<dim,double>& grad = this->ngrad->operator()(iSub);
       if (this->descriptorCase == this->HYBRID) {
         for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-          double invsqcv = 1.0 / sqrt(cv[i]);
+          double sqcv = sqrt(cv[i]);
+          double invsqcv = 1.0 / sqcv;
           for (int idim=0; idim<dimLS; idim++) 
             r[i][idim] *= invsqcv;
           if (method == 1) { // DJA: applicable to both cases?
             for (int idim=0; idim<dimLS; idim++)
-              r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
+              r[i][idim] -= sqcv*(grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
           }
         }
       }
