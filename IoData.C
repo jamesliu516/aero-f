@@ -13,7 +13,7 @@ NewtonData<GenericKrylov>::NewtonData()
   failsafe = NO;
   maxIts = 1;
   eps = 1.e-2;
-	JacSkip = 1;
+  JacSkip = 1;
   epsAbsRes = std::numeric_limits<double>::epsilon();
   epsAbsInc = std::numeric_limits<double>::epsilon();
 }

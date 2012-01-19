@@ -64,6 +64,7 @@ class GenFullM {
    void ReSolve(double *d); //CBM-pivot
    void zero();
    void add(GenFullM&, int, int);
+   double norm(); // Frobenius norm
 
 //   void transposeAssign(GenFullM&);
 
@@ -145,7 +146,7 @@ class SymFullM : public GenFullM<Scalar> {
  void reSolve(double *d);
 
  void zero();
-
+ double norm();
 
 };
 

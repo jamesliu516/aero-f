@@ -95,9 +95,15 @@ protected:
   int order;
   int failsafe;
   int rshift;
-
 // Included (MB)
   IoData *iod;
+
+  enum DescriptorCase {
+    DESCRIPTOR, HYBRID, NONDESCRIPTOR
+  };
+  DescriptorCase descriptorCase;
+
+
 
 public:
 
@@ -278,7 +284,6 @@ public:
   // Included (MB)
   bool useModal() 
   {return use_modal;}
-
 
   // Included (MB)
   /// \note This function is implemented.

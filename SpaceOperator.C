@@ -130,6 +130,14 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
       use_modal = true;
   }
 
+  if (use_modal || ioData.ts.form == TsData::DESCRIPTOR)
+    descriptorCase = DESCRIPTOR;
+  else if (ioData.ts.form == TsData::HYBRID)
+    descriptorCase = HYBRID;
+  else
+    descriptorCase = NONDESCRIPTOR;  
+
+
   if (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT)
     order = 1;
   else
@@ -174,7 +182,7 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   com = spo.com;
 
   use_modal = spo.use_modal;
-
+  descriptorCase = spo.descriptorCase;
 // Included (MB)
   iod = spo.iod;
 
@@ -545,20 +553,31 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 // Modified (MB)
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (descriptorCase != DESCRIPTOR)  {
       int numLocSub = R.numLocSub();
-      int iSub;
 #pragma omp parallel for
-      for (iSub=0; iSub<numLocSub; ++iSub) {
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
-        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-          double invcv = 1.0 / cv[i];
-          for (int j=0; j<dim; ++j)
-            r[i][j] *= invcv;
+        switch (descriptorCase) {
+          case HYBRID:{
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invsqcv = 1.0 / sqrt(cv[i]);          
+              for (int j=0; j<dim; ++j)
+                r[i][j] *= invsqcv;
+            }
+            break; }
+          case NONDESCRIPTOR: {
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invcv = 1.0 / cv[i];
+              for (int j=0; j<dim; ++j)
+                r[i][j] *= invcv;
+            }
+            break; }
         }
       }
     }
+
   }
 
   // Delete the pointer for consistency
@@ -646,18 +665,31 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 
 // Modified (MB)
   if (compatF3D) {
-    if (use_modal == false)  {
-			int i;
+    if (descriptorCase != DESCRIPTOR)  {
+      int i;
       int numLocSub = R.numLocSub();
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
-				for (int iSampledNode=0; iSampledNode<sampledLocNodes[iSub].size(); ++iSampledNode) {
-					i = sampledLocNodes[iSub][iSampledNode];
-          double invcv = 1.0 / cv[i];
-          for (int j=0; j<dim; ++j)
-            r[i][j] *= invcv;
+        switch (descriptorCase) {
+          case HYBRID:{
+            for (int iSampledNode=0; iSampledNode<sampledLocNodes[iSub].size(); ++iSampledNode) {
+	      i = sampledLocNodes[iSub][iSampledNode];
+              double invsqcv = 1.0 / sqrt(cv[i]);
+              for (int j=0; j<dim; ++j) 
+                r[i][j] *= invsqcv;
+            }
+            break; }
+          case NONDESCRIPTOR: {
+            for (int iSampledNode=0; iSampledNode<sampledLocNodes[iSub
+].size(); ++iSampledNode) {
+              i = sampledLocNodes[iSub][iSampledNode];
+              double invcv = 1.0 / cv[i];
+              for (int j=0; j<dim; ++j)
+                r[i][j] *= invcv;
+            }
+            break; }
         }
       }
     }
@@ -743,17 +775,28 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
 
 // Modified (MB)
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (descriptorCase != DESCRIPTOR) {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
       for (iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
-        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-          double invcv = 1.0 / cv[i];
-          for (int j=0; j<dim; ++j)
-            r[i][j] *= invcv;
+        switch (descriptorCase) {
+          case HYBRID:{
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invsqcv = 1.0 / sqrt(cv[i]);
+              for (int j=0; j<dim; ++j) 
+                r[i][j] *= invsqcv;
+            }
+            break; }
+          case NONDESCRIPTOR: {
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invcv = 1.0 / cv[i];
+              for (int j=0; j<dim; ++j)
+                r[i][j] *= invcv;
+            }
+            break; } 
         }
       }
     }
@@ -876,7 +919,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidual
     dvms->computeDerivative(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState, timeState, X, U, *V, R, failsafe, rshift);
   }
 
-  if (use_modal == false)  {
+  if (descriptorCase != DESCRIPTOR)  {
     int numLocSub = dR.numLocSub();
     int iSub;
 #pragma omp parallel for
@@ -886,11 +929,23 @@ void SpaceOperator<dim>::computeDerivativeOfResidual
       double (*r)[dim] = R.subData(iSub);
       double (*dr)[dim] = dR.subData(iSub);
       double (*drm)[dim] = (*dRm).subData(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        double dInvcv = ( (-1.0) / ( cv[i] * cv[i] ) ) * dcv[i];
-        for (int j=0; j<dim; ++j)
-          dr[i][j] = ( ( dr[i][j] * invcv ) + ( r[i][j] * dInvcv ) );
+      switch (descriptorCase) {
+        case HYBRID:{
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double invsqcv = 1.0 / sqrt(cv[i]);
+            double dSqrtInvcv = ( (-0.5) / pow(cv[i], 1.5) ) * dcv[i];
+            for (int j=0; j<dim; ++j)
+              dr[i][j] = ( ( dr[i][j] * invsqcv ) + ( r[i][j] * dSqrtInvcv ) );
+          }
+          break; }
+        case NONDESCRIPTOR: {
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double invcv = 1.0 / cv[i];
+            double dInvcv = ( (-1.0) / ( cv[i] * cv[i] ) ) * dcv[i];
+            for (int j=0; j<dim; ++j)
+              dr[i][j] = ( ( dr[i][j] * invcv ) + ( r[i][j] * dInvcv ) );
+          }
+          break; }
       }
     }
   }
@@ -964,17 +1019,28 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
                   timeState, X, U, *V, R, failsafe, rshift);
 
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (descriptorCase != DESCRIPTOR) {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
       for (iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
-        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-          double invcv = 1.0 / cv[i];
-          for (int j=0; j<dim; ++j)
-            r[i][j] *= invcv;
+        switch (descriptorCase) {
+          case HYBRID: {
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invsqcv = 1.0 / sqrt(cv[i]);
+              for (int j=0; j<dim; ++j) 
+                r[i][j] *= invsqcv;
+            }
+            break; }
+          case NONDESCRIPTOR: {
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invcv = 1.0 / cv[i];
+              for (int j=0; j<dim; ++j) 
+                r[i][j] *= invcv;
+            }
+            break; }
         }
       }
     }
@@ -1039,17 +1105,28 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
                   timeState, X, U, *V, R, failsafe, rshift);
 
   if (compatF3D) {
-    if (use_modal == false)  {
+    if (descriptorCase != DESCRIPTOR)  {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
       for (iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
-        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-          double invcv = 1.0 / cv[i];
-          for (int j=0; j<dim; ++j)
-            r[i][j] *= invcv;
+        switch (descriptorCase) {
+          case HYBRID: {
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invsqcv = 1.0 / sqrt(cv[i]);
+              for (int j=0; j<dim; ++j) 
+                r[i][j] *= invsqcv;
+            }
+            break; } 
+          case NONDESCRIPTOR: {
+            for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+              double invcv = 1.0 / cv[i];
+              for (int j=0; j<dim; ++j)
+                r[i][j] *= invcv;
+            }
+            break; }
         }
       }
     }
@@ -1100,17 +1177,29 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, Wstarij, Wstarji, distLSS, linRecAtInterface, fluidId, Nriemann,
                                   Nsbar, *ngrad, egrad, R, it, failsafe,rshift);
-  if (use_modal == false)  {
+  if (descriptorCase != DESCRIPTOR)  {
     int numLocSub = R.numLocSub();
     int iSub;
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dim] = R.subData(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        for (int j=0; j<dim; ++j)
-          r[i][j] *= invcv;
+      switch (descriptorCase) {
+        case HYBRID: {
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double invsqcv = 1.0 / sqrt(cv[i]);
+            for (int j=0; j<dim; ++j) 
+              r[i][j] *= invsqcv;
+          }
+          break; }
+        case NONDESCRIPTOR: {
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double invcv = 1.0 / cv[i];
+            for (int j=0; j<dim; ++j) 
+              r[i][j] *= invcv;
+          }
+          break; }
+
       }
     }
   }
@@ -1322,39 +1411,40 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     *irey = 0.0;
   }
 
-  if (use_modal)  {
-    DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
-    unitCtrlVol = 1.0;
-    if (fet)
-      domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
+      unitCtrlVol = 1.0;
+      if (fet)
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
 
-    domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, unitCtrlVol, *V, A);
+      domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, unitCtrlVol, *V, A);
 
-    if (volForce)
-      domain->computeJacobianVolumicForceTerm(volForce, unitCtrlVol, *V, A);
-  }
-  else  {
+      if (volForce)
+        domain->computeJacobianVolumicForceTerm(volForce, unitCtrlVol, *V, A);
+      break; }
+    case HYBRID: {
+      DistVec<double> sqrtCtrlVol(domain->getNodeDistInfo());
+      sqrtCtrlVol.pow(ctrlVol,0.5);
+      if (fet)
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, sqrtCtrlVol, *V, A);
 
-    if (fet)
-      domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
+      domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, sqrtCtrlVol, *V, A);
 
-    domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, ctrlVol, *V, A);
-
-    if (volForce)
-      domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
-  }
-
-  // Delete pointer for consistency
-  if (timeState == 0) 
+      if (volForce)
+        domain->computeJacobianVolumicForceTerm(volForce, sqrtCtrlVol, *V, A);
+  
+      break; }
+    case NONDESCRIPTOR: {
   {
-    if (irey)
-      delete irey;
+      if (fet)
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
   }
-  irey = 0;
+      domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, ctrlVol, *V, A);
 
-}
-//-----------------------------------------------------------------------------
-
+      if (volForce)
+        domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
+      break; }
 template<int dim>
 template<class Scalar, int neq>
 void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
@@ -1495,16 +1585,24 @@ void SpaceOperator<dim>::computeViscousJacobian(DistSVec<double,3> &X, DistVec<d
 
   A = 0.0;
   if (fet)  {
-    if (use_modal)  {
-      DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
-      unitCtrlVol = 1.0;
-      domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
-      domain->finishJacobianGalerkinTerm(unitCtrlVol, A);
-    }
-    else  {
-      domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
-      domain->finishJacobianGalerkinTerm(ctrlVol, A);
-    }
+    switch (descriptorCase) {
+      case DESCRIPTOR: {
+        DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
+        unitCtrlVol = 1.0;
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
+        domain->finishJacobianGalerkinTerm(unitCtrlVol, A);
+        break; }
+      case HYBRID: {
+        DistVec<double> sqrtCtrlVol(domain->getNodeDistInfo());
+        sqrtCtrlVol.pow(ctrlVol,0.5);;
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, sqrtCtrlVol, *V, A);
+        domain->finishJacobianGalerkinTerm(sqrtCtrlVol, A);
+        break; }
+      case NONDESCRIPTOR: {
+        domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
+        domain->finishJacobianGalerkinTerm(ctrlVol, A);
+        break; } 
+   }
 
 // Included (MB*)
     if ((iod->eqs.type == EquationsData::NAVIER_STOKES) && (iod->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY))
@@ -1640,15 +1738,22 @@ void SpaceOperator<dim>::computeH1(DistSVec<double,3> &X, DistVec<double> &ctrlV
 #endif
 
   H1 = 0.0;
-
-  if (use_modal)  {
-    DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
-    unitCtrlVol = 1.0;
-    domain->computeH1(fluxFcn, *bcData, *geoState, unitCtrlVol, *V, H1);
-  }
-  else
-    domain->computeH1(fluxFcn, *bcData, *geoState, ctrlVol, *V, H1);
-
+  
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
+      unitCtrlVol = 1.0;
+      domain->computeH1(fluxFcn, *bcData, *geoState, unitCtrlVol, *V, H1);
+      break; }
+    case HYBRID: {
+      DistVec<double> sqrtCtrlVol(domain->getNodeDistInfo());
+      sqrtCtrlVol.pow(ctrlVol,0.5);
+      domain->computeH1(fluxFcn, *bcData, *geoState, sqrtCtrlVol, *V, H1);
+      break; }
+    case NONDESCRIPTOR: {
+      domain->computeH1(fluxFcn, *bcData, *geoState, ctrlVol, *V, H1);
+      break; }
+  } 
 }
 
 //------------------------------------------------------------------------------
@@ -1708,14 +1813,21 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
     distNodalGrad->limit(recFcn, X, ctrlVol, V2);
   }
 
-
-  if (use_modal)  {
-    DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
-    unitCtrlVol = 1.0;
-    domain->computeMatVecProdH2(recFcn, X, unitCtrlVol, H2, aij, aji, bij, bji, V2, *distNodalGrad, prod);
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
+      unitCtrlVol = 1.0;
+      domain->computeMatVecProdH2(recFcn, X, unitCtrlVol, H2, aij, aji, bij, bji, V2, *distNodalGrad, prod);
+      break; }
+    case HYBRID: {
+      DistVec<double> sqrtCtrlVol(domain->getNodeDistInfo());
+      sqrtCtrlVol.pow(ctrlVol,0.5);
+      domain->computeMatVecProdH2(recFcn, X, sqrtCtrlVol, H2, aij, aji, bij, bji, V2, *distNodalGrad, prod);
+      break; }
+    case NONDESCRIPTOR: {
+      domain->computeMatVecProdH2(recFcn, X, ctrlVol, H2, aij, aji, bij, bji, V2, *distNodalGrad, prod);
+      break; }
   }
-  else
-    domain->computeMatVecProdH2(recFcn, X, ctrlVol, H2, aij, aji, bij, bji, V2, *distNodalGrad, prod);
 
 // Included (MB*)
   if (bcFcn)
@@ -1963,7 +2075,7 @@ MultiPhaseSpaceOperator<dim,dimLS>::MultiPhaseSpaceOperator(const MultiPhaseSpac
   this->com = spo.com;
 
   this->use_modal = spo.use_modal;
-
+  this->descriptorCase = spo.descriptorCase;
 // Included (MB)
   this->iod = spo.iod;
 
@@ -2058,18 +2170,27 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
                                   *(this->geoState), X, *(this->V), fluidSelector, *(this->ngrad), this->egrad,
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
-  if (this->use_modal == false)  {
+  if (this->descriptorCase != this->DESCRIPTOR)  {
     int numLocSub = R.numLocSub();
     int iSub;
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dim] = R.subData(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        for (int j=0; j<dim; ++j)
-          r[i][j] *= invcv;
+      if (this->descriptorCase == this->HYBRID) {
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invsqcv = 1.0 / sqrt(cv[i]);
+          for (int j=0; j<dim; ++j) 
+            r[i][j] *= invsqcv;
+        }
       }
+      else if (this->descriptorCase == this->NONDESCRIPTOR) {
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
+      } 
     }
   }
 }
@@ -2112,23 +2233,31 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),
                                     *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
 
-  if (this->use_modal == false)  {
+  if (this->descriptorCase != this->DESCRIPTOR)  {
     int numLocSub = PhiF.numLocSub();
     int iSub;
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dimLS] = PhiF.subData(iSub);
-      NodalGrad<dim,double>& grad = this->ngrad->operator()(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        for (int idim=0; idim<dimLS; idim++)
-          r[i][idim] *= invcv;
+      if (this->descriptorCase == this->HYBRID) {
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invsqcv = 1.0 / sqrt(cv[i]);
+          for (int idim=0; idim<dimLS; idim++) 
+            r[i][idim] *= invsqcv;
+        }
+      }
+      else if (this->descriptorCase == this->NONDESCRIPTOR) {
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int idim=0; idim<dimLS; idim++) 
+            r[i][idim] *= invcv;
 	if (method == 1) {
 	  for (int idim=0; idim<dimLS; idim++)
 	    r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
 	}
-      }
+        }
+      }    
     }
   }
 }
@@ -2185,17 +2314,26 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
                                   Nriemann, Nsbar, *(this->ngrad), this->egrad,
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
-  if (this->use_modal == false)  {
+  if (this->descriptorCase != this->DESCRIPTOR)  {
     int numLocSub = R.numLocSub();
     int iSub;
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dim] = R.subData(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        for (int j=0; j<dim; ++j)
-          r[i][j] *= invcv;
+      if (this->descriptorCase == this->HYBRID) {
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invsqcv = 1.0 / sqrt(cv[i]);
+          for (int j=0; j<dim; ++j) 
+            r[i][j] *= invsqcv;
+        }
+      }
+      else if (this->descriptorCase == this->NONDESCRIPTOR) {
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j) 
+            r[i][j] *= invcv;
+        }
       }
     }
   }
@@ -2228,8 +2366,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
   }
 
 
-  if (this->use_modal)  {
-    fprintf(stderr, "**Error: no modal for multiphase flows.. Exiting\n");
+  if (this->descriptorCase == this->DESCRIPTOR || this->descriptorCase == this->HYBRID)  {
+    fprintf(stderr, "**Error: no modal or descriptor/hybrid form for multiphase flows.. Exiting\n");
     exit(1);
   }
   else  {
@@ -2274,8 +2412,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<
   }
 
 
-  if (this->use_modal)  {
-    fprintf(stderr, "**Error: no modal for multiphase flows.. Exiting\n");
+  if (this->descriptorCase == this->DESCRIPTOR || this->descriptorCase == this->HYBRID)  {
+    fprintf(stderr, "**Error: no modal or descriptor form for multiphase flows.. Exiting\n");
     exit(1);
   }
   else  {

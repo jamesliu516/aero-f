@@ -47,6 +47,16 @@ TimeData::TimeData(IoData &ioData)
   else
     use_modal = false;
 
+
+  if (ioData.ts.form == TsData::DESCRIPTOR) {
+    descriptor_form = 1;
+  } else if (ioData.ts.form == TsData::HYBRID) {
+    descriptor_form = 2;
+  } else {
+    descriptor_form = 0;
+  }
+
+
 // Included (MB)
   if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
     use_modal = true;

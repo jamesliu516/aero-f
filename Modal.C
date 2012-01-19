@@ -51,7 +51,7 @@ ModalSolver<dim>::ModalSolver(Communicator *_com, IoData &_ioData, Domain &dom) 
 
  com = _com;
  double f = 0;
- double pi = 3.14159265358979;
+ pi = 3.14159265358979;
  ioData = &_ioData; 
  const char *modeFile = ioData->linearizedData.strModesFile;
 
@@ -167,6 +167,7 @@ void ModalSolver<dim>::solve()  {
    //modalTimer->setSetupTime();
    if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
      t0 = modalTimer->getTime();
+     podMethod = 0;
      constructPOD();
      modalTimer->addPodConstrTime(t0);
    }
@@ -432,7 +433,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
  DistSVec<double,dim> delWint(domain.getNodeDistInfo());
 
  // Uncomment for forced oscillations
- double pi = 3.14159265358979;
  double freq = 2.0*pi*ioData->linearizedData.frequency;
  double dMax = ioData->linearizedData.amplification;
 
@@ -442,10 +442,10 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
  double sdt0 = sdt*dt0/dt;
  double *prevU = new double[nStrMode];
  double *prevY = new double[nStrMode];
-  double *prevA = new double[nStrMode];
+ double *prevA = new double[nStrMode];
 
  for (i = 0; i < nStrMode; ++i)  {
-    deltmp += (delU[i]+sdt*delY[i])*mX[i];
+   deltmp += (delU[i]+sdt*delY[i])*mX[i];
    prevU[i] = delU[i];
    prevY[i] = delY[i];
  }
@@ -528,7 +528,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
        rhsA += DX[i]*delU[i];
        rhsB += DX[i]*delY[i];
        rhsC += DE[i]*delY[i];
-        rhsD += DE[i]*prevA[i];
+       rhsD += DE[i]*prevA[i];
      }
 
      //Predictor step
@@ -548,7 +548,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
    }
    else if (cnt == 1) {
       
-      rhs = delW*(6.0/dt) - delWnm1*(2.0/(3.0*dt));
+     rhs = delW*(6.0/dt) - delWnm1*(2.0/(3.0*dt));
      rhs *= controlVol;
 
      rhsA = 0.0;
@@ -581,7 +581,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
    }
    else if (cnt == 2) {
   
-      rhs = delW*(6.0/dt) - delWnm1*(8.0/(3.0*dt));
+     rhs = delW*(6.0/dt) - delWnm1*(8.0/(3.0*dt));
      rhs *= controlVol;
 
      rhsA = 0.0;
@@ -616,7 +616,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
    else {
      
       rhs = delW*(4.0/dt) - delWnm1*(1.0/dt);
-     rhs *= controlVol;
+      rhs *= controlVol;
 
       rhsA = 0.0;     
       rhsB = 0.0;     
@@ -732,46 +732,55 @@ void
 ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, double *romOp1, double *romOp2, VecSet<Vec<double> > &ecMat, VecSet<Vec<double> > &gMat, VecSet<DistSVec<double, dim> > &podVecs, int nSteps, int nPodVecs, double *delU, double *delY, double sdt)  {
 
 #ifdef DO_MODAL
- VarFcn *varFcn = new VarFcn(*ioData);  
+  VarFcn *varFcn = new VarFcn(*ioData);  
 
- // basic initializations
- DistSVec<double,3> deltmp(domain.getNodeDistInfo());
- DistSVec<double, dim> delWFull(domain.getNodeDistInfo());
- Vec<double> delWRom(nPodVecs);
- Vec<double> delWRomTemp(nPodVecs);
+  // basic initializations
+  DistSVec<double,3> deltmp(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWFull(domain.getNodeDistInfo());
+  Vec<double> delWRom(nPodVecs);
+  Vec<double> delWRomTemp(nPodVecs);
   Vec<double> prevWRom(nPodVecs);
   Vec<double> pprevWRom(nPodVecs);
- Vec<double> modalF(nStrMode);
- modalF = 0.0;
+  Vec<double> modalF(nStrMode);
+  modalF = 0.0;
 
- delWRom = 0.0;
- deltmp = 0.0;
+  delWRom = 0.0;
+  deltmp = 0.0;
 
- double *prevU = new double[nStrMode];
- double *prevY = new double[nStrMode];
+  double *prevU = new double[nStrMode];
+  double *prevY = new double[nStrMode];
 
- int i;
- for (i = 0; i < nStrMode; ++i)
+  int i;
+  for (i = 0; i < nStrMode; ++i)
     deltmp += (delU[i]+0.5*sdt*delY[i])*mX[i];
 
- deltmp += Xref;
+  deltmp += Xref;
 
- // Init delW
- char *nlSolFile = 0;
- if (ioData->input.perturbed[0] == 0)
-   nlSolFile = tInput->solutions;
- else  {
-   int sp = strlen(ioData->input.prefix) + 1;
-   nlSolFile = new char[sp + strlen(ioData->input.perturbed)+1];
-   sprintf(nlSolFile, "%s%s", ioData->input.prefix, ioData->input.perturbed);
- }
- domain.readVectorFromFile(nlSolFile, 0, 0, delWFull);
- com->fprintf(stderr, " ... Read Perturbed solution: W = %e, Uref = %e\n", delWFull.norm(), Uref.norm());
- delWFull -= Uref;
+  // Init delW
+  char *nlSolFile = 0;
+  if (ioData->input.perturbed[0] == 0)
+    nlSolFile = tInput->solutions;
+  else  {
+    int sp = strlen(ioData->input.prefix) + 1;
+    nlSolFile = new char[sp + strlen(ioData->input.perturbed)+1];
+    sprintf(nlSolFile, "%s%s", ioData->input.prefix, ioData->input.perturbed);
+  }
+  domain.readVectorFromFile(nlSolFile, 0, 0, delWFull);
+  com->fprintf(stderr, " ... Read Perturbed solution: W = %e, Uref = %e\n", delWFull.norm(), Uref.norm());
+  delWFull -= Uref;
 
- // construct initial delWRom
- for (i = 0; i < nPodVecs; i++)
-   delWRom[i] = podVecs[i] * delWFull;
+  // construct initial delWRom
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
+    DistSVec<double, dim> dummy(domain.getNodeDistInfo());
+    dummy = delWFull;
+    dummy *= controlVol;
+    for (i = 0; i < nPodVecs; i++)
+      delWRom[i] = podVecs[i] * dummy;
+  }
+  else {
+    for (i = 0; i < nPodVecs; i++)
+      delWRom[i] = podVecs[i] * delWFull;
+  }
 
  // Compute Reference Modal Force
  DistSVec<double,3> refNodalForce(domain.getNodeDistInfo());
@@ -876,7 +885,7 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
      delWRom = 0.0;
 
      for (i = 0; i < nPodVecs; ++i)
-      delWRom += (1/dt)*(3*prevWRom[i] - (1/3)*pprevWRom[i])*romOperator[i];
+      delWRom += (1.0/dt)*(3.0*prevWRom[i] - (1.0/3.0)*pprevWRom[i])*romOperator[i];
 
       for (i = 0; i < nStrMode; ++i)
         delWRom -= ( (delU[i] + 0.5*sdt*delY[i])*gOpMat[i] + (1.5*delY[i] - 0.5*prevY[i])*ecOpMat[i] );
@@ -885,7 +894,7 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
     else if (cnt == 2) {
       delWRom = 0.0;
      for (i = 0; i < nPodVecs; ++i)
-        delWRom += (1/dt)*(3*prevWRom[i] - (4/3)*pprevWRom[i])*romOperator1[i];
+        delWRom += (1.0/dt)*(3.0*prevWRom[i] - (4.0/3.0)*pprevWRom[i])*romOperator1[i];
  
      for (i = 0; i < nStrMode; ++i)
         delWRom -= ( (delU[i] + 0.5*sdt*delY[i])*gOpMat1[i] + (1.5*delY[i] - 0.5*prevY[i])*ecOpMat1[i] );
@@ -894,7 +903,7 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
    else {
       delWRom = 0.0;
       for (i = 0; i < nPodVecs; ++i)
-        delWRom += (1/dt)*(2*prevWRom[i] - 0.5*pprevWRom[i])*romOperator2[i];
+        delWRom += (1.0/dt)*(2.0*prevWRom[i] - 0.5*pprevWRom[i])*romOperator2[i];
  
       for (i = 0; i < nStrMode; ++i)
         delWRom -= ( (delU[i] + 0.5*sdt*delY[i])*gOpMat2[i] + (1.5*delY[i] - 0.5*prevY[i])*ecOpMat2[i] );
@@ -922,7 +931,7 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
    // compute Cl, Cm
    deltmp = 0.0;
    for (i = 0; i < nStrMode; ++i)
-     deltmp += (delU[i]+sdt/2*delY[i])*mX[i];
+     deltmp += (delU[i]+sdt/2.0*delY[i])*mX[i];
 
    deltmp += Xref;
    delWFull += Uref;
@@ -1083,9 +1092,9 @@ void ModalSolver<dim>::preProcess()  {
  DE.resize(nStrMode);
 
  double eps = ioData->linearizedData.eps;
- double alpha = dt/ioData->linearizedData.eps2;
- double eps2 = eps*alpha;
- com->fprintf(stderr, "Alpha = %f\n", alpha);
+// double alpha = dt/ioData->linearizedData.eps2;
+// double eps2 = eps*alpha;
+// com->fprintf(stderr, "Alpha = %f\n", alpha);
 
  // Loop over the modes
 
@@ -1136,6 +1145,13 @@ void ModalSolver<dim>::preProcess()  {
 
    // Then DFDXdot*****************************************
    // Computing F(X0,V1) 
+   double Ti;
+   if (K[ic]>0.0)
+     Ti = (pi*2.0/sqrt(K[ic]) ) / ioData->ref.rv.time; 
+   else
+     Ti = 1.0;
+
+   double eps2 = 0.5*dt/Ti*eps;
 
    Xnp1 = Xref - eps2*(mX[ic]);
 
@@ -1167,7 +1183,7 @@ void ModalSolver<dim>::preProcess()  {
    // given displacement change by dt to define its velocity.
    // Thus with Xnp1 = X0+dt*eps*Xm and Xn = X0-dt*eps*Xm: V_n+1/2 = 2*eps*Xm
 
-   DV[ic] = (1.0/(2*eps))*(F1-F2);
+   DV[ic] = (Ti/(2.0*eps))*(F1-F2);
    DV[ic] *= ioData->ref.rv.time;
 
    com->fprintf(stderr, " ... Norm DV, Mode %i: %e\n",ic, DV[ic].norm());
@@ -1180,9 +1196,9 @@ void ModalSolver<dim>::preProcess()  {
  // Now setup H matrices
 
  double delt0;
-   delt0 = dt0;
+ delt0 = dt0;
 
- double r = dt/(2*delt0);
+ double r = dt/(2.0*delt0);
  // ***This is (c1*A+c2*dt*H)
  HOp->evaluate(3, Xref, controlVol, Uref, FF,0.0);
 
@@ -1284,7 +1300,8 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
  com->barrier();
  for (iVec = 0; iVec < nPodVecs; iVec++)  {
    onlyHOp->apply(podVecs[iVec], tmpVec);
-   tmpVec /= controlVol;
+   if (ioData->ts.form == TsData::NONDESCRIPTOR)
+     tmpVec /= controlVol;
    for (jVec = 0; jVec < nPodVecs; jVec++)  {
      romVal = podVecs[jVec] * tmpVec;
       romOpPlusVals[iVec*nPodVecs+jVec] = romVal;
@@ -1293,9 +1310,9 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
      romOperator0[iVec][jVec] = -romVal;
    }
 
-    romOpPlusVals[iVec*nPodVecs+iVec] += 8/(3*dt);
-    romOpPlusVals1[iVec*nPodVecs+iVec] += 5/(3*dt);
-    romOpPlusVals2[iVec*nPodVecs+iVec] += 3/(2*dt);
+    romOpPlusVals[iVec*nPodVecs+iVec] += 8.0/(3.0*dt);
+    romOpPlusVals1[iVec*nPodVecs+iVec] += 5.0/(3.0*dt);
+    romOpPlusVals2[iVec*nPodVecs+iVec] += 3.0/(2.0*dt);
 
    //spaceOp has to be reset because it has been modified by the apply function
    DistSVec<double,dim> FF(domain.getNodeDistInfo());
@@ -1313,10 +1330,11 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
 
    tmpECvec = DE[iVec]; 
    tmpGvec = DX[iVec];
-
-   tmpECvec /= controlVol;
-   tmpGvec /= controlVol;
-
+   
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) {
+     tmpECvec /= controlVol;
+     tmpGvec /= controlVol;
+   }
    for (jVec = 0; jVec < nPodVecs; jVec++)  {
      tmpECrom[jVec] = podVecs[jVec] * tmpECvec;
      tmpGrom[jVec] = podVecs[jVec] * tmpGvec;
@@ -1377,16 +1395,16 @@ double sdt2 = sdt*sdt;
     for (int i = 0; i < nStrMode; i++) {
        prevU = delU[i];
        prevY = delY[i];
-       srhs[i] =  modalF[i] - K[i]*prevU + (1/sdt - 0.5*sdt*K[i])*prevY;
-       delY[i] = srhs[i]/(1/sdt + 0.5*sdt*K[i]);
+       srhs[i] =  modalF[i] - K[i]*prevU + (1.0/sdt - 0.5*sdt*K[i])*prevY;
+       delY[i] = srhs[i]/(1.0/sdt + 0.5*sdt*K[i]);
        delU[i] = 0.5*sdt*(prevY + delY[i]) + prevU;
     }
   }else {
     for (int i = 0; i < nStrMode; i++)  {
        prevU = delU[i];
        prevY = delY[i];
-       srhs[i] =  modalF[i] - K[i]*prevU + (1/sdt - 0.25*sdt*K[i])*prevY;
-       delY[i] = srhs[i]/(1/sdt + 0.25*sdt*K[i]);
+       srhs[i] =  modalF[i] - K[i]*prevU + (1.0/sdt - 0.25*sdt*K[i])*prevY;
+       delY[i] = srhs[i]/(1.0/sdt + 0.25*sdt*K[i]);
        delU[i] = 0.5*sdt*(prevY + delY[i]) + prevU;
      }
   }
@@ -1698,7 +1716,12 @@ template<int dim>
 void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nSnaps, int nPOD = 0, bool outputToDisk = true){
 
  Timer *modalTimer = domain.getTimer();
+ DistVec<double> controlVolSqrt(domain.getNodeDistInfo());
+ geoState = new DistGeoState(*ioData, &domain);
+ geoState->setup1(tInput->positions, &Xref, &controlVol);
 
+
+ 
  if (nPOD == 0)
 	 nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->rom.dimension; // CBM--check   
  if (nPOD == 0)
@@ -1714,21 +1737,34 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 
  if (podMethod == 0) {	// svd
 #ifdef DO_SCALAPACK
-	 VecSet<DistSVec<double, dim> > Utrue(nSnaps, domain.getNodeDistInfo());
-	 Vec<double> singVals(nSnaps);
-	 FullM VtrueDummy(1);	// do not need VtrueDummy
+  com->fprintf(stderr, "Inside DO_SCALAPACK \n");
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
+    controlVolSqrt.pow(controlVol,0.5);
+    for (int iSnap = 0; iSnap < nSnaps; ++iSnap)
+      snaps[iSnap] *= controlVolSqrt;
+  }
 
-	 double t0 = modalTimer->getTime();
-	 ParallelRom<dim> parallelRom(domain,com);
-	 parallelRom.parallelSVD(snaps, Utrue, singVals.data(), VtrueDummy, nSnaps, false);
-	 modalTimer->addEigSolvTime(t0);
-	 if (outputToDisk)
-		 outputPODVectors(Utrue, singVals, nPOD);
-	 else {	// overwrite snaps with Utrue and return
-		 for (int i = 0; i < nPOD; ++i) {
-			 snaps[i] = Utrue[i]*singVals[i];
-		 }
-	 }
+  VecSet<DistSVec<double, dim> > Utrue(nSnaps, domain.getNodeDistInfo());
+  Vec<double> singVals(nSnaps);
+  FullM VtrueDummy(1);	// do not need VtrueDummy
+
+  double t0 = modalTimer->getTime();
+  ParallelRom<dim> parallelRom(domain,com);
+  parallelRom.parallelSVD(snaps, Utrue, singVals.data(), VtrueDummy, nSnaps, false);
+
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
+    for (int iSnap = 0; iSnap < nSnaps; iSnap++)
+      Utrue[iSnap] /= controlVolSqrt;
+  }
+  modalTimer->addEigSolvTime(t0);  
+  if (outputToDisk) {
+    outputPODVectors(Utrue, singVals, nPOD);
+  }
+  else {	// overwrite snaps with Utrue and return
+    for (int i = 0; i < nPOD; ++i) {
+      snaps[i] = Utrue[i]*singVals[i];
+    }
+  }
 #else
  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK \n");
  exit(-1);
@@ -1740,21 +1776,31 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 
   // allocate for upper half of sym. eigprob
   double *rVals = new double[nSnaps*(nSnaps+1)/2];
+  DistSVec<double, dim> CVsnap(domain.getNodeDistInfo());
+
   for (int i = 0; i < nSnaps; i++){
     com->fprintf(stderr," ... processing snap %d\n",i);//CBM
-    for (int j = 0; j <= i; j++)
-      rVals[(i+1)*i/2 + j] = snaps[j] * snaps[i];
+    if (ioData->ts.form == TsData::DESCRIPTOR) {
+      CVsnap = snaps[i];
+      CVsnap *= controlVol;
+      for (int j = 0; j <= i; ++j) 
+        rVals[(i+1)*i/2 + j] = snaps[j] * CVsnap;
+     }
+     else {
+      for (int j = 0; j <= i; j++)
+        rVals[(i+1)*i/2 + j] = snaps[j] * snaps[i];
+    }
   }
 
   double tolerance = ioData->snapshots.dataCompression.tolerance;
 
-	com->barrier();
+  com->barrier();
   ARdsSymMatrix<double> pod(nSnaps, rVals, 'U');
   com->fprintf(stderr, " ... Factoring Correlation Matrix\n");
-
-	double t0 = modalTimer->getTime();
-	int iSnap;
-	pod.FactorA();
+  
+  double t0 = modalTimer->getTime();
+  int iSnap;
+  pod.FactorA();
   ARluSymStdEig<double> podEigProb(nPOD, pod, "LM", nSnaps-1, tolerance, 300*nPOD);
   modalTimer->addCorrelMatrixTime(t0);
 
@@ -1804,7 +1850,7 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	}
 	*/
 	char **snapFile = new char *[nData];
-	for (int iData=0; iData < nData; ++iData)
+	for (int iData = 0; iData < nData; ++iData)
 		snapFile[iData] = new char[500];
 	char snapFile1[500];
 	int *numSnaps = new int[nData];
@@ -1842,7 +1888,7 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	// open snapshot reference solution if it exists
 	char *snapRefSolFile = tInput->snapRefSolutionFile;
 	char **refSnapFile = new char *[nData];
-	for (int iData=0; iData < nData; ++iData)
+	for (int iData = 0; iData < nData; ++iData)
 		refSnapFile[iData] = new char[500]; 
 	char refSnapFile1[500];
 	FILE *inRSFP = fopen(snapRefSolFile, "r");
@@ -2520,7 +2566,8 @@ void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int
 
  for (iVec = 0; iVec < nPodVecs; iVec++)  {
    onlyHOp->apply(podVecs[iVec], tmpVec);
-   tmpVec /= controlVol;
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) 
+     tmpVec /= controlVol;
    for (jVec = 0; jVec < nPodVecs; jVec++)
      romOperator[iVec][jVec] = (podVecs[jVec] * tmpVec) * timeDimConst;
  }
@@ -2577,7 +2624,9 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
 
  for (iVec = 0; iVec < nPodVecs; iVec++)  {
    onlyHOp->apply(podVecs[iVec], tmpVec);
-   tmpVec /= controlVol;
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) 
+     tmpVec /= controlVol;
+   
    for (jVec = 0; jVec < nPodVecs; jVec++)
      romOperator[iVec][jVec] = (podVecs[jVec] * tmpVec) * timeDimConst;
  }
@@ -2593,8 +2642,10 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
  for (iVec = 0; iVec < nStrMode; iVec++)  {
    tmpVec = DE[iVec] * invDt;
    tmpVec2 = DX[iVec];
-   tmpVec /= controlVol;
-   tmpVec2 /= controlVol;
+   if (ioData->ts.form == TsData::NONDESCRIPTOR) {
+     tmpVec /= controlVol;
+     tmpVec2 /= controlVol;
+   }
 
    for (jVec = 0; jVec < nPodVecs; jVec++)  {
      ecVecs[iVec][jVec] = podVecs[jVec] * tmpVec;
@@ -2717,16 +2768,52 @@ void ModalSolver<dim>::readPodVecs(VecSet<DistSVec<Scalar, dim> > &podVecs,
 
  com->fprintf(stderr, " ... Reading %d POD Vectors from file %s\n", nPodVecs, vecFile);
 
- int iVec;
  double firstEig;
  domain.readVectorFromFile(vecFile, 1, &firstEig, podVecs[0]);
- for (iVec = 1; iVec < nPodVecs; iVec++)
+ for (int iVec = 1; iVec < nPodVecs; iVec++)
    domain.readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);
 
  com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEig, eigValue/firstEig);
 
+ checkROBType(podVecs, nPod);
+
 }
 
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::checkROBType(VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs) {
+
+  DistSVec<double, dim> dummy(domain.getNodeDistInfo());  
+  FullM B(nPodVecs);
+  if (ioData->ts.form == TsData::DESCRIPTOR) {
+    for (int i = 0; i < nPodVecs; ++i){
+      dummy = podVecs[i];
+      dummy *= controlVol;
+      for (int j = 0; j < nPodVecs; ++j)
+        B[j][i] = podVecs[j]*dummy;
+      B[i][i] -= 1.0;
+    } 
+  }
+  else {
+    for (int i = 0; i < nPodVecs; ++i){
+      for (int j = 0; j < nPodVecs; ++j)
+        B[j][i] = podVecs[j]*podVecs[i];
+      B[i][i] -= 1.0; 
+    }
+  }
+  double Bnorm = B.norm();
+
+  if (ioData->ts.form == TsData::DESCRIPTOR)
+    com->fprintf(stderr, " ... Norm (Phi'*A*Phi - I) = %e\n",Bnorm);
+  else 
+    com->fprintf(stderr, " ... Norm (Phi'*Phi - I) = %e\n",Bnorm);
+
+  if (Bnorm > 1e-4) {
+    com->fprintf(stderr, " *** ERROR: Wrong Reduced Basis Type (Descriptor vs Non-descriptor) ***\n");
+    exit(-1);
+  }
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -2746,7 +2833,7 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
 	 sprintf(sValsFileName, "%s%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile, sValExtension);
  FILE *sValsFile;
  if (com->cpuNum() == 0)	// only open with cpu 0
-	 sValsFile = fopen(sValsFileName, "wt");
+   sValsFile = fopen(sValsFileName, "wt");
 
  com->fprintf(sValsFile,"%d\n", nPOD);
  com->fprintf(stderr, " ... Writing %d (%f)POD vectors to File\n", nPOD, (double) nPOD);
@@ -2757,7 +2844,7 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
  for (int jj = 0; jj < nPOD; ++jj)
 	 com->fprintf(sValsFile,"%e ", sVals[jj]);
  com->fprintf(sValsFile,"\n");
- computeRelativeEnergy(sValsFile, sVals, nPOD);
+ //computeRelativeEnergy(sValsFile, sVals, nPOD);
 
  //const int waitTime = 60;
 
@@ -2851,53 +2938,54 @@ void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
 }
 #endif
 
+//------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod){
 
-	// TODO: optimize!
+  // TODO: optimize!
 
-	com->fprintf(sValsFile,"Relative energy: s(i)^2/sum(s(1:end).^2)\n");
-	std::vector<double> relEnergy;
-	int nSnap = sVals.size();
-	/*	// totalEnergy now computed when snapshots are read
-	if (totalEnergy == 0.0) {
-		for (int i = 0; i < nSnap; ++i)
-			totalEnergy += pow(sVals[i],2);
-	}
-	*/
+  com->fprintf(sValsFile,"Relative energy: s(i)^2/sum(s(1:end).^2)\n");
+  std::vector<double> relEnergy;
+  int nSnap = sVals.size();
 
-	for (int i = 0; i < nSnap; ++i) {
-		double currentRelEnergy = pow(sVals[i],2)/totalEnergy;
-		com->fprintf(sValsFile,"%d %e\n", i+1, currentRelEnergy);
-		relEnergy.push_back(currentRelEnergy);
-	}
-	com->fprintf(sValsFile,"Cumulative energy: sum(s(1:k).^2)/sum(s(1:end).^2)\n");
-	double cumulativeEnergy = 0.0;
-	double criteria [10] = {0.9, 0.95, 0.975, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999};
-	int energyIndex [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	int handledCriteria  [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	int critCounter = 0;
-	for (int i = 0; i < nSnap; ++i) {
-		cumulativeEnergy+=relEnergy[i];
-		com->fprintf(sValsFile,"%d %e\n", i+1, cumulativeEnergy);
+  if (totalEnergy == 0.0) {
+    for (int i = 0; i < nSnap; ++i)
+      totalEnergy += pow(sVals[i],2);
+  }
 
-		int critCounterTmp = 0;
-		for (int j = critCounter; j < 10;++j) {
-			if (cumulativeEnergy >= criteria[j] && handledCriteria[j] == 0) {
-				energyIndex[j] = i;
-				handledCriteria[j] = 1;
-				++critCounterTmp;
-			}
-		}
-		critCounter +=critCounterTmp;
-	}
-	com->fprintf(sValsFile,"Cumulative energy indices\n");
+  for (int i = 0; i < nSnap; ++i) {
+    double currentRelEnergy = pow(sVals[i],2)/totalEnergy;
+    com->fprintf(sValsFile,"%d %e\n", i+1, currentRelEnergy);
+    relEnergy.push_back(currentRelEnergy);
+  }
+  com->fprintf(sValsFile,"Cumulative energy: sum(s(1:k).^2)/sum(s(1:end).^2)\n");
+  double cumulativeEnergy = 0.0;
+  double criteria [10] = {0.9, 0.95, 0.975, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999};
+  int energyIndex [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  int handledCriteria  [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  int critCounter = 0;
+  for (int i = 0; i < nSnap; ++i) {
+    cumulativeEnergy+=relEnergy[i];
+    com->fprintf(sValsFile,"%d %e\n", i+1, cumulativeEnergy);
 
-	for (int i = 0; i < 10; ++i) {
-		com->fprintf(sValsFile,"%e: %d\n", criteria[i], energyIndex[i]+1);
-	}
+    int critCounterTmp = 0;
+    for (int j = critCounter; j < 10;++j) {
+      if (cumulativeEnergy >= criteria[j] && handledCriteria[j] == 0) {
+        energyIndex[j] = i;
+        handledCriteria[j] = 1;
+        ++critCounterTmp;
+      }
+    }
+    critCounter +=critCounterTmp;
+  }
+  com->fprintf(sValsFile,"Cumulative energy indices\n");
+
+  for (int i = 0; i < 10; ++i) {
+    com->fprintf(sValsFile,"%e: %d\n", criteria[i], energyIndex[i]+1);
+  }
 }
 
+//------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSnap, const int nSnaps){
 
@@ -2921,7 +3009,7 @@ void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSna
 	snap *= scalingFactor;
 }
 
-
+//------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::wait(const int seconds )
 {
