@@ -39,6 +39,8 @@ public:
   bool use_freq;
   bool use_modal;
 
+  int descriptor_form;
+
 public:
 
   TimeData(IoData &);

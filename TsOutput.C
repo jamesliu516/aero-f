@@ -1386,7 +1386,7 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpResiduals);
   }
   
-    if (staterom) {
+  if (staterom) {
     if (it0 != 0) 
       fpStateRom = backupAsciiFile(staterom);
     if (it0 == 0 || fpStateRom == 0) {

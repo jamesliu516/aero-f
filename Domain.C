@@ -2913,7 +2913,6 @@ template<class Scalar, int dim>
 bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
 				DistSVec<Scalar,dim> &U, Scalar* scale)
 {
-
   int neq, numSteps;
   double t = subDomain[0]->template readTagFromFile<Scalar,dim>(prefix, step, &neq, &numSteps);
   if (tag) *tag = t;
@@ -4111,7 +4110,6 @@ void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,
 		com->fprintf(stderr," ... Exiting\n");
 		exit(-1); 
 	}
-
 	com->fprintf(stderr," ... reading in %d POD files\n",nBasesNeeded);
 
 	char **podFile = new char *[nData];	// files as they appear in the list input file
