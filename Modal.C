@@ -3081,16 +3081,34 @@ void ModalSolver<dim>::ROBInnerProducts()
    computedProds[iROB][iROB] = 1;
  }
 
-
  int nSteps; //number of steps
  // Matt's algorithm Here (call a separate routine)
  nSteps = 20; // to be returned by Matt's algorithm 
- int **cache = new int *[nSteps];
+ int **cache = new int *[nSteps+1]; //first column of cache should have all zeros
  for (int iStep=0; iStep < nSteps; ++iStep)
    cache[iStep] = new int[nLoadMax]; // to be created and allocated in Matt's subroutine
+ 
  int iROB1, iROB2; 
  for (int iStep=0; iStep < nSteps; ++iStep) {
-   
+
+   // read additional ROBs
+   for (int iData=0; iData<nLoadMax; ++iData) {
+     
+     iROB1 = cache[iStep+1][iData];
+     iROB2 = cache[iStep][iData];
+     if (iROB1!=iROB2) {
+       domain.readVectorFromFile(ROBFile[iROB1], 0, &eig[0], (*rob[iData])[0] );
+       if (numPod > eig[0])  {
+         com->fprintf(stderr, "*** Warning: Resetting number of loaded POD vectors from %d to %d\n", numPod, (int) eig[0]);        
+         numPod = (int) eig[0];
+       }
+
+       for (int iPod = 0; iPod < numPod; ++iPod)
+         domain.readVectorFromFile(ROBFile[iROB1], iPod+1, &eig[iPod], (*rob[iData])[iPod]);
+      } 
+   }
+
+ 
    for (int iData1=0; iData1<nLoadMax; ++iData1) {
      for (int iData2=0; iData2<iData1; ++iData2) {
        iROB1 = cache[iStep][iData1];
