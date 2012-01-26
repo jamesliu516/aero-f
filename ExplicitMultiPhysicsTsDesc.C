@@ -86,7 +86,8 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
   updatePhaseChangeFF(U);
   // check the consistency of Phi and FluidId. Can be removed for better efficiency! 
   this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
-  this->domain->debugMultiPhysics(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), U);
+  if(this->withCracking && this->withMixedLS)
+    this->domain->debugMultiPhysics(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), U);
 }
 
 //------------------------------------------------------------------------------
