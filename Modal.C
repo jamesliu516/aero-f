@@ -125,6 +125,8 @@ void ModalSolver<dim>::solve()  {
 
  if (ioData->problem.alltype == ProblemData::_INTERPOLATION_)
    interpolatePOD();
+ else if (ioData->problem.alltype == ProblemData::_ROB_INNER_PRODUCTS_)
+   ROBInnerProducts();
  else if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile){
    t0 = modalTimer->getTime(); //CBM--check
    buildGlobalPOD();
@@ -3017,5 +3019,123 @@ void ModalSolver<dim>::wait(const int seconds )
 	endwait = clock () + seconds * CLOCKS_PER_SEC ;
 	while (clock() < endwait) {}
 }
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::ROBInnerProducts()
+{
+
+  com->fprintf(stderr, " ... Computing inner products \n");
+  int numPod = ioData->linearizedData.numPOD;
+  double *matVals = new double[numPod*numPod]; //will contain inner products
+  double *eig = new double[numPod];
+
+  //open POD file
+  char *vecFile = tInput->podFile;
+  if (!vecFile)
+    vecFile = "podFiles.in";
+  FILE *inFP = fopen(vecFile, "r");
+  if (!inFP)  {
+    com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
+    exit (-1);
+  }
+  int nROB;
+  int nLoadMax;
+  fscanf(inFP, "%d",&nROB);
+  fscanf(inFP, "%d",&nLoadMax);
+
+  char **ROBFile = new char *[nROB];
+  for (int iROB = 0; iROB < nROB; ++iROB) {
+    ROBFile[iROB] = new char[500];
+    fscanf(inFP, "%s", ROBFile[iROB]);
+  }
+
+  //open output file
+  if (ioData->output.transient.robProductFile[0] == 0)  {
+    com->fprintf(stderr, "*** ERROR: ROB Inner Products Output File not specified\n");
+    exit (-1);
+  }  
+  int sp = strlen(ioData->output.transient.prefix);
+  char *outputFile = new char[sp + strlen(ioData->output.transient.robProductFile)+1];
+  sprintf(outputFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.robProductFile);
+  FILE *outFP = fopen(outputFile, "w");
+  if (!outFP)  {     com->fprintf(stderr, "*** Warning: No output file: %s\n", outputFile);
+    exit (-1);
+  }
+
+
+  //allocate memory for ROBs
+  VecSet< DistSVec<double, dim> > **rob = new VecSet< DistSVec<double, dim> >*[nLoadMax];
+  for (int iROB=0; iROB < nLoadMax; ++iROB)
+    rob[iROB]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+
+ // array to keep track of computed products
+ int **computedProds = new int*[nROB];
+ for (int iROB=0; iROB < nROB; ++iROB) 
+    computedProds[iROB] = new int[nROB];
+
+ for (int iROB=0; iROB < nROB; ++iROB) {
+   for (int jROB=0; jROB < iROB; ++jROB) {
+     computedProds[iROB][jROB] = 0;
+     computedProds[jROB][iROB] = 0;
+   }
+   computedProds[iROB][iROB] = 1;
+ }
+
+
+ int nSteps; //number of steps
+ // Matt's algorithm Here (call a separate routine)
+ nSteps = 20; // to be returned by Matt's algorithm 
+ int **cache = new int *[nSteps];
+ for (int iStep=0; iStep < nSteps; ++iStep)
+   cache[iStep] = new int[nLoadMax]; // to be created and allocated in Matt's subroutine
+ int iROB1, iROB2; 
+ for (int iStep=0; iStep < nSteps; ++iStep) {
+   
+   for (int iData1=0; iData1<nLoadMax; ++iData1) {
+     for (int iData2=0; iData2<iData1; ++iData2) {
+       iROB1 = cache[iStep][iData1];
+       iROB2 = cache[iStep][iData2];
+       if (!computedProds[iROB1][iROB2]) {
+ 
+        // compute inner product
+         com->fprintf(stderr,"computing inner product between ROBs #%d and #%d\n",iROB1,iROB2);
+
+         for (int j = 0; j < numPod; j++){
+           for (int k = 0; k < numPod; k++)
+             matVals[j*numPod + k] = ((*rob[iData1])[k]) * ((*rob[iData2])[j]);
+   // change here for Descriptor case DJA
+   }
+         computedProds[iROB1][iROB2] = 1;
+         computedProds[iROB2][iROB1] = 1;
+
+         // write ROB inner product in output file
+         com->fprintf(outFP, "%d %d\n", iROB1, iROB2);
+         for (int iPod=0; iPod <numPod; ++iPod){
+           for (int jPod=0; jPod <numPod; ++jPod)
+             com->fprintf(outFP, "%.16e ", matVals[jPod*numPod+iPod]);
+           com->fprintf(outFP, "\n");
+         }
+       }
+     }
+   }
+ }
+
+
+
+  delete [] matVals;
+  delete [] eig;
+  for (int iROB = 0; iROB < nROB; ++iROB) {
+    delete [] computedProds[iROB];
+    delete [] ROBFile[iROB];
+  }
+  delete [] computedProds;
+  delete [] ROBFile;
+  delete [] outputFile;
+  for (int iStep=0; iStep < nSteps; ++iStep)
+    delete [] cache[iStep];
+  delete [] cache;
+  
+}
+
 
 
