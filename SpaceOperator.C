@@ -1353,6 +1353,60 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
   irey = 0;
 
 }
+//-----------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U, DistMat<Scalar,neq> &A,
+                                         DistTimeState<dim> *timeState)
+{
+
+#ifdef DOUBLE_CHECK
+  varFcn->conservativeToPrimitive(U, *V);
+#endif
+
+  A = 0.0;
+  DistVec<double> *irey;
+  if(timeState) {
+    irey = timeState->getInvReynolds();
+  }
+  else {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
+  if (use_modal)  {
+    DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
+    unitCtrlVol = 1.0;
+    if (fet)
+      domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
+
+    domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *irey, X, unitCtrlVol, *V, A);
+
+    if (volForce)
+      domain->computeJacobianVolumicForceTerm(volForce, unitCtrlVol, *V, A);
+  }
+  else  {
+
+    if (fet)
+      domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
+
+    domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *irey, X, ctrlVol, *V, A);
+
+    if (volForce)
+      domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
+  }
+
+  // Delete pointer for consistency
+  if (timeState == 0)
+  {
+    if (irey)
+      delete irey;
+  }
+  irey = 0;
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>

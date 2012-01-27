@@ -162,7 +162,7 @@ void getPolygonNormal(SVec<double,3>& X, Vec3D &normal, LevelSetStructure &LSS, 
   switch(nEdges){
     case 3: // got a triangle.
       normal = (Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-      normal = 1.0/normal.norm()*normal;
+      if (normal.norm() != 0.0) {normal = 1.0/normal.norm()*normal;}
       // Then we check the orientation of the normal.
       for (int i=0; i<3; i++) {tempoLoc[i] = X[polygon.edgeWithVertex[0][0]][i];}
       if (LSS.isActive(0,polygon.edgeWithVertex[0][0])) {
@@ -172,11 +172,11 @@ void getPolygonNormal(SVec<double,3>& X, Vec3D &normal, LevelSetStructure &LSS, 
     case 4: // got a quadrangle... We cut it into two triangles and we average the two resulting normals. 
       Vec3D normal1, normal2;
       normal1 = (Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
-      normal1 = 1.0/normal1.norm()*normal1;
+      if (normal1.norm() != 0.0) {normal1 = 1.0/normal1.norm()*normal1;}
       normal2 = (Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
-      normal2 = 1.0/normal2.norm()*normal2;
+      if (normal2.norm() != 0.0) {normal2 = 1.0/normal2.norm()*normal2;}
       normal = 0.5*(normal1+normal2);
-      normal = 1.0/normal.norm()*normal;
+      if (normal.norm() != 0.0) {normal = 1.0/normal.norm()*normal;}
       // Then we check the orientation of the normal.
       for (int i=0; i<3; i++) {tempoLoc[i] = X[polygon.edgeWithVertex[0][0]][i];}
       if (LSS.isActive(0,polygon.edgeWithVertex[0][0])) {
