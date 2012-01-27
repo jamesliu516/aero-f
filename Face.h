@@ -616,6 +616,12 @@ public:
 				       double *Ub, GenMat<Scalar,neq> &A);
 
   template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim> &riemann,
+                                       FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
+				       Vec<double> &normalVel, SVec<double,dim> &V, 
+				       double *Ub, GenMat<Scalar,neq> &A);
+
+  template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				       Vec<double> &normalVel, SVec<double,dim> &V,
 				       double *Ub, GenMat<Scalar,neq> &A, int* nodeType);
@@ -1009,6 +1015,11 @@ public:
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
+				       SVec<double,dim> &, GenMat<Scalar,neq> &);
+
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim> &, 
+                                       FluxFcn **, BcData<dim> &, GeoState &, 
 				       SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   template<int dim, class Scalar, int neq>
