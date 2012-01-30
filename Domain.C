@@ -806,6 +806,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      FluidSelector &fluidSelector,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+				     DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
@@ -831,7 +832,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), fluidId,
                                              fluidSelector, ngrad(iSub),
-                                             legrad,  ngradLS(iSub), (*RR)(iSub), it,
+						    legrad,phi(iSub),  ngradLS(iSub), (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
@@ -873,7 +874,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), fluidId,
                                      fluidSelector, ngrad(iSub),
-                                     legrad, ngradLS(iSub), (*RR)(iSub), it,
+							legrad, phi(iSub),ngradLS(iSub), (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }
 

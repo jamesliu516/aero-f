@@ -437,6 +437,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                FluidSelector &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+			       DistSVec<double,dimLS>& phi,
                                DistNodalGrad<dimLS>&, DistSVec<double,dim>&,
                                int, int, int);
 

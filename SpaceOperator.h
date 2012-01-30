@@ -422,6 +422,10 @@ public:
                           DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
   void resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, 
                                  DistSVec<bool,2> &Tag);
+
+  void findCutCells(DistSVec<double,dimLS>& phi,
+		    DistVec<int>& status);
+
 };
 //------------------------------------------------------------------------------
 

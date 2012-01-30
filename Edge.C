@@ -470,7 +470,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<double,dim>& V, Vec<int> &fluidId,
                                      FluidSelector &fluidSelector, 
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-//				     SVec<double,dimLS>& phi, // needed for higher order computations
+				     SVec<double,dimLS>& phi, // needed for higher order computations
                                      NodalGrad<dimLS>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -501,6 +501,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
   programmedBurn = fluidSelector.getProgrammedBurn();
 
+  for (int i = 0; i < dim; ++i) {
+    fluxi[i] = fluxj[i] = 0.0;
+  }
+
   for (int l=0; l<numEdges; ++l) {
     if (!masterFlag[l]) continue;
 
@@ -516,7 +520,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
-    //if (!higherOrderMF) {
+    if (!higherOrderMF) {
       if (fluidId[i] == fluidId[j])
 	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
       else {
@@ -525,14 +529,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  Vj[k] = V[j][k];
 	}     
       }
-    /*} else {
+    } else {
 
       if (fluidId[i] == fluidId[j] && !higherOrderMF->isCellCut(i) &&
 	  !higherOrderMF->isCellCut(j)) {
 	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
       } else
 	isAtInterface = true;
-    }*/
+    }
 
     //if(Phi[i]*Phi[j] > 0.0) recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     //else                    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj, Phi[i], Phi[j]);
@@ -591,7 +595,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
       }
-      /*if (higherOrderMF) {
+      if (higherOrderMF) {
 	
 	assert(fluidId[i] != fluidId[j] || !higherOrderMF->isCellCut(i) ||
 	       !higherOrderMF->isCellCut(j));
@@ -610,15 +614,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
 	  for (int k = 0; k < dim; ++k) {
-	    Vi[k] = dVdX[i][k]*(iloc[0]-X[i][0])+
-	      dVdY[i][k]*(iloc[1]-X[i][1])+
-	      dVdZ[i][k]*(iloc[2]-X[i][2]);
+	    Vi[k] = dVdx[i][k]*(iloc[0]-X[i][0])+
+	      dVdy[i][k]*(iloc[1]-X[i][1])+
+	      dVdz[i][k]*(iloc[2]-X[i][2]);
 	  }
 
 	  for (int k = 0; k < dim; ++k) {
-	    Vj[k] = dVdX[j][k]*(iloc[0]-X[j][0])+
-	      dVdY[j][k]*(iloc[1]-X[j][1])+
-	      dVdZ[j][k]*(iloc[2]-X[j][2]);
+	    Vj[k] = dVdx[j][k]*(iloc[0]-X[j][0])+
+	      dVdy[j][k]*(iloc[1]-X[j][1])+
+	      dVdz[j][k]*(iloc[2]-X[j][2]);
 	  }
 	    
 	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
@@ -640,7 +644,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	  // In this case, the cell j is cut be the interface, so its value does not exist
 	  int fidj = higherOrderMF->getOtherFluidId(j, fluidId[i]);
-	  higherOrderMF->computeCutCellExtrapolations(j,fluidId[i],fidj, iloc, Vi,Vj);
+	  higherOrderMF->template computeCutCellExtrapolations<dim>(j,fluidId[i],fidj, iloc, Vi,Vj,X);
           
 	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
 					 Wi,Wj,i,j,l,dx);
@@ -656,7 +660,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	  // In this case, the cell j is cut be the interface, so its value does not exist
 	  int fidi = higherOrderMF->getOtherFluidId(i, fluidId[j]);
-	  higherOrderMF->computeCutCellExtrapolations(i, fidi,fluidId[j],iloc, Vi,Vj);
+	  higherOrderMF->template computeCutCellExtrapolations<dim>(i, fidi,fluidId[j],iloc, Vi,Vj,X);
           
 	  riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
 					 Wi,Wj,i,j,l,dx);
@@ -670,14 +674,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	}
       }	else {
-*/
+
 	riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 				       Wi,Wj,i,j,l,dx);
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Vi, Wi, fluxi, fluidId[i]);
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Wj, Vj, fluxj, fluidId[j]);
-      //}
+      }
 
       for (int k=0; k<dim; k++){
         fluxes[i][k] += fluxi[k];
