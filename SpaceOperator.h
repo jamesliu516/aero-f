@@ -150,9 +150,11 @@ public:
                        DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0,
                        DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
-  void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
-                                       DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                                       DistLevelSetStructure *distLSS, DistVec<int> *fluidId = 0);
+  void updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
+                        DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                        DistLevelSetStructure *distLSS, double *vfar, DistVec<int> *fluidId = 0);
 
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
   
@@ -401,6 +403,8 @@ public:
   // for phase-change update
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
   void extrapolatePhiV2(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
+  void updateSweptNodePhi(DistSVec<double,dimLS> *Phi, DistLevelSetStructure *distLSS,
+                          DistVec<int> *fluidId0, DistVec<int> *fluidId);
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 

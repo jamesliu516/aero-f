@@ -1238,7 +1238,7 @@ void DistIntersectorFRG::updatePhysBAMInterface()
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool findStatus) 
+int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry) 
 {
   if(!findStatus) {
     fprintf(stderr,"ERROR: findStatus = %d. IntersectorFRG always needs to determine status.\n", findStatus);
@@ -1253,7 +1253,7 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
   int subdXing = 0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-    intersector[iSub]->reset(); 
+    intersector[iSub]->reset(retry); 
     intersector[iSub]->rebuildPhysBAMInterface(Xs, numStNodes, stElem, numStElems);
     intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), (*tId)(iSub), (*distance)(iSub), true);
     intersector[iSub]->computeFirstLayerNodeStatus((*tId)(iSub), (*distance)(iSub));
@@ -1832,7 +1832,7 @@ IntersectorFRG::~IntersectorFRG()
 
 //----------------------------------------------------------------------------
 
-void IntersectorFRG::reset()
+void IntersectorFRG::reset(const bool retry)
 {
   for(int i=0; i<subD->getNumNeighb(); i++)
     package[i].clear();
@@ -1844,7 +1844,7 @@ void IntersectorFRG::reset()
   CrossingEdgeRes.clear();
   ReverseCrossingEdgeRes.clear();
 
-  status0 = status;
+  if(!retry) status0 = status;
   status = UNDECIDED;
   if(physInterface) {delete physInterface; physInterface = 0;}
 
