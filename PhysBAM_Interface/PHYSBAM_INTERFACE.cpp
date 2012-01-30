@@ -230,20 +230,16 @@ Intersection_Helper(const ARRAY<TRIANGLE_3D<T> >& triangle_list,const ARRAY<int>
         for(int number_of_attempts=0;number_of_attempts<PERMITTED_ATTEMPTS;++number_of_attempts) {
             if(number_of_attempts) ++retryAttempts;
             if(Point_Inside_Triangle(scope,triangle_list,start,modified_thickness_over_two,triangleID,weights,cs,&candidates)) {
-                Assign_Intersection_Information(scope(triangleID),modified_thickness_over_two,weights,result);break;}
+                Assign_Intersection_Information(scope(triangleID),(T)1-modified_thickness_over_two,weights,result);break;}
             modified_thickness_over_two*=(T)2;}
         if(triangleID <= 0 && Point_Inside_Triangle(scope,triangle_list,start,modified_thickness_over_two,triangleID,weights,cs)) {
-            Assign_Intersection_Information(scope(triangleID),modified_thickness_over_two,weights,result);}
+            Assign_Intersection_Information(scope(triangleID),(T)1-modified_thickness_over_two,weights,result);}
         if(triangleID <= 0){
             LOG::cerr<<"An occluded node is found that appears to be visible! "<<start.x<<", "<<start.y<<", "<<start.z<<" -> "<<end.x<<", "<<end.y<<", "
                      <<end.z<<std::endl;
             Assign_Intersection_Information(-1,(T)0,weights,result);
             for(int i=1; i<=candidates.Size(); i++) {
-                LOG::cerr<<"  -- Candidate: " << scope(candidates(i))
-                     << " (" << triangle_list(candidates(i)).x1(1) << ", " << triangle_list(candidates(i)).x1(2) << ", " << triangle_list(candidates(i)).x1(3) << ") "
-                     << " (" << triangle_list(candidates(i)).x2(1) << ", " << triangle_list(candidates(i)).x2(2) << ", " << triangle_list(candidates(i)).x2(3) << ") "
-                     << " (" << triangle_list(candidates(i)).x3(1) << ", " << triangle_list(candidates(i)).x3(2) << ", " << triangle_list(candidates(i)).x3(3) << ") "
-                     << std::endl;
+                LOG::cerr<<"  -- Candidate: " << scope(candidates(i)) << " (" << triangle_list(candidates(i)) << std::endl;
                 int Inside = triangle_list((candidates)(i)).Point_Inside_Triangle(start,thickness_over_two) ;
                 LOG::cerr<<"       Inside = " << Inside << " thickness/2 = " << thickness_over_two << std::endl;
                 if(Inside) {
@@ -280,11 +276,7 @@ Intersection_Helper(const ARRAY<TRIANGLE_3D<T> >& triangle_list,const ARRAY<int>
                      <<end.z<<std::endl;
             Assign_Intersection_Information(-3,(T)0,weights,result);
             for(int i=1; i<=candidates.Size(); i++)
-                LOG::cerr<<"  -- Candidate: " << scope(candidates(i))
-                     << " (" << triangle_list(candidates(i)).x1(1) << ", " << triangle_list(candidates(i)).x1(2) << ", " << triangle_list(candidates(i)).x1(3) << ") "
-                     << " (" << triangle_list(candidates(i)).x2(1) << ", " << triangle_list(candidates(i)).x2(2) << ", " << triangle_list(candidates(i)).x2(3) << ") "
-                     << " (" << triangle_list(candidates(i)).x3(1) << ", " << triangle_list(candidates(i)).x3(2) << ", " << triangle_list(candidates(i)).x3(3) << ") "
-                     << std::endl;
+                LOG::cerr<<"  -- Candidate: " << scope(candidates(i)) << " (" << triangle_list(candidates(i))<< std::endl;
         }
     }
     else Assign_Intersection_Information(scope,intersection_ray,original_ray,weights,result);
