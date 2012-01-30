@@ -3021,6 +3021,179 @@ void ModalSolver<dim>::wait(const int seconds )
 }
 //------------------------------------------------------------------------------
 template<int dim>
+void ModalSolver<dim>::ROBInnerProductSchedule(int* cache[], int n, int Nmax)
+{
+
+  int nPass;
+  int nSteps;
+  int cnt = 1;
+  int i, j;
+
+  if (Nmax >= n){
+    nSteps = 1;
+  } else{
+    nPass = 1 + ceil(double(n-Nmax)/double(Nmax-1));
+    nSteps = nPass + n*(nPass-1) - 0.5*Nmax*(nPass-1)*nPass + 0.5*(nPass-2)*(nPass-1);
+    if ((n - nPass*(Nmax+1) - 1) > 0)
+      nSteps += n - nPass*(Nmax+1) - 1;
+  }
+
+  //Initialize every column of the Cache array
+  for (i = 0; i < nSteps+1; ++i)
+    cache[i] = new (nothrow) int[Nmax];
+
+  //Fill the first column with all zeros
+  for (j = 0; j < Nmax; ++j)
+     cache[0][j] = 0;
+
+  if (Nmax >= n){
+   //Fill the second column with 1:n (only need 1 cache since it can fit everything)
+   for (int j = 1; j < n; ++j)
+     cache[1][j] = j+1;
+   return 0;
+  }
+
+   //Fill the second column with 1:Nmax
+   for (int j = 0; j < Nmax; ++j)
+     cache[1][j] = j+1;
+
+  //Initialize variable to be used for determine the status of elements.
+  //0 -> element was already in the cache on this pass, but it is not completely exhausted
+  //1 -> element currently in cache
+  //2 -> element in exhausted (will never be in another cache)
+  //3 -> element available
+  int *SU = new int[n];
+
+  //Initially, the cache is the first Nmax elements.  Everything else is available.
+  for (i = 0; i < Nmax; ++i)
+    SU[i] = 1;
+  for (i = Nmax; i < n; ++i)
+    SU[i] = 3;
+
+  //Loop over each available element-> first pass
+  int nAv = (int) count (SU, SU+n, 3);
+  int M_Cache, M_Avail;
+
+  for (i = 0; i < nAv; ++i){
+
+    M_Cache = cache[cnt][Nmax-1];
+    for (j = n-1; j > -1; --j){
+      if (SU[j] == 3)
+        break;
+    }
+    M_Avail = j+1;
+
+    for (j = 0; j < Nmax-1; ++j)
+      cache[cnt+1][j] = cache[cnt][j];
+    cache[cnt+1][Nmax-1] = M_Avail;
+    SU[M_Cache-1] = 0;
+    SU[M_Avail-1] = 1;
+    ++cnt;
+  }
+
+  //Update the exhausted elements and set the zero elements to 3
+  for (i = 0; i < n; ++i){
+     if (i < Nmax-1){
+        //The first Nmax-1 elements are exhausted after 1st pass
+        SU[i] = 2;
+     }else if (SU[i] == 0){
+        //Reset unused but available elements to available for the next pass
+        SU[i] = 3;
+     }
+  }
+
+  //Update the cache for the next pass.  Take the first Nmax-1 available
+  //there is already 1 element in the cache we will need again.
+  int inc = 0;
+  int inc2 = 0;
+  for (i = 0; i < n; ++i){
+     if (SU[i] == 3 && inc < Nmax-1){
+        //Put the Nmax-1 smallest available elements in cache
+        SU[i] = 1;
+        ++inc;
+     }
+
+     if (SU[i] == 1){
+        cache[cnt+1][inc2] = i+1;
+        ++inc2;
+     }
+   }
+   ++cnt;
+
+  //Loop over each available element-> all other passes
+  inc = 0;
+
+  while (1){
+     ++inc;
+     nAv = (int) count (SU, SU+n, 3);
+     for (i = 0; i < nAv; ++i){
+
+      M_Cache = cache[cnt][Nmax-1];
+
+      //Depending on which pass we are on, take either the maximum
+      //or minimum element from the available pile
+      if (inc % 2 == 0){
+          //Take the maximum available element
+          for (j = n-1; j > -1; --j){
+            if (SU[j] == 3)
+              break;
+          }
+       } else {
+           //Take the minimum available element
+           for (j = 0; j < n; ++j){
+             if (SU[j] == 3)
+               break;
+             }
+       }
+
+       M_Avail = j+1;
+
+       //Update cache
+       for (int k = 0; k < Nmax-1; ++k)
+         cache[cnt+1][k] = cache[cnt][k];
+       cache[cnt+1][Nmax-1] = M_Avail;
+
+       SU[M_Cache-1] = 0;
+       SU[M_Avail-1] = 1;
+       ++cnt;
+     }
+
+     //Update the exhausted elements and set the zero elements to 3
+     for (i = 0; i < n; ++i){
+        if (i < (inc+1)*Nmax - inc - 1){
+           //The first Nmax-1 elements are exhausted after 1st pass
+           SU[i] = 2;
+        }else if (SU[i] == 0){
+           //Reset unused but available elements to available for the next pass
+           SU[i] = 3;
+        }
+     }
+
+     //Update the cache for the next pass.  Take the first Nmax-1 available
+     //there is already 1 element in the cache we will need again.
+     int inc1 = 0;
+     inc2 = 0;
+     for (i = 0; i < n; ++i){
+        if (SU[i] == 3 && inc1 < Nmax-1){
+           //Put the Nmax-1 smallest available elements in cache
+           SU[i] = 1;
+           ++inc1;
+        }
+
+        if (SU[i] == 1){
+           cache[cnt+1][inc2] = i+1;
+           ++inc2;
+        }
+     }
+
+     ++cnt;
+
+     if (count(SU,SU+n,2) == n || count(SU,SU+n,3) == 0)
+       break;
+  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void ModalSolver<dim>::ROBInnerProducts()
 {
 
