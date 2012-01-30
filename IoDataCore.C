@@ -639,7 +639,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "UnsteadyLinearized", 15, "ROBConstruction", 16, "ROMAeroelastic", 17,
 		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
 		 "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "1DProgrammedBurn", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
+		 "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
 		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31);

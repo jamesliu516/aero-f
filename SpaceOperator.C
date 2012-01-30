@@ -2056,7 +2056,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), fluidSelector, *(this->ngrad), this->egrad,
-                                  *ngradLS, R, it, this->failsafe,this->rshift);
+					Phi, *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->use_modal == false)  {
     int numLocSub = R.numLocSub();
@@ -2555,4 +2555,71 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
 }
 
 //-----------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& phi,
+						      DistVec<int>& status) {
+
+  SubDomain **subD = this->domain->getSubDomain();
+
+  int iSub;
+   
+  for (int k = 0; k < dimLS; ++k) {
+      
+    status = 0;
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->findCutCells(k, phi, status);
+      subDomain[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
+    }
+
+    this->domain->getLevelPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->maxRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
+      subDomain[iSub]->setCutCellFlags(lsdim,status);
+    }
+  }
+
+  /*int numCutCells = 0, cutCellsLoc,tmp;
+  int* locoffset = new int[numLocSub];
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    locoffset[iSub] = numCutCells;
+    numCutCells += subDomain[iSub]->getNumCutCells();
+  }
+
+  MPI_Allreduce(&numCutCells,&tmp, 1, MPI_INT,
+                MPI_SUM, this->domain->com->comm);
+
+  numCutCells = tmp;
+
+  fprintf(stdout,"# of cut cells = %i\n",numCutCells);
+  
+  MPI_Scan(&numCutCells,&cutCellsLoc,1, MPI_INT, 
+           MPI_SUM, this->domain->com->comm);
+  
+  double* grads = new double[numCutCells*3*dim*2];
+  double* vals = new double[numCutCells*2*dim];
+  int* gl_nodes = new int[numCutCells];
+  
+  memset(grads,0,sizeof(double)*numCutCells*3*dim*2);
+  memset(vals,0,sizeof(double)*numCutCells*2*dim);
+  memset(gl_nodes,0,sizeof(int)*numCutCells);
+  */
+
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+  
+    /*subDomain[iSub]->collectCutCellData(grads + (locOffset[iSub]+cutCellsLoc)*3*2*dim,
+					vals + (locOffset[iSub]+cutCellsLoc)*2*dim,
+					gl_nodes + (locOffset[iSub]+cutCellsLoc));
+    */
+  }
+}
 

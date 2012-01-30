@@ -17,6 +17,8 @@
 #include <GhostPoint.h>
 #include <PolygonReconstructionData.h>
 
+#include <HigherOrderMultiFluid.h>
+
 #ifdef OLD_STL
 #include <map.h>
 #else
@@ -157,10 +159,11 @@ class SubDomain {
   int numOffDiagEntries;
   double *dGradP[3];
 
-	bool sampleMesh;
-	int numSampledNodes;
-	std::vector<int> locSampleNodes;	// for Gappy ROM
-
+  bool sampleMesh;
+  int numSampledNodes;
+  std::vector<int> locSampleNodes;	// for Gappy ROM
+  
+  HigherOrderMultiFluid* higherOrderMF;
 
 public:
 
@@ -377,6 +380,7 @@ public:
                               SVec<double,3>&, SVec<double,dim>&, 
                               Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
@@ -1206,6 +1210,22 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
                            int* status,int* last,int* nid); 
 
+  template<int dimLS>
+    void findCutCells(int lsdim,
+		      SVec<double,dimLS>& phi,Vec<int>& cutStatus);
+
+  template <int dim>
+  void setCutCellFlags(int lsdim, Vec<int>& status);
+
+  int getNumCutCells();
+
+  template <int dim>
+    void collectCutCellData(SVec<double,dim>* cutCell[2],
+			    NodalGrad<dim,double>* cutGrad[2],
+			    Vec<int>* counts[2],
+			    NodalGrad<dim,double>& grad, Vec<int>& fluidId,
+			    SVec<double,dim>& V,SVec<double,3>& X);
+  
 };
 //------------------------------------------------------------------------------
 

@@ -861,13 +861,14 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        Vec<int> &fluidId, FluidSelector &fluidSelector,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+				       SVec<double,dimLS>& phi,
                                        NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, fluidId, fluidSelector,
-                                           ngrad, egrad, ngradLS, fluxes, it,
+                                           ngrad, egrad, phi,ngradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes);
@@ -6476,3 +6477,181 @@ void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
 
 //------------------------------------------------------------------------------
 
+template<int dimLS>
+void SubDomain::findCutCells(int lsdim,
+			     SVec<double,dimLS>& phi,Vec<int>& cutStatus) {  
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double* phii = phi[i],*phij = phi[j];
+
+    if (phii[lsdim]*phij[lsdim] > 0.0)
+      continue;
+    
+    double s = -phii[lsdim]/(phij[lsdim]-phii[lsdim]);
+    if (s < 0.25)
+      cutStatus[i] = 1;
+    else if (s > 0.75)
+      cutStatus[j] = 1;
+  }
+
+}
+
+template <int dim>
+void SubDomain::setCutCellFlags(int lsdim, Vec<int>& cutStatus) {
+
+  higherOrderMF->template setCutCellFlags<dim>(lsdim,cutStatus);
+}
+
+inline
+int SubDomain::getNumCutCells() {
+
+  return higherOrderMF->getNumCutCells();
+}
+
+
+template <int dim>
+void SubDomain::collectCutCellData(SVec<double,dim>* cutCell[2],
+				   NodalGrad<dim,double>* cutGrad[2],
+				   Vec<int>* counts[2],
+				   NodalGrad<dim,double>& grad, Vec<int>& fluidId,
+				   SVec<double,dim>& V,SVec<double,3>& X) {
+
+  int (*edgePtr)[2] = edges.getPtr();
+  bool* masterFlag = edges.getMasterFlag();
+
+  bool cut;
+  int fid,cutnode,numset[2] = {0,0};
+  for (int l=0; l<edges.size(); ++l) {
+
+    cut = false;
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double Vext[dim],newgrad[dim][3];
+    if (!masterFlag[l])
+      continue;
+
+    if (higherOrderMF->isCellCut(i)) {
+
+      if (higherOrderMF->isCellCut(j)) {
+	// nothing to do, this edge is between cut cells
+	continue;
+      }
+      
+      fid = fluidId[i];
+      cutnode = i;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
+	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
+	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+	newgrad[k][0] = grad.getX()[j][k];
+	newgrad[k][1] = grad.getY()[j][k];
+	newgrad[k][2] = grad.getZ()[j][k];
+      }
+    } else if (higherOrderMF->isCellCut(j)) {
+
+      fid = fluidId[j];
+      cutnode = j;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[i][k] + grad.getX()[i][k]*(X[j][0]-X[i][0])+ 
+	  grad.getY()[i][k]*(X[j][1]-X[i][1])+
+	  grad.getZ()[i][k]*(X[j][2]-X[i][2]);
+	newgrad[k][0] = grad.getX()[i][k];
+	newgrad[k][1] = grad.getY()[i][k];
+	newgrad[k][2] = grad.getZ()[i][k];
+      }
+      
+    } else 
+      continue;
+
+    int fididx = (fid == 0? 0 : 1);
+    ++counts[fididx]->operator[](cutnode);
+    for (int k = 0; k < dim; ++k) {
+      cutCell[fididx]->operator[](cutnode)[k] += Vext[k];
+      cutGrad[fididx]->getX()[cutnode][k] += newgrad[k][0];
+      cutGrad[fididx]->getY()[cutnode][k] += newgrad[k][1];
+      cutGrad[fididx]->getZ()[cutnode][k] += newgrad[k][2];
+    } 
+  }
+  
+}
+/*
+template <int dim>
+void SubDomain::collectCutCellData2() {
+
+  bool* masterFlag = edges.getMasterFlag();
+
+  int* count[2] = {new int[getNumCutCells()],new int[getNumCutCells()]};
+  int* nodes[2] = {new int[getNumCutCells()],new int[getNumCutCells()]};
+  bool cut;
+  int fid,cutnode,numset[2] = {0,0};
+  for (int l=0; l<edges.size(); ++l) {
+
+    cut = false;
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double Vext[dim],newgrad[dim][3];
+    if (!masterFlag[l])
+      continue;
+
+    if (higherOrderMF->isCellCut(i)) {
+
+      if (higherOrderMF->isCellCut(j)) {
+	// nothing to do, this edge is between cut cells
+	continue;
+      }
+      
+      fid = fluidId[i];
+      cutnode = i;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
+	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
+	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+	newgrad[k][0] = grad.getX()[j][k];
+	newgrad[k][1] = grad.getY()[j][k];
+	newgrad[k][2] = grad.getZ()[j][k];
+      }
+    } else if (higherOrderMF->isCellCut(j)) {
+
+      fid = fluidId[j];
+      cutnode = j;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[i][k] + grad.getX()[i][k]*(X[j][0]-X[i][0])+ 
+	  grad.getY()[i][k]*(X[j][1]-X[i][1])+
+	  grad.getZ()[i][k]*(X[j][2]-X[i][2]);
+	newgrad[k][0] = grad.getX()[i][k];
+	newgrad[k][1] = grad.getY()[i][k];
+	newgrad[k][2] = grad.getZ()[i][k];
+      }
+      
+    } else 
+      continue;
+
+    int setloc = -1;
+    int idx = (fid == 0 ? 0 : 1);
+    for (int m = 0; m < numset[idx]; ++m) {
+      
+      if (nodes[idx][m] == cutnode) {
+	setloc = m;
+	break;
+      }
+    }
+    
+    if (setloc == -1) {
+      nodes[idx][numset] = cutnode;
+      setloc = numset;
+      ++numset;
+    }
+    
+    count[idx][setloc]++;
+
+    for (int k = 0; k < dim; ++k) {
+
+      
+    }
+    
+    
+  }
+}
+*/
