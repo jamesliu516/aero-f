@@ -3111,8 +3111,8 @@ void ModalSolver<dim>::ROBInnerProducts()
  
    for (int iData1=0; iData1<nLoadMax; ++iData1) {
      for (int iData2=0; iData2<iData1; ++iData2) {
-       iROB1 = cache[iStep][iData1];
-       iROB2 = cache[iStep][iData2];
+       iROB1 = cache[iStep+1][iData1];
+       iROB2 = cache[iStep+1][iData2];
        if (!computedProds[iROB1][iROB2]) {
  
         // compute inner product
