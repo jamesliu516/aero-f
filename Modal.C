@@ -3021,23 +3021,31 @@ void ModalSolver<dim>::wait(const int seconds )
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void ModalSolver<dim>::ROBInnerProductSchedule(int* cache[], int n, int Nmax)
+int ModalSolver<dim>::ROBInnerProductSteps(int n, int Nmax)
 {
 
   int nPass;
   int nSteps;
-  int cnt = 1;
   int i, j;
 
   if (Nmax >= n){
     nSteps = 1;
   } else{
-    nPass = 1 + ceil(double(n-Nmax)/double(Nmax-1));
-    nSteps = nPass + n*(nPass-1) - 0.5*Nmax*(nPass-1)*nPass + 0.5*(nPass-2)*(nPass-1);
+    nPass = 1 + (int) (ceil(double(n-Nmax)/double(Nmax-1)));
+    nSteps = nPass + n*(nPass-1) - Nmax*(nPass-1)*nPass/2 + (nPass-2)*(nPass-1)/2;
     if ((n - nPass*(Nmax+1) - 1) > 0)
       nSteps += n - nPass*(Nmax+1) - 1;
   }
 
+  return nSteps;
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int nSteps )
+{
+
+  int i, j;
+  int cnt = 1;
   //Initialize every column of the Cache array
   for (i = 0; i < nSteps+1; ++i)
     cache[i] = new (nothrow) int[Nmax];
@@ -3050,7 +3058,7 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int* cache[], int n, int Nmax)
    //Fill the second column with 1:n (only need 1 cache since it can fit everything)
    for (int j = 1; j < n; ++j)
      cache[1][j] = j+1;
-   return 0;
+   return;
   }
 
    //Fill the second column with 1:Nmax
@@ -3191,6 +3199,8 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int* cache[], int n, int Nmax)
      if (count(SU,SU+n,2) == n || count(SU,SU+n,3) == 0)
        break;
   }
+
+  delete [] SU;
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -3254,13 +3264,11 @@ void ModalSolver<dim>::ROBInnerProducts()
    computedProds[iROB][iROB] = 1;
  }
 
- int nSteps; //number of steps
- // Matt's algorithm Here (call a separate routine)
- nSteps = 20; // to be returned by Matt's algorithm 
+ int nSteps = ROBInnerProductSteps(nROB, nLoadMax); //number of steps
  int **cache = new int *[nSteps+1]; //first column of cache should have all zeros
- for (int iStep=0; iStep < nSteps; ++iStep)
-   cache[iStep] = new int[nLoadMax]; // to be created and allocated in Matt's subroutine
  
+ ROBInnerProductSchedule(cache, nROB, nLoadMax, nSteps);
+
  int iROB1, iROB2; 
  for (int iStep=0; iStep < nSteps; ++iStep) {
 

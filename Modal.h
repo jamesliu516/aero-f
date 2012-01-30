@@ -143,7 +143,8 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
 #endif
     void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
     void computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod);
-    void ROBInnerProductSchedule(int* cache[], int n, int Nmax);
+    void ROBInnerProductSchedule(int** , int, int, int);
+    int ROBInnerProductSteps(int, int);
     void ROBInnerProducts();
 };
 
