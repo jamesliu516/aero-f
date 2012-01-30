@@ -72,7 +72,11 @@ void ImplicitTsDesc<dim>::doErrorEstimation(DistSVec<double,dim> &U)
 {
   DistSVec<double,dim> *flux = new DistSVec<double,dim>(TsDesc<dim>::domain->getNodeDistInfo());
 
-  this->spaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), *flux, this->timeState);
+  if(this->wallRecType==BcsWallData::CONSTANT)
+    this->spaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), *flux, this->timeState);
+  else
+    this->spaceOp->computeResidual(this->riemann1, *this->X, *this->A, this->timeState->getUn(), *flux, this->timeState);
+
   this->timeState->calculateErrorEstiNorm(U, *flux);
 
   delete flux;
@@ -88,7 +92,11 @@ void ImplicitTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
   // XML
   //spaceOp->applyBCsToSolutionVector(Q);
 
-  this->spaceOp->computeResidual(*this->X, *this->A, Q, F, this->timeState);
+  if(this->wallRecType==BcsWallData::CONSTANT)
+    this->spaceOp->computeResidual(*this->X, *this->A, Q, F, this->timeState);
+  else
+    this->spaceOp->computeResidual(this->riemann1, *this->X, *this->A, Q, F, this->timeState);
+
 
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
 

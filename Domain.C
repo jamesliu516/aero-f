@@ -1315,6 +1315,57 @@ void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> 
 
 //------------------------------------------------------------------------------
 
+template<int dim, class Scalar, int neq>
+void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &riemann,
+                                             FluxFcn **fluxFcn, DistBcData<dim> &bcData,
+                                             DistGeoState &geoState, DistVec<double> &irey,
+                                             DistSVec<double,3> &X,
+                                             DistVec<double> &ctrlVol,
+                                             DistSVec<double,dim> &V, DistMat<Scalar,neq> &A)
+{
+  int iSub;
+  double t0 = timer->getTime();
+  CommPattern<Scalar> *matPat = A.getDiagMatPat();
+
+  if(inletRhsPat){
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn, bcData(iSub), geoState(iSub), irey(iSub),
+                                                     X(iSub), ctrlVol(iSub), V(iSub), A(iSub), inletRhsPat);
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+
+    double t = timer->addFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagInletBlocks(*matPat, A(iSub));
+    com->printf(6, "FV Jacobian matrix computation: %f s\n", t);
+
+
+  }else{
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn, bcData(iSub), geoState(iSub), irey(iSub),
+                                                     X(iSub), ctrlVol(iSub), V(iSub), A(iSub), inletRhsPat);
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+
+    double t = timer->addFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
+    com->printf(6, "FV Jacobian matrix computation: %f s\n", t);
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, class Scalar, int neq, int dimLS>
 void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &riemann,
                                              FluxFcn **fluxFcn, DistBcData<dim> &bcData,

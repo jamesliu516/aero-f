@@ -480,6 +480,14 @@ public:
 				       DistVec<double> &, DistSVec<double,dim> &,
 				       DistMat<Scalar,neq> &);
 
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &,
+                                       FluxFcn **, DistBcData<dim> &, DistGeoState &,
+				       DistVec<double> &,
+				       DistSVec<double,3> &,
+				       DistVec<double> &, DistSVec<double,dim> &,
+				       DistMat<Scalar,neq> &);
+
   template<int dim, class Scalar, int neq, int dimLS>
   void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &,
                                        FluxFcn **, DistBcData<dim> &, DistGeoState &,
