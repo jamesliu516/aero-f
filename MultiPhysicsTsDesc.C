@@ -645,7 +645,7 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSV
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
     double tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //updateFluidIdFS

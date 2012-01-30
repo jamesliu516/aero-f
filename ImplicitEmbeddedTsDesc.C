@@ -181,7 +181,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 
     //recompute intersections
     double tw = this->timer->getTime();
-    failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
+    failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts,true,TsDesc<dim>::failSafeFlag); 
     this->com->globalMin(1, &failSafe);
     if(failSafe<0) //in case of intersection failure -1 is returned by recompute 
        return failSafe;
@@ -200,36 +200,11 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    switch(this->phaseChangeChoice) {
-      case 0:
-        if(this->numFluid==1)
-          this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS);
-        else //numFluid>1
-          this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS, &this->nodeTag0);
-        break;
-      case 1:
-        if(this->numFluid==1)
-          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                         *this->Wstarji, *this->Weights, *this->VWeights,
-                                                         this->distLSS);
-        else //numFluid>1
-          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                         *this->Wstarji, *this->Weights, *this->VWeights,
-                                                         this->distLSS, &this->nodeTag0);
-        break;
-    }
+    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+            *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
+            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
-    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
-
-    //update phase-change
-    tw = this->timer->getTime();
-    if(this->numFluid==1)
-      failSafe = this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, this->vfar);
-    else //numFluid>1
-      failSafe = this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, this->vfar, &this->nodeTag);
 
     this->com->globalMin(1, &failSafe);
     if(failSafe<0){ //if updatePhaseChange fails, -2 is returned
@@ -251,36 +226,12 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
       }
 
-      switch(this->phaseChangeChoice) {
-        case 0:
-          if(this->numFluid==1)
-            this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Weights,
-                                                           *this->VWeights, this->distLSS);
-          else //numFluid>1
-            this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS, &this->nodeTag0);
-          break;
-      case 1:
-        if(this->numFluid==1)
-          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Wstarij_nm1,
-                                                         *this->Wstarji_nm1, *this->Weights, *this->VWeights,
-                                                         this->distLSS);
-        else //numFluid>1
-          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Wstarij_nm1,
-                                                         *this->Wstarji_nm1, *this->Weights, *this->VWeights,
-                                                         this->distLSS, &this->nodeTag0);
-        break;
-      }
-      this->timer->addEmbedPhaseChangeTime(tw);
-      this->com->barrier();
-      this->timer->removeIntersAndPhaseChange(tw);
-
-      //update phase-change
       tw = this->timer->getTime();
-      if(this->numFluid==1)
-        failSafe = this->spaceOp->updatePhaseChange(this->Vtemp, Unm1, this->Weights, this->VWeights, this->distLSS, this->vfar);
-      else //numFluid>1
-        failSafe = this->spaceOp->updatePhaseChange(this->Vtemp, Unm1, this->Weights, this->VWeights, this->distLSS, this->vfar, &this->nodeTag);
+      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, Unm1, this->Vtemp,
+              *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
+              this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag0));
+      this->timer->addEmbedPhaseChangeTime(tw);
+      this->timer->removeIntersAndPhaseChange(tw);
 
       this->com->globalMin(1, &failSafe);
       if(failSafe<0){ //if updatePhaseChange fails, -2 is returned

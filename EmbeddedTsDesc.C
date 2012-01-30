@@ -638,7 +638,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
     double tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //update nodeTags (only for numFluid>1)
@@ -650,21 +650,9 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    if(this->numFluid==1)
-      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                     *this->VWeights, this->distLSS);
-    else //numFluid>1
-      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS, &this->nodeTag);
-    this->timer->addEmbedPhaseChangeTime(tw);
-    this->timer->removeIntersAndPhaseChange(tw);
-
-    //update phase-change
-    tw = this->timer->getTime();
-    if(this->numFluid==1)
-      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
-    else //numFluid>1
-      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar, &this->nodeTag);
+    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+            *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
+            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
   } 
