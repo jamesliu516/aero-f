@@ -141,8 +141,16 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   
   if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
     levelSetMethod = 1;
-  else if (ioData.mf.levelSetMethod == MultiFluidData::SCALAR)
+  else if (ioData.mf.levelSetMethod == MultiFluidData::SCALAR/* || ioData.mf.levelSetMethod == MultiFluidData::CONSERVATIVE*/)
     levelSetMethod = 2;
+ 
+  int sto = ioData.oneDimensionalInfo.sourceTermOrder; 
+  if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
+    if(coordType == OneDimensionalInfo::CYLINDRICAL)
+      source->initialize(1.0,sto,X);
+    else if (coordType == OneDimensionalInfo::SPHERICAL)
+      source->initialize(2.0,sto,X);
+  }
 }
 //------------------------------------------------------------------------------
 OneDimensional::~OneDimensional(){
@@ -707,12 +715,6 @@ void OneDimensional::spatialSetup(){
     }
   }
 
-  if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
-    if(coordType == OneDimensionalInfo::CYLINDRICAL)
-      source->initialize(1.0,1,X);
-    else if (coordType == OneDimensionalInfo::SPHERICAL)
-      source->initialize(2.0,1,X);
-  }
    
 }
 //------------------------------------------------------------------------------
@@ -989,8 +991,12 @@ void OneDimensional::singleTimeIntegration(double dt){
 	fluidId[i] = 1;
       else
 	fluidId[i] = 0;
+      
+      //Phi[i][0] = X[i][0] - interfaceLocation;
     }
-
+    /*fluidIdn = fluidId;
+    fluidSelector.getFluidId(fluidId,Phi);
+    */
   }
 
   for(int i=0; i<numPoints; i++){
@@ -1104,13 +1110,19 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   double flux[dim];
   double Udummy[dim],Vtemp[dim];
   int i,j,k;
+  
+  for(int i=0; i<numPoints; i++){
+    if (y[i][0] < 0.0)
+      std::cout << "Error: node " << i << " has negative density " <<
+            y[i][0] << "; fid = " << fluidId[i] << std::endl;
+  }
 
   // Check solution (clip pressure, that is), if necessary
   if (varFcn->doVerification()) {
     for(int i=0; i<numPoints; i++){
       varFcn->conservativeToPrimitiveVerification(i+1, y[i], Vtemp, fluidId[i]);
     }
-  }
+  } 
 
   varFcn->conservativeToPrimitive(y,V,&fluidId);
   computeSlopes(V,Vslope,fluidId,!varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1)));
@@ -1473,9 +1485,11 @@ void OneDimensional::computeLevelSetFluxes(SVec<double,1>& y){
     // source term
     
     if (source) {
-      LevelSetSource E(varFcn,U);
+      for (int i = 0; i < numPoints; ++i)
+        Rphi[i][0] += 2.0*U[i][1]/U[i][0]*Phi[i][0]*ctrlVol[i][0]/(X[i][0] > 0 ? X[i][0] : 1e8);
+        //LevelSetSource E(varFcn,U);
       
-      source->compute(E,y, Rphi, X, Y,fluidId);
+        //source->compute(E,y, Rphi, X, Y,fluidId);
     }
   } else if (levelSetMethod == 1) // H-J WENO 
     {
@@ -1651,13 +1665,32 @@ void OneDimensional::restartOutput(double time, int iteration){
 
   varFcn->conservativeToPrimitive(U,V,&fluidId);
 
+  double rad = 0.0;
+  for (int i=0; i<numPoints; ++i) {
+    if (fluidId[i+1] == 0) {
+      if (levelSetMethod == 0)
+	rad = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
+      else if (levelSetMethod == 1)
+	rad = (X[i+1][0]*Phi[i][0]-X[i][0]*Phi[i+1][0])/(Phi[i][0]-Phi[i+1][0]);
+      else
+	rad = interfaceLocation;
+      break;
+    }
+  }
+  
   output << "# time = " << time*refVal.time << endl;
   output << "# " << numPoints << endl;
   for(int i=0; i<numPoints; i++) {
     output << X[i][0]*refVal.length <<" "<< V[i][0]*refVal.density <<" "<<
       V[i][1]*refVal.velocity <<" "<<
-      varFcn->getPressure(V[i],fluidId[i])*refVal.pressure <<" "<<
-      Phi[i][0]/V[i][0]*refVal.length << " " << fluidId[i] << " " << 
+      varFcn->getPressure(V[i],fluidId[i])*refVal.pressure <<" ";
+    if (levelSetMethod == 0)
+      output << Phi[i][0]/V[i][0];
+    else if (levelSetMethod == 1)
+      output << Phi[i][0];
+    else if (levelSetMethod == 2)
+      output << -(X[i][0]-rad)*refVal.length;
+    output << " " << fluidId[i] << " " << 
       varFcn->computeTemperature(V[i],fluidId[i])*refVal.temperature << endl;
   }
   output.close();

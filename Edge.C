@@ -470,6 +470,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<double,dim>& V, Vec<int> &fluidId,
                                      FluidSelector &fluidSelector, 
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+//				     SVec<double,dimLS>& phi, // needed for higher order computations
                                      NodalGrad<dimLS>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -506,6 +507,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
 
+    bool isAtInterface = false;
+
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
     for (int k=0; k<dim; ++k) {
@@ -513,14 +516,23 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
-    if (fluidId[i] == fluidId[j])
-      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-    else {
-      for (int k = 0; k < dim; ++k) {
-        Vi[k] = V[i][k];
-        Vj[k] = V[j][k];
-      }      
-    }
+    //if (!higherOrderMF) {
+      if (fluidId[i] == fluidId[j])
+	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+      else {
+	for (int k = 0; k < dim; ++k) {
+	  Vi[k] = V[i][k];
+	  Vj[k] = V[j][k];
+	}     
+      }
+    /*} else {
+
+      if (fluidId[i] == fluidId[j] && !higherOrderMF->isCellCut(i) &&
+	  !higherOrderMF->isCellCut(j)) {
+	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+      } else
+	isAtInterface = true;
+    }*/
 
     //if(Phi[i]*Phi[j] > 0.0) recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     //else                    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj, Phi[i], Phi[j]);
@@ -545,7 +557,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       Vj[k+dim] = V[j][k];
     }
 
-    if (fluidId[i]==fluidId[j]) { 	// same fluid
+    if (fluidId[i]==fluidId[j] && !isAtInterface) { 	// same fluid
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
       for (int k=0; k<dim; ++k) {
         fluxes[i][k] += flux[k];
@@ -579,15 +591,94 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
       }
+      /*if (higherOrderMF) {
 	
-      
-      riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                    Wi,Wj,i,j,l,dx);
+	assert(fluidId[i] != fluidId[j] || !higherOrderMF->isCellCut(i) ||
+	       !higherOrderMF->isCellCut(j));
+	
+	// There are two cases.  In the first case the surrogate interface is the
+	// same for both fluids.  This implies that the edge in question is cut by
+	// the material interface.
+	double iloc[3];
+	// Step 1: Compute the intersection location (where the 0-contour of the level
+	// set crosses this edge.
+	double s = phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]);
+	for (int k=0; k<3; k++)
+	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
+	if (!higherOrderMF->isCellCut(i) && 
+	    !higherOrderMF->isCellCut(j)) {
+	  
+	  // Step 2: Extrapolate the values from cell i and cell j to the interface
+	  for (int k = 0; k < dim; ++k) {
+	    Vi[k] = dVdX[i][k]*(iloc[0]-X[i][0])+
+	      dVdY[i][k]*(iloc[1]-X[i][1])+
+	      dVdZ[i][k]*(iloc[2]-X[i][2]);
+	  }
 
-      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-                                    Vi, Wi, fluxi, fluidId[i]);
-      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-                                    Wj, Vj, fluxj, fluidId[j]);
+	  for (int k = 0; k < dim; ++k) {
+	    Vj[k] = dVdX[j][k]*(iloc[0]-X[j][0])+
+	      dVdY[j][k]*(iloc[1]-X[j][1])+
+	      dVdZ[j][k]*(iloc[2]-X[j][2]);
+	  }
+	    
+	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+					 Wi,Wj,i,j,l,dx);
+
+	  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
+	  
+	  for (int k = 0; k < dim; ++k) {
+	    Vi[k] = Vi[k]*(0.5-s)+Wi[k]*(0.5+s);
+	    Vj[k] = Vj[k]*(-0.5+s)+Wj[k]*(1.5-s);
+	  }
+	    
+	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					Vi, Vi, fluxi, fluidId[i]);
+	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					Vj, Vj, fluxj, fluidId[j]);
+
+	} else if (higherOrderMF->isCellCut(j)) {
+
+	  // In this case, the cell j is cut be the interface, so its value does not exist
+	  int fidj = higherOrderMF->getOtherFluidId(j, fluidId[i]);
+	  higherOrderMF->computeCutCellExtrapolations(j,fluidId[i],fidj, iloc, Vi,Vj);
+          
+	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
+					 Wi,Wj,i,j,l,dx);
+
+	  for (int k = 0; k < dim; ++k) {
+	    Vi[k] = Vi[k]*(0.5-s)+Wi[k]*(0.5+s);
+	  }
+
+	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					Vi, Vi, fluxi, fluidId[i]);
+
+	} else if (higherOrderMF->isCellCut(i)) {
+
+	  // In this case, the cell j is cut be the interface, so its value does not exist
+	  int fidi = higherOrderMF->getOtherFluidId(i, fluidId[j]);
+	  higherOrderMF->computeCutCellExtrapolations(i, fidi,fluidId[j],iloc, Vi,Vj);
+          
+	  riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
+					 Wi,Wj,i,j,l,dx);
+
+	  for (int k = 0; k < dim; ++k) {
+	    Vj[k] = Vj[k]*(-0.5+s)+Wj[k]*(1.5-s);
+	  }
+
+	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					Vj, Vj, fluxj, fluidId[j]);
+
+	}
+      }	else {
+*/
+	riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+				       Wi,Wj,i,j,l,dx);
+	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+				      Vi, Wi, fluxi, fluidId[i]);
+	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+				      Wj, Vj, fluxj, fluidId[j]);
+      //}
+
       for (int k=0; k<dim; k++){
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];

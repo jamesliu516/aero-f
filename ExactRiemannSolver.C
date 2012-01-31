@@ -25,7 +25,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(iod.problem.framework==ProblemData::EMBEDDED) 
+  if(iod.problem.framework==ProblemData::EMBEDDED || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN) 
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
 
   for (int i = 0; i < 10; ++i) {

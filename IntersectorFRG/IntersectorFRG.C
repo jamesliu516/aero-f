@@ -66,6 +66,7 @@ class ClosestTriangle {
 
 public: //for debug only
 //protected:
+  bool fail;
   bool isFirst;
   int bestTrId;
   int n1, n2; //!< if both ns are non negative, the best point is on an edge
@@ -112,6 +113,7 @@ public:
 //----------------------------------------------------------------------------
 
 ClosestTriangle::ClosestTriangle(int (*nd)[3], Vec3D *sX, Vec3D *sN, set<int> *n2n, set<int> *n2e) {
+  fail = false;
   triNodes = nd;
   structX = sX;
   structNorm = sN;
@@ -473,7 +475,8 @@ double ClosestTriangle::findSignedVertexDistance()
   }
   
   fprintf(stderr,"ERROR: (in IntersectorFRG) failed in determining node status! nTrial = %d.\n", nTrial);
-  exit(-1);
+  fail = true;
+//  exit(-1);
 
   return 0.0;
 }
@@ -2084,18 +2087,13 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
       dist[i] = 0.0;
     }
     else {
-      tId[i] = closestTriangle.bestTriangle();
-      if(tId[i] < 0)
-        std::cout << "Horror!!!" << std::endl;
-      dist[i] = closestTriangle.signedDistance();
- /*     //debug
-      Vec3D Xi(X[i][0], X[i][1], X[i][2]);
-      Vec3D Tester(-1.333232e+00, 6.207416e-01, 1.327290e-01);
-      if((Xi-Tester).norm()<1e-5)
-        fprintf(stderr,"debug(final): fluid node = %d, n1/n2 = %d/%d, mode = %d.\n", locToGlobNodeMap[i]+1, closestTriangle.n1+1, closestTriangle.n2+1,
-                closestTriangle.mode);
-      //end of debug
-*/
+      if(!closestTriangle.fail) {
+        tId[i] = closestTriangle.bestTriangle();
+        dist[i] = closestTriangle.signedDistance();
+      } else {
+        tId[i] = -1;
+        dist[i] = 0.0; 
+      }
     }
   }
 

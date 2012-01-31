@@ -1019,6 +1019,36 @@ void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &
 
 //------------------------------------------------------------------------------
 
+template<int dim, class Scalar, int neq>
+void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                                FluxFcn **fluxFcn, BcData<dim> &bcData,
+                                                GeoState &geoState, Vec<double> &irey,
+                                                SVec<double,3> &X, Vec<double> &ctrlVol,
+                                                SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+                                                CommPattern<double>* flag)
+{
+  if (!flag){
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A);
+
+    faces.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, bcData, geoState, V, A);
+  }else{
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A, nodeType);
+
+    fprintf(stderr,"WARNING: Exact Riemann solver at the wall has not been implemented in this case!\n");
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
+  }
+
+  for (int i=0; i<ctrlVol.size(); ++i) {
+    double voli = 1.0 / ctrlVol[i];
+    Scalar *Aii = A.getElem_ii(i);
+    for (int k=0; k<neq*neq; ++k)
+      Aii[k] *= voli;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::recomputeRHS(VarFcn* vf, SVec<double,dim>& V, SVec<double,dim>& rhs,
                              Extrapolation<dim>* xpol, BcData<dim>& bcData,
@@ -4959,6 +4989,9 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 
   double B[neq*neq],tmp[neq*neq];
   double dUdV[neq*neq],dVdU[neq*neq];
+  memset(tmp,0,sizeof(double)*neq*neq);
+  memset(dUdV,0,sizeof(double)*neq*neq);
+  memset(dVdU,0,sizeof(double)*neq*neq);
   memset(B,0,sizeof(double)*neq*neq);
   B[0] = B[5*neq-1] = 1.0;
   for (k = 1; k < 4; ++k) {

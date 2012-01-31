@@ -2123,8 +2123,16 @@ void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
 	  det = jac[0][0]*(jac[1][1]*jac[2][2]-jac[1][2]*jac[2][1]) - 
 	    jac[1][0]*(jac[0][1]*jac[2][2]-jac[0][2]*jac[2][1]) + 
 	    jac[2][0]*(jac[0][1]*jac[1][2]-jac[0][2]*jac[1][1]);
+
+	  if (det <= 0.0)
+	    std::cout << "Error, neg determinant! " << det << std::endl;
+	  assert(det > 0);
 	  
 	  (obj->*F)( nodeNum(i), xyz, res);
+	  //assert(res[0] > 0 && res[4] > 0);
+	  //if (res[0] <= 0.0 || res[4] <= 0.0) {
+	    //std::cout << "Error negative density or energy! " << res[0] << " " << res[4] << std::endl;
+	  //}
 	  for (int m = 0; m < dim; ++m) {
 	    V[ nodeNum(i) ][m] += det*wgts[npt-1][j]*wgts[npt-1][k]*wgts[npt-1][l]/8.0*res[m];
 	  }

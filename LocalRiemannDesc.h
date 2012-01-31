@@ -4020,7 +4020,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
       dV = 0.5/V*(-dpdrho*(1.0/rhoi-1.0/rho) - (p-pi)*(1.0/(rhoi*rhoi) ) );
       assert(rhoi >= rho);
 
-      if (fabs(V+u-ui) < 1.0e-8)
+      if (fabs(V+u-ui) < 1.0e-6 || fabs(V+u-ui)/max(1e-8,fabs(ui)) < 1e-6)
 	break;
 
       rhoi -= (V+u-ui) / dV;

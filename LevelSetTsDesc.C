@@ -290,7 +290,7 @@ void LevelSetTsDesc<dim,dimLS>::updateOutputToStructure(double dt, double dtLeft
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
-bool LevelSetTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
+bool LevelSetTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U)
 {
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 

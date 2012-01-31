@@ -262,9 +262,7 @@ struct RestartData {
   ~RestartData() {}
 
   void setup(const char *, ClassAssigner * = 0);
-
 };
-
 //------------------------------------------------------------------------------
 
 struct ROMOutputData {
@@ -1958,6 +1956,8 @@ struct OneDimensionalInfo {
   int numPoints; //mesh has numPoints elements
   int fluidId2;
 
+  int sourceTermOrder;
+
   double interfacePosition;
 
   double density1, velocity1, pressure1,temperature1;
@@ -1976,6 +1976,8 @@ struct OneDimensionalInfo {
 
 struct ImplosionSetup {
   double Prate, Pinit;
+  int intersector_freq;
+
   ImplosionSetup();
   ~ImplosionSetup() {}
   void setup(const char *);
