@@ -26,6 +26,7 @@ protected:
   double tscale;
   double oolscale;
   double Wn;
+  double dtf0;
 
   DistSVec<double,3> F;
   DistSVec<double,3> F0;
@@ -44,6 +45,8 @@ public:
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0) {return 0.0;} 
   virtual double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;}
+  virtual void storeFluidSuggestedTimestep(double dtf) {dtf0 = dtf;}
+  virtual int    structureSubcycling() {return 0;}
 
   template<int dim>
   void computeInterfaceWork(double, PostOperator<dim>*, DistSVec<double,3>&, 
@@ -343,7 +346,7 @@ public:
   void step2ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
-  /** get displacement and pass it to distLSS.  send force to structure. */
+  int structureSubcycling() {return dynNodalTransfer->structSubcycling();}
 
   int getAlgNum()  { return 0; }
 

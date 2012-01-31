@@ -2499,7 +2499,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
-  new ClassToken<TsData>(ca, "TimeStepCalculation", this,
+  new ClassToken<TsData>(ca, "TimeStepAdaptation", this,
 			 reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
 			 "Cfl", 0, "ErrorEstimation", 1);
   new ClassToken<TsData>(ca, "Prec", this,
@@ -3575,6 +3575,7 @@ OneDimensionalInfo::OneDimensionalInfo(){
   density2 = 1.0; velocity2 = 0.0; pressure2 = 1.0;
   temperature1 = 1.0; temperature2 = 1.0;
 
+  sourceTermOrder = 1;
 }
 //------------------------------------------------------------------------------
 void OneDimensionalInfo::setup(const char *name){
@@ -3585,6 +3586,7 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
   new ClassDouble<OneDimensionalInfo>(ca, "Radius", this, &OneDimensionalInfo::maxDistance);
   new ClassInt<OneDimensionalInfo>(ca, "NumberOfPoints", this, &OneDimensionalInfo::numPoints);
+  new ClassInt<OneDimensionalInfo>(ca, "SourceTermOrder", this, &OneDimensionalInfo::sourceTermOrder);
   new ClassDouble<OneDimensionalInfo>(ca, "InterfacePosition", this, &OneDimensionalInfo::interfacePosition);
 
   new ClassDouble<OneDimensionalInfo>(ca, "Density1", this, &OneDimensionalInfo::density1);
@@ -3605,6 +3607,7 @@ ImplosionSetup::ImplosionSetup() {
   // for buckling of cylinder
   Prate = -1.0;
   Pinit = -1.0;
+  intersector_freq = 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -3613,6 +3616,7 @@ void ImplosionSetup::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 2, 0);
   new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+  new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
 MultigridInfo::MultigridInfo() {
@@ -4300,7 +4304,8 @@ int IoData::checkInputValuesAllEquationsOfState(){
   if(eqs.numPhase > 1 && 
      (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
       !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
-      !mf.multiInitialConditions.prismMap.dataMap.empty() ))
+      !mf.multiInitialConditions.prismMap.dataMap.empty() || 
+      !input.oneDimensionalInput.dataMap.empty()))
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;

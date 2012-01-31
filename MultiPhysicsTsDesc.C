@@ -52,7 +52,12 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
   Pscale = ioData.ref.rv.pressure;
+  intersector_freq = ioData.implosion.intersector_freq;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  if(intersector_freq<1) {
+    this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
+    exit(-1);
+  }
 
   // miscellaneous
   globIt = -1;
@@ -625,7 +630,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(DistSVec<double,dim> &U,
 
 //-------------------------------------------------------------------------------
 template<int dim, int dimLS>
-bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
+bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U)
 {
 
   increasingPressure = false;
@@ -645,7 +650,9 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSV
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
     double tw = this->timer->getTime();
+    this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
+
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //updateFluidIdFS

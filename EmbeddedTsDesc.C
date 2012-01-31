@@ -188,7 +188,13 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
   Pscale = ioData.ref.rv.pressure;
+  intersector_freq = ioData.implosion.intersector_freq;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  if(intersector_freq<1) {
+    this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
+    exit(-1);
+  }
+
 
   globIt = -1;
   inSubCycling = false;
@@ -392,6 +398,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   dtf = dt;
   dtfLeft = *dtLeft + dt;
 
+//  fprintf(stderr,"dt = %e, dtfLeft = %e, dtLeft = %e.\n", dt, dtfLeft, *dtLeft);
   return dt;
 }
 
@@ -618,7 +625,7 @@ void EmbeddedTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft, Dist
 //-------------------------------------------------------------------------------
 
 template<int dim>
-bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
+bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U)
 {
 
   increasingPressure = false;
@@ -638,7 +645,9 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
     double tw = this->timer->getTime();
+    this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
+
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //update nodeTags (only for numFluid>1)
