@@ -17,6 +17,7 @@
 #include <PhysBAM_Tools/Math_Tools/wrap.h>
 #include <PhysBAM_Tools/Vectors/VECTOR_2D.h>
 #include <cmath>
+#include <iostream>
 #ifdef DIFFERENCE // Windows workaround.
 #undef DIFFERENCE
 #endif
@@ -508,7 +509,11 @@ template<class T> struct QUOTIENT<VECTOR<T,3>,T>{typedef VECTOR<T,3> TYPE;};
 template<class T> struct QUOTIENT<T,VECTOR<T,3> >{typedef VECTOR<T,3> TYPE;};
 template<class T> struct NEGATION<VECTOR<T,3> >{typedef VECTOR<T,3> TYPE;};
 //#####################################################################
+
+template<class T> std::ostream& operator<<(std::ostream& output,const VECTOR<T,3>& point)
+{output<<"["<<point[1]<<", "<<point[2]<<", "<<point[3]<<"]";return output;}
 }
+
 #ifndef COMPILE_WITHOUT_READ_WRITE_SUPPORT
 #include <PhysBAM_Tools/Read_Write/Vectors/READ_WRITE_VECTOR_3D.h>
 #endif

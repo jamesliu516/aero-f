@@ -2471,7 +2471,7 @@ TsData::TsData()
   cflMin = 1.0;
   ser = 0.7;
   errorTol = 1.e-10;
-  form = DESCRIPTOR;
+  form = NONDESCRIPTOR;
 
   output = "";
 
