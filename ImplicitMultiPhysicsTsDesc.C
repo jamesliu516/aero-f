@@ -166,9 +166,9 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     //recompute intersections
     double tw = this->timer->getTime();
     if(this->withCracking && this->withMixedLS) // no need for the intersector to determine fluidId.
-      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, false);
+      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, false, TsDesc<dim>::failSafeFlag); 
     else
-      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true);
+      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
 
     if(this->riemannNormal==2)
       this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
