@@ -1130,11 +1130,6 @@ public:
   template<int dimLS>
   void computePrdtPhiCtrlVolRatio(SVec<double,dimLS> &, SVec<double,dimLS> &, Vec<double> &, GeoState &);
 
-  template<int dim>
-  void updatePhaseChange(SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
-                         LevelSetStructure&, Vec<int>&, Vec<int>&);
-
-
 //  void getTriangulatedSurfaceFromFace( SVec<double,3> &);
   void getTriangulatedSurfaceFromFace( TriangulatedSurface* );
   void getTriangulatedSurfaceFromFace( SVec<double,3> &,  TriangulatedSurface* );

@@ -927,11 +927,6 @@ public:
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 
   template<int dim>
-  void updatePhaseChange(DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *,
-                         DistVec<int> &, DistVec<int> &);
-
-  template<int dim>
   void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, 
                                double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &V, 
                                DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistNodalGrad<dim, double> *ngrad,
