@@ -82,11 +82,6 @@ class LevelSetStructure {
     virtual bool isNearInterface(double t, int n) const = 0;
     virtual bool withCracking() const = 0;
 
-    /** creates an array of values which are positive inside the fluid and negative outside. */
-    virtual void computePhi(Vec<double> &phi){
-        for(int i = 0; i < phi.size(); ++i)
-            phi[i] = isActive(0,i) ? 1 : -1;}
-
     virtual void computeSwept(Vec<int> &swept){
         for(int i = 0; i < swept.size(); ++i)
             swept[i] = isSwept(0,i) ? 1 : 0;
@@ -102,7 +97,6 @@ class LevelSetStructure {
 class DistLevelSetStructure {
   protected:
     int numLocSub;
-    DistVec<double> *pseudoPhi;
     int numFluid;
 
   public:
@@ -113,11 +107,6 @@ class DistLevelSetStructure {
     virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
 
-    virtual DistVec<double> &getPhi(){
-        for (int iSub=0; iSub<numLocSub; iSub++)
-            (*this)(iSub).computePhi((*pseudoPhi)(iSub));
-        return *pseudoPhi;}
-    
     virtual void getSwept(DistVec<int>& swept){
         for (int iSub=0; iSub<numLocSub; iSub++)
             (*this)(iSub).computeSwept((swept)(iSub));
@@ -128,7 +117,7 @@ class DistLevelSetStructure {
     virtual void setStatus(DistVec<int> nodeTag) = 0;                                
 
     virtual void updateStructure(double *Xs, double *Vs, int nNodes, int(*abc)[3]=0) = 0;
-    virtual int recompute(double dtf, double dtfLeft, double dts, bool findStatus = true) = 0;
+    virtual int recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry = false) = 0;
     virtual Vec<Vec3D> &getStructPosition() = 0;
     virtual Vec<Vec3D> &getStructPosition_0() = 0;
     virtual Vec<Vec3D> &getStructPosition_n() = 0;
