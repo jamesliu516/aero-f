@@ -285,6 +285,12 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
     _mmh->setup(tMax); //obtain maxTime from structure
   }
 
+  // If 'IncreasePressure' is activated, re-initialize the fluid state
+  if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
+    increasingPressure = true;
+    this->domain->IncreasePressure(Pinit+(this->getInitialTime())*Prate, this->varFcn, *U, *(this->fluidSelector.fluidId));
+  }
+
   //compute fluid indueced force on the structural surface
   // construct Wij, Wji from U. Then use them for force calculation.
   DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
