@@ -1175,15 +1175,64 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 
 //------------------------------------------------------------------------------
 
+// TODO(jontg): Remove X
+// TODO(jontg): MultiPhase uses fluidId0
+// TODO(jontg): Fix computeRiemannWeightsForEmbeddedStruct
 template<int dim>
-void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
-                           DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                          DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
+void SpaceOperator<dim>::
+updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
+                 DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                 DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                 DistLevelSetStructure *distLSS, double *vfar, DistVec<int> *fluidId)
 {
+  int iSub, numLocSub = this->domain->getNumLocSub();
+  DistVec<double> init(domain->getNodeDistInfo()),next_init(domain->getNodeDistInfo());
+  SubDomain **subD = this->domain->getSubDomain();
+
   varFcn->conservativeToPrimitive(U, V, fluidId);
-  Weights = 0.0;
-  VWeights = 0.0;
-  domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, distLSS);
+  Weights = 0.0; VWeights = 0.0;
+
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub)
+    for(int i=0;i<init(iSub).size();++i)
+        init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0.0 : 1.0);
+  next_init = init;
+
+  int iter=0;
+  bool finished = false;
+  while(!finished){++iter;finished = true;
+    switch(phaseChangeChoice){
+    case 0: domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+      break;
+    case 1: com->fprintf(stderr," *** computeReimannWeights temporarily broken / using regular extrapolation ***\n");
+      domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+      break;
+    }
+
+#pragma omp parallel for
+    for(iSub=0;iSub<numLocSub;++iSub) {
+      for(int i=0;i<init(iSub).size();++i)
+        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
+          if(!(*distLSS)(iSub).isActive(0.0,i)) {
+            for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+          } else {
+            const double one_over_weight=(double)1.0/Weights(iSub)[i];
+            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+          }
+        }
+    }
+
+#pragma omp parallel for
+    for(iSub=0;iSub<numLocSub;++iSub)
+      for(int i=0;i<init(iSub).size();++i)
+        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = false;
+    Weights = 0.0; VWeights = 0.0;
+    init = next_init;
+    com->globalOp(1,&finished,MPI_LAND);
+  }
+
+  varFcn->primitiveToConservative(V, U, fluidId);
 }
 
 //------------------------------------------------------------------------------
@@ -1200,6 +1249,7 @@ void SpaceOperator<dim>::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                            DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
+  fprintf(stderr," *** DEPRECATED (jontg) *** \n");exit(-1);
   varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0;
   VWeights = 0.0;
@@ -1215,6 +1265,7 @@ int SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
                              DistLevelSetStructure *distLSS, double* vfar,
                              DistVec<int> *fluidId)
 {
+  fprintf(stderr," *** DEPRECATED (jontg) *** \n");exit(-1);
   SubDomain **subD = domain->getSubDomain();
 
   int iSub;
@@ -1237,51 +1288,12 @@ int SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 
       if(subWeights[i] <= 0.0){
           fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), (fluidId?(*fluidId)(iSub)[i]:0), subWeights[i]);
-          //exit(-1);
-          return -2;
+          exit(-1);
       } else {
         for (int iDim=0; iDim<dim; iDim++) 
           subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
-        //fprintf(stderr,"Updating node %d on SubD %d to [%e %e %e %e %e]\n",i,subD[iSub]->getGlobSubNum(),subV[i][0],subV[i][1], subV[i][2], subV[i][3], subV[i][4]);
       }
     }
-
-/*
-    if(distLSS->numOfFluids()==1) 
-      for (int i=0; i<subV.size(); i++) {
-        bool iIsActive = LSS.isActive(0.0, i);
-        bool iWasActive = LSS.wasActive(0.0, i);
-        if (iIsActive==iWasActive) //no phase change
-          continue;
-        if (!iIsActive) {//changed from active to inactive -- reset to farfield state.
-          for(int iDim=0; iDim<dim; iDim++)
-            subV[i][iDim] = vfar[iDim];
-          continue;
-        }
-
-        if (subWeights[i]<=0.0) {
-          fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: %d->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), iWasActive, iIsActive, subWeights[i]);
-	  assert(false);
-	  exit(-1);
-        }
-        for (int iDim=0; iDim<dim; iDim++)
-          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
-      }
-    else {//numFluid>1
-      Vec<int> &subFluidId((*fluidId)(iSub));
-      for (int i=0; i<subV.size(); i++) {
-        if(LSS.wasActive(0.0, i, subFluidId[i])) //no phase change
-          continue;
-
-        if (subWeights[i]<=0.0) {
-          fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), subFluidId[i], subWeights[i]);
-          exit(-1);
-        }
-
-        for (int iDim=0; iDim<dim; iDim++)
-          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
-      }
-    }*/
   }
   varFcn->primitiveToConservative(V, U, fluidId);
 
@@ -2365,11 +2377,30 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeWeightsForEmbeddedStruct(DistSVe
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistSVec<double,dimLS> &Phi,
                            DistSVec<double,dimLS> &PhiWeights, DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId)
 {
+  this->com->fprintf(stderr,"*** MultiPhase ISN'T READY YET ***\n");exit(-1);
+  SubDomain **subD = this->domain->getSubDomain();
   this->varFcn->conservativeToPrimitive(U, V, fluidId0);
   Weights = 0.0;
   VWeights = 0.0;
   PhiWeights = 0.0;
-  this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights, distLSS, fluidId);
+
+  DistVec<double> init(this->domain->getNodeDistInfo()),next_init(this->domain->getNodeDistInfo());
+  int iSub;
+  int numLocSub = this->domain->getNumLocSub();
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub){
+      for(int i=0;i<init(iSub).size();++i){
+          init(iSub)[i] = (*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0.0 : 1.0;
+      }}
+  next_init = init;
+  bool finished = false;
+  while(!finished){finished = true;
+    this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights, init, next_init, distLSS, fluidId);
+#pragma omp parallel for
+    for(iSub=0;iSub<numLocSub;++iSub)
+      for(int i=0;i<init(iSub).size();++i)
+          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = false;
+  }
 }
 
 //------------------------------------------------------------------------------
