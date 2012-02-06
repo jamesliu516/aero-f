@@ -1195,10 +1195,8 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
 
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
-    for(int i=0;i<init(iSub).size();++i){
+    for(int i=0;i<init(iSub).size();++i)
         init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0.0 : 1.0);
-        if(init(iSub)[i]<1.0) fprintf(stderr,"\tFlagging SubD %d Node %d as uninitialized\n",
-                                   subD[iSub]->getGlobSubNum(),subD[iSub]->getNodeMap()[i]+1);}
   next_init = init;
 
   int iter=0;
