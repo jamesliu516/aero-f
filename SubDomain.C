@@ -4831,7 +4831,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
         if(currentNode == neighborNode || init[neighborNode]<1.0 || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode)){
           continue;}
         int l = edges.findOnly(currentNode,neighborNode);
-        if(LSS.edgeIntersectsStructure(0.0,l) || !masterEdge[l]){continue;}
+        if(!masterEdge[l]){continue;}
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
           next_init[currentNode]=1.0;
