@@ -117,27 +117,11 @@ template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFS(DistSVec<double,dim> &U)
 {
   double tw = this->timer->getTime();
-  switch(this->phaseChangeChoice) {
-    case 0:
-      this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                     *this->VWeights, this->Phi, this->PhiWeights, this->distLSS, 
-                                                     this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-      break;
-    case 1:
-      this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                     *this->Wstarji, *this->Weights, *this->VWeights,
-                                                     this->Phi, this->PhiWeights, this->distLSS, this->fluidSelector.fluidIdn,
-                                                     this->fluidSelector.fluidId);
-      break;
-  }
-  //update phase-change
-  if(this->withCracking && this->withMixedLS)
-    this->multiPhaseSpaceOp->updatePhaseChange2(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights), 
-                                                this->distLSS, this->vfar, this->fluidSelector.fluidId);
-  else
-    this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights), 
-                                               this->distLSS, this->vfar, this->fluidSelector.fluidId);
-                                               // Vtemp should have been filled in with primitive state
+  this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+                                            *this->Weights, *this->VWeights, this->Phi, this->PhiWeights,
+                                            *this->Wstarij, *this->Wstarji, this->distLSS, this->vfar,
+                                            (this->withCracking && this->withMixedLS),
+                                            this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
   this->timer->addEmbedPhaseChangeTime(tw);
   this->com->barrier();
   this->timer->removeIntersAndPhaseChange(tw);

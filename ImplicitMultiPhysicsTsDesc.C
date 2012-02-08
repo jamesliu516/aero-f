@@ -184,29 +184,11 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
                        //  is meaningful. We destroy it so people wouldn't use it
                        //  by mistake later on.
 
-    //store previous states for phase-change update
-    tw = this->timer->getTime();
-    switch(this->phaseChangeChoice) {
-      case 0:
-        this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->Phi,this->PhiWeights,this->distLSS,
-                                                         this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-        break;
-      case 1:
-        this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                         *this->Wstarji, *this->Weights, *this->VWeights,
-                                                         this->Phi, this->PhiWeights, this->distLSS,
-                                                         this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-        break;
-    }
-    this->timer->addEmbedPhaseChangeTime(tw);
-    this->com->barrier();
-    this->timer->removeIntersAndPhaseChange(tw);
-
     //update phase-change
     tw = this->timer->getTime();
-    this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights),
-                                               this->distLSS, this->vfar, this->fluidSelector.fluidId);
+    this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp, *this->Weights, *this->VWeights,
+                                              this->Phi, this->PhiWeights, *this->Wstarij, *this->Wstarji,
+                                              this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
    
     this->timeState->getUn() = U;
 
@@ -219,32 +201,11 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
         fprintf(stderr,"*** Error: I ignored this case!\n");
         exit(1);  
       }
-
-      switch(this->phaseChangeChoice) {
-      case 0:
-        this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->Phi,this->PhiWeights,this->distLSS,
-                                                         this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-        break;
-      case 1:
-        this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Wstarij_nm1,
-                                                         *this->Wstarji_nm1, *this->Weights, *this->VWeights,
-                                                         this->Phi, this->PhiWeights, this->distLSS,
-                                                         this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-        break;
-    }
-    this->timer->addEmbedPhaseChangeTime(tw);
+      this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, Unm1, this->Vtemp, *this->Weights, *this->VWeights,
+                                                this->Phi, this->PhiWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
+                                                this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
 
       this->timer->addEmbedPhaseChangeTime(tw);
-      this->com->barrier();
-      this->timer->removeIntersAndPhaseChange(tw);
-
-      //update phase-change
-      tw = this->timer->getTime();
-      this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, Unm1, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights),
-                                                 this->distLSS, this->vfar, this->fluidSelector.fluidId);
-      this->timer->addEmbedPhaseChangeTime(tw);
-      this->com->barrier();
       this->timer->removeIntersAndPhaseChange(tw);
     }
 

@@ -169,10 +169,6 @@ public:
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                            DistLevelSetStructure *distLSS, DistVec<int> *fluidId =  0);
-  int updatePhaseChange(DistSVec<double,dim> &V,
-                         DistSVec<double,dim> &U,
-                         DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
-                         DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId = 0);
 
   void computeCellAveragedStructNormal(DistSVec<double,3> &, DistLevelSetStructure *);
 
@@ -408,27 +404,12 @@ public:
   // for phase-change update
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
   void extrapolatePhiV2(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
-  void updateSweptNodePhi(DistSVec<double,dimLS> *Phi, DistLevelSetStructure *distLSS,
-                          DistVec<int> *fluidId0, DistVec<int> *fluidId);
-  void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
-                                       DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                                       DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
-                                       DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, 
-                                       DistVec<int> *fluidId);
-  void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
-                           DistSVec<double,dim> &U, DistSVec<double,dim> &V,
-                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                           DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
-                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId);
-  void updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Weights, 
-                         DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
-                         DistSVec<double,dimLS> *PhiWeights,
-                         DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
-  void updatePhaseChange2(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Weights, 
-                          DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
-                          DistSVec<double,dimLS> *PhiWeights,
-                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
+  void updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                        DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
+                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                        DistLevelSetStructure *distLSS, double *vfar, bool updateWithCracking,
+                        DistVec<int> *fluidId0, DistVec<int> *fluidId);
   void resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, 
                                  DistSVec<bool,2> &Tag);
 };

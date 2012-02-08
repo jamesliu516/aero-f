@@ -206,11 +206,6 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
-    this->com->globalMin(1, &failSafe);
-    if(failSafe<0){ //if updatePhaseChange fails, -2 is returned
-      return failSafe;
-    }
-
     //this->timeState->update(U); 
     this->timeState->getUn() = U;
 
@@ -233,13 +228,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       this->timer->addEmbedPhaseChangeTime(tw);
       this->timer->removeIntersAndPhaseChange(tw);
 
-      this->com->globalMin(1, &failSafe);
-      if(failSafe<0){ //if updatePhaseChange fails, -2 is returned
-         return failSafe;
-      }
-
       this->timer->addEmbedPhaseChangeTime(tw);
-      this->com->barrier();
       this->timer->removeIntersAndPhaseChange(tw);
     }
 
