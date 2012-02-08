@@ -28,6 +28,14 @@ template<class ARFLOAT>
 class ARluNonSymStdEig:
   public virtual ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> > {
 
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::sigmaR;
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::sigmaI;
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::mode;
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::iparam;
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::objOP;
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::Restart;
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::NoShift;
+  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::ClearMem;
  public:
 
  // a) Public functions:
