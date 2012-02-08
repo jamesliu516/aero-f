@@ -773,11 +773,11 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
   // construct initial delWRom
   if (ioData->ts.form == TsData::DESCRIPTOR) {
-    DistSVec<double, dim> dummy(domain.getNodeDistInfo());
-    dummy = delWFull;
-    dummy *= controlVol;
+    DistSVec<double, dim> temp(domain.getNodeDistInfo());
+    temp = delWFull;
+    temp *= controlVol;
     for (i = 0; i < nPodVecs; i++)
-      delWRom[i] = podVecs[i] * dummy;
+      delWRom[i] = podVecs[i] * temp;
   }
   else {
     for (i = 0; i < nPodVecs; i++)
@@ -2785,14 +2785,14 @@ void ModalSolver<dim>::readPodVecs(VecSet<DistSVec<Scalar, dim> > &podVecs,
 template<int dim>
 void ModalSolver<dim>::checkROBType(VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs) {
 
-  DistSVec<double, dim> dummy(domain.getNodeDistInfo());  
+  DistSVec<double, dim> temp(domain.getNodeDistInfo());  
   FullM B(nPodVecs);
   if (ioData->ts.form == TsData::DESCRIPTOR) {
     for (int i = 0; i < nPodVecs; ++i){
-      dummy = podVecs[i];
-      dummy *= controlVol;
+      temp = podVecs[i];
+      temp *= controlVol;
       for (int j = 0; j < nPodVecs; ++j)
-        B[j][i] = podVecs[j]*dummy;
+        B[j][i] = podVecs[j]*temp;
       B[i][i] -= 1.0;
     } 
   }
@@ -3221,8 +3221,8 @@ void ModalSolver<dim>::ROBInnerProducts()
     com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
     exit (-1);
   }
-  int nROB;
-  int nLoadMax;
+
+  int nROB, nLoadMax;
   fscanf(inFP, "%d",&nROB);
   fscanf(inFP, "%d",&nLoadMax);
 
@@ -3232,11 +3232,12 @@ void ModalSolver<dim>::ROBInnerProducts()
     fscanf(inFP, "%s", ROBFile[iROB]);
   }
 
-  //open output file
+  //inner products output file
   if (ioData->output.transient.robProductFile[0] == 0)  {
     com->fprintf(stderr, "*** ERROR: ROB Inner Products Output File not specified\n");
     exit (-1);
   }  
+
   int sp = strlen(ioData->output.transient.prefix);
   char *outputFile = new char[sp + strlen(ioData->output.transient.robProductFile)+1];
   sprintf(outputFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.robProductFile);
@@ -3248,16 +3249,16 @@ void ModalSolver<dim>::ROBInnerProducts()
 
   //allocate memory for ROBs
   VecSet< DistSVec<double, dim> > **rob = new VecSet< DistSVec<double, dim> >*[nLoadMax];
-  for (int iROB=0; iROB < nLoadMax; ++iROB)
+  for (int iROB = 0; iROB < nLoadMax; ++iROB)
     rob[iROB]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
 
  // array to keep track of computed products
  int **computedProds = new int*[nROB];
- for (int iROB=0; iROB < nROB; ++iROB) 
+ for (int iROB = 0; iROB < nROB; ++iROB) 
     computedProds[iROB] = new int[nROB];
 
- for (int iROB=0; iROB < nROB; ++iROB) {
-   for (int jROB=0; jROB < iROB; ++jROB) {
+ for (int iROB = 0; iROB < nROB; ++iROB) {
+   for (int jROB = 0; jROB < iROB; ++jROB) {
      computedProds[iROB][jROB] = 0;
      computedProds[jROB][iROB] = 0;
    }
@@ -3270,14 +3271,15 @@ void ModalSolver<dim>::ROBInnerProducts()
  ROBInnerProductSchedule(cache, nROB, nLoadMax, nSteps);
 
  int iROB1, iROB2; 
- for (int iStep=0; iStep < nSteps; ++iStep) {
+ DistSVec<double, dim> temp(domain.getNodeDistInfo());
+ for (int iStep = 0; iStep < nSteps; ++iStep) {
 
-   // read additional ROBs
-   for (int iData=0; iData<nLoadMax; ++iData) {
+   // read ROBs
+   for (int iData = 0; iData<nLoadMax; ++iData) {
      
      iROB1 = cache[iStep+1][iData];
      iROB2 = cache[iStep][iData];
-     if (iROB1!=iROB2) {
+     if (iROB1 != iROB2) { // need to load ROB
        domain.readVectorFromFile(ROBFile[iROB1], 0, &eig[0], (*rob[iData])[0] );
        if (numPod > eig[0])  {
          com->fprintf(stderr, "*** Warning: Resetting number of loaded POD vectors from %d to %d\n", numPod, (int) eig[0]);        
@@ -3290,20 +3292,31 @@ void ModalSolver<dim>::ROBInnerProducts()
    }
 
  
-   for (int iData1=0; iData1<nLoadMax; ++iData1) {
-     for (int iData2=0; iData2<iData1; ++iData2) {
+   for (int iData1 = 0; iData1 < nLoadMax; ++iData1) {
+     for (int iData2 = 0; iData2 < iData1; ++iData2) {
        iROB1 = cache[iStep+1][iData1];
        iROB2 = cache[iStep+1][iData2];
        if (!computedProds[iROB1][iROB2]) {
- 
         // compute inner product
          com->fprintf(stderr,"computing inner product between ROBs #%d and #%d\n",iROB1,iROB2);
 
-         for (int j = 0; j < numPod; j++){
-           for (int k = 0; k < numPod; k++)
-             matVals[j*numPod + k] = ((*rob[iData1])[k]) * ((*rob[iData2])[j]);
-   // change here for Descriptor case DJA
-   }
+         switch (ioData->ts.form) {
+           case TsData::DESCRIPTOR: {
+             for (int j = 0; j < numPod; j++) {
+               temp = (*rob[iData2])[j];
+               temp *= controlVol;
+               for (int k = 0; k < numPod; k++) {
+                 matVals[j*numPod + k] = ((*rob[iData1])[k]) * temp;
+               }
+             }
+             break; }
+           case TsData::NONDESCRIPTOR: {
+             for (int j = 0; j < numPod; j++) {
+               for (int k = 0; k < numPod; k++) 
+                 matVals[j*numPod + k] = ((*rob[iData1])[k]) * ((*rob[iData2])[j]);
+             }
+             break; }
+         }                   
          computedProds[iROB1][iROB2] = 1;
          computedProds[iROB2][iROB1] = 1;
 
