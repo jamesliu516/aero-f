@@ -3343,6 +3343,7 @@ void ModalSolver<dim>::ROBInnerProducts()
  }
  
  int nSteps = ROBInnerProductSteps(nROB, nLoadMax); //number of steps
+ com->fprintf(stderr,"Inner Products Computation in %d Steps\n",nSteps+1);
  int **cache = new int *[nSteps+1]; 
  
  ROBInnerProductSchedule(cache, nROB, nLoadMax, nSteps);
