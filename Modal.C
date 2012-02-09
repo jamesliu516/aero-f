@@ -3060,7 +3060,6 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
      cache[1][j] = j+1;
    return;
   }
-
    //Fill the second column with 1:Nmax
    for (int j = 0; j < Nmax; ++j)
      cache[1][j] = j+1;
@@ -3109,7 +3108,6 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
         SU[i] = 3;
      }
   }
-
 ////////////New Stuff////////////
 /////////////////////////////////////////////////////////////////////////
   //Update the cache for the next pass.  Take the first Nmax-1 available
@@ -3163,7 +3161,6 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
   //Loop over each available element-> all other passes
   int maxLoc = 0;
   inc = 0;
-
   while (1){
      ++inc;
      nAv = (int) count (SU, SU+n, 3);
@@ -3280,7 +3277,6 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
      if (count(SU,SU+n,2) == n || count(SU,SU+n,3) == 0)
        break;
   }
-
   delete [] SU;
 }
 //------------------------------------------------------------------------------
@@ -3345,12 +3341,11 @@ void ModalSolver<dim>::ROBInnerProducts()
    }
    computedProds[iROB][iROB] = 1;
  }
-
+ 
  int nSteps = ROBInnerProductSteps(nROB, nLoadMax); //number of steps
- int **cache = new int *[nSteps+1]; //first column of cache should have all zeros
+ int **cache = new int *[nSteps+1]; 
  
  ROBInnerProductSchedule(cache, nROB, nLoadMax, nSteps);
-
  int iROB1, iROB2; 
  DistSVec<double, dim> temp(domain.getNodeDistInfo());
  for (int iStep = 0; iStep < nSteps; ++iStep) {
@@ -3360,7 +3355,7 @@ void ModalSolver<dim>::ROBInnerProducts()
      
      iROB1 = cache[iStep+1][iData];
      iROB2 = cache[iStep][iData];
-     if (iROB1 != iROB2) { // need to load ROB
+     if (iROB1 > 0 && iROB1 != iROB2) { // need to load ROB
        domain.readVectorFromFile(ROBFile[iROB1], 0, &eig[0], (*rob[iData])[0] );
        if (numPod > eig[0])  {
          com->fprintf(stderr, "*** Warning: Resetting number of loaded POD vectors from %d to %d\n", numPod, (int) eig[0]);        
