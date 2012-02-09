@@ -1044,6 +1044,8 @@ struct MultiFluidData {
 
   SparseGridData sparseGrid;
 
+  int testCase;
+
   MultiFluidData();
   ~MultiFluidData() {}
   void setup(const char *, ClassAssigner * = 0);

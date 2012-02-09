@@ -4256,3 +4256,11 @@ void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length = 1) {
 	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
 }
 
+template<int dim>
+void Domain::setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->setCutCellData(V(iSub), fid(iSub));
+  }
+}

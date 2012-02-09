@@ -1210,7 +1210,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	
 
         riemann->computeRiemannSolution(Vir,Vjr,fluidId[i],fluidId[j],gradphi,varFcn,
-	  			      Wir,Wjr,i,j,i,dx);
+					Wir,Wjr,i,j,i,dx,false);
 
 	memcpy(Wi, Wir, sizeof(double)*dim);
 	memcpy(Wj, Wjr, sizeof(double)*dim);
@@ -1290,7 +1290,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vjr);
 
         riemann->computeRiemannSolution(Vir,Vjr,fluidId[i-1],fluidId[j+1],gradphi,varFcn,
-	  			        Wir,Wjr,i,j,i,dx);
+	  			        Wir,Wjr,i,j,i,dx,false);
 
         if (interfaceExtrapolation == 1) {
           if (cutCellStatus[j] == 1) {

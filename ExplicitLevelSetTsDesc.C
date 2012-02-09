@@ -87,7 +87,10 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
   double t0 = this->timer->getTime();
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  if (this->lsMethod == 0) {
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  }
+
   computeRKUpdate(U, k1,1);
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
@@ -126,7 +129,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
   this->domain->computePrdtPhiCtrlVolRatio(ratioTimesPhi, this->Phi, *this->A, *this->geoState);
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  if (this->lsMethod == 0) {
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  }
   // *** prediction step ***
   computeRKUpdate(U, k1,1);
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
@@ -189,7 +194,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
   double t0 = this->timer->getTime();
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  if (this->lsMethod == 0) {
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  }
   // *** prediction step ***
   computeRKUpdate(U, k1,1);
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
@@ -294,7 +301,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
 {
   this->domain->computePrdtWCtrlVolRatio(ratioTimesU, U, *this->A, *this->geoState);
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  if (this->lsMethod == 0) {
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  }
 
   computeRKUpdate(U, k1,1);
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
@@ -316,7 +325,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK4(DistSVec<double,dim> &U)
 {
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  if (this->lsMethod == 0) {
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  }
 
   computeRKUpdate(U, k1, 1);
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
@@ -402,11 +413,24 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,dim> 
 
 template<int dim, int dimLS>
 void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
-                                  DistSVec<double,dim>& dU, int it)
+							DistSVec<double,dim>& dU, int it)
 {
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(Ulocal);
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, this->fluidSelector, 
-                                 dU, this->riemann,it);
+
+  DistSVec<double,dimLS>& locphi = this->Phi;
+  if (this->lsMethod == 0)
+    locphi = this->PhiV;
+
+  if (this->interfaceOrder == 2) {
+    this->multiPhaseSpaceOp->findCutCells(locphi,
+					  this->cutCellStatus,
+					  *this->fluidSelector.fluidId,
+					  Ulocal,
+					  *this->X);
+  }
+
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, locphi, this->fluidSelector, 
+					   dU, this->riemann,it);
                                  //Q: why send PhiV?
                                  //A: Riemann solver needs gradPhi.
   // for RK2 on moving grids

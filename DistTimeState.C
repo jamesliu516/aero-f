@@ -470,6 +470,25 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
     }
   }
 
+  // Test case one:
+  // p = 1+10^8(x-0.2)^4*(x-0.6)^4, [x = (0.2,0.6)]
+  if (iod.mf.testCase == 1) {
+    
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      SVec<double,dim> &u((*Un)(iSub));
+      SVec<double, 3> &x(X(iSub));
+      for(int i=0; i<X.subSize(iSub); i++) {
+	double press = 1.0;
+	if (x[i][0] > 0.2 && x[i][0] < 0.6)
+	  press += 1.0e8*pow(x[i][0]-0.2,4.0)*pow(x[i][0]-0.6,4.0);
+	double v[dim];
+	v[0] = u[i][0];
+	v[4] = press / iod.ref.rv.pressure;
+	varFcn->primitiveToConservative(v, u[i], (x[i][0] < 0.4 ? 0 : 1) );
+      }
+    }
+  }
 }
 //------------------------------------------------------------------------------
 

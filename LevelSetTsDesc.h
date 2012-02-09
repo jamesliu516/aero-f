@@ -5,6 +5,8 @@
 
 #include <ProgrammedBurn.h>
 
+#include <HigherOrderMultiFluid.h>
+
 class IoData;
 class GeoSource;
 class Domain;
@@ -48,6 +50,12 @@ class LevelSetTsDesc : public TsDesc<dim> {
   bool requireSpecialBDF;
 
   int lsMethod;
+
+  int interfaceOrder;
+
+  DistVec<HigherOrderMultiFluid::CutCellState*> cutCellVec;
+
+  DistVec<int> cutCellStatus;
 
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
