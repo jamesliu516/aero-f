@@ -1211,14 +1211,14 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
 
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub) {
+      int* locToGlobNodeMap = subD[iSub]->getNodeMap();
       for(int i=0;i<init(iSub).size();++i)
         if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
-          if(!(*distLSS)(iSub).isActive(0.0,i)) {
-            for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-          } else {
-            const double one_over_weight=(double)1.0/Weights(iSub)[i];
-            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
-          }
+          const double one_over_weight=(double)1.0/Weights(iSub)[i];
+          for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+        //  fprintf(stderr,"Detected change in node %d (%d); New Value = [%e, %e, %e, %e, %e]\n",
+	//		  locToGlobNodeMap[i]+1,(*fluidId)(iSub)[i],
+	//		  V(iSub)[i][0],V(iSub)[i][1],V(iSub)[i][2],V(iSub)[i][3],V(iSub)[i][4]);
         }
     }
 
@@ -1231,6 +1231,16 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
     com->globalOp(1,&finished,MPI_LAND);
   }
 
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub){
+    int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+    for(int i=0;i<init(iSub).size();++i)
+      if(init(iSub)[i] < 1.0){
+        for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+	//fprintf(stderr,"Detected change in node %d (%d); New Value = [%e, %e, %e, %e, %e]\n",
+	//		locToGlobNodeMap[i]+1,(*fluidId)(iSub)[i],
+	//		V(iSub)[i][0],V(iSub)[i][1],V(iSub)[i][2],V(iSub)[i][3],V(iSub)[i][4]);
+      }}
   varFcn->primitiveToConservative(V, U, fluidId);
 }
 
@@ -2324,7 +2334,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
   int iSub, numLocSub = this->domain->getNumLocSub();
   DistVec<double> init(this->domain->getNodeDistInfo()),next_init(this->domain->getNodeDistInfo());
   SubDomain **subD = this->domain->getSubDomain();
-  this->varFcn->conservativeToPrimitive(U, V, fluidId);
+  this->varFcn->conservativeToPrimitive(U, V, fluidId0);
   Weights = 0.0; VWeights = 0.0; PhiWeights = 0.0;
 
 #pragma omp parallel for
@@ -2351,14 +2361,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
           if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
-            if(!(*distLSS)(iSub).isActive(0.0,i)) {
-              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //not really needed.
-            } else {
-              const double one_over_weight=(double)1.0/Weights(iSub)[i];
-              for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
-            }
+            const double one_over_weight=(double)1.0/Weights(iSub)[i];
+            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+            for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
           }
       }
     } else {
@@ -2366,19 +2371,14 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
           if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
-            if(!(*distLSS)(iSub).isActive(0.0,i)) {
-              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //not really needed.
-            } else {
-              const double one_over_weight=(double)1.0/Weights(iSub)[i];
-              for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+            const double one_over_weight=(double)1.0/Weights(iSub)[i];
+            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
 
-              Phi(iSub)[i][0] = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
-              if(Phi(iSub)[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
-              if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
+            Phi(iSub)[i][0] = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
+            if(Phi(iSub)[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
+            if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
 
-              for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
-            }
+            for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
           }
       }
   }
@@ -2391,6 +2391,14 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
     init = next_init;
     this->com->globalOp(1,&finished,MPI_LAND);
   }
+
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub)
+    for(int i=0;i<init(iSub).size();++i)
+      if(init(iSub)[i] < 1.0){
+        for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+	for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //not really needed.
+      }
 
   this->varFcn->primitiveToConservative(V, U, fluidId);
 }

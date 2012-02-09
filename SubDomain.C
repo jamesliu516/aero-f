@@ -4837,10 +4837,14 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
           next_init[currentNode]=1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
+	//  fprintf(stderr,"Node %d Giving Node %d [%e %e %e %e %e]\n",locToGlobNodeMap[neighborNode]+1,locToGlobNodeMap[currentNode]+1,
+	//		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
+        //  fprintf(stderr,"Node %d Giving Node %d [%e %e %e %e %e]\n",locToGlobNodeMap[neighborNode]+1,locToGlobNodeMap[currentNode]+1,
+	//		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         }
       }
     }
@@ -4875,12 +4879,18 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
             VWeights[currentNode][i] = V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] = Phi[neighborNode][i];
+        //   fprintf(stderr,"Node %d (%d) Giving Node %d (%d) [%e %e %e %e %e]\n",
+	// 		  locToGlobNodeMap[neighborNode]+1,fluidId[neighborNode],locToGlobNodeMap[currentNode]+1,fluidId[currentNode],
+	// 		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] += Phi[neighborNode][i];
+          // fprintf(stderr,"Node %d (%d) Giving Node %d (%d) [%e %e %e %e %e]\n",
+	  //       	  locToGlobNodeMap[neighborNode]+1,fluidId[neighborNode],locToGlobNodeMap[currentNode]+1,fluidId[currentNode],
+	  //       	  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         }
       }
     }
