@@ -3110,7 +3110,38 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
      }
   }
 
+////////////New Stuff////////////
+/////////////////////////////////////////////////////////////////////////
   //Update the cache for the next pass.  Take the first Nmax-1 available
+  //there is already 1 element in the cache we will need again.
+  int inc = 0;
+  for (i = 0; i < n; ++i){
+     if (SU[i] == 3 && inc < Nmax-1){
+        //Put the Nmax-1 smallest available elements in cache
+        SU[i] = 1;
+        ++inc;
+     }
+     //If i is in the previous cache, put it in the same position
+     if (SU[i] == 1){
+        for (j = 0; j < Nmax; ++j){
+           if (cache[cnt][j] == i+1)
+              cache[cnt+1][j] = i+1;
+        }
+     }
+  }
+  //Otherwise, put it in the first available position.
+  for (i = 0; i < n; ++i){
+     if (SU[i] == 1 && count(cache[cnt+1], cache[cnt+1]+Nmax, i+1) == 0){
+        for (j = 0; j < Nmax; ++j){
+           if (cache[cnt+1][j] == 0){
+             cache[cnt+1][j] = i+1;
+             break;
+           }
+        }
+     }
+  }
+///////////////////////////////////////////////////////////////////////////
+/*  //Update the cache for the next pass.  Take the first Nmax-1 available
   //there is already 1 element in the cache we will need again.
   int inc = 0;
   int inc2 = 0;
@@ -3125,10 +3156,12 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
         cache[cnt+1][inc2] = i+1;
         ++inc2;
      }
-   }
+   }*/
+
    ++cnt;
 
   //Loop over each available element-> all other passes
+  int maxLoc = 0;
   inc = 0;
 
   while (1){
@@ -3136,7 +3169,17 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
      nAv = (int) count (SU, SU+n, 3);
      for (i = 0; i < nAv; ++i){
 
-      M_Cache = cache[cnt][Nmax-1];
+///////////////////////////////////////////////////////////////////////////
+      M_Cache = 0;
+       //Determine max element in cache and its location
+       for (j = 0; j < Nmax; ++j){
+          if (cache[cnt][j] > M_Cache){
+             M_Cache = cache[cnt][j];
+             maxLoc  = j;
+          }
+       }
+///////////////////////////////////////////////////////////////////////////
+     // M_Cache = cache[cnt][Nmax-1];
 
       //Depending on which pass we are on, take either the maximum
       //or minimum element from the available pile
@@ -3156,10 +3199,16 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
 
        M_Avail = j+1;
 
+///////////////////////////////////////////////////////////////////////////
        //Update cache
+       for (int k = 0; k < Nmax; ++k)
+         cache[cnt+1][k] = cache[cnt][k];
+       cache[cnt+1][maxLoc] = M_Avail;
+///////////////////////////////////////////////////////////////////////////
+/*       //Update cache
        for (int k = 0; k < Nmax-1; ++k)
          cache[cnt+1][k] = cache[cnt][k];
-       cache[cnt+1][Nmax-1] = M_Avail;
+       cache[cnt+1][Nmax-1] = M_Avail; */
 
        SU[M_Cache-1] = 0;
        SU[M_Avail-1] = 1;
@@ -3177,6 +3226,38 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
         }
      }
 
+
+///////////////////////////////////////////////////////////////////////////
+     //Update the cache for the next pass.  Take the first Nmax-1 available
+     //there is already 1 element in the cache we will need again.
+     int inc1 = 0;
+     for (i = 0; i < n; ++i){
+        if (SU[i] == 3 && inc1 < Nmax-1){
+           //Put the Nmax-1 smallest available elements in cache
+           SU[i] = 1;
+           ++inc1;
+        }
+        //If i is in the previous cache, put it in the same position
+        if (SU[i] == 1){
+           for (j = 0; j < Nmax; ++j){
+              if (cache[cnt][j] == i+1)
+                 cache[cnt+1][j] = i+1;
+           }
+        }
+     }
+     //Otherwise, put it in the first available position.
+     for (i = 0; i < n; ++i){
+        if (SU[i] == 1 && count(cache[cnt+1], cache[cnt+1]+Nmax, i+1) == 0){
+           for (j = 0; j < Nmax; ++j){
+              if (cache[cnt+1][j] == 0){
+                cache[cnt+1][j] = i+1;
+                break;
+              }
+           }
+        }
+     }
+///////////////////////////////////////////////////////////////////////////
+/*
      //Update the cache for the next pass.  Take the first Nmax-1 available
      //there is already 1 element in the cache we will need again.
      int inc1 = 0;
@@ -3193,7 +3274,7 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
            ++inc2;
         }
      }
-
+*/
      ++cnt;
 
      if (count(SU,SU+n,2) == n || count(SU,SU+n,3) == 0)
