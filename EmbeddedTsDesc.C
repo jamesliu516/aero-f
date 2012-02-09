@@ -185,16 +185,36 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 
   //only for IncreasePressure
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    implosionSetupType = EmbeddedTsDesc<dim>::LINEAR;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP)
+    implosionSetupType = EmbeddedTsDesc<dim>::SMOOTHSTEP;
+  else {
+    this->com->fprintf(stderr,"ERROR: ImplosionSetup::Type = %d. Code not supported!\n", ioData.implosion.type);
+    implosionSetupType = EmbeddedTsDesc<dim>::NONE;
+    exit(-1);
+  }
+
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
+  Pfinal = ioData.bc.inlet.pressure;
+
   Pscale = ioData.ref.rv.pressure;
   intersector_freq = ioData.implosion.intersector_freq;
-  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP) {
+    tmax = ioData.implosion.tmax;
+    if(tmax<=0.0) {
+      this->com->fprintf(stderr,"ERROR: ImplosionSetup::Tmax = %e!\n", tmax);
+      exit(-1);
+    }
+  }
+
   if(intersector_freq<1) {
     this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
     exit(-1);
   }
-
 
   globIt = -1;
   inSubCycling = false;
@@ -294,7 +314,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // If 'IncreasePressure' is activated, re-initialize the fluid state
   if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
     increasingPressure = true;
-    this->domain->IncreasePressure(Pinit+(this->getInitialTime())*Prate, this->varFcn, *U, nodeTag);
+    this->domain->IncreasePressure(currentPressure(this->getInitialTime()), this->varFcn, *U, nodeTag);
   }
  
   //compute force
@@ -696,8 +716,9 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     }
   }
 
-  this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
-  this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, nodeTag);
+  double pnow = currentPressure(t);;
+  this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
+  this->domain->IncreasePressure(pnow, this->varFcn, U, nodeTag);
 
   return false;
 
@@ -712,12 +733,22 @@ void EmbeddedTsDesc<dim>::fixSolution(DistSVec<double,dim>& U,DistSVec<double,di
     this->domain->fixSolution(this->varFcn,U,dU,&this->nodeTag);
 }
 
+//------------------------------------------------------------------------------
 
-
-
-
-
-
-
-
+template<int dim>
+double EmbeddedTsDesc<dim>::currentPressure(double t)
+{
+  double p;
+  if(implosionSetupType==EmbeddedTsDesc<dim>::LINEAR)
+    p = Pinit + t*Prate;
+  else if(implosionSetupType==EmbeddedTsDesc<dim>::SMOOTHSTEP) {
+    double tbar = t/tmax;
+    //fprintf(stderr,"t = %e, tmax = %e, tbar = %e.\n", t, tmax, tbar);
+    p = Pinit + (Pfinal - Pinit)*tbar*tbar*tbar*(10.0-15.0*tbar+6.0*tbar*tbar);
+  } else {
+    this->com->fprintf(stderr,"ERROR! ImplosionSetup::Type = %d NOT recognized!\n", implosionSetupType);
+    exit(-1);
+  }
+  return p;
+}
 
