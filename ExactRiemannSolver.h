@@ -29,6 +29,8 @@ class ExactRiemannSolver{
   int levelSetMap[10][10];
   double levelSetSign[10][10];
 
+  bool isHigherOrder;
+
   public:
 
   ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, 
@@ -47,7 +49,8 @@ class ExactRiemannSolver{
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi, VarFcn *vf,
                               double *Wi, double *Wj,
-                              int i, int j, int edgeNum, double dx[3]);
+                              int i, int j, int edgeNum, double dx[3],
+			      bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi, VarFcn *vf,

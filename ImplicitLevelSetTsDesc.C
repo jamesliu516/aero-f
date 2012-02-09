@@ -196,7 +196,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->Phi, 
 					     this->fluidSelector, F, this->riemann, 1);
   }
-
+  
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
 }

@@ -1212,9 +1212,10 @@ public:
 
   template<int dimLS>
     void findCutCells(int lsdim,
-		      SVec<double,dimLS>& phi,Vec<int>& cutStatus);
+		      SVec<double,dimLS>& phi,Vec<int>& cutStatus,
+		      SVec<double,3>& X);
 
-  template <int dim>
+  template<int dim>
   void setCutCellFlags(int lsdim, Vec<int>& status);
 
   int getNumCutCells();
@@ -1225,7 +1226,17 @@ public:
 			    Vec<int>* counts[2],
 			    NodalGrad<dim,double>& grad, Vec<int>& fluidId,
 			    SVec<double,dim>& V,SVec<double,3>& X);
-  
+
+  template <int dim>
+    void storeCutCellData(SVec<double,dim>* cutCell[2],
+			  NodalGrad<dim,double>* cutGrad[2],
+			  Vec<int>* counts[2], Vec<int>& fluidId);
+
+  void createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>&);
+
+  template<int dim>
+    void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);
+
 };
 //------------------------------------------------------------------------------
 

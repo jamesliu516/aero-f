@@ -3,8 +3,9 @@
  */
 
 inline
-HigherOrderMultiFluid::HigherOrderMultiFluid() {
-
+HigherOrderMultiFluid::HigherOrderMultiFluid(Vec<CutCellState*>& vs) : cutCells(vs) {
+  
+  cutCells = static_cast<CutCellState*>(0);
 }
 
 inline
@@ -158,8 +159,8 @@ computeCutCellExtrapolations(int cutCellId,int fidi,int fidj, const double iloc[
     Vi[i] = static_cast<CutCellStateData<dim>*>(C->cutCellData)->V[fidi][i];
     Vj[i] = static_cast<CutCellStateData<dim>*>(C->cutCellData)->V[fidj][i];
     for (int l = 0; l < 3; ++l) {
-      Vi[i] += static_cast<CutCellStateData<dim>*>(C->cutCellData)->dV[fidi][i][l]*(iloc[i]-x0[i]);
-      Vj[i] += static_cast<CutCellStateData<dim>*>(C->cutCellData)->dV[fidj][i][l]*(iloc[i]-x0[i]);
+      Vi[i] += static_cast<CutCellStateData<dim>*>(C->cutCellData)->dV[fidi][i][l]*(iloc[l]-x0[l]);
+      Vj[i] += static_cast<CutCellStateData<dim>*>(C->cutCellData)->dV[fidj][i][l]*(iloc[l]-x0[l]);
     }
   }
 }
@@ -168,15 +169,25 @@ template <int dim>
 void HigherOrderMultiFluid::
 setCutCellFlags(int lsdim, Vec<int>& status) {
 
-  for (int i = 0; i < cutCells.size(); ++i) {
-   
-    cutCells[i] = new CutCellState;
+  for (int i = 0; i < status.size(); ++i) {
     
-    cutCells[i]->cutCellData = new CutCellStateData<dim>;
-    cutCells[i]->fid1 = 0;
-    cutCells[i]->fid2 = lsdim+1;
+    if (status[i]) {
+      if (!cutCells[i]) {
+	cutCells[i] = new CutCellState;
+      
+	cutCells[i]->cutCellData = new CutCellStateData<dim>;
+      }
+      cutCells[i]->fid1 = 0;
+      cutCells[i]->fid2 = lsdim+1;
+      
+      numCutCells++;
+    } else if (cutCells[i]) {
 
-    numCutCells++;
+      delete (static_cast<CutCellStateData<dim>*>(cutCells[i]->cutCellData));
+      delete (cutCells[i]);
+      cutCells[i] = 0;
+      
+    }
   }
 }
 
@@ -201,4 +212,44 @@ inline
 int HigherOrderMultiFluid::getNumCutCells() {
 
   return numCutCells;
+}
+
+template <int dim>
+void HigherOrderMultiFluid::storeCutCellData(SVec<double,dim>* cutCell[2],
+					     NodalGrad<dim,double>* cutGrad[2],
+					     Vec<int>* counts[2]) {
+
+  for (int i = 0; i < cutCells.size(); ++i) {
+
+    if (!cutCells[i])
+      continue;
+
+    CutCellStateData<dim>* data = static_cast<CutCellStateData<dim>*>(cutCells[i]->cutCellData);
+
+    for (int l = 0; l < 2; ++l) {
+      for (int k = 0; k < dim; ++k) {
+	data->V[l][k] = cutCell[l]->operator[](i)[k] / counts[l]->operator[](i);
+	data->dV[l][k][0] = cutGrad[l]->getX()[i][k] /  counts[l]->operator[](i);
+	data->dV[l][k][1] = cutGrad[l]->getY()[i][k] /  counts[l]->operator[](i);
+	data->dV[l][k][2] = cutGrad[l]->getZ()[i][k] /  counts[l]->operator[](i);
+      }
+    }
+  }
+}
+
+template<int dim>
+void HigherOrderMultiFluid::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
+
+  for (int i = 0; i < cutCells.size(); ++i) {
+
+    if (!cutCells[i])
+      continue;
+
+    CutCellStateData<dim>* data = static_cast<CutCellStateData<dim>*>(cutCells[i]->cutCellData);
+
+    int fididx = (fid[i] == 0 ? 0 : 1);
+    for (int k = 0; k < dim; ++k) {
+      V[i][k] = data->V[fididx][k];
+    }
+  }     
 }

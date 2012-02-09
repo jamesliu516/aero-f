@@ -36,7 +36,8 @@ LevelSetTsDesc<dim,dimLS>::
 LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
-  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo())
+  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo()),
+  cutCellVec(this->getVecInfo()),cutCellStatus(this->getVecInfo())
 
 {
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -65,6 +66,13 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if (numBurnableFluids > 0) {
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
+  }
+
+  interfaceOrder = 1;
+  if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
+
+    dom->createHigherOrderMultiFluid(cutCellVec);
+    interfaceOrder = 2;
   }
 }
 
@@ -160,7 +168,12 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
   }
 
   fluidSelector.update();
- 
+
+  this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
+  this->domain->setCutCellData(this->V0, *this->fluidSelector.fluidId);
+  this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
+
+
   this->timeState->update(U,Utilde,  *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
 
 

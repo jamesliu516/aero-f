@@ -339,3 +339,11 @@ void FaceSet::computeConnectedFaces(const std::vector<int> &locSampleNodes)
 	numSampledFaces = facesConnectedToSampleNode.size();
 	int tmp;
 }
+
+void FaceSet::attachHigherOrderMF(class HigherOrderMultiFluid* mf) {
+
+  higherOrderMF = mf;
+  for(int l=0; l<numFaces; ++l) {
+    faces[l]->attachHigherOrderMF(mf);
+  }
+}

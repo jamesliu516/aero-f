@@ -6479,7 +6479,8 @@ void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
 
 template<int dimLS>
 void SubDomain::findCutCells(int lsdim,
-			     SVec<double,dimLS>& phi,Vec<int>& cutStatus) {  
+			     SVec<double,dimLS>& phi,Vec<int>& cutStatus,
+			     SVec<double,3>& X) {  
 
   int (*edgePtr)[2] = edges.getPtr();
 
@@ -6492,10 +6493,14 @@ void SubDomain::findCutCells(int lsdim,
       continue;
     
     double s = -phii[lsdim]/(phij[lsdim]-phii[lsdim]);
-    if (s < 0.25)
+    if (s < 0.1)
       cutStatus[i] = 1;
-    else if (s > 0.75)
+    else if (s > 0.9)
       cutStatus[j] = 1;
+    if (cutStatus[i] || cutStatus[j])
+      std::cout << i << " " << j << " " << 
+	phii[lsdim] << " " << phij[lsdim] << " (" << X[i][0] << " " << X[j][0] << ")" << std::endl;
+      
   }
 
 }
@@ -6540,19 +6545,19 @@ void SubDomain::collectCutCellData(SVec<double,dim>* cutCell[2],
 	continue;
       }
       
-      fid = fluidId[i];
+      fid = fluidId[j];
       cutnode = i;
       for (int k = 0; k < dim; ++k) {
 	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
 	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
-	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+			    grad.getZ()[j][k]*(X[i][2]-X[j][2]);
 	newgrad[k][0] = grad.getX()[j][k];
 	newgrad[k][1] = grad.getY()[j][k];
 	newgrad[k][2] = grad.getZ()[j][k];
       }
     } else if (higherOrderMF->isCellCut(j)) {
 
-      fid = fluidId[j];
+      fid = fluidId[i];
       cutnode = j;
       for (int k = 0; k < dim; ++k) {
 	Vext[k] = V[i][k] + grad.getX()[i][k]*(X[j][0]-X[i][0])+ 
@@ -6567,7 +6572,9 @@ void SubDomain::collectCutCellData(SVec<double,dim>* cutCell[2],
       continue;
 
     int fididx = (fid == 0? 0 : 1);
-    ++counts[fididx]->operator[](cutnode);
+    ++(counts[fididx]->operator[](cutnode));
+    //std::cout << i << " " << j << " " << fididx << " " << l << " " <<
+    //  X[i][0] << " " << X[j][0] << std::endl;
     for (int k = 0; k < dim; ++k) {
       cutCell[fididx]->operator[](cutnode)[k] += Vext[k];
       cutGrad[fididx]->getX()[cutnode][k] += newgrad[k][0];
@@ -6655,3 +6662,18 @@ void SubDomain::collectCutCellData2() {
   }
 }
 */
+
+template <int dim>
+void SubDomain::storeCutCellData(SVec<double,dim>* cutCell[2],
+				 NodalGrad<dim,double>* cutGrad[2],
+				 Vec<int>* counts[2], Vec<int>& fluidId) {
+  
+  higherOrderMF->template storeCutCellData<dim>(cutCell,cutGrad, counts);
+
+}
+
+template<int dim>
+void SubDomain::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
+
+  higherOrderMF->template setCutCellData<dim>(V, fid);
+}

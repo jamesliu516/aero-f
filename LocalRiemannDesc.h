@@ -49,7 +49,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
@@ -90,7 +90,7 @@ void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-    double dx[3], int it)
+						    double dx[3], int it,bool isHigherOrder)
 {
 
   for (int i=0; i<10; i++){
@@ -114,7 +114,7 @@ void computeRiemannSolution(double *Vi, double *Vj,
                             double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej, 
                             double &weighti, double &weightj,
-                            double dx[3], int it);
+                            double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
@@ -155,7 +155,7 @@ void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-    double dx[3], int it)
+    double dx[3], int it,bool isHigherOrder)
 {
 
   for (int i=0; i<10; i++){
@@ -209,7 +209,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
@@ -250,7 +250,7 @@ void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-    double dx[3], int it)
+    double dx[3], int it,bool isHigherOrder)
 {
 
   for (int i=0; i<10; i++){
@@ -274,7 +274,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
@@ -311,11 +311,11 @@ private:
 
 inline
 void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
-    int IDi, int IDj, double *nphi,
-    double *initWi, double *initWj,
-    double *Wi, double *Wj,
-    double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-    double dx[3], int it)
+						    int IDi, int IDj, double *nphi,
+						    double *initWi, double *initWj,
+						    double *Wi, double *Wj,
+						    double *rupdatei, double *rupdatej, double &weighti, double &weightj,
+						    double dx[3], int it,bool isHigherOrder)
 {
 
   for (int i=0; i<10; i++){
@@ -344,7 +344,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi,
@@ -393,7 +393,7 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, 
                 double &weighti, double &weightj,
-                double dx[3], int it)
+                double dx[3], int it,bool isHigherOrder)
 {
   int dim = 5;
 	
@@ -468,7 +468,7 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
   }*/
 
 // METHOD 2 : combine averaging and direction of flow
-  if (it == 1)
+  if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
 }
@@ -633,7 +633,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj, 
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi,
@@ -757,7 +757,7 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
           double *initWi, double *initWj,
 	  double *Wi, double *Wj,
           double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-          double dx[3], int it)
+          double dx[3], int it,bool isHigherOrder)
 {
   int dim = 5;
 
@@ -856,7 +856,7 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   }*/
 
 // METHOD 2 : combine averaging and direction of flow
-  if (it == 1)
+  if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
 }
@@ -1175,7 +1175,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi,
@@ -1214,7 +1214,7 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-    double dx[3], int it)
+    double dx[3], int it,bool isHigherOrder)
 {
 
   int dim = 5;
@@ -1302,7 +1302,7 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
   }*/
 
 // METHOD 2 : combine averaging and direction of flow
-  if (it == 1)
+  if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
 }
@@ -1477,7 +1477,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi,
@@ -1525,7 +1525,7 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
                 double *initWi, double *initWj,
 		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-                double dx[3], int it)
+                double dx[3], int it,bool isHigherOrder)
 {
 
   bool computeRiemannSolutionJWLJWLimplemented = false;
@@ -1598,7 +1598,7 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
   }*/
 
 // METHOD 2 : combine averaging and direction of flow
-  if (it == 1)
+  if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
 }
@@ -1884,7 +1884,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi,
@@ -1960,7 +1960,7 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
                 double *initWi, double *initWj,
 		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-                double dx[3], int it)
+                double dx[3], int it,bool isHigherOrder)
 {
 
   int dim = 5;
@@ -2046,7 +2046,7 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
   }*/
 
 // METHOD 2 : combine averaging and direction of flow
-  if (it == 1)
+  if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
 }
@@ -2850,7 +2850,7 @@ public:
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
-                              double dx[3], int it);
+                              double dx[3], int it,bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi,
@@ -2893,7 +2893,7 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
                 double *initWi, double *initWj,
 		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
-                double dx[3], int it)
+						       double dx[3], int it,bool isHigherOrder)
 {
 
   int dim = 5;
@@ -2968,7 +2968,7 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
   }
 
 // METHOD 2 : combine averaging and direction of flow
-  if (it == 1)
+  if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
 }

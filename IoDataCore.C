@@ -1911,6 +1911,8 @@ MultiFluidData::MultiFluidData()
   outputdiff = 0; //hidden
   copy = TRUE; //hidden
 
+  testCase = 0; // hidden
+
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
   jwlRelaxationFactor = 1.0;
@@ -1982,6 +1984,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
 				  &MultiFluidData::jwlRelaxationFactor);
+
+  new ClassInt<MultiFluidData>(ca, "TestCase", this,
+			       &MultiFluidData::testCase);
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);

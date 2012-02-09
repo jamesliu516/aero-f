@@ -22,9 +22,10 @@ EdgeSet::EdgeSet()
   ptr       = 0;
   masterFlag= 0;
   mp        = new MapPair;
-	sampleMesh = false;
+  sampleMesh = false;
 
   programmedBurn = 0;
+  higherOrderMF = 0;
 
 #ifdef EDGE_LENGTH  //HB
   edgeLength= 0;
@@ -211,6 +212,11 @@ void EdgeSet::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double>
 void EdgeSet::attachProgrammedBurn(ProgrammedBurn* p) {
 
   programmedBurn = p;
+}
+
+void EdgeSet::attachHigherOrderMultiFluid(HigherOrderMultiFluid* mf) {
+
+  higherOrderMF = mf;
 }
 
 //------------------------------------------------------------------------------

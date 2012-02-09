@@ -4,11 +4,20 @@
 
 #pragma once
 
+#include <NodalGrad.h>
+
 class HigherOrderMultiFluid {
 
   public:
 
-    HigherOrderMultiFluid();
+   struct CutCellState {
+
+     int fid1,fid2;
+     void* cutCellData;
+     
+   };
+
+    HigherOrderMultiFluid(Vec<CutCellState*>& myVec);
 
     ~HigherOrderMultiFluid();
     /*
@@ -54,7 +63,15 @@ class HigherOrderMultiFluid {
      void clearCutCellFlags();
 
    int getNumCutCells();
+   
+   template <int dim>
+     void storeCutCellData(SVec<double,dim>* cutCell[2],
+			   NodalGrad<dim,double>* cutGrad[2],
+			   Vec<int>* counts[2]);
 
+   template<int dim>
+     void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);
+   
   private:
    /*
     DistVec<int>* nodeStatus[dimLS];
@@ -81,15 +98,8 @@ class HigherOrderMultiFluid {
 
     };
 
-   struct CutCellState {
 
-     int fid1,fid2;
-     void* cutCellData;
-     
-   };
-
-
-   Vec<CutCellState*> cutCells;
+   Vec<CutCellState*>& cutCells;
 
    int numCutCells;
 };

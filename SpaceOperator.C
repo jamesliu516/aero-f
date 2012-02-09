@@ -134,7 +134,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     order = 1;
   else
     order = 2;
-
 }
 
 //------------------------------------------------------------------------------
@@ -1925,6 +1924,16 @@ MultiPhaseSpaceOperator<dim,dimLS>::MultiPhaseSpaceOperator(IoData &ioData, VarF
   recFcnLS = createRecFcnLS(ioData);
   ngradLS = new DistNodalGrad<dimLS, double>(ioData, this->domain, 1);
 
+  if (ioData.mf.interfaceTreatment == 
+      MultiFluidData::SECONDORDER) {
+
+    for (int l = 0; l < 2; ++l) {
+
+      higherOrderData.vals[l] = new DistSVec<double,dim>(dom->getNodeDistInfo());
+      higherOrderData.cutgrads[l] = new DistNodalGrad<dim,double>(ioData, this->domain, 1);
+      higherOrderData.counts[l] = new DistVec<int>(dom->getNodeDistInfo());
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2558,11 +2567,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
 
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& phi,
-						      DistVec<int>& status) {
+						      DistVec<int>& status,
+						      DistVec<int>& fluidId,
+						      DistSVec<double,dim> &U,
+						      DistSVec<double,3> &X) {
 
   SubDomain **subD = this->domain->getSubDomain();
 
   int iSub;
+
+  this->varFcn->conservativeToPrimitive(U, *(this->V), &fluidId);
    
   for (int k = 0; k < dimLS; ++k) {
       
@@ -2571,16 +2585,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& ph
 #pragma omp parallel for
     for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
       
-      subD[iSub]->findCutCells(k, phi, status);
-      subDomain[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
+      subD[iSub]->findCutCells(k, phi(iSub), status,X(iSub));
+      subD[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
     }
 
-    this->domain->getLevelPat->exchange();
+    this->domain->getLevelPat()->exchange();
 
 #pragma omp parallel for
-    for (iSub = 0; iSub < numLocSub; ++iSub) {
-      subDomain[iSub]->maxRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
-      subDomain[iSub]->setCutCellFlags(lsdim,status);
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->maxRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
+      subD[iSub]->template setCutCellFlags<dim>(k,status(iSub));
     }
   }
 
@@ -2590,7 +2604,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& ph
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     
     locoffset[iSub] = numCutCells;
-    numCutCells += subDomain[iSub]->getNumCutCells();
+    numCutCells += subD[iSub]->getNumCutCells();
   }
 
   MPI_Allreduce(&numCutCells,&tmp, 1, MPI_INT,
@@ -2612,14 +2626,129 @@ void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& ph
   memset(gl_nodes,0,sizeof(int)*numCutCells);
   */
 
-
+  //std::cout << "Hello!!" << std::endl;
+  //exit(-1);
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
+  for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
   
-    /*subDomain[iSub]->collectCutCellData(grads + (locOffset[iSub]+cutCellsLoc)*3*2*dim,
+    SVec<double,dim>* v[2] = { &higherOrderData.vals[0]->operator()(iSub),
+			       &higherOrderData.vals[1]->operator()(iSub)};
+    
+    NodalGrad<dim,double>* g[2] = { &higherOrderData.cutgrads[0]->operator()(iSub),
+				    &higherOrderData.cutgrads[1]->operator()(iSub)};
+    
+    Vec<int>* c[2] = { &higherOrderData.counts[0]->operator()(iSub),
+		       &higherOrderData.counts[1]->operator()(iSub)};
+
+    for (int i = 0; i < 2; ++i) {
+      *v[i] = 0.0;
+      g[i]->getX() = 0.0;
+      g[i]->getY() = 0.0;
+      g[i]->getZ() = 0.0;
+      *c[i] = 0;
+    }
+    
+    /*subD[iSub]->collectCutCellData(grads + (locOffset[iSub]+cutCellsLoc)*3*2*dim,
 					vals + (locOffset[iSub]+cutCellsLoc)*2*dim,
 					gl_nodes + (locOffset[iSub]+cutCellsLoc));
     */
+    
+    subD[iSub]->collectCutCellData(v,g,c,
+					(*(this->ngrad))(iSub), fluidId(iSub),
+					(*(this->V))(iSub),X(iSub)) ;
+
   }
+
+  for (int i = 0; i < 2; ++i) {
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(higherOrderData.counts[i]->subData(iSub)));
+    }
+    
+    this->domain->getLevelPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(higherOrderData.counts[i]->subData(iSub)));
+    }
+  }
+
+  for (int i = 0; i < 2; ++i) {
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), reinterpret_cast<double (*)[dim]>(higherOrderData.vals[i]->subData(iSub)));
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), reinterpret_cast<double (*)[dim]>(higherOrderData.vals[i]->subData(iSub)));
+    }
+  }
+
+  for (int i = 0; i < 2; ++i) {
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getX().v);
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getX().v);
+    }
+
+ #pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getY().v);
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getY().v);
+    }
+
+   #pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getZ().v);
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getZ().v);
+    }
+  }
+
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+    SVec<double,dim>* v[2] = { &higherOrderData.vals[0]->operator()(iSub),
+			       &higherOrderData.vals[1]->operator()(iSub)};
+    
+    NodalGrad<dim,double>* g[2] = { &higherOrderData.cutgrads[0]->operator()(iSub),
+				    &higherOrderData.cutgrads[1]->operator()(iSub)};
+    
+    Vec<int>* c[2] = { &higherOrderData.counts[0]->operator()(iSub),
+		       &higherOrderData.counts[1]->operator()(iSub)};
+    
+    subD[iSub]->storeCutCellData(v,g,c,
+				 fluidId(iSub)
+				 /*(*(this->V))(iSub)*/);
+  } 
+
 }
 

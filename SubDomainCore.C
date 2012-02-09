@@ -77,6 +77,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   ElemToElem = 0;
   nodeToNodeMaskJacobian = 0;
   nodeToNodeMaskILU      = 0;
+  higherOrderMF = 0;
 
   int j;
   for(int i=0;i<3;i++)  {
@@ -4573,6 +4574,11 @@ void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_
 
 }
 
+void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>& vs) {
 
+  higherOrderMF = new HigherOrderMultiFluid(vs);
 
+  edges.attachHigherOrderMultiFluid(higherOrderMF);
+  faces.attachHigherOrderMF(higherOrderMF);
+}
 

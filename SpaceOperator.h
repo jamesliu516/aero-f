@@ -364,6 +364,13 @@ protected:
 
   RecFcn *createRecFcnLS(IoData &);
 
+  struct {
+
+    DistVec<int>* counts[2];
+    DistSVec<double,dim>* vals[2];
+    DistNodalGrad<dim,double>* cutgrads[2];    
+  } higherOrderData;
+
 public:
 
   MultiPhaseSpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *,
@@ -429,7 +436,10 @@ public:
                                  DistSVec<bool,2> &Tag);
 
   void findCutCells(DistSVec<double,dimLS>& phi,
-		    DistVec<int>& status);
+		    DistVec<int>& status,
+		    DistVec<int>& fluidId,
+		    DistSVec<double,dim> &V,
+		    DistSVec<double,3> &X);
 
 };
 //------------------------------------------------------------------------------

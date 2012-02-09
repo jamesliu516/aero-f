@@ -9,6 +9,7 @@
 #include <DenseMatrix.h>
 #include <GhostPoint.h>
 #include <complex>
+#include <HigherOrderMultiFluid.h>
 typedef std::complex<double> bcomp;
 #include <iostream>
 using std::cout;
@@ -958,6 +959,13 @@ public:
   template<int dim, class Obj>
   void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
                          int npt);
+
+  void createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec);
+
+  // When a cell is omitted when doing higher order multi-fluid calculations, we can grab
+  // a value of the state for the cut cell using an extrapolated state
+  template<int dim>
+  void setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid);
  
  };
 

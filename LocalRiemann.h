@@ -30,12 +30,12 @@ public:
   // multiphase Riemann problem
   virtual void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){}
   virtual void computeRiemannSolution(double *Vi, double *Vj,
-                            int IDi, int IDj, double *nphi,
-                            double *initWi, double *initWj,
-                            double *Wi, double *Wj,
-                            double *rupdatei, double *rupdatej,
-                            double &weighti, double &weightj, 
-                            double dx[3], int it) {} 
+				      int IDi, int IDj, double *nphi,
+				      double *initWi, double *initWj,
+				      double *Wi, double *Wj,
+				      double *rupdatei, double *rupdatej,
+				      double &weighti, double &weightj, 
+				      double dx[3], int it, bool isHigherOrder) {} 
 
   virtual void computeRiemannJacobian(double *Vi, double *Vj,
 				      int IDi, int IDj, double *nphi,
