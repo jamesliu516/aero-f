@@ -2334,7 +2334,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
   int iSub, numLocSub = this->domain->getNumLocSub();
   DistVec<double> init(this->domain->getNodeDistInfo()),next_init(this->domain->getNodeDistInfo());
   SubDomain **subD = this->domain->getSubDomain();
-  this->varFcn->conservativeToPrimitive(U, V, fluidId0);
+  this->varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0; VWeights = 0.0; PhiWeights = 0.0;
 
 #pragma omp parallel for
