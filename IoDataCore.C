@@ -3605,17 +3605,21 @@ void OneDimensionalInfo::setup(const char *name){
 
 ImplosionSetup::ImplosionSetup() {
   // for buckling of cylinder
+  type = LINEAR;
   Prate = -1.0;
   Pinit = -1.0;
   intersector_freq = 1;
+  tmax = -1.0;
 }
 
 //-----------------------------------------------------------------------------
 
 void ImplosionSetup::setup(const char *name) {
-  ClassAssigner *ca = new ClassAssigner(name, 2, 0);
+  ClassAssigner *ca = new ClassAssigner(name, 5, 0);
+  new ClassToken<ImplosionSetup>(ca, "Type", this, reinterpret_cast<int ImplosionSetup::*>(&ImplosionSetup::type), 3, "Linear", 0, "SmoothStep", 1);
   new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+  new ClassDouble<ImplosionSetup>(ca, "Tmax", this, &ImplosionSetup::tmax);
   new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
@@ -4524,6 +4528,7 @@ void IoData::nonDimensionalizeAllInitialConditions(){
 
   implosion.Pinit /= ref.rv.pressure;
   implosion.Prate /= ref.rv.pressure/ref.rv.time;
+  implosion.tmax  /= ref.rv.time;
 
   // non-dimensionalize initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){

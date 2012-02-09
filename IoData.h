@@ -1975,7 +1975,8 @@ struct OneDimensionalInfo {
 //------------------------------------------------------------------------------
 
 struct ImplosionSetup {
-  double Prate, Pinit;
+  enum Type{LINEAR=0, SMOOTHSTEP=1} type;
+  double Prate, Pinit, tmax;
   int intersector_freq;
 
   ImplosionSetup();
