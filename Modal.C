@@ -3350,32 +3350,36 @@ void ModalSolver<dim>::ROBInnerProducts()
 ////////////////////////////////////////////////////////////////
   for (int i = 0; i < nLoadMax; ++i){
      for (int j = 0; j < nSteps+1; ++j){
-        fprintf(stderr,"%d \t",cache[j][i]);
+        com->fprintf(stderr,"%d \t",cache[j][i]);
      }
-     fprintf(stderr,"\n");
+     com->fprintf(stderr,"\n");
   }
- fprintf(stderr,"\n DONE WITH INNER PRODUCT SCHEDULE \n");
- exit(-1);
+ com->fprintf(stderr,"\n DONE WITH INNER PRODUCT SCHEDULE \n");
 ////////////////////////////////////////////////////////////////
 
  int iROB1, iROB2; 
+  // setup solvers
+ VarFcn *varFcn = new VarFcn(*ioData);
+ geoState = new DistGeoState(*ioData, &domain);
+ geoState->setup1(tInput->positions, &Xref, &controlVol);
  DistSVec<double, dim> temp(domain.getNodeDistInfo());
+ 
  for (int iStep = 0; iStep < nSteps; ++iStep) {
 
    // read ROBs
-   for (int iData = 0; iData<nLoadMax; ++iData) {
+   for (int iData = 0; iData < nLoadMax; ++iData) {
      
      iROB1 = cache[iStep+1][iData];
      iROB2 = cache[iStep][iData];
      if (iROB1 > 0 && iROB1 != iROB2) { // need to load ROB
-       domain.readVectorFromFile(ROBFile[iROB1], 0, &eig[0], (*rob[iData])[0] );
+       domain.readVectorFromFile(ROBFile[iROB1-1], 0, &eig[0], (*rob[iData])[0] );
        if (numPod > eig[0])  {
          com->fprintf(stderr, "*** Warning: Resetting number of loaded POD vectors from %d to %d\n", numPod, (int) eig[0]);        
          numPod = (int) eig[0];
        }
 
        for (int iPod = 0; iPod < numPod; ++iPod)
-         domain.readVectorFromFile(ROBFile[iROB1], iPod+1, &eig[iPod], (*rob[iData])[iPod]);
+         domain.readVectorFromFile(ROBFile[iROB1-1], iPod+1, &eig[iPod], (*rob[iData])[iPod]);
       } 
    }
 
@@ -3384,7 +3388,7 @@ void ModalSolver<dim>::ROBInnerProducts()
      for (int iData2 = 0; iData2 < iData1; ++iData2) {
        iROB1 = cache[iStep+1][iData1];
        iROB2 = cache[iStep+1][iData2];
-       if (!computedProds[iROB1][iROB2]) {
+       if (iROB1 > 0 && iROB2 > 0 && !computedProds[iROB1-1][iROB2-1]) {
         // compute inner product
          com->fprintf(stderr,"computing inner product between ROBs #%d and #%d\n",iROB1,iROB2);
 
@@ -3400,13 +3404,14 @@ void ModalSolver<dim>::ROBInnerProducts()
              break; }
            case TsData::NONDESCRIPTOR: {
              for (int j = 0; j < numPod; j++) {
-               for (int k = 0; k < numPod; k++) 
+               for (int k = 0; k < numPod; k++) { 
                  matVals[j*numPod + k] = ((*rob[iData1])[k]) * ((*rob[iData2])[j]);
+               }  
              }
              break; }
          }                   
-         computedProds[iROB1][iROB2] = 1;
-         computedProds[iROB2][iROB1] = 1;
+         computedProds[iROB1-1][iROB2-1] = 1;
+         computedProds[iROB2-1][iROB1-1] = 1;
 
          // write ROB inner product in output file
          com->fprintf(outFP, "%d %d\n", iROB1, iROB2);
@@ -3419,7 +3424,6 @@ void ModalSolver<dim>::ROBInnerProducts()
      }
    }
  }
-
 
 
   delete [] matVals;
