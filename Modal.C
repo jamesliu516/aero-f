@@ -3347,15 +3347,12 @@ void ModalSolver<dim>::ROBInnerProducts()
  
  ROBInnerProductSchedule(cache, nROB, nLoadMax, nSteps);
 
-////////////////////////////////////////////////////////////////
   for (int i = 0; i < nLoadMax; ++i){
      for (int j = 0; j < nSteps+1; ++j){
         com->fprintf(stderr,"%d \t",cache[j][i]);
      }
      com->fprintf(stderr,"\n");
   }
- com->fprintf(stderr,"\n DONE WITH INNER PRODUCT SCHEDULE \n");
-////////////////////////////////////////////////////////////////
 
  int iROB1, iROB2; 
   // setup solvers
