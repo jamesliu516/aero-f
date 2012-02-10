@@ -3043,16 +3043,18 @@ int ModalSolver<dim>::ROBInnerProductSteps(int n, int Nmax)
 template<int dim>
 void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int nSteps )
 {
-
   int i, j;
   int cnt = 1;
   //Initialize every column of the Cache array
   for (i = 0; i < nSteps+1; ++i)
     cache[i] = new (nothrow) int[Nmax];
 
-  //Fill the first column with all zeros
-  for (j = 0; j < Nmax; ++j)
-     cache[0][j] = 0;
+  //Fill all columns with  zeros to begin
+  for (i = 0; i < nSteps+1; ++i){
+     for (j = 0; j < Nmax; ++j){
+        cache[i][j] = 0;
+     }
+  }
 
   if (Nmax >= n){
    //Fill the second column with 1:n (only need 1 cache since it can fit everything)
@@ -3108,7 +3110,7 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
         SU[i] = 3;
      }
   }
-////////////New Stuff////////////
+
 /////////////////////////////////////////////////////////////////////////
   //Update the cache for the next pass.  Take the first Nmax-1 available
   //there is already 1 element in the cache we will need again.
@@ -3211,7 +3213,6 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
        SU[M_Avail-1] = 1;
        ++cnt;
      }
-
      //Update the exhausted elements and set the zero elements to 3
      for (i = 0; i < n; ++i){
         if (i < (inc+1)*Nmax - inc - 1){
@@ -3222,8 +3223,6 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
            SU[i] = 3;
         }
      }
-
-
 ///////////////////////////////////////////////////////////////////////////
      //Update the cache for the next pass.  Take the first Nmax-1 available
      //there is already 1 element in the cache we will need again.
@@ -3347,6 +3346,18 @@ void ModalSolver<dim>::ROBInnerProducts()
  int **cache = new int *[nSteps+1]; 
  
  ROBInnerProductSchedule(cache, nROB, nLoadMax, nSteps);
+
+////////////////////////////////////////////////////////////////
+  for (int i = 0; i < nLoadMax; ++i){
+     for (int j = 0; j < nSteps+1; ++j){
+        fprintf(stderr,"%d \t",cache[j][i]);
+     }
+     fprintf(stderr,"\n");
+  }
+ fprintf(stderr,"\n DONE WITH INNER PRODUCT SCHEDULE \n");
+ exit(-1);
+////////////////////////////////////////////////////////////////
+
  int iROB1, iROB2; 
  DistSVec<double, dim> temp(domain.getNodeDistInfo());
  for (int iStep = 0; iStep < nSteps; ++iStep) {
