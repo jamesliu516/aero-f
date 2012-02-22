@@ -76,7 +76,6 @@ ModalSolver<dim>::ModalSolver(Communicator *_com, IoData &_ioData, Domain &dom) 
    com->fprintf(stderr, " ... Running Fluid Alone without structural mode file\n");
    nStrMode = 0;
  }
-
  K = new double[nStrMode];
 
  // We read the modal deformations
@@ -1099,7 +1098,7 @@ void ModalSolver<dim>::preProcess()  {
 
  // Loop over the modes
 
- for(int ic=0;ic<nStrMode;++ic) {
+ for (int ic=0;ic<nStrMode;++ic) {
 
    //First DFDX & DADX***********************************
    //***Computing F(X1,V=0)
@@ -1193,6 +1192,12 @@ void ModalSolver<dim>::preProcess()  {
    DE[ic] += DV[ic];
    com->fprintf(stderr, " ... Norm DE, Mode %i: %e\n\n",ic, DE[ic].norm());
  }
+
+ // need to reset geoState after finite differences
+ geoState->compute(tState->getData(), bcData->getVelocityVector(), Xref, controlVol);
+ geoState->update(Xref, controlVol);
+ geoState->compute(tState->getData(), bcData->getVelocityVector(), Xref, controlVol);
+
 
  // Now setup H matrices
 
@@ -1553,7 +1558,6 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
  DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
  Vec3D x0(0.0, 0.0, 0.0);
 
- Vec<double> modalF(nStrMode);
  rhs = oneReal*DX[0] + kImag*DE[0];
  t0 = modalTimer->getTime();
  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
@@ -1565,7 +1569,6 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
    kspComp->setup(1, 40, rhs);
    kspComp->printParam();
  }
- VecSet<Vec<bcomp> > aeroOp(nStrMode, nStrMode);
 
  int iMode;
  for (iMode = 0; iMode < nStrMode; iMode++)  {
@@ -1621,13 +1624,11 @@ void ModalSolver<dim>::freqIntegrateMultipleRhs(VecSet<DistSVec<double, dim> >&s
  Vec3D x0(0.0, 0.0, 0.0);
 
 
- Vec<double> modalF(nStrMode);
  rhs = oneReal*DX[0] + kImag*DE[0];
 
  t0 = modalTimer->getTime();
  kspCompGcr->setup(1, 40, rhs);
  kspCompGcr->printParam();
- VecSet<Vec<bcomp> > aeroOp(nStrMode, nStrMode);
 
 
  kspCompGcr->numCalcVec = 0;
