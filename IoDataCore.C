@@ -304,6 +304,7 @@ TransientData::TransientData()
   conservation = "";
   podFile = "";
   romFile = "";
+  robProductFile = "";
   philevel = "";
   controlvolume = "";
   fluidid="";
@@ -346,7 +347,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 83, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 84, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -414,6 +415,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TransientData>(ca, "ZM", this, &TransientData::z0);
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
+  new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
@@ -624,7 +626,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 32,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 33,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -636,7 +638,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "1DProgrammedBurn", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
-		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31);
+		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProducts", 32);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3828,6 +3830,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
+      problem.alltype == ProblemData::_ROB_INNER_PRODUCTS_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
@@ -4067,8 +4070,6 @@ void IoData::resetInputValues()
 
   }
 
-  if (problem.type[ProblemData::LINEARIZED])
-    ts.form == TsData::DESCRIPTOR;
 
   if (problem.type[ProblemData::LINEARIZED] && ts.form == TsData::HYBRID) {
     com->fprintf(stderr, "*** Error: the hybrid form is not supported in the linearized module \n");

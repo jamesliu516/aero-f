@@ -125,6 +125,8 @@ void ModalSolver<dim>::solve()  {
 
  if (ioData->problem.alltype == ProblemData::_INTERPOLATION_)
    interpolatePOD();
+ else if (ioData->problem.alltype == ProblemData::_ROB_INNER_PRODUCTS_)
+   ROBInnerProducts();
  else if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile){
    t0 = modalTimer->getTime(); //CBM--check
    buildGlobalPOD();
@@ -771,11 +773,11 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
   // construct initial delWRom
   if (ioData->ts.form == TsData::DESCRIPTOR) {
-    DistSVec<double, dim> dummy(domain.getNodeDistInfo());
-    dummy = delWFull;
-    dummy *= controlVol;
+    DistSVec<double, dim> temp(domain.getNodeDistInfo());
+    temp = delWFull;
+    temp *= controlVol;
     for (i = 0; i < nPodVecs; i++)
-      delWRom[i] = podVecs[i] * dummy;
+      delWRom[i] = podVecs[i] * temp;
   }
   else {
     for (i = 0; i < nPodVecs; i++)
@@ -2791,14 +2793,14 @@ void ModalSolver<dim>::readPodVecs(VecSet<DistSVec<Scalar, dim> > &podVecs,
 template<int dim>
 void ModalSolver<dim>::checkROBType(VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs) {
 
-  DistSVec<double, dim> dummy(domain.getNodeDistInfo());  
+  DistSVec<double, dim> temp(domain.getNodeDistInfo());  
   FullM B(nPodVecs);
   if (ioData->ts.form == TsData::DESCRIPTOR) {
     for (int i = 0; i < nPodVecs; ++i){
-      dummy = podVecs[i];
-      dummy *= controlVol;
+      temp = podVecs[i];
+      temp *= controlVol;
       for (int j = 0; j < nPodVecs; ++j)
-        B[j][i] = podVecs[j]*dummy;
+        B[j][i] = podVecs[j]*temp;
       B[i][i] -= 1.0;
     } 
   }
@@ -3025,9 +3027,426 @@ void ModalSolver<dim>::wait(const int seconds )
 	endwait = clock () + seconds * CLOCKS_PER_SEC ;
 	while (clock() < endwait) {}
 }
-
-#ifdef DO_MODAL
 //------------------------------------------------------------------------------
+template<int dim>
+int ModalSolver<dim>::ROBInnerProductSteps(int n, int Nmax)
+{
+
+  int nPass;
+  int nSteps;
+  int i, j;
+
+  if (Nmax >= n){
+    nSteps = 1;
+  } else{
+    nPass = 1 + (int) (ceil(double(n-Nmax)/double(Nmax-1)));
+    nSteps = nPass + n*(nPass-1) - Nmax*(nPass-1)*nPass/2 + (nPass-2)*(nPass-1)/2;
+    if ((n - nPass*(Nmax+1) - 1) > 0)
+      nSteps += n - nPass*(Nmax+1) - 1;
+  }
+
+  return nSteps;
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int nSteps )
+{
+  int i, j;
+  int cnt = 1;
+  //Initialize every column of the Cache array
+  for (i = 0; i < nSteps+1; ++i)
+    cache[i] = new (nothrow) int[Nmax];
+
+  //Fill all columns with  zeros to begin
+  for (i = 0; i < nSteps+1; ++i){
+     for (j = 0; j < Nmax; ++j){
+        cache[i][j] = 0;
+     }
+  }
+
+  if (Nmax >= n){
+   //Fill the second column with 1:n (only need 1 cache since it can fit everything)
+   for (int j = 1; j < n; ++j)
+     cache[1][j] = j+1;
+   return;
+  }
+   //Fill the second column with 1:Nmax
+   for (int j = 0; j < Nmax; ++j)
+     cache[1][j] = j+1;
+
+  //Initialize variable to be used for determine the status of elements.
+  //0 -> element was already in the cache on this pass, but it is not completely exhausted
+  //1 -> element currently in cache
+  //2 -> element in exhausted (will never be in another cache)
+  //3 -> element available
+  int *SU = new int[n];
+
+  //Initially, the cache is the first Nmax elements.  Everything else is available.
+  for (i = 0; i < Nmax; ++i)
+    SU[i] = 1;
+  for (i = Nmax; i < n; ++i)
+    SU[i] = 3;
+
+  //Loop over each available element-> first pass
+  int nAv = (int) count (SU, SU+n, 3);
+  int M_Cache, M_Avail;
+
+  for (i = 0; i < nAv; ++i){
+
+    M_Cache = cache[cnt][Nmax-1];
+    for (j = n-1; j > -1; --j){
+      if (SU[j] == 3)
+        break;
+    }
+    M_Avail = j+1;
+
+    for (j = 0; j < Nmax-1; ++j)
+      cache[cnt+1][j] = cache[cnt][j];
+    cache[cnt+1][Nmax-1] = M_Avail;
+    SU[M_Cache-1] = 0;
+    SU[M_Avail-1] = 1;
+    ++cnt;
+  }
+
+  //Update the exhausted elements and set the zero elements to 3
+  for (i = 0; i < n; ++i){
+     if (i < Nmax-1){
+        //The first Nmax-1 elements are exhausted after 1st pass
+        SU[i] = 2;
+     }else if (SU[i] == 0){
+        //Reset unused but available elements to available for the next pass
+        SU[i] = 3;
+     }
+  }
+
+/////////////////////////////////////////////////////////////////////////
+  //Update the cache for the next pass.  Take the first Nmax-1 available
+  //there is already 1 element in the cache we will need again.
+  int inc = 0;
+  for (i = 0; i < n; ++i){
+     if (SU[i] == 3 && inc < Nmax-1){
+        //Put the Nmax-1 smallest available elements in cache
+        SU[i] = 1;
+        ++inc;
+     }
+     //If i is in the previous cache, put it in the same position
+     if (SU[i] == 1){
+        for (j = 0; j < Nmax; ++j){
+           if (cache[cnt][j] == i+1)
+              cache[cnt+1][j] = i+1;
+        }
+     }
+  }
+  //Otherwise, put it in the first available position.
+  for (i = 0; i < n; ++i){
+     if (SU[i] == 1 && count(cache[cnt+1], cache[cnt+1]+Nmax, i+1) == 0){
+        for (j = 0; j < Nmax; ++j){
+           if (cache[cnt+1][j] == 0){
+             cache[cnt+1][j] = i+1;
+             break;
+           }
+        }
+     }
+  }
+///////////////////////////////////////////////////////////////////////////
+/*  //Update the cache for the next pass.  Take the first Nmax-1 available
+  //there is already 1 element in the cache we will need again.
+  int inc = 0;
+  int inc2 = 0;
+  for (i = 0; i < n; ++i){
+     if (SU[i] == 3 && inc < Nmax-1){
+        //Put the Nmax-1 smallest available elements in cache
+        SU[i] = 1;
+        ++inc;
+     }
+
+     if (SU[i] == 1){
+        cache[cnt+1][inc2] = i+1;
+        ++inc2;
+     }
+   }*/
+
+   ++cnt;
+
+  //Loop over each available element-> all other passes
+  int maxLoc = 0;
+  inc = 0;
+  while (1){
+     ++inc;
+     nAv = (int) count (SU, SU+n, 3);
+     for (i = 0; i < nAv; ++i){
+
+///////////////////////////////////////////////////////////////////////////
+      M_Cache = 0;
+       //Determine max element in cache and its location
+       for (j = 0; j < Nmax; ++j){
+          if (cache[cnt][j] > M_Cache){
+             M_Cache = cache[cnt][j];
+             maxLoc  = j;
+          }
+       }
+///////////////////////////////////////////////////////////////////////////
+     // M_Cache = cache[cnt][Nmax-1];
+
+      //Depending on which pass we are on, take either the maximum
+      //or minimum element from the available pile
+      if (inc % 2 == 0){
+          //Take the maximum available element
+          for (j = n-1; j > -1; --j){
+            if (SU[j] == 3)
+              break;
+          }
+       } else {
+           //Take the minimum available element
+           for (j = 0; j < n; ++j){
+             if (SU[j] == 3)
+               break;
+             }
+       }
+
+       M_Avail = j+1;
+
+///////////////////////////////////////////////////////////////////////////
+       //Update cache
+       for (int k = 0; k < Nmax; ++k)
+         cache[cnt+1][k] = cache[cnt][k];
+       cache[cnt+1][maxLoc] = M_Avail;
+///////////////////////////////////////////////////////////////////////////
+/*       //Update cache
+       for (int k = 0; k < Nmax-1; ++k)
+         cache[cnt+1][k] = cache[cnt][k];
+       cache[cnt+1][Nmax-1] = M_Avail; */
+
+       SU[M_Cache-1] = 0;
+       SU[M_Avail-1] = 1;
+       ++cnt;
+     }
+     //Update the exhausted elements and set the zero elements to 3
+     for (i = 0; i < n; ++i){
+        if (i < (inc+1)*Nmax - inc - 1){
+           //The first Nmax-1 elements are exhausted after 1st pass
+           SU[i] = 2;
+        }else if (SU[i] == 0){
+           //Reset unused but available elements to available for the next pass
+           SU[i] = 3;
+        }
+     }
+///////////////////////////////////////////////////////////////////////////
+     //Update the cache for the next pass.  Take the first Nmax-1 available
+     //there is already 1 element in the cache we will need again.
+     int inc1 = 0;
+     for (i = 0; i < n; ++i){
+        if (SU[i] == 3 && inc1 < Nmax-1){
+           //Put the Nmax-1 smallest available elements in cache
+           SU[i] = 1;
+           ++inc1;
+        }
+        //If i is in the previous cache, put it in the same position
+        if (SU[i] == 1){
+           for (j = 0; j < Nmax; ++j){
+              if (cache[cnt][j] == i+1)
+                 cache[cnt+1][j] = i+1;
+           }
+        }
+     }
+     //Otherwise, put it in the first available position.
+     for (i = 0; i < n; ++i){
+        if (SU[i] == 1 && count(cache[cnt+1], cache[cnt+1]+Nmax, i+1) == 0){
+           for (j = 0; j < Nmax; ++j){
+              if (cache[cnt+1][j] == 0){
+                cache[cnt+1][j] = i+1;
+                break;
+              }
+           }
+        }
+     }
+///////////////////////////////////////////////////////////////////////////
+/*
+     //Update the cache for the next pass.  Take the first Nmax-1 available
+     //there is already 1 element in the cache we will need again.
+     int inc1 = 0;
+     inc2 = 0;
+     for (i = 0; i < n; ++i){
+        if (SU[i] == 3 && inc1 < Nmax-1){
+           //Put the Nmax-1 smallest available elements in cache
+           SU[i] = 1;
+           ++inc1;
+        }
+
+        if (SU[i] == 1){
+           cache[cnt+1][inc2] = i+1;
+           ++inc2;
+        }
+     }
+*/
+     ++cnt;
+
+     if (count(SU,SU+n,2) == n || count(SU,SU+n,3) == 0)
+       break;
+  }
+  delete [] SU;
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::ROBInnerProducts()
+{
+
+  com->fprintf(stderr, " ... Computing inner products \n");
+  int numPod = ioData->linearizedData.numPOD;
+  double *matVals = new double[numPod*numPod]; //will contain inner products
+  double *eig = new double[numPod];
+
+  //open POD file
+  char *vecFile = tInput->podFile;
+  if (!vecFile)
+    vecFile = "podFiles.in";
+  FILE *inFP = fopen(vecFile, "r");
+  if (!inFP)  {
+    com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
+    exit (-1);
+  }
+
+  int nROB, nLoadMax;
+  fscanf(inFP, "%d",&nROB);
+  fscanf(inFP, "%d",&nLoadMax);
+
+  char **ROBFile = new char *[nROB];
+  for (int iROB = 0; iROB < nROB; ++iROB) {
+    ROBFile[iROB] = new char[500];
+    fscanf(inFP, "%s", ROBFile[iROB]);
+  }
+
+  //inner products output file
+  if (ioData->output.transient.robProductFile[0] == 0)  {
+    com->fprintf(stderr, "*** ERROR: ROB Inner Products Output File not specified\n");
+    exit (-1);
+  }  
+
+  int sp = strlen(ioData->output.transient.prefix);
+  char *outputFile = new char[sp + strlen(ioData->output.transient.robProductFile)+1];
+  sprintf(outputFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.robProductFile);
+  FILE *outFP = fopen(outputFile, "w");
+  if (!outFP)  {     com->fprintf(stderr, "*** Warning: No output file: %s\n", outputFile);
+    exit (-1);
+  }
+
+
+  //allocate memory for ROBs
+  VecSet< DistSVec<double, dim> > **rob = new VecSet< DistSVec<double, dim> >*[nLoadMax];
+  for (int iROB = 0; iROB < nLoadMax; ++iROB)
+    rob[iROB]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+
+ // array to keep track of computed products
+ int **computedProds = new int*[nROB];
+ for (int iROB = 0; iROB < nROB; ++iROB) 
+    computedProds[iROB] = new int[nROB];
+
+ for (int iROB = 0; iROB < nROB; ++iROB) {
+   for (int jROB = 0; jROB < iROB; ++jROB) {
+     computedProds[iROB][jROB] = 0;
+     computedProds[jROB][iROB] = 0;
+   }
+   computedProds[iROB][iROB] = 1;
+ }
+ 
+ int nSteps = ROBInnerProductSteps(nROB, nLoadMax); //number of steps
+ com->fprintf(stderr,"Inner Products Computation in %d Steps\n",nSteps+1);
+ int **cache = new int *[nSteps+1]; 
+ 
+ ROBInnerProductSchedule(cache, nROB, nLoadMax, nSteps);
+
+  for (int i = 0; i < nLoadMax; ++i){
+     for (int j = 0; j < nSteps+1; ++j){
+        com->fprintf(stderr,"%d \t",cache[j][i]);
+     }
+     com->fprintf(stderr,"\n");
+  }
+
+ int iROB1, iROB2; 
+  // setup solvers
+ VarFcn *varFcn = new VarFcn(*ioData);
+ geoState = new DistGeoState(*ioData, &domain);
+ geoState->setup1(tInput->positions, &Xref, &controlVol);
+ DistSVec<double, dim> temp(domain.getNodeDistInfo());
+ 
+ for (int iStep = 0; iStep < nSteps; ++iStep) {
+
+   // read ROBs
+   for (int iData = 0; iData < nLoadMax; ++iData) {
+     
+     iROB1 = cache[iStep+1][iData];
+     iROB2 = cache[iStep][iData];
+     if (iROB1 > 0 && iROB1 != iROB2) { // need to load ROB
+       domain.readVectorFromFile(ROBFile[iROB1-1], 0, &eig[0], (*rob[iData])[0] );
+       if (numPod > eig[0])  {
+         com->fprintf(stderr, "*** Warning: Resetting number of loaded POD vectors from %d to %d\n", numPod, (int) eig[0]);        
+         numPod = (int) eig[0];
+       }
+
+       for (int iPod = 0; iPod < numPod; ++iPod)
+         domain.readVectorFromFile(ROBFile[iROB1-1], iPod+1, &eig[iPod], (*rob[iData])[iPod]);
+      } 
+   }
+
+ 
+   for (int iData1 = 0; iData1 < nLoadMax; ++iData1) {
+     for (int iData2 = 0; iData2 < iData1; ++iData2) {
+       iROB1 = cache[iStep+1][iData1];
+       iROB2 = cache[iStep+1][iData2];
+       if (iROB1 > 0 && iROB2 > 0 && !computedProds[iROB1-1][iROB2-1]) {
+        // compute inner product
+         com->fprintf(stderr,"computing inner product between ROBs #%d and #%d\n",iROB1,iROB2);
+
+         switch (ioData->ts.form) {
+           case TsData::DESCRIPTOR: {
+             for (int j = 0; j < numPod; j++) {
+               temp = (*rob[iData2])[j];
+               temp *= controlVol;
+               for (int k = 0; k < numPod; k++) {
+                 matVals[j*numPod + k] = ((*rob[iData1])[k]) * temp;
+               }
+             }
+             break; }
+           case TsData::NONDESCRIPTOR: {
+             for (int j = 0; j < numPod; j++) {
+               for (int k = 0; k < numPod; k++) { 
+                 matVals[j*numPod + k] = ((*rob[iData1])[k]) * ((*rob[iData2])[j]);
+               }  
+             }
+             break; }
+         }                   
+         computedProds[iROB1-1][iROB2-1] = 1;
+         computedProds[iROB2-1][iROB1-1] = 1;
+
+         // write ROB inner product in output file
+         com->fprintf(outFP, "%d %d\n", iROB1, iROB2);
+         for (int iPod=0; iPod <numPod; ++iPod){
+           for (int jPod=0; jPod <numPod; ++jPod)
+             com->fprintf(outFP, "%.16e ", matVals[jPod*numPod+iPod]);
+           com->fprintf(outFP, "\n");
+         }
+       }
+     }
+   }
+ }
+
+
+  delete [] matVals;
+  delete [] eig;
+  for (int iROB = 0; iROB < nROB; ++iROB) {
+    delete [] computedProds[iROB];
+    delete [] ROBFile[iROB];
+  }
+  delete [] computedProds;
+  delete [] ROBFile;
+  delete [] outputFile;
+  for (int iStep=0; iStep < nSteps; ++iStep)
+    delete [] cache[iStep];
+  delete [] cache;
+  
+}
+//------------------------------------------------------------------------------
+#ifdef DO_MODAL
 template<int dim>
 void ModalSolver<dim>::checkFluidRomStability(VecSet<Vec<double> > &romOperator, int nPodVecs)
 {
@@ -3045,24 +3464,22 @@ void ModalSolver<dim>::checkFluidRomStability(VecSet<Vec<double> > &romOperator,
   romMat.FactorA();
   int nEv = int(floor(4*nPodVecs/5));
   // larger magnitude eigenvalues
-  ARluNonSymStdEig<double> romEigProb(nEv, romMat, "LM", nPodVecs-1, 1e-8, 300*nEv); 
+  ARluNonSymStdEig<double> romEigProb(nEv, romMat, "LM", nPodVecs-1, 1e-8, 300*nEv);
   romEigProb.FindEigenvalues();
   // smaller magnitude eigenvalues
-  ARluNonSymStdEig<double> romEigProb2(nEv, romMat, "SM", nPodVecs-1, 1e-8, 300*nEv); 
+  ARluNonSymStdEig<double> romEigProb2(nEv, romMat, "SM", nPodVecs-1, 1e-8, 300*nEv);
   romEigProb2.FindEigenvalues();
 
   int stability = 1;
   for (int iPod = 0; iPod < nEv; ++iPod) {
     if (romEigProb.EigenvalueReal(iPod) > 0.0 || romEigProb2.EigenvalueReal(iPod) > 0.0){
-      com->fprintf(stderr, "*** Warning: the Fluid Rom of Dimension %d has at Least One Unstable Eigenvalue\n",nPodVecs);  
+      com->fprintf(stderr, "*** Warning: the Fluid Rom of Dimension %d has at Least One Unstable Eigenvalue\n",nPodVecs);
       stability = 0;
       break;
-    } 
+    }
   }
   if (stability)
-    com->fprintf(stderr,"... The Fluid Rom of Dimension %d is stable\n",nPodVecs); 
+    com->fprintf(stderr,"... The Fluid Rom of Dimension %d is stable\n",nPodVecs);
   delete [] rom;
 }
 #endif
-
-
