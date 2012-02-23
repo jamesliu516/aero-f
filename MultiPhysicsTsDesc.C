@@ -652,8 +652,9 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     double tw = this->timer->getTime();
     if((it-1)%intersector_freq==0) {
       this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
-      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
     }
+
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //updateFluidIdFS
@@ -665,24 +666,11 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
                       //  by mistake later on.
     //phase-change update
     tw = this->timer->getTime();
-    switch(this->phaseChangeChoice) {
-      case 0:
-        this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                       *this->VWeights, this->Phi, this->PhiWeights, this->distLSS,
-                                                       this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-        break;
-      case 1:
-        this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                       *this->Wstarji, *this->Weights, *this->VWeights,
-                                                       this->Phi, this->PhiWeights, this->distLSS, this->fluidSelector.fluidIdn,
-                                                       this->fluidSelector.fluidId);
-        break;
-    }
-    this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights),
-                                               this->distLSS, this->vfar, this->fluidSelector.fluidId);
-                                              // Vtemp should have been filled in with primitive state
+    this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp, *this->Weights, *this->VWeights,
+                                              this->Phi, this->PhiWeights, *this->Wstarij, *this->Wstarji,
+                                              this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
+ 
     this->timer->addEmbedPhaseChangeTime(tw);
-    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
   }
 

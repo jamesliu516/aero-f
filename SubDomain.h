@@ -911,12 +911,12 @@ public:
 
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
-                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<double> &init, Vec<double> &next_init);
 
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights, 
                       SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, Vec<double> &Weights, 
-                      LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId);
+                      LevelSetStructure &LSS, SVec<double,3> &X, Vec<double> &init, Vec<double> &next_init, Vec<int> &fluidId);
   template<int dimLS>
   void extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV);
 
@@ -1129,11 +1129,6 @@ public:
 
   template<int dimLS>
   void computePrdtPhiCtrlVolRatio(SVec<double,dimLS> &, SVec<double,dimLS> &, Vec<double> &, GeoState &);
-
-  template<int dim>
-  void updatePhaseChange(SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
-                         LevelSetStructure&, Vec<int>&, Vec<int>&);
-
 
 //  void getTriangulatedSurfaceFromFace( SVec<double,3> &);
   void getTriangulatedSurfaceFromFace( TriangulatedSurface* );

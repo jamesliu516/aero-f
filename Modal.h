@@ -33,6 +33,7 @@ template<int dim> class PostOperator;
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>
   #include <arpack++/include/ardssym.h>
+  #include <arpack++/include/ardsnsym.h>
 #endif
 
 #include <complex>
@@ -140,6 +141,7 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void checkROBType(VecSet<DistSVec<double, dim> > &, int );
 #ifdef DO_MODAL
     void outputPODVectors(ARluSymStdEig<double> &podEigProb, VecSet<DistSVec<double, dim> > &, int nPod, int numSnaps);
+    void checkFluidRomStability(VecSet<Vec<double> > &, int);
 #endif
     void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
     void computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod);

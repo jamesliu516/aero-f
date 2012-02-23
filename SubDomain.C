@@ -4820,22 +4820,26 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 // TODO: should distinguish master nodes and non-master nodes
 template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
-                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<double> &init, Vec<double> &next_init)
 {
-  const Connectivity &nToN = *getNodeToNode(); 
+  bool* masterEdge = edges.getMasterFlag();
+  const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
+    if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
-        if(currentNode == neighborNode || LSS.isSwept(0.0,neighborNode) || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode)){
+        if(currentNode == neighborNode || init[neighborNode]<1.0 || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode)){
           continue;}
+        int l = edges.findOnly(currentNode,neighborNode);
+        if(!masterEdge[l]){continue;}
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
-          for(int i=0;i<5;++i) 
+          next_init[currentNode]=1.0;
+          for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
         } else {
           Weights[currentNode] += 1.0;
-          for(int i=0;i<5;++i) 
+          for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
         }
       }
@@ -4850,35 +4854,36 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 template<int dim, int dimLS>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                                                 SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, 
-                                                Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId)
+                                                Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X,
+                                                Vec<double> &init, Vec<double> &next_init, Vec<int> &fluidId)
 {
   bool* masterEdge = edges.getMasterFlag();
   const Connectivity &nToN = *getNodeToNode();
-  for(int currentNode=0;currentNode<nodes.size();++currentNode) { 
-    if(LSS.isSwept(0.0,currentNode) && !LSS.isOccluded(0.0,currentNode)){
+  for(int currentNode=0;currentNode<numNodes();++currentNode)
+    if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         int yourId = fluidId[neighborNode];
-        if(currentNode==neighborNode || LSS.isSwept(0.0,neighborNode) || myId!=yourId) continue;
+        if(currentNode==neighborNode || init[neighborNode]<1.0 || myId!=yourId) continue;
         int l = edges.findOnly(currentNode,neighborNode);
-        if(LSS.edgeIntersectsStructure(0.0,l) || !masterEdge[l]){continue;}
+        if(LSS.edgeIntersectsStructure(0.0,l) || !masterEdge[l]) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
-          for(int i=0;i<5;++i)
+          next_init[currentNode]=1.0;
+          for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] = Phi[neighborNode][i];
         } else {
           Weights[currentNode] += 1.0;
-          for(int i=0;i<5;++i)
+          for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] += Phi[neighborNode][i];
         }
       }
     }
-  }
 }
 
 //------------------------------------------------------------------------------
@@ -5067,21 +5072,21 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
         if(Weights[j]<1.e-6) {
           Weights[j] = 1.0;
           if(Wstarij[l][0]>1.0e-8) //use Wstarij.
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[j][k] = Wstarij[l][k];
           else { 
 //            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[j][k] = V[i][k];
           }
         }else{
           Weights[j] += 1.0;
           if(Wstarij[l][0]>1.0e-8)//use Wstarij
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[j][k] += Wstarij[l][k];
           else {
 //            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[j][k] += V[i][k];
           }
         }
@@ -5091,21 +5096,21 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
         if(Weights[i]<1.e-6) {
           Weights[i] = 1.0;
           if(Wstarji[l][0]>1.0e-8) //use Wstarji.
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[i][k] = Wstarji[l][k];
           else {
 //            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[i][k] = V[j][k];
           }
         }else{
           Weights[i] += 1.0;
           if(Wstarji[l][0]>1.0e-8)//use Wstarji.
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[i][k] += Wstarji[l][k];
           else {
 //            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-            for(k=0; k<5; k++)
+            for(k=0; k<dim; k++)
               VWeights[i][k] += V[j][k];
           }
         }
@@ -5139,21 +5144,21 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
         if(Wstar[l][0]>1.0e-8 && fluidId0[j]==fluidId[i]) { //use Wstar 
           if(Weights[i]<1.0e-6) { // first touch of node i
             Weights[i] = 1.0;
-            for(k=0; k<5; k++) VWeights[i][k] = Wstar[l][k];
+            for(k=0; k<dim; k++) VWeights[i][k] = Wstar[l][k];
             for(k=0; k<dimLS; k++) PhiWeights[i][k] = Phi[j][k];
           } else {
             Weights[i] ++;
-            for(k=0; k<5; k++) VWeights[i][k] += Wstar[l][k];
+            for(k=0; k<dim; k++) VWeights[i][k] += Wstar[l][k];
             for(k=0; k<dimLS; k++) PhiWeights[i][k] += Phi[j][k];
           }
         } else if(!LSS.isSwept(0.0,j) && fluidId[i]==fluidId[j] && !LSS.edgeIntersectsStructure(0.0,i,j)) { // use V[j]
           if(Weights[i]<1.0e-6) { // first touch of node i
             Weights[i] = 1.0;
-            for(k=0; k<5; k++) VWeights[i][k] = V[j][k];
+            for(k=0; k<dim; k++) VWeights[i][k] = V[j][k];
             for(k=0; k<dimLS; k++) PhiWeights[i][k] = Phi[j][k];
           } else {
             Weights[i] ++;
-            for(k=0; k<5; k++) VWeights[i][k] += V[j][k];
+            for(k=0; k<dim; k++) VWeights[i][k] += V[j][k];
             for(k=0; k<dimLS; k++) PhiWeights[i][k] += Phi[j][k];
           }
         }
@@ -5201,7 +5206,7 @@ void SubDomain::storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId,
         udotdx = -(dx[0]*V[j][1]+dx[1]*V[j][2]+dx[2]*V[j][3])/sqrt(normdx2*normUj2);
       if(udotdx > 0.0){
         weight[i] += udotdx;
-        for(k=0; k<5; k++)
+        for(k=0; k<dim; k++)
           Vupdate[i][k] += udotdx*V[j][k];
       }
 
@@ -5209,7 +5214,7 @@ void SubDomain::storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId,
         udotdx = (dx[0]*V[i][1]+dx[1]*V[i][2]+dx[2]*V[i][3])/sqrt(normdx2*normUi2);
       if(udotdx > 0.0){
         weight[j] += udotdx;
-        for(k=0; k<5; k++)
+        for(k=0; k<dim; k++)
           Vupdate[j][k] += udotdx*V[i][k];
       }
     }

@@ -24,6 +24,7 @@ using std::sort;
 #include <arpack++/include/ardsmat.h>
 //#include <arpack++/include/ardnsmat.h>
 #include <arpack++/include/ardssym.h>
+#include <arpack++/include/ardsnsym.h>
 #endif
 
 #include <cstring>
@@ -75,7 +76,6 @@ ModalSolver<dim>::ModalSolver(Communicator *_com, IoData &_ioData, Domain &dom) 
    com->fprintf(stderr, " ... Running Fluid Alone without structural mode file\n");
    nStrMode = 0;
  }
-
  K = new double[nStrMode];
 
  // We read the modal deformations
@@ -1100,7 +1100,7 @@ void ModalSolver<dim>::preProcess()  {
 
  // Loop over the modes
 
- for(int ic=0;ic<nStrMode;++ic) {
+ for (int ic=0;ic<nStrMode;++ic) {
 
    //First DFDX & DADX***********************************
    //***Computing F(X1,V=0)
@@ -1194,6 +1194,12 @@ void ModalSolver<dim>::preProcess()  {
    DE[ic] += DV[ic];
    com->fprintf(stderr, " ... Norm DE, Mode %i: %e\n\n",ic, DE[ic].norm());
  }
+
+ // need to reset geoState after finite differences
+ geoState->compute(tState->getData(), bcData->getVelocityVector(), Xref, controlVol);
+ geoState->update(Xref, controlVol);
+ geoState->compute(tState->getData(), bcData->getVelocityVector(), Xref, controlVol);
+
 
  // Now setup H matrices
 
@@ -1320,7 +1326,13 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
    DistSVec<double,dim> FF(domain.getNodeDistInfo());
    spaceOp->computeResidual(Xref, controlVol, Uref, FF, tState);  
  }
+#ifdef DO_MODAL
+ checkFluidRomStability(romOperator0, nPodVecs);
+#else
+ com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
+ exit(-1);
 
+#endif
  // form coupling matrix ROMs
  DistSVec<double,dim> tmpECvec(domain.getNodeDistInfo());
  DistSVec<double,dim> tmpGvec(domain.getNodeDistInfo());
@@ -1548,7 +1560,6 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
  DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
  Vec3D x0(0.0, 0.0, 0.0);
 
- Vec<double> modalF(nStrMode);
  rhs = oneReal*DX[0] + kImag*DE[0];
  t0 = modalTimer->getTime();
  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
@@ -1560,7 +1571,6 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
    kspComp->setup(1, 40, rhs);
    kspComp->printParam();
  }
- VecSet<Vec<bcomp> > aeroOp(nStrMode, nStrMode);
 
  int iMode;
  for (iMode = 0; iMode < nStrMode; iMode++)  {
@@ -1616,13 +1626,11 @@ void ModalSolver<dim>::freqIntegrateMultipleRhs(VecSet<DistSVec<double, dim> >&s
  Vec3D x0(0.0, 0.0, 0.0);
 
 
- Vec<double> modalF(nStrMode);
  rhs = oneReal*DX[0] + kImag*DE[0];
 
  t0 = modalTimer->getTime();
  kspCompGcr->setup(1, 40, rhs);
  kspCompGcr->printParam();
- VecSet<Vec<bcomp> > aeroOp(nStrMode, nStrMode);
 
 
  kspCompGcr->numCalcVec = 0;
@@ -3437,6 +3445,41 @@ void ModalSolver<dim>::ROBInnerProducts()
   delete [] cache;
   
 }
+//------------------------------------------------------------------------------
+#ifdef DO_MODAL
+template<int dim>
+void ModalSolver<dim>::checkFluidRomStability(VecSet<Vec<double> > &romOperator, int nPodVecs)
+{
 
+  double *rom = new double[nPodVecs*nPodVecs];
+  for (int iVec = 0; iVec < nPodVecs; ++iVec) {
+    for (int jVec = 0; jVec < nPodVecs; ++jVec) {
+      rom[iVec*(nPodVecs)+jVec] = romOperator[iVec][jVec];
+    }
+  }
 
+  // ARPACK cannot compute whole spectrum as once. hence compute first the larger magnitude eigenvalues and then the smaller magnitude ones.
 
+  ARdsNonSymMatrix<double, double> romMat(nPodVecs, rom);
+  romMat.FactorA();
+  int nEv = int(floor(4*nPodVecs/5));
+  // larger magnitude eigenvalues
+  ARluNonSymStdEig<double> romEigProb(nEv, romMat, "LM", nPodVecs-1, 1e-8, 300*nEv);
+  romEigProb.FindEigenvalues();
+  // smaller magnitude eigenvalues
+  ARluNonSymStdEig<double> romEigProb2(nEv, romMat, "SM", nPodVecs-1, 1e-8, 300*nEv);
+  romEigProb2.FindEigenvalues();
+
+  int stability = 1;
+  for (int iPod = 0; iPod < nEv; ++iPod) {
+    if (romEigProb.EigenvalueReal(iPod) > 0.0 || romEigProb2.EigenvalueReal(iPod) > 0.0){
+      com->fprintf(stderr, "*** Warning: the Fluid Rom of Dimension %d has at Least One Unstable Eigenvalue\n",nPodVecs);
+      stability = 0;
+      break;
+    }
+  }
+  if (stability)
+    com->fprintf(stderr,"... The Fluid Rom of Dimension %d is stable\n",nPodVecs);
+  delete [] rom;
+}
+#endif
