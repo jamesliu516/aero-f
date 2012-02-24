@@ -1199,8 +1199,8 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
   next_init = init;
 
   int iter=0;
-  bool finished = false;
-  while(!finished){++iter;finished = true;
+  int finished = 0;
+  while(!finished){++iter;finished = 1;
     switch(phaseChangeChoice){
     case 0: domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
       break;
@@ -1225,10 +1225,10 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub)
       for(int i=0;i<init(iSub).size();++i)
-        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = false;
+        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = 0;
     Weights = 0.0; VWeights = 0.0;
     init = next_init;
-    com->globalOp(1,&finished,MPI_LAND);
+    com->globalMin(1,&finished);
   }
 
 #pragma omp parallel for
@@ -2344,8 +2344,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
   next_init = init;
 
   int iter=0;
-  bool finished = false;
-  while(!finished){++iter;finished = true;
+  int finished = 0;
+  while(!finished){++iter;finished = 1;
     switch(phaseChangeChoice){
     case 0: this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,
                                                           init, next_init, distLSS, fluidId);
@@ -2386,10 +2386,10 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub)
       for(int i=0;i<init(iSub).size();++i)
-        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = false;
+        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = 0;
     Weights = 0.0; VWeights = 0.0; PhiWeights = 0.0;
     init = next_init;
-    this->com->globalOp(1,&finished,MPI_LAND);
+    this->com->globalMin(1,&finished);
   }
 
 #pragma omp parallel for
