@@ -184,7 +184,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
  *nodeTag0Copy = 0;
 
 
-  //only for IncreasePressure
+//---------------------------------------------------------------------
+  // for IncreasePressure
   if(ioData.implosion.type==ImplosionSetup::LINEAR)
     implosionSetupType = EmbeddedTsDesc<dim>::LINEAR;
   else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP)
@@ -215,6 +216,10 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
     exit(-1);
   }
+
+  recomputeIntersections = false;
+  unifPressure[0] = unifPressure[1] = Pinit;
+//---------------------------------------------------------------------
 
   globIt = -1;
   inSubCycling = false;
@@ -600,10 +605,25 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   double t0 = this->timer->getTime();
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
-  for (int i=0; i<numStructNodes; i++) 
-    Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
-				  ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+
+  if(!increasingPressure || recomputeIntersections) {
+    for (int i=0; i<numStructNodes; i++) 
+      Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
+    this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
+                                    ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+  } else {
+    this->com->fprintf(stderr, "OK. I am cheap...\n");
+    if(unifPressure[0]==0) {
+      this->com->fprintf(stderr,"ERROR: Detected pressure p = %e in Implosion Setup.\n", unifPressure[0]);
+      exit(-1);
+    }
+    for (int i=0; i<numStructNodes; i++) {
+      Fs[i][0] *= unifPressure[1]/unifPressure[0]; 
+      Fs[i][1] *= unifPressure[1]/unifPressure[0]; 
+      Fs[i][2] *= unifPressure[1]/unifPressure[0]; 
+    }
+  }
+
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
@@ -673,20 +693,21 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     double tw = this->timer->getTime();
     if((it-1)%intersector_freq==0) {
       this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
+      recomputeIntersections = true;
       this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
-    }
+    } else
+      recomputeIntersections = false;
+
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
-    //update nodeTags (only for numFluid>1)
-    //Adam and Kevin 2010.08.04 node tag for F/S interaction is needed
-    //if(numFluid>1) {
-      nodeTag0 = this->nodeTag;
-      nodeTag = this->distLSS->getStatus();
-   // }
+
+    nodeTag0 = this->nodeTag;
+    nodeTag = this->distLSS->getStatus();
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+    if(recomputeIntersections)
+      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
             this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
@@ -719,6 +740,8 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
   double pnow = currentPressure(t);;
   this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
   this->domain->IncreasePressure(pnow, this->varFcn, U, nodeTag);
+  unifPressure[0] = unifPressure[1];
+  unifPressure[1] = pnow;
 
   return false;
 
