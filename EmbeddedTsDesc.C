@@ -217,7 +217,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     exit(-1);
   }
 
-  recomputeIntersections = false;
+  recomputeIntersections = true;
   unifPressure[0] = unifPressure[1] = Pinit;
 //---------------------------------------------------------------------
 
