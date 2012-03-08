@@ -75,6 +75,7 @@ InputData::InputData()
 {
 
   prefix = "";
+  geometryprefix = "";
   connectivity = "";
   geometry = "";
   decomposition = "";
@@ -118,8 +119,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 31, father);
+  ClassAssigner *ca = new ClassAssigner(name, 32, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
+  new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
   new ClassStr<InputData>(ca, "Geometry", this, &InputData::geometry);
   new ClassStr<InputData>(ca, "Decomposition", this, &InputData::decomposition);
@@ -3775,6 +3777,52 @@ void IoData::readCmdFile()
 
 void IoData::resetInputValues()
 {
+
+  // part 0
+
+   if (strcmp(input.connectivity, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* name = new char[strlen(input.geometryprefix) + strlen(".con") + 1 ];
+     sprintf(name, "%s%s", input.geometryprefix, ".con");
+     input.connectivity = new char[strlen(name)];
+     strcpy( (char*)input.connectivity , name );
+     delete [] name;
+   }
+   
+   if (strcmp(input.geometry, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* name = new char[strlen(input.geometryprefix) + strlen(".msh") + 1 ];
+     sprintf(name, "%s%s", input.geometryprefix, ".msh");
+     input.geometry = new char[strlen(name)];
+     strcpy( (char*)input.geometry , name );
+     delete [] name;
+   }
+
+   if (strcmp(input.decomposition, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* name = new char[strlen(input.geometryprefix) + strlen(".dec") + 1 ];
+     sprintf(name, "%s%s", input.geometryprefix, ".dec");
+     input.decomposition = new char[strlen(name)];
+     strcpy( (char*)input.decomposition , name );
+     delete [] name;
+   }
+
+   if (strcmp(input.cpumap, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* name = new char[strlen(input.geometryprefix) + strlen(".cpu") + 5 ];
+     sprintf(name, "%s%s%i%s", input.geometryprefix, ".", com->size() ,"cpu");
+     input.cpumap = new char[strlen(name)];
+     strcpy( (char*)input.cpumap , name );
+     delete [] name;
+   }
+
+   if (eqs.type == EquationsData::NAVIER_STOKES && 
+       ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+         eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
+      if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+       char* name = new char[strlen(input.geometryprefix) + strlen(".dwall") + 1 ];
+       sprintf(name, "%s%s", input.geometryprefix,".dwall");
+       input.d2wall = new char[strlen(name)];
+       strcpy( (char*)input.d2wall , name );
+       delete [] name;
+      }
+   }
 
   // part 1
 

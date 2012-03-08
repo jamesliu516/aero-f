@@ -62,6 +62,7 @@ struct OneDimensionalInputData {
 struct InputData {
 
   const char *prefix;
+  const char *geometryprefix;
   const char *connectivity;
   const char *geometry;
   const char *decomposition;
