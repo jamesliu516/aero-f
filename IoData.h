@@ -364,6 +364,7 @@ struct ProblemData {
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
+  enum SolveFluid {NO = 0, YES = 1} solvefluid;
   int verbose;
 
   ProblemData();
