@@ -137,6 +137,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       probDesc->computeMeshMetrics();
       // Fluid Solution
       bool solveOrNot = probDesc->IncreasePressure(it,dt,t,U);
+      if (solveOrNot && ioData.problem.solvefluid == ProblemData::NO) {
+        solveOrNot = false;
+      }
       if(solveOrNot){
         stat = probDesc->solveNonLinearSystem(U, it);
         if(stat>0){
