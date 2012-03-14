@@ -2,6 +2,8 @@
 
  */
 
+#include <iostream>
+
 inline
 HigherOrderMultiFluid::HigherOrderMultiFluid(Vec<CutCellState*>& vs) : cutCells(vs) {
   
@@ -208,6 +210,34 @@ clearCutCellFlags() {
   numCutCells = 0;
 }
 
+
+template <int dim>
+void HigherOrderMultiFluid::printCutCellData(int i) {
+
+  CutCellStateData<dim>* data = static_cast<CutCellStateData<dim>*>(cutCells[i]->cutCellData);
+  std::cout << "Cut cell data: " << std::endl;
+  for (int l = 0; l < 2; ++l) {
+    std::cout << "fluid " << l << std::endl;
+    for (int k = 0; k < dim; ++k) {
+      std::cout << data->V[l][k] << " " << data->dV[l][k][0] << " " << data->dV[l][k][1] << " " << data->dV[l][k][2] << std::endl;
+    }
+  }
+}
+
+template<int dim>
+void HigherOrderMultiFluid::getCutCellData(int cut,int fid,double V[dim], double x[dim][3]) {
+
+  CutCellStateData<dim>* data = static_cast<CutCellStateData<dim>*>(cutCells[cut]->cutCellData);
+  int l = (fid == 0 ? 0 : 1);
+  
+  for (int k = 0; k < dim; ++k) {
+    V[k] = data->V[l][k];
+    x[k][0] = data->dV[l][k][0];
+    x[k][1] = data->dV[l][k][1];
+    x[k][2] = data->dV[l][k][2];
+  }
+}
+
 inline
 int HigherOrderMultiFluid::getNumCutCells() {
 
@@ -227,11 +257,19 @@ void HigherOrderMultiFluid::storeCutCellData(SVec<double,dim>* cutCell[2],
     CutCellStateData<dim>* data = static_cast<CutCellStateData<dim>*>(cutCells[i]->cutCellData);
 
     for (int l = 0; l < 2; ++l) {
-      for (int k = 0; k < dim; ++k) {
-	data->V[l][k] = cutCell[l]->operator[](i)[k] / counts[l]->operator[](i);
-	data->dV[l][k][0] = cutGrad[l]->getX()[i][k] /  counts[l]->operator[](i);
-	data->dV[l][k][1] = cutGrad[l]->getY()[i][k] /  counts[l]->operator[](i);
-	data->dV[l][k][2] = cutGrad[l]->getZ()[i][k] /  counts[l]->operator[](i);
+      if (counts[l]->operator[](i) > 0) {
+        for (int k = 0; k < dim; ++k) {
+	  data->V[l][k] = cutCell[l]->operator[](i)[k] / counts[l]->operator[](i);
+	  data->dV[l][k][0] = cutGrad[l]->getX()[i][k] /  counts[l]->operator[](i);
+	  data->dV[l][k][1] = cutGrad[l]->getY()[i][k] /  counts[l]->operator[](i);
+	  data->dV[l][k][2] = cutGrad[l]->getZ()[i][k] /  counts[l]->operator[](i);
+        }
+      } else {
+
+        delete (static_cast<CutCellStateData<dim>*>(cutCells[i]->cutCellData));
+        delete (cutCells[i]);
+        cutCells[i] = 0;
+        break;
       }
     }
   }

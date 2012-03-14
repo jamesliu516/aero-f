@@ -46,6 +46,8 @@ public:
   int solve(typename ProblemDescriptor::SolVecType &, const int timeStep, const double time);
   int solveLS(typename ProblemDescriptor::PhiVecType &, typename ProblemDescriptor::SolVecType &);
 
+  typename ProblemDescriptor::SolVecType* GetResidual() { return &F; }
+
 };
 
 //------------------------------------------------------------------------------

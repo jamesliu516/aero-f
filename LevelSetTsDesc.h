@@ -7,6 +7,8 @@
 
 #include <HigherOrderMultiFluid.h>
 
+#include <OneDimensionalSolver.h>
+
 class IoData;
 class GeoSource;
 class Domain;
@@ -57,6 +59,15 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   DistVec<int> cutCellStatus;
 
+  struct exactInterfacePoint {
+
+    double time,loc;
+  };
+
+  std::vector< exactInterfacePoint > myExactInterface;
+
+  bool useCutCells;
+
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~LevelSetTsDesc();
@@ -83,6 +94,11 @@ class LevelSetTsDesc : public TsDesc<dim> {
   
   void setCurrentTime(double t,DistSVec<double,dim>& U);
 
+  void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U);
+
+  void loadExactInterfaceFile(IoData& ioData, const char* file);
+
+  void setPhiExact();
  protected:
   void avoidNewPhaseCreation(DistSVec<double,dimLS> &localPhi);
 

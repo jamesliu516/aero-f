@@ -966,6 +966,14 @@ public:
   // a value of the state for the cut cell using an extrapolated state
   template<int dim>
   void setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid);
+
+  // Functions to compute the error (that is, the difference between two state vectors)
+  template <int dim>
+    void computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+  template <int dim>
+    void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+
+  
  
  };
 

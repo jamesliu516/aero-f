@@ -163,9 +163,10 @@ class SubDomain {
   int numSampledNodes;
   std::vector<int> locSampleNodes;	// for Gappy ROM
   
-  HigherOrderMultiFluid* higherOrderMF;
 
 public:
+  
+  HigherOrderMultiFluid* higherOrderMF;
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
 	    int, int *, Connectivity *, int *, int *, int *, int, int (*)[3]);
@@ -1237,6 +1238,16 @@ public:
   template<int dim>
     void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);
 
+  // Functions to compute the error (that is, the difference between two state vectors)
+  template <int dim>
+    void computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]);
+
+  template <int dim>
+    void computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]);
+
+  HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
+
+  
 };
 //------------------------------------------------------------------------------
 

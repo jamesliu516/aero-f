@@ -104,12 +104,15 @@ InputData::InputData()
   mesh = "";
   reducedfullnodemap = "";
 
+  convergence_file = "";
+
 // Included (MB)
   shapederivatives = "";
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
 
+  exactInterfaceLocation = "";
 }
 
 //------------------------------------------------------------------------------
@@ -156,6 +159,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
+  new ClassStr<InputData>(ca, "ConvergenceFile", this, &InputData::convergence_file);
+  new ClassStr<InputData>(ca, "ExactInterfaceLocation", this, &InputData::exactInterfaceLocation);
 
   oneDimensionalInput.setup("1DRestartData",ca);
 
@@ -1920,7 +1925,7 @@ MultiFluidData::MultiFluidData()
   interfaceTreatment = FIRSTORDER;
   interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
   levelSetMethod = CONSERVATIVE;
-
+  interfaceOmitCells = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -1987,6 +1992,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 
   new ClassInt<MultiFluidData>(ca, "TestCase", this,
 			       &MultiFluidData::testCase);
+  
+  new ClassInt<MultiFluidData>(ca, "OmitCells", this,
+			       &MultiFluidData::interfaceOmitCells);
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
