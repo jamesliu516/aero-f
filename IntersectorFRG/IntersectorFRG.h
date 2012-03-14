@@ -103,7 +103,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0);
     void updateStructure(double* xs, double *Vs, int nNodes, int(*abc)[3]=0);
     void updatePhysBAMInterface();
-    int recompute(double dtf, double dtfLeft, double dts, bool findStatus = true);
+    int recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry = false);
 
     LevelSetStructure & operator()(int subNum) const;
 
@@ -156,7 +156,7 @@ class IntersectorFRG : public LevelSetStructure {
 
     PhysBAMInterface<double> *physInterface;
 
-    void reset(); //<! set status0=status and reset status and nFirstLayer.
+    void reset(const bool retry); //<! set status0=status and reset status and nFirstLayer.
     void rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElem);
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope);
     void computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist);

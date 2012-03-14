@@ -49,11 +49,30 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   setupMultiPhaseFlowSolver(ioData);
 
   // only for IncreasePressure
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    implosionSetupType = MultiPhysicsTsDesc<dim,dimLS>::LINEAR;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP)
+    implosionSetupType = MultiPhysicsTsDesc<dim,dimLS>::SMOOTHSTEP;
+  else {
+    this->com->fprintf(stderr,"ERROR: ImplosionSetup::Type = %d. Code not supported!\n", ioData.implosion.type);
+    implosionSetupType = MultiPhysicsTsDesc<dim,dimLS>::NONE;
+    exit(-1);
+  }
+
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
   Pscale = ioData.ref.rv.pressure;
   intersector_freq = ioData.implosion.intersector_freq;
-  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP) {
+    tmax = ioData.implosion.tmax;
+    if(tmax<=0.0) {
+      this->com->fprintf(stderr,"ERROR: ImplosionSetup::Tmax = %e!\n", tmax);
+      exit(-1);
+    }
+  }
+
   if(intersector_freq<1) {
     this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
     exit(-1);
@@ -283,6 +302,12 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   if(_mmh) {
     double *tMax = &(this->data)->maxTime;
     _mmh->setup(tMax); //obtain maxTime from structure
+  }
+
+  // If 'IncreasePressure' is activated, re-initialize the fluid state
+  if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
+    increasingPressure = true;
+    this->domain->IncreasePressure(currentPressure(this->getInitialTime()), this->varFcn, *U, *(this->fluidSelector.fluidId));
   }
 
   //compute fluid indueced force on the structural surface
@@ -652,7 +677,7 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     double tw = this->timer->getTime();
     if((it-1)%intersector_freq==0) {
       this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
-      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+      this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
     }
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
@@ -665,24 +690,11 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
                       //  by mistake later on.
     //phase-change update
     tw = this->timer->getTime();
-    switch(this->phaseChangeChoice) {
-      case 0:
-        this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                       *this->VWeights, this->Phi, this->PhiWeights, this->distLSS,
-                                                       this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-        break;
-      case 1:
-        this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                       *this->Wstarji, *this->Weights, *this->VWeights,
-                                                       this->Phi, this->PhiWeights, this->distLSS, this->fluidSelector.fluidIdn,
-                                                       this->fluidSelector.fluidId);
-        break;
-    }
-    this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights),
-                                               this->distLSS, this->vfar, this->fluidSelector.fluidId);
-                                              // Vtemp should have been filled in with primitive state
+    this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp, *this->Weights, *this->VWeights,
+                                              this->Phi, this->PhiWeights, *this->Wstarij, *this->Wstarji,
+                                              this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
+
     this->timer->addEmbedPhaseChangeTime(tw);
-    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
   }
 
@@ -709,8 +721,9 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     }
   }
 
-  this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
-  this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, *(this->fluidSelector.fluidId));
+  double pnow = currentPressure(t);;
+  this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
+  this->domain->IncreasePressure(pnow, this->varFcn, U, *(this->fluidSelector.fluidId));
 
   return false;
 
@@ -726,5 +739,20 @@ void MultiPhysicsTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>
     programmedBurn->setCurrentTime(t,multiPhaseSpaceOp->getVarFcn(), U,*(fluidSelector.fluidId),*(fluidSelector.fluidIdn));
 }
 
+//-------------------------------------------------------------------------------
 
-
+template<int dim,int dimLS>
+double MultiPhysicsTsDesc<dim,dimLS>::currentPressure(double t)
+{
+  double p;
+  if(implosionSetupType==MultiPhysicsTsDesc<dim,dimLS>::LINEAR)
+    p = Pinit + t*Prate;
+  else if(implosionSetupType==MultiPhysicsTsDesc<dim,dimLS>::SMOOTHSTEP) {
+    double tbar = t/tmax;
+    p = Pinit + (Pfinal - Pinit)*tbar*tbar*tbar*(10.0-15.0*tbar+6.0*tbar*tbar);
+  } else {
+    this->com->fprintf(stderr,"ERROR! ImplosionSetup::Type = %d NOT recognized!\n", implosionSetupType);
+    exit(-1);
+  }
+  return p;
+}

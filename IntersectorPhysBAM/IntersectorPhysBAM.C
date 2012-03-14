@@ -66,6 +66,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   status0 = 0;
   closest = 0;
   occluded_node = 0;
+  occluded_node0 = 0;
   swept_node = 0;
   boxMin = 0;
   boxMax = 0;
@@ -103,6 +104,9 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(nodalNormal) delete[] nodalNormal;
   if(boxMax)      delete   boxMax;
   if(boxMin)      delete   boxMin;
+  delete swept_node;
+  delete occluded_node;
+  delete occluded_node0;
 
   for(int i = 0; i < numLocSub; ++i) {
       delete intersector[i];}
@@ -560,6 +564,7 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   status = new DistVec<int>(domain->getNodeDistInfo());  
   status0 = new DistVec<int>(domain->getNodeDistInfo());  
   occluded_node = new DistVec<bool>(domain->getNodeDistInfo());  
+  occluded_node0 = new DistVec<bool>(domain->getNodeDistInfo());
   swept_node = new DistVec<bool>(domain->getNodeDistInfo());  
   boxMin = new DistSVec<double,3>(domain->getNodeDistInfo());
   boxMax = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -571,9 +576,9 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i)
     intersector[i] = new IntersectorPhysBAM(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), (*closest)(i),
-                                            (*occluded_node)(i), (*swept_node)(i), *this);
+                                            (*occluded_node)(i), (*occluded_node0)(i), (*swept_node)(i), *this);
 
-  updatePhysBAMInterface(Xs, numStNodes,X,true);
+  updatePhysBAMInterface(Xs, numStNodes,X,true,false);
 
   //Kevin's debug
 /*  if(com->cpuNum()==44) {
@@ -634,6 +639,7 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   }
 
   *status0=*status;
+  *occluded_node0=*occluded_node;
 }
 
 //----------------------------------------------------------------------------
@@ -705,9 +711,9 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
 			globalColorToGlobalStatus.find(color)!=globalColorToGlobalStatus.end());
         fprintf(stderr,"\t\tGLOBAL COLOR = %d, local color given as (%d, %d)\n", color, PhysBAM::getGlobSubNum(sub).Value(), nodeColors(iSub)[i]);
 #endif
+        (*occluded_node)(iSub)[i]=true;
         (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;}
-      else 
-        (*status)(iSub)[i]=globalColorToGlobalStatus[color];
+      else (*status)(iSub)[i]=globalColorToGlobalStatus[color];
     }
   }
 }
@@ -716,37 +722,46 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
 
 void
 DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
+    int OUT=IntersectorPhysBAM::OUTSIDECOLOR,UNDECIDED=IntersectorPhysBAM::UNDECIDED;
+
+    // Easy stuff first
 #pragma omp parallel for
     for(int iSub=0;iSub<numLocSub;++iSub){
-        SubDomain& sub=intersector[iSub]->subD;
-        Connectivity &nToN = *(sub.getNodeToNode());
         for(int i=0;i<(*status)(iSub).size();++i){
-            if((*occluded_node)(iSub)[i]) (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;
-            else if(!(*swept_node)(iSub)[i]) (*status)(iSub)[i]=(*status0)(iSub)[i];
-            else{
-              int stat=-5;
-              for(int n=0;n<nToN.num(i);++n){int neighborNode=nToN[i][n];
-                if(i!=neighborNode && !intersector[iSub]->edgeIntersectsStructure(0.0,i,neighborNode) && !(*swept_node)(iSub)[neighborNode]){
-                  if(stat != -5 && stat != (*status0)(iSub)[neighborNode]){
-                    fprintf(stderr,"ERROR: Swept node (%d) detected inconsistent neighbors.\n", intersector[iSub]->locToGlobNodeMap[i]+1);
-                    for(int j=0;j<nToN.num(i);++j){int tmp=nToN[i][j];
-                      if(i==tmp) continue; fprintf(stderr,"\tNeighbor %d is (visible [%d], status0 [%d], swept [%d])\n",intersector[iSub]->locToGlobNodeMap[tmp]+1,!intersector[iSub]->edgeIntersectsStructure(0.0,i,tmp),(*status0)(iSub)[tmp],(*swept_node)(iSub)[tmp]);}
-                    exit(-1);}
-                  stat = (*status0)(iSub)[neighborNode];}}
-              (*status)(iSub)[i]=stat;}}}
+            if((*occluded_node)(iSub)[i]) (*status)(iSub)[i]=OUT;
+            else if(!(*swept_node)(iSub)[i] && !(*occluded_node0)(iSub)[i]) (*status)(iSub)[i]=(*status0)(iSub)[i];}}
 
-  operMax<int> maxOp;
-  domain->assemble(domain->getLevelPat(),*status,maxOp);
+    operMax<int> maxOp;
+    domain->assemble(domain->getLevelPat(),*status,maxOp);
 
- //Debug
+    // Next handle swept nodes
+    int iteration_count=0;
+    int flags[2] = {1,1}; // flags = {needs_iteration, detected_change}
+    while(flags[0] && flags[1]){flags[0]=0;flags[1]=1;
 #pragma omp parallel for
-    for(int iSub=0;iSub<numLocSub;++iSub){
-        SubDomain& sub=intersector[iSub]->subD;
-        Connectivity &nToN = *(sub.getNodeToNode());
+        for(int iSub=0;iSub<numLocSub;++iSub){
+            SubDomain& sub=intersector[iSub]->subD;
+            Connectivity &nToN = *(sub.getNodeToNode());
+            for(int i=0;i<(*status)(iSub).size();++i) if((*status)(iSub)[i] == UNDECIDED){
+                int stat=UNDECIDED;
+                for(int n=0;n<nToN.num(i);++n){int j=nToN[i][n];
+                    if(i==j) continue;
+                    else if(!intersector[iSub]->edgeIntersectsStructure(0.0,i,j)
+                            && (*status)(iSub)[j] != UNDECIDED && (*status)(iSub)[j] != OUT){
+                        stat=(*status)(iSub)[j];flags[1]=1;break;}}
+                if(stat == UNDECIDED) flags[0]=1;
+                else{(*status)(iSub)[i]=stat;(*swept_node)(iSub)[i]=true;}}}
+        com->globalMax(2,(int*)flags);
+        if(flags[1]) domain->assemble(domain->getLevelPat(),*status,maxOp);
+    }
+
+    // Finish any remaining untouched nodes
+#pragma omp parallel for
+    for(int iSub=0;iSub<numLocSub;++iSub){SubDomain& sub=intersector[iSub]->subD;
         for(int i=0;i<(*status)(iSub).size();++i)
-            if((*status)(iSub)[i]==-5){
-                (*occluded_node)(iSub)[i]=true;
-                (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;}}
+            if((*status)(iSub)[i]==UNDECIDED){
+                (*status)(iSub)[i]=OUT;
+                (*occluded_node)(iSub)[i]=true;}}
 }
 
 //----------------------------------------------------------------------------
@@ -861,8 +876,8 @@ void DistIntersectorPhysBAM::expandScope()
 //----------------------------------------------------------------------------
 
 void
-DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const DistSVec<double,3>& fluid_nodes,const bool fill_scope) {
-  physInterface->SaveOldState();
+DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const DistSVec<double,3>& fluid_nodes,const bool fill_scope, const bool retry) {
+  if(!retry) physInterface->SaveOldState();
   for (int i=0; i<size; i++)
     physInterface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(particles[i][0], particles[i][1], particles[i][2]);
 
@@ -881,8 +896,7 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 int
-DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool findStatus) {
-
+DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry) {
   if (dtfLeft<-1.0e-6) {
     fprintf(stderr,"There is a bug in time-step!\n");
     exit(-1);
@@ -905,7 +919,7 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool f
   // for hasCloseTriangle
   DistVec<bool> tId(X->info());
   
-  updatePhysBAMInterface(Xs, numStNodes,*X, gotNewCracking);
+  updatePhysBAMInterface(Xs, numStNodes,*X, gotNewCracking,retry);
 
   buildSolidNormals();
 
@@ -914,10 +928,10 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool f
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub){
-      intersector[iSub]->reset();
+      intersector[iSub]->reset(findStatus,retry);
       intersector[iSub]->hasCloseTriangle((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), tId(iSub));
       intersector[iSub]->findIntersections((*X)(iSub),tId(iSub),*com);
-      intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com);}
+      intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com,dtf);}
 
   if(findStatus)
     findActiveNodes(tId);
@@ -949,15 +963,17 @@ void IntersectorPhysBAM::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int T
 //----------------------------------------------------------------------------
 
 IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X, Vec<int> &stat, Vec<int> &stat0, Vec<ClosestPoint> &clo,
-                      Vec<bool>& occ_node, Vec<bool>& swe_node, DistIntersectorPhysBAM &distInt) :
+                      Vec<bool>& occ_node, Vec<bool>& occ_node0, Vec<bool>& swe_node, DistIntersectorPhysBAM &distInt) :
                       edgeIntersections(sub.numEdges()),subD(sub),edges(sub.getEdges()),distIntersector(distInt),package(0),
                       nodeToSubD(*sub.getNodeToSubD()), status(stat), status0(stat0), closest(clo), occluded_node(occ_node),
-                      swept_node(swe_node),locIndex(sub.getLocSubNum()),globIndex(sub.getGlobSubNum())
+                      occluded_node0(occ_node0),swept_node(swe_node),locIndex(sub.getLocSubNum()),globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
 
   status = UNDECIDED;
   status0 = UNDECIDED;
+  occluded_node = false;
+  occluded_node0 = false;
   OUTSIDECOLOR = distInt.numOfFluids();
 
   locToGlobNodeMap = sub.getNodeMap();
@@ -980,14 +996,17 @@ IntersectorPhysBAM::~IntersectorPhysBAM()
 
 //----------------------------------------------------------------------------
 
-void IntersectorPhysBAM::reset()
+void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
 {
   for(int i=0; i<subD.getNumNeighb(); i++) package[i].clear();
 
-  status0 = status;
-  status = UNDECIDED;
-  occluded_node = false;
-  swept_node = false;
+  if(findStatus){
+      if(!retry){
+          status0 = status;
+          occluded_node0 = occluded_node;}
+      status = UNDECIDED;
+      occluded_node = false;
+      swept_node = false;}
   edgeIntersections = false;
   nFirstLayer = 0;
 
@@ -1086,6 +1105,20 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edgeIntersections[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
+          ++intersectedEdgeCount;}
+      else if(edgeRes(i).y.triangleID > 0){
+          int l=edgeRes(i).x.z;
+          edgeIntersections[l] = true;
+          CrossingEdgeRes[l] = edgeRes(i).y;
+          ReverseCrossingEdgeRes[l] = edgeRes(i).y;
+          ReverseCrossingEdgeRes[l].alpha = 1.0 - edgeRes(i).y.alpha;
+          ++intersectedEdgeCount;}
+      else if(edgeRes(i).z.triangleID > 0){
+          int l=edgeRes(i).x.z;
+          edgeIntersections[l] = true;
+          CrossingEdgeRes[l] = edgeRes(i).z;
+          CrossingEdgeRes[l].alpha = 1.0 - edgeRes(i).z.alpha;
+          ReverseCrossingEdgeRes[l] = edgeRes(i).z;
           ++intersectedEdgeCount;}}
 
 #if 0 // Debug output
@@ -1116,12 +1149,12 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 
 //----------------------------------------------------------------------------
 
-int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator& com)
+int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator& com,const double dt)
 {
   ARRAY<bool> swept;
 
   swept.Resize(nFirstLayer); PhysBAM::ARRAYS_COMPUTATIONS::Fill(swept,false);
-  distIntersector.getInterface().computeSweptNodes(locIndex+1,xyz,swept,(double)1);
+  distIntersector.getInterface().computeSweptNodes(locIndex+1,xyz,swept,(double)1.0);
 
   int numSweptNodes=0;
   for(int i=1;i<=nFirstLayer;++i){swept_node[reverse_mapping(i)] = swept(i);
