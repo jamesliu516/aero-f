@@ -4264,3 +4264,25 @@ void Domain::setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid) {
     subDomain[iSub]->setCutCellData(V(iSub), fid(iSub));
   }
 }
+
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+
+  com->globalSum(dim, error);
+}
+
+
+template <int dim>
+void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+  
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeLInfError(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+
+  com->globalMax(dim, error);
+}

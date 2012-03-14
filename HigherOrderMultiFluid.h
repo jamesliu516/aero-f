@@ -62,6 +62,9 @@ class HigherOrderMultiFluid {
    template <int dim>
      void clearCutCellFlags();
 
+   template <int dim>
+     void printCutCellData(int i);
+
    int getNumCutCells();
    
    template <int dim>
@@ -71,6 +74,9 @@ class HigherOrderMultiFluid {
 
    template<int dim>
      void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);
+
+   template<int dim>
+     void getCutCellData(int,int fid,double V[dim], double x[dim][3]);
    
   private:
    /*

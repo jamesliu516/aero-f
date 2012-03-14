@@ -627,16 +627,28 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    !higherOrderMF->isCellCut(j)) {
 	  
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
-	  for (int k = 0; k < dim; ++k) {
-	    Vi[k] = V[i][k]+dVdx[i][k]*(iloc[0]-X[i][0])+
-	      dVdy[i][k]*(iloc[1]-X[i][1])+
-	      dVdz[i][k]*(iloc[2]-X[i][2]);
+	  if (s < 0.9) {
+	    for (int k = 0; k < dim; ++k) {
+	      Vi[k] = V[i][k]+dVdx[i][k]*(iloc[0]-X[i][0])+
+		dVdy[i][k]*(iloc[1]-X[i][1])+
+		dVdz[i][k]*(iloc[2]-X[i][2]);
+	    }
+	  } else {
+	    for (int k = 0; k < dim; ++k) {
+	      Vi[k] = V[i][k];
+	    }
 	  }
 
-	  for (int k = 0; k < dim; ++k) {
-	    Vj[k] = V[j][k]+dVdx[j][k]*(iloc[0]-X[j][0])+
-	      dVdy[j][k]*(iloc[1]-X[j][1])+
-	      dVdz[j][k]*(iloc[2]-X[j][2]);
+	  if (s > 0.1) {
+	    for (int k = 0; k < dim; ++k) {
+	      Vj[k] = V[j][k]+dVdx[j][k]*(iloc[0]-X[j][0])+
+		dVdy[j][k]*(iloc[1]-X[j][1])+
+		dVdz[j][k]*(iloc[2]-X[j][2]);
+	    }
+	  } else {
+	    for (int k = 0; k < dim; ++k) {
+	      Vj[k] = V[j][k];
+	    }
 	  }
 	    
 	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
@@ -645,14 +657,27 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
 	  
 	  for (int k = 0; k < dim; ++k) {
-	    Vi[k] = Vi[k]*(0.5-s)+Wi[k]*(0.5+s);
-	    Vj[k] = Vj[k]*(-0.5+s)+Wj[k]*(1.5-s);
+	    if (s < 0.9)
+	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s);
+
+	    if (s > 0.1)
+	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s;
 	  }
 	    
-	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					Vi, Vi, fluxi, fluidId[i]);
-	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					Vj, Vj, fluxj, fluidId[j]);
+	  if (s < 0.9)
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Vi, Vi, fluxi, fluidId[i]);
+	  else
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  V[i], Wi, fluxi, fluidId[i]);
+	  
+	  if (s > 0.1)
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Vj, Vj, fluxj, fluidId[j]);
+	  else
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Wj, V[j], fluxj, fluidId[j]);
+	  
 
 	  // Now extrapolate back to compute the riemann update for cells i/j
 	  if (it == 1) {
@@ -667,69 +692,121 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  }
 
 	} else if (higherOrderMF->isCellCut(j)) {
-	  
-
 	  //std::cout << "Cut cell " << locToGlobNodeMap[j]+1 << std::endl;
 
 	  // In this case, the cell j is cut be the interface, so its value does not exist
-	  int fidj = higherOrderMF->getOtherFluidId(j, fluidId[i]);
-	  higherOrderMF->template computeCutCellExtrapolations<dim>(j,fluidId[i],fidj, iloc, Vi,Vj,X);
-	  std::cout << "--------------------------" << std::endl;
-	  std::cout << locToGlobNodeMap[i]+1 << "-" << locToGlobNodeMap[j]+1 << " (" <<  fluidId[i] << " , " << fidj << ") " << std::endl;
-	  for (int k = 0; k < dim; ++k) {
-	    std::cout << V[i][k] << " " << Vi[k] << "\t" << Vj[k] << std::endl;
-	  }
+	  if (fabs(s-0.5) < 1.5) {
+	    int fidj = higherOrderMF->getOtherFluidId(j, fluidId[i]);
+	    higherOrderMF->template computeCutCellExtrapolations<dim>(j,fluidId[i],fidj, iloc, Vi,Vj,X);
+	    /*if (locToGlobNodeMap[j]+1 == 6583) {
+	      std::cout << "--------------------------" << std::endl;
+	      std::cout << "Phi: " << phi[i][lsdim] << " " << phi[j][lsdim] << " " << s << std::endl;
+	      std::cout << locToGlobNodeMap[i]+1 << "-" << locToGlobNodeMap[j]+1 << " (" <<  fluidId[i] << " , " << fidj << ") " << std::endl;
+	      std::cout << "[" << iloc[0] << " " << iloc[1] << " " << iloc[2] << "] ";
+	      std::cout << "[" << X[i][0] << " " << X[i][1] << " " << X[i][2] << "] " << std::endl;
+	      std::cout << "[" << X[j][0] << " " << X[j][1] << " " << X[j][2] << "] " << std::endl;
+	      for (int k = 0; k < dim; ++k) {
+		std::cout << V[i][k] << " " << Vi[k] << "\t" << Vj[k] << std::endl;
+	      }
+	      higherOrderMF->template printCutCellData<dim>(j);
+	      }*/
           
-	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
-					 Wi,Wj,i,j,l,dx,true);
-
-	  for (int k = 0; k < dim; ++k) {
-	    Vi[k] = V[i][k]*(0.5-s)+Wi[k]*(0.5+s);
-	  }
-
-	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					Vi, Vi, fluxi, fluidId[i]);
-	  
-	  // Now extrapolate back to compute the riemann update for cells i/j
-	  if (it == 1 && fluidId[j] != fluidId[i]) {
-	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	    Vec<double> &weight = riemann.getRiemannWeight();
+	    riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
+					   Wi,Wj,i,j,l,dx,true);
+	    
 	    for (int k = 0; k < dim; ++k) {
-	      rupdate[j][k] += (2.0*Vi[k]-V[i][k]);
+	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s);
 	    }
-	    weight[j] += 1.0;
+	    
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Vi, Vi, fluxi, fluidId[i]);
+	    
+	    // Now extrapolate back to compute the riemann update for cells i/j
+	    if (it == 1 /*&& fluidId[j] != fluidId[i]*/) {
+	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
+	      Vec<double> &weight = riemann.getRiemannWeight();
+	      for (int k = 0; k < dim; ++k) {
+		rupdate[j][k] += (2.0*Vi[k]-V[i][k]);
+	      }
+	      weight[j] += 1.0;
+	    }
+	  } else {
+
+	    double Vxt[dim][3],Vjl[dim];
+	    higherOrderMF->template getCutCellData<dim>(j, fluidId[i], Vjl, Vxt);
+	    for (int k=0; k<dim; ++k) {
+	      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+	      ddVji[k] = dx[0]*Vxt[k][0] + dx[1]*Vxt[k][1] + dx[2]*Vxt[k][2];
+	    }
+	    recFcn->compute(V[i], ddVij, Vjl, ddVji, Vi, Vj);
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
+	    /*if (it == 1 && fluidId[j] != fluidId[i]) {
+	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
+	      Vec<double> &weight = riemann.getRiemannWeight();
+	      for (int k = 0; k < dim; ++k) {
+		rupdate[j][k] += (2.0*Vi[k]-V[i][k]);
+	      }
+	      weight[j] += 1.0;
+	    }*/
 	  }
 
 	} else if (higherOrderMF->isCellCut(i)) {
 	  //std::cout << "Cut cell " << locToGlobNodeMap[i]+1 << std::endl;
 
 	  // In this case, the cell j is cut be the interface, so its value does not exist
-	  int fidi = higherOrderMF->getOtherFluidId(i, fluidId[j]);
-	  higherOrderMF->template computeCutCellExtrapolations<dim>(i, fidi,fluidId[j],iloc, Vi,Vj,X);
-	  std::cout << "--------------------------" << std::endl;
-	  std::cout << locToGlobNodeMap[j]+1 << "-" << locToGlobNodeMap[i]+1 << " (" <<  fluidId[j] << " , " << fidi << ") " << std::endl;
-	  for (int k = 0; k < dim; ++k) {
-	    std::cout << V[j][k] << " " << Vj[k] << "\t" << Vi[k] << std::endl;
-	  }
-          
-	  riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
-					 Wi,Wj,i,j,l,dx,true);
-
-	  for (int k = 0; k < dim; ++k) {
-	    Vj[k] = V[j][k]*(-0.5+s)+Wj[k]*(1.5-s);
-	  }
-
-	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					Vj, Vj, fluxj, fluidId[j]);
-
-	  // Now extrapolate back to compute the riemann update for cells i/j
-	  if (it == 1 && fluidId[j] != fluidId[i]) {
-	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	    Vec<double> &weight = riemann.getRiemannWeight();
+	  if (fabs(s-0.5) < 1.5) {
+	    int fidi = higherOrderMF->getOtherFluidId(i, fluidId[j]);
+	    higherOrderMF->template computeCutCellExtrapolations<dim>(i, fidi,fluidId[j],iloc, Vi,Vj,X); 
+	    /*if (locToGlobNodeMap[i]+1 == 6583) {
+	      std::cout << "--------------------------" << std::endl;
+	      std::cout << "Phi: " << phi[i][lsdim] << " " << phi[j][lsdim] << " " << s << std::endl;
+	      std::cout << locToGlobNodeMap[j]+1 << "-" << locToGlobNodeMap[i]+1 << " (" <<  fluidId[j] << " , " << fidi << ") " << std::endl;
+	      std::cout << "[" << iloc[0] << " " << iloc[1] << " " << iloc[2] << "] ";
+	      std::cout << "[" << X[i][0] << " " << X[i][1] << " " << X[i][2] << "] " << std::endl;
+	      std::cout << "[" << X[j][0] << " " << X[j][1] << " " << X[j][2] << "] " << std::endl;	    
+	      for (int k = 0; k < dim; ++k) {
+		std::cout << V[j][k] << " " << Vj[k] << "\t" << Vi[k] << std::endl;
+	      }
+	      higherOrderMF->template printCutCellData<dim>(i);
+	      }*/
+	    
+	    riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
+					   Wi,Wj,i,j,l,dx,true);
+	    
 	    for (int k = 0; k < dim; ++k) {
-	      rupdate[i][k] += (2.0*Vj[k]-V[j][k]);
+	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s;
 	    }
-	    weight[i] += 1.0;
+	    
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Vj, Vj, fluxj, fluidId[j]);
+	    
+	    // Now extrapolate back to compute the riemann update for cells i/j
+	    if (it == 1) {
+	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
+	      Vec<double> &weight = riemann.getRiemannWeight();
+	      for (int k = 0; k < dim; ++k) {
+		rupdate[i][k] += (2.0*Vj[k]-V[j][k]);
+	      }
+	      weight[i] += 1.0;
+	    }
+	  } else { 
+
+	    double Vxt[dim][3],Vjl[dim];
+	    higherOrderMF->template getCutCellData<dim>(i, fluidId[j], Vjl, Vxt);
+	    for (int k=0; k<dim; ++k) {
+	      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+	      ddVij[k] = dx[0]*Vxt[k][0] + dx[1]*Vxt[k][1] + dx[2]*Vxt[k][2];
+	    }
+	    recFcn->compute(Vjl, ddVij, V[j], ddVji, Vi, Vj);
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[i]);	  
+	    /*if (it == 1) {
+	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
+	      Vec<double> &weight = riemann.getRiemannWeight();
+	      for (int k = 0; k < dim; ++k) {
+		rupdate[i][k] += (2.0*Vj[k]-V[j][k]);
+	      }
+	      weight[i] += 1.0;
+	    }*/
 	  }
 	}
       }	else {

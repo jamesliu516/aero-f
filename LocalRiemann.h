@@ -28,7 +28,7 @@ public:
   virtual ~LocalRiemann()  { vf_ = 0; }
 
   // multiphase Riemann problem
-  virtual void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){}
+  virtual void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){}
   virtual void computeRiemannSolution(double *Vi, double *Vj,
 				      int IDi, int IDj, double *nphi,
 				      double *initWi, double *initWj,
@@ -72,7 +72,7 @@ public:
   LocalRiemannGfmp(VarFcn *vf, int tag1, int tag2) : LocalRiemann(vf,tag1,tag2) {}
   virtual ~LocalRiemannGfmp() { vf_ = 0; }
 
-  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){///*nothing to do for GFMP*/}
+  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){///*nothing to do for GFMP*/}
     //if(ID != IDn) fprintf(stdout, "node changes from phase %d to phase %d!\n", IDn, ID);
   }
 };
@@ -92,8 +92,8 @@ public:
       relaxFactorJwl(relaxationFacJwl) {}
   virtual ~LocalRiemannGfmpar() { vf_ = 0; }
 
-  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
-    if(ID == IDn) return; /* node does not change phase: nothing to do*/
+  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){
+    if(ID == IDn && !isCellCut) return; /* node does not change phase: nothing to do*/
     if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange %d %d\n",ID, IDn);
                      exit(1);} }
     else

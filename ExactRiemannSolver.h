@@ -8,6 +8,8 @@ class SparseGridCluster;
 
 template<class Scalar, int dim> class SVec;
 
+#include "HigherOrderMultiFluid.h"
+
 
 //------------------------------------------------------------------------------
 template<int dim>
@@ -43,7 +45,8 @@ class ExactRiemannSolver{
   Vec<double> &getRiemannWeight() const { return weight; }
 
   void storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId, SVec<double,3> &X);
-  void updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId, Vec<int> &fluidIdn);
+  void updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId, Vec<int> &fluidIdn,
+			 HigherOrderMultiFluid* );
 
   // for multiphase Riemann problem
   void computeRiemannSolution(double *Vi, double *Vj,

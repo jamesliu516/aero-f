@@ -473,7 +473,9 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
   // Test case one:
   // p = 1+10^8(x-0.2)^4*(x-0.6)^4, [x = (0.2,0.6)]
   if (iod.mf.testCase == 1) {
-    
+
+    int oth = 1;//(iod.eqs.fluidModelMap.dataMap.size() > 1 ? 1 : 0);   
+ 
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub) {
       SVec<double,dim> &u((*Un)(iSub));
@@ -481,11 +483,11 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       for(int i=0; i<X.subSize(iSub); i++) {
 	double press = 1.0;
 	if (x[i][0] > 0.2 && x[i][0] < 0.6)
-	  press += 1.0e8*pow(x[i][0]-0.2,4.0)*pow(x[i][0]-0.6,4.0);
+	  press += 1.0e7*pow(x[i][0]-0.2,4.0)*pow(x[i][0]-0.6,4.0);
 	double v[dim];
 	v[0] = u[i][0];
 	v[4] = press / iod.ref.rv.pressure;
-	varFcn->primitiveToConservative(v, u[i], (x[i][0] < 0.4 ? 0 : 1) );
+	varFcn->primitiveToConservative(v, u[i], (x[i][0] < 0.4 ? 0 : oth) );
       }
     }
   }
@@ -566,7 +568,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
     if (*dtLeft != 0.0 && dt_glob > *dtLeft)
       dt_glob = *dtLeft / 1000.0;
     else
-      dt_glob /= 1000.0;
+      dt_glob = min(dt_glob,dt_glob*dt_glob);//dt_glob /= 1000.0;
   }
 
   if (*dtLeft != 0.0) {
@@ -694,7 +696,8 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
     if (*dtLeft != 0.0 && dt_glob > *dtLeft)
       dt_glob = *dtLeft / 1000.0;
     else
-      dt_glob /= 1000.0;
+      dt_glob = min(dt_glob,dt_glob*dt_glob);//dt_glob /= 1000.0;
+      //dt_glob /= 1000.0;
   }
   if (*dtLeft != 0.0) {
     *numSubCycles = int(*dtLeft / dt_glob);

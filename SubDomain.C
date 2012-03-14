@@ -280,11 +280,15 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) continue;
 
+    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
+                          higherOrderMF->isCellCut(j)))
+      continue;
+
     double Wi[3], Wj[3];
     Scalar deltaVar;
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    if(R[i][0]>0.0) // should be positive for a well posed least square problem
+    if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
       computeLocalWeightsLeastSquares(dx, R[i], Wi);
     else{ // gradient is set to 0.0
       Wi[0] = 0.0;
@@ -293,7 +297,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     }
 
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-    if(R[j][0]>0.0) // should be positive for a well posed least square problem
+    if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10) // should be positive for a well posed least square problem
       computeLocalWeightsLeastSquares(dx, R[j], Wj);
     else{ // gradient is set to 0.0
       Wj[0] = 0.0;
@@ -303,6 +307,14 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
+
+      /*if (fabs(deltaVar) > 1000)
+        std::cout << "Error: deltaVar is huge: " << deltaVar << std::endl;
+ 
+      if (fabs(Wi[1]+Wi[0]+Wi[2]) > 1000) {
+        std::cout << "Error: Wi[0] is huge: " << Wi[0] << " " << Wi[1] << " " << Wi[2] << std::endl;
+        std::cout << "R[5] = " << R[i][5] << std::endl;
+      }*/
 
       ddx[i][k] += Wi[0] * deltaVar;
       ddy[i][k] += Wi[1] * deltaVar;
@@ -6496,10 +6508,10 @@ void SubDomain::findCutCells(int lsdim,
     if (s < 0.1)
       cutStatus[i] = 1;
     else if (s > 0.9)
-      cutStatus[j] = 1;
-    if (cutStatus[i] || cutStatus[j])
-      std::cout << i << " " << j << " " << 
-	phii[lsdim] << " " << phij[lsdim] << " (" << X[i][0] << " " << X[j][0] << ")" << std::endl;
+    cutStatus[j] = 1;
+    //if (cutStatus[i] || cutStatus[j])
+    //  std::cout << i << " " << j << " " << 
+    //	phii[lsdim] << " " << phij[lsdim] << " (" << X[i][0] << " " << X[j][0] << ")" << std::endl;
       
   }
 
@@ -6550,7 +6562,7 @@ void SubDomain::collectCutCellData(SVec<double,dim>* cutCell[2],
       for (int k = 0; k < dim; ++k) {
 	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
 	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
-			    grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
 	newgrad[k][0] = grad.getX()[j][k];
 	newgrad[k][1] = grad.getY()[j][k];
 	newgrad[k][2] = grad.getZ()[j][k];
@@ -6677,3 +6689,41 @@ void SubDomain::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
 
   higherOrderMF->template setCutCellData<dim>(V, fid);
 }
+
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i]) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] += fabs(U[i][k]-Uexact[i][k]);
+      }
+    }
+  }
+}
+
+template <int dim>
+void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i]) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));
+      }
+    }
+  }
+}
+  

@@ -98,7 +98,8 @@ void DistExactRiemannSolver<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
-    subExactRiemannSolver[iSub]->updatePhaseChange(V(iSub), fluidId(iSub), fluidIdn(iSub));
+    subExactRiemannSolver[iSub]->updatePhaseChange(V(iSub), fluidId(iSub), fluidIdn(iSub),
+						   domain->getSubDomain()[iSub]->getHigherOrderMF());
   }
 
 }

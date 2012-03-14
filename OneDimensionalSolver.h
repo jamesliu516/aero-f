@@ -157,11 +157,17 @@ class OneDimensional {
 
   int levelSetMethod;
 
+  Timer* myTimer;
+
   class Veval {
 
+  public:
     int findNode(const double* loc,double& localRadius) {
 
-      localRadius = sqrt((loc[0]-bubble_x0)*(loc[0]-bubble_x0)+(loc[1]-bubble_y0)*(loc[1]-bubble_y0)+(loc[2]-bubble_z0)*(loc[2]-bubble_z0));
+      if (spherical)
+	localRadius = sqrt((loc[0]-bubble_x0)*(loc[0]-bubble_x0)+(loc[1]-bubble_y0)*(loc[1]-bubble_y0)+(loc[2]-bubble_z0)*(loc[2]-bubble_z0));
+      else
+	localRadius = loc[0];
 	  
       // If the node is inside the sphere, set its values accordingly
       if (localRadius < max_distance) {
@@ -187,10 +193,10 @@ class OneDimensional {
 	return -1;
     }
 
-  public:
     Veval(VarFcn* _vf,OneDimensionalInputData* _oned,FluidSelector* _fluidSelector,double* _x, double* _v,int* _fids,SVec<double,3>* _X,int _np,
-	  double x0,double y0, double z0)  : x_1D(_x), v_1D(_v), fids(_fids),X(_X), numPoints(_np),
-      bubble_x0(x0), bubble_y0(y0), bubble_z0(z0),/* fluidSelector(_fluidSelector),*/ oned(_oned),varFcn(_vf) { 
+	  double x0,double y0, double z0, bool sph = true)  : x_1D(_x), v_1D(_v), fids(_fids),X(_X), numPoints(_np),
+      bubble_x0(x0), bubble_y0(y0), bubble_z0(z0),/* fluidSelector(_fluidSelector),*/ oned(_oned),varFcn(_vf) , spherical(sph)
+      { 
       
       int i,fid_new = 0;
       memset(outletState,0,sizeof(double)*5);
@@ -207,7 +213,7 @@ class OneDimensional {
 
 	  //if (fluidSelector) {
 	    fid_new = fids[i-1];
-	    if (oned->fluidRemap.dataMap.find(fids[i-1]) != oned->fluidRemap.dataMap.end())
+	    if (oned && oned->fluidRemap.dataMap.find(fids[i-1]) != oned->fluidRemap.dataMap.end())
 	      fid_new = oned->fluidRemap.dataMap.find(fids[i-1])->second->newID;
 	    //}
 	  if (varFcn->getType(fid_new) == VarFcnBase::TAIT)
@@ -217,7 +223,7 @@ class OneDimensional {
 
 	  //if (fluidSelector) {
 	    fid_new = fids[i];
-	    if (oned->fluidRemap.dataMap.find(fids[i]) != oned->fluidRemap.dataMap.end())
+	    if (oned && oned->fluidRemap.dataMap.find(fids[i]) != oned->fluidRemap.dataMap.end())
 	      fid_new = oned->fluidRemap.dataMap.find(fids[i])->second->newID;
 	    //}
 	  if (varFcn->getType(fid_new) == VarFcnBase::TAIT)
@@ -233,7 +239,7 @@ class OneDimensional {
       outletState[0] = v_1D[(numPoints-1)*5];
       //if (fluidSelector) {
 	fid_new = fids[numPoints-1];
-	if (oned->fluidRemap.dataMap.find(fids[numPoints-1]) != oned->fluidRemap.dataMap.end())
+	if (oned && oned->fluidRemap.dataMap.find(fids[numPoints-1]) != oned->fluidRemap.dataMap.end())
 	  fid_new = oned->fluidRemap.dataMap.find(fids[numPoints-1])->second->newID;
 	//}
       if (varFcn->getType(fid_new) == VarFcnBase::TAIT)
@@ -252,7 +258,12 @@ class OneDimensional {
       int i = node;
       int fid_new=0;
       double bub_x0[3] = { bubble_x0, bubble_y0, bubble_z0 };
-      double xrad = sqrt(((*X)[i][0]-bubble_x0)*((*X)[i][0]-bubble_x0)+((*X)[i][1]-bubble_y0)*((*X)[i][1]-bubble_y0)+((*X)[i][2]-bubble_z0)*((*X)[i][2]-bubble_z0));	  
+      double xrad;
+      if (spherical)
+	xrad = sqrt(((*X)[i][0]-bubble_x0)*((*X)[i][0]-bubble_x0)+((*X)[i][1]-bubble_y0)*((*X)[i][1]-bubble_y0)+((*X)[i][2]-bubble_z0)*((*X)[i][2]-bubble_z0));	  
+      else
+	xrad = (*X)[i][0];
+
       int a = findNode(loc,localRadius);
       //if (xrad < 1.0)
       //	std::cout << xrad << " " << a<<std::endl;
@@ -269,18 +280,27 @@ class OneDimensional {
 	
 	//if (fluidSelector) {
 	  fid_new = fids[a];
-	  if (oned->fluidRemap.dataMap.find(fids[a]) != oned->fluidRemap.dataMap.end())
+	  if (oned && oned->fluidRemap.dataMap.find(fids[a]) != oned->fluidRemap.dataMap.end())
 	    fid_new = oned->fluidRemap.dataMap.find(fids[a])->second->newID;
 	  //lsdim = fluidSelector->getLevelSetDim(0,fid_new);
 	  //}
+
+	  if (!spherical)
+	    fid_new = 1-fid_new;
 
 	if ( (localRadius > rad && xrad > rad) || (localRadius <= rad && xrad <= rad)) {
 	  //if (xrad < 1.0)
 	  //  std::cout << "fid = " << fid_new <<std::endl;
 	  ff[0] = v_1D[a*5]*(1.0-alpha)+v_1D[(a+1)*5]*(alpha);
-	  ff[1] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[0]-bubble_x0)/max(localRadius,1.0e-8);
-	  ff[2] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[1]-bubble_y0)/max(localRadius,1.0e-8);
-	  ff[3] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[2]-bubble_z0)/max(localRadius,1.0e-8);
+	  if (spherical) {
+	    ff[1] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[0]-bubble_x0)/max(localRadius,1.0e-8);
+	    ff[2] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[1]-bubble_y0)/max(localRadius,1.0e-8);
+	    ff[3] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[2]-bubble_z0)/max(localRadius,1.0e-8);
+	  } else {
+	    ff[1] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha));
+	    ff[2] = 0.0;
+	    ff[3] = 0.0;
+	  }
 	  if (varFcn->getType(fid_new) == VarFcnBase::TAIT)
 	    ff[4] = v_1D[a*5+4]*(1.0-alpha)+v_1D[(a+1)*5+4]*(alpha);
 	  else
@@ -289,22 +309,32 @@ class OneDimensional {
 	} else if (xrad <= rad) {
 	  varFcn->primitiveToConservative(boundaryStateL,f,fids[0]);
 	  fid_new = fids[0];
-	  for (int j = 1; j <= 3; ++j) {
-	    f[j] = boundaryStateL[0]*boundaryStateL[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
+	  if (spherical) {
+	    for (int j = 1; j <= 3; ++j) {
+	      f[j] = boundaryStateL[0]*boundaryStateL[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
+	    }
+	  } else {
+	    f[1] = boundaryStateL[0]*boundaryStateL[1];
+	    f[2] = f[3] = 0.0;
 	  }
 	    
 	} else {
 	  varFcn->primitiveToConservative(boundaryStateR,f,fids[numPoints-1]);
 	  fid_new = fids[numPoints-1];
-	  for (int j = 1; j <= 3; ++j) {
-	    f[j] = boundaryStateR[0]*boundaryStateR[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
-	  }	  
+	  if (spherical) {
+	    for (int j = 1; j <= 3; ++j) {
+	      f[j] = boundaryStateR[0]*boundaryStateR[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
+	    }	  
+	  } else {
+	    f[1] = boundaryStateR[0]*boundaryStateR[1];
+	    f[2] = f[3] = 0.0;
+	  }
 	}	  
       }
       else {
 	//if (fluidSelector) {
 	  fid_new = fids[numPoints-1];
-	  if (oned->fluidRemap.dataMap.find(fids[a]) != oned->fluidRemap.dataMap.end())
+	  if (oned && oned->fluidRemap.dataMap.find(fids[a]) != oned->fluidRemap.dataMap.end())
 	    fid_new = oned->fluidRemap.dataMap.find(fids[a])->second->newID;
 	  // lsdim = fluidSelector->getLevelSetDim(0,fid_new);
 	  //}
@@ -326,6 +356,7 @@ class OneDimensional {
   private:
 
     //FluidSelector* fluidSelector;
+    bool spherical;
     double* x_1D,*v_1D;
     double boundaryStateL[5],boundaryStateR[5],outletState[5];
     SVec<double,3>* X;
@@ -353,7 +384,8 @@ class OneDimensional {
 			     VarFcn* varFcn,
 			     DistSVec<double,3>& X,
 			     Domain& dom,
-			     ReadMode mode) {
+			     ReadMode mode,
+			     bool spherical = true) {
     // read 1D solution
     DistSVec<double,dimp> ut(Up);
     for (map<int, OneDimensionalInputData *>::iterator itr = iod.input.oneDimensionalInput.dataMap.begin();
@@ -415,7 +447,7 @@ class OneDimensional {
             ut.subData(iSub)[i][k] = 0.0;
 	}
 
-	Veval veval(varFcn,itr->second,fluidSelector,x_1D,v_1D,fids,&x,numPoints,bubble_x0,bubble_y0,bubble_z0);
+	Veval veval(varFcn,itr->second,fluidSelector,x_1D,v_1D,fids,&x,numPoints,bubble_x0,bubble_y0,bubble_z0,spherical);
 
 	double localRadius; int np;
 	double localAlpha, velocity_r;
@@ -477,11 +509,14 @@ class OneDimensional {
 	    
 	    localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
 	    
-	    if (localRadius < max_distance) {
+	    if (localRadius < max_distance || !spherical) {
 	      double v[5];
 	      for (int k = 0; k <dimp; ++k)
 		v[k] = utl[i][k] / A(iSub)[i];
-	      varFcn->primitiveToConservative(v,u[i],localRadius < rad ? 1 : 0);
+
+	      if (spherical)
+		varFcn->primitiveToConservative(v,u[i],localRadius < rad ? 1 : 0);
+		
 	      
 	      /*if (localRadius*iod.ref.rv.length < 0.5) {
 		double v[5];
@@ -493,6 +528,85 @@ class OneDimensional {
 	}
       }
     }
+  }
+template <int dimp,int dimLS>
+  static void read1DSolution(IoData& iod, const char* filename, DistSVec<double,dimp>& Up, 
+			     DistSVec<double,dimLS>* Phi,
+			     FluidSelector* fluidSelector,
+			     VarFcn* varFcn,
+			     DistSVec<double,3>& X,
+			     Domain& dom,
+			     ReadMode mode,
+			     bool spherical = true) {
+    // read 1D solution
+    DistSVec<double,dimp> ut(Up);
+
+      std::fstream input;
+      input.open(filename, fstream::in);
+      //cout << filename << endl;
+      if (!input.is_open()) {
+	cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
+	exit(1);
+      }
+      
+      input.ignore(256,'\n');
+      input.ignore(2,' ');
+      int numPoints = 0;
+      input >> numPoints;
+      //cout << " Num 1d points = " << numPoints << endl;
+      double* x_1D = new double[numPoints];
+      double* v_1D = new double[numPoints*5];// rho, u, p, phi, T
+      int* fids = new int[numPoints];
+      
+      double rad = 0;
+      for(int i=0; i<numPoints; i++){
+	input >> x_1D[i] >> v_1D[i*5] >> v_1D[i*5+1] >> v_1D[i*5+2] >> v_1D[i*5+3]>> fids[i] >> v_1D[i*5+4];
+	x_1D[i]    /= iod.ref.rv.length;
+	v_1D[i*5] /= iod.ref.rv.density;
+	v_1D[i*5+1] /= iod.ref.rv.velocity;
+	v_1D[i*5+2] /= iod.ref.rv.pressure;
+	//v_1D[i][3] /= iod.ref.rv.length;
+	v_1D[i*5+4] /= iod.ref.rv.temperature;
+	//std::cout << v_1D[i*5+2] << std::endl;
+        if (rad == 0 && fids[i] == 0) {
+          rad = (x_1D[i-1]*v_1D[i*5+3]-x_1D[i]*v_1D[(i-1)*5+3])/(v_1D[i*5+3]-v_1D[(i-1)*5+3]);
+        }
+      }
+      
+      input.close();
+
+      int lsdim = 0;
+      
+      // interpolation assuming 1D solution is centered on bubble_coord0
+      double bubble_x0 = 0;//itr->second->x0;
+      double bubble_y0 = 0;//itr->second->y0;
+      double bubble_z0 = 0;//itr->second->z0;
+      double max_distance = x_1D[numPoints-1]; 
+      double localRadius;
+      ut = 1.0;
+#pragma omp parallel for
+      for (int iSub=0; iSub<Up.numLocSub(); ++iSub) {
+	SVec<double,dimp> &u(Up(iSub));
+	SVec<double, 3> &x(X(iSub));
+	for(int i=0; i<u.size(); i++) {
+	  localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	  for (int k = 0; k < dim; ++k)
+            ut.subData(iSub)[i][k] = 0.0;
+	}
+
+	Veval veval(varFcn,0,fluidSelector,x_1D,v_1D,fids,&x,numPoints,bubble_x0,bubble_y0,bubble_z0,spherical);
+
+	double localRadius; int np;
+	double localAlpha, velocity_r;
+	double localV[5];
+	if (mode == ModeU) {
+	  for(int i=0; i<u.size(); i++) {
+	    double v[5];
+	    localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	    veval.Eval(i, x[i], u[i]);
+	  }
+	}
+      }
   }
 
   void resultsOutput(double time, int iteration);

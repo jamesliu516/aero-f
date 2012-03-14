@@ -97,6 +97,10 @@ struct InputData {
   const char *mesh;
   const char *reducedfullnodemap;
 
+  const char* convergence_file;
+  
+  const char* exactInterfaceLocation;
+
 // Included (MB)
   const char *shapederivatives;
 
@@ -1045,6 +1049,8 @@ struct MultiFluidData {
   SparseGridData sparseGrid;
 
   int testCase;
+
+  int interfaceOmitCells;
 
   MultiFluidData();
   ~MultiFluidData() {}

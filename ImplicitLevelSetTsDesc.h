@@ -78,6 +78,7 @@ public:
 
   int solveLinearSystemLS(int, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
+  void doErrorEstimation(DistSVec<double,dim> &U);
 
  protected:
   template<class Scalar, int neq>

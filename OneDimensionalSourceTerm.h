@@ -81,7 +81,7 @@ class OneDimensionalSourceTerm {
       f.compute(V[i], local+i*dim,i);
     }
 
-    std::stringstream dummy;
+    //std::stringstream dummy;
 
     for (int i = 0; i < V.size(); ++i) {
       
@@ -107,11 +107,11 @@ class OneDimensionalSourceTerm {
 	double term = 0.0;
 	for (int l = 0; l < order; ++l) {
 	  //std::cout << "hello" << std::endl;
-	  term += computeIntegralTerm(Y[i+1][0],Y[i][0],X[i][0],l)*derivs[l]/factorial(l);
+	  F[i][k] += computeIntegralTerm(Y[i+1][0],Y[i][0],X[i][0],l)*derivs[l]/factorial(l);
 	  //l = l;
 	  //std::cout << order << std::endl;// exit(0);
 	  //std::cout << term << " ";
-	  dummy << "hello" << Y[i+1][0] << " " << Y[i][0] << " " << X[i][0] << " " << derivs[l] << std::endl;
+	  //dummy << "hello" << Y[i+1][0] << " " << Y[i][0] << " " << X[i][0] << " " << derivs[l] << std::endl;
 	}
         //std::cout << term << " ";
 	//exit(0);

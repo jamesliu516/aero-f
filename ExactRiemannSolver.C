@@ -149,11 +149,12 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 //------------------------------------------------------------------------------
 template<int dim>
 void ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId,
-                                                Vec<int> &fluidIdn)
+                                                Vec<int> &fluidIdn,HigherOrderMultiFluid* higherOrderMF)
 {
 
   for(int i=0; i<V.size(); i++){
-    lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i]);
+    lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],
+				   (higherOrderMF ? higherOrderMF->isCellCut(i) : false));
     // lriemann[0] can be used for all interfaces, because  this routine does
     // not need to consider which interface has traversed that node (this
     // was done previously when computing the riemann problem)

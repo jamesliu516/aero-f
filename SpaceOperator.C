@@ -2037,6 +2037,28 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
     this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V));
     this->timer->addNodalGradTime(t0);
   }
+  
+/*  this->domain->getCommunicator()->fprintf(stderr,"%lf\n",this->V->norm());  
+  int numLocSub = X.numLocSub();
+  double gradsize = 0.0;
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      NodalGrad<dim,double>& grad = this->ngrad->operator()(iSub);
+      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+        if (fabs(grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3]) > 1000.0) {
+          std::cout << "Error: grad size is giant: " << grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3] <<
+                   " " << this->domain->getSubDomain()[iSub]->getNodeMap()[i] + 1;
+          if (this->domain->getSubDomain()[iSub]->higherOrderMF->isCellCut(i))
+            std::cout << " [cell is cut]";
+          std::cout << std::endl;
+        }
+        gradsize += grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3];
+      }
+    }
+
+    this->domain->getCommunicator()->globalSum(1,&gradsize);
+    this->domain->getCommunicator()->fprintf(stderr,"gradsize = %lf\n",gradsize);
+ */
 
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0){
     double t0 = this->timer->getTime();
@@ -2117,13 +2139,14 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
     ngradLS->limit(recFcnLS, X, ctrlVol, Phi);
 
-
   this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),
                                     *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
+//  this->domain->getCommunicator()->fprintf(stderr,"PhiF res: %lf\n", PhiF.norm());
 
   if (this->use_modal == false)  {
     int numLocSub = PhiF.numLocSub();
     int iSub;
+    double gradsize = 0.0;
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
@@ -2136,10 +2159,19 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
 	if (method == 1) {
 	  for (int idim=0; idim<dimLS; idim++)
 	    r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
+          gradsize += grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3];
 	}
       }
     }
+
+//    this->domain->getCommunicator()->globalSum(1,&gradsize);
+//    this->domain->getCommunicator()->fprintf(stderr,"gradsize = %lf\n",gradsize);
   }
+
+/*  this->domain->getCommunicator()->fprintf(stderr,"PhiF res: %lf\n", PhiF.norm());
+  this->domain->getCommunicator()->fprintf(stderr,"V res: %lf\n", this->V->norm());
+  this->domain->getCommunicator()->fprintf(stderr,"Phi res: %lf\n", Phi.norm());
+*/
 }
 
 //------------------------------------------------------------------------------

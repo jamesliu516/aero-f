@@ -153,9 +153,18 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
 
   double t0 = this->timer->getTime();
 
+/*  if (this->interfaceOrder == 2)
+    int itsLS = this->ns->solveLS(this->Phi, U);
+*/
+
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
   this->Utilde = U;
+
+  if(TsDesc<dim>::timeState->getData().typeIntegrator == ImplicitData::THREE_POINT_BDF &&
+     TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION )
+    doErrorEstimation(U);
+  
   if(!(this->interfaceType==MultiFluidData::FSF)){
     this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
     this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
@@ -166,6 +175,9 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
     (this->fluidSelector).getFluidId(this->Phi);
     this->timer->addLevelSetSolutionTime(t1);
+    
+    // Riemann overwrite using the value of Phi_{n+1}
+    this->setPhiExact();
 
     this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
@@ -176,6 +188,26 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
   return its;
   
 }
+
+template<int dim,int dimLS>
+void ImplicitLevelSetTsDesc<dim,dimLS>::doErrorEstimation(DistSVec<double,dim> &U) 
+{
+  DistSVec<double,dim> *F = ns->GetResidual();
+
+  if (this->lsMethod == 0) {
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+    this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), this->PhiV, 
+					     this->fluidSelector, *F, this->riemann, 0);
+  } else {
+
+    this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), this->Phi, 
+					     this->fluidSelector, *F, this->riemann, 0);
+  }
+
+  this->timeState->calculateErrorEstiNorm(U, *F); 
+}
+
+//------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 // External routines to solve Euler equations implicitly (called by NewtonSolver)
 //------------------------------------------------------------------------------
@@ -187,6 +219,21 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
 {
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
+
+  DistSVec<double,dimLS>& locphi = this->Phi;
+  if (this->lsMethod == 0)
+    locphi = this->PhiV;
+  //else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
+  //  locphi = this->Phi0;
+
+  if (this->interfaceOrder == 2 && this->useCutCells) {
+    this->multiPhaseSpaceOp->findCutCells(locphi,
+                                          this->cutCellStatus,
+                                          *this->fluidSelector.fluidId,
+                                          Q,
+                                          *this->X);
+  }
+
   if (this->lsMethod == 0) {
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 
