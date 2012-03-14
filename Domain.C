@@ -3398,17 +3398,19 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 
 template<int dim>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS)
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<double> &init,
+               DistVec<double> &next_init, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Weights(iSub),
-                                                     (*distLSS)(iSub),X(iSub));
+                                                     (*distLSS)(iSub),X(iSub),
+                                                     init(iSub),next_init(iSub));
   
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
-
+  assemble(volPat, next_init);
 }
 
 //------------------------------------------------------------------------------
@@ -3416,18 +3418,21 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
 template<int dim, int dimLS>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
                                              DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
-                                             DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
+                                             DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
+                                             DistVec<double>& init, DistVec<double> &next_init,
                                              DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Phi(iSub), PhiWeights(iSub),
-                                                     Weights(iSub), (*distLSS)(iSub),X(iSub), (*fluidId)(iSub));
+                                                     Weights(iSub), (*distLSS)(iSub), X(iSub),
+                                                     init(iSub), next_init(iSub), (*fluidId)(iSub));
 
   assemble(vecPat, VWeights);
   assemble(phiVecPat, PhiWeights);
   assemble(volPat, Weights);
+  assemble(volPat, next_init);
 }
 
 //------------------------------------------------------------------------------
