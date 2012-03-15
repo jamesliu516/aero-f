@@ -737,8 +737,8 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
 
     // Next handle swept nodes
     int iteration_count=0;
-    bool flags[2] = {true,true}; // flags = {needs_iteration, detected_change}
-    while(flags[0] && flags[1]){flags[0]=false;flags[1]=false;
+    int flags[2] = {1,1}; // flags = {needs_iteration, detected_change}
+    while(flags[0] && flags[1]){flags[0]=0;flags[1]=1;
 #pragma omp parallel for
         for(int iSub=0;iSub<numLocSub;++iSub){
             SubDomain& sub=intersector[iSub]->subD;
@@ -749,10 +749,10 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
                     if(i==j) continue;
                     else if(!intersector[iSub]->edgeIntersectsStructure(0.0,i,j)
                             && (*status)(iSub)[j] != UNDECIDED && (*status)(iSub)[j] != OUT){
-                        stat=(*status)(iSub)[j];flags[1]=true;break;}}
-                if(stat == UNDECIDED) flags[0]=true;
+                        stat=(*status)(iSub)[j];flags[1]=1;break;}}
+                if(stat == UNDECIDED) flags[0]=1;
                 else{(*status)(iSub)[i]=stat;(*swept_node)(iSub)[i]=true;}}}
-        com->globalOp(2,(bool*)flags,MPI_LOR);
+        com->globalMax(2,(int*)flags);
         if(flags[1]) domain->assemble(domain->getLevelPat(),*status,maxOp);
     }
 
