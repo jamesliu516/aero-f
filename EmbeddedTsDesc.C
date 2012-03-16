@@ -612,7 +612,6 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
     this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
                                     ghostPoints, this->postOp->getPostFcn(), &nodeTag);
   } else {
-    this->com->fprintf(stderr, "OK. I am cheap...\n");
     if(unifPressure[0]==0) {
       this->com->fprintf(stderr,"ERROR: Detected pressure p = %e in Implosion Setup.\n", unifPressure[0]);
       exit(-1);
