@@ -38,11 +38,44 @@ protected:
   void computedUdV(double *V, double *dUdV);
   int verification(int glob, double *U, double *V);
 
+  double* lookup_table;
+  int lut_size;
+  double lut_min,lut_max;
+
+  inline double pow(double a, double b) const {
+
+    if (!lookup_table || b != b_ || a >= lut_max)
+      return ::pow(a,b);
+
+    double lut_val = (a-lut_min)/(lut_max-lut_min)*lut_size;
+    double intpart;
+    double frac = modf(lut_val, &intpart);
+    int ip = (int)intpart;
+
+    return lookup_table[ip]*(1.0-frac)+lookup_table[ip+1]*frac;
+  }
+
+  void createLookupTable(int lsize) {
+
+    lut_min = ::pow(-p_/a_,1.0/b_);
+    lut_max = lut_min*1.8;
+    lut_size = lsize;
+    lookup_table = new double[lsize];
+    for (int i = 0; i < lsize; ++i) {
+      double loc = ((double)i)/(lsize-1)*(lut_max-lut_min)+lut_min;
+      lookup_table[i] = ::pow(loc, b_);
+    }
+  }
+ 
 public:
   // baseClass determines if VarFcnTait is used as a base class
   // for another class (like VarFcnTaitSA and VarFcnTaitKE)
   VarFcnTait(FluidModelData &data, bool baseClass = false);
-  virtual ~VarFcnTait() {}
+  virtual ~VarFcnTait() {
+  
+    if (lookup_table)
+      delete [] lookup_table;
+  }
 
   //----- Transformation Operators -----//
   void conservativeToPrimitive(double *U, double *V);
@@ -88,7 +121,7 @@ public:
     return V[0] * C_ * V[4] - getPressure(V);
   }
   double computeSoundSpeed(double *V)  const{ 
-    double c2 = a_ * b_ * pow(V[0], b_ - 1.0);
+    double c2 = a_ * b_ * pow(V[0], b_)/V[0];
     if (c2>0) return sqrt(c2);
     else {
       std::cout << "Negative c2 for Tait EOS: " << V[0] << "; c^2 = " << c2 << std::endl;
@@ -96,7 +129,7 @@ public:
     }
   }
   double computeSoundSpeed(const double density, const double entropy) const{
-    double c2 = a_ * b_ * pow(density, b_ - 1.0);
+    double c2 = a_ * b_ * pow(density, b_)/density;
     if (c2>0) return sqrt(c2);
     return 0.0;
   }
@@ -132,6 +165,8 @@ VarFcnTait::VarFcnTait(FluidModelData &data, bool baseClass) : VarFcnBase(data) 
   }
 
   type = TAIT;
+
+  lookup_table = 0;
  
   C_    = data.liquidModel.specificHeat;
   if(C_ <= 0.0 ) fprintf(stderr, "*** Error: specific heat should not be %e in Tait EOS\n", C_);
@@ -148,6 +183,8 @@ VarFcnTait::VarFcnTait(FluidModelData &data, bool baseClass) : VarFcnBase(data) 
     pname[3] = "z-velocity";
     pname[4] = "temperature";
   }
+
+  //createLookupTable(512);  
 }
 //------------------------------------------------------------------------------
 inline

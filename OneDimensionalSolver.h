@@ -620,7 +620,7 @@ public:
   void temporalSetup();
   void stateInitialization(OneDimensionalInfo &data);
   void totalTimeIntegration();
-  void computeTimeSteps(SVec<double,1> &timeSteps);
+  double computeMaxTimeStep();
   void singleTimeIntegration(double dt);
   void computeEulerFluxes(SVec<double,5>& y);
   void computeLevelSetFluxes(SVec<double,1>& y);
