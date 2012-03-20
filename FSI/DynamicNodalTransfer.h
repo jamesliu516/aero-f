@@ -37,15 +37,18 @@ class EmbeddedStructure {
   int algNum;
   bool dim2Treatment;
   bool oneWayCoupling;
-  int mode;
   
   double tScale;
   double XScale;
   double UScale;
 
+  // for forced motion
+  int mode;
   double dt, tMax;
   double omega;
   double dx, dy, dz;
+  double alpha_in, alpha_max, x1[3], x2[3], u, v, w, ix, iy, iz;
+
   double t0; // starting time.
   int it;
 
