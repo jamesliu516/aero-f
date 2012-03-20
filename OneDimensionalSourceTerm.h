@@ -7,6 +7,9 @@
 
 #include <sstream>
 
+const static int factorial_oned[] = {1,1,2,6,24,120,720,5040,40320};
+const static int permutation_oned[] = {1,-1,1,-1,1,-1,1,-1};
+
 class OneDimensionalSourceTerm {
 
   struct MyLU {
@@ -15,14 +18,16 @@ class OneDimensionalSourceTerm {
     int* index;
   };
 
+  double* pow_ry_k,*pow_ri_k,*logr1r0;
+
  public:
  
-  OneDimensionalSourceTerm() { }
+  OneDimensionalSourceTerm() { logr1r0 = 0; pow_ry_k = pow_ri_k = 0; }
 
   ~OneDimensionalSourceTerm() { }
 
-  int factorial(int i) { 
-    return (i == 0 ? 1 : i*factorial(i-1)); 
+  inline static int factorial(int i) { 
+    return factorial_oned[i];//(i == 0 ? 1 : i*factorial(i-1)); 
   }
 
   void initialize(double _alpha, int _order, SVec<double,1>& X) {
@@ -31,6 +36,9 @@ class OneDimensionalSourceTerm {
     order = _order;
     ludata = new MyLU[X.size()];
     int j;
+
+    pow_ry_k = new double[(X.size()+1)*order];
+    pow_ri_k = new double[(X.size())*order];
     for (int i = 0; i < X.size(); ++i) {
       
       j = i-order/2;
@@ -50,6 +58,7 @@ class OneDimensionalSourceTerm {
       }
       DenseMatrixOp<double,5,5>::ludec(lu.a, lu.index,1.0, order);
       ludata[i] = lu;
+  
     }
   }
 
@@ -57,15 +66,12 @@ class OneDimensionalSourceTerm {
     return factorial(n)/(factorial(n-k)*factorial(k));
   }
 
-  double computeIntegralTerm(double r1, double r0,double ri, int n) {
+  double computeIntegralTerm(double r1, double r0,double ri, int n,int i) {
     
     double I = 0.0;
-    if (r0 > 1.0e-8) {
-      //std::cout << "ri = " << ri << " r1 = " << r1 <<  std::endl;
-      I = pow(-ri, n)*log(r1/r0);
-    }
+    I = permutation_oned[n]*pow_ri_k[i*(order+1)+n]*logr1r0[i];//log(r1/r0);
     for (int k = 1; k <= n; ++k) {
-      I += 1.0/k*binomialTerm(n,k)*(k==n?1.0 : pow(-ri,n-k))*(pow(r1,k)-pow(r0,k));
+      I += 1.0/k*binomialTerm(n,k)*(k==n?1.0 : permutation_oned[n]*pow_ri_k[i*(order+1)+n-k]*(pow_ry_k[(i+1)*(order+1)+k]-pow_ry_k[(i)*(order+1)+k]));
     }
     return I*alpha;
   }
@@ -75,16 +81,32 @@ class OneDimensionalSourceTerm {
     
     double* local = new double[dim*V.size()];
     double* derivs = new double[order];
+    
+    if (!logr1r0) {
+      logr1r0 = new double[X.size()];
+      pow_ri_k = new double[X.size()*(order+1)];
+      pow_ry_k = new double[(X.size()+1)*(order+1)];
+      for (int i = 0; i < X.size(); ++i) {
+        logr1r0[i] = (i > 0 ? log(Y[i+1][0]/Y[i][0]) : 0.0);
+        for (int k = 0; k <= order; ++k) {   
+          pow_ri_k[i*(order+1)+k] = pow(X[i][0],k);
+        } 
+      }
+      for (int i = 0; i < X.size()+1; ++i) {
+        for (int k = 0; k <= order; ++k) {   
+          pow_ry_k[i*(order+1)+k] = pow(Y[i][0],k);
+        } 
+      }
+    }
 
     int j;
     for (int i = 0; i < V.size(); ++i) {
       f.compute(V[i], local+i*dim,i);
     }
 
-    //std::stringstream dummy;
-
     for (int i = 0; i < V.size(); ++i) {
-      
+     
+      double Yi = Y[i][0],Yip1 = Y[i+1][0],Xi = X[i][0];
       j = i-order/2;
       int fid = fluidId[i];
       if (j < 0)
@@ -93,6 +115,7 @@ class OneDimensionalSourceTerm {
 	j = X.size()-order;
 
       MyLU& lu = ludata[i];
+      double* Fiptr = F[i];
       for (int k = 0; k < dim; ++k) {
 	for (int l = 0; l < order; ++l) {
           if (fluidId[j+l] == fid)
@@ -100,23 +123,14 @@ class OneDimensionalSourceTerm {
           else
             derivs[l] = local[i*dim+k];
 	}
-	
+ 	
 	DenseMatrixOp<double,5,5>::ludfdbksb(lu.a, lu.index, derivs, order);
-	//std::cout << derivs[0] << " " << factorial(0) << std::endl;
 	
 	double term = 0.0;
 	for (int l = 0; l < order; ++l) {
-	  //std::cout << "hello" << std::endl;
-	  F[i][k] += computeIntegralTerm(Y[i+1][0],Y[i][0],X[i][0],l)*derivs[l]/factorial(l);
-	  //l = l;
-	  //std::cout << order << std::endl;// exit(0);
-	  //std::cout << term << " ";
-	  //dummy << "hello" << Y[i+1][0] << " " << Y[i][0] << " " << X[i][0] << " " << derivs[l] << std::endl;
+	  Fiptr[k] += computeIntegralTerm(Yip1,Yi,Xi,l,i)*derivs[l]/factorial(l);
 	}
-        //std::cout << term << " ";
-	//exit(0);
-	F[i][k] += term;
-	//std::cout << term << " ";
+	//Fiptr[k] += term;
       }
     } 
 

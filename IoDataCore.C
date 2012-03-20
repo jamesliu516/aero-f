@@ -3629,7 +3629,7 @@ ImplosionSetup::ImplosionSetup() {
 
 void ImplosionSetup::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 5, 0);
-  new ClassToken<ImplosionSetup>(ca, "Type", this, reinterpret_cast<int ImplosionSetup::*>(&ImplosionSetup::type), 3, "Linear", 0, "SmoothStep", 1);
+  new ClassToken<ImplosionSetup>(ca, "Type", this, reinterpret_cast<int ImplosionSetup::*>(&ImplosionSetup::type), 2, "Linear", 0, "SmoothStep", 1);
   new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
   new ClassDouble<ImplosionSetup>(ca, "Tmax", this, &ImplosionSetup::tmax);
