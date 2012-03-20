@@ -40,6 +40,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                       // 2: averaged structure normal;
 
   bool increasingPressure;
+  bool recomputeIntersections;
+  double unifPressure[2];
  
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
@@ -136,6 +138,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                                            double F[3], double M[3]);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
+  virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}
 
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
   double currentPressure(double t);

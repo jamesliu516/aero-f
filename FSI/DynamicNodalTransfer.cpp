@@ -234,30 +234,41 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   oneWayCoupling = (iod.embed.coupling == EmbeddedFramework::ONEWAY) ? true : false; //by default it's false
 
   // ---- for forced-motion only ------
-  if(!coupled)
+  if(!coupled) {
     if(iod.forced.type==ForcedData::HEAVING)
       mode = 1;
+    else if(iod.forced.type==ForcedData::PITCHING)
+      mode = 2;
     else {
       com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
       exit(-1);
     }
-  else
-    mode = -1;
+  } else mode = -1;
 
   // NOTE: All variables stored in EmbeddedStructure must be dimensional! (unless the simulation itself is non-dim)
   tMax  = tScale*iod.ts.maxTime; //iod.ts.maxTime is already non-dimensionalized in IoData
   dt    = tScale*iod.forced.timestep;
   t0    = tScale*iod.restart.etime;
   omega = 2.0*acos(-1.0)*(1.0/tScale)*iod.forced.frequency;
+
+  // for heaving
   dx    = iod.ref.rv.length*iod.forced.hv.ax; //tlength = length / aero.displacementScaling;
   dy    = iod.ref.rv.length*iod.forced.hv.ay;
   dz    = iod.ref.rv.length*iod.forced.hv.az;  
-/*  com.fprintf(stderr,"*** User Specified Embedded Structure Info ***\n");
-  com.fprintf(stderr,"  coupled = %d,  dim2Treatment = %d\n", coupled, dim2Treatment);
-  if(!coupled){
-    com.fprintf(stderr,"  (forced motion) mode = %d, t0 = %e, tMax = %e, dt = %e\n", mode, t0, tMax, dt);
-    com.fprintf(stderr,"                  omega = %e, dx = %e, dy = %e, dz = %e.\n", omega, dx, dy, dz);
-  }*/
+
+  // for pitching
+  alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
+  alpha_max = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;  // maximum angle of rotation
+  x1[0] = iod.forced.pt.x1;  x1[1] = iod.forced.pt.y1;  x1[2] = iod.forced.pt.z1;
+  x2[0] = iod.forced.pt.x2;  x2[1] = iod.forced.pt.y2;  x2[2] = iod.forced.pt.z2;
+  for(int i=0; i<3; i++) { //get back to user-specified coordinates.
+    x1[i] *= iod.ref.rv.length;
+    x2[i] *= iod.ref.rv.length;
+  }
+  u = x2[0]-x1[0];  v = x2[1]-x1[1];  w = x2[2]-x1[2];
+  // unit normals of axis of rotation //
+  ix = u/sqrt(u*u+v*v+w*w);  iy = v/sqrt(u*u+v*v+w*w);  iz = w/sqrt(u*u+v*v+w*w);
+
   // ----------------------------------
   //               End
   // ----------------------------------
@@ -626,7 +637,49 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         Udot[i][1] = dy*omega*sin(omega*time); 
         Udot[i][2] = dz*omega*sin(omega*time); 
       }
-    else if (mode==2) //heaving with a constant velocity (in this case dx dy dz are velocity
+    else if (mode==2) { //pitching
+      double theta = alpha_in + alpha_max*sin(omega*time);
+      double costheta = cos(theta);
+      double sintheta = sin(theta);
+      for(int i=0; i<nNodes; ++i) {
+        U[i][0] = U[i][1] = U[i][2] = 0.0;
+        double p[3];
+        for(int j=0; j<3; j++)
+          p[j] = X0[i][j] - x1[j];
+
+        U[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
+        U[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
+        U[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
+
+        U[i][1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];
+        U[i][1] += (costheta + (1 - costheta) * iy * iy) * p[1];
+        U[i][1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];
+
+        U[i][2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];
+        U[i][2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];
+        U[i][2] += (costheta + (1 - costheta) * iz * iz) * p[2];
+
+        U[i][0] += x1[0];
+        U[i][1] += x1[1];
+        U[i][2] += x1[2];
+
+        if(it==1) {
+          if(algNum==6)
+            for(int j=0; j<3; j++)
+              Udot[i][j] = (U[i][j]-X0[i][j])/(0.5*dt);
+          else
+            for(int j=0; j<3; j++)
+              Udot[i][j] = (U[i][j]-X0[i][j])/dt;
+        } else {
+          for(int j=0; j<3; j++)
+            Udot[i][j] = (U[i][j]-X[i][j])/dt;
+        }
+
+        for(int j=0; j<3; j++)
+          U[i][j] -= X0[i][j];
+      }
+    }
+    else if (mode==3) //heaving with a constant velocity (in this case dx dy dz are velocity
       for(int i=0; i < nNodes; ++i) {
         U[i][0] = time*dx;
         U[i][1] = time*dy;

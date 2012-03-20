@@ -154,6 +154,7 @@ public:
   DistInfo &getInletVecInfo() const {return domain->getInletNodeDistInfo(); }
   int getNumPhase() { return numPhase; }
   int structureSubcycling() {return (mmh ? mmh->structureSubcycling() : 0);}
+  virtual bool willNotSolve(double dts, double t) {return false;}
 
 // Included (MB)
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
