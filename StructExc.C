@@ -351,6 +351,7 @@ void StructExc::negotiateStopping(bool* lastIt)
 void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X, 
 				DistSVec<double,3> &Xdot, DistSVec<double,3> &dX) 
 {  
+//  fprintf(stderr,"[StExc] going to get displacement.\n");
   double norms[2] = {0.0, 0.0};
 
   dX = 0.0;
@@ -406,7 +407,7 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
   com->globalSum(2, norms);
 
   com->printf(7, "Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
-  //com->fprintf(stderr, "Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
+  //com->fprintf(stderr, "[StExc] Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
 }
 
 //------------------------------------------------------------------------------
