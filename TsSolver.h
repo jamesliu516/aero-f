@@ -122,9 +122,8 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       itSc++;
       probDesc->setCurrentTime(t,U);
 
-      if(probDesc->structureSubcycling() || 
+      if(probDesc->structureSubcycling() || //in this case computeTimeStep is called in computePositionVector
          (it>1 && probDesc->willNotSolve(dtLeft,t)) ) {//in this case AERO-F should never subcycle
-        probDesc->printf(1, "Not computing fluid time-step.\n");
         dt = dtLeft;
         dtLeft = 0.0;
       }

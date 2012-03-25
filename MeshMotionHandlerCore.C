@@ -1489,6 +1489,7 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the
                                      // structure in the mesh solution
 
+//  com->fprintf(stderr,"<AERO-F> done with Step 1.\n");
   return dts;
 }
 
@@ -1609,12 +1610,18 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
     dts = dynNodalTransfer->getStructureTimeStep(); //dts obtained at it=0. This line is actually redundant
   }
 
-  else if (it>1) {
+  else if (it>1 && !*lastIt) {
     dynNodalTransfer->sendForce(); //send force to structure
     if(dynNodalTransfer->structSubcycling())
       dynNodalTransfer->sendFluidSuggestedTimestep(this->dtf0);
     dynNodalTransfer->updateInfo();
     dts = dynNodalTransfer->getStructureTimeStep(); //dts obtained at initialization (getInfo)
+  }
+
+  else { // lastIt
+    dynNodalTransfer->sendForce(); //send force to structure
+    if(dynNodalTransfer->structSubcycling())
+      dynNodalTransfer->sendFluidSuggestedTimestep(this->dtf0);
   }
 }
 
