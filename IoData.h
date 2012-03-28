@@ -1146,6 +1146,9 @@ struct CFixData {
   CFixData();
   ~CFixData() {}
 
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
+
   void setup(const char *, ClassAssigner * = 0);
 
 };
@@ -1159,6 +1162,9 @@ struct SFixData {
   double z0;
   double r;
 
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
+  
   SFixData();
   ~SFixData() {}
 
@@ -1176,6 +1182,9 @@ struct BFixData {
   double x1;
   double y1;
   double z1;
+  
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
 
   BFixData();
   ~BFixData() {}

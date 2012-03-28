@@ -440,6 +440,8 @@ void EmbeddedTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
   this->geoState->update(*this->X, *this->A);
   this->timeState->update(U,increasingPressure); 
+  this->spaceOp->updateFixes();
+
 }
 
 //-----------------------------------------------------------------------------

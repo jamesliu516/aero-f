@@ -31,6 +31,10 @@ class DistNodalGrad {
   int lastConfig;
 
   int numLocSub;
+  
+  int iteration;
+
+  IoData* myIoData;
 
   DistVec<bool> *tag;
   DistVec<bool> *backuptag;
@@ -69,6 +73,10 @@ class DistNodalGrad {
   DistSVec<Scalar,dim> *dddy;
   DistSVec<Scalar,dim> *dddz;
 
+  double spheres[SchemeFixData::num * 2][4];
+  double boxes[SchemeFixData::num * 2][2][3];
+  double cones[SchemeFixData::num * 2][2][4];
+
 public:
 
   DistNodalGrad(IoData &, Domain *);
@@ -76,6 +84,8 @@ public:
   ~DistNodalGrad();
 
   NodalGrad<dim, Scalar> &operator() (int i) const { return *subNodalGrad[i]; }
+
+  void updateFixes();
 
   void computeWeights(DistSVec<double,3> &);
 

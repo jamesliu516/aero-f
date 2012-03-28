@@ -201,7 +201,7 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
 
   this->timeState->update(U,Utilde,  *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
 
-
+  this->spaceOp->updateFixes();
 }
 
 //------------------------------------------------------------------------------

@@ -1411,6 +1411,8 @@ CFixData::CFixData()
   r0 = -1.0;
   r1 = -1.0;
 
+  failsafeN = -1;
+  failsafe = ALWAYSON;
 }
 
 //------------------------------------------------------------------------------
@@ -1430,6 +1432,12 @@ void CFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<CFixData>(ca, "Z1", this, &CFixData::z1);
   new ClassDouble<CFixData>(ca, "Radius1", this, &CFixData::r1);
 
+  ClassToken<CFixData>* sf = new ClassToken<CFixData>
+        (ca, "FailSafe", this,
+         reinterpret_cast<int CFixData::*>(&CFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+
+  sf->allowIntPair(&CFixData::failsafeN);
 }
 //------------------------------------------------------------------------------
 
@@ -2082,8 +2090,9 @@ SFixData::SFixData()
   z0 = 0.0;
   r = -1.0;
 
+  failsafe = ALWAYSON;
+  failsafeN = -1;
 }
-
 //------------------------------------------------------------------------------
 
 void SFixData::setup(const char *name, ClassAssigner *father)
@@ -2096,6 +2105,12 @@ void SFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SFixData>(ca, "Z0", this, &SFixData::z0);
   new ClassDouble<SFixData>(ca, "Radius", this, &SFixData::r);
 
+  ClassToken<SFixData>* sf = new ClassToken<SFixData>
+	(ca, "FailSafe", this,
+	 reinterpret_cast<int SFixData::*>(&SFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+  
+  sf->allowIntPair(&SFixData::failsafeN);
 }
 
 //------------------------------------------------------------------------------
@@ -2110,6 +2125,8 @@ BFixData::BFixData()
   y1 = -1.0;
   z1 = -1.0;
 
+  failsafe = ALWAYSON;
+  failsafeN = -1;
 }
 
 //------------------------------------------------------------------------------
@@ -2125,6 +2142,13 @@ void BFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<BFixData>(ca, "X1", this, &BFixData::x1);
   new ClassDouble<BFixData>(ca, "Y1", this, &BFixData::y1);
   new ClassDouble<BFixData>(ca, "Z1", this, &BFixData::z1);
+
+  ClassToken<BFixData>* sf = new ClassToken<BFixData>
+	(ca, "FailSafe", this,
+	 reinterpret_cast<int BFixData::*>(&BFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+  
+  sf->allowIntPair(&BFixData::failsafeN);
 
 }
 

@@ -26,6 +26,7 @@ class Assigner {
    virtual void assignDouble(double);
    virtual void assignToken(int);
    virtual void assignString(const char *);
+   virtual void assignTokenIntPair(int,int);
    virtual Assigner *findSubToken(int);
 
    virtual Assigner *findIndexObject(int);
@@ -122,16 +123,22 @@ class ClassDouble : public Assigner {
     void assignDouble(double v) { ptr->*sp = v; }
 };
 
-
 template <class T>
 class ClassToken : public Assigner {
     T *ptr;
     int T::*token;
     vector<int> tk;
     vector<int> val;
+  
+    // Optional
+    int T::*tokenInt;
+
   public:
     ClassToken(ClassAssigner *, const char *n, T *ptr, int T::*sp, int nt, ...);
     void assignToken(int);
+    void assignTokenIntPair(int,int);
+
+    void allowIntPair(int T::*sp) { tokenInt = sp; }
 };
 
 template <class T>
@@ -146,6 +153,18 @@ public:
     ClassStr& operator=(const ClassStr &);
 };
 
+/*template <class T>
+class ClassTokenIntPair : public Assigner {
+    T *ptr;
+    int T::*token;
+    int T::*sp;
+    vector<int> tk;
+    vector<int> val;
+  public:
+    ClassTokenIntPair(ClassAssigner *, const char *n, T *ptr,int T::*ss, int T::*sp, int nt, ...);
+    void assignTokenIntPair(int,int);
+};
+*/
 #ifdef TEMPLATE_FIX
 #include "Assigner.C"
 #endif

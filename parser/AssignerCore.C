@@ -47,6 +47,14 @@ Assigner * Assigner::findIndexObject(int)  {
 
 }
 
+void
+Assigner::assignTokenIntPair(int,int)
+{
+  fprintf(stderr, " *** ERROR: %s cannot be assigned a token\n", name.c_str());
+  exit(-1);
+}
+
+
 SysIntObj::SysIntObj(const char *n, int *p)
 : Assigner(n)
 {

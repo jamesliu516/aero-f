@@ -109,6 +109,8 @@ public:
   DistNodalGrad<dim, double> *getDistNodalGrad(DistSVec<double,dim> &)  { return ngrad; }
   DistNodalGrad<dim, bcomp> *getDistNodalGrad(DistSVec<bcomp,dim> &)  { return compNodalGrad; }
 
+  void updateFixes() { ngrad->updateFixes(); }
+
   int getSpaceOrder() {return order;}
 
   int **getNodeType() {return domain->getNodeType(); }
