@@ -315,6 +315,8 @@ TransientData::TransientData()
   philevel = "";
   controlvolume = "";
   fluidid="";
+  embeddedsurface = "";
+  cputiming = "";
 
 // Included (MB)
   velocitynorm = "";
@@ -426,6 +428,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
+  new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
+  new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
 
 	// Gappy POD offline
 	// Gappy POD snapshots
