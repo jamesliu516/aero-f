@@ -464,15 +464,26 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     error = 0;
     
-     if (iod.output.transient.materialVolumes[0] != 0) {
+  if (iod.output.transient.materialVolumes[0] != 0) {
     material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
     sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
-      }
+  }
   else
     material_volumes = 0;
 
+  if (iod.output.transient.embeddedsurface[0] != 0) {
+    embeddedsurface = new char[sp + strlen(iod.output.transient.embeddedsurface)];
+    sprintf(embeddedsurface, "%s%s", iod.output.transient.prefix, iod.output.transient.embeddedsurface); 
+  }
+  else
+    embeddedsurface = 0;
 
-
+  if (iod.output.transient.cputiming[0] != 0) {
+    cputiming = new char[sp + strlen(iod.output.transient.cputiming)];
+    sprintf(cputiming, "%s%s", iod.output.transient.prefix, iod.output.transient.cputiming); 
+  }
+  else
+    cputiming = 0;
 
   if (iod.output.transient.conservation[0] != 0) {
     conservation = new char[sp + strlen(iod.output.transient.conservation)];
@@ -650,6 +661,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
      
     nodal_output.last[i] = 0;
     if (myProbes.myNodes[i].id >= 0) {
+      com->fprintf(stdout,"[Probe] Node %d: NodeId = %d.\n", i+1, myProbes.myNodes[i].id);
 
       int flag = -1;
       int locid = -1;
@@ -676,9 +688,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       }
     } else if (myProbes.myNodes[i].locationX < -1.0e10)
       break;
+    else
+      com->fprintf(stdout,"[Probe] Node %d: Coords = (%e, %e, %e).\n", i+1, 
+                   myProbes.myNodes[i].locationX, myProbes.myNodes[i].locationY, myProbes.myNodes[i].locationZ);
   }
 
-  com->fprintf(stdout,"Number of probing nodes is %d\n",i);
+  com->fprintf(stdout,"[Probe] Number of probing nodes is %d\n",i);
 
   nodal_output.numNodes = i;
 
@@ -708,6 +723,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.probes.prefix, iod.output.transient.probes.displacement);
   }
 
+  tscale = iod.ref.rv.time;
+  xscale = iod.ref.rv.length;
 }
 
 //------------------------------------------------------------------------------
@@ -755,6 +772,8 @@ TsOutput<dim>::~TsOutput()
   delete[] heatfluxes;
   delete[] residuals;
   delete[] material_volumes;
+  delete[] embeddedsurface;
+  delete[] cputiming;
   delete[] staterom;
   delete[] error;
   delete[] conservation;
@@ -1386,7 +1405,7 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpResiduals);
   }
   
-    if (staterom) {
+  if (staterom) {
     if (it0 != 0) 
       fpStateRom = backupAsciiFile(staterom);
     if (it0 == 0 || fpStateRom == 0) {
@@ -1399,6 +1418,7 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpStateRom);
   }
+
   if (error) {
     if (it0 != 0) 
       fpError = backupAsciiFile(error);
@@ -1413,7 +1433,7 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpError);
   }
 
-    if (material_volumes) {
+  if (material_volumes) {
     if (it0 != 0)
       fpMatVolumes = backupAsciiFile(material_volumes);
     if (it0 == 0 || fpMatVolumes == 0) {
@@ -1430,8 +1450,32 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpMatVolumes);
   }
 
+  if (embeddedsurface) {
+    if (it0 != 0)
+      fpEmbeddedSurface = backupAsciiFile(embeddedsurface);
+    if (it0 == 0 || fpEmbeddedSurface == 0) {
+      fpEmbeddedSurface = fopen(embeddedsurface, "w");
+      if (!fpEmbeddedSurface) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurface);
+        exit(1);
+      }
+      fprintf(fpEmbeddedSurface, "Vector DISP under NLDynamic for EmbeddedNodes\n");
+    }
+    fflush(fpEmbeddedSurface);
+  }
 
-  
+  if (cputiming) {
+    if (it0 != 0)
+      fpCpuTiming = backupAsciiFile(cputiming);
+    if (it0 == 0 || fpCpuTiming== 0) {
+      fpCpuTiming= fopen(cputiming, "w");
+      if (!fpCpuTiming) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", cputiming);
+        exit(1);
+      }
+    }
+    fflush(fpCpuTiming);
+  }
 
   if (conservation) {
     if (it0 != 0) 
@@ -1475,6 +1519,8 @@ void TsOutput<dim>::closeAsciiFiles()
   }
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatVolumes) fclose(fpMatVolumes);
+  if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
+  if (fpCpuTiming) fclose(fpCpuTiming);
   if (fpStateRom) fclose(fpStateRom);
   if (fpError) fclose(fpError);
   if (fpGnForces) fclose(fpGnForces);
@@ -2143,6 +2189,43 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
   fprintf(fpMatVolumes, "%e\n", totVol);
 
   fflush(fpMatVolumes);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeEmbeddedSurfaceToDisk(bool lastIt, int it, double t, Vec<Vec3D>& solidX, Vec<Vec3D>& solidX0)
+{
+  if(!embeddedsurface)
+    return;
+
+  if(toWrite(it,lastIt,t)) {
+    if(com->cpuNum() != 0) return;
+    fprintf(fpEmbeddedSurface, "%e\n", t*tscale);
+    for(int i=0; i<solidX.size(); i++) 
+      fprintf(fpEmbeddedSurface, "%e %e %e\n", xscale*(solidX[i][0]-solidX0[i][0]), xscale*(solidX[i][1]-solidX0[i][1]), 
+              xscale*(solidX[i][2]-solidX0[i][2]));
+    fflush(fpEmbeddedSurface); 
+    fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurface);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeCPUTimingToDisk(bool lastIt, int it, double t, Timer *timer)
+{
+  if(!cputiming) 
+    return;
+
+  if(toWrite(it,lastIt,t)) {
+    com->fprintf(fpCpuTiming, "It %d, Time = %e.", it, t*tscale);
+    timer->setRunTime();
+    timer->print(NULL, fpCpuTiming);
+    if(com->cpuNum()==0)
+      fflush(fpCpuTiming);
+    com->fprintf(stdout, "Wrote CPUTiming %d to \'%s\'\n", getStep(it, lastIt, t), cputiming);
+  }
 }
 
 //------------------------------------------------------------------------------
