@@ -513,6 +513,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
     output->writeMaterialVolumesToDisk(it, 0.0, *A);
+    output->writeCPUTimingToDisk(*lastIt, it, t, timer);
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -541,6 +542,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
 	writeStateRomToDisk(it, cpu);
   output->writeMaterialVolumesToDisk(it, t, *A);
+  output->writeCPUTimingToDisk(*lastIt, it, t, timer);
 	writeErrorToDisk(it, cpu);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
