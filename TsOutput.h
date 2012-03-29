@@ -17,6 +17,7 @@ class PitchingMeshMotionHandler;
 class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
+class Timer;
 
 template<int dimLS> class LevelSet;
 template<int dim> class PostOperator;
@@ -75,6 +76,11 @@ private:
   char *material_volumes;
   char *conservation;
   char *modeFile;
+  char *embeddedsurface;
+  char *cputiming;
+  double tscale;
+  double xscale;
+
   Vec3D *TavF, *TavM; 
   Vec3D *TavL;
   VecSet< DistSVec<double,3> > *mX;
@@ -103,6 +109,9 @@ private:
   FILE *fpGnForces;
   FILE *fpStateRom;
   FILE *fpError;
+  FILE *fpEmbeddedSurface;
+  FILE *fpCpuTiming;
+
 
 
   DistVec<double>    *Qs;
@@ -176,6 +185,8 @@ public:
                              DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
   void writeMaterialVolumesToDisk(int, double, DistVec<double>&, DistVec<int>* = 0);
+  void writeEmbeddedSurfaceToDisk(bool, int, double, Vec<Vec3D>&, Vec<Vec3D>&);
+  void writeCPUTimingToDisk(bool, int, double, Timer*);
   void writeStateRomToDisk(int, double, int, const Vec<double> &);
   void writeErrorToDisk(const int, const double, const int, const double *);
   void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
