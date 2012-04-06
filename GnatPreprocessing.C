@@ -833,7 +833,7 @@ void GnatPreprocessing<dim>::addSampleNodesAndNeighbors() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0) {
+void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh) {
 
 	// add all global neighbor globalNodes/elements in the iIslands row of and elements to the iIsland node set
 	

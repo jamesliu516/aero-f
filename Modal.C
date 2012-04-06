@@ -1695,7 +1695,7 @@ void ModalSolver<dim>::freqIntegrateMultipleRhs(VecSet<DistSVec<double, dim> >&s
 //-----------------------------------------------------------------------
 
 template<int dim>
-void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nSnaps, int nPOD = 0, bool outputToDisk = true){
+void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nSnaps, int nPOD, bool outputToDisk){
 
  Timer *modalTimer = domain.getTimer();
 
