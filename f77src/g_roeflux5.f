@@ -477,7 +477,7 @@ c Roe-Turkel
      &         cr**2*VdotN*dt/(t*t) + gam1*dqir*r/(beta2*t) +
      &         gam1*qir*dr/(beta2*t) - gam1*qir*r*(dbeta2*t+beta2*dt)/
      &         ((beta2*t)*(beta2*t)))*dif1 +
-     &         -(cr**2*VdotN/t + gam1*qir*r/(beta2*t))*ddif1 +
+     &         (-(cr**2*VdotN/t + gam1*qir*r/(beta2*t)))*ddif1 +
      &         (2.0d0*cr*dcr*normal(1)/t + cr**2*dnormal(1)/t - 
      &         cr**2*normal(1)*dt/(t*t) + gam1*duar2*r/(beta2*t) + 
      &         gam1*uar2*dr/(beta2*t) - gam1*uar2*r*(dbeta2*t+beta2*dt)/

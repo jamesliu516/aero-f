@@ -62,7 +62,7 @@ void
 ClassToken<T>::assignTokenIntPair(int t,int s)
 {
   if (!tokenInt) {
-    fprintf(stderr,"Error: a token int pair <token> <int> is not allowed for this token %\n",
+    fprintf(stderr,"Error: a token int pair <token> <int> is not allowed for this token %s\n",
             dictionary->word(t).c_str());
     exit(1);
   }
