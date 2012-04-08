@@ -428,7 +428,7 @@ void LevelSetTsDesc<dim,dimLS>::loadExactInterfaceFile(IoData& ioData, const cha
   while (!feof(f)) {
 
     exactInterfacePoint l;
-    fscanf(f,"%lf %lf", &l.time,&l.loc);
+    int nm = fscanf(f,"%lf %lf", &l.time,&l.loc);
     l.time /= ioData.ref.rv.time;
     l.loc /= ioData.ref.rv.length;
     myExactInterface.push_back(l);

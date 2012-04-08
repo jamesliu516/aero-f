@@ -3,7 +3,7 @@ c-----------------------------------------------------------------------
 
       implicit real*8(a-h,o-z)
 
-      integer ja(*), ia(*), fortranmode
+      integer ja(*), ia(*), fortranmode, idum(0)
 
       if (fortranmode .eq. 0) then
          do i=1,n+1

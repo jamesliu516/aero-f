@@ -627,13 +627,13 @@ c
      &       vn*phi*gam1/2.d0 + SStar*pder(1) + (pStar +
      &       eStar)*SStarder(1))
        der(2) = om*(-normal(0)*(ener + p)/(U(1)) +
-     &       + gam1*U(2)*vn + SStar*pder(2) + (pStar +
+     &       gam1*U(2)*vn + SStar*pder(2) + (pStar +
      &       eStar)*SStarder(2))
        der(3) = om*(-normal(1)*(ener + p)/(U(1)) +
-     &       + gam1*U(3)*vn + SStar*pder(3) + (pStar +
+     &       gam1*U(3)*vn + SStar*pder(3) + (pStar +
      &       eStar)*SStarder(3))
        der(4) = om*(-normal(2)*(ener + p)/(U(1)) +
-     &       + gam1*U(4)*vn + SStar*pder(4) + (pStar +
+     &       gam1*U(4)*vn + SStar*pder(4) + (pStar +
      &       eStar)*SStarder(4))
        der(1) = om*(S - vn*gam + SStar*pder(5) +
      &      (pStar + eStar)*SStarder(5))

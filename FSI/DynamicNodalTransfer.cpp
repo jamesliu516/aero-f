@@ -413,7 +413,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     // now load the elements
     if(nInputs!=1) {
       com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
-    fscanf(topFile,"%s %s %s\n", c1,c2,c3);
+    int nm = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
     char debug2[6] = "using";
     for (int i=0; i<5; i++)
       if(debug2[i]!=c2[i]) {com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
