@@ -424,11 +424,11 @@ public:
   virtual int* nodeNum() = 0;
   virtual int& nodeNum(int i) = 0;
   virtual int& edgeNum(int i) = 0;
-  virtual const int  edgeEnd(int i, int k) = 0;
-  virtual const int  edgeFace(int i, int k) = 0;
-  virtual const int  faceDef(int i, int k) = 0;
-  virtual const int  faceNnd(int i) = 0;
-  virtual const Type type() = 0;
+  virtual int  edgeEnd(int i, int k) = 0;
+  virtual int  edgeFace(int i, int k) = 0;
+  virtual int  faceDef(int i, int k) = 0;
+  virtual int  faceNnd(int i) = 0;
+  virtual Type type() = 0;
 
   // Number of nodes
   virtual int numNodes() = 0;

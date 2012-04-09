@@ -230,8 +230,8 @@ public:
   void computeConnectedEdges(const std::vector<int> &);
   std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM
   std::vector<int> edgesTwoLayersSampleNode;	// for Gappy ROM
-  const int getNumSampledEdges() {return numSampledEdges;}
-  const int getNumTwoLayersEdges() {return numTwoLayerEdges;}
+  int getNumSampledEdges() {return numSampledEdges;}
+  int getNumTwoLayersEdges() {return numTwoLayerEdges;}
   void computeGlobalConnectedEdges(const std::vector<int> &globalNeighborNodes,
 				   const int *locToGlobNodeMap) ;
 };
