@@ -23,11 +23,11 @@ PhysBAMInterface(TRIANGLE_MESH& triangle_mesh_input,GEOMETRY_PARTICLES<TV>& part
     :thickness_parameter(1e-6),thickness_over_two(5e-7),surface_levelset(cs),triangle_mesh(triangle_mesh_input),
     triangle_list(triangle_mesh.elements.m),triangle_hierarchy(0),SubD(0),particles(particles_input)
 {
-    Update(0,true);
-
     saved_state.y=new GEOMETRY_PARTICLES<TV>;
     saved_state.y->array_collection.Add_Elements(particles.array_collection.Size());
     saved_state.x=(T)0;saved_state.y->X=particles.X;
+
+    Update(0,true);
 }
 //#####################################################################
 // Destructor
@@ -54,8 +54,9 @@ Update(const int numLocSub,const bool rebuild_hierarchy)
         triangle_list(t)=TRIANGLE_3D<T>(particles.X.Subset(triangle_mesh.elements(t)));
 
     if(rebuild_hierarchy){
-        delete triangle_hierarchy;triangle_hierarchy=new TRIANGLE_HIERARCHY<T>(triangle_mesh,particles,triangle_list,true,0);}
-    else triangle_hierarchy->Update_Boxes();
+        delete triangle_hierarchy;triangle_hierarchy=new TRIANGLE_HIERARCHY<T>(triangle_mesh,particles,triangle_list,true,0);
+        triangle_hierarchy->Update_Boxes(saved_state.y->X,particles.X);}
+    else triangle_hierarchy->Update_Boxes(saved_state.y->X,particles.X);
 }
 //#####################################################################
 // UpdateScope
@@ -80,8 +81,8 @@ UpdateScope(const int subD,const bool use_global_scope)
         sub.triangle_list.Resize(sub.scope.m);
         for(int t=1;t<=sub.scope.m;t++)
             sub.triangle_list(t)=TRIANGLE_3D<T>(particles.X.Subset(sub.scoped_triangle_mesh->elements(t)));
-        delete sub.triangle_hierarchy;sub.triangle_hierarchy=new TRIANGLE_HIERARCHY<T>(*sub.scoped_triangle_mesh,particles,sub.triangle_list,true,0);}
-
+        delete sub.triangle_hierarchy;sub.triangle_hierarchy=new TRIANGLE_HIERARCHY<T>(*sub.scoped_triangle_mesh,particles,sub.triangle_list,true,0);
+        sub.triangle_hierarchy->Update_Boxes(saved_state.y->X,particles.X);}
 
     sub.candidates.Resize(0);
     sub.next_scope.clear();
