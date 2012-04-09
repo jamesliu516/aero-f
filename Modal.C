@@ -125,7 +125,7 @@ void ModalSolver<dim>::solve()  {
 
  if (ioData->problem.alltype == ProblemData::_INTERPOLATION_)
    interpolatePOD();
- else if (ioData->problem.alltype == ProblemData::_ROB_INNER_PRODUCTS_)
+ else if (ioData->problem.alltype == ProblemData::_ROB_INNER_PRODUCT_)
    ROBInnerProducts();
  else if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile){
    t0 = modalTimer->getTime(); //CBM--check
@@ -507,6 +507,25 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
   for (i = 0; i < nStrMode; i++)
     prevA[i] = modalF[i] - K[i]*prevU[i];
 
+  // generalized displacements output
+  int sp = strlen(ioData->output.transient.prefix);
+  char *dispFile = new char[sp + strlen(ioData->output.transient.gendispFile)+1];
+  sprintf(dispFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.gendispFile);
+  FILE *dispFP = fopen(dispFile, "w");
+  com->barrier();
+  if (ioData->problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_)  {
+    if (!dispFP)  {
+      com->fprintf(stderr, "*** Warning: Cannot create generalized displacement FILE in %s\n", dispFile);
+      exit (-1);
+    }
+    com->fprintf(dispFP,"%d %f ",0,0.0);
+    for (i=0; i < nStrMode; ++i) {
+      com->fprintf(dispFP,"%.16e ",delU[i]);
+    }
+    com->fprintf(dispFP,"\n");
+  }
+
+
  int cntr = 0;
  int cntp1;
 
@@ -669,10 +688,14 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
      }
      t0 = modalTimer->getTime();
 
-
-      computeModalDisp(sdt, deltmp, delW, delU, delY, refModalF, cnt);
+     computeModalDisp(sdt, deltmp, delW, delU, delY, refModalF, cnt);
      modalTimer->addStructUpdTime(t0);
-
+     // output generalized displacements
+     com->fprintf(dispFP, "%d %f ",cntp1, (cnt+1)*sdt);
+     for (i = 0; i < nStrMode; ++i) {
+       com->fprintf(dispFP, "%.16e ", delU[i]);
+     }
+     com->fprintf(dispFP, "\n");
    }
    // compute updated position
    deltmp = 0.0;
@@ -864,6 +887,23 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
     PtimesPhi[iVec] = ioData->ref.rv.force*modalF;
   }
 
+  // generalized displacements output
+  int sp = strlen(ioData->output.transient.prefix);
+  char *dispFile = new char[sp + strlen(ioData->output.transient.gendispFile)+1];
+  sprintf(dispFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.gendispFile);
+  FILE *dispFP = fopen(dispFile, "w");
+  if (!dispFP)  {
+    com->fprintf(stderr, "*** Warning: Cannot create generalized displacement FILE in %s\n", dispFile);
+    exit (-1);
+  }
+
+  com->barrier();
+  com->fprintf(dispFP,"%d %f ",0,0.0);
+  for (i=0; i < nStrMode; ++i) {
+    com->fprintf(dispFP,"%.16e ", delU[i]);
+  }
+  com->fprintf(dispFP,"\n");
+
   //Time integration loop
   for (int cnt = 0; cnt < nSteps+1; ++cnt) {
 
@@ -929,6 +969,14 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
     // Output the reduced order vector
     computeModalDisp(sdt, delWRom, delU, delY, refModalF, PtimesPhi, nPodVecs, cnt);
+
+   // output generalized displacements
+   com->fprintf(dispFP, "%d %f ",cntp1, (cnt+1)*sdt);
+   for (i = 0; i < nStrMode; ++i) {
+     com->fprintf(dispFP, "%.16e ", delU[i]);
+   }
+   com->fprintf(dispFP, "\n");
+
    
    // compute Cl, Cm
    deltmp = 0.0;
@@ -1144,6 +1192,8 @@ void ModalSolver<dim>::preProcess()  {
 
    // need to mult. by time to maintain a dimensional vel. (conversion from adim time to dim time)
    DE[ic] = ioData->ref.rv.time*E;
+
+   com->fprintf(stderr, " ... Norm DE, Mode %i: %e\n",ic, DE[ic].norm());
 
    // Then DFDXdot*****************************************
    // Computing F(X0,V1) 
