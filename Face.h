@@ -393,7 +393,7 @@ public:
   virtual int numNorms() = 0;
 
   // Get element type
-  virtual const Type type() = 0;
+  virtual Type type() = 0;
 
   int operator[](int i) { return nodeNum(i); }  
   operator int *() { return nodeNum(); }
@@ -1075,7 +1075,7 @@ public:
 	void computeConnectedFaces(const std::vector<int> &);
 	std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
 
-	const int getNumSampledFaces() {return numSampledFaces;}
+	int getNumSampledFaces() {return numSampledFaces;}
 
 	void attachHigherOrderMF(class HigherOrderMultiFluid*);
 

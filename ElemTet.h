@@ -41,11 +41,11 @@ public:
   int* nodeNum() { return nodeNumTet; }
   int& nodeNum(int i) { return nodeNumTet[i]; }
   int& edgeNum(int i) { return edgeNumTet[i]; }
-  const int  edgeEnd(int i, int k) { return edgeEndTet[i][k]; }
-  const int  edgeFace(int i, int k) { return edgeFaceTet[i][k]; }
-  const int  faceDef(int i, int k) { return faceDefTet[i][k]; }
-  const int  faceNnd(int i) { return 3; }
-  const Type type() { return Elem::TET; }
+  int  edgeEnd(int i, int k) { return edgeEndTet[i][k]; }
+  int  edgeFace(int i, int k) { return edgeFaceTet[i][k]; }
+  int  faceDef(int i, int k) { return faceDefTet[i][k]; }
+  int  faceNnd(int i) { return 3; }
+  Type type() { return Elem::TET; }
 
   // Number of nodes
   int numNodes() { return 4; }

@@ -57,7 +57,7 @@ public:
   int nodeNum(int i) const  { return nodeNumT[i]; }
 
   // Get element type
-  const Type type() { return Face::TRIA; }
+  Type type() { return Face::TRIA; }
 
   // Number of normals to be stored for a triangle 
   // (the normals for all nodes equal, thus only 1)

@@ -109,7 +109,7 @@ public:
     bool Using_Externally_Allocated_Pointer()
     {return using_externally_allocated_pointer;}
     
-    const bool Using_Externally_Allocated_Pointer() const
+    bool Using_Externally_Allocated_Pointer() const
     {return using_externally_allocated_pointer;}
 
     ID Max_Size() const
