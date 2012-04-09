@@ -6109,18 +6109,20 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     // now (i,j) must intersect the structure.
 
     double *v[2] = {V[i],V[j]};  
-    if(ghostPoints) {// For non active nodes, replace its state by its ghost State
-      GhostPoint<dim> *gp;
-      if(!iActive) {gp = ghostPoints->operator[](i);v[0] = gp->getPrimitiveState();}
-      if(!jActive) {gp = ghostPoints->operator[](j);v[1] = gp->getPrimitiveState();}
-      for(int m=0;m<3;++m) 
-        vectorIJ[m] = X[j][m] - X[i][m];
-    }
 
     if (iActive) {
       Vec3D flocal(0.0,0.0,0.0); 
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
       if(ghostPoints) {// Viscous Simulation
+        // Replace the state of node j by its corresponding ghost state
+        /* This is useless. We use ngrad to compute the velocity gradient. 
+        GhostPoint<dim> *gp;
+        gp = ghostPoints->operator[](j);
+        v[1] = gp->getPrimitiveState();
+        */
+        for(int m=0;m<3;++m) {
+          vectorIJ[m] = X[j][m] - X[i][m];
+        }
         gradP[0] = gradX[i][4];
         gradP[1] = gradY[i][4];
         gradP[2] = gradZ[i][4];
@@ -6153,6 +6155,15 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
       Vec3D flocal(0.0,0.0,0.0);
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
       if(ghostPoints) {// Viscous Simulation
+        // Replace the state of node i by its corresponding ghost state
+        /* This is useless. We use ngrad to compute the velocity gradient.
+        GhostPoint<dim> *gp;
+        gp = ghostPoints->operator[](i);
+        v[0] = gp->getPrimitiveState();
+        */
+        for(int m=0;m<3;++m) {
+          vectorIJ[m] = X[j][m] - X[i][m];
+        }
         gradP[0] = gradX[j][4];
         gradP[1] = gradY[j][4];
         gradP[2] = gradZ[j][4];
