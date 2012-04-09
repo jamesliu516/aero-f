@@ -200,6 +200,7 @@ struct TransientData {
   const char *podFile;
   const char *robProductFile;
   const char *romFile;
+  const char *gendispFile;
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
@@ -359,7 +360,7 @@ struct ProblemData {
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
 		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
 		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ROB_INNER_PRODUCTS_ = 32} alltype;
+		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ROB_INNER_PRODUCT_ = 32} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;

@@ -61,9 +61,23 @@ TimeData::TimeData(IoData &ioData)
   if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
     use_modal = true;
 
-  if (ioData.linearizedData.domain == LinearizedData::FREQUENCY) use_freq = true;
+  if (ioData.linearizedData.domain == LinearizedData::FREQUENCY) {
+    use_freq = true;
+    if (dt_imposed <= 0.0)  {
+      fprintf(stderr,"dt_imposed is negative in the linearized case in the frequency domain: updating dt_imposed\n");
+      dt_imposed = ioData.linearizedData.eps/ioData.ref.rv.time;
+      ioData.linearizedData.stepsize = ioData.linearizedData.eps;
+    }
+  }
   else use_freq = false;
 
+  if (use_modal) {
+    if (ioData.linearizedData.domain == LinearizedData::TIME && dt_imposed <= 0.0)  {
+      fprintf(stderr,"dt_imposed is negative in the linearized case in the frequency domain: updating dt_imposed\n");
+      dt_imposed = ioData.linearizedData.eps/ioData.ref.rv.time;
+      ioData.linearizedData.stepsize = ioData.linearizedData.eps;
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

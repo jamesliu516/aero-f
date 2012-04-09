@@ -305,6 +305,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   robProductFile = "";
+  gendispFile = "";
   philevel = "";
   controlvolume = "";
   fluidid="";
@@ -347,7 +348,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 84, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 85, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -416,6 +417,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
+  new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
@@ -638,7 +640,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "1DProgrammedBurn", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
-		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProducts", 32);
+		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3830,7 +3832,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
-      problem.alltype == ProblemData::_ROB_INNER_PRODUCTS_ ||
+      problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
