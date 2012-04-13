@@ -5,7 +5,7 @@
 #include <VectorSet.h>
 #include <GhostPoint.h>
 #include <map>
-#include <LevelSet/FluidTypeCriterion.h>
+#include <LevelSet/LevelSetStructure.h>
 
 using std::map;
 
