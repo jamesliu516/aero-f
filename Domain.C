@@ -14,7 +14,6 @@
 #include <Communicator.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
-#include <LevelSet/FluidTypeCriterion.h>
 #include <GeoState.h>
 #include <NodalGrad.h>
 #include <FluidSelector.h>

@@ -26,7 +26,6 @@
 #include <Communicator.h>
 #include <Timer.h>
 #include <FluidSelector.h>
-#include <LevelSet/FluidTypeCriterion.h>
 
 
 //------------------------------------------------------------------------------

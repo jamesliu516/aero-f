@@ -75,8 +75,6 @@ template<class Scalar, int dim> class MvpMat;
 template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
-#include "LevelSet/FluidTypeCriterion.h"
-
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
