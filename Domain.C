@@ -1697,10 +1697,9 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
   {
 
 #pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub)
-    {
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-          X(iSub), V(iSub), R(iSub));
+                                           X(iSub), V(iSub), R(iSub));
     }
   }
   timer->addFiniteElementTermTime(t0);

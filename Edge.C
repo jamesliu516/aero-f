@@ -654,7 +654,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     int i = ptr[l][0];
     int j = ptr[l][1];
-    bool intersect = LSS.edgeIntersectsStructure(0,i,j);
+    bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive, jActive;
     if(LSS.withCracking()) { //assumption: only occluded nodes are inactive in the case of cracking simulations
       iActive = !LSS.isOccluded(0.0,i);
@@ -729,7 +729,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       // for node i
       if(iActive) {
-        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         switch (Nriemann) { // normal should point to this node (i). 
           case 0: //structure normal
             normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
@@ -758,7 +758,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       // for node j
       if(jActive){
-        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         switch (Nriemann) {
           case 0: //structure normal
             normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
@@ -884,7 +884,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     int i = ptr[l][0];
     int j = ptr[l][1];
-    bool intersect = LSS.edgeIntersectsStructure(0,i,j);
+    bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
 
@@ -990,7 +990,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       // for node i
       if(iActive) {
-        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -1025,7 +1025,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       // for node j
       if(jActive){
-        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -1140,8 +1140,8 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     Uni = Vi[1]*normal[l][0] + Vi[2]*normal[l][1] + Vi[3]*normal[l][2] - normalVel[l];
     Unj = Vj[1]*normal[l][0] + Vj[2]*normal[l][1] + Vj[3]*normal[l][2] - normalVel[l];
 /*    if(intersect) {
-      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j, i);
+      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
       Uwi = normal[l]*resij.normVel;
       Uwj = normal[l]*resji.normVel; 
     } else Uwi = Uwj = 0.0;
@@ -1849,7 +1849,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
     int i = ptr[l][0];
     int j = ptr[l][1];
-    bool intersect = LSS.edgeIntersectsStructure(0,i,j);
+    bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
     
@@ -1902,7 +1902,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     } else if (masterFlag[l]) {
 
       if(iActive) {
-        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -1939,7 +1939,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
       // for node j
       if(jActive){
-        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -2027,7 +2027,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
 
     int i = ptr[l][0];
     int j = ptr[l][1];
-    bool intersect = LSS.edgeIntersectsStructure(0,i,j);
+    bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
 
@@ -2055,7 +2055,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
 
       // for node i
       if(iActive) {
-        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         switch (Nriemann) { // normal should point to this node (i). TODO: better to compute a projection to determine the sign.
           case 0: //structure normal
             if(LSS.fluidModel(0.0,i)==farfieldFluid)  normalDir =      resij.gradPhi;
@@ -2089,7 +2089,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
 
       // for node j
       if(jActive){
-        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         switch (Nriemann) {
           case 0: //structure normal
             if(LSS.fluidModel(0.0,j)==farfieldFluid)  normalDir =      resji.gradPhi;
