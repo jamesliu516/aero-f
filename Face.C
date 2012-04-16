@@ -12,6 +12,7 @@
 #include <GenMatrix.h>
 #include <LowMachPrec.h>
 #include "LevelSet/LevelSetStructure.h"
+#include <HigherOrderMultiFluid.h>
 
 #include <cmath>
 
