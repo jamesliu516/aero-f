@@ -201,10 +201,10 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
         fprintf(stderr,"*** Error: I ignored this case!\n");
         exit(1);  
       }
+
       this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, Unm1, this->Vtemp, *this->Weights, *this->VWeights,
                                                 this->Phi, this->PhiWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
                                                 this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-
       this->timer->addEmbedPhaseChangeTime(tw);
       this->timer->removeIntersAndPhaseChange(tw);
     }

@@ -655,9 +655,9 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   nodal_output.step = 0;
 					      
   for (i = 0; i < Probes::MAXNODES; ++i) {
-    nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX,
-                                      myProbes.myNodes[i].locationY,
-                                      myProbes.myNodes[i].locationZ);
+    nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX/iod.ref.rv.length,
+                                      myProbes.myNodes[i].locationY/iod.ref.rv.length,
+                                      myProbes.myNodes[i].locationZ/iod.ref.rv.length);
      
     nodal_output.last[i] = 0;
     if (myProbes.myNodes[i].id >= 0) {

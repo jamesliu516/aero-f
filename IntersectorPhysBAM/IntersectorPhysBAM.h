@@ -1,17 +1,18 @@
 #ifndef _INTERSECTORPHYSBAM_H_
 #define _INTERSECTORPHYSBAM_H_
 
-#include <string>
 #include <list>
-#include <Vector.h>
+#include <map>
+#include <set>
+#include <string>
 
-#include "../LevelSet/LevelSetStructure.h"
+#include <Edge.h>
+#include <LevelSet/LevelSetStructure.h>
+#include <Vector.h>
 
 #include "PHYSBAM_INTERFACE.h"
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
-#include <set>
-#include <map>
 
 using std::pair;
 using std::map;
@@ -42,6 +43,13 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   typedef pair<int, bool> ibpair;
   typedef pair<iipair, ibpair> EdgePair;
 
+  using DistLevelSetStructure::status;
+  using DistLevelSetStructure::distance;
+  using DistLevelSetStructure::is_swept;
+  using DistLevelSetStructure::is_active;
+  using DistLevelSetStructure::is_occluded;
+  using DistLevelSetStructure::edge_intersects;
+
   protected:
     int numStNodes, numStElems;
     int totStNodes, totStElems;
@@ -70,11 +78,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     CrackingSurface *cracking; //only a pointer.
 
   public:
-    DistVec<int> *status;   //node status
     DistVec<int> *status0;  //previous node status
-    DistVec<bool> *occluded_node; // identifies an occluded node
     DistVec<bool> *occluded_node0;// previous occluded node status
-    DistVec<bool> *swept_node;    // identifies an invalidated node
 
     double *triSize;
     Vec3D *triNorms;
@@ -124,7 +129,6 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
-    DistVec<int> &getStatus() { return *status; }
     DistVec<ClosestPoint> &getClosestPoints() {return *closest;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; }
     int getNumStructNodes () { return numStNodes; }
@@ -134,11 +138,16 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 class IntersectorPhysBAM : public LevelSetStructure {
   friend class DistIntersectorPhysBAM;
 
+  using LevelSetStructure::status;
+  using LevelSetStructure::distance;
+  using LevelSetStructure::is_swept;
+  using LevelSetStructure::is_active;
+  using LevelSetStructure::is_occluded;
+  using LevelSetStructure::edge_intersects;
+
   public:
     static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: not a fluid
     static int OUTSIDECOLOR;
-
-    Vec<bool> edgeIntersections;
 
     int locIndex,globIndex;
     int *locToGlobNodeMap;
@@ -154,24 +163,22 @@ class IntersectorPhysBAM : public LevelSetStructure {
     map<int,int> sub2pack;
     Connectivity &nodeToSubD;
 
-    Vec<int> &status; //<! Whether a node is inside the fluid domain or not
     Vec<int> &status0; //<! status at the previous time-step.
     Vec<ClosestPoint> &closest;
-    Vec<bool> &occluded_node; //<! Whether a node is occluded by the solid surface.
     Vec<bool> &occluded_node0;//<! occluded node status at the previous time-step.
-    Vec<bool> &swept_node; //<! Whether a node is swept by the solid surface, over the present time-step.
     int nFirstLayer;
     ARRAY<int> reverse_mapping,forward_mapping;
     ARRAY<VECTOR<double,3> > xyz;
 
+    bool testIsActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
     int hasCloseTriangle(SVec<double,3>& X,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId);
     int findIntersections(SVec<double,3>& X,Vec<bool>& tId,Communicator&);
     int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&,const double dt);
 
   public:
-    IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, Vec<ClosestPoint> &closest,
-                       Vec<bool>& occluded_node,Vec<bool>& occluded_node0,Vec<bool>& swept_node, DistIntersectorPhysBAM &);
-    ~IntersectorPhysBAM();
+    IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status0, Vec<ClosestPoint> &closest,
+                       Vec<bool>& occluded_node0,DistIntersectorPhysBAM &);
+    virtual ~IntersectorPhysBAM();
     int numOfFluids() {return distIntersector.numOfFluids();}
 
     void reset(const bool findStatus,const bool retry); //<! set status0=status and reset status and nFirstLayer.
@@ -180,18 +187,10 @@ class IntersectorPhysBAM : public LevelSetStructure {
     /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
-    LevelSetResult
-    getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
-    bool edgeIntersectsStructure(double t, int ni, int nj) const;
-    bool edgeIntersectsStructure(double t, int edge_num) const;
+    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j);
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 
     bool isNearInterface(double t, int n) const {return closest[n].nearInterface();}
-    double distToInterface(double t, int n) const {return closest[n].nearInterface() ? closest[n].dist : -1;} 
-    bool isActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
-    bool isOccluded(double t, int n) const {return occluded_node[n];}
-    bool isSwept(double t, int n) const {return swept_node[n];}
-    int fluidModel(double t, int n) const {return status[n];}
     bool withCracking() const {return distIntersector.cracking ? true : false;}
 
   private:

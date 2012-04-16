@@ -582,6 +582,7 @@ void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, i
 
 DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes,
                                                double *xyz, int nElems, int (*abc)[3])
+    : DistLevelSetStructure()
 {
   this->numFluid = iod.eqs.numPhase;
   twoPhase = false;
@@ -653,13 +654,11 @@ DistIntersectorFRG::~DistIntersectorFRG()
   delete solidX;
   delete solidX0;
   delete solidXn;
-  if(status)      delete   status;
   if(status0)     delete   status0;
   if(triNorms)    delete[] triNorms;
   if(nodalNormal) delete[] nodalNormal;
   if(boxMax)      delete   boxMax;
   if(boxMin)      delete   boxMin;
-  if(distance)    delete   distance;
   if(tId)         delete   tId;
   if(poly)        delete   poly;
   delete globPhysInterface;
@@ -1162,13 +1161,16 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, Di
   numLocSub = d->getNumLocSub();
   intersector = new IntersectorFRG*[numLocSub];
 
-  status = new DistVec<int>(domain->getNodeDistInfo());  
-  status0 = new DistVec<int>(domain->getNodeDistInfo());  
+  status0 = new DistVec<int>(domain->getNodeDistInfo());
   boxMin = new DistSVec<double,3>(domain->getNodeDistInfo());
   boxMax = new DistSVec<double,3>(domain->getNodeDistInfo());
-  distance = new DistVec<double>(domain->getNodeDistInfo());
   tId = new DistVec<int>(domain->getNodeDistInfo());
-  
+  status = new DistVec<int>(domain->getNodeDistInfo());
+  distance = new DistVec<double>(domain->getNodeDistInfo());
+  is_swept = new DistVec<bool>(domain->getNodeDistInfo());
+  is_active = new DistVec<bool>(domain->getNodeDistInfo());
+  is_occluded = new DistVec<bool>(domain->getNodeDistInfo());
+  edge_intersects = new DistVec<bool>(domain->getEdgeDistInfo());
   poly = new DistVec<bool>(domain->getNodeDistInfo());
   findPoly();
 
@@ -1177,7 +1179,7 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, Di
 
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i) {
-    intersector[i] = new IntersectorFRG(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), *this);
+    intersector[i] = new IntersectorFRG(*(d->getSubDomain()[i]), X(i), (*status0)(i), *this);
     intersector[i]->getClosestTriangles(X(i), (*boxMin)(i), (*boxMax)(i), (*tId)(i), (*distance)(i), false);
     intersector[i]->computeFirstLayerNodeStatus((*tId)(i), (*distance)(i));
   }
@@ -1185,8 +1187,11 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, Di
   finishStatusByPoints(iod, point_based_id);   
  
 #pragma omp parallel for
-  for(int i = 0; i < numLocSub; ++i)  
-    intersector[i]->findIntersections(X(i), false);
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    intersector[iSub]->findIntersections(X(iSub), false);
+    for(int i = 0; i < (*is_active)(iSub).size(); ++i)
+      (*is_active)(iSub)[i] = intersector[iSub]->testIsActive(0.0, i);
+  }
 
 //  for(int iSub=0; iSub<numLocSub; iSub++)
 //    intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), X(iSub), 1); 
@@ -1306,6 +1311,13 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
         return -1;
     }
   }
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+    for(int i = 0; i < (*is_active)(iSub).size(); ++i) {
+      (*is_swept)(iSub)[i] = (*status)(iSub)[i] != (*status0)(iSub)[i];
+      (*is_active)(iSub)[i] = intersector[iSub]->testIsActive(0.0, i);
+    }
   return 0;
 }
 
@@ -1811,13 +1823,15 @@ void IntersectorFRG::floodFill(SubDomain& sub, int& nUndecided)
 //----------------------------------------------------------------------------
 
 IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
-                    Vec<int> &stat, Vec<int> &stat0, DistIntersectorFRG &distInt) :
-                      subD(&sub), distIntersector(distInt), status(stat), status0(stat0),
-                      edges(sub.getEdges()), globIndex(sub.getGlobSubNum()), nodeToSubD(*sub.getNodeToSubD())
+                               Vec<int> &stat0, DistIntersectorFRG &distInt) :
+    LevelSetStructure((*distInt.status)(sub.getLocSubNum()),(*distInt.distance)(sub.getLocSubNum()),
+                      (*distInt.is_swept)(sub.getLocSubNum()),(*distInt.is_active)(sub.getLocSubNum()),
+                      (*distInt.is_occluded)(sub.getLocSubNum()),(*distInt.edge_intersects)(sub.getLocSubNum())),
+    subD(&sub), distIntersector(distInt), status0(stat0),
+    edges(sub.getEdges()), globIndex(sub.getGlobSubNum()), nodeToSubD(*sub.getNodeToSubD())
 {
   physInterface = 0;
 
-  status = UNDECIDED;
   status0 = UNDECIDED;
 
   OUTSIDECOLOR = distInt.numOfFluids();
@@ -1831,6 +1845,12 @@ IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
     sub2pack[neighb[i]] = i;
 
   nFirstLayer = 0;
+  status = UNDECIDED;
+  distance = 0;
+  is_swept = false;
+  is_active = false;
+  is_occluded = false;
+  edge_intersects = false;
 }
 
 //----------------------------------------------------------------------------
@@ -1862,6 +1882,10 @@ void IntersectorFRG::reset(const bool retry)
   if(physInterface) {delete physInterface; physInterface = 0;}
 
   nFirstLayer = 0;
+  distance = 0.0;
+  is_swept = false;
+  is_active = false;
+  edge_intersects = false;
 }
 
 //----------------------------------------------------------------------------
@@ -2094,7 +2118,6 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
     
     if(nFound <= 0) {
       tId[i] = -1;
-      dist[i] = 0.0;
     }
     else {
       if(!closestTriangle.fail) {
@@ -2102,7 +2125,6 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
         dist[i] = closestTriangle.signedDistance();
       } else {
         tId[i] = -1;
-        dist[i] = 0.0; 
       }
     }
   }
@@ -2236,6 +2258,7 @@ int IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
   for (int l=0; l<edges.size(); l++) {
     int p = ptr[l][0], q = ptr[l][1];
     if(status[p]==status[q]) continue;
+    edge_intersects[l] = true;
 
     //now need to find an intersection for this edge .
     Vec3D xp(X[p]), xq(X[q]);
@@ -2321,37 +2344,43 @@ void IntersectorFRG::addToPackage(int iNode, int trID)
 //----------------------------------------------------------------------------
 
 LevelSetResult
-IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
-  int edgeNum = edges.findOnly(ni, nj);
-  if (!edgeIntersectsStructure(0.0,ni,nj)) {
+IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) {
+  if (!edge_intersects[l]) {
+    int (*ptr)[2] = edges.getPtr();
+    int i=i_less_j ? ptr[l][0] : ptr[l][1],
+        j=i_less_j ? ptr[l][1] : ptr[l][0];
     fprintf(stderr,"There is no intersection between node %d(status:%d) and %d(status:%d)! Abort...\n",
-                   locToGlobNodeMap[ni]+1, status[ni], locToGlobNodeMap[nj]+1, status[nj]);
+                   locToGlobNodeMap[i]+1, status[i], locToGlobNodeMap[j]+1, status[j]);
     exit(-1);
   }
 
   IntersectionResult<double> result; //need to determine which result to choose.
-  IntersectionResult<double> rij = CrossingEdgeRes[edgeNum];
-  IntersectionResult<double> rji = ReverseCrossingEdgeRes[edgeNum];
+  IntersectionResult<double> rij = CrossingEdgeRes[l];
+  IntersectionResult<double> rji = ReverseCrossingEdgeRes[l];
   double alpha0 = 0.0;
 
   if (rij.triangleID>0 && rji.triangleID>0 && rij.triangleID==rji.triangleID) {
     result = rij;
-    alpha0 = (ni<nj)? result.alpha : 1.0-result.alpha;
+    alpha0 = i_less_j ? result.alpha : 1.0-result.alpha;
   }  
   else if (rij.triangleID>0 && rji.triangleID>0 && rij.triangleID!=rji.triangleID) {
-    result = (ni<nj) ? rij : rji;
+    result = i_less_j ? rij : rji;
     alpha0 = result.alpha;
   }
   else if (rij.triangleID>0 && rji.triangleID<0) {
     result = rij;
-    alpha0 = (ni<nj)? result.alpha : 1.0-result.alpha; 
+    alpha0 = i_less_j ? result.alpha : 1.0-result.alpha;
   }
   else if (rij.triangleID<0 && rji.triangleID>0) {
     result = rji;
-    alpha0 = (ni<nj)? 1.0-result.alpha : result.alpha;
+    alpha0 = i_less_j ? 1.0-result.alpha : result.alpha;
   }
-  else //we really have no intersection for this edge!
-    fprintf(stderr,"ERROR: intersection between node %d and node %d can not be detected.\n", locToGlobNodeMap[ni]+1, locToGlobNodeMap[nj]+1);
+  else { //we really have no intersection for this edge!
+    int (*ptr)[2] = edges.getPtr();
+    int i=i_less_j ? ptr[l][0] : ptr[l][1],
+        j=i_less_j ? ptr[l][1] : ptr[l][0];
+    fprintf(stderr,"ERROR: intersection between node %d and node %d can not be detected.\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+  }
 
   int trueTriangleID = result.triangleID-1;
 
@@ -2378,21 +2407,6 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   }
 
   return lsRes;
-}
-
-//----------------------------------------------------------------------------
-
-bool IntersectorFRG::edgeIntersectsStructure(double t, int eij) const       
-{
-  return status[edges.getPtr()[eij][0]] != status[edges.getPtr()[eij][1]];
-}
-
-//----------------------------------------------------------------------------
-
-bool IntersectorFRG::edgeIntersectsStructure(double t, int ni, int nj) const
-{
-  edges.findOnly(ni,nj);  //if (ni,nj) is not found, an error will be reported. 
-  return status[ni]!=status[nj];
 }
 
 //----------------------------------------------------------------------------

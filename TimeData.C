@@ -47,13 +47,37 @@ TimeData::TimeData(IoData &ioData)
   else
     use_modal = false;
 
+
+  if (ioData.ts.form == TsData::DESCRIPTOR) {
+    descriptor_form = 1;
+  } else if (ioData.ts.form == TsData::HYBRID) {
+    descriptor_form = 2;
+  } else {
+    descriptor_form = 0;
+  }
+
+
 // Included (MB)
   if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
     use_modal = true;
 
-  if (ioData.linearizedData.domain == LinearizedData::FREQUENCY) use_freq = true;
+  if (ioData.linearizedData.domain == LinearizedData::FREQUENCY) {
+    use_freq = true;
+    if (dt_imposed <= 0.0)  {
+      fprintf(stderr,"dt_imposed is negative in the linearized case in the frequency domain: updating dt_imposed\n");
+      dt_imposed = ioData.linearizedData.eps/ioData.ref.rv.time;
+      ioData.linearizedData.stepsize = ioData.linearizedData.eps;
+    }
+  }
   else use_freq = false;
 
+  if (use_modal) {
+    if (ioData.linearizedData.domain == LinearizedData::TIME && dt_imposed <= 0.0)  {
+      fprintf(stderr,"dt_imposed is negative in the linearized case in the frequency domain: updating dt_imposed\n");
+      dt_imposed = ioData.linearizedData.eps/ioData.ref.rv.time;
+      ioData.linearizedData.stepsize = ioData.linearizedData.eps;
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

@@ -8,7 +8,6 @@
 #include <TsParameters.h>
 //#include <Domain.h>
 #include <DistVector.h>
-//#include <DistEulerStructGhostFluid.h>
 
 class RefVal;
 class VarFcn;
@@ -18,7 +17,6 @@ class MeshMotionHandler;
 class HeatTransferHandler;
 class MemoryPool;
 class Timer;
-//class DistEulerStructGhostFluid;
 
 template<int dim> class DistBcData;
 template<int dim> class DistTimeState;
@@ -78,7 +76,6 @@ protected:
 
   MeshMotionHandler* mmh;
   HeatTransferHandler* hth;
-//  DistEulerStructGhostFluid* eulerFSI;
 
   Domain *domain;
 
