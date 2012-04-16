@@ -84,7 +84,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 		    it2->second->fluid == FluidModelData::JWL)
 	      lriemann[iRiemann] = new LocalRiemannGfmpGasJWL(vf,fluid1,fluid2);
 	/*    else{
-	      fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
+	      // fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
 	    }*/
 	  }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
 	    if(fluid1IsAGas && fluid2IsAGas){
@@ -122,7 +122,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid2,fluid1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange,-1.0);
 	      }*//* else{
 	      
-	      fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
+	      // fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
 	    }*/
 	  }
 	} 

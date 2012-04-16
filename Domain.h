@@ -44,8 +44,6 @@ class FluidSelector;
 class BCApplier; //HB
 class MatchNodeSet;
 
-#include "LevelSet/FluidTypeCriterion.h"
-
 struct Vec3D;
 
 template<class VecType> class VecSet;

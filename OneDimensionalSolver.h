@@ -140,6 +140,18 @@ class OneDimensional {
   char *scalars[PostFcn::SSIZE];
   char *vectors[PostFcn::VSIZE];
 
+  struct {
+
+    int numNodes;
+    int step;
+    std::vector<Vec3D> locations;
+    std::vector<int> ids;
+    std::vector<double> alpha;
+  } nodal_output;
+  
+  char *nodal_scalars[PostFcn::SSIZE];
+  char *nodal_vectors[PostFcn::VSIZE];
+
   void setupOutputFiles(IoData& iod);
   void setupFixes(IoData& iod);
 
@@ -158,6 +170,9 @@ class OneDimensional {
   int levelSetMethod;
 
   Timer* myTimer;
+
+  void setupProbes(IoData& ioData);
+  void outputProbes(double,int);
 
   class Veval {
 

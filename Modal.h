@@ -33,6 +33,7 @@ template<int dim> class PostOperator;
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>
   #include <arpack++/include/ardssym.h>
+  #include <arpack++/include/ardsnsym.h>
 #endif
 
 #include <complex>
@@ -86,13 +87,13 @@ class ModalSolver {
     double dt;
     double dt0;
     double *K;
-		int podMethod;
-
+    int podMethod;
+    double pi;
     VecSet< DistSVec<double,dim> > DX;
     VecSet< DistSVec<double,dim> > DE;
     DistVec<double> controlVol;
     DistVec<bcomp> controlVolComp;  // failing in this destructor
-		double totalEnergy;
+    double totalEnergy;
  
   public:
     ModalSolver(Communicator *, IoData &, Domain &);
@@ -136,11 +137,17 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void interpolatePOD();
     template<class Scalar>
     void readPodVecs(VecSet<DistSVec<Scalar, dim> > &, int &);
+
+    void checkROBType(VecSet<DistSVec<double, dim> > &, int );
 #ifdef DO_MODAL
     void outputPODVectors(ARluSymStdEig<double> &podEigProb, VecSet<DistSVec<double, dim> > &, int nPod, int numSnaps);
+    void checkFluidRomStability(VecSet<Vec<double> > &, int);
 #endif
     void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
     void computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod);
+    void ROBInnerProductSchedule(int** , int, int, int);
+    int ROBInnerProductSteps(int, int);
+    void ROBInnerProducts();
 };
 
 #include "Modal.C"

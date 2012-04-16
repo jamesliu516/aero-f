@@ -65,26 +65,38 @@ struct ClosestPoint {
 
 /** Abstract class for finding levelset information */
 class LevelSetStructure {
+  protected:
+    Vec<int> &status;
+    Vec<double> &distance;
+    Vec<bool> &is_swept;
+    Vec<bool> &is_active;
+    Vec<bool> &is_occluded;
+    Vec<bool> &edge_intersects;
   public:
+    LevelSetStructure(Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,Vec<bool>& is_active,Vec<bool>& is_occluded,Vec<bool>& edge_intersects)
+        : status(status),distance(distance),is_swept(is_swept),is_active(is_active),is_occluded(is_occluded),edge_intersects(edge_intersects)
+    {}
+    virtual ~LevelSetStructure()
+    {}
+
     /** returns the normal and normal velocity at intersection between edge ni, nj and structure
      *
      * If ni, nj is not an edge of the fluid mesh, result is undefined.
      * */
     virtual LevelSetResult
-       getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
-    virtual bool isActive(double t, int n) const = 0;
-    virtual bool isOccluded(double t, int n) const = 0;
-    virtual bool isSwept(double t, int n) const = 0;
-    virtual int fluidModel(double t, int n) const = 0;
-    virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0; //!< whether an edge between i and j intersects the structure
-    virtual bool edgeIntersectsStructure(double t, int eij) const = 0; //!< whether an edge eij intersects the structure
-    virtual double distToInterface(double t, int n) const = 0; 
-    virtual bool isNearInterface(double t, int n) const = 0;
+       getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) = 0;
     virtual bool withCracking() const = 0;
+    virtual bool isNearInterface(double t, int n) const = 0;
 
-    virtual void computeSwept(Vec<int> &swept){
+    int fluidModel(double t, int n) const                 { return status[n]; }
+    double distToInterface(double t, int n) const         { return distance[n]; } 
+    bool isSwept(double t, int n) const                   { return is_swept[n]; }
+    bool isActive(double t, int n) const                  { return is_active[n]; }
+    bool isOccluded(double t, int n) const                { return is_occluded[n]; }
+    bool edgeIntersectsStructure(double t, int eij) const { return edge_intersects[eij]; }
+    void computeSwept(Vec<int> &swept){
         for(int i = 0; i < swept.size(); ++i)
-            swept[i] = isSwept(0,i) ? 1 : 0;
+            swept[i] = is_swept[i] ? 1 : 0;
     }
 
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
@@ -96,23 +108,40 @@ class LevelSetStructure {
 
 class DistLevelSetStructure {
   protected:
+    DistVec<int> *status;
+    DistVec<double> *distance;
+    DistVec<bool> *is_swept;
+    DistVec<bool> *is_active;
+    DistVec<bool> *is_occluded;
+    DistVec<bool> *edge_intersects;
+  protected:
     int numLocSub;
     int numFluid;
 
   public:
-    virtual ~DistLevelSetStructure() {}
+    DistLevelSetStructure()
+        : status(0), distance(0), is_swept(0), is_active(0), is_occluded(0), edge_intersects(0)
+    {}
+    virtual ~DistLevelSetStructure()
+    {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects;}
 
     int numOfFluids() {return numFluid;}
     void setNumOfFluids(int nf) {numFluid = nf;}
     virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
 
-    virtual void getSwept(DistVec<int>& swept){
+    void getSwept(DistVec<int>& swept){
         for (int iSub=0; iSub<numLocSub; iSub++)
             (*this)(iSub).computeSwept((swept)(iSub));
     }
 
-    virtual DistVec<int> &getStatus() = 0;
+    DistVec<int> & getStatus()            const { return *status; }
+    DistVec<double> & getDistance()       const { return *distance; }
+    DistVec<bool> & getIsSwept()          const { return *is_swept; }
+    DistVec<bool> & getIsActive()         const { return *is_active; }
+    DistVec<bool> & getIsOccluded()       const { return *is_occluded; }
+    DistVec<bool> & getIntersectedEdges() const { return *edge_intersects; }
+
     virtual DistVec<ClosestPoint> &getClosestPoints() = 0;
     virtual void setStatus(DistVec<int> nodeTag) = 0;                                
 

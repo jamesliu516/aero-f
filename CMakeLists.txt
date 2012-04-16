@@ -138,7 +138,6 @@ SET(MAIN_FILES Main.C)
 ADD_LIBRARY(FluidBase
              FSI/CrackingSurface.cpp
              FSI/DynamicNodalTransfer.cpp
-             LevelSet/FluidTypeCriterion.cpp
              NavierStokesSolver.C 
              Solvers/LevelSetSolver5.C
              Solvers/NavierStokesCoupledSolver5.C

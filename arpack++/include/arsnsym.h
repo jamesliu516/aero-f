@@ -28,6 +28,9 @@ class ARNonSymStdEig:
   public virtual ARStdEig<ARFLOAT, ARFLOAT, ARFOP>,
   public virtual ARrcNonSymStdEig<ARFLOAT> {
 
+  using ARStdEig<ARFLOAT, ARFLOAT, ARFOP>::NoShift; 
+  using ARStdEig<ARFLOAT, ARFLOAT, ARFOP>::ClearMem;
+
  public:
 
  // a) Constructors and destructor.

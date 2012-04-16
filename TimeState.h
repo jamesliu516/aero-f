@@ -91,6 +91,20 @@ public:
 
   double getTimeNorm()  {  return dt.norm(); }
 
+  private:
+
+
+  struct TimeFDCoefs {
+    double c_np1, c_n, c_nm1, c_nm2;
+  };
+  enum DescriptorCase {
+    DESCRIPTOR, HYBRID, NONDESCRIPTOR
+  };
+  DescriptorCase descriptorCase;
+
+  void computeTimeFDCoefs(GeoState &, TimeFDCoefs &, Vec<double> &, int );
+  void computeTimeFDCoefsSpecialBDF(GeoState &, TimeFDCoefs &, Vec<double> &, int );
+  
 };
 
 //------------------------------------------------------------------------------

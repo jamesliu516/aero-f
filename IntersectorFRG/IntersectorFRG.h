@@ -1,13 +1,15 @@
 #ifndef _INTERSECTORFRG_H_
 #define _INTERSECTORFRG_H_
 
-#include <map>
-#include <string>
 #include <list>
+#include <map>
 #include <set>
+#include <string>
 
-#include "../LevelSet/LevelSetStructure.h"
-#include "../Vector.h"
+#include <Edge.h>
+#include <LevelSet/LevelSetStructure.h>
+#include <Vector.h>
+
 #include "PHYSBAM_INTERFACE.h"
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
@@ -38,11 +40,15 @@ class DistIntersectorFRG : public DistLevelSetStructure {
   typedef pair<int, int> iipair;
   typedef pair<int, bool> ibpair;
   typedef pair<iipair, ibpair> EdgePair;
+  using DistLevelSetStructure::status;
+  using DistLevelSetStructure::distance;
+  using DistLevelSetStructure::is_swept;
+  using DistLevelSetStructure::is_active;
+  using DistLevelSetStructure::edge_intersects;
 
   protected:
     int numStNodes, numStElems;
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
-    DistVec<double> *distance;
     DistVec<int> *tId;
 
     bool twoPhase; //including fluid-shell-fluid and fluid-solid
@@ -62,7 +68,6 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     
     Vec3D *Xsdot; //velocity
 
-    DistVec<int> *status;   //node status
     DistVec<int> *status0;  //previous node status
 
     Vec3D *triNorms;
@@ -91,7 +96,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
   public: //TODO: a lot of them can be moved to "protected".
     DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes = 0, double *xyz = 0, int nElems = 0, int (*abc)[3] = 0);
-    ~DistIntersectorFRG();
+    virtual ~DistIntersectorFRG();
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
@@ -114,7 +119,6 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
-    DistVec<int> &getStatus() { return *status; }
     DistVec<ClosestPoint> &getClosestPoints() {
       fprintf(stderr,"ERROR: closest point not stored in IntersectorFRG.\n");exit(-1);
       DistVec<ClosestPoint> *toto = new DistVec<ClosestPoint>(status->info()); return *toto;}
@@ -127,6 +131,12 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 class IntersectorFRG : public LevelSetStructure {
 
   friend class DistIntersectorFRG;
+
+  using LevelSetStructure::status;
+  using LevelSetStructure::distance;
+  using LevelSetStructure::is_swept;
+  using LevelSetStructure::is_active;
+  using LevelSetStructure::edge_intersects;
 
   public:
     static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: ~~
@@ -151,10 +161,10 @@ class IntersectorFRG : public LevelSetStructure {
 
     map<int,IntersectionResult<double> > CrossingEdgeRes;
     map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
-    Vec<int> &status; //<! Whether a node is inside the fluid domain or not
     Vec<int> &status0; //<! status at the previous time-step.
 
     PhysBAMInterface<double> *physInterface;
+    bool testIsActive(double t, int n) const                         {return (status[n]>=0 && status[n]!=OUTSIDECOLOR);}
 
     void reset(const bool retry); //<! set status0=status and reset status and nFirstLayer.
     void rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElem);
@@ -178,24 +188,14 @@ class IntersectorFRG : public LevelSetStructure {
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
   public:
-    IntersectorFRG(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, DistIntersectorFRG &);
+    IntersectorFRG(SubDomain &, SVec<double, 3> &X, Vec<int> &status0, DistIntersectorFRG &);
     ~IntersectorFRG();
 
     int numOfFluids()                                            {return distIntersector.numOfFluids();}
-    int fluidModel(double t, int n) const                        {return status[n];}
-    bool isActive(double t, int n) const                         {return (status[n]>=0 && status[n]!=OUTSIDECOLOR);}
-    bool isOccluded(double t, int n) const                       {return false;} /* no occluded nodes */
-    bool isSwept(double t, int n) const                          {return status[n] != status0[n];}
-    bool edgeIntersectsStructure(double t, int ni, int nj) const; 
-    bool edgeIntersectsStructure(double t, int eij) const;
-    double distToInterface(double t, int n) const                {return -1;}
     bool isNearInterface(double t, int n) const                  {return false;}
     bool withCracking() const                                    {return false;}
 
-//    bool isActive(double t, int n, int phase = 0) const          {return status[n]==phase;}
-//    bool wasActive(double t, int n, int phase = 0) const         {return status0[n]==phase;}
-
-    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
+    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j);
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {/* pure virtual in LevelSet */}
 
 };

@@ -142,6 +142,7 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
                                              U, *(fluidSelector.fluidId),&umax);
     dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
     dt = min(dt,dtmax);
+    this->timeState->computeCoefficients(dt);
   }
 
   if (this->problemType[ProblemData::UNSTEADY])
