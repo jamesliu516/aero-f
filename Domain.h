@@ -9,6 +9,7 @@
 #include <DenseMatrix.h>
 #include <GhostPoint.h>
 #include <complex>
+#include <HigherOrderMultiFluid.h>
 typedef std::complex<double> bcomp;
 #include <iostream>
 using std::cout;
@@ -437,6 +438,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                FluidSelector &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+			       DistSVec<double,dimLS>& phi,
                                DistNodalGrad<dimLS>&, DistSVec<double,dim>&,
                                int, int, int);
 
@@ -952,6 +954,21 @@ public:
   template<int dim, class Obj>
   void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
                          int npt);
+
+  void createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec);
+
+  // When a cell is omitted when doing higher order multi-fluid calculations, we can grab
+  // a value of the state for the cut cell using an extrapolated state
+  template<int dim>
+  void setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid);
+
+  // Functions to compute the error (that is, the difference between two state vectors)
+  template <int dim>
+    void computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+  template <int dim>
+    void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+
+  
  
  };
 

@@ -36,7 +36,8 @@ LevelSetTsDesc<dim,dimLS>::
 LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
-  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo())
+  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo()),
+  cutCellVec(this->getVecInfo()),cutCellStatus(this->getVecInfo())
 
 {
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -65,6 +66,23 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if (numBurnableFluids > 0) {
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
+  }
+
+  interfaceOrder = 1;
+  if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
+
+    dom->createHigherOrderMultiFluid(cutCellVec);
+    interfaceOrder = 2;
+  }
+
+  if (ioData.mf.interfaceOmitCells == 1) {
+    useCutCells = true;
+  } else
+    useCutCells = false;
+
+  if (strcmp(ioData.input.exactInterfaceLocation,"") != 0) {
+    
+    loadExactInterfaceFile(ioData, ioData.input.exactInterfaceLocation);
   }
 }
 
@@ -111,15 +129,34 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 
   umax = 0.0;
   int numSubCycles = 1;
-  double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
+  double dt,dtmax;
+  if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
+    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                              &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
+  }
+  else { //time step size with error estimation
+    // First compute the maximum possible time step (based on the speed of the interface)
+    // To do this, we simply pass in a cfl=10000 to the previous routine
+    dtmax = this->timeState->computeTimeStep(10000, dtLeft,
+                                             &numSubCycles, *this->geoState, *this->A,
+                                             U, *(fluidSelector.fluidId),&umax);
+    dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
+    dt = min(dt,dtmax);
+    this->timeState->computeCoefficients(dt);
+  }
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
                       dt*this->refVal->time, numSubCycles);
+  
+  if(TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
+    this->timeState->setDtMin(dt * TsDesc<dim>::data->getCflMinOverCfl0());
 
   this->timer->addFluidSolutionTime(t0);
   this->timer->addTimeStepTime(t0);
+
+  if (dt + this->currentTime > this->data->maxTime)
+    dt = this->data->maxTime - this->currentTime; 
 
   return dt;
 
@@ -160,10 +197,12 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
   }
 
   fluidSelector.update();
- 
+
+
+
   this->timeState->update(U,Utilde,  *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
 
-
+  this->spaceOp->updateFixes();
 }
 
 //------------------------------------------------------------------------------
@@ -238,6 +277,12 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
     if (this->com->getMaxVerbose() >= 2)
       this->timer->print(this->domain->getStrTimer());
     this->output->closeAsciiFiles();
+
+    if (strcmp(ioData.input.convergence_file,"") != 0) {
+      
+      this->varFcn->conservativeToPrimitive(U, *this->V, fluidSelector.fluidId);
+      computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
+    }
   }
 
 }
@@ -331,4 +376,91 @@ void LevelSetTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>& U)
 
   if (programmedBurn)
     programmedBurn->setCurrentTime(t,multiPhaseSpaceOp->getVarFcn(), U,*(fluidSelector.fluidId),*(fluidSelector.fluidIdn));
+}
+
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U) {
+
+  DistSVec<double,dim> Uexact(U);
+  OneDimensional::read1DSolution(ioData,file, Uexact, 
+				 (DistSVec<double,dimLS>*)0,
+				 &fluidSelector,
+				 multiPhaseSpaceOp->getVarFcn(),
+				 *this->X,
+				 *this->domain,
+				 OneDimensional::ModeU,
+				 false) ;
+
+  double error[dim];
+  double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
+		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+		      ioData.ref.rv.pressure};
+  double tot_error = 0.0;
+  this->domain->computeL1Error(U,Uexact,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error += error[k];
+    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %lf\n", tot_error);
+
+  tot_error = 0.0;
+  this->domain->computeLInfError(U,Uexact,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error = max(error[k],tot_error);
+    this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %lf\n", tot_error);
+
+  
+}
+
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::loadExactInterfaceFile(IoData& ioData, const char* file) {
+
+  FILE* f = fopen(file,"r");
+  if (!f) {
+
+    this->domain->getCommunicator()->fprintf(stderr,"Cannot open exact interface location file: %s\n",file);
+    exit(-1);
+  }
+  
+  while (!feof(f)) {
+
+    exactInterfacePoint l;
+    fscanf(f,"%lf %lf", &l.time,&l.loc);
+    l.time /= ioData.ref.rv.time;
+    l.loc /= ioData.ref.rv.length;
+    myExactInterface.push_back(l);
+  }
+
+  fclose(f);
+}
+
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::setPhiExact() {
+
+  if (this->myExactInterface.size() > 0) {
+    
+    double il = 0.0;
+    for (int i = 0; i < this->myExactInterface.size(); ++i) {
+      
+      if (this->myExactInterface[i].time > this->currentTime) {
+	
+	il = -(this->myExactInterface[i-1].time-this->currentTime) * this->myExactInterface[i].loc / (this->myExactInterface[i].time-this->myExactInterface[i-1].time) + 
+	  (this->myExactInterface[i].time-this->currentTime) * this->myExactInterface[i-1].loc / (this->myExactInterface[i].time-this->myExactInterface[i-1].time);
+	break;
+      }
+    }
+    
+#pragma omp parallel for
+    for (int iSub = 0; iSub < this->Phi.numLocSub(); ++iSub) {
+      
+      SVec<double,dimLS>& phi(this->Phi(iSub));
+      for (int i = 0 ; i < phi.size(); ++i) {
+	
+	phi[i][0] = (*this->X)[i][0]-il;
+      }
+    }
+  }
+
 }

@@ -116,12 +116,15 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     double dtLeft = dts;
     it++;
 
+    bool solveOrNot = true;
     do { // Subcycling
       stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
 
-      if(probDesc->structureSubcycling()) {//in this case AERO-F should never subcycle
+      if(probDesc->structureSubcycling() || 
+         (it>1 && probDesc->willNotSolve(dtLeft,t)) ) {//in this case AERO-F should never subcycle
+        probDesc->printf(1, "Not computing fluid time-step.\n");
         dt = dtLeft;
         dtLeft = 0.0;
       }
@@ -136,7 +139,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // compute control volumes and velocities
       probDesc->computeMeshMetrics();
       // Fluid Solution
-      bool solveOrNot = probDesc->IncreasePressure(it,dt,t,U);
+      solveOrNot = probDesc->IncreasePressure(it,dt,t,U);
       if (solveOrNot && ioData.problem.solvefluid == ProblemData::NO) {
         solveOrNot = false;
       }

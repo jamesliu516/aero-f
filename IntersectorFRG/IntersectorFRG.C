@@ -25,6 +25,7 @@ typedef pair<iipair, ibpair> EdgePair;
 const int IntersectorFRG::UNDECIDED, IntersectorFRG::INSIDE, IntersectorFRG::OUTSIDE;
 int IntersectorFRG::OUTSIDECOLOR;
 
+//int debug_FRG_count = 0;
 //----------------------------------------------------------------------------
 
 /** Utility class to find and store bounding boxes for triangles */
@@ -1257,6 +1258,15 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
   updateStructCoords(( (dtfLeft-dtf)/dts ), ( 1.0 - (dtfLeft-dtf)/dts ));
   buildSolidNormals();
   expandScope();
+
+  //Debug only!
+/*  com->fprintf(stderr,"count = %d.\n", ++debug_FRG_count);
+  if(debug_FRG_count==50 && com->cpuNum()==0) {
+    for(int i=0; i<numStNodes; i++)
+      fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
+    for(int i=0; i<numStElems; i++)
+      fprintf(stderr,"%d 4 %d %d %d\n", i+1, stElem[i][0]+1, stElem[i][1]+1, stElem[i][2]+1);
+  }*/
 
   int subdXing = 0;
 #pragma omp parallel for

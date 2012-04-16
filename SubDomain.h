@@ -17,6 +17,8 @@
 #include <GhostPoint.h>
 #include <PolygonReconstructionData.h>
 
+#include <HigherOrderMultiFluid.h>
+
 #ifdef OLD_STL
 #include <map.h>
 #else
@@ -155,12 +157,14 @@ class SubDomain {
   int numOffDiagEntries;
   double *dGradP[3];
 
-	bool sampleMesh;
-	int numSampledNodes;
-	std::vector<int> locSampleNodes;	// for Gappy ROM
-
+  bool sampleMesh;
+  int numSampledNodes;
+  std::vector<int> locSampleNodes;	// for Gappy ROM
+  
 
 public:
+  
+  HigherOrderMultiFluid* higherOrderMF;
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
 	    int, int *, Connectivity *, int *, int *, int *, int, int (*)[3]);
@@ -375,6 +379,7 @@ public:
                               SVec<double,3>&, SVec<double,dim>&, 
                               Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
@@ -1199,6 +1204,43 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
                            int* status,int* last,int* nid); 
 
+  template<int dimLS>
+    void findCutCells(int lsdim,
+		      SVec<double,dimLS>& phi,Vec<int>& cutStatus,
+		      SVec<double,3>& X);
+
+  template<int dim>
+  void setCutCellFlags(int lsdim, Vec<int>& status);
+
+  int getNumCutCells();
+
+  template <int dim>
+    void collectCutCellData(SVec<double,dim>* cutCell[2],
+			    NodalGrad<dim,double>* cutGrad[2],
+			    Vec<int>* counts[2],
+			    NodalGrad<dim,double>& grad, Vec<int>& fluidId,
+			    SVec<double,dim>& V,SVec<double,3>& X);
+
+  template <int dim>
+    void storeCutCellData(SVec<double,dim>* cutCell[2],
+			  NodalGrad<dim,double>* cutGrad[2],
+			  Vec<int>* counts[2], Vec<int>& fluidId);
+
+  void createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>&);
+
+  template<int dim>
+    void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);
+
+  // Functions to compute the error (that is, the difference between two state vectors)
+  template <int dim>
+    void computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]);
+
+  template <int dim>
+    void computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]);
+
+  HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
+
+  
 };
 //------------------------------------------------------------------------------
 

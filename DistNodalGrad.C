@@ -18,6 +18,8 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 
   int iSub;
 
+  myIoData = &ioData;
+
   typeGradient = ioData.schemes.ns.gradient;
   failSafeNewton = ioData.ts.implicit.newton.failsafe;
 
@@ -140,12 +142,13 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 
   lastConfig = -1;
 
-  double spheres[SchemeFixData::num * 2][4];
-  double boxes[SchemeFixData::num * 2][2][3];
-  double cones[SchemeFixData::num * 2][2][4];
   int j, nspheres = 0, nboxes = 0, ncones = 0;
   for (j=0; j<ioData.schemes.fixes.num; ++j) {
+
     if (ioData.schemes.fixes.spheres[j]->r > 0.0) {
+      if (ioData.schemes.fixes.spheres[j]->failsafe == 
+          SFixData::OFF)
+        continue;
       spheres[nspheres][0] = ioData.schemes.fixes.spheres[j]->x0;
       spheres[nspheres][1] = ioData.schemes.fixes.spheres[j]->y0;
       spheres[nspheres][2] = ioData.schemes.fixes.spheres[j]->z0;
@@ -174,6 +177,9 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
       }
     }
     if (ioData.schemes.fixes.boxes[j]->x0 < ioData.schemes.fixes.boxes[j]->x1) {
+      if (ioData.schemes.fixes.boxes[j]->failsafe == 
+          BFixData::OFF)
+        continue;
       boxes[nboxes][0][0] = ioData.schemes.fixes.boxes[j]->x0;
       boxes[nboxes][0][1] = ioData.schemes.fixes.boxes[j]->y0;
       boxes[nboxes][0][2] = ioData.schemes.fixes.boxes[j]->z0;
@@ -210,6 +216,9 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
       }
     }
     if (ioData.schemes.fixes.cones[j]->r0 >= 0.0 && ioData.schemes.fixes.cones[j]->r1 >= 0.0) {
+      if (ioData.schemes.fixes.cones[j]->failsafe == 
+          CFixData::OFF)
+        continue;
       cones[ncones][0][0] = ioData.schemes.fixes.cones[j]->x0;
       cones[ncones][0][1] = ioData.schemes.fixes.cones[j]->y0;
       cones[ncones][0][2] = ioData.schemes.fixes.cones[j]->z0;
@@ -345,6 +354,8 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     domain->writeVectorToFile("nodetag", 0, 0.0, nt);
   }
 */
+
+  iteration = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -477,6 +488,103 @@ DistNodalGrad<dim, Scalar>::~DistNodalGrad()
   if (dddy) delete dddy;
   if (dddz) delete dddz;
 
+}
+
+template<int dim, class Scalar>
+void DistNodalGrad<dim,Scalar>::updateFixes() {
+
+  int j,iSub;
+
+  for (j=0; j<myIoData->schemes.fixes.num; ++j) {
+
+    if (myIoData->schemes.fixes.spheres[j]->r > 0.0) {
+      if (myIoData->schemes.fixes.spheres[j]->failsafe ==
+          SFixData::ALWAYSON)
+        continue;
+
+      if (iteration == myIoData->schemes.fixes.spheres[j]->failsafeN) {
+        DistSVec<double,3> X0(domain->getNodeDistInfo());
+        domain->getReferenceMeshPosition(X0);
+
+        domain->getCommunicator()->fprintf(stdout, "Sphere fix at [%lf %lf %lf], r = %lf expired\n",
+                        spheres[j][0],spheres[j][1],spheres[j][2],spheres[j][3]);
+
+#pragma omp parallel for
+        for (iSub = 0; iSub < numLocSub; ++iSub) {
+          bool* loctag = tag->subData(iSub);
+          double (*x0)[3] = X0.subData(iSub);
+          for (int i=0; i<tag->subSize(iSub); ++i) {
+	    double r = sqrt((x0[i][0] - spheres[j][0])*(x0[i][0] - spheres[j][0]) +
+	                    (x0[i][1] - spheres[j][1])*(x0[i][1] - spheres[j][1]) +
+			    (x0[i][2] - spheres[j][2])*(x0[i][2] - spheres[j][2]) );
+	    if (r <= spheres[j][3])
+	        loctag[i] = false;
+	  }
+        }
+      }
+    }
+    
+    if (myIoData->schemes.fixes.boxes[j]->x0 < myIoData->schemes.fixes.boxes[j]->x1) {
+      if (myIoData->schemes.fixes.boxes[j]->failsafe == 
+          BFixData::ALWAYSON)
+        continue;
+
+      if (iteration == myIoData->schemes.fixes.boxes[j]->failsafeN) {
+        DistSVec<double,3> X0(domain->getNodeDistInfo());
+        domain->getReferenceMeshPosition(X0);
+        domain->getCommunicator()->fprintf(stdout, "Box fix at [[%lf %lf %lf], [%lf %lf %lf]] expired\n",
+                        boxes[j][0],boxes[j][1],boxes[j][2],
+                        boxes[j][3],boxes[j][4],boxes[j][5]);
+
+#pragma omp parallel for
+        for (iSub = 0; iSub < numLocSub; ++iSub) {
+          bool* loctag = tag->subData(iSub);
+          double (*x0)[3] = X0.subData(iSub);
+          for (int i=0; i<tag->subSize(iSub); ++i) {
+            if ((x0[i][0] >= boxes[j][0][0]) && (x0[i][0] <= boxes[j][1][0]) &&
+                (x0[i][1] >= boxes[j][0][1]) && (x0[i][1] <= boxes[j][1][1]) &&
+                (x0[i][2] >= boxes[j][0][2]) && (x0[i][2] <= boxes[j][1][2]))
+              loctag[i] = false;
+          }
+        }
+      }
+    }
+
+    if (myIoData->schemes.fixes.cones[j]->r0 >= 0.0 && myIoData->schemes.fixes.cones[j]->r1 >= 0.0) {
+      if (myIoData->schemes.fixes.cones[j]->failsafe == 
+          CFixData::ALWAYSON)
+        continue;
+ 
+      if (iteration == myIoData->schemes.fixes.cones[j]->failsafeN) {
+        DistSVec<double,3> X0(domain->getNodeDistInfo());
+        domain->getReferenceMeshPosition(X0);
+
+        domain->getCommunicator()->fprintf(stdout,"Cone fix expired\n");
+
+#pragma omp parallel for
+        for (iSub = 0; iSub < numLocSub; ++iSub) {
+          bool* loctag = tag->subData(iSub);
+          double (*x0)[3] = X0.subData(iSub);
+          for (int i=0; i<tag->subSize(iSub); ++i) {
+            Vec3D dr(cones[j][1][0]-cones[j][0][0], cones[j][1][1]-cones[j][0][1], cones[j][1][2]-cones[j][0][2]);
+            double height = dr.norm();
+            dr /= height;
+            Vec3D xp;
+            Vec3D pr0(x0[i][0]-cones[j][0][0], x0[i][1]-cones[j][0][1], x0[i][2]-cones[j][0][2]);
+            double h = pr0*dr;
+            if (h >= 0.0 && h <= height)  {
+              xp = pr0 - (h*dr);
+              double r = cones[j][0][3] + (cones[j][1][3]-cones[j][0][3]) * h / height;
+              if (xp.norm() < r)
+                loctag[i] = false;
+            }
+          }
+        }
+      }
+    }
+  }    
+
+  ++iteration;
 }
 
 //------------------------------------------------------------------------------

@@ -105,12 +105,15 @@ InputData::InputData()
   mesh = "";
   reducedfullnodemap = "";
 
+  convergence_file = "";
+
 // Included (MB)
   shapederivatives = "";
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
 
+  exactInterfaceLocation = "";
 }
 
 //------------------------------------------------------------------------------
@@ -157,6 +160,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
+  new ClassStr<InputData>(ca, "ConvergenceFile", this, &InputData::convergence_file);
+  new ClassStr<InputData>(ca, "ExactInterfaceLocation", this, &InputData::exactInterfaceLocation);
 
   oneDimensionalInput.setup("1DRestartData",ca);
 
@@ -640,7 +645,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "UnsteadyLinearized", 15, "ROBConstruction", 16, "ROMAeroelastic", 17,
 		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
 		 "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "1DProgrammedBurn", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
+		 "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
 		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32);
@@ -1412,6 +1417,8 @@ CFixData::CFixData()
   r0 = -1.0;
   r1 = -1.0;
 
+  failsafeN = -1;
+  failsafe = ALWAYSON;
 }
 
 //------------------------------------------------------------------------------
@@ -1431,6 +1438,12 @@ void CFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<CFixData>(ca, "Z1", this, &CFixData::z1);
   new ClassDouble<CFixData>(ca, "Radius1", this, &CFixData::r1);
 
+  ClassToken<CFixData>* sf = new ClassToken<CFixData>
+        (ca, "FailSafe", this,
+         reinterpret_cast<int CFixData::*>(&CFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+
+  sf->allowIntPair(&CFixData::failsafeN);
 }
 //------------------------------------------------------------------------------
 
@@ -1916,6 +1929,8 @@ MultiFluidData::MultiFluidData()
   outputdiff = 0; //hidden
   copy = TRUE; //hidden
 
+  testCase = 0; // hidden
+
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
   jwlRelaxationFactor = 1.0;
@@ -1923,7 +1938,7 @@ MultiFluidData::MultiFluidData()
   interfaceTreatment = FIRSTORDER;
   interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
   levelSetMethod = CONSERVATIVE;
-
+  interfaceOmitCells = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -1986,6 +2001,12 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
 				  &MultiFluidData::jwlRelaxationFactor);
+
+  new ClassInt<MultiFluidData>(ca, "TestCase", this,
+			       &MultiFluidData::testCase);
+  
+  new ClassInt<MultiFluidData>(ca, "OmitCells", this,
+			       &MultiFluidData::interfaceOmitCells);
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
@@ -2073,8 +2094,9 @@ SFixData::SFixData()
   z0 = 0.0;
   r = -1.0;
 
+  failsafe = ALWAYSON;
+  failsafeN = -1;
 }
-
 //------------------------------------------------------------------------------
 
 void SFixData::setup(const char *name, ClassAssigner *father)
@@ -2087,6 +2109,12 @@ void SFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SFixData>(ca, "Z0", this, &SFixData::z0);
   new ClassDouble<SFixData>(ca, "Radius", this, &SFixData::r);
 
+  ClassToken<SFixData>* sf = new ClassToken<SFixData>
+	(ca, "FailSafe", this,
+	 reinterpret_cast<int SFixData::*>(&SFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+  
+  sf->allowIntPair(&SFixData::failsafeN);
 }
 
 //------------------------------------------------------------------------------
@@ -2101,6 +2129,8 @@ BFixData::BFixData()
   y1 = -1.0;
   z1 = -1.0;
 
+  failsafe = ALWAYSON;
+  failsafeN = -1;
 }
 
 //------------------------------------------------------------------------------
@@ -2116,6 +2146,13 @@ void BFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<BFixData>(ca, "X1", this, &BFixData::x1);
   new ClassDouble<BFixData>(ca, "Y1", this, &BFixData::y1);
   new ClassDouble<BFixData>(ca, "Z1", this, &BFixData::z1);
+
+  ClassToken<BFixData>* sf = new ClassToken<BFixData>
+	(ca, "FailSafe", this,
+	 reinterpret_cast<int BFixData::*>(&BFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+  
+  sf->allowIntPair(&BFixData::failsafeN);
 
 }
 
@@ -3576,6 +3613,7 @@ OneDimensionalInfo::OneDimensionalInfo(){
   density2 = 1.0; velocity2 = 0.0; pressure2 = 1.0;
   temperature1 = 1.0; temperature2 = 1.0;
 
+  sourceTermOrder = 1;
 }
 //------------------------------------------------------------------------------
 void OneDimensionalInfo::setup(const char *name){
@@ -3586,6 +3624,7 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
   new ClassDouble<OneDimensionalInfo>(ca, "Radius", this, &OneDimensionalInfo::maxDistance);
   new ClassInt<OneDimensionalInfo>(ca, "NumberOfPoints", this, &OneDimensionalInfo::numPoints);
+  new ClassInt<OneDimensionalInfo>(ca, "SourceTermOrder", this, &OneDimensionalInfo::sourceTermOrder);
   new ClassDouble<OneDimensionalInfo>(ca, "InterfacePosition", this, &OneDimensionalInfo::interfacePosition);
 
   new ClassDouble<OneDimensionalInfo>(ca, "Density1", this, &OneDimensionalInfo::density1);
@@ -3604,17 +3643,21 @@ void OneDimensionalInfo::setup(const char *name){
 
 ImplosionSetup::ImplosionSetup() {
   // for buckling of cylinder
+  type = LINEAR;
   Prate = -1.0;
   Pinit = -1.0;
   intersector_freq = 1;
+  tmax = -1.0;
 }
 
 //-----------------------------------------------------------------------------
 
 void ImplosionSetup::setup(const char *name) {
-  ClassAssigner *ca = new ClassAssigner(name, 2, 0);
+  ClassAssigner *ca = new ClassAssigner(name, 5, 0);
+  new ClassToken<ImplosionSetup>(ca, "Type", this, reinterpret_cast<int ImplosionSetup::*>(&ImplosionSetup::type), 2, "Linear", 0, "SmoothStep", 1);
   new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+  new ClassDouble<ImplosionSetup>(ca, "Tmax", this, &ImplosionSetup::tmax);
   new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
@@ -4361,7 +4404,8 @@ int IoData::checkInputValuesAllEquationsOfState(){
   if(eqs.numPhase > 1 && 
      (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
       !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
-      !mf.multiInitialConditions.prismMap.dataMap.empty() ))
+      !mf.multiInitialConditions.prismMap.dataMap.empty() || 
+      !input.oneDimensionalInput.dataMap.empty()))
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;
@@ -4580,6 +4624,7 @@ void IoData::nonDimensionalizeAllInitialConditions(){
 
   implosion.Pinit /= ref.rv.pressure;
   implosion.Prate /= ref.rv.pressure/ref.rv.time;
+  implosion.tmax  /= ref.rv.time;
 
   // non-dimensionalize initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){
@@ -5377,7 +5422,7 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
         error++;
       }
       else if(eqs.type == EquationsData::EULER)
-        com->fprintf(stderr, "*** Error: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
+        com->fprintf(stderr, "*** Note: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
     }
   }
 

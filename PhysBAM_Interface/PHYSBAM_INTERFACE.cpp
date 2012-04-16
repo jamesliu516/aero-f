@@ -83,6 +83,7 @@ UpdateScope(const int subD,const bool use_global_scope)
             sub.triangle_list(t)=TRIANGLE_3D<T>(particles.X.Subset(sub.scoped_triangle_mesh->elements(t)));
         delete sub.triangle_hierarchy;sub.triangle_hierarchy=new TRIANGLE_HIERARCHY<T>(*sub.scoped_triangle_mesh,particles,sub.triangle_list,true,0);
         sub.triangle_hierarchy->Update_Boxes(saved_state.y->X,particles.X);}
+    }
 
     sub.candidates.Resize(0);
     sub.next_scope.clear();

@@ -110,10 +110,10 @@ Domain::Domain()
 
   meshMotionBCs = 0; //HB
 
-	numGlobNode = 0;	// only compute if needed
-
-	output_newton_step = 0;
-
+  numGlobNode = 0;	// only compute if needed
+  
+  output_newton_step = 0;
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -1694,3 +1694,13 @@ void Domain::computeConnectedNodes(const std::vector<std::vector<int> > &locSamp
 
 }
 
+
+void Domain::createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->createHigherOrderMultiFluid(cutCellVec(iSub));
+  }
+  
+}

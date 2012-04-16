@@ -279,11 +279,15 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
 
+    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
+                          higherOrderMF->isCellCut(j)))
+      continue;
+
     double Wi[3], Wj[3];
     Scalar deltaVar;
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    if(R[i][0]>0.0) // should be positive for a well posed least square problem
+    if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
       computeLocalWeightsLeastSquares(dx, R[i], Wi);
     else{ // gradient is set to 0.0
       Wi[0] = 0.0;
@@ -292,7 +296,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     }
 
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-    if(R[j][0]>0.0) // should be positive for a well posed least square problem
+    if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10) // should be positive for a well posed least square problem
       computeLocalWeightsLeastSquares(dx, R[j], Wj);
     else{ // gradient is set to 0.0
       Wj[0] = 0.0;
@@ -302,6 +306,14 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
+
+      /*if (fabs(deltaVar) > 1000)
+        std::cout << "Error: deltaVar is huge: " << deltaVar << std::endl;
+ 
+      if (fabs(Wi[1]+Wi[0]+Wi[2]) > 1000) {
+        std::cout << "Error: Wi[0] is huge: " << Wi[0] << " " << Wi[1] << " " << Wi[2] << std::endl;
+        std::cout << "R[5] = " << R[i][5] << std::endl;
+      }*/
 
       ddx[i][k] += Wi[0] * deltaVar;
       ddy[i][k] += Wi[1] * deltaVar;
@@ -860,13 +872,14 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        Vec<int> &fluidId, FluidSelector &fluidSelector,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+				       SVec<double,dimLS>& phi,
                                        NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, fluidId, fluidSelector,
-                                           ngrad, egrad, ngradLS, fluxes, it,
+                                           ngrad, egrad, phi,ngradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes);
@@ -4834,10 +4847,14 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
           next_init[currentNode]=1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
+	//  fprintf(stderr,"Node %d Giving Node %d [%e %e %e %e %e]\n",locToGlobNodeMap[neighborNode]+1,locToGlobNodeMap[currentNode]+1,
+	//		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
+        //  fprintf(stderr,"Node %d Giving Node %d [%e %e %e %e %e]\n",locToGlobNodeMap[neighborNode]+1,locToGlobNodeMap[currentNode]+1,
+	//		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         }
       }
     }
@@ -4872,15 +4889,20 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
             VWeights[currentNode][i] = V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] = Phi[neighborNode][i];
+        //   fprintf(stderr,"Node %d (%d) Giving Node %d (%d) [%e %e %e %e %e]\n",
+	// 		  locToGlobNodeMap[neighborNode]+1,fluidId[neighborNode],locToGlobNodeMap[currentNode]+1,fluidId[currentNode],
+	// 		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] += Phi[neighborNode][i];
+          // fprintf(stderr,"Node %d (%d) Giving Node %d (%d) [%e %e %e %e %e]\n",
+	  //       	  locToGlobNodeMap[neighborNode]+1,fluidId[neighborNode],locToGlobNodeMap[currentNode]+1,fluidId[currentNode],
+	  //       	  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         }
       }
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -6474,3 +6496,241 @@ void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
 
 //------------------------------------------------------------------------------
 
+template<int dimLS>
+void SubDomain::findCutCells(int lsdim,
+			     SVec<double,dimLS>& phi,Vec<int>& cutStatus,
+			     SVec<double,3>& X) {  
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double* phii = phi[i],*phij = phi[j];
+
+    if (phii[lsdim]*phij[lsdim] > 0.0)
+      continue;
+    
+    double s = -phii[lsdim]/(phij[lsdim]-phii[lsdim]);
+    if (s < 0.1)
+      cutStatus[i] = 1;
+    else if (s > 0.9)
+    cutStatus[j] = 1;
+    //if (cutStatus[i] || cutStatus[j])
+    //  std::cout << i << " " << j << " " << 
+    //	phii[lsdim] << " " << phij[lsdim] << " (" << X[i][0] << " " << X[j][0] << ")" << std::endl;
+      
+  }
+
+}
+
+template <int dim>
+void SubDomain::setCutCellFlags(int lsdim, Vec<int>& cutStatus) {
+
+  higherOrderMF->template setCutCellFlags<dim>(lsdim,cutStatus);
+}
+
+inline
+int SubDomain::getNumCutCells() {
+
+  return higherOrderMF->getNumCutCells();
+}
+
+
+template <int dim>
+void SubDomain::collectCutCellData(SVec<double,dim>* cutCell[2],
+				   NodalGrad<dim,double>* cutGrad[2],
+				   Vec<int>* counts[2],
+				   NodalGrad<dim,double>& grad, Vec<int>& fluidId,
+				   SVec<double,dim>& V,SVec<double,3>& X) {
+
+  int (*edgePtr)[2] = edges.getPtr();
+  bool* masterFlag = edges.getMasterFlag();
+
+  bool cut;
+  int fid,cutnode,numset[2] = {0,0};
+  for (int l=0; l<edges.size(); ++l) {
+
+    cut = false;
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double Vext[dim],newgrad[dim][3];
+    if (!masterFlag[l])
+      continue;
+
+    if (higherOrderMF->isCellCut(i)) {
+
+      if (higherOrderMF->isCellCut(j)) {
+	// nothing to do, this edge is between cut cells
+	continue;
+      }
+      
+      fid = fluidId[j];
+      cutnode = i;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
+	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
+	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+	newgrad[k][0] = grad.getX()[j][k];
+	newgrad[k][1] = grad.getY()[j][k];
+	newgrad[k][2] = grad.getZ()[j][k];
+      }
+    } else if (higherOrderMF->isCellCut(j)) {
+
+      fid = fluidId[i];
+      cutnode = j;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[i][k] + grad.getX()[i][k]*(X[j][0]-X[i][0])+ 
+	  grad.getY()[i][k]*(X[j][1]-X[i][1])+
+	  grad.getZ()[i][k]*(X[j][2]-X[i][2]);
+	newgrad[k][0] = grad.getX()[i][k];
+	newgrad[k][1] = grad.getY()[i][k];
+	newgrad[k][2] = grad.getZ()[i][k];
+      }
+      
+    } else 
+      continue;
+
+    int fididx = (fid == 0? 0 : 1);
+    ++(counts[fididx]->operator[](cutnode));
+    //std::cout << i << " " << j << " " << fididx << " " << l << " " <<
+    //  X[i][0] << " " << X[j][0] << std::endl;
+    for (int k = 0; k < dim; ++k) {
+      cutCell[fididx]->operator[](cutnode)[k] += Vext[k];
+      cutGrad[fididx]->getX()[cutnode][k] += newgrad[k][0];
+      cutGrad[fididx]->getY()[cutnode][k] += newgrad[k][1];
+      cutGrad[fididx]->getZ()[cutnode][k] += newgrad[k][2];
+    } 
+  }
+  
+}
+/*
+template <int dim>
+void SubDomain::collectCutCellData2() {
+
+  bool* masterFlag = edges.getMasterFlag();
+
+  int* count[2] = {new int[getNumCutCells()],new int[getNumCutCells()]};
+  int* nodes[2] = {new int[getNumCutCells()],new int[getNumCutCells()]};
+  bool cut;
+  int fid,cutnode,numset[2] = {0,0};
+  for (int l=0; l<edges.size(); ++l) {
+
+    cut = false;
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double Vext[dim],newgrad[dim][3];
+    if (!masterFlag[l])
+      continue;
+
+    if (higherOrderMF->isCellCut(i)) {
+
+      if (higherOrderMF->isCellCut(j)) {
+	// nothing to do, this edge is between cut cells
+	continue;
+      }
+      
+      fid = fluidId[i];
+      cutnode = i;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
+	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
+	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+	newgrad[k][0] = grad.getX()[j][k];
+	newgrad[k][1] = grad.getY()[j][k];
+	newgrad[k][2] = grad.getZ()[j][k];
+      }
+    } else if (higherOrderMF->isCellCut(j)) {
+
+      fid = fluidId[j];
+      cutnode = j;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[i][k] + grad.getX()[i][k]*(X[j][0]-X[i][0])+ 
+	  grad.getY()[i][k]*(X[j][1]-X[i][1])+
+	  grad.getZ()[i][k]*(X[j][2]-X[i][2]);
+	newgrad[k][0] = grad.getX()[i][k];
+	newgrad[k][1] = grad.getY()[i][k];
+	newgrad[k][2] = grad.getZ()[i][k];
+      }
+      
+    } else 
+      continue;
+
+    int setloc = -1;
+    int idx = (fid == 0 ? 0 : 1);
+    for (int m = 0; m < numset[idx]; ++m) {
+      
+      if (nodes[idx][m] == cutnode) {
+	setloc = m;
+	break;
+      }
+    }
+    
+    if (setloc == -1) {
+      nodes[idx][numset] = cutnode;
+      setloc = numset;
+      ++numset;
+    }
+    
+    count[idx][setloc]++;
+
+    for (int k = 0; k < dim; ++k) {
+
+      
+    }
+    
+    
+  }
+}
+*/
+
+template <int dim>
+void SubDomain::storeCutCellData(SVec<double,dim>* cutCell[2],
+				 NodalGrad<dim,double>* cutGrad[2],
+				 Vec<int>* counts[2], Vec<int>& fluidId) {
+  
+  higherOrderMF->template storeCutCellData<dim>(cutCell,cutGrad, counts);
+
+}
+
+template<int dim>
+void SubDomain::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
+
+  higherOrderMF->template setCutCellData<dim>(V, fid);
+}
+
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i]) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] += fabs(U[i][k]-Uexact[i][k]);
+      }
+    }
+  }
+}
+
+template <int dim>
+void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i]) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));
+      }
+    }
+  }
+}
+  

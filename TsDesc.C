@@ -404,6 +404,7 @@ void TsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
   geoState->update(*X, *A);
   timeState->update(U);
 
+  spaceOp->updateFixes(); 
 }
 
 //------------------------------------------------------------------------------

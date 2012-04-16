@@ -77,6 +77,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   ElemToElem = 0;
   nodeToNodeMaskJacobian = 0;
   nodeToNodeMaskILU      = 0;
+  higherOrderMF = 0;
 
   int j;
   for(int i=0;i<3;i++)  {
@@ -952,6 +953,11 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 
   //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+
+    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
+                          higherOrderMF->isCellCut(j)))
+      continue;
+
     count[i][0]++;
     count[j][0]++;
 
@@ -1055,7 +1061,8 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
 {
 
   for (int i=0; i<R.size(); ++i) {
-    if(count[i][0]>2){ //enough neighbours to get a least square problem
+     if(count[i][0]>2 && 
+        (!higherOrderMF || !higherOrderMF->isCellCut(i))) { //enough neighbours to get a least square problem
       double r11, or11, r12, r13, r22, r23, r33;
       if(!(R[i][0]>0.0)){
         r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
@@ -4573,6 +4580,11 @@ void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_
 
 }
 
+void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>& vs) {
 
+  higherOrderMF = new HigherOrderMultiFluid(vs);
 
+  edges.attachHigherOrderMultiFluid(higherOrderMF);
+  faces.attachHigherOrderMF(higherOrderMF);
+}
 

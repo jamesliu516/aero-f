@@ -83,9 +83,9 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    else if(fluid1IsAGas &&
 		    it2->second->fluid == FluidModelData::JWL)
 	      lriemann[iRiemann] = new LocalRiemannGfmpGasJWL(vf,fluid1,fluid2);
-	    else{
+	/*    else{
 	      // fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
-	    }
+	    }*/
 	  }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
 	    if(fluid1IsAGas && fluid2IsAGas){
 	      lriemann[iRiemann] = new LocalRiemannGfmparGasGas(vf,fluid1,fluid2, iod.mf.typePhaseChange);
@@ -120,10 +120,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    }/* else if(it1->second->fluid  == FluidModelData::JWL &&
 		    it2->second->fluid == FluidModelData::LIQUID){
 	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid2,fluid1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange,-1.0);
-	      }*/ else{
+	      }*//* else{
 	      
 	      // fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
-	    }
+	    }*/
 	  }
 	} 
       }
@@ -149,11 +149,12 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 //------------------------------------------------------------------------------
 template<int dim>
 void ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId,
-                                                Vec<int> &fluidIdn)
+                                                Vec<int> &fluidIdn,HigherOrderMultiFluid* higherOrderMF)
 {
 
   for(int i=0; i<V.size(); i++){
-    lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i]);
+    lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],
+				   (higherOrderMF ? higherOrderMF->isCellCut(i) : false));
     // lriemann[0] can be used for all interfaces, because  this routine does
     // not need to consider which interface has traversed that node (this
     // was done previously when computing the riemann problem)
@@ -163,9 +164,9 @@ void ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &f
 //------------------------------------------------------------------------------
 template<int dim>
 void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
-      int IDi, int IDj, double *nphi, VarFcn *vf,
-      double *Wi, double *Wj, int i, int j, int edgeNum,
-      double dx[3])
+						     int IDi, int IDj, double *nphi, VarFcn *vf,
+						     double *Wi, double *Wj, int i, int j, int edgeNum,
+						     double dx[3], bool isHigherOrder)
 {
 
   //fprintf(stdout, "Debug: calling computeRiemannSolution with IDi = %d - IDj = %d for LocalRiemann[%d]\n", IDi, IDj, IDi+IDj-1);
@@ -175,8 +176,8 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
     nphi[k]*=lssign;
   }
   lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
-          Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
-          dx,iteration);
+					      Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
+					      dx,iteration,isHigherOrder);
 
 }
 //------------------------------------------------------------------------------

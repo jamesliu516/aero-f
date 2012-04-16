@@ -184,17 +184,42 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
  *nodeTag0Copy = 0;
 
 
-  //only for IncreasePressure
+//---------------------------------------------------------------------
+  // for IncreasePressure
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    implosionSetupType = EmbeddedTsDesc<dim>::LINEAR;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP)
+    implosionSetupType = EmbeddedTsDesc<dim>::SMOOTHSTEP;
+  else {
+    this->com->fprintf(stderr,"ERROR: ImplosionSetup::Type = %d. Code not supported!\n", ioData.implosion.type);
+    implosionSetupType = EmbeddedTsDesc<dim>::NONE;
+    exit(-1);
+  }
+
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
+  Pfinal = ioData.bc.inlet.pressure;
+
   Pscale = ioData.ref.rv.pressure;
   intersector_freq = ioData.implosion.intersector_freq;
-  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP) {
+    tmax = ioData.implosion.tmax;
+    if(tmax<=0.0) {
+      this->com->fprintf(stderr,"ERROR: ImplosionSetup::Tmax = %e!\n", tmax);
+      exit(-1);
+    }
+  }
+
   if(intersector_freq<1) {
     this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
     exit(-1);
   }
 
+  recomputeIntersections = true;
+  unifPressure[0] = unifPressure[1] = Pinit;
+//---------------------------------------------------------------------
 
   globIt = -1;
   inSubCycling = false;
@@ -291,6 +316,12 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     _mmh->setup(tMax); //obtain maxTime from structure
   }
 
+  // If 'IncreasePressure' is activated, re-initialize the fluid state
+  if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
+    increasingPressure = true;
+    this->domain->IncreasePressure(currentPressure(this->getInitialTime()), this->varFcn, *U, nodeTag);
+  }
+ 
   //compute force
   // construct Wij, Wji from U. Then use them for force calculation.
   DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
@@ -409,6 +440,8 @@ void EmbeddedTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
   this->geoState->update(*this->X, *this->A);
   this->timeState->update(U,increasingPressure); 
+  this->spaceOp->updateFixes();
+
 }
 
 //-----------------------------------------------------------------------------
@@ -574,10 +607,24 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   double t0 = this->timer->getTime();
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
-  for (int i=0; i<numStructNodes; i++) 
-    Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
-				  ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+
+  if(!increasingPressure || recomputeIntersections) {
+    for (int i=0; i<numStructNodes; i++) 
+      Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
+    this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
+                                    ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+  } else {
+    if(unifPressure[0]==0) {
+      this->com->fprintf(stderr,"ERROR: Detected pressure p = %e in Implosion Setup.\n", unifPressure[0]);
+      exit(-1);
+    }
+    for (int i=0; i<numStructNodes; i++) {
+      Fs[i][0] *= unifPressure[1]/unifPressure[0]; 
+      Fs[i][1] *= unifPressure[1]/unifPressure[0]; 
+      Fs[i][2] *= unifPressure[1]/unifPressure[0]; 
+    }
+  }
+
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
@@ -654,19 +701,16 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
-    //update nodeTags (only for numFluid>1)
-    //Adam and Kevin 2010.08.04 node tag for F/S interaction is needed
-    //if(numFluid>1) {
-      nodeTag0 = this->nodeTag;
-      nodeTag = this->distLSS->getStatus();
-   // }
+
+    nodeTag0 = this->nodeTag;
+    nodeTag = this->distLSS->getStatus();
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
     if(recomputeIntersections)
       this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar, this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag);
+            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
   } 
@@ -694,8 +738,11 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     }
   }
 
-  this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
-  this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, nodeTag);
+  double pnow = currentPressure(t);;
+  this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
+  this->domain->IncreasePressure(pnow, this->varFcn, U, nodeTag);
+  unifPressure[0] = unifPressure[1];
+  unifPressure[1] = pnow;
 
   return false;
 
@@ -710,12 +757,22 @@ void EmbeddedTsDesc<dim>::fixSolution(DistSVec<double,dim>& U,DistSVec<double,di
     this->domain->fixSolution(this->varFcn,U,dU,&this->nodeTag);
 }
 
+//------------------------------------------------------------------------------
 
-
-
-
-
-
-
-
+template<int dim>
+double EmbeddedTsDesc<dim>::currentPressure(double t)
+{
+  double p;
+  if(implosionSetupType==EmbeddedTsDesc<dim>::LINEAR)
+    p = Pinit + t*Prate;
+  else if(implosionSetupType==EmbeddedTsDesc<dim>::SMOOTHSTEP) {
+    double tbar = t/tmax;
+    //fprintf(stderr,"t = %e, tmax = %e, tbar = %e.\n", t, tmax, tbar);
+    p = Pinit + (Pfinal - Pinit)*tbar*tbar*tbar*(10.0-15.0*tbar+6.0*tbar*tbar);
+  } else {
+    this->com->fprintf(stderr,"ERROR! ImplosionSetup::Type = %d NOT recognized!\n", implosionSetupType);
+    exit(-1);
+  }
+  return p;
+}
 

@@ -805,6 +805,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      FluidSelector &fluidSelector,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+				     DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
@@ -830,7 +831,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), fluidId,
                                              fluidSelector, ngrad(iSub),
-                                             legrad,  ngradLS(iSub), (*RR)(iSub), it,
+						    legrad,phi(iSub),  ngradLS(iSub), (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
@@ -872,7 +873,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), fluidId,
                                      fluidSelector, ngrad(iSub),
-                                     legrad, ngradLS(iSub), (*RR)(iSub), it,
+							legrad, phi(iSub),ngradLS(iSub), (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }
 
@@ -4256,3 +4257,33 @@ void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length = 1) {
 	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
 }
 
+template<int dim>
+void Domain::setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->setCutCellData(V(iSub), fid(iSub));
+  }
+}
+
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+
+  com->globalSum(dim, error);
+}
+
+
+template <int dim>
+void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+  
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeLInfError(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+
+  com->globalMax(dim, error);
+}

@@ -20,6 +20,7 @@ using std::pair;
 #include <cstdio>
 
 #include <ProgrammedBurn.h>
+#include <HigherOrderMultiFluid.h>
 
 class FluidSelector;
 class VarFcn;
@@ -60,8 +61,8 @@ class EdgeSet {
   MapPair *mp;
 
   int numEdges;
-	bool sampleMesh;
-	int numSampledEdges, numTwoLayerEdges;
+  bool sampleMesh;
+  int numSampledEdges, numTwoLayerEdges;
 
   int (*ptr)[2];
   bool *masterFlag;
@@ -69,6 +70,8 @@ class EdgeSet {
   double* edgeLength;
 
   ProgrammedBurn* programmedBurn;
+
+  HigherOrderMultiFluid* higherOrderMF;
 
 public:
 
@@ -102,6 +105,7 @@ public:
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
@@ -221,14 +225,15 @@ public:
   void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
   void attachProgrammedBurn(ProgrammedBurn*);
+  void attachHigherOrderMultiFluid(HigherOrderMultiFluid*);
 
-	void computeConnectedEdges(const std::vector<int> &);
-	std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM
-	std::vector<int> edgesTwoLayersSampleNode;	// for Gappy ROM
-	const int getNumSampledEdges() {return numSampledEdges;}
-	const int getNumTwoLayersEdges() {return numTwoLayerEdges;}
-	void computeGlobalConnectedEdges(const std::vector<int> &globalNeighborNodes,
-			const int *locToGlobNodeMap) ;
+  void computeConnectedEdges(const std::vector<int> &);
+  std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM
+  std::vector<int> edgesTwoLayersSampleNode;	// for Gappy ROM
+  const int getNumSampledEdges() {return numSampledEdges;}
+  const int getNumTwoLayersEdges() {return numTwoLayerEdges;}
+  void computeGlobalConnectedEdges(const std::vector<int> &globalNeighborNodes,
+				   const int *locToGlobNodeMap) ;
 };
 
 //------------------------------------------------------------------------------

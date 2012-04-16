@@ -40,6 +40,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                       // 2: averaged structure normal;
 
   bool increasingPressure;
+  bool recomputeIntersections;
+  double unifPressure[2];
  
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
@@ -77,9 +79,11 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   // pressure is increased in the fluid at rate Prate from
   // initial pressure Pinit until it reaches the pressure
   // given by boundary conditions which happens at tmax.
+  enum ImplosionSetupType {LINEAR = 0, SMOOTHSTEP = 1, NONE = 2} implosionSetupType;  
   double tmax;
   double Prate;
   double Pinit;
+  double Pfinal;
   double Pscale;
   int intersector_freq;
 
@@ -134,8 +138,11 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                                            double F[3], double M[3]);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
+  virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}
 
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
+  double currentPressure(double t);
+
 };
 
 

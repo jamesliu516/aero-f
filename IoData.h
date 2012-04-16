@@ -98,6 +98,10 @@ struct InputData {
   const char *mesh;
   const char *reducedfullnodemap;
 
+  const char* convergence_file;
+  
+  const char* exactInterfaceLocation;
+
 // Included (MB)
   const char *shapederivatives;
 
@@ -265,9 +269,7 @@ struct RestartData {
   ~RestartData() {}
 
   void setup(const char *, ClassAssigner * = 0);
-
 };
-
 //------------------------------------------------------------------------------
 
 struct ROMOutputData {
@@ -1050,6 +1052,10 @@ struct MultiFluidData {
 
   SparseGridData sparseGrid;
 
+  int testCase;
+
+  int interfaceOmitCells;
+
   MultiFluidData();
   ~MultiFluidData() {}
   void setup(const char *, ClassAssigner * = 0);
@@ -1144,6 +1150,9 @@ struct CFixData {
   CFixData();
   ~CFixData() {}
 
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
+
   void setup(const char *, ClassAssigner * = 0);
 
 };
@@ -1157,6 +1166,9 @@ struct SFixData {
   double z0;
   double r;
 
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
+  
   SFixData();
   ~SFixData() {}
 
@@ -1174,6 +1186,9 @@ struct BFixData {
   double x1;
   double y1;
   double z1;
+  
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
 
   BFixData();
   ~BFixData() {}
@@ -1961,6 +1976,8 @@ struct OneDimensionalInfo {
   int numPoints; //mesh has numPoints elements
   int fluidId2;
 
+  int sourceTermOrder;
+
   double interfacePosition;
 
   double density1, velocity1, pressure1,temperature1;
@@ -1978,7 +1995,8 @@ struct OneDimensionalInfo {
 //------------------------------------------------------------------------------
 
 struct ImplosionSetup {
-  double Prate, Pinit;
+  enum Type{LINEAR=0, SMOOTHSTEP=1} type;
+  double Prate, Pinit, tmax;
   int intersector_freq;
 
   ImplosionSetup();

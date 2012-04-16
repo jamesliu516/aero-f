@@ -94,7 +94,6 @@ class LevelSetStructure {
     bool isActive(double t, int n) const                  { return is_active[n]; }
     bool isOccluded(double t, int n) const                { return is_occluded[n]; }
     bool edgeIntersectsStructure(double t, int eij) const { return edge_intersects[eij]; }
-
     void computeSwept(Vec<int> &swept){
         for(int i = 0; i < swept.size(); ++i)
             swept[i] = is_swept[i] ? 1 : 0;

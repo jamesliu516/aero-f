@@ -116,6 +116,7 @@ public:
   Scalar operator*(const Expr<T, Scalar> &);
 
   inline Scalar &operator[](int i) { return v[i]; }
+  
   inline const Scalar &operator[](int i) const { return v[i]; }
   /*
   // Adam April 2010 : 

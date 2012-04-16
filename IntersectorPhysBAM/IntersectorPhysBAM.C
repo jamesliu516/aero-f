@@ -34,6 +34,7 @@ typedef pair<iipair, ibpair> EdgePair;
 const int IntersectorPhysBAM::UNDECIDED, IntersectorPhysBAM::INSIDE, IntersectorPhysBAM::OUTSIDE;
 int IntersectorPhysBAM::OUTSIDECOLOR;
 
+//int debug_PhysBAM_count = 0;
 //----------------------------------------------------------------------------
 
 DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes,
@@ -101,6 +102,8 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(nodalNormal) delete[] nodalNormal;
   if(boxMax)      delete   boxMax;
   if(boxMin)      delete   boxMin;
+  delete swept_node;
+  delete occluded_node;
   delete occluded_node0;
 
   for(int i = 0; i < numLocSub; ++i) {
@@ -912,8 +915,9 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool f
   for (int i=0; i<numStNodes; i++) 
     Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
 
-/*  //Debug only!
-  if(com->cpuNum()==0) {
+  //Debug only!
+/*  com->fprintf(stderr,"count = %d.\n", ++debug_PhysBAM_count);
+  if(debug_PhysBAM_count==50 && com->cpuNum()==0) {
     for(int i=0; i<numStNodes; i++)
       fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
     for(int i=0; i<numStElems; i++)
@@ -983,6 +987,7 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X, Vec<in
   int numEdges = edges.size();
 
   status0 = UNDECIDED;
+  occluded_node = false;
   occluded_node0 = false;
   OUTSIDECOLOR = distInt.numOfFluids();
 
