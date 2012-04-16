@@ -116,6 +116,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   }
 
   setupOutputFiles(ioData);
+  setupProbes(ioData);
 
   setupFixes(ioData);
 
@@ -588,6 +589,8 @@ void OneDimensional::totalTimeIntegration(){
     singleTimeIntegration(dt);
     time += dt;
 
+    outputProbes(time,iteration-1);
+
     if(iteration % frequency == 0)
       resultsOutput(time,iteration);
   }
@@ -920,7 +923,14 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
     length = (Xj-Xi);
 
-    recFcn->compute(Vi_ptr, Vsi,Vj_ptr, Vsj, Vi, Vj);
+    //if (fidi == fidj || isSinglePhase)
+      recFcn->compute(Vi_ptr, Vsi,Vj_ptr, Vsj, Vi, Vj);
+    /*else {
+      for (k = 0; k < dim; ++k) {
+        Vi[k] = Vi_ptr[k];
+        Vj[k] = Vj_ptr[k];
+      }
+    }*/
     
     //std::cout << "Hello" << std::endl;
     varFcn->getVarFcnBase(fidi)->verification(0,Udummy,Vi);
@@ -954,6 +964,13 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	memcpy(Vir, Vi, sizeof(double)*dim);
 	memcpy(Vjr, Vj, sizeof(double)*dim);
 	
+        if (programmedBurn && fidj == 1) {
+
+          for (int k = 0; k < dim; ++k) {
+            Vir[k] = Vi_ptr[k] + Vsi[k]*0.5;
+            Vjr[k] = Vj_ptr[k] - Vsj[k]*0.5;
+          }
+        }
 
         riemann->computeRiemannSolution(Vir,Vjr,fidi,fidj,gradphi,varFcn,
 					Wir,Wjr,i,j,i,dx,false);
@@ -1604,4 +1621,147 @@ void OneDimensional::loadSparseGrid(IoData& ioData) {
   }else{
     tabulationC = 0;
   }
+}
+
+void OneDimensional::setupProbes(IoData& iod) {
+
+  int i;
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    nodal_scalars[i] = 0; 
+  }
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+    nodal_vectors[i] = 0; 
+  }
+ 
+  int spn = strlen(iod.output.transient.probes.prefix) + 1;
+  Probes& myProbes = iod.output.transient.probes;
+  nodal_output.ids.resize(Probes::MAXNODES);
+  nodal_output.alpha.resize(Probes::MAXNODES);
+  nodal_output.locations.resize(Probes::MAXNODES);
+  for (i = 0; i < Probes::MAXNODES; ++i) {
+    nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX,
+                                      myProbes.myNodes[i].locationY,
+                                      myProbes.myNodes[i].locationZ);
+    nodal_output.ids[i] = myProbes.myNodes[i].id;
+    if (myProbes.myNodes[i].id >= 0) {
+  
+    } else if (myProbes.myNodes[i].locationX < -1.0e10)
+      break;
+    else {
+
+      for (int j = 0; j < numPoints; ++j) {
+        if (X[j][0] > myProbes.myNodes[i].locationX) {
+          nodal_output.ids[i] = j-1;
+          nodal_output.alpha[i] = -(myProbes.myNodes[i].locationX-X[j][0])/(X[j][0]-X[j-1][0]);
+          break;
+        }
+      }
+    }
+  }
+
+  nodal_output.numNodes = i;
+
+  if (iod.output.transient.probes.density[0] != 0) {
+    nodal_scalars[PostFcn::DENSITY] = new char[spn + strlen(iod.output.transient.probes.density)];
+    sprintf(nodal_scalars[PostFcn::DENSITY], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.density);
+  }
+  if (iod.output.transient.probes.pressure[0] != 0) {
+    nodal_scalars[PostFcn::PRESSURE] = new char[spn + strlen(iod.output.transient.probes.pressure)];
+    sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.pressure);
+  }       
+  if (iod.output.transient.probes.temperature[0] != 0) {
+    nodal_scalars[PostFcn::TEMPERATURE] = new char[spn + strlen(iod.output.transient.probes.temperature)];
+    sprintf(nodal_scalars[PostFcn::TEMPERATURE], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.temperature);
+  } 
+  if (iod.output.transient.probes.velocity[0] != 0) {
+    nodal_vectors[PostFcn::VELOCITY] = new char[spn + strlen(iod.output.transient.probes.velocity)];
+    sprintf(nodal_vectors[PostFcn::VELOCITY], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.velocity);
+  }
+
+}
+
+void OneDimensional::outputProbes(double time,int iteration) {
+
+  if (nodal_output.numNodes == 0)
+    return;
+  
+  int i,j;
+  const char* mode = iteration ? "a" : "w";
+
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    if (nodal_scalars[i]) {
+      FILE* out = fopen(nodal_scalars[i],mode);
+      fprintf(out,"%e ",time*refVal.time);
+      for (j = 0; j < nodal_output.numNodes; ++j) {
+        if (nodal_output.locations[i].v[0] >= 0.0) {
+          switch ((PostFcn::ScalarType)i) {
+
+            case PostFcn::DENSITY:
+              fprintf(out,"%e ", (V[nodal_output.ids[j]][0]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][0]*(1.0-nodal_output.alpha[j]))*refVal.density);
+              break;
+            // case PostFcn::VELOCITY:
+            //  fprintf(out,"%lf ", V[nodal_output.ids[j]][1]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][1]*(1.0-nodal_output.alpha[j]));
+            //  break;
+            case PostFcn::TEMPERATURE:
+              fprintf(out,"%e ", (varFcn->computeTemperature(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*nodal_output.alpha[j] + 
+                                  varFcn->computeTemperature(V[nodal_output.ids[j]+1],fluidId[nodal_output.ids[j]+1])*(1.0-nodal_output.alpha[j]))*refVal.temperature);
+              break;
+            case PostFcn::PRESSURE:
+              fprintf(out,"%e ", (varFcn->getPressure(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*nodal_output.alpha[j] +
+                                  varFcn->getPressure(V[nodal_output.ids[j]+1],fluidId[nodal_output.ids[j]+1])*(1.0-nodal_output.alpha[j]))*refVal.pressure);
+              break;
+          }
+        } else {
+          switch ((PostFcn::ScalarType)i) {
+  
+            case PostFcn::DENSITY:
+              fprintf(out,"%e ", V[nodal_output.ids[j]][0]*refVal.density);
+              break;
+            // case PostFcn::VELOCITY:
+            //   fprintf(out,"%lf ", V[nodal_output.ids[j]][1]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][1]*(1.0-nodal_output.alpha[j]));
+            //   break;
+            case PostFcn::TEMPERATURE:
+              fprintf(out,"%e ", varFcn->computeTemperature(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*refVal.temperature);
+              break;
+            case PostFcn::PRESSURE:
+              fprintf(out,"%e ", varFcn->getPressure(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*refVal.pressure);
+              break;
+          }
+        }
+      }
+      fprintf(out,"\n");
+      fclose(out);
+    }
+  }
+
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+    if (nodal_vectors[i]) {
+      FILE* out = fopen(nodal_vectors[i],mode); 
+      fprintf(out,"%lf ",time*refVal.time);
+      for (j = 0; j < nodal_output.numNodes; ++j) {
+        if (nodal_output.locations[i].v[0] >= 0.0) {
+          switch ((PostFcn::VectorType)i) {
+  
+            case PostFcn::VELOCITY:
+              fprintf(out,"%e ", (V[nodal_output.ids[j]][1]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][1]*(1.0-nodal_output.alpha[j]))*refVal.velocity);
+              break;
+          }
+        } else {
+          switch ((PostFcn::VectorType)i) {
+
+            case PostFcn::VELOCITY:
+              fprintf(out,"%e ", V[nodal_output.ids[j]][1]*nodal_output.alpha[j]*refVal.velocity);
+              break;
+          }
+        }
+      }
+      fprintf(out,"\n");
+      fclose(out);
+    }
+  }
+
 }
