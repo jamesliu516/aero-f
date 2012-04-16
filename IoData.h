@@ -62,6 +62,7 @@ struct OneDimensionalInputData {
 struct InputData {
 
   const char *prefix;
+  const char *geometryprefix;
   const char *connectivity;
   const char *geometry;
   const char *decomposition;
@@ -202,7 +203,9 @@ struct TransientData {
   const char *materialVolumes;
   const char *conservation;
   const char *podFile;
+  const char *robProductFile;
   const char *romFile;
+  const char *gendispFile;
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
@@ -360,11 +363,12 @@ struct ProblemData {
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
 		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
 		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31} alltype;
+		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ROB_INNER_PRODUCT_ = 32} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
+  enum SolveFluid {NO = 0, YES = 1} solvefluid;
   int verbose;
 
   ProblemData();
@@ -1355,9 +1359,8 @@ struct NewtonData {
   enum FailSafe {NO = 0, YES = 1, ALWAYS = 2} failsafe;
   int maxIts;
   double eps;
-	int JacSkip;
+  int JacSkip;
   double epsAbsRes, epsAbsInc;
-
   GenericKrylov ksp;
 
   NewtonData();
@@ -1378,7 +1381,6 @@ struct ImplicitData {
   enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
   enum FVMERS3PBDFSchme { BDF_SCHEME1 = 1, BDF_SCHEME2 = 0 } fvmers_3pbdf;
   NewtonData<KspFluidData> newton;
-
   /// UH (09/10)
   /// This flag is not visible from the input file.
   /// It governs the computation of the Jacobian of the flux function,
@@ -1402,6 +1404,7 @@ struct TsData {
   enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
 
   enum Prec {NO_PREC = 0, PREC = 1} prec;
+  enum Form {DESCRIPTOR = 1, NONDESCRIPTOR = 0, HYBRID = 2} form;
   double viscousCst;
 
   int maxIts;

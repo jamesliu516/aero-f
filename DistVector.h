@@ -43,6 +43,7 @@ public:
   Scalar operator*(const DistVec<Scalar> &);
 
   DistVec<Scalar> &conjugate(const DistVec<Scalar> &);
+  DistVec<Scalar> &pow(const DistVec<Scalar> &, double);
 
   template<class T>
   DistVec<Scalar> &operator=(const Expr<T, Scalar> &);
@@ -316,6 +317,28 @@ DistVec<Scalar>::conjugate(const DistVec<Scalar> &v2)
 
     for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] = conj(v2.v[locOffset+i]);
+
+  }
+
+  return *this;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
+DistVec<Scalar> & DistVec<Scalar>::pow(const DistVec<Scalar> &v2, double exp)
+{
+  using std::pow;
+#pragma omp parallel for
+  for (int iSub = 0; iSub < distInfo.numLocThreads; ++iSub)  {
+
+    int locOffset = distInfo.subOffsetReg[iSub];
+    int locLen = distInfo.subLenReg[iSub];
+
+    for (int i = 0; i < locLen; ++i)
+      this->v[locOffset+i] = pow(v2.v[locOffset+i],exp);
 
   }
 

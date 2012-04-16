@@ -29,14 +29,14 @@ FluidRemapData::FluidRemapData() {
 
 void FluidRemapData::setup(const char * name, ClassAssigner * father) {
   
-  ClassAssigner *ca = new ClassAssigner(name, 2, father);
+  ClassAssigner *ca = new ClassAssigner(name, 1, father);
   //new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
   new ClassInt<FluidRemapData>(ca, "FluidIDReceptor", this, &FluidRemapData::newID);
 }
 
 Assigner* FluidRemapData::getAssigner() {
   
-  ClassAssigner *ca = new ClassAssigner("normal", 2, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 1, nullAssigner);
   //new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
   new ClassInt<FluidRemapData>(ca, "FluidIDReceptor", this, &FluidRemapData::newID);
   return ca;
@@ -75,6 +75,7 @@ InputData::InputData()
 {
 
   prefix = "";
+  geometryprefix = "";
   connectivity = "";
   geometry = "";
   decomposition = "";
@@ -121,9 +122,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 26, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 32, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
+  new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
   new ClassStr<InputData>(ca, "Geometry", this, &InputData::geometry);
   new ClassStr<InputData>(ca, "Decomposition", this, &InputData::decomposition);
@@ -203,12 +204,11 @@ OutputData::OutputData()
 void OutputData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 2, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
   transient.setup("Postpro", ca);
   restart.setup("Restart", ca);
   transient.probes.setup("Probes", ca);
-	rom.setup("NonlinearROM", ca);
+  rom.setup("NonlinearROM", ca);
 }
 
 //------------------------------------------------------------------------------
@@ -237,7 +237,6 @@ void Probes::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 56, father);
-
   new ClassStr<Probes>(ca, "Prefix", this, &Probes::prefix);
   new ClassStr<Probes>(ca, "Density", this, &Probes::density);
   new ClassStr<Probes>(ca, "Pressure", this, &Probes::pressure);
@@ -312,6 +311,8 @@ TransientData::TransientData()
   conservation = "";
   podFile = "";
   romFile = "";
+  robProductFile = "";
+  gendispFile = "";
   philevel = "";
   controlvolume = "";
   fluidid="";
@@ -354,7 +355,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 83, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 85, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -422,6 +423,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TransientData>(ca, "ZM", this, &TransientData::z0);
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
+  new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
+  new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
@@ -504,8 +507,7 @@ ROMOutputData::ROMOutputData()
 
 void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 15, father); 
-
+  ClassAssigner *ca = new ClassAssigner(name, 18, father); 
   new ClassStr<ROMOutputData>(ca, "Prefix", this, &ROMOutputData::prefix);
 	
   new ClassStr<ROMOutputData>(ca, "Residual", this, &ROMOutputData::newtonresiduals);
@@ -551,8 +553,7 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 9, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
   new ClassToken<RestartData>(ca, "Type", this,
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
 			      "Single", 0, "Double", 1);
@@ -620,6 +621,7 @@ ProblemData::ProblemData()
   mode = NON_DIMENSIONAL;
   prec = NON_PRECONDITIONED;
   framework = BODYFITTED;
+  solvefluid = YES;
 
   test = REGULAR;
   verbose = 4;
@@ -632,10 +634,9 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
-
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 32,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 33,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -647,7 +648,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
-		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31);
+		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -663,6 +664,11 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
     (ca, "Framework", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 2,
      "BodyFitted", 0, "Embedded", 1);
+
+  new ClassToken<ProblemData>
+    (ca, "SolveFluid", this,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::solvefluid), 2,
+     "No", 0, "Yes", 1);
 
   new ClassToken<ProblemData>
     (ca, "Test", this,
@@ -1538,8 +1544,7 @@ EquationsData::EquationsData()
 void EquationsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 11, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 10, father);
   new ClassInt<EquationsData>(ca, "Dimension", this, &EquationsData::dimension);
 
   new ClassToken<EquationsData>(ca, "Type", this,
@@ -1941,8 +1946,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 20, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 18, father);
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
              "None", 0, "GhostFluidForThePoor", 1, "FiniteVolumeWithExactTwoPhaseRiemann", 2);
@@ -2436,7 +2440,7 @@ ImplicitData::ImplicitData()
 void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 7, father);
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
   new ClassToken<ImplicitData>
     (ca, "Type", this,
@@ -2470,6 +2474,7 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
     (ca, "FVMERSBDFScheme", this,
       reinterpret_cast<int ImplicitData::*>(&ImplicitData::fvmers_3pbdf), 2,
       "Scheme1", BDF_SCHEME1, "Scheme2", BDF_SCHEME2);
+ 
 
   /*new ClassToken<ImplicitData>
     (ca, "Normals", this,
@@ -2515,6 +2520,7 @@ TsData::TsData()
   cflMin = 1.0;
   ser = 0.7;
   errorTol = 1.e-10;
+  form = NONDESCRIPTOR;
 
   output = "";
 
@@ -2525,7 +2531,7 @@ TsData::TsData()
 void TsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 22, father);
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
 
   new ClassToken<TsData>(ca, "Type", this,
 			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
@@ -2558,6 +2564,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
+  new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
@@ -2634,8 +2641,7 @@ SensitivityAnalysis::SensitivityAnalysis()
 void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 30, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 21, father);
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
@@ -3133,8 +3139,7 @@ void ModelReductionData::setup(const char *name, ClassAssigner *father)
 void SnapshotsData::setup(const char *name, ClassAssigner *father)
 {
 
-	ClassAssigner *ca = new ClassAssigner(name, 7, father);
-
+	ClassAssigner *ca = new ClassAssigner(name, 6, father);
 	new ClassToken<SnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::normalizeSnaps), 2, "False", 0, "True", 1);
 	new ClassToken<SnapshotsData> (ca, "IncrementalSnaps", this, reinterpret_cast<int
@@ -3154,8 +3159,7 @@ void SnapshotsData::setup(const char *name, ClassAssigner *father)
 
 void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
 	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
 	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
@@ -3168,8 +3172,7 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 
 void GNATData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 9, father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 14, father);
 	// optional: document
   new ClassInt<GNATData>(ca, "DimensionROBState", this, &GNATData::nRobState);	// default: full size
 
@@ -3383,8 +3386,7 @@ void Velocity::setup(const char *name)  {
 //------------------------------------------------------------------------------
 
 void Volumes::setup(const char *name, ClassAssigner *father)  {
-
-  ClassAssigner *ca = new ClassAssigner(name, 1, father);
+  ClassAssigner *ca = new ClassAssigner(name, 0, father);
   volumeMap.setup("VolumeData", 0);
 }
 
@@ -3570,8 +3572,7 @@ EmbeddedFramework::EmbeddedFramework() {
 
 void EmbeddedFramework::setup(const char *name) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 9, 0); //father);
-
+  ClassAssigner *ca = new ClassAssigner(name, 10, 0); //father);
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
                                       "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
@@ -3830,6 +3831,55 @@ void IoData::readCmdFile()
 void IoData::resetInputValues()
 {
 
+  // part 0
+
+   if (strcmp(input.connectivity, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* name = new char[strlen(input.geometryprefix) + strlen(".con") + 1];
+     sprintf(name, "%s%s", input.geometryprefix, ".con");
+     input.connectivity = new char[strlen(name) + 1];
+     strcpy( (char*)input.connectivity , name );
+     delete [] name;
+   }
+   
+   if (strcmp(input.geometry, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* name = new char[strlen(input.geometryprefix) + strlen(".msh") + 1];
+     sprintf(name, "%s%s", input.geometryprefix, ".msh");
+     input.geometry = new char[strlen(name) + 1];
+     strcpy( (char*)input.geometry , name );
+     delete [] name;
+   }
+
+   if (strcmp(input.decomposition, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* name = new char[strlen(input.geometryprefix) + strlen(".dec") + 1];
+     sprintf(name, "%s%s", input.geometryprefix, ".dec");
+     input.decomposition = new char[strlen(name) + 1];
+     strcpy( (char*)input.decomposition , name );
+     delete [] name;
+   }
+
+   if (strcmp(input.cpumap, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+     char* numcpu = new char[6];
+     sprintf(numcpu, "%i", com->size());
+     char* name = new char[strlen(input.geometryprefix) + strlen(".cpu") + strlen(numcpu) + 1];
+     sprintf(name, "%s%s%s%s", input.geometryprefix,".",numcpu,"cpu");
+     input.cpumap = new char[strlen(name) + 1];
+     strcpy( (char*)input.cpumap , name );
+     delete [] numcpu;
+     delete [] name;
+   }
+
+   if (eqs.type == EquationsData::NAVIER_STOKES && 
+       ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+         eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
+      if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+       char* name = new char[strlen(input.geometryprefix) + strlen(".dwall") + 1];
+       sprintf(name, "%s%s", input.geometryprefix,".dwall");
+       input.d2wall = new char[strlen(name) + 1];
+       strcpy( (char*)input.d2wall , name );
+       delete [] name;
+      }
+   }
+
   // part 1
 
   for (int i=0; i<ProblemData::SIZE; ++i)
@@ -3882,6 +3932,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
+      problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
@@ -4097,7 +4148,8 @@ void IoData::resetInputValues()
 
   int nCoarseFreq = 0;
   if (problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
-    // Assign the values for the coarse freq to an arra
+
+    // Assign the values for the coarse freq to an array
     linearizedData.pade.freq[0] = linearizedData.pade.freq1;
     linearizedData.pade.freq[1] = linearizedData.pade.freq2;
     linearizedData.pade.freq[2] = linearizedData.pade.freq3;
@@ -4120,6 +4172,13 @@ void IoData::resetInputValues()
 
   }
 
+
+  if (problem.type[ProblemData::LINEARIZED] && ts.form == TsData::HYBRID) {
+    com->fprintf(stderr, "*** Error: the hybrid form is not supported in the linearized module \n");
+      exit(1);
+  }
+
+  
   if (linearizedData.padeReconst == LinearizedData::TRUE) {
     if (ts.implicit.newton.ksp.ns.type != KspData::GCR) {
       com->fprintf(stderr, "*** Error: for a Pade Reconstruction, a GCR solver needs to be used \n");

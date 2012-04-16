@@ -123,7 +123,6 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFS(DistSVec<double,
                                             (this->withCracking && this->withMixedLS),
                                             this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
   this->timer->addEmbedPhaseChangeTime(tw);
-  this->com->barrier();
   this->timer->removeIntersAndPhaseChange(tw);
 }
 
