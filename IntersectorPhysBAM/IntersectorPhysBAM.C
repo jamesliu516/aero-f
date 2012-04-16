@@ -738,7 +738,7 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
     // Next handle swept nodes
     int iteration_count=0;
     int flags[2] = {1,1}; // flags = {needs_iteration, detected_change}
-    while(flags[0] && flags[1]){flags[0]=0;flags[1]=1;
+    while(flags[0] && flags[1]){flags[0]=0;flags[1]=0;
 #pragma omp parallel for
         for(int iSub=0;iSub<numLocSub;++iSub){
             SubDomain& sub=intersector[iSub]->subD;
