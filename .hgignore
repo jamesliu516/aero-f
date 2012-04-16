@@ -1,0 +1,18 @@
+syntax: glob
+*.orig
+*.dep
+*.dep.*
+*~
+*.o
+*.a
+.git
+.gitignore
+Project/*
+parser/Lexer.C
+parser/Parser.output
+parser/Parser.tab.c
+parser/Parser.tab.h
+bin/*
+
+syntax: regexp
+.*\#.*\#$
