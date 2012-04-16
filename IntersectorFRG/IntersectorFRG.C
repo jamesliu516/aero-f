@@ -1186,8 +1186,8 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, Di
   finishStatusByPoints(iod, point_based_id);   
  
 #pragma omp parallel for
-  for(int i = 0; i < numLocSub; ++i) {
-    intersector[i]->findIntersections(X(i), false);
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    intersector[iSub]->findIntersections(X(iSub), false);
     for(int i = 0; i < (*is_active)(iSub).size(); ++i)
       (*is_active)(iSub)[i] = intersector[iSub]->testIsActive(0.0, i);
   }
