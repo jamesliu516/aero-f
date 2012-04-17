@@ -3403,7 +3403,7 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
     subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Weights(iSub),
                                                      (*distLSS)(iSub),X(iSub),
                                                      init(iSub),next_init(iSub));
-  
+
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
   assemble(volPat, next_init);

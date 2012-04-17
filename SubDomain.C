@@ -4820,7 +4820,6 @@ template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<double> &init, Vec<double> &next_init)
 {
-  bool* masterEdge = edges.getMasterFlag();
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
     if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
@@ -4828,7 +4827,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
         int neighborNode=nToN[currentNode][j];
         if(currentNode == neighborNode || init[neighborNode]<1.0) continue;
         int l = edges.findOnly(currentNode,neighborNode);
-        if(LSS.edgeIntersectsStructure(0.0,l) || !masterEdge[l]) continue;
+        if(LSS.edgeIntersectsStructure(0.0,l)) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
           next_init[currentNode]=1.0;
@@ -4854,7 +4853,6 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
                                                 Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X,
                                                 Vec<double> &init, Vec<double> &next_init, Vec<int> &fluidId)
 {
-  bool* masterEdge = edges.getMasterFlag();
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
     if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
@@ -4864,7 +4862,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
         int yourId = fluidId[neighborNode];
         if(currentNode==neighborNode || init[neighborNode]<1.0 || myId!=yourId) continue;
         int l = edges.findOnly(currentNode,neighborNode);
-        if(LSS.edgeIntersectsStructure(0.0,l) || !masterEdge[l]) continue;
+        if(LSS.edgeIntersectsStructure(0.0,l)) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
           next_init[currentNode]=1.0;

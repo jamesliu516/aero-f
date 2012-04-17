@@ -80,6 +80,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   public:
     DistVec<int> *status0;  //previous node status
     DistVec<bool> *occluded_node0;// previous occluded node status
+    DistVec<int> *is_swept_helper;
 
     double *triSize;
     Vec3D *triNorms;
