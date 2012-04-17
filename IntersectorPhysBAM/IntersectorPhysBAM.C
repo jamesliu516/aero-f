@@ -102,8 +102,6 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(nodalNormal) delete[] nodalNormal;
   if(boxMax)      delete   boxMax;
   if(boxMin)      delete   boxMin;
-  delete swept_node;
-  delete occluded_node;
   delete occluded_node0;
 
   for(int i = 0; i < numLocSub; ++i) {
@@ -987,7 +985,6 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X, Vec<in
   int numEdges = edges.size();
 
   status0 = UNDECIDED;
-  occluded_node = false;
   occluded_node0 = false;
   OUTSIDECOLOR = distInt.numOfFluids();
 

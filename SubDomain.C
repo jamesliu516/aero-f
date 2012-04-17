@@ -4903,6 +4903,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 	  //       	  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         }
       }
+  }
 }
 
 //------------------------------------------------------------------------------
