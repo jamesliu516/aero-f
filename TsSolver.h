@@ -115,7 +115,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-
+    
     bool solveOrNot = true;
     do { // Subcycling
       stat = 0;
@@ -124,6 +124,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
       if(probDesc->structureSubcycling() || //in this case computeTimeStep is called in computePositionVector
          (it>1 && probDesc->willNotSolve(dtLeft,t)) ) {//in this case AERO-F should never subcycle
+        probDesc->setFluidSubcycling(false);
         dt = dtLeft;
         dtLeft = 0.0;
       }

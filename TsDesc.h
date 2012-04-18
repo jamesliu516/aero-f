@@ -157,6 +157,7 @@ public:
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
+  virtual void setFluidSubcycling(bool inSub) { }
 
   virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
