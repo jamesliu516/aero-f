@@ -69,7 +69,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
   bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                                   s, pr, vol, X, nodeNum(), volume_id);
 
-  if(ghostPoints && isAtTheInterface) { // We don't want to update tates associated to ghost points
+  if(ghostPoints && isAtTheInterface) { // We don't want to update States associated to ghost points
     GhostPoint<dim> *gp;
     for (int j=0; j<4; ++j) {
       int idx = nodeNum(j);
