@@ -425,6 +425,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<doub
   int lits = kspLS->solve(b, dQ);
 
   //mvpLS->apply(dQ, fnew);
+ 
+  this->domain->getCommunicator()->fprintf(stdout,"%e\n",dQ.norm());
   
   this->timer->addLSKspTime(t0);
 
