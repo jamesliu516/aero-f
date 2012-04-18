@@ -69,6 +69,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   occluded_node0 = 0;
   boxMin = 0;
   boxMax = 0;
+  is_swept_helper = 0;
 
   cracking = cs;
   gotNewCracking = false;
@@ -97,6 +98,7 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(Xsdot)       delete[] Xsdot;
   if(status0)     delete   status0;
   if(closest)     delete   closest;
+  delete is_swept_helper;
   if(triSize)     delete[] triSize;
   if(triNorms)    delete[] triNorms;
   if(nodalNormal) delete[] nodalNormal;
@@ -559,6 +561,7 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
 
   status0 = new DistVec<int>(domain->getNodeDistInfo());
   occluded_node0 = new DistVec<bool>(domain->getNodeDistInfo());
+  is_swept_helper = new DistVec<int>(domain->getNodeDistInfo());
   boxMin = new DistSVec<double,3>(domain->getNodeDistInfo());
   boxMax = new DistSVec<double,3>(domain->getNodeDistInfo());
   closest = new DistVec<ClosestPoint>(domain->getNodeDistInfo()); //needed only for multi-phase cracking.
@@ -741,7 +744,7 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
     // Next handle swept nodes
     int iteration_count=0;
     int flags[2] = {1,1}; // flags = {needs_iteration, detected_change}
-    while(flags[0]>0 && flags[1]>0){flags[0]=0;flags[1]=0;
+    while(flags[0]>0 && flags[1]>0){flags[0]=0;flags[1]=0;++iteration_count;
 #pragma omp parallel for
         for(int iSub=0;iSub<numLocSub;++iSub){
             SubDomain& sub=intersector[iSub]->subD;
@@ -752,13 +755,22 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
                     if(i==j) continue;
                     if(!(*edge_intersects)(iSub)[intersector[iSub]->edges.findOnly(i,j)]
                        && (*status)(iSub)[j] != UNDECIDED && (*status)(iSub)[j] != OUT){
-                      stat=(*status)(iSub)[j];flags[1]=1;break;}}
+                      stat=(*status)(iSub)[j];flags[1]=1;
+                      break;}}
                 if(stat == UNDECIDED) flags[0]=1;
                 else{(*status)(iSub)[i]=stat;(*is_swept)(iSub)[i]=true;}
             }
         }
         com->globalOp(2,(int*)flags,MPI_SUM);
-        if(flags[1]>0) domain->assemble(domain->getLevelPat(),*status,maxOp);
+        if(flags[1]>0){
+            domain->assemble(domain->getLevelPat(),*status,maxOp);
+
+#pragma omp parallel for
+            for(int iSub=0;iSub<numLocSub;++iSub) for(int i=0;i<(*is_swept)(iSub).size();++i) (*is_swept_helper)(iSub)[i] = (*is_swept)(iSub)[i] ? 1 : 0;
+            domain->assemble(domain->getLevelPat(),*is_swept_helper,maxOp);
+#pragma omp parallel for
+            for(int iSub=0;iSub<numLocSub;++iSub) for(int i=0;i<(*is_swept)(iSub).size();++i) (*is_swept)(iSub)[i] = (*is_swept_helper)(iSub)[i] >= 1 ? true : false;
+        }
     }
 
     // Finish any remaining untouched nodes
@@ -767,7 +779,8 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
         for(int i=0;i<(*status)(iSub).size();++i)
             if((*status)(iSub)[i]==UNDECIDED){
                 (*status)(iSub)[i]=OUT;
-                (*is_occluded)(iSub)[i]=true;}}
+                (*is_occluded)(iSub)[i]=true;}
+    }
 }
 
 //----------------------------------------------------------------------------
