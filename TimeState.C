@@ -98,7 +98,6 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
   Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
   Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
 
-  double c_np1, c_n, c_nm1, c_nm2;
   for (int i=0; i<dt.size(); ++i) {
 
     TimeFDCoefs coefs;
@@ -112,12 +111,12 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
     for (int idim=0; idim<dimLS; idim++){
       double dAWdt;
       if (!requireSpecialBDF) {
-        dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] 
-             + c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim]);
+        dAWdt = invDt * (coefs.c_np1*Q[i][idim] + coefs.c_n*Qn[i][idim] 
+             + coefs.c_nm1*Qnm1[i][idim] + coefs.c_nm2*Qnm2[i][idim]);
       }
       else {
-        dAWdt = invDt * ( c_np1*Q[i][idim] + c_n*Qn[i][idim]) 
-              + c_nm1*Qnm1[i][idim]; // here Qnm1 is dQdt^n, so no multiplication by invDt
+        dAWdt = invDt * ( coefs.c_np1*Q[i][idim] + coefs.c_n*Qn[i][idim]) 
+              + coefs.c_nm1*Qnm1[i][idim]; // here Qnm1 is dQdt^n, so no multiplication by invDt
       }
 
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
