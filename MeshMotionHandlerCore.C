@@ -1607,7 +1607,8 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
   }
 
   else if(it==1) {
-    dts = dynNodalTransfer->getStructureTimeStep(); //dts obtained at it=0. This line is actually redundant
+    dynNodalTransfer->updateInfo();
+    dts = dynNodalTransfer->getStructureTimeStep(); 
   }
 
   else if (it>1 && !*lastIt) {
