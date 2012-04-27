@@ -309,7 +309,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double coef3 = coef2 * coef2;
   double dfv2, dfv3;
   if (isour == 0) {
-    dfv2 = (fv2-1.)/chi/mul+(1.-fv2)*(1-fv2)*(dfv1+fv1/chi/mul);
+    dfv2 = (fv2-1.)*dchi/chi+(1.-fv2)*(1-fv2)*(dfv1+fv1*dchi/chi);
     dfv3 = 0;
   }
   else
@@ -517,28 +517,48 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     dfv1[k][4] = ( 3.0*chi*chi*dchi[k][4]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][4] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
     dfv1[k][5] = ( 3.0*chi*chi*dchi[k][5]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][5] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
 
-    fv2 = 1.0 + oocv2*chi;
-    dfv2[k][0] = oocv2*dchi[k][0];
-    dfv2[k][1] = oocv2*dchi[k][1];
-    dfv2[k][2] = oocv2*dchi[k][2];
-    dfv2[k][3] = oocv2*dchi[k][3];
-    dfv2[k][4] = oocv2*dchi[k][4];
-    dfv2[k][5] = oocv2*dchi[k][5];
-    dfv2[k][0] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][0];
-    dfv2[k][1] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][1];
-    dfv2[k][2] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][2];
-    dfv2[k][3] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][3];
-    dfv2[k][4] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][4];
-    dfv2[k][5] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][5];
-    fv2 = 1.0 / (fv2*fv2*fv2);
+    double isour = 0;
 
-    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-    dfv3[k][0] = ( ( dchi[k][0]*fv1 + chi*dfv1[k][0] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][0]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][0] ) / ( chi * chi );
-    dfv3[k][1] = ( ( dchi[k][1]*fv1 + chi*dfv1[k][1] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][1]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][1] ) / ( chi * chi );
-    dfv3[k][2] = ( ( dchi[k][2]*fv1 + chi*dfv1[k][2] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][2]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][2] ) / ( chi * chi );
-    dfv3[k][3] = ( ( dchi[k][3]*fv1 + chi*dfv1[k][3] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][3]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][3] ) / ( chi * chi );
-    dfv3[k][4] = ( ( dchi[k][4]*fv1 + chi*dfv1[k][4] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][4]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][4] ) / ( chi * chi );
-    dfv3[k][5] = ( ( dchi[k][5]*fv1 + chi*dfv1[k][5] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][5]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][5] ) / ( chi * chi );
+    if (isour == 0 ) {
+      fv2  = 1.-chi/(1.+chi*fv1);
+      dfv2[k][0] = (fv2-1.)*dchi[k][0]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][0]+fv1*dchi[k][0]/chi);
+      dfv2[k][0] = (fv2-1.)*dchi[k][1]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][1]+fv1*dchi[k][1]/chi);
+      dfv2[k][0] = (fv2-1.)*dchi[k][2]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][2]+fv1*dchi[k][2]/chi);
+      dfv2[k][0] = (fv2-1.)*dchi[k][3]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][3]+fv1*dchi[k][3]/chi);
+      dfv2[k][0] = (fv2-1.)*dchi[k][4]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][4]+fv1*dchi[k][4]/chi);
+      dfv2[k][0] = (fv2-1.)*dchi[k][5]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][5]+fv1*dchi[k][5]/chi);
+      fv3  = 1.0;
+      dfv3[k][0] = 0.; 
+      dfv3[k][1] = 0.; 
+      dfv3[k][2] = 0.; 
+      dfv3[k][3] = 0.; 
+      dfv3[k][4] = 0.; 
+      dfv3[k][5] = 0.; 
+    }
+    else {
+      fv2 = 1.0 + oocv2*chi;
+      dfv2[k][0] = oocv2*dchi[k][0];
+      dfv2[k][1] = oocv2*dchi[k][1];
+      dfv2[k][2] = oocv2*dchi[k][2];
+      dfv2[k][3] = oocv2*dchi[k][3];
+      dfv2[k][4] = oocv2*dchi[k][4];
+      dfv2[k][5] = oocv2*dchi[k][5];
+      dfv2[k][0] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][0];
+      dfv2[k][1] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][1];
+      dfv2[k][2] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][2];
+      dfv2[k][3] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][3];
+      dfv2[k][4] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][4];
+      dfv2[k][5] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][5];
+      fv2 = 1.0 / (fv2*fv2*fv2);
+
+      fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+      dfv3[k][0] = ( ( dchi[k][0]*fv1 + chi*dfv1[k][0] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][0]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][0] ) / ( chi * chi );
+      dfv3[k][1] = ( ( dchi[k][1]*fv1 + chi*dfv1[k][1] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][1]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][1] ) / ( chi * chi );
+      dfv3[k][2] = ( ( dchi[k][2]*fv1 + chi*dfv1[k][2] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][2]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][2] ) / ( chi * chi );
+      dfv3[k][3] = ( ( dchi[k][3]*fv1 + chi*dfv1[k][3] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][3]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][3] ) / ( chi * chi );
+      dfv3[k][4] = ( ( dchi[k][4]*fv1 + chi*dfv1[k][4] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][4]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][4] ) / ( chi * chi );
+      dfv3[k][5] = ( ( dchi[k][5]*fv1 + chi*dfv1[k][5] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][5]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][5] ) / ( chi * chi );
+    }
 
     ood2wall2 = 1.0 / (d2wall * d2wall);
 
