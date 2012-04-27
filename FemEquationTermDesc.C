@@ -602,7 +602,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
     double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
-    double rr = min(zz/Stilde, 10.0);
+    double rr = min(zz/Stilde, 2.0);
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
     double gg2 = gg*gg;
@@ -613,9 +613,9 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double BB = cb1 * Stilde * absmutilde;
     // adam 2010.09.02
     // before
-        double CC = - cw1 * fw * oorho   * maxmutilde*maxmutilde * ood2wall2;
+    // double CC = - cw1 * fw * oorho   * maxmutilde*maxmutilde * ood2wall2;
     // after (cause nutilde = mutilde/rho)
-    // double CC = - cw1 * fw * oorho * oorho * maxmutilde*maxmutilde * ood2wall2;
+    double CC = - cw1 * fw * oorho * oorho * maxmutilde*maxmutilde * ood2wall2;
     S[5] = AA + BB + CC;
   }
   else {
