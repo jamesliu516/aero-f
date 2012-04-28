@@ -415,6 +415,11 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
     trip = 0;
   }
 
+  if (iod.eqs.tc.tm.sa.usefv3 == SAModelData::YES)
+    usefv3 = true;
+  else
+    usefv3 = false;
+
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
@@ -582,13 +587,9 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double chi = max(mutilde/mul, 0.001);
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
-    double isour = 0;
-    double fv2, fv3;
-    if (isour == 0) {
-      fv2  = 1.-chi/(1.+chi*fv1);
-      fv3  = 1.0;
-    }
-    else {
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if (usefv3) {
       fv2 = 1.0 + oocv2*chi;
       fv2 = 1.0 / (fv2*fv2*fv2);
       fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
@@ -810,16 +811,11 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     double fv1 = chi3 / (chi3 + cv1_pow3);
     double dfv1 = ( 3.0*chi*chi*dchi*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
 
-    double isour = 0;
-    double fv2,dfv2,fv3,dfv3;
-
-    if (isour == 0) {
-      fv2  = 1.-chi/(1.+chi*fv1);
-      dfv2 = (fv2-1.)*dchi/chi+(1.-fv2)*(1-fv2)*(dfv1+fv1*dchi/chi);
-      fv3 = 1.0;
-      dfv3 = 0.0;
-    }
-    else {
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double dfv2 = (fv2-1.)*dchi/chi+(1.-fv2)*(1-fv2)*(dfv1+fv1*dchi/chi);
+    double fv3 = 1.0;
+    double dfv3 = 0.0;
+    if (usefv3) {
       fv2 = 1.0 + oocv2*chi;
       dfv2 = oocv2*dchi;
       dfv2 = -3.0 / (fv2*fv2*fv2*fv2)*dfv2;
@@ -1418,6 +1414,11 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
     trip = 0;
   }
 
+  if (iod.eqs.tc.tm.des.usefv3 == DESModelData::YES)
+    usefv3 = true;
+  else
+    usefv3 = false;
+
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
@@ -1599,18 +1600,13 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double chi = max(mutilde/mul, 0.001);
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
-
-    double isour = 0;
-    double fv2,fv3;
-    if (isour == 0) {
-      fv2  = 1.-chi/(1.+chi*fv1);
-      fv3 = 1.0;
-    }
-    else {
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if (usefv3) {
       fv2 = 1.0 + oocv2*chi;
       fv2 = 1.0 / (fv2*fv2*fv2);
       fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-    } 
+    }
     double ood2wall2 = 1.0 / (d2wall * d2wall);
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
