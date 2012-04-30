@@ -39,7 +39,7 @@ DistVMSLESTerm<dim>::DistVMSLESTerm(VarFcn *vf, IoData &iod, Domain *dom) : doma
 
   // creation of macrocells //
 
-  macroCells = new DistMacroCellSet(iod, domain, masterFlag, scopeWidth, scopeDepth);
+  macroCells = new DistMacroCellSet(domain, iod.eqs.fluidModel.gasModel.specificHeatRatio, masterFlag, scopeWidth, scopeDepth);
   vmst       = new VMSLESTerm(iod, varFcn);
 
 }

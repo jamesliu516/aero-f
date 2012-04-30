@@ -161,6 +161,7 @@ class Domain {
 public:
 
   Domain();
+  Domain(Communicator *com);
   ~Domain();
 
   int getNumLocSub() const { return numLocSub; }

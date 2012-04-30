@@ -90,7 +90,7 @@ DistDynamicVMSTerm<dim>::DistDynamicVMSTerm(VarFcn *vf, IoData &iod, Domain *dom
     masterFlag[iSub] = VBar[0]->getMasterFlag(iSub);
   }
 
-  macroCells = new DistMacroCellSet(iod, domain, masterFlag, scopeWidth, scopeDepth2); // creating macrocells
+  macroCells = new DistMacroCellSet(domain, iod.eqs.fluidModel.gasModel.specificHeatRatio, masterFlag, scopeWidth, scopeDepth2); // creating macrocells
 
 }
 
