@@ -1,7 +1,6 @@
 #ifndef _DIST_MACRO_CELL__H_
 #define _DIST_MACRO_CELL__H_
 
-class IoData;
 class Domain;
 class MacroCellSet;
 class Domain;
@@ -23,7 +22,7 @@ class DistMacroCellSet {
 	 
 public:
 
-  DistMacroCellSet(IoData&, Domain*, bool **, int, int);
+  DistMacroCellSet(Domain*, double, bool **, int, int);
   ~DistMacroCellSet();
 
   MacroCellSet* obtainMacroCell (int iSub, int scopeDepth) { return macroCells[iSub][scopeDepth];}

@@ -65,7 +65,7 @@ int EdgeSet::find(int first, int second)
 
 //------------------------------------------------------------------------------
 
-int EdgeSet::findOnly(int first, int second)
+int EdgeSet::findOnly(int first, int second) const
 {
 
   if (first > second) swap(first, second);
@@ -87,6 +87,7 @@ void EdgeSet::createPointers(Vec<int> &newNum)
 {
 
   ptr = new int[numEdges][2];
+  edgeLength = new double[numEdges];
 
   MapPair::iterator it = mp->begin();
   MapPair::iterator last = mp->end();
@@ -98,6 +99,7 @@ void EdgeSet::createPointers(Vec<int> &newNum)
     // XML I am not sure why one would need to renumber...
     ptr[l][0] = (*it).first.first;
     ptr[l][1] = (*it).first.second;
+    edgeLength[l] = 0.0;
 
     newNum[(*it).second] = l;
 
