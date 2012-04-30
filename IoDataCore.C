@@ -1153,7 +1153,7 @@ DESModelData::DESModelData()
   cdes = 0.65;
   sigma = 2.0/3.0;
   vkcst = 0.41;
-  usefv3 = NO;
+  usefv3 = YES;
 
 }
 
