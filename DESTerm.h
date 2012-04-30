@@ -34,6 +34,7 @@ protected:
   double oocv2;
   double oosigma;
   double oovkcst2;
+  bool usefv3;
 
 public:
 
@@ -87,6 +88,11 @@ DESTerm::DESTerm(IoData &iod)
 
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
+
+  if (iod.eqs.tc.tm.des.usefv3 == DESModelData::YES)
+    usefv3 = true;
+  else
+    usefv3 = false;
 
 }
 
@@ -274,9 +280,13 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double chi = max(mutilde/mul, 0.001);
   double chi3 = chi*chi*chi;
   double fv1 = chi3 / (chi3 + cv1_pow3);
-  double fv2 = 1.0 + oocv2*chi;
-  fv2 = 1.0 / (fv2*fv2*fv2);
-  double fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  double fv2  = 1.-chi/(1.+chi*fv1);
+  double fv3  = 1.0;
+  if (usefv3) {
+    fv2 = 1.0 + oocv2*chi;
+    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  }
   double ood2wall2 = 1.0 / (d2wall * d2wall);
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
@@ -298,9 +308,13 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double dfv1 = 3.0*chi2*dchi*cv1_pow3 * coef1*coef1;
   double coef2 = 1.0 / (1.0 + chi*oocv2);
   double coef3 = coef2 * coef2;
-  double dfv2 = -3.0*dchi*oocv2 * coef3*coef3;
-  double dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) - 
-		 (1.0 + chi*fv1)*dfv2 - fv3*dchi) / chi;
+  double dfv2 = (fv2-1.)*dchi/chi+(1.-fv2)*(1-fv2)*(dfv1+fv1*dchi/chi);
+  double dfv3 = 0;
+  if (usefv3) {
+    dfv2 = -3.0*dchi*oocv2 * coef3*coef3;
+    dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) - 
+	   (1.0 + chi*fv1)*dfv2 - fv3*dchi) / chi;
+  }
   double dStilde = s*dfv3 + oorey*oovkcst2*oorho*ood2wall2 * (fv2 + mutilde*dfv2);
   double drr = oorey*oovkcst2*oorho*ood2wall2 * (Stilde - mutilde*dStilde) / (Stilde*Stilde);
   double dgg = (1.0 + cw2 * (6.0*rr2*rr2*rr - 1.0)) * drr;

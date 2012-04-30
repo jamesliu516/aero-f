@@ -672,6 +672,7 @@ struct SAModelData {
   double cv2;
   double sigma;
   double vkcst;
+  enum UseFV3 {NO = 0, YES = 1} usefv3;
 
   SAModelData();
   ~SAModelData() {}
@@ -693,6 +694,7 @@ struct DESModelData {
   double cdes;
   double sigma;
   double vkcst;
+  enum UseFV3 {NO = 0, YES = 1} usefv3;
 
   DESModelData();
   ~DESModelData() {}
