@@ -25,6 +25,7 @@ public:
 public:
 
   GeoData(IoData &);
+  GeoData(const GeoData &);
   ~GeoData() {}
 
 };

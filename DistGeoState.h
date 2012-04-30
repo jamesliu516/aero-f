@@ -77,9 +77,11 @@ class DistGeoState {
 public:
 
   DistGeoState(IoData &, Domain *);
+  DistGeoState(const GeoData &, Domain *);
   ~DistGeoState();
 
   GeoState &operator() (int i) const { return *subGeoState[i]; }
+  const GeoData& getGeoData() const { return data; }
 
   void setup(const char *, TimeData &, DistSVec<double,3> *, DistVec<double> *);
   void setup1(const char *, DistSVec<double,3> *, DistVec<double> *);
