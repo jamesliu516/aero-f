@@ -1,6 +1,5 @@
 #include <DistMacroCell.h>
 
-#include <IoData.h>
 #include <MacroCell.h>
 #include <Domain.h>
 #include <DistVector.h>
@@ -8,12 +7,11 @@
 
 //-----------------------------------------------------------------------
 
-DistMacroCellSet::DistMacroCellSet(IoData& iod, Domain* dom,
+DistMacroCellSet::DistMacroCellSet(Domain* dom, double gamma,
 				   bool** masterFlag, int scopeWidth,
 				   int scopeDepth) : domain(dom)
 {
 
-  double gamma   = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   numLocSub  = domain->getNumLocSub();
   subDomain  = domain->getSubDomain();
   macroCells = new MacroCellSet** [numLocSub];

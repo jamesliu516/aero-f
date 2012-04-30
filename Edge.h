@@ -79,7 +79,7 @@ public:
   ~EdgeSet();
 
   int find(int, int);
-  int findOnly(int, int);
+  int findOnly(int, int) const;
 
   void createPointers(Vec<int> &);
 
@@ -199,7 +199,7 @@ public:
   int size() const { return numEdges; }
 
   void updateLength(SVec<double,3>& X);
-  double length(int iedge) {
+  double length(int iedge) const {
     if(edgeLength && iedge<numEdges) return(edgeLength[iedge]);
     else return(0.0);
   }

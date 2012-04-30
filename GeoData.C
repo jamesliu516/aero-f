@@ -103,4 +103,9 @@ GeoData::GeoData(IoData &ioData)
   }
 }
 
+GeoData::GeoData(const GeoData& d) :
+    typeNormals(d.typeNormals), typeVelocities(d.typeVelocities), config(d.config),
+    configSA(d.configSA), use_n(d.use_n), use_nm1(d.use_nm1), use_nm2(d.use_nm2), use_save(d.use_save)
+{}
+
 //------------------------------------------------------------------------------

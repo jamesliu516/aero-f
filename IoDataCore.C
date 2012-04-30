@@ -2341,8 +2341,8 @@ void PcData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   new ClassToken<PcData>(ca, "Type", this,
-			 reinterpret_cast<int PcData::*>(&PcData::type), 6,
-			 "Identity", 0, "Jacobi", 1, "As", 2, "Ras", 3, "Has", 4, "Aas", 5);
+			 reinterpret_cast<int PcData::*>(&PcData::type), 7,
+			 "Identity", 0, "Jacobi", 1, "As", 2, "Ras", 3, "Has", 4, "Aas", 5, "MultiGrid", 6);
 
   new ClassToken<PcData>(ca, "Renumbering", this,
 			 reinterpret_cast<int PcData::*>(&PcData::renumbering), 2,
