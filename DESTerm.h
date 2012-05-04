@@ -89,7 +89,7 @@ DESTerm::DESTerm(IoData &iod)
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
 
-  if (iod.eqs.tc.tm.des.usefv3 == DESModelData::YES)
+  if (iod.eqs.tc.tm.des.form == DESModelData::FV3)
     usefv3 = true;
   else
     usefv3 = false;

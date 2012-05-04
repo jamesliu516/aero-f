@@ -672,7 +672,7 @@ struct SAModelData {
   double cv2;
   double sigma;
   double vkcst;
-  enum UseFV3 {NO = 0, YES = 1} usefv3;
+  enum Form {ORIGINAL = 0, FV3 = 1} form;
 
   SAModelData();
   ~SAModelData() {}
@@ -694,7 +694,7 @@ struct DESModelData {
   double cdes;
   double sigma;
   double vkcst;
-  enum UseFV3 {NO = 0, YES = 1} usefv3;
+  enum Form {ORIGINAL = 0, FV3 = 1} form;
 
   DESModelData();
   ~DESModelData() {}

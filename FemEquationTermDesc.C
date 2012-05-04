@@ -415,7 +415,7 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
     trip = 0;
   }
 
-  if (iod.eqs.tc.tm.sa.usefv3 == SAModelData::YES)
+  if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
     usefv3 = true;
   else
     usefv3 = false;
@@ -1414,7 +1414,7 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
     trip = 0;
   }
 
-  if (iod.eqs.tc.tm.des.usefv3 == DESModelData::YES)
+  if (iod.eqs.tc.tm.des.form == DESModelData::FV3)
     usefv3 = true;
   else
     usefv3 = false;
