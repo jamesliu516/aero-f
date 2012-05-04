@@ -43,12 +43,11 @@ class MultiGridLevel {
 
     void computeRestrictedQuantities(const DistVec<Scalar>& refinedVolume, const DistSVec<Scalar, 3>& refinedX);
 
-    template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid, // TODO
+    template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
-                                                   DistSVec<Scalar2, dim>& coarseData);
-    template<class Scalar2, int dim> void Prolong(const MultiGridLevel<Scalar>& coarseGrid, // TODO
-                                                  const DistSVec<Scalar2,dim>& coarseData,
-                                                  const DistSVec<Scalar2,dim>& fineData);
+                                                   DistSVec<Scalar2, dim>& coarseData) const;
+    template<class Scalar2, int dim> void Prolong(const MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
+                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData) const;
 };
 
 #endif
