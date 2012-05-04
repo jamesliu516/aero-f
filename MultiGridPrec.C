@@ -61,8 +61,14 @@ void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-  multiGridLevels[0]->Restrict(*multiGridLevels[1], x, *macroValues[1]);
-  multiGridLevels[1]->Prolong(*multiGridLevels[0], *macroValues[1], *macroValues[1], x);
+  *macroValues[0] = x;
+  for(int level = 0; level < num_levels; ++level) {
+    multiGridLevels[level+1]->Restrict(*multiGridLevels[level], *macroValues[level], *macroValues[level+1]);
+  }
+  for(int level = num_levels; level > 0; --level) {
+    multiGridLevels[level]->Prolong(*multiGridLevels[level-1], *macroValues[level], *macroValues[level], *macroValues[level-1]);
+  }
+  x = *macroValues[0];
 
   // Not really even a preconditioner at all!
   Px = x;
