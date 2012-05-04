@@ -612,11 +612,8 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double AA = oosigma * cb2 * rho * 
       (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
     double BB = cb1 * Stilde * absmutilde;
-    // adam 2010.09.02
-    // before
-    // double CC = - cw1 * fw * oorho   * maxmutilde*maxmutilde * ood2wall2;
-    // after (cause nutilde = mutilde/rho)
-    double CC = - cw1 * fw * oorho * oorho * maxmutilde*maxmutilde * ood2wall2;
+    double CC = - cw1 * fw * oorho   * maxmutilde*maxmutilde * ood2wall2;
+    //double CC = - cw1 * fw * oorho * oorho * maxmutilde*maxmutilde * ood2wall2;
     S[5] = AA + BB + CC;
   }
   else {
@@ -627,7 +624,6 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   for (int j=0; j<3*4; ++j) PR[j] = 0.0; 
 
   if(material_id>0) {
-
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
@@ -645,9 +641,10 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   mu     = ooreynolds_mu * (mul + mut);
   lambda = ooreynolds_mu * (lambdal + lambdat);
   kappa  = ooreynolds_mu * (kappal + kappat);
-  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R); 
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
 
   return (porousmedia);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1551,7 +1548,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
-                                                                                                   
+ 
   double mul, lambdal, kappal;
   computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
 
@@ -1610,12 +1607,12 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double ood2wall2 = 1.0 / (d2wall * d2wall);
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
-    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double zz = ooreynolds_mu * oovkcst2 * maxmutilde * oorho * ood2wall2;
     double s12 = dudxj[0][1] - dudxj[1][0];
     double s23 = dudxj[1][2] - dudxj[2][1];
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-    double Stilde = s*fv3 + zz*fv2;
+    double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
     double rr = min(zz/Stilde, 2.0);
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -1637,15 +1634,14 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   if(material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
-    if(it!=  volInfo.end()) {
-      // if porous media with material_id has been defined in the input file
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
+      porousmedia = true;
 
       mut     = computePorousTurbulentViscosity(it, ucg, length);
       lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
       kappat  = turbThermalCondFcn.turbulentConductivity(mut);
 
       porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
-
     }
   }
 

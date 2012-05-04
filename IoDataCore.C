@@ -1162,7 +1162,7 @@ DESModelData::DESModelData()
   cdes = 0.65;
   sigma = 2.0/3.0;
   vkcst = 0.41;
-  form = FV3;
+  form = ORIGINAL;
 
 }
 

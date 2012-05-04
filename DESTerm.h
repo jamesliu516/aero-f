@@ -238,7 +238,20 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
 
   const double sixth = 1.0/6.0;
 
-  double mu5 = oosigma * (mul + mutilde);
+  double absmutilde = fabs(mutilde);
+  double maxmutilde = max(mutilde, 0.0);
+  double dabsmutilde,dmaxmutilde;
+  if (mutilde != 0.0) 
+    dabsmutilde = fabs(mutilde)/mutilde;
+  else
+    dabsmutilde = 0.0;
+
+  if (maxmutilde == 0.0) 
+    dmaxmutilde = 0.0;
+  else
+    dmaxmutilde = 1.0;
+      
+  double mu5 = oosigma * (mul + absmutilde);
   double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] + 
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
   double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] + 
@@ -290,12 +303,12 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double ood2wall2 = 1.0 / (d2wall * d2wall);
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
-  double zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
+  double zz = oorey * oovkcst2 * maxmutilde * oorho * ood2wall2;
   double s12 = dudxj[0][1] - dudxj[1][0];
   double s23 = dudxj[1][2] - dudxj[2][1];
   double s31 = dudxj[2][0] - dudxj[0][2];
   double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-  double Stilde = s*fv3 + zz*fv2;
+  double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
   double rr = min(zz/Stilde, 2.0);
   double rr2 = rr*rr;
   double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -304,6 +317,7 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
 
   double chi2 = chi*chi;
   double dchi = 1.0 / mul;
+  if (chi == 0.001) dchi = 0.0;
   double coef1 = 1.0 / (chi3 + cv1_pow3);
   double dfv1 = 3.0*chi2*dchi*cv1_pow3 * coef1*coef1;
   double coef2 = 1.0 / (1.0 + chi*oocv2);
@@ -315,18 +329,20 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
     dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) - 
 	   (1.0 + chi*fv1)*dfv2 - fv3*dchi) / chi;
   }
-  double dStilde = s*dfv3 + oorey*oovkcst2*oorho*ood2wall2 * (fv2 + mutilde*dfv2);
-  double drr = oorey*oovkcst2*oorho*ood2wall2 * (Stilde - mutilde*dStilde) / (Stilde*Stilde);
+  double dStilde = s*dfv3 + oorey*oovkcst2*oorho*ood2wall2 * (fv2*dmaxmutilde + maxmutilde*dfv2);
+  if (Stilde == 1.0e-12) dStilde = 0.0;
+  double drr = oorey*oovkcst2*oorho*ood2wall2 * (Stilde*dmaxmutilde - maxmutilde*dStilde) / (Stilde*Stilde);
+  if (rr == 2.0) drr = 0.0;
   double dgg = (1.0 + cw2 * (6.0*rr2*rr2*rr - 1.0)) * drr;
   double dfw = pow(gg2*gg2*gg2 + cw3_pow6, 7.0*sixth);
   dfw = cw3_pow6 * opcw3_pow * dgg / dfw;
 
-  double P = cb1 * Stilde;
-  double D = cw1 * fw * oorho * mutilde * ood2wall2;
-  double dP = cb1 * dStilde;
-  double dD = cw1 * oorho * ood2wall2 * (fw + mutilde * dfw);
-  double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0) * mutilde);
-  //s00 = 0.25 * (D - P + (dD - dP) * mutilde);
+  double P = cb1 * Stilde * dabsmutilde;
+  double D = cw1 * fw * oorho * maxmutilde * dmaxmutilde * ood2wall2;
+  double dP = cb1 * dStilde * absmutilde;
+  double dD = cw1 * oorho * ood2wall2 * (fw * maxmutilde * dmaxmutilde + maxmutilde * maxmutilde * dfw);
+  double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0));
+  //s00 = 0.25 * (D - P + (dD - dP) * maxmutilde);
   double coef4 = oosigma * cb2 * rho * 2.0;
 
   for (k=0; k<4; ++k)
