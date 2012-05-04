@@ -230,12 +230,12 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 {
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-    for(int i = 0; i < fineData(iSub).size(); ++i) for(int j = 0; j < 3; ++j)
+    for(int i = 0; i < fineData(iSub).size(); ++i) for(int j = 0; j < dim; ++j)
       coarseData(iSub)[fineGrid.nodeMapping(iSub)[i]][j] += (*fineGrid.volume)(iSub)[i] * fineData(iSub)[i][j];
 
     for(int i = 0; i < coarseData(iSub).size(); ++i) {
       const Scalar one_over_volume = 1.0 / (*volume)(iSub)[i];
-      for(int j = 0; j < 3; ++j) coarseData(iSub)[i][j] *= one_over_volume;
+      for(int j = 0; j < dim; ++j) coarseData(iSub)[i][j] *= one_over_volume;
     }
   }
 }
@@ -250,7 +250,7 @@ void MultiGridLevel<Scalar>::Prolong(const MultiGridLevel<Scalar>& coarseGrid, c
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i) {
       const int coarseIndex = nodeMapping(iSub)[i];
-      for(int j = 0; j < 3; ++j) fineData(iSub)[i][j] += coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j];
+      for(int j = 0; j < dim; ++j) fineData(iSub)[i][j] += coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j];
     }
   }
 }
