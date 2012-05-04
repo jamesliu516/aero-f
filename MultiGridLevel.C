@@ -224,5 +224,53 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistVec<Scalar>& 
 }
 
 //------------------------------------------------------------------------------
+
+template<class Scalar> template<class Scalar2, int dim>
+void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData) const
+{
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    for(int i = 0; i < fineData(iSub).size(); ++i) for(int j = 0; j < 3; ++j)
+      coarseData(iSub)[fineGrid.nodeMapping(iSub)[i]][j] += (*fineGrid.volume)(iSub)[i] * fineData(iSub)[i][j];
+
+    for(int i = 0; i < coarseData(iSub).size(); ++i) {
+      const Scalar one_over_volume = 1.0 / (*volume)(iSub)[i];
+      for(int j = 0; j < 3; ++j) coarseData(iSub)[i][j] *= one_over_volume;
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar> template<class Scalar2, int dim>
+void MultiGridLevel<Scalar>::Prolong(const MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
+                                     const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData) const
+{
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    for(int i = 0; i < fineData(iSub).size(); ++i) {
+      const int coarseIndex = nodeMapping(iSub)[i];
+      for(int j = 0; j < 3; ++j) fineData(iSub)[i][j] += coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j];
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+#define INSTANTIATION_HELPER(T,dim) \
+  template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<float,dim>  &, DistSVec<float,dim>  &) const; \
+  template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
+  template void MultiGridLevel<T>::Prolong( const MultiGridLevel<T> &, const DistSVec<float,dim>  &, const DistSVec<float,dim>  &, DistSVec<float,dim>  &) const; \
+  template void MultiGridLevel<T>::Prolong( const MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const;
+
 template class MultiGridLevel<double>;
+INSTANTIATION_HELPER(double,1);
+INSTANTIATION_HELPER(double,2);
+INSTANTIATION_HELPER(double,5);
+INSTANTIATION_HELPER(double,6);
+INSTANTIATION_HELPER(double,7);
 template class MultiGridLevel<float>;
+INSTANTIATION_HELPER(float,1);
+INSTANTIATION_HELPER(float,2);
+INSTANTIATION_HELPER(float,5);
+INSTANTIATION_HELPER(float,6);
+INSTANTIATION_HELPER(float,7);
