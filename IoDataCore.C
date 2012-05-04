@@ -1122,7 +1122,7 @@ SAModelData::SAModelData()
   cv2 = 5.0;
   sigma = 2.0/3.0;
   vkcst = 0.41;
-  usefv3 = NO;
+  form = ORIGINAL;
 
 }
 
@@ -1142,9 +1142,9 @@ void SAModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SAModelData>(ca, "Sigma", this, &SAModelData::sigma);
   new ClassDouble<SAModelData>(ca, "Kappa", this, &SAModelData::vkcst);
   new ClassToken<SAModelData>
-    (ca, "UseFV3", this,
-     reinterpret_cast<int SAModelData::*>(&SAModelData::usefv3), 2,
-     "No", 0, "Yes", 1);
+    (ca, "Form", this,
+     reinterpret_cast<int SAModelData::*>(&SAModelData::form), 2,
+     "Original", 0, "Fv3", 1);
 
 }
 
@@ -1162,7 +1162,7 @@ DESModelData::DESModelData()
   cdes = 0.65;
   sigma = 2.0/3.0;
   vkcst = 0.41;
-  usefv3 = YES;
+  form = FV3;
 
 }
 
@@ -1183,9 +1183,9 @@ void DESModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<DESModelData>(ca, "Sigma", this, &DESModelData::sigma);
   new ClassDouble<DESModelData>(ca, "Kappa", this, &DESModelData::vkcst);
   new ClassToken<DESModelData>
-    (ca, "UseFV3", this,
-     reinterpret_cast<int DESModelData::*>(&DESModelData::usefv3), 2,
-     "No", 0, "Yes", 1);
+    (ca, "Form", this,
+     reinterpret_cast<int DESModelData::*>(&DESModelData::form), 2,
+     "Original", 0, "Fv3", 1);
 
 }
 

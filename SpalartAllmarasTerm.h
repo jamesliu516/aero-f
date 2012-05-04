@@ -103,7 +103,7 @@ SATerm::SATerm(IoData &iod)
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
 
-  if (iod.eqs.tc.tm.sa.usefv3 == SAModelData::YES)
+  if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
     usefv3 = true;
   else
     usefv3 = false;
