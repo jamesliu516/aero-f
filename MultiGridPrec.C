@@ -2,37 +2,30 @@
 
 #include <Domain.h>
 #include <DistGeoState.h>
-#include <DistMacroCell.h>
+#include <MultiGridLevel.h>
 
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim, class Scalar2>
 MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, int **nodeType, BCApplier *bcs)
-    : num_levels(8),agglom_size(8),numLocSub(dom->getNumLocSub()), macroCells(0), geoState(distGeoState),
-    nodeDistInfo(0), edgeDistInfo(0)
+    : num_levels(8), agglom_size(8), numLocSub(dom->getNumLocSub()), multiGridLevels(new MultiGridLevel<Scalar2>*[num_levels+1]),
+    macroValues(new DistSVec<Scalar2,dim>*[num_levels]), geoState(distGeoState)
 {
-  bool ** masterFlag = new bool *[numLocSub];
-
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; iSub++)
-    masterFlag[iSub] = dom->getNodeDistInfo().getMasterFlag(iSub);
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+    dom->getSubDomain()[iSub]->getEdges().updateLength(distGeoState.getXn()(iSub));
 
-  macroCells = new DistMacroCellSet(dom, 1.0, masterFlag, agglom_size, num_levels);
-  macroValues = new DistSVec<Scalar2,dim>*[num_levels];
-  nodeDistInfo = new DistInfo*[num_levels];
-
-  const DistInfo& nDistInfo(dom->getNodeDistInfo());
+  multiGridLevels[0] = new MultiGridLevel<Scalar2>(dom->getNodeDistInfo(), dom->getEdgeDistInfo());
+  multiGridLevels[0]->copyRefinedState(dom->getNodeDistInfo(), dom->getEdgeDistInfo(), geoState.getXn(), *dom);
 
   for(int level = 0; level < num_levels; ++level) {
-    nodeDistInfo[level] = new DistInfo(nDistInfo.numLocThreads, nDistInfo.numLocSub,
-                                       nDistInfo.numGlobSub,    nDistInfo.locSubToGlobSub, nDistInfo.com);
-#pragma omp parallel for
-    for(int iSub = 0; iSub < numLocSub; ++iSub)
-      nodeDistInfo[level]->setLen(iSub, macroCells->obtainMacroCell(iSub,level)->size());
-    nodeDistInfo[level]->finalize(true);
-
-    macroValues[level] = new DistSVec<Scalar2,dim>(*nodeDistInfo[level]);
+    multiGridLevels[level+1] = new MultiGridLevel<Scalar2>(multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
+    multiGridLevels[level+1]->agglomerate(multiGridLevels[level]->getConnectivity(), multiGridLevels[level]->getEdges());
   }
+
+  macroValues = new DistSVec<Scalar2,dim>*[num_levels+1];
+  for(int level = 0; level <= num_levels; ++level)
+    macroValues[level] = new DistSVec<Scalar2,dim>(multiGridLevels[level]->getNodeDistInfo());
 }
 
 //------------------------------------------------------------------------------
@@ -41,16 +34,12 @@ template<class Scalar, int dim, class Scalar2>
 MultiGridPrec<Scalar,dim,Scalar2>::~MultiGridPrec()
 {
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; iSub++) {
-    delete nodeDistInfo[iSub];
-    delete edgeDistInfo[iSub];
-    delete macroValues[iSub];
+  for (int level = 0; level <= num_levels; ++level) {
+    delete macroValues[level];
+    delete multiGridLevels[level];
   }
-
-  delete []nodeDistInfo;
-  delete []edgeDistInfo;
   delete []macroValues;
-  delete macroCells;
+  delete []multiGridLevels;
 }
 
 //------------------------------------------------------------------------------
@@ -58,6 +47,13 @@ MultiGridPrec<Scalar,dim,Scalar2>::~MultiGridPrec()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 {
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+    multiGridLevels[0]->setCtrlVolumes(iSub, geoState(iSub).getCtrlVol_n());
+
+  for(int level = 0; level < num_levels; ++level) {
+    multiGridLevels[level+1]->computeRestrictedQuantities(multiGridLevels[level]->getVol(), multiGridLevels[level]->getX());
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -65,13 +61,6 @@ void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-  static bool doInitialTasks = true;
-
-  macroCells->computeVBar(doInitialTasks, geoState, x, *macroValues[0], 0, 1);
-  for(int level = 1; level < num_levels; ++level) {
-  }
-  doInitialTasks = false;
-
   // Not really even a preconditioner at all!
   Px = x;
 }
