@@ -625,7 +625,7 @@ ProblemData::ProblemData()
   mode = NON_DIMENSIONAL;
   prec = NON_PRECONDITIONED;
   framework = BODYFITTED;
-  solvefluid = YES;
+  solvefluid = ON;
 
   test = REGULAR;
   verbose = 4;
@@ -672,7 +672,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   new ClassToken<ProblemData>
     (ca, "SolveFluid", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::solvefluid), 2,
-     "No", 0, "Yes", 1);
+     "Off", 0, "On", 1);
 
   new ClassToken<ProblemData>
     (ca, "Test", this,
