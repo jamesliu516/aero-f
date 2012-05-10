@@ -4509,6 +4509,12 @@ int IoData::checkInputValuesAllInitialConditions(){
        it!=mf.multiInitialConditions.prismMap.dataMap.end();
        it++)
     usedModels.insert(it->second->fluidModelID);
+ 
+  if (!input.oneDimensionalInput.dataMap.empty()) {
+    if (input.oneDimensionalInput.dataMap.size() > 1) 
+      std::cout << "Warning: having more than one 1D->3D remap has not been considered" << std::endl;
+    embed.nLevelset++;
+  }
 
   int nModels = usedModels.size();
   if (nModels > 0) {
