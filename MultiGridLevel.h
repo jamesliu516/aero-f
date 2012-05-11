@@ -3,14 +3,18 @@
 
 #include <DistInfo.h>
 #include <DistVector.h>
+#include <Domain.h>
 
 class Connectivity;
-class Domain;
 class EdgeSet;
 template<class Scalar, int dim> class DistSVec;
 
 template<class Scalar>
 class MultiGridLevel {
+  private:
+    CommPattern<int> * nodeIdPattern;
+    Connectivity ** sharedNodes;
+
   protected:
     DistInfo * nodeDistInfo;
     DistInfo * edgeDistInfo;
@@ -36,10 +40,17 @@ class MultiGridLevel {
     EdgeSet ** getEdges()             { return edges; }
     DistSVec<Scalar,3>& getX()        { return *X; }
     DistVec<Scalar>& getVol()         { return *volume; }
+    CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
+    Connectivity ** getSharedNodes()  { return sharedNodes; }
 
     void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, const DistSVec<Scalar, 3>& Xn, Domain& dom);
     void setCtrlVolumes(const int iSub, Vec<Scalar>& ctrlVol);
-    void agglomerate(Connectivity ** nToN, EdgeSet ** edges);
+
+    void agglomerate(const DistInfo& refinedNodeDistInfo,
+                     CommPattern<int>& refinedNodeIdPattern,
+                     Connectivity** refinedSharedNodes,
+                     Connectivity ** nToN, EdgeSet ** edges,
+                     Domain& domain);
 
     void computeRestrictedQuantities(const DistVec<Scalar>& refinedVolume, const DistSVec<Scalar, 3>& refinedX);
 
