@@ -8,19 +8,26 @@
 
 template<class Scalar, int dim, class Scalar2>
 MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, int **nodeType, BCApplier *bcs)
-    : num_levels(8), agglom_size(8), numLocSub(dom->getNumLocSub()), multiGridLevels(new MultiGridLevel<Scalar2>*[num_levels+1]),
+    : num_levels(2), agglom_size(8), numLocSub(dom->getNumLocSub()), multiGridLevels(new MultiGridLevel<Scalar2>*[num_levels+1]),
     macroValues(new DistSVec<Scalar2,dim>*[num_levels]), geoState(distGeoState)
 {
 #pragma omp parallel for
-  for(int iSub = 0; iSub < numLocSub; ++iSub)
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
     dom->getSubDomain()[iSub]->getEdges().updateLength(distGeoState.getXn()(iSub));
+    dom->getSubDomain()[iSub]->makeMasterFlag(dom->getNodeDistInfo());
+  }
 
   multiGridLevels[0] = new MultiGridLevel<Scalar2>(dom->getNodeDistInfo(), dom->getEdgeDistInfo());
   multiGridLevels[0]->copyRefinedState(dom->getNodeDistInfo(), dom->getEdgeDistInfo(), geoState.getXn(), *dom);
 
   for(int level = 0; level < num_levels; ++level) {
     multiGridLevels[level+1] = new MultiGridLevel<Scalar2>(multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
-    multiGridLevels[level+1]->agglomerate(multiGridLevels[level]->getConnectivity(), multiGridLevels[level]->getEdges());
+    multiGridLevels[level+1]->agglomerate(multiGridLevels[level]->getNodeDistInfo(),
+                                          multiGridLevels[level]->getIdPat(),
+                                          multiGridLevels[level]->getSharedNodes(),
+                                          multiGridLevels[level]->getConnectivity(),
+                                          multiGridLevels[level]->getEdges(),
+                                          *dom);
   }
 
   macroValues = new DistSVec<Scalar2,dim>*[num_levels+1];
