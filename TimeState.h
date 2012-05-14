@@ -34,6 +34,16 @@ public:
 
   void add_dAW_dt(bool *, GeoState &, Vec<double> &, 
 		  SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
+
+  void add_GASPrec_dAW_dt(bool *, GeoState &, Vec<double> &, 
+		          SVec<double,dim> &, SVec<double,dim> &, 
+                          double, double, Vec<double> &, 
+                          TimeLowMachPrec &, LevelSetStructure *LSS=0);
+
+  void add_LiquidPrec_dAW_dt(bool *, GeoState &, Vec<double> &, VarFcn *,
+		             SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, 
+                             TimeLowMachPrec &, LevelSetStructure *LSS=0);
+
   void add_dAW_dtRestrict(bool *, GeoState &, Vec<double> &, 
 			  SVec<double,dim> &, SVec<double,dim> &, const std::vector<int> &sampledLocNodes) ;
   template<int dimLS>
