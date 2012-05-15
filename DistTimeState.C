@@ -929,10 +929,42 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> 
   varFcn->conservativeToPrimitive(U, *V);
 #endif
 
+  if(tprec.timePreconditioner()) {
+
+    if(varFcn->getType() == VarFcnBase::PERFECTGAS || 
+       varFcn->getType() == VarFcnBase::STIFFENEDGAS)
+
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub), 
-				(*V)(iSub), A(iSub)); 
+      for (int iSub = 0; iSub < numLocSub; ++iSub)
+        subTimeState[iSub]->addToH2GasPrec(V->getMasterFlag(iSub), varFcn, 
+                    ctrlVol(iSub), (*V)(iSub), A(iSub), gam, pstiff, 
+                    (*irey)(iSub), tprec);
+
+    else if(varFcn->getType() == VarFcnBase::TAIT)
+
+#pragma omp parallel for
+      for (int iSub = 0; iSub < numLocSub; ++iSub)
+        subTimeState[iSub]->addToH2LiquidPrec(V->getMasterFlag(iSub), varFcn, 
+                    ctrlVol(iSub), (*V)(iSub), A(iSub), (*irey)(iSub), tprec);
+
+    else {
+      fprintf(stderr, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
+      exit(1);
+    }
+  }
+  else {
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subTimeState[iSub]->addToH2NoPrec(V->getMasterFlag(iSub), varFcn, 
+                    ctrlVol(iSub), (*V)(iSub), A(iSub));
+
+  }
+
+//#pragma omp parallel for
+//  for (int iSub = 0; iSub < numLocSub; ++iSub)
+//    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub), 
+//				(*V)(iSub), A(iSub)); 
 
 }
 

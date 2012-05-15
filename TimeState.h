@@ -94,6 +94,26 @@ public:
   template<class Scalar, int neq>
   void addToH2Minus(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
+  template<class Scalar, int neq> 
+  void addToH2NoPrec(bool *, VarFcn *, Vec<double> &,
+              SVec<double,dim> &, GenMat<Scalar,neq> &);
+ 
+  template<class Scalar, int neq> 
+  void addToH2GasPrec(bool *, VarFcn *, Vec<double> &,
+              SVec<double,dim> &, GenMat<Scalar,neq> &, 
+              double , double, Vec<double> &, TimeLowMachPrec &);
+  template<class Scalar, int neq>
+  void addToH2GasPrecLocal(int, double, VarFcn *, double, double, TimeLowMachPrec &, 
+                           double, SVec<double,dim> &, GenMat<Scalar,neq> &);
+ 
+  template<class Scalar, int neq> 
+  void addToH2LiquidPrec(bool *, VarFcn *, Vec<double> &,
+              SVec<double,dim> &, GenMat<Scalar,neq> &, 
+              Vec<double> &, TimeLowMachPrec &);
+  template<class Scalar, int neq>
+  void addToH2LiquidPrecLocal(int, double, VarFcn *, TimeLowMachPrec &,
+		              double, SVec<double,dim> &, GenMat<Scalar,neq> &);
+
   void get_dW_dt(bool *, GeoState &, Vec<double> &, SVec<double,dim> &, SVec<double,dim> &);
 
   void get_dWBar_dt(bool *, GeoState &, Vec<double> &, SVec<double,dim> &, SVec<double,dim> &,
