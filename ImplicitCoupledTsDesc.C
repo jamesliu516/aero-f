@@ -5,6 +5,7 @@
 #include <MatVecProd.h>
 #include <KspSolver.h>
 #include <MemoryPool.h>
+#include <MultiGridPrec.h>
 
 #ifdef TYPE_MAT
 #define MatScalar TYPE_MAT
@@ -143,6 +144,12 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
     }
 
   }
+    
+  MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
+  MatVecProdH1<dim,MatScalar,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,dim> *>(mvp);
+  if (pmg && mvph1) 
+    pmg->getData(*mvph1);
+  
   
   double t0 = this->timer->getTime();
       

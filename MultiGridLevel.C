@@ -6,18 +6,26 @@
 
 template<class Scalar>
 MultiGridLevel<Scalar>::MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo)
-  : nodeDistInfo(new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
+  : nodeDistInfo(new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedNodeDistInfo.numGlobSub,
                               refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com)),
     edgeDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
                               refinedEdgeDistInfo.locSubToGlobSub, refinedEdgeDistInfo.com)),
     numLocSub(refinedNodeDistInfo.numLocSub), ownsData(true), connectivity(new Connectivity*[numLocSub]),
-    edges(new EdgeSet*[numLocSub]), nodeMapping(refinedNodeDistInfo), edgeMapping(refinedEdgeDistInfo), X(0), volume(0)
+    edges(new EdgeSet*[numLocSub]), nodeMapping(refinedNodeDistInfo), edgeMapping(refinedEdgeDistInfo), X(0), volume(0), lineMap(refinedNodeDistInfo),lineIDMap(refinedNodeDistInfo),lineLocIDMap(refinedNodeDistInfo)
 {
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     connectivity[iSub] = 0;
     edges[iSub] = 0;
   }
+  
+  lineIDMap = -1;
+
+  numLines = new int[numLocSub];
+  memset(numLines,0,sizeof(int)*numLocSub);
+  lineids = new std::vector<int>[numLocSub];
+
+  lineLengths = new int*[numLocSub];
 }
 
 //------------------------------------------------------------------------------
@@ -38,8 +46,12 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
   delete []connectivity;
   delete []edges;
 
+  delete [] numLines;
+
   delete X;
   delete volume;
+
+  delete [] lineids;
 }
 
 //------------------------------------------------------------------------------
@@ -85,6 +97,8 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     int seed_node = 0, agglom_id = 0;
 
+    lineLengths[iSub] = new int[nodeMapping(iSub).size()];
+
     // Perform agglomoration
     while(seed_node < nodeMapping(iSub).size()) {
       std::vector<int> agglom;
@@ -115,8 +129,58 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
         } else break;
       }
 
-      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end(); iter++)
-        nodeMapping(iSub)[*iter] = agglom_id;
+      int j = 0;
+      bool isLine = true;
+      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end() && isLine;
+          iter++, ++j) {
+        const int current_node = *iter;
+        /*if (!refinedNodeDistInfo->getMasterFlag(iSub)[current_node]) {
+          isLine = false;
+          break;
+        }*/
+
+        nodeMapping(iSub)[current_node] = agglom_id;
+        for(int n = 0; n < nToN[iSub]->num(current_node) && isLine; ++n) {
+          const int neighbor = (*nToN[iSub])[current_node][n];
+          if (current_node == neighbor) continue;
+  
+          for (int k = 0; k < agglom.size(); ++k) {
+            if ((k > j+1 || k < j-1) && neighbor == agglom[k]) { 
+              isLine = false;
+              break;
+            }
+          }
+        }
+      }
+  
+      if (isLine) {
+        int k;
+        for (k = 0; k < agglom.size(); ++k) {
+
+          lineLocIDMap(iSub)[agglom[k]] = k;         
+ 
+          lineIDMap(iSub)[agglom[k]] = numLines[iSub];
+          if (k > 0)
+            lineMap(iSub)[agglom[k]][0] = agglom[k-1];
+          else
+            lineMap(iSub)[agglom[k]][0] = -1;
+          if (k < agglom.size()-1)
+            lineMap(iSub)[agglom[k]][1] = agglom[k+1];  
+          else
+            lineMap(iSub)[agglom[k]][1] = -1;
+          lineids[iSub].push_back(agglom[k]);
+        }
+        lineLengths[iSub][numLines[iSub]] = k;
+
+        for (; k < 8; ++k)
+          lineids[iSub].push_back(-1);
+
+        ++numLines[iSub];
+      } else {
+        for (int k = 0; k < agglom.size(); ++k) {
+          lineMap(iSub)[agglom[k]][0] = lineMap(iSub)[agglom[k]][1] = -1;
+        }
+      }
 
       ++agglom_id;
       while(seed_node < nodeMapping(iSub).size() && nodeMapping(iSub)[seed_node] >= 0) ++seed_node;
@@ -207,6 +271,8 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
 template<class Scalar>
 void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistVec<Scalar>& refinedVolume, const DistSVec<Scalar, 3>& refinedX)
 {
+  *volume = 0.0;
+  *X = 0.0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < refinedVolume(iSub).size(); ++i) {
@@ -228,10 +294,11 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistVec<Scalar>& 
 template<class Scalar> template<class Scalar2, int dim>
 void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData) const
 {
+  coarseData = 0.0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i) for(int j = 0; j < dim; ++j)
-      coarseData(iSub)[fineGrid.nodeMapping(iSub)[i]][j] += (*fineGrid.volume)(iSub)[i] * fineData(iSub)[i][j];
+      coarseData(iSub)[nodeMapping(iSub)[i]][j] += (*fineGrid.volume)(iSub)[i] * fineData(iSub)[i][j];
 
     for(int i = 0; i < coarseData(iSub).size(); ++i) {
       const Scalar one_over_volume = 1.0 / (*volume)(iSub)[i];
@@ -253,6 +320,38 @@ void MultiGridLevel<Scalar>::Prolong(const MultiGridLevel<Scalar>& coarseGrid, c
       for(int j = 0; j < dim; ++j) fineData(iSub)[i][j] += coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j];
     }
   }
+}
+/*
+template<class Scalar> template<class Scalar2, int dim>
+void MultiGridLevel<Scalar>::SmoothOneStep(const MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseU, const DistSVec<Scalar2,dim>& coarseF) {
+
+  
+}
+
+template<class Scalar>
+template<class MatScal>
+void MultiGridLevel<Scalar>::getData(DistMat<MatScal,dim> & A) {
+
+
+}
+*/
+
+template<class Scalar>
+bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int* loci,int* locj) {
+
+  int idm1,idp1;
+  idm1 = lineMap(iSub)[edgei][0];
+  idp1 = lineMap(iSub)[edgei][1];
+
+  if (idm1 == edgej || idp1 == edgej) {
+    *lineid = lineIDMap(iSub)[edgei];
+    *loci = lineLocIDMap(iSub)[edgei];
+    *locj = lineLocIDMap(iSub)[edgej];
+    return true;
+  } else {
+    return false;
+  }
+  
 }
 
 //------------------------------------------------------------------------------

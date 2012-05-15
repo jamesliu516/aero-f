@@ -6,6 +6,8 @@
 #include <DistVector.h>
 #include <DistMatrix.h>
 #include <complex>
+#include <RestrictionMapping.h>
+
 typedef std::complex<double> bcomp;
 
 class VarFcn;

@@ -26,6 +26,18 @@ class MultiGridLevel {
     DistSVec<Scalar, 3> * X;
     DistVec<Scalar> * volume;
 
+    DistSVec<int, 2> lineMap;
+
+    DistVec<int> lineIDMap;
+    
+    DistVec<int> lineLocIDMap;
+
+    int* numLines;
+
+    int** lineLengths;
+
+    std::vector<int>* lineids;
+
   public:
     MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
     ~MultiGridLevel();
@@ -48,6 +60,13 @@ class MultiGridLevel {
                                                    DistSVec<Scalar2, dim>& coarseData) const;
     template<class Scalar2, int dim> void Prolong(const MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
                                                   const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData) const;
+
+    bool isLine(int iSub,int edgei,int edgej, int* lineid, int* loci, int* locj);
+
+    int NumLines(int iSub) const { return numLines[iSub]; }
+
+    int* getLineData(int iSub, int lineid) { return &lineids[iSub][lineid*8]; } 
+    int lineLength(int iSub, int lineid) { return lineLengths[iSub][lineid]; } 
 };
 
 #endif

@@ -150,6 +150,7 @@ ADD_LIBRARY(FluidBase
              Solvers/NavierStokesSegSolver651.C
              Solvers/NavierStokesSegSolver752.C
              BcFcnCore.C
+             BlockTridiagonalMatrix.C
              CommunicatorCore.C 
              CommunicatorMPI.C 
              ConnectivityCore.C 
@@ -184,6 +185,7 @@ ADD_LIBRARY(FluidBase
              MeshMotionSolver.C 
              MultiGridPrec.C
              MultiGridLevel.C
+             MultiGridSmoothingMatrix.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 
@@ -212,6 +214,7 @@ ADD_LIBRARY(FluidBase
              OneDimensionalSolver.C
 	     Multigrid.C
              PolygonReconstructionData.C
+             
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
