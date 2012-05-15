@@ -320,11 +320,13 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     for(int l = 0; l < refinedEdges[iSub]->size(); ++l) {
       int i = edgePtr[l][0], j = edgePtr[l][1];
       int new_i = nodeMapping(iSub)[i], new_j = nodeMapping(iSub)[j];
+#if 1 // Debug output
       if(new_i < 0 || new_j < 0 || new_i > numNodes[iSub] || new_j > numNodes[iSub]) {
           fprintf(stderr,"ERROR; on SubD %d, i = %d, new_i = %d, j = %d, new_j = %d, but total num nodes = %d!\n",
             domain.getSubDomain()[iSub]->getGlobSubNum(), i, new_i, j, new_j, numNodes[iSub]);
           assert(false);
       }
+#endif
       if(new_i != new_j) {
         int new_edge = edges[iSub]->find(new_i, new_j);
         edgeMapping(iSub)[l] = new_edge;
@@ -356,19 +358,23 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       int index_i=0, index_j=0;
       while((*connectivity[iSub])[i][index_i] != -1) {
         ++index_i;
+#if 1 // Debug output
         if(index_i >= connectivity[iSub]->num(i)) {
           fprintf(stderr,"ERROR: Trying to establish edge %d -> %d, but index_i = %d which is greater than %d\n",
                   i, j, index_i, connectivity[iSub]->num(i));
           assert(false);
         }
+#endif
       }
       while((*connectivity[iSub])[j][index_j] != -1) {
           ++index_j;
+#if 1 // Debug output
           if(index_j >= connectivity[iSub]->num(j)) {
           fprintf(stderr,"ERROR: Trying to establish edge %d -> %d, but index_j = %d which is greater than %d\n",
                   i, j, index_j, connectivity[iSub]->num(j));
           assert(false);
         }
+#endif
       }
       (*connectivity[iSub])[i][index_i] = j;
       (*connectivity[iSub])[j][index_j] = i;
@@ -399,7 +405,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   for(int iSub = 0; iSub < numLocSub; ++iSub)
     for(int i = 0; i < nodeMapping(iSub).size(); ++i) {
       nodeDistInfo->getMasterFlag(iSub)[nodeMapping(iSub)[i]] = refinedNodeDistInfo.getMasterFlag(iSub)[i];
-      nodeDistInfo->getInvWeight(iSub)[nodeMapping(iSub)[i]] = refinedNodeDistInfo.getInvWeight(iSub)[i];
+      nodeDistInfo->getInvWeight(iSub)[nodeMapping(iSub)[i]] = min(nodeDistInfo->getInvWeight(iSub)[nodeMapping(iSub)[i]],
+                                                                   refinedNodeDistInfo.getInvWeight(iSub)[i]);
     }
 
   X = new DistSVec<Scalar, 3>(*nodeDistInfo);
