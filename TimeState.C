@@ -867,6 +867,240 @@ void TimeState<dim>::addToH2Minus(bool *nodeFlag, VarFcn *varFcn, Vec<double> &c
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2NoPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
+			     SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+{
+
+  double dfdUi[dim*dim], dfdVi[dim*dim];
+
+  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  double coef = data.alpha_np1;
+  if (data.use_modal == true && data.use_freq == false) {
+    A *= 2.0;
+    coef *= 3.0;
+  }
+  
+  double c_np1;
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && !nodeFlag[i]) continue;
+
+    if (data.use_freq == true)
+      c_np1 = data.alpha_np1 * ctrlVol[i];
+    else
+      c_np1 = coef * ctrlVol[i] / dt[i];
+
+    int k;
+    for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+    for (k=0; k<dim; ++k) dfdUi[k + k*dim] = c_np1;
+
+    varFcn->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+  
+    Scalar *Aii = A.getElem_ii(i);
+
+    for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
+ 
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2GasPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
+			     SVec<double,dim> &V, GenMat<Scalar,neq> &A, 
+                             double gam, double pstiff, Vec<double> &irey, 
+                             TimeLowMachPrec &tprec)
+{
+  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  if (data.use_modal == true && data.use_freq == false) {
+    A *= 2.0;
+  }
+  
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && !nodeFlag[i]) continue;
+
+    addToH2GasPrecLocal(i,ctrlVol[i],varFcn,gam,pstiff,tprec,irey[i],V,A);
+
+  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2GasPrecLocal(int i, double vol, VarFcn *vf, double gam, 
+				double pstiff, TimeLowMachPrec &tprec,
+				double irey, SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+{
+
+  double dfdUi[dim*dim], dfdVi[dim*dim];
+
+  for (int k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+
+  double coef = data.alpha_np1;
+  if (data.use_modal == true && data.use_freq == false) {
+    coef *= 3.0;
+  }
+ 
+  double c_np1;
+  if (data.use_freq == true)
+    c_np1 = data.alpha_np1 * vol;
+  else
+    c_np1 = coef * vol / dt[i];
+
+  if(neq<5){		//turbulence model equation in segregated solver
+    for (int k=0; k<neq; ++k)
+      dfdUi[k + k*neq] += c_np1;
+  }else{	//Navier-Stokes (part of segregated turb model or alone) or fully coupled
+
+    double ro = Un[i][0];
+    double invRho = 1.0/ro;
+    double u  = Un[i][1] * invRho;
+    double v  = Un[i][2] * invRho;
+    double w  = Un[i][3] * invRho;
+    double u2 = u*u;
+    double v2 = v*v;
+    double w2 = w*w;
+    double q2 = u2 + v2 + w2;
+    double gam1 = gam - 1.0;
+    double p  = gam1 * (Un[i][4] - 0.5 * ro * q2) - gam*pstiff;
+    double c2 = gam*(p+pstiff)/ro;
+    double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
+    double beta = tprec.getBeta(locMach, irey);
+
+    double beta2 =   beta * beta;
+    double qhat2 = (q2 * gam1)/2.0;
+ 
+    double nu = qhat2/c2;
+    double mu = (1.0/beta2) - 1.0;
+
+    double Pinv[5][5] = { {nu*mu + 1.0,  -u*mu*gam1/c2,      -v*mu*gam1/c2,        -w*mu*gam1/c2,       mu*gam1/c2   },
+                          {u*nu*mu,     1.0 - u2*mu*gam1/c2, -u*v*mu*gam1/c2,      -u*w*mu*gam1/c2,     u*mu*gam1/c2 },
+                          {v*nu*mu,     -u*v*mu*gam1/c2 ,    1.0 - v2*mu*gam1/c2,  -v*w*mu*gam1/c2,     v*mu*gam1/c2 },
+                          {w*nu*mu,     -u*w*mu*gam1/c2 ,    -v*w*mu*gam1/c2,      1.0 - w2*mu*gam1/c2, w*mu*gam1/c2 },
+     	                  {0.5*mu*(1.0+nu)*q2,    -u*mu*(1+nu), -v*mu*(1+nu), -w*mu*(1+nu), (1.0/beta2)+mu*nu } };
+
+    for (int l=0; l<5; ++l)
+      for (int m=0; m<5; ++m)
+        dfdUi[l*neq+m] += c_np1*Pinv[l][m];
+
+
+    //turbulence preconditioning
+    if(neq==6){
+      double t1 = Un[i][5] * invRho;
+      double mup = mu*t1*gam1/c2;
+      double Pt[6] = {mu*nu*t1, -mup*u, -mup*v, -mup*w, mup, 1.0};
+      for (int k=0; k<6; k++)
+        dfdUi[neq*(neq-1)+k] += c_np1*Pt[k];
+
+    }else if(neq==7){
+      double t1 = Un[i][5] * invRho;
+      double t2 = Un[i][6] * invRho;
+      double mup1 = mu*t1*gam1/c2;
+      double mup2 = mu*t2*gam1/c2;
+      double Pt[2][7] = { {mu*nu*t1, -mup1*u, -mup1*v, -mup1*w, mup1, 1.0, 0.0},
+                          {mu*nu*t2, -mup2*u, -mup2*v, -mup2*w, mup2, 0.0, 1.0} };
+      for (int k=0; k<7; k++){
+        dfdUi[neq*(neq-2)+k] += c_np1*Pt[0][k];
+        dfdUi[neq*(neq-1)+k] += c_np1*Pt[1][k];
+      }
+    }
+  }
+
+  vf->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+  
+  Scalar *Aii = A.getElem_ii(i);
+
+  for (int k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
+ 
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2LiquidPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
+			     SVec<double,dim> &V, GenMat<Scalar,neq> &A, 
+                             Vec<double> &irey, TimeLowMachPrec &tprec)
+{
+  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  if (data.use_modal == true && data.use_freq == false) {
+    A *= 2.0;
+  }
+  
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && !nodeFlag[i]) continue;
+
+    addToH2LiquidPrecLocal(i, ctrlVol[i], varFcn, tprec, irey[i], V, A);
+
+  }
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2LiquidPrecLocal(int i, double vol, VarFcn *vf,
+				TimeLowMachPrec &tprec, double irey,
+				SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+{
+
+  double dfdUi[dim*dim], dfdVi[dim*dim];
+
+  for (int k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+
+  double coef = data.alpha_np1;
+  if (data.use_modal == true && data.use_freq == false) {
+    coef *= 3.0;
+  }
+ 
+  double c_np1;
+  if (data.use_freq == true)
+    c_np1 = data.alpha_np1 * vol;
+  else
+    c_np1 = coef * vol / dt[i];
+
+  if(neq<5){            //turbulence model equation in segregated solver
+    for (int k=0; k<neq; ++k)
+      dfdUi[k + k*neq] += c_np1;
+  }else{        //Navier-Stokes (part of segregated turb model or alone) or fully coupled
+    double V[dim];
+    vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
+    double e = vf->computeRhoEnergy(V)/V[0];
+    double pressure = vf->getPressure(V);
+    double c = vf->computeSoundSpeed(V);
+    double c2 = c*c;
+    double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
+    double beta = tprec.getBeta(locMach,irey);
+    double oobeta2 = 1.0/(beta*beta);
+    double oobeta2m1 = oobeta2 - 1.0;
+
+    double Pinv[dim];
+    for (int j=0; j<dim; j++)
+      Pinv[j] = oobeta2m1*V[j];
+    Pinv[0] = oobeta2;
+    Pinv[4] = oobeta2m1*(e+pressure/V[0] - c2);
+ 
+    for (int j=1; j<dim; j++)
+      dfdUi[j + j*neq] += c_np1;
+    for (int j=0; j<dim; j++)
+      dfdUi[j*neq] += c_np1*Pinv[j];
+  }
+
+  vf->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+  
+  Scalar *Aii = A.getElem_ii(i);
+
+  for (int k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
+ 
+}  
+//------------------------------------------------------------------------------
                                                                                                                           
 template<int dim>
 void TimeState<dim>::get_dW_dt(bool *nodeFlag, GeoState &geoState,
