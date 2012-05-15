@@ -2906,7 +2906,7 @@ AeroelasticData::AeroelasticData()
 {
 
   force = LAST;
-  pressure = 0.0;
+  pressure = -1.0;
   displacementScaling = 1.0;
   forceScaling = 1.0;
   powerScaling = 1.0;
