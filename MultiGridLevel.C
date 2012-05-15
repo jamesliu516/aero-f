@@ -228,7 +228,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   for(int iSub = 0; iSub < numLocSub; ++iSub) maxNodesPerSubD = max(maxNodesPerSubD, nodeMapping(iSub).size());
   domain.getCommunicator()->globalMax(1, &maxNodesPerSubD);
 
-// #pragma omp parallel for
+#pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub)
     for(int i = 0; i < ownerSubDomain(iSub).size(); ++i)
       if(!refinedNodeDistInfo.getMasterFlag(iSub)[i])
@@ -240,7 +240,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   assemble(domain, refinedNodeIdPattern, refinedSharedNodes, nodeMapping, maxOp);
 
   sharedNodes = new Connectivity*[numLocSub];
-// #pragma omp parallel for
+#pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     SubDomain& subD(*domain.getSubDomain()[iSub]);
     Connectivity& rSharedNodes(*refinedSharedNodes[iSub]);
@@ -305,7 +305,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 #endif
 // ------------------------- END MPI PARALLEL CRAP -------------------------------------------------------------
 
-// #pragma omp parallel for
+#pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     // After agglomeration, allocate and build all the auxilliary data structures we'll be using
     int *numNodeNeighbors = new int[numNodes[iSub]];
@@ -395,7 +395,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   edgeDistInfo->finalize(true);
 
   // TODO(jontg): double-check this last part
-// #pragma omp parallel for
+#pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub)
     for(int i = 0; i < nodeMapping(iSub).size(); ++i) {
       nodeDistInfo->getMasterFlag(iSub)[nodeMapping(iSub)[i]] = refinedNodeDistInfo.getMasterFlag(iSub)[i];
