@@ -25,13 +25,14 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
     dom->getSubDomain()[iSub]->makeMasterFlag(dom->getNodeDistInfo());
   }
 
-  multiGridLevels[0] = new MultiGridLevel<Scalar2>(dom->getNodeDistInfo(), dom->getEdgeDistInfo());
-  multiGridLevels[0]->copyRefinedState(dom->getNodeDistInfo(), dom->getEdgeDistInfo(), geoState.getXn(), *dom);
+  multiGridLevels[0] = new MultiGridLevel<Scalar2>(*dom, dom->getNodeDistInfo(), dom->getEdgeDistInfo());
+  multiGridLevels[0]->copyRefinedState(dom->getNodeDistInfo(), dom->getEdgeDistInfo(), geoState, *dom);
 
   for(int level = 0; level < num_levels; ++level) {
-    multiGridLevels[level+1] = new MultiGridLevel<Scalar2>(multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
+    multiGridLevels[level+1] = new MultiGridLevel<Scalar2>(*dom, multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
     multiGridLevels[level+1]->agglomerate(multiGridLevels[level]->getNodeDistInfo(),
                                           multiGridLevels[level]->getIdPat(),
+                                          multiGridLevels[level]->getDistGeoState(),
                                           multiGridLevels[level]->getSharedNodes(),
                                           multiGridLevels[level]->getConnectivity(),
                                           multiGridLevels[level]->getEdges(),
@@ -88,13 +89,8 @@ MultiGridPrec<Scalar,dim,Scalar2>::~MultiGridPrec()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 {
-
-#pragma omp parallel for
-  for(int iSub = 0; iSub < numLocSub; ++iSub)
-    multiGridLevels[0]->setCtrlVolumes(iSub, geoState(iSub).getCtrlVol_n());
-
   for(int level = 0; level < num_levels; ++level) {
-    multiGridLevels[level+1]->computeRestrictedQuantities(multiGridLevels[level]->getVol(), multiGridLevels[level]->getX());
+    multiGridLevels[level+1]->computeRestrictedQuantities(multiGridLevels[level]->getDistGeoState());
   }
 }
 
@@ -103,9 +99,9 @@ void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-//  *macroValues[0] = x;
-  *macroValues[0] = 0.0;
-  smooth(0, *macroValues[0], x);
+  *macroValues[0] = x;
+  // *macroValues[0] = 0.0;
+  // smooth(0, *macroValues[0], x);
   for(int level = 0; level < num_levels; ++level) {
   //  std::cout << "level = " << level << std::endl;
     multiGridLevels[level+1]->Restrict(*multiGridLevels[level], *macroValues[level], *macroValues[level+1]);
@@ -113,7 +109,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVe
   for(int level = num_levels; level > 0; --level) {
     multiGridLevels[level]->Prolong(*multiGridLevels[level-1], *macroValues[level], *macroValues[level], *macroValues[level-1]);
   }
-  smooth(0, *macroValues[0], x);
+  // smooth(0, *macroValues[0], x);
 
   Px = *macroValues[0];
 }
