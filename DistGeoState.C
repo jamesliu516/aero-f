@@ -161,11 +161,13 @@ DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistI
 
   Xn = new DistSVec<double,3>(nodeDistInfo);
   ctrlVol_n = new DistVec<double>(nodeDistInfo);
+  ctrlVol_nm1 = new DistVec<double>(nodeDistInfo);
+  ctrlVol_nm2 = new DistVec<double>(nodeDistInfo);
   // Initialize the values
   *Xn = 0.0;
   *ctrlVol_n = 0.0;
 
-  d2wall = 0;
+  d2wall = new DistVec<double>(nodeDistInfo);
 
   edgeNorm    = new DistVec<Vec3D>(edgeDistInfo);
   edgeNormVel = new DistVec<double>(edgeDistInfo);
@@ -177,6 +179,15 @@ DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistI
   numFaceNeighb = new DistVec<int>(domain->getInletNodeDistInfo());
 
   subGeoState = new GeoState*[numLocSub];
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
+                                     (*ctrlVol_nm2)(iSub),
+                                     (*d2wall)(iSub),
+                                     (*edgeNorm)(iSub), (*faceNorm)(iSub),
+                                     (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
+                                     (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
 }
 
 //------------------------------------------------------------------------------
