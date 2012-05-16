@@ -4,9 +4,12 @@
 #include <Domain.h>
 #include <Edge.h>
 
+#include <set>
+
 template<class Scalar>
 MultiGridLevel<Scalar>::MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo)
-  : nodeDistInfo(new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedNodeDistInfo.numGlobSub,
+  : nodeIdPattern(0),
+    nodeDistInfo(new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
                               refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com)),
     edgeDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
                               refinedEdgeDistInfo.locSubToGlobSub, refinedEdgeDistInfo.com)),
@@ -18,7 +21,7 @@ MultiGridLevel<Scalar>::MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& 
     connectivity[iSub] = 0;
     edges[iSub] = 0;
   }
-  
+   
   lineIDMap = -1;
 
   numLines = new int[numLocSub];
@@ -26,6 +29,7 @@ MultiGridLevel<Scalar>::MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& 
   lineids = new std::vector<int>[numLocSub];
 
   lineLengths = new int*[numLocSub];
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -33,6 +37,8 @@ MultiGridLevel<Scalar>::MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& 
 template<class Scalar>
 MultiGridLevel<Scalar>::~MultiGridLevel()
 {
+  if(ownsData) delete nodeIdPattern;
+
   delete nodeDistInfo;
   delete edgeDistInfo;
 
@@ -43,15 +49,16 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
       delete edges[iSub];
     }
   }
+  delete []sharedNodes;
   delete []connectivity;
   delete []edges;
-
+  
+  delete [] lineids;
   delete [] numLines;
+
 
   delete X;
   delete volume;
-
-  delete [] lineids;
 }
 
 //------------------------------------------------------------------------------
@@ -61,6 +68,8 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
                                               const DistSVec<Scalar, 3>& Xn, Domain& domain)
 {
   ownsData = false;
+  nodeIdPattern = domain.getLevelPat();
+  sharedNodes = new Connectivity*[numLocSub];
 
   X = new DistSVec<Scalar, 3>(refinedNodeDistInfo);
   volume = new DistVec<Scalar>(refinedNodeDistInfo);
@@ -69,12 +78,20 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     connectivity[iSub] = domain.getSubDomain()[iSub]->getNodeToNode();
+    sharedNodes[iSub] = domain.getSubDomain()[iSub]->getSharedNodes();
     edges[iSub] = &domain.getSubDomain()[iSub]->getEdges();
     nodeDistInfo->setLen(iSub, refinedNodeDistInfo.subSize(iSub));
     edgeDistInfo->setLen(iSub, refinedEdgeDistInfo.subSize(iSub));
   }
   nodeDistInfo->finalize(true);
   edgeDistInfo->finalize(true);
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+    for(int i = 0; i < refinedNodeDistInfo.subSize(iSub); ++i) {
+      nodeDistInfo->getMasterFlag(iSub)[i] = refinedNodeDistInfo.getMasterFlag(iSub)[i];
+      nodeDistInfo->getInvWeight(iSub)[i] = refinedNodeDistInfo.getInvWeight(iSub)[i];
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -87,19 +104,98 @@ void MultiGridLevel<Scalar>::setCtrlVolumes(const int iSub, Vec<Scalar>& ctrlVol
 
 //------------------------------------------------------------------------------
 
+namespace { // MPI helper functions
+template<class T,class OperType>
+void assemble(Domain & domain, CommPattern<T> & commPat, Connectivity ** sharedNodes, DistVec<T> & data, const OperType & op) {
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<T> sInfo = commPat.getSendBuffer(subD.getSndChannel()[jSub]);
+      T * buffer = reinterpret_cast<T *>(sInfo.data);
+
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
+        buffer[iNode] = data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ];
+        // fprintf(stderr,"\tSubD %d dispatching to SubD %d data %d (at index %d)\n",
+        //         subD.getGlobSubNum(), subD.getNeighb()[jSub],
+        //         buffer[iNode], (*sharedNodes[iSub])[jSub][iNode]);
+      }
+    }
+  }
+
+  commPat.exchange();
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<T> sInfo = commPat.recData(subD.getRcvChannel()[jSub]);
+      T * buffer = reinterpret_cast<T *>(sInfo.data);
+
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
+        // fprintf(stderr,"\tSubD %d Received from SubD %d data %d (existing data %d at index %d)\n",
+        //         subD.getGlobSubNum(), subD.getNeighb()[jSub],
+        //         buffer[iNode], data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ], (*sharedNodes[iSub])[jSub][iNode]);
+        data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ] = OperType::apply(data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ], buffer[iNode]);
+      }
+    }
+  }
+}
+
+// template<class T,class OperType,int dim>
+// void assemble(Domain & domain, CommPattern<T> & commPat, Connectivity ** sharedNodes, DistSVec<T,dim> & data, const OperType & op) {
+// #pragma omp parallel for
+//   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+//     SubDomain& subD(*domain.getSubDomain()[iSub]);
+//     for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+//       SubRecInfo<T> sInfo = commPat.getSendBuffer(subD.getSndChannel()[jSub]);
+//       T (*buffer)[dim] = reinterpret_cast<T (*)[dim]>(sInfo.data);
+// 
+//       for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
+//         for (int j = 0; j < dim; ++j)
+//           buffer[iNode][j] = data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ][j];
+//     }
+//   }
+// 
+//   commPat.exchange();
+// 
+// #pragma omp parallel for
+//   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+//     SubDomain& subD(*domain.getSubDomain()[iSub]);
+//     for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+//       SubRecInfo<T> sInfo = commPat.recData(subD.getRcvChannel()[jSub]);
+//       T (*buffer)[dim] = reinterpret_cast<T (*)[dim]>(sInfo.data);
+// 
+//       for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
+//         for (int j = 0; j < dim; ++j)
+//           data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ][j] = OperType::apply(data(iSub)[ (*sharedNodes[iSub])[jSub][iNode]][j], buffer[iNode][j]);
+//     }
+//   }
+// }
+};
+
 template<class Scalar>
-void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refinedEdges)
+void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
+                                         CommPattern<int>& refinedNodeIdPattern,
+                                         Connectivity** refinedSharedNodes,
+                                         Connectivity ** nToN, EdgeSet ** refinedEdges,
+                                         Domain& domain)
 {
+  int * numNodes = new int[numLocSub];
+  nodeIdPattern = new CommPattern<int>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<int>::CopyOnSend);
+
   nodeMapping = -1;
   edgeMapping = -1;
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    for(int i = 0; i < nodeMapping(iSub).size(); ++i) // Disable shared slave nodes
+      if(!refinedNodeDistInfo.getMasterFlag(iSub)[i]) nodeMapping(iSub)[i]=0;
+
+    // Perform local agglomeration
     int seed_node = 0, agglom_id = 0;
-
     lineLengths[iSub] = new int[nodeMapping(iSub).size()];
-
-    // Perform agglomoration
+    while(seed_node < nodeMapping(iSub).size() && nodeMapping(iSub)[seed_node] >= 0) ++seed_node;
     while(seed_node < nodeMapping(iSub).size()) {
       std::vector<int> agglom;
       std::map<int,double> weights;
@@ -131,15 +227,9 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
 
       int j = 0;
       bool isLine = true;
-      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end() && isLine;
-          iter++, ++j) {
+      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end() && isLine; iter++,++j) {
         const int current_node = *iter;
-        /*if (!refinedNodeDistInfo->getMasterFlag(iSub)[current_node]) {
-          isLine = false;
-          break;
-        }*/
-
-        nodeMapping(iSub)[current_node] = agglom_id;
+        //nodeMapping(iSub)[current_node] = agglom_id;
         for(int n = 0; n < nToN[iSub]->num(current_node) && isLine; ++n) {
           const int neighbor = (*nToN[iSub])[current_node][n];
           if (current_node == neighbor) continue;
@@ -151,8 +241,10 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
             }
           }
         }
+
+        nodeMapping(iSub)[*iter] = agglom_id;
       }
-  
+      
       if (isLine) {
         int k;
         for (k = 0; k < agglom.size(); ++k) {
@@ -185,24 +277,118 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
       ++agglom_id;
       while(seed_node < nodeMapping(iSub).size() && nodeMapping(iSub)[seed_node] >= 0) ++seed_node;
     }
+    numNodes[iSub] = agglom_id;
+  }
 
-    // After agglomoration, allocate and build all the auxilliary data structures we'll be using
-    int numNodes = agglom_id;
-    int *numNodeNeighbors = new int[numNodes];
-    std::fill(numNodeNeighbors, numNodeNeighbors+numNodes, 0);
+// ------------------------- MPI PARALLEL CRAP -----------------------------------------------------------------
+  DistVec<int> ownerSubDomain(refinedNodeDistInfo);
+  operMax<int> maxOp;
+
+  int maxNodesPerSubD = 0;
+  for(int iSub = 0; iSub < numLocSub; ++iSub) maxNodesPerSubD = max(maxNodesPerSubD, nodeMapping(iSub).size());
+  domain.getCommunicator()->globalMax(1, &maxNodesPerSubD);
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+    for(int i = 0; i < ownerSubDomain(iSub).size(); ++i)
+      if(!refinedNodeDistInfo.getMasterFlag(iSub)[i])
+        nodeMapping(iSub)[i] = ownerSubDomain(iSub)[i] = -1;
+      else
+        ownerSubDomain(iSub)[i] = domain.getSubDomain()[iSub]->getGlobSubNum();
+
+  assemble(domain, refinedNodeIdPattern, refinedSharedNodes, ownerSubDomain, maxOp);
+  assemble(domain, refinedNodeIdPattern, refinedSharedNodes, nodeMapping, maxOp);
+
+  sharedNodes = new Connectivity*[numLocSub];
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    Connectivity& rSharedNodes(*refinedSharedNodes[iSub]);
+
+    std::map<int,std::set<int> > toSend, toReceive;
+    std::map<int,std::map<int,int> > newlyInsertedNodes;
+    std::map<int,int> newNodeIds;
+
+    int * numNeighbors = new int[subD.getNumNeighb()];
+    for(int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      for(int i = 0; i < rSharedNodes.num(jSub); ++i) {
+        const int index = rSharedNodes[jSub][i];
+        const int uniqueNodeID = ownerSubDomain(iSub)[index] * maxNodesPerSubD + nodeMapping(iSub)[index];
+        if(refinedNodeDistInfo.getMasterFlag(iSub)[index]) {
+          toSend[jSub].insert(nodeMapping(iSub)[index]);
+          newlyInsertedNodes[jSub][uniqueNodeID] = nodeMapping(iSub)[index];
+        } else if(ownerSubDomain(iSub)[index] == subD.getNeighb()[jSub]) {
+          if(newNodeIds.find(uniqueNodeID) == newNodeIds.end())
+            newNodeIds[uniqueNodeID] = numNodes[iSub]++;
+          toReceive[jSub].insert(newNodeIds[uniqueNodeID]);
+          newlyInsertedNodes[jSub][uniqueNodeID] = newNodeIds[uniqueNodeID];
+        }
+      }
+    }
+
+    for(int i = 0; i < nodeMapping(iSub).size(); ++i)
+      if(ownerSubDomain(iSub)[i] != subD.getGlobSubNum())
+        nodeMapping(iSub)[i] = newNodeIds[ownerSubDomain(iSub)[i] * maxNodesPerSubD + nodeMapping(iSub)[i]];
+
+    for(std::map<int,std::set<int> >::const_iterator iter=toSend.begin(); iter != toSend.end(); ++iter) {
+      numNeighbors[iter->first] = iter->second.size();
+      nodeIdPattern->setLen(subD.getSndChannel()[iter->first],iter->second.size());
+      nodeIdPattern->setLen(subD.getRcvChannel()[iter->first],iter->second.size());
+    }
+
+    for(std::map<int,std::set<int> >::const_iterator iter=toReceive.begin(); iter != toReceive.end(); ++iter) {
+      numNeighbors[iter->first] = iter->second.size();
+      nodeIdPattern->setLen(subD.getSndChannel()[iter->first],iter->second.size());
+      nodeIdPattern->setLen(subD.getRcvChannel()[iter->first],iter->second.size()); 
+    }
+
+    sharedNodes[iSub] = new Connectivity(subD.getNumNeighb(),numNeighbors);
+    for(std::map<int,std::map<int,int> >::const_iterator neighbor = newlyInsertedNodes.begin(); neighbor != newlyInsertedNodes.end(); ++neighbor) {
+      int j = 0;
+      for(std::map<int,int>::const_iterator iter = neighbor->second.begin(); iter != neighbor->second.end(); ++iter)
+        (*sharedNodes[iSub])[neighbor->first][j++] = iter->second;
+    }
+  }
+  nodeIdPattern->finalize();
+
+#if 1
+// #pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    fprintf(stderr,"SubDomain %d has... [%d nodes]\n", domain.getSubDomain()[iSub]->getGlobSubNum(), numNodes[iSub]);
+    for(int jSub = 0; jSub < domain.getSubDomain()[iSub]->getNumNeighb(); ++jSub) {
+      fprintf(stderr,"\tSubDomain %d as a neighbor with %d shared fine nodes; %d shared coarse nodes\n",
+              domain.getSubDomain()[iSub]->getNeighb()[jSub],
+              refinedSharedNodes[iSub]->num(jSub),
+              sharedNodes[iSub]->num(jSub));
+    }
+  }
+#endif
+// ------------------------- END MPI PARALLEL CRAP -------------------------------------------------------------
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    // After agglomeration, allocate and build all the auxilliary data structures we'll be using
+    int *numNodeNeighbors = new int[numNodes[iSub]];
+    std::fill(numNodeNeighbors, numNodeNeighbors+numNodes[iSub], 1);
 
     int num_edges_skipped = 0;
     int (*edgePtr)[2] = refinedEdges[iSub]->getPtr();
 
     // Build the coarse EdgeSet, NodeToNode, and fine-to-coarse edge mapping
-    std::map<std::pair<int,int>,int> newEdges;
     edges[iSub] = new EdgeSet();
     int num_edges = 0;
     for(int l = 0; l < refinedEdges[iSub]->size(); ++l) {
       int i = edgePtr[l][0], j = edgePtr[l][1];
-      if(nodeMapping(iSub)[i] != nodeMapping(iSub)[j]) {
-        int new_i = nodeMapping(iSub)[i], new_j = nodeMapping(iSub)[j],
-            new_edge = edges[iSub]->find(new_i, new_j);
+      int new_i = nodeMapping(iSub)[i], new_j = nodeMapping(iSub)[j];
+#if 1 // Debug output
+      if(new_i < 0 || new_j < 0 || new_i > numNodes[iSub] || new_j > numNodes[iSub]) {
+          fprintf(stderr,"ERROR; on SubD %d, i = %d, new_i = %d, j = %d, new_j = %d, but total num nodes = %d!\n",
+            domain.getSubDomain()[iSub]->getGlobSubNum(), i, new_i, j, new_j, numNodes[iSub]);
+          assert(false);
+      }
+#endif
+      if(new_i != new_j) {
+        int new_edge = edges[iSub]->find(new_i, new_j);
         edgeMapping(iSub)[l] = new_edge;
         if(num_edges < edges[iSub]->size()) {
           numNodeNeighbors[new_i]++;
@@ -217,45 +403,79 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
 
     Vec<int> newNum(edges[iSub]->size());
     edges[iSub]->createPointers(newNum);
+    edges[iSub]->setMasterFlag(new bool[edges[iSub]->size()]);
 
     // Build the connectivity graph
-    connectivity[iSub] = new Connectivity(numNodes, numNodeNeighbors);
-    for(int i = 0; i < numNodes; ++i) for(int n = 0; n < connectivity[iSub]->num(i);++n) (*connectivity[iSub])[i][n] = -1;
+    connectivity[iSub] = new Connectivity(numNodes[iSub], numNodeNeighbors);
+    for(int i = 0; i < numNodes[iSub]; ++i) {
+      (*connectivity[iSub])[i][0] = i;
+      for(int n = 1; n < connectivity[iSub]->num(i);++n) (*connectivity[iSub])[i][n] = -1;
+    }
 
     edgePtr = edges[iSub]->getPtr();
     for(int l = 0; l < edges[iSub]->size(); ++l) {
       int i=edgePtr[l][0], j=edgePtr[l][1];
       int index_i=0, index_j=0;
-      while((*connectivity[iSub])[i][index_i] != -1) ++index_i;
-      while((*connectivity[iSub])[j][index_j] != -1) ++index_j;
+      while((*connectivity[iSub])[i][index_i] != -1) {
+        ++index_i;
+#if 1 // Debug output
+        if(index_i >= connectivity[iSub]->num(i)) {
+          fprintf(stderr,"ERROR: Trying to establish edge %d -> %d, but index_i = %d which is greater than %d\n",
+                  i, j, index_i, connectivity[iSub]->num(i));
+          assert(false);
+        }
+#endif
+      }
+      while((*connectivity[iSub])[j][index_j] != -1) {
+          ++index_j;
+#if 1 // Debug output
+          if(index_j >= connectivity[iSub]->num(j)) {
+          fprintf(stderr,"ERROR: Trying to establish edge %d -> %d, but index_j = %d which is greater than %d\n",
+                  i, j, index_j, connectivity[iSub]->num(j));
+          assert(false);
+        }
+#endif
+      }
       (*connectivity[iSub])[i][index_i] = j;
       (*connectivity[iSub])[j][index_j] = i;
     }
 
-    // Create the "length" to be such that it's shorter between two agglomorated cells that share multiple edges
+    // Create the "length" to be such that it's shorter between two agglomerated cells that share multiple edges
     for(int l = 0; l < refinedEdges[iSub]->size(); ++l) {
       const int coarse_index = edgeMapping(iSub)[l];
       if(coarse_index < 0) continue;
-      else edges[iSub]->viewEdgeLength()[coarse_index] = std::max(refinedEdges[iSub]->length(l), edges[iSub]->viewEdgeLength()[coarse_index]);
+      else {
+        edges[iSub]->viewEdgeLength()[coarse_index] = std::max(refinedEdges[iSub]->length(l), edges[iSub]->viewEdgeLength()[coarse_index]);
+        edges[iSub]->getMasterFlag()[coarse_index] = refinedEdges[iSub]->getMasterFlag()[l];
+      }
     }
 
-    fprintf(stdout, "\tAgglomeration finished with %d coarse cells (vs. %d fine cells) and %d edges vanished, %d coarse edges remaining (of %d)\n",
-            numNodes, nodeMapping(iSub).size(), num_edges_skipped, edges[iSub]->size(), refinedEdges[iSub]->size());
+    fprintf(stderr, "\tAgglomeration finished with %d coarse cells (vs. %d fine cells) and %d edges vanished, %d coarse edges remaining (of %d)\n",
+            numNodes[iSub], nodeMapping(iSub).size(), num_edges_skipped, edges[iSub]->size(), refinedEdges[iSub]->size());
 
-    nodeDistInfo->setLen(iSub, numNodes);
+    nodeDistInfo->setLen(iSub, numNodes[iSub]);
     edgeDistInfo->setLen(iSub, edges[iSub]->size());
   }
 
   nodeDistInfo->finalize(true);
   edgeDistInfo->finalize(true);
 
+  // TODO(jontg): double-check this last part
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+    for(int i = 0; i < nodeMapping(iSub).size(); ++i) {
+      nodeDistInfo->getMasterFlag(iSub)[nodeMapping(iSub)[i]] = refinedNodeDistInfo.getMasterFlag(iSub)[i];
+      nodeDistInfo->getInvWeight(iSub)[nodeMapping(iSub)[i]] = min(nodeDistInfo->getInvWeight(iSub)[nodeMapping(iSub)[i]],
+                                                                   refinedNodeDistInfo.getInvWeight(iSub)[i]);
+    }
+
   X = new DistSVec<Scalar, 3>(*nodeDistInfo);
   volume = new DistVec<Scalar>(*nodeDistInfo);
 
-#if 0 // Debug output
+#if 1 // Debug output
   DistVec<bool> verifier(*nodeDistInfo);
   verifier = false;
-#pragma omp parallel for
+// #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub)
     for(int i = 0; i < nodeMapping(iSub).size(); ++i)
       verifier(iSub)[nodeMapping(iSub)[i]] = true;
@@ -264,6 +484,7 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
     for(int i = 0; i < verifier(iSub).size(); ++i)
       if(!verifier(iSub)[i]) fprintf(stderr, "Agglomerated cell %d on SubD %d has no refined nodes\n", i, iSub);
 #endif
+  delete []numNodes;
 }
 
 //------------------------------------------------------------------------------
@@ -271,8 +492,8 @@ void MultiGridLevel<Scalar>::agglomerate(Connectivity ** nToN, EdgeSet ** refine
 template<class Scalar>
 void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistVec<Scalar>& refinedVolume, const DistSVec<Scalar, 3>& refinedX)
 {
-  *volume = 0.0;
-  *X = 0.0;
+  *X *= 0.0;
+  *volume *= 0.0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < refinedVolume(iSub).size(); ++i) {
@@ -294,7 +515,7 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistVec<Scalar>& 
 template<class Scalar> template<class Scalar2, int dim>
 void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData) const
 {
-  coarseData = 0.0;
+  coarseData *= 0.0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i) for(int j = 0; j < dim; ++j)
@@ -321,20 +542,6 @@ void MultiGridLevel<Scalar>::Prolong(const MultiGridLevel<Scalar>& coarseGrid, c
     }
   }
 }
-/*
-template<class Scalar> template<class Scalar2, int dim>
-void MultiGridLevel<Scalar>::SmoothOneStep(const MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseU, const DistSVec<Scalar2,dim>& coarseF) {
-
-  
-}
-
-template<class Scalar>
-template<class MatScal>
-void MultiGridLevel<Scalar>::getData(DistMat<MatScal,dim> & A) {
-
-
-}
-*/
 
 template<class Scalar>
 bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int* loci,int* locj) {
