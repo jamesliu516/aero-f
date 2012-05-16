@@ -12,7 +12,10 @@ template<class Scalar, int dim> class DistSVec;
 template<class Scalar>
 class MultiGridLevel {
   private:
+    Domain& domain;
     CommPattern<int> * nodeIdPattern;
+    CommPattern<double> * nodeVolPattern;
+    CommPattern<double> * nodePosnPattern;
     Connectivity ** sharedNodes;
 
   protected:
@@ -27,8 +30,7 @@ class MultiGridLevel {
     DistVec<int> nodeMapping;
     DistVec<int> edgeMapping;
 
-    DistSVec<Scalar, 3> * X;
-    DistVec<Scalar> * volume;
+    DistGeoState * distGeoState;
 
     DistSVec<int, 2> lineMap;
 
@@ -43,28 +45,29 @@ class MultiGridLevel {
     std::vector<int>* lineids;
 
   public:
-    MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
+    MultiGridLevel(Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
     ~MultiGridLevel();
 
     DistInfo& getNodeDistInfo()       { return *nodeDistInfo; }
     DistInfo& getEdgeDistInfo()       { return *edgeDistInfo; }
     Connectivity ** getConnectivity() { return connectivity; }
     EdgeSet ** getEdges()             { return edges; }
-    DistSVec<Scalar,3>& getX()        { return *X; }
-    DistVec<Scalar>& getVol()         { return *volume; }
+    DistGeoState& getDistGeoState()   { return *distGeoState; }
+    DistSVec<double,3>& getX()        { return distGeoState->getXn(); }
+    DistVec<double>& getVol()         { return distGeoState->getCtrlVol(); }
     CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
     Connectivity ** getSharedNodes()  { return sharedNodes; }
 
-    void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, const DistSVec<Scalar, 3>& Xn, Domain& dom);
-    void setCtrlVolumes(const int iSub, Vec<Scalar>& ctrlVol);
+    void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, DistGeoState& refinedGeoState, Domain& domain);
 
     void agglomerate(const DistInfo& refinedNodeDistInfo,
                      CommPattern<int>& refinedNodeIdPattern,
+                     DistGeoState& refinedDistGeoState,
                      Connectivity** refinedSharedNodes,
                      Connectivity ** nToN, EdgeSet ** edges,
                      Domain& domain);
 
-    void computeRestrictedQuantities(const DistVec<Scalar>& refinedVolume, const DistSVec<Scalar, 3>& refinedX);
+    void computeRestrictedQuantities(const DistGeoState& refinedGeoState);
 
     template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
