@@ -53,8 +53,6 @@ class MultiGridLevel {
     Connectivity ** getConnectivity() { return connectivity; }
     EdgeSet ** getEdges()             { return edges; }
     DistGeoState& getDistGeoState()   { return *distGeoState; }
-    DistSVec<double,3>& getX()        { return distGeoState->getXn(); }
-    DistVec<double>& getVol()         { return distGeoState->getCtrlVol(); }
     CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
     Connectivity ** getSharedNodes()  { return sharedNodes; }
 

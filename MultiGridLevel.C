@@ -538,11 +538,18 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistGeoState& ref
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub)
     for(int i = 0; i < distGeoState->getXn()(iSub).size(); ++i)
-      if(!nodeDistInfo->getMasterFlag(iSub)[i]) {
-        distGeoState->getCtrlVol()(iSub)[i] = 0.0;
-        for(int j = 0; j < 3; ++j)
-          distGeoState->getXn()(iSub)[i][j] = 0.0;
+      if(!nodeDistInfo->getMasterFlag(iSub)[i])
+        for(int j = 0; j < 3; ++j) distGeoState->getXn()(iSub)[i][j] = 0.0;
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+    for(int l = 0; l < edgeMapping(iSub).size(); ++l) {
+      const int coarse_l = edgeMapping(iSub)[l];
+      if(coarse_l < 0) continue;
+      else {
+        (*distGeoState)(iSub).getEdgeNormal()[coarse_l] += refinedGeoState(iSub).getEdgeNormal()[l];
       }
+    }
   operAdd<double> addOp;
   assemble(domain, *nodePosnPattern, sharedNodes, distGeoState->getXn(), addOp);
   assemble(domain, *nodeVolPattern, sharedNodes, distGeoState->getCtrlVol(), addOp);
