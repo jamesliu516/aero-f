@@ -253,7 +253,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
       int j = 0;
       bool isLine = true;
-      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end() && isLine; iter++,++j) {
+      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end(); iter++,++j) {
         const int current_node = *iter;
         //nodeMapping(iSub)[current_node] = agglom_id;
         for(int n = 0; n < nToN[iSub]->num(current_node) && isLine; ++n) {
