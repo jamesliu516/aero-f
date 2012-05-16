@@ -6,6 +6,7 @@
 class TimeData;
 class Domain;
 class GeoState;
+class DistInfo;
 class Communicator;
 
 struct Vec3D;
@@ -77,7 +78,7 @@ class DistGeoState {
 public:
 
   DistGeoState(IoData &, Domain *);
-  DistGeoState(const GeoData &, Domain *);
+  DistGeoState(const GeoData &, Domain *, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo);
   ~DistGeoState();
 
   GeoState &operator() (int i) const { return *subGeoState[i]; }
@@ -93,6 +94,7 @@ public:
 
   int getConfig() const { return data.config; }
   DistSVec<double,3> &getXn() const { return *Xn; }
+  DistVec<double> &getCtrlVol() const { return *ctrlVol_n; }
   DistVec<double> *getd2wall() const { return d2wall; }
   DistVec<Vec3D> &getInletNodeNorm() const { return *inletNodeNorm; }
 
