@@ -10,15 +10,19 @@ template <class Scalar, int dim>
 MultiGridSmoothingMatrix<Scalar,dim>::
 MultiGridSmoothingMatrix(SmoothingMode m, int isub,
                          int nn, int ne, int nBC,
-                         MultiGridLevel<Scalar>* mglvl) : a(nn + 2*(ne+nBC)),
+                         MultiGridLevel<Scalar>* mglvl,
+                         MultiGridLevel<Scalar>* mglvlR
+                          ) : a(nn + 2*(ne+nBC)),
                                                           iSub(isub), indices(0),
                                                           mySmoothingMode(m),
-                                                          mgLevel(mglvl) {
+                                                          mgLevel(mglvl),
+                                                          mgLevelRefined(mglvlR) {
 
   n = nn; numEdges = ne; 
   
   switch (mySmoothingMode) {
 
+   case LineJacobi:
    case BlockJacobi:
 
     indices = new SVec<int,dim>(nn);
@@ -90,14 +94,16 @@ getDataLineJacobi(GenMat<Scalar,dim>& mat) {
   DistInfo& nodeDistInfo = mgLevel->getNodeDistInfo();
 
   // Load in the diagonal elements, and compute their LU decompositions
-  bool* masterFlag = mgLevel->getNodeDistInfo().getMasterFlag(iSub);
+  bool* masterFlag = mgLevelRefined->getNodeDistInfo().getMasterFlag(iSub);
   int nl = 0,lineid,edgei,edgej,loci,locj;
   numLines = mgLevel->NumLines(iSub);
   lineJacobiMatrices = new BlockTridiagonalMatrix<Scalar,dim>*[mgLevel->NumLines(iSub)]; 
+  std::cout << "Hello" << std::endl;
     
   for (int i = 0; i < mgLevel->NumLines(iSub); ++i) {
    
     lineJacobiMatrices[i] = new BlockTridiagonalMatrix<Scalar,dim>(mgLevel->lineLength(iSub,i));
+    std::cout << "line length " << i << " " << mgLevel->lineLength(iSub,i) << std::endl;
   }
 
   for (int i = 0; i < n; ++i) {
@@ -108,21 +114,22 @@ getDataLineJacobi(GenMat<Scalar,dim>& mat) {
       continue;
  
     if (mgLevel->isLine(iSub,i,i,&lineid,&loci,&locj)) {
-    
+
+      std::cout << lineid << " " << loci << " " << locj << std::endl; 
       Scalar (*al)[dim*dim] = lineJacobiMatrices[lineid]->get(loci,locj);
       memcpy(al, mat.getElem_ii(i), sizeof(Scalar)*dim*dim);
     } else {
-
+    
       memcpy(a[i], mat.getElem_ii(i), sizeof(Scalar)*dim*dim);
       DenseMatrixOp<Scalar,dim,20>::ludec(a[i],(*indices)[i],1.0,dim);
     }
   }
 
-  EdgeSet* es = mgLevel->getEdges()[iSub];
+  EdgeSet* es = mgLevelRefined->getEdges()[iSub];
   for (int i = 0; i < numEdges; ++i) {
  
     int edgei = es->getPtr()[i][0], edgej = es->getPtr()[i][1];
-    if (!mgLevel->isLine(iSub,edgei, edgej,&lineid,&loci,&locj)) {
+    if (mgLevel->isLine(iSub,edgei, edgej,&lineid,&loci,&locj)) {
       
       Scalar (*al)[dim*dim] = lineJacobiMatrices[lineid]->get(loci,locj);
       memcpy(al, mat.getElem_ij(i),sizeof(Scalar)*dim*dim);
@@ -153,18 +160,22 @@ template <class Scalar, int dim>
 void MultiGridSmoothingMatrix<Scalar,dim>::
 smoothLineJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
 
-  du = r;
+  du = 0.0;
   int lineid,loci,locj; 
+  bool* masterFlag = mgLevelRefined->getNodeDistInfo().getMasterFlag(iSub);
   for (int i = 0; i < n; ++i) { 
+    if (!masterFlag[i])
+      continue;
     if (mgLevel->isLine(iSub,i,i,&lineid,&loci,&locj)) {
       continue;
     } 
+    memcpy(du[i],r[i],sizeof(Scalar)*dim);
     DenseMatrixOp<Scalar,dim,20>::ludfdbksb(a[i],(*indices)[i], du[i], dim);
   }
 
   Scalar b[8][dim],x[8][dim];
-  for (int i = 0; i < numLines; ++i) {
-    
+  for (int i = 0; i < numLines; ++i) {   
+ 
     int* line_ptr = mgLevel->getLineData(iSub, i);
     int k = 0;
     while (line_ptr[k] >= 0 && k < 8) {
@@ -175,7 +186,7 @@ smoothLineJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
       ++k;
     }
  
-    lineJacobiMatrices[lineid]->solveLU(b,x);  
+    lineJacobiMatrices[i]->solveLU(b,x);  
     k = 0;
     while (line_ptr[k] >= 0 && k < 8) {
       for (int j = 0; j < dim; ++j) {

@@ -19,6 +19,7 @@ class MultiGridSmoothingMatrix : public GenMat<Scalar,dim> {
 
   MultiGridSmoothingMatrix(SmoothingMode m,int iSub,
                            int nn, int ne, int nBC,
+                           MultiGridLevel<Scalar>*,
                            MultiGridLevel<Scalar>*);
  
   MultiGridSmoothingMatrix<Scalar,dim> &operator= (const Scalar x) { a = x; return *this; }
@@ -66,7 +67,7 @@ class MultiGridSmoothingMatrix : public GenMat<Scalar,dim> {
   
   void smoothLineJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du);
 
-  MultiGridLevel<Scalar>* mgLevel;
+  MultiGridLevel<Scalar>* mgLevel,*mgLevelRefined;
 
   int numLines;
 };

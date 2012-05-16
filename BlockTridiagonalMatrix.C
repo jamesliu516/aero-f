@@ -81,7 +81,7 @@ void BlockTridiagonalMatrix<Scalar,dim>::solveLU(Scalar (*b)[dim],Scalar (*x)[di
   Scalar tmp[dim];
 
   // forward substitution
-  for (int i = 0; i < dim; ++i) {
+  for (int i = 0; i < N; ++i) {
 
     if (i == 0)
       memcpy(x[i],b[i],sizeof(Scalar)*dim);
@@ -95,7 +95,7 @@ void BlockTridiagonalMatrix<Scalar,dim>::solveLU(Scalar (*b)[dim],Scalar (*x)[di
   }
 
   // back substitute
-  for (int i = dim-2; i >= 0; --i) {
+  for (int i = N-2; i >= 0; --i) {
  
     DenseMatrixOp<Scalar,dim,dim*dim>::applyToVector(super,i, x, i+1, &tmp,0);
     for (int j = 0; j < dim; ++j)

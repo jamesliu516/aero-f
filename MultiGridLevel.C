@@ -21,7 +21,6 @@ MultiGridLevel<Scalar>::MultiGridLevel(DistInfo& refinedNodeDistInfo, DistInfo& 
     connectivity[iSub] = 0;
     edges[iSub] = 0;
   }
-   
   lineIDMap = -1;
 
   numLines = new int[numLocSub];
@@ -213,6 +212,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   nodeMapping = -1;
   edgeMapping = -1;
 
+  lineMap = -1;
+
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < nodeMapping(iSub).size(); ++i) // Disable shared slave nodes
@@ -253,7 +254,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
       int j = 0;
       bool isLine = true;
-      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end() && isLine; iter++,++j) {
+      for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end(); iter++,++j) {
         const int current_node = *iter;
         //nodeMapping(iSub)[current_node] = agglom_id;
         for(int n = 0; n < nToN[iSub]->num(current_node) && isLine; ++n) {
@@ -271,10 +272,11 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         nodeMapping(iSub)[*iter] = agglom_id;
       }
       
-      if (isLine) {
+      if (isLine && agglom.size() > 1) {
         int k;
         for (k = 0; k < agglom.size(); ++k) {
-
+  
+          assert(refinedNodeDistInfo.getMasterFlag(iSub)[agglom[k]]);
           lineLocIDMap(iSub)[agglom[k]] = k;         
  
           lineIDMap(iSub)[agglom[k]] = numLines[iSub];
@@ -303,6 +305,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       ++agglom_id;
       while(seed_node < nodeMapping(iSub).size() && nodeMapping(iSub)[seed_node] >= 0) ++seed_node;
     }
+
     numNodes[iSub] = agglom_id;
   }
 
@@ -483,12 +486,13 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   // TODO(jontg): double-check this last part
 #pragma omp parallel for
-  for(int iSub = 0; iSub < numLocSub; ++iSub)
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < nodeMapping(iSub).size(); ++i) {
       nodeDistInfo->getMasterFlag(iSub)[nodeMapping(iSub)[i]] = refinedNodeDistInfo.getMasterFlag(iSub)[i];
       nodeDistInfo->getInvWeight(iSub)[nodeMapping(iSub)[i]] = min(nodeDistInfo->getInvWeight(iSub)[nodeMapping(iSub)[i]],
                                                                    refinedNodeDistInfo.getInvWeight(iSub)[i]);
     }
+  }
 
   X = new DistSVec<Scalar, 3>(*nodeDistInfo);
   volume = new DistVec<Scalar>(*nodeDistInfo);
@@ -506,6 +510,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       if(!verifier(iSub)[i]) fprintf(stderr, "Agglomerated cell %d on SubD %d has no refined nodes\n", i, iSub);
 #endif
   delete []numNodes;
+
 }
 
 //------------------------------------------------------------------------------
@@ -570,6 +575,16 @@ bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int
   int idm1,idp1;
   idm1 = lineMap(iSub)[edgei][0];
   idp1 = lineMap(iSub)[edgei][1];
+
+  if (edgei == edgej) {
+
+    if (idm1 >= 0 || idp1 >= 0) {
+      *lineid = lineIDMap(iSub)[edgei];
+      *loci = lineLocIDMap(iSub)[edgei];
+      *locj = *loci;
+      return true;
+    }
+  }
 
   if (idm1 == edgej || idp1 == edgej) {
     *lineid = lineIDMap(iSub)[edgei];

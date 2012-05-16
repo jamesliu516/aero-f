@@ -59,6 +59,7 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
                                               multiGridLevels[level]->getNodeDistInfo().subSize(iSub),
                                               multiGridLevels[level]->getEdgeDistInfo().subSize(iSub),
                                               0,
+                                              multiGridLevels[level+1],
                                               multiGridLevels[level]);
   }                      
 }
