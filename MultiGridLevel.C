@@ -114,12 +114,8 @@ void assemble(Domain & domain, CommPattern<T> & commPat, Connectivity ** sharedN
       SubRecInfo<T> sInfo = commPat.getSendBuffer(subD.getSndChannel()[jSub]);
       T * buffer = reinterpret_cast<T *>(sInfo.data);
 
-      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
         buffer[iNode] = data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ];
-        // fprintf(stderr,"\tSubD %d dispatching to SubD %d data %d (at index %d)\n",
-        //         subD.getGlobSubNum(), subD.getNeighb()[jSub],
-        //         buffer[iNode], (*sharedNodes[iSub])[jSub][iNode]);
-      }
     }
   }
 
@@ -132,46 +128,76 @@ void assemble(Domain & domain, CommPattern<T> & commPat, Connectivity ** sharedN
       SubRecInfo<T> sInfo = commPat.recData(subD.getRcvChannel()[jSub]);
       T * buffer = reinterpret_cast<T *>(sInfo.data);
 
-      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
-        // fprintf(stderr,"\tSubD %d Received from SubD %d data %d (existing data %d at index %d)\n",
-        //         subD.getGlobSubNum(), subD.getNeighb()[jSub],
-        //         buffer[iNode], data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ], (*sharedNodes[iSub])[jSub][iNode]);
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
         data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ] = OperType::apply(data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ], buffer[iNode]);
-      }
     }
   }
 }
 
-// template<class T,class OperType,int dim>
-// void assemble(Domain & domain, CommPattern<T> & commPat, Connectivity ** sharedNodes, DistSVec<T,dim> & data, const OperType & op) {
-// #pragma omp parallel for
-//   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
-//     SubDomain& subD(*domain.getSubDomain()[iSub]);
-//     for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
-//       SubRecInfo<T> sInfo = commPat.getSendBuffer(subD.getSndChannel()[jSub]);
-//       T (*buffer)[dim] = reinterpret_cast<T (*)[dim]>(sInfo.data);
-// 
-//       for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
-//         for (int j = 0; j < dim; ++j)
-//           buffer[iNode][j] = data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ][j];
-//     }
-//   }
-// 
-//   commPat.exchange();
-// 
-// #pragma omp parallel for
-//   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
-//     SubDomain& subD(*domain.getSubDomain()[iSub]);
-//     for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
-//       SubRecInfo<T> sInfo = commPat.recData(subD.getRcvChannel()[jSub]);
-//       T (*buffer)[dim] = reinterpret_cast<T (*)[dim]>(sInfo.data);
-// 
-//       for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
-//         for (int j = 0; j < dim; ++j)
-//           data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ][j] = OperType::apply(data(iSub)[ (*sharedNodes[iSub])[jSub][iNode]][j], buffer[iNode][j]);
-//     }
-//   }
-// }
+template<class T,class OperType,int dim>
+void assemble(Domain & domain, CommPattern<T> & commPat, Connectivity ** sharedNodes, DistSVec<T,dim> & data, const OperType & op) {
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<T> sInfo = commPat.getSendBuffer(subD.getSndChannel()[jSub]);
+      T (*buffer)[dim] = reinterpret_cast<T (*)[dim]>(sInfo.data);
+
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
+        for (int j = 0; j < dim; ++j)
+          buffer[iNode][j] = data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ][j];
+    }
+  }
+
+  commPat.exchange();
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<T> sInfo = commPat.recData(subD.getRcvChannel()[jSub]);
+      T (*buffer)[dim] = reinterpret_cast<T (*)[dim]>(sInfo.data);
+
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode)
+        for (int j = 0; j < dim; ++j)
+          data(iSub)[ (*sharedNodes[iSub])[jSub][iNode] ][j] = OperType::apply(data(iSub)[ (*sharedNodes[iSub])[jSub][iNode]][j], buffer[iNode][j]);
+    }
+  }
+}
+
+template<class T,int dim>
+void assemble(Domain & domain, CommPattern<T> & commPat, Connectivity ** sharedNodes, GenMat<T,dim> & A) {
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+
+      SubRecInfo<T> sInfo = commPat.getSendBuffer(subD.getSndChannel()[jSub]);
+      T (*buffer)[dim*dim] = reinterpret_cast<T (*)[dim*dim]>(sInfo.data);
+
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
+        T * a = A.getElem_ii((*sharedNodes)[iSub][iNode]);
+        for (int j=0; j<dim*dim; ++j) buffer[iNode][j] = a[j];
+      }
+    }
+  }
+
+  commPat.exchange();
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<T> sInfo = commPat.recData(subD.getRcvChannel()[jSub]);
+      T (*buffer)[dim*dim] = reinterpret_cast<T (*)[dim*dim]>(sInfo.data);
+
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
+        T * a = A.getElem_ii((*sharedNodes)[iSub][iNode]);
+        for (int j = 0; j < dim*dim; ++j) a[j] += buffer[iNode][j];
+      }
+    }
+  }
+}
 };
 
 template<class Scalar>
@@ -305,7 +331,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     SubDomain& subD(*domain.getSubDomain()[iSub]);
     Connectivity& rSharedNodes(*refinedSharedNodes[iSub]);
 
-    std::map<int,std::set<int> > toSend, toReceive;
+    std::map<int,std::set<int> > toTransfer;
     std::map<int,std::map<int,int> > newlyInsertedNodes;
     std::map<int,int> newNodeIds;
 
@@ -315,12 +341,12 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         const int index = rSharedNodes[jSub][i];
         const int uniqueNodeID = ownerSubDomain(iSub)[index] * maxNodesPerSubD + nodeMapping(iSub)[index];
         if(refinedNodeDistInfo.getMasterFlag(iSub)[index]) {
-          toSend[jSub].insert(nodeMapping(iSub)[index]);
+          toTransfer[jSub].insert(nodeMapping(iSub)[index]);
           newlyInsertedNodes[jSub][uniqueNodeID] = nodeMapping(iSub)[index];
         } else if(ownerSubDomain(iSub)[index] == subD.getNeighb()[jSub]) {
           if(newNodeIds.find(uniqueNodeID) == newNodeIds.end())
             newNodeIds[uniqueNodeID] = numNodes[iSub]++;
-          toReceive[jSub].insert(newNodeIds[uniqueNodeID]);
+          toTransfer[jSub].insert(newNodeIds[uniqueNodeID]);
           newlyInsertedNodes[jSub][uniqueNodeID] = newNodeIds[uniqueNodeID];
         }
       }
@@ -330,13 +356,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       if(ownerSubDomain(iSub)[i] != subD.getGlobSubNum())
         nodeMapping(iSub)[i] = newNodeIds[ownerSubDomain(iSub)[i] * maxNodesPerSubD + nodeMapping(iSub)[i]];
 
-    for(std::map<int,std::set<int> >::const_iterator iter=toSend.begin(); iter != toSend.end(); ++iter) {
-      numNeighbors[iter->first] = iter->second.size();
-      nodeIdPattern->setLen(subD.getSndChannel()[iter->first],iter->second.size());
-      nodeIdPattern->setLen(subD.getRcvChannel()[iter->first],iter->second.size());
-    }
-
-    for(std::map<int,std::set<int> >::const_iterator iter=toReceive.begin(); iter != toReceive.end(); ++iter) {
+    for(std::map<int,std::set<int> >::const_iterator iter=toTransfer.begin(); iter != toTransfer.end(); ++iter) {
       numNeighbors[iter->first] = iter->second.size();
       nodeIdPattern->setLen(subD.getSndChannel()[iter->first],iter->second.size());
       nodeIdPattern->setLen(subD.getRcvChannel()[iter->first],iter->second.size()); 
@@ -351,7 +371,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   }
   nodeIdPattern->finalize();
 
-#if 1
+#if 0
 // #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     fprintf(stderr,"SubDomain %d has... [%d nodes]\n", domain.getSubDomain()[iSub]->getGlobSubNum(), numNodes[iSub]);
@@ -456,6 +476,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     nodeDistInfo->setLen(iSub, numNodes[iSub]);
     edgeDistInfo->setLen(iSub, edges[iSub]->size());
   }
+  fprintf(stderr, "\n");
 
   nodeDistInfo->finalize(true);
   edgeDistInfo->finalize(true);
