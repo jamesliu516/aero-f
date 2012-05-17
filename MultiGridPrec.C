@@ -36,7 +36,7 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
                                           multiGridLevels[level]->getSharedNodes(),
                                           multiGridLevels[level]->getConnectivity(),
                                           multiGridLevels[level]->getEdges(),
-                                          *dom);
+                                          *dom,dim);
   }
 
   macroA = new DistMat<Scalar2,dim>*[num_levels+1];
@@ -99,9 +99,9 @@ void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-  *macroValues[0] = x;
-  // *macroValues[0] = 0.0;
-  // smooth(0, *macroValues[0], x);
+  //*macroValues[0] = x;
+  *macroValues[0] = 0.0;
+  smooth(0, *macroValues[0], x);
   for(int level = 0; level < num_levels; ++level) {
   //  std::cout << "level = " << level << std::endl;
     multiGridLevels[level+1]->Restrict(*multiGridLevels[level], *macroValues[level], *macroValues[level+1]);
@@ -109,7 +109,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVe
   for(int level = num_levels; level > 0; --level) {
     multiGridLevels[level]->Prolong(*multiGridLevels[level-1], *macroValues[level], *macroValues[level], *macroValues[level-1]);
   }
-  // smooth(0, *macroValues[0], x);
+  smooth(0, *macroValues[0], x);
 
   Px = *macroValues[0];
 }
@@ -145,7 +145,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
       rcurr = rnew;
     }
 
-    std::cout << "i = " << i << " r = " << (*macroR[level]).norm() << std::endl;
+//    std::cout << "i = " << i << " r = " << (*macroR[level]).norm() << std::endl;
    // std::cout << "dot = " << (*macroR[level])*f / (sqrt((*macroR[level]).norm() * f.norm())) << std::endl;
 
 #pragma omp parallel for
@@ -154,6 +154,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
       smoothingMatrices[0][iSub]->smooth((*macroR[level])(iSub),(*macroDX[level])(iSub)); 
     }
 
+    multiGridLevels[level]->assemble(*macroDX[level]);
   //  std::cout << "DX = " << (*macroDX[level]).norm() << std::endl; 
 
 //    *macroDX[level] = *macroR[level];
@@ -179,3 +180,4 @@ template class MultiGridPrec<float, 2, double>;
 template class MultiGridPrec<float, 5, double>;
 template class MultiGridPrec<float, 6, double>;
 template class MultiGridPrec<float, 7, double>;
+
