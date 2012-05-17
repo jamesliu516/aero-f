@@ -4069,17 +4069,17 @@ void IoData::resetInputValues()
   // Check parameters for the matrix-vector product in implicit simulations.
   //
 
-  if ((problem.prec == ProblemData::PRECONDITIONED) ||
-      (ts.prec == TsData::PREC))
-  {
-    if (ts.implicit.mvp == ImplicitData::H2)
-    {
-      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
-      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
-      ts.implicit.mvp = ImplicitData::FD;
-      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
-    }
-  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
+//  if ((problem.prec == ProblemData::PRECONDITIONED) ||
+//      (ts.prec == TsData::PREC))
+//  {
+//    if (ts.implicit.mvp == ImplicitData::H2)
+//    {
+//      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
+//      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+//      ts.implicit.mvp = ImplicitData::FD;
+//      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+//    }
+//  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
 
   if (schemes.ns.flux != SchemeData::ROE)
   {
@@ -4112,6 +4112,7 @@ void IoData::resetInputValues()
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
+    if (problem.prec != ProblemData::PRECONDITIONED)
     // The overwriting is silent because ffjacobian is a "slave" flag.
     ts.implicit.ffjacobian = ImplicitData::EXACT;
   }
