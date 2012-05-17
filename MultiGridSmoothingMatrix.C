@@ -98,12 +98,10 @@ getDataLineJacobi(GenMat<Scalar,dim>& mat) {
   int nl = 0,lineid,edgei,edgej,loci,locj;
   numLines = mgLevel->NumLines(iSub);
   lineJacobiMatrices = new BlockTridiagonalMatrix<Scalar,dim>*[mgLevel->NumLines(iSub)]; 
-  std::cout << "Hello" << std::endl;
     
   for (int i = 0; i < mgLevel->NumLines(iSub); ++i) {
    
     lineJacobiMatrices[i] = new BlockTridiagonalMatrix<Scalar,dim>(mgLevel->lineLength(iSub,i));
-    std::cout << "line length " << i << " " << mgLevel->lineLength(iSub,i) << std::endl;
   }
 
   for (int i = 0; i < n; ++i) {
@@ -115,7 +113,6 @@ getDataLineJacobi(GenMat<Scalar,dim>& mat) {
  
     if (mgLevel->isLine(iSub,i,i,&lineid,&loci,&locj)) {
 
-      std::cout << lineid << " " << loci << " " << locj << std::endl; 
       Scalar (*al)[dim*dim] = lineJacobiMatrices[lineid]->get(loci,locj);
       memcpy(al, mat.getElem_ii(i), sizeof(Scalar)*dim*dim);
     } else {
@@ -195,6 +192,7 @@ smoothLineJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
       ++k;
     }
   }
+
 }
 
 #define INST_HELPER(type,dim) \

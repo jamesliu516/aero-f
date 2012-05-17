@@ -15,6 +15,7 @@ class MultiGridLevel {
     Domain& domain;
     CommPattern<int> * nodeIdPattern;
     CommPattern<double> * nodeVolPattern;
+    CommPattern<double> * nodeVecPattern;
     CommPattern<double> * nodePosnPattern;
     Connectivity ** sharedNodes;
 
@@ -63,7 +64,7 @@ class MultiGridLevel {
                      DistGeoState& refinedDistGeoState,
                      Connectivity** refinedSharedNodes,
                      Connectivity ** nToN, EdgeSet ** edges,
-                     Domain& domain);
+                     Domain& domain,int dim);
 
     void computeRestrictedQuantities(const DistGeoState& refinedGeoState);
 
@@ -79,6 +80,9 @@ class MultiGridLevel {
 
     int* getLineData(int iSub, int lineid) { return &lineids[iSub][lineid*8]; } 
     int lineLength(int iSub, int lineid) { return lineLengths[iSub][lineid]; } 
+
+    template <class Scalar2,int dim>
+    void assemble(DistSVec<Scalar2,dim>& V);
 };
 
 #endif

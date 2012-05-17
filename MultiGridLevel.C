@@ -8,7 +8,7 @@
 
 template<class Scalar>
 MultiGridLevel<Scalar>::MultiGridLevel(Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo)
-  : nodeIdPattern(0), nodeVolPattern(0), nodePosnPattern(0), domain(domain),
+  : nodeIdPattern(0), nodeVolPattern(0), nodePosnPattern(0),nodeVecPattern(0), domain(domain),
     nodeDistInfo(new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
                               refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com)),
     edgeDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
@@ -39,6 +39,7 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
   if(ownsData){
     delete nodeIdPattern;
     delete nodeVolPattern;
+    delete nodeVecPattern;
     delete nodePosnPattern;
   }
 
@@ -71,6 +72,7 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
   ownsData = false;
   nodeIdPattern = domain.getLevelPat();
   nodeVolPattern = domain.getVolPat();
+  nodeVecPattern = domain.getVecPat();
   nodePosnPattern = domain.getVec3DPat();
   sharedNodes = new Connectivity*[numLocSub];
 
@@ -199,11 +201,12 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
                                          DistGeoState& refinedDistGeoState,
                                          Connectivity** refinedSharedNodes,
                                          Connectivity ** nToN, EdgeSet ** refinedEdges,
-                                         Domain& domain)
+                                         Domain& domain,int dim)
 {
   int * numNodes = new int[numLocSub];
   nodeIdPattern = new CommPattern<int>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<int>::CopyOnSend);
   nodeVolPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+  nodeVecPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   nodePosnPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
 
   nodeMapping = -1;
@@ -322,8 +325,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       else
         ownerSubDomain(iSub)[i] = domain.getSubDomain()[iSub]->getGlobSubNum();
 
-  assemble(domain, refinedNodeIdPattern, refinedSharedNodes, ownerSubDomain, maxOp);
-  assemble(domain, refinedNodeIdPattern, refinedSharedNodes, nodeMapping, maxOp);
+  ::assemble(domain, refinedNodeIdPattern, refinedSharedNodes, ownerSubDomain, maxOp);
+  ::assemble(domain, refinedNodeIdPattern, refinedSharedNodes, nodeMapping, maxOp);
 
   sharedNodes = new Connectivity*[numLocSub];
 #pragma omp parallel for
@@ -364,6 +367,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       nodeVolPattern->setLen(subD.getRcvChannel()[iter->first],iter->second.size());
       nodePosnPattern->setLen(subD.getSndChannel()[iter->first],3*iter->second.size());
       nodePosnPattern->setLen(subD.getRcvChannel()[iter->first],3*iter->second.size());
+      nodeVecPattern->setLen(subD.getSndChannel()[iter->first],dim*iter->second.size());
+      nodeVecPattern->setLen(subD.getRcvChannel()[iter->first],dim*iter->second.size());
     }
 
     sharedNodes[iSub] = new Connectivity(subD.getNumNeighb(),numNeighbors);
@@ -375,6 +380,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   }
   nodeIdPattern->finalize();
   nodeVolPattern->finalize();
+  nodeVecPattern->finalize();
   nodePosnPattern->finalize();
 
 #if 0
@@ -556,8 +562,8 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistGeoState& ref
       }
     }
   operAdd<double> addOp;
-  assemble(domain, *nodePosnPattern, sharedNodes, distGeoState->getXn(), addOp);
-  assemble(domain, *nodeVolPattern, sharedNodes, distGeoState->getCtrlVol(), addOp);
+  ::assemble(domain, *nodePosnPattern, sharedNodes, distGeoState->getXn(), addOp);
+  ::assemble(domain, *nodeVolPattern, sharedNodes, distGeoState->getCtrlVol(), addOp);
 }
 
 //------------------------------------------------------------------------------
@@ -621,12 +627,21 @@ bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int
   
 }
 
+template<class Scalar>   
+template <class Scalar2,int dim> 
+void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V) {
+
+  operAdd<double> addOp;
+  ::assemble(domain, *nodeVecPattern, sharedNodes, V, addOp);
+}
+
 //------------------------------------------------------------------------------
 #define INSTANTIATION_HELPER(T,dim) \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<float,dim>  &, DistSVec<float,dim>  &) const; \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::Prolong( const MultiGridLevel<T> &, const DistSVec<float,dim>  &, const DistSVec<float,dim>  &, DistSVec<float,dim>  &) const; \
-  template void MultiGridLevel<T>::Prolong( const MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const;
+  template void MultiGridLevel<T>::Prolong( const MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
+  template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &);
 
 template class MultiGridLevel<double>;
 INSTANTIATION_HELPER(double,1);
