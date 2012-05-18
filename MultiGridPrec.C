@@ -107,16 +107,15 @@ void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVe
   smooth(0, *macroValues[0], x);
   for(int level = 0; level < num_levels; ++level) {
     multiGridLevels[level+1]->Restrict(*multiGridLevels[level], *macroValues[level], *macroValues[level+1]);
-    *macroValuesTmp[level+1] = *macroValues[level+1];
-    smooth(level+1, *macroValues[level+1], *macroValuesTmp[level+1]);
+    // *macroValuesTmp[level+1] = *macroValues[level+1];
+    // smooth(level+1, *macroValues[level+1], *macroValuesTmp[level+1]);
   }
   for(int level = num_levels; level > 0; --level) {
     multiGridLevels[level]->Prolong(*multiGridLevels[level-1], *macroValues[level], *macroValues[level], *macroValues[level-1]);
-    *macroValuesTmp[level-1] = *macroValues[level-1];
-    smooth(level-1, *macroValues[level-1], *macroValuesTmp[level-1]);
+    // *macroValuesTmp[level-1] = *macroValues[level-1];
+    // smooth(level-1, *macroValues[level-1], *macroValuesTmp[level-1]);
   }
-  smooth(0, Px, *macroValues[0]);
-  // or Px = *macroValues[0]; ?
+  Px = *macroValues[0];
 }
 
 //------------------------------------------------------------------------------
