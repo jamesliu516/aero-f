@@ -149,6 +149,8 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
   MatVecProdH1<dim,MatScalar,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,dim> *>(mvp);
   if (pmg && mvph1) 
     pmg->getData(*mvph1);
+  else
+      fprintf(stderr,"Tried to getData but instead got %x, %x\n", pmg, mvph1);
   
   
   double t0 = this->timer->getTime();

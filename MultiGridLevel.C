@@ -599,8 +599,11 @@ void MultiGridLevel<Scalar>::Prolong(const MultiGridLevel<Scalar>& coarseGrid, c
   }
 }
 
+//------------------------------------------------------------------------------
+
 template<class Scalar>
-bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int* loci,int* locj) {
+bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int* loci,int* locj)
+{
 
   int idm1,idp1;
   idm1 = lineMap(iSub)[edgei][0];
@@ -627,15 +630,19 @@ bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int
   
 }
 
+//------------------------------------------------------------------------------
+
 template<class Scalar>   
 template <class Scalar2,int dim> 
-void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V) {
+void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V)
+{
 
   operAdd<double> addOp;
   ::assemble(domain, *nodeVecPattern, sharedNodes, V, addOp);
 }
 
 //------------------------------------------------------------------------------
+
 #define INSTANTIATION_HELPER(T,dim) \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<float,dim>  &, DistSVec<float,dim>  &) const; \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
