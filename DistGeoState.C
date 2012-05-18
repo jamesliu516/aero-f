@@ -153,7 +153,10 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
 //------------------------------------------------------------------------------
 
-DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo) : data(data), domain(dom)
+DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo)
+: data(data), domain(dom), Xnm1(0), Xnm2(0), Xdot(0), Xsave(0), edgeNorm_nm1(0), edgeNormVel_nm1(0), edgeNorm_nm2(0), edgeNormVel_nm2(0),
+    faceNorm_nm1(0), faceNormVel_nm1(0), faceNorm_nm2(0), faceNormVel_nm2(0), ctrlVol_save(0), Xsa(0), dXsa(0), dEdgeNorm(0), dFaceNorm(0),
+    dEdgeNormVel(0), dFaceNormVel(0)
 {
   numLocSub = domain->getNumLocSub();
   com = domain->getCommunicator();
