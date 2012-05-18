@@ -10,10 +10,10 @@
 template<class Scalar, int dim, class Scalar2>
 MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, int **nodeType, BCApplier *bcs)
     : num_levels(5), agglom_size(8), numLocSub(dom->getNumLocSub()), multiGridLevels(new MultiGridLevel<Scalar2>*[num_levels+1]),
-    macroValues(new DistSVec<Scalar2,dim>*[num_levels]), geoState(distGeoState)
+    macroValues(new DistSVec<Scalar2,dim>*[num_levels]), macroValuesTmp(new DistSVec<Scalar2,dim>*[num_levels]), geoState(distGeoState)
 {
 
-  smoothingMatrices = new MultiGridSmoothingMatrix<Scalar2,dim>**[num_levels]; 
+  smoothingMatrices = new MultiGridSmoothingMatrix<Scalar2,dim>**[num_levels];
 
   nSmooth = 1;
 
@@ -42,16 +42,18 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
   macroA = new DistMat<Scalar2,dim>*[num_levels+1];
 
   macroValues = new DistSVec<Scalar2,dim>*[num_levels+1];
+  macroValuesTmp = new DistSVec<Scalar2,dim>*[num_levels+1];
   macroR = new DistSVec<Scalar2,dim>*[num_levels+1];
   macroDX = new DistSVec<Scalar2,dim>*[num_levels+1];
   for(int level = 0; level <= num_levels; ++level) {
+    macroA[level] = 0;
     macroValues[level] = new DistSVec<Scalar2,dim>(multiGridLevels[level]->getNodeDistInfo());
+    macroValuesTmp[level] = new DistSVec<Scalar2,dim>(multiGridLevels[level]->getNodeDistInfo());
     macroR[level] = new DistSVec<Scalar2,dim>(multiGridLevels[level]->getNodeDistInfo());
     macroDX[level] = new DistSVec<Scalar2,dim>(multiGridLevels[level]->getNodeDistInfo());
   }
-  
-  for(int level = 0; level < num_levels; ++level) {
 
+  for(int level = 0; level < num_levels; ++level) {
     smoothingMatrices[level] = new MultiGridSmoothingMatrix<Scalar2,dim>*[numLocSub];
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub)
@@ -62,7 +64,7 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
                                               0,
                                               multiGridLevels[level+1],
                                               multiGridLevels[level]);
-  }                      
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -73,12 +75,14 @@ MultiGridPrec<Scalar,dim,Scalar2>::~MultiGridPrec()
 #pragma omp parallel for
   for (int level = 0; level <= num_levels; ++level) {
     delete macroValues[level];
+    delete macroValuesTmp[level];
     delete macroR[level];
     delete macroDX[level];
     delete multiGridLevels[level];
   }
   delete []macroA;
   delete []macroValues;
+  delete []macroValuesTmp;
   delete []macroR;
   delete []macroDX;
   delete []multiGridLevels;
@@ -99,85 +103,92 @@ void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-  //*macroValues[0] = x;
   *macroValues[0] = 0.0;
   smooth(0, *macroValues[0], x);
   for(int level = 0; level < num_levels; ++level) {
-  //  std::cout << "level = " << level << std::endl;
     multiGridLevels[level+1]->Restrict(*multiGridLevels[level], *macroValues[level], *macroValues[level+1]);
+    *macroValuesTmp[level+1] = *macroValues[level+1];
+    smooth(level+1, *macroValues[level+1], *macroValuesTmp[level+1]);
   }
   for(int level = num_levels; level > 0; --level) {
     multiGridLevels[level]->Prolong(*multiGridLevels[level-1], *macroValues[level], *macroValues[level], *macroValues[level-1]);
+    *macroValuesTmp[level-1] = *macroValues[level-1];
+    smooth(level-1, *macroValues[level-1], *macroValuesTmp[level-1]);
   }
-  smooth(0, *macroValues[0], x);
-
-  Px = *macroValues[0];
+  smooth(0, Px, *macroValues[0]);
+  // or Px = *macroValues[0]; ?
 }
 
 //------------------------------------------------------------------------------
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& x,
-                                               DistSVec<Scalar2,dim>& f) {
-
+                                               const DistSVec<Scalar2,dim>& f)
+{
   double rcurr;
-  for (int i = 0; i < nSmooth; ++i) {
+  MatVecProdH1<dim,Scalar2,dim>* mvp = dynamic_cast< MatVecProdH1<dim,Scalar2,dim>*>(macroA[level]);
+  if(mvp == NULL) {
+      // std::cout << "Error: multigrid preconditioner must be used with an H1 product" << std::endl;
+      x = f;
+  } else {
+    for (int i = 0; i < nSmooth; ++i) {
+      // std::cout << "Smooth step " << i << std::endl;
 
-//    std::cout << "Smooth step " << i << std::endl;
-    MatVecProdH1<dim,Scalar2,dim>* mvp = dynamic_cast< MatVecProdH1<dim,Scalar2,dim>*>(macroA[level]);
+      // Compute the residual
+      mvp->apply(x, *macroR[level]);
+      (*macroR[level]) *= -1.0;
+      (*macroR[level]) += f;
 
-    if (mvp == NULL) {
+      double rnew = (*macroR[level]).norm();
+      // bailout?
+      if (i > 0 && rnew > rcurr && x.norm() > 0.0) {
+        x -= relaxationFactor*(*macroDX[level]);
+        break;
+      } else {
+        rcurr = rnew;
+      }
 
-      std::cout << "Error: multigrid preconditioner must be used with an H1 product" << std::endl;
-      exit(1);
-    }
- 
-    // Compute the residual
-    mvp->apply(x, *macroR[level]);
-    (*macroR[level]) *= -1.0;
-    (*macroR[level]) += f;
-
-    double rnew = (*macroR[level]).norm();
-    // bailout?
-    if (i > 0 && rnew > rcurr && x.norm() > 0.0) {
-      x -= relaxationFactor*(*macroDX[level]);
-      break;
-    } else {
-      rcurr = rnew;
-    }
-
-//    std::cout << "i = " << i << " r = " << (*macroR[level]).norm() << std::endl;
-   // std::cout << "dot = " << (*macroR[level])*f / (sqrt((*macroR[level]).norm() * f.norm())) << std::endl;
+     // std::cout << "i = " << i << " r = " << (*macroR[level]).norm() << std::endl;
+     // std::cout << "dot = " << (*macroR[level])*f / (sqrt((*macroR[level]).norm() * f.norm())) << std::endl;
 
 #pragma omp parallel for
-    for(int iSub = 0; iSub < numLocSub; ++iSub) {
-      
-      smoothingMatrices[0][iSub]->smooth((*macroR[level])(iSub),(*macroDX[level])(iSub)); 
+      for(int iSub = 0; iSub < numLocSub; ++iSub) {
+        smoothingMatrices[0][iSub]->smooth((*macroR[level])(iSub),(*macroDX[level])(iSub));
+      }
+
+      multiGridLevels[level]->assemble(*macroDX[level]);
+      // std::cout << "DX = " << (*macroDX[level]).norm() << std::endl;
+
+      // *macroDX[level] = *macroR[level];
+      x += relaxationFactor*(*macroDX[level]);
     }
-
-    multiGridLevels[level]->assemble(*macroDX[level]);
-  //  std::cout << "DX = " << (*macroDX[level]).norm() << std::endl; 
-
-//    *macroDX[level] = *macroR[level];
-    x += relaxationFactor*(*macroDX[level]);
   }
 }
 
-template<class Scalar, int dim, class Scalar2>
-void MultiGridPrec<Scalar,dim,Scalar2>::getData(DistMat<Scalar2,dim>& mat) {
+//------------------------------------------------------------------------------
 
+template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::getData(DistMat<Scalar2,dim>& mat)
+{
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     smoothingMatrices[0][iSub]->getData(mat(iSub));
   }
 
   macroA[0] = &mat;
-  
 }
 
+//------------------------------------------------------------------------------
+#define INSTANTIATION_HELPER(T,dim) \
+    template class MultiGridPrec<T, dim, double>;
 
-template class MultiGridPrec<float, 1, double>;
-template class MultiGridPrec<float, 2, double>;
-template class MultiGridPrec<float, 5, double>;
-template class MultiGridPrec<float, 6, double>;
-template class MultiGridPrec<float, 7, double>;
+INSTANTIATION_HELPER(float,1);
+INSTANTIATION_HELPER(float,2);
+INSTANTIATION_HELPER(float,5);
+INSTANTIATION_HELPER(float,6);
+INSTANTIATION_HELPER(float,7);
 
+INSTANTIATION_HELPER(double,1);
+INSTANTIATION_HELPER(double,2);
+INSTANTIATION_HELPER(double,5);
+INSTANTIATION_HELPER(double,6);
+INSTANTIATION_HELPER(double,7);

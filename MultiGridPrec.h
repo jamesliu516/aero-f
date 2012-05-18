@@ -22,7 +22,7 @@ class MultiGridPrec : public KspPrec<dim, Scalar2> {
   MultiGridLevel<Scalar2> ** multiGridLevels;
   MultiGridSmoothingMatrix<Scalar2,dim> ***smoothingMatrices;
 
-  DistSVec<Scalar2, dim> ** macroValues;
+  DistSVec<Scalar2, dim> ** macroValues, ** macroValuesTmp;
   DistSVec<Scalar2, dim> ** macroR;
   DistSVec<Scalar2, dim> ** macroDX;
 
@@ -41,7 +41,7 @@ public:
   void getData(DistMat<Scalar2,dim>& mat);
 
   void smooth(int level,DistSVec<Scalar2,dim>& x,
-              DistSVec<Scalar2,dim>& f);
+              const DistSVec<Scalar2,dim>& f);
 
 };
 
