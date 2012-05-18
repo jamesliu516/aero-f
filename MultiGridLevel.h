@@ -83,6 +83,13 @@ class MultiGridLevel {
 
     template <class Scalar2,int dim>
     void assemble(DistSVec<Scalar2,dim>& V);
+
+    template <class Scalar2,int dim,int neq> 
+    void computeJacobian(DistSVec<Scalar2,dim>& V,
+                         DistVec<Scalar2>& irey,
+                         FluxFcn **fluxFcn, BcData<dim> &bcData,
+                         DistMat<Scalar2,neq> &A);
+
 };
 
 #endif

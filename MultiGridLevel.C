@@ -629,6 +629,23 @@ bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int
   }
   
 }
+//------------------------------------------------------------------------------
+template<class Scalar>
+template <class Scalar2,int dim,int neq> 
+void MultiGridLevel<Scalar>::computeJacobian(DistSVec<Scalar2,dim>& V,
+                                             DistVec<Scalar2>& irey,
+                                             FluxFcn **fluxFcn, BcData<dim> &bcData,
+                                             DistMat<Scalar2,neq> &A) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+    edges[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn, (*distGeoState)(iSub),irey(iSub),
+                                                 distGeoState->getXn()(iSub),
+                                                 distGeoState->getCtrlVol()(iSub), 
+                                                 V(iSub), A(iSub));
+  }
+}
 
 //------------------------------------------------------------------------------
 
@@ -648,7 +665,11 @@ void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V)
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::Prolong( const MultiGridLevel<T> &, const DistSVec<float,dim>  &, const DistSVec<float,dim>  &, DistSVec<float,dim>  &) const; \
   template void MultiGridLevel<T>::Prolong( const MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
-  template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &);
+  template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &); \
+  template void MultiGridLevel<T>::computeJacobian(DistSVec<double,dim>& V, \
+                                             DistVec<double>& irey, \
+                                             FluxFcn **fluxFcn, BcData<dim> &bcData, \
+                                             DistMat<double,dim> &A); 
 
 template class MultiGridLevel<double>;
 INSTANTIATION_HELPER(double,1);
