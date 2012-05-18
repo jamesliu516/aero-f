@@ -976,6 +976,8 @@ public:
   FaceSet(int);
   ~FaceSet();
 
+  BlockAlloc& getBlockAllocator() { return memFaces; }
+
   Face &operator[](int i) { return *faces[i]; }
 
   void addFace(int i, Face *face) { faces[i] = face; }
