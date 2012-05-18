@@ -36,6 +36,7 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
                                           multiGridLevels[level]->getSharedNodes(),
                                           multiGridLevels[level]->getConnectivity(),
                                           multiGridLevels[level]->getEdges(),
+                                          multiGridLevels[level]->getFaces(),
                                           *dom,dim);
   }
 

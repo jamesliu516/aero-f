@@ -27,6 +27,7 @@ class MultiGridLevel {
     bool ownsData;
     Connectivity ** connectivity;
     EdgeSet ** edges;
+    FaceSet ** faces;
 
     DistVec<int> nodeMapping;
     DistVec<int> edgeMapping;
@@ -53,6 +54,7 @@ class MultiGridLevel {
     DistInfo& getEdgeDistInfo()       { return *edgeDistInfo; }
     Connectivity ** getConnectivity() { return connectivity; }
     EdgeSet ** getEdges()             { return edges; }
+    FaceSet ** getFaces()             { return faces; }
     DistGeoState& getDistGeoState()   { return *distGeoState; }
     CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
     Connectivity ** getSharedNodes()  { return sharedNodes; }
@@ -64,6 +66,7 @@ class MultiGridLevel {
                      DistGeoState& refinedDistGeoState,
                      Connectivity** refinedSharedNodes,
                      Connectivity ** nToN, EdgeSet ** edges,
+                     FaceSet ** faces,
                      Domain& domain,int dim);
 
     void computeRestrictedQuantities(const DistGeoState& refinedGeoState);

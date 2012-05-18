@@ -14,12 +14,14 @@ MultiGridLevel<Scalar>::MultiGridLevel(Domain& domain, DistInfo& refinedNodeDist
     edgeDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
                               refinedEdgeDistInfo.locSubToGlobSub, refinedEdgeDistInfo.com)),
     numLocSub(refinedNodeDistInfo.numLocSub), ownsData(true), connectivity(new Connectivity*[numLocSub]),
-    edges(new EdgeSet*[numLocSub]), nodeMapping(refinedNodeDistInfo), edgeMapping(refinedEdgeDistInfo), distGeoState(0), lineMap(refinedNodeDistInfo),lineIDMap(refinedNodeDistInfo),lineLocIDMap(refinedNodeDistInfo)
+    edges(new EdgeSet*[numLocSub]), faces(new FaceSet*[numLocSub]), nodeMapping(refinedNodeDistInfo), edgeMapping(refinedEdgeDistInfo),
+    distGeoState(0), lineMap(refinedNodeDistInfo),lineIDMap(refinedNodeDistInfo),lineLocIDMap(refinedNodeDistInfo)
 {
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     connectivity[iSub] = 0;
     edges[iSub] = 0;
+    faces[iSub] = 0;
   }
   lineIDMap = -1;
 
@@ -51,11 +53,13 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
     if(ownsData) {
       delete connectivity[iSub];
       delete edges[iSub];
+      delete faces[iSub];
     }
   }
   delete []sharedNodes;
   delete []connectivity;
   delete []edges;
+  delete []faces;
   
   delete [] lineids;
   delete [] numLines;
@@ -83,6 +87,7 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
     connectivity[iSub] = domain.getSubDomain()[iSub]->getNodeToNode();
     sharedNodes[iSub] = domain.getSubDomain()[iSub]->getSharedNodes();
     edges[iSub] = &domain.getSubDomain()[iSub]->getEdges();
+    faces[iSub] = &domain.getSubDomain()[iSub]->getFaces();
     nodeDistInfo->setLen(iSub, refinedNodeDistInfo.subSize(iSub));
     edgeDistInfo->setLen(iSub, refinedEdgeDistInfo.subSize(iSub));
   }
@@ -201,6 +206,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
                                          DistGeoState& refinedDistGeoState,
                                          Connectivity** refinedSharedNodes,
                                          Connectivity ** nToN, EdgeSet ** refinedEdges,
+                                         FaceSet ** refinedFaces,
                                          Domain& domain,int dim)
 {
   int * numNodes = new int[numLocSub];
@@ -437,6 +443,21 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     edges[iSub]->createPointers(newNum);
     edges[iSub]->setMasterFlag(new bool[edges[iSub]->size()]);
 
+    faces[iSub] = new FaceSet(refinedFaces[iSub]->size());
+    for(int i = 0; i < faces[iSub]->size(); ++i) {
+      Face& face((*refinedFaces[iSub])[i]);
+      switch(face.type()) {
+      case Face::TRIA:{
+        faces[iSub]->addFace(i,new(faces[iSub]->getBlockAllocator()) FaceTria());
+        Face& newFace((*faces[iSub])[i]);
+        newFace.setup(face.getCode(),face.nodes(), i, face.getSurfaceID());
+        for(int n = 0; n < face.numNodes(); ++n)
+          newFace.nodes()[n] = nodeMapping(iSub)[face[n]];
+        break;}
+      default: continue;
+      }
+    }
+
     // Build the connectivity graph
     connectivity[iSub] = new Connectivity(numNodes[iSub], numNodeNeighbors);
     for(int i = 0; i < numNodes[iSub]; ++i) {
@@ -504,6 +525,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   }
 
   distGeoState = new DistGeoState(refinedDistGeoState.getGeoData(),&domain, *nodeDistInfo, *edgeDistInfo);
+  distGeoState->getFaceNormal() = refinedDistGeoState.getFaceNormal();
+  distGeoState->getFaceNorVel() = refinedDistGeoState.getFaceNorVel();
 
 #if 1 // Debug output
   DistVec<bool> verifier(*nodeDistInfo);
