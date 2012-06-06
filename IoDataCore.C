@@ -4513,6 +4513,18 @@ int IoData::checkInputValuesAllInitialConditions(){
   if (!input.oneDimensionalInput.dataMap.empty()) {
     if (input.oneDimensionalInput.dataMap.size() > 1) 
       std::cout << "Warning: having more than one 1D->3D remap has not been considered" << std::endl;
+
+    for (map<int, OneDimensionalInputData *>::iterator it=input.oneDimensionalInput.dataMap.begin();
+         it != input.oneDimensionalInput.dataMap.end(); it++) {
+
+      for (map<int,FluidRemapData*>::iterator it2 = (it->second)->fluidRemap.dataMap.begin();
+           it2 != (it->second)->fluidRemap.dataMap.end(); it2++) {
+
+        if (it2->second->newID > 0)
+          usedModels.insert(it2->second->newID);
+      }
+    }      
+ 
     embed.nLevelset++;
   }
 

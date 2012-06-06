@@ -28,7 +28,7 @@ public:
   virtual ~LocalRiemann()  { vf_ = 0; }
 
   // multiphase Riemann problem
-  virtual void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){}
+  virtual int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){}
   virtual void computeRiemannSolution(double *Vi, double *Vj,
 				      int IDi, int IDj, double *nphi,
 				      double *initWi, double *initWj,
@@ -72,8 +72,9 @@ public:
   LocalRiemannGfmp(VarFcn *vf, int tag1, int tag2) : LocalRiemann(vf,tag1,tag2) {}
   virtual ~LocalRiemannGfmp() { vf_ = 0; }
 
-  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){///*nothing to do for GFMP*/}
+  int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){///*nothing to do for GFMP*/}
     //if(ID != IDn) fprintf(stdout, "node changes from phase %d to phase %d!\n", IDn, ID);
+    return 0;
   }
 };
 
@@ -92,12 +93,14 @@ public:
       relaxFactorJwl(relaxationFacJwl) {}
   virtual ~LocalRiemannGfmpar() { vf_ = 0; }
 
-  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){
-    if(ID == IDn && !isCellCut) return; /* node does not change phase: nothing to do*/
+  int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){
+    if(ID == IDn && !isCellCut) return 0; /* node does not change phase: nothing to do*/
     if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange %d %d\n",ID, IDn);
-                     exit(1);} }
+                       return -1;} }
     else
       for(int k=0; k<5; k++) V[k] = newV[k]/weight;
+
+    return 0;
   }
 
 protected:
@@ -460,7 +463,11 @@ void LocalRiemannGfmpar::rarefactionTAIT(double phi,
                    double v, double &u, double &p,
                    double &du, double &dp, int flag){
 
-  double V = 2.0*sqrt(alpha*beta)/(beta-1.0)*(pow(v1, 0.5*(1.0-beta)) - pow(v, 0.5*(1.0-beta)));
+  double V;
+  if (beta != 1.0)
+    V = 2.0*sqrt(alpha*beta)/(beta-1.0)*(pow(v1, 0.5*(1.0-beta)) - pow(v, 0.5*(1.0-beta)));
+  else
+    V = sqrt(alpha*beta)*log(v/v1);
 
   p = Pinf+alpha*pow(v, -beta);
 

@@ -290,11 +290,11 @@ void ProgrammedBurn::setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U)
       if (r <= B.pgData->cjDetonationVelocity*(t-B.pgData->ignitionTime) &&
 	  fluidIds[i] == B.pgData->unburnedEOS && B.ignited) {
 	//bBurned->subData(iSub)[i] = true;
-	/*U[i][0] = min(U[i][0],  B.pgData->cjDensity);
+	U[i][0] = min(U[i][0],  B.pgData->cjDensity);
 	U[i][4] = min(U[i][4],  
 		      B.pgData->cjDensity*B.pgData->cjEnergy+ 
 		      0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
-	*/
+	
 	fluidIds[i] = B.pgData->burnedEOS;
       }
       if (fluidIds[i] == B.pgData->unburnedEOS)

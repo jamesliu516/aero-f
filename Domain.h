@@ -462,7 +462,7 @@ public:
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
-                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,DistVec<int>& fluidId,
                                DistNodalGrad<dim>&, DistNodalGrad<dimLS>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,
                                DistLevelSetStructure * = 0);

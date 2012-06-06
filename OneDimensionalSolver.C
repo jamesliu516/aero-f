@@ -960,10 +960,10 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         double dx[3] = {Xj-Xi, 0.0, 0.0};
         int iteration = 0;
         double fluxi[dim], fluxj[dim];
-
+        
 	memcpy(Vir, Vi, sizeof(double)*dim);
 	memcpy(Vjr, Vj, sizeof(double)*dim);
-	
+        	
         if (programmedBurn && fidj == 1) {
 
           for (int k = 0; k < dim; ++k) {
