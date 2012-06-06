@@ -118,7 +118,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]=0);
     void updateCracking(int (*abc)[3]);
     void expandScope();
-    void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope=false, const bool retry=false);
+    void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope,const bool retry);
     int recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry = false);
 
     LevelSetStructure & operator()(int subNum) const;

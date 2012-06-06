@@ -3396,8 +3396,8 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 
 template<int dim>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<double> &init,
-               DistVec<double> &next_init, DistLevelSetStructure *distLSS)
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
+               DistVec<int> &next_init, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
@@ -3408,7 +3408,7 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
 
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
-  assemble(volPat, next_init);
+  assemble(levelPat, next_init);
 }
 
 //------------------------------------------------------------------------------
@@ -3417,7 +3417,7 @@ template<int dim, int dimLS>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
                                              DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                                              DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
-                                             DistVec<double>& init, DistVec<double> &next_init,
+                                             DistVec<int>& init, DistVec<int> &next_init,
                                              DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
   int iSub;
@@ -3430,7 +3430,7 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
   assemble(vecPat, VWeights);
   assemble(phiVecPat, PhiWeights);
   assemble(volPat, Weights);
-  assemble(volPat, next_init);
+  assemble(levelPat, next_init);
 }
 
 //------------------------------------------------------------------------------

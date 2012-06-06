@@ -669,7 +669,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 #pragma omp parallel for
       for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
 	locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id );
-	fprintf(stdout,"locid = %i\n",locid);
+//	fprintf(stdout,"locid = %i\n",locid);
 	if (locid >= 0) {
 	  lis = iSub;
 	  flag = com->cpuNum();
