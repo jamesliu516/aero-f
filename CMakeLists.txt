@@ -182,6 +182,7 @@ ADD_LIBRARY(FluidBase
              MemoryPool.C 
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
+             MultiGridPrec.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 

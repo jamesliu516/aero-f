@@ -4833,29 +4833,25 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 // TODO: should distinguish master nodes and non-master nodes
 template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
-                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<double> &init, Vec<double> &next_init)
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init)
 {
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
+    if(init[currentNode]<1 && LSS.isActive(0.0,currentNode)){
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
-        if(currentNode == neighborNode || init[neighborNode]<1.0) continue;
+        if(currentNode == neighborNode || init[neighborNode]<1) continue;
         int l = edges.findOnly(currentNode,neighborNode);
         if(LSS.edgeIntersectsStructure(0.0,l)) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
-          next_init[currentNode]=1.0;
+          next_init[currentNode]=1;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
-	//  fprintf(stderr,"Node %d Giving Node %d [%e %e %e %e %e]\n",locToGlobNodeMap[neighborNode]+1,locToGlobNodeMap[currentNode]+1,
-	//		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
-        //  fprintf(stderr,"Node %d Giving Node %d [%e %e %e %e %e]\n",locToGlobNodeMap[neighborNode]+1,locToGlobNodeMap[currentNode]+1,
-	//		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         }
       }
     }
@@ -4870,40 +4866,34 @@ template<int dim, int dimLS>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                                                 SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, 
                                                 Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X,
-                                                Vec<double> &init, Vec<double> &next_init, Vec<int> &fluidId)
+                                                Vec<int> &init, Vec<int> &next_init, Vec<int> &fluidId)
 {
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
+    if(init[currentNode]<1 && LSS.isActive(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         int yourId = fluidId[neighborNode];
-        if(currentNode==neighborNode || init[neighborNode]<1.0 || myId!=yourId) continue;
+        if(currentNode==neighborNode || init[neighborNode]<1 || myId!=yourId) continue;
         int l = edges.findOnly(currentNode,neighborNode);
         if(LSS.edgeIntersectsStructure(0.0,l)) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
-          next_init[currentNode]=1.0;
+          next_init[currentNode]=1;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] = Phi[neighborNode][i];
-        //   fprintf(stderr,"Node %d (%d) Giving Node %d (%d) [%e %e %e %e %e]\n",
-	// 		  locToGlobNodeMap[neighborNode]+1,fluidId[neighborNode],locToGlobNodeMap[currentNode]+1,fluidId[currentNode],
-	// 		  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] += V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] += Phi[neighborNode][i];
-          // fprintf(stderr,"Node %d (%d) Giving Node %d (%d) [%e %e %e %e %e]\n",
-	  //       	  locToGlobNodeMap[neighborNode]+1,fluidId[neighborNode],locToGlobNodeMap[currentNode]+1,fluidId[currentNode],
-	  //       	  V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
         }
       }
-  }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -5926,12 +5916,11 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       // get information at intersection points (3 for triangles, 4 for quadrangles).
       Vec3D Xinter[nEdges];
       double Vinter[nEdges][dim];
-      Vec3D start_vertex;
+      Vec3D start_vertex;for(int m=0;m<3;++m) start_vertex[m]=X[polygon.nodeToLookFrom][m];
       for(int k=0; k<nEdges; ++k) {
         vertex1 = polygon.edgeWithVertex[k][0];
         vertex2 = polygon.edgeWithVertex[k][1];
-        if(k==0) {start_vertex[0]=X[vertex1][0]; start_vertex[1]=X[vertex1][1]; start_vertex[2]=X[vertex1][2];}
-        int l = edges.find(polygon.edgeWithVertex[k][0], polygon.edgeWithVertex[k][1]);
+        int l = polygon.edge[k];
         double alpha = lsRes[k].alpha;
         for(int m=0; m<3; m++)
           Xinter[k][m] = alpha*X[vertex1][m] + (1.0-alpha)*X[vertex2][m];

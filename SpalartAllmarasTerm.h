@@ -45,6 +45,7 @@ protected:
   double oocv2;
   double oosigma;
   double oovkcst2;
+  bool usefv3;
 
 public:
 
@@ -101,6 +102,11 @@ SATerm::SATerm(IoData &iod)
 
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
+
+  if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
+    usefv3 = true;
+  else
+    usefv3 = false;
 
 }
 
@@ -246,8 +252,20 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
 
   const double sixth = 1.0/6.0;
 
+  double absmutilde = fabs(mutilde);
   double maxmutilde = max(mutilde, 0.0);
-  double mu5 = oosigma * (mul + mutilde);
+  double dabsmutilde,dmaxmutilde;
+  if (mutilde != 0.0) 
+    dabsmutilde = fabs(mutilde)/mutilde;
+  else
+    dabsmutilde = 0.0;
+
+  if (maxmutilde == 0.0) 
+    dmaxmutilde = 0.0;
+  else
+    dmaxmutilde = 1.0;
+      
+  double mu5 = oosigma * (mul + absmutilde);
   double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] + 
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
   double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] + 
@@ -275,9 +293,13 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double chi = max(mutilde/mul, 0.001);
   double chi3 = chi*chi*chi;
   double fv1 = chi3 / (chi3 + cv1_pow3);
-  double fv2 = 1.0 + oocv2*chi;
-  fv2 = 1.0 / (fv2*fv2*fv2);
-  double fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  double fv2  = 1.-chi/(1.+chi*fv1);
+  double fv3  = 1.0;
+  if (usefv3) {
+    fv2 = 1.0 + oocv2*chi;
+    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  }
   double ood2wall2 = 1.0 / (d2wall * d2wall);
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
@@ -295,25 +317,32 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
 
   double chi2 = chi*chi;
   double dchi = 1.0 / mul;
+  if (chi == 0.001) dchi = 0.0;
   double coef1 = 1.0 / (chi3 + cv1_pow3);
   double dfv1 = 3.0*chi2*dchi*cv1_pow3 * coef1*coef1;
   double coef2 = 1.0 / (1.0 + chi*oocv2);
   double coef3 = coef2 * coef2;
-  double dfv2 = -3.0*dchi*oocv2 * coef3*coef3;
-  double dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) - 
-		 (1.0 + chi*fv1)*dfv2 - fv3*dchi) / chi;
-  double dStilde = s*dfv3 + oorey*oovkcst2*oorho*ood2wall2 * (fv2 + mutilde*dfv2);
-  double drr = oorey*oovkcst2*oorho*ood2wall2 * (Stilde - mutilde*dStilde) / (Stilde*Stilde);
+  double dfv2 = (fv2-1.)*dchi/chi+(1.-fv2)*(1-fv2)*(dfv1+fv1*dchi/chi);
+  double dfv3 = 0;
+  if (usefv3) {
+    dfv2 = -3.0*dchi*oocv2 * coef3*coef3;
+    dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) - 
+           (1.0 + chi*fv1)*dfv2 - fv3*dchi) / chi;
+  }
+  double dStilde = s*dfv3 + oorey*oovkcst2*oorho*ood2wall2 * (fv2*dmaxmutilde + maxmutilde*dfv2);
+  if (Stilde == 1.0e-12) dStilde = 0.0;
+  double drr = oorey*oovkcst2*oorho*ood2wall2 * (Stilde*dmaxmutilde - maxmutilde*dStilde) / (Stilde*Stilde);
+  if (rr == 2.0) drr = 0.0;
   double dgg = (1.0 + cw2 * (6.0*rr2*rr2*rr - 1.0)) * drr;
   double dfw = pow(gg2*gg2*gg2 + cw3_pow6, 7.0*sixth);
   dfw = cw3_pow6 * opcw3_pow * dgg / dfw;
 
-  double P = cb1 * Stilde;
-  double D = cw1 * fw * oorho * mutilde * ood2wall2;
-  double dP = cb1 * dStilde;
-  double dD = cw1 * oorho * ood2wall2 * (fw + mutilde * dfw);
-  double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0) * mutilde);
-  //s00 = 0.25 * (D - P + (dD - dP) * mutilde);
+  double P = cb1 * Stilde * dabsmutilde;
+  double D = cw1 * fw * oorho * maxmutilde * dmaxmutilde * ood2wall2;
+  double dP = cb1 * dStilde * absmutilde;
+  double dD = cw1 * oorho * ood2wall2 * (fw * maxmutilde * dmaxmutilde + maxmutilde * maxmutilde * dfw);
+  double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0));
+  //s00 = 0.25 * (D - P + (dD - dP) * maxmutilde);
   double coef4 = oosigma * cb2 * rho * 2.0;
 
   for (k=0; k<4; ++k)
@@ -501,28 +530,45 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     dfv1[k][4] = ( 3.0*chi*chi*dchi[k][4]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][4] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
     dfv1[k][5] = ( 3.0*chi*chi*dchi[k][5]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][5] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
 
-    fv2 = 1.0 + oocv2*chi;
-    dfv2[k][0] = oocv2*dchi[k][0];
-    dfv2[k][1] = oocv2*dchi[k][1];
-    dfv2[k][2] = oocv2*dchi[k][2];
-    dfv2[k][3] = oocv2*dchi[k][3];
-    dfv2[k][4] = oocv2*dchi[k][4];
-    dfv2[k][5] = oocv2*dchi[k][5];
-    dfv2[k][0] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][0];
-    dfv2[k][1] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][1];
-    dfv2[k][2] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][2];
-    dfv2[k][3] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][3];
-    dfv2[k][4] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][4];
-    dfv2[k][5] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][5];
-    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv2  = 1.-chi/(1.+chi*fv1);
+    dfv2[k][0] = (fv2-1.)*dchi[k][0]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][0]+fv1*dchi[k][0]/chi);
+    dfv2[k][1] = (fv2-1.)*dchi[k][1]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][1]+fv1*dchi[k][1]/chi);
+    dfv2[k][2] = (fv2-1.)*dchi[k][2]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][2]+fv1*dchi[k][2]/chi);
+    dfv2[k][3] = (fv2-1.)*dchi[k][3]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][3]+fv1*dchi[k][3]/chi);
+    dfv2[k][4] = (fv2-1.)*dchi[k][4]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][4]+fv1*dchi[k][4]/chi);
+    dfv2[k][5] = (fv2-1.)*dchi[k][5]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][5]+fv1*dchi[k][5]/chi);
+    fv3  = 1.0;
+    dfv3[k][0] = 0.; 
+    dfv3[k][1] = 0.; 
+    dfv3[k][2] = 0.; 
+    dfv3[k][3] = 0.; 
+    dfv3[k][4] = 0.; 
+    dfv3[k][5] = 0.; 
 
-    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-    dfv3[k][0] = ( ( dchi[k][0]*fv1 + chi*dfv1[k][0] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][0]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][0] ) / ( chi * chi );
-    dfv3[k][1] = ( ( dchi[k][1]*fv1 + chi*dfv1[k][1] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][1]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][1] ) / ( chi * chi );
-    dfv3[k][2] = ( ( dchi[k][2]*fv1 + chi*dfv1[k][2] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][2]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][2] ) / ( chi * chi );
-    dfv3[k][3] = ( ( dchi[k][3]*fv1 + chi*dfv1[k][3] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][3]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][3] ) / ( chi * chi );
-    dfv3[k][4] = ( ( dchi[k][4]*fv1 + chi*dfv1[k][4] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][4]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][4] ) / ( chi * chi );
-    dfv3[k][5] = ( ( dchi[k][5]*fv1 + chi*dfv1[k][5] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][5]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][5] ) / ( chi * chi );
+    if (usefv3) {
+      fv2 = 1.0 + oocv2*chi;
+      dfv2[k][0] = oocv2*dchi[k][0];
+      dfv2[k][1] = oocv2*dchi[k][1];
+      dfv2[k][2] = oocv2*dchi[k][2];
+      dfv2[k][3] = oocv2*dchi[k][3];
+      dfv2[k][4] = oocv2*dchi[k][4];
+      dfv2[k][5] = oocv2*dchi[k][5];
+      dfv2[k][0] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][0];
+      dfv2[k][1] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][1];
+      dfv2[k][2] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][2];
+      dfv2[k][3] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][3];
+      dfv2[k][4] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][4];
+      dfv2[k][5] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][5];
+      fv2 = 1.0 / (fv2*fv2*fv2);
+
+      fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+      dfv3[k][0] = ( ( dchi[k][0]*fv1 + chi*dfv1[k][0] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][0]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][0] ) / ( chi * chi );
+      dfv3[k][1] = ( ( dchi[k][1]*fv1 + chi*dfv1[k][1] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][1]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][1] ) / ( chi * chi );
+      dfv3[k][2] = ( ( dchi[k][2]*fv1 + chi*dfv1[k][2] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][2]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][2] ) / ( chi * chi );
+      dfv3[k][3] = ( ( dchi[k][3]*fv1 + chi*dfv1[k][3] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][3]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][3] ) / ( chi * chi );
+      dfv3[k][4] = ( ( dchi[k][4]*fv1 + chi*dfv1[k][4] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][4]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][4] ) / ( chi * chi );
+      dfv3[k][5] = ( ( dchi[k][5]*fv1 + chi*dfv1[k][5] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][5]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][5] ) / ( chi * chi );
+    }
 
     ood2wall2 = 1.0 / (d2wall * d2wall);
 
@@ -582,12 +628,22 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     ds[k][5] = 1.0 / s * (s12*ds12[k][5] + s23*ds23[k][5] + s31*ds31[k][5]);
 
     Stilde = max(s*fv3 + zz*fv2,1.0e-12);// To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
-    dStilde[k][0] = ds[k][0]*fv3 + s*dfv3[k][0] + dzz[k][0]*fv2 + zz*dfv2[k][0];
-    dStilde[k][1] = ds[k][1]*fv3 + s*dfv3[k][1] + dzz[k][1]*fv2 + zz*dfv2[k][1];
-    dStilde[k][2] = ds[k][2]*fv3 + s*dfv3[k][2] + dzz[k][2]*fv2 + zz*dfv2[k][2];
-    dStilde[k][3] = ds[k][3]*fv3 + s*dfv3[k][3] + dzz[k][3]*fv2 + zz*dfv2[k][3];
-    dStilde[k][4] = ds[k][4]*fv3 + s*dfv3[k][4] + dzz[k][4]*fv2 + zz*dfv2[k][4];
-    dStilde[k][5] = ds[k][5]*fv3 + s*dfv3[k][5] + dzz[k][5]*fv2 + zz*dfv2[k][5];
+    if (Stilde == 1.0e-12) {
+      dStilde[k][0] = 0.0;
+      dStilde[k][1] = 0.0;
+      dStilde[k][2] = 0.0;
+      dStilde[k][3] = 0.0;
+      dStilde[k][4] = 0.0;
+      dStilde[k][5] = 0.0;
+    }
+    else {
+      dStilde[k][0] = ds[k][0]*fv3 + s*dfv3[k][0] + dzz[k][0]*fv2 + zz*dfv2[k][0];
+      dStilde[k][1] = ds[k][1]*fv3 + s*dfv3[k][1] + dzz[k][1]*fv2 + zz*dfv2[k][1];
+      dStilde[k][2] = ds[k][2]*fv3 + s*dfv3[k][2] + dzz[k][2]*fv2 + zz*dfv2[k][2];
+      dStilde[k][3] = ds[k][3]*fv3 + s*dfv3[k][3] + dzz[k][3]*fv2 + zz*dfv2[k][3];
+      dStilde[k][4] = ds[k][4]*fv3 + s*dfv3[k][4] + dzz[k][4]*fv2 + zz*dfv2[k][4];
+      dStilde[k][5] = ds[k][5]*fv3 + s*dfv3[k][5] + dzz[k][5]*fv2 + zz*dfv2[k][5];
+    }
 
     rr = min(zz/Stilde, 2.0);
     if (rr==2.0) {

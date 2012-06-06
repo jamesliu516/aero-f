@@ -370,7 +370,7 @@ struct ProblemData {
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
-  enum SolveFluid {NO = 0, YES = 1} solvefluid;
+  enum SolveFluid {OFF = 0, ON = 1} solvefluid;
   int verbose;
 
   ProblemData();
@@ -672,6 +672,7 @@ struct SAModelData {
   double cv2;
   double sigma;
   double vkcst;
+  enum Form {ORIGINAL = 0, FV3 = 1} form;
 
   SAModelData();
   ~SAModelData() {}
@@ -693,6 +694,7 @@ struct DESModelData {
   double cdes;
   double sigma;
   double vkcst;
+  enum Form {ORIGINAL = 0, FV3 = 1} form;
 
   DESModelData();
   ~DESModelData() {}
@@ -1303,7 +1305,7 @@ struct ExplicitData {
 
 struct PcData {
 
-  enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5} type;
+  enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5, MG = 6} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
 
   int fill;

@@ -161,6 +161,7 @@ class Domain {
 public:
 
   Domain();
+  Domain(Communicator *com);
   ~Domain();
 
   int getNumLocSub() const { return numLocSub; }
@@ -361,13 +362,13 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
-                          DistVec<double> &init, DistVec<double> &next_init,
+                          DistVec<int> &init, DistVec<int> &next_init,
                           DistLevelSetStructure *distLSS);
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
-                          DistVec<double> &init, DistVec<double> &next_init,
+                          DistVec<int> &init, DistVec<int> &next_init,
                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId);
   template<int dimLS>
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);

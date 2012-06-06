@@ -140,7 +140,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       probDesc->computeMeshMetrics();
       // Fluid Solution
       solveOrNot = probDesc->IncreasePressure(it,dt,t,U);
-      if (solveOrNot && ioData.problem.solvefluid == ProblemData::NO) {
+      if (ioData.problem.solvefluid == ProblemData::OFF) {
         solveOrNot = false;
       }
       if(solveOrNot){

@@ -98,7 +98,7 @@ public SATerm {
 public:
   
   double x0,y0,z0,x1,y1,z1;
-  bool trip;
+  bool trip, usefv3;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
   ConstantPrandtlThermalCondFcn turbThermalCondFcn;
@@ -183,7 +183,7 @@ public:
   
   double x0,y0,z0,x1,y1,z1;
   double cdes;
-  bool trip;
+  bool trip, usefv3;
   //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
   ConstantPrandtlThermalCondFcn turbThermalCondFcn;
