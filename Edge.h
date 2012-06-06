@@ -131,7 +131,7 @@ public:
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                               SVec<double,dim>&, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
+                               SVec<double,dim>&,Vec<int>& fluidId, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
                                SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0);
 
   template<int dim, class Scalar, int neq>

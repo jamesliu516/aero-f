@@ -1122,6 +1122,7 @@ template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
 				       DistBcData<dim>& bcData, DistGeoState& geoState,
 				       DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                                       DistVec<int>& fluidId,
 				       DistNodalGrad<dim>& ngrad, DistNodalGrad<dimLS>& ngradLS,
 				       DistEdgeGrad<dim>* egrad,
 				       DistSVec<double,dimLS>& Phi, DistSVec<double,dimLS> &PhiF,
@@ -1136,7 +1137,7 @@ void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn
     LevelSetStructure* LSS = (distLSS) ? &((*distLSS)(iSub)) : 0;
     subDomain[iSub]->computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, bcData(iSub),
                                                geoState(iSub),
-                                               X(iSub), V(iSub), ngrad(iSub), ngradLS(iSub),
+                                               X(iSub), V(iSub),fluidId(iSub), ngrad(iSub), ngradLS(iSub),
                                                legrad, Phi(iSub),PhiF(iSub), LSS);
     subDomain[iSub]->sndData(*phiVecPat, PhiF.subData(iSub));
   }

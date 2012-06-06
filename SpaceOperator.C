@@ -2240,7 +2240,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
     ngradLS->limit(recFcnLS, X, ctrlVol, Phi);
 
-  this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),
+  this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),fluidId,
                                     *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
 //  this->domain->getCommunicator()->fprintf(stderr,"PhiF res: %lf\n", PhiF.norm());
 

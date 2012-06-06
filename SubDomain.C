@@ -946,12 +946,14 @@ template<int dim, int dimLS>
 void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                         BcData<dim>& bcData, GeoState& geoState,
                                         SVec<double,3>& X, SVec<double,dim>& V,
+                                        Vec<int>& fluidId,
                                         NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
                                         EdgeGrad<dim>* egrad,
                                         SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF,
                                         LevelSetStructure* LSS)
 {
-  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V, ngrad, ngradLS,
+  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V,
+                                  fluidId, ngrad, ngradLS,
                                   egrad, Phi, PhiF, LSS);
 
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);

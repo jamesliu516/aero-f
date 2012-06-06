@@ -45,7 +45,7 @@ class ExactRiemannSolver{
   Vec<double> &getRiemannWeight() const { return weight; }
 
   void storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId, SVec<double,3> &X);
-  void updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId, Vec<int> &fluidIdn,
+  int updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId, Vec<int> &fluidIdn,
 			 HigherOrderMultiFluid* );
 
   // for multiphase Riemann problem
