@@ -4818,8 +4818,11 @@ int IoData::checkInputValuesNonDimensional()
     if (bc.inlet.pressure < 0.0)
       if (eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
           eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
-        if(ref.mach>0.0)
-          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+        if(ref.mach>0.0) {
+//          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+          bc.inlet.pressure = bc.inlet.density / (gamma * ref.mach * ref.mach * (1.0 + eqs.fluidModel.gasModel.pressureConstant));
+          eqs.fluidModel.gasModel.pressureConstant *= bc.inlet.pressure;
+        }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
       else if (eqs.fluidModel.fluid == FluidModelData::JWL)
