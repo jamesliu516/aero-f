@@ -14,10 +14,7 @@
 //------------------------------------------------------------------------------
 
 class BinFileHandler {
-
 public:
-
-  //typedef off_t OffType;
 #if defined(__sgi) 
   typedef long long OffType; 
   inline OffType fseek(FILE *fp, OffType offset, int whence)  { return fseek64(fp, offset, whence); }
@@ -28,6 +25,10 @@ public:
   inline OffType ftell(FILE *fp)  { return ftello64(fp); }
 #elif defined(__sun)
   typedef long OffType; 
+#elif defined(__APPLE__) && defined(__MACH__)
+  typedef off_t OffType;
+  inline OffType fseek(FILE *fp, OffType offset, int whence)  { return fseeko(fp, offset, whence); }
+  inline OffType ftell(FILE *fp)  { return ftello(fp); }
 #else
 #error Update the definition of OffType for your machine
 #endif
