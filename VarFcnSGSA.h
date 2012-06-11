@@ -81,14 +81,14 @@ public:
     return error;
   }
   double computeTemperature(double *V) const {
-    if (isnan(1.0/V[0])) {
+    if (std::isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
   }
   void computeTemperatureGradient(double *V,double* Tg) const {
-    if (isnan(1.0/V[0])) {
+    if (std::isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
