@@ -5,6 +5,7 @@
 
 #include <IoData.h>
 #include <PostOperator.h>
+#include <ReinitializeDistanceToWall.h>
 #include <GhostPoint.h>
 
 struct DistInfo;
@@ -62,6 +63,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
 
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
+  ReinitializeDistanceToWall<1> *wall_computer;
   // ------------------------------------------------------------------------------------
 
   // Copies for fail safe ----- -----------------------------
@@ -144,6 +146,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
   double currentPressure(double t);
 
+  void computeDistanceToWall(IoData &ioData);
 };
 
 

@@ -898,3 +898,11 @@ void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
   output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
 
 }
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
+{
+  // Nothing to do here by default.
+}
