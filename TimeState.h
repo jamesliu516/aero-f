@@ -21,6 +21,7 @@ class TimeState {
   Vec<double> &dt;
   Vec<double> &idti;
   Vec<double> &idtv;
+  Vec<double> &dtau;
   SVec<double,dim> &Un;
   SVec<double,dim> &Unm1;
   SVec<double,dim> &Unm2;
@@ -28,7 +29,7 @@ class TimeState {
 
 public:
 
-  TimeState(TimeData &, Vec<double> &, Vec<double> &, Vec<double> &, SVec<double,dim> &, 
+  TimeState(TimeData &, Vec<double> &, Vec<double> &, Vec<double> &, Vec<double> &, SVec<double,dim> &, 
 	    SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
   ~TimeState() {}
 

@@ -2516,6 +2516,7 @@ TsData::TsData()
   typeTimeStep = AUTO;
   typeClipping = FREESTREAM;
   timeStepCalculation = CFL;
+  dualtimestepping = OFF;
 
   prec = NO_PREC;
   viscousCst = 0.0;
@@ -2535,6 +2536,7 @@ TsData::TsData()
   ser = 0.7;
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
+  dualtimecfl = 1000.0;
 
   output = "";
 
@@ -2553,6 +2555,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "TypeTimeStep", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeTimeStep), 2,
 			 "Local", 1, "Global", 2);
+  new ClassToken<TsData>(ca, "DualTimeStepping", this,
+                         reinterpret_cast<int TsData::*>(&TsData::dualtimestepping), 2,
+                         "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
@@ -2577,6 +2582,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
+  new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
 

@@ -22,6 +22,7 @@ public:
   double maxTime;
   double cfl;
   double residual;
+  double dualtimecfl;
 
   char *output;
 

@@ -25,6 +25,7 @@ TimeData::TimeData(IoData &ioData)
     typeIntegrator = ImplicitData::BACKWARD_EULER;
   typeStartup = ioData.ts.implicit.startup;
 
+  dualtimestepping = ioData.ts.dualtimestepping;
   dt_imposed = ioData.ts.timestep;
   dt_n = ioData.restart.dt_nm1;
   dt_nm1 = ioData.restart.dt_nm1;

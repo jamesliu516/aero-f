@@ -11,10 +11,10 @@
 
 template<int dim>
 TimeState<dim>::TimeState(TimeData &_data, Vec<double> &_dt, Vec<double> &_idti, 
-			  Vec<double> &_idtv, SVec<double,dim> &_Un,
+			  Vec<double> &_idtv, Vec<double> &_dtau, SVec<double,dim> &_Un,
 			  SVec<double,dim> &_Unm1, SVec<double,dim> &_Unm2, 
 			  SVec<double,dim> &_Rn) : 
-  data(_data), dt(_dt), idti(_idti), idtv(_idtv), Un(_Un), Unm1(_Unm1), Unm2(_Unm2), Rn(_Rn)
+  data(_data), dt(_dt), idti(_idti), idtv(_idtv), dtau(_dtau), Un(_Un), Unm1(_Unm1), Unm2(_Unm2), Rn(_Rn)
 {
   if (data.use_modal || data.descriptor_form == 1) {
     descriptorCase = DESCRIPTOR;
@@ -418,22 +418,29 @@ template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol, 
 					SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
-  double c_np1;
+  double c_np1, dtau_c_np1;
   switch (descriptorCase) {
     case DESCRIPTOR: {
       c_np1 = data.alpha_np1 * vol / dt[i];
+      dtau_c_np1 = vol / dtau[i];
       break; }
     case HYBRID: {
       c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      dtau_c_np1 = sqrt(vol) / dtau[i];
       break; }
     case NONDESCRIPTOR : { 
       c_np1 = data.alpha_np1 / dt[i];
+      dtau_c_np1 = 1.0 / dtau[i];
       break; }
   }
   Scalar *Aii = A.getElem_ii(i);
   for (int k=0; k<neq; ++k)
     Aii[k + k*neq] += c_np1;
 
+  if (data.dualtimestepping == TsData::ON) {
+    for (int k=0; k<neq; ++k)
+      Aii[k + k*neq] += dtau_c_np1;
+  }
 }
 //------------------------------------------------------------------------------
 //  This Part Performs the Low Mach Steady State Preconditioning

@@ -15,6 +15,7 @@ public:
   ImplicitData::Type typeIntegrator;
   ImplicitData::Startup typeStartup;
   TsData::TypeTimeStep typeTimeStep;
+  TsData::DualTimeStepping dualtimestepping;
 
   double dt_imposed;
   double dt_n;

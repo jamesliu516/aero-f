@@ -57,12 +57,13 @@ extern "C" {
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &dt,
-                                Vec<double> &idti, Vec<double> &idtv,
+                                Vec<double> &idti, Vec<double> &idtv, Vec<double> &dtau,
                                 TimeLowMachPrec &tprec)
 {
   dt = 0.0;
   idti = 0.0;
   idtv = 0.0;
+  dtau = 0.0;
   edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
   // Adam 2010.06.01: compute time step by tetrahedra, as the viscous term is computed
   if(fet) elems.computeTimeStep(fet,X,V,idtv);
