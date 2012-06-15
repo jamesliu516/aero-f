@@ -418,29 +418,25 @@ template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol, 
 					SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
-  double c_np1, dtau_c_np1;
+  double c_np1;
+
   switch (descriptorCase) {
     case DESCRIPTOR: {
       c_np1 = data.alpha_np1 * vol / dt[i];
-      dtau_c_np1 = vol / dtau[i];
+      c_np1 += data.dtau_switch * vol / dtau[i];
       break; }
     case HYBRID: {
       c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
-      dtau_c_np1 = sqrt(vol) / dtau[i];
+      c_np1 += data.dtau_switch * sqrt(vol) / dtau[i];
       break; }
     case NONDESCRIPTOR : { 
       c_np1 = data.alpha_np1 / dt[i];
-      dtau_c_np1 = 1.0 / dtau[i];
+      c_np1 += data.dtau_switch * 1.0 / dtau[i];
       break; }
   }
   Scalar *Aii = A.getElem_ii(i);
   for (int k=0; k<neq; ++k)
     Aii[k + k*neq] += c_np1;
-
-  if (data.dualtimestepping == TsData::ON) {
-    for (int k=0; k<neq; ++k)
-      Aii[k + k*neq] += dtau_c_np1;
-  }
 }
 //------------------------------------------------------------------------------
 //  This Part Performs the Low Mach Steady State Preconditioning
@@ -478,15 +474,19 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
 				double irey, SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
+
   switch (descriptorCase) {
     case DESCRIPTOR: { 
       c_np1 = data.alpha_np1 * vol / dt[i];
+      c_np1 += data.dtau_switch * vol / dtau[i];
       break; }
     case HYBRID: {
       c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      c_np1 += data.dtau_switch * sqrt(vol) / dtau[i];
       break; }
     case NONDESCRIPTOR: {
       c_np1 = data.alpha_np1 / dt[i];
+      c_np1 += data.dtau_switch * 1.0 / dtau[i];
       break; }
   }
 
@@ -495,6 +495,7 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
   if(neq<5){		//turbulence model equation in segregated solver
     for (int k=0; k<neq; ++k)
       Aii[k + k*neq] += c_np1;
+
   }else{	//Navier-Stokes (part of segregated turb model or alone) or fully coupled
 
     double ro = Un[i][0];
@@ -513,6 +514,11 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
     double beta = tprec.getBeta(locMach, irey);
 
     double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
     double qhat2 = (q2 * gam1)/2.0;
  
     double nu = qhat2/c2;
@@ -585,12 +591,15 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
   switch (descriptorCase) {
     case DESCRIPTOR: {
       c_np1 = data.alpha_np1 * vol / dt[i];
+      c_np1 += data.dtau_switch * vol / dtau[i];
       break; }
     case HYBRID: {
       c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      c_np1 += data.dtau_switch * sqrt(vol) / dtau[i];
       break; }
     case NONDESCRIPTOR: {
       c_np1 = data.alpha_np1 / dt[i];
+      c_np1 += data.dtau_switch * 1.0 / dtau[i];
       break; }
   }
   Scalar *Aii = A.getElem_ii(i);
@@ -606,7 +615,13 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
     double c2 = c*c;
     double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
     double beta = tprec.getBeta(locMach,irey);
-    double oobeta2 = 1.0/(beta*beta);
+    double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
+    double oobeta2 = 1.0/beta2;
     double oobeta2m1 = oobeta2 - 1.0;
 
     double Pinv[dim];

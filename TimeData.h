@@ -15,13 +15,13 @@ public:
   ImplicitData::Type typeIntegrator;
   ImplicitData::Startup typeStartup;
   TsData::TypeTimeStep typeTimeStep;
-  TsData::DualTimeStepping dualtimestepping;
 
   double dt_imposed;
   double dt_n;
   double dt_nm1;
   double dt_nm2;
   int output_newton_step;
+  double dtau_switch;
 
   double tau_n;
   double tau_nm1;

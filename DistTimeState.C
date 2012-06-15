@@ -834,7 +834,7 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
 {
-  if(tprec.timePreconditioner() && data->typeTimeStep == TsData::LOCAL){
+  if(tprec.timePreconditioner()){
     if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
       addToJacobianGasPrec(ctrlVol, A, U);
     else if(varFcn->getType() == VarFcnBase::TAIT)
