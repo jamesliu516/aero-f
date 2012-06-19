@@ -668,14 +668,17 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar
       case DESCRIPTOR: {
         if (data.use_freq == true)
           c_np1 = data.alpha_np1 * ctrlVol[i];
-        else
+        else {
           c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+          c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
         break; }
       case HYBRID: {
         c_np1 = data.alpha_np1 * sqrt(ctrlVol[i]) / dt[i];
+        c_np1 += data.dtau_switch * sqrt(ctrlVol[i]) / dtau[i];
         break; }
       case NONDESCRIPTOR: {
         c_np1 = data.alpha_np1 / dt[i];
+        c_np1 += data.dtau_switch * 1.0 / dtau[i];
         break; }
     }
     Scalar *Aii = A.getElem_ii(i);
@@ -706,17 +709,20 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol,
       case DESCRIPTOR: {
         if (data.use_freq == true)
           c_np1 = shift * ctrlVol[i];
-        else
+        else {
           c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+          c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
         break; }
       case HYBRID: {
         c_np1 = data.alpha_np1 * sqrt(ctrlVol[i]) / dt[i];
+        c_np1 += data.dtau_switch * sqrt(ctrlVol[i]) / dtau[i];
         break; }
       case NONDESCRIPTOR: {
         if (data.use_freq == true)
           c_np1 = shift;
-        else 
+        else {
           c_np1 = data.alpha_np1 / dt[i];
+          c_np1 += data.dtau_switch * 1.0 / dtau[i]; }
         break; }
     }
     Scalar *Aii = A.getElem_ii(i);
@@ -753,8 +759,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 
     if (data.use_freq == true)
       c_np1 = data.alpha_np1 * ctrlVol[i];
-    else
+    else {
       c_np1 = coef * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -791,8 +798,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
       Scalar c_np1;
       if (data.use_freq == true)
         c_np1 = shift*ctrlVol[i];
-      else
+      else {
         c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+        c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -832,8 +840,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 
     if (data.use_freq == true)
       c_np1 = coefVol * ctrlVol[i];
-    else
+    else {
       c_np1 = coefVol * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -871,8 +880,9 @@ void TimeState<dim>::addToH2Minus(bool *nodeFlag, VarFcn *varFcn, Vec<double> &c
 
     if (data.use_freq)
       c_np1 = -2.0*data.alpha_np1 * ctrlVol[i];
-    else
+    else {
       c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -913,8 +923,9 @@ void TimeState<dim>::addToH2NoPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &
 
     if (data.use_freq == true)
       c_np1 = data.alpha_np1 * ctrlVol[i];
-    else
+    else {
       c_np1 = coef * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -973,8 +984,9 @@ void TimeState<dim>::addToH2GasPrecLocal(int i, double vol, VarFcn *vf, double g
   double c_np1;
   if (data.use_freq == true)
     c_np1 = data.alpha_np1 * vol;
-  else
+  else {
     c_np1 = coef * vol / dt[i];
+    c_np1 += data.dtau_switch * vol / dtau[i]; }
 
   if(neq<5){		//turbulence model equation in segregated solver
     for (int k=0; k<neq; ++k)
@@ -997,6 +1009,11 @@ void TimeState<dim>::addToH2GasPrecLocal(int i, double vol, VarFcn *vf, double g
     double beta = tprec.getBeta(locMach, irey);
 
     double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
     double qhat2 = (q2 * gam1)/2.0;
  
     double nu = qhat2/c2;
@@ -1085,8 +1102,9 @@ void TimeState<dim>::addToH2LiquidPrecLocal(int i, double vol, VarFcn *vf,
   double c_np1;
   if (data.use_freq == true)
     c_np1 = data.alpha_np1 * vol;
-  else
+  else {
     c_np1 = coef * vol / dt[i];
+    c_np1 += data.dtau_switch * vol / dtau[i]; }
 
   if(neq<5){            //turbulence model equation in segregated solver
     for (int k=0; k<neq; ++k)
@@ -1100,7 +1118,13 @@ void TimeState<dim>::addToH2LiquidPrecLocal(int i, double vol, VarFcn *vf,
     double c2 = c*c;
     double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
     double beta = tprec.getBeta(locMach,irey);
-    double oobeta2 = 1.0/(beta*beta);
+    double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
+    double oobeta2 = 1.0/beta2;
     double oobeta2m1 = oobeta2 - 1.0;
 
     double Pinv[dim];

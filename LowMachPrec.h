@@ -66,14 +66,15 @@ protected:
     if(iod.problem.prec == ProblemData::PRECONDITIONED){
       prec = 1; //at least spatial preconditioning
       if(iod.ts.prec == TsData::PREC){
-        if(iod.problem.alltype == ProblemData::_STEADY_ ||
-           iod.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-           iod.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-           iod.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_){
-          if(iod.ts.type != TsData::IMPLICIT || 
-             iod.ts.implicit.type == ImplicitData::BACKWARD_EULER)
-            prec = 2; // time precontioning if asked, steady, explicit or Backward Euler
-        }
+          prec = 2;
+//        if(iod.problem.alltype == ProblemData::_STEADY_ ||
+//           iod.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
+//           iod.problem.alltype == ProblemData::_STEADY_THERMO_ ||
+//           iod.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_){
+//          if(iod.ts.type != TsData::IMPLICIT || 
+//             iod.ts.implicit.type == ImplicitData::BACKWARD_EULER)
+//            prec = 2; // time precontioning if asked, steady, explicit or Backward Euler
+//        }
       }
     }
   }
