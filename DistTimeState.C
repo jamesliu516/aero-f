@@ -965,7 +965,7 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> 
   varFcn->conservativeToPrimitive(U, *V);
 #endif
 
-  if(tprec.timePreconditioner() && data->typeTimeStep == TsData::LOCAL) {
+  if(tprec.timePreconditioner()) {
 
     if(varFcn->getType() == VarFcnBase::PERFECTGAS || 
        varFcn->getType() == VarFcnBase::STIFFENEDGAS)

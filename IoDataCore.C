@@ -2536,7 +2536,7 @@ TsData::TsData()
   ser = 0.7;
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
-  dualtimecfl = 1000.0;
+  dualtimecfl = 100.0;
 
   output = "";
 
@@ -4086,6 +4086,22 @@ void IoData::resetInputValues()
 //      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
 //    }
 //  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
+
+  if (problem.prec == ProblemData::PRECONDITIONED && 
+      ts.prec == TsData::PREC && problem.type[ProblemData::UNSTEADY])
+  {
+    if (ts.implicit.mvp == ImplicitData::FD)
+    {
+      com->fprintf(stderr, "*** Warning: Finite Difference Matrix-Vector Product not supported with unsteady Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "             Approximate Matrix-Vector Product will be used.\n");
+      ts.implicit.mvp = ImplicitData::H1;
+    }
+    if (ts.dualtimestepping == TsData::OFF) {
+      com->fprintf(stderr, "*** Warning: Dual Time-stepping required for unsteady Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "             Turning on Dual Time-stepping.\n");
+      ts.dualtimestepping = TsData::ON;
+    }
+  } // END of if (problem.prec == ProblemData::PRECONDITIONED && ...
 
   if (schemes.ns.flux != SchemeData::ROE)
   {
