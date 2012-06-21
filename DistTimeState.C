@@ -804,28 +804,28 @@ void DistTimeState<dim>::add_dAW_dtau(int it, DistGeoState &geoState,
 {
 
 //  if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
-//
-//#pragma omp parallel for
-//  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-//
-//    LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
-//
-//    if(tprec.timePreconditioner()) {
-//      if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
-//        subTimeState[iSub]->add_GASPrec_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), gam, pstiff, (*irey)(iSub), tprec, LSS);
-//
-//      else if(varFcn->getType() == VarFcnBase::TAIT)
-//        subTimeState[iSub]->add_LiquidPrec_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), varFcn, Q(iSub), R(iSub), (*irey)(iSub), tprec, LSS);
-//
-//      else {
-//        fprintf(stderr, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
-//        exit(1);
-//      }
-//    }
-//    else {
-//      subTimeState[iSub]->add_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), LSS);
-//    }
-//  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+
+    if(tprec.timePreconditioner()) {
+      if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
+        subTimeState[iSub]->add_GASPrec_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), gam, pstiff, (*irey)(iSub), tprec, LSS);
+
+      else if(varFcn->getType() == VarFcnBase::TAIT)
+        subTimeState[iSub]->add_LiquidPrec_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), varFcn, Q(iSub), R(iSub), (*irey)(iSub), tprec, LSS);
+
+      else {
+        fprintf(stderr, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
+        exit(1);
+      }
+    }
+    else {
+      subTimeState[iSub]->add_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), LSS);
+    }
+  }
 }                                                                                                                      
 //------------------------------------------------------------------------------
 

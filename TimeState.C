@@ -360,6 +360,212 @@ void TimeState<dim>::computeTimeFDCoefsSpecialBDF(GeoState &geoState, TimeFDCoef
 
 }
 //-----------------------------------------------------------------------------
+
+// Add Dual-Time Derivative Term, d(AW)/dtau
+// If running Non-Modal, adds invA*d(AW)/dtau
+
+template<int dim>
+void TimeState<dim>::add_dAW_dtau(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeDualTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDtau = 1.0 / dtau[i];
+    for (int k=0; k<dim; ++k) {
+      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+      double dAWdtau = invDtau * sum; 
+      R[i][k] += dAWdtau;
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+// Add Dual-Time Derivative Term, P^-1 x d(AW)/dtau, 
+// where P is the turkel preconditioning matrix.
+// If running Non-Modal, adds invA*d(P^-1 x AW)/dtau
+
+template<int dim>
+void TimeState<dim>::add_GASPrec_dAW_dtau(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, double gam, double pstiff, Vec<double> &irey, TimeLowMachPrec &tprec, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeDualTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDtau = 1.0 / dtau[i];
+
+    if (dim<5) {
+      for (int k=0; k<dim; ++k) {
+        double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+        double dAWdtau = invDtau * sum; 
+        R[i][k] += dAWdtau;
+      }
+    }
+    else {
+      double ro = Un[i][0];
+      double invRho = 1.0/ro;
+      double u  = Un[i][1] * invRho;
+      double v  = Un[i][2] * invRho;
+      double w  = Un[i][3] * invRho;
+      double u2 = u*u;
+      double v2 = v*v;
+      double w2 = w*w;
+      double q2 = u2 + v2 + w2;
+      double gam1 = gam - 1.0;
+      double p  = gam1 * (Un[i][4] - 0.5 * ro * q2) - gam*pstiff;
+      double c2 = gam*(p+pstiff)/ro;
+      double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
+      double beta = tprec.getBeta(locMach, irey[i]);
+
+      double beta2 =   beta * beta;
+      double qhat2 = (q2 * gam1)/2.0;
+ 
+      double nu = qhat2/c2;
+      double mu = (1.0/beta2) - 1.0;
+
+      double Pinv[5][5] = { {nu*mu + 1.0,  -u*mu*gam1/c2,      -v*mu*gam1/c2,        -w*mu*gam1/c2,       mu*gam1/c2   },
+                            {u*nu*mu,     1.0 - u2*mu*gam1/c2, -u*v*mu*gam1/c2,      -u*w*mu*gam1/c2,     u*mu*gam1/c2 },
+                            {v*nu*mu,     -u*v*mu*gam1/c2 ,    1.0 - v2*mu*gam1/c2,  -v*w*mu*gam1/c2,     v*mu*gam1/c2 },
+                            {w*nu*mu,     -u*w*mu*gam1/c2 ,    -v*w*mu*gam1/c2,      1.0 - w2*mu*gam1/c2, w*mu*gam1/c2 },
+       	                  {0.5*mu*(1.0+nu)*q2,    -u*mu*(1+nu), -v*mu*(1+nu), -w*mu*(1+nu), (1.0/beta2)+mu*nu } };
+
+
+      double dAWdtau[dim],Pinv_dAWdtau[dim];
+
+      for (int k=0; k<dim; ++k) {
+        double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+        dAWdtau[k] = invDtau * sum; 
+      }
+
+      for (int k=0; k<5; ++k) {
+        Pinv_dAWdtau[k] = 0.0;
+        for (int l =0; l<5; ++l) {
+          Pinv_dAWdtau[k] = Pinv_dAWdtau[k] + Pinv[k][l]*dAWdtau[l];
+        }
+      }
+
+      //turbulence preconditioning
+      if (dim == 6) {
+        double t1 = Un[i][5] * invRho;
+        double mup = mu*t1*gam1/c2;
+        double Pt[6] = {mu*nu*t1, -mup*u, -mup*v, -mup*w, mup, 1.0};
+        for (int k=5; k<dim; ++k) {
+          Pinv_dAWdtau[k] = 0.0;
+          for (int l =0; l<dim; ++l) {
+            Pinv_dAWdtau[k] = Pinv_dAWdtau[k] + Pt[l]*dAWdtau[l];
+          }
+        }
+      }
+      else if (dim == 7) {
+        double t1 = Un[i][5] * invRho;
+        double t2 = Un[i][6] * invRho;
+        double mup1 = mu*t1*gam1/c2;
+        double mup2 = mu*t2*gam1/c2;
+        double Pt[2][7] = { {mu*nu*t1, -mup1*u, -mup1*v, -mup1*w, mup1, 1.0, 0.0},
+                            {mu*nu*t2, -mup2*u, -mup2*v, -mup2*w, mup2, 0.0, 1.0} };
+        for (int k=5; k<dim; ++k) {
+          Pinv_dAWdtau[k] = 0.0;
+          for (int l =0; l<dim; ++l) {
+            Pinv_dAWdtau[k] = Pinv_dAWdtau[k] + Pt[k-5][l]*dAWdtau[l];
+          }
+        }
+      }
+
+      for (int k=0; k<dim; ++k) {
+        R[i][k] += Pinv_dAWdtau[k];
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+// Add Time Derivative Term, P^-1 x d(AW)/dtau
+// where P is the preconditioning matrix.
+// If running Non-Modal, adds invA*d(P^-1 x AW)/dtau
+
+template<int dim>
+void TimeState<dim>::add_LiquidPrec_dAW_dtau(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, VarFcn *vf, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, Vec<double> &irey, 
+                                TimeLowMachPrec &tprec, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeDualTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDtau = 1.0 / dtau[i];
+    double dAWdtau[dim];
+
+    for (int k=0; k<dim; ++k) {
+      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+      dAWdtau[k] = invDtau * sum; 
+    }
+    double V[dim];
+    vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
+    double e = vf->computeRhoEnergy(V)/V[0];
+    double pressure = vf->getPressure(V);
+    double c = vf->computeSoundSpeed(V);
+    double c2 = c*c;
+    double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
+    double beta = tprec.getBeta(locMach,irey[i]);
+    double oobeta2 = 1.0/(beta*beta);
+    double oobeta2m1 = oobeta2 - 1.0;
+
+    double Pinv[dim];
+    for (int j=0; j<dim; j++)
+      Pinv[j] = oobeta2m1*V[j];
+    Pinv[0] = oobeta2;
+    Pinv[4] = oobeta2m1*(e+pressure/V[0] - c2);
+ 
+    for (int k=0; k<dim; ++k) {
+      R[i][k] += dAWdtau[k] + Pinv[k]*dAWdtau[0];
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void TimeState<dim>::computeDualTimeFDCoefs(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) { 
+  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+
+  coefs.c_np1 = 1.0;
+  coefs.c_n   = -1.0 * ctrlVol_n[i];
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      coefs.c_np1 *= ctrlVol[i];
+      break; }
+    case HYBRID:{
+      double invsqrtCtrlVol = 1.0 / sqrt(ctrlVol[i]);
+      coefs.c_np1 *= ctrlVol[i] * invsqrtCtrlVol;
+      coefs.c_n   *= invsqrtCtrlVol;
+      break; }
+    case NONDESCRIPTOR: {
+      double invCtrlVol = 1.0 / ctrlVol[i];
+      coefs.c_n   *= invCtrlVol;
+      break; }
+  }
+}
+//------------------------------------------------------------------------------
 template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianNoPrec(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar,neq> &A,
