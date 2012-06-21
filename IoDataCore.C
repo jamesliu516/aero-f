@@ -4090,12 +4090,6 @@ void IoData::resetInputValues()
   if (problem.prec == ProblemData::PRECONDITIONED && 
       ts.prec == TsData::PREC && problem.type[ProblemData::UNSTEADY])
   {
-    if (ts.implicit.mvp == ImplicitData::FD)
-    {
-      com->fprintf(stderr, "*** Warning: Finite Difference Matrix-Vector Product not supported with unsteady Low-Mach Preconditioning.\n");
-      com->fprintf(stderr, "             Approximate Matrix-Vector Product will be used.\n");
-      ts.implicit.mvp = ImplicitData::H1;
-    }
     if (ts.dualtimestepping == TsData::OFF) {
       com->fprintf(stderr, "*** Warning: Dual Time-stepping required for unsteady Low-Mach Preconditioning.\n");
       com->fprintf(stderr, "             Turning on Dual Time-stepping.\n");
