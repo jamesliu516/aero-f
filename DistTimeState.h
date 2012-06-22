@@ -57,6 +57,7 @@ private:
   DistVec<double> *dt;			//actual   time stepping
   DistVec<double> *idti;		//inverse inviscid time stepping
   DistVec<double> *idtv;		//inverse viscous  time stepping
+  DistVec<double> *dtau;		//dual time stepping
   DistVec<double> *irey;
   DistSVec<double,dim> *Un;
   DistSVec<double,dim> *Unm1;
@@ -106,7 +107,7 @@ public:
 
   void writeToDisk(char *);
 
-  double computeTimeStep(double, double*, int*, DistGeoState &, 
+  double computeTimeStep(double, double, double*, int*, DistGeoState &, 
 			 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   double computeTimeStep(double, double*, int*, DistGeoState &,
                          DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &, DistVec<double>* = NULL);
@@ -134,6 +135,8 @@ public:
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, 
 			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,bool requireSpecialBDF = false);
+  void add_dAW_dtau(int, DistGeoState &, DistVec<double> &, 
+		  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);

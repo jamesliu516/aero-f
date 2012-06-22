@@ -30,6 +30,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   dt  = new DistVec<double>(dom->getNodeDistInfo());
   idti = new DistVec<double>(dom->getNodeDistInfo());
   idtv = new DistVec<double>(dom->getNodeDistInfo());
+  dtau  = new DistVec<double>(dom->getNodeDistInfo());
   irey  = new DistVec<double>(dom->getNodeDistInfo());
   viscousCst = ioData.ts.viscousCst;
   Un  = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -243,7 +244,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
     if (!subTimeState[iSub])
-      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
+      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub), (*dtau)(iSub),
                                               (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
 
 }
@@ -548,13 +549,13 @@ void DistTimeState<dim>::rstVar(IoData & ioData)
 //------------------------------------------------------------------------------
 
 template<int dim>
-double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numSubCycles,
+double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, double* dtLeft, int* numSubCycles,
 					   DistGeoState &geoState, DistSVec<double,3> &X,
 					   DistVec<double> &ctrlVol, DistSVec<double,dim> &U)
 {
   varFcn->conservativeToPrimitive(U, *V);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, tprec, sprec);
+  domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *dtau, *irey, tprec, sprec);
 
   double dt_glob;
   if (data->dt_imposed > 0.0) 
@@ -738,7 +739,7 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
 
     LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
 
-    if(tprec.timePreconditioner()) {
+    if(tprec.timePreconditioner() && data->typeTimeStep == TsData::LOCAL) {
       if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
         subTimeState[iSub]->add_GASPrec_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), gam, pstiff, (*irey)(iSub), tprec, LSS);
 
@@ -796,6 +797,39 @@ void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void DistTimeState<dim>::add_dAW_dtau(int it, DistGeoState &geoState, 
+				    DistVec<double> &ctrlVol,
+				    DistSVec<double,dim> &Q, 
+				    DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
+{
+
+//  if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+
+    if(tprec.timePreconditioner()) {
+      if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
+        subTimeState[iSub]->add_GASPrec_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), gam, pstiff, (*irey)(iSub), tprec, LSS);
+
+      else if(varFcn->getType() == VarFcnBase::TAIT)
+        subTimeState[iSub]->add_LiquidPrec_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), varFcn, Q(iSub), R(iSub), (*irey)(iSub), tprec, LSS);
+
+      else {
+        fprintf(stderr, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
+        exit(1);
+      }
+    }
+    else {
+      subTimeState[iSub]->add_dAW_dtau(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), LSS);
+    }
+  }
+}                                                                                                                      
+//------------------------------------------------------------------------------
+
+template<int dim>
 template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
@@ -814,6 +848,8 @@ void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,
   }
 
 }
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 template<class Scalar, int neq>

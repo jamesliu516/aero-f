@@ -21,6 +21,7 @@ class TimeState {
   Vec<double> &dt;
   Vec<double> &idti;
   Vec<double> &idtv;
+  Vec<double> &dtau;
   SVec<double,dim> &Un;
   SVec<double,dim> &Unm1;
   SVec<double,dim> &Unm2;
@@ -28,7 +29,7 @@ class TimeState {
 
 public:
 
-  TimeState(TimeData &, Vec<double> &, Vec<double> &, Vec<double> &, SVec<double,dim> &, 
+  TimeState(TimeData &, Vec<double> &, Vec<double> &, Vec<double> &, Vec<double> &, SVec<double,dim> &, 
 	    SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
   ~TimeState() {}
 
@@ -50,6 +51,18 @@ public:
   void add_dAW_dtLS(bool *, GeoState &, Vec<double> &, 
 		    SVec<double,dimLS> &, SVec<double,dimLS> &, SVec<double,dimLS> &, 
 		    SVec<double,dimLS> &, SVec<double,dimLS> &,bool);
+
+  void add_dAW_dtau(bool *, GeoState &, Vec<double> &, 
+		  SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
+
+  void add_GASPrec_dAW_dtau(bool *, GeoState &, Vec<double> &, 
+		          SVec<double,dim> &, SVec<double,dim> &, 
+                          double, double, Vec<double> &, 
+                          TimeLowMachPrec &, LevelSetStructure *LSS=0);
+
+  void add_LiquidPrec_dAW_dtau(bool *, GeoState &, Vec<double> &, VarFcn *,
+		             SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, 
+                             TimeLowMachPrec &, LevelSetStructure *LSS=0);
 
   template<class Scalar, int neq>
   void addToJacobianNoPrec(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,
@@ -134,6 +147,7 @@ public:
 
   void computeTimeFDCoefs(GeoState &, TimeFDCoefs &, Vec<double> &, int );
   void computeTimeFDCoefsSpecialBDF(GeoState &, TimeFDCoefs &, Vec<double> &, int );
+  void computeDualTimeFDCoefs(GeoState &, TimeFDCoefs &, Vec<double> &, int );
   
 };
 
