@@ -1308,6 +1308,9 @@ struct PcData {
 
   int fill;
 
+  int num_multigrid_smooth;
+  int num_multigrid_levels;
+
   PcData();
   ~PcData() {}
 
@@ -1326,6 +1329,8 @@ struct KspData {
   int maxIts;
   int numVectors;
   double eps;
+
+  double absoluteEps;
 
   const char *output;
 

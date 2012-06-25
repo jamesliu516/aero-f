@@ -4,6 +4,9 @@
 #include <DistInfo.h>
 #include <DistVector.h>
 #include <Domain.h>
+#include <MultiGridSmoothingMatrix.h>
+#include <DistMvpMatrix.h>
+#include <DistTimeState.h>
 
 class Connectivity;
 class EdgeSet;
@@ -17,8 +20,12 @@ class MultiGridLevel {
     CommPattern<double> * nodeVolPattern;
     CommPattern<double> * nodeVecPattern;
     CommPattern<double> * nodePosnPattern;
+    CommPattern<double> * matPattern;
+    CommPattern<double> * offDiagMatPattern;
     Connectivity ** sharedNodes;
 
+    int maxNodesPerSubD;
+    mutable std::map<int,std::map<int,int> > locToGlobMap;
   protected:
     DistInfo * nodeDistInfo;
     DistInfo * edgeDistInfo;
@@ -28,6 +35,9 @@ class MultiGridLevel {
     Connectivity ** connectivity;
     EdgeSet ** edges;
     FaceSet ** faces;
+    ElemSet ** elems;
+    EdgeDef*** sharedEdges;
+    int** numSharedEdges;
 
     DistVec<int> nodeMapping;
     DistVec<int> edgeMapping;
@@ -37,6 +47,8 @@ class MultiGridLevel {
     DistSVec<int, 2> lineMap;
 
     DistVec<int> lineIDMap;
+
+    DistVec<int>* finestNodeMapping;
     
     DistVec<int> lineLocIDMap;
 
@@ -45,6 +57,12 @@ class MultiGridLevel {
     int** lineLengths;
 
     std::vector<int>* lineids;
+
+    void identifyEdges(CommPattern<int> &edgeNumPat, int mySub);
+
+    void sndEdgeInfo(CommPattern<int> &edgeNumPat, int mySub);
+
+    void rcvEdgeInfo(CommPattern<int> &edgeNumPat, int mySub,int dim);
 
   public:
     MultiGridLevel(Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
@@ -55,27 +73,44 @@ class MultiGridLevel {
     Connectivity ** getConnectivity() { return connectivity; }
     EdgeSet ** getEdges()             { return edges; }
     FaceSet ** getFaces()             { return faces; }
+    ElemSet ** getElems()             { return elems; }
     DistGeoState& getDistGeoState()   { return *distGeoState; }
     CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
     Connectivity ** getSharedNodes()  { return sharedNodes; }
 
+    EdgeDef*** getSharedEdges() { return sharedEdges; }
+    int** getNumSharedEdges() { return numSharedEdges; }
+
+    DistVec<int>* getFinestNodeMapping() { return finestNodeMapping; }
+
     void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, DistGeoState& refinedGeoState, Domain& domain);
 
     void agglomerate(const DistInfo& refinedNodeDistInfo,
+                     const DistInfo& refinedEdgeDistInfo,
                      CommPattern<int>& refinedNodeIdPattern,
                      DistGeoState& refinedDistGeoState,
                      Connectivity** refinedSharedNodes,
                      Connectivity ** nToN, EdgeSet ** edges,
-                     FaceSet ** faces,
-                     Domain& domain,int dim);
+                     FaceSet ** faces,ElemSet** elems,
+                     EdgeDef***, int**,
+                     Domain& domain,int dim,
+                     DistVec<int>*);
 
     void computeRestrictedQuantities(const DistGeoState& refinedGeoState);
 
     template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
                                                    DistSVec<Scalar2, dim>& coarseData) const;
-    template<class Scalar2, int dim> void Prolong(const MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
+    template<class Scalar2>void Restrict(const MultiGridLevel<Scalar>& fineGrid,
+                                         const DistVec<Scalar2>& fineData,
+                                         DistVec<Scalar2>& coarseData) const;
+    template<class Scalar2, int dim> void Prolong(MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
                                                   const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData) const;
+
+    template<class Scalar2, int dim>
+    void RestrictOperator(const MultiGridLevel<Scalar>& fineGrid,
+                          DistMat<Scalar2,dim>& fineOperator,
+                          DistMat<Scalar2,dim>& coarseOperator);
 
     bool isLine(int iSub,int edgei,int edgej, int* lineid, int* loci, int* locj);
 
@@ -86,13 +121,26 @@ class MultiGridLevel {
 
     template <class Scalar2,int dim>
     void assemble(DistSVec<Scalar2,dim>& V);
+    template <class Scalar2,int dim>
+    void assembleMax(DistSVec<Scalar2,dim>& V);
 
     template <class Scalar2,int dim,int neq> 
-    void computeJacobian(DistSVec<Scalar2,dim>& V,
+    void computeJacobian(DistSVec<Scalar2,dim>& U,DistSVec<Scalar2,dim>& V,
                          DistVec<Scalar2>& irey,
-                         FluxFcn **fluxFcn, BcData<dim> &bcData,
-                         DistMat<Scalar2,neq> &A);
+                         FluxFcn **fluxFcn, DistBcData<dim> &bcData,
+                         FemEquationTerm* fet,DistMvpMatrix<Scalar2,neq>&,
+                         DistTimeState<dim>*);
 
+    template <class Scalar2,int dim>
+    void computeMatVecProd(DistMvpMatrix<Scalar2,dim>& mat,
+                           DistSVec<Scalar2,dim>& p,
+                           DistSVec<Scalar2,dim>& prod);
+
+    void WriteTopFile(const std::string& fileName);
+
+    template <int dim>
+    void writeXpostFile(const std::string& fileName,
+                        DistSVec<Scalar,dim>& val,int id);
 };
 
 #endif

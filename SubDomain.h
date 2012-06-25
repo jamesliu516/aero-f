@@ -81,6 +81,17 @@ template<class Scalar, int dim> class GenMat;
 
 struct EdgeDef {
 
+  EdgeDef() { }
+
+  EdgeDef(int glLeft, int glRight, int edgeNum, 
+          int sign) : glLeft(glLeft), glRight(glRight),
+                      edgeNum(edgeNum), sign(sign) {
+
+  }
+
+  EdgeDef(const EdgeDef& oth) : glLeft(oth.glLeft), glRight(oth.glRight),
+                                edgeNum(oth.edgeNum), sign(oth.sign) { }
+
   int glLeft, glRight, edgeNum, sign;
 
   bool operator<(const EdgeDef &e) const
@@ -181,6 +192,9 @@ public:
   int *getRcvChannel() { return rcvChannel; }
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
+
+  EdgeDef** getSharedEdges() { return sharedEdges; }
+  const int* getNumSharedEdges() const { return numSharedEdges; }
 
 	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
 

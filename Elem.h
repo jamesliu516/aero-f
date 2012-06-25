@@ -879,6 +879,8 @@ class ElemSet {
 
 public:
 
+  BlockAlloc& getBlockAllocator() { return memElems; }
+
   ElemSet(int);
   ~ElemSet();
 

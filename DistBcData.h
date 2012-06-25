@@ -24,6 +24,9 @@ template<int dim>
 class DistBcData {
 
 protected:
+  
+  DistInfo& nodeDistInfo,&inletNodeDistInfo,&faceDistInfo;
+   
   enum BoundaryFluid { GAS=0, TAIT=1, JWL=2 } boundaryFluid;
   /** angles of the incoming flow
      *
@@ -81,6 +84,7 @@ protected:
   double dtrefdMach;
   double dvrefdMach;
 
+
 protected:
 
   void finalize(DistSVec<double,3> &);
@@ -90,7 +94,8 @@ protected:
 
 public:
 
-  DistBcData(IoData &, VarFcn *, Domain *);
+  DistBcData(IoData &, VarFcn *, Domain *,DistInfo* nodeDistInfo = 0,
+              DistInfo* inletNodeDistInfo = 0, DistInfo* faceDistInfo = 0);
   virtual ~DistBcData();
 
   BcData<dim> &operator() (int i) const { return *subBcData[i]; }

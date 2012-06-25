@@ -158,6 +158,8 @@ class Domain {
 
 	int output_newton_step;	// for writing newton residual snapshots
 
+  Connectivity* mySubToSub;
+
 public:
 
   Domain();
@@ -175,6 +177,9 @@ public:
     int** empty = 0;
     return empty;
   }
+ 
+  Connectivity* getSubToSub() { return mySubToSub; } 
+  
   int *getOutputNewtonStep() { return &output_newton_step; }	// allow functions to change it
   BCApplier* getMeshMotionBCs() const { return meshMotionBCs; } //HB
   CommPattern<double> *getVecPat() const { return vecPat; }

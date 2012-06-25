@@ -384,6 +384,10 @@ protected:
 
 public:
 
+  int getEdgeNum(int i) { return edgeNum(i); }
+
+  virtual void setEdgeNum(int edge_id, int l) = 0;
+
   void attachHigherOrderMF(class HigherOrderMultiFluid* mf) { higherOrderMF = mf; }
 
   // Number of nodes

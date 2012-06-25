@@ -201,13 +201,13 @@ void TimeState<dim>::addToJacobianNoPrec(bool *nodeFlag, Vec<double> &ctrlVol, G
 
   if(!nodeType){
     for (int i=0; i<dt.size(); ++i) 
-      addToJacobianNoPrecLocal(i, ctrlVol[i], U, A);
+      addToJacobianNoPrecLocal(i, ctrlVol[i], U, A,i);
 
   }else{
     for (int i=0; i<dt.size(); ++i) 
       if(!(nodeType[i]==BC_INLET_MOVING || nodeType[i]==BC_OUTLET_MOVING ||
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED) )
-        addToJacobianNoPrecLocal(i, ctrlVol[i], U, A);
+        addToJacobianNoPrecLocal(i, ctrlVol[i], U, A,i);
   }
 
 }
@@ -246,18 +246,20 @@ void TimeState<dim>::addToJacobianLS(bool* nodeFlag,Vec<double> &ctrlVol, GenMat
 template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol, 
-					SVec<double,dim> &U, GenMat<Scalar,neq> &A)
+					SVec<double,dim> &U, GenMat<Scalar,neq> &A,
+                                        int dt_i)
 {
   double c_np1;
+  //std::cout << i << " " << U[i][0] << " " << dt_i << " " << dt[dt_i] << std::endl;
   switch (descriptorCase) {
     case DESCRIPTOR: {
-      c_np1 = data.alpha_np1 * vol / dt[i];
+      c_np1 = data.alpha_np1 * vol / dt[dt_i];
       break; }
     case HYBRID: {
-      c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      c_np1 = data.alpha_np1 * sqrt(vol) / dt[dt_i];
       break; }
     case NONDESCRIPTOR : { 
-      c_np1 = data.alpha_np1 / dt[i];
+      c_np1 = data.alpha_np1 / dt[dt_i];
       break; }
   }
   Scalar *Aii = A.getElem_ii(i);

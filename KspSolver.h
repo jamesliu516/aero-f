@@ -26,6 +26,7 @@ protected:
 
   int maxits;
   double eps;
+  double absoluteEps;
   bool checkFinalRes;
 
   MatVecProdOp *mvpOp;

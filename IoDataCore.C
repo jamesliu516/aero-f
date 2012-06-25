@@ -2331,6 +2331,8 @@ PcData::PcData()
 
   fill = 0;
 
+  num_multigrid_smooth = 5;
+  num_multigrid_levels = 5;
 }
 
 //------------------------------------------------------------------------------
@@ -2350,6 +2352,8 @@ void PcData::setup(const char *name, ClassAssigner *father)
 
   new ClassInt<PcData>(ca, "Fill", this, &PcData::fill);
 
+  new ClassInt<PcData>(ca, "NumMultiGridSmooth",this, &PcData::num_multigrid_smooth);
+  new ClassInt<PcData>(ca, "NumMultiGridLevels",this, &PcData::num_multigrid_levels);
 }
 
 //------------------------------------------------------------------------------
@@ -2364,6 +2368,8 @@ KspData::KspData()
   maxIts = 30;
   numVectors = 30;
   eps = 1.e-2;
+
+  absoluteEps = 0.0;
 
   output = "";
 
@@ -2393,6 +2399,7 @@ void KspData::setup(const char *name, ClassAssigner *father)
   new ClassInt<KspData>(ca, "KrylovVectors", this, &KspData::numVectors);
 
   new ClassDouble<KspData>(ca, "Eps", this, &KspData::eps);
+  new ClassDouble<KspData>(ca, "AbsoluteEps", this, &KspData::absoluteEps);
 
   new ClassStr<KspData>(ca, "Output", this, &KspData::output);
 
