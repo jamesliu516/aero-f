@@ -15,6 +15,7 @@
 #include <Timer.h>
 
 #include "OneDimensionalSolver.h"
+#include "DebugTools.h"
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
@@ -64,6 +65,11 @@ int main(int argc, char **argv)
   signal(SIGUSR1, processSignal);
 
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
+
+#ifdef AEROF_MPI_DEBUG
+
+  DebugTools::TryWaitForDebug();
+#endif
 
   Domain domain;
   Timer *timer = domain.getTimer();

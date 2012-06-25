@@ -38,16 +38,17 @@ template <class Scalar, int dim>
 void MultiGridSmoothingMatrix<Scalar,dim>::
 getData(GenMat<Scalar,dim>& mat) {
 
-  switch (mySmoothingMode) {
+  // A coarse level exists
+  if (mySmoothingMode == LineJacobi) {
 
-    case BlockJacobi:
-      getDataBlockJacobi(mat);
-      break;
-    case LineJacobi:
+    if (mgLevel) {
       getDataLineJacobi(mat);
-      break;
-    default:
-      break;
+    } else {
+
+    }
+  } else {
+    
+    getDataBlockJacobi(mat);
   }
 }
 
