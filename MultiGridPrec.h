@@ -45,6 +45,8 @@ class MultiGridPrec : public KspPrec<dim, Scalar2>, public DistMat<Scalar2,dim> 
 
   bool ownsFineA;
 
+  Domain* domain;
+
 public:
 
   MultiGridPrec(Domain *, DistGeoState &, PcData&,
