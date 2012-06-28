@@ -79,13 +79,15 @@ getDataBlockJacobi(GenMat<Scalar,dim>& mat) {
  
     memcpy(a[i], mat.getElem_ii(i), sizeof(Scalar)*dim*dim);
     DenseMatrixOp<Scalar,dim,20>::ludec(a[i],(*indices)[i],1.0,dim);
+    //memcpy(a[i+n], mat.getElem_ii(i), sizeof(Scalar)*dim*dim);
   }
- 
+/* 
   for (int i = 0; i < numEdges; ++i) {
  
     memcpy(a[2*i+n],mat.getElem_ij(i),sizeof(Scalar)*dim*dim);
     memcpy(a[2*i+n+1],mat.getElem_ji(i),sizeof(Scalar)*dim*dim);
   }
+*/
 }
 
 template <class Scalar, int dim>
@@ -148,9 +150,22 @@ void MultiGridSmoothingMatrix<Scalar,dim>::
 smoothBlockJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
 
   du = r;
+  //double tmp[dim],dtmp[dim];
   for (int i = 0; i < n; ++i) {
 
+    //memcpy(tmp,du[i],sizeof(Scalar)*dim);
     DenseMatrixOp<Scalar,dim,20>::ludfdbksb(a[i],(*indices)[i], du[i], dim);
+    /*for (int j = 0 ; j < dim; ++j) {
+
+      dtmp[j] = 0.0;
+      for (int k = 0; k < dim; ++k)
+        dtmp[j] += a[i+n][j*dim+k]*du[i][k];
+      if (fabs(dtmp[j]-tmp[j]) > 1.0e-6) {
+        std::cout << "Error: " << std::endl;
+        for (int l = 0; l < dim*dim; ++l)
+          std::cout << a[i+n][l] << " ";
+      }
+    }*/
   }
 }
 

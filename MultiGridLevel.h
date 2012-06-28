@@ -34,21 +34,15 @@ class MultiGridLevel {
     bool ownsData;
     Connectivity ** connectivity;
     EdgeSet ** edges;
-    FaceSet ** faces;
-    ElemSet ** elems;
     EdgeDef*** sharedEdges;
     int** numSharedEdges;
 
     DistVec<int> nodeMapping;
     DistVec<int> edgeMapping;
 
-    DistGeoState * distGeoState;
-
     DistSVec<int, 2> lineMap;
 
     DistVec<int> lineIDMap;
-
-    DistVec<int>* finestNodeMapping;
     
     DistVec<int> lineLocIDMap;
 
@@ -72,26 +66,19 @@ class MultiGridLevel {
     DistInfo& getEdgeDistInfo()       { return *edgeDistInfo; }
     Connectivity ** getConnectivity() { return connectivity; }
     EdgeSet ** getEdges()             { return edges; }
-    FaceSet ** getFaces()             { return faces; }
-    ElemSet ** getElems()             { return elems; }
-    DistGeoState& getDistGeoState()   { return *distGeoState; }
     CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
     Connectivity ** getSharedNodes()  { return sharedNodes; }
 
     EdgeDef*** getSharedEdges() { return sharedEdges; }
     int** getNumSharedEdges() { return numSharedEdges; }
 
-    DistVec<int>* getFinestNodeMapping() { return finestNodeMapping; }
-
     void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, DistGeoState& refinedGeoState, Domain& domain);
 
     void agglomerate(const DistInfo& refinedNodeDistInfo,
                      const DistInfo& refinedEdgeDistInfo,
                      CommPattern<int>& refinedNodeIdPattern,
-                     DistGeoState& refinedDistGeoState,
                      Connectivity** refinedSharedNodes,
                      Connectivity ** nToN, EdgeSet ** edges,
-                     FaceSet ** faces,ElemSet** elems,
                      EdgeDef***, int**,
                      Domain& domain,int dim,
                      DistVec<int>*);
@@ -124,15 +111,8 @@ class MultiGridLevel {
     template <class Scalar2,int dim>
     void assembleMax(DistSVec<Scalar2,dim>& V);
 
-    template <class Scalar2,int dim,int neq> 
-    void computeJacobian(DistSVec<Scalar2,dim>& U,DistSVec<Scalar2,dim>& V,
-                         DistVec<Scalar2>& irey,
-                         FluxFcn **fluxFcn, DistBcData<dim> &bcData,
-                         FemEquationTerm* fet,DistMvpMatrix<Scalar2,neq>&,
-                         DistTimeState<dim>*);
-
     template <class Scalar2,int dim>
-    void computeMatVecProd(DistMvpMatrix<Scalar2,dim>& mat,
+    void computeMatVecProd(DistMat<Scalar2,dim>& mat,
                            DistSVec<Scalar2,dim>& p,
                            DistSVec<Scalar2,dim>& prod);
 

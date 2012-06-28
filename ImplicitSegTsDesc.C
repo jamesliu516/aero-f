@@ -265,7 +265,7 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
 {
 
   DistMat<PrecScalar,neq> *_pc = dynamic_cast<DistMat<PrecScalar,neq> *>(pc);
-  DistMat<double,dim> *_pc2 = dynamic_cast<DistMat<double,dim> *>(pc);
+  DistMat<double,neq> *_pc2 = dynamic_cast<DistMat<double,neq> *>(pc);
 
   if (_pc || _pc2) {
 
