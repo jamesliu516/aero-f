@@ -4,6 +4,7 @@
 #include <Vector.h>
 #include <GenMatrix.h>
 #include <BlockTridiagonalMatrix.h>
+#include <SparseMatrix.h>
 
 template <class Scalar>
 class MultiGridLevel;
@@ -15,7 +16,7 @@ class MultiGridSmoothingMatrix : public GenMat<Scalar,dim> {
 
  public:
 
-  enum SmoothingMode { BlockJacobi, LineJacobi };
+  enum SmoothingMode { BlockJacobi, LineJacobi, RAS };
 
   MultiGridSmoothingMatrix(SmoothingMode m,int iSub,
                            int nn, int ne, int nBC,
@@ -66,10 +67,15 @@ class MultiGridSmoothingMatrix : public GenMat<Scalar,dim> {
   void getDataLineJacobi(GenMat<Scalar,dim>& mat);
   
   void smoothLineJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du);
+  
+  void smoothRAS(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du);
 
   MultiGridLevel<Scalar>* mgLevel,*mgLevelRefined;
 
   int numLines;
+
+  SparseMat<Scalar,dim> *iluA;
+  Vec<int>* iluJW;
 };
 
 #endif

@@ -150,7 +150,9 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
   sharedNodes = new Connectivity*[numLocSub];
 
   sharedEdges = new EdgeDef**[numLocSub];
-  numSharedEdges = new int*[numLocSub]; 
+  numSharedEdges = new int*[numLocSub];
+  numNodes = new int[numLocSub]; 
+  nodeToNodeMaskILU = new Connectivity*[numLocSub];
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -170,6 +172,8 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
       memcpy(sharedEdges[iSub][jSub], subD.getSharedEdges()[jSub], 
              sizeof(EdgeDef)*numSharedEdges[iSub][jSub]);
     }
+
+    numNodes[iSub] = subD.numNodes();
   }
   nodeDistInfo->finalize(true);
   edgeDistInfo->finalize(true);
@@ -533,6 +537,138 @@ void MultiGridLevel<Scalar>::rcvEdgeInfo(CommPattern<int> &edgeNumPat,int mySub,
   edges[mySub]->setMasterFlag(edgeMasterFlag);
 }
 
+template<class Scalar>
+Connectivity* MultiGridLevel<Scalar>::createEdgeBasedConnectivity(int iSub)
+{
+
+  int numNodesLocal = numNodes[iSub];
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * numNodesLocal));
+
+  int i;
+  for (i=0; i<numNodesLocal; ++i) numNeigh[i] = 1;
+
+  int (*edgePtr)[2] = edges[iSub]->getPtr();
+
+  int l;
+  for (l=0; l<edges[iSub]->size(); ++l) {
+    ++numNeigh[ edgePtr[l][0] ];
+    ++numNeigh[ edgePtr[l][1] ];
+  }
+
+  int nnz = 0;
+  for (i=0; i<numNodesLocal; ++i) nnz += numNeigh[i];
+
+  if (nnz != (2*edges[iSub]->size() + numNodesLocal)) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[numNodesLocal+1];
+
+  ia[0] = 0;
+
+  for (i=0; i<numNodesLocal; ++i) ia[i+1] = ia[i] + numNeigh[i];
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (i=0; i<numNodesLocal; ++i) {
+    ja[ia[i]] = i;
+    numNeigh[i] = 1;
+  }
+
+  for (l=0; l<edges[iSub]->size(); ++l) {
+
+    int i1 = edgePtr[l][0];
+    int i2 = edgePtr[l][1];
+
+    ja[ ia[i1] + numNeigh[i1] ] = i2;
+    ++numNeigh[i1];
+
+    ja[ ia[i2] + numNeigh[i2] ] = i1;
+    ++numNeigh[i2];
+
+  }
+
+  for (i=0; i<numNodesLocal; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  Connectivity *nodeToNode = new Connectivity(numNodesLocal, ia, ja);
+
+  return nodeToNode;
+
+}
+
+template<class Scalar>
+compStruct* MultiGridLevel<Scalar>::createRenumbering(int iSub,Connectivity *nodeToNode,
+					 int typeRenum, int print)
+{
+
+  int numNodesLocal = numNodes[iSub];
+
+  compStruct *nodeRenum = nodeToNode->renumByComponent(typeRenum);
+
+  int *order = new int[numNodesLocal];
+
+  int i;
+  for (i=0; i<numNodesLocal; ++i) order[i] = -1;
+
+  for (i=0; i<numNodesLocal; ++i)
+    if (nodeRenum->renum[i] >= 0) order[nodeRenum->renum[i]] = i;
+
+  nodeRenum->order = order;
+
+  int *ia = (*nodeToNode).ptr();
+  int *ja = (*nodeToNode)[0];
+  double aa;
+  double (*a)[1] = reinterpret_cast<double (*)[1]>(&aa);
+
+  SparseMat<double,1> A(numNodesLocal, ia[numNodesLocal], ia, ja, a, 0, 0);
+
+  //if (print == 1)
+  //  F77NAME(psplotmask)(numNodesLocal, ia, ja, 0, 10+globSubNum);
+
+  A.permute(nodeRenum->renum);
+
+  //if (print == 1)
+  //  F77NAME(psplotmask)(numNodesLocal, ia, ja, 0, 50+globSubNum);
+
+  return nodeRenum;
+
+}
+template<class Scalar>
+template<int dim>
+SparseMat<Scalar,dim>* MultiGridLevel<Scalar>::createMaskILU(int iSub,int fill, 
+                                                             int renum, int *ndType)
+{
+
+  nodeToNodeMaskILU[iSub] = createEdgeBasedConnectivity(iSub);
+
+  compStruct *nodeRenum = createRenumbering(iSub,nodeToNodeMaskILU[iSub], renum, 0);
+
+  int *ia = (*nodeToNodeMaskILU[iSub]).ptr();
+  int *ja = (*nodeToNodeMaskILU[iSub])[0];
+  int n = numNodes[iSub];
+  int nnz = ia[n];
+
+  SparseMat<Scalar,dim> *A = new SparseMat<Scalar,dim>(n, nnz, ia, ja, 0, nodeRenum, ndType);
+
+  A->symbolicILU(fill);
+
+  A->createPointers(*edges[iSub]);
+
+  return A;
+
+}
+
 
 template<class Scalar>
 void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
@@ -547,7 +683,9 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 {
   static int cnt = 0;
   ++cnt;
-  int * numNodes = new int[numLocSub];
+  numNodes = new int[numLocSub];
+  nodeToNodeMaskILU = new Connectivity*[numLocSub];
+
   nodeIdPattern = new CommPattern<int>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<int>::CopyOnSend);
   nodeVolPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   nodeVecPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
@@ -630,8 +768,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
           if(std::find(agglom.begin(), agglom.end(), neighbor) == agglom.end()) {
             assert(refinedEdges[iSub]->length(refinedEdges[iSub]->findOnly(current_node, neighbor)) > 0.0);
-            if (cnt < 4)
-              weights[neighbor] += 1.0/refinedEdges[iSub]->length(refinedEdges[iSub]->findOnly(current_node, neighbor));
+            //if (cnt < 4)
+            weights[neighbor] += 1.0/refinedEdges[iSub]->length(refinedEdges[iSub]->findOnly(current_node, neighbor));
           }
         }
 
@@ -715,23 +853,14 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   maxNodesPerSubD = 0;
   for(int iSub = 0; iSub < numLocSub; ++iSub) maxNodesPerSubD = max(maxNodesPerSubD, nodeMapping(iSub).size());
-  domain.getCommunicator()->fprintf(stdout,"hello6");
-  fflush(stdout);
  
   domain.getCommunicator()->globalMax(1, &maxNodesPerSubD);
-
-  domain.getCommunicator()->fprintf(stdout,"hello5n");
-  fflush(stdout);
-
-  //if (maxNodesPerSubD == 405)
-  //  exit(-1); 
  
   int tot_nodes = 0;
   for(int iSub = 0; iSub < numLocSub; ++iSub) tot_nodes += numNodes[iSub];
   domain.getCommunicator()->globalSum(1,&tot_nodes);
-  //std::cout << "Num Nodes = " << tot_nodes << std::endl;
-  domain.getCommunicator()->fprintf(stdout,"hello4\n");
-  fflush(stdout);
+
+  domain.getCommunicator()->fprintf(stdout,"Total # of nodes on coarse grid: %d\n", tot_nodes);
  
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub)
@@ -743,10 +872,6 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   ::assemble(domain, refinedNodeIdPattern, refinedSharedNodes, ownerSubDomain, maxOp);
   ::assemble(domain, refinedNodeIdPattern, refinedSharedNodes, nodeMapping, maxOp);
-  
-  domain.getCommunicator()->fprintf(stdout,"hello3\n");
-  fflush(stdout);
-
   
   std::set<int> globNodeIds;
 #pragma omp parallel for
@@ -837,9 +962,6 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   //std::cout << "gl node size " << globNodeIds.size() << std::endl;
   
-  domain.getCommunicator()->fprintf(stdout,"hello2\n");
-  fflush(stdout);
-
 
   std::set< std::pair<int,int> > globalEdges;
 
@@ -996,16 +1118,9 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       
       }
     }
-  domain.getCommunicator()->barrier();
-  domain.getCommunicator()->fprintf(stdout,"hello1\n");
-  fflush(stdout);
-  domain.getCommunicator()->barrier();
 
   }
 
-  delete []numNodes;
-
-  domain.getCommunicator()->barrier();
 }
 
 //------------------------------------------------------------------------------
@@ -1322,7 +1437,9 @@ void MultiGridLevel<Scalar>::computeMatVecProd(DistMat<Scalar2,dim>& mat,
                                                     DistMat<double,dim>& coarseOperator); \
   template void MultiGridLevel<T>::writeXpostFile(const std::string&, \
                                                     DistSVec<T,dim>&, \
-                                                    int);
+                                                    int); \
+  template SparseMat<T,dim>* MultiGridLevel<T>::createMaskILU(int iSub,int fill,  \
+                                           int renum, int *ndType);
 
 #define INSTANTIATION_HELPER2(T) \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistVec<double> &, DistVec<double> &) const; 
@@ -1340,5 +1457,5 @@ INSTANTIATION_HELPER(float,1);
 INSTANTIATION_HELPER(float,2);
 INSTANTIATION_HELPER(float,5);
 INSTANTIATION_HELPER(float,6);
-INSTANTIATION_HELPER(float,7);
 */
+

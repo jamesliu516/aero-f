@@ -7,6 +7,7 @@
 #include <MultiGridSmoothingMatrix.h>
 #include <DistMvpMatrix.h>
 #include <DistTimeState.h>
+#include <SparseMatrix.h>
 
 class Connectivity;
 class EdgeSet;
@@ -23,7 +24,7 @@ class MultiGridLevel {
     CommPattern<double> * matPattern;
     CommPattern<double> * offDiagMatPattern;
     Connectivity ** sharedNodes;
-
+    Connectivity** nodeToNodeMaskILU;
     int maxNodesPerSubD;
     mutable std::map<int,std::map<int,int> > locToGlobMap;
   protected:
@@ -49,6 +50,8 @@ class MultiGridLevel {
     int* numLines;
 
     int** lineLengths;
+
+    int* numNodes;
 
     std::vector<int>* lineids;
 
@@ -121,6 +124,15 @@ class MultiGridLevel {
     template <int dim>
     void writeXpostFile(const std::string& fileName,
                         DistSVec<Scalar,dim>& val,int id);
+
+    Connectivity* createEdgeBasedConnectivity(int iSub);
+    compStruct* createRenumbering(int iSub,Connectivity *nodeToNode,
+ 		 		  int typeRenum, int print);
+
+
+    template <int dim>
+    SparseMat<Scalar,dim>* createMaskILU(int iSub,int fill, 
+                                         int renum, int *ndType);
 };
 
 #endif

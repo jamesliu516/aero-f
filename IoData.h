@@ -1305,11 +1305,19 @@ struct PcData {
 
   enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5, MG = 6} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
+  
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
 
   int fill;
 
-  int num_multigrid_smooth;
+  int num_multigrid_smooth1,num_multigrid_smooth2;
   int num_multigrid_levels;
+
+  int mg_output;
+
+  double mg_smooth_relax;
+
+  int num_fine_sweeps;
 
   PcData();
   ~PcData() {}
