@@ -19,7 +19,7 @@ template<class Scalar,int dim,class Scalar2 = double> class MultiGridPrecJacobiP
 template<class Scalar, int dim,class Scalar2 = double>
 class MultiGridPrec : public KspPrec<dim, Scalar2>, public DistMat<Scalar2,dim> {
 
-  int nSmooth;
+  int nSmooth1,nSmooth2;
 
   double relaxationFactor;
 
@@ -47,6 +47,10 @@ class MultiGridPrec : public KspPrec<dim, Scalar2>, public DistMat<Scalar2,dim> 
 
   Domain* domain;
 
+  int output;
+
+  int fine_sweeps;
+
 public:
 
   MultiGridPrec(Domain *, DistGeoState &, PcData&,
@@ -63,7 +67,7 @@ public:
                DistTimeState<dim>* timeState);*/
 
   void smooth(int level,DistSVec<Scalar2,dim>& x,
-              const DistSVec<Scalar2,dim>& f);
+              const DistSVec<Scalar2,dim>& f,int steps);
   
   DistMat<Scalar2,dim> &operator= (const Scalar2 s) { return macroA[0]->operator = (s); }
 

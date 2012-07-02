@@ -2331,8 +2331,15 @@ PcData::PcData()
 
   fill = 0;
 
-  num_multigrid_smooth = 5;
+  num_multigrid_smooth1 = 5;
   num_multigrid_levels = 5;
+  num_multigrid_smooth2 = 5;
+  
+  mg_smooth_relax = 1.0;
+  mg_smoother = MGJACOBI;
+  mg_output = 0;
+
+  num_fine_sweeps = 5; 
 }
 
 //------------------------------------------------------------------------------
@@ -2351,9 +2358,17 @@ void PcData::setup(const char *name, ClassAssigner *father)
 			 "Natural", 0, "Rcm", 1);
 
   new ClassInt<PcData>(ca, "Fill", this, &PcData::fill);
+  new ClassInt<PcData>(ca, "MultiGridOutput", this, &PcData::mg_output);
+  new ClassDouble<PcData>(ca, "MultiGridSmoothingRelaxation", this, &PcData::mg_smooth_relax);
+  
+  new ClassToken<PcData>(ca, "MultiGridSmoother", this,
+			 reinterpret_cast<int PcData::*>(&PcData::mg_smoother), 3,
+			 "BlockJacobi",0,"LineJacobi",1,"RAS",2);
 
-  new ClassInt<PcData>(ca, "NumMultiGridSmooth",this, &PcData::num_multigrid_smooth);
+  new ClassInt<PcData>(ca, "NumMultiGridSmooth1",this, &PcData::num_multigrid_smooth1);
+  new ClassInt<PcData>(ca, "NumMultiGridSmooth2",this, &PcData::num_multigrid_smooth2);
   new ClassInt<PcData>(ca, "NumMultiGridLevels",this, &PcData::num_multigrid_levels);
+  new ClassInt<PcData>(ca, "NumFineSweeps",this, &PcData::num_fine_sweeps);
 }
 
 //------------------------------------------------------------------------------

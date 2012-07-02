@@ -22,6 +22,12 @@ MultiGridSmoothingMatrix(SmoothingMode m, int isub,
   
   switch (mySmoothingMode) {
 
+   case RAS:
+
+    iluA = mgLevelRefined->template createMaskILU<dim>(iSub,0,PcData::RCM, NULL);
+    iluJW = new Vec<int>(nn);
+    break;
+
    case LineJacobi:
    case BlockJacobi:
 
@@ -46,6 +52,10 @@ getData(GenMat<Scalar,dim>& mat) {
     } else {
 
     }
+  } else if (mySmoothingMode == RAS) {
+
+    iluA->getData(mat);
+    iluA->numericILU(iluJW->data()); 
   } else {
     
     getDataBlockJacobi(mat);
@@ -63,6 +73,9 @@ smooth(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
       break;
     case LineJacobi:
       smoothLineJacobi(r,du);
+      break;
+    case RAS:
+      smoothRAS(r,du);
       break;
     default:
       break;
@@ -151,10 +164,16 @@ smoothBlockJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
 
   du = r;
   //double tmp[dim],dtmp[dim];
+  bool* masterFlag = mgLevelRefined->getNodeDistInfo().getMasterFlag(iSub);
   for (int i = 0; i < n; ++i) {
 
     //memcpy(tmp,du[i],sizeof(Scalar)*dim);
-    DenseMatrixOp<Scalar,dim,20>::ludfdbksb(a[i],(*indices)[i], du[i], dim);
+    if (!masterFlag[i]) {
+
+      memset(du[i],0,sizeof(Scalar)*dim);
+    }  
+    else
+      DenseMatrixOp<Scalar,dim,20>::ludfdbksb(a[i],(*indices)[i], du[i], dim);
     /*for (int j = 0 ; j < dim; ++j) {
 
       dtmp[j] = 0.0;
@@ -209,6 +228,20 @@ smoothLineJacobi(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
     }
   }
 
+}
+
+template <class Scalar, int dim>
+void MultiGridSmoothingMatrix<Scalar,dim>::
+smoothRAS(SVec<Scalar,dim>& r, SVec<Scalar,dim>& du) {
+
+  SVec<Scalar,dim> tmp(r);
+  iluA->lusol(tmp,du);
+  bool* masterFlag = mgLevelRefined->getNodeDistInfo().getMasterFlag(iSub);
+  for (int i = 0; i < n; ++i) { 
+    if (masterFlag[i])
+      continue;
+    memset(du[i],0,sizeof(Scalar)*dim);
+  }
 }
 
 #define INST_HELPER(type,dim) \

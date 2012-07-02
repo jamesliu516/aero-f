@@ -38,11 +38,14 @@ template<class Scalar,int dim,class Scalar2>
 class MultiGridPrecJacobiPrec {
 
   MultiGridSmoothingMatrix<Scalar,dim>** smoothingMatrices;
+  MultiGridLevel<Scalar>* level;
 
  public:
 
-  MultiGridPrecJacobiPrec(MultiGridSmoothingMatrix<Scalar,dim>** smoothingMatrices) :
-                         smoothingMatrices(smoothingMatrices) { }
+  MultiGridPrecJacobiPrec(MultiGridSmoothingMatrix<Scalar,dim>** smoothingMatrices,
+                          MultiGridLevel<Scalar>* level) :
+                         smoothingMatrices(smoothingMatrices),
+                         level(level) { }
 
   ~MultiGridPrecJacobiPrec() { }
 
@@ -54,6 +57,7 @@ class MultiGridPrecJacobiPrec {
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       smoothingMatrices[iSub]->smooth(x(iSub),b(iSub));
     }
+    level->assemble(b);
   }
 };
 
@@ -63,66 +67,18 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
     macroValues(new DistSVec<Scalar2,dim>*[num_levels]), macroValuesTmp(new DistSVec<Scalar2,dim>*[num_levels]), geoState(distGeoState)
 {
 
-  double A[25] = { 
-       1,
-     2,
-     3,
-     4,
-     5,
-     6,
-    10,
-     2,
-     5,
-     6,
-    11,
-    15,
-     7,
-     8,
-    12,
-     9,
-    22,
-    25,
-    34,
-     1,
-    11,
-    44,
-    36,
-    23,
-    17};
-  int idx[5];
-  double b[5] = { 0.7577,
-    0.7431,
-    0.3922,
-    0.6555,
-    0.1712};//{1,2,3,4,5};
-
-  double t;
-  /*for (int i = 0; i < 5; ++i) {
-
-    for (int j = 0; j < i; ++j) {
-
-      t = A[i*5+j];
-      A[i*5+j] = A[j*5+i];
-      A[j*5+i] = t;
-    }
-  } */
- 
-  DenseMatrixOp<Scalar2,5,20>::ludec(A,idx,1.0,5);
-  //for (int i = 0; i < 25; ++i)
-  //  std::cout << A[i] << " "; 
-  DenseMatrixOp<Scalar2,5,20>::ludfdbksb(A,idx, b, 5);
- 
-//  for (int i = 0; i < 5; ++i)
-//    std::cout << idx[i] << " "; 
-//  std::cout << b[0] << " " << b[1] << " " << b[2] << " " << b[3] << " " << b[4] << std::endl;
-
   smoothingMatrices = new MultiGridSmoothingMatrix<Scalar2,dim>**[num_levels+1];
 
-  nSmooth = pcData.num_multigrid_smooth;
+  nSmooth1 = pcData.num_multigrid_smooth1;
+  nSmooth2 = pcData.num_multigrid_smooth2;
 
-  relaxationFactor = 0.5;
+  fine_sweeps = pcData.num_fine_sweeps;
+
+  relaxationFactor = pcData.mg_smooth_relax;
 
   ownsFineA = createFineA;
+
+  output = pcData.mg_output;
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -174,12 +130,20 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
     macroDX[level] = new DistSVec<Scalar2,dim>(multiGridLevels[level]->getNodeDistInfo());
   }
 
+  typename MultiGridSmoothingMatrix<Scalar2,dim>::SmoothingMode smoothing_mode;
+  if (pcData.mg_smoother == PcData::MGJACOBI)
+    smoothing_mode = MultiGridSmoothingMatrix<Scalar2,dim>::BlockJacobi;
+  else if (pcData.mg_smoother == PcData::MGLINEJACOBI)
+    smoothing_mode = MultiGridSmoothingMatrix<Scalar2,dim>::LineJacobi;
+  else if (pcData.mg_smoother == PcData::MGRAS)
+    smoothing_mode = MultiGridSmoothingMatrix<Scalar2,dim>::RAS;
+
   for(int level = 0; level <= num_levels; ++level) {
     smoothingMatrices[level] = new MultiGridSmoothingMatrix<Scalar2,dim>*[numLocSub];
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub)
       smoothingMatrices[level][iSub] = new
-        MultiGridSmoothingMatrix<Scalar2,dim>((level == num_levels ? MultiGridSmoothingMatrix<Scalar2,dim>::BlockJacobi : MultiGridSmoothingMatrix<Scalar2,dim>::BlockJacobi),
+        MultiGridSmoothingMatrix<Scalar2,dim>((level == num_levels ? MultiGridSmoothingMatrix<Scalar2,dim>::RAS : smoothing_mode),
                                               iSub,
                                               multiGridLevels[level]->getNodeDistInfo().subSize(iSub),
                                               multiGridLevels[level]->getEdgeDistInfo().subSize(iSub),
@@ -191,14 +155,16 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
   coarseMvp = new MultiGridPrecMatVecProd<Scalar2,dim>(macroA[num_levels], 
                                                       multiGridLevels[num_levels]);
 
-  coarsePrec = new MultiGridPrecJacobiPrec<Scalar2,dim>(smoothingMatrices[num_levels]);
+  coarsePrec = new MultiGridPrecJacobiPrec<Scalar2,dim>(smoothingMatrices[num_levels],
+                                                        multiGridLevels[num_levels]);
 
   coarseSolver = new GmresSolver<DistSVec<Scalar2,dim>, MultiGridPrecMatVecProd<Scalar2,dim>,
                                  MultiGridPrecJacobiPrec<Scalar2,dim>, Communicator>(
                      macroValues[num_levels]->info(), coarseSolverData, coarseMvp,
                      coarsePrec, dom->getCommunicator());
 
-  coarseSolver->setMaxIts(10);
+  coarseSolver->setEps(1.0e-8);
+  coarseSolver->setMaxIts(100);
   coarseSolver->disableOutput();
 }
 
@@ -263,7 +229,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVe
   *macroValues[1] = 0.0;
   *macroValuesOld[1] = 0.0;//*macroValues[level+1];
   //multiGridLevels[1]->Prolong(*multiGridLevels[0], *macroValuesOld[1], *macroValues[1], x);
-  smooth(0, *macroValues[0], x);
+  smooth(0, *macroValues[0], x,nSmooth1);
   *macroValuesTmp[0] = x;
   *macroValuesOld[0] = 0.0;//*macroValues[0];
    MatVecProdH1<dim,Scalar2,dim>* mvp = dynamic_cast< MatVecProdH1<dim,Scalar2,dim>*>(macroA[0]);
@@ -293,7 +259,8 @@ void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVe
 //    std::cout << "fn " << level+1 << " " << pow(macroValuesTmp[level+1]->norm(),2.0) << std::endl;
     *macroValuesTmp[level+1] = *macroR[level+1];
     //*macroValues[level+1] = 0.01; 
-    smooth(level+1, *macroValues[level+1], *macroValuesTmp[level+1]);
+    smooth(level+1, *macroValues[level+1], *macroValuesTmp[level+1],
+           ((level+1==num_levels)?fine_sweeps:nSmooth1));
     //multiGridLevels[level+1]->assembleMax(*macroValues[level+1]);
     //multiGridLevels[level+1]->assembleMax(*macroValues[level+1]);
     /*sprintf(filename,"macroR.xpost",level+1);
@@ -314,7 +281,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVe
     //multiGridLevels[0]->writeXpostFile(filename, *macroValues[level-1],0);
     //*macroValuesTmp[level-1] = *macroValues[level-1];
     //multiGridLevels[0]->assembleMax(*macroValues[0]);
-    smooth(level-1, *macroValues[level-1], *macroValuesTmp[level-1]);
+    smooth(level-1, *macroValues[level-1], *macroValuesTmp[level-1],nSmooth2);
   }
   //exit(-1);
   /*sprintf(filename,"final.xpost");
@@ -328,30 +295,31 @@ void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVe
 //------------------------------------------------------------------------------
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& x,
-                                               const DistSVec<Scalar2,dim>& f)
+                                               const DistSVec<Scalar2,dim>& f,int steps)
 {
   /*
   static int l0_count = 0;
   if (level == 0)
     ++l0_count;
 */
-  if (level == num_levels) {
+  /*if (level == num_levels) {
     coarseSolver->setup(0,0,const_cast<DistSVec<Scalar2,dim>&>(f));
     coarseSolver->solve(const_cast<DistSVec<Scalar2,dim>&>(f),x);
     return;
-  }
+  }*/
 
   double rcurr;
   MatVecProdH1<dim,Scalar2,dim>* mvp = dynamic_cast< MatVecProdH1<dim,Scalar2,dim>*>(macroA[level]);
 
-  domain->getCommunicator()->fprintf(stdout,"======================= Level %i ====================\n",level);
+  if (output)
+    domain->getCommunicator()->fprintf(stdout,"======================= Level %i ====================\n",level);
   //MatVecProdH1<dim,Scalar2,dim>* mvp = dynamic_cast< MatVecProdH1<dim,Scalar2,dim>*>(macroA[level]);
   /*if(mvp == NULL) {
       // std::cout << "Error: multigrid preconditioner must be used with an H1 product" << std::endl;
       x = f;
   } else {*/
   static int r_tag = 0;
-    for (int i = 0; i < nSmooth; ++i) {
+    for (int i = 0; i < steps; ++i) {
       // std::cout << "Smooth step " << i << std::endl;
 
       // Compute the residual
@@ -399,7 +367,8 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
       //DistSVec<Scalar2,dim> tmp(f); 
       //multiGridLevels[level]->assembleMax(tmp);//*macroR[level]);
 
-      domain->getCommunicator()->fprintf(stdout,"i = %i r = %lf\n",i,(*macroR[level]).norm());
+      if (output)
+        domain->getCommunicator()->fprintf(stdout,"i = %i r = %lf\n",i,(*macroR[level]).norm());
      // std::cout << "dot = " << (*macroR[level])*f / (sqrt((*macroR[level]).norm() * f.norm())) << std::endl;
 
 #pragma omp parallel for
@@ -407,7 +376,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
         smoothingMatrices[level][iSub]->smooth((*macroR[level])(iSub),(*macroDX[level])(iSub));
       }
 
-      //multiGridLevels[level]->assemble(*macroDX[level]);
+      multiGridLevels[level]->assemble(*macroDX[level]);
       // std::cout << "DX = " << (*macroDX[level]).norm() << std::endl;
 
       // *macroDX[level] = *macroR[level];
@@ -428,6 +397,9 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
                                                 x, *macroR[level]);
     (*macroR[level]) *= -1.0;
     (*macroR[level]) += f;
+    if (output) {
+      domain->getCommunicator()->fprintf(stdout,"final r = %lf\n",(*macroR[level]).norm());
+    }
   //}
 }
 

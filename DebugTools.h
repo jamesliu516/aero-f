@@ -63,7 +63,7 @@ class DebugTools {
 #endif
    }
 
-  static void TryWaitForDebug() {
+  static bool TryWaitForDebug() {
 
     int my_pid;// = getpid();
     MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
@@ -72,7 +72,7 @@ class DebugTools {
     sprintf(fn, ".aerofdebug.pid.%d",getpid());
     std::cout << "PID " << getpid() << " is MPI rank " << my_pid << std::endl;
     if (!file)
-      return; 
+      return false; 
     bool debug_process = false;
     while (!feof(file)) {
       int p;
@@ -93,7 +93,8 @@ class DebugTools {
 
       sleep(5);
     }
-    
+
+    return debug_process;    
   }
 
 };
