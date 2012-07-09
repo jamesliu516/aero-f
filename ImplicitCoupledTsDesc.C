@@ -149,8 +149,11 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
         jac->getData(*mvph1);
       else if (ilu) 
         ilu->getData(*mvph1);
-      else if (pmg)
+      else if (pmg) {
+        if (!pmg->isInitialized())
+          pmg->initialize();
         pmg->getData(*mvph1);
+      }
     }
 
   }
