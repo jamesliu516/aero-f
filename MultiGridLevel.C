@@ -29,7 +29,8 @@ MultiGridLevel<Scalar>::MultiGridLevel(Domain& domain, DistInfo& refinedNodeDist
   lineids = new std::vector<int>[numLocSub];
 
   lineLengths = new int*[numLocSub];
- 
+
+  edgeNormals = NULL; 
 }
 
 template<class Scalar>
@@ -177,6 +178,8 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
   }
   nodeDistInfo->finalize(true);
   edgeDistInfo->finalize(true);
+
+  edgeNormals = &refinedGeoState.getEdgeNormal();
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub)
@@ -679,6 +682,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
                                          EdgeDef*** refinedSharedEdges,
                                          int** refinedNumSharedEdges,
                                          Domain& domain,int dim,
+                                         DistVec<Vec3D>& refinedEdgeNormals,
                                          DistVec<int>* finestNodeMapping_p1)
 {
   static int cnt = 0;
@@ -737,43 +741,57 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
            it != nodeSharedData[seed_node].end(); ++it)
         agglomSubDs.insert(*it);
 
-      while(agglom.size() < 8) {
-        const int current_node=agglom.back();
-        for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
-          const int neighbor = (*nToN[iSub])[current_node][n];
-          if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
-          bool ok = true;
-          bool has_new = false;
-          bool is_superset = true;
-          for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
-               it != nodeSharedData[neighbor].end(); ++it) {
+      const int current_node = seed_node;
+      //while(agglom.size() < 8) {
+      //  const int current_node=agglom.back();
+      double max_weight = 0.0;
+      std::set<int> valid_neighbors;
+      for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
+        const int neighbor = (*nToN[iSub])[current_node][n];
+        if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
+        max_weight = std::max(max_weight, refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm());
+      }
+        
+      for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
+        const int neighbor = (*nToN[iSub])[current_node][n];
+        if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
+        bool ok = true;
+        bool has_new = false;
+        bool is_superset = true;
+        for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
+             it != nodeSharedData[neighbor].end(); ++it) {
           
-            if (agglomSubDs.find(*it) == agglomSubDs.end()) {
+          if (agglomSubDs.find(*it) == agglomSubDs.end()) {
 
-              has_new = true;
-              break;
-            }
-          }
-
-          for (std::set<int>::iterator it = agglomSubDs.begin();
-               it != agglomSubDs.end(); ++it) {
-
-            if (nodeSharedData[neighbor].find(*it) == nodeSharedData[neighbor].end()) {
-
-              is_superset = false;
-              break;
-            }
-          }
-          if (has_new && !is_superset) continue;
-
-          if(std::find(agglom.begin(), agglom.end(), neighbor) == agglom.end()) {
-            assert(refinedEdges[iSub]->length(refinedEdges[iSub]->findOnly(current_node, neighbor)) > 0.0);
-            //if (cnt < 4)
-            weights[neighbor] += 1.0/refinedEdges[iSub]->length(refinedEdges[iSub]->findOnly(current_node, neighbor));
+            has_new = true;
+            break;
           }
         }
 
-        int node_to_add = -1;
+        for (std::set<int>::iterator it = agglomSubDs.begin();
+             it != agglomSubDs.end(); ++it) {
+
+          if (nodeSharedData[neighbor].find(*it) == nodeSharedData[neighbor].end()) {
+
+            is_superset = false;
+            break;
+          }
+        }
+        if (has_new && !is_superset) continue;
+        const double beta = 0.0; // beta from Mavripilis' paper
+        if (beta*max_weight <  
+            refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm()) {
+            
+          agglom.push_back(neighbor);
+            
+          for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
+               it != nodeSharedData[neighbor].end(); ++it) {
+            agglomSubDs.insert(*it);
+          }
+
+        }
+      }
+        /*int node_to_add = -1;
         double node_weight = -FLT_MAX;
         for(std::map<int,double>::const_iterator iter=weights.begin(); iter != weights.end(); iter++) {
           if(iter->second > node_weight) {
@@ -789,7 +807,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
             agglomSubDs.insert(*it);
           }
         } else break;
-      }
+        */
 
       int j = 0;
       bool isLine = true;
@@ -1057,16 +1075,6 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     for (int l = 0; l < edges[iSub]->size(); ++l)
       edges[iSub]->getMasterFlag()[l] = true;
 
-    // Create the "length" to be such that it's shorter between two agglomerated cells that share multiple edges
-    for(int l = 0; l < refinedEdges[iSub]->size(); ++l) {
-      const int coarse_index = edgeMapping(iSub)[l];
-      if(coarse_index < 0) continue;
-      else {
-        edges[iSub]->viewEdgeLength()[coarse_index] = std::max(refinedEdges[iSub]->length(l), edges[iSub]->viewEdgeLength()[coarse_index]);
-//        edges[iSub]->getMasterFlag()[coarse_index] = refinedEdges[iSub]->getMasterFlag()[l] &&
-//                                                     edges[iSub]->getMasterFlag()[coarse_index];
-      }
-    }
 
     /*fprintf(stderr, "\tAgglomeration finished with %d coarse cells (vs. %d fine cells) and %d edges vanished, %d coarse edges remaining (of %d)\n",
             numNodes[iSub], nodeMapping(iSub).size(), num_edges_skipped, edges[iSub]->size(), refinedEdges[iSub]->size());
@@ -1103,6 +1111,22 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   edgeDistInfo->finalize(false);
   offDiagMatPattern->finalize();
+  
+  edgeNormals = new DistVec<Vec3D>(*edgeDistInfo);  
+  *edgeNormals = Vec3D(0.0);
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for(int l = 0; l < refinedEdges[iSub]->size(); ++l) {
+      const int coarse_index = edgeMapping(iSub)[l];
+      if(coarse_index < 0) continue;
+      else {
+        (*edgeNormals)(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l];
+        //edges[iSub]->viewEdgeLength()[coarse_index] = std::max(refinedEdges[iSub]->length(l), edges[iSub]->viewEdgeLength()[coarse_index]);
+//        edges[iSub]->getMasterFlag()[coarse_index] = refinedEdges[iSub]->getMasterFlag()[l] &&
+//                                                     edges[iSub]->getMasterFlag()[coarse_index];
+      }
+    }
+  }
   
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {

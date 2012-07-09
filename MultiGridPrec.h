@@ -51,11 +51,23 @@ class MultiGridPrec : public KspPrec<dim, Scalar2>, public DistMat<Scalar2,dim> 
 
   int fine_sweeps;
 
+  bool initialized;
+ 
+  PcData& pcData;
+
+  KspData& coarseSolverData;
+
+  DistGeoState& distGeoState;
+
 public:
 
   MultiGridPrec(Domain *, DistGeoState &, PcData&,
                 KspData&,bool createFineA,int ** = 0, BCApplier* =0);
   ~MultiGridPrec();
+
+  void initialize();
+
+  bool isInitialized() { return initialized; }
 
   void setup();
 

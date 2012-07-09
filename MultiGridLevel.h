@@ -40,6 +40,7 @@ class MultiGridLevel {
 
     DistVec<int> nodeMapping;
     DistVec<int> edgeMapping;
+    DistVec<Vec3D>* edgeNormals;
 
     DistSVec<int, 2> lineMap;
 
@@ -72,6 +73,10 @@ class MultiGridLevel {
     CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
     Connectivity ** getSharedNodes()  { return sharedNodes; }
 
+    DistVec<int>& getNodeMapping() { return nodeMapping; }
+
+    DistVec<Vec3D>& getEdgeNormals() { return *edgeNormals; }
+
     EdgeDef*** getSharedEdges() { return sharedEdges; }
     int** getNumSharedEdges() { return numSharedEdges; }
 
@@ -84,6 +89,7 @@ class MultiGridLevel {
                      Connectivity ** nToN, EdgeSet ** edges,
                      EdgeDef***, int**,
                      Domain& domain,int dim,
+                     DistVec<Vec3D>& refinedEdgeNormals,
                      DistVec<int>*);
 
     void computeRestrictedQuantities(const DistGeoState& refinedGeoState);

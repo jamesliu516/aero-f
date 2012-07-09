@@ -61,11 +61,47 @@ class MultiGridPrecJacobiPrec {
   }
 };
 
+template<class Scalar,int dim,class Scalar2>
+class MultiGridPrecRASPrec {
+
+  MultiGridSmoothingMatrix<Scalar,dim>** smoothingMatrices;
+  MultiGridLevel<Scalar>* level;
+
+ public:
+
+  MultiGridPrecRASPrec(MultiGridSmoothingMatrix<Scalar,dim>** smoothingMatrices,
+                          MultiGridLevel<Scalar>* level) :
+                         smoothingMatrices(smoothingMatrices),
+                         level(level) { }
+
+  ~MultiGridPrecRASPrec() { }
+
+  void apply(DistSVec<Scalar2,dim>& x, DistSVec<Scalar2,dim>& b) {
+
+    b = 0.0;
+    int numLocSub = x.info().numLocSub;
+#pragma omp parallel for
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      smoothingMatrices[iSub]->smooth(x(iSub),b(iSub));
+    }
+    level->assemble(b);
+  }
+};
+
 template<class Scalar, int dim, class Scalar2>
 MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, PcData& pcData,KspData& coarseSolverData, bool createFineA, int **nodeType, BCApplier *bcs)
     : DistMat<Scalar2,dim>(dom), domain(dom), num_levels(pcData.num_multigrid_levels), agglom_size(8), numLocSub(dom->getNumLocSub()), multiGridLevels(new MultiGridLevel<Scalar2>*[num_levels+1]),
-    macroValues(new DistSVec<Scalar2,dim>*[num_levels]), macroValuesTmp(new DistSVec<Scalar2,dim>*[num_levels]), geoState(distGeoState)
+    macroValues(new DistSVec<Scalar2,dim>*[num_levels]), macroValuesTmp(new DistSVec<Scalar2,dim>*[num_levels]), geoState(distGeoState), pcData(pcData), initialized(false), distGeoState(distGeoState), coarseSolverData(coarseSolverData)
 {
+
+  ownsFineA = createFineA;
+
+}
+
+template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::initialize() {
+
+  initialized = true;
 
   smoothingMatrices = new MultiGridSmoothingMatrix<Scalar2,dim>**[num_levels+1];
 
@@ -76,22 +112,20 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
 
   relaxationFactor = pcData.mg_smooth_relax;
 
-  ownsFineA = createFineA;
-
   output = pcData.mg_output;
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-    dom->getSubDomain()[iSub]->getEdges().updateLength(distGeoState.getXn()(iSub));
-    dom->getSubDomain()[iSub]->makeMasterFlag(dom->getNodeDistInfo());
+    domain->getSubDomain()[iSub]->getEdges().updateLength(distGeoState.getXn()(iSub));
+    domain->getSubDomain()[iSub]->makeMasterFlag(domain->getNodeDistInfo());
   }
 
-  multiGridLevels[0] = new MultiGridLevel<Scalar2>(*dom, dom->getNodeDistInfo(), dom->getEdgeDistInfo());
-  multiGridLevels[0]->copyRefinedState(dom->getNodeDistInfo(), dom->getEdgeDistInfo(), geoState, *dom);
+  multiGridLevels[0] = new MultiGridLevel<Scalar2>(*domain, domain->getNodeDistInfo(), domain->getEdgeDistInfo());
+  multiGridLevels[0]->copyRefinedState(domain->getNodeDistInfo(), domain->getEdgeDistInfo(), geoState, *domain);
 
   char top_file_name[256];
   for(int level = 0; level < num_levels; ++level) {
-    multiGridLevels[level+1] = new MultiGridLevel<Scalar2>(*dom, multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
+    multiGridLevels[level+1] = new MultiGridLevel<Scalar2>(*domain, multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
     multiGridLevels[level+1]->agglomerate(multiGridLevels[level]->getNodeDistInfo(),
                                           multiGridLevels[level]->getEdgeDistInfo(),
                                           multiGridLevels[level]->getIdPat(),
@@ -100,9 +134,10 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
                                           multiGridLevels[level]->getEdges(),
                                           multiGridLevels[level]->getSharedEdges(),
                                           multiGridLevels[level]->getNumSharedEdges(),
-                                          *dom,dim,
+                                          *domain,dim,
+                                          multiGridLevels[level]->getEdgeNormals(),
                                           NULL);
-    dom->getCommunicator()->fprintf(stdout,"Agglomerated level %d\n", level+1);
+    domain->getCommunicator()->fprintf(stdout,"Agglomerated level %d\n", level+1);
     fflush(stdout);
   }
 
@@ -118,7 +153,7 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
   for(int level = 0; level <= num_levels; ++level) {
     macroA[level] = 0;
     if (level > 0 || ownsFineA)
-      macroA[level] = new DistMvpMatrix<Scalar2,dim>(dom,multiGridLevels[level]->getNodeDistInfo().subLen,
+      macroA[level] = new DistMvpMatrix<Scalar2,dim>(domain,multiGridLevels[level]->getNodeDistInfo().subLen,
                                                   multiGridLevels[level]->getEdges(),
                                                   NULL); 
 
@@ -161,11 +196,27 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
   coarseSolver = new GmresSolver<DistSVec<Scalar2,dim>, MultiGridPrecMatVecProd<Scalar2,dim>,
                                  MultiGridPrecJacobiPrec<Scalar2,dim>, Communicator>(
                      macroValues[num_levels]->info(), coarseSolverData, coarseMvp,
-                     coarsePrec, dom->getCommunicator());
+                     coarsePrec, domain->getCommunicator());
 
-  coarseSolver->setEps(1.0e-8);
+  coarseSolver->setEps(1.0e-12);
   coarseSolver->setMaxIts(100);
   coarseSolver->disableOutput();
+
+    double scale = 1.0;
+    DistSVec<double,1> tmp(macroR[0]->info());
+#pragma omp parallel for
+      for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+        for (int k = 0; k < (*macroR[0])(iSub).size(); ++k)
+          tmp(iSub)[k][0] = static_cast<double>(/*domain->getSubDomain()[iSub]->getNodeMap()[*/(multiGridLevels[1]->getNodeMapping())(iSub)[k]/*]*/);
+     }   
+      char fn[32];
+     
+   sprintf(fn,"nodeMapping");
+        domain->writeVectorToFile(fn,0,(double)0.0,tmp,
+                                  &scale);
+      
+  
 }
 
 //------------------------------------------------------------------------------
@@ -297,28 +348,30 @@ template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& x,
                                                const DistSVec<Scalar2,dim>& f,int steps)
 {
-  /*
+  
   static int l0_count = 0;
   if (level == 0)
     ++l0_count;
-*/
-  /*if (level == num_levels) {
+  static int r_tag = 0;
+   /* 
+  if (level == num_levels) {
     coarseSolver->setup(0,0,const_cast<DistSVec<Scalar2,dim>&>(f));
     coarseSolver->solve(const_cast<DistSVec<Scalar2,dim>&>(f),x);
     return;
-  }*/
-
+  }
+*/
   double rcurr;
   MatVecProdH1<dim,Scalar2,dim>* mvp = dynamic_cast< MatVecProdH1<dim,Scalar2,dim>*>(macroA[level]);
 
-  if (output)
+  if (output) {
     domain->getCommunicator()->fprintf(stdout,"======================= Level %i ====================\n",level);
+    domain->getCommunicator()->fprintf(stdout,"%d\n",l0_count);
+  }
   //MatVecProdH1<dim,Scalar2,dim>* mvp = dynamic_cast< MatVecProdH1<dim,Scalar2,dim>*>(macroA[level]);
   /*if(mvp == NULL) {
       // std::cout << "Error: multigrid preconditioner must be used with an H1 product" << std::endl;
       x = f;
   } else {*/
-  static int r_tag = 0;
     for (int i = 0; i < steps; ++i) {
       // std::cout << "Smooth step " << i << std::endl;
 
@@ -333,8 +386,8 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
 
       (*macroR[level]) *= -1.0;
       (*macroR[level]) += f;
-     /* 
-      if (level == 0) {
+      
+      if (level == 0 && l0_count >= 0) {
         DistSVec<double,1> tmp(macroR[level]->info());
         for (int l = 0; l < dim; ++l) {
 #pragma omp parallel for
@@ -347,9 +400,18 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
           sprintf(fn,"myR%d",l);
           domain->writeVectorToFile(fn,r_tag,(double)r_tag,tmp,
                                     &scale);
+#pragma omp parallel for
+      for(int iSub = 0; iSub < numLocSub; ++iSub) {
+          for (int k = 0; k < (*macroR[level])(iSub).size(); ++k)
+            tmp(iSub)[k][0] = (x)(iSub)[k][l];
+      }         
+          sprintf(fn,"myU%d",l);
+          domain->writeVectorToFile(fn,r_tag,(double)r_tag,tmp,
+                                    &scale);
         }
+        ++r_tag;
       }
-*/
+
 /*
       if (l0_count == 2 && i == 0)
         multiGridLevels[level]->writeXpostFile("RafterProlong.xpost",*macroR[level],0);
@@ -400,6 +462,33 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
     if (output) {
       domain->getCommunicator()->fprintf(stdout,"final r = %lf\n",(*macroR[level]).norm());
     }
+    
+  if (level == 0 && l0_count >= 0) {
+    double scale = 1.0;
+    DistSVec<double,1> tmp(macroR[level]->info());
+    for (int l = 0; l < dim; ++l) {
+#pragma omp parallel for
+      for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+        for (int k = 0; k < (*macroR[level])(iSub).size(); ++k)
+          tmp(iSub)[k][0] = (*macroR[level])(iSub)[k][l];
+      } 
+        char fn[32];
+        sprintf(fn,"myR%d",l);
+        domain->writeVectorToFile(fn,r_tag,(double)r_tag,tmp,
+                                    &scale);
+#pragma omp parallel for
+      for(int iSub = 0; iSub < numLocSub; ++iSub) {
+        for (int k = 0; k < (*macroR[level])(iSub).size(); ++k)
+          tmp(iSub)[k][0] = (x)(iSub)[k][l];
+      }  
+        sprintf(fn,"myU%d",l);
+        domain->writeVectorToFile(fn,r_tag,(double)r_tag,tmp,
+                                  &scale);
+      }
+      ++r_tag;
+    }
+  
   //}
 }
 

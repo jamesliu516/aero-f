@@ -96,6 +96,7 @@ public:
   DistSVec<double,3> &getXn() const { return *Xn; }
   DistVec<double> &getCtrlVol() const { return *ctrlVol_n; }
   DistVec<Vec3D> &getFaceNormal() const { return *faceNorm; }
+  DistVec<Vec3D> &getEdgeNormal() const { return *edgeNorm; }
   DistVec<double> &getFaceNorVel() const { return *faceNormVel; }
   DistVec<double> *getd2wall() const { return d2wall; }
   DistVec<Vec3D> &getInletNodeNorm() const { return *inletNodeNorm; }
