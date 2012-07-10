@@ -265,7 +265,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
   // inputs: nA
   // outputs: rowsPerBlock, cpuMasterNodes, cpuNodes (number of nodes in scalapack block cyclic decomp), maxCpuBlocks
   int nA = (_nA == 0) ? A.numVectors() : _nA;
-    
+   
   scalapackCpuDecomp(nA); 
 
  //===============================
@@ -275,14 +275,14 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
  int locLLD = max(1,dim * cpuNodes[thisCPU]);  // number of rows in domain!
  int maxLLD = locLLD;  // find the maximum over all LLD
  com->globalMax(1, &maxLLD); 
- 
+
  // define process (cpu) grid: nTotCpus x 1 (fit all data from a single node on a processor)
  // NOTE: can have NB_A > N_A! Your block size can be bigger than the number of rows
  
  int nprow = nTotCpus;  // number of processor rows
  int npcol = 1;  // number of processor columns
  int globNumRows = dim * A[0].nonOverlapSize();
-  
+
   //===============================
   // Step 3 - depends on # cols in A and # cols in B
   //===============================
@@ -292,7 +292,12 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
   
   int nB = B.numVectors();
 #ifdef DO_SCALAPACK
-  F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);  
+//      this->com->fprintf(stdout," *** nprowi %d, npcol %d, globNumRows %d, nA %d, nB %d, rowsPerBlock %d, rowsPerBlock %d,locLLD %d, thisCPU %d\n",nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU);
+//      this->com->barrier();
+//      sleep(1);
+
+ F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);  
+
 #else
  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
@@ -865,7 +870,7 @@ void ParallelRom<dim>::setTransfer() {
        cpuMasterNodes[thisCPU]++;  // add if it is a master node
    }
  }
- 
+
  // maxDomainSize = maximum number of master nodes on a cpu
  int maxDomainSize = cpuMasterNodes[thisCPU];
  com->globalMax(1, &maxDomainSize);
@@ -888,7 +893,8 @@ void ParallelRom<dim>::setTransfer() {
  int notMaxBlockCpus= nTotCpus*maxCpuBlocks-numBlocks;  // number of cpus without the full number of blocks
  for (int iCpu=0; iCpu < nTotCpus; ++iCpu)
    cpuBlocks[iCpu] = maxCpuBlocks;
- for (int i=1; i<=notMaxBlockCpus; ++i)  // correct number of blocks: the last cpus overestimated this
+
+for (int i=1; i<=notMaxBlockCpus; ++i)  // correct number of blocks: the last cpus overestimated this
    cpuBlocks[nTotCpus-i] -= 1;
  int lastCpu;
  if (nNodeLastBlock>0) {  // this should ALWAYS hold
@@ -905,7 +911,7 @@ void ParallelRom<dim>::setTransfer() {
    cpuNodes[iCpu] = cpuBlocks[iCpu]*nodesPerBlock;  // blocks * number of nodes per block assuming full blocks
  if (nNodeLastBlock < nodesPerBlock)  // last block is not full
    cpuNodes[lastCpu] += (nNodeLastBlock-nodesPerBlock);  // subtract off the missing nodes in not full block
- 
+
  delete[] cpuBlocks;
 
 }

@@ -5,6 +5,8 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
   residualRef(this->F),
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom), From(this->nPod), rhs(this->nPod) {
 
+  if (this->useLocalRom) currentProblemSize = this->nPod;
+
   parallelRom = new ParallelRom<dim>(*dom,this->com);
   parallelRom->parallelLSMultiRHSInit(this->AJ,residualRef);  
   lsCoeff = new double*[1];
@@ -32,6 +34,27 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
+  //If using local rom, check to see if things need to be resized
+  if (this->useLocalRom) {
+    if (currentProblemSize != this->nPod){
+      currentProblemSize = this->nPod;
+      //delete parallelRom;
+      //parallelRom = new ParallelRom<dim>(*(this->domain),this->com);
+      parallelRom->parallelLSMultiRHSInit(this->AJ,residualRef);   
+      delete [] lsCoeff[0];
+      lsCoeff[0] = new double[this->nPod];
+      delete (this->projVectorTmp);
+    	this->projVectorTmp = new double [this->nPod];
+      if (lsSolver == 1) {
+        delete [] jactmp;
+   		  jactmp = new double [this->nPod * this->nPod];
+	      this->jac.setNewSize(this->nPod,this->nPod);
+      }
+      From.resize(this->nPod);
+      rhs.resize(this->nPod); 
+    }
+  }
+ 
 	projectVector(this->AJ, this->F, From);
 	Vec<double> rhs(this->nPod);
 	rhs = -1.0 * From;
@@ -65,16 +88,14 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		for (int iPod=0; iPod<this->nPod; ++iPod)
 			this->dUrom[iPod] = -lsCoeff[0][iPod];
 	}
-
 	else if (lsSolver == 1)	{		// normal equations
-
 		transMatMatProd(this->AJ,this->AJ,jactmp);	// TODO: make symmetric product
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
 			for (int iCol = 0; iCol < this->nPod; ++iCol) {
 				this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
 			}
 		} 
-
 		solveLinearSystem(it, rhs, this->dUrom);
 	}
+
 }

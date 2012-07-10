@@ -79,7 +79,8 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 		if (ioData.ts.type == TsData::IMPLICIT &&
 				ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
 			if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_ || 
-					ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+					ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_ ||
+          ioData.problem.alltype == ProblemData::_ACC_NONLINEAR_ROM_) {
 				com->fprintf(stderr,"*** WARNING: Seg solver not implemented for UnsteadyROM, starting the coupled solver\n"); //CBM
 				NavierStokesCoupledSolver<6>::solve(ioData, geoSource, domain);
 			}

@@ -11,7 +11,8 @@
 
 template<int dim>
 ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource, Domain *dom) :
-  TsDesc<dim>(_ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()) {
+  TsDesc<dim>(_ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()),
+  localRom(dom->getCommunicator(), _ioData, *dom) {
 
 	ioData = &_ioData;
   tag = 0;
@@ -26,33 +27,49 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   fddata.mvp = ImplicitData::FD;
   mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
 
-  // read Pod Basis
-  nPod = ioData->rom.dimension;
-	readPodBasis(this->input->podFileState);
+  useLocalRom = (ioData->snapshots.clustering.numClusters >= 2);
 
-	char *snapRefSolFile = this->input->snapRefSolutionFile;
-	FILE *inRSFP = fopen(snapRefSolFile, "r");
-	if (snapRefSolFile[0] != '\0'){  
-		DistSVec<double,dim> referenceSolution(dom->getNodeDistInfo());
-		this->com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
-		dom->readVectorFromFile(snapRefSolFile, 0, 0, referenceSolution);
-		for (int iPod = 0; iPod < nPod; ++iPod) {
-			pod[iPod] -= referenceSolution;
-		}
-	}
+  if (useLocalRom) { // Local Bases
+
+    localRom.readClusterCenters();
+    currentCluster = -1;
+    nPod = ioData->rom.dimension;
+    pod.resize(nPod);    
+    char *fullClustUsageName = new char[strlen(ioData->output.transient.prefix) + 1 + strlen(ioData->output.transient.clusterUsage) + 1];
+    sprintf(fullClustUsageName, "%s%s", ioData->output.transient.prefix, ioData->output.transient.clusterUsage);
+    if (this->com->cpuNum() == 0)  clustUsageFile = fopen(fullClustUsageName, "wt");
+    delete [] fullClustUsageName;
+
+  } else { // Default to the original code for global basis
+
+    // read Pod Basis
+    nPod = ioData->rom.dimension;
+  	readPodBasis(this->input->podFileState);
+
+  	char *snapRefSolFile = this->input->snapRefSolutionFile;
+  	FILE *inRSFP = fopen(snapRefSolFile, "r");
+  	if (snapRefSolFile[0] != '\0'){  
+  		DistSVec<double,dim> referenceSolution(dom->getNodeDistInfo());
+  		this->com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
+  		dom->readVectorFromFile(snapRefSolFile, 0, 0, referenceSolution);
+  		for (int iPod = 0; iPod < nPod; ++iPod) {
+  			pod[iPod] -= referenceSolution;
+  		}
+  	}
+
+  }
+    AJ.resize(nPod);
+    dUrom.resize(nPod);
+    UromTotal.resize(nPod);
+	  UromTotal = 0.0;	// before any time step, it is zero
+	  dUnormAccum = new Vec<double> [2];
+	  for (int i = 0 ; i < 2; ++i) {
+	  	dUnormAccum[i].resize(nPod);	// before any time step, it is zero
+		  dUnormAccum[i] = 0.0;	// before any time step, it is zero
+	  }
 
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
-
-  AJ.resize(nPod);
-  dUrom.resize(nPod);
-  UromTotal.resize(nPod);
-	UromTotal = 0.0;	// before any time step, it is zero
-	dUnormAccum = new Vec<double> [2];
-	for (int i = 0 ; i < 2; ++i) {
-		dUnormAccum[i].resize(nPod);	// before any time step, it is zero
-		dUnormAccum[i] = 0.0;	// before any time step, it is zero
-	}
 
 }
 
@@ -81,6 +98,11 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 		delete [] outdUnormAccumFile;
 	}
 
+  if (useLocalRom) {
+    if (this->com->cpuNum() == 0)
+      fclose(clustUsageFile);
+  }
+
 	delete [] dUnormAccum;
   if (tag) delete tag;
 }
@@ -89,6 +111,34 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 //------------------------------------------------------------------------------
 template<int dim>
 int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const int totalTimeSteps)  {
+
+
+  // local rom modifications
+  if (useLocalRom) {
+    int index1, index2; // index of closest center, second closest center
+    double dist1, dist2;  // distance to closest center, second closest center
+    localRom.closestCenter(U, index1, index2, dist1, dist2);
+    this->com->fprintf(stdout, " ... using basis number %d\n", index1);
+    writeClusterUsage(totalTimeSteps, index1, index2, dist1, dist2);
+    if ((currentCluster != index1)) {
+      currentCluster = index1;
+      localRom.readClusterBasis(currentCluster); //TODO incorporate option to read fewer vectors
+      if (ioData->rom.basisUpdates) localRom.updateBasis(currentCluster, U);
+      nPod = localRom.basis->numVectors();
+      this->pod.resize(nPod);
+      for (int iVec=0; iVec<nPod; ++iVec) {
+        this->pod[iVec] = (*(localRom.basis))[iVec];
+      }
+      AJ.resize(nPod);
+      dUrom.resize(nPod);
+      UromTotal.resize(nPod);
+      UromTotal = 0.0;  // before any time step, it is zero // TODO update for local
+      for (int i = 0 ; i < 2; ++i) {
+        dUnormAccum[i].resize(nPod);  // before any time step, it is zero
+        dUnormAccum[i] = 0.0; // before any time step, it is zero //TODO this needs to be updated for local
+      }
+    }
+  }
 
 	// initializations 
 
@@ -139,7 +189,6 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     UromTotal += dUrom; // solution increment in reduced coordinates
     U += dUfull;
 		this->timer->addSolutionIncrementTime(tSol);
-
 		saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
 
     // verify that the solution is physical
@@ -709,6 +758,18 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
 	writeBinaryVectorsToDiskRom(false, totalTimeSteps, 0.0, &(this->F), &AJsol, &(this->AJ));
 	
 }
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::writeClusterUsage(const int totalTimeSteps, int index1, int index2, double dist1, double dist2) {
+	// only do for local ROM
+
+  if (this->com->cpuNum() == 0)
+    this->com->fprintf(clustUsageFile,"%d %d %d %e %e %d\n", totalTimeSteps, index1, index2, dist1, dist2, nPod);
+
+  this->com->barrier();	
+}
+
+
 template<int dim>
 void ImplicitRomTsDesc<dim>::savedUnormAccum() {
 	
@@ -725,7 +786,7 @@ void ImplicitRomTsDesc<dim>::readPodBasis(const char *fileName) {
 	determineFileName(fileName, ".sampledROBState", ioData->input.gnatPrefix, fileNameState);
 
 	this->domain->readPodBasis(fileNameState.c_str(), nPod,
-		pod,this->ioData->rom.basisType == ModelReductionData::SNAPSHOTS);
+		pod,(this->ioData->rom.basisType == ModelReductionData::SNAPSHOTS));
 }
 
 template<int dim>
