@@ -389,17 +389,18 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
       
       if (level == 0 && l0_count >= 0) {
         DistSVec<double,1> tmp(macroR[level]->info());
-        for (int l = 0; l < dim; ++l) {
-#pragma omp parallel for
+        for (int l = 0; l < 1/*dim*/; ++l) {
+          char fn[32];
+/*#pragma omp parallel for
           for(int iSub = 0; iSub < numLocSub; ++iSub) {
 
             for (int k = 0; k < (*macroR[level])(iSub).size(); ++k)
               tmp(iSub)[k][0] = (*macroR[level])(iSub)[k][l];
           }
-          char fn[32];
           sprintf(fn,"myR%d",l);
           domain->writeVectorToFile(fn,r_tag,(double)r_tag,tmp,
                                     &scale);
+*/
 #pragma omp parallel for
       for(int iSub = 0; iSub < numLocSub; ++iSub) {
           for (int k = 0; k < (*macroR[level])(iSub).size(); ++k)
@@ -466,17 +467,18 @@ void MultiGridPrec<Scalar,dim,Scalar2>::smooth(int level,DistSVec<Scalar2,dim>& 
   if (level == 0 && l0_count >= 0) {
     double scale = 1.0;
     DistSVec<double,1> tmp(macroR[level]->info());
-    for (int l = 0; l < dim; ++l) {
-#pragma omp parallel for
+    for (int l = 0; l < 1/*dim*/; ++l) {
+     char fn[32];
+/*#pragma omp parallel for
       for(int iSub = 0; iSub < numLocSub; ++iSub) {
 
         for (int k = 0; k < (*macroR[level])(iSub).size(); ++k)
           tmp(iSub)[k][0] = (*macroR[level])(iSub)[k][l];
       } 
-        char fn[32];
         sprintf(fn,"myR%d",l);
         domain->writeVectorToFile(fn,r_tag,(double)r_tag,tmp,
                                     &scale);
+*/
 #pragma omp parallel for
       for(int iSub = 0; iSub < numLocSub; ++iSub) {
         for (int k = 0; k < (*macroR[level])(iSub).size(); ++k)
