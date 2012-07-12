@@ -229,6 +229,8 @@ public:
   double getR2r(int tag=0) const{ check(tag); return varFcn[tag]->getR2r(); }
   double getPmin(int tag=0) const { check(tag); return varFcn[tag]->pmin; }
 
+  bool isBurnable(int tag = 0) const { check(tag); return varFcn[tag]->isBurnable(); }
+
   //----- EOS related functions -----//
   double computeExponentials(const double density, int tag=0) const{ check(tag); return varFcn[tag]->computeExponentials(density); }
   double computeDerivativeOfExponentials(const double density, int tag=0) const{ check(tag); return varFcn[tag]->computeDerivativeOfExponentials(density); }

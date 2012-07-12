@@ -290,11 +290,11 @@ void ProgrammedBurn::setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U)
       if (r <= B.pgData->cjDetonationVelocity*(t-B.pgData->ignitionTime) &&
 	  fluidIds[i] == B.pgData->unburnedEOS && B.ignited) {
 	//bBurned->subData(iSub)[i] = true;
-	U[i][0] = min(U[i][0],  B.pgData->cjDensity);
+	/*U[i][0] = min(U[i][0],  B.pgData->cjDensity);
 	U[i][4] = min(U[i][4],  
 		      B.pgData->cjDensity*B.pgData->cjEnergy+ 
 		      0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
-	
+	*/
 	fluidIds[i] = B.pgData->burnedEOS;
       }
       if (fluidIds[i] == B.pgData->unburnedEOS)
@@ -535,6 +535,8 @@ void computeChapmanJouguetState(double p_0,double rho_0,double e_0,
 	}
 
 	s = rho_cj/rho_0*theEOS.computeSoundSpeed(rho_cj, e_cj);
+        std::cout << "CJ sound speed: " << theEOS.computeSoundSpeed(rho_cj, e_cj) << std::endl;
+        std::cout << "CJ velocity: " << (s-theEOS.computeSoundSpeed(rho_cj, e_cj)) << std::endl;
 }
 
 }

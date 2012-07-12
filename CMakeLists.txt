@@ -459,6 +459,7 @@ f77src/printmask.f
 f77src/roeflux5.f
 f77src/roeflux5prim.f
 f77src/roeflux5waterdissprec.f
+f77src/roeflux5waterdissprec_burnable.f
 f77src/roeflux6.f
 f77src/roejac2.f
 f77src/roejac2water.f

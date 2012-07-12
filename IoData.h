@@ -534,7 +534,11 @@ struct LiquidModelData {
 
   enum Type { COMPRESSIBLE = 0 } type;
 
-  enum Check {YES = 0, NO = 1 } check;
+  enum YesNo {YES = 0, NO = 1 };
+  YesNo check;
+
+  YesNo burnable;
+
   // the state equation is derived from a linearization of the bulk modulus wrt
   // pressure: K = k1 + k2 * P
   // the integration constant of the ODE is given by the couple (RHOrefwater,Prefwater)
