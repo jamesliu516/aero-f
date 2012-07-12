@@ -1410,6 +1410,7 @@ struct TsData {
   enum TypeTimeStep {AUTO = 0, LOCAL = 1, GLOBAL = 2} typeTimeStep;
   enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2} typeClipping;
   enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
+  enum DualTimeStepping {OFF = 0, ON = 1} dualtimestepping;
 
   enum Prec {NO_PREC = 0, PREC = 1} prec;
   enum Form {DESCRIPTOR = 1, NONDESCRIPTOR = 0, HYBRID = 2} form;
@@ -1429,6 +1430,7 @@ struct TsData {
   double cflMin;
   double ser;
   double errorTol;
+  double dualtimecfl;
 
   const char *output;
 

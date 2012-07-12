@@ -188,6 +188,7 @@ ADD_LIBRARY(FluidBase
              PostFcn.C 
              ProgrammedBurnCore.C
              RefVal.C 
+             ReinitializeDistanceToWall.C
              SmagorinskyLESTerm.C 
              WaleLESTerm.C 
              DynamicLESTerm.C 

@@ -263,11 +263,11 @@ public:
 			    DistMat<PrecScalar,3>*, double volStiff, int** ndType);
 
   template<int dim>
-  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
+  void computeTimeStep(double, double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
 		       DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
-		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
-                       SpatialLowMachPrec &);
+		       DistVec<double> &, DistVec<double> &, DistVec<double> &,
+                       TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>
   void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,

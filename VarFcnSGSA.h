@@ -205,7 +205,7 @@ void VarFcnSGSA::conservativeToPrimitive(double *U, double *V)
   V[3] = U[3] * invRho;
 
   double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
-  V[4] = gam1 * (U[4] - 0.5 * U[0] * vel2);
+  V[4] = (gam-1.0) * (U[4] - 0.5 * U[0] * vel2) - gam*Pstiff;
   V[5] = U[5] * invRho;
 
 }
@@ -225,7 +225,7 @@ void VarFcnSGSA::conservativeToPrimitiveDerivative(double *U, double *dU, double
 
   double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
 
-  dV[4] = gam1 * (dU[4] - 0.5 * dU[0] * vel2  - 0.5 * U[0] * dvel2);
+  dV[4] = (gam-1.0) * (dU[4] - 0.5 * dU[0] * vel2  - 0.5 * U[0] * dvel2) - gam*dPstiff;
 
   dV[5] = ( dU[5]  - dV[0] * V[5] ) * invRho;
 }
@@ -240,7 +240,7 @@ void VarFcnSGSA::primitiveToConservative(double *V, double *U)
   U[1] = V[0] * V[1];
   U[2] = V[0] * V[2];
   U[3] = V[0] * V[3];
-  U[4] = V[4] * invgam1 + 0.5 * V[0] * vel2;
+  U[4] = (V[4]+gam*Pstiff) * invgam1 + 0.5 * V[0] * vel2;
   U[5] = V[0] * V[5];
 
 }
@@ -256,7 +256,7 @@ void VarFcnSGSA::primitiveToConservativeDerivative(double *V, double *dV, double
   dU[1] = dV[0] * V[1] + V[0] * dV[1];
   dU[2] = dV[0] * V[2] + V[0] * dV[2];
   dU[3] = dV[0] * V[3] + V[0] * dV[3];
-  dU[4] = dV[4] * invgam1 + 0.5 * dV[0] * vel2 + 0.5 * V[0] * dvel2;
+  dU[4] = (dV[4]+gam*dPstiff) * invgam1 + 0.5 * dV[0] * vel2 + 0.5 * V[0] * dvel2;
   dU[5] = dV[0] * V[5] + V[0] * dV[5];
 
 }
