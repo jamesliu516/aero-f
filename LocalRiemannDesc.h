@@ -2273,6 +2273,8 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, IDj);
     P_1  = vf_->getPressure(Vi, IDi);
 
+    double cp = vf_->specificHeatCstPressure(IDi);
+
     eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
     initWi[0] = R_i1;
     initWi[1] = U_i;
@@ -2285,8 +2287,12 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
     Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
     Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
-    Wi[4] = Vi[4];//P_i;
-    /*Wi[4]  = vf_->computeTemperature(Wi, IDj);      */   Wi[dim+4]  = Wi[4];
+    //Wi[4] = P_i;
+    if (vf_->isBurnable(IDi))
+      Wi[4]  = Vi[4] + 1.0/cp*(-0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+    else
+      Wi[4]  = Vi[4] + 1.0/cp*(P_i/R_i1-P_1/R_1 - 0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+   /*vf_->computeTemperature(Wi, IDj);*/      Wi[dim+4]  = Wi[4];
 
     Wj[0]  = R_i2;                    Wj[dim]    = Wj[0];
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
@@ -2301,6 +2307,7 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     U_2  = vni;       U_1  = vnj;
     P_2  = vf_->getPressure(Vi, IDi);
     P_1  = vf_->getPressure(Vj, IDj);
+    double cp = vf_->specificHeatCstPressure(IDj);
 
     eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
     initWi[0] = R_i2;
@@ -2320,8 +2327,12 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
-    Wj[4]  = Vj[4];//P_i;
-    /*Wj[4]  = vf_->computeTemperature(Wj, IDi); */                Wj[dim+4]  = Wj[4];
+    //Wj[4]  = P_i;
+    if (vf_->isBurnable(IDj))
+      Wj[4]  = Vj[4] + 1.0/cp*(-0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+    else
+      Wj[4]  = Vj[4] + 1.0/cp*(P_i/R_i1-P_1/R_1 - 0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+    /*vf_->computeTemperature(Wj, IDi);*/      Wj[dim+4]  = Wj[4];
   }
 
 // METHOD 2 : combine averaging and direction of flow

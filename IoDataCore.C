@@ -914,6 +914,7 @@ LiquidModelData::LiquidModelData()
   k2water     = 7.15;
   Prefwater   = -1.0;
   RHOrefwater = -1.0;
+  burnable = NO;
 
   //these parameters are the adimensionalized parameters used by the VarFcn where the
   // liquid state equation is implemented. It it were dimensionalized, that is what their
@@ -936,6 +937,9 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
             "Compressible", 0);
   new ClassToken<LiquidModelData>(ca, "Check", this,
             reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2,
+            "Yes", 0, "No", 1);
+  new ClassToken<LiquidModelData>(ca, "Burnable", this,
+            reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::burnable), 2,
             "Yes", 0, "No", 1);
   new ClassDouble<LiquidModelData>(ca, "k1", this, &LiquidModelData::k1water);
   new ClassDouble<LiquidModelData>(ca, "k2", this, &LiquidModelData::k2water);
@@ -5703,7 +5707,10 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   
   LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
   // Set the initial energy of the Tait EOS appropriately
-  IC.temperature = programmedBurn.e0 / liq.specificHeat;//programmedBurn.cjEnergy / liq.Cv;
+  if (liq.burnable == LiquidModelData::YES)
+    IC.temperature = programmedBurn.e0 / liq.specificHeat;//programmedBurn.cjEnergy / liq.Cv;
+  else
+    IC.temperature = (programmedBurn.e0 + IC.pressure/IC.density) / liq.specificHeat;
   //IC.temperature = programmedBurn.cjEnergy / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
   //std::cout << "T = " << IC.temperature << std::endl;
   return error;
