@@ -31,6 +31,10 @@ TimeData::TimeData(IoData &ioData)
   dt_nm2 = ioData.restart.dt_nm2;
   output_newton_step = ioData.restart.output_newton_step;
 
+  dtau_switch = 0.0;
+  if (ioData.ts.dualtimestepping == TsData::ON) 
+    dtau_switch = 1.0;
+
   errorTol = ioData.ts.errorTol;
 
   exist_nm1 = false;

@@ -315,7 +315,7 @@ public:
   // spatial discretization
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-		       Vec<double> &, Vec<double> &,
+		       Vec<double> &, Vec<double> &, Vec<double> &,
                        TimeLowMachPrec &);
 
   template<int dim>

@@ -131,9 +131,9 @@ c        beta = mach
       
       beta2 = beta * beta 
 
-      energ = Ug(5)/gam1 + 
+      energ = (Ug(5)+gam*Pstiff)/gam1 + 
      &     0.5d0*Ug(1)*(Ug(2)*Ug(2) + Ug(3)*Ug(3) + Ug(4)*Ug(4))
-      enerd = Ud(5)/gam1 + 
+      enerd = (Ud(5)+gam*Pstiff)/gam1 + 
      &     0.5d0*Ud(1)*(Ud(2)*Ud(2) + Ud(3)*Ud(3) + Ud(4)*Ud(4))
 
 

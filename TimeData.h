@@ -21,6 +21,7 @@ public:
   double dt_nm1;
   double dt_nm2;
   int output_newton_step;
+  double dtau_switch;
 
   double tau_n;
   double tau_nm1;
