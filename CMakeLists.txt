@@ -442,6 +442,7 @@ f77src/eriemann_gw.f
 f77src/eriemann_ww.f
 f77src/g_boundflux5.f
 f77src/genbcfluxgas.f
+f77src/genbcfluxgas_HH.f
 f77src/genbcfluxtait.f
 f77src/genbcfluxjwl.f
 f77src/g_roeflux5.f

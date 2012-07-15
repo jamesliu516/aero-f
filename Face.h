@@ -375,6 +375,10 @@ protected:
   int surface_id;
   int normNum;
 
+  //for farfield flux
+  Vec3D faceCenter;
+  double s_ff[3];
+
   class HigherOrderMultiFluid* higherOrderMF;
 
   virtual int* nodeNum() = 0;
