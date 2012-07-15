@@ -23,6 +23,8 @@
 using std::min;
 #endif
 
+extern double CurrentDt;
+
 //------------------------------------------------------------------------------
 
 template<class NodeMap>
@@ -411,8 +413,17 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   SVec<double,dim> &fluxes, LevelSetStructure *LSS)
 {
   Vec3D normal = getNormal(normals);
-  double flux[dim];
+  double* flux;
   bool cracking = LSS ? LSS->withCracking() : false;
+  bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    
+  if(farfield) {
+    flux = new double [dim+5];
+    for(int j=0; j<3; j++)
+      flux[dim+j] = faceCenter[j];
+    flux[dim+4] = CurrentDt;
+  } else
+    flux = new double [dim];
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
@@ -422,13 +433,22 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
         if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;}
 
       if (!higherOrderMF || !higherOrderMF->isCellCut(nodeNum(l))) {
+
+        if(farfield) 
+          flux[dim+3] = s_ff[l];
+
 	fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			       V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
 	for (int k=0; k<dim; ++k)
 	  fluxes[ nodeNum(l) ][k] += flux[k];
+
+        if(farfield) 
+          s_ff[l] = flux[dim+3];
       }
     }
   }
+
+  delete [] flux; 
 }
 
 //------------------------------------------------------------------------------

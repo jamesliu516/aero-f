@@ -4,6 +4,7 @@
 # include<IoData.h>
 
 class IoData;
+static double CurrentDt = 0.0;
 
 //------------------------------------------------------------------------------
 /** Class which handles the algorithmic organization of the solution for all problems */
@@ -131,6 +132,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       else
         dt = probDesc->computeTimeStep(it, &dtLeft, U);
 
+      CurrentDt = dt;
       t += dt;
 //      fprintf(stderr,"t = %e, dt = %e.\n", t, dt);
 

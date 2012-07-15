@@ -45,6 +45,8 @@ void Face::setup(int fc, int *nn, int nnum, int sid)
   surface_id = sid;
   normNum = nnum;
 
+  faceCenter[0] = faceCenter[1] = faceCenter[2] = 0.0;
+  s_ff[0] = s_ff[1] = s_ff[2] = 0.0;
 }
 
 //------------------------------------------------------------------------------

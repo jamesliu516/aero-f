@@ -59,6 +59,7 @@ void FaceTria::computeNormalConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot
   faceNorm[normNum] += configFaceNorm;
   faceNormVel[normNum] += third * (xdot[0] + xdot[1] + xdot[2]) * configFaceNorm;
 
+  faceCenter = third * (x[0] + x[1] + x[2]);
 }
 
 //------------------------------------------------------------------------------

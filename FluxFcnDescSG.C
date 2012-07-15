@@ -57,6 +57,8 @@ extern "C" {
 			  double*, double*, double*);
   void F77NAME(genbcfluxgas)(const int&, const double &, const double&, double*, 
 			     const double&, double*, double*, double*);
+  void F77NAME(genbcfluxgas_hh)(const int&, const double &, const double&, double*, 
+			     const double&, double*, double*, double*, double*, double&, const double&, const double&);
   void F77NAME(hlleflux)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
@@ -775,9 +777,12 @@ void FluxFcnSGWallEuler3D::computeJacobian(double length, double irey, double *n
 void FluxFcnSGGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
+  int dim = 5;
+  double snew;
+  F77NAME(genbcfluxgas_hh)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux, flux+dim, snew, *(flux+dim+3), *(flux+dim+4));
+  flux[dim+3] = snew;
 
-  F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
-
+  //F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
 }
 
 //------------------------------------------------------------------------------
