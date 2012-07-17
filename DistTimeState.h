@@ -109,7 +109,7 @@ public:
 
   double computeTimeStep(double, double, double*, int*, DistGeoState &, 
 			 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
-  double computeTimeStep(double, double*, int*, DistGeoState &,
+  double computeTimeStep(double, double, double*, int*, DistGeoState &,
                          DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &, DistVec<double>* = NULL);
 
   //computes time step size when time step failed

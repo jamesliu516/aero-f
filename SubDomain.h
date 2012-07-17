@@ -320,7 +320,7 @@ public:
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-		       Vec<double> &, Vec<double> &,
+		       Vec<double> &, Vec<double> &, Vec<double> &,
                        TimeLowMachPrec &, Vec<int> &, Vec<double>* = NULL);
 
 

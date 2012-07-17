@@ -94,12 +94,13 @@ void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,dim> &V, Vec<double> &dt,
-				Vec<double> &idti, Vec<double> &idtv,
+				Vec<double> &idti, Vec<double> &idtv, Vec<double> &dtau,
                                 TimeLowMachPrec &tprec,
 				Vec<int> &fluidId, Vec<double>* umax)
 {
 
   dt = 0.0;
+  dtau = 0.0;
 
   edges.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId, globSubNum,umax);
   faces.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId);
