@@ -3893,6 +3893,7 @@ void IoData::resetInputValues()
    }
 
    if (eqs.type == EquationsData::NAVIER_STOKES && 
+       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
        ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
          eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
       if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
