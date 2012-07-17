@@ -141,6 +141,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   dt  = ts.dt;
   idti = ts.idti;
   idtv = ts.idtv;
+  dtau = ts.dtau;
   irey = ts.irey;
   viscousCst = ts.viscousCst;
   Un  = ts.Un;
@@ -185,6 +186,7 @@ DistTimeState<dim>::~DistTimeState()
   delete dt;
   delete idti;
   delete idtv; 
+  delete dtau;
   delete irey;
                                                                                                                           
   if (subTimeState) {
@@ -665,14 +667,14 @@ void DistTimeState<dim>::calculateErrorEstiNorm(DistSVec<double,dim> &U, DistSVe
 //------------------------------------------------------------------------------
                                                                 
 template<int dim>
-double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numSubCycles,
+double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, double* dtLeft, int* numSubCycles,
                                            DistGeoState &geoState, DistVec<double> &ctrlVol,
                                            DistSVec<double,dim> &U, DistVec<int> &fluidId,
 					   DistVec<double>* umax)
 {
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, fluidId,
+  domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, *dtau, tprec, fluidId,
 			  umax);
                                                                                                          
   double dt_glob;

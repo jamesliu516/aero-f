@@ -270,9 +270,9 @@ public:
                        TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>
-  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
+  void computeTimeStep(double, double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
-		       DistVec<double> &, TimeLowMachPrec &,
+		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
 		       DistVec<int> &, DistVec<double>* = NULL);
 
 

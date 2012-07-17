@@ -416,7 +416,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
         dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->X, *this->A, U);
       else {//numFLuid>1
-        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+        dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->A, U, nodeTag);
       }
     }

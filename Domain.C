@@ -128,9 +128,9 @@ void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
+void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
                              DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-                             DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv,
+                             DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, DistVec<double> &dtau,
 			     TimeLowMachPrec &tprec, DistVec<int> &fluidId, DistVec<double>* umax)
 {
 
@@ -142,9 +142,9 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     if (umax)
-      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, fluidId(iSub),&(*umax)(iSub));
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec, fluidId(iSub),&(*umax)(iSub));
     else
-      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, fluidId(iSub));
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec, fluidId(iSub));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
   }
 
@@ -168,6 +168,7 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
 
   }
 
+  dtau = -dualtimecfl * ctrlVol / dt;
   dt = -cfl * ctrlVol / dt;
 
   if (umax)

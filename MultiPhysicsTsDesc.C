@@ -380,7 +380,7 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 
   double dt;
   umax = 0.0;
-  dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+  dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                           &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
   if (this->problemType[ProblemData::UNSTEADY])
