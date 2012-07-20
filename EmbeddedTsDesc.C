@@ -129,6 +129,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
       exit(-1);
   }
+  wall_computer=new ReinitializeDistanceToWall<1>(*this->domain);
+  //wall_computer = 0;
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
   exit(-1);
@@ -184,17 +186,42 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
  *nodeTag0Copy = 0;
 
 
-  //only for IncreasePressure
+//---------------------------------------------------------------------
+  // for IncreasePressure
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    implosionSetupType = EmbeddedTsDesc<dim>::LINEAR;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP)
+    implosionSetupType = EmbeddedTsDesc<dim>::SMOOTHSTEP;
+  else {
+    this->com->fprintf(stderr,"ERROR: ImplosionSetup::Type = %d. Code not supported!\n", ioData.implosion.type);
+    implosionSetupType = EmbeddedTsDesc<dim>::NONE;
+    exit(-1);
+  }
+
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
+  Pfinal = ioData.bc.inlet.pressure;
+
   Pscale = ioData.ref.rv.pressure;
   intersector_freq = ioData.implosion.intersector_freq;
-  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP) {
+    tmax = ioData.implosion.tmax;
+    if(tmax<=0.0) {
+      this->com->fprintf(stderr,"ERROR: ImplosionSetup::Tmax = %e!\n", tmax);
+      exit(-1);
+    }
+  }
+
   if(intersector_freq<1) {
     this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
     exit(-1);
   }
 
+  recomputeIntersections = true;
+  unifPressure[0] = unifPressure[1] = Pinit;
+//---------------------------------------------------------------------
 
   globIt = -1;
   inSubCycling = false;
@@ -256,6 +283,7 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (UCopy) delete UCopy;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
+  delete wall_computer;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
   //PJSA if (Fs) delete[] Fs;
@@ -291,6 +319,12 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     _mmh->setup(tMax); //obtain maxTime from structure
   }
 
+  // If 'IncreasePressure' is activated, re-initialize the fluid state
+  if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
+    increasingPressure = true;
+    this->domain->IncreasePressure(currentPressure(this->getInitialTime()), this->varFcn, *U, nodeTag);
+  }
+ 
   //compute force
   // construct Wij, Wji from U. Then use them for force calculation.
   DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
@@ -362,6 +396,14 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     inSubCycling = false;
   }
 
+/*
+  if(wall_computer && !inSubCycling) {
+    this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+    wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState); // TODO(jontg): Probably not the best place...
+    this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+  }
+*/
+
   this->com->barrier();
   double t0 = this->timer->getTime();
   int numSubCycles = 1;
@@ -371,10 +413,10 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
       if(numFluid==1)
-        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+        dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->X, *this->A, U);
       else {//numFLuid>1
-        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+        dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->A, U, nodeTag);
       }
     }
@@ -409,6 +451,8 @@ void EmbeddedTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
   this->geoState->update(*this->X, *this->A);
   this->timeState->update(U,increasingPressure); 
+  this->spaceOp->updateFixes();
+
 }
 
 //-----------------------------------------------------------------------------
@@ -449,6 +493,8 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
     this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, &nodeTag);
+    this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
+    this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
@@ -474,6 +520,8 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeMaterialVolumesToDisk(it, t, *this->A, &nodeTag);
+  this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
+  this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
   this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,nodeTag, this->distLSS, ghostPoints);
   this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
@@ -574,10 +622,24 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   double t0 = this->timer->getTime();
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
-  for (int i=0; i<numStructNodes; i++) 
-    Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
-				  ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+
+  if(!increasingPressure || recomputeIntersections) {
+    for (int i=0; i<numStructNodes; i++) 
+      Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
+    this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
+                                    ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+  } else {
+    if(unifPressure[0]==0) {
+      this->com->fprintf(stderr,"ERROR: Detected pressure p = %e in Implosion Setup.\n", unifPressure[0]);
+      exit(-1);
+    }
+    for (int i=0; i<numStructNodes; i++) {
+      Fs[i][0] *= unifPressure[1]/unifPressure[0]; 
+      Fs[i][1] *= unifPressure[1]/unifPressure[0]; 
+      Fs[i][2] *= unifPressure[1]/unifPressure[0]; 
+    }
+  }
+
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
@@ -645,23 +707,23 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
     double tw = this->timer->getTime();
-    if((it-1)%intersector_freq==0) {
+    if(intersector_freq==1||((it-1)%intersector_freq==0&&(it>1))) {
       this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
+      recomputeIntersections = true;
       this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
-    }
+    } else
+      recomputeIntersections = false;
 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
-    //update nodeTags (only for numFluid>1)
-    //Adam and Kevin 2010.08.04 node tag for F/S interaction is needed
-    //if(numFluid>1) {
-      nodeTag0 = this->nodeTag;
-      nodeTag = this->distLSS->getStatus();
-   // }
+
+    nodeTag0 = this->nodeTag;
+    nodeTag = this->distLSS->getStatus();
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+    if(recomputeIntersections)
+      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
             this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
@@ -691,8 +753,11 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     }
   }
 
-  this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
-  this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, nodeTag);
+  double pnow = currentPressure(t);;
+  this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
+  this->domain->IncreasePressure(pnow, this->varFcn, U, nodeTag);
+  unifPressure[0] = unifPressure[1];
+  unifPressure[1] = pnow;
 
   return false;
 
@@ -707,12 +772,37 @@ void EmbeddedTsDesc<dim>::fixSolution(DistSVec<double,dim>& U,DistSVec<double,di
     this->domain->fixSolution(this->varFcn,U,dU,&this->nodeTag);
 }
 
+//------------------------------------------------------------------------------
 
+template<int dim>
+double EmbeddedTsDesc<dim>::currentPressure(double t)
+{
+  double p;
+  if(implosionSetupType==EmbeddedTsDesc<dim>::LINEAR)
+    p = Pinit + t*Prate;
+  else if(implosionSetupType==EmbeddedTsDesc<dim>::SMOOTHSTEP) {
+    double tbar = t/tmax;
+    //fprintf(stderr,"t = %e, tmax = %e, tbar = %e.\n", t, tmax, tbar);
+    p = Pinit + (Pfinal - Pinit)*tbar*tbar*tbar*(10.0-15.0*tbar+6.0*tbar*tbar);
+  } else {
+    this->com->fprintf(stderr,"ERROR! ImplosionSetup::Type = %d NOT recognized!\n", implosionSetupType);
+    exit(-1);
+  }
+  return p;
+}
 
+//------------------------------------------------------------------------------
 
-
-
-
-
-
+template<int dim>
+void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
+{
+  if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
+    if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+        ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+      this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
+      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+    }
+  }
+}
 

@@ -99,6 +99,10 @@ struct InputData {
   const char *mesh;
   const char *reducedfullnodemap;
 
+  const char* convergence_file;
+  
+  const char* exactInterfaceLocation;
+
 // Included (MB)
   const char *shapederivatives;
 
@@ -200,11 +204,16 @@ struct TransientData {
   const char *materialVolumes;
   const char *conservation;
   const char *podFile;
+  const char *robProductFile;
   const char *romFile;
+  const char *gendispFile;
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
+  const char *embeddedsurface;
+  const char *cputiming;
   const char *clusterUsage;
+
 
 // Included (MB)
   const char *velocitynorm;
@@ -265,9 +274,7 @@ struct RestartData {
   ~RestartData() {}
 
   void setup(const char *, ClassAssigner * = 0);
-
 };
-
 //------------------------------------------------------------------------------
 
 struct ROMOutputData {
@@ -372,12 +379,12 @@ struct ProblemData {
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
 		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
 		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ACC_NONLINEAR_ROM_ = 32} alltype;
+		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ROB_INNER_PRODUCT_ = 32, _ACC_NONLINEAR_ROM_ = 33} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
-  enum SolveFluid {NO = 0, YES = 1} solvefluid;
+  enum SolveFluid {OFF = 0, ON = 1} solvefluid;
   int verbose;
 
   ProblemData();
@@ -541,7 +548,11 @@ struct LiquidModelData {
 
   enum Type { COMPRESSIBLE = 0 } type;
 
-  enum Check {YES = 0, NO = 1 } check;
+  enum YesNo {YES = 0, NO = 1 };
+  YesNo check;
+
+  YesNo burnable;
+
   // the state equation is derived from a linearization of the bulk modulus wrt
   // pressure: K = k1 + k2 * P
   // the integration constant of the ODE is given by the couple (RHOrefwater,Prefwater)
@@ -679,6 +690,7 @@ struct SAModelData {
   double cv2;
   double sigma;
   double vkcst;
+  enum Form {ORIGINAL = 0, FV3 = 1} form;
 
   SAModelData();
   ~SAModelData() {}
@@ -700,6 +712,7 @@ struct DESModelData {
   double cdes;
   double sigma;
   double vkcst;
+  enum Form {ORIGINAL = 0, FV3 = 1} form;
 
   DESModelData();
   ~DESModelData() {}
@@ -1061,6 +1074,10 @@ struct MultiFluidData {
 
   SparseGridData sparseGrid;
 
+  int testCase;
+
+  int interfaceOmitCells;
+
   MultiFluidData();
   ~MultiFluidData() {}
   void setup(const char *, ClassAssigner * = 0);
@@ -1155,6 +1172,9 @@ struct CFixData {
   CFixData();
   ~CFixData() {}
 
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
+
   void setup(const char *, ClassAssigner * = 0);
 
 };
@@ -1168,6 +1188,9 @@ struct SFixData {
   double z0;
   double r;
 
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
+  
   SFixData();
   ~SFixData() {}
 
@@ -1185,6 +1208,9 @@ struct BFixData {
   double x1;
   double y1;
   double z1;
+  
+  int failsafeN;
+  enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
 
   BFixData();
   ~BFixData() {}
@@ -1297,7 +1323,7 @@ struct ExplicitData {
 
 struct PcData {
 
-  enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5} type;
+  enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5, MG = 6} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
 
   int fill;
@@ -1398,6 +1424,7 @@ struct TsData {
   enum TypeTimeStep {AUTO = 0, LOCAL = 1, GLOBAL = 2} typeTimeStep;
   enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2} typeClipping;
   enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
+  enum DualTimeStepping {OFF = 0, ON = 1} dualtimestepping;
 
   enum Prec {NO_PREC = 0, PREC = 1} prec;
   enum Form {DESCRIPTOR = 1, NONDESCRIPTOR = 0, HYBRID = 2} form;
@@ -1417,6 +1444,7 @@ struct TsData {
   double cflMin;
   double ser;
   double errorTol;
+  double dualtimecfl;
 
   const char *output;
 
@@ -2054,6 +2082,8 @@ struct OneDimensionalInfo {
   int numPoints; //mesh has numPoints elements
   int fluidId2;
 
+  int sourceTermOrder;
+
   double interfacePosition;
 
   double density1, velocity1, pressure1,temperature1;
@@ -2071,7 +2101,8 @@ struct OneDimensionalInfo {
 //------------------------------------------------------------------------------
 
 struct ImplosionSetup {
-  double Prate, Pinit;
+  enum Type{LINEAR=0, SMOOTHSTEP=1} type;
+  double Prate, Pinit, tmax;
   int intersector_freq;
 
   ImplosionSetup();

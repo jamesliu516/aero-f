@@ -26,7 +26,6 @@
 #include <Communicator.h>
 #include <Timer.h>
 #include <FluidSelector.h>
-#include <LevelSet/FluidTypeCriterion.h>
 
 
 //------------------------------------------------------------------------------
@@ -142,7 +141,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     order = 1;
   else
     order = 2;
-
 }
 
 //------------------------------------------------------------------------------
@@ -1275,7 +1273,7 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
                  DistLevelSetStructure *distLSS, double *vfar, DistVec<int> *fluidId)
 {
   int iSub, numLocSub = this->domain->getNumLocSub();
-  DistVec<double> init(domain->getNodeDistInfo()),next_init(domain->getNodeDistInfo());
+  DistVec<int> init(domain->getNodeDistInfo()),next_init(domain->getNodeDistInfo());
   SubDomain **subD = this->domain->getSubDomain();
 
   varFcn->conservativeToPrimitive(U, V, fluidId);
@@ -1284,12 +1282,12 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
     for(int i=0;i<init(iSub).size();++i)
-        init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0.0 : 1.0);
+        init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1);
   next_init = init;
 
   int iter=0;
-  bool finished = false;
-  while(!finished){++iter;finished = true;
+  int finished = 0;
+  while(finished == 0){++iter;finished = 1;
     switch(phaseChangeChoice){
     case 0: domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
       break;
@@ -1301,25 +1299,27 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub) {
       for(int i=0;i<init(iSub).size();++i)
-        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
-          if(!(*distLSS)(iSub).isActive(0.0,i)) {
-            for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-          } else {
-            const double one_over_weight=(double)1.0/Weights(iSub)[i];
-            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
-          }
+        if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
+          const double one_over_weight=(double)1.0/Weights(iSub)[i];
+          for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
         }
     }
 
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub)
       for(int i=0;i<init(iSub).size();++i)
-        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = false;
+        if(init(iSub)[i]<1 && next_init(iSub)[i]>0) finished = 0;
     Weights = 0.0; VWeights = 0.0;
     init = next_init;
-    com->globalOp(1,&finished,MPI_LAND);
+    com->globalOp(1,&finished,MPI_PROD);
   }
 
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub){
+    for(int i=0;i<init(iSub).size();++i)
+      if(init(iSub)[i] < 1 || !(*distLSS)(iSub).isActive(0.0,i))
+        for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+  }
   varFcn->primitiveToConservative(V, U, fluidId);
 }
 
@@ -2015,6 +2015,16 @@ MultiPhaseSpaceOperator<dim,dimLS>::MultiPhaseSpaceOperator(IoData &ioData, VarF
   recFcnLS = createRecFcnLS(ioData);
   ngradLS = new DistNodalGrad<dimLS, double>(ioData, this->domain, 1);
 
+  if (ioData.mf.interfaceTreatment == 
+      MultiFluidData::SECONDORDER) {
+
+    for (int l = 0; l < 2; ++l) {
+
+      higherOrderData.vals[l] = new DistSVec<double,dim>(dom->getNodeDistInfo());
+      higherOrderData.cutgrads[l] = new DistNodalGrad<dim,double>(ioData, this->domain, 1);
+      higherOrderData.counts[l] = new DistVec<int>(dom->getNodeDistInfo());
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2118,6 +2128,28 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
     this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V));
     this->timer->addNodalGradTime(t0);
   }
+  
+/*  this->domain->getCommunicator()->fprintf(stderr,"%lf\n",this->V->norm());  
+  int numLocSub = X.numLocSub();
+  double gradsize = 0.0;
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      NodalGrad<dim,double>& grad = this->ngrad->operator()(iSub);
+      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+        if (fabs(grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3]) > 1000.0) {
+          std::cout << "Error: grad size is giant: " << grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3] <<
+                   " " << this->domain->getSubDomain()[iSub]->getNodeMap()[i] + 1;
+          if (this->domain->getSubDomain()[iSub]->higherOrderMF->isCellCut(i))
+            std::cout << " [cell is cut]";
+          std::cout << std::endl;
+        }
+        gradsize += grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3];
+      }
+    }
+
+    this->domain->getCommunicator()->globalSum(1,&gradsize);
+    this->domain->getCommunicator()->fprintf(stderr,"gradsize = %lf\n",gradsize);
+ */
 
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0){
     double t0 = this->timer->getTime();
@@ -2146,7 +2178,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), fluidSelector, *(this->ngrad), this->egrad,
-                                  *ngradLS, R, it, this->failsafe,this->rshift);
+					Phi, *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
     int numLocSub = R.numLocSub();
@@ -2207,13 +2239,14 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
     ngradLS->limit(recFcnLS, X, ctrlVol, Phi);
 
-
-  this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),
+  this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),fluidId,
                                     *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
+//  this->domain->getCommunicator()->fprintf(stderr,"PhiF res: %lf\n", PhiF.norm());
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
     int numLocSub = PhiF.numLocSub();
     int iSub;
+    double gradsize = 0.0;
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
@@ -2239,11 +2272,19 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
           if (method == 1) { 
             for (int idim=0; idim<dimLS; idim++)
               r[i][idim] -= (grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3])*Phi(iSub)[i][idim];
+          gradsize += grad.getX()[i][1]+grad.getY()[i][2]+grad.getZ()[i][3];
           }
         }
       }
+
+//    this->domain->getCommunicator()->globalSum(1,&gradsize);
+//    this->domain->getCommunicator()->fprintf(stderr,"gradsize = %lf\n",gradsize);
     }
   }
+/*  this->domain->getCommunicator()->fprintf(stderr,"PhiF res: %lf\n", PhiF.norm());
+  this->domain->getCommunicator()->fprintf(stderr,"V res: %lf\n", this->V->norm());
+  this->domain->getCommunicator()->fprintf(stderr,"Phi res: %lf\n", Phi.norm());
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -2492,7 +2533,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
                            DistVec<int> *fluidId0, DistVec<int> *fluidId)
 {
   int iSub, numLocSub = this->domain->getNumLocSub();
-  DistVec<double> init(this->domain->getNodeDistInfo()),next_init(this->domain->getNodeDistInfo());
+  DistVec<int> init(this->domain->getNodeDistInfo()),next_init(this->domain->getNodeDistInfo());
   SubDomain **subD = this->domain->getSubDomain();
 
   this->varFcn->conservativeToPrimitive(U, V, fluidId);
@@ -2501,12 +2542,12 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
     for(int i=0;i<init(iSub).size();++i)
-        init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0.0 : 1.0);
+      init(iSub)[i] = (*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1;
   next_init = init;
 
   int iter=0;
-  bool finished = false;
-  while(!finished){++iter;finished = true;
+  int finished = 0;
+  while(finished == 0){++iter;finished = 1;
     switch(phaseChangeChoice){
     case 0: this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,
                                                           init, next_init, distLSS, fluidId);
@@ -2521,48 +2562,46 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
-            if(!(*distLSS)(iSub).isActive(0.0,i)) {
-              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //not really needed.
-            } else {
-              const double one_over_weight=(double)1.0/Weights(iSub)[i];
-              for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
-            }
+          if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
+            const double one_over_weight=(double)1.0/Weights(iSub)[i];
+            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+            for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
           }
       }
     } else {
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
-            if(!(*distLSS)(iSub).isActive(0.0,i)) {
-              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //not really needed.
-            } else {
-              const double one_over_weight=(double)1.0/Weights(iSub)[i];
-              for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+          if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
+            const double one_over_weight=(double)1.0/Weights(iSub)[i];
+            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
 
-              Phi(iSub)[i][0] = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
-              if(Phi(iSub)[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
-              if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
+            Phi(iSub)[i][0] = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
+            if(Phi(iSub)[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
+            if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
 
-              for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
-            }
+            for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
           }
       }
-  }
+    }
 
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub)
       for(int i=0;i<init(iSub).size();++i)
-        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = false;
+        if(init(iSub)[i]<1 && next_init(iSub)[i]>0) finished = 0;
     Weights = 0.0; VWeights = 0.0; PhiWeights = 0.0;
     init = next_init;
-    this->com->globalOp(1,&finished,MPI_LAND);
+    this->com->globalOp(1,&finished,MPI_PROD);
   }
 
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub) {
+    for(int i=0;i<init(iSub).size();++i)
+      if(init(iSub)[i] < 1 || !(*distLSS)(iSub).isActive(0.0,i)) {
+        for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+        for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //not really needed.
+      }
+  }
   this->varFcn->primitiveToConservative(V, U, fluidId);
 }
 
@@ -2628,4 +2667,191 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
 }
 
 //-----------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& phi,
+						      DistVec<int>& status,
+						      DistVec<int>& fluidId,
+						      DistSVec<double,dim> &U,
+						      DistSVec<double,3> &X) {
+
+  SubDomain **subD = this->domain->getSubDomain();
+
+  int iSub;
+
+  this->varFcn->conservativeToPrimitive(U, *(this->V), &fluidId);
+   
+  for (int k = 0; k < dimLS; ++k) {
+      
+    status = 0;
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->findCutCells(k, phi(iSub), status,X(iSub));
+      subD[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
+    }
+
+    this->domain->getLevelPat()->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->maxRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
+      subD[iSub]->template setCutCellFlags<dim>(k,status(iSub));
+    }
+  }
+
+  /*int numCutCells = 0, cutCellsLoc,tmp;
+  int* locoffset = new int[numLocSub];
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    locoffset[iSub] = numCutCells;
+    numCutCells += subD[iSub]->getNumCutCells();
+  }
+
+  MPI_Allreduce(&numCutCells,&tmp, 1, MPI_INT,
+                MPI_SUM, this->domain->com->comm);
+
+  numCutCells = tmp;
+
+  fprintf(stdout,"# of cut cells = %i\n",numCutCells);
+  
+  MPI_Scan(&numCutCells,&cutCellsLoc,1, MPI_INT, 
+           MPI_SUM, this->domain->com->comm);
+  
+  double* grads = new double[numCutCells*3*dim*2];
+  double* vals = new double[numCutCells*2*dim];
+  int* gl_nodes = new int[numCutCells];
+  
+  memset(grads,0,sizeof(double)*numCutCells*3*dim*2);
+  memset(vals,0,sizeof(double)*numCutCells*2*dim);
+  memset(gl_nodes,0,sizeof(int)*numCutCells);
+  */
+
+  //std::cout << "Hello!!" << std::endl;
+  //exit(-1);
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+  
+    SVec<double,dim>* v[2] = { &higherOrderData.vals[0]->operator()(iSub),
+			       &higherOrderData.vals[1]->operator()(iSub)};
+    
+    NodalGrad<dim,double>* g[2] = { &higherOrderData.cutgrads[0]->operator()(iSub),
+				    &higherOrderData.cutgrads[1]->operator()(iSub)};
+    
+    Vec<int>* c[2] = { &higherOrderData.counts[0]->operator()(iSub),
+		       &higherOrderData.counts[1]->operator()(iSub)};
+
+    for (int i = 0; i < 2; ++i) {
+      *v[i] = 0.0;
+      g[i]->getX() = 0.0;
+      g[i]->getY() = 0.0;
+      g[i]->getZ() = 0.0;
+      *c[i] = 0;
+    }
+    
+    /*subD[iSub]->collectCutCellData(grads + (locOffset[iSub]+cutCellsLoc)*3*2*dim,
+					vals + (locOffset[iSub]+cutCellsLoc)*2*dim,
+					gl_nodes + (locOffset[iSub]+cutCellsLoc));
+    */
+    
+    subD[iSub]->collectCutCellData(v,g,c,
+					(*(this->ngrad))(iSub), fluidId(iSub),
+					(*(this->V))(iSub),X(iSub)) ;
+
+  }
+
+  for (int i = 0; i < 2; ++i) {
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(higherOrderData.counts[i]->subData(iSub)));
+    }
+    
+    this->domain->getLevelPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(higherOrderData.counts[i]->subData(iSub)));
+    }
+  }
+
+  for (int i = 0; i < 2; ++i) {
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), reinterpret_cast<double (*)[dim]>(higherOrderData.vals[i]->subData(iSub)));
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), reinterpret_cast<double (*)[dim]>(higherOrderData.vals[i]->subData(iSub)));
+    }
+  }
+
+  for (int i = 0; i < 2; ++i) {
+
+#pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getX().v);
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getX().v);
+    }
+
+ #pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getY().v);
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getY().v);
+    }
+
+   #pragma omp parallel for
+    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      
+      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getZ().v);
+    }
+    
+    this->domain->getVecPat()->exchange();
+    
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getZ().v);
+    }
+  }
+
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+    SVec<double,dim>* v[2] = { &higherOrderData.vals[0]->operator()(iSub),
+			       &higherOrderData.vals[1]->operator()(iSub)};
+    
+    NodalGrad<dim,double>* g[2] = { &higherOrderData.cutgrads[0]->operator()(iSub),
+				    &higherOrderData.cutgrads[1]->operator()(iSub)};
+    
+    Vec<int>* c[2] = { &higherOrderData.counts[0]->operator()(iSub),
+		       &higherOrderData.counts[1]->operator()(iSub)};
+    
+    subD[iSub]->storeCutCellData(v,g,c,
+				 fluidId(iSub)
+				 /*(*(this->V))(iSub)*/);
+  } 
+
+}
 

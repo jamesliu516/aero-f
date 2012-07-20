@@ -96,6 +96,10 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   double dt, dts;
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
+
+  // For an embedded viscous simulation with turbulence model, compute the distance to the wall
+  probDesc->computeDistanceToWall(ioData);
+
   // setup solution output files
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
@@ -115,13 +119,23 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-
+     
+    bool solveOrNot = true;
+    
+    // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
+    if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
+        ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
+        ioData.problem.alltype == ProblemData::_FORCED_) {
+      probDesc->computeDistanceToWall(ioData);
+    }
     do { // Subcycling
       stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
 
-      if(probDesc->structureSubcycling()) {//in this case AERO-F should never subcycle
+      if(probDesc->structureSubcycling() || //in this case computeTimeStep is called in computePositionVector
+         (it>1 && probDesc->willNotSolve(dtLeft,t)) ) {//in this case AERO-F should never subcycle
+        probDesc->setFluidSubcycling(false);
         dt = dtLeft;
         dtLeft = 0.0;
       }
@@ -136,8 +150,8 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // compute control volumes and velocities
       probDesc->computeMeshMetrics();
       // Fluid Solution
-      bool solveOrNot = probDesc->IncreasePressure(it,dt,t,U);
-      if (solveOrNot && ioData.problem.solvefluid == ProblemData::NO) {
+      solveOrNot = probDesc->IncreasePressure(it,dt,t,U);
+      if (ioData.problem.solvefluid == ProblemData::OFF) {
         solveOrNot = false;
       }
       if(solveOrNot){

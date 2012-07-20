@@ -25,19 +25,13 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 {
   // In the case of an embedded simulation, check if the tetrahedra is actually active
   bool isTetInactive=true,isAtTheInterface=false;
-  if(ghostPoints) // Then LSS is also a non null pointer. It has already been checked in Domain.C
-    {
-      for(int i=0;i<4;++i) 
-	{
-	  isTetInactive = (isTetInactive && !(LSS->isActive(0,nodeNum(i))));
-	  for (int j=0; j<4; ++j) {
-      if (j != i) {
-        isAtTheInterface = (isAtTheInterface || LSS->edgeIntersectsStructure(0,nodeNum(i),nodeNum(j)));
-      }
-    }
-	}
-      if(isTetInactive) return;
-    }
+  if(ghostPoints) { // Then LSS is also a non null pointer. It has already been checked in Domain.C
+    for(int i=0;i<4;++i)
+      isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
+    for(int l=0; l<6; ++l)
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    if(isTetInactive) return;
+  }
 
   // Common Part
   double dp1dxj[4][3];
@@ -75,27 +69,25 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
   bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                                   s, pr, vol, X, nodeNum(), volume_id);
 
-  if(ghostPoints && isAtTheInterface) // We don't want to update tates associated to ghost points
-    {
+  if(ghostPoints && isAtTheInterface) { // We don't want to update States associated to ghost points
     GhostPoint<dim> *gp;
     for (int j=0; j<4; ++j) {
-	    int idx = nodeNum(j);
-	    if(LSS->isActive(0,idx)) { // We add a contribution for active nodes only
-        for (int l=0; l<4; l++) { // We use the states of the corresponding ghost points
-          if (l != j) {
-            if (LSS->edgeIntersectsStructure(0,idx,nodeNum(l))) {
-              gp   = ghostPoints->operator[](nodeNum(l));
-              v[l] = gp->getPrimitiveState();
-            }
+      int idx = nodeNum(j);
+      if(LSS->isActive(0,idx)) { // We add a contribution for active nodes only
+        for (int e=0; e<6; e++)
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) {
+            int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+            gp = (*ghostPoints)[nodeNum(l)];
+            if (gp) v[l] = gp->getPrimitiveState();
           }
-        }
+
         fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                s, pr, vol, X, nodeNum(), volume_id);
-	      for (int k=0; k<dim; ++k) {
-		      R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-				               r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-	      }
-	    }
+        for (int k=0; k<dim; ++k) {
+            R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+                                  r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+        }
+      }
     }
     /*
     if (porousTermExists) {
@@ -662,19 +654,13 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 {
   // In the case of an embedded simulation, check if the tetrahedra is actually active
   bool isTetInactive=true,isAtTheInterface=false;
-  if(ghostPoints) // Then LSS is also a non null pointer. It has already been checked in Domain.C
-    {
-      for(int i=0;i<4;++i) 
-	{
-	  isTetInactive = (isTetInactive && !(LSS->isActive(0,nodeNum(i))));
-	  for (int j=0; j<4; ++j) {
-      if (j != i) {
-        isAtTheInterface = (isAtTheInterface || LSS->edgeIntersectsStructure(0,nodeNum(i),nodeNum(j)));
-      } 
-    }
-	}
-      if(isTetInactive) return;
-    }
+  if(ghostPoints) { // Then LSS is also a non null pointer. It has already been checked in Domain.C
+    for(int i=0;i<4;++i)
+      isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
+    for(int l=0; l<6; ++l)
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    if(isTetInactive) return;
+  }
 
   // Common Part
   double dp1dxj[4][3];
@@ -743,15 +729,12 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
     int m;
     if (ghostPoints && isAtTheInterface) {
       GhostPoint<dim> *gp;
-      for (int l=0; l<4; l++) {
-        if (l != k) {
-          if (LSS->edgeIntersectsStructure(0,nodeNum(k),nodeNum(l))) {
-            gp   = ghostPoints->operator[](nodeNum(l));
-            if (gp)
-              v[l] = gp->getPrimitiveState();
-          }
+      for (int e=0; e<6; e++)
+        if ((k == edgeEnd(e,0) || k == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) {
+          int l = (k == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+          gp = (*ghostPoints)[nodeNum(l)];
+          if (gp) v[l] = gp->getPrimitiveState();
         }
-      }
       fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
                                      reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
                                      vol, X, nodeNum(), volume_id);
@@ -767,7 +750,6 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
     if (porousTermExists)
        for (m=0;m<neq*neq;++m)
          Aii[m] += dPdU[k][k][m];
-
   }
 
   // off-diagonal matrices
@@ -787,7 +769,7 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
     if (LSS) {
       iactive = LSS->isActive(0,nodeNum(i));
       jactive = LSS->isActive(0,nodeNum(j));
-      isIntersected = LSS->edgeIntersectsStructure(0,nodeNum(i),nodeNum(j));
+      isIntersected = LSS->edgeIntersectsStructure(0,edgeNum(l));
     }
 
     if (iactive || jactive) { // If i and j are both inactive, we don't fill the corresponding blocs in the Jacobian matrix.
@@ -2180,8 +2162,16 @@ void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
 	  det = jac[0][0]*(jac[1][1]*jac[2][2]-jac[1][2]*jac[2][1]) - 
 	    jac[1][0]*(jac[0][1]*jac[2][2]-jac[0][2]*jac[2][1]) + 
 	    jac[2][0]*(jac[0][1]*jac[1][2]-jac[0][2]*jac[1][1]);
+
+	  if (det <= 0.0)
+	    std::cout << "Error, neg determinant! " << det << std::endl;
+	  assert(det > 0);
 	  
 	  (obj->*F)( nodeNum(i), xyz, res);
+	  //assert(res[0] > 0 && res[4] > 0);
+	  //if (res[0] <= 0.0 || res[4] <= 0.0) {
+	    //std::cout << "Error negative density or energy! " << res[0] << " " << res[4] << std::endl;
+	  //}
 	  for (int m = 0; m < dim; ++m) {
 	    V[ nodeNum(i) ][m] += det*wgts[npt-1][j]*wgts[npt-1][k]*wgts[npt-1][l]/8.0*res[m];
 	  }
@@ -2201,16 +2191,11 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
 
   // In the case of an embedded simulation, check if the tetrahedra is actually active.
   bool isAtTheInterface = false;
-  if(LSS) // Then LSS is a non null pointer and we are in the embedded case.
-    {
-      for(int i=0; i<4; ++i) {
-        for (int j=0; j<4; ++j) {
-          if (j != i) {
-            isAtTheInterface = (isAtTheInterface || LSS->edgeIntersectsStructure(0,nodeNum(i),nodeNum(j)));
-          }
-        }
-      }
+  if(LSS) { // Then LSS is a non null pointer and we are in the embedded case.
+    for(int l=0; l<6; ++l) {
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
     }
+  }
 
   bool probeInside = false;
 
@@ -2225,7 +2210,7 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
       for(int i=0; i < numberOfPolygons; ++i){
         PolygonReconstructionData& polygon = polygons[i];
         getPolygonNormal(X, normal, *LSS, polygon);
-        alpha = (LSS->getLevelSetDataAtEdgeCenter(0,polygon.edgeWithVertex[0][0],polygon.edgeWithVertex[0][1])).alpha;
+        alpha = (LSS->getLevelSetDataAtEdgeCenter(0,polygon.edge[0],polygon.edgeWithVertex[0][0]<polygon.edgeWithVertex[0][1])).alpha;
         for (int j=0; j<3; j++) {Xinter[j] = alpha*X[polygon.edgeWithVertex[0][0]][j]+(1.0-alpha)*X[polygon.edgeWithVertex[0][1]][j];}
         if (normal*(loc-Xinter) < 0) {probeInside = true;}
       }

@@ -106,12 +106,15 @@ InputData::InputData()
   mesh = "";
   reducedfullnodemap = "";
 
+  convergence_file = "";
+
 // Included (MB)
   shapederivatives = "";
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
 
+  exactInterfaceLocation = "";
 }
 
 //------------------------------------------------------------------------------
@@ -159,6 +162,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
+  new ClassStr<InputData>(ca, "ConvergenceFile", this, &InputData::convergence_file);
+  new ClassStr<InputData>(ca, "ExactInterfaceLocation", this, &InputData::exactInterfaceLocation);
 
   oneDimensionalInput.setup("1DRestartData",ca);
 
@@ -308,10 +313,15 @@ TransientData::TransientData()
   conservation = "";
   podFile = "";
   romFile = "";
+  robProductFile = "";
+  gendispFile = "";
   philevel = "";
   controlvolume = "";
   fluidid="";
+  embeddedsurface = "";
+  cputiming = "";
   clusterUsage = "clusterUsage";
+
 
 // Included (MB)
   velocitynorm = "";
@@ -352,7 +362,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 83, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 85, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -420,11 +430,15 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TransientData>(ca, "ZM", this, &TransientData::z0);
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
+  new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
+  new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ClusterUsage", this, &TransientData::clusterUsage);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
+  new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
+  new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
 
 	// Gappy POD offline
 	// Gappy POD snapshots
@@ -642,7 +656,7 @@ ProblemData::ProblemData()
   mode = NON_DIMENSIONAL;
   prec = NON_PRECONDITIONED;
   framework = BODYFITTED;
-  solvefluid = YES;
+  solvefluid = ON;
 
   test = REGULAR;
   verbose = 4;
@@ -666,10 +680,10 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "UnsteadyLinearized", 15, "ROBConstruction", 16, "ROMAeroelastic", 17,
 		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
 		 "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "1DProgrammedBurn", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
+		 "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
-		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "AcceleratedNonlinearROM", 32);
+		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32, "AcceleratedNonlinearROM", 33);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -689,7 +703,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   new ClassToken<ProblemData>
     (ca, "SolveFluid", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::solvefluid), 2,
-     "No", 0, "Yes", 1);
+     "Off", 0, "On", 1);
 
   new ClassToken<ProblemData>
     (ca, "Test", this,
@@ -931,6 +945,7 @@ LiquidModelData::LiquidModelData()
   k2water     = 7.15;
   Prefwater   = -1.0;
   RHOrefwater = -1.0;
+  burnable = NO;
 
   //these parameters are the adimensionalized parameters used by the VarFcn where the
   // liquid state equation is implemented. It it were dimensionalized, that is what their
@@ -953,6 +968,9 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
             "Compressible", 0);
   new ClassToken<LiquidModelData>(ca, "Check", this,
             reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2,
+            "Yes", 0, "No", 1);
+  new ClassToken<LiquidModelData>(ca, "Burnable", this,
+            reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::burnable), 2,
             "Yes", 0, "No", 1);
   new ClassDouble<LiquidModelData>(ca, "k1", this, &LiquidModelData::k1water);
   new ClassDouble<LiquidModelData>(ca, "k2", this, &LiquidModelData::k2water);
@@ -1139,6 +1157,7 @@ SAModelData::SAModelData()
   cv2 = 5.0;
   sigma = 2.0/3.0;
   vkcst = 0.41;
+  form = ORIGINAL;
 
 }
 
@@ -1157,6 +1176,10 @@ void SAModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SAModelData>(ca, "Cv2", this, &SAModelData::cv2);
   new ClassDouble<SAModelData>(ca, "Sigma", this, &SAModelData::sigma);
   new ClassDouble<SAModelData>(ca, "Kappa", this, &SAModelData::vkcst);
+  new ClassToken<SAModelData>
+    (ca, "Form", this,
+     reinterpret_cast<int SAModelData::*>(&SAModelData::form), 2,
+     "Original", 0, "Fv3", 1);
 
 }
 
@@ -1174,6 +1197,7 @@ DESModelData::DESModelData()
   cdes = 0.65;
   sigma = 2.0/3.0;
   vkcst = 0.41;
+  form = ORIGINAL;
 
 }
 
@@ -1193,6 +1217,10 @@ void DESModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<DESModelData>(ca, "CDes", this, &DESModelData::cdes);
   new ClassDouble<DESModelData>(ca, "Sigma", this, &DESModelData::sigma);
   new ClassDouble<DESModelData>(ca, "Kappa", this, &DESModelData::vkcst);
+  new ClassToken<DESModelData>
+    (ca, "Form", this,
+     reinterpret_cast<int DESModelData::*>(&DESModelData::form), 2,
+     "Original", 0, "Fv3", 1);
 
 }
 
@@ -1438,6 +1466,8 @@ CFixData::CFixData()
   r0 = -1.0;
   r1 = -1.0;
 
+  failsafeN = -1;
+  failsafe = ALWAYSON;
 }
 
 //------------------------------------------------------------------------------
@@ -1457,6 +1487,12 @@ void CFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<CFixData>(ca, "Z1", this, &CFixData::z1);
   new ClassDouble<CFixData>(ca, "Radius1", this, &CFixData::r1);
 
+  ClassToken<CFixData>* sf = new ClassToken<CFixData>
+        (ca, "FailSafe", this,
+         reinterpret_cast<int CFixData::*>(&CFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+
+  sf->allowIntPair(&CFixData::failsafeN);
 }
 //------------------------------------------------------------------------------
 
@@ -1942,6 +1978,8 @@ MultiFluidData::MultiFluidData()
   outputdiff = 0; //hidden
   copy = TRUE; //hidden
 
+  testCase = 0; // hidden
+
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
   jwlRelaxationFactor = 1.0;
@@ -1949,7 +1987,7 @@ MultiFluidData::MultiFluidData()
   interfaceTreatment = FIRSTORDER;
   interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
   levelSetMethod = CONSERVATIVE;
-
+  interfaceOmitCells = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -2012,6 +2050,12 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
 				  &MultiFluidData::jwlRelaxationFactor);
+
+  new ClassInt<MultiFluidData>(ca, "TestCase", this,
+			       &MultiFluidData::testCase);
+  
+  new ClassInt<MultiFluidData>(ca, "OmitCells", this,
+			       &MultiFluidData::interfaceOmitCells);
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
@@ -2099,8 +2143,9 @@ SFixData::SFixData()
   z0 = 0.0;
   r = -1.0;
 
+  failsafe = ALWAYSON;
+  failsafeN = -1;
 }
-
 //------------------------------------------------------------------------------
 
 void SFixData::setup(const char *name, ClassAssigner *father)
@@ -2113,6 +2158,12 @@ void SFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SFixData>(ca, "Z0", this, &SFixData::z0);
   new ClassDouble<SFixData>(ca, "Radius", this, &SFixData::r);
 
+  ClassToken<SFixData>* sf = new ClassToken<SFixData>
+	(ca, "FailSafe", this,
+	 reinterpret_cast<int SFixData::*>(&SFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+  
+  sf->allowIntPair(&SFixData::failsafeN);
 }
 
 //------------------------------------------------------------------------------
@@ -2127,6 +2178,8 @@ BFixData::BFixData()
   y1 = -1.0;
   z1 = -1.0;
 
+  failsafe = ALWAYSON;
+  failsafeN = -1;
 }
 
 //------------------------------------------------------------------------------
@@ -2142,6 +2195,13 @@ void BFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<BFixData>(ca, "X1", this, &BFixData::x1);
   new ClassDouble<BFixData>(ca, "Y1", this, &BFixData::y1);
   new ClassDouble<BFixData>(ca, "Z1", this, &BFixData::z1);
+
+  ClassToken<BFixData>* sf = new ClassToken<BFixData>
+	(ca, "FailSafe", this,
+	 reinterpret_cast<int BFixData::*>(&BFixData::failsafe), 2,
+         "Off", 0, "On",1, "AlwayOn", 2);
+  
+  sf->allowIntPair(&BFixData::failsafeN);
 
 }
 
@@ -2326,8 +2386,8 @@ void PcData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   new ClassToken<PcData>(ca, "Type", this,
-			 reinterpret_cast<int PcData::*>(&PcData::type), 6,
-			 "Identity", 0, "Jacobi", 1, "As", 2, "Ras", 3, "Has", 4, "Aas", 5);
+			 reinterpret_cast<int PcData::*>(&PcData::type), 7,
+			 "Identity", 0, "Jacobi", 1, "As", 2, "Ras", 3, "Has", 4, "Aas", 5, "MultiGrid", 6);
 
   new ClassToken<PcData>(ca, "Renumbering", this,
 			 reinterpret_cast<int PcData::*>(&PcData::renumbering), 2,
@@ -2491,6 +2551,7 @@ TsData::TsData()
   typeTimeStep = AUTO;
   typeClipping = FREESTREAM;
   timeStepCalculation = CFL;
+  dualtimestepping = OFF;
 
   prec = NO_PREC;
   viscousCst = 0.0;
@@ -2510,6 +2571,7 @@ TsData::TsData()
   ser = 0.7;
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
+  dualtimecfl = 100.0;
 
   output = "";
 
@@ -2528,6 +2590,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "TypeTimeStep", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeTimeStep), 2,
 			 "Local", 1, "Global", 2);
+  new ClassToken<TsData>(ca, "DualTimeStepping", this,
+                         reinterpret_cast<int TsData::*>(&TsData::dualtimestepping), 2,
+                         "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
@@ -2552,6 +2617,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
+  new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
 
@@ -3723,6 +3789,7 @@ OneDimensionalInfo::OneDimensionalInfo(){
   density2 = 1.0; velocity2 = 0.0; pressure2 = 1.0;
   temperature1 = 1.0; temperature2 = 1.0;
 
+  sourceTermOrder = 1;
 }
 //------------------------------------------------------------------------------
 void OneDimensionalInfo::setup(const char *name){
@@ -3733,6 +3800,7 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
   new ClassDouble<OneDimensionalInfo>(ca, "Radius", this, &OneDimensionalInfo::maxDistance);
   new ClassInt<OneDimensionalInfo>(ca, "NumberOfPoints", this, &OneDimensionalInfo::numPoints);
+  new ClassInt<OneDimensionalInfo>(ca, "SourceTermOrder", this, &OneDimensionalInfo::sourceTermOrder);
   new ClassDouble<OneDimensionalInfo>(ca, "InterfacePosition", this, &OneDimensionalInfo::interfacePosition);
 
   new ClassDouble<OneDimensionalInfo>(ca, "Density1", this, &OneDimensionalInfo::density1);
@@ -3751,17 +3819,21 @@ void OneDimensionalInfo::setup(const char *name){
 
 ImplosionSetup::ImplosionSetup() {
   // for buckling of cylinder
+  type = LINEAR;
   Prate = -1.0;
   Pinit = -1.0;
   intersector_freq = 1;
+  tmax = -1.0;
 }
 
 //-----------------------------------------------------------------------------
 
 void ImplosionSetup::setup(const char *name) {
-  ClassAssigner *ca = new ClassAssigner(name, 2, 0);
+  ClassAssigner *ca = new ClassAssigner(name, 5, 0);
+  new ClassToken<ImplosionSetup>(ca, "Type", this, reinterpret_cast<int ImplosionSetup::*>(&ImplosionSetup::type), 2, "Linear", 0, "SmoothStep", 1);
   new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+  new ClassDouble<ImplosionSetup>(ca, "Tmax", this, &ImplosionSetup::tmax);
   new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
@@ -3974,6 +4046,7 @@ void IoData::resetInputValues()
    }
 
    if (eqs.type == EquationsData::NAVIER_STOKES && 
+       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
        ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
          eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
       if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
@@ -4039,6 +4112,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
+      problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
 			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
@@ -4161,17 +4235,27 @@ void IoData::resetInputValues()
   // Check parameters for the matrix-vector product in implicit simulations.
   //
 
-  if ((problem.prec == ProblemData::PRECONDITIONED) ||
-      (ts.prec == TsData::PREC))
+//  if ((problem.prec == ProblemData::PRECONDITIONED) ||
+//      (ts.prec == TsData::PREC))
+//  {
+//    if (ts.implicit.mvp == ImplicitData::H2)
+//    {
+//      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
+//      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+//      ts.implicit.mvp = ImplicitData::FD;
+//      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+//    }
+//  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
+
+  if (problem.prec == ProblemData::PRECONDITIONED && 
+      ts.prec == TsData::PREC && problem.type[ProblemData::UNSTEADY])
   {
-    if (ts.implicit.mvp == ImplicitData::H2)
-    {
-      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
-      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
-      ts.implicit.mvp = ImplicitData::FD;
-      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+    if (ts.dualtimestepping == TsData::OFF) {
+      com->fprintf(stderr, "*** Warning: Dual Time-stepping required for unsteady Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "             Turning on Dual Time-stepping.\n");
+      ts.dualtimestepping = TsData::ON;
     }
-  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
+  } // END of if (problem.prec == ProblemData::PRECONDITIONED && ...
 
   if (schemes.ns.flux != SchemeData::ROE)
   {
@@ -4204,6 +4288,7 @@ void IoData::resetInputValues()
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
+    if (problem.prec != ProblemData::PRECONDITIONED)
     // The overwriting is silent because ffjacobian is a "slave" flag.
     ts.implicit.ffjacobian = ImplicitData::EXACT;
   }
@@ -4278,8 +4363,6 @@ void IoData::resetInputValues()
 
   }
 
-  if (problem.type[ProblemData::LINEARIZED])
-    ts.form == TsData::DESCRIPTOR;
 
   if (problem.type[ProblemData::LINEARIZED] && ts.form == TsData::HYBRID) {
     com->fprintf(stderr, "*** Error: the hybrid form is not supported in the linearized module \n");
@@ -4512,7 +4595,8 @@ int IoData::checkInputValuesAllEquationsOfState(){
   if(eqs.numPhase > 1 && 
      (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
       !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
-      !mf.multiInitialConditions.prismMap.dataMap.empty() ))
+      !mf.multiInitialConditions.prismMap.dataMap.empty() || 
+      !input.oneDimensionalInput.dataMap.empty()))
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;
@@ -4612,6 +4696,24 @@ int IoData::checkInputValuesAllInitialConditions(){
        it!=mf.multiInitialConditions.prismMap.dataMap.end();
        it++)
     usedModels.insert(it->second->fluidModelID);
+ 
+  if (!input.oneDimensionalInput.dataMap.empty()) {
+    if (input.oneDimensionalInput.dataMap.size() > 1) 
+      std::cout << "Warning: having more than one 1D->3D remap has not been considered" << std::endl;
+
+    for (map<int, OneDimensionalInputData *>::iterator it=input.oneDimensionalInput.dataMap.begin();
+         it != input.oneDimensionalInput.dataMap.end(); it++) {
+
+      for (map<int,FluidRemapData*>::iterator it2 = (it->second)->fluidRemap.dataMap.begin();
+           it2 != (it->second)->fluidRemap.dataMap.end(); it2++) {
+
+        if (it2->second->newID > 0)
+          usedModels.insert(it2->second->newID);
+      }
+    }      
+ 
+    embed.nLevelset++;
+  }
 
   int nModels = usedModels.size();
   if (nModels > 0) {
@@ -4731,6 +4833,7 @@ void IoData::nonDimensionalizeAllInitialConditions(){
 
   implosion.Pinit /= ref.rv.pressure;
   implosion.Prate /= ref.rv.pressure/ref.rv.time;
+  implosion.tmax  /= ref.rv.time;
 
   // non-dimensionalize initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){
@@ -4903,8 +5006,11 @@ int IoData::checkInputValuesNonDimensional()
     if (bc.inlet.pressure < 0.0)
       if (eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
           eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
-        if(ref.mach>0.0)
-          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+        if(ref.mach>0.0) {
+//          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+          bc.inlet.pressure = bc.inlet.density / (gamma * ref.mach * ref.mach * (1.0 + eqs.fluidModel.gasModel.pressureConstant));
+          eqs.fluidModel.gasModel.pressureConstant *= bc.inlet.pressure;
+        }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
       else if (eqs.fluidModel.fluid == FluidModelData::JWL)
@@ -5528,7 +5634,7 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
         error++;
       }
       else if(eqs.type == EquationsData::EULER)
-        com->fprintf(stderr, "*** Error: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
+        com->fprintf(stderr, "*** Note: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
     }
   }
 
@@ -5777,7 +5883,10 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   
   LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
   // Set the initial energy of the Tait EOS appropriately
-  IC.temperature = programmedBurn.e0 / liq.specificHeat;//programmedBurn.cjEnergy / liq.Cv;
+  if (liq.burnable == LiquidModelData::YES)
+    IC.temperature = programmedBurn.e0 / liq.specificHeat;//programmedBurn.cjEnergy / liq.Cv;
+  else
+    IC.temperature = (programmedBurn.e0 + IC.pressure/IC.density) / liq.specificHeat;
   //IC.temperature = programmedBurn.cjEnergy / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
   //std::cout << "T = " << IC.temperature << std::endl;
   return error;

@@ -95,6 +95,11 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
     Feps = f;
   }
 
+  if (timeState && iod->ts.dualtimestepping == TsData::ON) {
+    timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+  }
+
   Qeps.strip(Q);
   Feps.strip(F);
   
@@ -122,6 +127,11 @@ void MatVecProdFD<dim, neq>::evaluate(DistExactRiemannSolver<dim> &riemann, int 
   }
   else  {
     Feps = f;
+  }
+
+  if (timeState && iod->ts.dualtimestepping == TsData::ON) {
+    timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
+    spaceOp->applyBCsToResidual(Qeps, Feps);
   }
 
   Qeps.strip(Q);
@@ -184,6 +194,11 @@ void MatVecProdFD<dim, neq>::evaluateInviscid(int it, DistSVec<double,3> &x, Dis
     Feps = f;
   }
 
+  if (timeState && iod->ts.dualtimestepping == TsData::ON) {
+    timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+  }
+  
   Qeps.strip(Q);
   Feps.strip(F);
 
@@ -240,8 +255,11 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
                              this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
                              Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
 
-  if (timeState)
+  if (timeState) {
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+    if (iod->ts.dualtimestepping == TsData::ON)
+      timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+  }
 
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -271,8 +289,11 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
                                this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
                                Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
  
-    if (timeState)
+    if (timeState) {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+      if (iod->ts.dualtimestepping == TsData::ON)
+        timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+    }
 
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -310,8 +331,11 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
 
-  if (timeState)
+  if (timeState) {
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+    if (iod->ts.dualtimestepping == TsData::ON)
+        timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+  }
 
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -392,8 +416,11 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
   spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
-  if (timeState)
+  if (timeState) {
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+    if (iod->ts.dualtimestepping == TsData::ON)
+      timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+  }
 
   Q.pad(Qeps);
 
@@ -405,8 +432,11 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
     spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
-    if (timeState)
+    if (timeState) {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+      if (iod->ts.dualtimestepping == TsData::ON)
+        timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+    }
 
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -423,8 +453,11 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
     spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
-    if (timeState)
+    if (timeState) {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+      if (iod->ts.dualtimestepping == TsData::ON)
+        timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+    }
 
     Q.pad(Qeps);
 
@@ -1381,7 +1414,7 @@ MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
 				   IoData& ioData) :
   MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver,fs), geoState(gs),
   Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()),
-  Q(dom->getNodeDistInfo()), F(dom->getNodeDistInfo())
+  Q(dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), iod(&ioData)
 {
 
   X = 0;
@@ -1435,6 +1468,11 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
   Q = Qeps;
   F = f;//Feps;
   
+  if (this->timeState && iod->ts.dualtimestepping == TsData::ON) {
+    this->timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Q, F);
+    this->spaceOp->applyBCsToResidual(Q, F);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -1460,6 +1498,8 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 
   if (this->timeState)
     this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+    if (iod->ts.dualtimestepping == TsData::ON)
+      this->timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
 
   this->spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -1482,6 +1522,8 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 
     if (this->timeState)
       this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, F);
+      if (iod->ts.dualtimestepping == TsData::ON)
+        this->timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, F);
 
     this->spaceOp->applyBCsToResidual(Qeps, F);
 

@@ -14,8 +14,13 @@
 using std::complex;
 
 #ifdef USE_MPI
+#ifdef MPI_MISSING_BOOL_WORKAROUND
+template<>
+MPI_Datatype CommTrace<bool>::MPIType = MPI_INTEGER;
+#else
 template<>
 MPI_Datatype CommTrace<bool>::MPIType = MPI::BOOL;
+#endif
 template<>
 MPI_Datatype CommTrace<int>::MPIType = MPI_INTEGER;
 template<>

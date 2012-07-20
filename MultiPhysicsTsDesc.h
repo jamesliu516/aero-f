@@ -99,11 +99,15 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   // pressure is increased in the fluid at rate Prate from
   // initial pressure Pinit until it reaches the pressure
   // given by boundary conditions which happens at tmax.
+  enum ImplosionSetupType {LINEAR = 0, SMOOTHSTEP = 1, NONE = 2} implosionSetupType;
   double tmax;
   double Prate;
   double Pinit;
+  double Pfinal;
   double Pscale;
   int intersector_freq;
+ 
+  int lsMethod;
 
   ProgrammedBurn* programmedBurn;
 
@@ -145,8 +149,13 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
+  virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}
+  virtual void setFluidSubcycling(bool inSub) {inSubCycling = inSub;}
+
 
   void setCurrentTime(double t,DistSVec<double,dim>& U);
+  double currentPressure(double t);
+
 };
 
 #ifdef TEMPLATE_FIX

@@ -106,6 +106,8 @@ public:
   virtual void setDensity(double *V, double *Vorig) { V[0] = Vorig[0]; }
   virtual void setPressure(double *V, double *Vorig){ V[4] = Vorig[4]; }
 
+  virtual bool isBurnable() const { return false; }
+
   //checks that the Euler equations are still hyperbolic
   virtual double checkPressure(double *V) const{
     fprintf(stderr, "*** Error:  checkPressure Function not defined\n");

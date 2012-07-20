@@ -18,6 +18,10 @@ extern "C" {
                          const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*,
                          const double&, const double&, const double&, const double&, const int&);
+  void F77NAME(roeflux5waterburn)(const int&, const double&, const double&, const double&,
+                         const double&, const double&, double*,
+                         const double&, double*, double*, double*, double*, double*,
+                         const double&, const double&, const double&, const double&, const int&);
   void F77NAME(roejac5waterdissprec)(const int&, const double&, const double&, const double&,
                          const double&, const double&, double*,
                          const double&, double*, double*, double*, 
@@ -375,11 +379,16 @@ void FluxFcnTaitFDJacRoeEuler3D::compute(double length, double irey, double *nor
 void FluxFcnTaitApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				       double *VL, double *VR, double *flux, bool useLimiter)
 {
+  if (!vf->isBurnable()) {
+    F77NAME(roeflux5waterdissprec)(0, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+            normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(),
+            sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
+  } else {
+    F77NAME(roeflux5waterburn)(0, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
+            normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(),
+            sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
 
-  F77NAME(roeflux5waterdissprec)(0, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
-          normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(),
-          sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
- 
+  } 
 }
 
 //------------------------------------------------------------------------------

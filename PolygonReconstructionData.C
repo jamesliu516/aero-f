@@ -1,7 +1,7 @@
 #include <PolygonReconstructionData.h>
 
 #include <Elem.h>
-#include "LevelSet/LevelSetStructure.h"
+#include <LevelSet/LevelSetStructure.h>
 #include <Vector3D.h>
 
 #include <cstdlib>
@@ -10,139 +10,124 @@
 
 int getPolygons(Elem &elem, LevelSetStructure &LSS, PolygonReconstructionData* polygons)
 {
-    int numberOfPolygons=0;
+    int numberOfPolygons=0,intersectedEdges=0;
     int oppositeNodes[4][3] = {{1,2,3},{0,2,3},{0,1,3},{0,1,2}};
-    int edgeToNodes[6][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,3}, {2,3}};
-    int edgeToOppositeNodes[6][2] = {{2,3}, {0,3}, {3,1}, {1,2}, {0,2}, {0,1}};
     int T[4]; for (int i=0; i<4; ++i) T[i] = elem[i]; //nodes in a tet.
-    bool isBlocked[4][4],exit_early(true);
-    for(int i=0; i<6; ++i){int ni=edgeToNodes[i][0],nj=edgeToNodes[i][1];
-        isBlocked[ni][nj] = isBlocked[nj][ni] = LSS.edgeIntersectsStructure(0,T[ni],T[nj]);
-        if(isBlocked[ni][nj]) exit_early=false;}
+    int isBlocked[4][4];
+    int edge[4][4];
+    int parity[4] = {0,0,0,0};
+    for(int i=0; i<6; ++i) {
+        int l = elem.edgeNum(i);
+        int ni=elem.edgeEnd(i,0), nj=elem.edgeEnd(i,1);
+        isBlocked[ni][nj] = isBlocked[nj][ni] = (LSS.edgeIntersectsStructure(0, l) ? 1 : 0);
+        edge[ni][nj] = edge[nj][ni] = l;
+        if(isBlocked[ni][nj] == 1){
+            ++parity[ni]; ++parity[nj];
+            ++intersectedEdges;
+        }
+    }
 
-    if(exit_early) return 0; // No intersections detected; don't bother finding a reconstructed surface that does not exist.
-
-    bool finished[4]; for(int i=0; i<4; ++i) finished[i]=false;
-
-    // First, identify any of the simple cases
-    for(int current_node=0; current_node<4; ++current_node){
-        int n0=oppositeNodes[current_node][0],n1=oppositeNodes[current_node][1],n2=oppositeNodes[current_node][2];
-        if(isBlocked[current_node][n0] && isBlocked[current_node][n1] && isBlocked[current_node][n2]){
-            finished[current_node]=true;
-            polygons[numberOfPolygons++].AssignTriangle(T[current_node],T[n0],T[n1],T[n2]);
-            if(!isBlocked[n0][n1] && !isBlocked[n0][n2] && !isBlocked[n1][n2]){
-                polygons[numberOfPolygons++].AssignTriangle(T[current_node],T[n0],T[n1],T[n2],false);
-                return numberOfPolygons;}}} // REALLY simple case...
-    
-    for(int current_node=0; current_node<4; ++current_node){if(finished[current_node]) continue;
-        for(int n=0; n<3; ++n){int neighbor_node=oppositeNodes[current_node][n];
-            int e0=oppositeNodes[current_node][(n+1)%3],e1=oppositeNodes[current_node][(n+2)%3];
-            if(!isBlocked[current_node][neighbor_node] && isBlocked[current_node][e0] && isBlocked[current_node][e1]){
-                if(isBlocked[neighbor_node][e0] && isBlocked[neighbor_node][e1]){
-                    finished[current_node] = finished[neighbor_node] = true;
-                    polygons[numberOfPolygons++].AssignQuadrilateral(T[current_node],T[neighbor_node],T[e0],T[e1]);}
-                else if(isBlocked[neighbor_node][e0]){
-                    finished[current_node] = finished[neighbor_node] = true;
-                    polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e0],T[e1]);}
-                else if(isBlocked[neighbor_node][e1]){
-                    finished[current_node] = finished[neighbor_node] = true;
-                    polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e1],T[e0]);}
-                else {
-                    finished[current_node] = true;
-                    polygons[numberOfPolygons++].AssignTwoEdges(T[current_node],T[e1],T[e0]);}}}}
-
-    // Finally, check for single-intersection edge cases
-    for(int current_node=0; current_node<4; ++current_node) if(!finished[current_node]){
-        for(int i=0; i<3; ++i) if(isBlocked[current_node][oppositeNodes[current_node][i]]){
-            polygons[numberOfPolygons++].AssignSingleEdge(T[current_node],T[oppositeNodes[current_node][i]]);}}
-
-    assert(numberOfPolygons);
+    switch (intersectedEdges) {
+    case 6:{
+        numberOfPolygons = 4;
+        polygons[0].AssignTriangleSingle(T[0], T[1], T[2], T[3], edge[0][1], edge[0][2], edge[0][3]);
+        polygons[1].AssignTriangleSingle(T[1], T[0], T[2], T[3], edge[0][1], edge[1][2], edge[1][3]);
+        polygons[2].AssignTriangleSingle(T[2], T[1], T[0], T[3], edge[2][1], edge[0][2], edge[2][3]);
+        polygons[3].AssignTriangleSingle(T[3], T[1], T[2], T[0], edge[3][1], edge[3][2], edge[0][3]);
+        break;}
+    case 5:{
+        numberOfPolygons = 3;
+        int c=0,n=3,e0=0,e1=3;
+        while(parity[c] != 2) ++c;
+        while(parity[e0] != 3) ++e0;
+        while(parity[n] != 2) --n;
+        while(parity[e1] != 3) --e1;
+        polygons[0].AssignTriangleSingle(T[e0], T[c], T[n], T[e1], edge[e0][c], edge[e0][n], edge[e0][e1]);
+        polygons[1].AssignTriangleSingle(T[e1], T[c], T[n], T[e0], edge[e1][c], edge[e1][n], edge[e1][e0]);
+        polygons[2].AssignQuadrilateral(T[c], T[n], T[e0], T[e1], edge[c][e0], edge[c][e1], edge[n][e1], edge[n][e0]);
+        break;}
+    case 4:{
+        for(int i=0;i<4;++i) if(parity[i] == 3) {numberOfPolygons = 4;
+            int e0 = oppositeNodes[i][0], e1 = oppositeNodes[i][1], e2 = oppositeNodes[i][2];
+            polygons[0].AssignTriangleSingle(T[i], T[e0], T[e1], T[e2], edge[i][e0], edge[i][e1], edge[i][e2]);
+            if(isBlocked[e0][e1]) {
+                polygons[1].AssignQuadTriangle(T[e0], T[e2], T[i], T[e1], edge[e0][i], edge[e0][e1], edge[e2][i]);
+                polygons[2].AssignQuadTriangle(T[e1], T[e2], T[i], T[e0], edge[e1][i], edge[e1][e0], edge[e2][i]);
+                polygons[3].AssignConnectingQuadTriangle(T[e0], T[e1], T[e2], T[i], edge[e0][e1], edge[e2][i]);
+            } else if(isBlocked[e0][e2]) {
+                polygons[1].AssignQuadTriangle(T[e0], T[e1], T[i], T[e2], edge[e0][i], edge[e0][e2], edge[e1][i]);
+                polygons[2].AssignQuadTriangle(T[e2], T[e1], T[i], T[e0], edge[e2][i], edge[e2][e0], edge[e1][i]);
+                polygons[3].AssignConnectingQuadTriangle(T[e0], T[e2], T[e1], T[i], edge[e0][e2], edge[e1][i]);
+            } else {
+                polygons[1].AssignQuadTriangle(T[e1], T[e0], T[i], T[e2], edge[e1][i], edge[e1][e2], edge[e0][i]);
+                polygons[2].AssignQuadTriangle(T[e2], T[e0], T[i], T[e1], edge[e2][i], edge[e2][e1], edge[e0][i]);
+                polygons[3].AssignConnectingQuadTriangle(T[e1], T[e2], T[e0], T[i], edge[e1][e2], edge[e0][i]);
+            }
+            break;
+        }
+        if(numberOfPolygons == 0) {
+            numberOfPolygons = 2;
+            int n,e0,e1;
+            for(n=1 ;  n<4; ++n) if(!isBlocked[0][n]) break;
+            for(e0=1; e0<4;++e0) if(e0 != n) break;
+            for(e1=3;e1>=0;--e1) if(e1 != n) break;
+            polygons[0].AssignQuadrilateral(T[0],  T[n],  T[e0], T[e1], edge[0][e0], edge[0][e1], edge[n][e1], edge[n][e0]);
+            polygons[1].AssignQuadrilateral(T[e0], T[e1], T[0],  T[n],  edge[e0][0], edge[e0][n], edge[e1][n], edge[e1][0]);
+        }
+        break;}
+    case 3:{
+        for(int i=0;i<4;++i) {
+            if(parity[i] == 0) {numberOfPolygons = 2;
+                int e0 = oppositeNodes[i][0], e1 = oppositeNodes[i][1], e2 = oppositeNodes[i][2];
+                polygons[0].AssignTwoEdges(       T[e0], T[e1], T[e2], T[i], edge[e0][e1], edge[e0][e2]);
+                polygons[1].AssignTwoEdgesPartTwo(T[e0], T[e1], T[e2], T[i], edge[e0][e1], edge[e0][e2], edge[e1][e2]);
+                break;
+            } else if(parity[i] == 3) {numberOfPolygons = 2;
+                int e0 = oppositeNodes[i][0], e1 = oppositeNodes[i][1], e2 = oppositeNodes[i][2];
+                polygons[0].AssignTriangleSingle(T[i], T[e0], T[e1], T[e2], edge[i][e0], edge[i][e1], edge[i][e2]);
+                polygons[1].AssignTriangleMulti( T[i], T[e0], T[e1], T[e2], edge[i][e0], edge[i][e1], edge[i][e2]);
+                break;
+            }
+        }
+        if(numberOfPolygons == 0) {numberOfPolygons = 4;
+            int c=0,n=3,e0=0,e1=3;
+            while(parity[c] != 2) ++c;
+            while(parity[e0] != 1) ++e0;
+            while(parity[n] != 2) --n;
+            while(parity[e1] != 1) --e1;
+            if(isBlocked[c][e0]) {
+                polygons[0].AssignQuadTriangle(T[c], T[e1], T[n], T[e0], edge[c][n], edge[c][e0], edge[e1][n]);
+                polygons[1].AssignQuadTriangle(T[n], T[e0], T[c], T[e1], edge[n][c], edge[n][e1], edge[e0][c]);
+                polygons[2].AssignConnectingQuadTriangle(T[c], T[e0] ,T[e1], T[n], edge[c][e0], edge[n][e1]);
+                polygons[3].AssignConnectingQuadTriangle(T[n], T[e1] ,T[e0], T[c], edge[n][e1], edge[c][e0]);
+            } else {
+                polygons[0].AssignQuadTriangle(T[c], T[e0], T[n], T[e1], edge[c][n], edge[c][e1], edge[e0][n]);
+                polygons[1].AssignQuadTriangle(T[n], T[e1], T[c], T[e0], edge[n][c], edge[n][e0], edge[e1][c]);
+                polygons[2].AssignConnectingQuadTriangle(T[c], T[e1] ,T[e0], T[n], edge[c][e1], edge[n][e0]);
+                polygons[3].AssignConnectingQuadTriangle(T[n], T[e0] ,T[e1], T[c], edge[n][e0], edge[c][e1]);
+            }
+        }
+        break;}
+    case 2:{
+        for(int i=0;i<4;++i) {
+            if(parity[i] == 2) {numberOfPolygons = 2;
+                int e0 = oppositeNodes[i][0], e1 = oppositeNodes[i][1], e2 = oppositeNodes[i][2];
+                if(!isBlocked[i][e0])      polygons[0].AssignTwoEdges(T[i], T[e1], T[e2], T[e0], edge[i][e1], edge[i][e2]);
+                else if(!isBlocked[i][e1]) polygons[0].AssignTwoEdges(T[i], T[e0], T[e2], T[e1], edge[i][e0], edge[i][e2]);
+                else                       polygons[0].AssignTwoEdges(T[i], T[e0], T[e1], T[e2], edge[i][e0], edge[i][e1]);
+                break;
+            }
+        }
+        break;}
+    case 1:
+    case 0:
+    default:
+        break;
+    }
     return numberOfPolygons;
 }
 
-//--------------------------------------------------------------------------
 
-int getPolygon(Elem &elem, LevelSetStructure &LSS, int polygon[4][2])
-{
-  int facet[4][3] = {{0,1,3}, {1,2,3}, {0,3,2}, {0,2,1}};
-  int edgeIndex[4][3] = {{0,4,3}, {1,5,4}, {3,5,2}, {2,1,0}};
-  int edgeToNodes[6][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,3}, {2,3}};
-  int T[4]; //nodes in a tet.
-
-  for (int i=0; i<4; i++)
-    T[i] = elem[i];
-  for (int i=0; i<4; i++)
-    polygon[i][0] = polygon[i][1] = -1;
-
-  int nextEdge[6];
-  for (int i=0; i<6; i++) nextEdge[i] = -1;
-  int firstEdge = -1;
-
-  int outside_status=-5;
-  for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) if(LSS.fluidModel(0,T[facet[iFacet][j]])==0) outside_status=0;
-  if(outside_status != 0) for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) outside_status=std::max(outside_status,LSS.fluidModel(0,T[facet[iFacet][j]]));
-  for (int iFacet=0; iFacet<4; iFacet++) {
-    int status = 0;
-    for (int j=0; j<3; j++)
-      if(LSS.fluidModel(0,T[facet[iFacet][j]])==outside_status) // TODO(jontg): This DOES NOT WORK for thin-shells.
-         status |= 1 << j;  //KW: set the j-th (counting from 0) binary digit to 1
-    switch (status) {
-      case 1:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][0];
-        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][2];
-        break;
-      case 2:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][1];
-        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][0];
-        break;
-      case 3:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][1];
-        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][2];
-        break;
-      case 4:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][2];
-        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][1];
-        break;
-      case 5:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][0];
-        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][1];
-        break;
-      case 6:
-        if (firstEdge<0)
-          firstEdge = edgeIndex[iFacet][2];
-        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][0];
-        break;
-      default:
-        break;
-    }
-  }
-
-  if (firstEdge<0) return 0;
-  int curEdge = firstEdge;
-  int edgeCount = 0;
-  do {
-    if (edgeCount>4) {
-      fprintf(stderr,"Error in getPolygon. edgeCount = %d > 4, Abort...\n", edgeCount);
-      exit(-1);
-    }
-    if (LSS.fluidModel(0,T[edgeToNodes[curEdge][0]])==outside_status) {
-      polygon[edgeCount][0] = T[edgeToNodes[curEdge][0]];
-      polygon[edgeCount][1] = T[edgeToNodes[curEdge][1]];
-    }else {
-      polygon[edgeCount][0] = T[edgeToNodes[curEdge][1]];
-      polygon[edgeCount][1] = T[edgeToNodes[curEdge][0]];
-    }
-    edgeCount++;
-    curEdge = nextEdge[curEdge];
-  } while (curEdge>=0 && curEdge!=firstEdge);
-
-  return edgeCount;
-}
 //--------------------------------------------------------------------------
 
 void getPolygonNormal(SVec<double,3>& X, Vec3D &normal, LevelSetStructure &LSS, PolygonReconstructionData &polygon)
@@ -150,24 +135,24 @@ void getPolygonNormal(SVec<double,3>& X, Vec3D &normal, LevelSetStructure &LSS, 
   int nEdges = polygon.numberOfEdges;
   LevelSetResult lsRes[nEdges];
   Vec3D Xinter[nEdges];
-  Vec3D tempoLoc;
-  for(int m=0; m<nEdges; m++){
-    lsRes[m] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edgeWithVertex[m][0],polygon.edgeWithVertex[m][1]);
+  Vec3D start_vertex;for(int m=0;m<3;++m) start_vertex[m]=X[polygon.nodeToLookFrom][m];
+  for(int m=0; m<nEdges; m++) {
+    lsRes[m] = LSS.getLevelSetDataAtEdgeCenter(0, polygon.edge[m], polygon.edgeWithVertex[m][0]<polygon.edgeWithVertex[m][1]);
     double alpha = lsRes[m].alpha;
     if (alpha<0) {fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n"); exit(-1);}
     Xinter[m][0] = alpha*X[polygon.edgeWithVertex[m][0]][0] + (1.0-alpha)*X[polygon.edgeWithVertex[m][1]][0];
     Xinter[m][1] = alpha*X[polygon.edgeWithVertex[m][0]][1] + (1.0-alpha)*X[polygon.edgeWithVertex[m][1]][1];
     Xinter[m][2] = alpha*X[polygon.edgeWithVertex[m][0]][2] + (1.0-alpha)*X[polygon.edgeWithVertex[m][1]][2];
   }
-  switch(nEdges){
+  switch(nEdges) {
     case 3: // got a triangle.
       normal = (Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
       if (normal.norm() != 0.0) {normal = 1.0/normal.norm()*normal;}
       // Then we check the orientation of the normal.
-      for (int i=0; i<3; i++) {tempoLoc[i] = X[polygon.edgeWithVertex[0][0]][i];}
-      if (LSS.isActive(0,polygon.edgeWithVertex[0][0])) {
-        if (normal*(tempoLoc-Xinter[0]) < 0) {normal = -1.0*normal;}
-      } else if (normal*(tempoLoc-Xinter[0]) > 0) {normal = -1.0*normal;}
+      for (int i=0; i<3; i++) {start_vertex[i] = X[polygon.edgeWithVertex[0][0]][i];}
+      if (LSS.isActive(0, polygon.edgeWithVertex[0][0])) {
+        if (normal*(start_vertex-Xinter[0]) < 0) {normal = -1.0*normal;}
+      } else if (normal*(start_vertex-Xinter[0]) > 0) {normal = -1.0*normal;}
       break;
     case 4: // got a quadrangle... We cut it into two triangles and we average the two resulting normals. 
       Vec3D normal1, normal2;
@@ -178,10 +163,10 @@ void getPolygonNormal(SVec<double,3>& X, Vec3D &normal, LevelSetStructure &LSS, 
       normal = 0.5*(normal1+normal2);
       if (normal.norm() != 0.0) {normal = 1.0/normal.norm()*normal;}
       // Then we check the orientation of the normal.
-      for (int i=0; i<3; i++) {tempoLoc[i] = X[polygon.edgeWithVertex[0][0]][i];}
-      if (LSS.isActive(0,polygon.edgeWithVertex[0][0])) {
-        if (normal*(tempoLoc-Xinter[0]) < 0) {normal = -1.0*normal;}
-      } else if (normal*(tempoLoc-Xinter[0]) > 0) {normal = -1.0*normal;}
+      for (int i=0; i<3; i++) {start_vertex[i] = X[polygon.edgeWithVertex[0][0]][i];}
+      if (LSS.isActive(0, polygon.edgeWithVertex[0][0])) {
+        if (normal*(start_vertex-Xinter[0]) < 0) {normal = -1.0*normal;}
+      } else if (normal*(start_vertex-Xinter[0]) > 0) {normal = -1.0*normal;}
       break;
   }
 }

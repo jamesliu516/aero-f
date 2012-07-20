@@ -8,7 +8,6 @@
 #include <TsParameters.h>
 //#include <Domain.h>
 #include <DistVector.h>
-//#include <DistEulerStructGhostFluid.h>
 
 class RefVal;
 class VarFcn;
@@ -18,7 +17,6 @@ class MeshMotionHandler;
 class HeatTransferHandler;
 class MemoryPool;
 class Timer;
-//class DistEulerStructGhostFluid;
 
 template<int dim> class DistBcData;
 template<int dim> class DistTimeState;
@@ -78,7 +76,6 @@ protected:
 
   MeshMotionHandler* mmh;
   HeatTransferHandler* hth;
-//  DistEulerStructGhostFluid* eulerFSI;
 
   Domain *domain;
 
@@ -154,16 +151,20 @@ public:
   DistInfo &getInletVecInfo() const {return domain->getInletNodeDistInfo(); }
   int getNumPhase() { return numPhase; }
   int structureSubcycling() {return (mmh ? mmh->structureSubcycling() : 0);}
+  virtual bool willNotSolve(double dts, double t) {return false;}
 
 // Included (MB)
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
+  virtual void setFluidSubcycling(bool inSub) { }
 
   virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
+
+  void computeDistanceToWall(IoData &ioData);
 };
 
 //------------------------------------------------------------------------------

@@ -375,12 +375,16 @@ protected:
   int surface_id;
   int normNum;
 
+  class HigherOrderMultiFluid* higherOrderMF;
+
   virtual int* nodeNum() = 0;
   virtual int& nodeNum(int i) = 0;
   virtual int& edgeNum(int i) = 0;
   virtual int  edgeEnd(int i, int k) = 0;  
 
 public:
+
+  void attachHigherOrderMF(class HigherOrderMultiFluid* mf) { higherOrderMF = mf; }
 
   // Number of nodes
   virtual int numNodes() = 0;
@@ -389,7 +393,7 @@ public:
   virtual int numNorms() = 0;
 
   // Get element type
-  virtual const Type type() = 0;
+  virtual Type type() = 0;
 
   int operator[](int i) { return nodeNum(i); }  
   operator int *() { return nodeNum(); }
@@ -964,6 +968,7 @@ class FaceSet {
   
 	bool sampleMesh;
 
+	class HigherOrderMultiFluid* higherOrderMF;
 
 public:
 
@@ -1070,7 +1075,9 @@ public:
 	void computeConnectedFaces(const std::vector<int> &);
 	std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
 
-	const int getNumSampledFaces() {return numSampledFaces;}
+	int getNumSampledFaces() {return numSampledFaces;}
+
+	void attachHigherOrderMF(class HigherOrderMultiFluid*);
 
 };
 

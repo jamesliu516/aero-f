@@ -77,6 +77,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   ElemToElem = 0;
   nodeToNodeMaskJacobian = 0;
   nodeToNodeMaskILU      = 0;
+  higherOrderMF = 0;
 
   int j;
   for(int i=0;i<3;i++)  {
@@ -951,7 +952,12 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
     int j = edgePtr[l][1];
 
   //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
-    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) continue;
+    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+
+    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
+                          higherOrderMF->isCellCut(j)))
+      continue;
+
     count[i][0]++;
     count[j][0]++;
 
@@ -1055,7 +1061,8 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
 {
 
   for (int i=0; i<R.size(); ++i) {
-    if(count[i][0]>2){ //enough neighbours to get a least square problem
+     if(count[i][0]>2 && 
+        (!higherOrderMF || !higherOrderMF->isCellCut(i))) { //enough neighbours to get a least square problem
       double r11, or11, r12, r13, r22, r23, r33;
       if(!(R[i][0]>0.0)){
         r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
@@ -4259,7 +4266,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
       iActive = LSS.isActive(0,i);
       jActive = LSS.isActive(0,j);
     }
-    intersect = LSS.edgeIntersectsStructure(0,i,j);
+    intersect = LSS.edgeIntersectsStructure(0,l);
 
     if (!iActive && !jActive) continue; //both inside structure
     if (!intersect) continue; 
@@ -4268,13 +4275,13 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     // now (i,j) must intersect the structure.
     if (iActive) {
       Vec3D flocal(0.0,0.0,0.0);
-      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
       flocal = (pstarij[l]-pInfty)*normal[l];
       sendLocalForce(flocal, lsRes, Fs);
     }
     if (jActive) {
       Vec3D flocal(0.0,0.0,0.0);
-      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,l,false);
       flocal = -(pstarji[l]-pInfty)*normal[l];
       sendLocalForce(flocal, lsRes, Fs);
     }
@@ -4330,7 +4337,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
         LevelSetResult lsRes[4];
         if(!polygon.numberOfEdges) continue;
         for (int k=0; k<polygon.numberOfEdges; ++k) {
-            lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edgeWithVertex[k][0],polygon.edgeWithVertex[k][1]);
+            lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edge[k],polygon.edgeWithVertex[k][0]<polygon.edgeWithVertex[k][1]);
             if (lsRes[k].alpha<0){fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n"); exit(-1);}}
 
         Vec3D Xinter[4];
@@ -4540,7 +4547,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
       iNei = Node2Node[i][j];
       if(i==iNei)
         continue;
-      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,i,iNei))
+      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)))
         continue;
       if(myId==-1) {
         myId = fluidId[iNei];
@@ -4573,6 +4580,11 @@ void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_
 
 }
 
+void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>& vs) {
 
+  higherOrderMF = new HigherOrderMultiFluid(vs);
 
+  edges.attachHigherOrderMultiFluid(higherOrderMF);
+  faces.attachHigherOrderMF(higherOrderMF);
+}
 

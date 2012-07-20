@@ -53,6 +53,8 @@ Assignment: Assignable '=' Symbol ';'
 	{ $1->assignDouble($3); }
 	| Assignable '=' String ';'
 	{ $1->assignString($3); }
+	| Assignable '=' Symbol IntExpr ';'
+	{ $1->assignTokenIntPair($3,$4); }
 
 GroupInput: UNDER Assignable '{'
 	{

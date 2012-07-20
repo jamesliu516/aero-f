@@ -11,10 +11,10 @@
 
 template<int dim>
 TimeState<dim>::TimeState(TimeData &_data, Vec<double> &_dt, Vec<double> &_idti, 
-			  Vec<double> &_idtv, SVec<double,dim> &_Un,
+			  Vec<double> &_idtv, Vec<double> &_dtau, SVec<double,dim> &_Un,
 			  SVec<double,dim> &_Unm1, SVec<double,dim> &_Unm2, 
 			  SVec<double,dim> &_Rn) : 
-  data(_data), dt(_dt), idti(_idti), idtv(_idtv), Un(_Un), Unm1(_Unm1), Unm2(_Unm2), Rn(_Rn)
+  data(_data), dt(_dt), idti(_idti), idtv(_idtv), dtau(_dtau), Un(_Un), Unm1(_Unm1), Unm2(_Unm2), Rn(_Rn)
 {
   if (data.use_modal || data.descriptor_form == 1) {
     descriptorCase = DESCRIPTOR;
@@ -55,6 +55,176 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
     }
   }
 }
+
+//------------------------------------------------------------------------------
+// Add Time Derivative Term, P^-1 x d(AW)/dt to the flux F, 
+// where P is the turkel preconditioning matrix.
+// If running Non-Modal, adds invA*d(P^-1 x AW)/dt to the flux invA*F
+
+template<int dim>
+void TimeState<dim>::add_GASPrec_dAW_dt(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, double gam, double pstiff, Vec<double> &irey, TimeLowMachPrec &tprec, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDt = 1.0 / dt[i];
+
+    if (dim<5) {
+      for (int k=0; k<dim; ++k) {
+        double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k] +
+                     coefs.c_nm1*Unm1[i][k] + coefs.c_nm2*Unm2[i][k];
+        double dAWdt = invDt * sum; 
+        if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+          R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
+        else
+          R[i][k] += dAWdt;
+      }
+    }
+    else {
+      double ro = Un[i][0];
+      double invRho = 1.0/ro;
+      double u  = Un[i][1] * invRho;
+      double v  = Un[i][2] * invRho;
+      double w  = Un[i][3] * invRho;
+      double u2 = u*u;
+      double v2 = v*v;
+      double w2 = w*w;
+      double q2 = u2 + v2 + w2;
+      double gam1 = gam - 1.0;
+      double p  = gam1 * (Un[i][4] - 0.5 * ro * q2) - gam*pstiff;
+      double c2 = gam*(p+pstiff)/ro;
+      double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
+      double beta = tprec.getBeta(locMach, irey[i]);
+
+      double beta2 =   beta * beta;
+      double qhat2 = (q2 * gam1)/2.0;
+ 
+      double nu = qhat2/c2;
+      double mu = (1.0/beta2) - 1.0;
+
+      double Pinv[5][5] = { {nu*mu + 1.0,  -u*mu*gam1/c2,      -v*mu*gam1/c2,        -w*mu*gam1/c2,       mu*gam1/c2   },
+                            {u*nu*mu,     1.0 - u2*mu*gam1/c2, -u*v*mu*gam1/c2,      -u*w*mu*gam1/c2,     u*mu*gam1/c2 },
+                            {v*nu*mu,     -u*v*mu*gam1/c2 ,    1.0 - v2*mu*gam1/c2,  -v*w*mu*gam1/c2,     v*mu*gam1/c2 },
+                            {w*nu*mu,     -u*w*mu*gam1/c2 ,    -v*w*mu*gam1/c2,      1.0 - w2*mu*gam1/c2, w*mu*gam1/c2 },
+       	                  {0.5*mu*(1.0+nu)*q2,    -u*mu*(1+nu), -v*mu*(1+nu), -w*mu*(1+nu), (1.0/beta2)+mu*nu } };
+
+
+      double dAWdt[dim],Pinv_dAWdt[dim];
+
+      for (int k=0; k<dim; ++k) {
+        double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k] +
+                     coefs.c_nm1*Unm1[i][k] + coefs.c_nm2*Unm2[i][k];
+        dAWdt[k] = invDt * sum; 
+      }
+
+      for (int k=0; k<5; ++k) {
+        Pinv_dAWdt[k] = 0.0;
+        for (int l =0; l<5; ++l) {
+          Pinv_dAWdt[k] = Pinv_dAWdt[k] + Pinv[k][l]*dAWdt[l];
+        }
+      }
+
+      //turbulence preconditioning
+      if (dim == 6) {
+        double t1 = Un[i][5] * invRho;
+        double mup = mu*t1*gam1/c2;
+        double Pt[6] = {mu*nu*t1, -mup*u, -mup*v, -mup*w, mup, 1.0};
+        for (int k=5; k<dim; ++k) {
+          Pinv_dAWdt[k] = 0.0;
+          for (int l =0; l<dim; ++l) {
+            Pinv_dAWdt[k] = Pinv_dAWdt[k] + Pt[l]*dAWdt[l];
+          }
+        }
+      }
+      else if (dim == 7) {
+        double t1 = Un[i][5] * invRho;
+        double t2 = Un[i][6] * invRho;
+        double mup1 = mu*t1*gam1/c2;
+        double mup2 = mu*t2*gam1/c2;
+        double Pt[2][7] = { {mu*nu*t1, -mup1*u, -mup1*v, -mup1*w, mup1, 1.0, 0.0},
+                            {mu*nu*t2, -mup2*u, -mup2*v, -mup2*w, mup2, 0.0, 1.0} };
+        for (int k=5; k<dim; ++k) {
+          Pinv_dAWdt[k] = 0.0;
+          for (int l =0; l<dim; ++l) {
+            Pinv_dAWdt[k] = Pinv_dAWdt[k] + Pt[k-5][l]*dAWdt[l];
+          }
+        }
+      }
+
+      for (int k=0; k<dim; ++k) {
+        if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+          R[i][k] = Pinv_dAWdt[k] + 0.5 * (R[i][k] + Rn[i][k]);
+        else
+          R[i][k] += Pinv_dAWdt[k];
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+// Add Time Derivative Term, P^-1 x d(AW)/dt to the flux F, 
+// where P is the preconditioning matrix.
+// If running Non-Modal, adds invA*d(P^-1 x AW)/dt to the flux invA*F
+
+template<int dim>
+void TimeState<dim>::add_LiquidPrec_dAW_dt(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, VarFcn *vf, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, Vec<double> &irey, 
+                                TimeLowMachPrec &tprec, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDt = 1.0 / dt[i];
+
+    double dAWdt[dim];
+
+    for (int k=0; k<dim; ++k) {
+      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k] +
+                   coefs.c_nm1*Unm1[i][k] + coefs.c_nm2*Unm2[i][k];
+      dAWdt[k] = invDt * sum; 
+    }
+    double V[dim];
+    vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
+    double e = vf->computeRhoEnergy(V)/V[0];
+    double pressure = vf->getPressure(V);
+    double c = vf->computeSoundSpeed(V);
+    double c2 = c*c;
+    double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
+    double beta = tprec.getBeta(locMach,irey[i]);
+    double oobeta2 = 1.0/(beta*beta);
+    double oobeta2m1 = oobeta2 - 1.0;
+
+    double Pinv[dim];
+    for (int j=0; j<dim; j++)
+      Pinv[j] = oobeta2m1*V[j];
+    Pinv[0] = oobeta2;
+    Pinv[4] = oobeta2m1*(e+pressure/V[0] - c2);
+ 
+    for (int k=0; k<dim; ++k) {
+      if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+        R[i][k] = dAWdt[k] + Pinv[k]*dAWdt[0] + 0.5 * (R[i][k] + Rn[i][k]);
+      else
+        R[i][k] += dAWdt[k] + Pinv[k]*dAWdt[0];
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 void TimeState<dim>::add_dAW_dtRestrict(bool *nodeFlag, GeoState &geoState, 
@@ -98,7 +268,6 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
   Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
   Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
 
-  double c_np1, c_n, c_nm1, c_nm2;
   for (int i=0; i<dt.size(); ++i) {
 
     TimeFDCoefs coefs;
@@ -112,12 +281,12 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
     for (int idim=0; idim<dimLS; idim++){
       double dAWdt;
       if (!requireSpecialBDF) {
-        dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] 
-             + c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim]);
+        dAWdt = invDt * (coefs.c_np1*Q[i][idim] + coefs.c_n*Qn[i][idim] 
+             + coefs.c_nm1*Qnm1[i][idim] + coefs.c_nm2*Qnm2[i][idim]);
       }
       else {
-        dAWdt = invDt * ( c_np1*Q[i][idim] + c_n*Qn[i][idim]) 
-              + c_nm1*Qnm1[i][idim]; // here Qnm1 is dQdt^n, so no multiplication by invDt
+        dAWdt = invDt * ( coefs.c_np1*Q[i][idim] + coefs.c_n*Qn[i][idim]) 
+              + coefs.c_nm1*Qnm1[i][idim]; // here Qnm1 is dQdt^n, so no multiplication by invDt
       }
 
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
@@ -191,6 +360,212 @@ void TimeState<dim>::computeTimeFDCoefsSpecialBDF(GeoState &geoState, TimeFDCoef
 
 }
 //-----------------------------------------------------------------------------
+
+// Add Dual-Time Derivative Term, d(AW)/dtau
+// If running Non-Modal, adds invA*d(AW)/dtau
+
+template<int dim>
+void TimeState<dim>::add_dAW_dtau(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeDualTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDtau = 1.0 / dtau[i];
+    for (int k=0; k<dim; ++k) {
+      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+      double dAWdtau = invDtau * sum; 
+      R[i][k] += dAWdtau;
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+// Add Dual-Time Derivative Term, P^-1 x d(AW)/dtau, 
+// where P is the turkel preconditioning matrix.
+// If running Non-Modal, adds invA*d(P^-1 x AW)/dtau
+
+template<int dim>
+void TimeState<dim>::add_GASPrec_dAW_dtau(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, double gam, double pstiff, Vec<double> &irey, TimeLowMachPrec &tprec, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeDualTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDtau = 1.0 / dtau[i];
+
+    if (dim<5) {
+      for (int k=0; k<dim; ++k) {
+        double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+        double dAWdtau = invDtau * sum; 
+        R[i][k] += dAWdtau;
+      }
+    }
+    else {
+      double ro = Un[i][0];
+      double invRho = 1.0/ro;
+      double u  = Un[i][1] * invRho;
+      double v  = Un[i][2] * invRho;
+      double w  = Un[i][3] * invRho;
+      double u2 = u*u;
+      double v2 = v*v;
+      double w2 = w*w;
+      double q2 = u2 + v2 + w2;
+      double gam1 = gam - 1.0;
+      double p  = gam1 * (Un[i][4] - 0.5 * ro * q2) - gam*pstiff;
+      double c2 = gam*(p+pstiff)/ro;
+      double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
+      double beta = tprec.getBeta(locMach, irey[i]);
+
+      double beta2 =   beta * beta;
+      double qhat2 = (q2 * gam1)/2.0;
+ 
+      double nu = qhat2/c2;
+      double mu = (1.0/beta2) - 1.0;
+
+      double Pinv[5][5] = { {nu*mu + 1.0,  -u*mu*gam1/c2,      -v*mu*gam1/c2,        -w*mu*gam1/c2,       mu*gam1/c2   },
+                            {u*nu*mu,     1.0 - u2*mu*gam1/c2, -u*v*mu*gam1/c2,      -u*w*mu*gam1/c2,     u*mu*gam1/c2 },
+                            {v*nu*mu,     -u*v*mu*gam1/c2 ,    1.0 - v2*mu*gam1/c2,  -v*w*mu*gam1/c2,     v*mu*gam1/c2 },
+                            {w*nu*mu,     -u*w*mu*gam1/c2 ,    -v*w*mu*gam1/c2,      1.0 - w2*mu*gam1/c2, w*mu*gam1/c2 },
+       	                  {0.5*mu*(1.0+nu)*q2,    -u*mu*(1+nu), -v*mu*(1+nu), -w*mu*(1+nu), (1.0/beta2)+mu*nu } };
+
+
+      double dAWdtau[dim],Pinv_dAWdtau[dim];
+
+      for (int k=0; k<dim; ++k) {
+        double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+        dAWdtau[k] = invDtau * sum; 
+      }
+
+      for (int k=0; k<5; ++k) {
+        Pinv_dAWdtau[k] = 0.0;
+        for (int l =0; l<5; ++l) {
+          Pinv_dAWdtau[k] = Pinv_dAWdtau[k] + Pinv[k][l]*dAWdtau[l];
+        }
+      }
+
+      //turbulence preconditioning
+      if (dim == 6) {
+        double t1 = Un[i][5] * invRho;
+        double mup = mu*t1*gam1/c2;
+        double Pt[6] = {mu*nu*t1, -mup*u, -mup*v, -mup*w, mup, 1.0};
+        for (int k=5; k<dim; ++k) {
+          Pinv_dAWdtau[k] = 0.0;
+          for (int l =0; l<dim; ++l) {
+            Pinv_dAWdtau[k] = Pinv_dAWdtau[k] + Pt[l]*dAWdtau[l];
+          }
+        }
+      }
+      else if (dim == 7) {
+        double t1 = Un[i][5] * invRho;
+        double t2 = Un[i][6] * invRho;
+        double mup1 = mu*t1*gam1/c2;
+        double mup2 = mu*t2*gam1/c2;
+        double Pt[2][7] = { {mu*nu*t1, -mup1*u, -mup1*v, -mup1*w, mup1, 1.0, 0.0},
+                            {mu*nu*t2, -mup2*u, -mup2*v, -mup2*w, mup2, 0.0, 1.0} };
+        for (int k=5; k<dim; ++k) {
+          Pinv_dAWdtau[k] = 0.0;
+          for (int l =0; l<dim; ++l) {
+            Pinv_dAWdtau[k] = Pinv_dAWdtau[k] + Pt[k-5][l]*dAWdtau[l];
+          }
+        }
+      }
+
+      for (int k=0; k<dim; ++k) {
+        R[i][k] += Pinv_dAWdtau[k];
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+// Add Time Derivative Term, P^-1 x d(AW)/dtau
+// where P is the preconditioning matrix.
+// If running Non-Modal, adds invA*d(P^-1 x AW)/dtau
+
+template<int dim>
+void TimeState<dim>::add_LiquidPrec_dAW_dtau(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, VarFcn *vf, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, Vec<double> &irey, 
+                                TimeLowMachPrec &tprec, LevelSetStructure *LSS)
+{
+  for (int i=0; i<dt.size(); ++i) {
+    if (LSS && !(LSS->isActive(0.0,i))) {
+      // Node i lies in the structure: Do nothing.
+      continue;
+    }
+
+    TimeFDCoefs coefs;
+    computeDualTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDtau = 1.0 / dtau[i];
+    double dAWdtau[dim];
+
+    for (int k=0; k<dim; ++k) {
+      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k];
+      dAWdtau[k] = invDtau * sum; 
+    }
+    double V[dim];
+    vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
+    double e = vf->computeRhoEnergy(V)/V[0];
+    double pressure = vf->getPressure(V);
+    double c = vf->computeSoundSpeed(V);
+    double c2 = c*c;
+    double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
+    double beta = tprec.getBeta(locMach,irey[i]);
+    double oobeta2 = 1.0/(beta*beta);
+    double oobeta2m1 = oobeta2 - 1.0;
+
+    double Pinv[dim];
+    for (int j=0; j<dim; j++)
+      Pinv[j] = oobeta2m1*V[j];
+    Pinv[0] = oobeta2;
+    Pinv[4] = oobeta2m1*(e+pressure/V[0] - c2);
+ 
+    for (int k=0; k<dim; ++k) {
+      R[i][k] += dAWdtau[k] + Pinv[k]*dAWdtau[0];
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void TimeState<dim>::computeDualTimeFDCoefs(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) { 
+  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+
+  coefs.c_np1 = 1.0;
+  coefs.c_n   = -1.0 * ctrlVol_n[i];
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      coefs.c_np1 *= ctrlVol[i];
+      break; }
+    case HYBRID:{
+      double invsqrtCtrlVol = 1.0 / sqrt(ctrlVol[i]);
+      coefs.c_np1 *= ctrlVol[i] * invsqrtCtrlVol;
+      coefs.c_n   *= invsqrtCtrlVol;
+      break; }
+    case NONDESCRIPTOR: {
+      double invCtrlVol = 1.0 / ctrlVol[i];
+      coefs.c_n   *= invCtrlVol;
+      break; }
+  }
+}
+//------------------------------------------------------------------------------
 template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianNoPrec(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar,neq> &A,
@@ -250,21 +625,24 @@ void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol,
 					SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
+
   switch (descriptorCase) {
     case DESCRIPTOR: {
       c_np1 = data.alpha_np1 * vol / dt[i];
+      c_np1 += data.dtau_switch * vol / dtau[i];
       break; }
     case HYBRID: {
       c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      c_np1 += data.dtau_switch * sqrt(vol) / dtau[i];
       break; }
     case NONDESCRIPTOR : { 
       c_np1 = data.alpha_np1 / dt[i];
+      c_np1 += data.dtau_switch * 1.0 / dtau[i];
       break; }
   }
   Scalar *Aii = A.getElem_ii(i);
   for (int k=0; k<neq; ++k)
     Aii[k + k*neq] += c_np1;
-
 }
 //------------------------------------------------------------------------------
 //  This Part Performs the Low Mach Steady State Preconditioning
@@ -302,15 +680,19 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
 				double irey, SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
+
   switch (descriptorCase) {
     case DESCRIPTOR: { 
       c_np1 = data.alpha_np1 * vol / dt[i];
+      c_np1 += data.dtau_switch * vol / dtau[i];
       break; }
     case HYBRID: {
       c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      c_np1 += data.dtau_switch * sqrt(vol) / dtau[i];
       break; }
     case NONDESCRIPTOR: {
       c_np1 = data.alpha_np1 / dt[i];
+      c_np1 += data.dtau_switch * 1.0 / dtau[i];
       break; }
   }
 
@@ -319,6 +701,7 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
   if(neq<5){		//turbulence model equation in segregated solver
     for (int k=0; k<neq; ++k)
       Aii[k + k*neq] += c_np1;
+
   }else{	//Navier-Stokes (part of segregated turb model or alone) or fully coupled
 
     double ro = Un[i][0];
@@ -337,6 +720,11 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
     double beta = tprec.getBeta(locMach, irey);
 
     double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
     double qhat2 = (q2 * gam1)/2.0;
  
     double nu = qhat2/c2;
@@ -409,12 +797,15 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
   switch (descriptorCase) {
     case DESCRIPTOR: {
       c_np1 = data.alpha_np1 * vol / dt[i];
+      c_np1 += data.dtau_switch * vol / dtau[i];
       break; }
     case HYBRID: {
       c_np1 = data.alpha_np1 * sqrt(vol) / dt[i];
+      c_np1 += data.dtau_switch * sqrt(vol) / dtau[i];
       break; }
     case NONDESCRIPTOR: {
       c_np1 = data.alpha_np1 / dt[i];
+      c_np1 += data.dtau_switch * 1.0 / dtau[i];
       break; }
   }
   Scalar *Aii = A.getElem_ii(i);
@@ -430,7 +821,13 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
     double c2 = c*c;
     double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
     double beta = tprec.getBeta(locMach,irey);
-    double oobeta2 = 1.0/(beta*beta);
+    double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
+    double oobeta2 = 1.0/beta2;
     double oobeta2m1 = oobeta2 - 1.0;
 
     double Pinv[dim];
@@ -477,14 +874,17 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar
       case DESCRIPTOR: {
         if (data.use_freq == true)
           c_np1 = data.alpha_np1 * ctrlVol[i];
-        else
+        else {
           c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+          c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
         break; }
       case HYBRID: {
         c_np1 = data.alpha_np1 * sqrt(ctrlVol[i]) / dt[i];
+        c_np1 += data.dtau_switch * sqrt(ctrlVol[i]) / dtau[i];
         break; }
       case NONDESCRIPTOR: {
         c_np1 = data.alpha_np1 / dt[i];
+        c_np1 += data.dtau_switch * 1.0 / dtau[i];
         break; }
     }
     Scalar *Aii = A.getElem_ii(i);
@@ -515,17 +915,20 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol,
       case DESCRIPTOR: {
         if (data.use_freq == true)
           c_np1 = shift * ctrlVol[i];
-        else
+        else {
           c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+          c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
         break; }
       case HYBRID: {
         c_np1 = data.alpha_np1 * sqrt(ctrlVol[i]) / dt[i];
+        c_np1 += data.dtau_switch * sqrt(ctrlVol[i]) / dtau[i];
         break; }
       case NONDESCRIPTOR: {
         if (data.use_freq == true)
           c_np1 = shift;
-        else 
+        else {
           c_np1 = data.alpha_np1 / dt[i];
+          c_np1 += data.dtau_switch * 1.0 / dtau[i]; }
         break; }
     }
     Scalar *Aii = A.getElem_ii(i);
@@ -562,8 +965,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 
     if (data.use_freq == true)
       c_np1 = data.alpha_np1 * ctrlVol[i];
-    else
+    else {
       c_np1 = coef * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -600,8 +1004,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
       Scalar c_np1;
       if (data.use_freq == true)
         c_np1 = shift*ctrlVol[i];
-      else
+      else {
         c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+        c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -641,8 +1046,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 
     if (data.use_freq == true)
       c_np1 = coefVol * ctrlVol[i];
-    else
+    else {
       c_np1 = coefVol * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -680,8 +1086,9 @@ void TimeState<dim>::addToH2Minus(bool *nodeFlag, VarFcn *varFcn, Vec<double> &c
 
     if (data.use_freq)
       c_np1 = -2.0*data.alpha_np1 * ctrlVol[i];
-    else
+    else {
       c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
 
     int k;
     for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
@@ -697,6 +1104,254 @@ void TimeState<dim>::addToH2Minus(bool *nodeFlag, VarFcn *varFcn, Vec<double> &c
 
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2NoPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
+			     SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+{
+
+  double dfdUi[dim*dim], dfdVi[dim*dim];
+
+  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  double coef = data.alpha_np1;
+  if (data.use_modal == true && data.use_freq == false) {
+    A *= 2.0;
+    coef *= 3.0;
+  }
+  
+  double c_np1;
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && !nodeFlag[i]) continue;
+
+    if (data.use_freq == true)
+      c_np1 = data.alpha_np1 * ctrlVol[i];
+    else {
+      c_np1 = coef * ctrlVol[i] / dt[i];
+      c_np1 += data.dtau_switch * ctrlVol[i] / dtau[i]; }
+
+    int k;
+    for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+    for (k=0; k<dim; ++k) dfdUi[k + k*dim] = c_np1;
+
+    varFcn->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+  
+    Scalar *Aii = A.getElem_ii(i);
+
+    for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
+ 
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2GasPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
+			     SVec<double,dim> &V, GenMat<Scalar,neq> &A, 
+                             double gam, double pstiff, Vec<double> &irey, 
+                             TimeLowMachPrec &tprec)
+{
+  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  if (data.use_modal == true && data.use_freq == false) {
+    A *= 2.0;
+  }
+  
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && !nodeFlag[i]) continue;
+
+    addToH2GasPrecLocal(i,ctrlVol[i],varFcn,gam,pstiff,tprec,irey[i],V,A);
+
+  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2GasPrecLocal(int i, double vol, VarFcn *vf, double gam, 
+				double pstiff, TimeLowMachPrec &tprec,
+				double irey, SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+{
+
+  double dfdUi[dim*dim], dfdVi[dim*dim];
+
+  for (int k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+
+  double coef = data.alpha_np1;
+  if (data.use_modal == true && data.use_freq == false) {
+    coef *= 3.0;
+  }
+ 
+  double c_np1;
+  if (data.use_freq == true)
+    c_np1 = data.alpha_np1 * vol;
+  else {
+    c_np1 = coef * vol / dt[i];
+    c_np1 += data.dtau_switch * vol / dtau[i]; }
+
+  if(neq<5){		//turbulence model equation in segregated solver
+    for (int k=0; k<neq; ++k)
+      dfdUi[k + k*neq] += c_np1;
+  }else{	//Navier-Stokes (part of segregated turb model or alone) or fully coupled
+
+    double ro = Un[i][0];
+    double invRho = 1.0/ro;
+    double u  = Un[i][1] * invRho;
+    double v  = Un[i][2] * invRho;
+    double w  = Un[i][3] * invRho;
+    double u2 = u*u;
+    double v2 = v*v;
+    double w2 = w*w;
+    double q2 = u2 + v2 + w2;
+    double gam1 = gam - 1.0;
+    double p  = gam1 * (Un[i][4] - 0.5 * ro * q2) - gam*pstiff;
+    double c2 = gam*(p+pstiff)/ro;
+    double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
+    double beta = tprec.getBeta(locMach, irey);
+
+    double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
+    double qhat2 = (q2 * gam1)/2.0;
+ 
+    double nu = qhat2/c2;
+    double mu = (1.0/beta2) - 1.0;
+
+    double Pinv[5][5] = { {nu*mu + 1.0,  -u*mu*gam1/c2,      -v*mu*gam1/c2,        -w*mu*gam1/c2,       mu*gam1/c2   },
+                          {u*nu*mu,     1.0 - u2*mu*gam1/c2, -u*v*mu*gam1/c2,      -u*w*mu*gam1/c2,     u*mu*gam1/c2 },
+                          {v*nu*mu,     -u*v*mu*gam1/c2 ,    1.0 - v2*mu*gam1/c2,  -v*w*mu*gam1/c2,     v*mu*gam1/c2 },
+                          {w*nu*mu,     -u*w*mu*gam1/c2 ,    -v*w*mu*gam1/c2,      1.0 - w2*mu*gam1/c2, w*mu*gam1/c2 },
+     	                  {0.5*mu*(1.0+nu)*q2,    -u*mu*(1+nu), -v*mu*(1+nu), -w*mu*(1+nu), (1.0/beta2)+mu*nu } };
+
+    for (int l=0; l<5; ++l)
+      for (int m=0; m<5; ++m)
+        dfdUi[l*neq+m] += c_np1*Pinv[l][m];
+
+
+    //turbulence preconditioning
+    if(neq==6){
+      double t1 = Un[i][5] * invRho;
+      double mup = mu*t1*gam1/c2;
+      double Pt[6] = {mu*nu*t1, -mup*u, -mup*v, -mup*w, mup, 1.0};
+      for (int k=0; k<6; k++)
+        dfdUi[neq*(neq-1)+k] += c_np1*Pt[k];
+
+    }else if(neq==7){
+      double t1 = Un[i][5] * invRho;
+      double t2 = Un[i][6] * invRho;
+      double mup1 = mu*t1*gam1/c2;
+      double mup2 = mu*t2*gam1/c2;
+      double Pt[2][7] = { {mu*nu*t1, -mup1*u, -mup1*v, -mup1*w, mup1, 1.0, 0.0},
+                          {mu*nu*t2, -mup2*u, -mup2*v, -mup2*w, mup2, 0.0, 1.0} };
+      for (int k=0; k<7; k++){
+        dfdUi[neq*(neq-2)+k] += c_np1*Pt[0][k];
+        dfdUi[neq*(neq-1)+k] += c_np1*Pt[1][k];
+      }
+    }
+  }
+
+  vf->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+  
+  Scalar *Aii = A.getElem_ii(i);
+
+  for (int k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
+ 
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2LiquidPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
+			     SVec<double,dim> &V, GenMat<Scalar,neq> &A, 
+                             Vec<double> &irey, TimeLowMachPrec &tprec)
+{
+  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  if (data.use_modal == true && data.use_freq == false) {
+    A *= 2.0;
+  }
+  
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && !nodeFlag[i]) continue;
+
+    addToH2LiquidPrecLocal(i, ctrlVol[i], varFcn, tprec, irey[i], V, A);
+
+  }
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToH2LiquidPrecLocal(int i, double vol, VarFcn *vf,
+				TimeLowMachPrec &tprec, double irey,
+				SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+{
+
+  double dfdUi[dim*dim], dfdVi[dim*dim];
+
+  for (int k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+
+  double coef = data.alpha_np1;
+  if (data.use_modal == true && data.use_freq == false) {
+    coef *= 3.0;
+  }
+ 
+  double c_np1;
+  if (data.use_freq == true)
+    c_np1 = data.alpha_np1 * vol;
+  else {
+    c_np1 = coef * vol / dt[i];
+    c_np1 += data.dtau_switch * vol / dtau[i]; }
+
+  if(neq<5){            //turbulence model equation in segregated solver
+    for (int k=0; k<neq; ++k)
+      dfdUi[k + k*neq] += c_np1;
+  }else{        //Navier-Stokes (part of segregated turb model or alone) or fully coupled
+    double V[dim];
+    vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
+    double e = vf->computeRhoEnergy(V)/V[0];
+    double pressure = vf->getPressure(V);
+    double c = vf->computeSoundSpeed(V);
+    double c2 = c*c;
+    double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
+    double beta = tprec.getBeta(locMach,irey);
+    double beta2 =   beta * beta;
+
+// Preconditioning in unsteady flow
+    double bt =  1.0 /(1.0 + data.dtau_switch*dtau[i]*data.alpha_np1/dt[i]);
+    beta2 = beta2/(bt - beta2*(bt - 1.0));
+
+    double oobeta2 = 1.0/beta2;
+    double oobeta2m1 = oobeta2 - 1.0;
+
+    double Pinv[dim];
+    for (int j=0; j<dim; j++)
+      Pinv[j] = oobeta2m1*V[j];
+    Pinv[0] = oobeta2;
+    Pinv[4] = oobeta2m1*(e+pressure/V[0] - c2);
+ 
+    for (int j=1; j<dim; j++)
+      dfdUi[j + j*neq] += c_np1;
+    for (int j=0; j<dim; j++)
+      dfdUi[j*neq] += c_np1*Pinv[j];
+  }
+
+  vf->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+  
+  Scalar *Aii = A.getElem_ii(i);
+
+  for (int k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
+ 
+}  
 //------------------------------------------------------------------------------
                                                                                                                           
 template<int dim>

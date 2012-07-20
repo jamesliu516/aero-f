@@ -116,6 +116,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   }
 
   setupOutputFiles(ioData);
+  setupProbes(ioData);
 
   setupFixes(ioData);
 
@@ -141,8 +142,18 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   
   if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
     levelSetMethod = 1;
-  else if (ioData.mf.levelSetMethod == MultiFluidData::SCALAR)
+  else if (ioData.mf.levelSetMethod == MultiFluidData::SCALAR/* || ioData.mf.levelSetMethod == MultiFluidData::CONSERVATIVE*/)
     levelSetMethod = 2;
+ 
+  int sto = ioData.oneDimensionalInfo.sourceTermOrder; 
+  if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
+    if(coordType == OneDimensionalInfo::CYLINDRICAL)
+      source->initialize(1.0,sto,X);
+    else if (coordType == OneDimensionalInfo::SPHERICAL)
+      source->initialize(2.0,sto,X);
+  }
+
+  myTimer = domain->getTimer();
 }
 //------------------------------------------------------------------------------
 OneDimensional::~OneDimensional(){
@@ -360,199 +371,23 @@ void OneDimensional::setupOutputFiles(IoData& iod) {
     sprintf(scalars[PostFcn::DENSITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.density);
   }
-  /*if (iod.output.transient.tavdensity[0] != 0) {
-    avsscale[PostFcn::DENSITYAVG] = iod.ref.rv.density;
-    avscalars[PostFcn::DENSITYAVG] = new char[sp + strlen(iod.output.transient.tavdensity)];
-    sprintf(avscalars[PostFcn::DENSITYAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavdensity);
-	    }*/
   if (iod.output.transient.mach[0] != 0) {
     scalars[PostFcn::MACH] = new char[sp + strlen(iod.output.transient.mach)];
     sprintf(scalars[PostFcn::MACH], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.mach);
   }
-  /*if (iod.output.transient.wtmach[0] != 0) {
-    scalars[PostFcn::WTMACH] = new char[sp + strlen(iod.output.transient.wtmach)];
-    sprintf(scalars[PostFcn::WTMACH], "%s%s", iod.output.transient.prefix, iod.output.transient.wtmach);
-  }
-  if (iod.output.transient.wtspeed[0] != 0) {
-    scalars[PostFcn::WTSPEED] = new char[sp + strlen(iod.output.transient.wtmach)];
-    sprintf(scalars[PostFcn::WTSPEED], "%s%s", iod.output.transient.prefix, iod.output.transient.wtspeed);
-    sscale[PostFcn::WTSPEED] = iod.ref.rv.velocity;
-  }
-  if (iod.output.transient.speed[0] != 0) {
-    sscale[PostFcn::SPEED] = iod.ref.rv.velocity;
-    scalars[PostFcn::SPEED] = new char[sp + strlen(iod.output.transient.speed)];
-    sprintf(scalars[PostFcn::SPEED], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.speed);
-  }
-  if (iod.output.transient.tavmach[0] != 0) {
-    avscalars[PostFcn::MACHAVG] = new char[sp + strlen(iod.output.transient.tavmach)];
-    sprintf(avscalars[PostFcn::MACHAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavmach);
-	    }*/
   if (iod.output.transient.pressure[0] != 0) {
     sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::PRESSURE] = new char[sp + strlen(iod.output.transient.pressure)];
     sprintf(scalars[PostFcn::PRESSURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.pressure);
   }
-  /*if (iod.output.transient.diffpressure[0] != 0) {
-    sscale[PostFcn::DIFFPRESSURE] = iod.ref.rv.pressure;
-    scalars[PostFcn::DIFFPRESSURE] = new char[sp + strlen(iod.output.transient.diffpressure)];
-    sprintf(scalars[PostFcn::DIFFPRESSURE], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.diffpressure);
-  }
-  if (iod.output.transient.tavpressure[0] != 0) {
-    avsscale[PostFcn::PRESSUREAVG] = iod.ref.rv.pressure;
-    avscalars[PostFcn::PRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavpressure)];
-    sprintf(avscalars[PostFcn::PRESSUREAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavpressure);
-  }
-  if (iod.output.transient.hydrostaticpressure[0] != 0) {
-    sscale[PostFcn::HYDROSTATICPRESSURE] = iod.ref.rv.pressure;
-    scalars[PostFcn::HYDROSTATICPRESSURE] = new char[sp + strlen(iod.output.transient.hydrostaticpressure)];
-    sprintf(scalars[PostFcn::HYDROSTATICPRESSURE], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.hydrostaticpressure);
-  }
-  if (iod.output.transient.hydrodynamicpressure[0] != 0) {
-    sscale[PostFcn::HYDRODYNAMICPRESSURE] = iod.ref.rv.pressure;
-    scalars[PostFcn::HYDRODYNAMICPRESSURE] = new char[sp + strlen(iod.output.transient.hydrodynamicpressure)];
-    sprintf(scalars[PostFcn::HYDRODYNAMICPRESSURE], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.hydrodynamicpressure);
-  }
-  if (iod.output.transient.pressurecoefficient[0] != 0) {
-    sscale[PostFcn::PRESSURECOEFFICIENT] = 1.0;
-    scalars[PostFcn::PRESSURECOEFFICIENT] = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
-    sprintf(scalars[PostFcn::PRESSURECOEFFICIENT], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
-	    }*/
   if (iod.output.transient.temperature[0] != 0) {
     sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
-//    sscale[PostFcn::TEMPERATURE] = 1;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
     sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.temperature);
   }
-  /*if (iod.output.transient.tavtemperature[0] != 0) {
-    avsscale[PostFcn::TEMPERATUREAVG] = iod.ref.rv.temperature;
-    avscalars[PostFcn::TEMPERATUREAVG] = new char[sp + strlen(iod.output.transient.tavtemperature)];
-    sprintf(avscalars[PostFcn::TEMPERATUREAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavtemperature);
-  }
-  if (iod.output.transient.totalpressure[0] != 0) {
-    sscale[PostFcn::TOTPRESSURE] = iod.ref.rv.pressure;
-    scalars[PostFcn::TOTPRESSURE] = new char[sp + strlen(iod.output.transient.totalpressure)];
-    sprintf(scalars[PostFcn::TOTPRESSURE], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.totalpressure);
-  }
-  if (iod.output.transient.tavtotalpressure[0] != 0) {
-    avsscale[PostFcn::TOTPRESSUREAVG] = iod.ref.rv.pressure;
-    avscalars[PostFcn::TOTPRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavtotalpressure)];
-    sprintf(avscalars[PostFcn::TOTPRESSUREAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavtotalpressure);
-  }
-  if (iod.output.transient.vorticity[0] != 0) {
-    sscale[PostFcn::VORTICITY] = iod.ref.rv.velocity/iod.ref.rv.tlength;
-    scalars[PostFcn::VORTICITY] = new char[sp + strlen(iod.output.transient.vorticity)];
-    sprintf(scalars[PostFcn::VORTICITY], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.vorticity);
-  }
-  if (iod.output.transient.tavvorticity[0] != 0) {
-    avsscale[PostFcn::VORTICITYAVG] = iod.ref.rv.velocity/iod.ref.rv.tlength;
-    avscalars[PostFcn::VORTICITYAVG] = new char[sp + strlen(iod.output.transient.tavvorticity)];
-    sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavvorticity);
-  }
-  if (iod.output.transient.surfaceheatflux[0] != 0) {
-    sscale[PostFcn::SURFACE_HEAT_FLUX] = iod.ref.rv.power /(iod.ref.rv.length * iod.ref.rv.length);
-    scalars[PostFcn::SURFACE_HEAT_FLUX] = new char[sp + strlen(iod.output.transient.surfaceheatflux)];
-    sprintf(scalars[PostFcn::SURFACE_HEAT_FLUX], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.surfaceheatflux);
-  }
-  if (iod.output.transient.tempnormalderivative[0] != 0) {
-    sscale[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE] = iod.ref.rv.temperature/iod.ref.rv.length;
-    scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE] = new char[sp + strlen(iod.output.transient.tempnormalderivative)];
-    sprintf(scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.tempnormalderivative);
-  }
-  if (iod.output.transient.nutturb[0] != 0) {
-    sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
-    scalars[PostFcn::NUT_TURB] = new char[sp + strlen(iod.output.transient.nutturb)];
-    sprintf(scalars[PostFcn::NUT_TURB], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.nutturb);
-  }
-  if (iod.output.transient.kturb[0] != 0) {
-    sscale[PostFcn::K_TURB] = iod.ref.rv.kenergy;
-    scalars[PostFcn::K_TURB] = new char[sp + strlen(iod.output.transient.kturb)];
-    sprintf(scalars[PostFcn::K_TURB], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.kturb);
-  }
-  if (iod.output.transient.epsturb[0] != 0) {
-    sscale[PostFcn::EPS_TURB] = iod.ref.rv.epsilon;
-    scalars[PostFcn::EPS_TURB] = new char[sp + strlen(iod.output.transient.epsturb)];
-    sprintf(scalars[PostFcn::EPS_TURB], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.epsturb);
-  }
-  if (iod.output.transient.eddyvis[0] != 0) {
-    sscale[PostFcn::EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
-    scalars[PostFcn::EDDY_VISCOSITY] = new char[sp + strlen(iod.output.transient.eddyvis)];
-    sprintf(scalars[PostFcn::EDDY_VISCOSITY], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.eddyvis);
-	    }*/
-  //  if (iod.output.transient.dplus[0] != 0) {
-  //#if defined(HEAT_FLUX)
-    /*
-    double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
-    double dT = iod.bc.wall.temperature - 1.0 / (gam*(gam-1.0)*iod.bc.inlet.mach*iod.bc.inlet.mach);
-    sscale[PostFcn::DELTA_PLUS] = iod.ref.reynolds * iod.eqs.thermalCondModel.prandtl / (gam * dT);
-    */
-  //    sscale[PostFcn::DELTA_PLUS] = iod.ref.rv.tpower / (iod.ref.length*iod.ref.length);
-  //#endif
-  //    scalars[PostFcn::DELTA_PLUS] = new char[sp + strlen(iod.output.transient.dplus)];
-  //  sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
-  //	    iod.output.transient.prefix, iod.output.transient.dplus);
-  //}
-  /*if (iod.output.transient.sfric[0] != 0) {
-    scalars[PostFcn::SKIN_FRICTION] = new char[sp + strlen(iod.output.transient.sfric)];
-    sprintf(scalars[PostFcn::SKIN_FRICTION], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.sfric);
-  }
-  if (iod.output.transient.tavsfric[0] != 0) {
-    avscalars[PostFcn::SKIN_FRICTIONAVG] = new char[sp + strlen(iod.output.transient.tavsfric)];
-    sprintf(avscalars[PostFcn::SKIN_FRICTIONAVG], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.tavsfric);
-  }
-  if (iod.output.transient.psensor[0] != 0) {
-    scalars[PostFcn::PSENSOR] = new char[sp + strlen(iod.output.transient.psensor)];
-    sprintf(scalars[PostFcn::PSENSOR], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.psensor);
-  }
-  if (iod.output.transient.csdles[0] != 0) {
-    scalars[PostFcn::CSDLES] = new char[sp + strlen(iod.output.transient.csdles)];
-    sprintf(scalars[PostFcn::CSDLES], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.csdles);
-  }
-  if (iod.output.transient.tavcsdles[0] != 0) {
-    avscalars[PostFcn::CSDLESAVG] = new char[sp + strlen(iod.output.transient.tavcsdles)];
-    sprintf(avscalars[PostFcn::CSDLESAVG], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.tavcsdles);
-  }
-  if (iod.output.transient.csdvms[0] != 0) {
-    scalars[PostFcn::CSDVMS] = new char[sp + strlen(iod.output.transient.csdvms)];
-    sprintf(scalars[PostFcn::CSDVMS], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.csdvms);
-  }
-  if (iod.output.transient.tavcsdvms[0] != 0) {
-    avscalars[PostFcn::CSDVMSAVG] = new char[sp + strlen(iod.output.transient.tavcsdvms)];
-    sprintf(avscalars[PostFcn::CSDVMSAVG], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.tavcsdvms);
-  }
-  if (iod.output.transient.mutOmu[0] != 0) {
-    scalars[PostFcn::MUT_OVER_MU] = new char[sp + strlen(iod.output.transient.mutOmu)];
-    sprintf(scalars[PostFcn::MUT_OVER_MU], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.mutOmu);
-	    }*/
   if (iod.output.transient.philevel[0] != 0) {
     sscale[PostFcn::PHILEVEL] = 1.0;
     scalars[PostFcn::PHILEVEL] = new char[sp + strlen(iod.output.transient.philevel)];
@@ -565,79 +400,12 @@ void OneDimensional::setupOutputFiles(IoData& iod) {
     sprintf(scalars[PostFcn::FLUIDID], "%s%s",
             iod.output.transient.prefix, iod.output.transient.fluidid);
   }
-  /*if (iod.output.transient.controlvolume[0] != 0) {
-    sscale[PostFcn::CONTROL_VOLUME] = iod.ref.rv.length * iod.ref.rv.length * iod.ref.rv.length;
-    scalars[PostFcn::CONTROL_VOLUME] = new char[sp + strlen(iod.output.transient.controlvolume)];
-    sprintf(scalars[PostFcn::CONTROL_VOLUME], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.controlvolume);
-	    }*/
   if (iod.output.transient.velocity[0] != 0) {
     vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
     sprintf(vectors[PostFcn::VELOCITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.velocity);
   }
-  /*if (iod.output.transient.tavvelocity[0] != 0) {
-    avvscale[PostFcn::VELOCITYAVG] = iod.ref.rv.velocity;
-    avvectors[PostFcn::VELOCITYAVG] = new char[sp + strlen(iod.output.transient.tavvelocity)];
-    sprintf(avvectors[PostFcn::VELOCITYAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavvelocity);
-  }
-  if (iod.output.transient.displacement[0] != 0) {
-    vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
-    vectors[PostFcn::DISPLACEMENT] = new char[sp + strlen(iod.output.transient.displacement)];
-    sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.displacement);
-  }
-  if (iod.output.transient.tavdisplacement[0] != 0) {
-    avvscale[PostFcn::DISPLACEMENTAVG] = iod.ref.rv.tlength;
-    avvectors[PostFcn::DISPLACEMENTAVG] = new char[sp + strlen(iod.output.transient.tavdisplacement)];
-    sprintf(avvectors[PostFcn::DISPLACEMENTAVG], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.tavdisplacement);
-  }
-
-  if (iod.output.transient.flightDisplacement[0] != 0) {
-    vscale[PostFcn::FLIGHTDISPLACEMENT] = iod.ref.rv.tlength;
-    vectors[PostFcn::FLIGHTDISPLACEMENT] = new char[sp + strlen(iod.output.transient.flightDisplacement)];
-    sprintf(vectors[PostFcn::FLIGHTDISPLACEMENT], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.flightDisplacement);
-  }
-
-  if (iod.output.transient.localFlightDisplacement[0] != 0) {
-    vscale[PostFcn::LOCALFLIGHTDISPLACEMENT] = iod.ref.rv.tlength;
-    vectors[PostFcn::LOCALFLIGHTDISPLACEMENT] = new char[sp + strlen(iod.output.transient.localFlightDisplacement)];
-    sprintf(vectors[PostFcn::LOCALFLIGHTDISPLACEMENT], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.localFlightDisplacement);
-  }
-
-  if (iod.output.transient.forces[0] != 0) {
-    forces = new char[sp + strlen(iod.output.transient.forces)];
-    sprintf(forces, "%s%s", iod.output.transient.prefix, iod.output.transient.forces);
-  }
-  else
-    forces = 0;
-
-  if (iod.output.transient.tavforces[0] != 0) {
-    tavforces = new char[sp + strlen(iod.output.transient.tavforces)];
-    sprintf(tavforces, "%s%s", iod.output.transient.prefix, iod.output.transient.tavforces);
-  }
-  else
-    tavforces = 0;
-
-  if (iod.output.transient.hydrostaticforces[0] != 0) {
-    hydrostaticforces = new char[sp + strlen(iod.output.transient.hydrostaticforces)];
-    sprintf(hydrostaticforces, "%s%s", iod.output.transient.prefix, iod.output.transient.hydrostaticforces);
-  }
-  else
-    hydrostaticforces = 0;
-
-  if (iod.output.transient.hydrodynamicforces[0] != 0) {
-    hydrodynamicforces = new char[sp + strlen(iod.output.transient.hydrodynamicforces)];
-    sprintf(hydrodynamicforces, "%s%s", iod.output.transient.prefix, iod.output.transient.hydrodynamicforces);
-  }
-  else
-  hydrodynamicforces = 0;*/
-
   if (iod.output.transient.bubbleRadius[0] != 0) {
     bubbleRadiusFile = new char[sp + strlen(iod.output.transient.bubbleRadius)];
     sprintf(bubbleRadiusFile, "%s%s", 
@@ -707,12 +475,6 @@ void OneDimensional::spatialSetup(){
     }
   }
 
-  if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
-    if(coordType == OneDimensionalInfo::CYLINDRICAL)
-      source->initialize(1.0,1,X);
-    else if (coordType == OneDimensionalInfo::SPHERICAL)
-      source->initialize(2.0,1,X);
-  }
    
 }
 //------------------------------------------------------------------------------
@@ -720,25 +482,19 @@ void OneDimensional::temporalSetup(){
 }
 //------------------------------------------------------------------------------
 void OneDimensional::stateInitialization(OneDimensionalInfo &data){
+  
   V = 0.0;
   // initialize V
   if (data.mode == OneDimensionalInfo::CONVTEST1) {
     data.pressure1 = data.pressure2;
   }
-  std::cout << "p2 = " << data.pressure2 << std::endl;
   interfaceLocation = data.interfacePosition;
   for(int i=0; i<numPoints; i++){
     if(X[i][0]<data.interfacePosition){
       if (varFcn->getType(1) != VarFcnBase::TAIT) {
-	//if (X[i][0] < 3.8) {
-	  V[i][0] = data.density1;
-	  V[i][1] = data.velocity1;
-	  V[i][4] = data.pressure1;
-	  /*} else {
-	  V[i][0] = data.density1;
-	  V[i][1] = data.velocity1;
-	  V[i][4] = data.pressure1*10.0;
-	  }*/
+	V[i][0] = data.density1;
+	V[i][1] = data.velocity1;
+	V[i][4] = data.pressure1;
       } else {
 	V[i][0] = data.density1;
 	V[i][1] = data.velocity1;
@@ -757,10 +513,10 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
     }
 
     if (data.mode == OneDimensionalInfo::CONVTEST1) {
-      V[i][0] = 1.0;
+      V[i][0] = data.density2;
       if (fabs(X[i][0]-data.interfacePosition) < 0.2)
 	V[i][4] = //data.pressure2+100.0*pow(cos(3.14159265358979323846/2.0*(X[i][0]-data.interfacePosition)/0.2),2.0);
-	  100000000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+data.pressure2;
+	  (10000000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+1.0)*data.pressure2;
       else
 	V[i][4] = data.pressure2;
       V[i][1] = 0.0;
@@ -768,10 +524,6 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   }
 
   isSinglePhase = varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1));
-
-  //cout << data.density1 << " " << data.velocity1 << " " << data.pressure1 << " " << data.temperature1 << endl;
-  //cout << data.density2 << " " << data.velocity2 << " " << data.pressure2 << " " << data.temperature2 << endl;
-  
 
   // initialize Phi
   if (levelSetMethod == 0) {
@@ -820,11 +572,10 @@ void OneDimensional::totalTimeIntegration(){
   int iteration = 0;
 
   resultsOutput(time,iteration);
-
+  double cpu_time = myTimer->getTime();
   while(time<finalTime){
     // determine how much to advance in time
-    computeTimeSteps(timeSteps);
-    dt = cfl*timeSteps.min();
+    dt = cfl*computeMaxTimeStep();
 
     if (programmedBurn)
       programmedBurn->setCurrentTime(time,varFcn, U,fluidId,fluidIdn);
@@ -838,27 +589,31 @@ void OneDimensional::totalTimeIntegration(){
     singleTimeIntegration(dt);
     time += dt;
 
+    outputProbes(time,iteration-1);
+
     if(iteration % frequency == 0)
       resultsOutput(time,iteration);
   }
   resultsOutput(time,iteration);
   restartOutput(time,iteration);
-
+  std::cout << "Total time: " << myTimer->getTime()-cpu_time << " s" << std::endl;
 }
 //------------------------------------------------------------------------------
-void OneDimensional::computeTimeSteps(SVec<double,1> &timeSteps){
+double OneDimensional::computeMaxTimeStep(){
 
   // very crude CFL law
   double c = 0.0;
+  double maxTimeStep = 1e20;
   varFcn->conservativeToPrimitive(U,V,&fluidId);
 
   for(int i=0; i<numPoints; i++){
     c = varFcn->computeSoundSpeed(V[i],fluidId[i]);
     if (c == 0.0)
       std::cout << "c = " << c <<  " " << fluidId[i] <<  std::endl;
-    timeSteps[i][0] = 0.5*(Y[i+1][0]-Y[i][0])/c;
+    maxTimeStep = min(maxTimeStep, 0.5*(Y[i+1][0]-Y[i][0])/c);
   }
 
+  return maxTimeStep;
 }
 
 void OneDimensional::levelSetDerivative(double t0, Vec<double>& phi, Vec<double>& k) {
@@ -894,12 +649,9 @@ void OneDimensional::singleTimeIntegration(double dt){
 
   double Vtemp[5];
   
-  if (levelSetMethod == 1 || levelSetMethod == 0) {
 
-    fluidSelector.getFluidId(fluidId,Phi);
-  }
+  fluidSelector.getFluidId(fluidId,Phi);
 
-  //std::cout << interfaceTreatment << " " << interfaceExtrapolation << std::endl;
   if (interfaceTreatment == 1) {
     //varFcn->conservativeToPrimitive(U,V,&fluidId);
     for(int i=0; i<numPoints-1; i++){
@@ -907,9 +659,9 @@ void OneDimensional::singleTimeIntegration(double dt){
       if (Y[i][0] < interfaceLocation && Y[i+1][0] >= interfaceLocation) {
 	for (int k = 0; k < 5; ++k) {
 	  if (interfaceLocation > X[i][0])
-	    V[i][k] = (2.0*V[i-2][k]-V[i-1][k]);
+	    V[i][k] = (-(X[i][0]-X[i-1][0])*V[i-2][k]+(X[i][0]-X[i-2][0])*V[i-1][k])/(X[i-1][0]-X[i-2][0]);//(2.0*V[i-2][k]-V[i-1][k]);
 	  else
-	    V[i][k] = (2.0*V[i+1][k]-V[i+2][k]);
+	    V[i][k] = (-(X[i][0]-X[i+1][0])*V[i+2][k]+(X[i][0]-X[i+2][0])*V[i+1][k])/(X[i+1][0]-X[i+2][0]);//(2.0*V[i-2][k]-V[i-1][k]);
 	}
 	cutCellStatus[i] = 1;
       }
@@ -983,14 +735,12 @@ void OneDimensional::singleTimeIntegration(double dt){
 		   phi,time,dt);
     interfaceLocation = phi[0];
     
-    //fprintf(stderr,"int. loc = %lf, x = %lf\n", interfaceLocation, X[75][0]);
     for(int i=0; i<numPoints; i++){
-      if (X[i][0] < interfaceLocation)
-	fluidId[i] = 1;
-      else
-	fluidId[i] = 0;
+      Phi[i][0] = -X[i][0] + interfaceLocation;
     }
-
+    fluidIdn = fluidId;
+    fluidSelector.getFluidId(fluidId,Phi);
+    
   }
 
   for(int i=0; i<numPoints; i++){
@@ -998,9 +748,7 @@ void OneDimensional::singleTimeIntegration(double dt){
     if (fluidId[i] != fluidIdn[i]&& !varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1))) { // Phase change
       
       if (!riemannStatus[i])
-	std::cout << "Have a problem!" << std::endl;
-      //fprintf(stderr,"Node %d changes phase!\n", i);
-      //fprintf(stderr,"Wr[i] = %lf %lf %lf %lf %lf\n", Wr[i][0],Wr[i][1],Wr[i][2],Wr[i][3],Wr[i][4]);
+	std::cout << "Have a problem!" <<  " " << fluidId[i] << " " << fluidIdn[i] << std::endl;
       if (interfaceTreatment == 0) {
 	if (interfaceExtrapolation == 0)
 	  memcpy(V[i],Wr[i],sizeof(double)*5);
@@ -1020,7 +768,6 @@ void OneDimensional::singleTimeIntegration(double dt){
     }
   }
 
-  double interfaceLocation;
   // initialize Phi
   for(int i=0; i<numPoints-1; i++) {
 
@@ -1035,17 +782,12 @@ void OneDimensional::singleTimeIntegration(double dt){
 
     
   if (levelSetMethod == 0) {
-    /*for(int i=0; i<numPoints-1; i++) {
-      Phi[i][0] = V[i][0]*(interfaceLocation-X[i][0]);
-      }*/
   } else if (levelSetMethod == 1) {
     for(int i=0; i<numPoints-1; i++) {
       Phi[i][0] = (interfaceLocation-X[i][0]);
     }
 
   }
-  
-
   //update PhaseChange with new fluidId
   varFcn->primitiveToConservative(V,U,&fluidId);
 
@@ -1068,8 +810,9 @@ void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
   R = 0.0;
   computeEulerFluxes(y);
   for(int i=0; i<numPoints; i++){
+    double* kp = k[i],*Rp = R[i],icv = 1.0/ctrlVol[i][0];
     for(int idim=0; idim<dim; idim++)
-      k[i][idim] = -R[i][idim] / ctrlVol[i][0];
+      kp[idim] = -Rp[idim] * icv ;
   }
 }
 
@@ -1104,13 +847,19 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   double flux[dim];
   double Udummy[dim],Vtemp[dim];
   int i,j,k;
+  
+  for(int i=0; i<numPoints; i++){
+    if (y[i][0] < 0.0)
+      std::cout << "Error: node " << i << " has negative density " <<
+            y[i][0] << "; fid = " << fluidId[i] << std::endl;
+  }
 
   // Check solution (clip pressure, that is), if necessary
   if (varFcn->doVerification()) {
     for(int i=0; i<numPoints; i++){
       varFcn->conservativeToPrimitiveVerification(i+1, y[i], Vtemp, fluidId[i]);
     }
-  }
+  } 
 
   varFcn->conservativeToPrimitive(y,V,&fluidId);
   computeSlopes(V,Vslope,fluidId,!varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1)));
@@ -1118,25 +867,35 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   for(int iEdge=0; iEdge<numPoints-1; iEdge++){
     i = iEdge;
     j = iEdge+1;
+    int fidi = fluidId[i],fidj = fluidId[j];
+  
+    double Xi = X[i][0],Xj = X[j][0]; 
+    double* Vi_ptr = V[i], *Vj_ptr = V[j];
   
     double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
-    if (!isSixthOrder || !(i > 0 && i < numPoints-3 && (fluidId[i] == fluidId[i+1] && 
-				     fluidId[i] == fluidId[i+2] && fluidId[i] == fluidId[i-1] || isSinglePhase))) {
-      
+    if (!isSixthOrder || !(i > 0 && i < numPoints-3 && (fidi == fluidId[i+1] && 
+				     fidi == fluidId[i+2] && fidi == fluidId[i-1] || isSinglePhase))) {
+
+      double *Vsi = Vslope[i];      
+      double *Vsj = Vslope[j];      
       for (k = 0; k < dim; ++k) {
-	VslopeI[k] = Vslope[i][k];
-	VslopeJ[k] = Vslope[j][k];
+	VslopeI[k] = Vsi[k];
+	VslopeJ[k] = Vsj[k];
       }
     } else {
 
+      double *Vsi = Vslope[i];      
+      double *Vsim1 = Vslope[i-1];      
+      double *Vsj = Vslope[j];      
+      double *Vsjp1 = Vslope[j+1];      
       for (k = 0; k < dim; ++k) {
 	VslopeI[k] = (V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0])+
 	  (-1.0/30.0)*((V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])-2.0*(V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0]))/beta+
-	  (-2.0/15.0)*(Vslope[i-1][k]-2.0*Vslope[i][k]+Vslope[j][k])/beta;
+	  (-2.0/15.0)*(Vsim1[k]-2.0*Vsi[k]+Vsj[k])/beta;
 	
 	  VslopeJ[k] = (V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])+
 	  (-1.0/30.0)*((V[j+1][k]-V[j][k])/(X[j+1][0]-X[j][0])-2.0*(V[j][k]-V[i][k])/(X[j][0]-X[i][0])+(V[i][k]-V[i-1][k])/(X[i][0]-X[i-1][0]))/beta+
-	  (-2.0/15.0)*(Vslope[j+1][k]-2.0*Vslope[j][k]+Vslope[i][k])/beta;
+	  (-2.0/15.0)*(Vsjp1[k]-2.0*Vsj[k]+Vsi[k])/beta;
 	
 	VslopeI[k] *= 0.5;
 	VslopeJ[k] *= 0.5;
@@ -1146,8 +905,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
     }
 
     for (k = 0; k < dim; ++k) {
-      Vsi[k] = VslopeI[k]*(X[j][0]-X[i][0]);
-      Vsj[k] = VslopeJ[k]*(X[j][0]-X[i][0]);
+      Vsi[k] = VslopeI[k]*(Xj-Xi);
+      Vsj[k] = VslopeJ[k]*(Xj-Xi);
 			  
     }
     
@@ -1162,26 +921,35 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
       }
       }*/
 
-    length = (X[j][0]-X[i][0]);
+    length = (Xj-Xi);
 
-    recFcn->compute(V[i], Vsi,V[j], Vsj, Vi, Vj);
+    //if (fidi == fidj || isSinglePhase)
+      recFcn->compute(Vi_ptr, Vsi,Vj_ptr, Vsj, Vi, Vj);
+    /*else {
+      for (k = 0; k < dim; ++k) {
+        Vi[k] = Vi_ptr[k];
+        Vj[k] = Vj_ptr[k];
+      }
+    }*/
     
     //std::cout << "Hello" << std::endl;
-    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
-    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
-    for (k = 0; k < dim; ++k) {
-      Vi[k+dim] = V[i][k];
-      Vj[k+dim] = V[j][k];
-    }
+    varFcn->getVarFcnBase(fidi)->verification(0,Udummy,Vi);
+    varFcn->getVarFcnBase(fidj)->verification(0,Udummy,Vj);
+    /*for (k = 0; k < dim; ++k) {
+      Vi[k+dim] = Vi_ptr[k];
+      Vj[k+dim] = Vj_ptr[k];
+    }*/
 
     if (interfaceTreatment == 0) {
       
-      if(fluidId[i] == fluidId[j]|| isSinglePhase){
-
-        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fluidId[i]);
+      double* Ri_ptr = R[i],*Rj_ptr = R[j];
+      double Cs = ctrlSurf[iEdge+1][0];
+      if(fidi == fidj|| isSinglePhase){
+  
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fidi);
         for(int k=0; k<dim; ++k) {
-          R[i][k] += ctrlSurf[iEdge+1][0]*flux[k];
-          R[j][k] -= ctrlSurf[iEdge+1][0]*flux[k];
+          Ri_ptr[k] += Cs*flux[k];
+          Rj_ptr[k] -= Cs*flux[k];
         }
       }else{
         double gradphi[3] = {1.0, 0.0, 0.0};
@@ -1189,17 +957,32 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         double Wir[2*dim], Wjr[2*dim];
         double Vir[dim],Vjr[dim];
         double wi, wj;
-        double dx[3] = {X[j][0]-X[i][0], 0.0, 0.0};
+        double dx[3] = {Xj-Xi, 0.0, 0.0};
         int iteration = 0;
         double fluxi[dim], fluxj[dim];
-
+        
 	memcpy(Vir, Vi, sizeof(double)*dim);
 	memcpy(Vjr, Vj, sizeof(double)*dim);
-	
+        	
+/*        if (programmedBurn && fidj == 1) {
 
-        riemann->computeRiemannSolution(Vir,Vjr,fluidId[i],fluidId[j],gradphi,varFcn,
-	  			      Wir,Wjr,i,j,i,dx);
+          for (int k = 0; k < dim; ++k) {
+            Vir[k] = Vi_ptr[k] + Vsi[k]*0.5;
+            Vjr[k] = Vj_ptr[k] - Vsj[k]*0.5;
+          }
+        }
+*/
+        riemann->computeRiemannSolution(Vir,Vjr,fidi,fidj,gradphi,varFcn,
+					Wir,Wjr,i,j,i,dx,false);
+/*
+        if (fidi == 2) {
 
+          std::cout << Vir[0]*refVal.density << " " << Vir[1]*refVal.velocity << " " << Vir[4]*refVal.pressure << std::endl;
+          std::cout << Wir[0]*refVal.density << " " << Wir[1]*refVal.velocity << " " << Wir[4]*refVal.pressure << std::endl;
+          std::cout << Vjr[0]*refVal.density << " " << Vjr[1]*refVal.velocity << " " << Vjr[4]*refVal.temperature << std::endl;
+          std::cout << Wjr[0]*refVal.density << " " << Wjr[1]*refVal.velocity << " " << Wjr[4]*refVal.temperature << std::endl;
+        }
+*/
 	memcpy(Wi, Wir, sizeof(double)*dim);
 	memcpy(Wj, Wjr, sizeof(double)*dim);
       
@@ -1209,11 +992,11 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
         //fprintf(stderr,"Edge %d-%d crosses interface\n",i,j);
 
-        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Wi, fluxi, fluidId[i]);
-        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wj, Vj, fluxj, fluidId[j]);
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Wi, fluxi, fidi);
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wj, Vj, fluxj, fidj);
         for (int k=0; k<dim; k++){
-          R[i][k] += ctrlSurf[iEdge+1][0]*fluxi[k];
-          R[j][k] -= ctrlSurf[iEdge+1][0]*fluxj[k];
+          Ri_ptr[k] += Cs*fluxi[k];
+          Rj_ptr[k] -= Cs*fluxj[k];
         }
 
       }
@@ -1221,7 +1004,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
       if(cutCellStatus[i] == 0 && cutCellStatus[j] == 0){
 
-        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fluidId[i]);
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fidi);
         for(int k=0; k<dim; ++k) {
           R[i][k] += ctrlSurf[iEdge+1][0]*flux[k];
           R[j][k] -= ctrlSurf[iEdge+1][0]*flux[k];
@@ -1278,7 +1061,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vjr);
 
         riemann->computeRiemannSolution(Vir,Vjr,fluidId[i-1],fluidId[j+1],gradphi,varFcn,
-	  			        Wir,Wjr,i,j,i,dx);
+	  			        Wir,Wjr,i,j,i,dx,false);
 
         if (interfaceExtrapolation == 1) {
           if (cutCellStatus[j] == 1) {
@@ -1312,10 +1095,10 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         //fprintf(stderr,"Edge %d-%d crosses interface\n",i,j);
 
         if (cutCellStatus[j] == 1) {
-          fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wi, Wi, fluxi, fluidId[i]);
+          fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wi, Wi, fluxi, fidi);
         } else {
 
-          fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wj, Wj, fluxj, fluidId[j]);
+          fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wj, Wj, fluxj, fidj);
         }
 
         for (int k=0; k<dim; k++){
@@ -1337,11 +1120,11 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   // flux at left (for cartesian) - use of non-reflecting BC
   // flux at center (for cylindrical and spherical) - use of wall=symmetry
   normal[0] = ctrlSurf[0][0];
-  if(coordType == OneDimensionalInfo::CARTESIAN)
-    fluxFcn[2]->compute(0.0, 0.0, normal, normalVel, V[0], BC[0], flux, fluidId[0]);
-  else if(coordType == OneDimensionalInfo::CYLINDRICAL)
+  //if(coordType == OneDimensionalInfo::CARTESIAN)
+  //   fluxFcn[2]->compute(0.0, 0.0, normal, normalVel, V[0], BC[0], flux, fluidId[0]);
+  /*else*/ if(coordType == OneDimensionalInfo::CYLINDRICAL)
     fluxFcn[1]->compute(0.0, 0.0, normal, normalVel, V[0], dummy, flux, fluidId[0]);
-  else if(coordType == OneDimensionalInfo::SPHERICAL)
+  else if(coordType == OneDimensionalInfo::SPHERICAL || coordType == OneDimensionalInfo::CARTESIAN)
     fluxFcn[1]->compute(0.0, 0.0, normal, normalVel, V[0], dummy, flux, fluidId[0]);
 
   //std::cout << "fnew = " << flux[0] << " " << flux[1] << " " << flux[2] << " " << flux[3] << " " << flux[4] << std::endl;
@@ -1353,6 +1136,15 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   if (source) {
     EulerSource E(varFcn,fluidId);
     source->compute(E,y, R, X, Y,fluidId);
+  }
+
+  if (interfaceTreatment == 1) {
+    for (int i = 0; i < numPoints; ++i) {
+
+      if (cutCellStatus[i])
+        for (int k=0; k<dim; ++k)
+          R[i][k] = 0.0;
+    }
   }
 
   //std::cout << R*R << std::endl;
@@ -1473,9 +1265,11 @@ void OneDimensional::computeLevelSetFluxes(SVec<double,1>& y){
     // source term
     
     if (source) {
-      LevelSetSource E(varFcn,U);
+      for (int i = 0; i < numPoints; ++i)
+        Rphi[i][0] += 2.0*U[i][1]/U[i][0]*Phi[i][0]*ctrlVol[i][0]/(X[i][0] > 0 ? X[i][0] : 1e8);
+        //LevelSetSource E(varFcn,U);
       
-      source->compute(E,y, Rphi, X, Y,fluidId);
+        //source->compute(E,y, Rphi, X, Y,fluidId);
     }
   } else if (levelSetMethod == 1) // H-J WENO 
     {
@@ -1556,6 +1350,8 @@ void OneDimensional::resultsOutput(double time, int iteration){
   int i;
 
   varFcn->conservativeToPrimitive(U,V,&fluidId);
+
+  //output2DVTK();
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     if (scalars[i]) {
@@ -1651,13 +1447,32 @@ void OneDimensional::restartOutput(double time, int iteration){
 
   varFcn->conservativeToPrimitive(U,V,&fluidId);
 
+  double rad = 0.0;
+  for (int i=0; i<numPoints; ++i) {
+    if (fluidId[i+1] == 0) {
+      if (levelSetMethod == 0)
+	rad = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
+      else if (levelSetMethod == 1)
+	rad = (X[i+1][0]*Phi[i][0]-X[i][0]*Phi[i+1][0])/(Phi[i][0]-Phi[i+1][0]);
+      else
+	rad = interfaceLocation;
+      break;
+    }
+  }
+  
   output << "# time = " << time*refVal.time << endl;
   output << "# " << numPoints << endl;
   for(int i=0; i<numPoints; i++) {
     output << X[i][0]*refVal.length <<" "<< V[i][0]*refVal.density <<" "<<
       V[i][1]*refVal.velocity <<" "<<
-      varFcn->getPressure(V[i],fluidId[i])*refVal.pressure <<" "<<
-      Phi[i][0]/V[i][0]*refVal.length << " " << fluidId[i] << " " << 
+      varFcn->getPressure(V[i],fluidId[i])*refVal.pressure <<" ";
+    if (levelSetMethod == 0)
+      output << Phi[i][0]/V[i][0];
+    else if (levelSetMethod == 1)
+      output << Phi[i][0];
+    else if (levelSetMethod == 2)
+      output << -(X[i][0]-rad)*refVal.length;
+    output << " " << fluidId[i] << " " << 
       varFcn->computeTemperature(V[i],fluidId[i])*refVal.temperature << endl;
   }
   output.close();
@@ -1679,7 +1494,11 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     //double A[4] = { X[i+1][0]*X[i+1][0]+X[i-1][0]*X[i-1][0]+X[i][0]*X[i][0], X[i+1][0]+X[i-1][0]+X[i][0],
     //		   X[i+1][0]+X[i-1][0]+X[i][0], 3};
   //double det = A[0]*A[3]-A[1]*A[2];
-
+    double Xi = X[i][0],Xim1 = X[i-1][0],Xip1 = X[i+1][0];
+    double* Vi = VV[i],*Vip1 = VV[i+1], *Vim1 = VV[i-1];
+    double dx1 = Xip1-Xi, dx2 = Xim1-Xi;
+    double dxsq = dx1*dx1+dx2*dx2;
+    double* pSlopes = slopes[i];
     if (loctag[i])
       continue;
     
@@ -1706,20 +1525,15 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     for (j = 0; j < neq; ++j) {
 
       if (stat == 0) {   
-	double dx1 = X[i+1][0]-X[i][0], dx2 = X[i-1][0]-X[i][0];
-	slopes[i][j] = ((V[i+1][j]-V[i][j])*dx1+(VV[i-1][j]-VV[i][j])*dx2)/(dx1*dx1+dx2*dx2); 
-	//slopes[i][j] = (VV[i+1][j]-VV[i-1][j])/(X[i+1][0]-X[i-1][0]);
+	pSlopes[j] = ((Vip1[j]-Vi[j])*dx1+(Vim1[j]-Vi[j])*dx2)/(dxsq); 
       }
       else if (stat == 1) {
-	//double dx1 = X[i+1][0]-X[i][0], dx2 = X[i-1][0]-X[i][0];
-	slopes[i][j] = (VV[i+1][j]-VV[i][j])/(X[i+1][0]-X[i][0]);
+        pSlopes[j] = (Vip1[j]-Vi[j])/(Xip1-Xi);
       }
       else if (stat == 2)
-	slopes[i][j] = (VV[i][j]-VV[i-1][j])/(X[i][0]-X[i-1][0]);
+	pSlopes[j] = (Vi[j]-Vim1[j])/(Xi-Xim1);
       else
-	slopes[i][j] = 0.0;
-
-      //slopes[i][j] *= 0.5;
+	pSlopes[j] = 0.0;
     }
   }
 
@@ -1735,63 +1549,6 @@ RecFcn* OneDimensional::createRecFcn(IoData &ioData)
 
   if (ioData.eqs.type == EquationsData::NAVIER_STOKES &&
       ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
-    /*if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
-	ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
-      if (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) {
-	if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	  rf = new RecFcnConstant<6>;
-      }
-      else if (ioData.schemes.ns.reconstruction == SchemeData::LINEAR) {
-	if (ioData.schemes.ns.limiter == SchemeData::NONE) {
-	  if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	    rf = new RecFcnLinearConstant<6>(beta, eps);
-	  else if (ioData.schemes.tm.reconstruction == SchemeData::LINEAR) {
-	    if (ioData.schemes.tm.limiter == SchemeData::VANALBADA)
-	      rf = new RecFcnLinearVanAlbada<6>(beta, eps);
-	  }
-	}
-	else if (ioData.schemes.ns.limiter == SchemeData::VANALBADA) {
-	  if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	    rf = new RecFcnVanAlbadaConstant<6>(beta, eps);
-	  else if (ioData.schemes.tm.reconstruction == SchemeData::LINEAR) {
-	    if (ioData.schemes.tm.limiter == SchemeData::VANALBADA)
-	      rf = new RecFcnVanAlbada<6>(beta, eps);
-	  }
-	}
-	else if (ioData.schemes.ns.limiter == SchemeData::P_SENSOR) {
-	  if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	    rf = new RecFcnLtdLinearConstant<6>(beta, eps);
-	}
-      }
-    }
-    else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
-      if (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) {
-	if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	  rf = new RecFcnConstant<7>;
-      }
-      else if (ioData.schemes.ns.reconstruction == SchemeData::LINEAR) {
-	if (ioData.schemes.ns.limiter == SchemeData::NONE) {
-	  if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	    rf = new RecFcnLinearConstant<7>(beta, eps);
-	  else if (ioData.schemes.tm.reconstruction == SchemeData::LINEAR) {
-	    if (ioData.schemes.tm.limiter == SchemeData::VANALBADA)
-	      rf = new RecFcnLinearVanAlbada<7>(beta, eps);
-	  }
-	}
-	else if (ioData.schemes.ns.limiter == SchemeData::VANALBADA) {
-	  if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	    rf = new RecFcnVanAlbadaConstant<7>(beta, eps);
-	  else if (ioData.schemes.tm.reconstruction == SchemeData::LINEAR) {
-	    if (ioData.schemes.tm.limiter == SchemeData::VANALBADA)
-	      rf = new RecFcnVanAlbada<7>(beta, eps);
-	  }
-	}
-	else if (ioData.schemes.ns.limiter == SchemeData::P_SENSOR) {
-	  if (ioData.schemes.tm.reconstruction == SchemeData::CONSTANT)
-	    rf = new RecFcnLtdLinearConstant<7>(beta, eps);
-	}
-      }
-      }*/
   } else {
     if (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT)
       rf = new RecFcnConstant<dim>;
@@ -1874,4 +1631,214 @@ void OneDimensional::loadSparseGrid(IoData& ioData) {
   }else{
     tabulationC = 0;
   }
+}
+
+void OneDimensional::setupProbes(IoData& iod) {
+
+  int i;
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    nodal_scalars[i] = 0; 
+  }
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+    nodal_vectors[i] = 0; 
+  }
+ 
+  int spn = strlen(iod.output.transient.probes.prefix) + 1;
+  Probes& myProbes = iod.output.transient.probes;
+  nodal_output.ids.resize(Probes::MAXNODES);
+  nodal_output.alpha.resize(Probes::MAXNODES);
+  nodal_output.locations.resize(Probes::MAXNODES);
+  for (i = 0; i < Probes::MAXNODES; ++i) {
+    nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX,
+                                      myProbes.myNodes[i].locationY,
+                                      myProbes.myNodes[i].locationZ);
+    nodal_output.ids[i] = myProbes.myNodes[i].id;
+    if (myProbes.myNodes[i].id >= 0) {
+  
+    } else if (myProbes.myNodes[i].locationX < -1.0e10)
+      break;
+    else {
+
+      for (int j = 0; j < numPoints; ++j) {
+        if (X[j][0] > myProbes.myNodes[i].locationX) {
+          nodal_output.ids[i] = j-1;
+          nodal_output.alpha[i] = -(myProbes.myNodes[i].locationX-X[j][0])/(X[j][0]-X[j-1][0]);
+          break;
+        }
+      }
+    }
+  }
+
+  nodal_output.numNodes = i;
+
+  if (iod.output.transient.probes.density[0] != 0) {
+    nodal_scalars[PostFcn::DENSITY] = new char[spn + strlen(iod.output.transient.probes.density)];
+    sprintf(nodal_scalars[PostFcn::DENSITY], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.density);
+  }
+  if (iod.output.transient.probes.pressure[0] != 0) {
+    nodal_scalars[PostFcn::PRESSURE] = new char[spn + strlen(iod.output.transient.probes.pressure)];
+    sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.pressure);
+  }       
+  if (iod.output.transient.probes.temperature[0] != 0) {
+    nodal_scalars[PostFcn::TEMPERATURE] = new char[spn + strlen(iod.output.transient.probes.temperature)];
+    sprintf(nodal_scalars[PostFcn::TEMPERATURE], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.temperature);
+  } 
+  if (iod.output.transient.probes.velocity[0] != 0) {
+    nodal_vectors[PostFcn::VELOCITY] = new char[spn + strlen(iod.output.transient.probes.velocity)];
+    sprintf(nodal_vectors[PostFcn::VELOCITY], "%s%s",
+            iod.output.transient.probes.prefix, iod.output.transient.probes.velocity);
+  }
+
+}
+
+void OneDimensional::outputProbes(double time,int iteration) {
+
+  if (nodal_output.numNodes == 0)
+    return;
+  
+  int i,j;
+  const char* mode = iteration ? "a" : "w";
+
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    if (nodal_scalars[i]) {
+      FILE* out = fopen(nodal_scalars[i],mode);
+      fprintf(out,"%e ",time*refVal.time);
+      for (j = 0; j < nodal_output.numNodes; ++j) {
+        if (nodal_output.locations[i].v[0] >= 0.0) {
+          switch ((PostFcn::ScalarType)i) {
+
+            case PostFcn::DENSITY:
+              fprintf(out,"%e ", (V[nodal_output.ids[j]][0]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][0]*(1.0-nodal_output.alpha[j]))*refVal.density);
+              break;
+            // case PostFcn::VELOCITY:
+            //  fprintf(out,"%lf ", V[nodal_output.ids[j]][1]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][1]*(1.0-nodal_output.alpha[j]));
+            //  break;
+            case PostFcn::TEMPERATURE:
+              fprintf(out,"%e ", (varFcn->computeTemperature(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*nodal_output.alpha[j] + 
+                                  varFcn->computeTemperature(V[nodal_output.ids[j]+1],fluidId[nodal_output.ids[j]+1])*(1.0-nodal_output.alpha[j]))*refVal.temperature);
+              break;
+            case PostFcn::PRESSURE:
+              fprintf(out,"%e ", (varFcn->getPressure(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*nodal_output.alpha[j] +
+                                  varFcn->getPressure(V[nodal_output.ids[j]+1],fluidId[nodal_output.ids[j]+1])*(1.0-nodal_output.alpha[j]))*refVal.pressure);
+              break;
+          }
+        } else {
+          switch ((PostFcn::ScalarType)i) {
+  
+            case PostFcn::DENSITY:
+              fprintf(out,"%e ", V[nodal_output.ids[j]][0]*refVal.density);
+              break;
+            // case PostFcn::VELOCITY:
+            //   fprintf(out,"%lf ", V[nodal_output.ids[j]][1]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][1]*(1.0-nodal_output.alpha[j]));
+            //   break;
+            case PostFcn::TEMPERATURE:
+              fprintf(out,"%e ", varFcn->computeTemperature(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*refVal.temperature);
+              break;
+            case PostFcn::PRESSURE:
+              fprintf(out,"%e ", varFcn->getPressure(V[nodal_output.ids[j]],fluidId[nodal_output.ids[j]])*refVal.pressure);
+              break;
+          }
+        }
+      }
+      fprintf(out,"\n");
+      fclose(out);
+    }
+  }
+
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+    if (nodal_vectors[i]) {
+      FILE* out = fopen(nodal_vectors[i],mode); 
+      fprintf(out,"%e ",time*refVal.time);
+      for (j = 0; j < nodal_output.numNodes; ++j) {
+        if (nodal_output.locations[i].v[0] >= 0.0) {
+          switch ((PostFcn::VectorType)i) {
+  
+            case PostFcn::VELOCITY:
+              fprintf(out,"%e ", (V[nodal_output.ids[j]][1]*nodal_output.alpha[j] + V[nodal_output.ids[j]+1][1]*(1.0-nodal_output.alpha[j]))*refVal.velocity);
+              break;
+          }
+        } else {
+          switch ((PostFcn::VectorType)i) {
+
+            case PostFcn::VELOCITY:
+              fprintf(out,"%e ", V[nodal_output.ids[j]][1]*refVal.velocity);
+              break;
+          }
+        }
+      }
+      fprintf(out,"\n");
+      fclose(out);
+    }
+  }
+
+}
+
+void OneDimensional::output2DVTK() {
+
+  static int cnt = 0;
+
+  int N = numPoints*2-1;
+
+  N/=2;
+ 
+  double x1 = -X[numPoints-2][0];
+  double x2 = X[numPoints-2][0];
+  
+  double y1 = -X[numPoints-2][0];
+  double y2 = X[numPoints-2][0];
+
+  char fname[256];
+  sprintf(fname,"pressure2d%d.vti",cnt++);
+  std::ofstream out(fname);
+
+  double x0 = 0.5*(x1+x2);
+  double y0 = 0.5*(y1+y2);
+
+  double dx = (x2-x1) / (N-1);
+  double dy = (y2-y1) / (N-1);
+
+  // Write out in VTK rectilinear grid format 
+  out << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">" << std::endl;
+
+  out << "<ImageData WholeExtent=\"" << 0 << " " << N-1 << " " << 0 << " " << N-1 << " 0 0\"" << std::endl;
+
+  out << "\tOrigin=\"" << x0 << " " << y0 << " 0.0 \" Spacing = \"" <<
+	dx << " " << dy << " 0.0\">" << std::endl;
+
+  out << "<Piece Extent=\"" << 0 << " " << N-1 << " " << 0 << " " << N-1 << " 0 0\">" << std::endl;
+
+  out << "<PointData Scalars = \"" << "pressure" << "\">" << std::endl;
+  
+  out << "<DataArray type = \"Float64\" Name = \"" << "pressure" << "\" NumberOfComponents=\"1\"" << std::endl;
+  out << "format=\"ascii\">" << std::endl;
+
+  for (int j = 0; j < N; ++j) {
+    for (int i = 0; i < N; ++i) {
+      double r = sqrt(pow(x1+(double)i*dx,2.0)+pow(y1+(double)j*dx,2.0)); 
+      int id = numPoints-2;
+      double alpha = 0.0;
+      for (int k = 0; k < numPoints-2; ++k) {
+        if (X[k][0] > r) {
+          id = k-1;
+          alpha = -(r-X[k][0])/(X[k][0]-X[k-1][0]);
+          break;
+        }
+      }
+      double p = (varFcn->getPressure(V[id],fluidId[id])*alpha +
+                  varFcn->getPressure(V[id+1],fluidId[id+1])*(1.0-alpha))*refVal.pressure;
+      out << p << " ";
+    }
+  }
+  
+  out << "\n</DataArray>\n</PointData>\n</Piece>\n";
+
+  out << "</ImageData>" << std::endl;
+
+  out << "</VTKFile>" << std::endl;
+
+  out.close();
+  
 }

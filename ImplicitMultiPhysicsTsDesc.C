@@ -177,7 +177,11 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     this->timer->removeIntersAndPhaseChange(tw);
    
     /* I AM HERE */
-    this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
+    if (this->lsMethod == 0)
+      this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
+    else
+      this->PhiV = this->Phi;
+
     this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
      this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
@@ -275,11 +279,17 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<dou
 {
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
-  
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 this->linRecAtInterface, this->riemann,  
-                                 this->riemannNormal, this->Nsbar, this->PhiV, this->fluidSelector,F, 1, this->ghostPoints);
+  if (this->lsMethod == 0) {  
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
+    this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
+                                   this->linRecAtInterface, this->riemann,  
+                                   this->riemannNormal, this->Nsbar, this->PhiV, this->fluidSelector,F, 1, this->ghostPoints);
+  } else {
+
+    this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
+                                   this->linRecAtInterface, this->riemann,  
+                                   this->riemannNormal, this->Nsbar, this->Phi, this->fluidSelector,F, 1, this->ghostPoints);
+  }
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
 }
@@ -327,7 +337,10 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<dou
 							DistSVec<double,dim> &F)
 {
 
-  mvp->evaluate(it,*(this->X) ,*(this->A), Q,this->PhiV, F);
+  if (this->lsMethod == 0)
+    mvp->evaluate(it,*(this->X) ,*(this->A), Q,this->PhiV, F);
+  else
+    mvp->evaluate(it,*(this->X) ,*(this->A), Q,this->Phi, F);
 
 }
 //------------------------------------------------------------------------------
@@ -399,7 +412,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeFunctionLS(int it,
                                                     DistSVec<double,dim> &U,
                                                     DistSVec<double,dimLS> &PhiF)
 {
-  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, *this->fluidSelector.fluidId, U, PhiF,this->distLSS,this->linRecAtInterface);
+  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, *this->fluidSelector.fluidId, U, PhiF,this->distLSS,this->linRecAtInterface,this->lsMethod);
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
                                 this->LS->Phin, this->LS->Phinm1,
@@ -414,7 +427,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeJacobianLS(int it,
                                                     DistSVec<double,dimLS> &PhiF)
 {
   mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
-                  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF,this->distLSS);
+                  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF,this->distLSS,this->lsMethod);
 }
 
 //------------------------------------------------------------------------------

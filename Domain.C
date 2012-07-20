@@ -14,7 +14,6 @@
 #include <Communicator.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
-#include <LevelSet/FluidTypeCriterion.h>
 #include <GeoState.h>
 #include <NodalGrad.h>
 #include <FluidSelector.h>
@@ -26,16 +25,16 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
+void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
 			     DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-			     DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv,
+			     DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, DistVec<double> &dtau,
 			     DistVec<double> &irey, TimeLowMachPrec &tprec, SpatialLowMachPrec &sprec)
 {
 
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), X(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec);
+    subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), X(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec);
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(idti.subData(iSub)));
   }
 
@@ -61,11 +60,13 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
     double (*idtimev) = idtv.subData(iSub);
     double (*idtimei) = idti.subData(iSub);
     double (*dtime) = dt.subData(iSub);
+    double (*dualtime) = dtau.subData(iSub);
     double (*ireynolds) = irey.subData(iSub);
     double (*volume) = ctrlVol.subData(iSub);
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) {
       //   idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
+      dualtime[i] = dualtimecfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
       ireynolds[i] = -sprec.getViscousRatio()*idtimev[i] / idtimei[i];
     }
   }
@@ -127,9 +128,9 @@ void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
+void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
                              DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-                             DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv,
+                             DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, DistVec<double> &dtau,
 			     TimeLowMachPrec &tprec, DistVec<int> &fluidId, DistVec<double>* umax)
 {
 
@@ -141,9 +142,9 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     if (umax)
-      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, fluidId(iSub),&(*umax)(iSub));
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec, fluidId(iSub),&(*umax)(iSub));
     else
-      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, fluidId(iSub));
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec, fluidId(iSub));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
   }
 
@@ -167,6 +168,7 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
 
   }
 
+  dtau = -dualtimecfl * ctrlVol / dt;
   dt = -cfl * ctrlVol / dt;
 
   if (umax)
@@ -806,6 +808,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      FluidSelector &fluidSelector,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+				     DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
@@ -831,7 +834,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), fluidId,
                                              fluidSelector, ngrad(iSub),
-                                             legrad,  ngradLS(iSub), (*RR)(iSub), it,
+						    legrad,phi(iSub),  ngradLS(iSub), (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
@@ -873,7 +876,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), fluidId,
                                      fluidSelector, ngrad(iSub),
-                                     legrad, ngradLS(iSub), (*RR)(iSub), it,
+							legrad, phi(iSub),ngradLS(iSub), (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }
 
@@ -1122,6 +1125,7 @@ template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
 				       DistBcData<dim>& bcData, DistGeoState& geoState,
 				       DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                                       DistVec<int>& fluidId,
 				       DistNodalGrad<dim>& ngrad, DistNodalGrad<dimLS>& ngradLS,
 				       DistEdgeGrad<dim>* egrad,
 				       DistSVec<double,dimLS>& Phi, DistSVec<double,dimLS> &PhiF,
@@ -1136,7 +1140,7 @@ void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn
     LevelSetStructure* LSS = (distLSS) ? &((*distLSS)(iSub)) : 0;
     subDomain[iSub]->computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, bcData(iSub),
                                                geoState(iSub),
-                                               X(iSub), V(iSub), ngrad(iSub), ngradLS(iSub),
+                                               X(iSub), V(iSub),fluidId(iSub), ngrad(iSub), ngradLS(iSub),
                                                legrad, Phi(iSub),PhiF(iSub), LSS);
     subDomain[iSub]->sndData(*phiVecPat, PhiF.subData(iSub));
   }
@@ -1698,10 +1702,9 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
   {
 
 #pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub)
-    {
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-          X(iSub), V(iSub), R(iSub));
+                                           X(iSub), V(iSub), R(iSub));
     }
   }
   timer->addFiniteElementTermTime(t0);
@@ -3396,8 +3399,8 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 
 template<int dim>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<double> &init,
-               DistVec<double> &next_init, DistLevelSetStructure *distLSS)
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
+               DistVec<int> &next_init, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
@@ -3405,10 +3408,10 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
     subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Weights(iSub),
                                                      (*distLSS)(iSub),X(iSub),
                                                      init(iSub),next_init(iSub));
-  
+
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
-  assemble(volPat, next_init);
+  assemble(levelPat, next_init);
 }
 
 //------------------------------------------------------------------------------
@@ -3417,7 +3420,7 @@ template<int dim, int dimLS>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
                                              DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                                              DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
-                                             DistVec<double>& init, DistVec<double> &next_init,
+                                             DistVec<int>& init, DistVec<int> &next_init,
                                              DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
   int iSub;
@@ -3430,7 +3433,7 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
   assemble(vecPat, VWeights);
   assemble(phiVecPat, PhiWeights);
   assemble(volPat, Weights);
-  assemble(volPat, next_init);
+  assemble(levelPat, next_init);
 }
 
 //------------------------------------------------------------------------------
@@ -4258,3 +4261,33 @@ void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length = 1) {
 	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
 }
 
+template<int dim>
+void Domain::setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->setCutCellData(V(iSub), fid(iSub));
+  }
+}
+
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+
+  com->globalSum(dim, error);
+}
+
+
+template <int dim>
+void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+  
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeLInfError(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+
+  com->globalMax(dim, error);
+}

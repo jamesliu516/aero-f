@@ -40,7 +40,6 @@ using std::max;
 #include <LinkF77.h>
 #include <LowMachPrec.h>
 #include "FluidSelector.h"
-//#include "LevelSet/LevelSetStructure.h"
 #include <GhostPoint.h>
 #include <DenseMatrixOps.h>
 #include <limits>
@@ -58,12 +57,13 @@ extern "C" {
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &dt,
-                                Vec<double> &idti, Vec<double> &idtv,
+                                Vec<double> &idti, Vec<double> &idtv, Vec<double> &dtau,
                                 TimeLowMachPrec &tprec)
 {
   dt = 0.0;
   idti = 0.0;
   idtv = 0.0;
+  dtau = 0.0;
   edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
   // Adam 2010.06.01: compute time step by tetrahedra, as the viscous term is computed
   if(fet) elems.computeTimeStep(fet,X,V,idtv);
@@ -94,12 +94,13 @@ void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,dim> &V, Vec<double> &dt,
-				Vec<double> &idti, Vec<double> &idtv,
+				Vec<double> &idti, Vec<double> &idtv, Vec<double> &dtau,
                                 TimeLowMachPrec &tprec,
 				Vec<int> &fluidId, Vec<double>* umax)
 {
 
   dt = 0.0;
+  dtau = 0.0;
 
   edges.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId, globSubNum,umax);
   faces.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId);
@@ -278,13 +279,17 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) continue;
+    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+
+    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
+                          higherOrderMF->isCellCut(j)))
+      continue;
 
     double Wi[3], Wj[3];
     Scalar deltaVar;
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    if(R[i][0]>0.0) // should be positive for a well posed least square problem
+    if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
       computeLocalWeightsLeastSquares(dx, R[i], Wi);
     else{ // gradient is set to 0.0
       Wi[0] = 0.0;
@@ -293,7 +298,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     }
 
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-    if(R[j][0]>0.0) // should be positive for a well posed least square problem
+    if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10) // should be positive for a well posed least square problem
       computeLocalWeightsLeastSquares(dx, R[j], Wj);
     else{ // gradient is set to 0.0
       Wj[0] = 0.0;
@@ -303,6 +308,14 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
+
+      /*if (fabs(deltaVar) > 1000)
+        std::cout << "Error: deltaVar is huge: " << deltaVar << std::endl;
+ 
+      if (fabs(Wi[1]+Wi[0]+Wi[2]) > 1000) {
+        std::cout << "Error: Wi[0] is huge: " << Wi[0] << " " << Wi[1] << " " << Wi[2] << std::endl;
+        std::cout << "R[5] = " << R[i][5] << std::endl;
+      }*/
 
       ddx[i][k] += Wi[0] * deltaVar;
       ddy[i][k] += Wi[1] * deltaVar;
@@ -318,7 +331,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
-      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) {
+      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) {
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
       }
@@ -861,13 +874,14 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        Vec<int> &fluidId, FluidSelector &fluidSelector,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+				       SVec<double,dimLS>& phi,
                                        NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, fluidId, fluidSelector,
-                                           ngrad, egrad, ngradLS, fluxes, it,
+                                           ngrad, egrad, phi,ngradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes);
@@ -922,7 +936,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
                                            linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS); 
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
   return ierr;
 
@@ -934,12 +948,14 @@ template<int dim, int dimLS>
 void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                         BcData<dim>& bcData, GeoState& geoState,
                                         SVec<double,3>& X, SVec<double,dim>& V,
+                                        Vec<int>& fluidId,
                                         NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
                                         EdgeGrad<dim>* egrad,
                                         SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF,
                                         LevelSetStructure* LSS)
 {
-  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V, ngrad, ngradLS,
+  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V,
+                                  fluidId, ngrad, ngradLS,
                                   egrad, Phi, PhiF, LSS);
 
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
@@ -1969,12 +1985,11 @@ void SubDomain::applyBCsToSolutionVector(BcFcn *bcFcn, BcData<dim> &bcData,
   // to them. 
   bool isActive = true; 
 
-  for (int i=0; i<nodes.size(); ++i)
-    {
-      if(LSS) isActive = LSS->isActive(0.0,i);
-      if (nodeType[i] != BC_INTERNAL && isActive)
-	bcFcn->applyToSolutionVector(nodeType[i], Vwall[i], U[i]);
-    }
+  for (int i=0; i<nodes.size(); ++i) {
+    if(LSS) isActive = LSS->isActive(0.0,i);
+    if (nodeType[i] != BC_INTERNAL && isActive)
+      bcFcn->applyToSolutionVector(nodeType[i], Vwall[i], U[i]);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -4495,7 +4510,7 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
   for (int i=0; i<U.size(); ++i) {
     varFcn->conservativeToPrimitive(U[i], V);
     double rho = varFcn->getDensity(V);
-    double p = varFcn->getPressure(V);
+    double p = varFcn->checkPressure(V);
 
     if (rho <= 0.0) {
       fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
@@ -4551,11 +4566,11 @@ void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U,
     if(!fluidId){
       varFcn->conservativeToPrimitive(U[i], V);
       rho = varFcn->getDensity(V);
-      p = varFcn->getPressure(V);
+      p = varFcn->checkPressure(V);
     }else{
       varFcn->conservativeToPrimitive(U[i], V, (*fluidId)[i]);
       rho = varFcn->getDensity(V,(*fluidId)[i]);
-      p = varFcn->getPressure(V, (*fluidId)[i]);
+      p = varFcn->checkPressure(V, (*fluidId)[i]);
     }
     if (rho <= 0.0 || p <= 0.0)
       tag[i][0] = true;
@@ -4820,21 +4835,19 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 // TODO: should distinguish master nodes and non-master nodes
 template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
-                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<double> &init, Vec<double> &next_init)
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init)
 {
-  bool* masterEdge = edges.getMasterFlag();
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
+    if(init[currentNode]<1 && LSS.isActive(0.0,currentNode)){
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
-        if(currentNode == neighborNode || init[neighborNode]<1.0 || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode)){
-          continue;}
+        if(currentNode == neighborNode || init[neighborNode]<1) continue;
         int l = edges.findOnly(currentNode,neighborNode);
-        if(!masterEdge[l]){continue;}
+        if(LSS.edgeIntersectsStructure(0.0,l)) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
-          next_init[currentNode]=1.0;
+          next_init[currentNode]=1;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
         } else {
@@ -4855,22 +4868,21 @@ template<int dim, int dimLS>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                                                 SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, 
                                                 Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X,
-                                                Vec<double> &init, Vec<double> &next_init, Vec<int> &fluidId)
+                                                Vec<int> &init, Vec<int> &next_init, Vec<int> &fluidId)
 {
-  bool* masterEdge = edges.getMasterFlag();
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if(init[currentNode]<1.0 && LSS.isActive(0.0,currentNode)){
+    if(init[currentNode]<1 && LSS.isActive(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         int yourId = fluidId[neighborNode];
-        if(currentNode==neighborNode || init[neighborNode]<1.0 || myId!=yourId) continue;
+        if(currentNode==neighborNode || init[neighborNode]<1 || myId!=yourId) continue;
         int l = edges.findOnly(currentNode,neighborNode);
-        if(LSS.edgeIntersectsStructure(0.0,l) || !masterEdge[l]) continue;
+        if(LSS.edgeIntersectsStructure(0.0,l)) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
-          next_init[currentNode]=1.0;
+          next_init[currentNode]=1;
           for(int i=0;i<dim;++i)
             VWeights[currentNode][i] = V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
@@ -4931,38 +4943,35 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
-  for (int l=0; l<edges.size(); l++)
-    {
-      i = edgePtr[l][0];
-      j = edgePtr[l][1];
-      if(LSS.edgeIntersectsStructure(0.0,i,j))
-	{ //at interface
-	  int tagI = tag[i];
-	  int tagJ = tag[j];
-	  bool iIsActive = LSS.isActive(0.0,i);
-	  bool jIsActive = LSS.isActive(0.0,j);
-	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-	  
-	  if(iIsActive) 
-	    {
-	      Vec<double> Vi(dim);
-	      varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
-	      if(!ghostPoints[j]) // GP has not been created
-		{ghostPoints[j]=new GhostPoint<dim>;}
-	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-	      if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
-	    }
-	  if(jIsActive)
-	    {
-	      Vec<double> Vj(dim);
-	      varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
-	      if(!ghostPoints[i]) // GP has not been created
-		{ghostPoints[i]=new GhostPoint<dim>;}
-	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-	      if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);}
-	    }
-	}
-    } 
+  for (int l=0; l<edges.size(); l++) {
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+    if(LSS.edgeIntersectsStructure(0.0,l)) { // at interface
+      int tagI = tag[i];
+      int tagJ = tag[j];
+      bool iIsActive = LSS.isActive(0.0,i);
+      bool jIsActive = LSS.isActive(0.0,j);
+
+      if(iIsActive) {
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+        Vec<double> Vi(dim);
+        varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+        if(!ghostPoints[j]) // GP has not been created
+        {ghostPoints[j]=new GhostPoint<dim>;}
+        // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+        if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
+      }
+      if(jIsActive) {
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+        Vec<double> Vj(dim);
+        varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+        if(!ghostPoints[i]) // GP has not been created
+        {ghostPoints[i]=new GhostPoint<dim>;}
+        // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+        if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resji.normVel,tagJ);}
+      }
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -4999,44 +5008,35 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
   for (k = 1; k < 4; ++k) {
     B[k*neq+k] = -1.0;
   }
-  for (int l=0; l<edges.size(); l++)
-    {
-      i = edgePtr[l][0];
-      j = edgePtr[l][1];
-      if(LSS.edgeIntersectsStructure(0.0,i,j))
-	{ //at interface
+  for (int l=0; l<edges.size(); l++) {
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+    if(LSS.edgeIntersectsStructure(0.0,l)) { //at interface
 	  int tagI = tag[i];
 	  int tagJ = tag[j];
-	  bool iIsActive = LSS.isActive(0.0,i);
-	  bool jIsActive = LSS.isActive(0.0,j);
-	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+      bool iIsActive = LSS.isActive(0.0,i);
+      bool jIsActive = LSS.isActive(0.0,j);
 	  
-	  if(iIsActive) 
-	    {
-              double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
-	      Vec<double> Vi(dim);
-	      varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
-              varFcn->getVarFcnBase()->computedVdU(Vi.v,dVdU);
-              varFcn->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
-              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
-	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-	      //if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
-	    }
-	  if(jIsActive)
-	    {
-              double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
-	      Vec<double> Vj(dim);
-	      varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
-              varFcn->getVarFcnBase()->computedVdU(Vj.v,dVdU);
-              varFcn->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
-              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
-	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-	      //if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);}
-	    }
+	  if(iIsActive) {
+        double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
+        Vec<double> Vi(dim);
+        varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+        varFcn->getVarFcnBase()->computedVdU(Vi.v,dVdU);
+        varFcn->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
+        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
+      }
+      if(jIsActive) {
+        double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
+        Vec<double> Vj(dim);
+        varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+        varFcn->getVarFcnBase()->computedVdU(Vj.v,dVdU);
+        varFcn->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
+        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
+	  }
 	}
-    }
+  }
 
   for (int l = 0; l < ghostPoints.size(); ++l) {
     if (ghostPoints[l]) {
@@ -5046,7 +5046,6 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
         Aii[k*neq+k] = ghostPoints[l]->lastCount();
     }
   }
-
 }
 
 //--------------------------------------------------------------------------
@@ -5061,13 +5060,12 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
 
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
-  int numPhase = LSS.numOfFluids();
 
   for (int l=0; l<edges.size(); l++){
     i = edgePtr[l][0];
     j = edgePtr[l][1];
 
-    if(LSS.edgeIntersectsStructure(0.0,i,j)){ //at interface
+    if(LSS.edgeIntersectsStructure(0.0,l)){ //at interface
       if (LSS.isActive(0.0,i)) {// add Wstarij on node j.
         if(Weights[j]<1.e-6) {
           Weights[j] = 1.0;
@@ -5132,7 +5130,6 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
   int i, j, k;
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
-  int numPhase = LSS.numOfFluids();
 
   for (int l=0; l<edges.size(); l++){
     for (int enode = 0; enode<2; enode++) { //loop thru the two nodes on this edge
@@ -5151,7 +5148,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
             for(k=0; k<dim; k++) VWeights[i][k] += Wstar[l][k];
             for(k=0; k<dimLS; k++) PhiWeights[i][k] += Phi[j][k];
           }
-        } else if(!LSS.isSwept(0.0,j) && fluidId[i]==fluidId[j] && !LSS.edgeIntersectsStructure(0.0,i,j)) { // use V[j]
+        } else if(!LSS.isSwept(0.0,j) && fluidId[i]==fluidId[j] && !LSS.edgeIntersectsStructure(0.0,l)) { // use V[j]
           if(Weights[i]<1.0e-6) { // first touch of node i
             Weights[i] = 1.0;
             for(k=0; k<dim; k++) VWeights[i][k] = V[j][k];
@@ -5656,12 +5653,12 @@ void SubDomain::TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimL
     i = ptr[l][0];
     j = ptr[l][1];
 
-    if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0){
-      if(LSS->edgeIntersectsStructure(0.0, l))
+    if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0) {
+      if(LSS->edgeIntersectsStructure(0.0,l))
         Tag[i][0] = Tag[j][0] = true;
       else
         Tag[i][1] = Tag[j][1] = true;
-    } else { 
+    } else {
       if(LSS->edgeIntersectsStructure(0.0,l)) {
         Tag[i][0] = Tag[j][0] = true;
 //        fprintf(stderr,"BUG: Sub %d: (%d,%d) intersects but phi[i]=%e, phi[j]=%e.\n", globSubNum, 
@@ -5877,7 +5874,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
     PolygonReconstructionData polygons[4];
 
     // find polygons.
-    int numberOfPolygons = getPolygons(elems[iElem], LSS, polygons); 
+    int numberOfPolygons = getPolygons(elems[iElem], LSS, polygons);
     assert(numberOfPolygons<=4);
     int index,vertex1,vertex2;
 
@@ -5891,7 +5888,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       LevelSetResult lsRes[nEdges];
       if(!nEdges) continue; //KW: why need this?
       for (int k=0; k<nEdges; ++k) {
-        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edgeWithVertex[k][0],polygon.edgeWithVertex[k][1]);
+        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edge[k],polygon.edgeWithVertex[k][0]<polygon.edgeWithVertex[k][1]);
         if (lsRes[k].alpha<0) {fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n"); exit(-1);}
       }
 
@@ -5921,12 +5918,11 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       // get information at intersection points (3 for triangles, 4 for quadrangles).
       Vec3D Xinter[nEdges];
       double Vinter[nEdges][dim];
-      Vec3D start_vertex;
+      Vec3D start_vertex;for(int m=0;m<3;++m) start_vertex[m]=X[polygon.nodeToLookFrom][m];
       for(int k=0; k<nEdges; ++k) {
         vertex1 = polygon.edgeWithVertex[k][0];
         vertex2 = polygon.edgeWithVertex[k][1];
-        if(k==0) {start_vertex[0]=X[vertex1][0]; start_vertex[1]=X[vertex1][1]; start_vertex[2]=X[vertex1][2];}
-        int l = edges.find(polygon.edgeWithVertex[k][0], polygon.edgeWithVertex[k][1]);
+        int l = polygon.edge[k];
         double alpha = lsRes[k].alpha;
         for(int m=0; m<3; m++)
           Xinter[k][m] = alpha*X[vertex1][m] + (1.0-alpha)*X[vertex2][m];
@@ -6102,7 +6098,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
       iActive = LSS.isActive(0,i);
       jActive = LSS.isActive(0,j);
     }
-    intersect = LSS.edgeIntersectsStructure(0,i,j);
+    intersect = LSS.edgeIntersectsStructure(0,l);
 
     if (!iActive && !jActive) continue; //both inside structure
     if (!intersect) continue; 
@@ -6112,7 +6108,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
 
     if (iActive) {
       Vec3D flocal(0.0,0.0,0.0); 
-      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
       if(ghostPoints) {// Viscous Simulation
         // Replace the state of node j by its corresponding ghost state
         /* This is useless. We use ngrad to compute the velocity gradient. 
@@ -6153,7 +6149,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     }
     if (jActive) {
       Vec3D flocal(0.0,0.0,0.0);
-      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
       if(ghostPoints) {// Viscous Simulation
         // Replace the state of node i by its corresponding ghost state
         /* This is useless. We use ngrad to compute the velocity gradient.
@@ -6418,10 +6414,10 @@ void SubDomain::debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &Ph
         if(yId==i) continue;
         fprintf(stderr,"%d:    Nei(%d)=%d: Id = %d, PhiV = %e, occluded(%d), swept(%d), d2wall(%e), X(%d).\n", globSubNum,
                 locToGlobNodeMap[i]+1, locToGlobNodeMap[yId]+1, fluidId[yId], PhiV[yId][0], LSS.isOccluded(0,yId), LSS.isSwept(0,yId),
-                LSS.distToInterface(0,yId), LSS.edgeIntersectsStructure(0,i,yId));
+                LSS.distToInterface(0,yId), LSS.edgeIntersectsStructure(0,edges.findOnly(i,yId)));
         if((locToGlobNodeMap[i]+1==debugNode1 && locToGlobNodeMap[yId]+1==debugNode2) ||
            (locToGlobNodeMap[i]+1==debugNode2 && locToGlobNodeMap[yId]+1==debugNode1)) {
-          LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,i,yId);
+          LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,edges.findOnly(i,yId),i<yId);
           fprintf(stderr,"** (%d,%d): alpha(%e), Tr(%d,%d,%d), Normal(%e,%e,%e), xi(%e,%e,%e).\n",locToGlobNodeMap[i]+1,locToGlobNodeMap[yId]+1,
                   resij.alpha, resij.trNodes[0], resij.trNodes[1], resij.trNodes[2], resij.gradPhi[0], resij.gradPhi[1], resij.gradPhi[2],
                   resij.xi[0], resij.xi[1], resij.xi[2]);
@@ -6492,3 +6488,241 @@ void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
 
 //------------------------------------------------------------------------------
 
+template<int dimLS>
+void SubDomain::findCutCells(int lsdim,
+			     SVec<double,dimLS>& phi,Vec<int>& cutStatus,
+			     SVec<double,3>& X) {  
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double* phii = phi[i],*phij = phi[j];
+
+    if (phii[lsdim]*phij[lsdim] > 0.0)
+      continue;
+    
+    double s = -phii[lsdim]/(phij[lsdim]-phii[lsdim]);
+    if (s < 0.1)
+      cutStatus[i] = 1;
+    else if (s > 0.9)
+    cutStatus[j] = 1;
+    //if (cutStatus[i] || cutStatus[j])
+    //  std::cout << i << " " << j << " " << 
+    //	phii[lsdim] << " " << phij[lsdim] << " (" << X[i][0] << " " << X[j][0] << ")" << std::endl;
+      
+  }
+
+}
+
+template <int dim>
+void SubDomain::setCutCellFlags(int lsdim, Vec<int>& cutStatus) {
+
+  higherOrderMF->template setCutCellFlags<dim>(lsdim,cutStatus);
+}
+
+inline
+int SubDomain::getNumCutCells() {
+
+  return higherOrderMF->getNumCutCells();
+}
+
+
+template <int dim>
+void SubDomain::collectCutCellData(SVec<double,dim>* cutCell[2],
+				   NodalGrad<dim,double>* cutGrad[2],
+				   Vec<int>* counts[2],
+				   NodalGrad<dim,double>& grad, Vec<int>& fluidId,
+				   SVec<double,dim>& V,SVec<double,3>& X) {
+
+  int (*edgePtr)[2] = edges.getPtr();
+  bool* masterFlag = edges.getMasterFlag();
+
+  bool cut;
+  int fid,cutnode,numset[2] = {0,0};
+  for (int l=0; l<edges.size(); ++l) {
+
+    cut = false;
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double Vext[dim],newgrad[dim][3];
+    if (!masterFlag[l])
+      continue;
+
+    if (higherOrderMF->isCellCut(i)) {
+
+      if (higherOrderMF->isCellCut(j)) {
+	// nothing to do, this edge is between cut cells
+	continue;
+      }
+      
+      fid = fluidId[j];
+      cutnode = i;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
+	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
+	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+	newgrad[k][0] = grad.getX()[j][k];
+	newgrad[k][1] = grad.getY()[j][k];
+	newgrad[k][2] = grad.getZ()[j][k];
+      }
+    } else if (higherOrderMF->isCellCut(j)) {
+
+      fid = fluidId[i];
+      cutnode = j;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[i][k] + grad.getX()[i][k]*(X[j][0]-X[i][0])+ 
+	  grad.getY()[i][k]*(X[j][1]-X[i][1])+
+	  grad.getZ()[i][k]*(X[j][2]-X[i][2]);
+	newgrad[k][0] = grad.getX()[i][k];
+	newgrad[k][1] = grad.getY()[i][k];
+	newgrad[k][2] = grad.getZ()[i][k];
+      }
+      
+    } else 
+      continue;
+
+    int fididx = (fid == 0? 0 : 1);
+    ++(counts[fididx]->operator[](cutnode));
+    //std::cout << i << " " << j << " " << fididx << " " << l << " " <<
+    //  X[i][0] << " " << X[j][0] << std::endl;
+    for (int k = 0; k < dim; ++k) {
+      cutCell[fididx]->operator[](cutnode)[k] += Vext[k];
+      cutGrad[fididx]->getX()[cutnode][k] += newgrad[k][0];
+      cutGrad[fididx]->getY()[cutnode][k] += newgrad[k][1];
+      cutGrad[fididx]->getZ()[cutnode][k] += newgrad[k][2];
+    } 
+  }
+  
+}
+/*
+template <int dim>
+void SubDomain::collectCutCellData2() {
+
+  bool* masterFlag = edges.getMasterFlag();
+
+  int* count[2] = {new int[getNumCutCells()],new int[getNumCutCells()]};
+  int* nodes[2] = {new int[getNumCutCells()],new int[getNumCutCells()]};
+  bool cut;
+  int fid,cutnode,numset[2] = {0,0};
+  for (int l=0; l<edges.size(); ++l) {
+
+    cut = false;
+    int i = edgePtr[l][0],j = edgePtr[l][1];
+    double Vext[dim],newgrad[dim][3];
+    if (!masterFlag[l])
+      continue;
+
+    if (higherOrderMF->isCellCut(i)) {
+
+      if (higherOrderMF->isCellCut(j)) {
+	// nothing to do, this edge is between cut cells
+	continue;
+      }
+      
+      fid = fluidId[i];
+      cutnode = i;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[j][k] + grad.getX()[j][k]*(X[i][0]-X[j][0])+ 
+	  grad.getY()[j][k]*(X[i][1]-X[j][1])+
+	  grad.getZ()[j][k]*(X[i][2]-X[j][2]);
+	newgrad[k][0] = grad.getX()[j][k];
+	newgrad[k][1] = grad.getY()[j][k];
+	newgrad[k][2] = grad.getZ()[j][k];
+      }
+    } else if (higherOrderMF->isCellCut(j)) {
+
+      fid = fluidId[j];
+      cutnode = j;
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = V[i][k] + grad.getX()[i][k]*(X[j][0]-X[i][0])+ 
+	  grad.getY()[i][k]*(X[j][1]-X[i][1])+
+	  grad.getZ()[i][k]*(X[j][2]-X[i][2]);
+	newgrad[k][0] = grad.getX()[i][k];
+	newgrad[k][1] = grad.getY()[i][k];
+	newgrad[k][2] = grad.getZ()[i][k];
+      }
+      
+    } else 
+      continue;
+
+    int setloc = -1;
+    int idx = (fid == 0 ? 0 : 1);
+    for (int m = 0; m < numset[idx]; ++m) {
+      
+      if (nodes[idx][m] == cutnode) {
+	setloc = m;
+	break;
+      }
+    }
+    
+    if (setloc == -1) {
+      nodes[idx][numset] = cutnode;
+      setloc = numset;
+      ++numset;
+    }
+    
+    count[idx][setloc]++;
+
+    for (int k = 0; k < dim; ++k) {
+
+      
+    }
+    
+    
+  }
+}
+*/
+
+template <int dim>
+void SubDomain::storeCutCellData(SVec<double,dim>* cutCell[2],
+				 NodalGrad<dim,double>* cutGrad[2],
+				 Vec<int>* counts[2], Vec<int>& fluidId) {
+  
+  higherOrderMF->template storeCutCellData<dim>(cutCell,cutGrad, counts);
+
+}
+
+template<int dim>
+void SubDomain::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
+
+  higherOrderMF->template setCutCellData<dim>(V, fid);
+}
+
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i]) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] += fabs(U[i][k]-Uexact[i][k]);
+      }
+    }
+  }
+}
+
+template <int dim>
+void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i]) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));
+      }
+    }
+  }
+}
+  

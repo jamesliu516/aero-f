@@ -128,7 +128,7 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
    //void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
    // void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void outputModalDisp(double *, double *, double, int, int, FILE *);
-    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int, bool);
+    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int = 0, bool = true);
     void buildGlobalPOD();
 		void computeRelativeProjectionError( int, int, bool, bool, int, VecSet<DistSVec<double, dim> > &, int *, int *, int *);
     void wait(const int seconds);
@@ -145,7 +145,9 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
 #endif
     void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
     void computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod);
-
+    void ROBInnerProductSchedule(int** , int, int, int);
+    int ROBInnerProductSteps(int, int);
+    void ROBInnerProducts();
 };
 
 #include "Modal.C"

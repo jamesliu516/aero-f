@@ -9,6 +9,7 @@
 #include <DenseMatrix.h>
 #include <GhostPoint.h>
 #include <complex>
+#include <HigherOrderMultiFluid.h>
 typedef std::complex<double> bcomp;
 #include <iostream>
 using std::cout;
@@ -42,8 +43,6 @@ class FluidSelector;
 
 class BCApplier; //HB
 class MatchNodeSet;
-
-#include "LevelSet/FluidTypeCriterion.h"
 
 struct Vec3D;
 
@@ -162,6 +161,7 @@ class Domain {
 public:
 
   Domain();
+  Domain(Communicator *com);
   ~Domain();
 
   int getNumLocSub() const { return numLocSub; }
@@ -263,16 +263,16 @@ public:
 			    DistMat<PrecScalar,3>*, double volStiff, int** ndType);
 
   template<int dim>
-  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
+  void computeTimeStep(double, double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
 		       DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
-		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
-                       SpatialLowMachPrec &);
+		       DistVec<double> &, DistVec<double> &, DistVec<double> &,
+                       TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>
-  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
+  void computeTimeStep(double, double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
-		       DistVec<double> &, TimeLowMachPrec &,
+		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
 		       DistVec<int> &, DistVec<double>* = NULL);
 
 
@@ -362,13 +362,13 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
-                          DistVec<double> &init, DistVec<double> &next_init,
+                          DistVec<int> &init, DistVec<int> &next_init,
                           DistLevelSetStructure *distLSS);
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
-                          DistVec<double> &init, DistVec<double> &next_init,
+                          DistVec<int> &init, DistVec<int> &next_init,
                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId);
   template<int dimLS>
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
@@ -439,6 +439,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                FluidSelector &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+			       DistSVec<double,dimLS>& phi,
                                DistNodalGrad<dimLS>&, DistSVec<double,dim>&,
                                int, int, int);
 
@@ -462,7 +463,7 @@ public:
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
-                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,DistVec<int>& fluidId,
                                DistNodalGrad<dim>&, DistNodalGrad<dimLS>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,
                                DistLevelSetStructure * = 0);
@@ -954,6 +955,21 @@ public:
   template<int dim, class Obj>
   void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
                          int npt);
+
+  void createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec);
+
+  // When a cell is omitted when doing higher order multi-fluid calculations, we can grab
+  // a value of the state for the cut cell using an extrapolated state
+  template<int dim>
+  void setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid);
+
+  // Functions to compute the error (that is, the difference between two state vectors)
+  template <int dim>
+    void computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+  template <int dim>
+    void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+
+  
  
  };
 

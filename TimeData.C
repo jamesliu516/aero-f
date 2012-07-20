@@ -31,6 +31,10 @@ TimeData::TimeData(IoData &ioData)
   dt_nm2 = ioData.restart.dt_nm2;
   output_newton_step = ioData.restart.output_newton_step;
 
+  dtau_switch = 0.0;
+  if (ioData.ts.dualtimestepping == TsData::ON) 
+    dtau_switch = 1.0;
+
   errorTol = ioData.ts.errorTol;
 
   exist_nm1 = false;
@@ -61,9 +65,23 @@ TimeData::TimeData(IoData &ioData)
   if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
     use_modal = true;
 
-  if (ioData.linearizedData.domain == LinearizedData::FREQUENCY) use_freq = true;
+  if (ioData.linearizedData.domain == LinearizedData::FREQUENCY) {
+    use_freq = true;
+    if (dt_imposed <= 0.0)  {
+      fprintf(stderr,"dt_imposed is negative in the linearized case in the frequency domain: updating dt_imposed\n");
+      dt_imposed = ioData.linearizedData.eps/ioData.ref.rv.time;
+      ioData.linearizedData.stepsize = ioData.linearizedData.eps;
+    }
+  }
   else use_freq = false;
 
+  if (use_modal) {
+    if (ioData.linearizedData.domain == LinearizedData::TIME && dt_imposed <= 0.0)  {
+      fprintf(stderr,"dt_imposed is negative in the linearized case in the frequency domain: updating dt_imposed\n");
+      dt_imposed = ioData.linearizedData.eps/ioData.ref.rv.time;
+      ioData.linearizedData.stepsize = ioData.linearizedData.eps;
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

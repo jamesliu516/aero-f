@@ -98,7 +98,13 @@ void DistExactRiemannSolver<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
-    subExactRiemannSolver[iSub]->updatePhaseChange(V(iSub), fluidId(iSub), fluidIdn(iSub));
+    int res = subExactRiemannSolver[iSub]->updatePhaseChange(V(iSub), fluidId(iSub), fluidIdn(iSub),
+						   domain->getSubDomain()[iSub]->getHigherOrderMF());
+    if (res >= 0) {
+      std::cout << "Phase change update failed at node " << 
+        domain->getSubDomain()[iSub]->getNodeMap()[res] << std::endl;
+      exit(-1);
+    }
   }
 
 }

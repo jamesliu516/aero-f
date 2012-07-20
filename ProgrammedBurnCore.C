@@ -535,6 +535,8 @@ void computeChapmanJouguetState(double p_0,double rho_0,double e_0,
 	}
 
 	s = rho_cj/rho_0*theEOS.computeSoundSpeed(rho_cj, e_cj);
+        std::cout << "CJ sound speed: " << theEOS.computeSoundSpeed(rho_cj, e_cj) << std::endl;
+        std::cout << "CJ velocity: " << (s-theEOS.computeSoundSpeed(rho_cj, e_cj)) << std::endl;
 }
 
 }

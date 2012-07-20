@@ -61,7 +61,8 @@ DistLeastSquareSolver::DistLeastSquareSolver(Communicator * comm, int rowCpus, i
 
   blacsHandle_ = Csys2blacs_handle(communicator_->comm);
   context_ = blacsHandle_;
-  Cblacs_gridinit(&context_, "R", rowCpus, colCpus);
+  char order[] = "R";
+  Cblacs_gridinit(&context_, order, rowCpus, colCpus);
   Cblacs_gridinfo(context_, &rowCpus_, &colCpus_, &localCpuRow_, &localCpuCol_);
  
   assert(rowCpus_ == rowCpus);

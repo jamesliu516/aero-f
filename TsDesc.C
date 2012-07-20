@@ -304,7 +304,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   double dt = 0.0;
   if(failSafeFlag == false){
     if(timeStepCalculation == TsData::CFL || it==1)
-      dt = timeState->computeTimeStep(data->cfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
+      dt = timeState->computeTimeStep(data->cfl, data->dualtimecfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
     else  //time step size with error estimation
       dt = timeState->computeTimeStep(it, dtLeft, &numSubCycles);
   }
@@ -404,6 +404,7 @@ void TsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
   geoState->update(*X, *A);
   timeState->update(U);
 
+  spaceOp->updateFixes(); 
 }
 
 //------------------------------------------------------------------------------
@@ -510,6 +511,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
     output->writeMaterialVolumesToDisk(it, 0.0, *A);
+    output->writeCPUTimingToDisk(*lastIt, it, t, timer);
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -538,6 +540,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
 	writeStateRomToDisk(it, cpu);
   output->writeMaterialVolumesToDisk(it, t, *A);
+  output->writeCPUTimingToDisk(*lastIt, it, t, timer);
 	writeErrorToDisk(it, cpu);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
@@ -894,4 +897,12 @@ void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
 
   output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
 
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
+{
+  // Nothing to do here by default.
 }

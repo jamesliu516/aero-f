@@ -34,15 +34,50 @@ protected:
   double b_;
   double p_;
 
+  bool burnable;
+
   void computedVdU(double *V, double *dVdU);
   void computedUdV(double *V, double *dUdV);
   int verification(int glob, double *U, double *V);
 
+  double* lookup_table;
+  int lut_size;
+  double lut_min,lut_max;
+
+  inline double pow(double a, double b) const {
+
+    if (!lookup_table || b != b_ || a >= lut_max)
+      return ::pow(a,b);
+
+    double lut_val = (a-lut_min)/(lut_max-lut_min)*lut_size;
+    double intpart;
+    double frac = modf(lut_val, &intpart);
+    int ip = (int)intpart;
+
+    return lookup_table[ip]*(1.0-frac)+lookup_table[ip+1]*frac;
+  }
+
+  void createLookupTable(int lsize) {
+
+    lut_min = ::pow(-p_/a_,1.0/b_);
+    lut_max = lut_min*1.8;
+    lut_size = lsize;
+    lookup_table = new double[lsize];
+    for (int i = 0; i < lsize; ++i) {
+      double loc = ((double)i)/(lsize-1)*(lut_max-lut_min)+lut_min;
+      lookup_table[i] = ::pow(loc, b_);
+    }
+  }
+ 
 public:
   // baseClass determines if VarFcnTait is used as a base class
   // for another class (like VarFcnTaitSA and VarFcnTaitKE)
   VarFcnTait(FluidModelData &data, bool baseClass = false);
-  virtual ~VarFcnTait() {}
+  virtual ~VarFcnTait() {
+  
+    if (lookup_table)
+      delete [] lookup_table;
+  }
 
   //----- Transformation Operators -----//
   void conservativeToPrimitive(double *U, double *V);
@@ -59,6 +94,8 @@ public:
 
   void setPressure(const double p, double *V){V[0] = pow( (p-p_)/a_ , 1.0/b_); }
   void setPressure(double *V, double *Vorig) {V[0] = Vorig[0];}
+
+  bool isBurnable() const { return burnable; }
 
   //checks that the Euler equations are still hyperbolic
   double checkPressure(double *V) const{ return getPressure(V); }
@@ -85,10 +122,12 @@ public:
   //computes internal energy (=rho*e-0.5*rho*u^2) knowing that h = cp * T
   double computeRhoEpsilon(double *V)  const{
     //return V[0] * C_ * V[4]; //version is epsilon = cv * T
-    return V[0] * C_ * V[4] - getPressure(V);
+    // In the case of a burnable fluid, override the correct rho*epsilon
+    double pb = (!burnable?getPressure(V):0.0);
+    return V[0] * C_ * V[4] - pb;
   }
   double computeSoundSpeed(double *V)  const{ 
-    double c2 = a_ * b_ * pow(V[0], b_ - 1.0);
+    double c2 = a_ * b_ * pow(V[0], b_)/V[0];
     if (c2>0) return sqrt(c2);
     else {
       std::cout << "Negative c2 for Tait EOS: " << V[0] << "; c^2 = " << c2 << std::endl;
@@ -96,7 +135,7 @@ public:
     }
   }
   double computeSoundSpeed(const double density, const double entropy) const{
-    double c2 = a_ * b_ * pow(density, b_ - 1.0);
+    double c2 = a_ * b_ * pow(density, b_)/density;
     if (c2>0) return sqrt(c2);
     return 0.0;
   }
@@ -131,7 +170,11 @@ VarFcnTait::VarFcnTait(FluidModelData &data, bool baseClass) : VarFcnBase(data) 
     exit(1);
   }
 
+  burnable = (data.liquidModel.burnable == LiquidModelData::YES);
+
   type = TAIT;
+
+  lookup_table = 0;
  
   C_    = data.liquidModel.specificHeat;
   if(C_ <= 0.0 ) fprintf(stderr, "*** Error: specific heat should not be %e in Tait EOS\n", C_);
@@ -148,6 +191,8 @@ VarFcnTait::VarFcnTait(FluidModelData &data, bool baseClass) : VarFcnBase(data) 
     pname[3] = "z-velocity";
     pname[4] = "temperature";
   }
+
+  //createLookupTable(512);  
 }
 //------------------------------------------------------------------------------
 inline
@@ -162,8 +207,9 @@ void VarFcnTait::conservativeToPrimitive(double *U, double *V){
   V[3] = U[3] * invRho;
       
   double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
-    
-  V[4] = invRho * invC_ * (U[4] - 0.5 * U[0] * vel2 + getPressure(V[0]));
+   
+  double pb = (!burnable?getPressure(V[0]):0.0); 
+  V[4] = invRho * invC_ * (U[4] - 0.5 * U[0] * vel2 + pb);
   //note that h = cp * T and not epsilon = cv * T
 
 }
@@ -183,7 +229,8 @@ int VarFcnTait::verification(int glob, double *U, double *V)
     U[1] = V[0]*V[1];
     U[2] = V[0]*V[2];
     U[3] = V[0]*V[3];
-    U[4] = V[0]*V[4]*C_+0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]) - getPressure(V);
+    double pb = (!burnable?getPressure(V[0]):0.0); 
+    U[4] = V[0]*V[4]*C_+0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]) - pb;
     return 1;
   }
   return 0;
@@ -198,7 +245,8 @@ void VarFcnTait::primitiveToConservative(double *V, double *U) {
   U[1] = V[0] * V[1];
   U[2] = V[0] * V[2];
   U[3] = V[0] * V[3];
-  U[4] = V[0] * C_ * V[4] + 0.5 * V[0] * vel2 - getPressure(V);
+  double pb = (!burnable?getPressure(V[0]):0.0); 
+  U[4] = V[0] * C_ * V[4] + 0.5 * V[0] * vel2 - pb;
 
 }
 //------------------------------------------------------------------------------
@@ -361,7 +409,8 @@ void VarFcnTait::computedVdU(double *V, double *dVdU) {
   dVdU[15] = -invrho * V[3];
   dVdU[18] = invrho;
   //dVdU[20] = invrhoCp * ( -C_*V[4]/b_ + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) + a_*(b_-1.0)*pow(V[0], b_-1.0));
-  dVdU[20] = invrhoCp * (getPressureDerivative(V) + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3])) - V[4]*invrho;
+  double pb = (!burnable?getPressureDerivative(V) :0.0); 
+  dVdU[20] = invrhoCp * (pb+ 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3])) - V[4]*invrho;
   dVdU[21] = -invrhoCp * V[1];
   dVdU[22] = -invrhoCp * V[2];
   dVdU[23] = -invrhoCp * V[3];
@@ -379,7 +428,8 @@ void VarFcnTait::computedUdV(double *V, double *dUdV) {
   dUdV[12] = V[0];
   dUdV[15] = V[3];
   dUdV[18] = V[0];
-  dUdV[20] = C_ * V[4] + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) - getPressureDerivative(V);
+  double pb = (!burnable?getPressureDerivative(V) :0.0); 
+  dUdV[20] = C_ * V[4] + 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) - pb;
   dUdV[21] = V[0] * V[1];
   dUdV[22] = V[0] * V[2];
   dUdV[23] = V[0] * V[3];

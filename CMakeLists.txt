@@ -94,6 +94,7 @@ IF(UNIX)
       ENDIF(NOT SCALAPACK_FOUND)
     ELSE(NOT WITH_SCALAPACK EQUAL 0)
       SET(SCALAPACKLIB "SCALAPACKLIB-NOTFOUND")
+      SET(SCALAPACK_FOUND FALSE)
     ENDIF(NOT WITH_SCALAPACK EQUAL 0)
 
     IF(NOT WITH_BLACS EQUAL 0)
@@ -110,6 +111,7 @@ IF(UNIX)
     ELSE(NOT WITH_BLACS EQUAL 0)
       SET(BLACSLIB "BLACSLIB-NOTFOUND")
       SET(BLACSCLIB "BLACSCLIB-NOTFOUND")
+      SET(BLACSFOUND FALSE)
     ENDIF(NOT WITH_BLACS EQUAL 0)
 
     #SET(USE_SCALAPACK 0)
@@ -119,7 +121,7 @@ IF(UNIX)
           ${SCALAPACKLIB} ${BLACSCLIB} ${BLACSLIB} 
           ${EXTRALIBRARIES})
       SET(USE_SCALAPACK 1)
-    ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB)
+    ELSE(SCALAPACK_FOUND AND BLACS_FOUND)
       SET(USE_SCALAPACK 0)
     ENDIF(SCALAPACK_FOUND AND BLACS_FOUND)
     
@@ -136,7 +138,6 @@ SET(MAIN_FILES Main.C)
 ADD_LIBRARY(FluidBase
              FSI/CrackingSurface.cpp
              FSI/DynamicNodalTransfer.cpp
-             LevelSet/FluidTypeCriterion.cpp
              NavierStokesSolver.C 
              Solvers/LevelSetSolver5.C
              Solvers/NavierStokesCoupledSolver5.C
@@ -181,11 +182,13 @@ ADD_LIBRARY(FluidBase
              MemoryPool.C 
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
+             MultiGridPrec.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 
              ProgrammedBurnCore.C
              RefVal.C 
+             ReinitializeDistanceToWall.C
              SmagorinskyLESTerm.C 
              WaleLESTerm.C 
              DynamicLESTerm.C 
@@ -441,6 +444,7 @@ f77src/eriemann_gw.f
 f77src/eriemann_ww.f
 f77src/g_boundflux5.f
 f77src/genbcfluxgas.f
+f77src/genbcfluxgas_INT.f
 f77src/genbcfluxtait.f
 f77src/genbcfluxjwl.f
 f77src/g_roeflux5.f
@@ -456,6 +460,7 @@ f77src/printmask.f
 f77src/roeflux5.f
 f77src/roeflux5prim.f
 f77src/roeflux5waterdissprec.f
+f77src/roeflux5waterdissprec_burnable.f
 f77src/roeflux6.f
 f77src/roejac2.f
 f77src/roejac2water.f

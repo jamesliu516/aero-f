@@ -25,6 +25,7 @@ TsParameters::TsParameters(IoData &ioData)
   cflMax = ioData.ts.cflMax;
   cflMin = ioData.ts.cflMin;
   ser = ioData.ts.ser;
+  dualtimecfl = ioData.ts.dualtimecfl;
 
   maxIts = ioData.ts.maxIts;
   eps = ioData.ts.eps;

@@ -115,7 +115,9 @@ public:
   template<class T>
   Scalar operator*(const Expr<T, Scalar> &);
 
-  Scalar &operator[](int i) const { return v[i]; }
+  inline Scalar &operator[](int i) { return v[i]; }
+  
+  inline const Scalar &operator[](int i) const { return v[i]; }
   /*
   // Adam April 2010 : 
   // nullifyPointers has to be called is the object is a Vec<Scalar *>
@@ -853,7 +855,8 @@ public:
 
   void set(const Scalar *);
 
-  Scalar *operator[] (int i) const { return v[i]; }
+  inline Scalar *operator[] (int i) { return v[i]; }
+  inline const Scalar *operator[] (int i) const { return v[i]; }
 
   int size() const { return len; }
 

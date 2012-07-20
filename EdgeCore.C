@@ -22,9 +22,10 @@ EdgeSet::EdgeSet()
   ptr       = 0;
   masterFlag= 0;
   mp        = new MapPair;
-	sampleMesh = false;
+  sampleMesh = false;
 
   programmedBurn = 0;
+  higherOrderMF = 0;
 
 #ifdef EDGE_LENGTH  //HB
   edgeLength= 0;
@@ -64,7 +65,7 @@ int EdgeSet::find(int first, int second)
 
 //------------------------------------------------------------------------------
 
-int EdgeSet::findOnly(int first, int second)
+int EdgeSet::findOnly(int first, int second) const
 {
 
   if (first > second) swap(first, second);
@@ -86,6 +87,7 @@ void EdgeSet::createPointers(Vec<int> &newNum)
 {
 
   ptr = new int[numEdges][2];
+  edgeLength = new double[numEdges];
 
   MapPair::iterator it = mp->begin();
   MapPair::iterator last = mp->end();
@@ -97,6 +99,7 @@ void EdgeSet::createPointers(Vec<int> &newNum)
     // XML I am not sure why one would need to renumber...
     ptr[l][0] = (*it).first.first;
     ptr[l][1] = (*it).first.second;
+    edgeLength[l] = 0.0;
 
     newNum[(*it).second] = l;
 
@@ -191,15 +194,15 @@ void EdgeSet::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double>
 
     int i = ptr[l][0];
     int j = ptr[l][1];
-    bool intersect = LSS.edgeIntersectsStructure(0,i,j);
+    bool intersect = LSS.edgeIntersectsStructure(0,l);
     if (!intersect) continue;
 
-    LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
+    LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
     for(int k=0; k<3; k++)
       Nsbar[i][k] += resij.gradPhi[k];
     weights[i] += 1.0;
 
-    LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
+    LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0,l,false);
     for(int k=0; k<3; k++)
       Nsbar[j][k] += resji.gradPhi[k];
     weights[j] += 1.0;
@@ -211,6 +214,11 @@ void EdgeSet::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double>
 void EdgeSet::attachProgrammedBurn(ProgrammedBurn* p) {
 
   programmedBurn = p;
+}
+
+void EdgeSet::attachHigherOrderMultiFluid(HigherOrderMultiFluid* mf) {
+
+  higherOrderMF = mf;
 }
 
 //------------------------------------------------------------------------------

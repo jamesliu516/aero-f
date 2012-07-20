@@ -17,7 +17,6 @@
 #include <SpaceOperator.h>
 #include <VectorSet.h>
 #include <GhostPoint.h>
-#include <LevelSet/FluidTypeCriterion.h>
 
 //------------------------------------------------------------------------------
 

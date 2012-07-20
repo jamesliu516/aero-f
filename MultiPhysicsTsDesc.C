@@ -33,6 +33,11 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
 
+  if (ioData.mf.levelSetMethod == MultiFluidData::PRIMITIVE)
+    lsMethod = 1;
+  else
+    lsMethod = 0;
+
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
@@ -49,11 +54,30 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   setupMultiPhaseFlowSolver(ioData);
 
   // only for IncreasePressure
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    implosionSetupType = MultiPhysicsTsDesc<dim,dimLS>::LINEAR;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP)
+    implosionSetupType = MultiPhysicsTsDesc<dim,dimLS>::SMOOTHSTEP;
+  else {
+    this->com->fprintf(stderr,"ERROR: ImplosionSetup::Type = %d. Code not supported!\n", ioData.implosion.type);
+    implosionSetupType = MultiPhysicsTsDesc<dim,dimLS>::NONE;
+    exit(-1);
+  }
+
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
   Pscale = ioData.ref.rv.pressure;
   intersector_freq = ioData.implosion.intersector_freq;
-  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  if(ioData.implosion.type==ImplosionSetup::LINEAR)
+    tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP) {
+    tmax = ioData.implosion.tmax;
+    if(tmax<=0.0) {
+      this->com->fprintf(stderr,"ERROR: ImplosionSetup::Tmax = %e!\n", tmax);
+      exit(-1);
+    }
+  }
+
   if(intersector_freq<1) {
     this->com->fprintf(stderr,"ERROR: InterfaceTrackingFrequency must be larger than 0. Currently it is %d.\n", intersector_freq);
     exit(-1);
@@ -265,9 +289,9 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Initialize level-sets 
   if(withCracking && withMixedLS) 
     LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 
-              &(distLSS->getClosestPoints()), &(distLSS->getStatus()));
+              &(distLSS->getClosestPoints()), &(distLSS->getStatus()),lsMethod);
   else
-    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0);
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0, lsMethod);
 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
@@ -283,6 +307,12 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   if(_mmh) {
     double *tMax = &(this->data)->maxTime;
     _mmh->setup(tMax); //obtain maxTime from structure
+  }
+
+  // If 'IncreasePressure' is activated, re-initialize the fluid state
+  if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
+    increasingPressure = true;
+    this->domain->IncreasePressure(currentPressure(this->getInitialTime()), this->varFcn, *U, *(this->fluidSelector.fluidId));
   }
 
   //compute fluid indueced force on the structural surface
@@ -350,7 +380,7 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 
   double dt;
   umax = 0.0;
-  dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+  dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                           &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
   if (this->problemType[ProblemData::UNSTEADY])
@@ -405,6 +435,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 
   this->timeState->update(U, U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
                             //fluidIdn, fluidIdnm1 and riemann are used only for implicit time-integrators
+
+  this->spaceOp->updateFixes();
 }
 
 //------------------------------------------------------------------------------
@@ -444,6 +476,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *last
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
     this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, fluidSelector.fluidId);
+    this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
+    this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId, &Phi);
 //    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
 //    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
@@ -469,6 +503,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeMaterialVolumesToDisk(it, t, *this->A, fluidSelector.fluidId);
+  this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
+  this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId, &Phi);
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
@@ -650,7 +686,7 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
     double tw = this->timer->getTime();
-    if((it-1)%intersector_freq==0) {
+    if(intersector_freq==1||((it-1)%intersector_freq==0&&(it>1))) {
       this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
       this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
     }
@@ -697,8 +733,9 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     }
   }
 
-  this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
-  this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, *(this->fluidSelector.fluidId));
+  double pnow = currentPressure(t);;
+  this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
+  this->domain->IncreasePressure(pnow, this->varFcn, U, *(this->fluidSelector.fluidId));
 
   return false;
 
@@ -714,5 +751,20 @@ void MultiPhysicsTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>
     programmedBurn->setCurrentTime(t,multiPhaseSpaceOp->getVarFcn(), U,*(fluidSelector.fluidId),*(fluidSelector.fluidIdn));
 }
 
+//-------------------------------------------------------------------------------
 
-
+template<int dim,int dimLS>
+double MultiPhysicsTsDesc<dim,dimLS>::currentPressure(double t)
+{
+  double p;
+  if(implosionSetupType==MultiPhysicsTsDesc<dim,dimLS>::LINEAR)
+    p = Pinit + t*Prate;
+  else if(implosionSetupType==MultiPhysicsTsDesc<dim,dimLS>::SMOOTHSTEP) {
+    double tbar = t/tmax;
+    p = Pinit + (Pfinal - Pinit)*tbar*tbar*tbar*(10.0-15.0*tbar+6.0*tbar*tbar);
+  } else {
+    this->com->fprintf(stderr,"ERROR! ImplosionSetup::Type = %d NOT recognized!\n", implosionSetupType);
+    exit(-1);
+  }
+  return p;
+}
