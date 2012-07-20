@@ -76,7 +76,8 @@ struct InputData {
   const char *rstdata;
   const char *podFile;
   const char *snapFile;
-  const char *snapRefSolutionFile;
+  const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
+  const char *snapRefSolution;
   const char *staterom;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -211,6 +212,8 @@ struct TransientData {
   const char* fluidid;
   const char *embeddedsurface;
   const char *cputiming;
+  const char *clusterUsage;
+
 
 // Included (MB)
   const char *velocitynorm;
@@ -305,6 +308,17 @@ struct ROMOutputData {
   int frequency;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
+/*  // For Local ROMs  // moved to NonlinearLocalRomDatabaseData
+  const char *databaseName;
+  const char *indexName;
+  const char *centersName;
+  const char *nearestName;
+  const char *snapsName;
+  const char *basisName;
+  const char *clusterName;
+  const char *singValName;
+  const char *projErrorName; */
+
   ROMOutputData();
   ~ROMOutputData() {}
 
@@ -365,7 +379,7 @@ struct ProblemData {
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
 		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
 		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ROB_INNER_PRODUCT_ = 32} alltype;
+		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ROB_INNER_PRODUCT_ = 32, _ACC_NONLINEAR_ROM_ = 33} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1756,6 +1770,33 @@ struct PadeData {
 
 };
 
+
+//------------------------------------------------------------------------------
+
+struct NonlinearLocalRomDatabaseData {
+
+  // For Local ROMs
+  const char *prefix;
+  const char *databaseName;
+  const char *indexName;
+  const char *mapName;
+  const char *connName;
+  const char *centersName;
+  const char *nearestName;
+  const char *snapsName;
+  const char *basisName;
+  const char *clusterName;
+  const char *singValName;
+  const char *projErrorName;
+  const char *basisUpdateName;
+
+  NonlinearLocalRomDatabaseData();
+  ~NonlinearLocalRomDatabaseData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
 //------------------------------------------------------------------------------
 
 struct ModelReductionData {
@@ -1769,6 +1810,10 @@ struct ModelReductionData {
 	int dimension;	// used by all nonlinear ROMs
 	int dimensionROBJacobian;	// used by GNAT
 	int dimensionROBResidual;	// used by GNAT
+
+  int minDimension;
+  double energy;
+  enum BasisUpdates {BASIS_UPDATES_OFF = 0, BASIS_UPDATES_ON = 1} basisUpdates;
 
   ModelReductionData();
   ~ModelReductionData() {}
@@ -1825,12 +1870,57 @@ struct DataCompressionData {
 	enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
 	double tolerance;
 
+  int maxBasisSize;
+  double singValTolerance;
+  double maxPercentEnergyRetained;
+
   DataCompressionData();
   ~DataCompressionData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
 };
+
+//------------------------------------------------------------------------------
+
+struct ClusteringData {
+
+  enum ClusteringAlgorithm {K_MEANS = 0} clusteringAlgorithm;
+  int numClusters;
+  double percentOverlap;
+  int maxIter;
+  int maxIterSingle;
+  int minClusterSize;
+  double kMeansTol;
+  int kMeansRandSeed;
+  enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
+  enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
+
+
+  ClusteringData();
+  ~ClusteringData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+
+//------------------------------------------------------------------------------
+
+struct RelativeProjectionErrorData {
+
+	enum RelativeProjectionError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
+	enum ProjectIncrementalSnapshots {PROJECT_INCREMENTAL_SNAPS_FALSE = 0, PROJECT_INCREMENTAL_SNAPS_TRUE = 1} projectIncrementalSnaps;
+	enum ProjectSnapshotsMinusRefSol {PROJECT_SNAPS_MINUS_REF_SOL_FALSE = 0, PROJECT_SNAPS_MINUS_REF_SOL_TRUE = 1} subtractRefSol;
+
+  RelativeProjectionErrorData();
+  ~RelativeProjectionErrorData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+
 
 //------------------------------------------------------------------------------
 
@@ -1842,7 +1932,12 @@ struct SnapshotsData {
 	enum RelProjError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
 	// int sampleFreq; // this is now specified in the ascii snapshot file
 	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
+  enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
+  enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;
+  enum SubtractRefSolution {SUBTRACT_REFSOL_FALSE = 0, SUBTRACT_REFSOL_TRUE = 1} subtractRefSol;
 	DataCompressionData dataCompression;
+	ClusteringData clustering;
+  RelativeProjectionErrorData relativeProjectionError;
 
 	SnapshotsData();
 	~SnapshotsData() {}
@@ -1877,6 +1972,7 @@ struct LinearizedData {
   int numStrModes;
   const char *romFile;
 	DataCompressionData dataCompression;
+	// Clustering has not been included for linearized yet
 
   PadeData pade;
 
@@ -2065,6 +2161,7 @@ public:
   AeroelasticData aero;
   ForcedData forced;
 	ModelReductionData rom;
+  NonlinearLocalRomDatabaseData localRomDatabase;
 	GNATData gnat;
 	SnapshotsData snapshots;
   LinearizedData linearizedData;

@@ -32,7 +32,7 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
     }
-		else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_ ) {
+		else if ((ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_) || (ioData.problem.alltype == ProblemData::_ACC_NONLINEAR_ROM_) ) {
 			if (ioData.rom.projection == 0 && ioData.rom.systemApproximation == 0) {
 				ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
 				TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);

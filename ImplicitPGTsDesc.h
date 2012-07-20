@@ -14,6 +14,7 @@ class ImplicitPGTsDesc : public ImplicitRomTsDesc<dim> {
 private:
   double **lsCoeff;
   RefVec<DistSVec<double, dim> >residualRef;
+  int currentProblemSize; // for local rom  
 
 protected:
 

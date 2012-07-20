@@ -89,6 +89,7 @@ InputData::InputData()
   rstdata = "";
 	podFile = "";
 	snapRefSolutionFile = "";
+  snapRefSolution = "";
 	staterom = "";
 	snapFile = "";
 
@@ -138,7 +139,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "SnapshotData", this, &InputData::snapFile);
-  new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolutionFile);
+  new ClassStr<InputData>(ca, "SnapshotsReferenceSolutionFile", this, &InputData::snapRefSolutionFile);
+  new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolution);
   new ClassStr<InputData>(ca, "ROBStateCoordinates", this, &InputData::staterom);
 
 	// sample mesh
@@ -318,6 +320,8 @@ TransientData::TransientData()
   fluidid="";
   embeddedsurface = "";
   cputiming = "";
+  clusterUsage = "clusterUsage";
+
 
 // Included (MB)
   velocitynorm = "";
@@ -340,6 +344,7 @@ TransientData::TransientData()
   sparseGrid = "SparseGrid";
 
   bubbleRadius = "";
+
 
   frequency = 0;
   frequency_dt = -1.0;
@@ -430,6 +435,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
+  new ClassStr<TransientData>(ca, "ClusterUsage", this, &TransientData::clusterUsage);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
   new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
   new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
@@ -491,6 +497,18 @@ ROMOutputData::ROMOutputData()
 
   frequency = 0;
   frequency_dt = -1.0;
+
+// For Local ROM (using naming convention by default)
+//  indexName = "clusterIndex";
+//  centersName = "clusterCenters";
+//  nearestName = "nearestSnapsToCenters";
+//  snapsName = "snapshots";
+//  basisName = "basis";
+//  clusterName = "cluster";
+//  databaseName = "localRomDatabase";
+//  singValName = "singularValues";
+//  projErrorName = "relativeProjectionError";
+
 // Gappy POD
 
   //mesh = "";
@@ -532,6 +550,19 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "GappyPODMatrixFullMesh", this, &ROMOutputData::onlineMatrixFull);
   new ClassStr<ROMOutputData>(ca, "SampledMesh", this, &ROMOutputData::mesh);
   new ClassStr<ROMOutputData>(ca, "SampledFullNodeMap", this, &ROMOutputData::reducedfullnodemap);
+
+  // for Local ROM
+//  new ClassStr<ROMOutputData>(ca, "ClusterIndexFileName", this, &ROMOutputData::indexName);
+//  new ClassStr<ROMOutputData>(ca, "ClusterCentersFileName", this, &ROMOutputData::centersName);
+//  new ClassStr<ROMOutputData>(ca, "NearestSnapshotsToCentersFileName", this, &ROMOutputData::nearestName);
+//  new ClassStr<ROMOutputData>(ca, "SnapshotFileName", this, &ROMOutputData::snapsName);
+//  new ClassStr<ROMOutputData>(ca, "BasisFileName", this, &ROMOutputData::basisName);
+//  new ClassStr<ROMOutputData>(ca, "ClusterDirectoryPrefix", this, &ROMOutputData::clusterName);
+//  new ClassStr<ROMOutputData>(ca, "LocalRomDatabaseDirectoryName", this, &ROMOutputData::databaseName);
+//  new ClassStr<ROMOutputData>(ca, "SingularValueFileName", this, &ROMOutputData::singValName);
+//  new ClassStr<ROMOutputData>(ca, "RelativeProjectionErrorFileName", this, &ROMOutputData::projErrorName);
+
+
 }
 
 //------------------------------------------------------------------------------
@@ -652,7 +683,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
-		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32);
+		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32, "AcceleratedNonlinearROM", 33);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3089,6 +3120,29 @@ ModelReductionData::ModelReductionData()
 	basisType = POD;
 	lsSolver = QR;
 	dimension = 0;
+  minDimension = 0;
+  energy = 1.0;
+  basisUpdates = BASIS_UPDATES_ON;
+}
+
+NonlinearLocalRomDatabaseData::NonlinearLocalRomDatabaseData()
+{
+
+// For Local ROM (using naming convention by default)
+  prefix = "";
+  indexName = "clusterIndex";
+  mapName = "clusterSnapshotMap";
+  connName = "clusterConnectivity";
+  centersName = "clusterCenters";
+  nearestName = "nearestSnapsToCenters";
+  snapsName = "snapshots";
+  basisName = "basis";
+  clusterName = "cluster";
+  databaseName = "localRomDatabase";
+  singValName = "singularValues";
+  projErrorName = "relativeProjectionError";
+  basisUpdateName = "basisUpdateInfo";
+
 }
 
 SnapshotsData::SnapshotsData()
@@ -3096,10 +3150,12 @@ SnapshotsData::SnapshotsData()
 	normalizeSnaps = NORMALIZE_FALSE;
 	incrementalSnaps = INCREMENTAL_FALSE;
 	subtractIC = SUBTRACT_IC_FALSE;
-	relProjError = REL_PROJ_ERROR_OFF;
+	relProjError = REL_PROJ_ERROR_OFF;  // this functionality is being relocated to RelProjErrorData
 //	sampleFreq = 1; // this is now included in the snapshot ascii file	
 	snapshotWeights = UNIFORM;
-  
+  subtractCenters = SUBTRACT_CENTERS_FALSE;
+  subtractNearestSnapsToCenters = SUBTRACT_NEAREST_FALSE;
+  subtractRefSol  = SUBTRACT_REFSOL_FALSE;
 }
 
 DataCompressionData::DataCompressionData()
@@ -3108,7 +3164,31 @@ DataCompressionData::DataCompressionData()
 	podMethod = SVD;
 	maxVecStorage = 0;
 	energyOnly = ENERGY_ONLY_FALSE;	// if ROB computation should only compute total energy of snapshots
-  tolerance = 1e-8;
+  tolerance = 1e-8;  // this only applies to EIG
+  maxBasisSize = 0; // retain all vectors
+  singValTolerance = 1e-6;
+  maxPercentEnergyRetained = 1.0; // retain all energy
+}
+
+ClusteringData::ClusteringData()
+{
+	clusteringAlgorithm = K_MEANS;
+	numClusters = 1;
+  percentOverlap = 10.0;
+  maxIter = 150;
+  maxIterSingle = 100;
+  minClusterSize = 10;
+  kMeansTol = 1.0e-6;
+  kMeansRandSeed = -1;  // default: generate randomly
+  useExistingClusters = USE_EXISTING_CLUSTERS_FALSE;  
+  computePOD = COMPUTE_POD_TRUE;  
+}
+
+RelativeProjectionErrorData::RelativeProjectionErrorData()
+{
+  relProjError = REL_PROJ_ERROR_OFF;
+  projectIncrementalSnaps = PROJECT_INCREMENTAL_SNAPS_FALSE;
+	subtractRefSol= PROJECT_SNAPS_MINUS_REF_SOL_FALSE;
 }
 
 GNATData::GNATData()
@@ -3145,6 +3225,8 @@ void ModelReductionData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassInt<ModelReductionData>(ca, "Dimension", this, &ModelReductionData::dimension);
+  new ClassInt<ModelReductionData>(ca, "MinimumDimension", this, &ModelReductionData::minDimension); 
+  new ClassDouble<ModelReductionData>(ca, "Energy", this, &ModelReductionData::energy);
 	new ClassToken<ModelReductionData> (ca, "Projection", this, reinterpret_cast<int
 			ModelReductionData::*>(&ModelReductionData::projection), 3, "PetrovGalerkin", 0, "Galerkin", 1,
 			"ProjError", 2);	// ProjErrorcomputes projection error onto a basis
@@ -3152,18 +3234,45 @@ void ModelReductionData::setup(const char *name, ClassAssigner *father)
 			ModelReductionData::*>(&ModelReductionData::systemApproximation), 4,
 			"None", 0, "GNAT", 1, "Collocation", 2, "Broyden", 3);
 	new ClassToken<ModelReductionData> (ca, "BasisType", this, reinterpret_cast<int
-			ModelReductionData::*>(&ModelReductionData::basisType), 3, "Snaps", 0, "POD", 1,
+			ModelReductionData::*>(&ModelReductionData::basisType), 3, "POD", 0, "Snaps", 1,
 			"None", 2);
 	new ClassToken<ModelReductionData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
 			ModelReductionData::*>(&ModelReductionData::lsSolver), 2, "QR", 0, "NormalEquations", 1);
+ 	new ClassToken<ModelReductionData> (ca, "BasisUpdates", this, reinterpret_cast<int
+			ModelReductionData::*>(&ModelReductionData::basisUpdates), 2, "Off", 0, "On", 1);
 }
+
+//------------------------------------------------------------------------------
+
+void NonlinearLocalRomDatabaseData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+
+  // for Local ROM
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "Prefix", this, &NonlinearLocalRomDatabaseData::prefix);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "ClusterIndexFileName", this, &NonlinearLocalRomDatabaseData::indexName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "ClusterSnapshotMapFileName", this, &NonlinearLocalRomDatabaseData::mapName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "ClusterConnectivityFileName", this, &NonlinearLocalRomDatabaseData::connName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "ClusterCentersFileName", this, &NonlinearLocalRomDatabaseData::centersName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "NearestSnapshotsToCentersFileName", this, &NonlinearLocalRomDatabaseData::nearestName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "SnapshotFileName", this, &NonlinearLocalRomDatabaseData::snapsName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "BasisFileName", this, &NonlinearLocalRomDatabaseData::basisName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "ClusterDirectoryPrefix", this, &NonlinearLocalRomDatabaseData::clusterName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "LocalRomDatabaseDirectoryName", this, &NonlinearLocalRomDatabaseData::databaseName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "SingularValueFileName", this, &NonlinearLocalRomDatabaseData::singValName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "RelativeProjectionErrorFileName", this, &NonlinearLocalRomDatabaseData::projErrorName);
+  new ClassStr<NonlinearLocalRomDatabaseData>(ca, "BasisUpdateInfoFileName", this, &NonlinearLocalRomDatabaseData::basisUpdateName);
+
+}
+
 
 //------------------------------------------------------------------------------
 
 void SnapshotsData::setup(const char *name, ClassAssigner *father)
 {
 
-	ClassAssigner *ca = new ClassAssigner(name, 6, father);
+	ClassAssigner *ca = new ClassAssigner(name, 5, father);
 	new ClassToken<SnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::normalizeSnaps), 2, "False", 0, "True", 1);
 	new ClassToken<SnapshotsData> (ca, "IncrementalSnaps", this, reinterpret_cast<int
@@ -3172,27 +3281,68 @@ void SnapshotsData::setup(const char *name, ClassAssigner *father)
 			SnapshotsData::*>(&SnapshotsData::subtractIC), 2, "False", 0, "True", 1);
  	new ClassToken<SnapshotsData> (ca, "RelProjError", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::relProjError), 2, "Off", 0, "On", 1);
- // new ClassInt<SnapshotsData>(ca, "Frequency", this, &SnapshotsData::sampleFreq);
-
 	new ClassToken<SnapshotsData> (ca, "SnapshotWeights", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::snapshotWeights), 2, "Uniform", 0, "RBF", 1);
+	new ClassToken<SnapshotsData> (ca, "SubtractClusterCenters", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::subtractCenters), 2, "False", 0, "True", 1);
+  new ClassToken<SnapshotsData> (ca, "SubtractNearestSnapToCenter", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::subtractNearestSnapsToCenters), 2, "False", 0, "True", 1);
+  new ClassToken<SnapshotsData> (ca, "SubtractRefSolution", this, reinterpret_cast<int
+			SnapshotsData::*>(&SnapshotsData::subtractRefSol), 2, "False", 0, "True", 1);
+
 
 	dataCompression.setup("DataCompression",ca);
-
+	clustering.setup("Clustering",ca);
+  relativeProjectionError.setup("RelativeProjectionError",ca);
 }
 
 void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
 	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
 	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
   new ClassInt<DataCompressionData>(ca, "MaxNumStoredVectors", this, &DataCompressionData::maxVecStorage);
 	new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
-  new ClassDouble<DataCompressionData>(ca, "Tolerance", this, &DataCompressionData::tolerance);
+  new ClassDouble<DataCompressionData>(ca, "EigenvalueTolerance", this, &DataCompressionData::tolerance);
+  new ClassInt<DataCompressionData>(ca, "MaxBasisSize", this, &DataCompressionData::maxBasisSize);
+  new ClassDouble<DataCompressionData>(ca, "SingularValueTolerance", this, &DataCompressionData::singValTolerance);
+  new ClassDouble<DataCompressionData>(ca, "MaxPercentEnergyRetained", this, &DataCompressionData::maxPercentEnergyRetained);
+}
+
+
+void ClusteringData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  new ClassToken<ClusteringData> (ca, "ClusteringAlgorithm", this, reinterpret_cast<int 
+			ClusteringData::*>(&ClusteringData::clusteringAlgorithm), 1, "KMeans", 0); //Include additional clustering algorithms in the future
+  new ClassInt<ClusteringData>(ca, "NumClusters", this, &ClusteringData::numClusters);
+  new ClassDouble<ClusteringData>(ca, "PercentOverlap", this, &ClusteringData::percentOverlap);
+  new ClassInt<ClusteringData>(ca, "KMeansMaxIterations", this, &ClusteringData::maxIter);
+  new ClassInt<ClusteringData>(ca, "KMeansMaxAggressiveIterations", this, &ClusteringData::maxIterSingle);
+  new ClassDouble<ClusteringData>(ca, "KMeansTolerance", this, &ClusteringData::kMeansTol);
+  new ClassInt<ClusteringData>(ca, "MinClusterSize", this, &ClusteringData::minClusterSize);
+  new ClassInt<ClusteringData>(ca, "KMeansRandomSeed", this, &ClusteringData::kMeansRandSeed);
+  new ClassToken<ClusteringData> (ca, "UseExistingClusters", this, reinterpret_cast<int
+      ClusteringData::*>(&ClusteringData::useExistingClusters), 2, "False", 0, "True", 1); 
+  new ClassToken<ClusteringData> (ca, "ComputePOD", this, reinterpret_cast<int
+      ClusteringData::*>(&ClusteringData::computePOD), 2, "False", 0, "True", 1); 
+  
+}
+
+void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+	new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
+			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 2, "Off", 0, "On", 1);
+	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
+			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::projectIncrementalSnaps), 2, "False", 0, "True", 1);
+	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectSnapshotsMinusRefSol", this, reinterpret_cast<int
+			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::subtractRefSol), 2, "False", 0, "True", 1);
 
 }
+
 
 void GNATData::setup(const char *name, ClassAssigner *father) {
 
@@ -3279,6 +3429,8 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
 
   pade.setup("Pade", ca);
 	dataCompression.setup("DataCompression", ca);
+	// Clustering has not been added to the linearized part of the code
+
 
 }
 
@@ -3780,6 +3932,7 @@ void IoData::setupCmdFileVariables()
   aero.setup("Aeroelastic");
   forced.setup("Forced");
 	rom.setup("NonlinearModelReduction");
+  localRomDatabase.setup("NonlinearLocalROMDatabase");
 	gnat.setup("GNAT");
 	snapshots.setup("Snapshots");
   linearizedData.setup("Linearized");
@@ -3913,6 +4066,7 @@ void IoData::resetInputValues()
   if (problem.alltype == ProblemData::_UNSTEADY_ ||
       problem.alltype == ProblemData::_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
+      problem.alltype == ProblemData::_ACC_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
@@ -3924,6 +4078,7 @@ void IoData::resetInputValues()
 
   if (problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
+      problem.alltype == ProblemData::_ACC_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_ACC_FORCED_)
     problem.type[ProblemData::ACCELERATED] = true;
 

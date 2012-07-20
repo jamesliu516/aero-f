@@ -4,6 +4,7 @@
 #include <IoData.h>
 #include <TsDesc.h>
 #include <KspPrec.h>
+#include <LocalRom.h>
 
 struct DistInfo;
 
@@ -33,6 +34,11 @@ protected:
 
   VecSet<DistSVec<double, dim> > pod;
 
+  LocalRom<dim> localRom;
+  int currentCluster;
+  bool useLocalRom;
+  FILE *clustUsageFile;
+
   FullM jac;
   
   int nPod;
@@ -53,6 +59,7 @@ protected:
 
   virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
+  void writeClusterUsage(const int, int, int, double, double);
 	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop) = 0;
 	// each ROM has a different way of solving the Newton system
   virtual void updateGlobalTimeSteps(const int _it) {};	// broyden needs to know global time steps

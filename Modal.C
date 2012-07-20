@@ -19,6 +19,7 @@ using std::sort;
 #include <DistTimeState.h>
 #include <PostOperator.h>
 #include <ParallelRom.h>
+#include <LocalRom.h>
 
 #ifdef DO_MODAL
 #include <arpack++/include/ardsmat.h>
@@ -127,6 +128,12 @@ void ModalSolver<dim>::solve()  {
    interpolatePOD();
  else if (ioData->problem.alltype == ProblemData::_ROB_INNER_PRODUCT_)
    ROBInnerProducts();
+ else if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile && (ioData->snapshots.clustering.numClusters >= 2)){
+   t0 = modalTimer->getTime();
+   LocalRom<dim> localRom(com,*ioData,domain);
+   localRom.createAndAnalyzeDatabase();
+   modalTimer->addPodConstrTime(t0);
+ }
  else if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile){
    t0 = modalTimer->getTime(); //CBM--check
    buildGlobalPOD();

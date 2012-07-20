@@ -2321,8 +2321,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
 		if (solutions)  {
 			DistSVec<double,dim> soltn(U);
-			if (refVal->mode == RefVal::DIMENSIONAL)
-				domain->scaleSolution(soltn, refVal);
+			//if (refVal->mode == RefVal::DIMENSIONAL)
+				//domain->scaleSolution(soltn, refVal);  // I can't think of a scenario where this makes sense
 			domain->writeVectorToFile(solutions, step, tag, soltn);
 		}
 
