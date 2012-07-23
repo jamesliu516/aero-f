@@ -2281,7 +2281,6 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
 			DistSVec<double,dim> soltn((*U3)[i]);
 			if (refVal->mode == RefVal::DIMENSIONAL)
 				domain->scaleSolution(soltn, refVal);
-
 			domain->writeVectorToFile(reducedjac, *output_newton_step, tag, soltn);	//TODO: output_newton_step should accumulate over restarts
 		}
 	}
