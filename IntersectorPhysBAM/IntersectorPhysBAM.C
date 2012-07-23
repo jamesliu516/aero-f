@@ -1010,7 +1010,7 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X, Vec<in
 
   nFirstLayer = 0;
   status = UNDECIDED;
-  distance = 0.0;
+  distance = -1.0;
   is_swept = false;
   is_active = false;
   is_occluded = false;
@@ -1031,15 +1031,15 @@ void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
 {
   for(int i=0; i<subD.getNumNeighb(); i++) package[i].clear();
 
-  if(findStatus){
-      if(!retry){
-        status0 = status;
-        occluded_node0 = is_occluded;}
-      status = UNDECIDED;
-      distance = 0.0;
-      is_swept = false;
-      is_active = false;
-      is_occluded = false;}
+  if(!retry){
+    status0 = status;
+    occluded_node0 = is_occluded;
+  }
+  status = UNDECIDED;
+  distance = -1.0;
+  is_swept = false;
+  is_active = false;
+  is_occluded = false;
   nFirstLayer = 0;
   edge_intersects = false;
 
@@ -1349,8 +1349,7 @@ void IntersectorPhysBAM::findNodeClosestPoint(const int nodeId, Vec3D& x0, ARRAY
       else if(mod==1) {closest[nodeId].tracker[0] = n1; closest[nodeId].tracker[1] = n2;}
       else if(mod==2) {closest[nodeId].tracker[0] = n1;}
       else {fprintf(stderr,"Debug: error in mode! mod = %d. Should be 0, 1, or 2.\n", mod); exit(-1);}
-    } else
-      distance[nodeId] = 0.0;
+    } 
   }
 }
 

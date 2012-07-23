@@ -2542,7 +2542,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
     for(int i=0;i<init(iSub).size();++i)
-      init(iSub)[i] = (*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1;
+      init(iSub)[i] = (*distLSS)(iSub).isSwept(0.0,i) || (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()  ? 0.0 : 1.0;
+
   next_init = init;
 
   int iter=0;
@@ -2558,50 +2559,56 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
       break;
     }
 
-    if(updateWithCracking){
+    if(!updateWithCracking){
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
-            const double one_over_weight=(double)1.0/Weights(iSub)[i];
-            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
-            for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
+            if(!(*distLSS)(iSub).isActive(0.0,i)) {
+              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = -1.0; //not really needed.
+            } else {
+              const double one_over_weight=(double)1.0/Weights(iSub)[i];
+              for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+            }
           }
       }
     } else {
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
-        for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
-            const double one_over_weight=(double)1.0/Weights(iSub)[i];
-            for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+        for(int i=0;i<init(iSub).size();++i) {
+          if(!((*distLSS)(iSub).isSwept(0.0,i)))
+            continue;
+          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
+            if((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()) {
+              if(!(*distLSS)(iSub).isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
+              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //set phi = 0 because this node is at interface
+            } else {
+              const double one_over_weight=(double)1.0/Weights(iSub)[i];
+              for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
 
-            Phi(iSub)[i][0] = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
-            if(Phi(iSub)[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
-            if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
+              Phi(iSub)[i][0] = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
+              if(Phi(iSub)[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
+              if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
 
-            for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+              for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+            }
           }
+        }
       }
     }
 
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub)
       for(int i=0;i<init(iSub).size();++i)
-        if(init(iSub)[i]<1 && next_init(iSub)[i]>0) finished = 0;
+        if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) finished = 0;
     Weights = 0.0; VWeights = 0.0; PhiWeights = 0.0;
     init = next_init;
     this->com->globalOp(1,&finished,MPI_PROD);
   }
 
-#pragma omp parallel for
-  for(iSub=0;iSub<numLocSub;++iSub) {
-    for(int i=0;i<init(iSub).size();++i)
-      if(init(iSub)[i] < 1 || !(*distLSS)(iSub).isActive(0.0,i)) {
-        for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-        for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //not really needed.
-      }
-  }
   this->varFcn->primitiveToConservative(V, U, fluidId);
 }
 

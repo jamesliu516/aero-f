@@ -111,7 +111,7 @@ inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n", 
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double or22 = 1.0 / R[3];
@@ -4868,7 +4868,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 {
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if(init[currentNode]<1 && LSS.isActive(0.0,currentNode)){
+    if(init[currentNode]<1.0 && !LSS.isOccluded(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
