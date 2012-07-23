@@ -1801,7 +1801,7 @@ struct NonlinearLocalRomDatabaseData {
 
 struct ModelReductionData {
 
-	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1, PROJECTION_ERROR = 2} projection;
+	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
 	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1,
 		COLLOCATION = 2, BROYDEN = 3} systemApproximation;
 	enum BasisType {POD = 0, SNAPSHOTS = 1, BASIS_TYPE_NONE = 2} basisType;
@@ -1929,8 +1929,6 @@ struct SnapshotsData {
 	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
  	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
 	enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
-	enum RelProjError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
-	// int sampleFreq; // this is now specified in the ascii snapshot file
 	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
   enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
   enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;

@@ -498,17 +498,6 @@ ROMOutputData::ROMOutputData()
   frequency = 0;
   frequency_dt = -1.0;
 
-// For Local ROM (using naming convention by default)
-//  indexName = "clusterIndex";
-//  centersName = "clusterCenters";
-//  nearestName = "nearestSnapsToCenters";
-//  snapsName = "snapshots";
-//  basisName = "basis";
-//  clusterName = "cluster";
-//  databaseName = "localRomDatabase";
-//  singValName = "singularValues";
-//  projErrorName = "relativeProjectionError";
-
 // Gappy POD
 
   //mesh = "";
@@ -550,17 +539,6 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "GappyPODMatrixFullMesh", this, &ROMOutputData::onlineMatrixFull);
   new ClassStr<ROMOutputData>(ca, "SampledMesh", this, &ROMOutputData::mesh);
   new ClassStr<ROMOutputData>(ca, "SampledFullNodeMap", this, &ROMOutputData::reducedfullnodemap);
-
-  // for Local ROM
-//  new ClassStr<ROMOutputData>(ca, "ClusterIndexFileName", this, &ROMOutputData::indexName);
-//  new ClassStr<ROMOutputData>(ca, "ClusterCentersFileName", this, &ROMOutputData::centersName);
-//  new ClassStr<ROMOutputData>(ca, "NearestSnapshotsToCentersFileName", this, &ROMOutputData::nearestName);
-//  new ClassStr<ROMOutputData>(ca, "SnapshotFileName", this, &ROMOutputData::snapsName);
-//  new ClassStr<ROMOutputData>(ca, "BasisFileName", this, &ROMOutputData::basisName);
-//  new ClassStr<ROMOutputData>(ca, "ClusterDirectoryPrefix", this, &ROMOutputData::clusterName);
-//  new ClassStr<ROMOutputData>(ca, "LocalRomDatabaseDirectoryName", this, &ROMOutputData::databaseName);
-//  new ClassStr<ROMOutputData>(ca, "SingularValueFileName", this, &ROMOutputData::singValName);
-//  new ClassStr<ROMOutputData>(ca, "RelativeProjectionErrorFileName", this, &ROMOutputData::projErrorName);
 
 
 }
@@ -3150,8 +3128,6 @@ SnapshotsData::SnapshotsData()
 	normalizeSnaps = NORMALIZE_FALSE;
 	incrementalSnaps = INCREMENTAL_FALSE;
 	subtractIC = SUBTRACT_IC_FALSE;
-	relProjError = REL_PROJ_ERROR_OFF;  // this functionality is being relocated to RelProjErrorData
-//	sampleFreq = 1; // this is now included in the snapshot ascii file	
 	snapshotWeights = UNIFORM;
   subtractCenters = SUBTRACT_CENTERS_FALSE;
   subtractNearestSnapsToCenters = SUBTRACT_NEAREST_FALSE;
@@ -3228,8 +3204,7 @@ void ModelReductionData::setup(const char *name, ClassAssigner *father)
   new ClassInt<ModelReductionData>(ca, "MinimumDimension", this, &ModelReductionData::minDimension); 
   new ClassDouble<ModelReductionData>(ca, "Energy", this, &ModelReductionData::energy);
 	new ClassToken<ModelReductionData> (ca, "Projection", this, reinterpret_cast<int
-			ModelReductionData::*>(&ModelReductionData::projection), 3, "PetrovGalerkin", 0, "Galerkin", 1,
-			"ProjError", 2);	// ProjErrorcomputes projection error onto a basis
+			ModelReductionData::*>(&ModelReductionData::projection), 2, "PetrovGalerkin", 0, "Galerkin", 1);
 	new ClassToken<ModelReductionData> (ca, "SystemApproximation", this, reinterpret_cast<int
 			ModelReductionData::*>(&ModelReductionData::systemApproximation), 4,
 			"None", 0, "GNAT", 1, "Collocation", 2, "Broyden", 3);
@@ -3279,8 +3254,6 @@ void SnapshotsData::setup(const char *name, ClassAssigner *father)
 			SnapshotsData::*>(&SnapshotsData::incrementalSnaps), 2, "False", 0, "True", 1);
 	new ClassToken<SnapshotsData> (ca, "SubtractIC", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::subtractIC), 2, "False", 0, "True", 1);
- 	new ClassToken<SnapshotsData> (ca, "RelProjError", this, reinterpret_cast<int
-			SnapshotsData::*>(&SnapshotsData::relProjError), 2, "Off", 0, "On", 1);
 	new ClassToken<SnapshotsData> (ca, "SnapshotWeights", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::snapshotWeights), 2, "Uniform", 0, "RBF", 1);
 	new ClassToken<SnapshotsData> (ca, "SubtractClusterCenters", this, reinterpret_cast<int
@@ -3350,7 +3323,7 @@ void GNATData::setup(const char *name, ClassAssigner *father) {
 	// optional: document
   new ClassInt<GNATData>(ca, "DimensionROBState", this, &GNATData::nRobState);	// default: full size
 
-	new ClassToken<GNATData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int GNATData::*>(&GNATData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);	// ProjErrorcomputes projection error onto a basis
+	new ClassToken<GNATData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int GNATData::*>(&GNATData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);
 
 
 	new ClassToken<GNATData>(ca, "ROBNonlinear", this, reinterpret_cast<int GNATData::*>(&GNATData::robNonlinear), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);
@@ -3360,7 +3333,7 @@ void GNATData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<GNATData>(ca, "DimensionROBJacobian", this, &GNATData::nRobJac);	// default: nRobNonlin
 
 
-	new ClassToken<GNATData>(ca, "ROBGreedy", this, reinterpret_cast<int GNATData::*>(&GNATData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);	// ProjErrorcomputes projection error onto a basis
+	new ClassToken<GNATData>(ca, "ROBGreedy", this, reinterpret_cast<int GNATData::*>(&GNATData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);
   new ClassInt<GNATData>(ca, "DimensionROBGreedy", this, &GNATData::nRobGreedy);
 
 
