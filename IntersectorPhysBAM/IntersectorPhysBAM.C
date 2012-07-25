@@ -1137,7 +1137,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
-          ++intersectedEdgeCount;}
+/*          ++intersectedEdgeCount;}
       else if(edgeRes(i).y.triangleID > 0){
           int l=edgeRes(i).x.z;
           edge_intersects[l] = true;
@@ -1150,7 +1150,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).z;
           CrossingEdgeRes[l].alpha = 1.0 - edgeRes(i).z.alpha;
-          ReverseCrossingEdgeRes[l] = edgeRes(i).z;
+          ReverseCrossingEdgeRes[l] = edgeRes(i).z;*/
           ++intersectedEdgeCount;}}
 
 #if 0 // Debug output

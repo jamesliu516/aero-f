@@ -2577,6 +2577,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
     } else {
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
+
+        int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+
         for(int i=0;i<init(iSub).size();++i) {
           if(!((*distLSS)(iSub).isSwept(0.0,i)))
             continue;
@@ -2587,13 +2590,25 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
               for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //set phi = 0 because this node is at interface
             } else {
               const double one_over_weight=(double)1.0/Weights(iSub)[i];
-              for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+              double phiS = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
+              if(phiS<0.0) {
+                Phi(iSub)[i][0] = std::fabs(PhiWeights(iSub)[i][0]*one_over_weight);
+                for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+                if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
+                for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+              } else {
+                for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+                Phi(iSub)[i][0] = phiS;
+                if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
+                for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+              }
 
-              Phi(iSub)[i][0] = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
-              if(Phi(iSub)[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
-              if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
-
-              for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+//              if(Phi(iSub)[i][0]<0) {
+//                fprintf(stderr,"Warning: got a swept node (%d) far from the interface! PhiS = %e. PhiF = %e. Id0 = %d, Id = %d.\n", 
+//                        locToGlobNodeMap[i]+1, Phi(iSub)[i][0], PhiWeights(iSub)[i][0]*one_over_weight, 
+//                        (*fluidId0)(iSub)[i], (*fluidId)(iSub)[i]);
+//                Phi(iSub)[i][0] = std::fabs(PhiWeights(iSub)[i][0]*one_over_weight);
+//              }
             }
           }
         }
