@@ -6230,21 +6230,23 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     bool occluded = LSS.isOccluded(0.0,i);
 
     //DEBUG
-/*    int myNode = 300363;
+/*    int myNode = 829527;
     if(locToGlobNodeMap[i]+1==myNode){
       fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", myNode, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][0], poll[i][0], poll[i][1], poll[i][2]);
       for(int j=0; j<Node2Node.num(i); j++) { 
         if(Node2Node[i][j]==i) continue;
         fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
                           locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
-                          LSS.edgeIntersectsStructure(0.0,i,Node2Node[i][j]), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][0]); 
+                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][0]); 
       }
 
     }
 */
+
     if(!swept) {//nothing to be done
       if(!poll[i][fluidId[i]]) fprintf(stderr,"TOO BAD!\n");
-      continue;
+      if(occluded || fluidId[i]!=2) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+        continue;
     }
 
     if(occluded) { // Rule No.1
