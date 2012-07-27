@@ -52,11 +52,13 @@ CrackingSurface::CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, 
   tria2quad = new int[nTotalTrias][2];
   quad2tria = new int[nTotalQuads][2];
   cracked = new bool[nTotalQuads];
+  deleted = new bool[nTotalQuads];
 
   for(int i=0; i<nTotalTrias; i++)
     tria2quad[i][0] = tria2quad[i][1] = -1;
   for(int i=0; i<nTotalQuads; i++) {
     cracked[i] = false;
+    deleted[i] = false;
     quad2tria[i][0] = quad2tria[i][1] = -1;
   }
 
@@ -72,6 +74,7 @@ CrackingSurface::~CrackingSurface()
 
   if(tria2quad) delete[] tria2quad; 
   if(cracked) delete[] cracked;
+  if(deleted) delete[] deleted;
 }
 
 //------------------------------------------------------------------------------
@@ -135,8 +138,8 @@ int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* con
 
   latest.phantomQuads.clear();
   latest.phantomNodes.clear(); //flush
-  int quadId,nNew=0,maxtrId=0;
-  int maxQuad=0, nNewQuad=0;
+  int quadId,nNew=0,maxtrId=nUsedTrias-1;
+  int maxQuad=nUsedQuads-1, nNewQuad=0;
 
   //build a reverse map of phiIndex. The cost is trivial since phiIndex is very short.
   map<int,int> temp;
@@ -161,6 +164,12 @@ int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* con
       if(itor==temp.end()) {
         fprintf(stderr,"ERROR: Need the level-set for a new cracked element!\n"); exit(-1);}
       int ind = itor->second;
+
+      if(phi[4*ind]<0.0 && phi[4*ind+1]<0.0 && phi[4*ind+2]<0.0 && phi[4*ind+3]<0.0) {
+        deleted[quadId] = true;
+//        fprintf(stderr,"[CrackingSurface] Quad #%d (counting from 0) is flagged as 'deleted'!\n", quadId);
+      }
+
       phantoms[quadId] = new PhantomElement(connUpdate[5*i+1],connUpdate[5*i+2],connUpdate[5*i+3],connUpdate[5*i+4],
                                             phi[4*ind],phi[4*ind+1],phi[4*ind+2],phi[4*ind+3]);
     }
@@ -203,7 +212,7 @@ int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* con
   }*/
 
   if(maxQuad+1!=nUsedQuads+nNewQuad) {
-    fprintf(stderr,"ERROR: Inconsistency in the number of structure quad elements! (Could be a software bug.)\n");exit(-1);}
+    fprintf(stderr,"ERROR: Inconsistency in the number of structure quad elements (%d %d %d)! (Could be a software bug.)\n", maxQuad, nUsedQuads, nNewQuad);exit(-1);}
 
   nUsedQuads += nNewQuad;
   if(maxtrId+1!=nUsedTrias+nNew) {
@@ -274,6 +283,17 @@ double CrackingSurface::getPhi(int trId, double xi1, double xi2, bool* hasCracke
 
 //----------------------------------------------------------------------------
 
+bool CrackingSurface::purelyPhantom(int trId)
+{
+  if(trId>=nUsedTrias) {
+    fprintf(stderr,"ERROR: Unable to access Triangle %d of the embedded surface(%d)!\n", trId+1, nUsedTrias);
+    exit(-1);
+  }
+  return deleted[tria2quad[trId][0]];
+}
+
+//----------------------------------------------------------------------------
+
 void CrackingSurface::printInfo(char* filename)
 {
   FILE *myout = fopen(filename,"w");
@@ -317,6 +337,10 @@ void CrackingSurface::printInfo(char* filename)
   fprintf(myout, "cracked(%d)...\n", nTotalQuads);
   for(int i=0; i<nTotalQuads; i++)
     fprintf(myout,"  Quad %d -> %d\n", i+1, cracked[i]);
+
+  fprintf(myout, "deleted(%d)...\n", nTotalQuads);
+  for(int i=0; i<nTotalQuads; i++)
+    fprintf(myout,"  Quad %d -> %d\n", i+1, deleted[i]);
 
   fclose(myout);
 }
