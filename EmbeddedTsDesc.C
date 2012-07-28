@@ -46,6 +46,9 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->postOp->setForceGenerator(this);
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
+  phaseChangeAlg	 = (ioData.embed.phaseChangeAlg==EmbeddedFramework::LEAST_SQUARES) ? 1 : 0;
+  interfaceAlg		 = (ioData.embed.interfaceAlg==EmbeddedFramework::INTERSECTION) ? 1 : 0;
+  intersectAlpha	 = ioData.embed.alpha;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
 
 
@@ -139,6 +142,14 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   *Wstarij = 0.0;
   *Wstarji = 0.0;
+
+  //linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  if (interfaceAlg) {
+    countWstarij = new DistVec<int>(this->domain->getEdgeDistInfo());
+    countWstarji = new DistVec<int>(this->domain->getEdgeDistInfo());
+    *countWstarij = 0;
+    *countWstarji = 0;
+  }
 
   //copies for fail safe
   WstarijCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
@@ -272,6 +283,8 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+  if (countWstarij) delete countWstarij;
+  if (countWstarji) delete countWstarji;
   if (Wstarij_nm1) delete Wstarij_nm1;
   if (Wstarji_nm1) delete Wstarji_nm1;
   if (WstarijCopy) delete WstarijCopy;
@@ -712,7 +725,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     //store previous states for phase-change update
     tw = this->timer->getTime();
     if(recomputeIntersections)
-      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
             this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);

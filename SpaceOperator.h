@@ -158,7 +158,14 @@ public:
                        DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0,
                        DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
-  void updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, 
+		  			   DistSVec<double,dim> &, DistSVec<double,dim> &, 
+					   DistVec<int> &, DistVec<int> &, DistLevelSetStructure *,
+                       bool, DistVec<int> &, DistSVec<double,dim> &,
+                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, 
+					   double, double, int it = 0, DistVec<GhostPoint<dim>*> *ghostPoints = 0);
+
+  void updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChangeAlg,
                         DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                         DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,

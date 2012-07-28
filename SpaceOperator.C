@@ -1207,6 +1207,83 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
+                                         DistSVec<double,dim> &Wstarji, 
+										 DistVec<int> &countWstarij, DistVec<int> &countWstarji,
+										 DistLevelSetStructure *distLSS, bool linRecAtInterface, 
+										 DistVec<int> &fluidId, DistSVec<double,dim> &R, 
+										 DistExactRiemannSolver<dim> *riemann, int Nriemann, 
+										 DistSVec<double,3> *Nsbar, double dt, double alpha, 
+										 int it, DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+  R = 0.0;
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);  
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
+    double t0 = timer->getTime();
+    // compute gradient of V using Phi:
+    // for node with Phi, gradient of V is computed using V-values of neighbours
+    // that have the same Phi-sign
+	ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, 
+			  	   Wstarij, Wstarji, countWstarij, countWstarji, 
+			  	   linRecAtInterface, distLSS);
+    timer->addNodalGradTime(t0);
+  }
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
+  if (xpol) //boundary condition using xpol = extrapolation
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+
+  if (fet) {
+      domain->computeGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,distLSS);
+      bcData->computeNodeValue(X);
+  }
+
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+
+  domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
+                                  *geoState, X, *V, Wstarij, Wstarji, countWstarij, countWstarji,
+								  distLSS, linRecAtInterface, fluidId, Nriemann, Nsbar, dt, alpha,
+								  *ngrad, egrad, R, it, failsafe,rshift);
+  if (descriptorCase != DESCRIPTOR)  {
+    int numLocSub = R.numLocSub();
+    int iSub;
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      double *cv = ctrlVol.subData(iSub);
+      double (*r)[dim] = R.subData(iSub);
+      switch (descriptorCase) {
+        case HYBRID: {
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double invsqcv = 1.0 / sqrt(cv[i]);
+            for (int j=0; j<dim; ++j) 
+              r[i][j] *= invsqcv;
+          }
+          break; }
+        case NONDESCRIPTOR: {
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double invcv = 1.0 / cv[i];
+            for (int j=0; j<dim; ++j) 
+              r[i][j] *= invcv;
+          }
+          break; }
+
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SpaceOperator<dim>::computePostOpDVMS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                            DistSVec<double,dim> &U, DistVec<double> *Cs,
                                            DistTimeState<dim> *timeState)
@@ -1266,7 +1343,7 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 // TODO(jontg): Fix computeRiemannWeightsForEmbeddedStruct
 template<int dim>
 void SpaceOperator<dim>::
-updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
+updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChangeAlg, 
                  DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                  DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
@@ -1289,7 +1366,16 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
   int finished = 0;
   while(finished == 0){++iter;finished = 1;
     switch(phaseChangeChoice){
-    case 0: domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+    case 0: 
+	  switch (phaseChangeAlg) {
+		case 0:
+		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+		  break;
+		case 1:
+		    domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+//		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+		  break;
+	  }
       break;
     case 1: com->fprintf(stderr," *** computeReimannWeights temporarily broken / using regular extrapolation ***\n");
       domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
@@ -1298,11 +1384,27 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice,
 
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub) {
-      for(int i=0;i<init(iSub).size();++i)
+	  int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+      for(int i=0;i<init(iSub).size();++i) {
+//		if ((*distLSS)(iSub).isSwept(0.0,i)&&(*distLSS)(iSub).isActive(0.0,i))
+//		  fprintf(stdout,"XY: Node %d needs phase change update:\n",locToGlobNodeMap[i]+1);
         if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
           const double one_over_weight=(double)1.0/Weights(iSub)[i];
-          for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+		  switch (phaseChangeAlg) {
+			case 0:
+          	  for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+			  break;
+			case 1:
+			  if (Weights(iSub)[i]>0.0)
+          	    for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+			  else if (Weights(iSub)[i]<0.0)
+				for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d];
+			  else
+				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
+			  break;
+		  }
         }
+	  }
     }
 
 #pragma omp parallel for

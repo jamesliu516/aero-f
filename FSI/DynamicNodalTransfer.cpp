@@ -239,6 +239,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 1;
     else if(iod.forced.type==ForcedData::PITCHING)
       mode = 2;
+	else if (iod.forced.type==ForcedData::DEFORMING)	/* XY */
+	  mode = 99;										/* XY */
     else {
       com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
       exit(-1);
@@ -252,9 +254,14 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   omega = 2.0*acos(-1.0)*(1.0/tScale)*iod.forced.frequency;
 
   // for heaving
-  dx    = iod.ref.rv.length*iod.forced.hv.ax; //tlength = length / aero.displacementScaling;
-  dy    = iod.ref.rv.length*iod.forced.hv.ay;
-  dz    = iod.ref.rv.length*iod.forced.hv.az;  
+  if (mode!=99) {													/* XY */
+    dx    = iod.ref.rv.length*iod.forced.hv.ax; //tlength = length / aero.displacementScaling;
+    dy    = iod.ref.rv.length*iod.forced.hv.ay;
+    dz    = iod.ref.rv.length*iod.forced.hv.az;  
+  }																	/* XY */
+  else {															/* XY */
+	dx = dy = dz = iod.ref.rv.length*iod.forced.df.amplification;	/* XY */
+  }																	/* XY */
 
   // for pitching
   alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
@@ -688,17 +695,33 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         Udot[i][1] = dy;
         Udot[i][2] = dz;
       }
-    else if (mode==99) // for debugging use.
-      for(int i=0; i < nNodes; ++i) { // expand / shrink the structure in y-z plane w.r.t. the origin
-        double cosTheta = X[i][1]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
-        double sinTheta = X[i][2]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
-        U[i][0] = 0.0;
-        U[i][1] = dy*time*cosTheta;
-        U[i][2] = dz*time*sinTheta;
-        Udot[i][0] = 0.0;
-        Udot[i][1] = dy*cosTheta;
-        Udot[i][2] = dz*sinTheta;
-      }
+    else if (mode==99) { // for debugging use.
+	  bool shrinking_sphere = true;							/* XY */
+	  if (shrinking_sphere) {								/* .. */
+		double tt = t0+dt*(double)(it-1);
+		double dist, dir[3];
+        for(int i=0; i < nNodes; ++i) {
+          dist = sqrt(X0[i][0]*X0[i][0]+X0[i][1]*X0[i][1]+X0[i][2]*X0[i][2]);
+          for(int j=0; j<3; j++) {
+            dir[j] = X0[i][j]/dist; 
+            U[i][j] = -tt*tt*tt*tt/8.0*dir[j]*dx; 
+            Udot[i][j] = -tt*tt*tt/2.0*dir[j]*dx;
+          }
+        }
+	  }														/* .. */
+	  else { 												/* XY */
+        for(int i=0; i < nNodes; ++i) { // expand / shrink the structure in y-z plane w.r.t. the origin
+          double cosTheta = X[i][1]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
+          double sinTheta = X[i][2]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
+          U[i][0] = 0.0;
+          U[i][1] = dy*time*cosTheta;
+          U[i][2] = dz*time*sinTheta;
+          Udot[i][0] = 0.0;
+          Udot[i][1] = dy*cosTheta;
+          Udot[i][2] = dz*sinTheta;
+        }
+	  }
+	}
   }
 
   for(int i=0; i<nNodes; i++) {

@@ -53,6 +53,7 @@ Domain::Domain()
   bool2Pat = 0;
   bool3Pat = 0;
   weightPat = 0;
+  weightPhaseChangePat = 0;
   edgePat = 0;
   scalarEdgePat = 0;
   momPat = 0;
@@ -121,7 +122,7 @@ Domain::Domain()
 Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType(0), nodeFaceType(0),
     nodeDistInfo(0), edgeDistInfo(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0),
     vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0),
-    weightPat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
+    weightPat(0), weightPhaseChangePat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
     inletCountPat(0), inletRhsPat(0), Delta(0), CsDelSq(0), PrT(0), WCsDelSq(0), WPrT(0), tag(0), tagBar(0),
     weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), output_newton_step(0)
 {
@@ -154,6 +155,7 @@ Domain::~Domain()
   if (bool2Pat) delete bool2Pat;
   if (bool3Pat) delete bool3Pat;
   if (weightPat) delete weightPat;
+  if (weightPhaseChangePat) delete weightPhaseChangePat;
   if (edgePat) delete edgePat;
   if (scalarEdgePat) delete scalarEdgePat;
   if (momPat) delete momPat;
@@ -264,6 +266,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   bool3Pat = new CommPattern<bool>(subTopo, com, CommPattern<bool>::CopyOnSend); // New Comm Pattern
   vec3DPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   weightPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
+  weightPhaseChangePat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   momPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   csPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   engPat =  new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
@@ -305,6 +308,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setComLenNodes(2, *fsPat);
     subDomain[iSub]->setComLenNodes(3, *vec3DPat);
     subDomain[iSub]->setComLenNodes(6, *weightPat);
+	subDomain[iSub]->setComLenNodes(10, *weightPhaseChangePat);
     subDomain[iSub]->setComLenNodes(8, *engPat);
     subDomain[iSub]->setComLenNodes(16, *momPat);
     // Initialize pointer
@@ -325,6 +329,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   fsPat->finalize();
   vec3DPat->finalize();
   weightPat->finalize();
+  weightPhaseChangePat->finalize();
   momPat->finalize();
 
 // Included (MB)
@@ -1191,6 +1196,40 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) { 
     subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
+    subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
+    subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
+  }
+
+  weightPat->exchange();
+  levelPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
+    subDomain[iSub]->addRcvData(*levelPat, (*count).subData(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresNodePart((*count)(iSub), R(iSub));
+  }
+
+  //timer->addNodalWeightsTime(t0);
+  if (count) delete count;
+}
+
+//------------------------------------------------------------------------------
+// least square gradient involving only nodes of same fluid (FSI)
+// with option to take into account of Riemann solution at interface
+void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
+                                        DistSVec<double,6> &R, DistVec<int> &countWstarij,
+										DistVec<int> &countWstarji, 
+										DistLevelSetStructure *distLSS)
+{
+
+  int iSub;
+  //double t0 = timer->getTime();
+  DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
+
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) { 
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), countWstarij(iSub), countWstarji(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }

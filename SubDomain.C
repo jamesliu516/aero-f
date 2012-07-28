@@ -133,6 +133,36 @@ void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 }
 
 //------------------------------------------------------------------------------
+inline
+void computeLocalWeightsLeastSquaresForEmbeddedStruct(double dx[3], double *R, double *W)
+{
+  if (R[0]*R[4]*R[7]*R[9]==0.0) 
+	fprintf(stderr, "Going to be divided by 0 %e %e %e %e\n",R[0],R[4],R[7],R[9]);
+  double or11 = 1.0/R[0];
+  double or22 = 1.0/R[4];
+  double or33 = 1.0/R[7];
+  double or44 = 1.0/R[9];
+
+  double r12or11 = R[1]*or11;
+  double r23or22 = R[5]*or22;
+  double r34or33 = R[8]*or33;
+
+  double psi13 = (R[1]*R[5]-R[2]*R[4])*or11*or22;
+  double psi24 = (R[5]*R[8]-R[6]*R[7])*or22*or33;
+  double psi14 = (-R[2]*R[8]+R[3]*R[7]+R[1]*R[7]*psi24)*or11*or33;
+
+  double alpha1 = dx[0]*or11*or11;
+  double alpha2 = (dx[1]-r12or11*dx[0])*or22*or22;
+  double alpha3 = (dx[2]-r23or22*dx[1]+psi13*dx[0])*or33*or33;
+  double alpha4 = (1.0-r34or33*dx[2]+psi24*dx[1]-psi14*dx[0])*or44*or44;
+
+  W[0] = alpha1 - r12or11*alpha2 + psi13*alpha3 - psi14*alpha4;
+  W[1] = alpha2 - r23or22*alpha3 + psi24*alpha4;
+  W[2] = alpha3 - r34or33*alpha4;
+  W[3] = alpha4;
+}
+
+//------------------------------------------------------------------------------
 
 // Included (MB)
 inline
@@ -322,6 +352,126 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
       ddy[j][k] -= Wj[1] * deltaVar;
       ddz[j][k] -= Wj[2] * deltaVar;
     }
+  }
+
+//KW: set gradients = 0 for cells near interface.
+  if(!linRecFSI)
+    for (int l=0; l<edges.size(); ++l) {
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) {
+        for (int k=0; k<dim; ++k)
+          ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
+      }
+    }
+
+}
+
+//------------------------------------------------------------------------------
+// least square gradient involving only nodes of fluid (FSI)
+// if Wstar is available, they are also involved in gradient computation
+template<int dim, class Scalar>
+void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
+                const Vec<int> &fluidId, SVec<double,6> &R,
+                SVec<Scalar,dim> &var, SVec<Scalar,dim> &Wstarij,
+				SVec<Scalar,dim> &Wstarji, Vec<int> &countWstarij,
+				Vec<int> &countWstarji, SVec<Scalar,dim> &ddx,
+                SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
+                bool linRecFSI, LevelSetStructure *LSS)  {
+
+  ddx = (Scalar) 0.0;
+  ddy = (Scalar) 0.0;
+  ddz = (Scalar) 0.0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+	if (((!LSS)&&(fluidId[i]!=fluidId[j]))||
+		(LSS && !LSS->isActive(0.0,i) && !LSS->isActive(0.0,j)))
+	  continue;
+
+    double Wi[3], Wj[3];
+    Scalar deltaVari[dim];
+	Scalar deltaVarj[dim];
+	bool updatei = false;
+	bool updatej = false;
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+
+	if (((!LSS)&&(fluidId[i]==fluidId[j]))||(LSS && LSS->isActive(0.0,i) && LSS->isActive(0.0,j) && !LSS->edgeIntersectsStructure(0.0,l))) {
+      if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
+        computeLocalWeightsLeastSquares(dx, R[i], Wi);
+      else{ // gradient is set to 0.0
+        Wi[0] = 0.0;
+        Wi[1] = 0.0;
+        Wi[2] = 0.0;
+      }
+      dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+      if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10) // should be positive for a well posed least square problem
+        computeLocalWeightsLeastSquares(dx, R[j], Wj);
+      else{ // gradient is set to 0.0
+        Wj[0] = 0.0;
+        Wj[1] = 0.0;
+        Wj[2] = 0.0;
+      }
+	  updatei = true;
+	  updatej = true;
+      for (int k=0; k<dim; ++k) {
+		deltaVari[k] = var[j][k] - var[i][k];
+		deltaVarj[k] = -deltaVari[k];
+	  }
+	}
+	else {
+	  if (LSS->isActive(0.0,i))
+		if (countWstarij[l]!=0) {
+		  LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0,l,true);
+		  for (int k=0; k<3; ++k)
+		    dx[k] = (X[j][k]-X[i][k]);//*(1.0-resij.alpha);
+		  if (R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10)
+		    computeLocalWeightsLeastSquares(dx, R[i], Wi);
+		  else {
+		    Wi[0] = 0.0;
+		    Wi[0] = 0.0;
+		    Wi[0] = 0.0;
+		  }
+		  updatei = true;
+		  for (int k=0; k<dim; ++k) deltaVari[k] = Wstarij[l][k]-var[i][k];
+		}
+	  if (LSS->isActive(0.0,j))
+		if (countWstarji[l]!=0) {
+		  LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0,l,false);
+		  for (int k=0; k<3; ++k)
+		    dx[k] = (X[i][k]-X[j][k]);//*(1.0-resji.alpha);
+		  if (R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10)
+		    computeLocalWeightsLeastSquares(dx, R[j], Wj);
+		  else {
+		    Wj[0] = 0.0;
+		    Wj[0] = 0.0;
+		    Wj[0] = 0.0;
+		  }
+		  updatej = true;
+		  for (int k=0; k<dim; ++k) deltaVarj[k] = Wstarji[l][k]-var[j][k];
+		}
+	}
+	if (updatei)
+	  for (int k=0; k<dim; ++k) {
+        ddx[i][k] += Wi[0] * deltaVari[k];
+        ddy[i][k] += Wi[1] * deltaVari[k];
+        ddz[i][k] += Wi[2] * deltaVari[k];
+	  }
+	if (updatej)
+	  for (int k=0; k<dim; ++k) {
+        ddx[j][k] += Wj[0] * deltaVarj[k];
+        ddy[j][k] += Wj[1] * deltaVarj[k];
+        ddz[j][k] += Wj[2] * deltaVarj[k];
+	  }
   }
 
 //KW: set gradients = 0 for cells near interface.
@@ -934,6 +1084,36 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
                                            linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
+
+  return ierr;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,
+                                       SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
+									   Vec<int>& countWstarij, Vec<int>& countWstarji,
+                                       LevelSetStructure &LSS, bool linRecAtInterface, 
+									   Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
+									   double dt, double alpha, 
+									   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       SVec<double,dim>& fluxes, int it,
+                                       SVec<int,2>& tag, int failsafe, int rshift) 
+{
+  V6NodeData (*v6data)[2];
+  v6data = 0;
+  findEdgeTetrahedra(X, v6data);
+  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
+                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, 
+										   countWstarij, countWstarji, LSS, linRecAtInterface, 
+										   fluidId, Nriemann, Nsbar, dt, alpha, ngrad,
+  									       egrad, fluxes, it, tag, failsafe, rshift, v6data); 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
   return ierr;
@@ -4852,6 +5032,54 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
             VWeights[currentNode][i] += V[neighborNode][i];
         }
       }
+    }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
+		SVec<double,3> &X, SVec<double,10> &R, SVec<double,dim> &V, Vec<double> &Weights, 
+		SVec<double,dim> &VWeights, LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init) 
+{
+  const Connectivity &nToN = *getNodeToNode();
+  bool *masterFlag = edges.getMasterFlag();
+  for (int currentNode=0; currentNode<numNodes(); ++currentNode)
+    if (init[currentNode]<1 && LSS.isActive(0.0,currentNode)) {
+	  for (int j=0; j<nToN.num(currentNode); ++j) {
+		int neighborNode = nToN[currentNode][j];
+		if (currentNode==neighborNode || init[neighborNode]<1) continue;
+		int l = edges.findOnly(currentNode,neighborNode);
+		if (!masterFlag[l]) continue;
+		if (LSS.edgeIntersectsStructure(0.0,l)) continue;
+		else if (fabs(Weights[currentNode])<1e-6) {
+		  next_init[currentNode] = 1;
+		  if (R[currentNode][0]>0.0) {
+		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+		    				X[neighborNode][1]-X[currentNode][1],
+		    				X[neighborNode][2]-X[currentNode][2]};
+		    double W[4];
+		    Weights[currentNode] = -1.0;
+		    computeLocalWeightsLeastSquaresForEmbeddedStruct(dx,R[currentNode],W);
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] = W[3]*V[neighborNode][k];
+		  } else {
+			Weights[currentNode] = 1.0;
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] = V[neighborNode][k];
+		  }
+		} else {
+		  if (R[currentNode][0]>0.0) {
+		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+		    				X[neighborNode][1]-X[currentNode][1],
+		    				X[neighborNode][2]-X[currentNode][2]};
+		    double W[4];
+		    computeLocalWeightsLeastSquaresForEmbeddedStruct(dx,R[currentNode],W);
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += W[3]*V[neighborNode][k];
+		  }
+		  else {
+			Weights[currentNode] += 1.0;
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += V[neighborNode][k];
+		  }
+		}
+	  }
     }
 }
 

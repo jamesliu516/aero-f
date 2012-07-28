@@ -234,6 +234,9 @@ public:
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
 					  SVec<int,1> &, SVec<double,6> &, LevelSetStructure* =0);
+  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
+					  SVec<int,1> &, SVec<double,6> &, Vec<int> &, Vec<int> &, 
+					  LevelSetStructure* =0);
   void computeWeightsLeastSquaresNodePart(SVec<int,1> &, SVec<double,6> &);
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &,
 			      SVec<double,3> &, SVec<double,3> &);
@@ -336,6 +339,14 @@ public:
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     bool linRecFSI = true, LevelSetStructure* =0);
 
+  template<int dim, class Scalar>
+  void computeGradientsLeastSquares(SVec<double,3> &, const Vec<int> &,
+                                    SVec<double,6> &,
+                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+									SVec<Scalar,dim> &, Vec<int> &,
+									Vec<int> &, SVec<Scalar,dim> &,
+                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+                                    bool linRecFSI = true, LevelSetStructure* =0);
 
   template<int dim, class Scalar>
   void computeGradientsGalerkin(Vec<double> &, SVec<double,3> &, SVec<double,3> &,
@@ -400,6 +411,17 @@ public:
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, Vec<int> &, int,
                               SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
+
+  template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&,
+                              SVec<double,dim>&, SVec<double,dim>&, 
+							  Vec<int>&, Vec<int>&, LevelSetStructure &, bool, 
+							  Vec<int> &, int, SVec<double,3>*, double, double, 
+							  NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int); 
+
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
@@ -915,6 +937,14 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init);
+  void computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
+					  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init);
+  void computeWeightsLeastSquaresNodePartForEmbeddedStruct(
+		  SVec<int,1> &count, SVec<double,10> &R);
+  template<int dim>
+  void computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, SVec<double,10> &R, 
+		  SVec<double,dim> &V, Vec<double> &Weights, SVec<double,dim> &VWeights, 
+		  LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init);
 
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights, 
