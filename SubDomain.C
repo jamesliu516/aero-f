@@ -57,12 +57,13 @@ extern "C" {
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &dt,
-                                Vec<double> &idti, Vec<double> &idtv,
+                                Vec<double> &idti, Vec<double> &idtv, Vec<double> &dtau,
                                 TimeLowMachPrec &tprec)
 {
   dt = 0.0;
   idti = 0.0;
   idtv = 0.0;
+  dtau = 0.0;
   edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
   // Adam 2010.06.01: compute time step by tetrahedra, as the viscous term is computed
   if(fet) elems.computeTimeStep(fet,X,V,idtv);
@@ -93,12 +94,13 @@ void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,dim> &V, Vec<double> &dt,
-				Vec<double> &idti, Vec<double> &idtv,
+				Vec<double> &idti, Vec<double> &idtv, Vec<double> &dtau,
                                 TimeLowMachPrec &tprec,
 				Vec<int> &fluidId, Vec<double>* umax)
 {
 
   dt = 0.0;
+  dtau = 0.0;
 
   edges.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId, globSubNum,umax);
   faces.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId);
@@ -1126,12 +1128,14 @@ template<int dim, int dimLS>
 void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                         BcData<dim>& bcData, GeoState& geoState,
                                         SVec<double,3>& X, SVec<double,dim>& V,
+                                        Vec<int>& fluidId,
                                         NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
                                         EdgeGrad<dim>* egrad,
                                         SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF,
                                         LevelSetStructure* LSS)
 {
-  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V, ngrad, ngradLS,
+  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V,
+                                  fluidId, ngrad, ngradLS,
                                   egrad, Phi, PhiF, LSS);
 
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
@@ -4686,7 +4690,7 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
   for (int i=0; i<U.size(); ++i) {
     varFcn->conservativeToPrimitive(U[i], V);
     double rho = varFcn->getDensity(V);
-    double p = varFcn->getPressure(V);
+    double p = varFcn->checkPressure(V);
 
     if (rho <= 0.0) {
       fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
@@ -4742,11 +4746,11 @@ void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U,
     if(!fluidId){
       varFcn->conservativeToPrimitive(U[i], V);
       rho = varFcn->getDensity(V);
-      p = varFcn->getPressure(V);
+      p = varFcn->checkPressure(V);
     }else{
       varFcn->conservativeToPrimitive(U[i], V, (*fluidId)[i]);
       rho = varFcn->getDensity(V,(*fluidId)[i]);
-      p = varFcn->getPressure(V, (*fluidId)[i]);
+      p = varFcn->checkPressure(V, (*fluidId)[i]);
     }
     if (rho <= 0.0 || p <= 0.0)
       tag[i][0] = true;

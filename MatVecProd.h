@@ -470,6 +470,7 @@ class MatVecProdFDMultiPhase : public MatVecProdMultiPhase<dim,dimLS> {
 
   double computeEpsilon(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  IoData *iod;
   int fdOrder;
 
 public:

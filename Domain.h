@@ -267,16 +267,16 @@ public:
 			    DistMat<PrecScalar,3>*, double volStiff, int** ndType);
 
   template<int dim>
-  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
+  void computeTimeStep(double, double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
 		       DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
-		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
-                       SpatialLowMachPrec &);
+		       DistVec<double> &, DistVec<double> &, DistVec<double> &,
+                       TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>
-  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
+  void computeTimeStep(double, double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
-		       DistVec<double> &, TimeLowMachPrec &,
+		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
 		       DistVec<int> &, DistVec<double>* = NULL);
 
 
@@ -492,7 +492,7 @@ public:
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
-                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,DistVec<int>& fluidId,
                                DistNodalGrad<dim>&, DistNodalGrad<dimLS>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,
                                DistLevelSetStructure * = 0);

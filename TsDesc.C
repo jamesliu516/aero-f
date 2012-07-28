@@ -304,7 +304,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   double dt = 0.0;
   if(failSafeFlag == false){
     if(timeStepCalculation == TsData::CFL || it==1)
-      dt = timeState->computeTimeStep(data->cfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
+      dt = timeState->computeTimeStep(data->cfl, data->dualtimecfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
     else  //time step size with error estimation
       dt = timeState->computeTimeStep(it, dtLeft, &numSubCycles);
   }
@@ -897,4 +897,12 @@ void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
 
   output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
 
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
+{
+  // Nothing to do here by default.
 }

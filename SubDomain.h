@@ -318,12 +318,12 @@ public:
   // spatial discretization
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-		       Vec<double> &, Vec<double> &,
+		       Vec<double> &, Vec<double> &, Vec<double> &,
                        TimeLowMachPrec &);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-		       Vec<double> &, Vec<double> &,
+		       Vec<double> &, Vec<double> &, Vec<double> &,
                        TimeLowMachPrec &, Vec<int> &, Vec<double>* = NULL);
 
 
@@ -424,7 +424,7 @@ public:
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
-                               SVec<double,3>&, SVec<double,dim>&,
+                               SVec<double,3>&, SVec<double,dim>&,Vec<int>& fluidId,
                                NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*, SVec<double,dimLS>&,
                                SVec<double,dimLS>&, LevelSetStructure* =0);
   template<int dim>

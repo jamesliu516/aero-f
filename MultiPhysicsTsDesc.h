@@ -106,6 +106,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double Pfinal;
   double Pscale;
   int intersector_freq;
+ 
+  int lsMethod;
 
   ProgrammedBurn* programmedBurn;
 

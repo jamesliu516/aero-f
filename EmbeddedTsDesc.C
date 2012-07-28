@@ -132,6 +132,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
       exit(-1);
   }
+  wall_computer=new ReinitializeDistanceToWall<1>(*this->domain);
+  //wall_computer = 0;
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
   exit(-1);
@@ -294,6 +296,7 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (UCopy) delete UCopy;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
+  delete wall_computer;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
   //PJSA if (Fs) delete[] Fs;
@@ -406,6 +409,14 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     inSubCycling = false;
   }
 
+/*
+  if(wall_computer && !inSubCycling) {
+    this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+    wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState); // TODO(jontg): Probably not the best place...
+    this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+  }
+*/
+
   this->com->barrier();
   double t0 = this->timer->getTime();
   int numSubCycles = 1;
@@ -415,10 +426,10 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
       if(numFluid==1)
-        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+        dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->X, *this->A, U);
       else {//numFLuid>1
-        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+        dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->A, U, nodeTag);
       }
     }
@@ -791,5 +802,20 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
     exit(-1);
   }
   return p;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
+{
+  if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
+    if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+        ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+      this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
+      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+    }
+  }
 }
 
