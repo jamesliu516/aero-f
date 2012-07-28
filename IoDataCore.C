@@ -914,6 +914,7 @@ LiquidModelData::LiquidModelData()
   k2water     = 7.15;
   Prefwater   = -1.0;
   RHOrefwater = -1.0;
+  burnable = NO;
 
   //these parameters are the adimensionalized parameters used by the VarFcn where the
   // liquid state equation is implemented. It it were dimensionalized, that is what their
@@ -936,6 +937,9 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
             "Compressible", 0);
   new ClassToken<LiquidModelData>(ca, "Check", this,
             reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2,
+            "Yes", 0, "No", 1);
+  new ClassToken<LiquidModelData>(ca, "Burnable", this,
+            reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::burnable), 2,
             "Yes", 0, "No", 1);
   new ClassDouble<LiquidModelData>(ca, "k1", this, &LiquidModelData::k1water);
   new ClassDouble<LiquidModelData>(ca, "k2", this, &LiquidModelData::k2water);
@@ -2516,6 +2520,7 @@ TsData::TsData()
   typeTimeStep = AUTO;
   typeClipping = FREESTREAM;
   timeStepCalculation = CFL;
+  dualtimestepping = OFF;
 
   prec = NO_PREC;
   viscousCst = 0.0;
@@ -2535,6 +2540,7 @@ TsData::TsData()
   ser = 0.7;
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
+  dualtimecfl = 100.0;
 
   output = "";
 
@@ -2553,6 +2559,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "TypeTimeStep", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeTimeStep), 2,
 			 "Local", 1, "Global", 2);
+  new ClassToken<TsData>(ca, "DualTimeStepping", this,
+                         reinterpret_cast<int TsData::*>(&TsData::dualtimestepping), 2,
+                         "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
@@ -2577,6 +2586,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
+  new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
 
@@ -3889,6 +3899,7 @@ void IoData::resetInputValues()
    }
 
    if (eqs.type == EquationsData::NAVIER_STOKES && 
+       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
        ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
          eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
       if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
@@ -4075,17 +4086,27 @@ void IoData::resetInputValues()
   // Check parameters for the matrix-vector product in implicit simulations.
   //
 
-  if ((problem.prec == ProblemData::PRECONDITIONED) ||
-      (ts.prec == TsData::PREC))
+//  if ((problem.prec == ProblemData::PRECONDITIONED) ||
+//      (ts.prec == TsData::PREC))
+//  {
+//    if (ts.implicit.mvp == ImplicitData::H2)
+//    {
+//      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
+//      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+//      ts.implicit.mvp = ImplicitData::FD;
+//      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+//    }
+//  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
+
+  if (problem.prec == ProblemData::PRECONDITIONED && 
+      ts.prec == TsData::PREC && problem.type[ProblemData::UNSTEADY])
   {
-    if (ts.implicit.mvp == ImplicitData::H2)
-    {
-      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
-      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
-      ts.implicit.mvp = ImplicitData::FD;
-      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+    if (ts.dualtimestepping == TsData::OFF) {
+      com->fprintf(stderr, "*** Warning: Dual Time-stepping required for unsteady Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "             Turning on Dual Time-stepping.\n");
+      ts.dualtimestepping = TsData::ON;
     }
-  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
+  } // END of if (problem.prec == ProblemData::PRECONDITIONED && ...
 
   if (schemes.ns.flux != SchemeData::ROE)
   {
@@ -4118,6 +4139,7 @@ void IoData::resetInputValues()
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
+    if (problem.prec != ProblemData::PRECONDITIONED)
     // The overwriting is silent because ffjacobian is a "slave" flag.
     ts.implicit.ffjacobian = ImplicitData::EXACT;
   }
@@ -4525,6 +4547,24 @@ int IoData::checkInputValuesAllInitialConditions(){
        it!=mf.multiInitialConditions.prismMap.dataMap.end();
        it++)
     usedModels.insert(it->second->fluidModelID);
+ 
+  if (!input.oneDimensionalInput.dataMap.empty()) {
+    if (input.oneDimensionalInput.dataMap.size() > 1) 
+      std::cout << "Warning: having more than one 1D->3D remap has not been considered" << std::endl;
+
+    for (map<int, OneDimensionalInputData *>::iterator it=input.oneDimensionalInput.dataMap.begin();
+         it != input.oneDimensionalInput.dataMap.end(); it++) {
+
+      for (map<int,FluidRemapData*>::iterator it2 = (it->second)->fluidRemap.dataMap.begin();
+           it2 != (it->second)->fluidRemap.dataMap.end(); it2++) {
+
+        if (it2->second->newID > 0)
+          usedModels.insert(it2->second->newID);
+      }
+    }      
+ 
+    embed.nLevelset++;
+  }
 
   int nModels = usedModels.size();
   if (nModels > 0) {
@@ -4817,8 +4857,11 @@ int IoData::checkInputValuesNonDimensional()
     if (bc.inlet.pressure < 0.0)
       if (eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
           eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
-        if(ref.mach>0.0)
-          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+        if(ref.mach>0.0) {
+//          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+          bc.inlet.pressure = bc.inlet.density / (gamma * ref.mach * ref.mach * (1.0 + eqs.fluidModel.gasModel.pressureConstant));
+          eqs.fluidModel.gasModel.pressureConstant *= bc.inlet.pressure;
+        }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
       else if (eqs.fluidModel.fluid == FluidModelData::JWL)
@@ -5691,7 +5734,10 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   
   LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
   // Set the initial energy of the Tait EOS appropriately
-  IC.temperature = programmedBurn.e0 / liq.specificHeat;//programmedBurn.cjEnergy / liq.Cv;
+  if (liq.burnable == LiquidModelData::YES)
+    IC.temperature = programmedBurn.e0 / liq.specificHeat;//programmedBurn.cjEnergy / liq.Cv;
+  else
+    IC.temperature = (programmedBurn.e0 + IC.pressure/IC.density) / liq.specificHeat;
   //IC.temperature = programmedBurn.cjEnergy / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
   //std::cout << "T = " << IC.temperature << std::endl;
   return error;

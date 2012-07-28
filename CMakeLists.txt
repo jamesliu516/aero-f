@@ -188,6 +188,7 @@ ADD_LIBRARY(FluidBase
              PostFcn.C 
              ProgrammedBurnCore.C
              RefVal.C 
+             ReinitializeDistanceToWall.C
              SmagorinskyLESTerm.C 
              WaleLESTerm.C 
              DynamicLESTerm.C 
@@ -443,6 +444,7 @@ f77src/eriemann_gw.f
 f77src/eriemann_ww.f
 f77src/g_boundflux5.f
 f77src/genbcfluxgas.f
+f77src/genbcfluxgas_INT.f
 f77src/genbcfluxtait.f
 f77src/genbcfluxjwl.f
 f77src/g_roeflux5.f
@@ -458,6 +460,7 @@ f77src/printmask.f
 f77src/roeflux5.f
 f77src/roeflux5prim.f
 f77src/roeflux5waterdissprec.f
+f77src/roeflux5waterdissprec_burnable.f
 f77src/roeflux6.f
 f77src/roejac2.f
 f77src/roejac2water.f

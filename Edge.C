@@ -1635,7 +1635,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 template<int dim, int dimLS>
 void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                       ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
-                                      SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+                                      SVec<double,dim>& V, Vec<int>& fluidId, NodalGrad<dim>& ngrad,
                                       NodalGrad<dimLS> &ngradLS,
                                       EdgeGrad<dim>* egrad, SVec<double,dimLS>& Phi, SVec<double,dimLS>& PhiF,
                                       LevelSetStructure *LSS)
@@ -1685,13 +1685,20 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     }
 
     if(!iCovered && !jCovered) { //the usual linear reconstruction
-      if(intersect) 
+      if(intersect) {
         for(k=0; k<dim; k++) {
           Vi[k] = V[i][k];
           Vj[k] = V[j][k];
         }
-      else recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-      recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
+        for(k=0; k<dimLS; k++) {
+          Pi[k] = Phi[i][k];
+          Pj[k] = Phi[j][k];    
+        }
+      }
+      else {
+        recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+        recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
+      }
     } else { //const reconstruction
       for(k=0; k<dim; k++) {
         Vi[k] = V[i][k];
@@ -1714,7 +1721,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 */
 
     // roe flux
-    if(!iCovered && !jCovered)
+    if(!iCovered && !jCovered && !intersect)
       for (k=0; k<dimLS; k++){
 
         // Original
@@ -1739,12 +1746,20 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
       }
     else {
       if(!iCovered) {
+        double sign = -1.0;
+        if (fluidId[i] != 0)
+          sign = 1.0;
+
         for(k=0; k<dimLS; k++)
-          PhiF[i][k] += 0.5*Uni*Pi[k];
+          PhiF[i][k] += 0.5*Uni* Pi[k];//*/sign;
       }
       if(!jCovered) {
+        double sign = -1.0;
+        if (fluidId[j] != 0)
+          sign = 1.0;
+
         for(k=0; k<dimLS; k++)
-          PhiF[j][k] -= 0.5*Unj*Pj[k];
+          PhiF[j][k] -= 0.5*Unj* Pj[k];//*/ sign;
       }    
     }
   }
@@ -2866,14 +2881,14 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
         if (masterFlag[l]) {
 	  Scalar* Aii = A.getElem_ii(i);
           for(k=0; k<dimLS; k++)
-            Aii[k*dimLS+k] += 0.5*Uni;
+            Aii[k*dimLS+k] += 0.0;//0.5*Uni;
         }
       }
       if(!jCovered) {
         if (masterFlag[l]) {
 	  Scalar* Ajj = A.getElem_ii(j);
           for(k=0; k<dimLS; k++)
-            Ajj[k*dimLS+k] -= 0.5*Unj;
+            Ajj[k*dimLS+k] -= 0.0;//0.5*Unj;
         }
       }    
     }

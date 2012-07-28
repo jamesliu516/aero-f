@@ -627,6 +627,8 @@ template <int dimp,int dimLS>
   void resultsOutput(double time, int iteration);
   void restartOutput(double time, int iteration);
 
+  void output2DVTK();
+
 public:
   OneDimensional(int, double*, IoData &ioData, Domain *domain);
   ~OneDimensional();

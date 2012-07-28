@@ -16,7 +16,7 @@ template<int dim>
 class ExplicitTsDesc : public TsDesc<dim> {
 
 private:
-  LiquidModelData::Check check;
+  LiquidModelData::YesNo check;
   DistSVec<double,dim> U0;
   DistSVec<double,dim> k1;
   DistSVec<double,dim> k2;

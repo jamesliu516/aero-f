@@ -163,6 +163,8 @@ public:
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
+
+  void computeDistanceToWall(IoData &ioData);
 };
 
 //------------------------------------------------------------------------------

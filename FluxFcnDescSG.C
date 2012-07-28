@@ -57,6 +57,8 @@ extern "C" {
 			  double*, double*, double*);
   void F77NAME(genbcfluxgas)(const int&, const double &, const double&, double*, 
 			     const double&, double*, double*, double*);
+  void F77NAME(genbcfluxgas_int)(const int&, const double &, const double&, double*, 
+			         const double&, double*, double*, double*);
   void F77NAME(hlleflux)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
@@ -776,8 +778,11 @@ void FluxFcnSGGhidagliaEuler3D::compute(double length, double irey, double *norm
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
 
-  F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+  //F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
 
+  // New routine from Karthik.
+  F77NAME(genbcfluxgas_int)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+  
 }
 
 //------------------------------------------------------------------------------

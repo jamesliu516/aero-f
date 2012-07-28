@@ -960,21 +960,29 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         double dx[3] = {Xj-Xi, 0.0, 0.0};
         int iteration = 0;
         double fluxi[dim], fluxj[dim];
-
+        
 	memcpy(Vir, Vi, sizeof(double)*dim);
 	memcpy(Vjr, Vj, sizeof(double)*dim);
-	
-        if (programmedBurn && fidj == 1) {
+        	
+/*        if (programmedBurn && fidj == 1) {
 
           for (int k = 0; k < dim; ++k) {
             Vir[k] = Vi_ptr[k] + Vsi[k]*0.5;
             Vjr[k] = Vj_ptr[k] - Vsj[k]*0.5;
           }
         }
-
+*/
         riemann->computeRiemannSolution(Vir,Vjr,fidi,fidj,gradphi,varFcn,
 					Wir,Wjr,i,j,i,dx,false);
+/*
+        if (fidi == 2) {
 
+          std::cout << Vir[0]*refVal.density << " " << Vir[1]*refVal.velocity << " " << Vir[4]*refVal.pressure << std::endl;
+          std::cout << Wir[0]*refVal.density << " " << Wir[1]*refVal.velocity << " " << Wir[4]*refVal.pressure << std::endl;
+          std::cout << Vjr[0]*refVal.density << " " << Vjr[1]*refVal.velocity << " " << Vjr[4]*refVal.temperature << std::endl;
+          std::cout << Wjr[0]*refVal.density << " " << Wjr[1]*refVal.velocity << " " << Wjr[4]*refVal.temperature << std::endl;
+        }
+*/
 	memcpy(Wi, Wir, sizeof(double)*dim);
 	memcpy(Wj, Wjr, sizeof(double)*dim);
       
@@ -1112,11 +1120,11 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   // flux at left (for cartesian) - use of non-reflecting BC
   // flux at center (for cylindrical and spherical) - use of wall=symmetry
   normal[0] = ctrlSurf[0][0];
-  if(coordType == OneDimensionalInfo::CARTESIAN)
-    fluxFcn[2]->compute(0.0, 0.0, normal, normalVel, V[0], BC[0], flux, fluidId[0]);
-  else if(coordType == OneDimensionalInfo::CYLINDRICAL)
+  //if(coordType == OneDimensionalInfo::CARTESIAN)
+  //   fluxFcn[2]->compute(0.0, 0.0, normal, normalVel, V[0], BC[0], flux, fluidId[0]);
+  /*else*/ if(coordType == OneDimensionalInfo::CYLINDRICAL)
     fluxFcn[1]->compute(0.0, 0.0, normal, normalVel, V[0], dummy, flux, fluidId[0]);
-  else if(coordType == OneDimensionalInfo::SPHERICAL)
+  else if(coordType == OneDimensionalInfo::SPHERICAL || coordType == OneDimensionalInfo::CARTESIAN)
     fluxFcn[1]->compute(0.0, 0.0, normal, normalVel, V[0], dummy, flux, fluidId[0]);
 
   //std::cout << "fnew = " << flux[0] << " " << flux[1] << " " << flux[2] << " " << flux[3] << " " << flux[4] << std::endl;
@@ -1342,6 +1350,8 @@ void OneDimensional::resultsOutput(double time, int iteration){
   int i;
 
   varFcn->conservativeToPrimitive(U,V,&fluidId);
+
+  //output2DVTK();
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     if (scalars[i]) {
@@ -1741,7 +1751,7 @@ void OneDimensional::outputProbes(double time,int iteration) {
   for (i=0; i<PostFcn::VSIZE; ++i) {
     if (nodal_vectors[i]) {
       FILE* out = fopen(nodal_vectors[i],mode); 
-      fprintf(out,"%lf ",time*refVal.time);
+      fprintf(out,"%e ",time*refVal.time);
       for (j = 0; j < nodal_output.numNodes; ++j) {
         if (nodal_output.locations[i].v[0] >= 0.0) {
           switch ((PostFcn::VectorType)i) {
@@ -1754,7 +1764,7 @@ void OneDimensional::outputProbes(double time,int iteration) {
           switch ((PostFcn::VectorType)i) {
 
             case PostFcn::VELOCITY:
-              fprintf(out,"%e ", V[nodal_output.ids[j]][1]*nodal_output.alpha[j]*refVal.velocity);
+              fprintf(out,"%e ", V[nodal_output.ids[j]][1]*refVal.velocity);
               break;
           }
         }
@@ -1764,4 +1774,71 @@ void OneDimensional::outputProbes(double time,int iteration) {
     }
   }
 
+}
+
+void OneDimensional::output2DVTK() {
+
+  static int cnt = 0;
+
+  int N = numPoints*2-1;
+
+  N/=2;
+ 
+  double x1 = -X[numPoints-2][0];
+  double x2 = X[numPoints-2][0];
+  
+  double y1 = -X[numPoints-2][0];
+  double y2 = X[numPoints-2][0];
+
+  char fname[256];
+  sprintf(fname,"pressure2d%d.vti",cnt++);
+  std::ofstream out(fname);
+
+  double x0 = 0.5*(x1+x2);
+  double y0 = 0.5*(y1+y2);
+
+  double dx = (x2-x1) / (N-1);
+  double dy = (y2-y1) / (N-1);
+
+  // Write out in VTK rectilinear grid format 
+  out << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">" << std::endl;
+
+  out << "<ImageData WholeExtent=\"" << 0 << " " << N-1 << " " << 0 << " " << N-1 << " 0 0\"" << std::endl;
+
+  out << "\tOrigin=\"" << x0 << " " << y0 << " 0.0 \" Spacing = \"" <<
+	dx << " " << dy << " 0.0\">" << std::endl;
+
+  out << "<Piece Extent=\"" << 0 << " " << N-1 << " " << 0 << " " << N-1 << " 0 0\">" << std::endl;
+
+  out << "<PointData Scalars = \"" << "pressure" << "\">" << std::endl;
+  
+  out << "<DataArray type = \"Float64\" Name = \"" << "pressure" << "\" NumberOfComponents=\"1\"" << std::endl;
+  out << "format=\"ascii\">" << std::endl;
+
+  for (int j = 0; j < N; ++j) {
+    for (int i = 0; i < N; ++i) {
+      double r = sqrt(pow(x1+(double)i*dx,2.0)+pow(y1+(double)j*dx,2.0)); 
+      int id = numPoints-2;
+      double alpha = 0.0;
+      for (int k = 0; k < numPoints-2; ++k) {
+        if (X[k][0] > r) {
+          id = k-1;
+          alpha = -(r-X[k][0])/(X[k][0]-X[k-1][0]);
+          break;
+        }
+      }
+      double p = (varFcn->getPressure(V[id],fluidId[id])*alpha +
+                  varFcn->getPressure(V[id+1],fluidId[id+1])*(1.0-alpha))*refVal.pressure;
+      out << p << " ";
+    }
+  }
+  
+  out << "\n</DataArray>\n</PointData>\n</Piece>\n";
+
+  out << "</ImageData>" << std::endl;
+
+  out << "</VTKFile>" << std::endl;
+
+  out.close();
+  
 }
