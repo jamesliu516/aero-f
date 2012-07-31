@@ -165,7 +165,7 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag,fluidId);
   else if(type == PHILEVEL)
     //q = static_cast<double>(fluidId);
-    q = phi[0];///varFcn->getDensity(V, fluidId);
+    q = phi[0]/varFcn->getDensity(V, fluidId);
   else if (type == FLUIDID)
     q = static_cast<double>(fluidId);
  // Included (MB)
