@@ -5594,9 +5594,9 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
       if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
         // check if node i HAD a neighbour with a different levelset sign
         if(weight[i] <= 0.0){
-          //fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
-          //                " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
-          //               globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
+//          fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
+//                          " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
+//                         globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
           Phi[i][j] = Phin[i][j];
         }
       }
@@ -6230,7 +6230,7 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     bool occluded = LSS.isOccluded(0.0,i);
 
     //DEBUG
-/*    int myNode = 829527;
+/*    int myNode = 1033424;
     if(locToGlobNodeMap[i]+1==myNode){
       fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", myNode, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][0], poll[i][0], poll[i][1], poll[i][2]);
       for(int j=0; j<Node2Node.num(i); j++) { 
@@ -6401,7 +6401,7 @@ void SubDomain::debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &Ph
   }
 
 /*
-  int debugNode1 = 202747, debugNode2 = 202765;
+  int debugNode1 = 1033424, debugNode2 = -1;
   for(int i=0; i<nodes.size(); i++)
     if(locToGlobNodeMap[i]+1==debugNode1 || locToGlobNodeMap[i]+1==debugNode2) {
       fprintf(stderr,"%d: Node %d: Id = %d, PhiV = %e, occluded(%d), swept(%d), d2wall(%e), U(%e,%e,%e,%e,%e).\n",
