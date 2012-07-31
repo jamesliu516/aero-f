@@ -135,7 +135,7 @@ DynamicNodalTransfer::getNewCracking()
 
   if(numConnUpdate) { //update "windows".
     int N = structure.nNodes;
-    if((N*2*3*sizeof(double) == winDisp->size())) {com.fprintf(stderr,"WEIRD!\n");exit(-1);}
+//    if((N*2*3*sizeof(double) == winDisp->size())) {com.fprintf(stderr,"WEIRD!\n");exit(-1);}
 
     delete winDisp;
     winDisp = new Communication::Window<double> (com, 2*3*N*sizeof(double), (double *)XandUdot);
@@ -864,7 +864,7 @@ EmbeddedStructure::getNewCracking(int numConnUpdate, int numLSUpdate, int newNod
   int phantElems[5*numConnUpdate]; // elem.id and node id.
   double phi[4*numLSUpdate];
   int phiIndex[numLSUpdate];
-  int new2old[newNodes*2];
+  int new2old[std::max(1,newNodes*2)]; //in the case of Element Deletion, newNodes might be 0
  
   structExc->getNewCracking(numConnUpdate, numLSUpdate, phantElems, phi, phiIndex, new2old, newNodes); 
 
@@ -874,7 +874,7 @@ EmbeddedStructure::getNewCracking(int numConnUpdate, int numLSUpdate, int newNod
   if(nElems!=cracking->usedTrias()) {
     com.fprintf(stderr,"ERROR: inconsistency in the number of used triangles. (Software bug.)\n");exit(-1);}
 
-  if(com.cpuNum()==0)
+  if(com.cpuNum()==0 && newNodes)
     structExc->updateNumStrNodes(nNodes); //set numStrNodes to nNodes in structExc and mns
 }
 

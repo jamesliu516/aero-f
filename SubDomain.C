@@ -113,7 +113,7 @@ inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n", 
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double or22 = 1.0 / R[3];
@@ -5100,7 +5100,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 {
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if(init[currentNode]<1 && LSS.isActive(0.0,currentNode)){
+    if(init[currentNode]<1.0 && !LSS.isOccluded(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
@@ -5826,9 +5826,9 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
       if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
         // check if node i HAD a neighbour with a different levelset sign
         if(weight[i] <= 0.0){
-          //fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
-          //                " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
-          //               globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
+//          fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
+//                          " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
+//                         globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
           Phi[i][j] = Phin[i][j];
         }
       }
@@ -6462,21 +6462,23 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     bool occluded = LSS.isOccluded(0.0,i);
 
     //DEBUG
-/*    int myNode = 300363;
+/*    int myNode = 1033424;
     if(locToGlobNodeMap[i]+1==myNode){
       fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", myNode, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][0], poll[i][0], poll[i][1], poll[i][2]);
       for(int j=0; j<Node2Node.num(i); j++) { 
         if(Node2Node[i][j]==i) continue;
         fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
                           locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
-                          LSS.edgeIntersectsStructure(0.0,i,Node2Node[i][j]), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][0]); 
+                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][0]); 
       }
 
     }
 */
+
     if(!swept) {//nothing to be done
       if(!poll[i][fluidId[i]]) fprintf(stderr,"TOO BAD!\n");
-      continue;
+      if(occluded || fluidId[i]!=2) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+        continue;
     }
 
     if(occluded) { // Rule No.1
@@ -6631,7 +6633,7 @@ void SubDomain::debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &Ph
   }
 
 /*
-  int debugNode1 = 202747, debugNode2 = 202765;
+  int debugNode1 = 1033424, debugNode2 = -1;
   for(int i=0; i<nodes.size(); i++)
     if(locToGlobNodeMap[i]+1==debugNode1 || locToGlobNodeMap[i]+1==debugNode2) {
       fprintf(stderr,"%d: Node %d: Id = %d, PhiV = %e, occluded(%d), swept(%d), d2wall(%e), U(%e,%e,%e,%e,%e).\n",
