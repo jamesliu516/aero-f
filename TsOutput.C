@@ -510,6 +510,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpConservationErr = 0;
   fpGnForces  = 0;
   fpError = 0;
+  fpEmbeddedSurface = 0;
+  fpCpuTiming = 0;
 
   int nSurf = postOp->getNumSurf();
   int nSurfHF = postOp->getNumSurfHF();
