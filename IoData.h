@@ -1959,6 +1959,10 @@ struct EmbeddedFramework {
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
+  enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
+  enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
+  double alpha;		// In the case of solve Riemann problem at intersection, this parameter
+  					// controls whether to switch to a first order method to avoid divided-by-zero
 
   MultiInitialConditionsData embedIC;
   

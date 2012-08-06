@@ -711,6 +711,26 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+// least square gradient involving only nodes of fluid (FSI)
+// Wstar is involved in gradient computation
+template<int dim, class Scalar>
+template<class Scalar2>
+void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
+                                 DistVec<double> &ctrlVol, DistVec<int> &fluidId,
+                                 DistSVec<Scalar2, dim> &V, 
+								 DistSVec<Scalar2, dim> &Wstarij, DistSVec<Scalar2, dim> &Wstarji, 
+								 DistVec<int> &countWstarij, DistVec<int> &countWstarji,
+								 bool linFSI, DistLevelSetStructure *distLSS)
+{
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
+
+  domain->computeWeightsLeastSquares(X, fluidId, *R, countWstarij, countWstarji, distLSS);
+  domain->computeGradientsLeastSquares(X, fluidId, *R, V, Wstarij, Wstarji, 
+		  countWstarij, countWstarji, *ddx, *ddy, *ddz, linFSI, distLSS);
+
+}
+
+//------------------------------------------------------------------------------
 template<int dim, class Scalar>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 				         DistSVec<double,dim> &Psi)
