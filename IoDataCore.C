@@ -3581,6 +3581,9 @@ EmbeddedFramework::EmbeddedFramework() {
   eosChange = NODAL_STATE;
   forceAlg = RECONSTRUCTED_SURFACE;
   riemannNormal = STRUCTURE;
+  phaseChangeAlg = AVERAGE;
+  interfaceAlg = MID_EDGE;
+  alpha = 0.1;
 
   nLevelset = 0;
 
@@ -3596,7 +3599,7 @@ EmbeddedFramework::EmbeddedFramework() {
 
 void EmbeddedFramework::setup(const char *name) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 10, 0); //father);
+  ClassAssigner *ca = new ClassAssigner(name, 13, 0); //father);
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
                                       "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
@@ -3607,8 +3610,11 @@ void EmbeddedFramework::setup(const char *name) {
                                       "Reconstructed", 0, "ControlVolumeFace", 1);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
+  new ClassToken<EmbeddedFramework> (ca, "PhaseChangeAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2, "Average", 0, "LeastSquares", 1);
+  new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2, "MidEdge", 0, "Intersection", 1);
   embedIC.setup("InitialConditions", ca); 
 
+  new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
 
   //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,

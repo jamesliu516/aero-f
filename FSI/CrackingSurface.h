@@ -52,6 +52,7 @@ class CrackingSurface : public LocalLevelSet {
   int (*tria2quad)[2]; //size: nTotalTrias
   int (*quad2tria)[2]; //size: nTotalQuads
   bool *cracked; //size: nTotalQuads
+  bool *deleted; //size: nTotalQuads, in the case of Element Deletion, a "cracked" element is "deleted".
    
 public:
   CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, int nTotNodes);
@@ -65,6 +66,7 @@ public:
   int numCrackedElements() {return phantoms.size();}
   bool hasCracked(int trId);
   double getPhi(int trId, double xi1, double xi2, bool* hasCracked=0, bool debug=false);
+  bool purelyPhantom(int trId);
   bool getNewCrackingFlag() const {return gotNewCracking;}
   void setNewCrackingFlag(bool flag) {gotNewCracking = flag;}
 

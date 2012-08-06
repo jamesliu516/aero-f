@@ -321,6 +321,8 @@ computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,ARRAY<bool>& sw
     for(int i=1;i<=node_positions.Size();++i){
         const ARRAY<int>& candidates(sub.candidates(i));
         for(int t=1;t<=candidates.Size() && !swept_node(i);++t){
+            if(surface_levelset && surface_levelset->purelyPhantom(sub.scope(candidates(t))-1)) //this element is deleted/purely Phantom
+              continue;
             const TRIANGLE_3D<T> initial_simplex(saved_state.y->X.Subset(sub.scoped_triangle_mesh->elements(candidates(t))));
             const TRIANGLE_3D<T>& terminal_simplex(sub.triangle_list(candidates(t)));
             swept_node(i) = (POINT_SIMPLEX_NO_COLLISION != CONTINUOUS_COLLISION_DETECTION_COMPUTATIONS::Robust_Point_Triangle_Collision(initial_simplex,terminal_simplex,
