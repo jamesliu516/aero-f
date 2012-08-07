@@ -185,7 +185,7 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &nor
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -219,7 +219,7 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
 
     // Low-Mach Preconditioner
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
     double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -284,9 +284,9 @@ void Face::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
     //double locMach = fabs(un/a); //local Preconditioning (ARL)
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     double dLocMach = varFcn->computeDerivativeOfMachNumber(V[ nodeNum(l) ], dV[ nodeNum(l) ], dMach);
-    double dbeta = tprec.getdBeta(locMach,dLocMach);
+    double dbeta = tprec.getdBeta(locMach,dLocMach,true);
 
     double beta2 = locbeta * locbeta;
     double dbeta2 = 2.0 * locbeta * dbeta;
