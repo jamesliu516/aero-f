@@ -23,8 +23,6 @@
 using std::min;
 #endif
 
-extern double CurrentDt;
-
 //------------------------------------------------------------------------------
 
 template<class NodeMap>
@@ -417,11 +415,12 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
   bool cracking = LSS ? LSS->withCracking() : false;
   bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
     
+  const int dim0 = 5;
   if(farfield) {
-    flux = new double [dim+5];
+    flux = new double [2*dim0+6];
     for(int j=0; j<3; j++)
-      flux[dim+j] = faceCenter[j];
-    flux[dim+4] = CurrentDt;
+      flux[2*dim0+j] = faceCenter[j];
+    flux[2*dim0+5] = hhcoeffs.currentDt;
   } else
     flux = new double [dim];
 
@@ -434,8 +433,12 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
       if (!higherOrderMF || !higherOrderMF->isCellCut(nodeNum(l))) {
 
-        if(farfield) 
-          flux[dim+3] = s_ff[l];
+        if(farfield) {
+          flux[2*dim0+3] = hhcoeffs.s1[l];
+          flux[2*dim0+4] = hhcoeffs.s0[l];
+//          fprintf(stderr,"face: %e %e %e | %e %e | %e.\n", flux[2*dim0], flux[2*dim0+1], flux[2*dim0+2], flux[2*dim0+3], 
+//                  flux[2*dim0+4], flux[2*dim0+5]);
+        }
 
 	fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			       V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
@@ -443,7 +446,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 	  fluxes[ nodeNum(l) ][k] += flux[k];
 
         if(farfield) 
-          s_ff[l] = flux[dim+3];
+          hhcoeffs.s1[l] = flux[2*dim0+3];
       }
     }
   }
@@ -808,6 +811,7 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
   for (int i=0; i<numFaces; ++i)  {
     faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluidId, fluxes, LSS);
   }
+
 }
 
 //------------------------------------------------------------------------------

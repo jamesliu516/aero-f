@@ -84,6 +84,12 @@ class FaceTria;
 
 
 //-------------- GENERAL HELPERS -----------------------------------------------
+
+struct HHCoeffs {
+  double s0[3], s1[3];  //each face is split into three facets. 
+  double currentDt;
+};
+
 class GenFaceHelper_dim {
 public:
   virtual  void *forClassTria(FaceTria *, int size, char *memorySpace) = 0;
@@ -377,7 +383,7 @@ protected:
 
   //for farfield flux
   Vec3D faceCenter;
-  double s_ff[3];
+  HHCoeffs hhcoeffs;
 
   class HigherOrderMultiFluid* higherOrderMF;
 
@@ -389,6 +395,10 @@ protected:
 public:
 
   void attachHigherOrderMF(class HigherOrderMultiFluid* mf) { higherOrderMF = mf; }
+  void updateHHCoeffs(double dt) {
+    for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i];
+    hhcoeffs.currentDt = dt;}
+  void initializeHHCoeffs(double cc) {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i] = cc;}
 
   // Number of nodes
   virtual int numNodes() = 0;
@@ -1076,13 +1086,17 @@ public:
 			      Vec<double> &, Vec<double> &, double, 
                               TimeLowMachPrec &);
 
-	void computeConnectedFaces(const std::vector<int> &);
-	std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
+  void computeConnectedFaces(const std::vector<int> &);
+  std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
 
-	int getNumSampledFaces() {return numSampledFaces;}
+  int getNumSampledFaces() {return numSampledFaces;}
 
-	void attachHigherOrderMF(class HigherOrderMultiFluid*);
+  void attachHigherOrderMF(class HigherOrderMultiFluid*);
 
+  void updateHHCoeffs(double dt) {
+    for(int i=0; i<numFaces; i++) 
+      faces[i]->updateHHCoeffs(dt);}
+  void initializeHHCoeffs(double cc) {for(int i=0; i<numFaces; i++) faces[i]->initializeHHCoeffs(cc);}
 };
 
 //------------------------------------------------------------------------------

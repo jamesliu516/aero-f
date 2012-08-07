@@ -289,6 +289,8 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     hth->setup(&restart->frequency, &data->maxTime);
 
   *Xs = *X;
+
+  initializeFarfieldCoeffs();
 }
 
 //------------------------------------------------------------------------------
@@ -898,3 +900,36 @@ void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
   output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
 
 }
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::updateFarfieldCoeffs(double dt)
+{
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->updateFarfieldCoeffs(dt);
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::initializeFarfieldCoeffs()
+{
+  double *Vin = bcData->getInletPrimitiveState();
+  double soundspeed = varFcn->computeSoundSpeed(Vin);
+  double gamma = varFcn->getGamma();
+  double HH_init = -2.0*soundspeed/(gamma - 1.0);
+  //fprintf(stderr,"HH_init is set to %e.\n", HH_init);
+
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->initializeFarfieldCoeffs(HH_init);
+}
+

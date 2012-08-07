@@ -114,6 +114,8 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
  
   *this->Xs = *this->X;
 
+  this->initializeFarfieldCoeffs();
+
   this->timer->setSetupTime();
 }
 
