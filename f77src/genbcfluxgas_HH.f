@@ -2,7 +2,7 @@
      &     U,Uinf,phi,xface,snew,sold,dt)
 c-----------------------------------------------------------------------
 c This routine computes the Flux at the boundary using
-c left and right eigenvectors. See Ghidaglia
+c left and right eigenvectors. See Ghidaglia & Hagstorm,Hariharan
 c U and Vinf are values of primitive variables at node and infinity
 c normal is the normal of the boundary concerned by the flux.
 c phi stores the resulting flux.
@@ -10,7 +10,7 @@ c gamma is the dissipation coefficient
 c gam is the ratio of cp/cv
 c No Low Mach preconditioner is applied so far
 
-c Modified 07/03/2012 by karthik <dkarthik@stanford.edu>
+c Last Modified 07/18/2012 by karthik <dkarthik@stanford.edu>
 c Notes:
 c      1. Eigensystem (based on interior)
 c      2. Assumes outflow BC (Hagstorm, Hariharan)
@@ -38,14 +38,13 @@ c-----------------------------------------------------------------------
       REAL*8 flux(5), fluxinf(5)
       REAL*8 c, c2, q
       REAL*8 Rplus, Entropy, radius, cinf, Rinf, vbar, cbar
-      REAL*8 xface(3), snew, sold, dt
+      REAL*8 xface(3), snew, sold, dt, rnx, rny, rnz
+      REAL*8 kt,ku,dSdt1,dSdt2,dSdt3
 
 c
 c Initialisation
 c
-
       gam1 = gam - 1.d0      
-      radius = xface(1)*xface(1)+xface(2)*xface(2)+xface(3)*xface(3) ! Assuming center is at 0,0,0
 
       rnorm = DSQRT(enormal(1)*enormal(1) + enormal(2)*enormal(2) + 
      &             enormal(3)*enormal(3))
@@ -82,26 +81,77 @@ c Again, a few useful values
       c2  = 1.d0/c2
       q   = 0.5d0*vit2
 
+!================ Start Hagstorm & Hariharan BC =====================
+
 c Compute Riemann Invariants and use them to infer truncated boundary conditions
+      radius = DSQRT(xface(1)*xface(1)+xface(2)*xface(2)
+     & +xface(3)*xface(3)) ! Assuming center is at 0,0,0 
+
+      ! Choose the direction for 1D analysis. It makes more sense to use 
+      ! radius vector rather than face normal and this fact is 
+      ! confirmed by results
+      rnx = xface(1)/radius
+      rny = xface(2)/radius
+      rnz = xface(3)/radius
+
+      !rnx = normal(1)
+      !rny = normal(2)
+      !rnz = normal(3)
+ 
+
+      !if(U(2)*rnx+U(3)*rny+U(4)*rnz-c.ge.0) then
+      !Snew    =    U(2)*rnx   +U(3)*rny+   U(4)*rnz - 2*c/gam1
+
+      !else
+
       cinf     = sqrt(gam*(Vinf(5)+pstiff)/Vinf(1))
-      Rplus    = VdotN    + 2*c/gam1
-      Rinf     = VdotNinf + 2*cinf/gam1
+      Rplus    =    U(2)*rnx   +U(3)*rny+   U(4)*rnz + 2*c/gam1
+      Rinf     = Vinf(2)*rnx+Vinf(3)*rny+Vinf(4)*rnz + 2*cinf/gam1
       Entropy  = (U(5)+pstiff)/U(1)**gam
-      Snew     = Sold + dt*cinf*(Rplus-Rinf)/(2.*radius)
-      
+
+      !Tuning is not required, so these lines can be ignored
+      !kt       = 1.0
+      !ku       = 1.0
+      dSdt1    = cinf*(Rplus-Rinf)/(2.*radius)
+      dSdt2    = (U(2)*rnx   +U(3)*rny+   U(4)*rnz)*cinf/radius
+      dSdt3    = 2*(c-cinf)*cinf/(radius*gam1)
+
+!COMMENTED OUT BY KW
+!     if(abs(sold).le.1.e-7) sold=-2.*cinf/gam1
+
+      Snew     = Sold + dt*dSdt3
       vbar = 0.5*(Rplus+Snew)
       cbar = 0.25*gam1*(Rplus-Snew)
-      Vinf(1) = (cbar*cbar/(Entropy/gam))**1./gam1
-      Vinf(5) = 1.0 
-c      Vinf(5) = Entropy*rhobar**gam - pstiff
-c KW: HAD TO COMMENT THIS IN ORDER TO COMPILE ...
-      Vinf(2) = vbar*normal(1)
-      Vinf(3) = vbar*normal(2)
-      Vinf(4) = vbar*normal(3)
+
+      !if(xface(2).gt.20.and.abs(c-cinf).gt.1.e-6) then
+       if(abs(xface(1)-1.20335056676986).le.1.e-6.and.
+     <	  abs(xface(2)-20.3196242693497).le.1.e-6.and.
+     <    abs(xface(3)-23.4989073713820).le.1.e-6) then
+       print*,xface(1),xface(2),xface(3)
+       print*,U(2)*rnx+U(3)*rny+U(4)*rnz,rnx*normal(1)
+     < +rny*normal(2)+rnz*normal(3)
+       print*,dsdt1,dsdt2,dsdt3
+       print*,c,cinf,cbar
+       print*,Rplus,Snew,Sold
+       print*,Vinf(1),(cbar*cbar/(Entropy*gam))**(1./gam1) 
+       print*,'=========================='
+      endif
+
+!     Trick Ghidaglia into thinking projected solution is the Infinity condition 
+!     In practice, this may not be required and phi=F(Vinf) may be sufficient
+
+      Vinf(1) = (cbar*cbar/(Entropy*gam))**(1./gam1)
+      Vinf(5) = Entropy*Vinf(1)**gam - pstiff
+      Vinf(2) = vbar*rnx
+      Vinf(3) = vbar*rny
+      Vinf(4) = vbar*rnz
 
       VdotNinf = Vinf(2)*normal(1)+Vinf(3)*normal(2)+Vinf(4)*normal(3)
       vitinf2  = Vinf(2)**2+Vinf(3)**2+Vinf(4)**2
       enerinf  = 0.5d0*Vinf(1)*vitinf2 + (Vinf(5)+gam*pstiff)/gam1
+
+      !endif
+!================ End Hagstorm & Hariharan BC =====================
 
 c Computation of the physical fluxes
       flux(1) = U(1)*(VdotN-vitno)
@@ -117,9 +167,8 @@ c Computation of the physical fluxes
       fluxinf(5) = (enerinf+Vinf(5))*(VdotNinf-vitno)
      &           + Vinf(5)*vitno
 
-
 c Computation of righteigenvectors using values at Interior
-c formulae found in Hirsh and Arthur's notes (Research/latex/notes/
+c formulae found in Hirsh and Arthurs notes (Research/latex/notes/
 c preconditioning_stiffenedgas.pdf and RoeTurkel_SG_Flux.pdf)
       r1(1) = normal(1)
       r1(2) = U(2)*normal(1)
@@ -255,6 +304,15 @@ c
       phi(4) = phi(4)*rnorm
       phi(5) = phi(5)*rnorm
 
+!     Reset Vinf to original values
+
+      Vinf(1) = Uinf(1)
+      Vinf(2) = Uinf(2)/Uinf(1)
+      Vinf(3) = Uinf(3)/Uinf(1)
+      Vinf(4) = Uinf(4)/Uinf(1)
+      Vinf(5) = gam1*(Uinf(5)-
+     &              0.5d0*(Uinf(2)**2+Uinf(3)**2+Uinf(4)**2)/Uinf(1))
+     &              -gam*pstiff
 
 c
 c For one and two equation turbulence models

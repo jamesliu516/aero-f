@@ -58,8 +58,6 @@ void FaceTria::computeNormalConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot
   Vec3D configFaceNorm = 0.5 * ((x[2] - x[0]) ^ (x[1] - x[0]));
   faceNorm[normNum] += configFaceNorm;
   faceNormVel[normNum] += third * (xdot[0] + xdot[1] + xdot[2]) * configFaceNorm;
-
-  faceCenter = third * (x[0] + x[1] + x[2]);
 }
 
 //------------------------------------------------------------------------------
@@ -86,6 +84,8 @@ void FaceTria::computeNormalGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
 
   faceNormVel[normNum] = third * (xdot[0] + xdot[1] + xdot[2]) * faceNorm[normNum];
 
+  //TODO: for testing only. If the HH farfield flux works, this should be implemented in a better way!
+  faceCenter = third * (x_n[0] + x_n[1] + x_n[2]);
 }
 
 //------------------------------------------------------------------------------

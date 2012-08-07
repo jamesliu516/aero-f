@@ -316,6 +316,8 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     _mmh->setup(tMax); //obtain maxTime from structure
   }
 
+  this->initializeFarfieldCoeffs();
+
   // If 'IncreasePressure' is activated, re-initialize the fluid state
   if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
     increasingPressure = true;

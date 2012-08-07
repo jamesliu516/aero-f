@@ -1240,6 +1240,8 @@ public:
 
   HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
 
+  void updateFarfieldCoeffs(double dt) {faces.updateHHCoeffs(dt);}
+  void initializeFarfieldCoeffs(double cc) {faces.initializeHHCoeffs(cc);}
   
 };
 //------------------------------------------------------------------------------
