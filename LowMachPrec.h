@@ -53,6 +53,7 @@ class LowMachPrec {
 //members
 protected:
   int prec;
+  bool timeac;
   double minMach;
   double maxMach;
   double slope;
@@ -63,18 +64,20 @@ protected:
 protected:
   virtual void defineLowMachPrecType(IoData &iod){
     prec = 0;
+    timeac = false;
+    if(iod.problem.type[ProblemData::UNSTEADY]) timeac = true;
+
     if(iod.problem.prec == ProblemData::PRECONDITIONED){
       prec = 1; //at least spatial preconditioning
       if(iod.ts.prec == TsData::PREC){
-          prec = 2;
-//        if(iod.problem.alltype == ProblemData::_STEADY_ ||
-//           iod.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-//           iod.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-//           iod.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_){
-//          if(iod.ts.type != TsData::IMPLICIT || 
-//             iod.ts.implicit.type == ImplicitData::BACKWARD_EULER)
-//            prec = 2; // time precontioning if asked, steady, explicit or Backward Euler
-//        }
+        prec = 2;
+        if(iod.problem.alltype != ProblemData::_STEADY_ &&
+           iod.problem.alltype != ProblemData::_STEADY_AEROELASTIC_ &&
+           iod.problem.alltype != ProblemData::_STEADY_THERMO_ &&
+           iod.problem.alltype != ProblemData::_STEADY_AEROTHERMOELASTIC_){
+          if(iod.ts.type != TsData::IMPLICIT)
+            prec = 1; // no time precontioning if not steady and while using explicit time integration
+        }
       }
     }
   }
@@ -116,7 +119,7 @@ public:
   virtual double getViscousRatio() const   { return betaviscous;  }
   virtual double getShockParameter() const { return shockreducer; }
 
-  virtual double getBeta(double locMach) const = 0;
+  virtual double getBeta(double locMach,bool checktac = false) const = 0;
 
   
 };
@@ -137,7 +140,7 @@ public:
     else        setupIodConstants(iod);
   }
 
-  double getBeta(double locMach) const 
+  double getBeta(double locMach, bool checktac = false) const 
     {return fmin(fmax(slope*locMach, minMach),maxMach);}
 
 };
@@ -160,15 +163,20 @@ public:
 
   bool timePreconditioner() const { return prec==2; }
 
-  double getBeta(double locMach) const
-    {return fmin(fmax(slope*locMach, minMach),maxMach);}
+//  double getBeta(double locMach) const
+//    {return fmin(fmax(slope*locMach, minMach),maxMach);}
+
+  double getBeta(double locMach, bool checktac = false) const
+    { double outbeta  = fmin(fmax(slope*locMach, minMach),maxMach);
+      if (checktac && timeac) outbeta = 1.0;
+      return outbeta; }
 
   double getBeta(double locMach, double irey) const
     { double outbeta = fmax(slope*locMach, minMach);
       return fmin((1.0+sqrt(irey))*outbeta,maxMach); }
 
-  double getdBeta(double locMach, double dLocMach) const {
-    double locbeta = getBeta(locMach);
+  double getdBeta(double locMach, double dLocMach, bool checktac = false) const {
+    double locbeta = getBeta(locMach,checktac);
     if (locbeta == maxMach)
       return 0.0;
     else
