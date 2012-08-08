@@ -8,68 +8,30 @@
 #include <MvpMatrix.h>
 #include <MultiGridSmoothingMatrix.h>
 #include <SpaceOperator.h>
+#include <MultiGridKernel.h>
 
 class Domain;
 class DistGeoState;
-template<class Scalar,int dim> class DistSVec;
-
-template<class Scalar,int dim> class MultiGridPrecMatVecProd;
-template<class Scalar,int dim,class Scalar2 = double> class MultiGridPrecJacobiPrec;
 
 template<class Scalar, int dim,class Scalar2 = double>
 class MultiGridPrec : public KspPrec<dim, Scalar2>, public DistMat<Scalar2,dim> {
 
-  int nSmooth1,nSmooth2;
-
-  double relaxationFactor;
-
-  const int num_levels, agglom_size, numLocSub;
-  MultiGridLevel<Scalar2> ** multiGridLevels;
-  MultiGridSmoothingMatrix<Scalar2,dim> ***smoothingMatrices;
-
-  DistSVec<Scalar2, dim> ** macroValues, ** macroValuesTmp,**macroValuesOld;
-  DistSVec<Scalar2, dim> ** macroR;
-  DistVec<Scalar2> ** macroIrey;
-  DistSVec<Scalar2, dim> ** macroDX;
-
-  DistMat<Scalar2,dim> ** macroA;
-
-  DistGeoState& geoState;
-
-  KspSolver<DistSVec<Scalar2,dim>, 
-            MultiGridPrecMatVecProd<Scalar2,dim> ,
-            MultiGridPrecJacobiPrec<Scalar2,dim>, Communicator>* coarseSolver;
-
-  MultiGridPrecMatVecProd<Scalar2,dim>* coarseMvp;
-  MultiGridPrecJacobiPrec<Scalar2,dim>* coarsePrec;
-
-  bool ownsFineA;
-
-  Domain* domain;
-
-  int output;
-
-  int fine_sweeps;
-
-  bool initialized;
- 
-  PcData& pcData;
-
-  KspData& coarseSolverData;
-
-  DistGeoState& distGeoState;
-
 public:
 
   MultiGridPrec(Domain *, DistGeoState &, PcData&,
-                KspData&,bool createFineA,int ** = 0, BCApplier* =0);
+                KspData&,IoData&, VarFcn*,bool createFineA,
+                DistTimeState<dim>*,int ** = 0, BCApplier* =0);
   ~MultiGridPrec();
 
   void initialize();
 
-  bool isInitialized() { return initialized; }
+  bool isInitialized(); 
+
+  void setOperators(SpaceOperator<dim>*);
 
   void setup();
+
+  void setup(DistSVec<Scalar2,dim>&);
 
   void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
@@ -78,12 +40,15 @@ public:
                SpaceOperator<dim>& spo,
                DistTimeState<dim>* timeState);*/
 
-  void smooth(int level,DistSVec<Scalar2,dim>& x,
-              const DistSVec<Scalar2,dim>& f,int steps);
-  
-  DistMat<Scalar2,dim> &operator= (const Scalar2 s) { return macroA[0]->operator = (s); }
+  DistMat<Scalar2,dim> &operator= (const Scalar2 s);// { return macroA[0]->operator = (s); }
 
-  GenMat<Scalar2,dim> &operator() (int i) { return macroA[0]->operator()(i); }
+  GenMat<Scalar2,dim> &operator() (int i);// { return macroA[0]->operator()(i); }
+
+ private:
+
+  PcData& pcData;
+
+  MultiGridKernel<Scalar,dim,Scalar2>* mgKernel;
 };
 
 #endif

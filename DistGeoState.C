@@ -153,7 +153,7 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
 //------------------------------------------------------------------------------
 
-DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo)
+DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo,DistInfo& faceNormDistInfo)
 : data(data), domain(dom), Xnm1(0), Xnm2(0), Xdot(0), Xsave(0), edgeNorm_nm1(0), edgeNormVel_nm1(0), edgeNorm_nm2(0), edgeNormVel_nm2(0),
     faceNorm_nm1(0), faceNormVel_nm1(0), faceNorm_nm2(0), faceNormVel_nm2(0), ctrlVol_save(0), Xsa(0), dXsa(0), dEdgeNorm(0), dFaceNorm(0),
     dEdgeNormVel(0), dFaceNormVel(0)
@@ -175,8 +175,8 @@ DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistI
   edgeNorm    = new DistVec<Vec3D>(edgeDistInfo);
   edgeNormVel = new DistVec<double>(edgeDistInfo);
 
-  faceNorm    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
-  faceNormVel = new DistVec<double>(domain->getFaceNormDistInfo());
+  faceNorm    = new DistVec<Vec3D>(faceNormDistInfo);
+  faceNormVel = new DistVec<double>(faceNormDistInfo);
   
   inletNodeNorm = new DistVec<Vec3D>(domain->getInletNodeDistInfo());
   numFaceNeighb = new DistVec<int>(domain->getInletNodeDistInfo());

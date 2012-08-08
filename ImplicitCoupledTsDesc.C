@@ -122,6 +122,7 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
   DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
   DistMat<double,dim> *_pc2 = dynamic_cast<DistMat<double,dim> *>(pc);
+  MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
 
   if (_pc || _pc2) {
 
@@ -135,6 +136,8 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         this->spaceOp->applyBCsToJacobian(Q, *_pc);
       } else {
+        if (!pmg->isInitialized())
+          pmg->initialize();
         this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
         this->timeState->addToJacobian(*this->A, *_pc2, Q);
         this->spaceOp->applyBCsToJacobian(Q, *_pc2);
@@ -143,7 +146,7 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
     else if (mvph1) {
       JacobiPrec<PrecScalar,dim> *jac = dynamic_cast<JacobiPrec<PrecScalar,dim> *>(pc);
       IluPrec<PrecScalar,dim> *ilu = dynamic_cast<IluPrec<PrecScalar,dim> *>(pc);
-      MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
+      //MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
       
       if (jac) 
         jac->getData(*mvph1);
@@ -160,8 +163,11 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
     
   
   double t0 = this->timer->getTime();
-      
-  pc->setup();
+  
+  if (!pmg)    
+    pc->setup();
+  else
+    pmg->setup(Q);
 /*  
   MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
   MatVecProdH1<dim,MatScalar,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,dim> *>(mvp);

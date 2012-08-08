@@ -46,6 +46,8 @@ public:
   TimeData(IoData &);
   ~TimeData() {}
 
+  void copy(TimeData& oth);
+
   void update();
   void computeCoefficients(DistVec<double> &, double);
   void computeVelocities(DGCLData::Velocities, DistSVec<double,3> &,

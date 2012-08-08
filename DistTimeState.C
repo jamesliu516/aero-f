@@ -12,49 +12,63 @@
 #include <OneDimensionalSolver.h>
 using namespace std;
 //------------------------------------------------------------------------------
-
 template<int dim>
 DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFcn *vf,
 				  Domain *dom, DistSVec<double,dim> *v) 
-  : varFcn(vf), domain(dom)
+  : varFcn(vf), domain(dom) {
+
+  initialize(ioData,spo,vf,dom,v,dom->getNodeDistInfo());
+}
+
+template<int dim>
+DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFcn *vf,
+				  Domain *dom, DistInfo& dI,DistSVec<double,dim> *v) 
+  : varFcn(vf), domain(dom) {
+
+  initialize(ioData,spo,vf,dom,v,dI);
+}
+
+template<int dim>
+void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, VarFcn *vf,
+				  Domain *dom, DistSVec<double,dim> *v, DistInfo& dI) 
 {
   locAlloc = true;
 
   if (v) V = v->alias();
-  else V = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  else V = new DistSVec<double,dim>(dI);
 
   numLocSub = domain->getNumLocSub();
 
   data = new TimeData(ioData);  
 
-  dt  = new DistVec<double>(dom->getNodeDistInfo());
-  idti = new DistVec<double>(dom->getNodeDistInfo());
-  idtv = new DistVec<double>(dom->getNodeDistInfo());
-  irey  = new DistVec<double>(dom->getNodeDistInfo());
+  dt  = new DistVec<double>(dI);
+  idti = new DistVec<double>(dI);
+  idtv = new DistVec<double>(dI);
+  irey  = new DistVec<double>(dI);
   viscousCst = ioData.ts.viscousCst;
-  Un  = new DistSVec<double,dim>(domain->getNodeDistInfo());
-  Vn = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  Un  = new DistSVec<double,dim>(dI);
+  Vn = new DistSVec<double,dim>(dI);
 
   if (data->use_nm1)
-    Unm1 = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    Unm1 = new DistSVec<double,dim>(dI);
   else
     Unm1 = Un->alias();
 
   if (data->use_nm2)
-    Unm2 = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    Unm2 = new DistSVec<double,dim>(dI);
   else
     Unm2 = Unm1->alias();
 
   if (ioData.eqs.tc.les.type == LESModelData::DYNAMICVMS) {
-    QBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    VnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    UnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    QBar = new DistSVec<double,dim>(dI);
+    VnBar = new DistSVec<double,dim>(dI);
+    UnBar = new DistSVec<double,dim>(dI);
     if (data->use_nm1)
-      Unm1Bar = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      Unm1Bar = new DistSVec<double,dim>(dI);
     else
       Unm1Bar = UnBar->alias();
     if (data->use_nm2)
-      Unm2Bar = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      Unm2Bar = new DistSVec<double,dim>(dI);
     else
       Unm2Bar = Unm1Bar->alias();
   }
@@ -68,7 +82,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   }
                                                                                                                           
   if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON)
-    Rn = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    Rn = new DistSVec<double,dim>(dI);
   else
     Rn = Un->alias();
 
@@ -78,7 +92,10 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
-  fet = spo->getFemEquationTerm();
+  if (spo)
+    fet = spo->getFemEquationTerm();
+  else
+    fet = NULL;
 
   //preconditioner setup
   tprec.setup(ioData);
@@ -91,9 +108,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
 
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-    dIdti = new DistVec<double>(dom->getNodeDistInfo());
-    dIdtv = new DistVec<double>(dom->getNodeDistInfo());
-    dIrey = new DistVec<double>(dom->getNodeDistInfo());
+    dIdti = new DistVec<double>(dI);
+    dIdtv = new DistVec<double>(dI);
+    dIrey = new DistVec<double>(dI);
     *dIdti = 0.0; 
     *dIdtv = 0.0; 
     *dIrey = 0.0;
@@ -239,6 +256,12 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     *Unm1 = *Un;
   if (data->use_nm2 && !data->exist_nm2)
     *Unm2 = *Unm1;
+  
+  createSubStates();
+}
+
+template<int dim>
+void DistTimeState<dim>::createSubStates() {
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
@@ -249,6 +272,11 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::copyTimeData(DistTimeState<dim>* oth) {
+
+  data->copy(*oth->data);
+}
 
 template<int dim>
 void DistTimeState<dim>::computeInitialState(InitialConditions &ic,

@@ -80,6 +80,38 @@ TimeData::TimeData(IoData &ioData)
   }
 }
 
+void TimeData::copy(TimeData& oth) {
+
+  typeIntegrator = oth.typeIntegrator;
+  typeStartup = oth.typeStartup;
+  typeTimeStep = oth.typeTimeStep;
+
+  dt_imposed = oth.dt_imposed;
+  dt_n = oth.dt_n;
+  dt_nm1 = oth.dt_nm1;
+  dt_nm2 = oth.dt_nm2;
+  output_newton_step = oth.output_newton_step;
+
+  tau_n = oth.tau_n;
+  tau_nm1 = oth.tau_nm1;
+  alpha_np1 = oth.alpha_np1;
+  alpha_n = oth.alpha_n;
+  alpha_nm1 = oth.alpha_nm1;
+  alpha_nm2 = oth.alpha_nm2;
+
+  errorTol = oth.errorTol;
+
+  exist_nm1 = oth.exist_nm1;
+  exist_nm2 = oth.exist_nm2;
+  use_nm1 = oth.use_nm1;
+  use_nm2 = oth.use_nm2;
+
+  use_freq = oth.use_freq;
+  use_modal = oth.use_modal;
+  
+  descriptor_form = oth.descriptor_form; 
+}
+
 //------------------------------------------------------------------------------
 
 void TimeData::update()

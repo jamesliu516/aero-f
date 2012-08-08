@@ -19,6 +19,8 @@
 
 #include <HigherOrderMultiFluid.h>
 
+#include <tr1/unordered_set>
+
 #ifdef OLD_STL
 #include <map.h>
 #else
@@ -223,6 +225,10 @@ public:
   // Returns -1 if it does not exist.  Warning: This method is O(N)
   int getLocalNodeNum(int globNodeNum) const;
   // geometry
+
+  void getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
+  void getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
+  void getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
 
   void setFaceType(int *);
   void setNodeType(int*, CommPattern<int> &);

@@ -94,7 +94,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
     fixSol = 1;
 
 	timeState = 0;
-	mmh = 0;
+	mmh = 0; 
 }
 
 //------------------------------------------------------------------------------
@@ -270,6 +270,16 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 
   geoState->setup2(timeState->getData());
   timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
+
+  if (iod.problem.solutionMethod == ProblemData::MULTIGRID) {
+
+    KspData dummy;
+    multiGridKernel = new MultiGridKernel<double,dim>(this->domain, *geoState,
+                                                      dummy, iod, this->varFcn,
+                                                      false, 1, timeState,
+                                                      NULL,NULL);
+    multiGridKernel->setOperators(this->spaceOp);
+  }
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);

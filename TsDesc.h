@@ -8,6 +8,7 @@
 #include <TsParameters.h>
 //#include <Domain.h>
 #include <DistVector.h>
+#include <MultiGridKernel.h>
 
 class RefVal;
 class VarFcn;
@@ -92,6 +93,8 @@ protected:
 
   bool failSafeFlag;
 
+  MultiGridKernel<double,dim>* multiGridKernel;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
@@ -102,6 +105,8 @@ protected:
   bool monitorAvgForceConvergence(IoData &, int, DistSVec<double,dim> &);
 
 public:
+
+  typedef MultiGridKernel<double,dim> MultiGridKernelType;
 
   TsDesc(IoData &, GeoSource &, Domain *);
   virtual ~TsDesc();
@@ -163,6 +168,8 @@ public:
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
+
+  MultiGridKernelType* getMultiGridKernel() { return multiGridKernel; }
 };
 
 //------------------------------------------------------------------------------

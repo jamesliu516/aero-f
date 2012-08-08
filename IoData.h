@@ -371,6 +371,7 @@ struct ProblemData {
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
   enum SolveFluid {NO = 0, YES = 1} solvefluid;
+  enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
 
   ProblemData();
@@ -1308,6 +1309,8 @@ struct PcData {
   
   enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
 
+  enum MGType { MGALGEBRAIC = 0, MGGEOMETRIC = 1} mg_type;
+
   int fill;
 
   int num_multigrid_smooth1,num_multigrid_smooth2;
@@ -1323,6 +1326,27 @@ struct PcData {
   ~PcData() {}
 
   void setup(const char *, ClassAssigner * = 0);
+
+};
+
+struct MultiGridData {
+
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
+ 
+  int num_multigrid_smooth1,num_multigrid_smooth2;
+  int num_multigrid_levels;
+
+  int mg_output;
+
+  double mg_smooth_relax;
+
+  int num_fine_sweeps;
+ 
+  MultiGridData();
+  ~MultiGridData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
 
 };
 
