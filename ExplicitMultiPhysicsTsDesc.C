@@ -177,6 +177,8 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokes(DistSVec<double,
       this->com->fprintf(stderr,"ERROR: Choose time-integrator from ForwardEuler, RungeKutta2, and RungeKutta4!\n");
   }
 
+  this->updateBoundaryExternalState();
+
   // for FF phase-change update using extrapolation
   this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
   this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);

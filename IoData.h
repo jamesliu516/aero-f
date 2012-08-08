@@ -1265,7 +1265,7 @@ struct BoundarySchemeData {
   enum Type { STEGER_WARMING = 0,
 	      CONSTANT_EXTRAPOLATION = 1,
 	      LINEAR_EXTRAPOLATION = 2,
-	      GHIDAGLIA = 3 } type;
+	      GHIDAGLIA = 3, MODIFIED_GHIDAGLIA = 4} type;
 
   BoundarySchemeData();
   ~BoundarySchemeData() {}

@@ -92,6 +92,9 @@ protected:
 
   bool failSafeFlag;
 
+  //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
+  bool modifiedGhidaglia;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
@@ -161,6 +164,10 @@ public:
 
   virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
+
+  void updateFarfieldCoeffs(double dt);
+  void updateBoundaryExternalState();
+  void initializeFarfieldCoeffs();
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
