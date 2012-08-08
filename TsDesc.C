@@ -88,6 +88,8 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   iForce = 0;
   iTotal = 0;
 
+  modifiedGhidaglia = (ioData.schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA);
+
   if (ioData.sa.fixsol == 0)
     fixSol = 0;
   else if (ioData.sa.fixsol == 1)
@@ -906,12 +908,27 @@ void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
 template<int dim>
 void TsDesc<dim>::updateFarfieldCoeffs(double dt)
 {
+  if(!modifiedGhidaglia) return;
   int nSub = domain->getNumLocSub();
   SubDomain **sub = domain->getSubDomain();
   int iSub;
 #pragma omp parallel for
   for(iSub=0; iSub<nSub; iSub++)
     sub[iSub]->updateFarfieldCoeffs(dt);
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::updateBoundaryExternalState()
+{
+  if(!modifiedGhidaglia) return;
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->updateBoundaryExternalState();
 }
 
 //----------------------------------------------------------------------------

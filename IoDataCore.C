@@ -2268,9 +2268,9 @@ void BoundarySchemeData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 1, father);
 
   new ClassToken<BoundarySchemeData>(ca, "Type", this,
-         reinterpret_cast<int BoundarySchemeData::*>(&BoundarySchemeData::type), 4,
+         reinterpret_cast<int BoundarySchemeData::*>(&BoundarySchemeData::type), 5,
          "StegerWarming", 0, "ConstantExtrapolation", 1, "LinearExtrapolation", 2,
-	 "Ghidaglia", 3);
+	 "Ghidaglia", 3, "ModifiedGhidaglia", 4);
 
 }
 
@@ -5189,6 +5189,12 @@ int IoData::checkInputValuesEssentialBC()
   if (bc.inlet.beta > 360.0) {
     com->fprintf(stderr, "*** Error: no valid yaw angle (%e) given\n", bc.inlet.beta);
     ++error;
+  }
+
+  if(schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA && ts.type!=TsData::EXPLICIT) {
+    com->fprintf(stderr, "*** Warning: The Modified Ghidaglia scheme is only supported by explicit time-integrators.\n");
+    com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
+    schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
   }
 
 // Included (MB)

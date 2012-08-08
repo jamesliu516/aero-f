@@ -81,6 +81,8 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,dim> &U)
   if(RK4)     solveNLAllRK4(U,t0,Ubc);
   else if(FE) solveNLAllFE(U,t0,Ubc);
   else        solveNLAllRK2(U,t0,Ubc);
+
+  this->updateBoundaryExternalState();
 } 
 
 //------------------------------------------------------------------------------
@@ -168,6 +170,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
 
   checkSolution(U);
+
   this->timer->addFluidSolutionTime(t0);
 }
 
@@ -202,6 +205,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
   this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
 
   checkSolution(U);
+
   this->timer->addFluidSolutionTime(t0);
 }
 

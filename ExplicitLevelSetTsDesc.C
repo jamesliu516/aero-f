@@ -332,6 +332,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
+
+  this->updateBoundaryExternalState();
 }
 //------------------------------------------------------------------------------
 
@@ -369,6 +371,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK4(DistSVec<double,dim> &U)
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
 
+  this->updateBoundaryExternalState();
 }
 
 //------------------------------------------------------------------------------

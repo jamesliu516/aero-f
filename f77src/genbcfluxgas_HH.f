@@ -124,18 +124,19 @@ c Compute Riemann Invariants and use them to infer truncated boundary conditions
       cbar = 0.25*gam1*(Rplus-Snew)
 
       !if(xface(2).gt.20.and.abs(c-cinf).gt.1.e-6) then
-       if(abs(xface(1)-1.20335056676986).le.1.e-6.and.
-     <	  abs(xface(2)-20.3196242693497).le.1.e-6.and.
-     <    abs(xface(3)-23.4989073713820).le.1.e-6) then
-       print*,xface(1),xface(2),xface(3)
-       print*,U(2)*rnx+U(3)*rny+U(4)*rnz,rnx*normal(1)
-     < +rny*normal(2)+rnz*normal(3)
-       print*,dsdt1,dsdt2,dsdt3
-       print*,c,cinf,cbar
-       print*,Rplus,Snew,Sold
-       print*,Vinf(1),(cbar*cbar/(Entropy*gam))**(1./gam1) 
-       print*,'=========================='
-      endif
+!       if(abs(xface(1)-1.20335056676986).le.1.e-6.and.
+!     <	  abs(xface(2)-20.3196242693497).le.1.e-6.and.
+!     <    abs(xface(3)-23.4989073713820).le.1.e-6) then
+!       print*,xface(1),xface(2),xface(3)
+!       print*,U(2)*rnx+U(3)*rny+U(4)*rnz,rnx*normal(1)
+!     < +rny*normal(2)+rnz*normal(3)
+!       print*,dsdt1,dsdt2,dsdt3
+!       print*,c,cinf,cbar
+!       print*,Rplus,Snew,Sold
+!       print*,Vinf(1),(cbar*cbar/(Entropy*gam))**(1./gam1) 
+!       print*,dt,dSdt3
+!       print*,'=========================='
+!      endif
 
 !     Trick Ghidaglia into thinking projected solution is the Infinity condition 
 !     In practice, this may not be required and phi=F(Vinf) may be sufficient

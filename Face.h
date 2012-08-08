@@ -395,9 +395,8 @@ protected:
 public:
 
   void attachHigherOrderMF(class HigherOrderMultiFluid* mf) { higherOrderMF = mf; }
-  void updateHHCoeffs(double dt) {
-    for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i];
-    hhcoeffs.currentDt = dt;}
+  void updateHHCoeffs(double dt) {hhcoeffs.currentDt = dt;}
+  void updateHHState() {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i];}
   void initializeHHCoeffs(double cc) {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i] = cc;}
 
   // Number of nodes
@@ -1096,6 +1095,9 @@ public:
   void updateHHCoeffs(double dt) {
     for(int i=0; i<numFaces; i++) 
       faces[i]->updateHHCoeffs(dt);}
+  void updateHHState() {
+    for(int i=0; i<numFaces; i++) 
+      faces[i]->updateHHState();}
   void initializeHHCoeffs(double cc) {for(int i=0; i<numFaces; i++) faces[i]->initializeHHCoeffs(cc);}
 };
 
