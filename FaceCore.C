@@ -45,6 +45,11 @@ void Face::setup(int fc, int *nn, int nnum, int sid)
   surface_id = sid;
   normNum = nnum;
 
+  // for HH Farfield BC
+  faceCenter[0] = faceCenter[1] = faceCenter[2] = 0.0;
+  for(int i=0; i<3; i++)
+    hhcoeffs.s0[i] = hhcoeffs.s1[i] = 0.0;
+  hhcoeffs.currentDt = 0.0;
 }
 
 //------------------------------------------------------------------------------
