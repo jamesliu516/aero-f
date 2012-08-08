@@ -35,26 +35,39 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 				SVec<double,dim> &R, LevelSetStructure *LSS)
 {
   for (int i=0; i<dt.size(); ++i) {
-    if (LSS && !(LSS->isActive(0.0,i))) {
-      // Node i lies in the structure: Do nothing.
-      continue;
-    }
-
-    TimeFDCoefs coefs;
-    computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
-
-    double invDt = 1.0 / dt[i];
-    for (int k=0; k<dim; ++k) {
-      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k] +
-                   coefs.c_nm1*Unm1[i][k] + coefs.c_nm2*Unm2[i][k];
-      double dAWdt = invDt * sum; 
-      if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
-        R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
-      else
-        R[i][k] += dAWdt;
-    }
+    
+    add_dAW_dt(nodeFlag,geoState, ctrlVol, Q,Un, Unm1,Unm2,R,LSS,i,i);
   }
 }
+
+template<int dim>
+void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState, 
+				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+				SVec<double,dim> &myQn,SVec<double,dim> &myQnm1,
+                                SVec<double,dim> &myQnm2,
+                                SVec<double,dim> &R, LevelSetStructure *LSS,
+                                int i,int j) {
+  
+  if (LSS && !(LSS->isActive(0.0,i))) {
+    // Node i lies in the structure: Do nothing.
+    return;
+  }
+
+  TimeFDCoefs coefs;
+  computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+  double invDt = 1.0 / dt[i];
+  for (int k=0; k<dim; ++k) {
+    double sum = coefs.c_np1*Q[j][k] + coefs.c_n*myQn[j][k] +
+                 coefs.c_nm1*myQnm1[j][k] + coefs.c_nm2*myQnm2[j][k];
+    double dAWdt = invDt * sum; 
+    if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+      R[j][k] = dAWdt + 0.5 * (R[j][k] + Rn[j][k]);
+    else
+      R[j][k] += dAWdt;
+  }
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 void TimeState<dim>::add_dAW_dtRestrict(bool *nodeFlag, GeoState &geoState, 

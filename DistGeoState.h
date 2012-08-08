@@ -78,7 +78,8 @@ class DistGeoState {
 public:
 
   DistGeoState(IoData &, Domain *);
-  DistGeoState(const GeoData &, Domain *, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo);
+  DistGeoState(const GeoData &, Domain *, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo,
+               DistInfo& faceNormDistInfo);
   ~DistGeoState();
 
   GeoState &operator() (int i) const { return *subGeoState[i]; }

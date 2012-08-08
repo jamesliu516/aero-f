@@ -185,7 +185,10 @@ ADD_LIBRARY(FluidBase
              MeshMotionSolver.C 
              MultiGridPrec.C
              MultiGridLevel.C
+             MultiGridKernel.C
+             MultiGridOperator.C 
              MultiGridSmoothingMatrix.C
+             MultiGridCoupledTsDesc.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 

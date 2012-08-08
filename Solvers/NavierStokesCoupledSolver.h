@@ -15,6 +15,8 @@
 #include <ImplicitCollGalTsDesc.h>
 #include <ImplicitRomPostproTsDesc.h>
 #include <ImplicitProjErrorTsDesc.h>
+#include <MultiGridSolver.h>
+#include <MultiGridCoupledTsDesc.h>
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
 
@@ -77,9 +79,15 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
 				tsSolver.solve(ioData);
 		}
     else if (ioData.ts.type == TsData::IMPLICIT) {
-      ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
-      tsSolver.solve(ioData);
+      if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
+        ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
+        tsSolver.solve(ioData);
+      } else {
+        MultiGridCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        MultiGridSolver<ImplicitCoupledTsDesc<dim> > mgSolver(&tsDesc);
+        mgSolver.solve(ioData);
+      }
     }
     else if (ioData.ts.type == TsData::EXPLICIT) {
       ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
