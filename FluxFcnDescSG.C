@@ -777,11 +777,20 @@ void FluxFcnSGWallEuler3D::computeJacobian(double length, double irey, double *n
 void FluxFcnSGGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
+
+  F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGModifiedGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
+                                   double *V, double *Ub, double *flux, bool useLimiter)
+{
   const int dim0 = 5;
   F77NAME(genbcfluxgas_hh)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux, 
                           flux+2*dim0, *(flux+2*dim0+3), *(flux+2*dim0+4), *(flux+2*dim0+5));
 
-  //F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
 }
 
 //------------------------------------------------------------------------------
