@@ -319,13 +319,32 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   double *Ub, SVec<double,dim> &fluxes)
 {
   if(fluxFcn[code]){
-    double flux[dim];
+    bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    const int dim0 = 5;
+    double* flux;
+    if(hhcoeffs.currentDt>=0.0 && farfield) { //KW: Modified Ghidaglia
+      flux = new double [2*dim0+6];
+      for(int j=0; j<3; j++)
+        flux[2*dim0+j] = faceCenter[j];
+      flux[2*dim0+5] = hhcoeffs.currentDt;
+    } else
+      flux = new double [dim];
+
     for (int l=0; l<numNodes(); ++l) {
+
+      if(hhcoeffs.currentDt>=0.0 && farfield) {
+        flux[2*dim0+3] = hhcoeffs.s1[l];
+        flux[2*dim0+4] = hhcoeffs.s0[l];
+      }
+
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			     V[nodeNum(l)], Ub, flux);
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
+
+      if(hhcoeffs.currentDt>=0.0 && farfield)
+        hhcoeffs.s1[l] = flux[2*dim0+3];
     }
   }
 }
@@ -366,13 +385,32 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   }
 
   if(fluxFcn[code]){
-    double flux[dim];
+    bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    const int dim0 = 5;
+    double* flux;
+    if(hhcoeffs.currentDt>=0.0 && farfield) { //KW: Modified Ghidaglia
+      flux = new double [2*dim0+6];
+      for(int j=0; j<3; j++)
+        flux[2*dim0+j] = faceCenter[j];
+      flux[2*dim0+5] = hhcoeffs.currentDt;
+    } else
+      flux = new double [dim];
+
     for (int l=0; l<numNodes(); ++l) {
+
+      if(hhcoeffs.currentDt>=0.0 && farfield) {
+        flux[2*dim0+3] = hhcoeffs.s1[l];
+        flux[2*dim0+4] = hhcoeffs.s0[l];
+      }
+
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
                              V[nodeNum(l)], Ub, flux);
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
+
+      if(hhcoeffs.currentDt>=0.0 && farfield)
+        hhcoeffs.s1[l] = flux[2*dim0+3];
     }
   }
 }
@@ -416,7 +454,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
   bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
     
   const int dim0 = 5;
-  if(farfield) {
+  if(hhcoeffs.currentDt>=0.0 && farfield) {
     flux = new double [2*dim0+6];
     for(int j=0; j<3; j++)
       flux[2*dim0+j] = faceCenter[j];
@@ -433,7 +471,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
       if (!higherOrderMF || !higherOrderMF->isCellCut(nodeNum(l))) {
 
-        if(farfield) {
+        if(hhcoeffs.currentDt>=0.0 && farfield) {
           flux[2*dim0+3] = hhcoeffs.s1[l];
           flux[2*dim0+4] = hhcoeffs.s0[l];
 //          fprintf(stderr,"face: %e %e %e | %e %e | %e.\n", flux[2*dim0], flux[2*dim0+1], flux[2*dim0+2], flux[2*dim0+3], 
@@ -445,7 +483,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 	for (int k=0; k<dim; ++k)
 	  fluxes[ nodeNum(l) ][k] += flux[k];
 
-        if(farfield) 
+        if(hhcoeffs.currentDt>=0.0 && farfield) 
           hhcoeffs.s1[l] = flux[2*dim0+3];
       }
     }
