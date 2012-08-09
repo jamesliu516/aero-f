@@ -152,6 +152,10 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     *countWstarij = 0;
     *countWstarji = 0;
   }
+  else {
+    countWstarij = NULL;
+    countWstarji = NULL;
+  }
 
   //copies for fail safe
   WstarijCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
