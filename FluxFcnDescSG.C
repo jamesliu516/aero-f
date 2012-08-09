@@ -778,7 +778,7 @@ void FluxFcnSGGhidagliaEuler3D::compute(double length, double irey, double *norm
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
 
-  //F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+  F77NAME(genbcfluxgas)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
 
 }
 
