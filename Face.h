@@ -362,6 +362,7 @@ public:
 
   static const int MaxNumNd = 4;
 
+  Face();
   virtual int nodeNum(int i) const = 0;
 
 protected:
