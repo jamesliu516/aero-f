@@ -24,6 +24,13 @@ using std::swap;
 
 //------------------------------------------------------------------------------
 
+Face::Face()
+{
+  higherOrderMF = NULL;
+}
+
+//------------------------------------------------------------------------------
+
 void Face::setup(int fc, int *nn, int nnum, int sid)
 {
 
@@ -224,6 +231,8 @@ FaceSet::FaceSet(int value)
   // Set total number of face normals to 0: 
   // it will be incremented when reading faces
   numFaceNorms = 0;
+
+  higherOrderMF = NULL;
 }
 
 //------------------------------------------------------------------------------
