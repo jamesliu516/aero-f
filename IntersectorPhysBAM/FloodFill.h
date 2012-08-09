@@ -28,7 +28,7 @@ FloodFill() : nGlobalSubDomains(-1),subDomainToProcessorMap(0)
 {}
 
 ~FloodFill()
-{delete subDomainToProcessorMap;}
+{delete [] subDomainToProcessorMap;}
 
 void generateSubDToProcessorMap(Domain& domain,Communicator& com);
 
