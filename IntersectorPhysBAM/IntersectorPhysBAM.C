@@ -361,7 +361,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
     std::list<std::pair<int,Vec3D> > nodeList2;
     std::list<std::pair<int,Vec3D> >::iterator it2;
 
-    int ndMax;
+    int ndMax = 0;
     while(1) {
       int nInputs, num1;
       double x1, x2, x3;
