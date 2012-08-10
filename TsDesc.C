@@ -592,7 +592,7 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 
-  if(mmh->getAlgNum() == 1)
+  if(mmh && mmh->getAlgNum() == 1)
     output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
 
   timer->setRunTime();
