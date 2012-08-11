@@ -266,11 +266,19 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   // for pitching
   alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
   alpha_max = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;  // maximum angle of rotation
-  x1[0] = iod.forced.pt.x1;  x1[1] = iod.forced.pt.y1;  x1[2] = iod.forced.pt.z1;
-  x2[0] = iod.forced.pt.x2;  x2[1] = iod.forced.pt.y2;  x2[2] = iod.forced.pt.z2;
+  x1[0] = iod.forced.pt.x11;  x1[1] = iod.forced.pt.y11;  x1[2] = iod.forced.pt.z11;
+  x2[0] = iod.forced.pt.x21;  x2[1] = iod.forced.pt.y21;  x2[2] = iod.forced.pt.z21;
+
+  beta_in  = (acos(-1.0)*iod.forced.pt.beta_in) / 180.0;  // initial angle of rotation
+  beta_max = (acos(-1.0)*iod.forced.pt.beta_max) / 180.0;  // maximum angle of rotation
+  y1[0] = iod.forced.pt.x12;  y1[1] = iod.forced.pt.y12;  y1[2] = iod.forced.pt.z12;
+  y2[0] = iod.forced.pt.x22;  y2[1] = iod.forced.pt.y22;  y2[2] = iod.forced.pt.z22;
+
   for(int i=0; i<3; i++) { //get back to user-specified coordinates.
     x1[i] *= iod.ref.rv.length;
     x2[i] *= iod.ref.rv.length;
+    y1[i] *= iod.ref.rv.length;
+    y2[i] *= iod.ref.rv.length;
   }
   u = x2[0]-x1[0];  v = x2[1]-x1[1];  w = x2[2]-x1[2];
   // unit normals of axis of rotation //
@@ -648,12 +656,72 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       double theta = alpha_in + alpha_max*sin(omega*time);
       double costheta = cos(theta);
       double sintheta = sin(theta);
-      for(int i=0; i<nNodes; ++i) {
-        U[i][0] = U[i][1] = U[i][2] = 0.0;
-        double p[3];
-        for(int j=0; j<3; j++)
-          p[j] = X0[i][j] - x1[j];
 
+      double phi = beta_in + beta_max*sin(omega*time); 
+      double cosphi = cos(phi);
+      double sinphi = sin(phi);
+
+// Rotate the axis of 2nd rotation about the first rotation axis
+      double p[3], yy1[3], yy2[3];
+
+      p[0] = y1[0] - x1[0];                                         
+      p[1] = y1[1] - x1[1];                                         
+      p[2] = y1[2] - x1[2];                                         
+
+      yy1[0] = 0.0; yy1[1] = 0.0; yy1[2] = 0.0;           
+      yy1[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+      yy1[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];    
+      yy1[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];    
+
+      yy1[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];   
+      yy1[1] += (costheta + (1 - costheta) * iy * iy) * p[1];         
+      yy1[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];    
+
+      yy1[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+      yy1[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];    
+      yy1[2] += (costheta + (1 - costheta) * iz * iz) * p[2];         
+
+      yy1[0] += x1[0];                                                  
+      yy1[1] += x1[1];                                                   
+      yy1[2] += x1[2];                                                 
+
+      p[0] = y2[0] - x1[0];                                    
+      p[1] = y2[1] - x1[1];                                    
+      p[2] = y2[2] - x1[2];                                    
+
+      yy2[0] = 0.0; yy2[1] = 0.0; yy2[2] = 0.0;                         
+      yy2[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+      yy2[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];   
+      yy2[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];   
+
+      yy2[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];    
+      yy2[1] += (costheta + (1 - costheta) * iy * iy) * p[1];        
+      yy2[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];  
+
+      yy2[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+      yy2[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];   
+      yy2[2] += (costheta + (1 - costheta) * iz * iz) * p[2];      
+
+      yy2[0] += x1[0];                                                
+      yy2[1] += x1[1];                                             
+      yy2[2] += x1[2];                                       
+
+// unit normals of axis of 2nd rotation //
+
+      u = yy2[0]-yy1[0];                                      
+      v = yy2[1]-yy1[1];                                  
+      w = yy2[2]-yy1[2];                            
+
+      double jx = u/sqrt(u*u+v*v+w*w);
+      double jy = v/sqrt(u*u+v*v+w*w);
+      double jz = w/sqrt(u*u+v*v+w*w);
+
+      for(int i=0; i<nNodes; ++i) {
+        p[0] = X0[i][0] - x1[0];
+        p[1] = X0[i][1] - x1[1];
+        p[2] = X0[i][2] - x1[2];
+
+        U[i][0] = 0.0; U[i][1] = 0.0; U[i][2] = 0.0;              
         U[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
         U[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
         U[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
@@ -669,6 +737,27 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         U[i][0] += x1[0];
         U[i][1] += x1[1];
         U[i][2] += x1[2];
+
+        p[0] = U[i][0] -  yy1[0];                               
+        p[1] = U[i][1] -  yy1[1];                               
+        p[2] = U[i][2] -  yy1[2];                               
+
+        U[i][0] = 0.0; U[i][1] = 0.0; U[i][2] = 0.0;              
+        U[i][0] += (cosphi + (1 - cosphi) * jx * jx) * p[0];            
+        U[i][0] += ((1 - cosphi) * jx * jy - jz * sinphi) * p[1];      
+        U[i][0] += ((1 - cosphi) * jx * jz + jy * sinphi) * p[2];    
+
+        U[i][1] += ((1 - cosphi) * jx * jy + jz * sinphi) * p[0];       
+        U[i][1] += (cosphi + (1 - cosphi) * jy * jy) * p[1];           
+        U[i][1] += ((1 - cosphi) * jy * jz - jx * sinphi) * p[2];     
+
+        U[i][2] += ((1 - cosphi) * jx * jz - jy * sinphi) * p[0];   
+        U[i][2] += ((1 - cosphi) * jy * jz + jx * sinphi) * p[1];  
+        U[i][2] += (cosphi + (1 - cosphi) * jz * jz) * p[2];           
+
+        U[i][0] += yy1[0];                                            
+        U[i][1] += yy1[1];                                        
+        U[i][2] += yy1[2];                                     
 
         if(it==1) {
           if(algNum==6)

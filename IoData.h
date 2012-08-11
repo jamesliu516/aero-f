@@ -1675,13 +1675,21 @@ struct PitchingData {
 
   double alpha_in;
   double alpha_max;
-  double x1;
-  double y1;
-  double z1;
-  double x2;
-  double y2;
-  double z2;
+  double x11;
+  double y11;
+  double z11;
+  double x21;
+  double y21;
+  double z21;
 
+  double beta_in;
+  double beta_max;
+  double x12;
+  double y12;
+  double z12;
+  double x22;
+  double y22;
+  double z22;
   PitchingData();
   ~PitchingData() {}
 
