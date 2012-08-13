@@ -944,6 +944,7 @@ void TsDesc<dim>::updateBoundaryExternalState()
 template<int dim>
 void TsDesc<dim>::initializeFarfieldCoeffs()
 {
+  if(!modifiedGhidaglia) return;
   double *Vin = bcData->getInletPrimitiveState();
   double soundspeed = varFcn->computeSoundSpeed(Vin);
   double gamma = varFcn->getGamma();
