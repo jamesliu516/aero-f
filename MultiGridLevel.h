@@ -25,6 +25,7 @@ class MultiGridLevel {
     CommPattern<double> * matPattern;
     CommPattern<double> * offDiagMatPattern;
     CommPattern<double> * edgeAreaPattern;
+    CommPattern<double> * edgeVecPattern;
     Connectivity ** sharedNodes;
     Connectivity** nodeToNodeMaskILU;
     int maxNodesPerSubD;
@@ -53,6 +54,7 @@ class MultiGridLevel {
 
     DistVec<int> nodeMapping;
     DistVec<int> edgeMapping;
+    DistVec<int>* faceMapping;
     DistVec<Vec3D>* edgeNormals;
 
     DistSVec<int, 2> lineMap;
@@ -97,6 +99,14 @@ class MultiGridLevel {
       else
         return i;
     }
+
+    int mapFaceFineToCoarse(int iSub,int i) {
+      if (parent)
+        return (*faceMapping)(iSub)[parent->mapFaceFineToCoarse(iSub,i)];
+      else
+        return i;
+    }
+
 
     MultiGridLevel* getFinestLevel() {
 
@@ -152,6 +162,9 @@ class MultiGridLevel {
     template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
                                                    DistSVec<Scalar2, dim>& coarseData) const;
+    template<class Scalar2, int dim> void RestrictFaceVector(const MultiGridLevel<Scalar>& fineGrid,
+                                                   const DistSVec<Scalar2, dim>& fineData,
+                                                   DistSVec<Scalar2, dim>& coarseData) const;
     template<class Scalar2>void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                          const DistVec<Scalar2>& fineData,
                                          DistVec<Scalar2>& coarseData) const;
@@ -170,6 +183,8 @@ class MultiGridLevel {
     int* getLineData(int iSub, int lineid) { return &lineids[iSub][lineid*8]; } 
     int lineLength(int iSub, int lineid) { return lineLengths[iSub][lineid]; } 
 
+    template <class Scalar2>
+    void assemble(DistVec<Scalar2>& V);
     template <class Scalar2,int dim>
     void assemble(DistSVec<Scalar2,dim>& V);
     template <class Scalar2,int dim>

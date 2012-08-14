@@ -883,7 +883,7 @@ public:
 
   // Dummy constructor.  Sometimes we need to create a dummy elem set
   // object.
-  ElemSet() { }
+  ElemSet() : elems(NULL) { }
 
   ElemSet(int);
   ~ElemSet();

@@ -455,6 +455,44 @@ void assemble(Domain & domain, CommPattern<T> & edgePat, int **numSharedEdges, E
     }
   }
 }
+
+void assemble(Domain & domain, CommPattern<double> & edgePat, int **numSharedEdges, EdgeDef ***sharedEdges, DistVec<Vec3D> & V) {
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+
+      SubRecInfo<double> sInfo = edgePat.getSendBuffer(subD.getSndChannel()[jSub]);
+      double (*buffer)[3] = reinterpret_cast<double (*)[3]>(sInfo.data);
+
+      for (int iEdge = 0; iEdge < numSharedEdges[iSub][jSub]; ++iEdge) {
+       
+	int edgeNum = sharedEdges[iSub][jSub][iEdge].edgeNum;
+        for (int k = 0; k < 3; ++k)
+  	  buffer[iEdge][k] = V(iSub)[edgeNum][k] * sharedEdges[iSub][jSub][iEdge].sign;
+      }
+    }
+  }
+
+  edgePat.exchange();
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<double> sInfo = edgePat.recData(subD.getRcvChannel()[jSub]);
+      double (*buffer)[3] = reinterpret_cast<double (*)[3]>(sInfo.data);
+      for (int iEdge = 0; iEdge < numSharedEdges[iSub][jSub]; ++iEdge) {
+
+	int edgeNum = sharedEdges[iSub][jSub][iEdge].edgeNum;
+        for (int k = 0; k < 3; ++k)
+  	  V(iSub)[edgeNum][k] += buffer[iEdge][k] * sharedEdges[iSub][jSub][iEdge].sign;
+      }
+
+    }
+  }
+}
 };
     
 template <class Scalar>
@@ -626,6 +664,8 @@ void MultiGridLevel<Scalar>::rcvEdgeInfo(CommPattern<int> &edgeNumPat,int mySub,
     
     edgeAreaPattern->setLen(subD.getSndChannel()[iSub],numSharedEdges[mySub][iSub]);
     edgeAreaPattern->setLen(subD.getRcvChannel()[iSub],numSharedEdges[mySub][iSub]);
+    edgeVecPattern->setLen(subD.getSndChannel()[iSub],numSharedEdges[mySub][iSub]*3);
+    edgeVecPattern->setLen(subD.getRcvChannel()[iSub],numSharedEdges[mySub][iSub]*3);
 
     if (subD.getNeighb()[iSub] < subD.getGlobSubNum()) // I cannot be the master of these edges
       for (iEdge = 0; iEdge < numSharedEdges[mySub][iSub]; ++iEdge)
@@ -799,11 +839,16 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   matPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   offDiagMatPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   edgeAreaPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+  edgeVecPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
 
   Connectivity* subToSub = domain.getSubToSub();
 
   nodeMapping = -1;
   edgeMapping = -1;
+
+  faceMapping = new DistVec<int>(*parent->faceDistInfo);
+
+  *faceMapping = -1;
 
   lineMap = -1;
     
@@ -1303,6 +1348,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         }
         if (ok) {
           Face* new_face = new(parent->faces[iSub]->getBlockAllocator()) FaceTria;
+          (*faceMapping)(iSub)[i] = faceCount;
           new_face->setup(face.getCode(),newMap, faceCount++, face.getSurfaceID());
           for (int l = 0; l < 3; ++l) {
             new_face->setEdgeNum(l, edgeMapping(iSub)[face.getEdgeNum(l)]);
@@ -1397,6 +1443,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   edgeDistInfo->finalize(false);
   offDiagMatPattern->finalize();
   edgeAreaPattern->finalize();
+  edgeVecPattern->finalize();
   
   myGeoState = new DistGeoState(parent->myGeoState->getGeoData(),&domain,
                                 *nodeDistInfo,*edgeDistInfo,*faceNormDistInfo);
@@ -1415,17 +1462,24 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       if(coarse_index < 0) continue;
       else {
         //(*edgeNormals)(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l];
-        if (refinedEdges[iSub]->getMasterFlag()[l])
+        if (refinedEdges[iSub]->getMasterFlag()[l]) {
           edge_areas(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l].norm();
+          double sgn = 1.0;
+          if (nodeMapping(iSub)[ refinedEdges[iSub]->getPtr()[l][0] ] >
+              nodeMapping(iSub)[ refinedEdges[iSub]->getPtr()[l][1] ])
+            sgn = -1.0;
+          (*edgeNormals)(iSub)[coarse_index] += sgn*refinedEdgeNormals(iSub)[l];
         //edges[iSub]->viewEdgeLength()[coarse_index] = std::max(refinedEdges[iSub]->length(l), edges[iSub]->viewEdgeLength()[coarse_index]);
 //        edges[iSub]->getMasterFlag()[coarse_index] = refinedEdges[iSub]->getMasterFlag()[l] &&
 //                                                     edges[iSub]->getMasterFlag()[coarse_index];
+        }
       }
     }
   } 
 
-  ::assemble(domain, *edgeAreaPattern, numSharedEdges, sharedEdges, edge_areas);
- 
+  //::assemble(domain, *edgeAreaPattern, numSharedEdges, sharedEdges, edge_areas);
+  ::assemble(domain, *edgeVecPattern, numSharedEdges, sharedEdges, *edgeNormals);
+
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
    
@@ -1543,11 +1597,11 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       int i = edges[iSub]->getPtr()[l][0], j = edges[iSub]->getPtr()[l][1];
       double v[3];
       for (int k = 0; k <3; ++k) 
-        v[k] = (*Xn)[i][k]-(*Xn)[j][k];
+        v[k] = (*Xn)(iSub)[i][k]-(*Xn)(iSub)[j][k];
       edges[iSub]->viewEdgeLength()[l] = sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
-      assert(edge_areas(iSub)[l] > 0);
-      for (int k = 0; k <3; ++k)
-        (*edgeNormals)(iSub)[l][k] = -edge_areas(iSub)[l]*v[k] / edges[iSub]->viewEdgeLength()[l]; 
+     // assert(edge_areas(iSub)[l] > 0);
+      //for (int k = 0; k <3; ++k)
+      //  (*edgeNormals)(iSub)[l][k] = -edge_areas(iSub)[l]*v[k] / edges[iSub]->viewEdgeLength()[l]; 
     }
   }
 
@@ -1677,6 +1731,24 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
   ::assemble(domain, *nodeVolPattern, const_cast<Connectivity **>(sharedNodes), coarseData, addOp);
 
 }
+
+template<class Scalar> template<class Scalar2, int dim>
+void MultiGridLevel<Scalar>::RestrictFaceVector(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData) const
+{
+  coarseData *= 0.0;
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    for(int i = 0; i < fineData(iSub).size(); ++i)  {
+      int fidx = (*faceMapping)(iSub)[i];
+      if (fidx < 0) continue;
+      for(int j = 0; j < dim; ++j)
+        coarseData(iSub)[fidx][j] = fineData(iSub)[i][j];
+    }
+  }
+
+}
+
+
 //------------------------------------------------------------------------------
 
 template<class Scalar> template<class Scalar2, int dim>
@@ -1808,6 +1880,15 @@ bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int
 }
 //------------------------------------------------------------------------------
 template<class Scalar>   
+template <class Scalar2> 
+void MultiGridLevel<Scalar>::assemble(DistVec<Scalar2>& V)
+{
+
+  operAdd<double> addOp;
+  ::assemble(domain, *nodeVecPattern, sharedNodes, V, addOp);
+}
+
+template<class Scalar>   
 template <class Scalar2,int dim> 
 void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V)
 {
@@ -1888,6 +1969,7 @@ void MultiGridLevel<Scalar>::computeMatVecProd(DistMat<Scalar2,dim>& mat,
 
 #define INSTANTIATION_HELPER(T,dim) \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
+  template void MultiGridLevel<T>::RestrictFaceVector(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::Prolong(  MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &); \
   template void MultiGridLevel<T>::assemble(DistMat<double,dim> &); \
@@ -1905,6 +1987,7 @@ void MultiGridLevel<Scalar>::computeMatVecProd(DistMat<Scalar2,dim>& mat,
                                            int renum, int *ndType);
 
 #define INSTANTIATION_HELPER2(T) \
+  template void MultiGridLevel<T>::assemble(DistVec<double> &); \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistVec<double> &, DistVec<double> &) const; 
 
 template class MultiGridLevel<double>;
