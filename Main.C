@@ -15,6 +15,7 @@
 #include <Timer.h>
 
 #include "OneDimensionalSolver.h"
+#include "DebugTools.h"
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
@@ -34,6 +35,17 @@ extern "C" void processSignal(int num)
   }
 
 }
+
+void segfault_sigaction(int signal, siginfo_t *si, void *arg)
+{
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    printf("Caught segfault at address %p on MPI rank %d\n", si->si_addr,rank);
+    MPI_Barrier(MPI_COMM_WORLD);
+    exit(-1);
+}
+
+
 
 //------------------------------------------------------------------------------
 
@@ -63,6 +75,23 @@ int main(int argc, char **argv)
   signal(SIGUSR1, processSignal);
 
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
+
+#ifdef AEROF_MPI_DEBUG
+
+  bool debug_process = DebugTools::TryWaitForDebug();
+  if (!debug_process) {
+    struct sigaction sa;
+
+    memset(&sa, 0, sizeof(struct sigaction));
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = segfault_sigaction;
+    sa.sa_flags   = SA_SIGINFO;
+
+    sigaction(SIGSEGV, &sa, NULL);
+  }
+ 
+#endif
+
 
   Domain domain;
   Timer *timer = domain.getTimer();
