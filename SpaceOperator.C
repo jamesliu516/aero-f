@@ -2665,7 +2665,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
+          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0 || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
             if(!(*distLSS)(iSub).isActive(0.0,i)) {
               for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
               for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = -1.0; //not really needed.
