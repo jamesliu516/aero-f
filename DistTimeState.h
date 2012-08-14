@@ -84,6 +84,9 @@ private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
 public:
 
+  TimeLowMachPrec& getTimeLowMachPrec() { return tprec; }
+  SpatialLowMachPrec& getSpatialLowMachPrec() { return sprec; }
+
   DistTimeState(IoData &, SpaceOperator<dim> *, VarFcn *, Domain *, DistSVec<double,dim> * = 0);
   DistTimeState(IoData &, SpaceOperator<dim> *, VarFcn *, Domain *,
                 DistInfo& dI, DistSVec<double,dim> * = 0);

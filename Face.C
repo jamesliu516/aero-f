@@ -323,6 +323,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
     for (int l=0; l<numNodes(); ++l) {
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			     V[nodeNum(l)], Ub, flux);
+      assert(flux[0] != 0.0 || flux[1] != 0.0 || flux[2] != 0.0 || flux[3] != 0.0 || flux[4] != 0.0);
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum(l) ][k] += flux[k];
       }

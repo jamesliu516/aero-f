@@ -273,9 +273,8 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 
   if (iod.problem.solutionMethod == ProblemData::MULTIGRID) {
 
-    KspData dummy;
     multiGridKernel = new MultiGridKernel<double,dim>(this->domain, *geoState,
-                                                      dummy, iod, this->varFcn,
+                                                      iod.ts.implicit.newton.ksp.ns, iod, this->varFcn,
                                                       false, 1, timeState,
                                                       NULL,NULL);
     multiGridKernel->setOperators(this->spaceOp);

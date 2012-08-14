@@ -95,10 +95,11 @@ protected:
 
   MultiGridKernel<double,dim>* multiGridKernel;
 
+  RecFcnConstant<dim> constantRecFcn;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
-  bool monitorConvergence(int, DistSVec<double,dim> &);
 
 // Included (MB)
   bool monitorForceConvergence(IoData &, int, DistSVec<double,dim> &);
@@ -118,6 +119,10 @@ public:
 
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
+  SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
+  
+  bool monitorConvergence(int, DistSVec<double,dim> &);
+
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
@@ -128,6 +133,10 @@ public:
   bool checkForLastIteration(int, double, double, DistSVec<double,dim> &); //KW: not used?
 
   void setFailSafe(bool flag){ failSafeFlag = flag; }
+
+  RecFcn* getConstantRecFcn() { return &constantRecFcn; }
+
+  DistSVec<double,dim>& getCurrentResidual() { return *R; }
 
 // Modified (MB)
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);

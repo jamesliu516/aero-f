@@ -290,7 +290,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     edgeirey = 0.5*(irey[i]+irey[j]);
 
-    if (!rshift)
+    if (!rshift && locToGlobNodeMap)
     // check for negative pressure or density //
       ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
                                        failsafe, tag);
