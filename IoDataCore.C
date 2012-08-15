@@ -4563,7 +4563,7 @@ int IoData::checkInputValuesAllInitialConditions(){
       }
     }      
  
-    embed.nLevelset++;
+    //embed.nLevelset++;
   }
 
   int nModels = usedModels.size();
