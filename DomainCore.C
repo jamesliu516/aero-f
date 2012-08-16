@@ -285,7 +285,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   inletNodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   if (!(ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
         ioData.schemes.bc.type != BoundarySchemeData::STEGER_WARMING &&
-        ioData.schemes.bc.type != BoundarySchemeData::GHIDAGLIA)){
+        ioData.schemes.bc.type != BoundarySchemeData::GHIDAGLIA &&
+        ioData.schemes.bc.type != BoundarySchemeData::MODIFIED_GHIDAGLIA)){
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; ++iSub) {
       subDomain[iSub]->markLenNull(*inletNodeDistInfo);

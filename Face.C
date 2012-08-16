@@ -185,7 +185,7 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &nor
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -219,7 +219,7 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
 
     // Low-Mach Preconditioner
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
     double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -284,9 +284,9 @@ void Face::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
     //double locMach = fabs(un/a); //local Preconditioning (ARL)
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     double dLocMach = varFcn->computeDerivativeOfMachNumber(V[ nodeNum(l) ], dV[ nodeNum(l) ], dMach);
-    double dbeta = tprec.getdBeta(locMach,dLocMach);
+    double dbeta = tprec.getdBeta(locMach,dLocMach,true);
 
     double beta2 = locbeta * locbeta;
     double dbeta2 = 2.0 * locbeta * dbeta;
@@ -319,13 +319,32 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   double *Ub, SVec<double,dim> &fluxes)
 {
   if(fluxFcn[code]){
-    double flux[dim];
+    bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    const int dim0 = 5;
+    double* flux;
+    if(hhcoeffs.currentDt>=0.0 && farfield) { //KW: Modified Ghidaglia
+      flux = new double [2*dim0+6];
+      for(int j=0; j<3; j++)
+        flux[2*dim0+j] = faceCenter[j];
+      flux[2*dim0+5] = hhcoeffs.currentDt;
+    } else
+      flux = new double [dim];
+
     for (int l=0; l<numNodes(); ++l) {
+
+      if(hhcoeffs.currentDt>=0.0 && farfield) {
+        flux[2*dim0+3] = hhcoeffs.s1[l];
+        flux[2*dim0+4] = hhcoeffs.s0[l];
+      }
+
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			     V[nodeNum(l)], Ub, flux);
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
+
+      if(hhcoeffs.currentDt>=0.0 && farfield)
+        hhcoeffs.s1[l] = flux[2*dim0+3];
     }
   }
 }
@@ -366,13 +385,32 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   }
 
   if(fluxFcn[code]){
-    double flux[dim];
+    bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    const int dim0 = 5;
+    double* flux;
+    if(hhcoeffs.currentDt>=0.0 && farfield) { //KW: Modified Ghidaglia
+      flux = new double [2*dim0+6];
+      for(int j=0; j<3; j++)
+        flux[2*dim0+j] = faceCenter[j];
+      flux[2*dim0+5] = hhcoeffs.currentDt;
+    } else
+      flux = new double [dim];
+
     for (int l=0; l<numNodes(); ++l) {
+
+      if(hhcoeffs.currentDt>=0.0 && farfield) {
+        flux[2*dim0+3] = hhcoeffs.s1[l];
+        flux[2*dim0+4] = hhcoeffs.s0[l];
+      }
+
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
                              V[nodeNum(l)], Ub, flux);
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
+
+      if(hhcoeffs.currentDt>=0.0 && farfield)
+        hhcoeffs.s1[l] = flux[2*dim0+3];
     }
   }
 }
@@ -411,8 +449,18 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   SVec<double,dim> &fluxes, LevelSetStructure *LSS)
 {
   Vec3D normal = getNormal(normals);
-  double flux[dim];
+  double* flux;
   bool cracking = LSS ? LSS->withCracking() : false;
+  bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    
+  const int dim0 = 5;
+  if(hhcoeffs.currentDt>=0.0 && farfield) {
+    flux = new double [2*dim0+6];
+    for(int j=0; j<3; j++)
+      flux[2*dim0+j] = faceCenter[j];
+    flux[2*dim0+5] = hhcoeffs.currentDt;
+  } else
+    flux = new double [dim];
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
@@ -422,13 +470,26 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
         if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;}
 
       if (!higherOrderMF || !higherOrderMF->isCellCut(nodeNum(l))) {
+
+        if(hhcoeffs.currentDt>=0.0 && farfield) {
+          flux[2*dim0+3] = hhcoeffs.s1[l];
+          flux[2*dim0+4] = hhcoeffs.s0[l];
+//          fprintf(stderr,"face: %e %e %e | %e %e | %e.\n", flux[2*dim0], flux[2*dim0+1], flux[2*dim0+2], flux[2*dim0+3], 
+//                  flux[2*dim0+4], flux[2*dim0+5]);
+        }
+
 	fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			       V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
 	for (int k=0; k<dim; ++k)
 	  fluxes[ nodeNum(l) ][k] += flux[k];
+
+        if(hhcoeffs.currentDt>=0.0 && farfield) 
+          hhcoeffs.s1[l] = flux[2*dim0+3];
       }
     }
   }
+
+  delete [] flux; 
 }
 
 //------------------------------------------------------------------------------
@@ -788,6 +849,7 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
   for (int i=0; i<numFaces; ++i)  {
     faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluidId, fluxes, LSS);
   }
+
 }
 
 //------------------------------------------------------------------------------

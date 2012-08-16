@@ -172,6 +172,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnModifiedGhidagliaEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnModifiedGhidagliaEuler3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnModifiedGhidagliaEuler3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnInflowEuler3D : public FluxFcnFD<5> {
 
 public:

@@ -143,8 +143,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         dt = probDesc->computeTimeStep(it, &dtLeft, U);
 
       t += dt;
-//      fprintf(stderr,"t = %e, dt = %e.\n", t, dt);
 
+      // update coefficients for enforcing the Farfield BC.
+      probDesc->updateFarfieldCoeffs(dt);
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
       // compute control volumes and velocities

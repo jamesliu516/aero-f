@@ -220,14 +220,14 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
 
-  DistSVec<double,dimLS>& locphi = this->Phi;
+  DistSVec<double,dimLS>* locphi = &this->Phi;
   if (this->lsMethod == 0)
-    locphi = this->PhiV;
+    locphi = &this->PhiV;
   //else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
   //  locphi = this->Phi0;
 
   if (this->interfaceOrder == 2 && this->useCutCells) {
-    this->multiPhaseSpaceOp->findCutCells(locphi,
+    this->multiPhaseSpaceOp->findCutCells(*locphi,
                                           this->cutCellStatus,
                                           *this->fluidSelector.fluidId,
                                           Q,

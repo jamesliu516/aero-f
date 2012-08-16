@@ -333,6 +333,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
                   iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+          else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
           else{
             fprintf(stderr, "*** Error: no outlet boundary flux has been selected for Stiffened Gas\n");
             exit(-1);
@@ -349,6 +352,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
                   iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+          else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
           else{
             fprintf(stderr, "*** Error: no inlet boundary flux has been selected for Stiffened Gas\n");
             exit(-1);
@@ -648,6 +654,9 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
         else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
                 iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
           localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+        else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+          localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
         else{
           fprintf(stderr, "*** Error: no outlet boundary flux has been selected for Stiffened Gas\n");
           exit(-1);
@@ -664,6 +673,9 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
         else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
                 iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
           localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+        else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+                iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+          localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
         else{
           fprintf(stderr, "*** Error: no inlet boundary flux has been selected for Stiffened Gas\n");
           exit(-1);
