@@ -332,6 +332,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
+
+  this->updateBoundaryExternalState();
 }
 //------------------------------------------------------------------------------
 
@@ -369,6 +371,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK4(DistSVec<double,dim> &U)
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
 
+  this->updateBoundaryExternalState();
 }
 
 //------------------------------------------------------------------------------
@@ -432,14 +435,14 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
 {
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(Ulocal);
 
-  DistSVec<double,dimLS>& locphi = this->Phi;
+  DistSVec<double,dimLS>* locphi = &this->Phi;
   if (this->lsMethod == 0)
-    locphi = this->PhiV;
+    locphi = &this->PhiV;
   /*else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
     locphi = this->Phi0;
 */
   if (this->interfaceOrder == 2 && this->useCutCells) {
-    this->multiPhaseSpaceOp->findCutCells(locphi,
+    this->multiPhaseSpaceOp->findCutCells(*locphi,
 					  this->cutCellStatus,
 					  *this->fluidSelector.fluidId,
 					  Ulocal,
@@ -452,7 +455,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
     this->varFcn->primitiveToConservative(this->V0,Ulocal,this->fluidSelector.fluidId);
   }
 
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, locphi, this->fluidSelector, 
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, *locphi, this->fluidSelector, 
 					   dU, this->riemann,it);
                                  //Q: why send PhiV?
                                  //A: Riemann solver needs gradPhi.

@@ -62,7 +62,7 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    locbeta = tprec.getBeta(locMach);
+    locbeta = tprec.getBeta(locMach,true);
 
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -134,9 +134,9 @@ void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
     double un = u * n - ndot;
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    locbeta = tprec.getBeta(locMach);
+    locbeta = tprec.getBeta(locMach,true);
     double dLocMach = varFcn->computeDerivativeOfMachNumber(Vmid, dVmid, dMach);
-    dLocbeta = tprec.getdBeta(locMach,dLocMach);
+    dLocbeta = tprec.getdBeta(locMach,dLocMach,true);
 
     double beta2 = locbeta * locbeta;
     double dbeta2 = 2.0*locbeta * dLocbeta;
@@ -200,7 +200,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(Vmid, fluidId[i]);
 
-      locbeta = tprec.getBeta(mach);
+      locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta*locbeta;
       coeff1 = (1.0+beta2)*un;
       coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -217,7 +217,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[i],fluidId[i]);
 
-      locbeta = tprec.getBeta(mach);
+      locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
       coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -232,7 +232,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[j],fluidId[j]);
 
-      locbeta = tprec.getBeta(mach);
+      locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
       coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);

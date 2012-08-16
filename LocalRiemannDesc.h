@@ -3148,14 +3148,16 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double gamma = vf->getGamma(Id);
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
-  if(u==ui){ // contact
+/*
+    if(u==ui){ // contact
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;
   }
+*/
 
   double q = (gamma-1.0)/(gamma+1.0);
-  if(ui<u){ // rarefaction
+  if(ui<=u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
@@ -3188,11 +3190,19 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     double pbar = p + pref;
  
     double dtdrho = t/rho, dtdu = -(gamma+1.0)*rho*(ui-u);
-    double xi = sqrt(0.5*t*t+power*t*pbar);
-    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
-    dWidWi[8] = 1.0+0.5/xi*power*t;
-    dWidWi[7] = eta*dtdu;
-    dWidWi[6] = eta*dtdrho;
+//    double xi = sqrt(0.5*t*t+power*t*pbar);
+  
+//    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
+//    dWidWi[8] = 1.0+0.5/xi*power*t;
+//    dWidWi[7] = eta*dtdu;
+//    dWidWi[6] = eta*dtdrho;
+    
+    dWidWi[8] = 1.0+power*sqrt(t/(t/2.0+power*pbar))/2.0;
+    
+    double tmp = gamma*pbar*rho;
+    dWidWi[7] = dtdu/2.0-(dtdu*dtdu+8.0*tmp)/sqrt(8.0*dtdu*dtdu+64.0*tmp);
+
+    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
 
     double s = q*pstarbar/pbar+1.0;
     double deriv = 1.0/(pbar*s)-(pstarbar/pbar+q)/(s*s)*(q/pbar);

@@ -152,6 +152,10 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     *countWstarij = 0;
     *countWstarji = 0;
   }
+  else {
+    countWstarij = NULL;
+    countWstarji = NULL;
+  }
 
   //copies for fail safe
   WstarijCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
@@ -331,6 +335,8 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     double *tMax = &(this->data)->maxTime;
     _mmh->setup(tMax); //obtain maxTime from structure
   }
+
+  this->initializeFarfieldCoeffs();
 
   // If 'IncreasePressure' is activated, re-initialize the fluid state
   if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {

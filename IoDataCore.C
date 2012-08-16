@@ -2282,9 +2282,9 @@ void BoundarySchemeData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 1, father);
 
   new ClassToken<BoundarySchemeData>(ca, "Type", this,
-         reinterpret_cast<int BoundarySchemeData::*>(&BoundarySchemeData::type), 4,
+         reinterpret_cast<int BoundarySchemeData::*>(&BoundarySchemeData::type), 5,
          "StegerWarming", 0, "ConstantExtrapolation", 1, "LinearExtrapolation", 2,
-	 "Ghidaglia", 3);
+	 "Ghidaglia", 3, "ModifiedGhidaglia", 4);
 
 }
 
@@ -2926,7 +2926,7 @@ AeroelasticData::AeroelasticData()
 {
 
   force = LAST;
-  pressure = 0.0;
+  pressure = -1.0;
   displacementScaling = 1.0;
   forceScaling = 1.0;
   powerScaling = 1.0;
@@ -3022,12 +3022,21 @@ PitchingData::PitchingData()
   domain = VOLUME;
   alpha_in = 0.0;
   alpha_max = 0.0;
-  x1 =  0.0;
-  y1 = -1.0;
-  z1 =  0.0;
-  x2 =  0.0;
-  y2 =  1.0;
-  z2 =  0.0;
+  x11 =  0.0;
+  y11 = -1.0;
+  z11 =  0.0;
+  x21 =  0.0;
+  y21 =  1.0;
+  z21 =  0.0;
+
+  beta_in = 0.0;
+  beta_max = 0.0;
+  x12 = -1.0;
+  y12 =  0.0;
+  z12 =  0.0;
+  x22 =  1.0;
+  y22 =  0.0;
+  z22 =  0.0;
 
 }
 
@@ -3045,13 +3054,21 @@ void PitchingData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<PitchingData>(ca, "Alpha0", this, &PitchingData::alpha_in);
   new ClassDouble<PitchingData>(ca, "AlphaMax", this, &PitchingData::alpha_max);
-  new ClassDouble<PitchingData>(ca, "X1", this, &PitchingData::x1);
-  new ClassDouble<PitchingData>(ca, "Y1", this, &PitchingData::y1);
-  new ClassDouble<PitchingData>(ca, "Z1", this, &PitchingData::z1);
-  new ClassDouble<PitchingData>(ca, "X2", this, &PitchingData::x2);
-  new ClassDouble<PitchingData>(ca, "Y2", this, &PitchingData::y2);
-  new ClassDouble<PitchingData>(ca, "Z2", this, &PitchingData::z2);
+  new ClassDouble<PitchingData>(ca, "X11", this, &PitchingData::x11);
+  new ClassDouble<PitchingData>(ca, "Y11", this, &PitchingData::y11);
+  new ClassDouble<PitchingData>(ca, "Z11", this, &PitchingData::z11);
+  new ClassDouble<PitchingData>(ca, "X21", this, &PitchingData::x21);
+  new ClassDouble<PitchingData>(ca, "Y21", this, &PitchingData::y21);
+  new ClassDouble<PitchingData>(ca, "Z21", this, &PitchingData::z21);
 
+  new ClassDouble<PitchingData>(ca, "Beta0", this, &PitchingData::beta_in);
+  new ClassDouble<PitchingData>(ca, "BetaMax", this, &PitchingData::beta_max);
+  new ClassDouble<PitchingData>(ca, "X12", this, &PitchingData::x12);
+  new ClassDouble<PitchingData>(ca, "Y12", this, &PitchingData::y12);
+  new ClassDouble<PitchingData>(ca, "Z12", this, &PitchingData::z12);
+  new ClassDouble<PitchingData>(ca, "X22", this, &PitchingData::x22);
+  new ClassDouble<PitchingData>(ca, "Y22", this, &PitchingData::y22);
+  new ClassDouble<PitchingData>(ca, "Z22", this, &PitchingData::z22);
 }
 
 //------------------------------------------------------------------------------
@@ -4782,12 +4799,19 @@ void IoData:: nonDimensionalizeForcedMotion(){
   forced.hv.az /= ref.rv.length;
 
   //pitching
-  forced.pt.x1 /= ref.rv.length;
-  forced.pt.y1 /= ref.rv.length;
-  forced.pt.z1 /= ref.rv.length;
-  forced.pt.x2 /= ref.rv.length;
-  forced.pt.y2 /= ref.rv.length;
-  forced.pt.z2 /= ref.rv.length;
+  forced.pt.x11 /= ref.rv.length;
+  forced.pt.y11 /= ref.rv.length;
+  forced.pt.z11 /= ref.rv.length;
+  forced.pt.x21 /= ref.rv.length;
+  forced.pt.y21 /= ref.rv.length;
+  forced.pt.z21 /= ref.rv.length;
+
+  forced.pt.x12 /= ref.rv.length;                    
+  forced.pt.y12 /= ref.rv.length;                
+  forced.pt.z12 /= ref.rv.length;             
+  forced.pt.x22 /= ref.rv.length;           
+  forced.pt.y22 /= ref.rv.length;          
+  forced.pt.z22 /= ref.rv.length;         
 }
 
 //------------------------------------------------------------------------------
@@ -5248,6 +5272,12 @@ int IoData::checkInputValuesEssentialBC()
   if (bc.inlet.beta > 360.0) {
     com->fprintf(stderr, "*** Error: no valid yaw angle (%e) given\n", bc.inlet.beta);
     ++error;
+  }
+
+  if(schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA && ts.type!=TsData::EXPLICIT) {
+    com->fprintf(stderr, "*** Warning: The Modified Ghidaglia scheme is only supported by explicit time-integrators.\n");
+    com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
+    schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
   }
 
 // Included (MB)

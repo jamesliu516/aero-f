@@ -88,6 +88,8 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   iForce = 0;
   iTotal = 0;
 
+  modifiedGhidaglia = (ioData.schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA);
+
   if (ioData.sa.fixsol == 0)
     fixSol = 0;
   else if (ioData.sa.fixsol == 1)
@@ -289,6 +291,8 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     hth->setup(&restart->frequency, &data->maxTime);
 
   *Xs = *X;
+
+  initializeFarfieldCoeffs();
 }
 
 //------------------------------------------------------------------------------
@@ -588,7 +592,7 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 
-  if(mmh->getAlgNum() == 1)
+  if(mmh && mmh->getAlgNum() == 1)
     output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
 
   timer->setRunTime();
@@ -906,3 +910,51 @@ void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
 {
   // Nothing to do here by default.
 }
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::updateFarfieldCoeffs(double dt)
+{
+  if(!modifiedGhidaglia) return;
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->updateFarfieldCoeffs(dt);
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::updateBoundaryExternalState()
+{
+  if(!modifiedGhidaglia) return;
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->updateBoundaryExternalState();
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::initializeFarfieldCoeffs()
+{
+  double *Vin = bcData->getInletPrimitiveState();
+  double soundspeed = varFcn->computeSoundSpeed(Vin);
+  double gamma = varFcn->getGamma();
+  double HH_init = -2.0*soundspeed/(gamma - 1.0);
+  //fprintf(stderr,"HH_init is set to %e.\n", HH_init);
+
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->initializeFarfieldCoeffs(HH_init);
+}
+
