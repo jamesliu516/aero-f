@@ -10,7 +10,7 @@ ImplicitGnatTsDesc<dim>::ImplicitGnatTsDesc(IoData &ioData, GeoSource &geoSource
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom),
 	leastSquaresSolver(this->com, this->com->size(), 1)// all cpus along rows
 {
-
+/*
 	// read in gappy POD matrix for residual
   VecSet<DistSVec<double, dim> > resMatrixFull(0,dom->getNodeDistInfo());
 	gnatPrefix = ioData.input.gnatPrefix;
@@ -69,17 +69,18 @@ ImplicitGnatTsDesc<dim>::ImplicitGnatTsDesc(IoData &ioData, GeoSource &geoSource
 
 	AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, getRestrictedDistInfo()));
 	ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
-
+*/
 }
 
 template<int dim>
 ImplicitGnatTsDesc<dim>::~ImplicitGnatTsDesc() 
-{
+{/*
 	delete resMat;
 	if (numResJacMat == 2)
 		delete jacMat;
 	if (jactmp) delete [] jactmp;
 	if (column) delete [] column;
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -88,7 +89,7 @@ template<int dim>
 void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q) {
 
 	// Evaluate residual on full mesh
-
+/*
   this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, this->F, this->timeState, *restrictionMapping);
 
 	this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q,
@@ -101,7 +102,7 @@ void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> 
 	restrictMapping()->restriction(this->F, *ResRestrict);
 
 	this->timer->addRestrictionTime(t0);
-
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -110,7 +111,7 @@ template<int dim>
 void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
 	// Evaluate action of Jacobian on full mesh
-
+/*
 	this->mvpfd->evaluateRestrict(it, *this->X, *this->A, Q, this->F,
 			*restrictionMapping);	// very cheap
   
@@ -124,6 +125,7 @@ void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 		restrictMapping()->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
 	}
 	this->timer->addRestrictionTime(t0);
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -131,7 +133,7 @@ void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 template<int dim>
 void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
   // Form A * of and distribute
-
+/*
 	double t0 = this->timer->getTime();
 	transMatMatProd(*jacMat, *AJRestrict,jactmp);
 
@@ -181,6 +183,7 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
 
   breakloop = (res == 0.0) || (res <= this->target);
 	this->timer->addCheckConvergenceTime(t0);
+*/
 }
 
 template<int dim>

@@ -21,6 +21,7 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
 	residual(0), jacobian(1), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true),
 	initializeLeastSquaresDone(false)
 {
+/*
 	// create temporary objects to build postOp, which is needed for surfaces
 
 	twoLayers = ioData->gnat.layers == 2;
@@ -81,6 +82,7 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
 	}
 
 	onlyInletOutletBC = true;	// first node should be on inlet/outlet
+*/
 }
 
 //----------------------------------------------
@@ -105,7 +107,7 @@ GnatPreprocessing<dim>::~GnatPreprocessing()
 
 template<int dim>
 void GnatPreprocessing<dim>::buildReducedModel() {
-
+/*
 	setUp();
 
 	// compute the sample mesh used by Gappy POD
@@ -170,7 +172,7 @@ void GnatPreprocessing<dim>::buildReducedModel() {
 	// don't evaluate rhat and jphihat for unsampled nodes
 
 	// TRICK: adding zero rows to matrices has no effect on the qr decomposition
-
+*/
 } 
 
 //----------------------------------------------
@@ -179,11 +181,11 @@ template<int dim>
 void GnatPreprocessing<dim>::setUp() {
 
 	// determine whether one or two pod bases are used
-
+/*
 	setUpPodResJac();
 	setUpGreedy();
 	setUpPseudoInverse();
-
+*/
 }
 
 //----------------------------------------------
@@ -192,7 +194,7 @@ template<int dim>
 void GnatPreprocessing<dim>::setUpPodResJac() {
 
 	// use one basis if 1) same file name, or 2) podFileJac unspecified
-
+/*
 	if (strcmp(input->podFileRes,input->podFileJac)==0 ||
 			strcmp(input->podFileJac,"")==0) 
 		nPodBasis = 1;
@@ -233,19 +235,20 @@ void GnatPreprocessing<dim>::setUpPodResJac() {
 	}
 
 	readInPodResJac();
-
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::setUpPseudoInverse() {
-
+/*
 	// compute pod[0]^Tpod[1] (so you can delete these from memory sooner)
 	if (nPodBasis == 2)
 		computePodTPod();
 
 	initializeLeastSquares();	// no least squares the first greedy it
+*/
 }
 
 //----------------------------------------------
@@ -253,6 +256,7 @@ void GnatPreprocessing<dim>::setUpPseudoInverse() {
 template<int dim>
 void GnatPreprocessing<dim>::setUpGreedy() {
 
+/*
 	//==================================================================
 	// PURPOSE: compute number of POD basis vectors (nRhsMax) and globalNodes and handled by each
 	// iteration of the greedy algorithm
@@ -331,6 +335,7 @@ void GnatPreprocessing<dim>::setUpGreedy() {
 	//===============================================
 	
 	initializeLeastSquares();	// no least squares the first greedy it
+*/
 }
 
 //----------------------------------------------
@@ -347,7 +352,7 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
 	// 	Global: locPodHat for maximum entry, globally summed cpuSample, locSubSample,
 	// 	locNodeSample, globalSampleNodes, xyz
 	//===============================================
-		
+/*		
 	double globalMaxNorm = myMaxNorm;
 	com->barrier();
 	com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
@@ -435,14 +440,14 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
 				XYZ));
 
 	++handledNodes;
-
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::determineSampleNodes() {
-
+/*
 	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt)  {
 		com->fprintf(stderr,"... greedy iteration %d ...\n", greedyIt);
 		greedyIteration(greedyIt);
@@ -465,13 +470,14 @@ void GnatPreprocessing<dim>::determineSampleNodes() {
 			com->fprintf(stderr,"%d ",globalSampleNodes[iSampleNodes]);
 		com->fprintf(stderr,"\n");
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
-
+/*
 	// Differences for 1st iteration compared with other greedy iterations:
 	// 1) no least squares problem is solved (just take the maximum entry)
 	// 2) look at the inlet face to ensure boundary condition is handled
@@ -527,14 +533,14 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)	
 		handledVectors[iPodBasis] += nRhs[iPodBasis];
-
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::initializeLeastSquares() {
-
+/*
 	// initialize least squares problems
 	// TODO: only allocate memory for required columns!
 	if (initializeLeastSquaresDone == true) return;
@@ -544,6 +550,7 @@ void GnatPreprocessing<dim>::initializeLeastSquares() {
 	}
 
 	initializeLeastSquaresDone = true;
+*/
 }
 
 //----------------------------------------------
@@ -552,7 +559,7 @@ template<int dim>
 void GnatPreprocessing<dim>::makeNodeMaxIfUnique(double nodeError, double
 		&myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int
 		&globalNode) {
-
+/*
 	// PURPOSE: make the node the current maximum on this cpu if it hasn't been added already
 	// INPUT
 	// 	Local: nodeError, myMaxNorm (can change), iSub, locNodeNum (in subdomain node numbering
@@ -587,13 +594,14 @@ void GnatPreprocessing<dim>::makeNodeMaxIfUnique(double nodeError, double
 			globalNode = thisGlobalNode;
 		}
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError) {
-
+/*
 	// PURPOSE: compute the sum of squares of node error for all RHS, both bases
 	// 	at the locNodeNum node
 	// INPUT
@@ -613,13 +621,14 @@ void GnatPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeNu
 			 }
 		 }
 	 }
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::getSubDomainError(int iSub) {
-
+/*
 	// INPUT 
 	// 	Passed: iSub
 	// 	Global: nPodBasis, error
@@ -633,13 +642,14 @@ void GnatPreprocessing<dim>::getSubDomainError(int iSub) {
 			locError[iPodBasis][iRhs] = error[iPodBasis][iRhs].subData(iSub);	// first iteration, it is just the pod vectors themselves
 		}
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::leastSquaresReconstruction() {
-
+/*
 	// PURPOSE: compute least squares reconstruction error of the pod basis
 	// vectors
 	// INPUT
@@ -669,6 +679,7 @@ void GnatPreprocessing<dim>::leastSquaresReconstruction() {
 		if (lsCoeff[iPodBasis]) delete [] lsCoeff[iPodBasis];
 
 	}
+*/
 }
 
 //----------------------------------------------
@@ -676,7 +687,7 @@ void GnatPreprocessing<dim>::leastSquaresReconstruction() {
 template<int dim> void GnatPreprocessing<dim>::subDFindMaxError(int iSub, bool
 		onlyInletOutletBC, double &myMaxNorm, int &locSub, int &locNode, int
 		&globalNode) {
-
+/*
 	// PURPOSE: Search the iSub subdomain for possible maximum error
 	// Inputs:
 	// 	Passed: iSub, onlyInletOutletBC, myMaxNorm, locSub, locNode, globalNode
@@ -714,23 +725,25 @@ template<int dim> void GnatPreprocessing<dim>::subDFindMaxError(int iSub, bool
 			makeNodeMaxIfUnique(nodeError, myMaxNorm, iSub, locNodeNum, locSub, locNode, globalNode);
 		}
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
-
+/*
 	bool lsCoeffAllCPU = true; // all cpus need solution
 	parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
 			handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff, lsCoeffAllCPU);
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::buildRemainingMesh() {
-
+/*
 	// globalNodes[iIsland][0] is the sample node itself 
 	// globalNodes[iIsland][iNode] is the iNode neighbor of iIsland.
 
@@ -801,14 +814,14 @@ void GnatPreprocessing<dim>::buildRemainingMesh() {
 	nReducedNodes = globalNodes[0].size();	// number of nodes in the sample mesh
 
 	if (nodeOffset) delete [] nodeOffset; 
-
+*/
 } 
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::addSampleNodesAndNeighbors() {
-
+/*
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
 		com->fprintf(stderr," ... adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
 
@@ -828,13 +841,14 @@ void GnatPreprocessing<dim>::addSampleNodesAndNeighbors() {
 		nodeOffset[iSampleNodes] = globalNodes[iSampleNodes].size();
 		addNeighbors(iSampleNodes);
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh) {
-
+/*
 	// add all global neighbor globalNodes/elements in the iIslands row of and elements to the iIsland node set
 	
 	Connectivity *nodeToNode, *nodeToEle, *eleToNode;
@@ -902,6 +916,7 @@ void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeig
 			}
 		}
 	}
+*/
 }
 
 //----------------------------------------------
@@ -917,7 +932,7 @@ void GnatPreprocessing<dim>::computeBCFaces(bool liftContribution) {
 	// NOTE: this is done in parallel; thus, a communication is needed to make
 	// sure all cpus have the same copy
 		// determine if any faces are boundary conditions
-
+/*
 	int faceBCCode = 0;
 	bool includeFace;
 	int globalFaceNodes [3];	// global node numbers of current face
@@ -964,13 +979,14 @@ void GnatPreprocessing<dim>::computeBCFaces(bool liftContribution) {
 			}
 		}
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::communicateAll() {
-
+/*
 	domain.communicateMesh(globalNodes, nSampleNodes, totalNodesCommunicated);
 	domain.communicateMesh(cpus, nSampleNodes, totalNodesCommunicated);
 	domain.communicateMesh(locSubDomains, nSampleNodes, totalNodesCommunicated);
@@ -986,13 +1002,14 @@ void GnatPreprocessing<dim>::communicateAll() {
 		totalNodesCommunicated[i] = globalNodes[i].size();
 		totalEleCommunicated[i] = elements[i].size();
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::defineMaps() {
-
+/*
 	// defines nodesXYZmap and elemToNodeMap
 
 	int globalNodeNumTmp;
@@ -1046,14 +1063,14 @@ for (int i = 0; i < 3; ++i)
 		if (nodesXYZ) delete [] nodesXYZ[i];
 	for (int i = 0; i < 4; ++i)
 		if (elemToNode[i]) delete [] elemToNode[i];
-
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::communicateBCFaces(){
-	
+	/*
 	int BC_CODE_EXTREME = max(BC_MAX_CODE, -BC_MIN_CODE)+1;
 
 	for (int i = 0; i < 2; ++i) {
@@ -1062,6 +1079,7 @@ void GnatPreprocessing<dim>::communicateBCFaces(){
 		}
 		domain.communicateMesh(bcFaceSurfID[i], BC_CODE_EXTREME, NULL);
 	}
+  */
 }
 
 //----------------------------------------------
@@ -1071,7 +1089,7 @@ bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iF
 
 	// PURPOSE: determine wheteher or not currentFace is in the sample mesh
 	// OUTPUT: faceInMesh = true if the face is in the sample mesh
-
+/*
 	bool faceInMesh = false;
 	bool faceSomewhereInMesh;
 	bool *nodeSomewhereInMesh = new bool [currentFaces[iFace].numNodes()];	// one bool for each face node
@@ -1136,6 +1154,7 @@ bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iF
 	if (nodeSomewhereInMesh) delete [] nodeSomewhereInMesh;
 
 	return faceInMesh;
+*/
 }
 
 //----------------------------------------------
@@ -1143,7 +1162,8 @@ bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iF
 template<int dim>
 bool GnatPreprocessing<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
 		iSub, const int iFace){
-	bool includeFace;
+	/*
+  bool includeFace;
 	std::set<StaticArray <int, 3> >::iterator bcFacesInfoIt;	// {iCPU,iSub,iFace}
 	int faceLoc [3] = {cpuNum, iSub, iFace};
 	StaticArray <int,3> faceLocation(faceLoc);
@@ -1153,6 +1173,7 @@ bool GnatPreprocessing<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
 	else 	// already added face
 		includeFace = false;
 	return includeFace;
+  */
 }
 
 //----------------------------------------------
@@ -1161,10 +1182,12 @@ template<int dim>
 void GnatPreprocessing<dim>::addFaceNodesElements(FaceSet&
 		currentFaces, const int iFace, const int iSub, const int
 		*locToGlobNodeMap){
+  /*
 	int *locNodeNums = new int [currentFaces[iFace].numNodes()];
 	addNodesOnFace(currentFaces, iFace, iSub, locToGlobNodeMap, locNodeNums);// add nodes
 	addElementOfFace(currentFaces, iFace, iSub, locToGlobNodeMap, locNodeNums);
 	if (locNodeNums) delete [] locNodeNums ;
+  */
 }
 
 //----------------------------------------------
@@ -1174,7 +1197,7 @@ void GnatPreprocessing<dim>::addNodesOnFace(FaceSet&
 		currentFaces, const int iFace, const int iSub, const int
 		*locToGlobNodeMap, int *locNodeNums = NULL){
 	// output: locNodeNums
-
+/*
 	int globalNodeNum;
 	int localNodeNum;
   double xyz [3] = {0.0, 0.0, 0.0};
@@ -1194,7 +1217,7 @@ void GnatPreprocessing<dim>::addNodesOnFace(FaceSet&
 			nodesXYZ[iXYZ][0].push_back(xyz[iXYZ]);
 		locNodeNums[iNodeFace] = localNodeNum;
 	} 
-
+*/
 }
 
 //----------------------------------------------
@@ -1204,7 +1227,7 @@ void GnatPreprocessing<dim>::addElementOfFace(FaceSet&
 		currentFaces, const int iFace, const int iSub, const int
 		*locToGlobNodeMap, const int *locNodeNums){
 
-
+/*
 	bool faceInElement;
 	int *locToGlobElemMap = subD[iSub]->getElemMap();
 
@@ -1281,13 +1304,14 @@ void GnatPreprocessing<dim>::addElementOfFace(FaceSet&
 	}
 
 	if (nodeToEle) delete nodeToEle;
+  */
 }
 
 //----------------------------------------------
 
 template<int dim>
 bool GnatPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFace, const int iSub, const int *locToGlobNodeMap ){
-
+/*
 	bool faceContributesToLift;
 	map<int, int> surfOutMap = postOp->getSurfMap();
 	int idx;
@@ -1310,14 +1334,14 @@ bool GnatPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const in
 	else
 		faceContributesToLift = false;
 	return faceContributesToLift; 
-
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::outputTopFile() {
-
+/*
 	com->fprintf(stderr," ... Writing TOP file ...\n");
 
 	// initialize file
@@ -1435,13 +1459,14 @@ void GnatPreprocessing<dim>::outputTopFile() {
 		if (bcFaceSurfID[i]) delete [] bcFaceSurfID[i];
 	}
 	if (elements) delete [] elements;
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::outputSampleNodes() {
-
+/*
 	// write out sample node numbers in sample mesh node numbering system
 
 	com->fprintf(stderr," ... writing sample node file with respect to sample mesh...\n");
@@ -1452,13 +1477,15 @@ void GnatPreprocessing<dim>::outputSampleNodes() {
 
 	reducedSampleNodes.resize(0);
 	globalSampleNodes.resize(0);
+*/
 }
+
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile,const char *sampleNodeFileExtension) {
-
+/*
 	const char *fileName;
 	const char *fileNameExtension;
 	determineFileName(sampleNodeFile, sampleNodeFileExtension,fileName,fileNameExtension);
@@ -1477,19 +1504,20 @@ void GnatPreprocessing<dim>::outputSampleNodesGeneral(const std::vector<int> &sa
 
 	delete [] outSampleNodeFile;
 	if (thisCPU == 0) fclose(writingFile);
-
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
-	
+	/*
 	// input: iSub, iLocNode
 	// output: x,y,z coordinates of the iLocNode located on iSub
 	DistSVec<double,3>& X = geoState->getXn();
 	SVec<double,3>& Xsub = X(iSub);	// X is of type DistSVec<double,3>
 	for (int i = 0; i < 3; ++i) xyz[i] = Xsub[iLocNode][i];	
+  */
 }
 
 //----------------------------------------------
@@ -1510,7 +1538,7 @@ void GnatPreprocessing<dim>::computePseudoInverse(int iPodBasis) {
 //======================================
 
 	// generate pseudoInvRhs in chunks
-
+/*
 	int nNodesAtATime = ioData->gnat.pseudoInverseNodes;	
 	bool lastTime = false;
 	nNodesAtATime = min(nSampleNodes,nNodesAtATime);	// fix if needed
@@ -1575,13 +1603,14 @@ void GnatPreprocessing<dim>::computePseudoInverse(int iPodBasis) {
 	if (thisCPU == 0 && iPodBasis == 0) {
 		podHatPseudoInv[1] = podHatPseudoInv[0];
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::computePseudoInverse() {
-
+/*
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
 		computePseudoInverse(iPodBasis);
 	//checkConsistency();	// debugging check
@@ -1590,7 +1619,7 @@ void GnatPreprocessing<dim>::computePseudoInverse() {
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
 		podHat[iPodBasis].resize(0);
-
+*/
 }
 
 //----------------------------------------------
@@ -1602,7 +1631,7 @@ void GnatPreprocessing<dim>::computePodTPod() {
 	//
 	// since podTpod = I for nPodBasis = 1, only call this function for
 	// nPodBasis = 2
-
+/*
 	if (thisCPU == 0) { 
 		podTpod = new double * [nPod[1]];
 		for (int i = 0; i < nPod[1]; ++i)
@@ -1618,6 +1647,7 @@ void GnatPreprocessing<dim>::computePodTPod() {
 				podTpod[i][j] = podTpodTmp;
 		}
 	}
+*/
 }
 
 //----------------------------------------------
@@ -1628,6 +1658,8 @@ void GnatPreprocessing<dim>::assembleOnlineMatrices() {
 	// Purpose: assemble matrices that are used online
 	// Inputs: podHatPseudoInv, podTpod
 	// Outputs: onlineMatrices
+
+/*
 
 	int numCols = nSampleNodes * dim;
 
@@ -1658,6 +1690,7 @@ void GnatPreprocessing<dim>::assembleOnlineMatrices() {
 		}
 		if (podTpod) delete [] podTpod;
 	}
+*/
 }
 
 //----------------------------------------------
@@ -1668,7 +1701,7 @@ void GnatPreprocessing<dim>::outputOnlineMatrices() {
 	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
 	// DistSVec defined on the sample mesh. Each column in this VecSet
 	// corresponds to a row of A or B.
-
+/*
 	outputReducedToFullNodes();
 
 	com->fprintf(stderr," ... Writing online matrices ...\n");
@@ -1700,6 +1733,7 @@ void GnatPreprocessing<dim>::outputOnlineMatrices() {
 			if (onlineMatrices[0]) delete [] onlineMatrices[0];
 		}
 	}
+*/
 }
 
 //----------------------------------------------
@@ -1710,7 +1744,7 @@ void GnatPreprocessing<dim>::outputStateReduced() {
 	// ioData, nReducedNodes, domain
 	// needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
 	// globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
-
+/*
 	com->fprintf(stderr," ... Writing POD state and initial condition in sample mesh coordinates ...\n");
 	int sp = strlen(ioData->output.rom.prefix);
 	const char *fileName;
@@ -1759,6 +1793,7 @@ void GnatPreprocessing<dim>::outputStateReduced() {
 	if (outPodStateFile) delete [] outPodStateFile;
 	if (thisCPU == 0) fclose(outPodState);
 	if (thisCPU == 0) fclose(outInitialCondition );
+ */
 }
 
 //----------------------------------------------
@@ -1766,7 +1801,7 @@ void GnatPreprocessing<dim>::outputStateReduced() {
 template<int dim>
 void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
 		&distSVec, FILE* outFile , int iVector) {
-
+/*
 	// INPUTS: vector, output file name, vector index
 	// globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
@@ -1795,6 +1830,7 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
 		}
 		com->fprintf(outFile,"\n");
 	}
+*/
 }
 
 //----------------------------------------------
@@ -1803,7 +1839,7 @@ template<int dim>
 void GnatPreprocessing<dim>::outputWallDistanceReduced() {
 	// INPUTS: geoState, ioData, nReducedNodes
 	// needed by outputReducedVec: globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
-
+/*
 	com->fprintf(stderr," ... Writing wall distance for sample mesh ...\n");
 
 	// load in wall distance
@@ -1833,13 +1869,14 @@ void GnatPreprocessing<dim>::outputWallDistanceReduced() {
 
 	if (outWallDistFile) delete [] outWallDistFile;
 	if (thisCPU == 0) fclose(outWallDist);
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
-
+/*
 	com->fprintf(outFile,"%d\n", iVector);
 
 	for (int j = 0; j < nReducedNodes; ++j) {
@@ -1858,13 +1895,14 @@ void GnatPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FI
 		com->fprintf(outFile,"%8.15e ", value);
 		com->fprintf(outFile,"\n");
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::outputReducedToFullNodes() {
-
+/*
 	int sp = strlen(ioData->output.rom.prefix);
 
 	const char *fileName;
@@ -1880,6 +1918,7 @@ void GnatPreprocessing<dim>::outputReducedToFullNodes() {
 		com->fprintf(outMesh,"%d \n", globalNodes[0][j]+1);
 	}
 	if (thisCPU == 0) fclose(outMesh);
+*/
 }
 
 //----------------------------------------------
@@ -1888,7 +1927,7 @@ template<int dim>
 void GnatPreprocessing<dim>::checkConsistency() {
 
 	// PURPOSE: debugging
-
+/*
 	int numRhs = nSampleNodes * dim;	// number of RHS treated
 	double **consistency = new double * [numRhs];
 	for (int i = 0; i < numRhs; ++i)
@@ -1932,7 +1971,7 @@ void GnatPreprocessing<dim>::checkConsistency() {
 		if (consistency[i]) delete [] consistency[i];
 	}
 	if (consistency) delete [] consistency;
-
+*/
 }
 
 //----------------------------------------------
@@ -1942,7 +1981,7 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(const char
 		*onlineMatricesName, int numNodes,
 		const std::map<int,int> &sampleNodeMap, const std::vector<int>
 		&sampleNodeVec) {
-
+/*
 	if (thisCPU != 0)	return;	// only execute for cpu 0
 
 	// prepare files
@@ -2007,13 +2046,14 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(const char
 		if (onlineMatrixFile) delete [] onlineMatrixFile;
 		if (thisCPU == 0) fclose(onlineMatrix);
 	}
+*/
 }
 
 //----------------------------------------------
 
 template<int dim>
 void GnatPreprocessing<dim>::readInPodResJac() {
-
+/*
 	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
 		pod[i].resize(nPod[i]);
 	}
@@ -2026,7 +2066,7 @@ void GnatPreprocessing<dim>::readInPodResJac() {
 	if (nPodBasis == 2) {
 		domain.readPodBasis(input->podFileJac, nPod[1],pod[1]);
 	}
-
+*/
 }
 
 //----------------------------------------------
@@ -2035,7 +2075,7 @@ template<int dim>
 void GnatPreprocessing<dim>::determineFileName(const char *fileNameInput, const char
 		*currentExtension, const char *(&fileNameBase), const char
 		*(&fileNameExtension)) {
-
+/*
 	if (strcmp(fileNameInput,"") == 0) {
 		fileNameBase = ioData->output.rom.gnatPrefix;
 		fileNameExtension = currentExtension;
@@ -2044,4 +2084,5 @@ void GnatPreprocessing<dim>::determineFileName(const char *fileNameInput, const 
 		fileNameBase = fileNameInput;
 		fileNameExtension = "";
 	}
+*/
 }

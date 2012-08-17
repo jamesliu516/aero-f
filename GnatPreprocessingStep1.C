@@ -4,8 +4,9 @@ template<int dim>
 GnatPreprocessingStep1<dim>::GnatPreprocessingStep1(Communicator *_com, IoData
 		&_ioData, Domain &dom, DistGeoState *_geoState) : GnatPreprocessing<dim>(_com,
 			_ioData, dom, _geoState) {
-
+/*
 	computeGappyRes = this->ioData->gnat.computeGappyRes;
+*/
 }
 
 template<int dim>
@@ -24,7 +25,7 @@ void GnatPreprocessingStep1<dim>::assembleOnlineMatrices() {
 
 template<int dim>
 void GnatPreprocessingStep1<dim>::computePodTPod() {
-
+/*
 	if (computeGappyRes==0)
 		return;
 
@@ -57,7 +58,7 @@ void GnatPreprocessingStep1<dim>::computePodTPod() {
 	if (this->podTpod) delete [] this->podTpod;
 	if (podTpodFile) delete [] podTpodFile; 
 	if (this->thisCPU ==0) fclose(PODTPOD);
-
+*/
 }
 
 template<int dim>
@@ -66,7 +67,7 @@ void GnatPreprocessingStep1<dim>::outputOnlineMatricesGeneral(const
 		&sampleNodeMap, const std::vector<int> &sampleNodeVec) {
 
 	// prepare files
-
+/*
 	char *onlineMatrixFile;
 	FILE *onlineMatrix;
 	int sp = strlen(this->ioData->output.rom.prefix);
@@ -102,4 +103,5 @@ void GnatPreprocessingStep1<dim>::outputOnlineMatricesGeneral(const
 		if (this->thisCPU ==0) fclose(onlineMatrix);
 	}
 	this->com->barrier();
+*/
 }

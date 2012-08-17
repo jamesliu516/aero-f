@@ -85,20 +85,6 @@ struct InputData {
 
   const char *stateVecFile;//CBM
 
-	// Gappy POD
-
-  const char *gnatPrefix;
-  const char *sampleNodes;
-  const char *jacMatrix;
-  const char *resMatrix;
-  const char *podFileState;
-  const char *podFileRes;
-  const char *podFileJac;
-  const char *podFileResHat;
-  const char *podFileJacHat;
-  const char *mesh;
-  const char *reducedfullnodemap;
-
   const char* convergence_file;
   
   const char* exactInterfaceLocation;
@@ -281,43 +267,8 @@ struct ROMOutputData {
 
   const char *prefix;
 
-  const char *newtonresiduals;
-  const char *jacobiandeltastate;
-  const char *reducedjac;
-  const char *stateRom;
-
-	// specific gnat quantities
-  const char *gnatPrefix;
-
-  const char *mesh;
-  const char *sampleNodes;
-  const char *onlineMatrix;
-  const char *podStateRed;
-  const char *podNonlinRed;
-  const char *solution;
-  const char *wallDistanceRed;
-  const char *staterom;
-  const char *error;
+  const char *staterom;  // generalized coords
   const char *dUnormAccum;
-
-	// in full mesh coordinates (optional)
-  const char *sampleNodesFull;
-  const char *onlineMatrixFull;
-  const char *reducedfullnodemap;
-
-  int frequency;
-  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
-
-/*  // For Local ROMs  // moved to NonlinearLocalRomDatabaseData
-  const char *databaseName;
-  const char *indexName;
-  const char *centersName;
-  const char *nearestName;
-  const char *snapsName;
-  const char *basisName;
-  const char *clusterName;
-  const char *singValName;
-  const char *projErrorName; */
 
   ROMOutputData();
   ~ROMOutputData() {}
@@ -366,7 +317,7 @@ struct RestartParametersData {
 struct ProblemData {
 
   enum Type {UNSTEADY = 0, ACCELERATED = 1, AERO = 2, THERMO = 3, FORCED = 4,
-	     ROLL = 5, RBM = 6, LINEARIZED = 7, SIZE = 8};
+	     ROLL = 5, RBM = 6, LINEARIZED = 7, SIZE = 8, ROMOFFLINE = 9};
   bool type[SIZE];
 
   enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3,
@@ -1770,28 +1721,84 @@ struct PadeData {
 
 };
 
+//------------------------------------------------------------------------------
+
+struct NonlinearRomDirectoriesData {
+
+  const char *prefix;
+  const char *databaseName;
+  const char *clusterName;
+
+  NonlinearRomDirectoriesData();
+  ~NonlinearRomDirectoriesData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
 
 //------------------------------------------------------------------------------
 
-struct NonlinearLocalRomDatabaseData {
+struct NonlinearRomFilesData {
 
-  // For Local ROMs
-  const char *prefix;
-  const char *databaseName;
+  // A nonlinear ROM database can consist of a very large number of files.
+  // To make life easier for the user, this code introduces a "prefix" feature,
+  // which tells aero-f to read and write database files using a built-in
+  // naming convention. 
+
+  // If a prefix and a name are both given, the name overrides the prefix. 
+
+  // State snapshot clusters
+  const char *statePrefix;
+  const char *stateSnapsName;
+  const char *mapName;  
   const char *indexName;
-  const char *mapName;
   const char *connName;
   const char *centersName;
   const char *nearestName;
-  const char *snapsName;
-  const char *basisName;
-  const char *clusterName;
-  const char *singValName;
+
+  // State Bases
+  const char *stateBasisPrefix;
+  const char *stateBasisName;
+  const char *stateSingValsName;
+  const char *updateInfoName;
+  const char *fastDistCalcInfoName;
   const char *projErrorName;
-  const char *basisUpdateName;
 
-  NonlinearLocalRomDatabaseData();
-  ~NonlinearLocalRomDatabaseData() {}
+  // Res / Jac snaps  (No prefix since there's only one each)
+  const char *residualSnapsName;
+  const char *jacActionSnapsName;
+
+  // Residual Bases
+  const char *residualBasisPrefix;
+  const char *residualBasisName;
+  const char *residualSingValsName;
+
+  // Action-of-Jacobian Bases
+  const char *jacActionBasisPrefix;
+  const char *jacActionBasisName;
+  const char *jacActionSingValsName;
+
+  // GNAT quantities
+  const char *gnatPrefix;
+  const char *sampledNodesName;         //sampleNodes;
+  const char *sampledStateBasisName;    //podStateRed;
+  const char *sampledResidualBasisName; //podFileResHat;
+  const char *sampledJacActionBasisName; //podFileJacHat;
+  const char *sampledMeshName;          //mesh;
+  const char *sampledSolutionName;      //solution;
+  const char *sampledWallDistName;      //wallDistanceRed;
+  const char *gappyJacActionName;             //jacMatrix; 
+  const char *gappyResidualName;             //resMatrix;
+
+  // Surface quantities
+  const char *surfacePrefix;
+  const char *surfaceStateBasisName;
+  const char *surfaceSolutionName;
+  const char *surfaceWallDistName;
+  const char *surfaceMeshName;
+
+  NonlinearRomFilesData();
+  ~NonlinearRomFilesData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -1799,24 +1806,15 @@ struct NonlinearLocalRomDatabaseData {
 
 //------------------------------------------------------------------------------
 
-struct ModelReductionData {
+struct NonlinearRomFileSystemData {
 
-	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
-	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1,
-		COLLOCATION = 2, BROYDEN = 3} systemApproximation;
-	enum BasisType {POD = 0, SNAPSHOTS = 1, BASIS_TYPE_NONE = 2} basisType;
-	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1} lsSolver;
+  int nClusters;
 
-	int dimension;	// used by all nonlinear ROMs
-	int dimensionROBJacobian;	// used by GNAT
-	int dimensionROBResidual;	// used by GNAT
+  NonlinearRomDirectoriesData directories;
+  NonlinearRomFilesData files;
 
-  int minDimension;
-  double energy;
-  enum BasisUpdates {BASIS_UPDATES_OFF = 0, BASIS_UPDATES_ON = 1} basisUpdates;
-
-  ModelReductionData();
-  ~ModelReductionData() {}
+  NonlinearRomFileSystemData();
+  ~NonlinearRomFileSystemData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -1824,58 +1822,18 @@ struct ModelReductionData {
 
 //------------------------------------------------------------------------------
 
-struct GNATData {
+struct SnapshotsData {
 
-	// optional: to document
+	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
+ 	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
+	enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
+	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
+  enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
+  enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;
+  enum SubtractRefSolution {SUBTRACT_REFSOL_FALSE = 0, SUBTRACT_REFSOL_TRUE = 1} subtractRefSol;
 
-  int nRobState;
-
-	enum ROBNonlinear {UNSPECIFIED_NONLIN = -1, RESIDUAL_NONLIN = 0,
-		JACOBIAN_NONLIN  = 1, BOTH_NONLIN = 2} robNonlinear;	// default: -1
-
-  int nRobNonlin;
-  int nRobRes;	// default: nRobNonlin
-  int nRobJac;	// default: nRobNonlin
-
-	enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
-		JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;	// default: ROBNonlinear
-
-  int nRobGreedy;	// default: nRobNonlin
-
-  double sampleNodeFactor;	// default: 2.0
-  int nSampleNodes;
-	int layers;
-
-	enum IncludeLiftFaces {NONE_LIFTFACE = 0,
-		SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
-
-	enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
-
-	enum SampleMeshUsed {SAMPLE_MESH_NOT_USED = 0, SAMPLE_MESH_USED = 1} sampleMeshUsed;
-  int pseudoInverseNodes;
-
-  GNATData();
-  ~GNATData() {}
-
-  void setup(const char *, ClassAssigner * = 0);
-
-};
-//------------------------------------------------------------------------------
-
-struct DataCompressionData {
-
-	enum Type {POD = 0, BALANCED_POD = 1} type;
-	enum PODMethod {SVD = 0, Eig = 1} podMethod;
-	int maxVecStorage;
-	enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
-	double tolerance;
-
-  int maxBasisSize;
-  double singValTolerance;
-  double maxPercentEnergyRetained;
-
-  DataCompressionData();
-  ~DataCompressionData() {}
+	SnapshotsData();
+	~SnapshotsData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -1893,9 +1851,10 @@ struct ClusteringData {
   int minClusterSize;
   double kMeansTol;
   int kMeansRandSeed;
-  enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
-  enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
-
+  enum UsePreclusteredStates {USE_PRECLUSTERED_STATES_FALSE = 0, USE_PRECLUSTERED_STATES_TRUE = 1} usePreclusteredStates;
+  enum UsePreclusteredResiduals {USE_PRECLUSTERED_RESIDUALS_FALSE = 0, USE_PRECLUSTERED_RESIDUALS_TRUE = 1} usePreclusteredResiduals;
+  enum UsePreclusteredJacActions {USE_PRECLUSTERED_JAC_ACTIONS_FALSE = 0, USE_PRECLUSTERED_JAC_ACTIONS_TRUE = 1} usePreclusteredJacActions;
+  enum ComputeFastDistanceQuantities {COMPUTE_FAST_DIST_QUANTITIES_FALSE = 0, COMPUTE_FAST_DIST_QUANTITIES_TRUE = 1} computeFastDistanceQuantities;
 
   ClusteringData();
   ~ClusteringData() {}
@@ -1904,6 +1863,27 @@ struct ClusteringData {
 
 };
 
+//------------------------------------------------------------------------------
+
+struct DataCompressionData {
+
+  enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
+	enum Type {POD = 0, BALANCED_POD = 1} type;
+	enum PODMethod {SVD = 0, Eig = 1} podMethod;
+	int maxVecStorage;
+	enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
+	double tolerance;
+  int maxBasisSize;
+  int minBasisSize;
+  double singValTolerance;
+  double maxPercentEnergyRetained;
+
+  DataCompressionData();
+  ~DataCompressionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
 
 //------------------------------------------------------------------------------
 
@@ -1920,27 +1900,101 @@ struct RelativeProjectionErrorData {
 
 };
 
+//------------------------------------------------------------------------------
 
+struct ROBConstructionData {
+
+  SnapshotsData snapshots;
+	ClusteringData clustering;
+	DataCompressionData dataCompression;
+  RelativeProjectionErrorData relativeProjectionError;
+
+  ROBConstructionData();
+  ~ROBConstructionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
 
 //------------------------------------------------------------------------------
 
-struct SnapshotsData {
+struct GNATConstructionData {
 
-	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
- 	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
-	enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
-	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
-  enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
-  enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;
-  enum SubtractRefSolution {SUBTRACT_REFSOL_FALSE = 0, SUBTRACT_REFSOL_TRUE = 1} subtractRefSol;
-	DataCompressionData dataCompression;
-	ClusteringData clustering;
-  RelativeProjectionErrorData relativeProjectionError;
+	// optional: to document
 
-	SnapshotsData();
-	~SnapshotsData() {}
+  int maxDimensionState;
+  int minDimensionState;
+  double energyState;
+
+  int maxDimensionResidual;
+  int minDimensionResidual;
+  double energyResidual;
+
+  int maxDimensionJacAction;
+  int minDimensionJacAction;
+  double energyJacAction;
+
+	enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
+		JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;	// default: ROBNonlinear
+
+  int maxDimensionROBGreedy;	// default: nRobNonlin
+  int minDimensionROBGreedy;
+  double robGreedyFactor;
+
+  int maxSampledNodes;
+  int minSampledNodes;
+  double sampledNodesFactor;
+	int layers;
+
+	enum IncludeLiftFaces {NONE_LIFTFACE = 0,
+		SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
+
+	enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
+
+	enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
+  int pseudoInverseNodes;
+
+  GNATConstructionData();
+  ~GNATConstructionData() {}
 
   void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct NonlinearRomOfflineData {
+
+  GNATConstructionData gnat;
+  ROBConstructionData rob;
+
+  NonlinearRomOfflineData();
+  ~NonlinearRomOfflineData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct NonlinearRomOnlineData {
+
+	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
+	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
+	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1} lsSolver;
+
+	int minDimension;
+  int maxDimension;
+  double energy;
+
+  enum BasisUpdates {BASIS_UPDATES_OFF = 0, BASIS_UPDATES_ON = 1} basisUpdates;
+  enum FastDistanceCalculations {FAST_DISTANCE_CALCS_OFF = 0, FAST_DISTANCE_CALCS_ON = 1} fastDistCalcs;
+
+  NonlinearRomOnlineData();
+  ~NonlinearRomOnlineData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
 };
 
 //------------------------------------------------------------------------------
@@ -1969,8 +2023,6 @@ struct LinearizedData {
   int numPOD;
   int numStrModes;
   const char *romFile;
-	DataCompressionData dataCompression;
-	// Clustering has not been included for linearized yet
 
   PadeData pade;
 
@@ -2158,10 +2210,9 @@ public:
   RigidMeshMotionData rmesh;
   AeroelasticData aero;
   ForcedData forced;
-	ModelReductionData rom;
-  NonlinearLocalRomDatabaseData localRomDatabase;
-	GNATData gnat;
-	SnapshotsData snapshots;
+  NonlinearRomOfflineData romOffline;
+	NonlinearRomOnlineData romOnline;
+  NonlinearRomFileSystemData romDatabase;
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;

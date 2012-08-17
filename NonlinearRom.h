@@ -1,8 +1,8 @@
-#ifndef _LOCAL_ROM_H_
-#define _LOCAL_ROM_H_
+#ifndef _NONLINEAR_ROM_H_
+#define _NONLINEAR_ROM_H_
 
 template <int dim>
-class LocalRom {
+class NonlinearRom {
 
   private:
   Domain &domain;
@@ -73,8 +73,8 @@ class LocalRom {
  
   public:
 
-  LocalRom(Communicator *, IoData &, Domain &);
-  ~LocalRom();
+  NonlinearRom(Communicator *, IoData &, Domain &);
+  ~NonlinearRom();
 
   VecSet< DistSVec<double, dim> >* basis;
 
@@ -85,5 +85,6 @@ class LocalRom {
   void updateBasis(int, DistSVec<double, dim> &);
 
 };
-#include "LocalRom.C"
+
+#include "NonlinearRom.C"
 #endif

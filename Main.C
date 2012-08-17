@@ -2,6 +2,7 @@
 #include <GeoSource.h>
 #include <Domain.h>
 #include <Modal.h>
+#include <NonlinearRomOffline.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,6 +19,7 @@
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
+extern void startNonlinearRomOfflineSolver(Communicator *, IoData &, Domain &);
 extern void startSparseGridGeneration(IoData &, Domain &);
 int interruptCode = 0;
 
@@ -99,11 +101,14 @@ int main(int argc, char **argv)
 
     domain.printElementStatistics();
 
-    // choose between linearized and nonlinear fluid problems
-    if (ioData.problem.type[ProblemData::LINEARIZED])
+    // choose between linearized, offline ROM, and nonlinear solvers
+    if (ioData.problem.type[ProblemData::LINEARIZED]) {
       startModalSolver(com, ioData, domain);
-    else
+    } else if (ioData.problem.type[ProblemData::ROMOFFLINE]) {
+      startNonlinearRomOfflineSolver(com, ioData, domain);
+    } else {
       startNavierStokesSolver(ioData, geoSource, domain);
+    }
   }
 
 #ifndef CREATE_DSO

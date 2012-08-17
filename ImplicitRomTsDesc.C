@@ -13,7 +13,7 @@ template<int dim>
 ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource, Domain *dom) :
   TsDesc<dim>(_ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()),
   localRom(dom->getCommunicator(), _ioData, *dom) {
-
+/*
 	ioData = &_ioData;
   tag = 0;
 
@@ -70,7 +70,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
-
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 template<int dim>
 ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 {
-
+/*
 	// output net dUnormAccum
 	for (int iPod = 0; iPod < nPod; ++iPod)
 		dUnormAccum[1][iPod] = sqrt(dUnormAccum[1][iPod]);	// to complete 2-norm definition
@@ -105,6 +105,7 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 
 	delete [] dUnormAccum;
   if (tag) delete tag;
+*/
 }
 
 
@@ -112,7 +113,7 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 template<int dim>
 int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const int totalTimeSteps)  {
 
-
+/*
   // local rom modifications
   if (useLocalRom) {
     int index1, index2; // index of closest center, second closest center
@@ -223,6 +224,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 	// output POD coordinates
 
   return (maxItsNewton == 0) ? 1 : it;
+*/
+  return 0;
 
 }
                                                                                                            
@@ -231,7 +234,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 template<int dim>
 int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<double> &dUrom)
 {
-
+/*
   double *x = rhs.data();
   FullM myjac(jac);
   myjac.factor();
@@ -239,6 +242,7 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
   dUrom = rhs;  
 
   return 0;
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -246,7 +250,7 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
 template<int dim>
 void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q)
 {
-
+/*
   //DistSVec<double, dim> F(this->domain->getNodeDistInfo());
 
   this->spaceOp->computeResidual(*this->X, *this->A, Q, F, this->timeState);
@@ -254,14 +258,14 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
 
   this->spaceOp->applyBCsToResidual(Q, F);
-
+*/
 }
 
 //------------------------------------------------------------------------------
 template<int dim>
 double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dQ, DistSVec<double, dim> &F, double stepLength)  {
 	// merit function: norm of the residual (want to minimize residual)
-
+/*
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + stepLength*dQ;
   computeFullResidual(it,newQ,F);
@@ -272,12 +276,12 @@ double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, D
   merit *= 0.5;
 
   return merit;
-
+*/
 }
 //------------------------------------------------------------------------------
 template<int dim>
 double ImplicitRomTsDesc<dim>::meritFunctionDeriv(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &p, DistSVec<double, dim> &F)  { 
-
+/*
   double eps = mvpfd->computeEpsilon(Q,p);
   DistSVec<double, dim> newF(this->domain->getNodeDistInfo());
 
@@ -292,7 +296,7 @@ double ImplicitRomTsDesc<dim>::meritFunctionDeriv(int it, DistSVec<double, dim> 
   meritDeriv = newF*F; // Take inner product
     // merit function = norm of full-order residual
   return meritDeriv;
-
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -304,7 +308,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
   // See p. 61 of Numerical Optimization, 2nd ed by Nocedal and Wright for details
 
   // Parameters for Wolfe conditions
-
+/*
   double c1 = 0.00001;  // for Armijo (sufficient decrease) condition
   double c2 = 0.0001; // relative gradient condition.
   //NOTE: We require 0<c1<c2<1 
@@ -399,7 +403,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
 
   this->com->fprintf(stderr,"Leaving linesearch because max iterations was exceeded. Conditions NOT satisfied! alpha = %e\n",alpha);  
   return alpha;
-
+*/
 
 
 /*  while (merit <= meritZero+c1*alpha*meritDerivZero && !(merit>=meritOld && count>0)){  // exit when Armijo condition fails
@@ -512,7 +516,7 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
     // See p. 61 of Numerical Optimization, 2nd ed by Nocedal and Wright for details
 
     // initialize parameters
-
+/*
     int count = 0;
     int maxIter = 40; // max number of zooming steps
     double merit, meritDeriv, alpha;
@@ -574,16 +578,18 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
     }
     this->com->fprintf(stderr,"Leaving zoom because max iterations was exceeded. Conditions NOT satisfied! Count = %d, alpha = %e\n",count, alpha);
     return alpha;
+*/
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::expandVector(Vec<double> &romV, DistSVec<double, dim> &fullV)  {
-
+/*
   fullV = 0.0;
   for (int iVec = 0; iVec < nPod; iVec++)
     fullV += romV[iVec]*pod[iVec];
+*/
 }
 
 
@@ -592,11 +598,12 @@ void ImplicitRomTsDesc<dim>::expandVector(Vec<double> &romV, DistSVec<double, di
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::projectVector(VecSet<DistSVec<double, dim> > &leftProj, DistSVec<double,dim> &fullV, Vec<double> &romV)  {
-
+/*
 	transMatVecProd(leftProj,fullV,projVectorTmp);
 
   for (int iVec = 0; iVec < pod.numVectors(); iVec++)
     romV[iVec] = projVectorTmp[iVec];
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -607,7 +614,9 @@ int ImplicitRomTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
 
   this->com->fprintf(stderr, "*** Warning: Checkfailsafe Not yet implemented\n");
   int failSafeNewton = 0;
-/*
+  return failSafeNewton;
+
+/*  // old code
   if (!failSafeNewton) return 0;
 
   if (!tag)
@@ -615,30 +624,30 @@ int ImplicitRomTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
 
   this->domain->checkFailSafe(this->varFcn, U, *tag);
   this->spaceOp->fix(*tag);
-*/
-  return failSafeNewton;
 
+  return failSafeNewton;
+*/
 }
 
 //------------------------------------------------------------------------------
 template<int dim>
 void ImplicitRomTsDesc<dim>::resetFixesTag()
 {
-
+/*
   this->spaceOp->resetTag();
-
+*/
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
-
+/*
   mvpfd->evaluate(it, *this->X, *this->A, Q, F);
   
   for (int iPod = 0; iPod < nPod; iPod++)
     mvpfd->apply(pod[iPod], AJ[iPod]);
-
+*/
 }
 //------------------------------------------------------------------------------
 
@@ -739,15 +748,15 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::writeStateRomToDisk(int it, double cpu)  {
-
+/*
 	this->output->writeStateRomToDisk(it, cpu, nPod, UromTotal);
-
+*/
 }
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSteps) {
 	// only do for PG and Galerkin
-
+/*
   DistSVec<double, dim> AJsol(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
 	AJsol = 0.0;
 	for (int i=0; i<this->nPod; ++i)
@@ -756,37 +765,39 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
 	// saving this->AJ * this->dUrom (for GappyPOD)
 	// for now, do not output on last iteration (first argument = false)
 	writeBinaryVectorsToDiskRom(false, totalTimeSteps, 0.0, &(this->F), &AJsol, &(this->AJ));
-	
+	*/
 }
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::writeClusterUsage(const int totalTimeSteps, int index1, int index2, double dist1, double dist2) {
 	// only do for local ROM
-
+/*
   if (this->com->cpuNum() == 0)
     this->com->fprintf(clustUsageFile,"%d %d %d %e %e %d\n", totalTimeSteps, index1, index2, dist1, dist2, nPod);
 
   this->com->barrier();	
+*/
 }
 
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::savedUnormAccum() {
-	
+/*	
 	for (int iPod = 0; iPod < nPod; ++iPod) {
 		dUnormAccum[0][iPod] += fabs(dUrom[iPod]);	// 1 norm
 		dUnormAccum[1][iPod] += dUrom[iPod] * dUrom[iPod];	// 2 norm
 	}
+*/
 }
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::readPodBasis(const char *fileName) {
-
+/*
 	string fileNameState;
 	determineFileName(fileName, ".sampledROBState", ioData->input.gnatPrefix, fileNameState);
 
-	this->domain->readPodBasis(fileNameState.c_str(), nPod,
-		pod,(this->ioData->rom.basisType == ModelReductionData::SNAPSHOTS));
+	this->domain->readPodBasis(fileNameState.c_str(), nPod, pod, false);
+*/
 }
 
 template<int dim>
@@ -806,7 +817,7 @@ bool ImplicitRomTsDesc<dim>::breakloop2(const bool breakloop) {
 template<int dim>
 void ImplicitRomTsDesc<dim>::determineFileName(const char *fileNameInput, const char
 		*fileNameExtension, const char *prefix, string &fileName) {
-
+/*
 	if (strcmp(fileNameInput,"") == 0) {
 		fileName = prefix;
 	 	fileName +=	fileNameExtension;
@@ -814,5 +825,6 @@ void ImplicitRomTsDesc<dim>::determineFileName(const char *fileNameInput, const 
 	else {
 		fileName = fileNameInput;
 	}
+*/
 }
 
