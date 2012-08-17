@@ -4,7 +4,7 @@
 #include <IoData.h>
 #include <TsDesc.h>
 #include <KspPrec.h>
-#include <LocalRom.h>
+#include <NonlinearRom.h>
 
 struct DistInfo;
 
@@ -34,9 +34,9 @@ protected:
 
   VecSet<DistSVec<double, dim> > pod;
 
-  LocalRom<dim> localRom;
+  NonlinearRom<dim> localRom;
   int currentCluster;
-  bool useLocalRom;
+  bool useNonlinearRom;
   FILE *clustUsageFile;
 
   FullM jac;

@@ -183,7 +183,8 @@ ADD_LIBRARY(FluidBase
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
              MultiGridPrec.C
-             ModalSolver.C 
+             ModalSolver.C
+             NonlinearRomOfflineSolver.C 
              Node.C 
              PostFcn.C 
              ProgrammedBurnCore.C

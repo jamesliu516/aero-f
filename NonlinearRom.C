@@ -1,4 +1,4 @@
-#include <LocalRom.h>
+#include <NonlinearRom.h>
 #include <Modal.h>
 #include <TsInput.h>
 #include <math.h>
@@ -20,10 +20,10 @@ extern "C"      {
 
 
 template<int dim> 
-LocalRom<dim>::LocalRom(Communicator *_com, IoData &_ioData, Domain &_domain)  : 
+NonlinearRom<dim>::NonlinearRom(Communicator *_com, IoData &_ioData, Domain &_domain)  : 
 com(_com), ioData(&_ioData), domain(_domain)
 { 
-
+/*
   // ioData->example, com->example, domain.example
 
   prefix = ioData->localRomDatabase.prefix;
@@ -41,12 +41,13 @@ com(_com), ioData(&_ioData), domain(_domain)
   basisUpdateName = ioData->localRomDatabase.basisUpdateName;
   nClusters = ioData->snapshots.clustering.numClusters;  // overwritten later if there are fewer clusters
   maxBasisSize = ioData->snapshots.dataCompression.maxBasisSize;
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim> 
-LocalRom<dim>::~LocalRom() 
+NonlinearRom<dim>::~NonlinearRom() 
 {
   //delete snap;
   //delete clusterCenters;
@@ -58,11 +59,12 @@ LocalRom<dim>::~LocalRom()
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::createAndAnalyzeDatabase() {
+void NonlinearRom<dim>::createAndAnalyzeDatabase() {
 
 // This function is called when the problem type is ROBConstruction and the number of clusters is greater than 1.
 // The functions kmeans(), localPod(), and localRelProjError() are called here, depending on inputs.
 
+/*
   if (!(ioData->snapshots.clustering.useExistingClusters)) {
     percentOverlap = ioData->snapshots.clustering.percentOverlap;
     kMeansRandSeed = ioData->snapshots.clustering.kMeansRandSeed;
@@ -82,17 +84,17 @@ void LocalRom<dim>::createAndAnalyzeDatabase() {
   if (ioData->snapshots.relativeProjectionError.relProjError) {
     localRelProjError();
   }
-
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::readSnapshotFile(bool preprocess) {
+void NonlinearRom<dim>::readSnapshotFile(bool preprocess) {
 
 // This has been mostly borrowed from buildGlobalPod (in Modal.C).
 // KMW: in the future, these portions of the codes should be merged  
-
+/*
   TsInput* tInput = new TsInput(*ioData);
 
   // Check for snapshot command file
@@ -227,17 +229,17 @@ void LocalRom<dim>::readSnapshotFile(bool preprocess) {
   delete [] snapWeight;
   delete [] eig;
   //delete [] tInput;
-
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::closestCenter(DistSVec<double, dim> &vec, int &index1, int &index2, double &dist1, double &dist2) {
+void NonlinearRom<dim>::closestCenter(DistSVec<double, dim> &vec, int &index1, int &index2, double &dist1, double &dist2) {
 
 // Computes the closest cluster center to vec.  Returns index of closest center (index1), index of second closest center (index2)
 // and associated distances (dist1 and dist2).
-
+/*
   double tmp;
   dist1 = 0;
   dist2 = 0;
@@ -256,31 +258,31 @@ void LocalRom<dim>::closestCenter(DistSVec<double, dim> &vec, int &index1, int &
       index2 = iCluster;
     }
   }
-
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-double LocalRom<dim>::distance(DistSVec<double, dim> &U1, DistSVec<double, dim> &U2) {
+double NonlinearRom<dim>::distance(DistSVec<double, dim> &U1, DistSVec<double, dim> &U2) {
 
 // TODO: Implement several different distance functions
-
+/*
   DistSVec<double, dim> diff(domain.getNodeDistInfo());
   diff = (U1 - U2);
   double dist = diff.norm();
 
   return dist;
-
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-double LocalRom<dim>::calcResidual(VecSet< DistSVec<double, dim> > &centers, VecSet< DistSVec<double, dim> > &centersOld) {
+double NonlinearRom<dim>::calcResidual(VecSet< DistSVec<double, dim> > &centers, VecSet< DistSVec<double, dim> > &centersOld) {
 
 // Calculates the residual for the kmeans clustering.  The clustering converges when the cluster centers stop moving.
-
+/*
   double norm;
   double maxNorm = 0.0;
 
@@ -290,7 +292,7 @@ double LocalRom<dim>::calcResidual(VecSet< DistSVec<double, dim> > &centers, Vec
   }
 
   return maxNorm;
-
+*/
 }
 
 
@@ -309,8 +311,8 @@ struct sortStruct {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::kmeans() {
-
+void NonlinearRom<dim>::kmeans() {
+/*
   com->fprintf(stdout, "\nUsing K-Means algorithm to cluster snapshots\n");
 
   clusterIndex = new int[nTotSnaps];
@@ -660,75 +662,15 @@ void LocalRom<dim>::kmeans() {
 
     }
   }
-
-  /*if (percentOverlap>0) {
-
-    com->fprintf(stdout, "Adding additional vectors to clusters (PercentOverlap = %2.1f%%)\n", percentOverlap);
-
-    int index1 = 0;
-    int index2 = 0;
-    double dist1 = 0;
-    double dist2 = 0;
-
-    clusterSnapshotMap = new int*[nClusters];
-
-      //determine which snapshots are shared
-    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
-      
-      int sortSize = nTotSnaps-snapsInCluster[iCluster]; 
-      sortStruct* snapDist = new sortStruct[sortSize]; // this struct was defined earlier in this file 
-
-
-      int snapCount = 0;
-      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-        if (clusterIndex[iSnap]!=iCluster) { // only need to sort snapshots that are outside of the current cluster
-          snapDist[snapCount].snapIndex = iSnap;
-          snapDist[snapCount].distance = distance((*snap)[iSnap],(*clusterCenters)[iCluster]);
-          ++snapCount;
-        }
-      }
-
-      sort(snapDist, snapDist+sortSize);
-
-      int numToAdd = int(ceil(double(snapsInCluster[iCluster])*percentOverlap*.01));
-
-      if ((snapsInCluster[iCluster]+numToAdd)>nTotSnaps) numToAdd=(nTotSnaps-snapsInCluster[iCluster]);
-
-      clusterSnapshotMap[iCluster] = new int[(snapsInCluster[iCluster]+numToAdd)];
-      
-      snapCount = 0;
-      bool addSnap = false;
-      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-        for (int jSnap=0; jSnap<numToAdd; ++jSnap) {
-          if (snapDist[jSnap].snapIndex==iSnap) {
-            addSnap=true;
-            // adding a new vector to the cluster, so update cluster center
-           (*clusterCenters)[iCluster] *= (double(snapsInCluster[iCluster])/(double(snapsInCluster[iCluster])+1.0));
-           (*clusterCenters)[iCluster] += (*snap)[iSnap]*(1.0/(double(snapsInCluster[iCluster])+1.0));
-           ++(snapsInCluster[iCluster]);
-          }
-        }
-        if (addSnap || (clusterIndex[iSnap]==iCluster)) {
-          clusterSnapshotMap[iCluster][snapCount] = iSnap;
-          ++snapCount;
-          addSnap=false;
-        }
-      }
-
-      com->fprintf(stdout, "... cluster %d has %d snaps \n", iCluster, snapsInCluster[iCluster]);
-
-      delete [] snapDist;
-
-    }
-  }*/
+*/
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::outputClusterSnapshots()  { 
-
+void NonlinearRom<dim>::outputClusterSnapshots()  { 
+/*
   // create top level of database
   int sp = strlen(prefix) + 1;
   char *fullDatabaseName = new char[sp + strlen(databaseName)];
@@ -843,14 +785,14 @@ void LocalRom<dim>::outputClusterSnapshots()  {
 
     com->fprintf(stdout, "\nWriting %d snapshots to cluster %d\n", snapsInCluster[iCluster], iCluster);
 
-    /*  // Again, this would be a pain in the ass to implement
-    bool incrementalSnaps = false;
-    DistSVec<double, dim> > *snapBuf = new DistSVec<double, dim> >(domain.getNodeDistInfo());
-    if ((ioData->snapshots.IncrementalSnaps) && !(ioData->snapshots.subtractCenters || ioData->snapshots.subtractNearestSnapsToCenters ||ioData->snapshots.subtractReference)) {
-      com->fprintf(stderr, "*** Warning: Writing INCREMENTAL snapshots to disk \n");
-      incrementalSnaps = true;  
-      snapBuf = 0.0; 
-    }*/
+    // Again, this would be a pain in the ass to implement
+    //bool incrementalSnaps = false;
+    //DistSVec<double, dim> > *snapBuf = new DistSVec<double, dim> >(domain.getNodeDistInfo());
+    //if ((ioData->snapshots.IncrementalSnaps) && !(ioData->snapshots.subtractCenters || ioData->snapshots.subtractNearestSnapsToCenters ||ioData->snapshots.subtractReference)) {
+    //  com->fprintf(stderr, "*** Warning: Writing INCREMENTAL snapshots to disk \n");
+    //  incrementalSnaps = true;  
+    //  snapBuf = 0.0; 
+    //}
 
     int numWritten = 0;
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
@@ -887,15 +829,15 @@ void LocalRom<dim>::outputClusterSnapshots()  {
   for (int iCluster=0; iCluster<nClusters; ++iCluster) delete [] clusterNeighbors[iCluster];
   delete [] clusterNeighbors;
   delete [] clusterNeighborsCount;
-  
+  */
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::localPod() {
-
+void NonlinearRom<dim>::localPod() {
+/*
   // read cluster centers
   readClusterCenters();
 
@@ -988,15 +930,15 @@ void LocalRom<dim>::localPod() {
 
   if (ioData->snapshots.subtractNearestSnapsToCenters)
     delete nearestSnapsToCenters;
-
+*/
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::readClusterSnapshots(int iCluster, bool preprocess) {
-
+void NonlinearRom<dim>::readClusterSnapshots(int iCluster, bool preprocess) {
+/*
   // reconstruct cluster name
   int addedDigits = 1;
   if (iCluster > 0)  addedDigits = int(ceil(log10(double(iCluster)*10)));
@@ -1086,15 +1028,16 @@ void LocalRom<dim>::readClusterSnapshots(int iCluster, bool preprocess) {
       }
     }
   }
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::outputClusterReferenceSnapshot(int iCluster, DistSVec<double, dim>& ref) {
+void NonlinearRom<dim>::outputClusterReferenceSnapshot(int iCluster, DistSVec<double, dim>& ref) {
   // Automatically stores the reference snapshot for cluster iCluster.
   // This functionality is in place to reduce the user's workload.
-
+/*
   // form file name
   int addedDigits = 1;
   if (iCluster > 0)  addedDigits = int(ceil(log10(double(iCluster)*10)));
@@ -1107,16 +1050,16 @@ void LocalRom<dim>::outputClusterReferenceSnapshot(int iCluster, DistSVec<double
   domain.writeVectorToFile(fullSnapRefName, 0, double(iCluster), ref);
 
   delete [] fullSnapRefName;
-
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::readClusterReferenceSnapshot(int iCluster) {
+void NonlinearRom<dim>::readClusterReferenceSnapshot(int iCluster) {
   // This function reads in the automatically stored reference snapshot for a cluster.
   // By storing these reference snapshots and reading them automatically it reduces the user's workload.
-
+/*
   // form file name
   int addedDigits = 1;
   if (iCluster > 0)  addedDigits = int(ceil(log10(double(iCluster)*10)));
@@ -1132,14 +1075,14 @@ void LocalRom<dim>::readClusterReferenceSnapshot(int iCluster) {
   endOfFile = domain.readVectorFromFile(fullSnapRefName, 0, &tmp, *Uinit);
 
   delete [] fullSnapRefName;
-
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::readReferenceSolution() {
-
+void NonlinearRom<dim>::readReferenceSolution() {
+/*
   double tmp;
   bool endOfFile;
   char* fullRefName;
@@ -1150,15 +1093,15 @@ void LocalRom<dim>::readReferenceSolution() {
   snapRefSol = new DistSVec<double, dim>(domain.getNodeDistInfo());
   endOfFile = domain.readVectorFromFile(fullRefName, 0, &tmp, *snapRefSol);
   delete [] fullRefName;
-
+*/
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::readClusterCenters() {
-
+void NonlinearRom<dim>::readClusterCenters() {
+/*
   // reconstruct cluster centers file name
   char *fullClusterCentersName = new char[strlen(prefix) + strlen(databaseName) + 1
                                    + strlen(centersName) + 1];
@@ -1204,15 +1147,15 @@ void LocalRom<dim>::readClusterCenters() {
   com->barrier();
   delete tmpVec;
   delete [] fullClusterCentersName;
-
+*/
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::readNearestSnapsToCenters() {
-
+void NonlinearRom<dim>::readNearestSnapsToCenters() {
+/*
   // NOTE: this function must only be run after readClusterCenters (this is because the
   // cluster centers file defines snapsInCluster and nClusters)
 
@@ -1239,13 +1182,13 @@ void LocalRom<dim>::readNearestSnapsToCenters() {
   }
 
   delete [] fullNearestSnapsName;
-
+*/
 }
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::readClusterBasis(int iCluster) {
-
+void NonlinearRom<dim>::readClusterBasis(int iCluster) {
+/*
   int basisSize;
   ( maxBasisSize >= ioData->rom.dimension ) ? basisSize = maxBasisSize : basisSize = ioData->rom.dimension;
 
@@ -1347,15 +1290,15 @@ void LocalRom<dim>::readClusterBasis(int iCluster) {
 
   delete [] fullBasisUpdateName;
   com->barrier();
-
+*/
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::outputClusterBasis(int iCluster) {
-
+void NonlinearRom<dim>::outputClusterBasis(int iCluster) {
+/*
   int podSize = basis->numVectors();
 
   // form basis file name
@@ -1423,14 +1366,15 @@ void LocalRom<dim>::outputClusterBasis(int iCluster) {
   delete [] fullBasisUpdateName;
   delete [] columnSumsV;
   com->barrier();
+*/
 }
 
 //----------------------------------------------------------------------------------
 
 
 template<int dim>
-void LocalRom<dim>::localRelProjError() {
-
+void NonlinearRom<dim>::localRelProjError() {
+/*
   readClusterCenters();
   delete clusterCenters;
   delete [] snapsInCluster;
@@ -1503,15 +1447,15 @@ void LocalRom<dim>::localRelProjError() {
 
   delete snap;
   writeProjErrorToDisk();
-
+*/
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::writeProjErrorToDisk()  {
-
+void NonlinearRom<dim>::writeProjErrorToDisk()  {
+/*
   // output projError as ASCII file in top level of ROM database
   FILE *projErrorFile;
   char *fullProjErrorName = new char[strlen(prefix) + strlen(databaseName) + 1 + strlen(projErrorName) + 1];
@@ -1537,14 +1481,14 @@ void LocalRom<dim>::writeProjErrorToDisk()  {
   delete projErrorLog;
 
   com->barrier();
-
+*/
 }
 
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void LocalRom<dim>::updateBasis(int iCluster, DistSVec<double, dim> &U) {
+void NonlinearRom<dim>::updateBasis(int iCluster, DistSVec<double, dim> &U) {
 
 /* 
   When updateBasis is called the following quantities are available:
@@ -1556,6 +1500,8 @@ void LocalRom<dim>::updateBasis(int iCluster, DistSVec<double, dim> &U) {
   (As well as all of the ioData values)
 
 */
+
+/*
   readClusterReferenceSnapshot(iCluster); // reads Uinit
 
   int robSize = basis->numVectors();
@@ -1635,6 +1581,7 @@ void LocalRom<dim>::updateBasis(int iCluster, DistSVec<double, dim> &U) {
     }
   }
   delete Uinit;
+*/
 }
 
 

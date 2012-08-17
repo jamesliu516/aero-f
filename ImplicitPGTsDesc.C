@@ -4,7 +4,7 @@ template<int dim>
 ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   residualRef(this->F),
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom), From(this->nPod), rhs(this->nPod) {
-
+/*
   if (this->useLocalRom) currentProblemSize = this->nPod;
 
   parallelRom = new ParallelRom<dim>(*dom,this->com);
@@ -18,22 +18,23 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 		jactmp = new double [this->nPod * this->nPod];
 		this->jac.setNewSize(this->nPod,this->nPod);
 	}
+ */
 }
 
 //------------------------------------------------------------------------------
 template<int dim>
 ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
-
+/*
     delete [] lsCoeff[0];
     delete [] lsCoeff;  
 		if (this->projVectorTmp) delete [] this->projVectorTmp;
 		if (jactmp) delete [] jactmp;
-
+*/
 }
 //-----------------------------------------------------------------------------
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
-
+/*
   //If using local rom, check to see if things need to be resized
   if (this->useLocalRom) {
     if (currentProblemSize != this->nPod){
@@ -97,5 +98,5 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		} 
 		solveLinearSystem(it, rhs, this->dUrom);
 	}
-
+*/
 }

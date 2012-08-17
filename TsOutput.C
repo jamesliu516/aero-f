@@ -48,7 +48,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     solutions = 0;
-
+  /*
   // GAPPY POD STUFF (CBM+KTC)
   if (iod.output.rom.newtonresiduals[0] != 0) {
     newtonresiduals = new char[sprom + strlen(iod.output.rom.newtonresiduals)];
@@ -70,7 +70,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     reducedjac = 0;
-
+  */
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
     scalars[i] = 0;
@@ -457,13 +457,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     staterom = 0;
 
-  if (iod.output.rom.error[0] != 0) {
-    error = new char[sprom + strlen(iod.output.rom.error)];
-    sprintf(error, "%s%s", iod.output.rom.prefix, iod.output.rom.error);
-  }
-  else
-    error = 0;
-    
   if (iod.output.transient.materialVolumes[0] != 0) {
     material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
     sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
@@ -3056,7 +3049,7 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 template<int dim>
 void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<double> &UromTotal)
 {
-
+/*
   if (com->cpuNum() != 0) return;
 
   if (fpStateRom) {
@@ -3067,13 +3060,13 @@ void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<
     fprintf(fpStateRom, "\n");
     fflush(fpStateRom);
   }
-
+*/
 }
 
 template<int dim>
 void TsOutput<dim>::writeErrorToDisk(const int it, const double cpu, const int nErr, const double *error)
 {
-
+/*
   if (com->cpuNum() != 0) return;
 
   if (fpError) {
@@ -3084,5 +3077,5 @@ void TsOutput<dim>::writeErrorToDisk(const int it, const double cpu, const int n
     fprintf(fpError, "\n");
     fflush(fpError);
   }
-
+*/
 }

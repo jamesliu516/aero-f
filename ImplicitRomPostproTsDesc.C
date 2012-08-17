@@ -9,7 +9,7 @@ template<int dim>
 ImplicitRomPostproTsDesc<dim>::ImplicitRomPostproTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom), Uinitial(dom->getNodeDistInfo())
 {
-	this->maxItsNewton = 0;	// never do iterations
+/*	this->maxItsNewton = 0;	// never do iterations
 
  char *redCoordsFile = this->input->staterom;
  readRedCoords = fopen(redCoordsFile, "r");
@@ -26,6 +26,7 @@ ImplicitRomPostproTsDesc<dim>::ImplicitRomPostproTsDesc(IoData &ioData, GeoSourc
  for (int iPod = 0; iPod < this->nPod; ++iPod) {
 	 _n = fscanf(readRedCoords, "%lf", &tmp2);
  }
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -55,7 +56,7 @@ void ImplicitRomPostproTsDesc<dim>::solveNewtonSystem(const int &it, double &res
 
 template<int dim>
 void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int totalTimeSteps)  {
-	
+	/*
 	if (totalTimeSteps == 1) {	// first time step
 		Uinitial = U;
 	}
@@ -70,4 +71,5 @@ void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int to
 
 	expandVector(this->UromTotal, U); // solution increment in full coordinates
 	U += Uinitial;
+*/
 }

@@ -54,7 +54,7 @@ void ReducedMeshShapeChanger<dim>::readReducedNodes(const char *reducedNodeFileN
 
 template<int dim>
 void ReducedMeshShapeChanger<dim>::fillXYZ()  {
-
+/*
 	// initialize
 	xyz = new double * [this->nReducedNodes];
 	int * cpus = new int [this->nReducedNodes];
@@ -102,12 +102,12 @@ void ReducedMeshShapeChanger<dim>::fillXYZ()  {
 		this->globalNodeToLocSubDomainsMap.insert(pair<int, int > (this->globalNodes[0][iReducedNode], subdomains[iReducedNode]));
 		this->globalNodeToLocalNodesMap.insert(pair<int, int > (this->globalNodes[0][iReducedNode], localnodes[iReducedNode]));
 	}
-
+*/
 }
 
 template<int dim>
 void ReducedMeshShapeChanger<dim>::readWriteTopFile(const char *inputTopFileName)  {
-
+/*
 	ifstream inputTopFile (inputTopFileName);	// old reduced mesh top file
 
 	// new reduced mesh top file
@@ -134,5 +134,5 @@ void ReducedMeshShapeChanger<dim>::readWriteTopFile(const char *inputTopFileName
 		getline(inputTopFile, line);
 		outputTopFile << endl << line;
 	}
-
+*/
 }
