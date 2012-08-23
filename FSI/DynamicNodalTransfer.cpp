@@ -239,8 +239,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 1;
     else if(iod.forced.type==ForcedData::PITCHING)
       mode = 2;
-	else if (iod.forced.type==ForcedData::DEFORMING)	/* XY */
-	  mode = 99;										/* XY */
+	else if (iod.forced.type==ForcedData::DEFORMING)
+	  mode = 99;
     else {
       com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
       exit(-1);
@@ -254,23 +254,31 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   omega = 2.0*acos(-1.0)*(1.0/tScale)*iod.forced.frequency;
 
   // for heaving
-  if (mode!=99) {													/* XY */
-    dx    = iod.ref.rv.length*iod.forced.hv.ax; //tlength = length / aero.displacementScaling;
+  if (mode!=99) {				
+    dx    = iod.ref.rv.length*iod.forced.hv.ax;
     dy    = iod.ref.rv.length*iod.forced.hv.ay;
     dz    = iod.ref.rv.length*iod.forced.hv.az;  
-  }																	/* XY */
-  else {															/* XY */
-	dx = dy = dz = iod.ref.rv.length*iod.forced.df.amplification;	/* XY */
-  }																	/* XY */
+  }																	
+  else {															
+	dx = dy = dz = iod.ref.rv.length*iod.forced.df.amplification;	
+  }																	
 
   // for pitching
   alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
   alpha_max = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;  // maximum angle of rotation
-  x1[0] = iod.forced.pt.x1;  x1[1] = iod.forced.pt.y1;  x1[2] = iod.forced.pt.z1;
-  x2[0] = iod.forced.pt.x2;  x2[1] = iod.forced.pt.y2;  x2[2] = iod.forced.pt.z2;
+  x1[0] = iod.forced.pt.x11;  x1[1] = iod.forced.pt.y11;  x1[2] = iod.forced.pt.z11;
+  x2[0] = iod.forced.pt.x21;  x2[1] = iod.forced.pt.y21;  x2[2] = iod.forced.pt.z21;
+
+  beta_in  = (acos(-1.0)*iod.forced.pt.beta_in) / 180.0;  // initial angle of rotation
+  beta_max = (acos(-1.0)*iod.forced.pt.beta_max) / 180.0;  // maximum angle of rotation
+  y1[0] = iod.forced.pt.x12;  y1[1] = iod.forced.pt.y12;  y1[2] = iod.forced.pt.z12;
+  y2[0] = iod.forced.pt.x22;  y2[1] = iod.forced.pt.y22;  y2[2] = iod.forced.pt.z22;
+
   for(int i=0; i<3; i++) { //get back to user-specified coordinates.
     x1[i] *= iod.ref.rv.length;
     x2[i] *= iod.ref.rv.length;
+    y1[i] *= iod.ref.rv.length;
+    y2[i] *= iod.ref.rv.length;
   }
   u = x2[0]-x1[0];  v = x2[1]-x1[1];  w = x2[2]-x1[2];
   // unit normals of axis of rotation //
@@ -648,12 +656,72 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       double theta = alpha_in + alpha_max*sin(omega*time);
       double costheta = cos(theta);
       double sintheta = sin(theta);
-      for(int i=0; i<nNodes; ++i) {
-        U[i][0] = U[i][1] = U[i][2] = 0.0;
-        double p[3];
-        for(int j=0; j<3; j++)
-          p[j] = X0[i][j] - x1[j];
 
+      double phi = beta_in + beta_max*sin(omega*time); 
+      double cosphi = cos(phi);
+      double sinphi = sin(phi);
+
+// Rotate the axis of 2nd rotation about the first rotation axis
+      double p[3], yy1[3], yy2[3];
+
+      p[0] = y1[0] - x1[0];                                         
+      p[1] = y1[1] - x1[1];                                         
+      p[2] = y1[2] - x1[2];                                         
+
+      yy1[0] = 0.0; yy1[1] = 0.0; yy1[2] = 0.0;           
+      yy1[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+      yy1[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];    
+      yy1[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];    
+
+      yy1[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];   
+      yy1[1] += (costheta + (1 - costheta) * iy * iy) * p[1];         
+      yy1[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];    
+
+      yy1[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+      yy1[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];    
+      yy1[2] += (costheta + (1 - costheta) * iz * iz) * p[2];         
+
+      yy1[0] += x1[0];                                                  
+      yy1[1] += x1[1];                                                   
+      yy1[2] += x1[2];                                                 
+
+      p[0] = y2[0] - x1[0];                                    
+      p[1] = y2[1] - x1[1];                                    
+      p[2] = y2[2] - x1[2];                                    
+
+      yy2[0] = 0.0; yy2[1] = 0.0; yy2[2] = 0.0;                         
+      yy2[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+      yy2[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];   
+      yy2[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];   
+
+      yy2[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];    
+      yy2[1] += (costheta + (1 - costheta) * iy * iy) * p[1];        
+      yy2[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];  
+
+      yy2[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+      yy2[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];   
+      yy2[2] += (costheta + (1 - costheta) * iz * iz) * p[2];      
+
+      yy2[0] += x1[0];                                                
+      yy2[1] += x1[1];                                             
+      yy2[2] += x1[2];                                       
+
+// unit normals of axis of 2nd rotation //
+
+      u = yy2[0]-yy1[0];                                      
+      v = yy2[1]-yy1[1];                                  
+      w = yy2[2]-yy1[2];                            
+
+      double jx = u/sqrt(u*u+v*v+w*w);
+      double jy = v/sqrt(u*u+v*v+w*w);
+      double jz = w/sqrt(u*u+v*v+w*w);
+
+      for(int i=0; i<nNodes; ++i) {
+        p[0] = X0[i][0] - x1[0];
+        p[1] = X0[i][1] - x1[1];
+        p[2] = X0[i][2] - x1[2];
+
+        U[i][0] = 0.0; U[i][1] = 0.0; U[i][2] = 0.0;              
         U[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
         U[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
         U[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
@@ -669,6 +737,27 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         U[i][0] += x1[0];
         U[i][1] += x1[1];
         U[i][2] += x1[2];
+
+        p[0] = U[i][0] -  yy1[0];                               
+        p[1] = U[i][1] -  yy1[1];                               
+        p[2] = U[i][2] -  yy1[2];                               
+
+        U[i][0] = 0.0; U[i][1] = 0.0; U[i][2] = 0.0;              
+        U[i][0] += (cosphi + (1 - cosphi) * jx * jx) * p[0];            
+        U[i][0] += ((1 - cosphi) * jx * jy - jz * sinphi) * p[1];      
+        U[i][0] += ((1 - cosphi) * jx * jz + jy * sinphi) * p[2];    
+
+        U[i][1] += ((1 - cosphi) * jx * jy + jz * sinphi) * p[0];       
+        U[i][1] += (cosphi + (1 - cosphi) * jy * jy) * p[1];           
+        U[i][1] += ((1 - cosphi) * jy * jz - jx * sinphi) * p[2];     
+
+        U[i][2] += ((1 - cosphi) * jx * jz - jy * sinphi) * p[0];   
+        U[i][2] += ((1 - cosphi) * jy * jz + jx * sinphi) * p[1];  
+        U[i][2] += (cosphi + (1 - cosphi) * jz * jz) * p[2];           
+
+        U[i][0] += yy1[0];                                            
+        U[i][1] += yy1[1];                                        
+        U[i][2] += yy1[2];                                     
 
         if(it==1) {
           if(algNum==6)
@@ -696,8 +785,14 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         Udot[i][2] = dz;
       }
     else if (mode==99) { // for debugging use.
-	  bool shrinking_sphere = true;							/* XY */
-	  if (shrinking_sphere) {								/* .. */
+	  bool shrinking_sphere = true;	
+	  if (shrinking_sphere) {
+//		for (int i=0; i<nNodes; ++i) {
+//		  for (int j=0; j<3; j++) {
+//			U[i][j] = 0.0;
+//			Udot[i][j] = 0.0;
+//		  }
+//		}
 		double tt = t0+dt*(double)(it-1);
 		double dist, dir[3];
         for(int i=0; i < nNodes; ++i) {
@@ -708,8 +803,8 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
             Udot[i][j] = -tt*tt*tt/2.0*dir[j]*dx;
           }
         }
-	  }														/* .. */
-	  else { 												/* XY */
+	  }	
+	  else { 
         for(int i=0; i < nNodes; ++i) { // expand / shrink the structure in y-z plane w.r.t. the origin
           double cosTheta = X[i][1]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
           double sinTheta = X[i][2]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
