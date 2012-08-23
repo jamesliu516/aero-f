@@ -497,7 +497,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
   frequency_dt = iod.output.transient.frequency_dt;
-  prtout = iod.restart.etime;
+  prtout = iod.restart.iteration ? frequency_dt*(floor(iod.restart.etime/frequency_dt)+1.0) : iod.restart.etime;
   length = iod.output.transient.length;
   surface = iod.output.transient.surface;
   x0[0] = iod.output.transient.x0;
@@ -819,7 +819,8 @@ bool TsOutput<dim>::toWrite(int it, bool lastIt, double t)
   if(frequency_dt<=0.0)
     return (((frequency > 0) && (it % frequency == 0)) || lastIt);
 
-  return (t>=prtout || lastIt);
+  return (it==0 || t>=prtout || lastIt);
+
 }
 
 //------------------------------------------------------------------------------
