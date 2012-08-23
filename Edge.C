@@ -1121,48 +1121,48 @@ bool notAllActive(Elem& elem, int idxFace, LevelSetStructure& LSS) {
 
 //------------------------------------------------------------------------------
 
-inline
-int computePrimitiveJacEuler3D(char dir, double* V, double** J) {
-  double gamma = 1.4;
-  double rho = V[0];
-  if (rho<=0.0)
-    return 1;
-  double u   = V[1];
-  double v   = V[2];
-  double w   = V[3];
-  double p   = V[4];
-  double nx  = 0.0;
-  double ny  = 0.0;
-  double nz  = 0.0;
-  switch (dir) {
-  	case 'x':
-  		nx = 1.0;	break;
-  	case 'y':
-  		ny = 1.0;	break;
-  	case 'z':
-  		nz = 1.0;	break;
-  }
-  J[0][0] = nx*u+ny*v+nz*w;
-  J[0][1] = rho*nx;	J[0][2] = rho*ny;	J[0][3] = rho*nz;	
-  J[0][4] = 0.0;
-  
-  J[1][0] = 0.0;
-  J[1][1] = nx*u+ny*v+nz*w;
-  J[1][2] = 0.0;	J[1][3] = 0.0;	J[1][4] = nx/rho;
-  
-  J[2][0] = 0.0;	J[2][1] = 0.0;
-  J[2][2] = nx*u+ny*v+nz*w;
-  J[2][3] = 0.0;	J[2][4] = ny/rho;
-  
-  J[3][0] = 0.0;	J[3][1] = 0.0;	J[3][2] = 0.0;
-  J[3][3] = nx*u+ny*v+nz*w;
-  J[3][4] = nz/rho;
-  
-  J[4][0] = 0.0;
-  J[4][1] = gamma*p*nx;	J[4][2] = gamma*p*ny;	J[4][3] = gamma*p*nz;
-  J[4][4] = nx*u+ny*v+nz*w;
-  return 0;
-}
+//inline
+//int computePrimitiveJacEuler3D(char dir, double* V, double** J) {
+//  double gamma = 1.4;
+//  double rho = V[0];
+//  if (rho<=0.0)
+//    return 1;
+//  double u   = V[1];
+//  double v   = V[2];
+//  double w   = V[3];
+//  double p   = V[4];
+//  double nx  = 0.0;
+//  double ny  = 0.0;
+//  double nz  = 0.0;
+//  switch (dir) {
+//  	case 'x':
+//  		nx = 1.0;	break;
+//  	case 'y':
+//  		ny = 1.0;	break;
+//  	case 'z':
+//  		nz = 1.0;	break;
+//  }
+//  J[0][0] = nx*u+ny*v+nz*w;
+//  J[0][1] = rho*nx;	J[0][2] = rho*ny;	J[0][3] = rho*nz;	
+//  J[0][4] = 0.0;
+//  
+//  J[1][0] = 0.0;
+//  J[1][1] = nx*u+ny*v+nz*w;
+//  J[1][2] = 0.0;	J[1][3] = 0.0;	J[1][4] = nx/rho;
+//  
+//  J[2][0] = 0.0;	J[2][1] = 0.0;
+//  J[2][2] = nx*u+ny*v+nz*w;
+//  J[2][3] = 0.0;	J[2][4] = ny/rho;
+//  
+//  J[3][0] = 0.0;	J[3][1] = 0.0;	J[3][2] = 0.0;
+//  J[3][3] = nx*u+ny*v+nz*w;
+//  J[3][4] = nz/rho;
+//  
+//  J[4][0] = 0.0;
+//  J[4][1] = gamma*p*nx;	J[4][2] = gamma*p*ny;	J[4][3] = gamma*p*nz;
+//  J[4][4] = nx*u+ny*v+nz*w;
+//  return 0;
+//}
 
 //------------------------------------------------------------------------------
 
@@ -1524,22 +1524,25 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
 		else {
 		  for (int k=0; k<dim; k++) Wstar[k] = Wstarij[l][k];
-		  double **Jacx, **Jacy, **Jacz;
-		  Jacx = new double*[dim]; for (int k=0; k<dim; k++) Jacx[k] = new double[dim];
-		  Jacy = new double*[dim]; for (int k=0; k<dim; k++) Jacy[k] = new double[dim];
-		  Jacz = new double*[dim]; for (int k=0; k<dim; k++) Jacz[k] = new double[dim];
-		  // 1. to study how to ge the Jacobian from varFcn and not implemented here
-		  computePrimitiveJacEuler3D('x',Wstar,Jacx);
-		  computePrimitiveJacEuler3D('y',Wstar,Jacy);
-		  computePrimitiveJacEuler3D('z',Wstar,Jacz);
+		  double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
+		  double axisnrm[3];
+		  for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedVdU(Wstar,dVdU);
+		  axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacx);
+		  axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacy);
+		  axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacz);
 		  for (int k=0; k<dim; k++)
 		    for (int k1=0; k1<dim; k1++)
-		      Wstar[k] -= dt*(Jacx[k][k1]*dVdx[i][k1]+
-		  	  	  		      Jacy[k][k1]*dVdy[i][k1]+
-		  	  			      Jacz[k][k1]*dVdz[i][k1]);
-		  for (int k=0; k<dim; k++) delete[] Jacx[k];	delete[] Jacx;
-		  for (int k=0; k<dim; k++) delete[] Jacy[k];	delete[] Jacy;
-		  for (int k=0; k<dim; k++) delete[] Jacz[k];	delete[] Jacz;
+			  for (int k2=0; k2<dim; k2++)
+		        Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[i][k2]+
+		  	  	  		        dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[i][k2]+
+		  	  			        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[i][k2]);
 		}
 		if (it>0) {
 		  for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k];
@@ -1559,7 +1562,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 			  		X,V,Wstar,resij.alpha,length,i);
 		}
 
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+        //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+		double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
+		varFcn->getVarFcnBase(fluidId[i])->computeFofV(fluxnrm,Wstar,fluxi);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
       if(jActive){// for node j
@@ -1586,22 +1591,25 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
 		else {
 		  for (int k=0; k<dim; k++) Wstar[k] = Wstarji[l][k];
-		  double **Jacx, **Jacy, **Jacz;
-		  Jacx = new double*[dim]; for (int k=0; k<dim; k++) Jacx[k] = new double[dim];
-		  Jacy = new double*[dim]; for (int k=0; k<dim; k++) Jacy[k] = new double[dim];
-		  Jacz = new double*[dim]; for (int k=0; k<dim; k++) Jacz[k] = new double[dim];
-		  // 1. to study how to ge the Jacobian from varFcn and not implemented here
-		  computePrimitiveJacEuler3D('x',Wstar,Jacx);
-		  computePrimitiveJacEuler3D('y',Wstar,Jacy);
-		  computePrimitiveJacEuler3D('z',Wstar,Jacz);
+		  double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
+		  double axisnrm[3];
+		  for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedVdU(Wstar,dVdU);
+		  axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacx);
+		  axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacy);
+		  axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacz);
 		  for (int k=0; k<dim; k++)
 		    for (int k1=0; k1<dim; k1++)
-		      Wstar[k] -= dt*(Jacx[k][k1]*dVdx[j][k1]+
-		  	  	  		      Jacy[k][k1]*dVdy[j][k1]+
-		  	  			      Jacz[k][k1]*dVdz[j][k1]);
-		  for (int k=0; k<dim; k++) delete[] Jacx[k];	delete[] Jacx;
-		  for (int k=0; k<dim; k++) delete[] Jacy[k];	delete[] Jacy;
-		  for (int k=0; k<dim; k++) delete[] Jacz[k];	delete[] Jacz;
+			  for (int k2=0; k2<dim; k2++)
+		        Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[j][k2]+
+		  	  	  		        dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[j][k2]+
+		  	  			        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[j][k2]);
 		}
 		if (it>0) {
 		  for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
@@ -1621,7 +1629,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 			extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
 			  		X,V,Wstar,resji.alpha,length,j);
 		}
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+        //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+		double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
+		varFcn->getVarFcnBase(fluidId[j])->computeFofV(fluxnrm,Wstar,fluxj);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
       }
     }
