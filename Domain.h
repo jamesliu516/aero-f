@@ -580,10 +580,15 @@ public:
 
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, DistSVec<double,3> &,
-				 DistSVec<double,dim> &, DistSVec<double,dim> &);
+				 DistSVec<double,dim> &, DistSVec<double,dim> &,
+			         DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                                 DistLevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeWaleLESTerm(WaleLESTerm *, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void computeWaleLESTerm(WaleLESTerm *, DistSVec<double,3> &, DistSVec<double,dim> &, 
+                          DistSVec<double,dim> &,
+			  DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                          DistLevelSetStructure *LSS=0);
 
 
   //---start computation of MutOMu terms
@@ -647,11 +652,16 @@ public:
                                DistSVec<double,16> &, DistSVec<double,6> &,
                                DistVec<double> &, DistSVec<double,8> &,
                                DistSVec<double,2> &, DistVec<int> &, DistBcData<dim> &,
-                               DistSVec<double,3> &, DistSVec<double,dim> &, double, double);
+                               DistSVec<double,3> &, DistSVec<double,dim> &, double, double,
+			       DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                               DistLevelSetStructure *LSS=0);
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, DistSVec<double,2> &,
-                             DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+                             DistSVec<double,3> &, DistSVec<double,dim> &, 
+                             DistSVec<double,dim> &,
+			     DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                             DistLevelSetStructure *LSS=0);
 
 
   template<int dim>

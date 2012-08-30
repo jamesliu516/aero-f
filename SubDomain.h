@@ -514,10 +514,13 @@ public:
 
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &,
-				 SVec<double,dim> &);
+				 SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
+                                 LevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, 
+                          SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
+                          LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
@@ -538,15 +541,17 @@ public:
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
-                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double, 
+                             Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeCsValues(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
                        SVec<double,8> &, SVec<double,2> &, Vec<int> &, SVec<double,3> &, double, double);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, SVec<double,dim> &,
-                             SVec<double,dim> &);
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
+                             SVec<double,dim> &, SVec<double,dim> &, 
+                             Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVMSLES_Step1(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
