@@ -33,6 +33,24 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 	    com->fprintf(stderr,"--- No Turbulent Model Used ***\n");
 	    NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
 	  }
+	else if(ioData.eqs.tc.type == TurbulenceClosureData::LES)
+	  {
+	    if(ioData.eqs.tc.les.type == LESModelData::SMAGORINSKY)
+	    {
+	      com->fprintf(stderr,"--- Smagorinsky LES Model Used ***\n");
+	      NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	    }
+	    if(ioData.eqs.tc.les.type == LESModelData::DYNAMIC)
+	    {
+	      com->fprintf(stderr,"--- Dynamic LES Model Used ***\n");
+	      NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	    }
+	    if(ioData.eqs.tc.les.type == LESModelData::WALE)
+	    {
+	      com->fprintf(stderr,"--- Wale LES Model Used ***\n");
+	      NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	    }
+	  }
 	else if(ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)
 	  {
 	    if(ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)
