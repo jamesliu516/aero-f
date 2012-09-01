@@ -2586,7 +2586,43 @@ void SubDomain::computeDisplacement(SVec<double,3> &X, double* dX,int node)
 
 }
 
+
 //------------------------------------------------------------------------------
+
+
+void SubDomain::markLenKirchhoffNodes(IoData &iod, DistInfo &distInfo)
+{
+
+// This function counts the nodes on a Kirchhoff surface.
+// The nodes are counted per subdomain.
+// Some nodes may appear on several subdomains.
+//
+// The function sets the number of nodes in the object 'distInfo'.
+//
+// UH (07/2012)
+
+  if (strlen(iod.output.restart.strKPtraces) == 0)
+  {
+    distInfo.setLen(locSubNum, 0);
+    return;
+  }
+
+  for (int j = 0; j < faces.size(); ++j)
+  {
+    if (faces[j].getCode() == BC_KIRCHHOFF_SURFACE)
+    {
+      for (int k = 0; k < faces[j].numNodes(); ++k)
+        kirchhoffNodesList.insert(faces[j][k]);
+    }
+  }
+
+  distInfo.setLen(locSubNum, kirchhoffNodesList.size());
+
+}
+
+
+//------------------------------------------------------------------------------
+
 
 void SubDomain::makeMasterFlag(DistInfo &distInfo)
 {
@@ -2896,9 +2932,11 @@ void SubDomain::rcvEdgeData(CommPattern<double> &edgePat, double *edgeData)
 void SubDomain::setFaceType(int *facemap)
 {
 
-  for (int i=0; i<faces.size(); ++i){
+  for (int i=0; i<faces.size(); ++i)
+  {
     faces[i].setType(facemap);
-}
+  }
+
 }
 
 //------------------------------------------------------------------------------

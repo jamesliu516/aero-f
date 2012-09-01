@@ -2925,6 +2925,7 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
 //  com->barrier(); //For timing (of i/o) purpose.
   double t0 = timer->getTime();
 
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->readVectorFromFile(prefix, step, neq, U(iSub), scale);

@@ -96,6 +96,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   double dt, dts;
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
+
   // setup solution output files
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
@@ -115,7 +116,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-    
+
     bool solveOrNot = true;
     do { // Subcycling
       stat = 0;
@@ -132,7 +133,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         dt = probDesc->computeTimeStep(it, &dtLeft, U);
 
       t += dt;
-//      fprintf(stderr,"t = %e, dt = %e.\n", t, dt);
 
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
@@ -167,13 +167,13 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     } while (dtLeft != 0.0 || stat<0);
 
-
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
     dts = probDesc->computePositionVector(&lastIt, it, t, U);
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
+
   }
   return 0;
 

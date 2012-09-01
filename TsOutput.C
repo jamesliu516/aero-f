@@ -13,6 +13,7 @@
 #include <BinFileHandler.h>
 #include <VectorSet.h>
 #include <GhostPoint.h>
+#include <SubDomain.h>
 
 //------------------------------------------------------------------------------
 
@@ -510,6 +511,9 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpConservationErr = 0;
   fpGnForces  = 0;
   fpError = 0;
+
+  fpEmbeddedSurface = 0;
+  fpCpuTiming = 0;
 
   int nSurf = postOp->getNumSurf();
   int nSurfHF = postOp->getNumSurfHF();
@@ -1506,6 +1510,7 @@ void TsOutput<dim>::openAsciiFiles()
 template<int dim>
 void TsOutput<dim>::closeAsciiFiles()
 {
+
   for (int iSurf = 0; iSurf < postOp->getNumSurf(); iSurf++)  {
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
@@ -1517,6 +1522,7 @@ void TsOutput<dim>::closeAsciiFiles()
   for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
+
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
@@ -2809,6 +2815,7 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
   counter += 1; // increment the counter for keeping track of the averaging
  
 }
+
 
 //------------------------------------------------------------------------------
 

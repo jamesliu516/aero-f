@@ -114,6 +114,9 @@ InputData::InputData()
   oneDimensionalSolution = "";
 
   exactInterfaceLocation = "";
+
+  strKPtraces = "";
+
 }
 
 //------------------------------------------------------------------------------
@@ -164,6 +167,11 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "ExactInterfaceLocation", this, &InputData::exactInterfaceLocation);
 
   oneDimensionalInput.setup("1DRestartData",ca);
+
+  //
+  // Input file for computing the Kirchhoff integral
+  //
+  new ClassStr<InputData>(ca, "PressureKirchhoff", this, &InputData::strKPtraces);
 
 }
 
@@ -221,6 +229,7 @@ void Probes::Node::setup(const char *name, ClassAssigner *father) {
   new ClassDouble<Probes::Node>(ca, "LocationX",this,&Probes::Node::locationX);
   new ClassDouble<Probes::Node>(ca, "LocationY",this,&Probes::Node::locationY);
   new ClassDouble<Probes::Node>(ca, "LocationZ",this,&Probes::Node::locationZ);
+
 }
 
 Probes::Probes() {
@@ -231,6 +240,9 @@ Probes::Probes() {
   temperature = "";
   velocity = "";
   displacement = "";
+
+  farfieldpattern = "";
+
 }
 
 void Probes::setup(const char *name, ClassAssigner *father)
@@ -243,6 +255,8 @@ void Probes::setup(const char *name, ClassAssigner *father)
   new ClassStr<Probes>(ca, "Temperature", this, &Probes::temperature);
   new ClassStr<Probes>(ca, "Velocity", this, &Probes::velocity);
   new ClassStr<Probes>(ca, "Displacement", this, &Probes::displacement);
+
+  new ClassStr<Probes>(ca, "FarfieldPattern", this, &Probes::farfieldpattern);
 
   char nodename[12];
   for (int i = 0; i < MAXNODES; ++i) {
@@ -546,9 +560,10 @@ RestartData::RestartData()
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
 
-
   frequency = 0;
   frequency_dt = -1.0;
+
+  strKPtraces = "";
 
 }
 
@@ -569,7 +584,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
   new ClassDouble<RestartData>(ca, "TimeInterval", this, &RestartData::frequency_dt);
-
+  new ClassStr<RestartData>(ca, "PressureKirchhoff", this, &RestartData::strKPtraces);
 }
 
 //------------------------------------------------------------------------------
@@ -640,7 +655,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 33,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 34,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -652,7 +667,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
-		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32);
+		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
+     "Aeroacoustic", 33);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3352,7 +3368,8 @@ SurfaceData::SurfaceData()  {
   type = (Type) UNSPECIFIED; 
   temp = -1.0;
   computeHeatFluxes = (ComputeHeatPower) UNSPECIFIED_HF;
-  heatFluxResults = NO_HF; 
+  heatFluxResults = NO_HF;
+
 }
 
 //------------------------------------------------------------------------------
@@ -3707,7 +3724,61 @@ void MultigridInfo::setup(const char * name) {
 
 }
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+KirchhoffData::KirchhoffData()
+{
+  
+  d_surfaceType = SPHERICAL;
+  d_energyFraction = 90.0;
+  d_angularIncrement = 10;
+  d_nyquist = 2;
+  
+}
+
+//------------------------------------------------------------------------------
+
+void KirchhoffData::setup
+(
+  Communicator *com,
+  const char *name, 
+  ClassAssigner *father
+)
+{
+  
+  ClassAssigner *ca = new ClassAssigner(name, father);
+
+  new ClassToken<KirchhoffData>(ca, "KirchhoffSurface", this,
+           reinterpret_cast<int KirchhoffData::*>(&KirchhoffData::d_surfaceType), 
+           2,"Cylindrical", 0, "Spherical", 1);
+  
+  new ClassDouble<KirchhoffData>(ca, "EnergyFraction", this, &KirchhoffData::d_energyFraction);
+  if ((d_energyFraction < 0.0) || (d_energyFraction > 100.0))
+  {
+    com->fprintf(stderr,"\n !!! In Input File, under %s, EnergyFraction is out of bounds !!! \n", name);
+    com->fprintf (stderr,"\n !!! Value set to default = 90.0 !!!\n\n");
+    d_energyFraction = 90.0;
+  }
+  
+  new ClassInt<KirchhoffData>(ca, "Increment", this, &KirchhoffData::d_angularIncrement);
+  if (d_angularIncrement <= 0)
+  {
+    com->fprintf(stderr,"\n !!! In Input File, under %s, Increment is out of bounds !!! \n", name);
+    com->fprintf (stderr,"\n !!! Value set to default = 10 !!!\n\n");
+    d_angularIncrement = 10;
+  }
+
+  new ClassInt<KirchhoffData>(ca, "NyquistMaximum", this, &KirchhoffData::d_nyquist);
+  if (d_nyquist < 0)
+  {
+    com->fprintf(stderr,"\n !!! In Input File, under %s, NyquistMaximum is out of bounds !!! \n", name);
+    com->fprintf (stderr,"\n !!! Value set to default = 2 !!!\n\n");
+    d_nyquist = 2;
+  }
+
+}
+
+//------------------------------------------------------------------------------
 
 IoData::IoData(Communicator *communicator)
 {
@@ -3779,6 +3850,9 @@ void IoData::setupCmdFileVariables()
   embed.setup("EmbeddedFramework");
   oneDimensionalInfo.setup("1DGrid");
   implosion.setup("ImplosionSetup");
+  
+  surfKI.setup(com, "AcousticPressure");
+
 }
 
 //------------------------------------------------------------------------------
