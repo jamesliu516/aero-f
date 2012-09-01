@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 enable_language(Fortran)
 
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_admin")
+
 ###################
 # Local Variables #
 ###################
@@ -41,7 +43,14 @@ IF(NOT EXTRALIB)
 SET(EXTRALIB "")
 ENDIF(NOT EXTRALIB)
 
+FIND_PACKAGE(GSL REQUIRED)
+FIND_PACKAGE(FFTW REQUIRED)
+
+message("${GSL_LIBRARIES} ${FFTW_LIBRARIES}")
+
 SET(EXTRALIB ${EXTRALIB} CACHE STRING "Extra link parameters")
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GSL_CFLAGS} -I${FFTW_INCLUDE_DIR}")
 
 SET(CMAKE_DEBUG_POSTFIX "_debug")
 
@@ -56,6 +65,9 @@ ENDIF(BLAS_LIBRARIES)
 IF(LAPACK_LIBRARIES)
   SET(EXTRALIBRARIES ${LAPACK_LIBRARIES} ${EXTRALIBRARIES})
 ENDIF(LAPACK_LIBRARIES)
+
+message("${GSL_LIBRARIES} ${FFTW_LIBRARIES}")
+SET(EXTRALIB ${EXTRALIB} ${GSL_LIBRARIES} ${FFTW_LIBRARIES})
 
 FIND_PACKAGE(MPI)
 
@@ -212,6 +224,7 @@ ADD_LIBRARY(FluidBase
              OneDimensionalSolver.C
 	     Multigrid.C
              PolygonReconstructionData.C
+             KirchhoffIntegrator.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
