@@ -211,6 +211,7 @@ ADD_LIBRARY(FluidBase
              OneDimensionalSolver.C
 	     Multigrid.C
              PolygonReconstructionData.C
+             KirchhoffIntegrator.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)

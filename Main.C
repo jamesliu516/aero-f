@@ -15,6 +15,7 @@
 #include <Timer.h>
 
 #include "OneDimensionalSolver.h"
+#include "KirchhoffIntegrator.h"
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
@@ -99,11 +100,23 @@ int main(int argc, char **argv)
 
     domain.printElementStatistics();
 
-    // choose between linearized and nonlinear fluid problems
-    if (ioData.problem.type[ProblemData::LINEARIZED])
+    if (ioData.problem.alltype == ProblemData::_AERO_ACOUSTIC_)
+    {
+      std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
+      KirchhoffIntegrator doKP(ioData, &domain);
+      doKP.computeIntegral();
+    }
+    else if (ioData.problem.type[ProblemData::LINEARIZED])
+    {
+      // Choose linearized fluid problem
       startModalSolver(com, ioData, domain);
+    }
     else
+    {
+      // Choose nonlinear fluid problem
       startNavierStokesSolver(ioData, geoSource, domain);
+    }
+
   }
 
 #ifndef CREATE_DSO

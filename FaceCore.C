@@ -32,8 +32,10 @@ void Face::setup(int fc, int *nn, int nnum, int sid)
       fc == BC_ADIABATIC_WALL_MOVING || fc == BC_ADIABATIC_WALL_FIXED ||
       fc == BC_SLIP_WALL_MOVING || fc == BC_SLIP_WALL_FIXED ||
       fc == BC_ISOTHERMAL_WALL_MOVING || fc == BC_ISOTHERMAL_WALL_FIXED ||
-      fc == BC_SYMMETRY)
+      fc == BC_SYMMETRY || fc == BC_KIRCHHOFF_SURFACE)
+  {
     code = fc;
+  }
   else {
     fprintf(stderr, "*** Error: incorrect boundary face code (%d)\n", fc);
     exit(1);
@@ -52,7 +54,12 @@ void Face::setup(int fc, int *nn, int nnum, int sid)
 void Face::setType(int *facemap)
 {
 
-  code = facemap[code];
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+
+  if ((code >= BC_MIN_CODE) && (code <= BC_MAX_CODE))
+    code = facemap[code];
 
 }
 
@@ -61,9 +68,16 @@ void Face::setType(int *facemap)
 void Face::setNodeType(int* priority, int* nodeType)
 {
 
-  for (int j=0; j<numNodes(); ++j)
-    if (priority[code] > priority[ nodeType[ nodeNum(j) ] ])
-      nodeType[ nodeNum(j) ] = code;
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+
+  if ((code >= BC_MIN_CODE) && (code <= BC_MAX_CODE))
+  {
+    for (int j=0; j<numNodes(); ++j)
+      if (priority[code] > priority[ nodeType[ nodeNum(j) ] ])
+        nodeType[ nodeNum(j) ] = code;
+  }
 
 }
 
@@ -82,14 +96,18 @@ void Face::setNodeFaceType(int* nodeFaceType)
       if(nft == -1)
         nodeFaceType[nodeNum(j)] = 2;
     }
-  } else { //only possibilities left should be wall and symmetry
-    for (int j=0; j<numNodes(); j++){
+  } 
+  else if ((code >= BC_MIN_CODE) && (code <= BC_MAX_CODE))
+  {
+    //only possibilities left should be wall and symmetry
+    for (int j=0; j<numNodes(); j++)
+    {
       nft = nodeFaceType[nodeNum(j)];
       if(nft == 0)
         nodeFaceType[nodeNum(j)] = -1;
       if(nft == 1)
         nodeFaceType[nodeNum(j)] = 2;
-    }
+    } // for (int j=0; j<numNodes(); j++)
   }
 
 }

@@ -102,6 +102,12 @@ struct InputData {
   
   const char* exactInterfaceLocation;
 
+  //
+  // String for the input files of pressure snapshots
+  // This file is used for computing the Kirchhoff integral.
+  // UH (08/2012)
+  const char* strKPtraces;
+
 // Included (MB)
   const char *shapederivatives;
 
@@ -138,6 +144,9 @@ struct Probes {
   const char *temperature;
   const char *velocity;
   const char *displacement;
+  
+  // UH >> for Aeroacoustic
+  const char *farfieldpattern;
 
   Probes();
   ~Probes() {}
@@ -267,6 +276,13 @@ struct RestartData {
   int frequency;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
+  /// UH (06/2012)
+  ///
+  /// The following member is used for computing the Kirchhoff integral.
+  /// When active, this variable contains the prefix for saving the data.
+  /// 
+  const char *strKPtraces;
+
   RestartData();
   ~RestartData() {}
 
@@ -365,7 +381,8 @@ struct ProblemData {
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
 		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
 		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, _ROB_INNER_PRODUCT_ = 32} alltype;
+		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
+                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -2027,6 +2044,29 @@ struct MultigridInfo {
   double radiusf;
   int threshold;
 };
+
+//------------------------------------------------------------------------------
+
+struct KirchhoffData {
+  
+  /// UH (08/2012)
+  ///
+  /// This structure stores information for computing the Kirchhoff integral.
+  /// Information is used with the problem type "Aeroacoustic".
+  ///
+  
+  enum Type {CYLINDRICAL = 0, SPHERICAL = 1} d_surfaceType;
+  double d_energyFraction;
+  int d_angularIncrement;
+  int d_nyquist;
+    
+  KirchhoffData();
+  ~KirchhoffData() {}
+  
+  void setup(Communicator *communicator, const char *name, ClassAssigner * = 0);
+
+};
+
 //------------------------------------------------------------------------------
 
 class IoData {
@@ -2070,6 +2110,10 @@ public:
   ImplosionSetup implosion;
 
   MultigridInfo multigrid;
+
+  // UH (08/2012)
+  // The next member is used for the Kirchhoff integral.
+  KirchhoffData surfKI;
 
 public:
 

@@ -37,6 +37,13 @@ void Face::renumberNodes(NodeMap &nodemap)
 template<int dim>
 void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout, double *U)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   int k, j;
 
   NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
@@ -55,6 +62,7 @@ void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout
   else
     for (k=0; k<dim; ++k)
       U[k] = 0.0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -62,6 +70,13 @@ void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout
 template<int dim>
 void Face::assignFreeStreamValues(double *Uin, double *Uout, double *U)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   int k;
 
   if (code == BC_INLET_MOVING || code == BC_INLET_FIXED)
@@ -318,16 +333,24 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   Vec<double> &normalVel, SVec<double,dim> &V, 
 				   double *Ub, SVec<double,dim> &fluxes)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   if(fluxFcn[code]){
     double flux[dim];
     for (int l=0; l<numNodes(); ++l) {
-      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
-			     V[nodeNum(l)], Ub, flux);
-      for (int k=0; k<dim; ++k){
+      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), V[nodeNum(l)], Ub, flux);
+      for (int k=0; k<dim; ++k)
+      {
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
     }
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -338,6 +361,13 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                    Vec<double> &normalVel, SVec<double,dim> &V,
                                    double *Ub, SVec<double,dim> &fluxes)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
      code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
@@ -365,16 +395,20 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     return;
   }
 
-  if(fluxFcn[code]){
+  if(fluxFcn[code])
+  {
     double flux[dim];
-    for (int l=0; l<numNodes(); ++l) {
+    for (int l=0; l<numNodes(); ++l) 
+    {
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
-                             V[nodeNum(l)], Ub, flux);
-      for (int k=0; k<dim; ++k){
-        fluxes[ nodeNum(l) ][k] += flux[k];
+                           V[nodeNum(l)], Ub, flux);
+      for (int k=0; k<dim; ++k)
+      {
+      fluxes[ nodeNum(l) ][k] += flux[k];
       }
-    }
+    } // for (int l = 0; l < numNodes(); ++l)
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -388,6 +422,12 @@ void Face::computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &no
 				      double *dUb, SVec<double,dim> &dFluxes)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+    
   if(fluxFcn[code]){
     double flux[dim];
     double dFlux[dim];
@@ -410,6 +450,13 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   double *Ub, Vec<int> &fluidId, 
 				   SVec<double,dim> &fluxes, LevelSetStructure *LSS)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   Vec3D normal = getNormal(normals);
   double flux[dim];
   bool cracking = LSS ? LSS->withCracking() : false;
@@ -439,6 +486,13 @@ void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				     Vec<double> &normalVel, SVec<double,dim> &V,
 				     SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiF)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double Uf = 0.0;
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
       code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
@@ -471,6 +525,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 					   double *Ub, GenMat<Scalar,neq> &A)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     Vec3D  normal = getNormal(normals, l);
@@ -492,6 +552,13 @@ void Face::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, Flu
                                            Vec<double> &normalVel, SVec<double,dim> &V,
                                            double *Ub, GenMat<Scalar,neq> &A)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
      code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
@@ -549,6 +616,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 					   double *Ub, GenMat<Scalar,neq> &A, int* nodeType)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     if(!(code == BC_INLET_MOVING || code == BC_OUTLET_MOVING ||
@@ -575,6 +648,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
                                            LevelSetStructure* LSS)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     Vec3D  normal = getNormal(normals, l);
@@ -599,6 +678,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
                                            Vec<int> &fluidId, int* nodeType)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     if(!(code == BC_INLET_MOVING || code == BC_OUTLET_MOVING ||
@@ -624,6 +709,12 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
 					     GenMat<Scalar,dimLS> &A)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double Uf = 0.0;
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
       code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
