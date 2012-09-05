@@ -88,6 +88,7 @@ void KirchhoffIntegrator::computeIntegral
   
   int numSnapshots = 1;
   double Tf = 0.0;
+  bool goodFile = true;
   
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
@@ -101,6 +102,8 @@ void KirchhoffIntegrator::computeIntegral
     if (!pfile.read((char*) &dtmp, sizeof(Data)))
     {
       fprintf(stderr, "\n !!! File %s can not be read !!! \n\n", filename);
+      goodFile = false;
+      continue;
     }
     pos += sizeof(Data);
     if (iSub == 0)
@@ -469,6 +472,40 @@ void KirchhoffIntegrator::convertToSHSeries
 #endif
   
 
+  //
+  // Get the radius of the surface
+  //
+  
+  int count = 0;
+  for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
+  {
+    
+    FaceSet &faces = SubDomain_p[iSub]->getFaces();
+    SVec<double,3> XX = (*d_X_p)(iSub);
+        
+    for (int j = 0; j < faces.size(); ++j)
+    {
+      if (faces[j].getCode() != BC_KIRCHHOFF_SURFACE)
+        continue;
+      //
+      double r, t, phi;
+      for (int jj = 0; jj < 3; ++jj)
+      {
+        cart2sph_x(XX[faces[j][jj]][0], XX[faces[j][jj]][1], XX[faces[j][jj]][2], r, t, phi);
+        d_R += r;
+        count += 1;
+      }
+      //
+    }
+    
+  }
+  d_R = d_R / count;
+  
+  Communicator *MyCom_p = d_domain_p->getCommunicator();
+  MyCom_p->globalSum(1, &d_R);
+  d_R = d_R / MyCom_p->size();
+
+  
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
@@ -523,20 +560,6 @@ void KirchhoffIntegrator::convertToSHSeries
         cart2sph_x(x[jj], y[jj], z[jj], r[jj], t[jj], phi[jj]);
       }
       //
-      // Check the angles across the "cut"
-      //
-      if ((abs(phi[2] - phi[0]) > M_PI) || (abs(phi[1] - phi[0]) > M_PI))
-      {
-        for (int jj = 0; jj < 3; ++jj)
-        {
-          cart2sph_y(x[jj], y[jj], z[jj], r[jj], t[jj], phi[jj]);
-        }
-      }
-      //
-      double area = (t[1]-t[0])*(phi[2]-phi[0]) - (t[2]-t[0])*(phi[1]-phi[0]);
-      area = 0.5 * abs(area);
-
-      //
       std::vector< std::complex<double> > p(3*numFreq);
       for (int ik = 0; ik < numFreq; ++ik)
       {
@@ -551,15 +574,6 @@ void KirchhoffIntegrator::convertToSHSeries
       for (int gp = 0; gp < ww.size(); ++gp)
       {
 
-        double rp = 0.0, tp = 0.0, phip = 0.0;
-        rp = r[0]*xi[gp] + r[1]*xi[gp+ww.size()] + r[2]*xi[gp+2*ww.size()];
-        tp = t[0]*xi[gp] + t[1]*xi[gp+ww.size()] + t[2]*xi[gp+2*ww.size()];
-        phip = phi[0]*xi[gp] + phi[1]*xi[gp+ww.size()] + phi[2]*xi[gp+2*ww.size()];
-        //
-        if (iSub == 0)
-          d_R = (d_R > rp) ? d_R : rp;
-        //
-        
         double xp = 0.0, yp = 0.0, zp = 0.0;
         xp = x[0]*xi[gp] + x[1]*xi[gp+ww.size()] + x[2]*xi[gp+2*ww.size()];
         yp = y[0]*xi[gp] + y[1]*xi[gp+ww.size()] + y[2]*xi[gp+2*ww.size()];
@@ -585,10 +599,10 @@ void KirchhoffIntegrator::convertToSHSeries
         cross += std::pow(dMdr[1]*dMds[2] - dMdr[2]*dMds[1], 2.0);
         cross += std::pow(dMdr[2]*dMds[0] - dMdr[0]*dMds[2], 2.0);
         cross += std::pow(dMdr[0]*dMds[1] - dMdr[1]*dMds[0], 2.0);
-        cross = sqrt(cross) * 0.5;
+        cross = sqrt(cross) * 0.5 / (d_R * d_R);
         
 #ifdef _UH_DEBUG_
-        surfaceCheck += cross * ww[gp];
+        surfaceCheck += d_R * d_R * cross * ww[gp];
 #endif
         
         for (int nn = 0; nn <= nmax; ++nn)
@@ -598,7 +612,7 @@ void KirchhoffIntegrator::convertToSHSeries
           //
           for (int mm = 0; mm < Yn.size(); ++mm)
           {
-            yNorm[nn*nn + mm] += real( Yn[mm] * std::conj(Yn[mm]) * cross * ww[gp]) / (d_R * d_R);
+            yNorm[nn*nn + mm] += real( Yn[mm] * std::conj(Yn[mm]) * cross * ww[gp]) ;
             Yn[mm] = std::conj(Yn[mm]);
           }
           //
@@ -608,12 +622,12 @@ void KirchhoffIntegrator::convertToSHSeries
             pp = p[3*ik]*xi[gp];
             pp += p[1+3*ik]*xi[gp+ww.size()];
             pp += p[2+3*ik]*xi[gp+2*ww.size()];
-            // 
+            //
 #pragma omp critical
             {
               int shift = ik*(nmax+1)*(nmax+1) + nn*nn;
               for (int mm = 0; mm < Yn.size(); ++mm)
-                series[shift + mm] += pp * Yn[mm] * cross * ww[gp] / (d_R * d_R);
+                series[shift + mm] += pp * Yn[mm] * cross * ww[gp];
             }
 
           } // for (int ik = 0; ik < numFreq; ++ik)
@@ -626,9 +640,7 @@ void KirchhoffIntegrator::convertToSHSeries
 
   } // for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
 
-  Communicator *MyCom_p = d_domain_p->getCommunicator();
   MyCom_p->globalSum(sLen, &series[0]);
-  MyCom_p->globalMax(1, &d_R);
 
 #ifdef _UH_DEBUG_
   MyCom_p->globalSum(1, &surfaceCheck);
@@ -754,7 +766,7 @@ void KirchhoffIntegrator::getdpdnSHseries
           continue;
         }
         //
-        std::complex<double> scalar = besselh_prime(in, kappa*d_R) / besselh(in, kappa*d_R);
+        std::complex<double> scalar = kappa * besselh_prime(in, kappa*d_R) / besselh(in, kappa*d_R);
         for (int jn = 0; jn <= 2*in; ++jn)
         {
           coeff_dudn[count] = coeff[count] * scalar;
@@ -819,7 +831,6 @@ void KirchhoffIntegrator::integrateOnSphere
     observations[3*ii] = myProbes.myNodes[ii].locationX;
     observations[3*ii+1] = myProbes.myNodes[ii].locationY;
     observations[3*ii+2] = myProbes.myNodes[ii].locationZ;
-    //
   }
   
   SubDomain **SubDomain_p = d_domain_p->getSubDomain();
@@ -827,11 +838,13 @@ void KirchhoffIntegrator::integrateOnSphere
   std::vector<double> xi, ww;
   getQuadrature(xi, ww);
   
-  int sLen = numFreq * (nmax + 1) * (nmax + 1);
-  
   int intLen = numFreq * numProbes;
   std::vector< std::complex<double> > pnoise(intLen, std::complex<double>(0.0, 0.0));
   
+#ifdef _UH_DEBUG_
+  double surfaceCheck = 0.0;
+#endif
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
@@ -849,26 +862,13 @@ void KirchhoffIntegrator::integrateOnSphere
       if (faces[j].getCode() != BC_KIRCHHOFF_SURFACE)
         continue;
       //
-      double r[3], t[3], phi[3];
+      double x[3], y[3], z[3];
       for (int jj = 0; jj < 3; ++jj)
       {
-        cart2sph_x(XX[faces[j][jj]][0],XX[faces[j][jj]][1],XX[faces[j][jj]][2],
-                   r[jj], t[jj], phi[jj]);
+        x[jj] = XX[faces[j][jj]][0];
+        y[jj] = XX[faces[j][jj]][1];
+        z[jj] = XX[faces[j][jj]][2];
       }
-      //
-      // Check the angles across the "cut"
-      //
-      if ((abs(phi[2] - phi[0]) > M_PI) || (abs(phi[1] - phi[0]) > M_PI))
-      {
-        for (int jj = 0; jj < 3; ++jj)
-        {
-          cart2sph_y(XX[faces[j][jj]][0],XX[faces[j][jj]][1],XX[faces[j][jj]][2],
-                     r[jj], t[jj], phi[jj]);
-        }
-      }
-      //
-      double area = (t[1]-t[0])*(phi[2]-phi[0]) - (t[2]-t[0])*(phi[1]-phi[0]);
-      area = 0.5 * abs(area);
       //
       std::vector< std::complex<double> > p(3*numFreq);
       for (int ik = 0; ik < numFreq; ++ik)
@@ -883,17 +883,39 @@ void KirchhoffIntegrator::integrateOnSphere
       for (int gp = 0; gp < ww.size(); ++gp)
       {
         
-        double rp = 0.0, tp = 0.0, phip = 0.0;
-        rp = r[0]*xi[gp] + r[1]*xi[gp+ww.size()] + r[2]*xi[gp+2*ww.size()];
-        tp = t[0]*xi[gp] + t[1]*xi[gp+ww.size()] + t[2]*xi[gp+2*ww.size()];
-        phip = phi[0]*xi[gp] + phi[1]*xi[gp+ww.size()] + phi[2]*xi[gp+2*ww.size()];
-        //
-        double xp, yp, zp;
-        xp = rp * sin(tp) * cos(phip);
-        yp = rp * sin(tp) * sin(phip);
-        zp = rp * cos(tp);
-        //
-        std::complex<double> Green, dGreen_dnu;
+        double xp = 0.0, yp = 0.0, zp = 0.0;
+        xp = x[0]*xi[gp] + x[1]*xi[gp+ww.size()] + x[2]*xi[gp+2*ww.size()];
+        yp = y[0]*xi[gp] + y[1]*xi[gp+ww.size()] + y[2]*xi[gp+2*ww.size()];
+        zp = z[0]*xi[gp] + z[1]*xi[gp+ww.size()] + z[2]*xi[gp+2*ww.size()];
+        
+        double myrp = 0.0, tp = 0.0, phip = 0.0;
+        cart2sph_x(xp, yp, zp, myrp, tp, phip);
+        
+        double dMdr[3], dMds[3], tmpdot;
+        tmpdot = xp * (x[1] - x[0]) + yp * (y[1] - y[0]) + zp * (z[1] - z[0]);
+        dMdr[0] = d_R/myrp * (x[1] - x[0]);
+        dMdr[0] -= d_R/(myrp*myrp*myrp) * xp * tmpdot;
+        dMdr[1] = d_R/myrp * (y[1] - y[0]);
+        dMdr[1] -= d_R/(myrp*myrp*myrp) * yp * tmpdot;
+        dMdr[2] = d_R/myrp * (z[1] - z[0]);
+        dMdr[2] -= d_R/(myrp*myrp*myrp) * zp * tmpdot;
+        tmpdot = xp * (x[2] - x[0]) + yp * (y[2] - y[0]) + zp * (z[2] - z[0]);
+        dMds[0] = d_R/myrp * (x[2] - x[0]);
+        dMds[0] -= d_R/(myrp*myrp*myrp) * xp * tmpdot;
+        dMds[1] = d_R/myrp * (y[2] - y[0]);
+        dMds[1] -= d_R/(myrp*myrp*myrp) * yp * tmpdot;
+        dMds[2] = d_R/myrp * (z[2] - z[0]);
+        dMds[2] -= d_R/(myrp*myrp*myrp) * zp * tmpdot;
+        
+        double cross = 0.0;
+        cross += std::pow(dMdr[1]*dMds[2] - dMdr[2]*dMds[1], 2.0);
+        cross += std::pow(dMdr[2]*dMds[0] - dMdr[0]*dMds[2], 2.0);
+        cross += std::pow(dMdr[0]*dMds[1] - dMdr[1]*dMds[0], 2.0);
+        cross = sqrt(cross) * 0.5 / (d_R * d_R);
+        
+#ifdef _UH_DEBUG_
+        surfaceCheck += d_R * d_R * cross * ww[gp];
+#endif
         //
         std::complex<double> pp;
         std::vector< std::complex<double> > dpdn(numFreq);
@@ -904,36 +926,31 @@ void KirchhoffIntegrator::integrateOnSphere
         //
         for (int id = 0; id < numProbes; ++id)
         {
-          double grad_r[3];
-          grad_r[0] = xp - observations[3*id];
-          grad_r[1] = yp - observations[3*id+1];
-          grad_r[2] = zp - observations[3*id+2];
+          double rv[3];
+          rv[0] = xp - observations[3*id];
+          rv[1] = yp - observations[3*id+1];
+          rv[2] = zp - observations[3*id+2];
           //
-          double rho = 0.0;
-          rho += grad_r[0] * grad_r[0];
-          rho += grad_r[1] * grad_r[1];
-          rho += grad_r[2] * grad_r[2];
-          rho = sqrt(rho);
+          double rho = sqrt(rv[0] * rv[0] + rv[1] * rv[1] + rv[2] * rv[2]);
           //
-          double drdn = grad_r[0] * xp/rp + grad_r[1] * yp/rp + grad_r[2] * zp/rp;
+          double drho_dn = (rv[0] * xp + rv[1] * yp + rv[2] * zp ) / (myrp * rho);
           //
           for (int ik = 0; ik < numFreq; ++ik)
           {
             
-            double omega = freqSamples[ik];
+            double kappa = freqSamples[ik];
+
+            std::complex<double> Green = 0.25/(M_PI*rho) * exp(std::complex<double>(0.0, kappa*rho));
+            std::complex<double> dGreendNu = Green * drho_dn * std::complex<double>(-1.0/rho, kappa);
+            
             //
             pp = p[3*ik]*xi[gp];
             pp += p[1+3*ik]*xi[gp+ww.size()];
             pp += p[2+3*ik]*xi[gp+2*ww.size()];
             //
-            Green = 0.25 * std::complex<double>(cos(omega*rho), sin(omega*rho));
-            Green = Green/(M_PI * rho);
-            dGreen_dnu = Green * std::complex<double>(-1.0/rho, omega) * drdn;
-            //
 #pragma omp critical
             {
-              pnoise[ik + id * numFreq] += 2.0 * pp * dGreen_dnu * ww[gp] * rp*rp*sin(tp) * area;
-              pnoise[ik + id * numFreq] -= 2.0 * Green * dpdn[ik] * ww[gp] * rp*rp*sin(tp) * area;
+              pnoise[id + ik * numProbes] += (pp * dGreendNu - dpdn[ik] * Green) * cross * ww[gp] * d_R * d_R;
             }
             
           } // for (int ik = 0; ik < numFreq; ++ik)
@@ -949,6 +966,12 @@ void KirchhoffIntegrator::integrateOnSphere
   Communicator *MyCom_p = d_domain_p->getCommunicator();
   MyCom_p->globalSum(intLen, &pnoise[0]);
   
+#ifdef _UH_DEBUG_
+  MyCom_p->globalSum(1, &surfaceCheck);
+  std::cout << " Surface " << surfaceCheck << " " << std::abs(surfaceCheck - d_R * d_R * 4*M_PI)/(4*d_R * d_R * M_PI);
+  std::cout << std::endl;
+#endif
+
   if (MyCom_p->cpuNum() == 0)
   {
     
@@ -962,9 +985,9 @@ void KirchhoffIntegrator::integrateOnSphere
       fprintf(out, "%d %e ", ik, freqSamples[ik]);
       for (int id = 0; id < numProbes; ++id)
       {
-        fprintf(out, "%e ", std::real(pnoise[ik + id * numFreq]));
-        fprintf(out, "%e ", std::imag(pnoise[ik + id * numFreq]));
-        fprintf(out, "%e ", std::abs(pnoise[ik + id * numFreq]));
+        fprintf(out, "%e ", std::real(pnoise[id + ik * numProbes]));
+        fprintf(out, "%e ", std::imag(pnoise[id + ik * numProbes]));
+        fprintf(out, "%e ", std::abs(pnoise[id + ik * numProbes]));
       }
       fprintf(out, "\n");
     }
@@ -1018,6 +1041,11 @@ void KirchhoffIntegrator::ffpDataOnSphere
   int ffpLen = numDir * numFreq; 
   std::vector< std::complex<double> > ffp(ffpLen, std::complex<double>(0.0, 0.0));
 
+#ifdef _UH_DEBUG_
+  double surfaceCheck = 0.0;
+#endif
+  
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
@@ -1035,26 +1063,13 @@ void KirchhoffIntegrator::ffpDataOnSphere
       if (faces[j].getCode() != BC_KIRCHHOFF_SURFACE)
         continue;
       //
-      double r[3], t[3], phi[3];
+      double x[3], y[3], z[3];
       for (int jj = 0; jj < 3; ++jj)
       {
-        cart2sph_x(XX[faces[j][jj]][0],XX[faces[j][jj]][1],XX[faces[j][jj]][2],
-                   r[jj], t[jj], phi[jj]);
+        x[jj] = XX[faces[j][jj]][0];
+        y[jj] = XX[faces[j][jj]][1];
+        z[jj] = XX[faces[j][jj]][2];
       }
-      //
-      // Check the angles across the "cut"
-      //
-      if ((abs(phi[2] - phi[0]) > M_PI) || (abs(phi[1] - phi[0]) > M_PI))
-      {
-        for (int jj = 0; jj < 3; ++jj)
-        {
-          cart2sph_y(XX[faces[j][jj]][0],XX[faces[j][jj]][1],XX[faces[j][jj]][2],
-                     r[jj], t[jj], phi[jj]);
-        }
-      }
-      //
-      double area = (t[1]-t[0])*(phi[2]-phi[0]) - (t[2]-t[0])*(phi[1]-phi[0]);
-      area = 0.5 * abs(area);
       //
       std::vector< std::complex<double> > p(3*numFreq);
       for (int ik = 0; ik < numFreq; ++ik)
@@ -1066,19 +1081,45 @@ void KirchhoffIntegrator::ffpDataOnSphere
         }
       }
       //
+      //
       for (int gp = 0; gp < ww.size(); ++gp)
       {
         
-        double rp = 0.0, tp = 0.0, phip = 0.0;
-        rp = r[0]*xi[gp] + r[1]*xi[gp+ww.size()] + r[2]*xi[gp+2*ww.size()];
-        tp = t[0]*xi[gp] + t[1]*xi[gp+ww.size()] + t[2]*xi[gp+2*ww.size()];
-        phip = phi[0]*xi[gp] + phi[1]*xi[gp+ww.size()] + phi[2]*xi[gp+2*ww.size()];
-        //
-        double xp, yp, zp;
-        xp = rp * sin(tp) * cos(phip);
-        yp = rp * sin(tp) * sin(phip);
-        zp = rp * cos(tp);
-        //
+        double xp = 0.0, yp = 0.0, zp = 0.0;
+        xp = x[0]*xi[gp] + x[1]*xi[gp+ww.size()] + x[2]*xi[gp+2*ww.size()];
+        yp = y[0]*xi[gp] + y[1]*xi[gp+ww.size()] + y[2]*xi[gp+2*ww.size()];
+        zp = z[0]*xi[gp] + z[1]*xi[gp+ww.size()] + z[2]*xi[gp+2*ww.size()];
+        
+        double myrp = 0.0, tp = 0.0, phip = 0.0;
+        cart2sph_x(xp, yp, zp, myrp, tp, phip);
+        
+        double dMdr[3], dMds[3], tmpdot;
+        tmpdot = xp * (x[1] - x[0]) + yp * (y[1] - y[0]) + zp * (z[1] - z[0]);
+        dMdr[0] = d_R/myrp * (x[1] - x[0]);
+        dMdr[0] -= d_R/(myrp*myrp*myrp) * xp * tmpdot;
+        dMdr[1] = d_R/myrp * (y[1] - y[0]);
+        dMdr[1] -= d_R/(myrp*myrp*myrp) * yp * tmpdot;
+        dMdr[2] = d_R/myrp * (z[1] - z[0]);
+        dMdr[2] -= d_R/(myrp*myrp*myrp) * zp * tmpdot;
+        tmpdot = xp * (x[2] - x[0]) + yp * (y[2] - y[0]) + zp * (z[2] - z[0]);
+        dMds[0] = d_R/myrp * (x[2] - x[0]);
+        dMds[0] -= d_R/(myrp*myrp*myrp) * xp * tmpdot;
+        dMds[1] = d_R/myrp * (y[2] - y[0]);
+        dMds[1] -= d_R/(myrp*myrp*myrp) * yp * tmpdot;
+        dMds[2] = d_R/myrp * (z[2] - z[0]);
+        dMds[2] -= d_R/(myrp*myrp*myrp) * zp * tmpdot;
+        
+        double cross = 0.0;
+        cross += std::pow(dMdr[1]*dMds[2] - dMdr[2]*dMds[1], 2.0);
+        cross += std::pow(dMdr[2]*dMds[0] - dMdr[0]*dMds[2], 2.0);
+        cross += std::pow(dMdr[0]*dMds[1] - dMdr[1]*dMds[0], 2.0);
+        cross = sqrt(cross) * 0.5 / (d_R * d_R);
+
+#ifdef _UH_DEBUG_
+        surfaceCheck += d_R * d_R * cross * ww[gp];
+#endif
+        
+       //
         std::complex<double> pp;
         std::vector< std::complex<double> > dpdn(numFreq);
         for (int ik = 0; ik < numFreq; ++ik)
@@ -1093,7 +1134,7 @@ void KirchhoffIntegrator::ffpDataOnSphere
           DirDotX += yp * directions[3*id+1];
           DirDotX += zp * directions[3*id+2];
           //
-          double DirDotNu = DirDotX / rp;
+          double DirDotNu = DirDotX / myrp;
           //
           for (int ik = 0; ik < numFreq; ++ik)
           {
@@ -1106,11 +1147,11 @@ void KirchhoffIntegrator::ffpDataOnSphere
             //
             std::complex<double> e_mi_k_x_d(cos(kappa*DirDotX), -sin(kappa*DirDotX));
             //
-            std::complex<double> cTmp = e_mi_k_x_d * ww[gp] * rp*rp*sin(tp) * area;
+            std::complex<double> cTmp = e_mi_k_x_d * ww[gp] * d_R * d_R * cross;
 #pragma omp critical
             {
-              ffp[id + ik * numDir] += dpdn[ik] * cTmp;
-              ffp[id + ik * numDir] += pp * std::complex<double>(0.0, kappa * DirDotNu) * cTmp;
+              ffp[id + ik * numDir] += (dpdn[ik]
+                                        + pp * std::complex<double>(0.0, kappa * DirDotNu)) * cTmp;
             }
             
           } // for (int ik = 0; ik < numFreq; ++ik)
@@ -1123,9 +1164,18 @@ void KirchhoffIntegrator::ffpDataOnSphere
     
   } // for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   
+  
   Communicator *MyCom_p = d_domain_p->getCommunicator();
   MyCom_p->globalSum(ffpLen, &ffp[0]);
+
   
+#ifdef _UH_DEBUG_
+  MyCom_p->globalSum(1, &surfaceCheck);
+  std::cout << " Surface " << surfaceCheck << " " << std::abs(surfaceCheck - d_R * d_R * 4*M_PI)/(4*d_R * d_R * M_PI);
+  std::cout << std::endl;
+#endif
+  
+
   for (int ii = 0; ii < ffpLen; ++ii)
     ffp[ii] = ffp[ii] / (4.0 * M_PI);
   
