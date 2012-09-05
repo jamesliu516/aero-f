@@ -14,15 +14,20 @@
 #include "KirchhoffIntegrator.h"
 #include "SubDomain.h"
 
+#ifdef AEROACOUSTIC
 
 #include "fftw3.h"
 #include "gsl/gsl_sf.h"
 
+#endif // AEROACOUSTIC
 
 /////////////////
 #define _UH_DEBUG_
 /////////////////
 
+#ifdef AEROACOUSTIC
+#pragma message "Compiling KirchhoffIntegrator.C with Aeroacoustic support"
+#endif // AEROACOUSTIC
 
 KirchhoffIntegrator::KirchhoffIntegrator
 (
@@ -33,7 +38,13 @@ KirchhoffIntegrator::KirchhoffIntegrator
   d_globalToNodeID(),
   d_SurfType(SPHERE), d_R(0.0)
 {
-  
+
+#ifndef AEROACOUSTIC 
+  domain->getCommunicator()->fprintf(stderr,"*** Error: AERO-F was compiled without Aeroacoustic capability."
+                                            "  Rerun cmake with -DAEROACOUSTIC=ON to use this feature\n");
+  exit(-1);
+#endif
+ 
   d_X_p = new DistSVec<double, 3>(d_domain_p->getNodeDistInfo());
   
   DistVec<double> A(d_domain_p->getNodeDistInfo());
@@ -70,7 +81,7 @@ void KirchhoffIntegrator::computeIntegral
 (
 )
 {
-
+#ifdef AEROACOUSTIC
   char prefix[192];
   sprintf(&prefix[0], "%s_", d_iod.input.strKPtraces);
 
@@ -328,7 +339,7 @@ void KirchhoffIntegrator::computeIntegral
       break;
   }
   
-  
+#endif  // AEROACOUSTIC
 }
 
 
@@ -1342,7 +1353,7 @@ std::complex<double> KirchhoffIntegrator::besselh
 {
 
   double hre, him;
-
+#ifdef AEROACOUSTIC
   if (n >= 0)
   {
     hre = gsl_sf_bessel_jl(n, x);
@@ -1356,7 +1367,7 @@ std::complex<double> KirchhoffIntegrator::besselh
   }
 
   return std::complex<double>(hre, him);
-
+#endif // AEROACOUSTIC
 }
 
 
@@ -1392,7 +1403,7 @@ void KirchhoffIntegrator::sphericalHarmonic
 // UH (08/30/2012)
 // This routine has been verified against MATLAB.
 //
-
+#ifdef AEROACOUSTIC
   if (Yn.size() < 2*n+1)
     Yn.resize(2*n+1);
 
@@ -1412,6 +1423,7 @@ void KirchhoffIntegrator::sphericalHarmonic
     coeff *= -1.0;
   }
 
+#endif // AEROACOUSTIC
 }
 
 
