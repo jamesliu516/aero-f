@@ -95,7 +95,7 @@ void JacobiPrec<Scalar,dim, Scalar2>::apply(DistSVec<Scalar2,dim> &y, DistSVec<S
 
   x.restrict();
 
-  CommPattern<Scalar2> *vPat = getCommPat(x);
+  CommPattern<Scalar2> *vPat = this->getCommPat(x);
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->sndData(*vPat, x.subData(iSub));
@@ -256,7 +256,7 @@ void IluPrec<Scalar,dim, Scalar2>::apply(DistSVec<Scalar2,dim> &y, DistSVec<Scal
   if (type == PcData::RAS) x.restrict();
   if (type == PcData::AAS) x.average();
 
-  CommPattern<Scalar2> *vPat = getCommPat(x);
+  CommPattern<Scalar2> *vPat = this->getCommPat(x);
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->sndData(*vPat, x.subData(iSub));
@@ -291,7 +291,7 @@ void IluPrec<Scalar,dim, Scalar2>::applyT(DistSVec<Scalar2,dim> &y, DistSVec<Sca
   if (type == PcData::RAS) x.restrict();
   if (type == PcData::AAS) x.average();
 
-  CommPattern<Scalar2> *vPat = getCommPat(x);
+  CommPattern<Scalar2> *vPat = this->getCommPat(x);
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->sndData(*vPat, x.subData(iSub));

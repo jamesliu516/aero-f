@@ -117,7 +117,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }else U = U0;
 
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
@@ -185,7 +185,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
     this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
-  checkSolution(U);
+  this->checkSolution(U);
 
 }
 
@@ -259,7 +259,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
     this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
-  checkSolution(U);
+  this->checkSolution(U);
 
 }
 
@@ -287,7 +287,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,d
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
-  checkSolution(U);
+  this->checkSolution(U);
 
 }
 
@@ -319,7 +319,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = ratioTimesU - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
     
   /*if (this->lsMethod == 1) {
     computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
@@ -331,7 +331,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   U = ratioTimesU - 1.0/2.0 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
-  checkSolution(U);
+  this->checkSolution(U);
 
   this->updateBoundaryExternalState();
 }
@@ -350,26 +350,26 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK4(DistSVec<double,dim> &U)
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - 0.5 * k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(this->U0);
+  this->checkSolution(this->U0);
 
   computeRKUpdate(U0, k2, 2);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 3);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 4);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U -= 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
-  checkSolution(U);
+  this->checkSolution(U);
 
   this->updateBoundaryExternalState();
 }

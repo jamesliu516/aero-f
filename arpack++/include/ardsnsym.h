@@ -130,9 +130,9 @@ ARluNonSymStdEig(int nevp, ARdsNonSymMatrix<ARFLOAT, ARFLOAT>& A,
 {
 
   NoShift();
-  DefineParameters(A.ncols(), nevp, &A, 
-                   &ARdsNonSymMatrix<ARFLOAT, ARFLOAT>::MultMv,
-                   whichp, ncvp, tolp, maxitp, residp, ishiftp);
+  this->DefineParameters(A.ncols(), nevp, &A, 
+                         &ARdsNonSymMatrix<ARFLOAT, ARFLOAT>::MultMv,
+                         whichp, ncvp, tolp, maxitp, residp, ishiftp);
 
 } // Long constructor (regular mode).
 

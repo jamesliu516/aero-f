@@ -5,6 +5,7 @@
 
 #define GCCBACKTRACE
 #ifdef GCCBACKTRACE
+#include <unistd.h>
 #include <execinfo.h>
 #include <cstdio>
 #include <cstdlib>
