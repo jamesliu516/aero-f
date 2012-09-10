@@ -2516,12 +2516,23 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 
 // computing unsmoothed Cs and Pt values //
 
+  if (ghostPoints) {
 #pragma omp parallel for
-   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-     subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
-                                      modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
-				      Ni(iSub), X(iSub), gam, R);
-   }
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
+                                       modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
+         			       Ni(iSub), X(iSub), gam, R,
+                                       &(LSS->operator()(iSub)));
+    }
+  }
+  else {
+#pragma omp parallel for
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
+                                       modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
+         			       Ni(iSub), X(iSub), gam, R);
+    }
+  }
 
 
 // smoothing Cs and Pt values //
