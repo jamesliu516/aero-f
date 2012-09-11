@@ -264,7 +264,7 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
   this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
   this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
 
-  checkSolution(U);
+  this->checkSolution(U);
 
   return its;
 }

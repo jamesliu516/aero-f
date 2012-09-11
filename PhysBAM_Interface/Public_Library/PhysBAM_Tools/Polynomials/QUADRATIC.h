@@ -7,6 +7,7 @@
 #ifndef __QUADRATIC__
 #define __QUADRATIC__
 
+#include <cmath>
 #include <PhysBAM_Tools/Math_Tools/exchange.h>
 #include <PhysBAM_Tools/Math_Tools/sqr.h>
 #include <PhysBAM_Tools/Nonlinear_Equations/NONLINEAR_FUNCTION.h>
@@ -42,6 +43,7 @@ public:
         if(d<0){roots=0;return;} // no real roots
         else if(d==0){roots=1;root1=-b/(2*a);return;} // one root
         else{ // d > 0 - two real roots
+            using std::sqrt;
             T radical;if(b>0) radical=-b-sqrt(d);else radical=-b+sqrt(d);
             roots=2;root1=radical/(2*a);root2=2*c/radical;if(root1>root2) exchange(root1,root2);return;}}}
 

@@ -45,7 +45,7 @@ int ExplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U, int)
 
   this->updateBoundaryExternalState();
 
-  int ierr = checkSolution(U);  // checking solution for negative pressure or density
+  int ierr = this->checkSolution(U);  // checking solution for negative pressure or density
   if (ierr > 0) exit(1);
 
   this->timer->addFluidSolutionTime(t0);

@@ -183,7 +183,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
-  checkSolution(U);
+  this->checkSolution(U);
 
   return its;
   

@@ -32,7 +32,7 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
-	projectVector(this->AJ, this->F, From);
+	this->projectVector(this->AJ, this->F, From);
 	Vec<double> rhs(this->nPod);
 	rhs = -1.0 * From;
 
@@ -75,6 +75,6 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 			}
 		} 
 
-		solveLinearSystem(it, rhs, this->dUrom);
+		this->solveLinearSystem(it, rhs, this->dUrom);
 	}
 }

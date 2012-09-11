@@ -25,7 +25,7 @@ ImplicitGalerkinTsDesc<dim>::~ImplicitGalerkinTsDesc()
 template<int dim>
 void ImplicitGalerkinTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
-  projectVector(this->pod, this->F, From);  // different from PG
+  this->projectVector(this->pod, this->F, From);  // different from PG
   rhs = -1.0 * From;
 
   // KTC FIX!
@@ -59,5 +59,5 @@ void ImplicitGalerkinTsDesc<dim>::solveNewtonSystem(const int &it, double &res, 
     }
   } 
 
-  solveLinearSystem(it, rhs, this->dUrom);
+  this->solveLinearSystem(it, rhs, this->dUrom);
 }
