@@ -91,8 +91,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     avvectors[i] = 0;
   }
 
+  sscale[PostFcn::DENSITY] = iod.ref.rv.density;
+  sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
+  sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
+  vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
+  vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
+  
   if (iod.output.transient.density[0] != 0) {
-    sscale[PostFcn::DENSITY] = iod.ref.rv.density;
     scalars[PostFcn::DENSITY] = new char[sp + strlen(iod.output.transient.density)];
     sprintf(scalars[PostFcn::DENSITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.density);
@@ -129,7 +134,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.tavmach);
   }
   if (iod.output.transient.pressure[0] != 0) {
-    sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::PRESSURE] = new char[sp + strlen(iod.output.transient.pressure)];
     sprintf(scalars[PostFcn::PRESSURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.pressure);
@@ -165,7 +169,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
   }
   if (iod.output.transient.temperature[0] != 0) {
-    sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
 //    sscale[PostFcn::TEMPERATURE] = 1;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
     sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
@@ -309,7 +312,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.controlvolume);
   }
   if (iod.output.transient.velocity[0] != 0) {
-    vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
     sprintf(vectors[PostFcn::VELOCITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.velocity);
@@ -321,7 +323,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.tavvelocity);
   }
   if (iod.output.transient.displacement[0] != 0) {
-    vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
     vectors[PostFcn::DISPLACEMENT] = new char[sp + strlen(iod.output.transient.displacement)];
     sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.displacement);
