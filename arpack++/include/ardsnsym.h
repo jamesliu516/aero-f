@@ -34,8 +34,8 @@ class ARluNonSymStdEig:
   using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::iparam;
   using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::objOP;
   using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::Restart;
-  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::NoShift;
-  using ARNonSymStdEig<ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::ClearMem;
+  using ARStdEig<ARFLOAT, ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::NoShift;
+  using ARStdEig<ARFLOAT, ARFLOAT, ARdsNonSymMatrix<ARFLOAT, ARFLOAT> >::ClearMem;
  public:
 
  // a) Public functions:
