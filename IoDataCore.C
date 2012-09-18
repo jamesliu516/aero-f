@@ -4901,6 +4901,12 @@ int IoData::checkInputValuesNonDimensional()
       return error;
     }
 
+    if(eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS){
+      com->fprintf(stderr, "*** Error: Stiffened gas simulation possible only in Dimensional Mode \n");
+      ++error;
+      return error;
+    }
+
     if (eqs.type != EquationsData::EULER) {
       if (ref.reynolds_mu < 0.0) {
         com->fprintf(stderr, "*** Error: no valid Reynolds number (%d) given\n", ref.reynolds_mu);
