@@ -107,6 +107,7 @@ class Domain {
   DistInfo *faceDistInfo;
   DistInfo *faceNormDistInfo;
   DistInfo *inletNodeDistInfo;
+  DistInfo *kirchhoffNodeDistInfo;
 
   CommPattern<double> *vecPat;
   CommPattern<double> *phiVecPat;
@@ -211,6 +212,7 @@ public:
   DistInfo &getFaceDistInfo() const { return *faceDistInfo; }
   DistInfo &getFaceNormDistInfo() const { return *faceNormDistInfo; }
   DistInfo &getInletNodeDistInfo() const { return *inletNodeDistInfo; }
+  DistInfo &getKirchhoffNodeDistInfo() const { return *kirchhoffNodeDistInfo; }
 
   void getGeometry(GeoSource &, IoData&);
   void createRhsPat(int, IoData&);

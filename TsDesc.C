@@ -519,6 +519,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    restart->writeKPtracesToDisk(ioData, *lastIt, it, t, *X, *A, U, timeState, domain, postOp);
     writeStateRomToDisk(it, 0.0);
     writeErrorToDisk(it, 0.0);
   }
@@ -542,15 +543,17 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
-	writeStateRomToDisk(it, cpu);
+  writeStateRomToDisk(it, cpu);
   output->writeMaterialVolumesToDisk(it, t, *A);
   output->writeCPUTimingToDisk(*lastIt, it, t, timer);
-	writeErrorToDisk(it, cpu);
+  writeErrorToDisk(it, cpu);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeProbesToDisk(*lastIt, it, t, *X, *A, U, timeState,fluidIdDummy);
   restart->writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
   output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
+
+  restart->writeKPtracesToDisk(ioData, *lastIt, it, t, *X, *A, U, timeState, domain, postOp);
 
   this->output->updatePrtout(t);
   if (*lastIt) {
@@ -944,6 +947,7 @@ void TsDesc<dim>::updateBoundaryExternalState()
 template<int dim>
 void TsDesc<dim>::initializeFarfieldCoeffs()
 {
+  if(!modifiedGhidaglia) return;
   double *Vin = bcData->getInletPrimitiveState();
   double soundspeed = varFcn->computeSoundSpeed(Vin);
   double gamma = varFcn->getGamma();

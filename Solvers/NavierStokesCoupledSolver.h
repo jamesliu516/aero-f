@@ -26,12 +26,13 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
+  {
 // Modified (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
       FluidSensitivityAnalysisHandler<dim> fsah(ioData, geoSource, &domain);
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
-    }
+  }
 		else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_ ) {
 			if (ioData.rom.projection == 0 && ioData.rom.systemApproximation == 0) {
 				ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);

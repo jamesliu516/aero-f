@@ -228,7 +228,7 @@ void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
   if (it == this->data->maxIts)
     *lastIt = true;
   else
-    monitorInitialState(it, U); // Phi?
+    this->monitorInitialState(it, U); // Phi?
 
   this->output->setMeshMotionHandler(ioData, this->mmh);
   this->output->openAsciiFiles();
