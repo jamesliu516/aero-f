@@ -17,6 +17,7 @@
 namespace PhysBAM{
 
 template<class TV> class RANGE;
+int Hash_Reduce(const char key);
 
 //#####################################################################
 // Class HASH

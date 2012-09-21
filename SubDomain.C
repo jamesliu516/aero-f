@@ -4608,13 +4608,13 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   else{
     for (int i=0; i<U.size(); ++i) {
 
+      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
       if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
               U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
         ++ierr;
       }
 
-      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
   }
@@ -5136,6 +5136,28 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<dim;++i)
+            VWeights[currentNode][i] += V[neighborNode][i];
+          for(int i=0;i<dimLS;++i)
+            PhiWeights[currentNode][i] += Phi[neighborNode][i];
+        }
+      }
+    } else if (init[currentNode]<1.0) {//occluded node, pull (1) velocity, (2) phi from every neighbor.
+      int myId = fluidId[currentNode];
+      for(int j=0;j<nToN.num(currentNode);++j){
+        int neighborNode=nToN[currentNode][j];
+        int yourId = fluidId[neighborNode];
+        if(currentNode==neighborNode || init[neighborNode]<1) continue;
+        int l = edges.findOnly(currentNode,neighborNode);
+        if(Weights[currentNode] < 1e-6){
+          Weights[currentNode]=1.0;
+          next_init[currentNode]=1;
+          for(int i=1;i<4;++i)  //only get velocity
+            VWeights[currentNode][i] = V[neighborNode][i];
+          for(int i=0;i<dimLS;++i)
+            PhiWeights[currentNode][i] = Phi[neighborNode][i];
+        } else {
+          Weights[currentNode] += 1.0;
+          for(int i=1;i<4;++i)  //only get velocity
             VWeights[currentNode][i] += V[neighborNode][i];
           for(int i=0;i<dimLS;++i)
             PhiWeights[currentNode][i] += Phi[neighborNode][i];

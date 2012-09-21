@@ -2683,10 +2683,18 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) {
+          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0 || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
             if(!(*distLSS)(iSub).isActive(0.0,i)) {
-              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = -1.0; //not really needed.
+              if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
+                const double one_over_weight=(double)1.0/Weights(iSub)[i];
+                V(iSub)[i][0] = vfar[0];
+                for(int d=1; d<4; d++) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight; //pull the velocity from neighbors
+                for(int d=4; d<dim; d++) V(iSub)[i][d] = vfar[d];
+                for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+              } else {
+                for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+                for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = -1.0; //not really needed.
+              }
             } else {
               const double one_over_weight=(double)1.0/Weights(iSub)[i];
               for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
@@ -2706,8 +2714,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
           if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
             if((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()) {
               if(!(*distLSS)(iSub).isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
-              for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-              for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //set phi = 0 because this node is at interface
+              if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
+                const double one_over_weight=(double)1.0/Weights(iSub)[i];
+                V(iSub)[i][0] = vfar[0];
+                for(int d=1; d<4; d++) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight; //pull the velocity from neighbors
+                for(int d=4; d<dim; d++) V(iSub)[i][d] = vfar[d];
+                for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+              } else { // might want to print a warning message. I don't see why this can happen
+                for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+                for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //set phi = 0 because this node is at interface
+              }
             } else {
               const double one_over_weight=(double)1.0/Weights(iSub)[i];
               double phiS = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance

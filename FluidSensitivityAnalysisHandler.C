@@ -111,7 +111,7 @@ Uc(dom->getNodeDistInfo())
   pc = ImplicitTsDesc<dim>::template
     createPreconditioner<PrecScalar,dim>(ioData.sa.ksp.pc, domain);
 
-  ksp = createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
+  ksp = this->createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
 
   MemoryPool mp;
 
@@ -997,7 +997,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   A=*Ap;
 
   dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->spaceOp->computeResidual(*Xp, *Ap, U, *Fp, this->timeState);
 
@@ -1026,7 +1026,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   A=*Am;
 
   dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->spaceOp->computeResidual(*Xm, *Am, U, *Fm, this->timeState);
 
@@ -1053,7 +1053,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   this->bcData->update(X);
 
   dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->spaceOp->computeGradP(X, A, U);
 
@@ -1302,11 +1302,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
   teta = ioData.sa.betaref;
 
   double dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->computeMeshMetrics();
 
-  updateStateVectors(U);  
+  this->updateStateVectors(U);  
 
   // Setting up the linear solver
   fsaSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);

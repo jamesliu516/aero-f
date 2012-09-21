@@ -8,6 +8,7 @@
 //------------------------------------------------------------------------------
 
 TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
+  , writeKPtraces(false)
 {
 
   int sp = strlen(iod.output.restart.prefix) + 1;
@@ -94,6 +95,15 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   frequency = iod.output.restart.frequency;
   frequency_dt = iod.output.restart.frequency_dt;
   prtout = 0.0;
+
+  //
+  // Check whether pressure snapshots are needed.
+  // UH (07/2012)
+  //
+  if (strlen(iod.output.restart.strKPtraces) > 0)
+  {
+    writeKPtraces = true;
+  }
 
 }
 
