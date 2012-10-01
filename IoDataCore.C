@@ -4635,13 +4635,18 @@ int IoData::checkInputValuesAllInitialConditions(){
   set<int> usedModels; 
   for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
        it!=mf.multiInitialConditions.sphereMap.dataMap.end();
-       it++)
-    usedModels.insert(it->second->fluidModelID);
+       it++) {
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
 
   for (map<int, PrismData *>::iterator it=mf.multiInitialConditions.prismMap.dataMap.begin();
        it!=mf.multiInitialConditions.prismMap.dataMap.end();
-       it++)
-    usedModels.insert(it->second->fluidModelID);
+       it++) {
+    
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
  
   if (!input.oneDimensionalInput.dataMap.empty()) {
     if (input.oneDimensionalInput.dataMap.size() > 1) 
