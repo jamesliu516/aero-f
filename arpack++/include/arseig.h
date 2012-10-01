@@ -175,7 +175,7 @@ SetShiftInvertMode(ARTYPE sigmap, ARFOP* objOPp,
 {
 
   ChangeMultOPx(objOPp, MultOPxp);
-  ChangeShift(sigmap);
+  this->ChangeShift(sigmap);
 
 } // SetShiftInvertMode.
 

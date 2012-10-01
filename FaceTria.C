@@ -587,7 +587,8 @@ void FaceTria::computeScalarQuantity(PostFcn::ScalarType stype, ElemSet& elems,
 				     SVec<double,dim> &V, SVec<double,2> &Q)
 {
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
-      code == BC_ADIABATIC_WALL_MOVING || code == BC_ADIABATIC_WALL_FIXED) {
+      code == BC_ADIABATIC_WALL_MOVING || code == BC_ADIABATIC_WALL_FIXED)
+  {
     Vec3D n;
     computeNormal(X, n);
     double S = sqrt(n*n);
@@ -611,7 +612,9 @@ void FaceTria::computeScalarQuantity(PostFcn::ScalarType stype, ElemSet& elems,
   }
 }
 
+
 //------------------------------------------------------------------------------
+
 
 template<int dim>
 //inline
@@ -626,6 +629,10 @@ void FaceTria::computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet,
       for(int i=0;i<3;++i)  isFaceInactive    = (isFaceInactive && !(LSS->isActive(0,nodeNum(i))));
       if(isFaceInactive) return;
     }
+
+  // UH (07/2012) 
+  // This test keeps only some faces
+  // with a code in {BC_ADIABATIC_WALL_*, BC_ISOTHERMAL_WALL_*}
   if (!fet->doesFaceTermExist(code)) return;
 
   Vec3D n;
@@ -655,6 +662,9 @@ void FaceTria::computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *
 			       SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR)
 {
 
+  // UH (07/2012) 
+  // This test keeps only some faces
+  // with a code in {BC_ADIABATIC_WALL_*, BC_ISOTHERMAL_WALL_*}
   if (!fet->doesFaceTermExist(code)) return;
 
   Vec3D n;
@@ -689,6 +699,10 @@ void FaceTria::computeJacobianGalerkinTerm(ElemSet &elems, FemEquationTerm *fet,
 					   Vec<double> &d2wall, double *Vwall, 
 					   SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
+
+  // UH (07/2012) 
+  // This test keeps only some faces
+  // with a code in {BC_ADIABATIC_WALL_*, BC_ISOTHERMAL_WALL_*}
   if (!fet->doesFaceTermExist(code)) return;
 
   Vec3D n;
@@ -749,6 +763,9 @@ void FaceTria::computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet
                                         double *Vwall, double *dVwall, SVec<double,dim> &V)
 {
 
+  // UH (07/2012) 
+  // This test keeps only some faces
+  // with a code in {BC_ADIABATIC_WALL_*, BC_ISOTHERMAL_WALL_*}
   if (!fet->doesFaceTermExist(code)) return;
 
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED || 

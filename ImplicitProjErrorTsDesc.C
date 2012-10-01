@@ -79,7 +79,7 @@ void ImplicitProjErrorTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int tot
 		// compute dUproj = phi(phi^Tphi)^{-1}phi^TdUtrue
 
 		this->dUrom = 0.0;
-		projectVector(this->pod,dUtrue,this->dUrom);	// Phi^T dUtrue
+		this->projectVector(this->pod,dUtrue,this->dUrom);	// Phi^T dUtrue
 		// output redcoords
 
 		if (snapshotBasis){
@@ -88,7 +88,7 @@ void ImplicitProjErrorTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int tot
 		}
 
 		// dUtrue
-		expandVector(this->dUrom, dUproj);
+		this->expandVector(this->dUrom, dUproj);
 		dUerr = dUtrue - dUproj;
 
 		// error measures

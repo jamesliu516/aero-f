@@ -45,7 +45,7 @@ public:
         :using_externally_allocated_pointer(false),base_pointer(0),buffer_size(m_input),m(m_input)
     {
         assert(m>=ID());base_pointer=new T[Value(m)];
-        if(!IS_CLASS<T>::value && initialize_using_default_constructor) Fill(T());
+        if(!IS_CLASS<T>::value && initialize_using_default_constructor) this->Fill(T());
     }
 
     ARRAY(const ARRAY& array)
@@ -72,7 +72,7 @@ public:
     {using_externally_allocated_pointer=false;
     ID source_m=source.m;
     if(buffer_size<source_m) Resize_Helper(source_m,false,false);
-    else if(Same_Array(*this,source)) return *this;
+    else if(this->Same_Array(*this,source)) return *this;
     m=source_m;
     for(ID i(1);i<=source_m;i++) (*this)(i)=source(i);
     return *this;}
@@ -83,7 +83,7 @@ public:
     using_externally_allocated_pointer=false;
     ID source_m=source.Size();
     if(buffer_size<source_m) Resize_Helper(source_m,false,false);
-    else if(Same_Array(*this,source)) return *this;
+    else if(this->Same_Array(*this,source)) return *this;
     m=source_m;
     for(ID i(1);i<=source_m;i++) (*this)(i)=source(i);
     return *this;}

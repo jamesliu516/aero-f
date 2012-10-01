@@ -7,9 +7,13 @@
 class IoData;
 class RefVal;
 class DistGeoState;
+class Domain;
 
 template<int dimLS> class LevelSet;
+template<class Scalar, int dim> class DistSVec;
+template<class Scalar> class DistVec;
 template<int dim> class DistTimeState;
+template<int dim> class PostOperator;
 
 //------------------------------------------------------------------------------
 
@@ -18,6 +22,10 @@ class TsRestart {
   RefVal *refVal;
 
   int index;
+
+  // Boolean to flag whether pressure snapshots are needed
+  // for a Kirchhoff integral.
+  bool writeKPtraces;
 
 public:
 
@@ -69,6 +77,28 @@ public:
 	}
       delete[] structPos;
     }
+
+
+  //! Function to write pressure snapshots for a Kirchhoff integral
+  ///
+  /// This function writes pressure snapshots for a Kirchhoff integral.
+  ///
+  /// UH (07/2012)
+  /// 
+  template<int dim>
+  void writeKPtracesToDisk
+    (
+      IoData &iod,
+      bool lastIt, int it, double t,
+      DistSVec<double,3> &X,
+      DistVec<double> &A,
+      DistSVec<double,dim> &U,
+      DistTimeState<dim> *timeState,
+      Domain *domain,
+      PostOperator<dim> *postOp
+    );
+
+
 };
 
 //------------------------------------------------------------------------------

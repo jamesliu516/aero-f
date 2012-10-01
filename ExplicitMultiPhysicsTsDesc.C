@@ -201,7 +201,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesFE(DistSVec<doubl
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U0); //(?)for Navier-Stokes only
 
   U = U0;
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
@@ -219,7 +219,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
 //  this->com->fprintf(stderr,"Half done.\n");
 //  this->com->barrier();
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   // Ghost-Points Population
   if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
@@ -233,7 +233,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
   U = U - 1.0/2.0 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
@@ -249,26 +249,26 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK4(DistSVec<doub
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k2, 2);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 3);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 4);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
@@ -394,7 +394,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFF(DistSVec<double,
 {
   this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
   this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
