@@ -1368,6 +1368,7 @@ std::complex<double> KirchhoffIntegrator::besselh
 
   return std::complex<double>(hre, him);
 #endif // AEROACOUSTIC
+  return std::complex<double>(0.0,0.0);
 }
 
 
