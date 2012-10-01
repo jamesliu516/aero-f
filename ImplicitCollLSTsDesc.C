@@ -71,7 +71,7 @@ void ImplicitCollLSTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 template<int dim>
 void ImplicitCollLSTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
-		projectVector(*AJRestrict, *this->ResRestrict, From);	// different from PG
+		this->projectVector(*AJRestrict, *this->ResRestrict, From);	// different from PG
 		rhs = -1.0 * From;
 
     res = rhs*rhs;
@@ -101,7 +101,7 @@ void ImplicitCollLSTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bo
 			}
 		} 
 
-    solveLinearSystem(it, rhs, this->dUrom);
+    this->solveLinearSystem(it, rhs, this->dUrom);
 }
 
 template<int dim>

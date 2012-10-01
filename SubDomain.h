@@ -26,6 +26,8 @@
 using std::map;
 #endif
 
+#include <set>
+
 #include <complex>
 typedef std::complex<double> bcomp;
 
@@ -161,6 +163,11 @@ class SubDomain {
   int numSampledNodes;
   std::vector<int> locSampleNodes;	// for Gappy ROM
   
+
+  // UH (07/2012)
+  // List of nodes on a surface for the Kirchhoff integral
+  std::set<int> kirchhoffNodesList;
+
 
 public:
   
@@ -739,6 +746,7 @@ public:
   void computeFaceScalarQuantity(PostFcn::ScalarType, PostFcn *, BcData<dim> &, GeoState &,
 				 SVec<double,3> &, SVec<double,dim> &, SVec<double,2> &);
 
+  
   template<int dim>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
 				 SVec<double,dim> &, SVec<double,3> &, Vec<double> &);
@@ -771,6 +779,24 @@ public:
   void markLenFaces(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.size()); }
   void markLenFaceNorms(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.sizeNorms()); }
   void markLenInletNodes(DistInfo &distInfo) {distInfo.setLen(locSubNum, inletNodes.size()); }
+
+
+  //! Function to set the length for the object distInfo with the nodes on a Kirchhoff surface
+  ///
+  /// Function to set the length for the object distInfo with the nodes on a Kirchhoff surface
+  ///
+  void markLenKirchhoffNodes(IoData &iod, DistInfo &distInfo);
+
+
+  //! Function to obtain the list of nodes on a surface for the Kirchhoff integral
+  ///
+  /// This function returns the list of nodes on a surface for the Kirchhoff integral.
+  ///
+  /// UH (07/2012)
+  ///
+  const std::set<int>& getKirchhoffNodesList() const { return kirchhoffNodesList; };
+
+
   void markLenNull(DistInfo &distInfo) {distInfo.setLen(locSubNum, 0); }
   void makeMasterFlag(DistInfo &);
   void setChannelNums(SubDTopo &);

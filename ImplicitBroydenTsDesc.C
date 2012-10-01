@@ -26,10 +26,10 @@ template<int dim>
 void ImplicitBroydenTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
 		if (it==0 && (totTimeSteps % JacSkipNewton)==0) {
-			projectVector(this->AJ, this->F, From);
+			this->projectVector(this->AJ, this->F, From);
 		}
 		else {
-			projectVector(this->AJ, this->F, From);
+			this->projectVector(this->AJ, this->F, From);
 			if (it > 0) {
 				dFrom = From-Fromold;
 				broydenUpdate(dFrom);
@@ -66,7 +66,7 @@ void ImplicitBroydenTsDesc<dim>::solveNewtonSystem(const int &it, double &res, b
 			}
 		} 
 
-    solveLinearSystem(it, rhs, this->dUrom);
+    this->solveLinearSystem(it, rhs, this->dUrom);
 }
 
 //------------------------------------------------------------------------------ 

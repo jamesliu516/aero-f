@@ -93,10 +93,10 @@ void GnatPreprocessingStep1<dim>::outputOnlineMatricesGeneral(const
 
 		this->com->fprintf(onlineMatrix,"Vector abMatrix under load for FluidNodes\n");
 		this->com->fprintf(onlineMatrix,"%d\n", numNodes);
-		outputReducedSVec(this->podHat[iPodBasis][0],onlineMatrix,this->nPod[iPodBasis]); // dummy output
+		this->outputReducedSVec(this->podHat[iPodBasis][0],onlineMatrix,this->nPod[iPodBasis]); // dummy output
 		for (int iPod = 0; iPod < this->nPod[iPodBasis]; ++iPod) {	// # rows in A and B
 			this->com->fprintf(stderr," ... writing vector %d of %d ... \n", iPod, this->nPod[iPodBasis]);
-			outputReducedSVec(this->podHat[iPodBasis][iPod],onlineMatrix,iPod);
+			this->outputReducedSVec(this->podHat[iPodBasis][iPod],onlineMatrix,iPod);
 		}
 		if (onlineMatrixFile) delete [] onlineMatrixFile;
 		if (this->thisCPU ==0) fclose(onlineMatrix);

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 enable_language(Fortran)
 
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_admin")
+
 ###################
 # Local Variables #
 ###################
@@ -9,6 +11,8 @@ FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
 MARK_AS_ADVANCED(HOSTNAME)
 MARK_AS_ADVANCED(LOCAL_DIR)
 ###################
+
+option(AEROACOUSTIC "Enable aeroacoustic computations" OFF)
 
 IF(USE_OPENMP)
   FIND_PACKAGE(OpenMP REQUIRED)
@@ -41,6 +45,14 @@ IF(NOT EXTRALIB)
 SET(EXTRALIB "")
 ENDIF(NOT EXTRALIB)
 
+IF(AEROACOUSTIC)
+  FIND_PACKAGE(GSL REQUIRED)
+  FIND_PACKAGE(FFTW REQUIRED)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GSL_CFLAGS} -I${FFTW_INCLUDE_DIR} -DAEROACOUSTIC")
+ENDIF(AEROACOUSTIC)
+
+#message("${GSL_LIBRARIES} ${FFTW_LIBRARIES}")
+
 SET(EXTRALIB ${EXTRALIB} CACHE STRING "Extra link parameters")
 
 SET(CMAKE_DEBUG_POSTFIX "_debug")
@@ -57,6 +69,11 @@ IF(LAPACK_LIBRARIES)
   SET(EXTRALIBRARIES ${LAPACK_LIBRARIES} ${EXTRALIBRARIES})
 ENDIF(LAPACK_LIBRARIES)
 
+#message("${GSL_LIBRARIES} ${FFTW_LIBRARIES}")
+if (AEROACOUSTIC)
+  SET(EXTRALIB ${EXTRALIB} ${GSL_LIBRARIES} ${FFTW_LIBRARIES})
+ENDIF(AEROACOUSTIC)
+
 FIND_PACKAGE(MPI)
 
 SET(TARGETS_INST fluid)
@@ -66,7 +83,7 @@ IF(UNIX)
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 
     IF(NOT WITH_ARPACK EQUAL 0)
-      FIND_LIBRARY(ARPACKLIB NAMES arpack 
+      FIND_LIBRARY(ARPACKLIB NAMES arpack arpack_LINUX
          PATHS  . /usr/lib /usr/local/lib)
     ELSE(NOT WITH_ARPACK EQUAL 0)
       SET(ARPACKLIB "ARPACKLIB-NOTFOUND")
@@ -212,6 +229,7 @@ ADD_LIBRARY(FluidBase
              OneDimensionalSolver.C
 	     Multigrid.C
              PolygonReconstructionData.C
+             KirchhoffIntegrator.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
@@ -574,6 +592,7 @@ IF(USE_SCALAPACK)
 ELSE(USE_SCALAPACK)
  MESSAGE("Parallel SVD capability:  NO *******")
 ENDIF(USE_SCALAPACK)
+MESSAGE("Aeroacoustic capability:  ${AEROACOUSTIC}")
 MESSAGE("Build type:               " ${CMAKE_BUILD_TYPE})
 MESSAGE("Extra link flags:         " ${EXTRALIB})
 MESSAGE("=================================================")

@@ -277,7 +277,7 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
   
   this->timer->addFluidSolutionTime(t0);
    
-  int ierr = checkSolution(U);
+  int ierr = this->checkSolution(U);
   if(ierr>0){  //failSafe
     U = *EmbeddedTsDesc<dim>::UCopy;
     return (-ierr);

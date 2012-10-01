@@ -68,6 +68,6 @@ void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int to
 		this->UromTotal[iPod] = tmp2;	// set dUrom = UromTotal (subtract next)
 	}
 
-	expandVector(this->UromTotal, U); // solution increment in full coordinates
+	this->expandVector(this->UromTotal, U); // solution increment in full coordinates
 	U += Uinitial;
 }

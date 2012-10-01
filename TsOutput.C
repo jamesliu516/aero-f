@@ -13,6 +13,7 @@
 #include <BinFileHandler.h>
 #include <VectorSet.h>
 #include <GhostPoint.h>
+#include <SubDomain.h>
 
 //------------------------------------------------------------------------------
 
@@ -90,8 +91,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     avvectors[i] = 0;
   }
 
+  sscale[PostFcn::DENSITY] = iod.ref.rv.density;
+  sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
+  sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
+  vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
+  vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
+  
   if (iod.output.transient.density[0] != 0) {
-    sscale[PostFcn::DENSITY] = iod.ref.rv.density;
     scalars[PostFcn::DENSITY] = new char[sp + strlen(iod.output.transient.density)];
     sprintf(scalars[PostFcn::DENSITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.density);
@@ -128,7 +134,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.tavmach);
   }
   if (iod.output.transient.pressure[0] != 0) {
-    sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::PRESSURE] = new char[sp + strlen(iod.output.transient.pressure)];
     sprintf(scalars[PostFcn::PRESSURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.pressure);
@@ -164,7 +169,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
   }
   if (iod.output.transient.temperature[0] != 0) {
-    sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
 //    sscale[PostFcn::TEMPERATURE] = 1;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
     sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
@@ -308,7 +312,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.controlvolume);
   }
   if (iod.output.transient.velocity[0] != 0) {
-    vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
     sprintf(vectors[PostFcn::VELOCITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.velocity);
@@ -320,7 +323,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.tavvelocity);
   }
   if (iod.output.transient.displacement[0] != 0) {
-    vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
     vectors[PostFcn::DISPLACEMENT] = new char[sp + strlen(iod.output.transient.displacement)];
     sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.displacement);
@@ -510,6 +512,9 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpConservationErr = 0;
   fpGnForces  = 0;
   fpError = 0;
+  fpEmbeddedSurface = 0;
+  fpCpuTiming = 0;
+
   fpEmbeddedSurface = 0;
   fpCpuTiming = 0;
 
@@ -1509,6 +1514,7 @@ void TsOutput<dim>::openAsciiFiles()
 template<int dim>
 void TsOutput<dim>::closeAsciiFiles()
 {
+
   for (int iSurf = 0; iSurf < postOp->getNumSurf(); iSurf++)  {
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
@@ -1520,6 +1526,7 @@ void TsOutput<dim>::closeAsciiFiles()
   for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
+
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
@@ -2812,6 +2819,7 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
   counter += 1; // increment the counter for keeping track of the averaging
  
 }
+
 
 //------------------------------------------------------------------------------
 
