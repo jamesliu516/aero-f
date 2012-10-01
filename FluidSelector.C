@@ -258,7 +258,7 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
 
     for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
       if(LSS.isOccluded(0.0,iNode)) {
-        phi[iNode][0] = 0.0;
+        phi[iNode][dim-1] = 0.0;
         tag[iNode] = LSS.numOfFluids();
         continue;
       }
@@ -283,16 +283,16 @@ void FluidSelector::checkLSConsistency(DistSVec<double,dim> &Phi)
     int *tag           = fluidId->subData(iSub);
     for(int i=0; i<Phi.subSize(iSub); i++) {
       if(tag[i]==0) {
-        if(phi[i][0]>0.0) {
-          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
+        if(phi[i][dim-1]>0.0) {
+          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][dim-1], numPhases);
           exit(-1);}}
       else if(tag[i]==numPhases) {
-        if(fabs(phi[i][0])>1.0e-10) {
-          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
+        if(fabs(phi[i][dim-1])>1.0e-10) {
+          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][dim-1], numPhases);
           exit(-1);}}
-      else {
-        if(fabs(phi[i][0]<=0.0)) {
-          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
+      else if (tag[i] == numPhases-1) {
+        if(fabs(phi[i][dim-1]<=0.0)) {
+          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][dim-1], numPhases);
           exit(-1);}}
     }
   }

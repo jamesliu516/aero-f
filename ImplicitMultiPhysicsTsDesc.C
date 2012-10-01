@@ -181,8 +181,15 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
       this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
     else
       this->PhiV = this->Phi;
-
-    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+/*
+    int my_pid;// = getpid();
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
+    if (my_pid == 66) {
+    
+      std::cout << "phi[5302] = " << this->Phi(0)[5302][0] << std::endl;
+    } 
+*/
+    //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
      this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                        //  is meaningful. We destroy it so people wouldn't use it
@@ -251,9 +258,19 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
    
   this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
   this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
+  int my_pid;// = getpid();
+  MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
     
   double t1 = this->timer->getTime();
+  if (my_pid == 66) {
+    
+    std::cout << "phi[5302] (1) = " << this->Phi(0)[5302][0] << std::endl;
+  } 
   int itsLS = this->ns->solveLS(this->Phi, U);
+  if (my_pid == 66) {
+    
+    std::cout << "phi[5302] (2) = " << this->Phi(0)[5302][0] << std::endl;
+  } 
   this->riemann->storeOldV(U);
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin,this->distLSS);
 //  this->fluidSelector.getFluidId(this->Phi,&(this->distLSS->getStatus()));

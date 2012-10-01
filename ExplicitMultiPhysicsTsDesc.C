@@ -86,8 +86,8 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
   updatePhaseChangeFF(U);
   // check the consistency of Phi and FluidId. Can be removed for better efficiency! 
   this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
-  if(this->withCracking && this->withMixedLS)
-    this->domain->debugMultiPhysics(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), U);
+//  if(this->withCracking && this->withMixedLS)
+//    this->domain->debugMultiPhysics(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), U);
 }
 
 //------------------------------------------------------------------------------
@@ -137,11 +137,11 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updateFluidIdFS(DistSVec<double,dim>
     this->PhiV = this->Phi;
 
   if(this->withCracking && this->withMixedLS) {
-    this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
+    //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
     //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
     this->domain->updateFluidIdFS2(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId));
   } else {
-    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
   }
   this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)

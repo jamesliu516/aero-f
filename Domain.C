@@ -4192,13 +4192,13 @@ void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
 template<int dimLS>
 void Domain::updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId)
 {
-  if(dimLS!=1) {fprintf(stderr,"ERROR: For Multi-Phase Cracking, dimLS must be 1. (Here it is %d).\n", dimLS);exit(-1);}
+  //if(dimLS!=1) {fprintf(stderr,"ERROR: For Multi-Phase Cracking, dimLS must be 1. (Here it is %d).\n", dimLS);exit(-1);}
   DistSVec<bool,3> poll(getNodeDistInfo());
 
   int iSub;
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub));
+    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub),dimLS);
     subDomain[iSub]->sndData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
   }
 
