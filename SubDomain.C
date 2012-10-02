@@ -5185,13 +5185,18 @@ void SubDomain::extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag)
+void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag)
 {
 
   int i, j, k;
 
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
+
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
+  Vec<double> Vi(dim),Vj(dim),dV(dim);
 
   for (int l=0; l<edges.size(); l++) {
     i = edgePtr[l][0];
@@ -5203,22 +5208,32 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
       bool jIsActive = LSS.isActive(0.0,j);
 
       if(iIsActive) {
+        double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-        Vec<double> Vi(dim);
         varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+        for (int k=0; k<dim; ++k) {
+          dV[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+          Vj[k] = Vi[k] + dV[k];
+        }
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>;}
+        double distancerate = resij.alpha/(1.0-resij.alpha);
         // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-        if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
+        if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vj,distancerate,resij.normVel,tagI);}
       }
       if(jIsActive) {
+        double dx[3] = {X[i][0] - X[j][0], X[i][1] - X[j][1], X[i][2] - X[j][2]};
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-        Vec<double> Vj(dim);
         varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+        for (int k=0; k<dim; ++k) {
+          dV[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+          Vi[k] = Vj[k] + dV[k];
+        }
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>;}
+        double distancerate = resji.alpha/(1.0-resji.alpha);
         // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-        if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resji.normVel,tagJ);}
+        if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,distancerate,resji.normVel,tagJ);}
       }
     }
   }
