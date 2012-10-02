@@ -244,7 +244,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->nodeTag);
       embeddedU.real() = U;
       embeddedU.setGhost(*this->ghostPoints,this->varFcn); 
     }
