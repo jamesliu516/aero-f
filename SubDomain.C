@@ -5185,7 +5185,7 @@ void SubDomain::extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag)
+void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, VarFcn *varFcn,LevelSetStructure &LSS,bool linRecFSI,Vec<int> &tag)
 {
 
   int i, j, k;
@@ -5199,6 +5199,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
   Vec<double> Vi(dim),Vj(dim),dV(dim);
 
   for (int l=0; l<edges.size(); l++) {
+    if(!edgeFlag[l]) continue; //not a master edge
     i = edgePtr[l][0];
     j = edgePtr[l][1];
     if(LSS.edgeIntersectsStructure(0.0,l)) { // at interface
@@ -5218,8 +5219,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>;}
         double distancerate = resij.alpha/(1.0-resij.alpha);
-        // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-        if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vj,distancerate,resij.normVel,tagI);}
+        if(!linRecFSI) distancerate = 1.0;
+        ghostPoints[j]->addNeighbour(Vj,distancerate,resij.normVel,tagI);
       }
       if(jIsActive) {
         double dx[3] = {X[i][0] - X[j][0], X[i][1] - X[j][1], X[i][2] - X[j][2]};
@@ -5232,7 +5233,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>;}
         double distancerate = resji.alpha/(1.0-resji.alpha);
-        if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vi,distancerate,resji.normVel,tagJ);}
+        if(!linRecFSI) distancerate = 1.0;
+        ghostPoints[i]->addNeighbour(Vi,distancerate,resji.normVel,tagJ);
       }
     }
   }

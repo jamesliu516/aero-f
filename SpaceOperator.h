@@ -171,7 +171,7 @@ public:
                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                         DistLevelSetStructure *distLSS, double *vfar, DistVec<int> *fluidId = 0);
 
-  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface,DistVec<int> &tag);
   
   template <int neq>
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,neq> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag) {
