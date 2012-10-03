@@ -5232,8 +5232,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>;}
         double distancerate = resji.alpha/(1.0-resji.alpha);
-        // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-        if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,distancerate,resji.normVel,tagJ);}
+        if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vi,distancerate,resji.normVel,tagJ);}
       }
     }
   }
