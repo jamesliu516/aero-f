@@ -156,7 +156,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::populateGhostPointsForNavierStokes(D
 {
   if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
     this->ghostPoints->deletePointers();
-    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
+    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->linRecAtInterface,*(this->fluidSelector.fluidId));
   }
 }
 
@@ -225,7 +225,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
   if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS, *this->fluidSelector.fluidId);
+      this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->linRecAtInterface, *this->fluidSelector.fluidId);
     }
 
   computeRKUpdate(U0, k2, 2);

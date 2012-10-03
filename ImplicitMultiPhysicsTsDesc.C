@@ -227,7 +227,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
 /*  if(this->eqsType == TsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->mulitPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->nodeTag);
+      this->mulitPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->linRecAtInterface,this->nodeTag);
     }
 */
 }
