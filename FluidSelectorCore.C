@@ -125,6 +125,9 @@ int FluidSelector::getLevelSetDim(int fluidId1, int fluidId2, int node1, int nod
   if(fluidId1 * fluidId2 != 0){
     fprintf(stdout, "*** Error: it is assumed that all interfaces are between any fluid and fluid 0\n");
     fprintf(stdout, "***      : here fluidIds are %d and %d for nodes %d and %d\n", fluidId1, fluidId2, node1, node2);
+#ifdef AEROF_MPI_DEBUG
+    DebugTools::SpitRank();
+#endif 
     exit(1);
   }
   int fId = fluidId1 + fluidId2;

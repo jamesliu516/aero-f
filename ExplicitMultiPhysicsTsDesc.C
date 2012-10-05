@@ -77,6 +77,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
   solveNLLevelSet(U);
   // update fluidId (fluidId0 = fluidId, fluidId = new).
   fluidId0 = *(this->fluidSelector.fluidId); // used in updatePhaseChangeFF
+  DebugTools::PrintElement("Phi_post_update",this->Phi,63,0,503);
 
   if(this->withCracking && this->withMixedLS)
     this->fluidSelector.updateFluidIdFF2(this->distLSS, this->Phi);
