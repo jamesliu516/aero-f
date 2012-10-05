@@ -31,6 +31,13 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   else
     sprintf(levelsets[0], "");
 
+  cracking[0] = new char[sp + strlen(iod.output.restart.cracking)];
+  if (iod.output.restart.cracking[0] != 0)
+    sprintf(cracking[0], "%s%s", iod.output.restart.prefix, iod.output.restart.cracking);
+  else
+    sprintf(cracking[0], "");
+
+
   data[0] = new char[sp + strlen(iod.output.restart.data)];
   if (iod.output.restart.data[0] != 0)
     sprintf(data[0], "%s%s", iod.output.restart.prefix, iod.output.restart.data);
@@ -49,6 +56,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
       solutions[i] = solutions[0];
       positions[i] = positions[0];
       levelsets[i] = levelsets[0];
+      cracking[i] = cracking[0];
       data[i] = data[0];
 
     }
@@ -75,6 +83,13 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
 	sprintf(levelsets[i], "%s.%drst", levelsets[0], i);
       else
 	sprintf(levelsets[i], "");
+
+      cracking[i] = new char[strlen(cracking[0]) + 5 + 1];
+      if (cracking[0][0] != 0)
+	sprintf(cracking[i], "%s.%drst", cracking[0], i);
+      else
+	sprintf(cracking[i], "");
+
 
       data[i] = new char[strlen(data[0]) + 5 + 1];
       if (data[0][0] != 0)

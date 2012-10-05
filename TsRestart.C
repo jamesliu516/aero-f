@@ -14,14 +14,16 @@
 #include <MeshMotionHandler.h>
 #include "PostOperator.h"
 #include "SubDomain.h"
-
+#include <FSI/DynamicNodalTransfer.h>
 
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
 void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt,
 			    DistTimeState<dim> &timeState, DistGeoState &geoState,
-			    LevelSet<dimLS> *levelSet)
+			    LevelSet<dimLS> *levelSet, 
+                            DynamicNodalTransfer* dyn // to output cracking information
+                            )
 {
 
   iteration = it;
@@ -40,6 +42,12 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
       geoState.writeToDisk(positions[index]);
     if (levelsets[index][0] != 0 && levelSet)
       levelSet->writeToDisk(levelsets[index]);
+
+    if (cpuNum == 0 && dyn) {
+
+      std::ofstream ofile(cracking[index],std::ios::binary);
+      dyn->writeCrackingData(ofile);
+    }
   
     if (cpuNum == 0 && data[index][0] != 0) {
       FILE *fp = fopen(data[index], "w");
