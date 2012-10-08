@@ -429,7 +429,7 @@ public:
   template<int dimLS>
   void avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin);
   template<int dimLS>
-  void avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistVec<double> &weight, DistLevelSetStructure *distLSS = 0);
+  void avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistVec<double> &weight, DistLevelSetStructure *distLSS = 0, DistVec<int>* fluidIdToSet = 0);
   template<int dim>
   void storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, 
                               DistSVec<double,3> &X, DistSVec<double,dim> &Vupdate, 

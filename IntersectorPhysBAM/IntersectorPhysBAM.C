@@ -85,8 +85,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
 
   delete[] struct_mesh;
   if(iod.input.positions[0] != 0) delete[] struct_restart_pos;
-
-  cs->printInfo("cracking.info");
 }
 
 //----------------------------------------------------------------------------
@@ -795,8 +793,6 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
     gotNewCracking = cracking->getNewCrackingFlag();
   if(gotNewCracking) {
     cracking->setNewCrackingFlag(false);
-    fprintf(stderr,"printing crack info\n");
-    cracking->printInfo("cracked.info");
   }
   if((nNodes!=numStNodes) && !gotNewCracking){
     fprintf(stderr,"ERROR: AERO-F is not sure if there is a new cracking... (Could be a software bug.) nNodes = %d, numStNodes = %d, gotNewCracking = %d\n", nNodes, numStNodes, gotNewCracking);

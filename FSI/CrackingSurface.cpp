@@ -151,11 +151,9 @@ int CrackingSurface::splitQuads(int* quadTopo, int nQuads, int(*triaTopo)[3])
 int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* connUpdate, double* phi, 
                                     int* phiIndex, int(*triaTopo)[3], int nUsedNd, int* new2old, int numNewNodes)
 {
-  fprintf(stderr,"UpdateCracking\n");
   if(numConnUpdate==0)
     return 0;
 
-  fprintf(stderr,"UpdateCracking2\n");
   if(gotNewCracking) 
     fprintf(stderr,"WARNING: last cracking update hasn't been pushed to intersector!\n");
   gotNewCracking = true;
