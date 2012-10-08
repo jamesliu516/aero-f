@@ -5834,7 +5834,7 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS)
+void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS, Vec<int>* fluidIdToSet)
 {
 
   for(int i=0; i<nodes.size(); i++){
@@ -5847,7 +5847,7 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
     for(int j=0; j<dimLS; j++){
       if(Phi[i][j]*Phin[i][j]<0.0/* && fModel==0 && !swept*/){
         // check if node i HAD a neighbour with a different levelset sign
-        if(weight[i] <= 0.0){
+        if(weight[i] <= 0.0 || (fluidIdToSet && (*fluidIdToSet)[i] != j)){
 //          fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
 //                          " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
 //                         globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);

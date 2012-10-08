@@ -27,7 +27,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   Wr(numPoints),Vslope(numPoints),Phislope(numPoints),
   rupdate(numPoints), weight(numPoints), interfacialWi(numPoints),
   interfacialWj(numPoints), riemannStatus(numPoints), Phin(numPoints),
-  programmedBurn(NULL)
+  programmedBurn(NULL), fidToSet(numPoints)
 {
   // equation modelling
   coordType  = ioData.oneDimensionalInfo.coordType;
@@ -106,9 +106,11 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
   loadSparseGrid(ioData);
 
+  fidToSet = 0;
+
   riemann = new ExactRiemannSolver<5>(ioData,rupdate,weight, interfacialWi,
 				      interfacialWj, varFcn,
-				      tabulationC);
+				      tabulationC, fidToSet);
   
   if (ioData.oneDimensionalInfo.programmedBurn.unburnedEOS >= 0) {
     programmedBurn = new ProgrammedBurn(ioData,&this->X);

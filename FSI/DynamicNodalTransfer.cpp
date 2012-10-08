@@ -954,7 +954,6 @@ EmbeddedStructure::getInitialCrack()
 {
   int newNodes, numConnUpdate, numLSUpdate;
   bool need2update = structExc->getNewCrackingStats(numConnUpdate, numLSUpdate, newNodes); //inputs will be modified.
-  fprintf(stderr,"getInitialCrack: %d\n",(int)need2update);
   if(!need2update) return; //Nothing new :)
 
   // get initial phantom nodes.
