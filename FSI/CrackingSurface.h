@@ -10,6 +10,7 @@
 #include<LOCAL_LEVELSET.h>
 #include<map>
 #include<set>
+#include<fstream>
 
 //------------------------------------------------------------------------------
 
