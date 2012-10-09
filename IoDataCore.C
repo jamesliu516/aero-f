@@ -2393,6 +2393,7 @@ MultiGridData::MultiGridData()
   mg_smoother = MGJACOBI;
   mg_output = 0;
 
+  directional_coarsening_factor = 0.0;
   num_fine_sweeps = 5; 
 }
 
@@ -2414,6 +2415,7 @@ void MultiGridData::setup(const char *name, ClassAssigner *father)
   new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth2",this, &MultiGridData::num_multigrid_smooth2);
   new ClassInt<MultiGridData>(ca, "NumMultiGridLevels",this, &MultiGridData::num_multigrid_levels);
   new ClassInt<MultiGridData>(ca, "NumFineSweeps",this, &MultiGridData::num_fine_sweeps);
+  new ClassDouble<MultiGridData>(ca, "DirectionalCoarseningFactor",this, &MultiGridData::directional_coarsening_factor);
 }
 
 //------------------------------------------------------------------------------
@@ -3732,38 +3734,6 @@ void ImplosionSetup::setup(const char *name) {
   new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
-MultigridInfo::MultigridInfo() {
-
-  fineMesh = "";
-  coarseMesh = "";
-  fineDec = "";
-  coarseDec = "";
-  packageFile = "";
-  collectionFile = "";
-
-  radius0 = 1.0;
-  radiusf = 2.0;
-  threshold = 10;
-}
-
-void MultigridInfo::setup(const char * name) {
-  
-  ClassAssigner *ca = new ClassAssigner(name, 9, 0);
-  new ClassDouble<MultigridInfo>(ca, "Radius0", this, &MultigridInfo::radius0);
-  new ClassDouble<MultigridInfo>(ca, "RadiusF", this, &MultigridInfo::radiusf);
-  new ClassInt<MultigridInfo>(ca, "Threshold", this, &MultigridInfo::threshold);
-
-  new ClassStr<MultigridInfo>(ca, "FineMesh", this, &MultigridInfo::fineMesh);
-  new ClassStr<MultigridInfo>(ca, "CoarseMesh", this, &MultigridInfo::coarseMesh);
-
-  new ClassStr<MultigridInfo>(ca, "FineDec", this, &MultigridInfo::fineDec);
-  new ClassStr<MultigridInfo>(ca, "CoarseDec", this, &MultigridInfo::coarseDec);
-  
-  new ClassStr<MultigridInfo>(ca, "PackageFile", this, &MultigridInfo::packageFile);
-  new ClassStr<MultigridInfo>(ca, "CollectionFile", this, &MultigridInfo::collectionFile);
-
-}
-
 //-----------------------------------------------------------------------------
 
 IoData::IoData(Communicator *communicator)
@@ -3836,6 +3806,7 @@ void IoData::setupCmdFileVariables()
   embed.setup("EmbeddedFramework");
   oneDimensionalInfo.setup("1DGrid");
   implosion.setup("ImplosionSetup");
+  mg.setup("MultiGrid");
 }
 
 //------------------------------------------------------------------------------

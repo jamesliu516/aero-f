@@ -110,6 +110,9 @@ public:
   DistSVec<double,dim> &getOutletBoundaryVector() { return Ufarout; }
 
   DistSVec<double,dim> &getFaceStateVector() { return Uface; }
+  DistSVec<double,dim> &getNodeStateVector() { return Unode; }
+  DistSVec<double,dim> &getUfarin() { return Ufarin; }
+  DistSVec<double,dim> &getUfarout() { return Ufarout; }
 
   double *getInletAngles() { return angles; }
   double *getInletConservativeState() { return Uin; }

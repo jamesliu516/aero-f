@@ -53,6 +53,19 @@ void FemEquationTermNS::computeTransportCoefficients(
 
 }
 
+void FemEquationTermNS::computeTransportCoefficientsPublic(
+  const double T, double &mu, double &lambda, double &kappa)
+{
+
+  computeTransportCoefficients(T,mu,lambda,kappa);
+  
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
+  kappa  *= ooreynolds_mu;
+
+}
+
+
 //------------------------------------------------------------------------------
 
 double FemEquationTermNS::computeViscousTimeStep(double X[3], double *V)

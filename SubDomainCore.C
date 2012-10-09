@@ -4588,6 +4588,24 @@ void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellSt
   faces.attachHigherOrderMF(higherOrderMF);
 }
 
+void SubDomain::getSurfaceNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    int code = faces[i].getCode();
+    if (code != BC_SLIP_WALL_MOVING &&
+        code != BC_SLIP_WALL_FIXED && code != BC_ADIABATIC_WALL_MOVING &&
+        code != BC_ADIABATIC_WALL_FIXED && code != BC_ISOTHERMAL_WALL_MOVING &&
+        code != BC_ISOTHERMAL_WALL_FIXED)
+      continue;
+
+    for (int k = 0; k < faces[i].numNodes(); ++k)
+      boundaryNodes.insert(faces[i][k]); 
+    
+  }
+}
+
+
 void SubDomain::getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
 
   for (int i = 0; i < faces.size(); ++i) {

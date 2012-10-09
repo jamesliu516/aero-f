@@ -8,13 +8,15 @@
 template <class Scalar,int dim>
 MultiGridOperator<Scalar,dim>::MultiGridOperator(MultiGridLevel<Scalar>* mg_lvl,
                                                  IoData& ioData, VarFcn* varFcn, 
-                                                 Domain* domain) {
+                                                 Domain* domain, BcFcn* bcFcn) : bcFcn(bcFcn) {
 
   mgLevel = mg_lvl;
   myBcData = new DistBcData<dim>(ioData, varFcn, domain, &mg_lvl->getNodeDistInfo(),
                                  &mg_lvl->getInletNodeDistInfo(), &mg_lvl->getFaceDistInfo());
   timeState = new DistTimeState<dim>(ioData, NULL, varFcn, domain, mg_lvl->getNodeDistInfo(),
                                      NULL);
+
+  boundaryState = new DistSVec<Scalar,dim>(mg_lvl->getAgglomFaceDistInfo());
 
   timeState->createSubStates();
 
@@ -23,6 +25,12 @@ MultiGridOperator<Scalar,dim>::MultiGridOperator(MultiGridLevel<Scalar>* mg_lvl,
 
   idti = new DistVec<Scalar>(mg_lvl->getNodeDistInfo()); 
   idtv = new DistVec<Scalar>(mg_lvl->getNodeDistInfo()); 
+
+  DX[0] = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
+  DX[1] = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
+  DX[2] = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
+  
+  myVarFcn = varFcn;
 }
 
 template<class Scalar,int dim>
@@ -47,8 +55,11 @@ void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, Di
                                                  mgLevel->getXn()(iSub),
                                                  mgLevel->getCtrlVol()(iSub), 
                                                  V(iSub), matrices(iSub));
-    mgLevel->getFaces()[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn,(*myBcData)(iSub), (mgLevel->getGeoState())(iSub),
-                                                 V(iSub), matrices(iSub));
+    //mgLevel->getFaces()[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn,(*myBcData)(iSub), (mgLevel->getGeoState())(iSub),
+    //                                             V(iSub), matrices(iSub));
+    mgLevel->getAgglomeratedFaces()[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn,V(iSub), 
+                                                 getBoundaryState()(iSub),
+                                                 matrices(iSub));
  
     Vec<double>& ctrlVol = mgLevel->getCtrlVol()(iSub); 
     for (int i=0; i<ctrlVol.size(); ++i) {
@@ -75,6 +86,7 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
   //                                           DistVec<Scalar2>& irey,
                                              FluxFcn** fluxFcn,
                                              RecFcn* recFcn,
+                                             FemEquationTerm* fet,
                                              DistSVec<Scalar2,dim>& res,
                                              bool addDWdt) {
 
@@ -82,6 +94,24 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
   ElemSet dummy;
   res = 0.0;
   DistVec<Scalar2>& irey = *scalar_zero; 
+  
+  NavierStokesTerm* nsterm = NULL;
+  if (fet) {
+
+    FemEquationTermNS* nst = dynamic_cast<FemEquationTermNS*>(fet);
+    if (nst)
+      nsterm = static_cast<NavierStokesTerm*>(nst);
+ /*   else {
+
+      fprintf(stderr, "Cannot create a NavierStokesTerm from FemEquationTerm!");
+      exit(-1);
+    }
+*/
+  }
+
+   if (nsterm)
+     mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
 
@@ -92,10 +122,29 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
                                          (mgLevel->getFVCompTag())(iSub), 0,0); 
 
 
-    mgLevel->getFaces()[iSub]->computeFiniteVolumeTerm(fluxFcn, (*myBcData)(iSub), 
-                                         (mgLevel->getGeoState())(iSub), V(iSub),
+    //mgLevel->getFaces()[iSub]->computeFiniteVolumeTerm(fluxFcn, (*myBcData)(iSub), 
+    //                                     (mgLevel->getGeoState())(iSub), V(iSub),
+    //                                     res(iSub));
+    mgLevel->getAgglomeratedFaces()[iSub]->computeFiniteVolumeTerm(fluxFcn, 
+                                         V(iSub),getBoundaryState()(iSub),
                                          res(iSub));
-    
+
+    if (nsterm) {
+
+ 
+/*      mgLevel->getEdges()[iSub]->template 
+        computeThinLayerViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
+                                                     nsterm, (mgLevel->getGeoState())(iSub),
+                                                     (mgLevel->getGeoState().getXn())(iSub),
+                                                     V(iSub),res(iSub));
+*/
+/*      mgLevel->getAgglomeratedFaces()[iSub]->computeThinLayerViscousFiniteVolumeTerm(
+                                      nsterm, myVarFcn,V(iSub), (*DX[0])(iSub), 
+                                      (*DX[1])(iSub), (*DX[2])(iSub) ,res(iSub));
+  
+*/                                                    
+    }    
+
   }
   
   mgLevel->assemble(res);
@@ -117,7 +166,60 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
   } 
   
   
-}                                             
+} 
+
+template<class Scalar,int dim>
+void MultiGridOperator<Scalar,dim>::computeGradientsLeastSquares(DistSVec<Scalar,dim>& V) {
+
+  EdgeSet** edges = mgLevel->getEdges();  
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+    
+    bool *edgeFlag = edges[iSub]->getMasterFlag();
+    int (*edgePtr)[2] = edges[iSub]->getPtr();
+
+    SVec<Scalar,dim>& ddx = myNodalGrad->getX()(iSub);
+    SVec<Scalar,dim>& ddy = myNodalGrad->getY()(iSub);
+    SVec<Scalar,dim>& ddz = myNodalGrad->getZ()(iSub);
+    SVec<double,6>& R = myNodalGrad->getR()(iSub); 
+    SVec<double,3>& X = (mgLevel->getGeoState().getXn())(iSub);
+    SVec<Scalar,dim>& var = V(iSub);
+    for (int l=0; l<edges[iSub]->size(); ++l) {
+
+      if (!edgeFlag[l])
+        continue;
+
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      double Wi[3], Wj[3];
+      Scalar deltaVar;
+
+      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+      computeLocalWeightsLeastSquares(dx, R[i], Wi);
+
+      dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+      computeLocalWeightsLeastSquares(dx, R[j], Wj);
+
+      for (int k=0; k<dim; ++k) {
+        deltaVar = var[j][k] - var[i][k];
+
+        ddx[i][k] += Wi[0] * deltaVar;
+	ddy[i][k] += Wi[1] * deltaVar;
+	ddz[i][k] += Wi[2] * deltaVar;
+	ddx[j][k] -= Wj[0] * deltaVar;
+	ddy[j][k] -= Wj[1] * deltaVar;
+	ddz[j][k] -= Wj[2] * deltaVar;
+      }
+    }
+  }
+
+  mgLevel->assemble(myNodalGrad->getX());
+  mgLevel->assemble(myNodalGrad->getY());
+  mgLevel->assemble(myNodalGrad->getZ());
+
+}
 
 template<class Scalar,int dim>
 void MultiGridOperator<Scalar,dim>::updateStateVectors(DistSVec<Scalar,dim>& U) {
@@ -168,16 +270,89 @@ void MultiGridOperator<Scalar,dim>::computeTimeStep(double cfl, VarFcn *varFcn,
   timeState->computeCoefficients(dt_glob);
 }
 
+template<class Scalar,int dim>
+template <class Scalar2>
+void MultiGridOperator<Scalar,dim>::applyBCsToResidual(DistSVec<Scalar2,dim>& U,
+                                                       DistSVec<Scalar2,dim>& R) {
+
+  if (!bcFcn)
+    return;
+ 
+#pragma omp parallel for
+  for (int iSub = 0; iSub < U.numLocSub(); ++iSub) {
+    SVec<double,dim> &Vwall = (*myBcData)(iSub).getNodeStateVector();
+
+    int* nodeType = mgLevel->getNodeType(iSub);
+    for (int i = 0; i < U(iSub).size(); ++i) {
+ 
+      if (nodeType[i] != BC_INTERNAL)
+        bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U(iSub)[i], R(iSub)[i]);
+    }
+  }
+}
+
+template<class Scalar,int dim>
+template <class Scalar2,int neq>
+void MultiGridOperator<Scalar,dim>::applyBCsToJacobian(DistSVec<Scalar2,dim>& U,
+                                                       DistMvpMatrix<Scalar2,neq>& A) {
+ 
+  if (!bcFcn)
+    return;
+
+  EdgeSet** edges = mgLevel->getEdges();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < U.numLocSub(); ++iSub) {
+
+    SVec<double,dim> &Vwall = (*myBcData)(iSub).getNodeStateVector();
+
+    int (*edgePtr)[2] = edges[iSub]->getPtr();
+    int* nodeType = mgLevel->getNodeType(iSub);
+
+    for (int l=0; l<edges[iSub]->size(); ++l) {
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      if (nodeType[i] != BC_INTERNAL)  {
+        Scalar *Aij = A(iSub).getElem_ij(l);
+        if (Aij)
+          bcFcn->applyToOffDiagonalTerm(nodeType[i], Aij);
+      }
+
+      if (nodeType[j] != BC_INTERNAL) {
+        Scalar *Aji = A(iSub).getElem_ji(l);
+        if (Aji)
+          bcFcn->applyToOffDiagonalTerm(nodeType[j], Aji);
+      }
+    }
+
+    for (int i=0; i<U(iSub).size(); ++i) {
+      if (nodeType[i] != BC_INTERNAL) {
+        Scalar *Aii = A(iSub).getElem_ii(i);
+        if (Aii)
+          bcFcn->applyToDiagonalTerm(nodeType[i], Vwall[i], U(iSub)[i], Aii);
+      }
+    }
+
+  }
+
+}
+
 #define INST_HELPER(S,D) \
 template \
 void MultiGridOperator<S,D>::computeJacobian(DistSVec<double,D>& U, DistSVec<double,D>& V,\
                                              FluxFcn **fluxFcn, \
                                              DistMvpMatrix<double,D>& matrices); \
+template void MultiGridOperator<S,D>::applyBCsToJacobian(DistSVec<double,D>& U, \
+                                                       DistMvpMatrix<double,D>& A); \
 template void MultiGridOperator<S,D>::computeResidual(DistSVec<double,D>& V, \
                                                 DistSVec<double,D>& U, \
                                              FluxFcn** fluxFcn,\
                                              RecFcn* recFcn,\
-                                             DistSVec<double,D>& res,bool);
+                                             FemEquationTerm*, \
+                                             DistSVec<double,D>& res,bool); \
+template void MultiGridOperator<S,D>::applyBCsToResidual(DistSVec<double,D>& U, \
+                                                       DistSVec<double,D>& R);
 
 template class MultiGridOperator<double,1>;
 template class MultiGridOperator<double,2>;

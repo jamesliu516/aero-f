@@ -15,7 +15,7 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
 DistTimeState<dim>* ts,int **nodeType, BCApplier *bcs) : pcData(pcData), DistMat<Scalar2,dim>(dom)
 {
 
-  mgKernel = new MultiGridKernel<Scalar,dim,Scalar2>(dom, distGeoState, coarseSolverData, ioData, varFcn,createFineA,pcData.num_multigrid_levels, ts,nodeType, bcs);
+  mgKernel = new MultiGridKernel<Scalar,dim,Scalar2>(dom, distGeoState, coarseSolverData, ioData, varFcn,createFineA,pcData.num_multigrid_levels, ts);
   mgKernel->setParameters(pcData.num_multigrid_smooth1, 
                           pcData.num_multigrid_smooth2,
                           pcData.num_fine_sweeps,
@@ -76,7 +76,7 @@ bool MultiGridPrec<Scalar,dim,Scalar2>::isInitialized() {
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-  mgKernel->cycle(x, Px);
+  mgKernel->cycleV(x, Px);
 }
 
 //------------------------------------------------------------------------------

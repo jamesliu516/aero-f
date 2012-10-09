@@ -263,7 +263,6 @@ void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol,
                                         int dt_i)
 {
   double c_np1;
-  //std::cout << i << " " << U[i][0] << " " << dt_i << " " << dt[dt_i] << std::endl;
   switch (descriptorCase) {
     case DESCRIPTOR: {
       c_np1 = data.alpha_np1 * vol / dt[dt_i];

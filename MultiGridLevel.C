@@ -5,6 +5,7 @@
 #include <Edge.h>
 
 #include <set>
+#include <mpi.h>
 
 template<class Scalar>
 MultiGridLevel<Scalar>::MultiGridLevel(MultiGridMethod mgm,MultiGridLevel* mg, Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo)
@@ -29,6 +30,8 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
 
   mgMethod = mgm;
 
+  mesh_topology_threshold = 0.95;
+
   numLines = new int[numLocSub];
   memset(numLines,0,sizeof(int)*numLocSub);
   lineids = new std::vector<int>[numLocSub];
@@ -39,8 +42,11 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
  
   parent = mg;
 
+  coarseNodeTopology = NULL;
+
   faceDistInfo = new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com);
   inletNodeDistInfo = new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com);
+  agglomFaceDistInfo = new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com);
 
 }
 
@@ -217,6 +223,8 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
   inletNodeDistInfo->finalize(true);
 
   edgeNormals = &refinedGeoState.getEdgeNormal();
+ 
+  agglomeratedFaces = NULL;
 
   myGeoState = &refinedGeoState;
 
@@ -234,6 +242,8 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
       nodeDistInfo->getMasterFlag(iSub)[i] = refinedNodeDistInfo.getMasterFlag(iSub)[i];
       nodeDistInfo->getInvWeight(iSub)[i] = refinedNodeDistInfo.getInvWeight(iSub)[i];
     }
+
+  total_mesh_volume = myGeoState->getCtrlVol().sum();
 
 }
 
@@ -493,6 +503,53 @@ void assemble(Domain & domain, CommPattern<double> & edgePat, int **numSharedEdg
     }
   }
 }
+void assemble(Domain & domain, CommPattern<double> & commPat, Connectivity ** sharedNodes, std::list<Vec3D>** data, int max_node_adj) {
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<double> sInfo = commPat.getSendBuffer(subD.getSndChannel()[jSub]);
+      double * buffer = reinterpret_cast<double *>(sInfo.data);
+      memset(buffer, 0, sizeof(double)*3*max_node_adj*sharedNodes[iSub]->num(jSub));
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
+        
+        int cnt = 0;
+        std::list<Vec3D>& nl = data[iSub][ (*sharedNodes[iSub])[jSub][iNode] ];
+        for (std::list<Vec3D>::iterator it = nl.begin(); it != nl.end(); ++it) {
+          for (int k = 0; k < 3; ++k,++cnt)
+            buffer[iNode*max_node_adj*3+cnt] = (*it)[k];
+        }
+      }
+    }
+  }
+
+  commPat.exchange();
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<double> sInfo = commPat.recData(subD.getRcvChannel()[jSub]);
+      double * buffer = reinterpret_cast<double *>(sInfo.data);
+
+      for (int iNode = 0; iNode < sharedNodes[iSub]->num(jSub); ++iNode) {
+
+        std::list<Vec3D>& nl = data[iSub][ (*sharedNodes[iSub])[jSub][iNode] ];
+        for (int cnt = 0; cnt < max_node_adj; ++cnt) {
+
+          double* b = buffer+iNode*max_node_adj*3+cnt*3;
+          Vec3D v(b[0],b[1],b[2]);
+          // A norm of 0.0 signifies the end of the list for this node
+          if (v.norm() == 0.0) 
+            break;
+          nl.push_back(v);
+        }
+      }
+    }
+  }
+}
+
+
 };
     
 template <class Scalar>
@@ -812,7 +869,62 @@ SparseMat<Scalar,dim>* MultiGridLevel<Scalar>::createMaskILU(int iSub,int fill,
   return A;
 
 }
+    
 
+void PrintPriorityNodes(const PriorityNodes& P) {
+
+  for (PriorityNodes::const_iterator itr = P.begin(); itr != P.end();
+       ++itr) {
+
+    std::cout << *itr << " ";
+  }
+}
+
+template<class Scalar>
+int MultiGridLevel<Scalar>::
+getNodeWithMostAgglomeratedNeighbors(std::vector<std::set<int> >& C,//Connectivity* C, 
+                                                PriorityNodes& P,
+                                                Vec<int>& nodeMapping,int iSub) {
+
+  int max_count = -1, curr_node = -1;
+ 
+  Topology currentTopo = TopoUnknown; 
+  for (PriorityNodes::iterator it = P.begin(); 
+       it != P.end();) {
+
+    int tmp = *it;
+    int tmp_count = 0;
+    if (nodeMapping[tmp] >= 0) {
+      PriorityNodes::iterator it2 = it;
+      P.erase(it2);
+      if (it == P.end()) break;
+      ++it;
+      continue;
+    }
+
+    for (std::set<int>::iterator it2 = C[tmp].begin();
+         it2 != C[tmp].end(); ++it2) {//int n = 0; n < C->num(tmp); ++n) {
+      int n = *it2;
+      if (nodeMapping[n] >= 0)
+        ++tmp_count;
+    }
+    if (tmp_count > max_count/* && currentTopo == (*nodeTopology)(iSub)[tmp]*/) {
+
+      max_count = tmp_count;
+      curr_node = tmp;
+    }/* else if (currentTopo > (*nodeTopology)(iSub)[tmp]) {
+
+      max_count = tmp_count;
+      currentTopo = (*nodeTopology)(iSub)[tmp];
+      curr_node = tmp;
+    }*/
+    ++it;
+  }
+  if (curr_node >= 0)
+    P.erase(P.find(curr_node));  
+  return curr_node;
+}
+                                                
 
 template<class Scalar>
 void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
@@ -825,7 +937,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
                                          Domain& domain,int dim,
                                          DistVec<Vec3D>& refinedEdgeNormals,
                                          DistVec<double>& refinedVol,
-                                         DistVec<int>* finestNodeMapping_p1)
+                                         DistVec<int>* finestNodeMapping_p1,
+                                         double beta)
 {
   static int cnt = 0;
   ++cnt;
@@ -851,10 +964,59 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   *faceMapping = -1;
 
   lineMap = -1;
-    
+
+  int myLevel = getMyLevel();  
+  int rank,size;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(MPI_COMM_WORLD,&size);
+  
   sharedNodes = new Connectivity*[numLocSub];
+
+  computeNodeNormalClasses();
+
+  DistVec<int> nodeBlacklist(*parent->nodeDistInfo);
+  nodeBlacklist = 0;
+
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    for (int i = 0; i < parent->nodeDistInfo->subSize(iSub); ++i) {
+
+      if (!parent->nodeDistInfo->getMasterFlag(iSub)[i]) continue;
+      bool ok = false;
+      int myid;
+      for (int j = 0; j < nToN[iSub]->num(i); ++j) {
+
+        if ((*nToN[iSub])[i][j] == i) continue;
+        myid = (*nToN[iSub])[i][j];
+        if (parent->nodeDistInfo->getMasterFlag(iSub)[(*nToN[iSub])[i][j]]) {
+          ok = true;
+          break;
+        }
+      }
+      if (!ok)
+        nodeBlacklist(iSub)[myid] = 1;
+    }
+  }
+
+  operMax<int> maxOp;
+  ::assemble(domain, refinedNodeIdPattern, refinedSharedNodes, nodeBlacklist, maxOp);
+
+  DistVec<double> topo(*parent->nodeDistInfo);
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    for (int i = 0; i < topo.subSize(iSub); ++i)
+      topo(iSub)[i] = static_cast<double>((*nodeTopology)(iSub)[i]);
+  }
+  
+//  parent->writeXpostFile("nodeClass.xpost",topo);
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    std::vector<std::set<int> > myNtoN;
+    myNtoN.resize(parent->nodeDistInfo->subSize(iSub));
 
     SubDomain& subD(*domain.getSubDomain()[iSub]);
     // We have to ensure that any agglomerated nodes are shared by the
@@ -867,210 +1029,368 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       }
     }
 
-
-    for(int i = 0; i < nodeMapping(iSub).size(); ++i) // Disable shared slave nodes
+    int seed_node = 0, agglom_id = 0;
+    for(int i = 0; i < nodeMapping(iSub).size(); ++i) { // Disable shared slave nodes
       if(!refinedNodeDistInfo.getMasterFlag(iSub)[i]) nodeMapping(iSub)[i]=0;
+      else if (nodeBlacklist(iSub)[i]) {
+        nodeMapping(iSub)[i] = agglom_id++;
+      }
+
+    }
 
     // Perform local agglomeration
-    int seed_node = 0, agglom_id = 0;
     lineLengths[iSub] = new int[nodeMapping(iSub).size()];
   
-    typedef std::tr1::unordered_set<int> PriorityNodes;
-    PriorityNodes nodesOnSolidAndFront, nodesOnSolid,
+    PriorityNodes nodesOnSurfaceAndFront, nodesOnSurface,
+                  nodesOnSolidAndFront, nodesOnSolid,
                   nodesOnFarFieldAndFront, nodesOnFarField,
                   nodesOnSubDomainBoundaryAndFront, nodesOnSubDomainBoundary,
                   nodesOnFront;
+    subD.getSurfaceNodes(nodesOnSurface);
     subD.getSolidBoundaryNodes(nodesOnSolid);
     subD.getFarFieldBoundaryNodes(nodesOnFarField);
     subD.getSubDomainBoundaryNodes(nodesOnSubDomainBoundary);
 
     mapNodeList(iSub,nodesOnSolid);
+    mapNodeList(iSub,nodesOnSurface);
     mapNodeList(iSub,nodesOnFarField);
     mapNodeList(iSub,nodesOnSubDomainBoundary);
 
     // Its possible the previous functions will give the same node twice in two
     // different lists.  But this is ok.  Before we construct a node mapping we
     // will see if the node has already been mapped
+
+    for (int l = 0 ; l < refinedEdges[iSub]->size(); ++l) {
+
+      myNtoN[refinedEdges[iSub]->getPtr()[l][0]].insert(refinedEdges[iSub]->getPtr()[l][1]);
+      myNtoN[refinedEdges[iSub]->getPtr()[l][1]].insert(refinedEdges[iSub]->getPtr()[l][0]);
+    }
  
     int tmp; 
     while(1) {
  
       seed_node = -1;
-      while (!nodesOnSolidAndFront.empty() && seed_node < 0) {
-
-        tmp = *nodesOnSolidAndFront.begin();
-        nodesOnSolidAndFront.erase(nodesOnSolidAndFront.begin());
-        if (nodeMapping(iSub)[tmp] < 0) {
-          seed_node = tmp;
-        }
-      }
+      seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnSurfaceAndFront,
+                                           nodeMapping(iSub),iSub);
       
-      while (!nodesOnSolid.empty() && seed_node < 0) {
-
-        tmp = *nodesOnSolid.begin();
-        nodesOnSolid.erase(nodesOnSolid.begin());
-        if (nodeMapping(iSub)[tmp] < 0) {
-          seed_node = tmp;
-        }
+      if (seed_node < 0) {
+      
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnSurface,
+                                           nodeMapping(iSub),iSub);
       }
  
-      while (!nodesOnFarFieldAndFront.empty() && seed_node < 0) {
+      
+      if (seed_node < 0) {
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                             nodesOnSolidAndFront,
+                                             nodeMapping(iSub),iSub);
+      }
 
-        tmp = *nodesOnFarFieldAndFront.begin();
-        nodesOnFarFieldAndFront.erase(nodesOnFarFieldAndFront.begin());
-        if (nodeMapping(iSub)[tmp] < 0) {
-          seed_node = tmp;
-        }
+      if (seed_node < 0) {
+      
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnSolid,
+                                           nodeMapping(iSub),iSub);
+      }
+ 
+      if (seed_node < 0) {
+
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnFarFieldAndFront,
+                                           nodeMapping(iSub),iSub);
       }
       
-      while (!nodesOnFarField.empty() && seed_node < 0) {
+      if (seed_node < 0) {
 
-        tmp = *nodesOnFarField.begin();
-        nodesOnFarField.erase(nodesOnFarField.begin());
-        if (nodeMapping(iSub)[tmp] < 0) {
-          seed_node = tmp;
-        }
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnFarField,
+                                           nodeMapping(iSub),iSub);
       }
       
-      while (!nodesOnSubDomainBoundaryAndFront.empty() && seed_node < 0) {
+      if (seed_node < 0) {
+        
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnSubDomainBoundaryAndFront,
+                                           nodeMapping(iSub),iSub);
 
-        tmp = *nodesOnSubDomainBoundaryAndFront.begin();
-        nodesOnSubDomainBoundaryAndFront.erase(nodesOnSubDomainBoundaryAndFront.begin());
-        if (nodeMapping(iSub)[tmp] < 0) {
-          seed_node = tmp;
-        }
       }
       
-      while (!nodesOnSubDomainBoundary.empty() && seed_node < 0) {
+      if (seed_node < 0) {
 
-        tmp = *nodesOnSubDomainBoundary.begin();
-        nodesOnSubDomainBoundary.erase(nodesOnSubDomainBoundary.begin());
-        if (nodeMapping(iSub)[tmp] < 0) {
-          seed_node = tmp;
-        }
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnSubDomainBoundary,
+                                           nodeMapping(iSub),iSub);
       }
       
-      while (!nodesOnFront.empty() && seed_node < 0) {
+      if (seed_node < 0) {
 
-        tmp = *nodesOnFront.begin();
-        nodesOnFront.erase(nodesOnFront.begin());
-        if (nodeMapping(iSub)[tmp] < 0) {
-          seed_node = tmp;
-        }
+        seed_node = getNodeWithMostAgglomeratedNeighbors(myNtoN,//nToN[iSub],
+                                           nodesOnFront,
+                                           nodeMapping(iSub),iSub);
       }
-     
+  
       if (seed_node < 0)
         break; 
+
+      Topology currentTopology = (*nodeTopology)(iSub)[seed_node];
 
       std::vector<int> agglom;
       std::map<int,double> weights;
       agglom.reserve(8);
 
       agglom.push_back(seed_node);
-      std::set<int> agglomSubDs;
-      agglomSubDs.insert(subD.getGlobSubNum());
-      for (std::set<int>::iterator it = nodeSharedData[seed_node].begin();
-           it != nodeSharedData[seed_node].end(); ++it)
-        agglomSubDs.insert(*it);
 
-      const int current_node = seed_node;
-      //while(agglom.size() < 8) {
-      //  const int current_node=agglom.back();
-      double max_weight = 0.0;
-      std::set<int> valid_neighbors;
-      for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
-        const int neighbor = (*nToN[iSub])[current_node][n];
-        if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
-        bool ok = true;
-        bool has_new = false;
-        bool is_superset = true;
-        for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
-             it != nodeSharedData[neighbor].end(); ++it) {
-          
-          if (agglomSubDs.find(*it) == agglomSubDs.end()) {
+      double currentAgglomVolume = refinedVol(iSub)[seed_node];
 
-            has_new = true;
-            break;
+      if (currentTopology != TopoVertex) {
+
+        std::set<int> agglomSubDs;
+        agglomSubDs.insert(subD.getGlobSubNum());
+        for (std::set<int>::iterator it = nodeSharedData[seed_node].begin();
+             it != nodeSharedData[seed_node].end(); ++it)
+          agglomSubDs.insert(*it);
+
+        const int current_node = seed_node;
+        //while(agglom.size() < 8) {
+        //  const int current_node=agglom.back();
+        double max_weight = 0.0;
+        std::set<int> valid_neighbors;
+        Vec3D currentNormal;
+        std::map<int, Vec3D> neighboring_normal_sums;
+        std::map<int, Vec3D> neighboring_normal_sums_agg;
+        // std::map<int,Vec3D> myAggNormal1,myAggNormal2;
+        if (currentTopology == TopoFace)
+          currentNormal = (*topologyNormal)(iSub)[current_node];
+        for(std::set<int>::iterator s_it = myNtoN[current_node].begin(); 
+            s_it != myNtoN[current_node].end(); ++s_it) {
+          //int n = 0; n < nToN[iSub]->num(current_node); ++n) {
+          const int neighbor = *s_it;//(*nToN[iSub])[current_node][n];
+          if (neighbor == current_node)
+            continue;
+          if (neighbor < current_node) {
+            neighboring_normal_sums[neighbor] = 
+              refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
+            //myAggNormal1[neighbor] = -refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
+          } else {
+            neighboring_normal_sums[neighbor] = -
+              refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
+            //myAggNormal1[neighbor] = refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
           }
-        }
-
-        for (std::set<int>::iterator it = agglomSubDs.begin();
-             it != agglomSubDs.end(); ++it) {
-
-          if (nodeSharedData[neighbor].find(*it) == nodeSharedData[neighbor].end()) {
-
-            is_superset = false;
-            break;
+          if (nodeMapping(iSub)[neighbor] >= 0) {
+            if (neighbor < current_node) {
+              neighboring_normal_sums_agg[nodeMapping(iSub)[neighbor]] += 
+                refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
+           //   myAggNormal2[nodeMapping(iSub)[neighbor]] -= refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
+            }
+            else {
+              neighboring_normal_sums_agg[nodeMapping(iSub)[neighbor]] -=
+                refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
+             //   myAggNormal2[nodeMapping(iSub)[neighbor]] += refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
+            }
           }
-        }
-        if (has_new && !is_superset) continue;
-        max_weight = std::max(max_weight, refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm());
-      }
-        
-      for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
-        const int neighbor = (*nToN[iSub])[current_node][n];
-        if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
-        bool ok = true;
-        bool has_new = false;
-        bool is_superset = true;
-        for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
-             it != nodeSharedData[neighbor].end(); ++it) {
-          
-          if (agglomSubDs.find(*it) == agglomSubDs.end()) {
-
-            has_new = true;
-            break;
-          }
-        }
-
-        for (std::set<int>::iterator it = agglomSubDs.begin();
-             it != agglomSubDs.end(); ++it) {
-
-          if (nodeSharedData[neighbor].find(*it) == nodeSharedData[neighbor].end()) {
-
-            is_superset = false;
-            break;
-          }
-        }
-        if (has_new && !is_superset) continue;
-        const double beta = 0.0; // beta from Mavripilis' paper
-        if (beta*max_weight <  
-            refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm()) {
-            
-          agglom.push_back(neighbor);
-            
+          if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
+          bool ok = true;
+          bool has_new = false;
+          bool is_superset = true;
           for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
                it != nodeSharedData[neighbor].end(); ++it) {
-            agglomSubDs.insert(*it);
+          
+            if (agglomSubDs.find(*it) == agglomSubDs.end()) {
+
+              has_new = true;
+              break;
+            }
           }
 
+          for (std::set<int>::iterator it = agglomSubDs.begin();
+               it != agglomSubDs.end(); ++it) {
+
+            if (nodeSharedData[neighbor].find(*it) == nodeSharedData[neighbor].end()) {
+
+              is_superset = false;
+              break;
+            }
+          }
+          if (has_new && !is_superset) continue;
+          max_weight = std::max(max_weight, refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm());
+          //max_weight = std::max(max_weight, 1.0/refinedEdges[iSub]->viewEdgeLength()[refinedEdges[iSub]->findOnly(current_node, neighbor)]);
+        }
+        
+        for(std::set<int>::iterator s_it = myNtoN[current_node].begin(); 
+            s_it != myNtoN[current_node].end(); ++s_it) {
+          const int neighbor = *s_it;//(*nToN[iSub])[current_node][n];
+ 
+        /*for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
+          const int neighbor = (*nToN[iSub])[current_node][n];
+        */
+          if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
+
+          const Topology& Toth = (*nodeTopology)(iSub)[neighbor];
+          if (Toth == TopoVertex) continue;
+          if (currentTopology == TopoLine) {
+
+            if (Toth != TopoLine) continue;
+            if (fabs((*topologyNormal)(iSub)[current_node]*(*topologyNormal)(iSub)[neighbor]) < 
+                mesh_topology_threshold)
+              continue;
+            Vec3D a(parent->getXn()(iSub)[current_node][0]-parent->getXn()(iSub)[neighbor][0],
+                    parent->getXn()(iSub)[current_node][1]-parent->getXn()(iSub)[neighbor][1],
+                    parent->getXn()(iSub)[current_node][2]-parent->getXn()(iSub)[neighbor][2]);
+            a /= a.norm();
+            if (fabs(a*(*topologyNormal)(iSub)[current_node]) < mesh_topology_threshold)
+              continue;
+          } else if (Toth == TopoLine)
+            continue; 
+          else if (currentTopology == TopoFace) {
+
+            if (Toth == TopoFace) {
+ 
+              if (currentNormal*(*topologyNormal)(iSub)[neighbor] < mesh_topology_threshold)
+                continue;
+            }
+          } else { // currentTopology == TopoInterior
+
+            if (Toth == TopoFace) {
+
+              currentNormal = (*topologyNormal)(iSub)[neighbor];
+              currentTopology = TopoFace;
+            }
+          }
+
+          bool ok = true;
+          bool has_new = false;
+          bool is_superset = true;
+          for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
+               it != nodeSharedData[neighbor].end(); ++it) {
+          
+            if (agglomSubDs.find(*it) == agglomSubDs.end()) {
+
+              has_new = true;
+              break;
+            }
+          }
+
+          for (std::set<int>::iterator it = agglomSubDs.begin();
+               it != agglomSubDs.end(); ++it) {
+
+            if (nodeSharedData[neighbor].find(*it) == nodeSharedData[neighbor].end()) {
+
+              is_superset = false;
+              break;
+            }
+          }
+          if (has_new && !is_superset) continue;
+          if (beta*max_weight <  
+              refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm()) {
+        
+          //if (beta*max_weight < 1.0/refinedEdges[iSub]->viewEdgeLength()[refinedEdges[iSub]->findOnly(current_node, neighbor)]) {
+            bool encloses_node = false;
+            std::map<int,Vec3D> tmpSums;
+            for(std::set<int>::iterator s_it2 = myNtoN[neighbor].begin(); 
+               s_it2 != myNtoN[neighbor].end(); ++s_it2) {
+              //for(int np = 0; np < nToN[iSub]->num(neighbor); ++np) {
+
+              int n2 = *s_it2;//(*nToN[iSub])[neighbor][np];
+              if (neighbor == n2)
+                continue;
+              int k;
+              for (k = 0; k < agglom.size(); ++k) {
+                if (agglom[k] == n2) break;
+              }
+              if (n2 == current_node || k < agglom.size())
+                continue;
+              Vec3D a = neighboring_normal_sums[n2],
+                    b = refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(neighbor,n2)];
+              if (n2 < neighbor) {
+                if ((a+b).norm() < 1.0e-12)
+                  encloses_node = true;
+              } else  {
+                if ((a-b).norm() < 1.0e-12)
+                  encloses_node = true;
+              } 
+
+              if (nodeMapping(iSub)[n2] >= 0) {
+                a = neighboring_normal_sums_agg[nodeMapping(iSub)[n2]],
+                  b = refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(neighbor,n2)];
+                if (tmpSums.find(nodeMapping(iSub)[n2]) == tmpSums.end())
+                  tmpSums[nodeMapping(iSub)[n2]] = a;
+                if (n2 < neighbor) {
+                  tmpSums[nodeMapping(iSub)[n2]] += b;
+                } else  {
+                  tmpSums[nodeMapping(iSub)[n2]] -= b;
+                }
+              }
+            }
+            for (std::map<int,Vec3D>::iterator my_ts_it = tmpSums.begin();
+                 my_ts_it != tmpSums.end(); ++my_ts_it) {
+              if (my_ts_it->second.norm() < 1.0e-12)
+                encloses_node = true;
+            }
+            if (encloses_node)
+              continue;
+            for(std::set<int>::iterator s_it2 = myNtoN[neighbor].begin(); 
+               s_it2 != myNtoN[neighbor].end(); ++s_it2) {
+ //           for(int np = 0; np < nToN[iSub]->num(neighbor); ++np) {
+
+              int n2 = *s_it2;//(*nToN[iSub])[neighbor][np];
+              if (neighbor == n2)
+                continue;
+              int k;
+              for (k = 0; k < agglom.size(); ++k) {
+                if (agglom[k] == n2) break;
+              }
+              if (n2 == current_node || k < agglom.size())
+                continue;
+              Vec3D& a = neighboring_normal_sums[n2],
+                     b = refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(neighbor,n2)];
+              if (n2 < neighbor) {
+                a += b;
+              } else {
+                a -= b; 
+              } 
+ 
+              if (nodeMapping(iSub)[n2] >= 0) {
+                Vec3D& ap = neighboring_normal_sums_agg[nodeMapping(iSub)[n2]],
+                  bp = refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(neighbor,n2)];
+                if (n2 < neighbor) {
+                  ap += bp;
+                } else  {
+                  ap -= bp;
+                }
+              }
+ 
+            }
+           
+            if ((currentAgglomVolume+refinedVol(iSub)[neighbor]) > 
+                getTotalMeshVolume()/250.0) {
+
+              continue;
+            }
+            currentAgglomVolume += refinedVol(iSub)[neighbor];
+            
+            agglom.push_back(neighbor);
+            
+            for (std::set<int>::iterator it = nodeSharedData[neighbor].begin();
+                 it != nodeSharedData[neighbor].end(); ++it) {
+              agglomSubDs.insert(*it);
+            }
+           
+          }
+          
         }
       }
-        /*int node_to_add = -1;
-        double node_weight = -FLT_MAX;
-        for(std::map<int,double>::const_iterator iter=weights.begin(); iter != weights.end(); iter++) {
-          if(iter->second > node_weight) {
-            node_to_add = iter->first;
-            node_weight = iter->second;
-          }
-        }
-        if(node_to_add != -1) {
-          weights.erase(node_to_add);
-          agglom.push_back(node_to_add);
-          for (std::set<int>::iterator it = nodeSharedData[node_to_add].begin();
-               it != nodeSharedData[node_to_add].end(); ++it) {
-            agglomSubDs.insert(*it);
-          }
-        } else break;
-        */
-
       int j = 0;
       bool isLine = true;
+
       for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end(); iter++,++j) {
         const int current_node = *iter;
         //nodeMapping(iSub)[current_node] = agglom_id;
-        for(int n = 0; n < nToN[iSub]->num(current_node) && isLine; ++n) {
-          const int neighbor = (*nToN[iSub])[current_node][n];
+        for(std::set<int>::iterator s_it = myNtoN[current_node].begin(); 
+            s_it != myNtoN[current_node].end() && isLine; ++s_it) {
+//        for(int n = 0; n < nToN[iSub]->num(current_node) && isLine; ++n) {
+          const int neighbor = *s_it;//(*nToN[iSub])[current_node][n];
           if (current_node == neighbor) continue;
   
           for (int k = 0; k < agglom.size(); ++k) {
@@ -1080,21 +1400,23 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
             }
           }
         }
-        
-
+   
         nodeMapping(iSub)[*iter] = agglom_id;
       }
         
       for(std::vector<int>::const_iterator iter = agglom.begin(); iter != agglom.end(); iter++) {
         const int current_node = *iter;
-        for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
-          const int neighbor = (*nToN[iSub])[current_node][n];
+        for(std::set<int>::iterator s_it = myNtoN[current_node].begin(); 
+            s_it != myNtoN[current_node].end(); ++s_it) {
+        //for(int n = 0; n < nToN[iSub]->num(current_node); ++n) {
+          const int neighbor = *s_it;//(*nToN[iSub])[current_node][n];
           if (nodeMapping(iSub)[neighbor] < 0) {
 
-            if (domain.getSubDomain()[iSub]->getGlobSubNum() == 5 &&
-                neighbor == 488)
-              std::cout << "Hello" << std::endl;
-            if (nodesOnSolid.find(neighbor) != nodesOnSolid.end()) {
+            if (nodesOnSurface.find(neighbor) != nodesOnSurface.end()) {
+
+              nodesOnSurface.erase(nodesOnSurface.find(neighbor));
+              nodesOnSurfaceAndFront.insert(neighbor);
+            } else if (nodesOnSolid.find(neighbor) != nodesOnSolid.end()) {
 
               nodesOnSolid.erase(nodesOnSolid.find(neighbor));
               nodesOnSolidAndFront.insert(neighbor);
@@ -1157,7 +1479,6 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   }
 // ------------------------- MPI PARALLEL CRAP -----------------------------------------------------------------
   DistVec<int> ownerSubDomain(refinedNodeDistInfo);
-  operMax<int> maxOp;
 
   maxNodesPerSubD = 0;
   for(int iSub = 0; iSub < numLocSub; ++iSub) maxNodesPerSubD = max(maxNodesPerSubD, nodeMapping(iSub).size());
@@ -1180,14 +1501,14 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   ::assemble(domain, refinedNodeIdPattern, refinedSharedNodes, ownerSubDomain, maxOp);
   ::assemble(domain, refinedNodeIdPattern, refinedSharedNodes, nodeMapping, maxOp);
-  
+ 
+  toTransfer = new std::map<int,std::set<int> >[numLocSub]; 
   std::set<int> globNodeIds;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     SubDomain& subD(*domain.getSubDomain()[iSub]);
     Connectivity& rSharedNodes(*refinedSharedNodes[iSub]);
 
-    std::map<int,std::set<int> > toTransfer;
     std::map<int,std::map<int,int> > newlyInsertedNodes;
     std::map<int,int> newNodeIds;
 
@@ -1198,12 +1519,12 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         assert(nodeMapping(iSub)[index] >= 0);
         const int uniqueNodeID = ownerSubDomain(iSub)[index] * maxNodesPerSubD + nodeMapping(iSub)[index];
         if(refinedNodeDistInfo.getMasterFlag(iSub)[index]) {
-          toTransfer[jSub].insert(nodeMapping(iSub)[index]);
+          toTransfer[iSub][jSub].insert(nodeMapping(iSub)[index]);
           newlyInsertedNodes[jSub][uniqueNodeID] = nodeMapping(iSub)[index];
         } else {
           if(newNodeIds.find(uniqueNodeID) == newNodeIds.end())
             newNodeIds[uniqueNodeID] = numNodes[iSub]++;
-          toTransfer[jSub].insert(newNodeIds[uniqueNodeID]);
+          toTransfer[iSub][jSub].insert(newNodeIds[uniqueNodeID]);
           newlyInsertedNodes[jSub][uniqueNodeID] = newNodeIds[uniqueNodeID];
         }
       }
@@ -1219,7 +1540,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         locToGlobMap[iSub][nodeMapping(iSub)[i]] = uniqueNodeID;
     }
 
-    for(std::map<int,std::set<int> >::const_iterator iter=toTransfer.begin(); iter != toTransfer.end(); ++iter) {
+    for(std::map<int,std::set<int> >::const_iterator iter=toTransfer[iSub].begin(); iter != toTransfer[iSub].end(); ++iter) {
       numNeighbors[iter->first] = iter->second.size();
       nodeIdPattern->setLen(subD.getSndChannel()[iter->first],iter->second.size());
       nodeIdPattern->setLen(subD.getRcvChannel()[iter->first],iter->second.size());
@@ -1452,6 +1773,10 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   edge_areas = 0.0;
   edgeNormals = &myGeoState->getEdgeNormal();//new DistVec<Vec3D>(*edgeDistInfo);  
   *edgeNormals = Vec3D(0.0);
+
+  globalFaceNormals = new DistSVec<double,3>(*nodeDistInfo);
+  *globalFaceNormals = 0.0;
+
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
 
@@ -1532,6 +1857,10 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   operAdd<double> addOp;
   ::assemble(domain, *nodeVolPattern, sharedNodes, *ctrlVol, addOp);
+
+  coarseNodeTopology = new DistVec<Topology>(*nodeDistInfo);
+
+  coarseTopologyNormal = new DistVec<Vec3D>(*nodeDistInfo);
  
   Xn = &myGeoState->getXn();//new DistSVec<double,3>(*nodeDistInfo); 
   *Xn = 0.0;
@@ -1553,6 +1882,10 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     mapNodeList(iSub,nodesOnSubDomainBoundary);
  
     std::set<int>* myBoundaryNodes = new std::set<int>[(*Xn)(iSub).size()];
+    Topology* newTopo = &(*coarseNodeTopology)(iSub)[0];
+    memset(newTopo,0,sizeof(Topology)*(*Xn)(iSub).size());
+    for (int i = 0; i < (*Xn)(iSub).size(); ++i)
+      newTopo[i] = TopoInterior;
     double* coarseVol = new double[(*Xn)(iSub).size()];
     memset(coarseVol,0,sizeof(double)*(*Xn)(iSub).size());
     for(int i = 0; i < refinedVol(iSub).size(); ++i) {
@@ -1563,11 +1896,26 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
           nodesOnFarField.find(i) != nodesOnFarField.end()) {
         myBoundaryNodes[coarseIndex].insert(i);
       }
+      if ((*nodeTopology)(iSub)[i] == TopoFace) {
+        newTopo[coarseIndex] = TopoFace; 
+        (*coarseTopologyNormal)(iSub)[coarseIndex] = (*topologyNormal)(iSub)[i];
+      }
+      else if ((*nodeTopology)(iSub)[i] == TopoVertex) {
+        newTopo[coarseIndex] = TopoVertex;
+        (*coarseTopologyNormal)(iSub)[coarseIndex] = (*topologyNormal)(iSub)[i];
+      }
+      else if ((*nodeTopology)(iSub)[i] == TopoLine) {
+        newTopo[coarseIndex] = TopoLine;
+        (*coarseTopologyNormal)(iSub)[coarseIndex] = (*topologyNormal)(iSub)[i];
+      }
     }
 
     for(int i = 0; i < refinedVol(iSub).size(); ++i) {
       const int coarseIndex = nodeMapping(iSub)[i];
       if (!refinedNodeDistInfo.getMasterFlag(iSub)[i])
+        continue;
+      if (newTopo[coarseIndex] == TopoFace &&
+          (*nodeTopology)(iSub)[i] != TopoFace)
         continue;
       if (myBoundaryNodes[coarseIndex].empty() ||
           myBoundaryNodes[coarseIndex].find(i) != myBoundaryNodes[coarseIndex].end()) {
@@ -1611,10 +1959,320 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     for (int i = 0; i < faces[iSub]->size(); ++i) {
 
       (*faces[iSub])[i].computeNormal((*Xn)(iSub), myGeoState->getFaceNormal()(iSub)[i]);
+    
     }
   }
 
   myGeoState->getFaceNorVel() = 0.0;
+
+  agglomeratedFaces = new AgglomeratedFaceSet*[numLocSub]; 
+  // Construct the agglomerated faces
+  if (!parent->agglomeratedFaces) {
+
+    typedef std::map<std::pair<int,int>, AgglomeratedFace> AggFaces;
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      AggFaces myNewFaces;
+      for (int i = 0; i < parent->faces[iSub]->size(); ++i) {
+
+        Face& F = (*parent->faces[iSub])[i];
+        int code = F.getCode();
+        for (int j = 0; j < F.numNodes(); ++j) {
+
+          int node = nodeMapping(iSub)[F[j]];
+          AggFaces::iterator itr = myNewFaces.find(std::pair<int,int>(node,code));
+          Vec3D n = F.getNormal(parent->myGeoState->getFaceNormal()(iSub),j);
+          for (int k = 0; k < 3; ++k)
+            (*globalFaceNormals)(iSub)[node][k] += n[k];
+          if (itr != myNewFaces.end()) {
+
+            (itr->second).getNormal() += n;
+          } else {
+
+            AgglomeratedFace A(node,code);
+            A.getNormal() += n;
+            myNewFaces[std::pair<int,int>(node,code)] = A;
+          }
+        }
+      }
+
+      agglomeratedFaces[iSub] = new AgglomeratedFaceSet(myNewFaces.size());
+      agglomFaceDistInfo->setLen(iSub, myNewFaces.size());
+      int i = 0;
+      for (AggFaces::iterator it = myNewFaces.begin();
+           it != myNewFaces.end(); ++it) {
+
+        agglomeratedFaces[iSub]->operator[](i) = it->second;
+        ++i;
+      }
+    }
+  } else {
+    typedef std::map<std::pair<int,int>, AgglomeratedFace> AggFaces;
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      AggFaces myNewFaces;
+      for (int i = 0; i < parent->agglomeratedFaces[iSub]->size(); ++i) {
+
+        AgglomeratedFace& F = (*parent->agglomeratedFaces[iSub])[i];
+        int code = F.getCode();
+
+        int node = nodeMapping(iSub)[F.getNode()];
+        AggFaces::iterator itr = myNewFaces.find(std::pair<int,int>(node,code));
+        Vec3D n = F.getNormal();
+        for (int k = 0; k < 3; ++k) 
+          (*globalFaceNormals)(iSub)[node][k] += n[k];
+        if (itr != myNewFaces.end()) {
+
+          (itr->second).getNormal() += n;
+        } else {
+
+          AgglomeratedFace A(node,code);
+          A.getNormal() += n;
+          myNewFaces[std::pair<int,int>(node,code)] = A;
+        }
+      }
+
+      agglomeratedFaces[iSub] = new AgglomeratedFaceSet(myNewFaces.size());
+      agglomFaceDistInfo->setLen(iSub, myNewFaces.size());
+      int i = 0;
+      for (AggFaces::iterator it = myNewFaces.begin();
+           it != myNewFaces.end(); ++it) {
+
+        agglomeratedFaces[iSub]->operator[](i) = it->second;
+        ++i;
+      }
+    } 
+  }
+
+  agglomFaceDistInfo->finalize(true);
+  
+  ::assemble(domain, *nodePosnPattern, sharedNodes, *globalFaceNormals, addOp2);
+   
+  setNodeType(); 
+}
+
+template<class Scalar>
+template<int dim>
+void MultiGridLevel<Scalar>::setupBcs(DistBcData<dim>& fineBcData, DistBcData<dim>& coarseBcData,
+                                      DistSVec<Scalar,dim>& boundaryState) {
+
+  Restrict(*parent, fineBcData.getUfarin(), coarseBcData.getUfarin());
+  Restrict(*parent, fineBcData.getUfarout(), coarseBcData.getUfarout());
+  Restrict(*parent, fineBcData.getNodeStateVector(), 
+           coarseBcData.getNodeStateVector());
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+
+    for (int i=0; i<faces[iSub]->size(); ++i) 
+      (*faces[iSub])[i].template assignFreeStreamValues2<dim>(coarseBcData.getUfarin(),
+                                                     coarseBcData.getUfarout() ,
+                                                     coarseBcData.getFaceStateVector()(iSub)[i]);
+    for (int i=0; i<agglomeratedFaces[iSub]->size(); ++i) 
+      (*agglomeratedFaces[iSub])[i].template assignFreeStreamValues2<dim>(coarseBcData.getUfarin(),
+                                                     coarseBcData.getUfarout() ,
+                                                     boundaryState(iSub)[i]);
+ 
+  }  
+}
+
+template<class Scalar>
+void MultiGridLevel<Scalar>::setNodeType() {
+
+  int* bcpriority = reinterpret_cast<int *>(alloca(sizeof(int) * (BC_MAX_CODE - BC_MIN_CODE + 1)));
+  bcpriority -= BC_MIN_CODE;
+
+  bcpriority[BC_ADIABATIC_WALL_MOVING ] = 10;
+  bcpriority[BC_ISOTHERMAL_WALL_MOVING] =  9;
+  bcpriority[BC_SLIP_WALL_MOVING      ] =  8;
+  bcpriority[BC_INLET_MOVING          ] =  7;
+  bcpriority[BC_OUTLET_MOVING         ] =  6;
+  bcpriority[BC_ADIABATIC_WALL_FIXED  ] =  5;
+  bcpriority[BC_ISOTHERMAL_WALL_FIXED ] =  4;
+  bcpriority[BC_SLIP_WALL_FIXED       ] =  3;
+  bcpriority[BC_INLET_FIXED           ] =  2;
+  bcpriority[BC_OUTLET_FIXED          ] =  1;
+  bcpriority[BC_SYMMETRY              ] =  0;
+  bcpriority[BC_INTERNAL              ] = -1;
+
+  nodeType = new int*[numLocSub];
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    nodeType[iSub] = new int[nodeDistInfo->subSize(iSub)];
+    for (int i = 0; i < nodeDistInfo->subSize(iSub); ++i) {
+      nodeType[iSub][i] = BC_INTERNAL;
+    }
+    
+    for (int i = 0; i < agglomeratedFaces[iSub]->size(); ++i)
+      (*agglomeratedFaces[iSub])[i].setNodeType(bcpriority, nodeType[iSub]);
+
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<int> nInfo = nodeIdPattern->getSendBuffer(subD.getSndChannel()[jSub]);
+      for (int i = 0; i < sharedNodes[iSub]->num(jSub); ++i)
+        nInfo.data[i] = nodeType[iSub][ (*sharedNodes[iSub])[jSub][i] ];
+    }
+ 
+  }
+
+  nodeIdPattern->exchange();
+   
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int jSub = 0; jSub < subD.getNumNeighb(); ++jSub) {
+      SubRecInfo<int> nInfo = nodeIdPattern->recData(subD.getRcvChannel()[jSub]);
+      for (int i = 0; i < sharedNodes[iSub]->num(jSub); ++i)
+        if (bcpriority[ nInfo.data[i] ] > bcpriority[ nodeType[iSub][ (*sharedNodes[iSub])[jSub][i] ] ])
+          nodeType[iSub][ (*sharedNodes[iSub])[jSub][i] ] = nInfo.data[i];
+    }
+
+  }   
+
+}
+
+template<class Scalar>
+void MultiGridLevel<Scalar>::computeNodeNormalClasses() {
+
+  if (parent->coarseNodeTopology) {
+    nodeTopology = parent->coarseNodeTopology;
+    topologyNormal = new DistVec<Vec3D>(*parent->nodeDistInfo);
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+      for (int i = 0; i < parent->nodeMapping(iSub).size(); ++i) {
+
+        if ((*parent->nodeTopology)(iSub)[i] != TopoInterior) {
+
+          (*topologyNormal)(iSub)[parent->nodeMapping(iSub)[i]] = 
+            (*parent->topologyNormal)(iSub)[i];
+        }
+      }
+    }
+    return;
+  }
+
+  nodeNormalCount = new DistVec<int>(parent->getNodeDistInfo());
+  *nodeNormalCount = 0;
+
+#pragma omp parallel for 
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    for (int i = 0; i < parent->faces[iSub]->size(); ++i) {
+
+      Face& F = (*parent->faces[iSub])[i];
+      for (int j = 0; j < F.numNodes(); ++j) {
+
+        int nd = F[j];
+        ++(*nodeNormalCount)(iSub)[nd];
+      }
+    }
+  }
+
+  operAdd<int> addOp;
+  ::assemble(domain, *parent->nodeIdPattern, parent->sharedNodes, 
+             *nodeNormalCount, addOp);
+  
+  int maxNodeAdj = nodeNormalCount->max();
+  nodeNormalsPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+
+#pragma omp parallel for 
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    SubDomain& subD(*domain.getSubDomain()[iSub]);
+    for (int ch = 0; ch < parent->nodeVolPattern->numCh(); ++ch) {
+
+      nodeNormalsPattern->setLen(ch,parent->nodeVolPattern->getLen(ch) *3*maxNodeAdj);
+    }
+  }
+
+  nodeNormalsPattern->finalize();
+
+  int myrank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  nodeNormals = new std::list<Vec3D>*[numLocSub];
+#pragma omp parallel for 
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    nodeNormals[iSub] = new std::list<Vec3D>[parent->getXn()(iSub).size()];
+    for (int i = 0; i < parent->faces[iSub]->size(); ++i) {
+
+      Face& F = (*parent->faces[iSub])[i];
+      Vec3D N;
+      F.computeNormal(parent->getXn()(iSub),N);
+      for (int j = 0; j < F.numNodes(); ++j) {
+
+        int nd = F[j];
+        nodeNormals[iSub][nd].push_back(N);
+      }
+    }
+  }
+ 
+  ::assemble(domain, *nodeNormalsPattern,  parent->sharedNodes,
+             nodeNormals,maxNodeAdj);
+
+  double costh_cutoff = mesh_topology_threshold;
+
+  nodeTopology = new DistVec<Topology>(*parent->nodeDistInfo);
+  topologyNormal = new DistVec<Vec3D>(*parent->nodeDistInfo);
+#pragma omp parallel for 
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    Vec<Topology>& T = (*nodeTopology)(iSub);
+    for (int i = 0; i < T.size(); ++i) {
+
+      std::list<Vec3D>& L = nodeNormals[iSub][i];
+      int lsize = L.size();
+      if (lsize == 0) {
+        T[i] = TopoInterior;
+        continue;
+      }
+      std::list<Vec3D> class_list;
+      
+      for (std::list<Vec3D>::iterator itr = L.begin(); itr != L.end(); 
+           ++itr) {
+        Vec3D& a = *itr;
+        bool classified = false;
+        for (std::list<Vec3D>::iterator itrc = class_list.begin(); 
+             itrc != class_list.end(); ++itrc) {
+ 
+          Vec3D& b = *itrc;
+          if (a*b / (a.norm()*b.norm()) > costh_cutoff) {
+
+            classified = true;
+            break;
+          }
+        }
+        if (!classified)
+          class_list.push_back(a);
+      }
+      if (class_list.size() == 2 )
+        T[i] = TopoLine;
+      else if (class_list.size() > 2)
+        T[i] = TopoVertex;
+      else
+        T[i] = TopoFace;
+
+      if (T[i] == TopoLine) {
+        Vec3D& a = *class_list.begin();
+        Vec3D& b = *++class_list.begin();
+        Vec3D no = a^b;
+        no /= no.norm();
+        (*topologyNormal)(iSub)[i] = no;
+      } else if (T[i] == TopoFace) {
+        Vec3D no(0,0,0);
+        for (std::list<Vec3D>::iterator itr = L.begin(); itr != L.end();
+             ++itr) {
+          
+          no += *itr;
+        }
+        no /= no.norm();
+        (*topologyNormal)(iSub)[i] = no; 
+      }
+    }
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -1682,7 +2340,10 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistGeoState& ref
 template<class Scalar> template<class Scalar2, int dim>
 void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData) const
 {
-  coarseData *= 0.0;
+  coarseData = 0.0;
+  int rank,size;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(MPI_COMM_WORLD,&size);
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i)  {
@@ -1710,7 +2371,7 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 template<class Scalar> template<class Scalar2>
 void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistVec<Scalar2>& fineData, DistVec<Scalar2>& coarseData) const
 {
-  coarseData *= 0.0;
+  coarseData = 0.0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i)
@@ -1735,7 +2396,7 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 template<class Scalar> template<class Scalar2, int dim>
 void MultiGridLevel<Scalar>::RestrictFaceVector(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData) const
 {
-  coarseData *= 0.0;
+  coarseData = 0.0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i)  {
@@ -1828,7 +2489,7 @@ void MultiGridLevel<Scalar>::RestrictOperator(const MultiGridLevel<Scalar>& fine
 
 template<class Scalar> template<class Scalar2, int dim>
 void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
-                                     const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData) const
+                                     const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,double relax_factor) const
 {
 
 #pragma omp parallel for
@@ -1841,11 +2502,53 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
         }
       } else {
         for(int j = 0; j < dim; ++j) {
-          fineData(iSub)[i][j] += (coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
+          fineData(iSub)[i][j] += relax_factor*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
         }
       }
     }
   }
+}
+
+template <class Scalar>
+template<class Scalar2, int dim>
+void MultiGridLevel<Scalar>::
+ProjectResidual(DistSVec<Scalar2,dim>& r) const {
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    for(int i = 0; i < r(iSub).size(); ++i) {
+  
+      Topology myTopo = (*coarseNodeTopology)(iSub)[i];
+      Vec3D topoNormal = (*coarseTopologyNormal)(iSub)[i];
+      switch (nodeType[iSub][i]) {
+
+        case BC_ADIABATIC_WALL_MOVING:
+        case BC_ADIABATIC_WALL_FIXED:
+        case BC_SLIP_WALL_MOVING:
+        case BC_SLIP_WALL_FIXED:
+        case BC_ISOTHERMAL_WALL_MOVING:
+        case BC_ISOTHERMAL_WALL_FIXED:
+        case BC_SYMMETRY: {
+
+          double* pr = r(iSub)[i];
+          double cmp = pr[1]*topoNormal[0]+pr[2]*topoNormal[1]+pr[3]*topoNormal[2];
+          if (myTopo == TopoFace) {
+ 
+            pr[1] -= cmp*topoNormal[0];
+            pr[2] -= cmp*topoNormal[1];
+            pr[3] -= cmp*topoNormal[2];
+          } else if (myTopo == TopoLine) {
+            pr[1] = cmp*topoNormal[0];
+            pr[2] = cmp*topoNormal[1];
+            pr[3] = cmp*topoNormal[2];
+          }
+        }
+        default:
+          break;
+      }          
+    }
+  }  
 }
 
 //------------------------------------------------------------------------------
@@ -1965,13 +2668,491 @@ void MultiGridLevel<Scalar>::computeMatVecProd(DistMat<Scalar2,dim>& mat,
   ::assemble(domain, *nodeVecPattern, sharedNodes, prod, addOp,&locToGlobMap);
 }
 
+template <class Scalar>
+template <class Scalar2,int dim>
+void MultiGridLevel<Scalar>::computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
+                               DistSVec<Scalar2,dim>& dX,
+                               DistSVec<Scalar2,dim>& dY,
+                               DistSVec<Scalar2,dim>& dZ) {
+  dX = dY = dZ = 0.0;
+#pragma omp parallel for 
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+ 
+    bool* edgeFlag = edges[iSub]->getMasterFlag();
+    int (*edgePtr)[2] = edges[iSub]->getPtr();
+    for (int l = 0; l < edges[iSub]->size(); ++l) {
+
+      if (!edgeFlag[l])
+        continue;
+
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      for (int k = 0; k < dim; ++k) {
+        dX(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][0];
+        dY(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][1];
+        dZ(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][2];
+        
+        dX(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][0];
+        dY(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][1];
+        dZ(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][2];
+      }
+    }
+
+    for (int i = 0; i < agglomeratedFaces[iSub]->size(); ++i) {
+
+      int nd = (*agglomeratedFaces[iSub])[i].getNode();
+      for (int k = 0; k < dim; ++k) {
+        dX(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[0];
+        dY(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[1];
+        dZ(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[2];
+      }
+    }
+  }
+  assemble(dX); 
+  assemble(dY); 
+  assemble(dZ);
+
+#pragma omp parallel for 
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+    for (int i = 0; i < V(iSub).size(); ++i) {
+
+      double invvol = 1.0/getCtrlVol()(iSub)[i];
+      for (int k = 0; k < dim; ++k) {
+        dX(iSub)[i][k] *= invvol;
+        dY(iSub)[i][k] *= invvol;
+        dZ(iSub)[i][k] *= invvol;
+      }
+    }
+  }   
+}
+
+
+template<class Scalar>
+void MultiGridLevel<Scalar>::writePVTUFile(const char* filename) {
+
+  int rank,size;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(MPI_COMM_WORLD,&size);
+  if (rank == 0) {
+    std::ofstream pvtufile((std::string(filename)+".pvtu").c_str());
+    pvtufile << "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    pvtufile << "\t<PUnstructuredGrid GhostLevel=\"0\">\n";
+    pvtufile << "\t\t<PPoints>\n";
+    pvtufile << "\t\t<PDataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"appended\"/>\n";
+    pvtufile << "\t\t</PPoints>\n";
+    for (int i = 0; i < size; ++i)
+      pvtufile << "<Piece Source=\"" << filename << i << ".vtu\"/>\n";
+    pvtufile << "</PUnstructuredGrid> </VTKFile>\n";
+  }
+
+  char nfname[256];
+  sprintf(nfname,"%s%d.vtu",filename,rank);
+  std::ofstream vtufile(nfname);
+  int numPoints = 0,numCells = 0;
+  DistSVec<double,3>& X = getXn();
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    numPoints += X(iSub).size();
+    numCells += faces[iSub]->size();
+  }
+  
+  vtufile << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+  vtufile << "<UnstructuredGrid>";
+  vtufile << "<Piece NumberOfPoints=\"" << numPoints << "\" NumberOfCells=\"" << numCells << "\">" << std::endl;
+  vtufile << "<Points> <DataArray type=\"Float32\" NumberOfComponents=\"3\" Format=\"ascii\">\n";
+  int locOffsets[512];
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    for (int i = 0; i < X(iSub).size(); ++i) {
+
+      vtufile << X(iSub)[i][0] << " " << X(iSub)[i][1] << " " << X(iSub)[i][2] << "\n";
+    }
+    if (iSub > 0)
+      locOffsets[iSub] = locOffsets[iSub-1] + X(iSub-1).size();
+    else
+      locOffsets[iSub] = 0;
+  }
+
+  vtufile << "</DataArray>  </Points>\n";
+
+  vtufile << "<Cells> <DataArray type=\"Int32\" Name=\"connectivity\" Format=\"ascii\">\n";
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    for (int i = 0; i < faces[iSub]->size(); ++i) {
+
+      Face& F = (*faces[iSub])[i];
+      vtufile << F[0]+locOffsets[iSub] << " " << F[1]+locOffsets[iSub]  << " " << F[2]+locOffsets[iSub] << "\n";
+    }
+  }
+  vtufile << "</DataArray> <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">";
+  int idx = 0;
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) { 
+    for (int i = 0; i < faces[iSub]->size(); ++i,++idx) { 
+      vtufile << idx*3+3 << " ";
+    }
+  }
+  vtufile << "</DataArray> <DataArray type=\"Int32\" Name=\"types\" Format=\"ascii\">\n";
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) { 
+    for (int i = 0; i < faces[iSub]->size(); ++i) { 
+      vtufile << 5 << " ";
+    }
+  }
+
+  vtufile << "</DataArray>      </Cells>    </Piece>  </UnstructuredGrid></VTKFile>\n";
+
+}
+
+template<class Scalar>
+void MultiGridLevel<Scalar>::writePVTUAgglomerationFile(const char* filename) {
+
+  int rank,size;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(MPI_COMM_WORLD,&size);
+  if (rank == 0) {
+    std::ofstream pvtufile((std::string(filename)+".pvtu").c_str());
+    pvtufile << "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    pvtufile << "\t<PUnstructuredGrid GhostLevel=\"0\">\n";
+    pvtufile << "\t\t<PPoints>\n";
+    pvtufile << "\t\t<PDataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"appended\"/>\n";
+    pvtufile << "\t\t</PPoints>\n";
+    for (int i = 0; i < size; ++i)
+      pvtufile << "<Piece Source=\"" << filename << i << ".vtu\"/>\n";
+    pvtufile << "</PUnstructuredGrid> </VTKFile>\n";
+  }
+
+  char nfname[256];
+  sprintf(nfname,"%s%d.vtu",filename,rank);
+  std::ofstream vtufile(nfname);
+  int numPoints = 0,numCells = 0;
+  DistSVec<double,3>& X = getXn();
+  typedef std::map<std::pair<int,int>,int> EdgePointMap;
+  EdgePointMap* edgePoints = new EdgePointMap[numLocSub];
+  MultiGridLevel* finestLevel = getFinestLevel();
+  std::vector<Vec3D> points;
+  std::vector<std::pair<int,int> > outEdges;
+  DistSVec<double,3>& Xf = finestLevel->getXn();
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    EdgeSet* E = finestLevel->edges[iSub];
+    for (int i = 0; i < E->size(); ++i) {
+
+      int I = mapFineToCoarse(iSub, E->getPtr()[i][0]);
+      int J = mapFineToCoarse(iSub, E->getPtr()[i][1]);
+      DistVec<Topology>* nt = getFinestTopology();
+      if ((*nt)(iSub)[E->getPtr()[i][0]] == TopoInterior ||
+          (*nt)(iSub)[E->getPtr()[i][1]] == TopoInterior)
+        continue;
+      if (I != J) {
+
+        int tmp;
+        I = E->getPtr()[i][0];
+        J = E->getPtr()[i][1];
+        if (I > J) { tmp = I; I = J; J = tmp; }
+        edgePoints[iSub][std::pair<int,int>(I,J)] = points.size();
+        Vec3D r = 0.0;
+        for (int k = 0; k < 3; ++k)
+          r[k] = Xf(iSub)[E->getPtr()[i][0]][k] + Xf(iSub)[E->getPtr()[i][1]][k];
+        points.push_back(0.5*r);
+      }
+    }
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    FaceSet& F = *finestLevel->faces[iSub];
+    for (int i = 0; i < F.size(); ++i) {
+
+      int I = mapFineToCoarse(iSub, F[i][0]);
+      int J = mapFineToCoarse(iSub, F[i][1]);
+      int K = mapFineToCoarse(iSub, F[i][2]);
+      if (I == J && J == K) continue;
+
+      Vec3D r = 0.0;
+      for (int l = 0; l < 3; ++l)
+        for (int k = 0; k < 3; ++k)
+          r[k] += Xf(iSub)[F[i][l]][k]/3.0;
+      
+      int Ip = F[i][0];
+      int Jp = F[i][1];
+      int Kp = F[i][2];
+     
+      int tmp;
+      if (Ip > Jp) { tmp = Ip; Ip = Jp; Jp = tmp;  tmp = I; I = J; J = tmp; }
+      if (Jp > Kp) { tmp = Jp; Jp = Kp; Kp = tmp;   tmp = J; J = K; K = tmp;}
+      if (Ip > Jp) { tmp = Ip; Ip = Jp; Jp = tmp;   tmp = I; I = J; J = tmp;}
+      
+      if (I != J) {
+
+        outEdges.push_back(std::pair<int,int>(edgePoints[iSub][std::pair<int,int>(Ip,Jp)],
+                                              points.size()));
+      }
+      if (J != K) {
+
+        outEdges.push_back(std::pair<int,int>(edgePoints[iSub][std::pair<int,int>(Jp,Kp)],
+                                              points.size()));
+      }
+      if (I != K) {
+
+        outEdges.push_back(std::pair<int,int>(edgePoints[iSub][std::pair<int,int>(Ip,Kp)],
+                                              points.size()));
+      }
+      points.push_back(r);
+    }
+  } 
+/*
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    numPoints += X(iSub).size();
+    numCells += faces[iSub]->size();
+  }
+  */
+  numPoints = points.size();
+  numCells = outEdges.size();
+  vtufile << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+  vtufile << "<UnstructuredGrid>";
+  vtufile << "<Piece NumberOfPoints=\"" << numPoints << "\" NumberOfCells=\"" << numCells << "\">" << std::endl;
+  vtufile << "<Points> <DataArray type=\"Float32\" NumberOfComponents=\"3\" Format=\"ascii\">\n";
+  for (int i = 0; i < points.size(); ++i) {
+
+    vtufile << points[i][0] << " " << points[i][1] << " " << points[i][2] << "\n";
+  }
+  
+  vtufile << "</DataArray>  </Points>\n";
+
+  vtufile << "<Cells> <DataArray type=\"Int32\" Name=\"connectivity\" Format=\"ascii\">\n";
+  for (int i = 0; i < outEdges.size(); ++i) {
+
+    vtufile << outEdges[i].first << " " << outEdges[i].second << "\n";
+  }
+  vtufile << "</DataArray> <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">";
+  int idx = 0;
+  for (int i = 0; i < outEdges.size(); ++i) { 
+    vtufile << i*2+2 << " "; 
+  }
+  vtufile << "</DataArray> <DataArray type=\"Int32\" Name=\"types\" Format=\"ascii\">\n";
+  for (int i = 0; i < outEdges.size(); ++i) { 
+    vtufile << 3 << " ";
+  }
+
+  vtufile << "</DataArray>      </Cells>    </Piece>  </UnstructuredGrid></VTKFile>\n";
+
+  delete [] edgePoints;
+
+}
+
+template<class Scalar>
+template<int dim>
+void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
+                                                   DistSVec<double,dim>& sol) {
+
+  int rank,size;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(MPI_COMM_WORLD,&size);
+  if (rank == 0) {
+    std::ofstream pvtufile((std::string(filename)+".pvtu").c_str());
+    pvtufile << "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    pvtufile << "\t<PUnstructuredGrid GhostLevel=\"0\">\n";
+    pvtufile << "\t\t<PPoints>\n";
+    pvtufile << "\t\t<PDataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"appended\"/>\n";
+    pvtufile << "\t\t</PPoints>\n";
+    pvtufile << "<PCellData Vectors=\"Result\">\n" ;
+    pvtufile << "  <PDataArray type=\"Float32\" Name=\"Result\" NumberOfComponents=\"" << 3/*dim*/ << 
+            "\" format=\"appended\"/> </PCellData>\n";
+    for (int i = 0; i < size; ++i)
+      pvtufile << "<Piece Source=\"" << filename << i << ".vtu\"/>\n";
+    pvtufile << "</PUnstructuredGrid> </VTKFile>\n";
+  }
+
+  char nfname[256];
+  sprintf(nfname,"%s%d.vtu",filename,rank);
+  std::ofstream vtufile(nfname);
+  int numPoints = 0,numCells = 0;
+  DistSVec<double,3>& X = getXn();
+  typedef std::map<std::pair<int,int>,int> EdgePointMap;
+  typedef std::map<int,int> VertexPointMap;
+  EdgePointMap* edgePoints = new EdgePointMap[numLocSub];
+  VertexPointMap* vertexPoints = new VertexPointMap[numLocSub];
+  MultiGridLevel* finestLevel = getFinestLevel();
+  std::vector<Vec3D> points;
+  std::vector<int > outConnectivity;
+  std::vector<int> outTypes;
+  std::vector<int> outOffsets;
+  std::vector<double> outData;
+  DistSVec<double,3>& Xf = finestLevel->getXn();
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    EdgeSet* E = finestLevel->edges[iSub];
+    for (int i = 0; i < E->size(); ++i) {
+
+      int I = mapFineToCoarse(iSub, E->getPtr()[i][0]);
+      int J = mapFineToCoarse(iSub, E->getPtr()[i][1]);
+      DistVec<Topology>* nt = getFinestTopology();
+      if ((*nt)(iSub)[E->getPtr()[i][0]] == TopoInterior ||
+          (*nt)(iSub)[E->getPtr()[i][1]] == TopoInterior)
+        continue;
+      //if (I != J) {
+
+        int tmp;
+        I = E->getPtr()[i][0];
+        J = E->getPtr()[i][1];
+        if (I > J) { tmp = I; I = J; J = tmp; }
+        edgePoints[iSub][std::pair<int,int>(I,J)] = points.size();
+        Vec3D r = 0.0;
+        for (int k = 0; k < 3; ++k)
+          r[k] = Xf(iSub)[E->getPtr()[i][0]][k] + Xf(iSub)[E->getPtr()[i][1]][k];
+        points.push_back(0.5*r);
+      //}
+    }
+
+    for (int i = 0; i < finestLevel->nodeDistInfo->subSize(iSub); ++i) {
+
+      Vec3D r(Xf(iSub)[i][0],Xf(iSub)[i][1],Xf(iSub)[i][2]);
+      vertexPoints[iSub][i] = points.size();
+      points.push_back(r);
+    }
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    FaceSet& F = *finestLevel->faces[iSub];
+    for (int i = 0; i < F.size(); ++i) {
+
+      int I = mapFineToCoarse(iSub, F[i][0]);
+      int J = mapFineToCoarse(iSub, F[i][1]);
+      int K = mapFineToCoarse(iSub, F[i][2]);
+      int Ip = F[i][0];
+      int Jp = F[i][1];
+      int Kp = F[i][2];
+     
+      if (I == J && J == K) {
+        
+        outTypes.push_back(5);
+        outConnectivity.push_back(vertexPoints[iSub][Ip]);
+        outConnectivity.push_back(vertexPoints[iSub][Jp]);
+        outConnectivity.push_back(vertexPoints[iSub][Kp]);
+        outOffsets.push_back((outOffsets.size() > 0 ? 
+                              outOffsets.back()+3: 3));
+        for (int k = 0; k < 3/*dim*/; ++k)
+          outData.push_back(sol(iSub)[I][k]); 
+      }
+
+      Vec3D r = 0.0;
+      for (int l = 0; l < 3; ++l)
+        for (int k = 0; k < 3; ++k)
+          r[k] += Xf(iSub)[F[i][l]][k]/3.0;
+      
+      int tmp;
+
+      std::pair<int,int> e1(Ip,Jp); if (Ip > Jp) { std::swap(e1.first,e1.second); }     
+      std::pair<int,int> e2(Jp,Kp); if (Jp > Kp) { std::swap(e2.first,e2.second); }     
+      std::pair<int,int> e3(Kp,Ip); if (Kp > Ip) { std::swap(e3.first,e3.second); }     
+
+      outConnectivity.push_back(vertexPoints[iSub][Ip]); 
+      outConnectivity.push_back(edgePoints[iSub][e1]); 
+      outConnectivity.push_back(points.size()); 
+      outConnectivity.push_back(edgePoints[iSub][e3]); 
+
+      outConnectivity.push_back(vertexPoints[iSub][Jp]); 
+      outConnectivity.push_back(edgePoints[iSub][e2]); 
+      outConnectivity.push_back(points.size()); 
+      outConnectivity.push_back(edgePoints[iSub][e1]); 
+
+      outConnectivity.push_back(vertexPoints[iSub][Kp]); 
+      outConnectivity.push_back(edgePoints[iSub][e3]); 
+      outConnectivity.push_back(points.size()); 
+      outConnectivity.push_back(edgePoints[iSub][e2]); 
+
+      outOffsets.push_back((outOffsets.size() > 0 ?
+                            outOffsets.back()+4: 4));      
+      outOffsets.push_back((outOffsets.size() > 0 ?
+                            outOffsets.back()+4: 4));      
+      outOffsets.push_back((outOffsets.size() > 0 ?
+                            outOffsets.back()+4: 4));      
+
+      outTypes.push_back(9);
+      outTypes.push_back(9);
+      outTypes.push_back(9);
+      for (int k = 0; k < 3;/*dim*/ ++k)
+        outData.push_back(sol(iSub)[I][k]); 
+      for (int k = 0; k < 3;/*dim*/ ++k)
+        outData.push_back(sol(iSub)[J][k]); 
+      for (int k = 0; k < 3/*dim*/; ++k)
+        outData.push_back(sol(iSub)[K][k]); 
+
+      points.push_back(r);
+    }
+  } 
+/*
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    numPoints += X(iSub).size();
+    numCells += faces[iSub]->size();
+  }
+  */
+  numPoints = points.size();
+  numCells = outTypes.size();
+  vtufile << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+  vtufile << "<UnstructuredGrid>";
+  vtufile << "<Piece NumberOfPoints=\"" << numPoints << "\" NumberOfCells=\"" << numCells << "\">" << std::endl;
+  vtufile << "<Points> <DataArray type=\"Float32\" NumberOfComponents=\"3\" Format=\"ascii\">\n";
+  for (int i = 0; i < points.size(); ++i) {
+
+    vtufile << points[i][0] << " " << points[i][1] << " " << points[i][2] << "\n";
+  }
+  
+  vtufile << "</DataArray>  </Points>\n";
+
+  vtufile << "<Cells> <DataArray type=\"Int32\" Name=\"connectivity\" Format=\"ascii\">\n";
+  for (int i = 0; i < outConnectivity.size(); ++i) {
+
+    vtufile << outConnectivity[i] << " " << "\n";
+  }
+  vtufile << "</DataArray> <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">";
+  int idx = 0;
+  for (int i = 0; i < outOffsets.size(); ++i) { 
+    vtufile << outOffsets[i] << " "; 
+  }
+  vtufile << "</DataArray> <DataArray type=\"Int32\" Name=\"types\" Format=\"ascii\">\n";
+  for (int i = 0; i < outTypes.size(); ++i) { 
+    vtufile << outTypes[i] << " ";
+  }
+
+  vtufile << "</DataArray>      </Cells>\n";
+
+  vtufile << "<CellData Vectors=\"Result\">\n" ;
+  vtufile << "  <DataArray type=\"Float32\" Name=\"Result\" NumberOfComponents=\"" << 3/*dim*/ << 
+            "\" format=\"ascii\">\n";
+  for (int i = 0; i < outData.size(); ++i) { 
+    vtufile << (fabs(outData[i])<1.0e-10?0.0:outData[i]) << "\n";
+  }
+  vtufile << "</DataArray> </CellData>\n";
+
+  vtufile <<"  </Piece>  </UnstructuredGrid></VTKFile>\n";
+
+  delete [] edgePoints;
+
+}
+
 //------------------------------------------------------------------------------
 
 #define INSTANTIATION_HELPER(T,dim) \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::RestrictFaceVector(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
-  template void MultiGridLevel<T>::Prolong(  MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
+  template void MultiGridLevel<T>::Prolong(  MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &,double) const; \
   template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &); \
+  template void MultiGridLevel<T>::ProjectResidual(DistSVec<double,dim> &) const; \
+  template void MultiGridLevel<T>::setupBcs(DistBcData<dim>&,DistBcData<dim>&,DistSVec<T,dim>&); \
   template void MultiGridLevel<T>::assemble(DistMat<double,dim> &); \
   template void MultiGridLevel<T>::assembleMax(DistSVec<double,dim> &); \
   template void MultiGridLevel<T>::computeMatVecProd(DistMat<double,dim>& mat, \
@@ -1980,11 +3161,18 @@ void MultiGridLevel<Scalar>::computeMatVecProd(DistMat<Scalar2,dim>& mat,
   template void MultiGridLevel<T>::RestrictOperator(const MultiGridLevel<T>& fineGrid, \
                                                     DistMat<double,dim>& fineOperator, \
                                                     DistMat<double,dim>& coarseOperator); \
+  template void MultiGridLevel<T>::computeGreenGaussGradient(DistSVec<double,dim>& V, \
+                               DistSVec<double,dim>& dX, \
+                               DistSVec<double,dim>& dY, \
+                               DistSVec<double,dim>& dZ); \
   template void MultiGridLevel<T>::writeXpostFile(const std::string&, \
                                                     DistSVec<T,dim>&, \
                                                     int); \
   template SparseMat<T,dim>* MultiGridLevel<T>::createMaskILU(int iSub,int fill,  \
-                                           int renum, int *ndType);
+                                           int renum, int *ndType); \
+  template void MultiGridLevel<T>::writePVTUSolutionFile(const char*, \
+                                                    DistSVec<double,dim>& \
+                                                  ); 
 
 #define INSTANTIATION_HELPER2(T) \
   template void MultiGridLevel<T>::assemble(DistVec<double> &); \

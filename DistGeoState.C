@@ -169,6 +169,8 @@ DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistI
   // Initialize the values
   *Xn = 0.0;
   *ctrlVol_n = 0.0;
+  *ctrlVol_nm1 = 0.0;
+  *ctrlVol_nm2 = 0.0;
 
   d2wall = new DistVec<double>(nodeDistInfo);
 

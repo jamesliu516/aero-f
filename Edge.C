@@ -315,6 +315,278 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
 
 }
 
+template<int dim>
+int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+                                     VarFcn* varFcn,
+                                     NavierStokesTerm *ns,
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V,
+                                     SVec<double,dim>& fluxes)
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  double length;
+
+  int ierr = 0;
+  int l;
+
+  double Fuhat;
+  Vec3D Fvhat;
+  double Tcg,Tj,Ti;
+  double mu,lambda,kappa;
+  double flux[dim];
+  flux[0] = 0.0;
+  double fluxl[5][3];
+  fluxl[0][0] = fluxl[0][1] = fluxl[0][2] = 0.0;
+  double ooreynolds_mu = ns->get_ooreynolds_mu(); 
+  for (int l=0; l<numSampledEdges; ++l) {    
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    // Compute the interal terms
+    double area = normal[l].norm();
+  
+    //Vec3D xhat = normal[l];
+    //xhat /= area;
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+    Vec3D xhat(dx[0]/length,dx[1]/length,dx[2]/length);
+
+    Ti = varFcn->computeTemperature(V[i]);
+    Tj = varFcn->computeTemperature(V[j]);
+    Tcg = 0.5*(Ti+Tj);
+
+    Vec3D Vi = varFcn->getVelocity(V[i]);
+    Vec3D Vj = varFcn->getVelocity(V[j]);
+    
+    Vec3D Vcg = 0.5*(Vi+Vj);
+    
+    double Ui = Vi*xhat, Uj = Vj*xhat;
+    Vec3D vi = Vi-Ui*xhat, vj = Vj-Uj*xhat;
+/*    
+    mu     = ns->getViscoFcn()->compute_mu(Tcg);
+    lambda = ns->getViscoFcn()->compute_lambda(Tcg,mu);
+    kappa  = ns->getThermalCondFcn()->compute(Tcg);
+
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
+    kappa  *= ooreynolds_mu;
+
+    Fuhat = (lambda+2.0*mu)*(Uj-Ui)/length;
+    Fvhat = mu*(vj-vi)/length;
+    
+    for (int k = 0; k < 3; ++k)
+      flux[k+1] = xhat[k]*Fuhat + Fvhat[k];
+    flux[4] = (0.5*(Ui+Uj)*(Uj-Ui)*(lambda+2.0*mu)+mu*0.5*(vj.normsq()-vi.normsq())+
+               kappa*(Tj-Ti))/length;
+
+    for (int k = 0; k < dim; ++k) {
+      flux[k] *= area;
+      fluxes[i][k] += flux[k];
+      fluxes[j][k] -= flux[k];
+    }
+*/
+
+    double gradu[3][3];
+    for (int k = 0; k < 3; ++k) {
+      for (int m = 0; m < 3; ++m)
+        gradu[m][k] = (Vj[m]-Vi[m])/length*xhat[k];
+    }
+    double divu = gradu[0][0]+gradu[1][1]+gradu[2][2];
+    
+    for (int k = 0; k < 3; ++k) {
+      for (int m = 0; m < 3; ++m) {
+
+        fluxl[m+1][k] = lambda*divu*(k==m?1.0:0.0)+mu*(gradu[k][m]+gradu[m][k]);
+      }
+      fluxl[4][k] = Vcg[0]*fluxl[1][k]+Vcg[1]*fluxl[2][k]+Vcg[2]*fluxl[3][k] + kappa*(Tj-Ti)/length*xhat[k];
+    }
+
+    for (int k = 0; k < dim; ++k) {
+
+      double ft = fluxl[k][0]*normal[l][0]+fluxl[k][1]*normal[l][1]+fluxl[k][2]*normal[l][2];
+      fluxes[i][k] += ft;
+      fluxes[j][k] -= ft;
+    }
+  }
+
+  return 0;
+}
+
+template<int dim,class Scalar,int neq>
+int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+                                     VarFcn* varFcn,
+                                     NavierStokesTerm *ns,
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V,
+                                     Vec<double>& ctrlVol,
+                                     SVec<double,3>& faceJacX,
+                                     SVec<double,3>& faceJacY,
+                                     SVec<double,3>& faceJacZ,
+                                     bool* boundaryFlag,
+                                     GenMat<Scalar,neq>& A)
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  double length;
+
+  int ierr = 0;
+  int l;
+
+  double Fuhat;
+  Vec3D Fvhat;
+  double Tcg,Tj,Ti;
+  double mu,lambda,kappa;
+  double flux[dim];
+  flux[0] = 0.0;
+  double ooreynolds_mu = ns->get_ooreynolds_mu(); 
+  double jac_ii[neq*neq],jac_ij[neq*neq];
+  double tmp[neq*neq];
+  double tmp2[neq*neq];
+  double tmp3[neq*neq];
+  memset(jac_ii,0,sizeof(double)*neq*neq);
+  memset(jac_ij,0,sizeof(double)*neq*neq);
+  double Tgi[5],Tgj[5];
+  for (int l=0; l<numSampledEdges; ++l) {    
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    // Compute the interal terms
+    double area = normal[l].norm();
+  
+    Vec3D xhat = normal[l];
+    xhat /= area;
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+    Ti = varFcn->computeTemperature(V[i]);
+    Tj = varFcn->computeTemperature(V[j]);
+    varFcn->computeTemperatureGradient(V[i],Tgi);
+    varFcn->computeTemperatureGradient(V[j],Tgj);
+    Tcg = 0.5*(Ti+Tj);
+
+    Vec3D Vi = varFcn->getVelocity(V[i]);
+    Vec3D Vj = varFcn->getVelocity(V[j]);
+    
+    Vec3D Vcg = 0.5*(Vi+Vj);
+    
+    double Ui = Vi*xhat, Uj = Vj*xhat;
+    Vec3D vi = Vi-Ui*xhat, vj = Vj-Uj*xhat;
+    
+    mu     = ns->getViscoFcn()->compute_mu(Tcg);
+    lambda = ns->getViscoFcn()->compute_lambda(Tcg,mu);
+    kappa  = ns->getThermalCondFcn()->compute(Tcg);
+
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
+    kappa  *= ooreynolds_mu;
+
+    Fuhat = (lambda+2.0*mu)*(Uj-Ui)/length;
+    Fvhat = mu*(vj-vi)/length;   
+ 
+    for (int k = 0; k < 3; ++k) {
+      
+      for (int ll = 0; ll < 3; ++ll) {
+        jac_ii[(k+1)*neq+ll+1] = -xhat[k]*(lambda+2.0*mu)/length*xhat[ll] - mu*((k==ll?1.0:0.0)-xhat[ll]*xhat[k])/length;
+        jac_ij[(k+1)*neq+ll+1] = xhat[k]*(lambda+2.0*mu)/length*xhat[ll] + mu*((k==ll?1.0:0.0)-xhat[ll]*xhat[k])/length;
+      }
+      //flux[k+1] = xhat[k]*Fuhat + Fvhat[k];
+    }
+
+    for (int ll = 0; ll < 3; ++ll) {
+
+      jac_ii[4*neq+ll+1] = (-(lambda+2.0*mu)*Ui*xhat[ll]-mu*(vi*(Vec3D((ll==0?1.0:0.0)-xhat[0]*xhat[ll],(ll==1?1.0:0.0)-xhat[1]*xhat[ll],(ll==2?1.0:0.0)-xhat[2]*xhat[ll]))))/length;
+      jac_ij[4*neq+ll+1] = ((lambda+2.0*mu)*Uj*xhat[ll]+mu*(vj*(Vec3D((ll==0?1.0:0.0)-xhat[0]*xhat[ll],(ll==1?1.0:0.0)-xhat[1]*xhat[ll],(ll==2?1.0:0.0)-xhat[2]*xhat[ll]))))/length;
+    }
+
+    jac_ii[4*neq] = kappa*(Tgi[0])/length;
+    jac_ij[4*neq] = -kappa*(Tgj[0])/length;
+    jac_ii[4*neq+4] = kappa*(Tgi[4])/length;
+    jac_ij[4*neq+4] = -kappa*(Tgj[4])/length;
+//    flux[4] = (0.5*(Ui+Uj)*(Uj-Ui)*(lambda+2.0*mu)+mu*0.5*(vj.normsq()-vi.normsq())-
+//               kappa*(Tj-Ti))/length;
+
+    Scalar* jaci = A.getElem_ii(i);
+    Scalar* jacj = A.getElem_ii(j);
+    Scalar* jacij = A.getElem_ij(l);
+    Scalar* jacji = A.getElem_ji(l);
+    double voli = 1.0 / ctrlVol[i];
+    double volj = 1.0 / ctrlVol[j];
+    varFcn->postMultiplyBydVdU(V[i], jac_ii,tmp);
+    if (masterFlag[l]) {
+      for (int k = 0; k < neq*neq; ++k) {
+        jaci[k] += tmp[k];
+      }
+    }
+    for (int k = 0; k < neq*neq; ++k) {
+      jacji[k] -= tmp[k]*volj;
+    }
+    varFcn->postMultiplyBydVdU(V[j], jac_ij,tmp);
+    if (masterFlag[l]) {
+      for (int k = 0; k < neq*neq; ++k) {
+        jacj[k] -= tmp[k];
+      }
+    }
+    for (int k = 0; k < neq*neq; ++k) {
+      jacji[k] += tmp[k]*voli;
+    }
+  
+    if (boundaryFlag[i]) {
+      varFcn->postMultiplyBydVdU(V[i],faceJacX[i], tmp);
+      varFcn->postMultiplyBydVdU(V[i],faceJacY[i], tmp2);
+      varFcn->postMultiplyBydVdU(V[i],faceJacZ[i], tmp3);
+      if (masterFlag[l]) {
+        for (int k = 0; k < neq*neq; ++k) {
+     
+          jaci[k] += 0.5*tmp[k]*voli*normal[l][0];
+          jaci[k] += 0.5*tmp2[k]*voli*normal[l][1];
+          jaci[k] += 0.5*tmp3[k]*voli*normal[l][2];
+        }
+      } 
+      varFcn->postMultiplyBydVdU(V[j],faceJacX[i], tmp);
+      varFcn->postMultiplyBydVdU(V[j],faceJacY[i], tmp2);
+      varFcn->postMultiplyBydVdU(V[j],faceJacZ[i], tmp3);
+      for (int k = 0; k < neq*neq; ++k) {
+     
+        jacij[k] += 0.5*tmp[k]*voli*voli*normal[l][0];
+        jacij[k] += 0.5*tmp2[k]*voli*voli*normal[l][1];
+        jacij[k] += 0.5*tmp3[k]*voli*voli*normal[l][2]; 
+      }
+    }
+    if (boundaryFlag[j]) {
+      varFcn->postMultiplyBydVdU(V[j],faceJacX[j], tmp);
+      varFcn->postMultiplyBydVdU(V[j],faceJacY[j], tmp2);
+      varFcn->postMultiplyBydVdU(V[j],faceJacZ[j], tmp3);
+      if (masterFlag[l]) {
+        for (int k = 0; k < neq*neq; ++k) {
+     
+          jacj[k] -= 0.5*tmp[k]*voli*normal[l][0];
+          jacj[k] -= 0.5*tmp2[k]*voli*normal[l][1];
+          jacj[k] -= 0.5*tmp3[k]*voli*normal[l][2];
+        }
+      } 
+      varFcn->postMultiplyBydVdU(V[i],faceJacX[j], tmp);
+      varFcn->postMultiplyBydVdU(V[i],faceJacY[j], tmp2);
+      varFcn->postMultiplyBydVdU(V[i],faceJacZ[j], tmp3);
+      for (int k = 0; k < neq*neq; ++k) {
+     
+        jacji[k] -= 0.5*tmp[k]*volj*volj*normal[l][0];
+        jacji[k] -= 0.5*tmp2[k]*volj*volj*normal[l][1];
+        jacji[k] -= 0.5*tmp3[k]*volj*volj*normal[l][2]; 
+      }
+    }
+ 
+  }
+}
 //------------------------------------------------------------------------------
 
 template<int dim>

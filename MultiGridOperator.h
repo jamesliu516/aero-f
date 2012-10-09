@@ -17,7 +17,7 @@ class MultiGridOperator {
  public:
 
   MultiGridOperator(MultiGridLevel<Scalar>*, IoData& ioData, VarFcn* varFcn,
-                    Domain* domain);
+                    Domain* domain, BcFcn* = NULL);
 
   ~MultiGridOperator();
     
@@ -34,9 +34,20 @@ class MultiGridOperator {
   //                     DistVec<Scalar2>& irey,
                        FluxFcn** fluxFcn,
                        RecFcn* recFcn,
-                       DistSVec<Scalar2,dim>& res, 
+                       FemEquationTerm*, 
+                       DistSVec<Scalar2,dim>& res,
                        bool addDWdt = true);
+
+  template <class Scalar2>
+  void applyBCsToResidual(DistSVec<Scalar2,dim>& U,
+                          DistSVec<Scalar2,dim>& R);
+
+  template <class Scalar2,int neq>
+  void applyBCsToJacobian(DistSVec<Scalar2,dim>& U,
+                          DistMvpMatrix<Scalar2,neq>& A);
   
+  void computeGradientsLeastSquares(DistSVec<Scalar,dim>& U) ; 
+ 
   DistBcData<dim>& getBcData() const { return *myBcData; }
   DistTimeState<dim>& getTimeState() const { return *timeState; } 
 
@@ -44,6 +55,8 @@ class MultiGridOperator {
                        DistSVec<double,dim> &V);
 
   void updateStateVectors(DistSVec<Scalar,dim>&);
+
+  DistSVec<Scalar,dim>& getBoundaryState() const { return *boundaryState; }
 
  private:
 
@@ -53,10 +66,18 @@ class MultiGridOperator {
  
   DistTimeState<dim>* timeState;
   DistBcData<dim>* myBcData;
+  DistSVec<Scalar,dim>* boundaryState;
 
   DistSVec<Scalar,dim>* zero;
+  DistSVec<Scalar,dim>* DX[3];
   DistVec<Scalar>* scalar_zero;
   DistVec<Scalar>* idti;
   DistVec<Scalar>* idtv;
+
+  DistNodalGrad<dim,Scalar>* myNodalGrad;
+
+  VarFcn* myVarFcn;
+
+  BcFcn* bcFcn;
 
 };

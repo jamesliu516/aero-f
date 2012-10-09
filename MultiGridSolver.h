@@ -55,70 +55,91 @@ class MultiGridSolver {
        typename ProblemDescriptor::SolVecType& R = this->pOwner->getResidual(level);
        typename ProblemDescriptor::SolVecType& dx = this->pOwner->getDX(level);
        double dummy = 0.0;
+       if (level == 0)
+         probDesc->updateStateVectors(x, 0);
+
        for (int i = 0; i < steps; ++i) {
 
          if (level == 0) {
 
            probDesc->computeTimeStep(0,&dummy, x);
-           std::cout << "CFL = " << probDesc->data->cfl << std::endl;
+           //std::cout << "CFL = " << probDesc->data->cfl << std::endl;
            probDesc->computeFunction(0, x, R);
            probDesc->computeJacobian(0, x, R);
            probDesc->setOperators(x);
          } else {
- 
+/* 
            this->pOwner->getLevel(level)->RestrictFaceVector(*this->pOwner->getLevel(level-1),
                                                    (level == 1 ? probDesc->getSpaceOperator()->getDistBcData()->getFaceStateVector() : 
                                                      this->pOwner->getOperator(level-1)->getBcData().getFaceStateVector()),
                                                    this->pOwner->getOperator(level)->getBcData().getFaceStateVector());
+*/
+           this->pOwner->setupBcs(probDesc->getSpaceOperator()->getDistBcData());
            this->varFcn->conservativeToPrimitive(x, this->pOwner->getTemporaryV(level));
            this->pOwner->getOperator(level)->updateStateVectors(x);
-           this->pOwner->getOperator(level)->computeTimeStep(probDesc->data->cfl*0.75,
+//           probDesc->data->computeCflNumber(i - 1, !hasR0 ? 1.0 : sqrt(R*R)/R0);
+           this->pOwner->getOperator(level)->computeTimeStep(probDesc->data->cfl*pow(0.75,level),
                                                              varFcn,this->pOwner->getTemporaryV(level));
            this->pOwner->getOperator(level)->computeResidual(this->pOwner->getTemporaryV(level),
                                                      x, fluxFcn,
                                                      probDesc->getConstantRecFcn(),
+                                                     probDesc->getSpaceOperator()->getFemEquationTerm(),
                                                      R);
+           this->pOwner->getOperator(level)->applyBCsToResidual(x,R);
            this->pOwner->getOperator(level)->computeJacobian(x,
                                                        this->pOwner->getTemporaryV(level),
                                                        fluxFcn, this->pOwner->getA(level));
+           this->pOwner->getOperator(level)->applyBCsToJacobian(x,this->pOwner->getA(level));
            this->pOwner->setupPreconditioner(level);
          }
          R = f-R;
+         //R = -1.0*R;
          if (!hasR0) {
 
            R0 = sqrt(R*R);
            hasR0 = true;
          }
-         std::cout << "Residual = " << sqrt(R*R)/R0 << std::endl;
+         //std::cout << "Residual = " << sqrt(R*R)/R0 << std::endl;
 
          dx = 0.0;
          if (level == 0) {
  
            probDesc->solveLinearSystem(0, R,dx);
          } else {
-           char fn[32];
-           sprintf(fn,"R10%d",i);
-           this->pOwner->getLevel(level)->writeXpostFile(fn,R, 0);
+//           this->pOwner->getLevel(level)->writeXpostFile(fn,const_cast<typename ProblemDescriptor::SolVecType&>(f), 4);
            this->pOwner->kspSolve(level, R, dx);
-           this->pOwner->getLevel(level)->writeXpostFile("U10p",x, 0);
+//           this->pOwner->getLevel(level)->writeXpostFile("U10p",x, 0);
          }
 
          //if (level == 0)
            x += dx;
+/*         if (level == 1) {
+ 
+           this->pOwner->getLevel(level)->writePVTUSolutionFile("myU",x);
+         }
+*/
          if (level == 0) {
            probDesc->updateStateVectors(x, 0);
            probDesc->monitorConvergence(0, x);
            R = f-probDesc->getCurrentResidual();
          } else {
-           char fn[32];
-           sprintf(fn,"Udx%d",i);
-           this->pOwner->getLevel(level)->writeXpostFile(fn,dx, 0);
+           this->varFcn->conservativeToPrimitive(x, this->pOwner->getTemporaryV(level));
+           this->pOwner->getOperator(level)->computeResidual(this->pOwner->getTemporaryV(level),
+                                                     x, fluxFcn,
+                                                     probDesc->getConstantRecFcn(),
+                                                     probDesc->getSpaceOperator()->getFemEquationTerm(),
+                                                     R,false);
+           this->pOwner->getOperator(level)->applyBCsToResidual(x,R);
+           R = f-R;
+           //std::cout << "Residual: " << sqrt(R*R) << std::endl;
+//           this->pOwner->getLevel(level)->writeXpostFile(fn,dx, 0);
          }
        }
          if (level == 0) {
            probDesc->monitorConvergence(0, x);
            R = f-probDesc->getCurrentResidual();
          }
+//        if (level == 1) { MPI_Barrier(MPI_COMM_WORLD); exit(0); }
      }
 
      void applyOperator(int level, typename ProblemDescriptor::SolVecType& f,
@@ -126,14 +147,19 @@ class MultiGridSolver {
 
        if (level == 0) {
 
-         probDesc->computeFunction(0, f, x);
+         probDesc->updateStateVectors(f, 0);
+         probDesc->monitorConvergence(0, f);
+         x = -1.0*probDesc->getCurrentResidual();
        } else {
 
+         this->pOwner->setupBcs(probDesc->getSpaceOperator()->getDistBcData());
          this->varFcn->conservativeToPrimitive(f, this->pOwner->getTemporaryV(level));
          this->pOwner->getOperator(level)->computeResidual(this->pOwner->getTemporaryV(level),
                                                      f, fluxFcn,
                                                      probDesc->getConstantRecFcn(),
+                                                     probDesc->getSpaceOperator()->getFemEquationTerm(),
                                                      x, false);
+         this->pOwner->getOperator(level)->applyBCsToResidual(f,x);
        }
      }
   };
@@ -207,7 +233,7 @@ int MultiGridSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolV
 
   multiGridKernel = probDesc->getMultiGridKernel();
   multiGridKernel->setSmoother(mySmoother);
-  multiGridKernel->setParameters(2,0,2,1.0,1);
+  multiGridKernel->setParameters(1,0,2,1.0,1);
   multiGridKernel->initialize();
   multiGridKernel->setGeometric();
 
@@ -217,8 +243,16 @@ int MultiGridSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolV
     
     bool solveOrNot = true;
     probDesc->setCurrentTime(t,U);
+  
+    double rf = 0.25;//1.0;//std::min((double)it/10.0, 0.5);
+    multiGridKernel->setRestrictRelaxFactor( rf );
+    multiGridKernel->setProlongRelaxFactor( rf );
 
-    multiGridKernel->cycle(zero, U);
+    probDesc->printf( 0, "Current Restrict Relax factor = %lf\n", rf);
+
+    multiGridKernel->cycleV(zero, U);
+    //multiGridKernel->cycleW(0,zero, U);
+    probDesc->updateStateVectors(U, 0);
 
     // compute the current aerodynamic force
     probDesc->updateOutputToStructure(0.0, 0.0, U);
