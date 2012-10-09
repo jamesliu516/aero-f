@@ -1,5 +1,4 @@
-#ifndef _IMPLICIT_TS_DESC_H_
-#define _IMPLICIT_TS_DESC_H_
+#pragma once
 
 #include <IoData.h>
 #include <TsDesc.h>
@@ -14,16 +13,11 @@ class Communicator;
 template<class Scalar, int dim> class DistSVec;
 template<int dim, int neq> class MatVecProd;
 template<class ProblemDescriptor> class NewtonSolver;
-#ifndef _KSPSLVR_TMPL_
-#define _KSPSLVR_TMPL_
-template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = double> class KspSolver;
-#endif
-
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-class ImplicitTsDesc : public TsDesc<dim> {
+class MultiGridTsDesc : public TsDesc<dim> {
 
 protected:
 
@@ -50,7 +44,7 @@ protected:
 
 public:
   
-  ImplicitTsDesc(IoData &, GeoSource &, Domain *);
+  MultiGridTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitTsDesc();
 
   virtual void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;

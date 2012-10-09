@@ -65,6 +65,7 @@ class DebugTools {
    }
   static bool TryWaitForDebug() {
 
+#ifdef AEROF_MPI_DEBUG
     int my_pid;// = getpid();
     MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
     FILE* file = fopen("aerofdebug","r"); 
@@ -95,6 +96,9 @@ class DebugTools {
     }
 
     return debug_process;    
+#else
+    return false;
+#endif
   }
 
   static void SpitRank() {
@@ -120,7 +124,6 @@ class DebugTools {
       std::cout << std::endl;
     }
   }
-
 };
 
 #endif

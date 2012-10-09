@@ -3,6 +3,10 @@
 
 #include <VarFcnBase.h>
 
+#ifdef AEROF_MPI_DEBUG
+#include "mpi.h"
+#endif
+
 //--------------------------------------------------------------------------
 // This class is the VarFcn class for the Stiffened Gas EOS in Euler 
 // Equations. Only elementary functions are declared and/or defined here.
@@ -97,6 +101,13 @@ public:
         fprintf(stderr, "*** Error:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
             V[4]+Pstiff, nodeNum, V[0], nodeNum, double(phi), otherNodeNum, double(otherPhi));
     }
+    if (error && !failsafe) {
+#ifdef AEROF_MPI_DEBUG
+      int mpi_rank;
+      MPI_Comm_rank(MPI_COMM_WORLD,&mpi_rank);
+      fprintf(stderr," Rank is %d\n", mpi_rank);
+#endif
+    }
     return error;
   }
   double computeTemperature(double *V) const {
@@ -105,6 +116,25 @@ public:
       throw std::exception();
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
+  }
+  void computeTemperatureGradient(double *V,double* Tg) const {
+    if (isnan(1.0/V[0])) {
+      fprintf(stderr, "ERROR*** computeTemp\n");
+      throw std::exception();
+    }
+    Tg[0] =  -invgam1 * (V[4]+Pstiff) / (V[0]*V[0]);
+    Tg[1] = Tg[2] = Tg[3] = 0.0;
+    Tg[4] = invgam1 / V[0]; 
+  }
+  void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
+                                 double& Tpp) const {
+    if (isnan(1.0/V[0])) {
+      fprintf(stderr, "ERROR*** computeTemp\n");
+      throw std::exception();
+    }
+    Trr = 2.0*invgam1*(V[4]+Pstiff) / (V[0]*V[0]*V[0]);
+    Trp = -invgam1 /(V[0]*V[0]);
+    Tpp = 0.0; 
   }
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);

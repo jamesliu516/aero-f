@@ -646,6 +646,8 @@ ProblemData::ProblemData()
   framework = BODYFITTED;
   solvefluid = ON;
 
+  solutionMethod = TIMESTEPPING;
+
   test = REGULAR;
   verbose = 4;
 
@@ -699,6 +701,10 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int ProblemData::*>(&ProblemData::test), 1,
      "Regular", 0);
 
+  new ClassToken<ProblemData>
+    (ca, "SolutionMethod", this,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::solutionMethod), 2,
+     "TimeStepping", 0, "MultiGrid", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -2383,6 +2389,16 @@ PcData::PcData()
 
   fill = 0;
 
+  num_multigrid_smooth1 = 5;
+  num_multigrid_levels = 5;
+  num_multigrid_smooth2 = 5;
+  
+  mg_smooth_relax = 1.0;
+  mg_smoother = MGJACOBI;
+  mg_type = MGGEOMETRIC;
+  mg_output = 0;
+
+  num_fine_sweeps = 5; 
 }
 
 //------------------------------------------------------------------------------
@@ -2401,7 +2417,57 @@ void PcData::setup(const char *name, ClassAssigner *father)
 			 "Natural", 0, "Rcm", 1);
 
   new ClassInt<PcData>(ca, "Fill", this, &PcData::fill);
+  new ClassInt<PcData>(ca, "MultiGridOutput", this, &PcData::mg_output);
+  new ClassDouble<PcData>(ca, "MultiGridSmoothingRelaxation", this, &PcData::mg_smooth_relax);
+  
+  new ClassToken<PcData>(ca, "MultiGridSmoother", this,
+			 reinterpret_cast<int PcData::*>(&PcData::mg_smoother), 3,
+			 "BlockJacobi",0,"LineJacobi",1,"RAS",2);
+  
+  new ClassToken<PcData>(ca, "MultiGridType", this,
+			 reinterpret_cast<int PcData::*>(&PcData::mg_type), 2,
+			 "Algebraic",0,"Geometric",1);
 
+  new ClassInt<PcData>(ca, "NumMultiGridSmooth1",this, &PcData::num_multigrid_smooth1);
+  new ClassInt<PcData>(ca, "NumMultiGridSmooth2",this, &PcData::num_multigrid_smooth2);
+  new ClassInt<PcData>(ca, "NumMultiGridLevels",this, &PcData::num_multigrid_levels);
+  new ClassInt<PcData>(ca, "NumFineSweeps",this, &PcData::num_fine_sweeps);
+}
+
+MultiGridData::MultiGridData()
+{
+
+  num_multigrid_smooth1 = 5;
+  num_multigrid_levels = 5;
+  num_multigrid_smooth2 = 5;
+  
+  mg_smooth_relax = 1.0;
+  mg_smoother = MGJACOBI;
+  mg_output = 0;
+
+  directional_coarsening_factor = 0.0;
+  num_fine_sweeps = 5; 
+}
+
+//------------------------------------------------------------------------------
+
+void MultiGridData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassInt<MultiGridData>(ca, "MultiGridOutput", this, &MultiGridData::mg_output);
+  new ClassDouble<MultiGridData>(ca, "MultiGridSmoothingRelaxation", this, &MultiGridData::mg_smooth_relax);
+  
+  new ClassToken<MultiGridData>(ca, "MultiGridSmoother", this,
+			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::mg_smoother), 3,
+			 "BlockJacobi",0,"LineJacobi",1,"RAS",2);
+
+  new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth1",this, &MultiGridData::num_multigrid_smooth1);
+  new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth2",this, &MultiGridData::num_multigrid_smooth2);
+  new ClassInt<MultiGridData>(ca, "NumMultiGridLevels",this, &MultiGridData::num_multigrid_levels);
+  new ClassInt<MultiGridData>(ca, "NumFineSweeps",this, &MultiGridData::num_fine_sweeps);
+  new ClassDouble<MultiGridData>(ca, "DirectionalCoarseningFactor",this, &MultiGridData::directional_coarsening_factor);
 }
 
 //------------------------------------------------------------------------------
@@ -2416,6 +2482,8 @@ KspData::KspData()
   maxIts = 30;
   numVectors = 30;
   eps = 1.e-2;
+
+  absoluteEps = 0.0;
 
   output = "";
 
@@ -2445,6 +2513,7 @@ void KspData::setup(const char *name, ClassAssigner *father)
   new ClassInt<KspData>(ca, "KrylovVectors", this, &KspData::numVectors);
 
   new ClassDouble<KspData>(ca, "Eps", this, &KspData::eps);
+  new ClassDouble<KspData>(ca, "AbsoluteEps", this, &KspData::absoluteEps);
 
   new ClassStr<KspData>(ca, "Output", this, &KspData::output);
 
@@ -3747,38 +3816,6 @@ void ImplosionSetup::setup(const char *name) {
   new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
 }
 
-MultigridInfo::MultigridInfo() {
-
-  fineMesh = "";
-  coarseMesh = "";
-  fineDec = "";
-  coarseDec = "";
-  packageFile = "";
-  collectionFile = "";
-
-  radius0 = 1.0;
-  radiusf = 2.0;
-  threshold = 10;
-}
-
-void MultigridInfo::setup(const char * name) {
-  
-  ClassAssigner *ca = new ClassAssigner(name, 9, 0);
-  new ClassDouble<MultigridInfo>(ca, "Radius0", this, &MultigridInfo::radius0);
-  new ClassDouble<MultigridInfo>(ca, "RadiusF", this, &MultigridInfo::radiusf);
-  new ClassInt<MultigridInfo>(ca, "Threshold", this, &MultigridInfo::threshold);
-
-  new ClassStr<MultigridInfo>(ca, "FineMesh", this, &MultigridInfo::fineMesh);
-  new ClassStr<MultigridInfo>(ca, "CoarseMesh", this, &MultigridInfo::coarseMesh);
-
-  new ClassStr<MultigridInfo>(ca, "FineDec", this, &MultigridInfo::fineDec);
-  new ClassStr<MultigridInfo>(ca, "CoarseDec", this, &MultigridInfo::coarseDec);
-  
-  new ClassStr<MultigridInfo>(ca, "PackageFile", this, &MultigridInfo::packageFile);
-  new ClassStr<MultigridInfo>(ca, "CollectionFile", this, &MultigridInfo::collectionFile);
-
-}
-
 //------------------------------------------------------------------------------
 
 KirchhoffData::KirchhoffData()
@@ -3905,7 +3942,7 @@ void IoData::setupCmdFileVariables()
   embed.setup("EmbeddedFramework");
   oneDimensionalInfo.setup("1DGrid");
   implosion.setup("ImplosionSetup");
-  
+  mg.setup("MultiGrid");
   surfKI.setup(com, "AcousticPressure");
 
 }
@@ -4375,6 +4412,13 @@ void IoData::resetInputValues()
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
     problem.mode = ProblemData::DIMENSIONAL;
 
+  if (problem.type[ProblemData::UNSTEADY] && 
+      problem.solutionMethod == ProblemData::MULTIGRID) {
+
+    com->fprintf(stderr, "*** Error: Multigrid solution method (ProblemData.SolutionMethod = MultiGrid)"
+                         " cannot be used for unsteady problems.\n");
+    exit(1);
+  }
 }
 
 //------------------------------------------------------------------------------

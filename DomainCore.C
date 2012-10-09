@@ -262,6 +262,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   exit(1);
 #endif
 
+  mySubToSub = geoSource.getSubToSub();
+
   subTopo = new SubDTopo(com->cpuNum(), geoSource.getSubToSub(), geoSource.getCpuToSub());
   volPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   levelPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend); // New Comm Pattern
