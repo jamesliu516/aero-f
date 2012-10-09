@@ -248,7 +248,7 @@ void ExactRiemannSolver<dim>::reset(int it)
   if(iteration==1){
     rupdate = 0.0;
     weight  = 0.0;
-    fluidIdToSet = -1.0;
+    fluidIdToSet = -1;
   }
 
 }
