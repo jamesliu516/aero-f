@@ -1338,6 +1338,8 @@ struct MultiGridData {
 
   int mg_output;
 
+  double directional_coarsening_factor;
+
   double mg_smooth_relax;
 
   int num_fine_sweeps;
@@ -2043,25 +2045,6 @@ struct ImplosionSetup {
   void setup(const char *);
 };
 
-struct MultigridInfo {
- 
-  MultigridInfo();
-  ~MultigridInfo() {}
-  void setup(const char *);
-
-  const char* fineMesh;
-  const char* coarseMesh;
-
-  const char* fineDec;
-  const char* coarseDec;
-
-  const char* packageFile;
-  const char* collectionFile;
-
-  double radius0;
-  double radiusf;
-  int threshold;
-};
 //------------------------------------------------------------------------------
 
 class IoData {
@@ -2104,7 +2087,7 @@ public:
   OneDimensionalInfo oneDimensionalInfo;
   ImplosionSetup implosion;
 
-  MultigridInfo multigrid;
+  MultiGridData mg;
 
 public:
 

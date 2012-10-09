@@ -275,8 +275,8 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 
     multiGridKernel = new MultiGridKernel<double,dim>(this->domain, *geoState,
                                                       iod.ts.implicit.newton.ksp.ns, iod, this->varFcn,
-                                                      false, 1, timeState,
-                                                      NULL,NULL);
+                                                      false, iod.mg.num_multigrid_levels, timeState,
+                                                      spaceOp->getBcFcn());
     multiGridKernel->setOperators(this->spaceOp);
   }
 
@@ -306,7 +306,7 @@ template<int dim>
 double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
 {
   double t0 = timer->getTime();
-//  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
+  //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   data->computeCflNumber(it - 1, data->residual / restart->residual);
   int numSubCycles = 1;
 

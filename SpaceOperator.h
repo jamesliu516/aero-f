@@ -138,6 +138,8 @@ public:
   void fix(DistSVec<bool,2>&);
   void resetTag();
 
+  BcFcn* getBcFcn() { return bcFcn; }
+
   DistSVec<double,dim>* getCurrentPrimitiveVector() { return V; }
 
   FemEquationTerm *getFemEquationTerm() { return fet;}

@@ -226,6 +226,7 @@ public:
   int getLocalNodeNum(int globNodeNum) const;
   // geometry
 
+  void getSurfaceNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
   void getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
   void getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
   void getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
