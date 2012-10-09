@@ -95,6 +95,28 @@ public:
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dim>&, SVec<int,2>&, int, int);
+  
+  template<int dim>
+  int computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+                                     VarFcn* varFcn,
+                                     class NavierStokesTerm*,
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V,
+                                     SVec<double,dim>& fluxes);
+  
+  template<int dim,class Scalar,int neq>
+  int computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+                                     VarFcn* varFcn,
+                                     class NavierStokesTerm*,
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V,
+                                     Vec<double>& ctrlVol,
+                                     SVec<double,3>& faceJacX,
+                                     SVec<double,3>& faceJacY,
+                                     SVec<double,3>& faceJacZ,
+                                     bool* boundaryFlag,
+                                     GenMat<Scalar,neq>& A);
+
   template<int dim>
   int computeFiniteVolumeTermRestrict(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,

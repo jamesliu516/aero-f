@@ -26,6 +26,7 @@ protected:
 
   int maxits;
   double eps;
+  double absoluteEps;
   bool checkFinalRes;
 
   MatVecProdOp *mvpOp;
@@ -43,6 +44,10 @@ public:
   virtual ~KspSolver() { if (kspConvCriterion) delete kspConvCriterion; }
 
   void setup(int, int, VecType &);
+
+  void setMaxIts(int i) { maxits = i; }
+  void setEps(double e) { eps = e; }
+  void disableOutput() { output = NULL; } 
 
   virtual int solve(VecType &, VecType &) = 0;
   virtual int solveLS(VecType &, VecType &) { return 0; };

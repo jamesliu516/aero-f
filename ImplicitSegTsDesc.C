@@ -265,33 +265,50 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
 {
 
   DistMat<PrecScalar,neq> *_pc = dynamic_cast<DistMat<PrecScalar,neq> *>(pc);
+  DistMat<double,neq> *_pc2 = dynamic_cast<DistMat<double,neq> *>(pc);
 
-  if (_pc) {
+  if (_pc || _pc2) {
 
     MatVecProdFD<dim, neq> *mvpfdtmp = dynamic_cast<MatVecProdFD<dim, neq> *>(mvp);
     MatVecProdH1<dim,MatScalar,neq> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,neq> *>(mvp);
     MatVecProdH2<dim,MatScalar,neq> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,neq> *>(mvp);
 
     if ((mvpfdtmp) || (mvph2))  {
-      if (neq > 2)  {
-        spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
-        this->timeState->addToJacobian(*this->A, *_pc, Q);
-        spaceOp1->applyBCsToJacobian(Q, *_pc);
-      }
-      else  {
-        spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
-        this->timeState->addToJacobian(*this->A, *_pc, Q);
-        spaceOp2->applyBCsToJacobian(Q, *_pc);
+      if (_pc) {
+        if (neq > 2)  {
+          spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc, Q);
+          spaceOp1->applyBCsToJacobian(Q, *_pc);
+        }
+        else  {
+          spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc, Q);
+          spaceOp2->applyBCsToJacobian(Q, *_pc);
+        }
+      } else {
+        if (neq > 2)  {
+          spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc2, Q);
+          spaceOp1->applyBCsToJacobian(Q, *_pc2);
+        }
+        else  {
+          spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc2, Q);
+          spaceOp2->applyBCsToJacobian(Q, *_pc2);
+        }
       }
     }
     else if (mvph1) 
     {
       JacobiPrec<PrecScalar,neq> *jac = dynamic_cast<JacobiPrec<PrecScalar,neq> *>(pc);
       IluPrec<PrecScalar,neq> *ilu = dynamic_cast<IluPrec<PrecScalar,neq> *>(pc);
+      MultiGridPrec<PrecScalar,neq> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,neq> *>(pc);
       if (jac) 
         jac->getData(*mvph1);
       else if (ilu) 
         ilu->getData(*mvph1);
+      else if (pmg)
+        pmg->getData(*mvph1);
     }
 
   }

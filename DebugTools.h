@@ -121,6 +121,40 @@ class DebugTools {
     }
   }
 
+  static bool TryWaitForDebug() {
+
+    int my_pid;// = getpid();
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
+    FILE* file = fopen("aerofdebug","r"); 
+    char fn[256];
+    sprintf(fn, ".aerofdebug.pid.%d",getpid());
+    std::cout << "PID " << getpid() << " is MPI rank " << my_pid << std::endl;
+    if (!file)
+      return false; 
+    bool debug_process = false;
+    while (!feof(file)) {
+      int p;
+      fscanf(file, "%d",&p);
+      if (p == my_pid) {
+        debug_process = true;
+        break;
+      }
+    }
+ 
+    volatile int wait = (debug_process?1:0);
+    if (wait) {
+ 
+      std::cout << "Process ID for rank " << my_pid << " is " << getpid() << std::endl;
+    }
+
+    while (wait) {
+
+      sleep(5);
+    }
+
+    return debug_process;    
+  }
+
 };
 
 #endif

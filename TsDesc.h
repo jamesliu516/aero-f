@@ -8,6 +8,7 @@
 #include <TsParameters.h>
 //#include <Domain.h>
 #include <DistVector.h>
+#include <MultiGridKernel.h>
 
 class RefVal;
 class VarFcn;
@@ -94,17 +95,20 @@ protected:
 
   //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
   bool modifiedGhidaglia;
+  RecFcnConstant<dim> constantRecFcn;
+  MultiGridKernel<double,dim>* multiGridKernel;
 
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
-  bool monitorConvergence(int, DistSVec<double,dim> &);
 
 // Included (MB)
   bool monitorForceConvergence(IoData &, int, DistSVec<double,dim> &);
   bool monitorAvgForceConvergence(IoData &, int, DistSVec<double,dim> &);
 
 public:
+
+  typedef MultiGridKernel<double,dim> MultiGridKernelType;
 
   TsDesc(IoData &, GeoSource &, Domain *);
   virtual ~TsDesc();
@@ -116,6 +120,10 @@ public:
 
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
+  SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
+  
+  bool monitorConvergence(int, DistSVec<double,dim> &);
+
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
@@ -126,6 +134,10 @@ public:
   bool checkForLastIteration(int, double, double, DistSVec<double,dim> &); //KW: not used?
 
   void setFailSafe(bool flag){ failSafeFlag = flag; }
+
+  RecFcn* getConstantRecFcn() { return &constantRecFcn; }
+
+  DistSVec<double,dim>& getCurrentResidual() { return *R; }
 
 // Modified (MB)
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
@@ -172,6 +184,7 @@ public:
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
   void computeDistanceToWall(IoData &ioData);
+  MultiGridKernelType* getMultiGridKernel() { return multiGridKernel; }
 };
 
 //------------------------------------------------------------------------------

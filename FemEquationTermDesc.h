@@ -87,7 +87,8 @@ public:
    double *, double *, double *, double *, double
    );
   
-  
+  void computeTransportCoefficientsPublic(const double T, double &mu, 
+                                          double &lambda, double &kappa);
 };
 
 //------------------------------------------------------------------------------

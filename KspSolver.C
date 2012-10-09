@@ -20,6 +20,8 @@ KspSolver(KspData &data, MatVecProdOp *mvp, PrecOp *pc, IoOp *io)
 
   this->maxits = data.maxIts;
 
+  this->absoluteEps = data.absoluteEps;
+
   this->kspConvCriterion = new KspConvCriterion(data);
 
   if (data.checkFinalRes == KspData::YES)
@@ -400,7 +402,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
       if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e \n", iter, l2res, target);
 
-      if (l2res <= target || iter >= this->maxits) { exitLoop = 1; break; }
+      if (l2res <= target || iter >= this->maxits || 
+          l2res <= this->absoluteEps) { exitLoop = 1; break; }
 
     }
 

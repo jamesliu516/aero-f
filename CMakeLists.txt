@@ -166,7 +166,9 @@ ADD_LIBRARY(FluidBase
              Solvers/NavierStokesCoupledSolver7.C
              Solvers/NavierStokesSegSolver651.C
              Solvers/NavierStokesSegSolver752.C
+             AgglomeratedFace.C
              BcFcnCore.C
+             BlockTridiagonalMatrix.C
              CommunicatorCore.C 
              CommunicatorMPI.C 
              ConnectivityCore.C 
@@ -200,6 +202,11 @@ ADD_LIBRARY(FluidBase
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
              MultiGridPrec.C
+             MultiGridLevel.C
+             MultiGridKernel.C
+             MultiGridOperator.C 
+             MultiGridSmoothingMatrix.C
+             MultiGridCoupledTsDesc.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 

@@ -12,22 +12,27 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
-  Xdot(domain->getNodeDistInfo()), Temp(domain->getNodeDistInfo()),vf(varFcn),
-  Ufarin(domain->getNodeDistInfo()), Ufarout(domain->getNodeDistInfo()),
-  Uface(domain->getFaceDistInfo()), Unode(domain->getNodeDistInfo()),
-  Uinletnode(domain->getInletNodeDistInfo()), rotInfo(ioData.rotations.rotationMap.dataMap)
+DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
+                            DistInfo* __nodeDistInfo,DistInfo* __inletNodeDistInfo,
+                            DistInfo* __faceDistInfo ) : 
+  nodeDistInfo(__nodeDistInfo?*__nodeDistInfo:domain->getNodeDistInfo()),
+  inletNodeDistInfo(__inletNodeDistInfo?*__inletNodeDistInfo:domain->getInletNodeDistInfo()),
+  faceDistInfo(__faceDistInfo?*__faceDistInfo:domain->getFaceDistInfo()),
+  Xdot(nodeDistInfo), Temp(nodeDistInfo),vf(varFcn),
+  Ufarin(nodeDistInfo), Ufarout(nodeDistInfo),
+  Uface(faceDistInfo), Unode(nodeDistInfo),
+  Uinletnode(inletNodeDistInfo), rotInfo(ioData.rotations.rotationMap.dataMap)
 {
 
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-    this->dXdot = new DistSVec<double,3>(domain->getNodeDistInfo());
-    this->dTemp = new DistVec<double>(domain->getNodeDistInfo());
-    this->dUface = new DistSVec<double,dim>(domain->getFaceDistInfo());
-    this->dUnode = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    this->dUinletnode = new DistSVec<double,dim>(domain->getFaceDistInfo());
-    this->dUfarin = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    this->dUfarout = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    this->dXdot = new DistSVec<double,3>(nodeDistInfo);
+    this->dTemp = new DistVec<double>(nodeDistInfo);
+    this->dUface = new DistSVec<double,dim>(faceDistInfo);
+    this->dUnode = new DistSVec<double,dim>(nodeDistInfo);
+    this->dUinletnode = new DistSVec<double,dim>(faceDistInfo);
+    this->dUfarin = new DistSVec<double,dim>(nodeDistInfo);
+    this->dUfarout = new DistSVec<double,dim>(nodeDistInfo);
   }
   else {
     this->dXdot = 0;
@@ -40,8 +45,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   }
   if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
     if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
-      this->dUfaceSA = new DistSVec<double,dim>(domain->getFaceDistInfo());
-      this->dUnodeSA = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      this->dUfaceSA = new DistSVec<double,dim>(faceDistInfo);
+      this->dUnodeSA = new DistSVec<double,dim>(nodeDistInfo);
     } 
     else {
       this->dUfaceSA = 0;
@@ -120,29 +125,37 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   vref = ioData.ref.rv.velocity;
 
   /** Update the temperature for walls for which a different temperature was specified. */
-  DistVec<int> faceFlag(domain->getNodeDistInfo());
-  faceFlag = 0;
-  CommPattern<int> ndC(domain->getSubTopo(), this->com, CommPattern<int>::CopyOnSend);
+
+  // The input __nodeDistInfo is only specified for multigrid problems, 
+  // in which we specify our own DistInfo.  For these problems, this block is turned
+  // off.
+  if (!__nodeDistInfo) {
+
+    DistVec<int> faceFlag(nodeDistInfo);
+    faceFlag = 0;
+    CommPattern<int> ndC(domain->getSubTopo(), this->com, CommPattern<int>::CopyOnSend);
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->setComLenNodes(1, ndC);
+   for (int iSub = 0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->setComLenNodes(1, ndC);
 
-  ndC.finalize();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->markFaceBelongsToSurface(faceFlag(iSub), ndC);
-
-  ndC.exchange();
+    ndC.finalize();
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->completeFaceBelongsToSurface(faceFlag(iSub), Temp(iSub),
-                        ioData.surfaces.surfaceMap.dataMap, ndC);
+    for (int iSub = 0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->markFaceBelongsToSurface(faceFlag(iSub), ndC);
+
+    ndC.exchange();
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->completeFaceBelongsToSurface(faceFlag(iSub), Temp(iSub),
+                          ioData.surfaces.surfaceMap.dataMap, ndC);
 
 
- this->com->sync();
+   this->com->sync();
+  }
+
 
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
