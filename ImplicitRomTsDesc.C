@@ -143,7 +143,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 		saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
 
     // verify that the solution is physical
-    if (checkSolution(U)) {
+    if (this->checkSolution(U)) {
       if (checkFailSafe(U) && fsIt < 5) {
         this->com->fprintf(stderr, "*** Warning: Not yet implemented\n");
         //fprintf(stderr,"*** Warning: Newton solver redoing iteration %d\n", it+1);
@@ -706,7 +706,7 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
 
 	// saving this->AJ * this->dUrom (for GappyPOD)
 	// for now, do not output on last iteration (first argument = false)
-	writeBinaryVectorsToDiskRom(false, totalTimeSteps, 0.0, &(this->F), &AJsol, &(this->AJ));
+	this->writeBinaryVectorsToDiskRom(false, totalTimeSteps, 0.0, &(this->F), &AJsol, &(this->AJ));
 	
 }
 template<int dim>

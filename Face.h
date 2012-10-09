@@ -84,6 +84,12 @@ class FaceTria;
 
 
 //-------------- GENERAL HELPERS -----------------------------------------------
+
+struct HHCoeffs {
+  double s0[3], s1[3];  //each face is split into three facets. 
+  double currentDt;
+};
+
 class GenFaceHelper_dim {
 public:
   virtual  void *forClassTria(FaceTria *, int size, char *memorySpace) = 0;
@@ -362,6 +368,7 @@ public:
 
   static const int MaxNumNd = 4;
 
+  Face();
   virtual int nodeNum(int i) const = 0;
 
 protected:
@@ -374,6 +381,10 @@ protected:
   int elemNum;
   int surface_id;
   int normNum;
+
+  //for farfield flux
+  Vec3D faceCenter;
+  HHCoeffs hhcoeffs;
 
   class HigherOrderMultiFluid* higherOrderMF;
 
@@ -389,6 +400,9 @@ public:
   virtual void setEdgeNum(int edge_id, int l) = 0;
 
   void attachHigherOrderMF(class HigherOrderMultiFluid* mf) { higherOrderMF = mf; }
+  void updateHHCoeffs(double dt) {hhcoeffs.currentDt = dt;}
+  void updateHHState() {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i];}
+  void initializeHHCoeffs(double cc) {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i] = cc;}
 
   // Number of nodes
   virtual int numNodes() = 0;
@@ -1078,13 +1092,20 @@ public:
 			      Vec<double> &, Vec<double> &, double, 
                               TimeLowMachPrec &);
 
-	void computeConnectedFaces(const std::vector<int> &);
-	std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
+  void computeConnectedFaces(const std::vector<int> &);
+  std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
 
-	int getNumSampledFaces() {return numSampledFaces;}
+  int getNumSampledFaces() {return numSampledFaces;}
 
-	void attachHigherOrderMF(class HigherOrderMultiFluid*);
+  void attachHigherOrderMF(class HigherOrderMultiFluid*);
 
+  void updateHHCoeffs(double dt) {
+    for(int i=0; i<numFaces; i++) 
+      faces[i]->updateHHCoeffs(dt);}
+  void updateHHState() {
+    for(int i=0; i<numFaces; i++) 
+      faces[i]->updateHHState();}
+  void initializeHHCoeffs(double cc) {for(int i=0; i<numFaces; i++) faces[i]->initializeHHCoeffs(cc);}
 };
 
 //------------------------------------------------------------------------------

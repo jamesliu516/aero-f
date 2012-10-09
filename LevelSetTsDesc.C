@@ -114,6 +114,8 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
  
   *this->Xs = *this->X;
 
+  this->initializeFarfieldCoeffs();
+
   this->timer->setSetupTime();
 }
 
@@ -131,13 +133,13 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
   int numSubCycles = 1;
   double dt,dtmax;
   if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
-    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+    dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                               &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
   }
   else { //time step size with error estimation
     // First compute the maximum possible time step (based on the speed of the interface)
     // To do this, we simply pass in a cfl=10000 to the previous routine
-    dtmax = this->timeState->computeTimeStep(10000, dtLeft,
+    dtmax = this->timeState->computeTimeStep(10000, this->data->dualtimecfl, dtLeft,
                                              &numSubCycles, *this->geoState, *this->A,
                                              U, *(fluidSelector.fluidId),&umax);
     dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
@@ -226,7 +228,7 @@ void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
   if (it == this->data->maxIts)
     *lastIt = true;
   else
-    monitorInitialState(it, U); // Phi?
+    this->monitorInitialState(it, U); // Phi?
 
   this->output->setMeshMotionHandler(ioData, this->mmh);
   this->output->openAsciiFiles();

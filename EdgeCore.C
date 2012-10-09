@@ -19,6 +19,7 @@ using std::swap;
 EdgeSet::EdgeSet()
 {
   numEdges  = 0;
+  numSampledEdges = 0;
   ptr       = 0;
   masterFlag= 0;
   mp        = new MapPair;

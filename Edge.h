@@ -32,7 +32,7 @@ class FemEquationTerm;
 class TimeLowMachPrec;
 class LevelSetStructure;
 
-
+struct V6NodeData;
 struct Vec3D;
 
 #ifndef _NDGRAD_TMPL_
@@ -151,9 +151,18 @@ public:
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
+  template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
+                              FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
+                              SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
+							  Vec<int>&, Vec<int>&, LevelSetStructure &, bool, Vec<int>&, 
+							  int, SVec<double,3>*, double, double, NodalGrad<dim>&, 
+							  EdgeGrad<dim>*, SVec<double,dim>&, int,
+                              SVec<int,2>&, int, int, V6NodeData (*v6Data)[2]=NULL); 
+
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                               SVec<double,dim>&, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
+                               SVec<double,dim>&,Vec<int>& fluidId, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
                                SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0);
 
   template<int dim, class Scalar, int neq>

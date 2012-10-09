@@ -93,9 +93,10 @@ protected:
 
   bool failSafeFlag;
 
-  MultiGridKernel<double,dim>* multiGridKernel;
-
+  //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
+  bool modifiedGhidaglia;
   RecFcnConstant<dim> constantRecFcn;
+  MultiGridKernel<double,dim>* multiGridKernel;
 
 protected:
 
@@ -176,8 +177,13 @@ public:
   virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
+  void updateFarfieldCoeffs(double dt);
+  void updateBoundaryExternalState();
+  void initializeFarfieldCoeffs();
+
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
+  void computeDistanceToWall(IoData &ioData);
   MultiGridKernelType* getMultiGridKernel() { return multiGridKernel; }
 };
 

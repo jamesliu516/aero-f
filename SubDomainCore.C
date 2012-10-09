@@ -936,7 +936,8 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
-                                                   SVec<int,1> &count, SVec<double,6> &R, LevelSetStructure *LSS)
+                                                   SVec<int,1> &count, SVec<double,6> &R, 
+												   LevelSetStructure *LSS)
 {
   R = 0.0;
   count = 0;
@@ -951,7 +952,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-  //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
+    //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
 
     if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
@@ -990,9 +991,89 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 
     R[i][5] += dzdz;
     R[j][5] += dzdz;
-
   }
+}
 
+//------------------------------------------------------------------------------
+// least square gradient involving only nodes of same fluid (FSI)
+// with option to take into account of Riemann solution at interface
+void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
+                                                   SVec<int,1> &count, SVec<double,6> &R, 
+												   Vec<int> &countWstarij, Vec<int> &countWstarji,
+												   LevelSetStructure *LSS)
+{
+  R = 0.0;
+  count = 0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+	if (((!LSS)&&(fluidId[i]!=fluidId[j]))||
+		(LSS && !LSS->isActive(0.0,i) && !LSS->isActive(0.0,j)))
+	  continue;
+
+    double dx[3];
+    dx[0] = X[j][0] - X[i][0];
+    dx[1] = X[j][1] - X[i][1];
+    dx[2] = X[j][2] - X[i][2];
+
+    double dxdx = dx[0] * dx[0];
+    double dydy = dx[1] * dx[1];
+    double dzdz = dx[2] * dx[2];
+    double dxdy = dx[0] * dx[1];
+    double dxdz = dx[0] * dx[2];
+    double dydz = dx[1] * dx[2];
+
+	bool updateRi = false;
+	bool updateRj = false;
+	double locWeighti = 1.0;
+	double locWeightj = 1.0;
+
+	if (((!LSS)&&(fluidId[i]==fluidId[j]))||(LSS && LSS->isActive(0.0,i) && LSS->isActive(0.0,j) && !LSS->edgeIntersectsStructure(0.0,l))) {
+	  count[i][0]++;
+	  count[j][0]++;
+	  updateRi = true;
+	  updateRj = true;
+	}
+	else {
+	  if (LSS->isActive(0.0,i))
+	    if (countWstarij[l]!=0) {
+		  count[i][0]++;
+		  LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0,l,true);
+		  updateRi = true;
+		  locWeighti = (1.0-resij.alpha)*(1.0-resij.alpha);
+		}
+	  if (LSS->isActive(0.0,j))
+	    if (countWstarji[l]!=0) {
+		  count[j][0]++;
+		  LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0,l,false);
+		  updateRj = true;
+		  locWeightj = (1.0-resji.alpha)*(1.0-resji.alpha);
+		}
+	}
+	if (updateRi) {
+      R[i][0] += dxdx*locWeighti;
+      R[i][1] += dxdy*locWeighti;
+      R[i][2] += dxdz*locWeighti;
+      R[i][3] += dydy*locWeighti;
+      R[i][4] += dydz*locWeighti;
+      R[i][5] += dzdz*locWeighti;
+	}
+	if (updateRj) {
+      R[j][0] += dxdx*locWeightj;
+      R[j][1] += dxdy*locWeightj;
+      R[j][2] += dxdz*locWeightj;
+      R[j][3] += dydy*locWeightj;
+      R[j][4] += dydz*locWeightj;
+      R[j][5] += dzdz*locWeightj;
+	}
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1019,6 +1100,121 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<double,6> &R)
 
   }
 
+}
+
+//------------------------------------------------------------------------------
+void SubDomain::computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
+					  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init)
+{
+  R = 0.0;
+  count = 0;
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+  for (int l=0; l<edges.size(); ++l) {
+	if (!edgeFlag[l]) continue;
+	int i = edgePtr[l][0];
+	int j = edgePtr[l][1];
+	if ((i==j)||(LSS.edgeIntersectsStructure(0.0,l))) continue;
+	double dx[3] = {X[j][0]-X[i][0],X[j][1]-X[i][1],X[j][2]-X[i][2]};
+	double dxdx = dx[0]*dx[0];
+	double dydy = dx[1]*dx[1];
+	double dzdz = dx[2]*dx[2];
+	double dxdy = dx[0]*dx[1];
+	double dxdz = dx[0]*dx[2];
+	double dydz = dx[1]*dx[2];
+	double dxcn = dx[0]*1.0;
+	double dycn = dx[1]*1.0;
+	double dzcn = dx[2]*1.0;
+	double cncn = 1.0*1.0;
+	if ((init[i]<1&&LSS.isActive(0.0,i))&&init[j]==1) {
+//    bool toContinue;
+//	toContinue = (((!LSS.isSwept(0.0,j))&&(LSS.isActive(0.0,j)))&&
+//		((LSS.isSwept(0.0,i))&&(LSS.isActive(0.0,i))));
+//	if (toContinue) {
+	  count[i][0]++;
+	  R[i][0] += dxdx;  R[i][1] += dxdy;  R[i][2] += dxdz;  R[i][3] += dxcn;
+	  R[i][4] += dydy;  R[i][5] += dydz;  R[i][6] += dycn;
+	  R[i][7] += dzdz;  R[i][8] += dzcn;
+	  R[i][9] += cncn;
+	}
+	if ((init[j]<1&&LSS.isActive(0.0,j))&&init[i]==1) {
+//	toContinue = (((!LSS.isSwept(0.0,i))&&(LSS.isActive(0.0,i)))&&
+//		((LSS.isSwept(0.0,j))&&(LSS.isActive(0.0,j))));
+//	if (toContinue) {
+	  count[j][0]++;
+	  R[j][0] += dxdx;  R[j][1] += dxdy;  R[j][2] += dxdz;  R[j][3] -= dxcn;
+	  R[j][4] += dydy;  R[j][5] += dydz;  R[j][6] -= dycn;
+	  R[j][7] += dzdz;  R[j][8] -= dzcn;
+	  R[j][9] += cncn;
+	} 
+  }
+}
+
+//------------------------------------------------------------------------------
+void SubDomain::computeWeightsLeastSquaresNodePartForEmbeddedStruct(
+		SVec<int,1> &count, SVec<double,10> &R) {
+  for (int i=0; i<R.size(); ++i) {
+	if (count[i][0]<1) continue;
+	if (count[i][0]>3) {
+	  double r11, r12, r13, r14, r22, r23, r24, r33, r34, r44;
+	  double or11, or22, or33;
+      if (!(R[i][0]>0.0)) {
+        r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		r33 = 0.0;  r34 = 0.0;
+		r44 = 0.0;
+      }
+	  else {
+		r11  = sqrt(R[i][0]);
+		or11 = 1.0/r11;
+		r12  = R[i][1]*or11;
+		r13  = R[i][2]*or11;
+		r14  = R[i][3]*or11;
+        if(!(R[i][4]-r12*r12>0.0)) {
+          r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		  r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		  r33 = 0.0;  r34 = 0.0;
+		  r44 = 0.0;
+        }
+		else {
+		  r22  = sqrt(R[i][4]-r12*r12);
+		  or22 = 1.0/r22;
+		  r23  = (R[i][5]-r12*r13)*or22;
+		  r24  = (R[i][6]-r12*r14)*or22;
+		  if (!(R[i][7]-(r13*r13+r23*r23)>0.0)) {
+            r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		    r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		    r33 = 0.0;  r34 = 0.0;
+		    r44 = 0.0;
+		  }
+		  else {
+			r33  = sqrt(R[i][7]-(r13*r13+r23*r23));
+			or33 = 1.0/r33;
+			r34  = (R[i][8]-(r13*r14+r23*r24))*or33;
+			r44  = R[i][9]-(r14*r14+r24*r24+r34*r34);
+			if (!(r44>0.0)) {
+              r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		      r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		      r33 = 0.0;  r34 = 0.0;
+		      r44 = 0.0;
+			}
+			else
+			  r44 = sqrt(r44);
+		  }
+        }
+      }
+	  R[i][0] = r11;  R[i][1] = r12;  R[i][2] = r13;  R[i][3] = r14;
+		  			  R[i][4] = r22;  R[i][5] = r23;  R[i][6] = r24;
+	  								  R[i][7] = r33;  R[i][8] = r34;
+	  												  R[i][9] = r44;
+	}
+	else {
+	  R[i][0] = 0.0;  R[i][1] = 0.0;  R[i][2] = 0.0;  R[i][3] = 0.0;
+	 	 			  R[i][4] = 0.0;  R[i][5] = 0.0;  R[i][6] = 0.0;
+	  								  R[i][7] = 0.0;  R[i][8] = 0.0;
+	  												  R[i][9] = 0.0;
+	}
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2586,7 +2782,43 @@ void SubDomain::computeDisplacement(SVec<double,3> &X, double* dX,int node)
 
 }
 
+
 //------------------------------------------------------------------------------
+
+
+void SubDomain::markLenKirchhoffNodes(IoData &iod, DistInfo &distInfo)
+{
+
+// This function counts the nodes on a Kirchhoff surface.
+// The nodes are counted per subdomain.
+// Some nodes may appear on several subdomains.
+//
+// The function sets the number of nodes in the object 'distInfo'.
+//
+// UH (07/2012)
+
+  if (strlen(iod.output.restart.strKPtraces) == 0)
+  {
+    distInfo.setLen(locSubNum, 0);
+    return;
+  }
+
+  for (int j = 0; j < faces.size(); ++j)
+  {
+    if (faces[j].getCode() == BC_KIRCHHOFF_SURFACE)
+    {
+      for (int k = 0; k < faces[j].numNodes(); ++k)
+        kirchhoffNodesList.insert(faces[j][k]);
+    }
+  }
+
+  distInfo.setLen(locSubNum, kirchhoffNodesList.size());
+
+}
+
+
+//------------------------------------------------------------------------------
+
 
 void SubDomain::makeMasterFlag(DistInfo &distInfo)
 {
@@ -2896,9 +3128,11 @@ void SubDomain::rcvEdgeData(CommPattern<double> &edgePat, double *edgeData)
 void SubDomain::setFaceType(int *facemap)
 {
 
-  for (int i=0; i<faces.size(); ++i){
+  for (int i=0; i<faces.size(); ++i)
+  {
     faces[i].setType(facemap);
-}
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -4513,7 +4747,8 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
   }
 }
 // ASSUME Max FLUID-ID IS 2
-void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll)
+void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,
+                                 int dimLS)
 {
   /* poll[0,1,2]  |   indication
      -------------+---------------
@@ -4523,7 +4758,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
      0  0  0      |     no info available
      1  1  1      |     can't decide */
   
-  if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
+  //if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
   const Connectivity &Node2Node = *getNodeToNode();
   
   for(int i=0; i<nodes.size(); i++) {
@@ -4532,8 +4767,13 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
     bool occluded = LSS.isOccluded(0.0,i);
 
     if(!swept){ //fluidId should not change.
-      poll[i][fluidId[i]] = true;
-      continue;
+      if(occluded || fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+        //poll[i][fluidId[i]] = true;
+        if (fluidId[i] == 0) poll[i][0] = true;
+        else if (fluidId[i] == dimLS) poll[i][1] = true;
+        else if (fluidId[i] == dimLS+1) poll[i][2] = true;
+        continue;
+      }
     }
     if(occluded){ //set Id to 2
       poll[i][2] = true;
@@ -4557,7 +4797,10 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
         break;
       }
     }
-    
+
+    if (myId == dimLS) myId = 1;
+    else if (myId == dimLS+1) myId = 2;    
+
     if(consistent)
       poll[i][myId] = true; //its visible neighbors have the same id
     else

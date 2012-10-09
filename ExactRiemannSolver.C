@@ -13,10 +13,12 @@ template<int dim>
 ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupdate,
                                             Vec<double> &_weight, SVec<double,dim-2> &_interfacialWi,
                                             SVec<double,dim-2> &_interfacialWj, VarFcn *vf,
-                                            SparseGridCluster *sgCluster):
+                                            SparseGridCluster *sgCluster,
+                                            Vec<int>& fluidIdToSet):
                                             rupdate(_rupdate), weight(_weight),
                                             interfacialWi(_interfacialWi),
-                                            interfacialWj(_interfacialWj)
+                                            interfacialWj(_interfacialWj),
+                                            fluidIdToSet(fluidIdToSet)
 {
 
   iteration = -1;
@@ -148,18 +150,21 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 
 //------------------------------------------------------------------------------
 template<int dim>
-void ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId,
+int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId,
                                                 Vec<int> &fluidIdn,HigherOrderMultiFluid* higherOrderMF)
 {
 
-  for(int i=0; i<V.size(); i++){
-    lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],
-				   (higherOrderMF ? higherOrderMF->isCellCut(i) : false));
+  for(int i=0; i<V.size(); i++){ 
+    if (lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],
+				   (higherOrderMF ? higherOrderMF->isCellCut(i) : false)) != 0) {
+      return i;
+    }
     // lriemann[0] can be used for all interfaces, because  this routine does
     // not need to consider which interface has traversed that node (this
     // was done previously when computing the riemann problem)
   }
 
+  return -1;
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -178,6 +183,8 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
   lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
 					      Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
 					      dx,iteration,isHigherOrder);
+
+  fluidIdToSet[i] = fluidIdToSet[j] = (IDi+IDj-1);
 
 }
 //------------------------------------------------------------------------------
@@ -241,6 +248,7 @@ void ExactRiemannSolver<dim>::reset(int it)
   if(iteration==1){
     rupdate = 0.0;
     weight  = 0.0;
+    fluidIdToSet = -1.0;
   }
 
 }

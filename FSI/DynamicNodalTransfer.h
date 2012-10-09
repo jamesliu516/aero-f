@@ -48,6 +48,7 @@ class EmbeddedStructure {
   double omega;
   double dx, dy, dz;
   double alpha_in, alpha_max, x1[3], x2[3], u, v, w, ix, iy, iz;
+  double beta_in, beta_max, y1[3], y2[3];
 
   double t0; // starting time.
   int it;
@@ -95,6 +96,9 @@ public:
 
   //if embedded mesh provided by FEM
   bool embeddedMeshByFEM() {return getSurfFromFEM;}
+
+  void writeCrackingData(std::ofstream&) const;
+  void readCrackingData(std::ifstream&);
 };
 
 
@@ -157,6 +161,9 @@ public:
         int    (*getStElems())[3] {return structure.Tria;}
         
         CrackingSurface* getCrackingSurface() {return structure.cracking;}
+
+        void writeCrackingData(std::ofstream&) const;
+        void readCrackingData(std::ifstream&);
 
 //        void getEmbeddedMesh(int &n1, double (**xyz)[3], int &n2, int (**abc)[3]) {
 //          structure.getEmbeddedMesh(n1,xyz,n2,abc); 

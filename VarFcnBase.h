@@ -57,6 +57,11 @@ public:
   virtual int  verification(int glob, double *U, double *V) { return 0; }
   virtual void computedVdU(double *V, double *dVdU) = 0;
   virtual void computedUdV(double *V, double *dUdV) = 0;
+
+  virtual void computeFofU(double n[3], double *U, double *F) {}
+  virtual void computeFofV(double n[3], double *V, double *F) {}
+  virtual void computedFdU(double n[3], double *V, double *dFdU) {}
+  virtual void computedFdV(double n[3], double *V, double *dFdV) {}
   
   virtual void multiplyBydVdU(double *V, double *vec, double *res);
   virtual void multiplyBydVdU(double *V, bcomp *vec, bcomp *res);
@@ -105,6 +110,8 @@ public:
   virtual void setPressure(const double p, double *V)  { V[4] = p;   }
   virtual void setDensity(double *V, double *Vorig) { V[0] = Vorig[0]; }
   virtual void setPressure(double *V, double *Vorig){ V[4] = Vorig[4]; }
+
+  virtual bool isBurnable() const { return false; }
 
   //checks that the Euler equations are still hyperbolic
   virtual double checkPressure(double *V) const{

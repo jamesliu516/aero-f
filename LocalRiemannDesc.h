@@ -1413,8 +1413,6 @@ protected:
   bool vacuum(const double rhol, const double ul, const double pl,
               const double rhor, const double ur, const double pr,
               double vacuumValues[6]);
-  double jwlZeroSoundSpeedJwlDensity(const double density, 
-                                     const double pressure);
   double sgZeroDensityPJwlDensity(const double density, 
                                   const double pressure,
                                   const double rho_c0);
@@ -2028,7 +2026,7 @@ bool LocalRiemannGfmparGasJWL::vacuum(const double rhol, const double ul, const 
 
 //----------------------------------------------------------------------------
 inline
-double LocalRiemannGfmparGasJWL::jwlZeroSoundSpeedJwlDensity(const double density, const double pressure)
+double LocalRiemannGfmpar::jwlZeroSoundSpeedJwlDensity(const double density, const double pressure)
 {
 
     bool convergence = false;
@@ -2087,7 +2085,7 @@ double LocalRiemannGfmparGasJWL::pressureEqGasDensity(const double gasDensity, c
                                                       const double interfacialJwlDensity)
 {
   if(interfacialJwlDensity == 0)
-    return gasDensity/pow(1+gasPressure/vf_->getPressureConstant(fluid1),1.0/vf_->getGamma(fluid1));
+    return gasDensity/pow(1.0+gasPressure/vf_->getPressureConstant(fluid1),1.0/vf_->getGamma(fluid1));
 
   double jwlEntropy = vf_->computeEntropy(jwlDensity, jwlPressure, fluid2);
   double gasEntropy = vf_->computeEntropy(gasDensity, gasPressure, fluid1);
@@ -2240,6 +2238,10 @@ protected:
                   double initrhol, double initrhor);
 
   int riemannInvariantGeneralTabulation(double *in, double *res);
+  bool vacuum(const double rhol, const double ul, const double pl,
+              const double rhor, const double ur, const double pr,
+              double vacuumValues[6]);
+ 
 };
 
 //----------------------------------------------------------------------------
@@ -2273,6 +2275,8 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, IDj);
     P_1  = vf_->getPressure(Vi, IDi);
 
+    double cp = vf_->specificHeatCstPressure(IDi);
+
     eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
     initWi[0] = R_i1;
     initWi[1] = U_i;
@@ -2285,8 +2289,12 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
     Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
     Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
-    Wi[4] = Vi[4];//P_i;
-    /*Wi[4]  = vf_->computeTemperature(Wi, IDj);      */   Wi[dim+4]  = Wi[4];
+    //Wi[4] = P_i;
+    if (vf_->isBurnable(IDi))
+      Wi[4]  = Vi[4] + 1.0/cp*(-0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+    else
+      Wi[4]  = Vi[4] + 1.0/cp*(P_i/R_i1-P_1/R_1 - 0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+   /*vf_->computeTemperature(Wi, IDj);*/      Wi[dim+4]  = Wi[4];
 
     Wj[0]  = R_i2;                    Wj[dim]    = Wj[0];
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
@@ -2301,6 +2309,7 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     U_2  = vni;       U_1  = vnj;
     P_2  = vf_->getPressure(Vi, IDi);
     P_1  = vf_->getPressure(Vj, IDj);
+    double cp = vf_->specificHeatCstPressure(IDj);
 
     eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
     initWi[0] = R_i2;
@@ -2320,8 +2329,12 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
-    Wj[4]  = Vj[4];//P_i;
-    /*Wj[4]  = vf_->computeTemperature(Wj, IDi); */                Wj[dim+4]  = Wj[4];
+    //Wj[4]  = P_i;
+    if (vf_->isBurnable(IDj))
+      Wj[4]  = Vj[4] + 1.0/cp*(-0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+    else
+      Wj[4]  = Vj[4] + 1.0/cp*(P_i/R_i1-P_1/R_1 - 0.5*(P_i+P_1)*(1.0/R_i1-1.0/R_1));
+    /*vf_->computeTemperature(Wj, IDi);*/      Wj[dim+4]  = Wj[4];
   }
 
 // METHOD 2 : combine averaging and direction of flow
@@ -2357,11 +2370,14 @@ void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell i is fluid1
     // cell j is fluid2
 
+    int err = 1;
     if (riemannComputationType_==MultiFluidData::TABULATION2) {
       double dVdv[2];
-      rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
-      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0] );
-    } else
+      err = rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
+      if (!err)
+        ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0] );
+    }
+    if (err)
       ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3,NULL);
 
     dWidWi3[1] *= -1.0*sign;
@@ -2386,11 +2402,14 @@ void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell j is fluid1
 
     //std::cout << "ji" << std::endl << std::endl ;
+    int err = 1;
     if (riemannComputationType_==MultiFluidData::TABULATION2) {
       double dVdv[2];
-      rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
-      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0] );
-    } else
+      err = rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
+      if (!err)
+        ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0] );
+    }
+    if (err)
       ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3,NULL);
 
     dWidWi3[1] *= -1.0*sign;
@@ -2527,9 +2546,7 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
 
   double res = 1.0e20;
 
-//check vacuum
-/*  if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
-  double vacuumValues[6]; // rhoil, uil, pil, rhoir, uir, pir 
+  double vacuumValues[6]; /* rhoil, uil, pil, rhoir, uir, pir */
   vacuumValues[0] = -1.0; // positive if proper vacuum values are computed
   bool checkVacuumValues = false;
   if(checkVacuumValues){
@@ -2549,7 +2566,7 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
   }else{
     if(verbose>4) fprintf(stdout, "no checking of vacuum possibilities\n");
   }
-*/
+
 //start newton iteration loop
   while(!convergence){
     if(verbose>0) fprintf(stdout, "\n");
@@ -2750,6 +2767,48 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
 
 
 }
+
+inline
+bool LocalRiemannGfmparTaitJWL::vacuum(const double rhol, const double ul, const double pl,
+                                      const double rhor, const double ur, const double pr,
+                                      double vacuumValues[6]){
+// notation: JWL on the left and Tait on the right
+// remember vacuum can occur only between two rarefaction waves, thus decrease of densities
+
+// 1st step: find JWL-density for which there is loss of positivity of c^2 in JWL gas
+  double min1 = jwlZeroSoundSpeedJwlDensity(rhol,pl); // returns -1 if none found
+
+  double rhoil_vac, rhoir_vac;
+  if(min1 < 0){
+    rhoil_vac = 1.0e-14; // 0.0
+  } else {
+    rhoil_vac = min1;
+
+  }
+  rhoir_vac = pow(-vf_->getPrefWater(fluid1)/vf_->getAlphaWater(fluid1), 
+                  1.0/vf_->getBetaWater(fluid1))*(1.0+1.0e-8);
+
+  double uil,pil,duil,dpil,uir,pir,duir,dpir;
+  rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil_vac, uil, pil, duil, dpil);
+  double Vr[5] = { rhor, ur, 0.0, 0.0, pr};
+  double cr = vf_->computeSoundSpeed(Vr,fluid1);
+  rarefactionTAIT(1.0, vf_->getAlphaWater(fluid1), vf_->getBetaWater(fluid1), vf_->getPrefWater(fluid1),
+                  1.0/rhor, ur, pr, 1.0/rhoir_vac, uir, pir, duir, dpir,0);
+  //fprintf(stdout, "uil_vac = %e and uir_vac = %e\n", uil,uir);
+
+  vacuumValues[0] = rhoil_vac;
+  vacuumValues[1] = uil;
+  vacuumValues[2] = pil;
+  vacuumValues[3] = rhoir_vac;
+  vacuumValues[4] = uir;
+  vacuumValues[5] = pir;
+
+  if(uil<uir) return true;
+  return false; //vacuumValues[0] then contains the lower bound for JWL-density
+}
+
+
+
 //----------------------------------------------------------------------------
 inline
 int LocalRiemannGfmparTaitJWL::riemannInvariantGeneralTabulation(double *in, 
@@ -3137,14 +3196,16 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double gamma = vf->getGamma(Id);
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
-  if(u==ui){ // contact
+/*
+    if(u==ui){ // contact
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;
   }
+*/
 
   double q = (gamma-1.0)/(gamma+1.0);
-  if(ui<u){ // rarefaction
+  if(ui<=u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
@@ -3177,11 +3238,19 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     double pbar = p + pref;
  
     double dtdrho = t/rho, dtdu = -(gamma+1.0)*rho*(ui-u);
-    double xi = sqrt(0.5*t*t+power*t*pbar);
-    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
-    dWidWi[8] = 1.0+0.5/xi*power*t;
-    dWidWi[7] = eta*dtdu;
-    dWidWi[6] = eta*dtdrho;
+//    double xi = sqrt(0.5*t*t+power*t*pbar);
+  
+//    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
+//    dWidWi[8] = 1.0+0.5/xi*power*t;
+//    dWidWi[7] = eta*dtdu;
+//    dWidWi[6] = eta*dtdrho;
+    
+    dWidWi[8] = 1.0+power*sqrt(t/(t/2.0+power*pbar))/2.0;
+    
+    double tmp = gamma*pbar*rho;
+    dWidWi[7] = dtdu/2.0-(dtdu*dtdu+8.0*tmp)/sqrt(8.0*dtdu*dtdu+64.0*tmp);
+
+    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
 
     double s = q*pstarbar/pbar+1.0;
     double deriv = 1.0/(pbar*s)-(pstarbar/pbar+q)/(s*s)*(q/pbar);

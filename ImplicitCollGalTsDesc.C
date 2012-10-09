@@ -12,7 +12,7 @@ ImplicitCollGalTsDesc<dim>::ImplicitCollGalTsDesc(IoData &ioData, GeoSource &geo
 template<int dim>
 void ImplicitCollGalTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
-		projectVector(*podRestrict, *(this->ResRestrict), this->From);	// different from PG
+		this->projectVector(*podRestrict, *(this->ResRestrict), this->From);	// different from PG
 		this->rhs = -1.0 * this->From;
 
     res = this->rhs*this->rhs;
@@ -42,5 +42,5 @@ void ImplicitCollGalTsDesc<dim>::solveNewtonSystem(const int &it, double &res, b
 			}
 		} 
 
-    solveLinearSystem(it, this->rhs, this->dUrom);
+    this->solveLinearSystem(it, this->rhs, this->dUrom);
 }

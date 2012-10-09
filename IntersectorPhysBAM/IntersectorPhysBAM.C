@@ -361,7 +361,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
     std::list<std::pair<int,Vec3D> > nodeList2;
     std::list<std::pair<int,Vec3D> >::iterator it2;
 
-    int ndMax;
+    int ndMax = 0;
     while(1) {
       int nInputs, num1;
       double x1, x2, x3;
@@ -621,7 +621,7 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
       if(myID>=numFluid) { //myID should start from 0
         com->fprintf(stderr,"ERROR:FluidModel %d doesn't exist! NumPhase = %d\n", myID, numFluid);
         exit(-1);}}}
-  else
+  else if (iod.embed.embedIC.dummyPointMap.dataMap.empty())
     com->fprintf(stderr, "Point-based initial conditions could not be found.  Assuming single-phase flow\n");
 
   findActiveNodesUsingFloodFill(tId,points);
@@ -791,9 +791,10 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
   int previous = numStNodes;
   if(cracking)
     gotNewCracking = cracking->getNewCrackingFlag();
-  if(gotNewCracking)
+  if(gotNewCracking) {
     cracking->setNewCrackingFlag(false);
-  if((nNodes!=numStNodes) != gotNewCracking){
+  }
+  if((nNodes!=numStNodes) && !gotNewCracking){
     fprintf(stderr,"ERROR: AERO-F is not sure if there is a new cracking... (Could be a software bug.) nNodes = %d, numStNodes = %d, gotNewCracking = %d\n", nNodes, numStNodes, gotNewCracking);
     exit(-1);
   }
@@ -1010,7 +1011,7 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X, Vec<in
 
   nFirstLayer = 0;
   status = UNDECIDED;
-  distance = 0.0;
+  distance = -1.0;
   is_swept = false;
   is_active = false;
   is_occluded = false;
@@ -1031,15 +1032,15 @@ void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
 {
   for(int i=0; i<subD.getNumNeighb(); i++) package[i].clear();
 
-  if(findStatus){
-      if(!retry){
-        status0 = status;
-        occluded_node0 = is_occluded;}
-      status = UNDECIDED;
-      distance = 0.0;
-      is_swept = false;
-      is_active = false;
-      is_occluded = false;}
+  if(!retry){
+    status0 = status;
+    occluded_node0 = is_occluded;
+  }
+  status = UNDECIDED;
+  distance = -1.0;
+  is_swept = false;
+  is_active = false;
+  is_occluded = false;
   nFirstLayer = 0;
   edge_intersects = false;
 
@@ -1137,7 +1138,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
-          ++intersectedEdgeCount;}
+/*          ++intersectedEdgeCount;}
       else if(edgeRes(i).y.triangleID > 0){
           int l=edgeRes(i).x.z;
           edge_intersects[l] = true;
@@ -1150,7 +1151,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).z;
           CrossingEdgeRes[l].alpha = 1.0 - edgeRes(i).z.alpha;
-          ReverseCrossingEdgeRes[l] = edgeRes(i).z;
+          ReverseCrossingEdgeRes[l] = edgeRes(i).z;*/
           ++intersectedEdgeCount;}}
 
 #if 0 // Debug output
@@ -1349,8 +1350,7 @@ void IntersectorPhysBAM::findNodeClosestPoint(const int nodeId, Vec3D& x0, ARRAY
       else if(mod==1) {closest[nodeId].tracker[0] = n1; closest[nodeId].tracker[1] = n2;}
       else if(mod==2) {closest[nodeId].tracker[0] = n1;}
       else {fprintf(stderr,"Debug: error in mode! mod = %d. Should be 0, 1, or 2.\n", mod); exit(-1);}
-    } else
-      distance[nodeId] = 0.0;
+    } 
   }
 }
 

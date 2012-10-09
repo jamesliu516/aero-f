@@ -33,6 +33,11 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
 
+  if (ioData.mf.levelSetMethod == MultiFluidData::PRIMITIVE)
+    lsMethod = 1;
+  else
+    lsMethod = 0;
+
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
@@ -281,12 +286,14 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
 
+  this->initializeFarfieldCoeffs();
+
   // Initialize level-sets 
   if(withCracking && withMixedLS) 
     LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 
-              &(distLSS->getClosestPoints()), &(distLSS->getStatus()));
+              &(distLSS->getClosestPoints()), &(distLSS->getStatus()),lsMethod);
   else
-    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0);
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0, lsMethod);
 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
@@ -375,7 +382,7 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 
   double dt;
   umax = 0.0;
-  dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+  dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                           &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
   if (this->problemType[ProblemData::UNSTEADY])
@@ -402,13 +409,20 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
     fluidSelector.checkLSConsistency(Phi);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
-    LS->conservativeToPrimitive(Phi,PhiV,U);
+    if (this->lsMethod == 0)
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+    else
+      PhiV = Phi;
     if(withCracking && withMixedLS) {
       this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
       LS->reinitializeLevelSet(*this->X, PhiV, false);
-    } else
+    } else {
       LS->reinitializeLevelSet(*this->X, PhiV);
-    LS->primitiveToConservative(PhiV,Phi,U);
+    }
+    if (this->lsMethod == 0)
+      LS->primitiveToConservative(PhiV,Phi,U);
+    else
+      Phi = PhiV;
     LS->update(Phi);
     if (this->timeState->useNm1()) {
       DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
@@ -504,7 +518,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
-  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
+  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS, dynNodalTransfer);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
   this->output->updatePrtout(t);
@@ -582,7 +596,10 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& 
     this->ghostPoints->deletePointers();
     this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
   }
-  LS->conservativeToPrimitive(Phi,PhiV,U);
+  if (this->lsMethod == 0)
+    LS->conservativeToPrimitive(Phi,PhiV,U);
+  else
+    PhiV = Phi;
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
 
   this->multiPhaseSpaceOp->applyBCsToResidual(U, *this->R);
@@ -689,8 +706,11 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //updateFluidIdFS
-    this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
-    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    if (this->lsMethod == 0)
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+    else
+      PhiV = Phi;
+    //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
     this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                       //  is meaningful. We destroy it so people wouldn't use it

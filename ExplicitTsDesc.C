@@ -43,7 +43,9 @@ int ExplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U, int)
   else if(FE) computeForwardEuler(U); // Forward Euler
   else computeRKSecondOrder(U);       // Runge-Kutta 2 
 
-  int ierr = checkSolution(U);  // checking solution for negative pressure or density
+  this->updateBoundaryExternalState();
+
+  int ierr = this->checkSolution(U);  // checking solution for negative pressure or density
   if (ierr > 0) exit(1);
 
   this->timer->addFluidSolutionTime(t0);

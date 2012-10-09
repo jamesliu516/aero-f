@@ -5,6 +5,7 @@
 
 #include <IoData.h>
 #include <PostOperator.h>
+#include <ReinitializeDistanceToWall.h>
 #include <GhostPoint.h>
 
 struct DistInfo;
@@ -55,6 +56,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   // ----------- components for Fluid-Structure interface. -----------------------------
   DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily a  "levelset solver".)
+  DistVec<int> *countWstarij, *countWstarji;   //<! only used if ioData.embed.interfaceAlg==INTERSECTION
   DistSVec<double,dim> *Wstarij,*Wstarij_nm1;  //<! stores the FS Riemann solution (i->j) along edges
   DistSVec<double,dim> *Wstarji,*Wstarji_nm1;  //<! stores the FS Riemann solution (j->i) along edges
   DistSVec<double,dim> Vtemp;     //<! the primitive variables.
@@ -62,6 +64,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
 
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
+  ReinitializeDistanceToWall<1> *wall_computer;
   // ------------------------------------------------------------------------------------
 
   // Copies for fail safe ----- -----------------------------
@@ -102,6 +105,11 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                 // = 4 : on Gamma*, formula 2;
   int phaseChangeChoice; // = 0. use nodal values.
                          // = 1. use solutions of Riemann problems.
+  int phaseChangeAlg;	 // = 0. use averaged value, given phaseChangeChocie==0
+  						 // = 1. use least-squares, given phaseChangeChoice==0
+  int interfaceAlg;		 // = 0. do not use information of intersection at surrogate interface
+  						 // = 1. use information of intersection at surrogate interface
+  double intersectAlpha; //	relevant only if interfaceAlg==1
   const int numFluid;   //numFluid = 1 (for fluid-fullbody)
                             //     = 2 (for fluid-shell-fluid)
 
@@ -144,6 +152,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
   double currentPressure(double t);
 
+  void computeDistanceToWall(IoData &ioData);
 };
 
 

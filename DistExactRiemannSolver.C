@@ -29,6 +29,8 @@ domain(dom)
   interfacialWi = new DistSVec<double,dim-2>(dom->getEdgeDistInfo());
   interfacialWj = new DistSVec<double,dim-2>(dom->getEdgeDistInfo());
 
+  fluidIdToSet = new DistVec<int>(dom->getNodeDistInfo());
+
   if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
     // only the ioData.eqs.fluidModel is considered since only the Riemann invariant of one EOS is tabulated!
     // (no need to specify two different EOS)
@@ -64,7 +66,7 @@ domain(dom)
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subExactRiemannSolver[iSub] =
       new ExactRiemannSolver<dim>(ioData, (*riemannupdate)(iSub),
-                         	(*weight)(iSub), (*interfacialWi)(iSub), (*interfacialWj)(iSub), vf, tabulationC);
+                         	(*weight)(iSub), (*interfacialWi)(iSub), (*interfacialWj)(iSub), vf, tabulationC, (*fluidIdToSet)(iSub));
 
 }
 //------------------------------------------------------------------------------
@@ -77,6 +79,8 @@ DistExactRiemannSolver<dim>::~DistExactRiemannSolver()
   delete interfacialWi;
   delete interfacialWj;
   delete oldV;
+
+  delete fluidIdToSet;
 
   if (subExactRiemannSolver) {
 #pragma omp parallel for
@@ -98,8 +102,13 @@ void DistExactRiemannSolver<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
-    subExactRiemannSolver[iSub]->updatePhaseChange(V(iSub), fluidId(iSub), fluidIdn(iSub),
+    int res = subExactRiemannSolver[iSub]->updatePhaseChange(V(iSub), fluidId(iSub), fluidIdn(iSub),
 						   domain->getSubDomain()[iSub]->getHigherOrderMF());
+    if (res >= 0) {
+      std::cout << "Phase change update failed at node " << 
+        domain->getSubDomain()[iSub]->getNodeMap()[res] << std::endl;
+      exit(-1);
+    }
   }
 
 }
@@ -130,6 +139,6 @@ template<int dimLS>
 void DistExactRiemannSolver<dim>::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistLevelSetStructure *distLSS)
 {
   if(algorithmType_ != MultiFluidData::GHOSTFLUID_FOR_POOR)
-    domain->avoidNewPhaseCreation(Phi,Phin,*weight, distLSS);
+    domain->avoidNewPhaseCreation(Phi,Phin,*weight, distLSS, fluidIdToSet);
 }
 //------------------------------------------------------------------------------

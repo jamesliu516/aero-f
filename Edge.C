@@ -62,7 +62,7 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    locbeta = tprec.getBeta(locMach);
+    locbeta = tprec.getBeta(locMach,true);
 
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -134,9 +134,9 @@ void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
     double un = u * n - ndot;
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    locbeta = tprec.getBeta(locMach);
+    locbeta = tprec.getBeta(locMach,true);
     double dLocMach = varFcn->computeDerivativeOfMachNumber(Vmid, dVmid, dMach);
-    dLocbeta = tprec.getdBeta(locMach,dLocMach);
+    dLocbeta = tprec.getdBeta(locMach,dLocMach,true);
 
     double beta2 = locbeta * locbeta;
     double dbeta2 = 2.0*locbeta * dLocbeta;
@@ -200,7 +200,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(Vmid, fluidId[i]);
 
-      locbeta = tprec.getBeta(mach);
+      locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta*locbeta;
       coeff1 = (1.0+beta2)*un;
       coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -217,7 +217,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[i],fluidId[i]);
 
-      locbeta = tprec.getBeta(mach);
+      locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
       coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -232,7 +232,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[j],fluidId[j]);
 
-      locbeta = tprec.getBeta(mach);
+      locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
       coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -1352,6 +1352,93 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 //------------------------------------------------------------------------------
 
 template<int dim>
+inline
+void extendedLinearExtrapolationToIntersection(ElemSet& elems, int idxTet, int idxFace, 
+		double face_r, double face_t, SVec<double,3>& X, SVec<double,dim>& V, double* Wstar, 
+		double alpha, double length, int i) {
+  int n0_loc = elems[idxTet].faceDef(idxFace, 0);
+  int n1_loc = elems[idxTet].faceDef(idxFace, 1);
+  int n2_loc = elems[idxTet].faceDef(idxFace, 2);
+  int n0 = elems[idxTet].nodeNum(n0_loc);
+  int n1 = elems[idxTet].nodeNum(n1_loc);
+  int n2 = elems[idxTet].nodeNum(n2_loc);
+
+  double Vface[dim];
+  double Xface[3];
+
+  for (int k=0; k<dim; ++k)
+    Vface[k] = V[n2][k]+face_r*(V[n0][k]-V[n2][k])+face_t*(V[n1][k]-V[n2][k]);
+  for (int k=0; k<3; ++k)
+    Xface[k] = X[n2][k]+face_r*(X[n0][k]-X[n2][k])+face_t*(X[n1][k]-X[n2][k]);
+  double alpha_f = sqrt((Xface[0]-X[i][0])*(Xface[0]-X[i][0])+
+				   		(Xface[1]-X[i][1])*(Xface[1]-X[i][1])+
+				   		(Xface[2]-X[i][2])*(Xface[2]-X[i][2]))/length;
+  for (int k=0; k<dim; ++k)
+    Wstar[k] = Wstar[k]+((0.5-alpha)/(1.0+alpha_f-alpha))*(Vface[k]-Wstar[k]);
+  return;
+}
+
+//------------------------------------------------------------------------------
+
+inline
+bool notAllActive(Elem& elem, int idxFace, LevelSetStructure& LSS) {
+  int n0_loc = elem.faceDef(idxFace, 0);
+  int n1_loc = elem.faceDef(idxFace, 1);
+  int n2_loc = elem.faceDef(idxFace, 2);
+  int n0 = elem.nodeNum(n0_loc);
+  int n1 = elem.nodeNum(n1_loc);
+  int n2 = elem.nodeNum(n2_loc);
+  return ((!LSS.isActive(0.0,n0))||(!LSS.isActive(0.0,n1))||(!LSS.isActive(0.0,n2)));
+}
+
+//------------------------------------------------------------------------------
+
+//inline
+//int computePrimitiveJacEuler3D(char dir, double* V, double** J) {
+//  double gamma = 1.4;
+//  double rho = V[0];
+//  if (rho<=0.0)
+//    return 1;
+//  double u   = V[1];
+//  double v   = V[2];
+//  double w   = V[3];
+//  double p   = V[4];
+//  double nx  = 0.0;
+//  double ny  = 0.0;
+//  double nz  = 0.0;
+//  switch (dir) {
+//  	case 'x':
+//  		nx = 1.0;	break;
+//  	case 'y':
+//  		ny = 1.0;	break;
+//  	case 'z':
+//  		nz = 1.0;	break;
+//  }
+//  J[0][0] = nx*u+ny*v+nz*w;
+//  J[0][1] = rho*nx;	J[0][2] = rho*ny;	J[0][3] = rho*nz;	
+//  J[0][4] = 0.0;
+//  
+//  J[1][0] = 0.0;
+//  J[1][1] = nx*u+ny*v+nz*w;
+//  J[1][2] = 0.0;	J[1][3] = 0.0;	J[1][4] = nx/rho;
+//  
+//  J[2][0] = 0.0;	J[2][1] = 0.0;
+//  J[2][2] = nx*u+ny*v+nz*w;
+//  J[2][3] = 0.0;	J[2][4] = ny/rho;
+//  
+//  J[3][0] = 0.0;	J[3][1] = 0.0;	J[3][2] = 0.0;
+//  J[3][3] = nx*u+ny*v+nz*w;
+//  J[3][4] = nz/rho;
+//  
+//  J[4][0] = 0.0;
+//  J[4][1] = gamma*p*nx;	J[4][2] = gamma*p*ny;	J[4][3] = gamma*p*nz;
+//  J[4][4] = nx*u+ny*v+nz*w;
+//  return 0;
+//}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
@@ -1569,10 +1656,268 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
+                                     FluxFcn** fluxFcn, RecFcn* recFcn, ElemSet& elems, 
+									 GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V, 
+									 SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
+									 Vec<int>& countWstarij, Vec<int>& countWstarji, 
+									 LevelSetStructure &LSS, bool linRecAtInterface, 
+									 Vec<int> &fluidId, int Nriemann, SVec<double,3> *Nsbar, 
+									 double dt, double alpha, NodalGrad<dim>& ngrad, 
+									 EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, int it,
+                                     SVec<int,2>& tag, int failsafe, int rshift, 
+									 V6NodeData (*v6data)[2])
+{
+  int farfieldFluid = 0; 
+
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
+
+  double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
+  double Wstar[2*dim],Udummy[dim];
+  double fluxi[dim], fluxj[dim];  for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  double length;
+
+  Vec3D normalDir;
+
+  int ierr=0;
+  riemann.reset(it);
+
+  //double clip_alpha_min = 1e-1;
+  //double clip_alpha_max = 1e-1;
+
+  for (int l=0; l<numEdges; ++l) {
+    if (!masterFlag[l]) continue; //not a master edge
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+    bool intersect = LSS.edgeIntersectsStructure(0,l);
+    bool iActive = LSS.isActive(0.0,i);
+    bool jActive = LSS.isActive(0.0,j);
+
+    if( !iActive && !jActive ) {
+      if(it>0) for(int k=0;k<dim;k++) Wstarij[l][k] = Wstarji[l][k] = 0.0; //clean-up Wstar
+      continue;
+    }
+
+    // ------------------------------------------------
+    //  Reconstruction without crossing the interface.
+    // ------------------------------------------------
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+    }
+
+    if (iActive && jActive && !intersect)
+      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
+    else { // linRec at interface using Wstar
+      if (!linRecAtInterface) // just set Vi = V[i], Vj = V[j]
+        for(int k=0; k<dim; k++) {
+          Vi[k] = V[i][k];
+          Vj[k] = V[j][k];
+        }
+      else { // linRec at interface using Wstar        
+		if (iActive) {
+		  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
+		  for (int k=0; k<dim; k++) Vi[k] = V[i][k]+(1.0-resij.alpha)*ddVij[k];
+		}
+		else
+		  for (int k=0; k<dim; k++) Vi[k] = V[i][k];
+		if (jActive) {
+		  LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0,l,false);
+		  for (int k=0; k<dim; k++) Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k];
+		}
+		else
+		  for (int k=0; k<dim; k++) Vj[k] = V[j][k];
+      }
+    }
+      
+    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
+
+    // check for negative pressure or density //
+    if (!rshift)
+      ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
+                                       failsafe, tag, V[i], V[j], fluidId[i], fluidId[j]); //also checking reconstructed values acrossinterface.
+
+    if (ierr) continue;
+
+    for (int k=0; k<dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
+
+    // --------------------------------------------------------
+    //                   Compute fluxes
+    // --------------------------------------------------------
+    if (!intersect) {  // same fluid
+      if(!(iActive && jActive)) {
+        fprintf(stderr,"Really odd... (%d(%d),%d(%d): intersect = %d; iSwept = %d, jSwept = %d, iOccluded = %d, jOcculded = %d, model = %d/%d.\n",
+                locToGlobNodeMap[i]+1, iActive, locToGlobNodeMap[j]+1, jActive, intersect, LSS.isSwept(0.0,i), LSS.isSwept(0.0,j), 
+                LSS.isOccluded(0.0,i), LSS.isOccluded(0.0,j), LSS.fluidModel(0.0,i), LSS.fluidModel(0.0,j));
+        continue;
+      }
+
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+      for (int k=0; k<dim; ++k) {
+        fluxes[i][k] += flux[k];
+        fluxes[j][k] -= flux[k];
+      }
+    }
+    else{// interface
+      if(iActive) {// for node i
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+        switch (Nriemann) {
+          case 0: //structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
+            else                                normalDir = -1.0*resij.gradPhi;
+            break;
+          case 1: //fluid normal
+            normalDir = -1.0/(normal[l].norm())*normal[l];
+            break;
+          case 2: //cell-averaged structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+            else                                normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+            exit(-1);
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
+		if (countWstarij[l] == 0)
+          riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
+		else {
+		  for (int k=0; k<dim; k++) Wstar[k] = Wstarij[l][k];
+		  double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
+		  double axisnrm[3];
+		  for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedVdU(Wstar,dVdU);
+		  axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacx);
+		  axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacy);
+		  axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
+		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacz);
+		  for (int k=0; k<dim; k++)
+		    for (int k1=0; k1<dim; k1++)
+			  for (int k2=0; k2<dim; k2++)
+		        Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[i][k2]+
+		  	  	  		        dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[i][k2]+
+		  	  			        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[i][k2]);
+		}
+		if (it>0) {
+		  for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k];
+		  countWstarij[l] += 1;
+		}
+		if (v6data==NULL)
+		  for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+		else {
+		  int idxTet = v6data[l][0].tet;
+		  int idxFace = v6data[l][0].face;
+		  double face_r = v6data[l][0].r;
+		  double face_t = v6data[l][0].t;
+		  if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS))
+			for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+		  else
+			extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+			  		X,V,Wstar,resij.alpha,length,i);
+		}
+
+        //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+		double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
+		varFcn->getVarFcnBase(fluidId[i])->computeFofV(fluxnrm,Wstar,fluxi);
+        for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+      }
+      if(jActive){// for node j
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+        switch (Nriemann) {
+          case 0: //structure normal
+            if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
+            else                                normalDir = -1.0*resji.gradPhi;
+            break;
+          case 1: //fluid normal
+            normalDir = 1.0/(normal[l].norm())*normal[l];
+            break;
+          case 2: //cell-averaged structure normal
+            if(fluidId[j]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+            else                                normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+            exit(-1);
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
+		if (countWstarji[l] == 0)
+          riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
+		else {
+		  for (int k=0; k<dim; k++) Wstar[k] = Wstarji[l][k];
+		  double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
+		  double axisnrm[3];
+		  for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
+		  for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedVdU(Wstar,dVdU);
+		  axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacx);
+		  axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacy);
+		  axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
+		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacz);
+		  for (int k=0; k<dim; k++)
+		    for (int k1=0; k1<dim; k1++)
+			  for (int k2=0; k2<dim; k2++)
+		        Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[j][k2]+
+		  	  	  		        dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[j][k2]+
+		  	  			        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[j][k2]);
+		}
+		if (it>0) {
+		  for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
+		  countWstarji[l] += 1;
+		}
+  
+		if (v6data==NULL)
+		  for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+		else {
+		  int idxTet = v6data[l][1].tet;
+		  int idxFace = v6data[l][1].face;
+		  double face_r = v6data[l][1].r;
+		  double face_t = v6data[l][1].t;
+		  if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS))
+			for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+		  else
+			extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+			  		X,V,Wstar,resji.alpha,length,j);
+		}
+        //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+		double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
+		varFcn->getVarFcnBase(fluidId[j])->computeFofV(fluxnrm,Wstar,fluxj);
+        for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+      }
+    }
+  }
+
+  return ierr;
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, int dimLS>
 void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                       ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
-                                      SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+                                      SVec<double,dim>& V, Vec<int>& fluidId, NodalGrad<dim>& ngrad,
                                       NodalGrad<dimLS> &ngradLS,
                                       EdgeGrad<dim>* egrad, SVec<double,dimLS>& Phi, SVec<double,dimLS>& PhiF,
                                       LevelSetStructure *LSS)
@@ -1622,13 +1967,20 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     }
 
     if(!iCovered && !jCovered) { //the usual linear reconstruction
-      if(intersect) 
+      if(intersect) {
         for(k=0; k<dim; k++) {
           Vi[k] = V[i][k];
           Vj[k] = V[j][k];
         }
-      else recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-      recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
+        for(k=0; k<dimLS; k++) {
+          Pi[k] = Phi[i][k];
+          Pj[k] = Phi[j][k];    
+        }
+      }
+      else {
+        recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+        recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
+      }
     } else { //const reconstruction
       for(k=0; k<dim; k++) {
         Vi[k] = V[i][k];
@@ -1651,7 +2003,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 */
 
     // roe flux
-    if(!iCovered && !jCovered)
+    if(1/*!iCovered && !jCovered && !intersect*/)
       for (k=0; k<dimLS; k++){
 
         // Original
@@ -1676,12 +2028,20 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
       }
     else {
       if(!iCovered) {
+        double sign = -1.0;
+        if (fluidId[i] != 0)
+          sign = 1.0;
+
         for(k=0; k<dimLS; k++)
-          PhiF[i][k] += 0.5*Uni*Pi[k];
+          PhiF[i][k] += 0.5*Uni* Pi[k];//*/sign;
       }
       if(!jCovered) {
+        double sign = -1.0;
+        if (fluidId[j] != 0)
+          sign = 1.0;
+
         for(k=0; k<dimLS; k++)
-          PhiF[j][k] -= 0.5*Unj*Pj[k];
+          PhiF[j][k] -= 0.5*Unj* Pj[k];//*/ sign;
       }    
     }
   }
@@ -2771,7 +3131,7 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
     Uni      = Vi[1]*normal[l][0]  +Vi[2]*normal[l][1]  +Vi[3]*normal[l][2] - normalVel[l];
     Unj      = Vj[1]*normal[l][0]  +Vj[2]*normal[l][1]  +Vj[3]*normal[l][2] - normalVel[l];
     //Roe averaged variables
-    if (!iCovered && !jCovered) {
+    if (1/*!iCovered && !jCovered*/) {
       for (k = 0; k < dimLS; ++k) {
 
         df[0] = df[1] = 0.0;
@@ -2803,14 +3163,14 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
         if (masterFlag[l]) {
 	  Scalar* Aii = A.getElem_ii(i);
           for(k=0; k<dimLS; k++)
-            Aii[k*dimLS+k] += 0.5*Uni;
+            Aii[k*dimLS+k] += 0.0;//0.5*Uni;
         }
       }
       if(!jCovered) {
         if (masterFlag[l]) {
 	  Scalar* Ajj = A.getElem_ii(j);
           for(k=0; k<dimLS; k++)
-            Ajj[k*dimLS+k] -= 0.5*Unj;
+            Ajj[k*dimLS+k] -= 0.0;//0.5*Unj;
         }
       }    
     }

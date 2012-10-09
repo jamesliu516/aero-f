@@ -51,7 +51,7 @@ ImplicitCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   pc = ImplicitTsDesc<dim>::template 
     createPreconditioner<PrecScalar,dim>(implicitData.newton.ksp.ns.pc, this->domain);
 
-  ksp = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.ns, mvp, pc, this->com);
+  ksp = this->createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.ns, mvp, pc, this->com);
 
   MemoryPool mp;
 

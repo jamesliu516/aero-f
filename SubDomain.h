@@ -28,6 +28,8 @@
 using std::map;
 #endif
 
+#include <set>
+
 #include <complex>
 typedef std::complex<double> bcomp;
 
@@ -175,6 +177,11 @@ class SubDomain {
   std::vector<int> locSampleNodes;	// for Gappy ROM
   
 
+  // UH (07/2012)
+  // List of nodes on a surface for the Kirchhoff integral
+  std::set<int> kirchhoffNodesList;
+
+
 public:
   
   HigherOrderMultiFluid* higherOrderMF;
@@ -255,6 +262,9 @@ public:
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
 					  SVec<int,1> &, SVec<double,6> &, LevelSetStructure* =0);
+  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
+					  SVec<int,1> &, SVec<double,6> &, Vec<int> &, Vec<int> &, 
+					  LevelSetStructure* =0);
   void computeWeightsLeastSquaresNodePart(SVec<int,1> &, SVec<double,6> &);
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &,
 			      SVec<double,3> &, SVec<double,3> &);
@@ -302,7 +312,8 @@ public:
   template<int dimLS>
   void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin);
   template<int dimLS>
-  void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS = 0);
+  void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS = 0, 
+          Vec<int>* fluidIdToSet = 0);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], SVec<double,dim> &U);
 
@@ -336,12 +347,12 @@ public:
   // spatial discretization
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-		       Vec<double> &, Vec<double> &,
+		       Vec<double> &, Vec<double> &, Vec<double> &,
                        TimeLowMachPrec &);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-		       Vec<double> &, Vec<double> &,
+		       Vec<double> &, Vec<double> &, Vec<double> &,
                        TimeLowMachPrec &, Vec<int> &, Vec<double>* = NULL);
 
 
@@ -357,6 +368,14 @@ public:
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     bool linRecFSI = true, LevelSetStructure* =0);
 
+  template<int dim, class Scalar>
+  void computeGradientsLeastSquares(SVec<double,3> &, const Vec<int> &,
+                                    SVec<double,6> &,
+                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+									SVec<Scalar,dim> &, Vec<int> &,
+									Vec<int> &, SVec<Scalar,dim> &,
+                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+                                    bool linRecFSI = true, LevelSetStructure* =0);
 
   template<int dim, class Scalar>
   void computeGradientsGalerkin(Vec<double> &, SVec<double,3> &, SVec<double,3> &,
@@ -421,9 +440,20 @@ public:
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, Vec<int> &, int,
                               SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
+
+  template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&,
+                              SVec<double,dim>&, SVec<double,dim>&, 
+							  Vec<int>&, Vec<int>&, LevelSetStructure &, bool, 
+							  Vec<int> &, int, SVec<double,3>*, double, double, 
+							  NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int); 
+
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
-                               SVec<double,3>&, SVec<double,dim>&,
+                               SVec<double,3>&, SVec<double,dim>&,Vec<int>& fluidId,
                                NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*, SVec<double,dimLS>&,
                                SVec<double,dimLS>&, LevelSetStructure* =0);
   template<int dim>
@@ -738,6 +768,7 @@ public:
   void computeFaceScalarQuantity(PostFcn::ScalarType, PostFcn *, BcData<dim> &, GeoState &,
 				 SVec<double,3> &, SVec<double,dim> &, SVec<double,2> &);
 
+  
   template<int dim>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
 				 SVec<double,dim> &, SVec<double,3> &, Vec<double> &);
@@ -770,6 +801,24 @@ public:
   void markLenFaces(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.size()); }
   void markLenFaceNorms(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.sizeNorms()); }
   void markLenInletNodes(DistInfo &distInfo) {distInfo.setLen(locSubNum, inletNodes.size()); }
+
+
+  //! Function to set the length for the object distInfo with the nodes on a Kirchhoff surface
+  ///
+  /// Function to set the length for the object distInfo with the nodes on a Kirchhoff surface
+  ///
+  void markLenKirchhoffNodes(IoData &iod, DistInfo &distInfo);
+
+
+  //! Function to obtain the list of nodes on a surface for the Kirchhoff integral
+  ///
+  /// This function returns the list of nodes on a surface for the Kirchhoff integral.
+  ///
+  /// UH (07/2012)
+  ///
+  const std::set<int>& getKirchhoffNodesList() const { return kirchhoffNodesList; };
+
+
   void markLenNull(DistInfo &distInfo) {distInfo.setLen(locSubNum, 0); }
   void makeMasterFlag(DistInfo &);
   void setChannelNums(SubDTopo &);
@@ -936,6 +985,14 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init);
+  void computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
+					  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init);
+  void computeWeightsLeastSquaresNodePartForEmbeddedStruct(
+		  SVec<int,1> &count, SVec<double,10> &R);
+  template<int dim>
+  void computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, SVec<double,10> &R, 
+		  SVec<double,dim> &V, Vec<double> &Weights, SVec<double,dim> &VWeights, 
+		  LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init);
 
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights, 
@@ -1200,7 +1257,7 @@ public:
   template<int dim>
   void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
 
-  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll);
+  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,int dimLS);
   template<int dimLS>
   void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, Vec<int> &fluidId, bool *masterFlag);
 
@@ -1261,6 +1318,9 @@ public:
 
   HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
 
+  void updateFarfieldCoeffs(double dt) {faces.updateHHCoeffs(dt);}
+  void updateBoundaryExternalState() {faces.updateHHState();}
+  void initializeFarfieldCoeffs(double cc) {faces.initializeHHCoeffs(cc);}
   
 };
 //------------------------------------------------------------------------------

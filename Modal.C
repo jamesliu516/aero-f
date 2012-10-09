@@ -1111,7 +1111,7 @@ void ModalSolver<dim>::preProcess()  {
  //Setup Time state
  double dummyTime = 0.0;
  int dummySubCycles = 1;
- tState->computeTimeStep(1.0, &dummyTime, &dummySubCycles, *geoState, Xref, controlVol, Uref);
+ tState->computeTimeStep(1.0, 1.0, &dummyTime, &dummySubCycles, *geoState, Xref, controlVol, Uref);
  dt = ioData->linearizedData.stepsize/ioData->ref.rv.time;    //ts.timestep/  (ref.length/velocity)
 
  //time step for the first iteration (Forward Euler) has to be much smaller : here sdt0 = sdt^2

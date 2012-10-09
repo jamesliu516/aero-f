@@ -101,6 +101,11 @@ public:
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
                DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true, DistLevelSetStructure* =0);
 
+  template<class Scalar2>
+  void compute(int, DistSVec<double,3> &, DistVec<double> &, DistVec<int> &, 
+		       DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &,
+			   DistVec<int> &, DistVec<int> &, bool linFSI = true, DistLevelSetStructure* =0);
+
   void compute(int config, DistSVec<double,3> &X, DistSVec<double,dim> &Psi);
 
   template<class Scalar2>

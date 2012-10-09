@@ -46,6 +46,9 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->postOp->setForceGenerator(this);
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
+  phaseChangeAlg	 = (ioData.embed.phaseChangeAlg==EmbeddedFramework::LEAST_SQUARES) ? 1 : 0;
+  interfaceAlg		 = (ioData.embed.interfaceAlg==EmbeddedFramework::INTERSECTION) ? 1 : 0;
+  intersectAlpha	 = ioData.embed.alpha;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
 
 
@@ -129,6 +132,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
       exit(-1);
   }
+  wall_computer=new ReinitializeDistanceToWall<1>(*this->domain);
+  //wall_computer = 0;
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
   exit(-1);
@@ -139,6 +144,18 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   *Wstarij = 0.0;
   *Wstarji = 0.0;
+
+  //linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  if (interfaceAlg) {
+    countWstarij = new DistVec<int>(this->domain->getEdgeDistInfo());
+    countWstarji = new DistVec<int>(this->domain->getEdgeDistInfo());
+    *countWstarij = 0;
+    *countWstarji = 0;
+  }
+  else {
+    countWstarij = NULL;
+    countWstarji = NULL;
+  }
 
   //copies for fail safe
   WstarijCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
@@ -272,6 +289,8 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+  if (countWstarij) delete countWstarij;
+  if (countWstarji) delete countWstarji;
   if (Wstarij_nm1) delete Wstarij_nm1;
   if (Wstarji_nm1) delete Wstarji_nm1;
   if (WstarijCopy) delete WstarijCopy;
@@ -281,6 +300,7 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (UCopy) delete UCopy;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
+  delete wall_computer;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
   //PJSA if (Fs) delete[] Fs;
@@ -315,6 +335,8 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     double *tMax = &(this->data)->maxTime;
     _mmh->setup(tMax); //obtain maxTime from structure
   }
+
+  this->initializeFarfieldCoeffs();
 
   // If 'IncreasePressure' is activated, re-initialize the fluid state
   if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
@@ -393,6 +415,14 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     inSubCycling = false;
   }
 
+/*
+  if(wall_computer && !inSubCycling) {
+    this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+    wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState); // TODO(jontg): Probably not the best place...
+    this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+  }
+*/
+
   this->com->barrier();
   double t0 = this->timer->getTime();
   int numSubCycles = 1;
@@ -402,10 +432,10 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
       if(numFluid==1)
-        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+        dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->X, *this->A, U);
       else {//numFLuid>1
-        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+        dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->A, U, nodeTag);
       }
     }
@@ -712,7 +742,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     //store previous states for phase-change update
     tw = this->timer->getTime();
     if(recomputeIntersections)
-      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
             this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
@@ -778,5 +808,20 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
     exit(-1);
   }
   return p;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
+{
+  if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
+    if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+        ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+      this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
+      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+    }
+  }
 }
 

@@ -200,7 +200,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp,
+    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
             this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
@@ -222,7 +222,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       }
 
       tw = this->timer->getTime();
-      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, Unm1, this->Vtemp,
+      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, Unm1, this->Vtemp,
               *this->Weights, *this->VWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
               this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
       this->timer->addEmbedPhaseChangeTime(tw);
@@ -277,7 +277,7 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
   
   this->timer->addFluidSolutionTime(t0);
    
-  int ierr = checkSolution(U);
+  int ierr = this->checkSolution(U);
   if(ierr>0){  //failSafe
     U = *EmbeddedTsDesc<dim>::UCopy;
     return (-ierr);

@@ -96,6 +96,10 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   double dt, dts;
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
+
+  // For an embedded viscous simulation with turbulence model, compute the distance to the wall
+  probDesc->computeDistanceToWall(ioData);
+
   // setup solution output files
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
@@ -115,8 +119,15 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-    
+     
     bool solveOrNot = true;
+    
+    // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
+    if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
+        ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
+        ioData.problem.alltype == ProblemData::_FORCED_) {
+      probDesc->computeDistanceToWall(ioData);
+    }
     do { // Subcycling
       stat = 0;
       itSc++;
@@ -132,15 +143,16 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         dt = probDesc->computeTimeStep(it, &dtLeft, U);
 
       t += dt;
-//      fprintf(stderr,"t = %e, dt = %e.\n", t, dt);
 
+      // update coefficients for enforcing the Farfield BC.
+      probDesc->updateFarfieldCoeffs(dt);
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
       // compute control volumes and velocities
       probDesc->computeMeshMetrics();
       // Fluid Solution
       solveOrNot = probDesc->IncreasePressure(it,dt,t,U);
-      if (solveOrNot && ioData.problem.solvefluid == ProblemData::NO) {
+      if (ioData.problem.solvefluid == ProblemData::OFF) {
         solveOrNot = false;
       }
       if(solveOrNot){
@@ -167,13 +179,13 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     } while (dtLeft != 0.0 || stat<0);
 
-
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
     dts = probDesc->computePositionVector(&lastIt, it, t, U);
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
+
   }
   return 0;
 

@@ -16,12 +16,12 @@
 
 #include "OneDimensionalSolver.h"
 #include "DebugTools.h"
+#include "KirchhoffIntegrator.h"
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
 extern void startSparseGridGeneration(IoData &, Domain &);
 int interruptCode = 0;
-
 
 //int  atexit(void (*function)(void)) { exit(-1);}
 
@@ -54,6 +54,7 @@ void fpe_sigaction(int signal, siginfo_t *si, void *arg)
     MPI_Barrier(MPI_COMM_WORLD);
     exit(-1);
 }
+
 
 
 
@@ -105,6 +106,7 @@ int main(int argc, char **argv)
  
 #endif
 
+
   Domain domain;
   Timer *timer = domain.getTimer();
 //  fprintf(stderr,"TIMER::START TIME: %lf\n",timer->getTime());
@@ -139,11 +141,23 @@ int main(int argc, char **argv)
 
     domain.printElementStatistics();
 
-    // choose between linearized and nonlinear fluid problems
-    if (ioData.problem.type[ProblemData::LINEARIZED])
+    if (ioData.problem.alltype == ProblemData::_AERO_ACOUSTIC_)
+    {
+      std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
+      KirchhoffIntegrator doKP(ioData, &domain);
+      doKP.computeIntegral();
+    }
+    else if (ioData.problem.type[ProblemData::LINEARIZED])
+    {
+      // Choose linearized fluid problem
       startModalSolver(com, ioData, domain);
+    }
     else
+    {
+      // Choose nonlinear fluid problem
       startNavierStokesSolver(ioData, geoSource, domain);
+    }
+
   }
 
 #ifndef CREATE_DSO

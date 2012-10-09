@@ -32,6 +32,8 @@ class DistExactRiemannSolver {
   ExactRiemannSolver<dim> **subExactRiemannSolver;
 
   SparseGridCluster *tabulationC;
+ 
+  DistVec<int>* fluidIdToSet;
 
 public:
   DistExactRiemannSolver(IoData &iod, Domain *dom, VarFcn *vf);
@@ -40,7 +42,9 @@ public:
   DistSVec<double,dim> *getOldV() const { return oldV; }
   DistSVec<double,dim> *getRiemannUpdate() const { return riemannupdate; }
   DistVec<double> *getRiemannWeight() const { return weight; }
-  
+
+  DistVec<int>* getFluidIdToSet() const { return fluidIdToSet; } 
+ 
   void storeOldV(DistSVec<double,dim> &V);
 
   void updatePhaseChange(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistVec<int> &fluidIdn); 
