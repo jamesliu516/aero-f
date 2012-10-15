@@ -381,8 +381,8 @@ void ImplicitEmbeddedTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &
   mvp->evaluate(it,*(this->X) ,*(this->A), Q, F);
 
   mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
-  if (mvph1 && this->ghostPoints) 
-    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
+//  if (mvph1 && this->ghostPoints) 
+//    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
 
 }
 //------------------------------------------------------------------------------
