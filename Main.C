@@ -132,7 +132,7 @@ int main(int argc, char **argv)
     {
       std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
       KirchhoffIntegrator doKP(ioData, &domain);
-      doKP.computeIntegral();
+      doKP.Compute();
     }
     else if (ioData.problem.type[ProblemData::LINEARIZED])
     {
