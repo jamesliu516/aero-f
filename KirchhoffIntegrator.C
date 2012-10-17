@@ -88,7 +88,7 @@ void KirchhoffIntegrator::Compute
 {
 #ifdef AEROACOUSTIC
   char prefix[192];
-  sprintf(&prefix[0], "%s_", d_iod.input.strKPtraces);
+  sprintf(&prefix[0], "%s", d_iod.input.strKPtraces);
   
   int *vecLen = new int[d_domain_p->getNumLocSub() + 1];
   vecLen[0] = 0;
@@ -105,13 +105,14 @@ void KirchhoffIntegrator::Compute
   int numSnapshots = 1;
   double Tf = 0.0;
   bool goodFile = true;
-  
+  SubDomain **subDomain = d_domain_p->getSubDomain();
+ 
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
     char filename[256];
     long pos = 0;
-    sprintf(&filename[0], "%s%d", &prefix[0], iSub);
+    sprintf(&filename[0], "%s_sub%d", &prefix[0], subDomain[iSub]->getGlobSubNum());
     ifstream pfile(&filename[0], ios::binary);
     pfile.seekg(pos, ios::beg);
     Data dtmp;
@@ -153,7 +154,7 @@ void KirchhoffIntegrator::Compute
   {
     char filename[256];
     long pos = 0;
-    sprintf(&filename[0], "%s%d", &prefix[0], iSub);
+    sprintf(&filename[0], "%s_sub%d", &prefix[0], subDomain[iSub]->getGlobSubNum());
     ifstream pfile(&filename[0], ios::binary);
     pfile.seekg(pos, ios::beg);
     Data dtmp;

@@ -104,24 +104,7 @@ void TsRestart::writeKPtracesToDisk
     return;
 
   double time = t * refVal->time;
-  int step = 0;
-  {
-    //--- This formula comes from TsOutput::getStep
-    int frequency = iod.output.transient.frequency;
-    double frequency_dt = iod.output.transient.frequency_dt;
-    double prtout = iod.restart.etime;
-    if (frequency_dt <= 0.0) {
-      if (frequency > 0) {
-        step = it / frequency;
-        if (lastIt && (it % frequency != 0))
-          ++step;
-      }
-    } else {
-      step = (int)(t / frequency_dt);
-      if (lastIt && (t<prtout))
-        ++step;
-    }
-  }
+  int step = it;
 
   DistVec<double> Qs(domain->getNodeDistInfo());
 
@@ -143,7 +126,7 @@ void TsRestart::writeKPtracesToDisk
   for (int iSub = 0; iSub < domain->getNumLocSub(); ++iSub) 
   {
     char filename[strlen(prefix)+2];
-    sprintf(&filename[0], "%s%d", prefix, iSub);
+    sprintf(&filename[0], "%s_sub%d", prefix, subDomain[iSub]->getGlobSubNum());
     std::set<int> nList = subDomain[iSub]->getKirchhoffNodesList();
     ofstream myFile;
     if (step == 0)
