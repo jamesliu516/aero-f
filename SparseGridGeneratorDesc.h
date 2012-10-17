@@ -79,7 +79,11 @@ public:
 
       // actual SparseGrids tabulation
       SparseGridCluster sgCluster;
-      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);
+      int sp = strlen(ioData.output.transient.prefix) + 1;
+      char *sparseGridOutFileName = new char[sp + strlen(ioData.output.transient.sparseGrid)];
+      sprintf(sparseGridOutFileName, "%s%s", 
+	    ioData.output.transient.prefix, ioData.output.transient.sparseGrid);
+      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, sparseGridOutFileName, refIn, refOut, com);
 
       // test the first tabulation of the cluster
       com->barrier();
@@ -127,7 +131,7 @@ public:
       char *sparseGridOutFileName = new char[sp + strlen(ioData.output.transient.sparseGrid)];
       sprintf(sparseGridOutFileName, "%s%s", 
 	    ioData.output.transient.prefix, ioData.output.transient.sparseGrid);
-      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);
+      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl, sparseGridOutFileName, refIn, refOut, com);
       delete [] refIn; delete [] refOut; delete parameters;
     }else{
       com->fprintf(stdout, "### SparseGridGeneratorDesc::nothing done!\n");
