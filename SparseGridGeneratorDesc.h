@@ -123,6 +123,10 @@ public:
 */
 
       SparseGridCluster sgCluster;
+      int sp = strlen(ioData.output.transient.prefix) + 1;
+      char *sparseGridOutFileName = new char[sp + strlen(ioData.output.transient.sparseGrid)];
+      sprintf(sparseGridOutFileName, "%s%s", 
+	    ioData.output.transient.prefix, ioData.output.transient.sparseGrid);
       sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);
       delete [] refIn; delete [] refOut; delete parameters;
     }else{
