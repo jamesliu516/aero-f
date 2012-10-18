@@ -24,10 +24,15 @@ typedef std::tr1::unordered_set<int> PriorityNodes;
 template<class Scalar>
 class MultiGridLevel {
   private:
+
+    int my_dim, neq1,neq2;
+
     Domain& domain;
     CommPattern<int> * nodeIdPattern;
     CommPattern<double> * nodeVolPattern;
     CommPattern<double> * nodeVecPattern;
+    CommPattern<double> * nodeVecPatternEq1;
+    CommPattern<double> * nodeVecPatternEq2;
     CommPattern<double> * nodeNormalsPattern;
     CommPattern<double> * nodePosnPattern;
     CommPattern<double> * matPattern;
@@ -48,6 +53,8 @@ class MultiGridLevel {
     std::map<int,std::set<int> >* toTransfer;
 
     std::list<Vec3D>** nodeNormals;
+
+    bool useVolumeWeightedAverage;
  
   protected:
     DistInfo * nodeDistInfo;
@@ -82,6 +89,7 @@ class MultiGridLevel {
     DistVec<int> lineLocIDMap;
 
     DistVec<double>* ctrlVol; 
+    DistVec<double>* ctrlVolCount;
 
     int* numLines;
 
@@ -164,6 +172,8 @@ class MultiGridLevel {
 
     enum SeedNodeChoice { Random, Mavripilis };
 
+    void setUseVolumeWeightedAverage(bool b) { useVolumeWeightedAverage = b; }
+
     DistInfo& getNodeDistInfo()       { return *nodeDistInfo; }
     DistInfo& getEdgeDistInfo()       { return *edgeDistInfo; }
     DistInfo& getFaceDistInfo()       { return *faceDistInfo; }
@@ -191,7 +201,7 @@ class MultiGridLevel {
     int getNodeWithMostAgglomeratedNeighbors(std::vector<std::set<int> >& C,//Connectivity* C, 
                                              PriorityNodes& P,
                                              Vec<int>& nodeMapping,int iSub);
-    void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, const DistInfo& refinedFaceDistInfo,const DistInfo& refinedInletNodeDistInfo,DistGeoState& refinedGeoState, Domain& domain);
+    void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, const DistInfo& refinedFaceDistInfo,const DistInfo& refinedInletNodeDistInfo,DistGeoState& refinedGeoState, Domain& domain, int dim, int lneq1,int lneq2);
 
     void agglomerate(const DistInfo& refinedNodeDistInfo,
                      const DistInfo& refinedEdgeDistInfo,
@@ -199,7 +209,7 @@ class MultiGridLevel {
                      Connectivity** refinedSharedNodes,
                      Connectivity ** nToN, EdgeSet ** edges,
                      EdgeDef***, int**,
-                     Domain& domain,int dim,
+                     Domain& domain,int dim,int neq1,int neq2,
                      DistVec<Vec3D>& refinedEdgeNormals,
                      DistVec<double>& refinedVol,
                      DistVec<int>*,double beta);

@@ -27,26 +27,31 @@ class AgglomeratedFace {
 				       double *Ub, GenMat<Scalar,neq> &A);
 
   template <int dim>
-  void computeThinLayerViscousFiniteVolumeTerm(class NavierStokesTerm*,
+  void computeThinLayerViscousFiniteVolumeTerm(class FemEquationTerm*,
                                         VarFcn* varFcn,
                                         SVec<double,dim> &V, 
                                         SVec<double,dim> &dX,
                                         SVec<double,dim> &dY,
                                         SVec<double,dim> &dZ,
+                                        Vec<double>& d2wall,
+                                        double* Vwall,
 			                SVec<double,dim> &fluxes);
 
   template<int dim,class Scalar,int neq>
   void
-  computeJacobianThinLayerViscousFiniteVolumeTerm(class NavierStokesTerm* ns,
+  computeJacobianThinLayerViscousFiniteVolumeTerm(class FemEquationTerm* ns,
                                         VarFcn* varFcn,
                                         SVec<double,dim> &V, 
                                         SVec<double,dim> &dX,
                                         SVec<double,dim> &dY,
                                         SVec<double,dim> &dZ,
-			                SVec<double,neq*neq> &JacX,
+/*			                SVec<double,neq*neq> &JacX,
                                         SVec<double,neq*neq> &JacY,
                                         SVec<double,neq*neq> &JacZ,
+*/
                                         Vec<double>& ctrlVol,
+                                        Vec<double>& d2wall,
+                                        double* Vwall,
                                         GenMat<Scalar,neq>& A);
 
 
@@ -83,18 +88,38 @@ class AgglomeratedFaceSet {
 			       SVec<double,dim>& Ub, SVec<double,dim> &fluxes);
 
   template <int dim>
-  void computeThinLayerViscousFiniteVolumeTerm(class NavierStokesTerm*,
+  void computeThinLayerViscousFiniteVolumeTerm(class FemEquationTerm*,
                                         VarFcn* varFcn,
                                         SVec<double,dim> &V, 
                                         SVec<double,dim> &dX,
                                         SVec<double,dim> &dY,
                                         SVec<double,dim> &dZ,
+                                        Vec<double>& d2wall, 
+                                        SVec<double,dim>& Vwall, 
 			                SVec<double,dim> &fluxes);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn,
 				       SVec<double,dim> &V, 
 				       SVec<double,dim>& Ub, GenMat<Scalar,neq> &A);
+
+  template<int dim,class Scalar,int neq>
+  void
+  computeJacobianThinLayerViscousFiniteVolumeTerm(class FemEquationTerm* ns,
+                                        VarFcn* varFcn,
+                                        SVec<double,dim> &V, 
+                                        SVec<double,dim> &dX,
+                                        SVec<double,dim> &dY,
+                                        SVec<double,dim> &dZ,
+			                /*SVec<double,neq*neq> &JacX,
+                                        SVec<double,neq*neq> &JacY,
+                                        SVec<double,neq*neq> &JacZ,
+*/
+                                        Vec<double>& ctrlVol,
+                                        Vec<double>& d2wall,
+                                        SVec<double,dim>& Vwall,
+                                        GenMat<Scalar,neq>& A);
+
 
   AgglomeratedFace& operator [] (int i) { return myFaces[i]; }
 

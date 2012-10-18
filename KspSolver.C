@@ -307,6 +307,9 @@ GmresSolver(const typename VecType::InfoType &info, KspData &data,
 
   double sizeMB = (numVec + 1) * V[0].sizeMB();
 
+  numVecClamp = numVec;
+  outputConvergenceInfo = true;
+
   this->ioOp->globalSum(1, &sizeMB);
 
   this->ioOp->printf(2, "Memory for Gmres(%d) solver: %3.2f MB\n", numVec, sizeMB);
@@ -328,6 +331,19 @@ GmresSolver(const typename VecType::InfoType &info, KspData &data,
 */
 
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
+void GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::setVecClamp(int c) {
+
+  numVecClamp = c;
+}
+
+template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
+void GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::
+disableConvergenceInfo() {
+
+  outputConvergenceInfo = false;
+}
+
+template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
 int 
 GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecType &x)
 {
@@ -338,6 +354,9 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
   int iter = 0;
   int exitLoop = 0;
+
+  if (!this->pcOp)
+    typePrec = 0;
 
   do {
 
@@ -365,7 +384,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
     //std::cout << "V = " << V[0].norm() << std::endl;
     int j;
-    for (j=0; j<numVec; ++j) {
+    for (j=0; j<std::min(numVec,numVecClamp); ++j) {
 
       switch (typePrec) {
       case 0: { this->mvpOp->apply(V[j], w); } break;
@@ -419,7 +438,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
     x += w;
 
-  } while (exitLoop == 0);
+  } while (exitLoop == 0 && numVecClamp < numVec);
 
 
   if (this->checkFinalRes) {
@@ -441,7 +460,7 @@ target);
   }
 
   this->ioOp->printf(5, "Gmres(%d) solver: its=%d, res=%.2e, target=%.2e\n", numVec, iter, l2res, target);
-  if (iter == this->maxits && l2res > target) {
+  if (iter == this->maxits && l2res > target && outputConvergenceInfo) {
     this->ioOp->printf(1, "*** Warning: Gmres(%d) solver reached %d its", numVec, this->maxits);
     this->ioOp->printf(1, " (initial=%.2e, res=%.2e, target=%.2e, ratio = %.2e)\n", res0, l2res, target, l2res/target);
   }

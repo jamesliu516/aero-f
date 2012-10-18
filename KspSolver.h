@@ -105,11 +105,19 @@ class GmresSolver : public KspSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT> 
   VecSet<VecType> V;
   VecType w, r;
 
+  int numVecClamp;
+
+  bool outputConvergenceInfo;
+
 public:
 
   GmresSolver(const typename VecType::InfoType &, KspData &, 
 	      MatVecProdOp *, PrecOp *, IoOp *);
   ~GmresSolver() {}
+
+  void setVecClamp(int);
+
+  void disableConvergenceInfo();
 
   int solve(VecType &, VecType &);
   int solveLS(VecType &, VecType &);

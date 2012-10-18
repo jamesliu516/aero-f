@@ -17,7 +17,7 @@ class MultiGridOperator {
  public:
 
   MultiGridOperator(MultiGridLevel<Scalar>*, IoData& ioData, VarFcn* varFcn,
-                    Domain* domain, BcFcn* = NULL);
+                    Domain* domain, BcFcn* = NULL, BcFcn* = NULL);
 
   ~MultiGridOperator();
     
@@ -25,7 +25,8 @@ class MultiGridOperator {
   void computeJacobian(DistSVec<Scalar2,dim>& U, 
                        DistSVec<Scalar2,dim>& V,
 //                       DistVec<Scalar2>& irey,
-                       FluxFcn **fluxFcn, 
+                       FluxFcn **fluxFcn,
+                       FemEquationTerm*, 
                        DistMvpMatrix<Scalar2,neq> &A); 
 
   template <class Scalar2>
@@ -78,6 +79,6 @@ class MultiGridOperator {
 
   VarFcn* myVarFcn;
 
-  BcFcn* bcFcn;
+  BcFcn* bcFcn,*bcFcn1;
 
 };

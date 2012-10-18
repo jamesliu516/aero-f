@@ -273,15 +273,6 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
   geoState->setup2(timeState->getData());
   timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
 
-  if (iod.problem.solutionMethod == ProblemData::MULTIGRID) {
-
-    multiGridKernel = new MultiGridKernel<double,dim>(this->domain, *geoState,
-                                                      iod.ts.implicit.newton.ksp.ns, iod, this->varFcn,
-                                                      false, iod.mg.num_multigrid_levels, timeState,
-                                                      spaceOp->getBcFcn());
-    multiGridKernel->setOperators(this->spaceOp);
-  }
-
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
   HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(mmh);

@@ -95,8 +95,6 @@ protected:
 
   //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
   bool modifiedGhidaglia;
-  RecFcnConstant<dim> constantRecFcn;
-  MultiGridKernel<double,dim>* multiGridKernel;
 
 protected:
 
@@ -107,8 +105,6 @@ protected:
   bool monitorAvgForceConvergence(IoData &, int, DistSVec<double,dim> &);
 
 public:
-
-  typedef MultiGridKernel<double,dim> MultiGridKernelType;
 
   TsDesc(IoData &, GeoSource &, Domain *);
   virtual ~TsDesc();
@@ -134,8 +130,6 @@ public:
   bool checkForLastIteration(int, double, double, DistSVec<double,dim> &); //KW: not used?
 
   void setFailSafe(bool flag){ failSafeFlag = flag; }
-
-  RecFcn* getConstantRecFcn() { return &constantRecFcn; }
 
   DistSVec<double,dim>& getCurrentResidual() { return *R; }
 
@@ -184,7 +178,6 @@ public:
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
   void computeDistanceToWall(IoData &ioData);
-  MultiGridKernelType* getMultiGridKernel() { return multiGridKernel; }
 };
 
 //------------------------------------------------------------------------------

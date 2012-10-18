@@ -5,7 +5,7 @@
 #include <MatVecProd.h>
 #include <KspSolver.h>
 #include <MemoryPool.h>
-#include <MultiGridPrec.h>
+//#include <MultiGridPrec.h>
 
 #ifdef TYPE_MAT
 #define MatScalar TYPE_MAT
@@ -122,7 +122,7 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
   DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
   DistMat<double,dim> *_pc2 = dynamic_cast<DistMat<double,dim> *>(pc);
-  MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
+  //MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
 
   if (_pc || _pc2) {
 
@@ -136,8 +136,8 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         this->spaceOp->applyBCsToJacobian(Q, *_pc);
       } else {
-        if (!pmg->isInitialized())
-          pmg->initialize();
+        //if (!pmg->isInitialized())
+        //  pmg->initialize();
         this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
         this->timeState->addToJacobian(*this->A, *_pc2, Q);
         this->spaceOp->applyBCsToJacobian(Q, *_pc2);
@@ -152,11 +152,12 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
         jac->getData(*mvph1);
       else if (ilu) 
         ilu->getData(*mvph1);
-      else if (pmg) {
+   /*   else if (pmg) {
         if (!pmg->isInitialized())
           pmg->initialize();
         pmg->getData(*mvph1);
       }
+*/
     }
 
   }
@@ -164,10 +165,10 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
   
   double t0 = this->timer->getTime();
   
-  if (!pmg)    
+  //if (!pmg)    
     pc->setup();
-  else
-    pmg->setup(Q);
+  //else
+  //  pmg->setup(Q);
 /*  
   MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
   MatVecProdH1<dim,MatScalar,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,dim> *>(mvp);
