@@ -1366,16 +1366,24 @@ struct PcData {
 
 struct MultiGridData {
 
-  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2, MGGMRES = 3 } mg_smoother;
+
+  enum CycleScheme { VCYCLE = 0, WCYCLE = 1} cycle_scheme;
+
+  enum RestrictMethod { VOLUME_WEIGHTED = 0, AVERAGE = 1 } restrictMethod;
  
   int num_multigrid_smooth1,num_multigrid_smooth2;
   int num_multigrid_levels;
 
   int mg_output;
 
+  int useGMRESAcceleration;
+
   double directional_coarsening_factor;
 
   double mg_smooth_relax;
+
+  double prolong_relax_factor,restrict_relax_factor;
 
   int num_fine_sweeps;
  

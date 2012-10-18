@@ -86,7 +86,7 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
         tsSolver.solve(ioData);
       } else {
         MultiGridCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-        MultiGridSolver<ImplicitCoupledTsDesc<dim> > mgSolver(&tsDesc);
+        MultiGridSolver<MultiGridCoupledTsDesc<dim> > mgSolver(&tsDesc);
         mgSolver.solve(ioData);
       }
     }

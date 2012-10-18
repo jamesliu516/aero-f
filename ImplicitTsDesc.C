@@ -7,7 +7,7 @@
 #include <MatVecProd.h>
 #include <KspSolver.h>
 #include <NewtonSolver.h>
-#include <MultiGridPrec.h>
+//#include <MultiGridPrec.h>
 
 //------------------------------------------------------------------------------
 
@@ -132,7 +132,7 @@ KspPrec<neq> *ImplicitTsDesc<dim>::createPreconditioner(PcData &pcdata, Domain *
 	   pcdata.type == PcData::ASH || 
 	   pcdata.type == PcData::AAS)
     _pc = new IluPrec<Scalar,neq>(pcdata, dom);
-  else if (pcdata.type == PcData::MG)  {
+/*  else if (pcdata.type == PcData::MG)  {
     // WARNING: The last parameter is bullshit if dim != neq!
     // I just need something to compile
     _pc = new MultiGridPrec<Scalar,neq>(dom, *this->geoState,pcdata,
@@ -142,6 +142,7 @@ KspPrec<neq> *ImplicitTsDesc<dim>::createPreconditioner(PcData &pcdata, Domain *
                                         reinterpret_cast<DistTimeState<neq>*>(this->timeState));
     reinterpret_cast<MultiGridPrec<Scalar,dim>*>(_pc)->setOperators(this->spaceOp);
   }
+*/
   return _pc;
 
 }

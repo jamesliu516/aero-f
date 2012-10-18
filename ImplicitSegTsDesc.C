@@ -302,13 +302,13 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
     {
       JacobiPrec<PrecScalar,neq> *jac = dynamic_cast<JacobiPrec<PrecScalar,neq> *>(pc);
       IluPrec<PrecScalar,neq> *ilu = dynamic_cast<IluPrec<PrecScalar,neq> *>(pc);
-      MultiGridPrec<PrecScalar,neq> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,neq> *>(pc);
+      //MultiGridPrec<PrecScalar,neq> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,neq> *>(pc);
       if (jac) 
         jac->getData(*mvph1);
       else if (ilu) 
         ilu->getData(*mvph1);
-      else if (pmg)
-        pmg->getData(*mvph1);
+      //else if (pmg)
+      //  pmg->getData(*mvph1);
     }
 
   }

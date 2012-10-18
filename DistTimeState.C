@@ -130,6 +130,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
               ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
   
   fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
+
+  *dtau = 1.0;
 }
 
 //------------------------------------------------------------------------------

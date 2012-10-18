@@ -2447,6 +2447,14 @@ MultiGridData::MultiGridData()
 
   directional_coarsening_factor = 0.0;
   num_fine_sweeps = 5; 
+  prolong_relax_factor = 1.0; 
+  restrict_relax_factor = 1.0;
+
+  cycle_scheme = VCYCLE;
+
+  useGMRESAcceleration = 0;
+
+  restrictMethod = VOLUME_WEIGHTED;
 }
 
 //------------------------------------------------------------------------------
@@ -2460,14 +2468,32 @@ void MultiGridData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<MultiGridData>(ca, "MultiGridSmoothingRelaxation", this, &MultiGridData::mg_smooth_relax);
   
   new ClassToken<MultiGridData>(ca, "MultiGridSmoother", this,
-			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::mg_smoother), 3,
-			 "BlockJacobi",0,"LineJacobi",1,"RAS",2);
+			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::mg_smoother), 4,
+			 "BlockJacobi",0,"LineJacobi",1,"RAS",2,"GMRES", 3);
+  
+  new ClassToken<MultiGridData>(ca, "CycleScheme", this,
+			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::cycle_scheme), 2,
+			 "VCycle",0,"WCycle", 1);
+  
+  new ClassToken<MultiGridData>(ca, "RestrictionMethod", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::restrictMethod), 2,
+			 "VolumeWeighted",0,"Average", 1);
+  
+  new ClassToken<MultiGridData>(ca, "UseGMRESAcceleration", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::useGMRESAcceleration), 2,
+			 "No",0,"Yes", 1);
 
   new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth1",this, &MultiGridData::num_multigrid_smooth1);
   new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth2",this, &MultiGridData::num_multigrid_smooth2);
   new ClassInt<MultiGridData>(ca, "NumMultiGridLevels",this, &MultiGridData::num_multigrid_levels);
   new ClassInt<MultiGridData>(ca, "NumFineSweeps",this, &MultiGridData::num_fine_sweeps);
   new ClassDouble<MultiGridData>(ca, "DirectionalCoarseningFactor",this, &MultiGridData::directional_coarsening_factor);
+  new ClassDouble<MultiGridData>(ca, "ProlongRelaxFactor",this,
+&MultiGridData::prolong_relax_factor);
+  new ClassDouble<MultiGridData>(ca, "RestrictRelaxFactor",this,
+&MultiGridData::restrict_relax_factor);
 }
 
 //------------------------------------------------------------------------------

@@ -23,6 +23,7 @@ using std::min;
 #include "LevelSet/LevelSetStructure.h"
 #include "FluidSelector.h"
 #include "DenseMatrixOps.h"
+#include "FemEquationTermDesc.h"
 
 //------------------------------------------------------------------------------
 
@@ -318,7 +319,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
 template<int dim>
 int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
                                      VarFcn* varFcn,
-                                     NavierStokesTerm *ns,
+                                     FemEquationTerm *fet,
                                      GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V,
                                      SVec<double,dim>& fluxes)
@@ -339,7 +340,25 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
   flux[0] = 0.0;
   double fluxl[5][3];
   fluxl[0][0] = fluxl[0][1] = fluxl[0][2] = 0.0;
-  double ooreynolds_mu = ns->get_ooreynolds_mu(); 
+
+  FemEquationTermNS* ns = dynamic_cast<FemEquationTermNS*>(fet);
+  FemEquationTermSA* sa = dynamic_cast<FemEquationTermSA*>(fet);
+
+  NavierStokesTerm* nsterm = NULL; 
+  if (ns)
+    nsterm = dynamic_cast<NavierStokesTerm*>(ns);
+  else if (sa)
+    nsterm = dynamic_cast<NavierStokesTerm*>(sa);
+  else  {
+
+    fprintf(stderr,"Error - Cannot construct a NavierStokesTerm in "
+                        "EdgeSet::computeThinLayerViscousFiniteVolumeTerm");
+  }
+
+  double ooreynolds_mu,mutilde,mut,lambdat,kappat;
+  if (ns) ns->get_ooreynolds_mu(); 
+  if (sa) sa->get_ooreynolds_mu(); 
+  
   for (int l=0; l<numSampledEdges; ++l) {    
 
     if (!masterFlag[l]) continue;
@@ -368,16 +387,26 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     
     double Ui = Vi*xhat, Uj = Vj*xhat;
     Vec3D vi = Vi-Ui*xhat, vj = Vj-Uj*xhat;
-/*    
-    mu     = ns->getViscoFcn()->compute_mu(Tcg);
-    lambda = ns->getViscoFcn()->compute_lambda(Tcg,mu);
-    kappa  = ns->getThermalCondFcn()->compute(Tcg);
+
+    mu     = nsterm->getViscoFcn()->compute_mu(Tcg);
+    lambda = nsterm->getViscoFcn()->compute_lambda(Tcg,mu);
+    kappa  = nsterm->getThermalCondFcn()->compute(Tcg);
+    if (sa) {
+
+      int nodeNum[3] = {i,j,i};
+      double* Vl[] = {V[i],V[j],V[i],V[j]};
+      sa->computeTurbulentTransportCoefficients(Vl, nodeNum, X, mu,lambda,
+                 kappa, mutilde, mut, lambdat, kappat); 
+      mu += mut;
+      lambda += lambdat;
+      kappa += kappat;
+    }
 
     mu     *= ooreynolds_mu;
     lambda *= ooreynolds_mu;
     kappa  *= ooreynolds_mu;
 
-    Fuhat = (lambda+2.0*mu)*(Uj-Ui)/length;
+/*    Fuhat = (lambda+2.0*mu)*(Uj-Ui)/length;
     Fvhat = mu*(vj-vi)/length;
     
     for (int k = 0; k < 3; ++k)
@@ -421,14 +450,15 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 template<int dim,class Scalar,int neq>
 int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
                                      VarFcn* varFcn,
-                                     NavierStokesTerm *ns,
+                                     FemEquationTerm *fet,
                                      GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V,
                                      Vec<double>& ctrlVol,
-                                     SVec<double,3>& faceJacX,
+/*                                     SVec<double,3>& faceJacX,
                                      SVec<double,3>& faceJacY,
                                      SVec<double,3>& faceJacZ,
                                      bool* boundaryFlag,
+*/
                                      GenMat<Scalar,neq>& A)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -445,14 +475,36 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
   double mu,lambda,kappa;
   double flux[dim];
   flux[0] = 0.0;
-  double ooreynolds_mu = ns->get_ooreynolds_mu(); 
-  double jac_ii[neq*neq],jac_ij[neq*neq];
-  double tmp[neq*neq];
-  double tmp2[neq*neq];
-  double tmp3[neq*neq];
-  memset(jac_ii,0,sizeof(double)*neq*neq);
-  memset(jac_ij,0,sizeof(double)*neq*neq);
+  double jac_ii[dim*dim],jac_ij[dim*dim];
+  double tmp[dim*dim];
+  double tmp2[dim*dim];
+  double tmp3[dim*dim];
+  memset(jac_ii,0,sizeof(double)*dim*dim);
+  memset(jac_ij,0,sizeof(double)*dim*dim);
   double Tgi[5],Tgj[5];
+
+  FemEquationTermNS* ns = dynamic_cast<FemEquationTermNS*>(fet);
+  FemEquationTermSA* sa = dynamic_cast<FemEquationTermSA*>(fet);
+  FemEquationTermSAmean* sa_mean = dynamic_cast<FemEquationTermSAmean*>(fet);
+
+  NavierStokesTerm* nsterm = NULL; 
+  if (ns)
+    nsterm = dynamic_cast<NavierStokesTerm*>(ns);
+  else if (sa)
+    nsterm = dynamic_cast<NavierStokesTerm*>(sa);
+  else if (sa_mean)
+    nsterm = dynamic_cast<NavierStokesTerm*>(sa_mean);
+  else  {
+
+    fprintf(stderr,"Error - Cannot construct a NavierStokesTerm in "
+                        "EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm");
+  }
+
+  double ooreynolds_mu = nsterm->get_ooreynolds_mu(); 
+  double mutilde,mut,lambdat,kappat;
+  //if (ns) ns->get_ooreynolds_mu(); 
+  //if (sa) sa->get_ooreynolds_mu(); 
+  
   for (int l=0; l<numSampledEdges; ++l) {    
 
     if (!masterFlag[l]) continue;
@@ -482,14 +534,26 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
     double Ui = Vi*xhat, Uj = Vj*xhat;
     Vec3D vi = Vi-Ui*xhat, vj = Vj-Uj*xhat;
     
-    mu     = ns->getViscoFcn()->compute_mu(Tcg);
-    lambda = ns->getViscoFcn()->compute_lambda(Tcg,mu);
-    kappa  = ns->getThermalCondFcn()->compute(Tcg);
+    mu     = nsterm->getViscoFcn()->compute_mu(Tcg);
+    lambda = nsterm->getViscoFcn()->compute_lambda(Tcg,mu);
+    kappa  = nsterm->getThermalCondFcn()->compute(Tcg);
+
+    if (sa) {
+
+      int nodeNum[3] = {i,j,i};
+      double* Vl[] = {V[i],V[j],V[i],V[j]};
+      sa->computeTurbulentTransportCoefficients(Vl, nodeNum, X, mu,lambda,
+                 kappa, mutilde, mut, lambdat, kappat); 
+      mu += mut;
+      lambda += lambdat;
+      kappa += kappat;
+    }
+
 
     mu     *= ooreynolds_mu;
     lambda *= ooreynolds_mu;
     kappa  *= ooreynolds_mu;
-
+/*
     Fuhat = (lambda+2.0*mu)*(Uj-Ui)/length;
     Fvhat = mu*(vj-vi)/length;   
  
@@ -515,6 +579,49 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
 //    flux[4] = (0.5*(Ui+Uj)*(Uj-Ui)*(lambda+2.0*mu)+mu*0.5*(vj.normsq()-vi.normsq())-
 //               kappa*(Tj-Ti))/length;
 
+*/
+    double gradu[3][3];
+    for (int k = 0; k < 3; ++k) {
+      for (int m = 0; m < 3; ++m)
+        gradu[m][k] = (Vj[m]-Vi[m])/length*xhat[k];
+    }
+    double divu = gradu[0][0]+gradu[1][1]+gradu[2][2];
+    
+    double ndx = normal[l][0]*xhat[0]+normal[l][1]*xhat[1]+normal[l][2]*xhat[2];
+    jac_ii[4*dim] = kappa/length*(-Tgi[0])*ndx;
+    jac_ij[4*dim] = kappa/length*(Tgj[0])*ndx; 
+    
+    jac_ii[4*dim+4] = kappa/length*(-Tgi[4])*ndx;
+    jac_ij[4*dim+4] = kappa/length*(Tgj[4])*ndx; 
+
+    for (int p = 0; p < 3; ++p) {
+      for (int q = 0; q < 3; ++q) {
+        jac_ii[(p+1)*dim+(q+1)] = lambda*(-xhat[q]/length)*normal[l][p]+
+                                  mu*(-normal[l][q]/length*xhat[p]-(p==q?1.0:0.0)*ndx);
+        jac_ij[(p+1)*dim+(q+1)] = lambda*(xhat[q]/length)*normal[l][p]+
+                                  mu*(normal[l][q]/length*xhat[p]-(p==q?1.0:0.0)*ndx);
+      }
+    }
+
+    for (int p = 0; p < 3; ++p) {
+
+      jac_ii[4*dim+(p+1)] = Vcg[0]*jac_ii[(1)*dim+(p+1)] + 
+                           Vcg[1]*jac_ii[(2)*dim+(p+1)] + 
+                           Vcg[2]*jac_ii[(3)*dim+(p+1)];
+      jac_ij[4*dim+(p+1)] = Vcg[0]*jac_ij[(1)*dim+(p+1)] + 
+                           Vcg[1]*jac_ij[(2)*dim+(p+1)] + 
+                           Vcg[2]*jac_ij[(3)*dim+(p+1)];
+
+      jac_ii[4*dim+(p+1)] += 0.5*(lambda*divu*normal[l][p]+
+                            mu*(gradu[0][p]*normal[l][0]+gradu[1][p]*normal[l][1]+gradu[2][p]*normal[l][2]+
+                                gradu[p][0]*normal[l][0]+gradu[p][1]*normal[l][1]+gradu[p][2]*normal[l][2]));
+      jac_ij[4*dim+(p+1)] += -0.5*(lambda*divu*normal[l][p]+
+                            mu*(gradu[0][p]*normal[l][0]+gradu[1][p]*normal[l][1]+gradu[2][p]*normal[l][2]+
+                                gradu[p][0]*normal[l][0]+gradu[p][1]*normal[l][1]+gradu[p][2]*normal[l][2]));
+    }
+
+    
+ 
     Scalar* jaci = A.getElem_ii(i);
     Scalar* jacj = A.getElem_ii(j);
     Scalar* jacij = A.getElem_ij(l);
@@ -523,23 +630,31 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
     double volj = 1.0 / ctrlVol[j];
     varFcn->postMultiplyBydVdU(V[i], jac_ii,tmp);
     if (masterFlag[l]) {
-      for (int k = 0; k < neq*neq; ++k) {
-        jaci[k] += tmp[k];
+      for (int k = 0; k < neq; ++k) {
+        for (int k2 = 0; k2 < neq; ++k2) {
+          jaci[k*neq+k2] += tmp[k*dim+k2];
+        }
       }
     }
-    for (int k = 0; k < neq*neq; ++k) {
-      jacji[k] -= tmp[k]*volj;
+    for (int k = 0; k < neq; ++k) {
+      for (int k2 = 0; k2 < neq; ++k2) {
+        jacji[k*neq+k2] -= tmp[k*dim+k2]*volj;
+      }
     }
     varFcn->postMultiplyBydVdU(V[j], jac_ij,tmp);
     if (masterFlag[l]) {
-      for (int k = 0; k < neq*neq; ++k) {
-        jacj[k] -= tmp[k];
+      for (int k = 0; k < neq; ++k) {
+        for (int k2 = 0; k2 < neq; ++k2) {
+          jacj[k*neq+k2] -= tmp[k*dim+k2];
+        }
       }
     }
-    for (int k = 0; k < neq*neq; ++k) {
-      jacji[k] += tmp[k]*voli;
+    for (int k = 0; k < neq; ++k) {
+      for (int k2 = 0; k2 < neq; ++k2) {
+        jacij[k*neq+k2] += tmp[k*dim+k2]*voli;
+      }
     }
-  
+ /* 
     if (boundaryFlag[i]) {
       varFcn->postMultiplyBydVdU(V[i],faceJacX[i], tmp);
       varFcn->postMultiplyBydVdU(V[i],faceJacY[i], tmp2);
@@ -584,8 +699,10 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
         jacji[k] -= 0.5*tmp3[k]*volj*volj*normal[l][2]; 
       }
     }
- 
+ */
   }
+ 
+  return 0;
 }
 //------------------------------------------------------------------------------
 
