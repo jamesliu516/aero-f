@@ -387,8 +387,8 @@ c---------------------------------------------------------------------
       dim = 5 + type
       do i = 1,5
          do k = 1,5
-            jacL(dim*(i-1) + k) = 0.5d0*rnorm*HL(i,k)
-            jacR(dim*(i-1) + k) = 0.5d0*rnorm*HR(i,k)
+            jacL(dim*(i-1) + k) = rnorm*HL(i,k)
+            jacR(dim*(i-1) + k) = rnorm*HR(i,k)
          enddo
          do k = 6,dim
             jacL(dim*(i-1) + k) = 0.d0
