@@ -43,11 +43,13 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
 
   int mc;
 
+  int globalIt;
+
   double prolong_relax_factor,restrict_relax_factor;
   
   MultiGridKernel<double>* pKernel;
 
-  MultiGridDistSVec<double,dim> V, res, R, F, U,Uold,dx;
+  MultiGridDistSVec<double,dim> V, res, R, F, U,Uold,dx,Forig;
   MultiGridDistSVec<double,neq1> R1,dx1;
   MultiGridDistSVec<double,neq2> R2,dx2;
 

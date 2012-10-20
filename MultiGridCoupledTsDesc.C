@@ -24,6 +24,8 @@ MultiGridCoupledTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
     mc = 1;
   else if (iod.mg.cycle_scheme == MultiGridData::WCYCLE)
     mc = 2;     
+
+  globalIt = 0;
 }
 
 template <int dim>
@@ -68,6 +70,7 @@ setupTimeStepping(DistSVec<double,dim> *U0, IoData &iod) {
   res.init(pKernel);
   R.init(pKernel);
   F.init(pKernel);
+  Forig.init(pKernel);
   U.init(pKernel);
   Uold.init(pKernel); 
   dx.init(pKernel);
@@ -82,7 +85,8 @@ smooth0(DistSVec<double,dim>& x,int steps) {
   updateStateVectors(x, 0);
   for (i = 0; i < steps; ++i) {
 
-    computeTimeStep(0,&dummy, x);
+    computeTimeStep(globalIt,&dummy, x);
+    ++globalIt;
     computeFunction(0, x, R(0));
     computeJacobian(0, x, R(0));
     if (smoothWithGMRES)
@@ -121,7 +125,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
     mgSpaceOp->updateStateVectors(lvl,x);
 
-    mgSpaceOp->computeTimeStep(lvl,this->data->cfl*pow(0.75,lvl),
+    mgSpaceOp->computeTimeStep(lvl,this->data->cfl*pow(0.5,lvl),
                                V);
  
     mgSpaceOp->computeResidual(lvl, x, V, res);
@@ -137,6 +141,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     x(lvl) += dx(lvl);
    
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
+    pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f,Forig(lvl), this->varFcn);
     mgSpaceOp->computeResidual(lvl, x, V, R, false);
     R(lvl) = f-R(lvl);
   }
@@ -161,6 +166,7 @@ void MultiGridCoupledTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
     
     this->varFcn->conservativeToPrimitive(U(lvl+1), V(lvl+1));
     mgSpaceOp->computeResidual(lvl+1, U, V, F, false);
+    pKernel->applyFixes(lvl+1, R(lvl+1));
     F(lvl+1) += R(lvl+1)*restrict_relax_factor;
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);

@@ -56,8 +56,11 @@ class MultiGridKernel {
                          DistSVec<Scalar2,dim>& U, 
                          DistSVec<Scalar2,dim>& dx, 
                          DistSVec<Scalar2,dim>& f, 
+                         DistSVec<Scalar2,dim>& forig, 
                          VarFcn*);
                          
+  template<class Scalar2, int dim>
+  void applyFixes(int,DistSVec<Scalar2,dim>& f); 
 
  private:
 
@@ -89,5 +92,7 @@ class MultiGridKernel {
   int fine_sweeps;
 
   bool initialized;
+
+  std::set<int>** fixLocations;
  
 };
