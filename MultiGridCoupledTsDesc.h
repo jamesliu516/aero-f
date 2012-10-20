@@ -45,7 +45,7 @@ class MultiGridCoupledTsDesc : public ImplicitCoupledTsDesc<dim> {
 
   MultiGridKernel<double>* pKernel;
 
-  MultiGridDistSVec<double,dim> V, res, R, F, U,Uold,dx;
+  MultiGridDistSVec<double,dim> V, res, R, F, U,Uold,dx,Forig;
 
   MultiGridSpaceOperator<double,dim>* mgSpaceOp;
 
@@ -54,4 +54,6 @@ class MultiGridCoupledTsDesc : public ImplicitCoupledTsDesc<dim> {
   MultiGridMvpMatrix<double,dim>* mgMvp;
 
   MultiGridKspSolver<double,dim,double>* mgKspSolver;
+
+  int globalIt;
 };

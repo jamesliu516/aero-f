@@ -20,6 +20,12 @@ MultiGridKernel<Scalar>::MultiGridKernel(Domain *dom, DistGeoState& distGeoState
 {
 
   beta = ioData.mg.directional_coarsening_factor;
+
+  fixLocations = new std::set<int>*[num_levels];
+  for (int lvl = 0; lvl < num_levels; ++lvl) {
+
+    fixLocations[lvl] = new std::set<int>[numLocSub];
+  }
 }
 
 template<class Scalar>
@@ -121,6 +127,7 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
                   DistSVec<Scalar2,dim>& U, 
                   DistSVec<Scalar2,dim>& dx, 
                   DistSVec<Scalar2,dim>& f, 
+                  DistSVec<Scalar2,dim>& forig, 
                   VarFcn* vf) {
 
   int rnk;
@@ -134,11 +141,15 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
     SVec<Scalar2,dim>& dxl = dx(iSub);
     SVec<Scalar2,dim>& fl = f(iSub);
     SVec<double,3>& X = multiGridLevels[lvl]->getXn()(iSub);
+    DistGeoState& geoState = multiGridLevels[lvl]->getGeoState();
+
+    DistVec<Vec3D>& edgeNorm = geoState.getEdgeNormal();
+    DistVec<double>& ctrlVol = geoState.getCtrlVol();
 
     for (int i = 0; i < Vl.size(); ++i) {
 
       if (vf->getPressure(Vl[i]) <= 0.0 ||
-          vf->getDensity(Vl[i]) <= 0.0 || (iSub == 0 && rnk == 8 && i == 3231)) {
+          vf->getDensity(Vl[i]) <= 0.0 || (iSub == 0 && rnk == 110 && i == 3136)) {
 
         fprintf(stderr,"iSub = %d, rank = %d\n", iSub, rnk);
         fprintf(stderr,"Fixed negative value (p, rho) = (%lf, %lf) at"
@@ -151,6 +162,7 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
         fprintf(stderr,"U[i] = [%lf, %lf, %lf, %lf, %lf]\n",
                 Ul[i][0]-dxl[i][0], Ul[i][1]-dxl[i][1], Ul[i][2]-dxl[i][2], Ul[i][3]-dxl[i][3], Ul[i][4]-dxl[i][4]);
         fprintf(stderr,"nodetype[i] = %d\n", multiGridLevels[lvl]->getNodeType(iSub)[i]);
+        fprintf(stderr,"ctrlvol[i] = %e\n", ctrlVol(iSub)[i]);
         for (int j = 0; j < con->num(i); ++j) {
 
           if ((*con)[i][j] == i) continue;
@@ -160,19 +172,42 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
           fprintf(stderr,"U[%d] = [%lf, %lf, %lf, %lf, %lf]\n",l,
                 Ul[l][0]-dxl[l][0], Ul[l][1]-dxl[l][1], Ul[l][2]-dxl[l][2], Ul[l][3]-dxl[l][3], Ul[l][4]-dxl[l][4]);
           fprintf(stderr,"nodetype[%d] = %d\n",l, multiGridLevels[lvl]->getNodeType(iSub)[l]);
+          int edge_l = multiGridLevels[lvl]->getEdges()[iSub]->findOnly(i,l);
+          fprintf(stderr,"Edge_normal = [%e %e %e]\n", edgeNorm(iSub)[edge_l][0],edgeNorm(iSub)[edge_l][1],edgeNorm(iSub)[edge_l][2]);
+        fprintf(stderr,"ctrlvol[%d] = %e\n", l, ctrlVol(iSub)[l]);
+
+
         }
  
         if (vf->getPressure(Vl[i]) > 0.0 && vf->getDensity(Vl[i]) > 0.0 ) continue;
+
         for (int k = 0; k < dim; ++k) {
           Ul[i][k] -= dxl[i][k];
-          fl[i][k] = 0.0;
+          fl[i][k] = forig[i][k];
         }
         vf->conservativeToPrimitive(Ul[i],Vl[i]);
+        fixLocations[lvl][iSub].insert(i);
       }
     }
   }
 }
 
+template <class Scalar>
+template<class Scalar2, int dim>
+void MultiGridKernel<Scalar>::
+applyFixes(int lvl,DistSVec<Scalar2,dim>& f) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    for (std::set<int>::const_iterator it = fixLocations[lvl][iSub].begin();
+         it != fixLocations[lvl][iSub].end(); ++it) {
+      for (int k = 0; k < dim; ++k) {
+        f(iSub)[*it][k] = 0.0;
+      }
+    }
+  }
+}
+ 
 
 #define INSTANTIATION_HELPER(T) \
     template class MultiGridKernel<T>;
@@ -188,7 +223,10 @@ fixNegativeValues(int,DistSVec<T2,D>& V, \
                   DistSVec<T2,D>& U,  \
                   DistSVec<T2,D>& dx,  \
                   DistSVec<T2,D>& f, \
-                  VarFcn* vf);
+                  DistSVec<T2,D>& forig, \
+                  VarFcn* vf);\
+template void MultiGridKernel<T>:: \
+applyFixes(int,DistSVec<T2,D>& V);
 
 
 

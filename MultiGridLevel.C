@@ -2443,10 +2443,23 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 {
   coarseData = 0.0;
 
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+  if (rnk == 110) {
+
+    std::cout << "Calling restrict --- " << std::endl;
+  }
   if (useVolumeWeightedAverage) {
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       for(int i = 0; i < fineData(iSub).size(); ++i)  {
+        if (fineGrid.getMyLevel() == 0 && iSub == 0 && rnk == 110 && 
+            nodeMapping(iSub)[i] == 3136)
+          std::cout << "f = [" << fineData(iSub)[i][0] << " " <<
+                                  fineData(iSub)[i][1] << " " <<
+                                  fineData(iSub)[i][2] << " " <<
+                                  fineData(iSub)[i][3] << " " <<
+                                  fineData(iSub)[i][4] << "]" << std::endl;
         for(int j = 0; j < dim; ++j)
           coarseData(iSub)[nodeMapping(iSub)[i]][j] += fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i][j];
       }

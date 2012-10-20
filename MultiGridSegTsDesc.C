@@ -25,6 +25,8 @@ MultiGridSegTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
     mc = 2;     
 
   smoothWithGMRES = (iod.mg.mg_smoother == MultiGridData::MGGMRES);
+
+  globalIt = 0;
 }
 
 template <int dim,int neq1,int neq2>
@@ -83,6 +85,7 @@ setupTimeStepping(DistSVec<double,dim> *U0, IoData &iod) {
   R1.init(pKernel);
   R2.init(pKernel);
   F.init(pKernel);
+  Forig.init(pKernel);
   U.init(pKernel);
   Uold.init(pKernel); 
   dx.init(pKernel);
@@ -100,7 +103,8 @@ smooth0(DistSVec<double,dim>& x,int steps) {
   this->updateStateVectors(x, 0);
   for (i = 0; i < steps; ++i) {
 
-    this->computeTimeStep(0,&dummy, x);
+    this->computeTimeStep(globalIt,&dummy, x);
+    ++globalIt;
     this->computeFunction(0, x, R(0));
     this->computeJacobian(0, x, R(0));
     if (smoothWithGMRES)
@@ -166,7 +170,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
    
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
 
-    pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f, this->varFcn);
+    pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f,Forig(lvl), this->varFcn);
 
     mgSpaceOp->computeResidual(lvl, x, V, R, false);
     R(lvl) = f-R(lvl);
@@ -194,12 +198,17 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
   if (lvl < pKernel->numLevels()-1) {
 
     pKernel->Restrict(lvl+1, x(lvl), U(lvl+1));
+    this->domain->getCommunicator()->fprintf(stderr,"Restricting residual...\n");
+    fflush(stderr);
+    MPI_Barrier(MPI_COMM_WORLD);
     pKernel->Restrict(lvl+1, R(lvl), R(lvl+1));
     Uold(lvl+1) = U(lvl+1);
     
     this->varFcn->conservativeToPrimitive(U(lvl+1), V(lvl+1));
     mgSpaceOp->computeResidual(lvl+1, U, V, F, false);
-    pKernel->fixNegativeValues(lvl+1,V(lvl+1), U(lvl+1), dx(lvl+1), F(lvl+1), this->varFcn);
+    pKernel->applyFixes(lvl+1, R(lvl+1));
+    //pKernel->fixNegativeValues(lvl+1,V(lvl+1), U(lvl+1), dx(lvl+1), F(lvl+1), this->varFcn);
+    Forig(lvl+1) = F(lvl+1);
     F(lvl+1) += R(lvl+1)*restrict_relax_factor;
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);
