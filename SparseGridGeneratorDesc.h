@@ -88,10 +88,10 @@ public:
       // test the first tabulation of the cluster
       com->barrier();
       SparseGrid sparseGridCopy;
-      int filenameLength = strlen(ioData.output.transient.sparseGrid);
-      char ifilename[filenameLength+1];
-      sprintf(ifilename, "%s%d", ioData.output.transient.sparseGrid, com->cpuNum()+1);
-      sparseGridCopy.readFromFile(refIn, refOut, ifilename);
+      char *sparseGridReadFileName = new char[sp + strlen(ioData.output.transient.sparseGrid)+1];
+      sprintf(sparseGridReadFileName, "%s%s%d", 
+	    ioData.output.transient.prefix, ioData.output.transient.sparseGrid, com->cpuNum()+1);
+      sparseGridCopy.readFromFile(refIn, refOut, sparseGridReadFileName);
       int number = 5;
       sparseGridCopy.test(&LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, 1, &number, parameters);
 

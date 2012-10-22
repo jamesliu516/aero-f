@@ -4476,6 +4476,7 @@ int IoData::checkInputValues()
     bc.inlet.pressure = bc.outlet.pressure;
     bc.inlet.density = bc.outlet.density;
     bc.inlet.alpha = bc.inlet.beta = 0.0;
+    bc.inlet.mach = bc.outlet.mach;
     bc.inlet.temperature = bc.outlet.temperature;
     setupOneDimensional();
   }
@@ -4837,10 +4838,9 @@ void IoData::setupOneDimensional() {
          it!=mf.multiInitialConditions.sphereMap.dataMap.end();
          it++){
       if (it->second->cen_x != 0.0 ||
-	  it->second->cen_x != 0.0 ||
-	  it->second->cen_x != 0.0) {
+	  it->second->cen_y != 0.0 ||
+	  it->second->cen_z != 0.0) {
 	fprintf(stderr,"*** Error: non zero center specified for 1d spherical problem!\n");
-	exit(1);
       }
 
       oneDimensionalInfo.interfacePosition = it->second->radius;
