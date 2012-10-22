@@ -381,9 +381,9 @@ void KirchhoffIntegrator::Sphere
   std::cout << " ...... Time: ";
   std::cout << scientific << (t50 + d_timer_p->getTime()) << std::endl;
   
+#endif  // AEROACOUSTIC
 }
 
-#endif  // AEROACOUSTIC
 //----------------------------------------------
 
 
@@ -2235,6 +2235,7 @@ std::complex<double> KirchhoffIntegrator::hankel
  ) const
 {
   
+#ifdef AEROACOUSTIC
   double Hre, Him;
   
   if (n >= 0)
@@ -2250,6 +2251,9 @@ std::complex<double> KirchhoffIntegrator::hankel
   }
   
   return std::complex<double>(Hre, Him);
+#endif // AEROACOUSTIC
+
+  return std::complex<double>(0.0, 0.0);
   
 }
 
