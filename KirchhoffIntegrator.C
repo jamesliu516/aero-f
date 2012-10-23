@@ -43,7 +43,7 @@ d_SurfType(SPHERE), d_R(0.0),
 d_cyl_axis(),
 d_omega_t()
 {
-
+  
 #ifndef AEROACOUSTIC 
   domain->getCommunicator()->fprintf(stderr,"*** Error: AERO-F was compiled without Aeroacoustic capability."
                                             "  Rerun cmake with -DAEROACOUSTIC=ON to use this feature\n");
@@ -105,14 +105,16 @@ void KirchhoffIntegrator::Compute
   int numSnapshots = 1;
   double Tf = 0.0;
   bool goodFile = true;
-  SubDomain **subDomain = d_domain_p->getSubDomain();
- 
+  
+  SubDomain **SubDomain_p = d_domain_p->getSubDomain();
+  Communicator *MyCom_p = d_domain_p->getCommunicator();
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
     char filename[256];
     long pos = 0;
-    sprintf(&filename[0], "%s_sub%d", &prefix[0], subDomain[iSub]->getGlobSubNum());
+    sprintf(&filename[0], "%s_sub%d", &prefix[0], SubDomain_p[iSub]->getGlobSubNum());
     ifstream pfile(&filename[0], ios::binary);
     pfile.seekg(pos, ios::beg);
     Data dtmp;
@@ -128,7 +130,7 @@ void KirchhoffIntegrator::Compute
     vecLen[iSub+1] = (int) dtmp.value;
     pfile.close();
   }
-  
+ 
   
 #ifdef _UH_DEBUG_
   if (goodFile == false)
@@ -147,14 +149,13 @@ void KirchhoffIntegrator::Compute
   
   d_omega_t.resize((int) (numSnapshots/2) + 1);
   std::vector< std::complex<double> > out(d_omega_t.size()*vecLen[d_domain_p->getNumLocSub()]);
-  
-  
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
     char filename[256];
     long pos = 0;
-    sprintf(&filename[0], "%s_sub%d", &prefix[0], subDomain[iSub]->getGlobSubNum());
+    sprintf(&filename[0], "%s_sub%d", &prefix[0], SubDomain_p[iSub]->getGlobSubNum());
     ifstream pfile(&filename[0], ios::binary);
     pfile.seekg(pos, ios::beg);
     Data dtmp;
@@ -191,28 +192,34 @@ void KirchhoffIntegrator::Compute
         // Here we assume that the time step is constant
         //
         if (ii == 1)
+        {
           Tf = ttt * numSnapshots;
+        }
         //
         if (ii < d_omega_t.size())
           d_omega_t[ii] = (ii == 0) ? 0.0 : 2.0 * M_PI * ii / Tf;
         //
-        for (int jj = 0; jj < myLen; ++jj)
-          nodeID[jj + vecLen[iSub]] = myData[jj].nid;
-        // UH (08/2012)
-        // myData[jj].nid is the local index of a node
-        // It is local per subdomain (and per processor).
       }
+      //
       //---
+      // UH (08/2012)
+      // myData[jj].nid is the local index of a node
+      // It is local per subdomain (and per processor).
       for (int jj = 0; jj < myLen; ++jj)
       {
+        if (ii == 0)
+        {
+          nodeID[jj + vecLen[iSub]] = myData[jj].nid;
+        }
+        //---
         in[ii + (jj + vecLen[iSub])*numSnapshots] = myData[jj].value;
       }
       pos += sizeof(Data) * myLen;
     } // for (int ii = 0; ii < numSnapshots; ++ii)
-    
+
     free(myData);
     pfile.close();
-    
+
     //
     //--- Step 2: Do the FFT
     //
@@ -243,6 +250,14 @@ void KirchhoffIntegrator::Compute
     
   } // for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   
+  
+  //
+  // Communicate the frequencies to every processor.
+  // Else processors not touching the Kirchhoff surface would not have a value.
+  //
+
+  MyCom_p->globalMax(d_omega_t.size(), &d_omega_t[0]);
+ 
   //
   // At this point, the time-snapshots have been converted
   // to frequency-snapshots (with nodal values for each frequency).
@@ -284,7 +299,7 @@ void KirchhoffIntegrator::Compute
   // Evaluate and output the quantities of interest
   // (pressure at probe locations and far-field pattern)
   //
-  
+
   double t20 = -d_timer_p->getTime();
   switch (d_SurfType)
   {
@@ -298,9 +313,15 @@ void KirchhoffIntegrator::Compute
       std::cerr << "\n !!! The Kirchhoff process is not implemented for this surface !!!\n\n";
       break;
   }
-  std::cout << " ...... Time: ";
-  std::cout << scientific << (t20 + d_timer_p->getTime()) << std::endl;
+
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " ...... Time: ";
+    std::cout << scientific << (t20 + d_timer_p->getTime()) << std::endl;
+  }
   
+#endif // AEROACOUSTIC
+
 }
 
 
@@ -326,17 +347,19 @@ void KirchhoffIntegrator::Sphere
   
   int Nmax = 0;
   std::vector< std::complex<double> > coeff_p;
-  
+
   double t20 = - d_timer_p->getTime();
   convertToSHSeries(nodal, vecLen, coeff_p, Nmax);
-  std::cout << " ...... Time: ";
-  std::cout << scientific << (t20 + d_timer_p->getTime()) << std::endl;
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " ...... Time: ";
+    std::cout << scientific << (t20 + d_timer_p->getTime()) << std::endl;
+  }
 
   //
   // Get the coefficient for the normal derivative
   //
-  
-  
+    
   if (MyCom_p->cpuNum() == 0)
   {
     std::cout << " ... Compute the coefficients for dp/dn ...\n";
@@ -345,15 +368,16 @@ void KirchhoffIntegrator::Sphere
   std::vector< std::complex<double> > coeff_dpdn(coeff_p.size());
   double t30 = -d_timer_p->getTime();
   getdpdnSHseries(coeff_p, coeff_dpdn, Nmax);
-  std::cout << " ...... Time: ";
-  std::cout << scientific << (t30 + d_timer_p->getTime()) << std::endl;
-  
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " ...... Time: ";
+    std::cout << scientific << (t30 + d_timer_p->getTime()) << std::endl;
+  }
   
   //
   // Compute the Kirchhoff integral for all the frequencies
   // and all the observation points.
   //
-  
   
   if (MyCom_p->cpuNum() == 0)
   {
@@ -362,14 +386,15 @@ void KirchhoffIntegrator::Sphere
   
   double t40 = -d_timer_p->getTime();
   EvaluateSHSatProbes(coeff_p, Nmax);
-  std::cout << " ...... Time: ";
-  std::cout << scientific << (t40 + d_timer_p->getTime()) << std::endl;
-  
-  
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " ...... Time: ";
+    std::cout << scientific << (t40 + d_timer_p->getTime()) << std::endl;
+  }
+
   //
   // Compute the far-field pattern for all the frequencies
   //
-  
   
   if (MyCom_p->cpuNum() == 0)
   {
@@ -378,11 +403,14 @@ void KirchhoffIntegrator::Sphere
   
   double t50 = -d_timer_p->getTime();
   ffpDataOnSphere(&nodal[0], vecLen, &coeff_dpdn[0], Nmax);
-  std::cout << " ...... Time: ";
-  std::cout << scientific << (t50 + d_timer_p->getTime()) << std::endl;
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " ...... Time: ";
+    std::cout << scientific << (t50 + d_timer_p->getTime()) << std::endl;
+  }
   
-#endif  // AEROACOUSTIC
 }
+
 
 //----------------------------------------------
 
@@ -403,12 +431,20 @@ void KirchhoffIntegrator::convertToSHSeries
   
   
   SubDomain **SubDomain_p = d_domain_p->getSubDomain();
+  Communicator *MyCom_p = d_domain_p->getCommunicator();
   
   std::vector<double> xi, ww;
   getQuadrature(xi, ww, 12);
   
   nmax = d_iod.surfKI.d_nyquist;
-  int numFreq = nodal.size() / vecLen[d_domain_p->getNumLocSub()];
+  MyCom_p->globalMax(1, &nmax);
+
+  int numFreq = 0;
+  if (vecLen[d_domain_p->getNumLocSub()] > 0)
+  {
+    numFreq = nodal.size() / vecLen[d_domain_p->getNumLocSub()];
+  }
+  MyCom_p->globalMax(1, &numFreq);
   
   std::vector<double> yNorm((nmax+1)*(nmax+1));
   
@@ -417,11 +453,9 @@ void KirchhoffIntegrator::convertToSHSeries
   for (int ik = 0; ik < sLen; ++ik)
     series[ik] = std::complex<double>(0.0, 0.0);
   
-  
 #ifdef _UH_DEBUG_
   double surfaceCheck = 0.0;
 #endif
-  
   
   //
   // Get the radius of the surface
@@ -451,11 +485,14 @@ void KirchhoffIntegrator::convertToSHSeries
     }
     
   }
-  d_R = d_R / count;
   
-  Communicator *MyCom_p = d_domain_p->getCommunicator();
-  MyCom_p->globalSum(1, &d_R);
-  d_R = d_R / MyCom_p->size();
+  if (count > 0)
+  {
+    d_R = d_R / count;
+  }
+  MyCom_p->globalMax(1, &d_R);
+
+  int totNumNodes = 0;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
@@ -491,7 +528,7 @@ void KirchhoffIntegrator::convertToSHSeries
         std::complex<double> *myVal = val + ik * myLen;
         for (int jj = 0; jj < 3; ++jj)
         {
-          p[jj + 3*ik] = myVal[d_globalToNodeID[jFace[jj]]];
+          p[jj + 3*ik] = myVal[d_globalToNodeID[totNumNodes + jFace[jj]]];
         }
       }
       //
@@ -545,28 +582,38 @@ void KirchhoffIntegrator::convertToSHSeries
       
     } // for (int j = 0; j < faces.size(); ++j)
     
+    totNumNodes += (*d_X_p)(iSub).size();
+
   } // for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   
   MyCom_p->globalSum(sLen, &series[0]);
+  MyCom_p->globalSum(yNorm.size(), &yNorm[0]);
   
 #ifdef _UH_DEBUG_
   MyCom_p->globalSum(1, &surfaceCheck);
-  fprintf(stdout, " ... Spherical Surface = %4.3e (Error %4.3e)\n",
-          surfaceCheck, std::abs(surfaceCheck - 4*M_PI*d_R*d_R)/(4*M_PI*d_R*d_R));
+  if (MyCom_p->cpuNum() == 0)
+  {
+    fprintf(stdout, " ... Spherical Surface = %4.3e (Error %4.3e)\n",
+            surfaceCheck, std::abs(surfaceCheck - 4*M_PI*d_R*d_R)/(4*M_PI*d_R*d_R));
+  }
 #endif
   
   //
   //--- Filter the coefficients
   //
-  
+
   double errNorm = 0.0;
   for (int ik = 0; ik < yNorm.size(); ++ik)
   {
     errNorm = (errNorm > std::abs(yNorm[ik]-1.0)) ? errNorm : std::abs(yNorm[ik]-1.0);
   }
   errNorm *= 4.0;
-  std::cout << " ... Filter level (relative) = " << scientific << errNorm << "\n";
-  
+
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " ... Filter level (relative) = " << scientific << errNorm << "\n";
+  }
+
   for (int ik = 0; ik < numFreq; ++ik)
   {
     //--- Maximum
@@ -585,47 +632,58 @@ void KirchhoffIntegrator::convertToSHSeries
   }
   
 #ifdef _UH_DEBUG_
-  std::ofstream MyTrace("trace.txt");
-  for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
+  if (MyCom_p->cpuNum() == 0)
   {
-    SVec<double,3> XX = (*d_X_p)(iSub);
-    std::complex<double> *val = &nodal[0] + numFreq * vecLen[iSub];
-    int myLen = vecLen[iSub+1] - vecLen[iSub];
+
+    //
+    // Note the file 'trace.txt' is complete only when working with 1 proc
+    //
+
+    int totNumNodes = 0;
+    std::ofstream MyTrace("trace.txt");
+    for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
+    {
+      SVec<double,3> XX = (*d_X_p)(iSub);
+      std::complex<double> *val = &nodal[0] + numFreq * vecLen[iSub];
+      int myLen = vecLen[iSub+1] - vecLen[iSub];
+      for (int ik = 0; ik < numFreq; ++ik)
+      {
+        for (int i3 = 0; i3 < XX.size(); ++i3)
+        {
+          if (d_globalToNodeID[totNumNodes + i3] < 0)
+            continue;
+          MyTrace << i3 << " " << d_globalToNodeID[totNumNodes + i3] << " ";
+          double ro = 0.0, to = 0.0, po = 0.0;
+          cart2sph_x(XX[i3][0], XX[i3][1], XX[i3][2], ro, to, po);
+          MyTrace << XX[i3][0] << " " << XX[i3][1] << " " << XX[i3][2] << " ";
+          MyTrace << ro << " ";
+          MyTrace << to << " ";
+          MyTrace << po << " ";
+          std::complex<double> pp = evaluateSHS(&series[0] + ik*(nmax+1)*(nmax+1), nmax, to, po);
+          MyTrace << real(pp) << " " << imag(pp) << " ";
+          pp = val[ik * myLen + d_globalToNodeID[totNumNodes + i3]];
+          MyTrace << real(pp) << " " << imag(pp) << " ";
+          MyTrace << std::endl;
+        }
+      }
+      totNumNodes += (*d_X_p)(iSub).size();
+    }
+    MyTrace.close();
+
+    std::ofstream MyFile("p_coeff.txt");
     for (int ik = 0; ik < numFreq; ++ik)
     {
-      for (int i3 = 0; i3 < XX.size(); ++i3)
+      MyFile << ik << " " << d_omega_t[ik] << std::endl;
+      MyFile << (nmax+1)*(nmax+1) << " 0 " << std::endl;
+      for (int in = 0; in < (nmax+1)*(nmax+1); ++in)
       {
-        if (d_globalToNodeID[i3] < 0)
-          continue;
-        MyTrace << i3 << " " << d_globalToNodeID[i3] << " ";
-        double ro = 0.0, to = 0.0, po = 0.0;
-        cart2sph_x(XX[i3][0], XX[i3][1], XX[i3][2], ro, to, po);
-        MyTrace << ro << " ";
-        MyTrace << to << " ";
-        MyTrace << po << " ";
-        std::complex<double> pp = evaluateSHS(&series[0] + ik*(nmax+1)*(nmax+1), nmax, to, po);
-        MyTrace << real(pp) << " " << imag(pp) << " ";
-        pp = val[ik * myLen + d_globalToNodeID[i3]];
-        MyTrace << real(pp) << " " << imag(pp) << " ";
-        MyTrace << std::endl;
+        MyFile << scientific << real(series[in + ik*(nmax+1)*(nmax+1)]) << " ";
+        MyFile << scientific << imag(series[in + ik*(nmax+1)*(nmax+1)]) << " ";
+        MyFile << std::endl;
       }
     }
+    MyFile.close();
   }
-  MyTrace.close();
-  
-  std::ofstream MyFile("p_coeff.txt");
-  for (int ik = 0; ik < numFreq; ++ik)
-  {
-    MyFile << ik << " 0.0 " << std::endl;
-    MyFile << (nmax+1)*(nmax+1) << " 0 " << std::endl;
-    for (int in = 0; in < (nmax+1)*(nmax+1); ++in)
-    {
-      MyFile << scientific << real(series[in + ik*(nmax+1)*(nmax+1)]) << " ";
-      MyFile << scientific << imag(series[in + ik*(nmax+1)*(nmax+1)]) << " ";
-      MyFile << std::endl;
-    }
-  }
-  MyFile.close();
   
 #endif
   
@@ -679,6 +737,7 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
   double surfaceCheck = 0.0;
 #endif
   
+  int totNumNodes = 0;
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
@@ -714,7 +773,7 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
         std::complex<double> *myVal = val + ik * myLen;
         for (int jj = 0; jj < 3; ++jj)
         {
-          p[jj + 3*ik] = myVal[d_globalToNodeID[jFace[jj]]];
+          p[jj + 3*ik] = myVal[d_globalToNodeID[totNumNodes + jFace[jj]]];
         }
       }
       //
@@ -769,6 +828,8 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
       
     } // for (int j = 0; j < faces.size(); ++j)
     
+    totNumNodes += (*d_X_p)(iSub).size();
+
   }
   
   Communicator *MyCom_p = d_domain_p->getCommunicator();
@@ -907,127 +968,141 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
   
   
 #ifdef _UH_DEBUG_
-  std::ofstream MyTrace("trace.txt");
-  for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
+  //
+  // Note that this trace file is complete only with 1-proc
+  //
+  if (MyCom_p->cpuNum() == 0)
   {
-    SVec<double,3> XX = (*d_X_p)(iSub);
-    std::complex<double> *val = &nodal[0] + numFreq * vecLen[iSub];
-    int myLen = vecLen[iSub+1] - vecLen[iSub];
+    int totNumNodes = 0;
+    std::ofstream MyTrace("trace.txt");
+    for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
+    {
+      SVec<double,3> XX = (*d_X_p)(iSub);
+      std::complex<double> *val = &nodal[0] + numFreq * vecLen[iSub];
+      int myLen = vecLen[iSub+1] - vecLen[iSub];
+      for (int ik = 0; ik < numFreq; ++ik)
+      {
+        double omega_t = d_omega_t[ik];
+        if (std::abs(omega_t) == 0.0)
+          continue;
+      
+        for (int i3 = 0; i3 < (*d_X_p)(iSub).size(); ++i3)
+        {
+          if (d_globalToNodeID[totNumNodes + i3] < 0)
+            continue;
+          MyTrace << i3 << " " << d_globalToNodeID[totNumNodes + i3] << " ";
+
+          double *MyNode = XX[i3];
+          double ro = 0.0, to = 0.0;
+          ro = sqrt(MyNode[0]*MyNode[0] + MyNode[2]*MyNode[2]);
+        
+          if (MyNode[2] >= 0.0)
+            to = acos(MyNode[0]/ro);
+          else
+            to = 2.0*M_PI - acos(MyNode[0]/ro);
+          double yo = MyNode[1];
+        
+          MyTrace << MyNode[0] << " " << MyNode[1] << " " << MyNode[2] << " ";
+        
+          std::complex<double> pp = std::complex<double>(0.0, 0.0);
+        
+          for (int na = -nKappa; na <= nKappa; ++na)
+          {
+          
+            double kappa_a = 2.0*M_PI*na/(d_cyl_axis[1]-d_cyl_axis[0]);
+          
+            if (std::abs(omega_t) <= std::abs(kappa_a))
+              continue;
+          
+            double myarg = kappa_a * (yo - d_cyl_axis[0]);
+            double wt = sqrt(omega_t*omega_t - kappa_a*kappa_a);
+          
+            std::complex<double> einy = std::complex<double>(cos(myarg), sin(myarg));
+          
+            for (int nt = -nTheta; nt <= nTheta; ++nt)
+            {
+            
+              int shift = ik * (2*nTheta+1) * (2*nKappa + 1);
+              shift += (nt + nTheta) + (na + nKappa) * (2*nTheta + 1);
+              if (pcoeff[shift] == std::complex<double>(0.0, 0.0))
+                continue;
+            
+              std::complex<double> Hn_ro = hankel(nt, wt * ro);
+              std::complex<double> Hn_dR = hankel(nt, wt * d_R);
+            
+              std::complex<double> eint = std::complex<double>(cos(nt*to), sin(nt*to));
+              pp += eint * einy * Hn_ro / Hn_dR * pcoeff[shift];
+            
+            }
+          
+          }
+        
+          MyTrace << real(pp) << " " << imag(pp) << " ";
+
+          pp = val[ik * myLen + d_globalToNodeID[totNumNodes + i3]];
+          MyTrace << real(pp) << " " << imag(pp) << " ";
+          MyTrace << std::endl;
+        
+        }
+      }
+      totNumNodes += (*d_X_p)(iSub).size();
+    }
+    MyTrace.close();
+  }
+
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::ofstream MyFile("p_coeff.txt");
     for (int ik = 0; ik < numFreq; ++ik)
     {
       double omega_t = d_omega_t[ik];
-      if (std::abs(omega_t) == 0.0)
-        continue;
-      
-      for (int i3 = 0; i3 < (*d_X_p)(iSub).size(); ++i3)
+      MyFile << ik << " " << omega_t << " ";
+      MyFile << (2*nTheta+1)*(2*nKappa+1) << " 0 " << std::endl;
+      for (int na = -nKappa; na <= nKappa; ++na)
       {
-        if (d_globalToNodeID[i3] < 0)
-          continue;
-        MyTrace << i3 << " " << d_globalToNodeID[i3] << " ";
-
-        double *MyNode = XX[i3];
-        double ro = 0.0, to = 0.0;
-        ro = sqrt(MyNode[0]*MyNode[0] + MyNode[2]*MyNode[2]);
-        
-        if (MyNode[2] >= 0.0)
-          to = acos(MyNode[0]/ro);
-        else
-          to = 2.0*M_PI - acos(MyNode[0]/ro);
-        double yo = MyNode[1];
-        
-        MyTrace << MyNode[0] << " " << MyNode[1] << " " << MyNode[2] << " ";
-        
-        std::complex<double> pp = std::complex<double>(0.0, 0.0);
-        
-        for (int na = -nKappa; na <= nKappa; ++na)
+        double kappa_a = 2.0*M_PI*na/(d_cyl_axis[1]-d_cyl_axis[0]);
+        double wt = (std::abs(omega_t) > std::abs(kappa_a)) ? 
+                    sqrt(omega_t*omega_t - kappa_a*kappa_a) : 0.0;
+        for (int nt = -nTheta; nt <= nTheta; ++nt)
         {
-          
-          double kappa_a = 2.0*M_PI*na/(d_cyl_axis[1]-d_cyl_axis[0]);
-          
-          if (std::abs(omega_t) <= std::abs(kappa_a))
-            continue;
-          
-          double myarg = kappa_a * (yo - d_cyl_axis[0]);
-          double wt = sqrt(omega_t*omega_t - kappa_a*kappa_a);
-          
-          std::complex<double> einy = std::complex<double>(cos(myarg), sin(myarg));
-          
-          for (int nt = -nTheta; nt <= nTheta; ++nt)
-          {
-            
-            int shift = ik * (2*nTheta+1) * (2*nKappa + 1);
-            shift += (nt + nTheta) + (na + nKappa) * (2*nTheta + 1);
-            if (pcoeff[shift] == std::complex<double>(0.0, 0.0))
-              continue;
-            
-            std::complex<double> Hn_ro = hankel(nt, wt * ro);
-            std::complex<double> Hn_dR = hankel(nt, wt * d_R);
-            
-            std::complex<double> eint = std::complex<double>(cos(nt*to), sin(nt*to));
-            pp += eint * einy * Hn_ro / Hn_dR * pcoeff[shift];
-            
-          }
-          
+          MyFile << scientific << wt << " " << nt << " ";
+          int shift = ik * (2*nTheta+1) * (2*nKappa + 1);
+          shift += (nt + nTheta) + (na + nKappa) * (2*nTheta + 1);
+          MyFile << scientific << real(pcoeff[shift]) << " ";
+          MyFile << scientific << imag(pcoeff[shift]) << " ";
+          MyFile << std::endl;
         }
-        
-        MyTrace << real(pp) << " " << imag(pp) << " ";
+      }
+    }
+    MyFile.close();
+  }
 
-        pp = val[ik * myLen + d_globalToNodeID[i3]];
-        MyTrace << real(pp) << " " << imag(pp) << " ";
-        MyTrace << std::endl;
-        
-      }
-    }
-  }
-  MyTrace.close();
-  
-  std::ofstream MyFile("p_coeff.txt");
-  for (int ik = 0; ik < numFreq; ++ik)
+  if (MyCom_p->cpuNum() == 0)
   {
-    double omega_t = d_omega_t[ik];
-    MyFile << ik << " " << omega_t << " ";
-    MyFile << (2*nTheta+1)*(2*nKappa+1) << " 0 " << std::endl;
-    for (int na = -nKappa; na <= nKappa; ++na)
+    std::ofstream MFile("dpdn_coeff.txt");
+    for (int ik = 0; ik < numFreq; ++ik)
     {
-      double kappa_a = 2.0*M_PI*na/(d_cyl_axis[1]-d_cyl_axis[0]);
-      double wt = (std::abs(omega_t) > std::abs(kappa_a)) ? 
-                  sqrt(omega_t*omega_t - kappa_a*kappa_a) : 0.0;
-      for (int nt = -nTheta; nt <= nTheta; ++nt)
+      double omega_t = d_omega_t[ik];
+      MFile << ik << " " << d_omega_t[ik] << std::endl;
+      MFile << (2*nTheta+1)*(2*nKappa+1) << " 0 " << std::endl;
+      for (int na = -nKappa; na <= nKappa; ++na)
       {
-        MyFile << scientific << wt << " " << nt << " ";
-        int shift = ik * (2*nTheta+1) * (2*nKappa + 1);
-        shift += (nt + nTheta) + (na + nKappa) * (2*nTheta + 1);
-        MyFile << scientific << real(pcoeff[shift]) << " ";
-        MyFile << scientific << imag(pcoeff[shift]) << " ";
-        MyFile << std::endl;
+        double kappa_a = 2.0*M_PI*na/(d_cyl_axis[1]-d_cyl_axis[0]);
+        double wt = (std::abs(omega_t) > std::abs(kappa_a)) ? 
+                    sqrt(omega_t*omega_t - kappa_a*kappa_a) : 0.0;
+        for (int nt = -nTheta; nt <= nTheta; ++nt)
+        {
+          MFile << scientific << wt << " " << nt << " ";
+          int shift = ik * (2*nTheta+1) * (2*nKappa + 1);
+          shift += (nt + nTheta) + (na + nKappa) * (2*nTheta + 1);
+          MFile << scientific << real(dpdn_coeff[shift]) << " ";
+          MFile << scientific << imag(dpdn_coeff[shift]) << " ";
+          MFile << std::endl;
+        }
       }
     }
+    MFile.close();
   }
-  MyFile.close();
-
-  std::ofstream MFile("dpdn_coeff.txt");
-  for (int ik = 0; ik < numFreq; ++ik)
-  {
-    double omega_t = d_omega_t[ik];
-    MFile << ik << " " << omega_t << " ";
-    MFile << (2*nTheta+1)*(2*nKappa+1) << " 0 " << std::endl;
-    for (int na = -nKappa; na <= nKappa; ++na)
-    {
-      double kappa_a = 2.0*M_PI*na/(d_cyl_axis[1]-d_cyl_axis[0]);
-      double wt = (std::abs(omega_t) > std::abs(kappa_a)) ? 
-                  sqrt(omega_t*omega_t - kappa_a*kappa_a) : 0.0;
-      for (int nt = -nTheta; nt <= nTheta; ++nt)
-      {
-        MFile << scientific << wt << " " << nt << " ";
-        int shift = ik * (2*nTheta+1) * (2*nKappa + 1);
-        shift += (nt + nTheta) + (na + nKappa) * (2*nTheta + 1);
-        MFile << scientific << real(dpdn_coeff[shift]) << " ";
-        MFile << scientific << imag(dpdn_coeff[shift]) << " ";
-        MFile << std::endl;
-      }
-    }
-  }
-  MFile.close();
 
 #endif
 
@@ -1065,6 +1140,7 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
   surfaceCheck = 0.0;
 #endif
   
+  totNumNodes = 0;
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
@@ -1099,7 +1175,7 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
         const std::complex<double> *myVal = val + ik * myLen;
         for (int jj = 0; jj < 3; ++jj)
         {
-          p[jj + 3*ik] = myVal[d_globalToNodeID[jFace[jj]]];
+          p[jj + 3*ik] = myVal[d_globalToNodeID[totNumNodes + jFace[jj]]];
         }
       }
       //
@@ -1192,6 +1268,8 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
       
     } // for (int j = 0; j < faces.size(); ++j)
     
+    totNumNodes += (*d_X_p)(iSub).size();
+
   } // for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   
   
@@ -1200,9 +1278,12 @@ void KirchhoffIntegrator::Cylinder_TensorGrid
   
 #ifdef _UH_DEBUG_
   MyCom_p->globalSum(1, &surfaceCheck);
-  std::cout << " Surface " << surfaceCheck << " ";
-  std::cout << std::abs(surfaceCheck - d_R * (d_cyl_axis[1] - d_cyl_axis[0]) * 2*M_PI)/(d_R * (d_cyl_axis[1] - d_cyl_axis[0]) * 2*M_PI);
-  std::cout << std::endl;
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " Surface " << surfaceCheck << " ";
+    std::cout << std::abs(surfaceCheck - d_R * (d_cyl_axis[1] - d_cyl_axis[0]) * 2*M_PI)/(d_R * (d_cyl_axis[1] - d_cyl_axis[0]) * 2*M_PI);
+    std::cout << std::endl;
+  }
 #endif
   
   //
@@ -1355,13 +1436,14 @@ void KirchhoffIntegrator::CylinderGrid
   int numPoints = 0;
   d_R = 0.0;
   
+  int totNumNodes = 0;
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
     SVec<double,3> XX = (*d_X_p)(iSub);
     for (int i3 = 0; i3 < (*d_X_p)(iSub).size(); ++i3)
     {
-      if (d_globalToNodeID[i3] < 0)
+      if (d_globalToNodeID[totNumNodes + i3] < 0)
         continue;
       double rr = sqrt(XX[i3][0] * XX[i3][0] + XX[i3][2] * XX[i3][2]);
       if (iSub == 0)
@@ -1382,7 +1464,7 @@ void KirchhoffIntegrator::CylinderGrid
         numPoints += 1;
       }
     } // for (int i3 = 0; i3 < (*d_X_p)(iSub).size(); ++i3)
-    
+    totNumNodes += (*d_X_p)(iSub).size();
   }
   
   Communicator *MyCom_p = d_domain_p->getCommunicator();
@@ -1651,19 +1733,23 @@ void KirchhoffIntegrator::getdpdnSHseries
   
   ////////////////////
 #ifdef _UH_DEBUG_
-  std::ofstream MyFile("dpdn_coeff.txt");
-  for (int ik = 0; ik < numFrequencies; ++ik)
+  Communicator *MyCom_p = d_domain_p->getCommunicator();
+  if (MyCom_p->cpuNum() == 0)
   {
-    MyFile << d_omega_t[ik] << " 0.0 " << std::endl;
-    MyFile << (nMax+1)*(nMax+1) << " 0 " << std::endl;
-    for (int in = 0; in < (nMax+1)*(nMax+1); ++in)
+    std::ofstream MyFile("dpdn_coeff.txt");
+    for (int ik = 0; ik < numFrequencies; ++ik)
     {
-      MyFile << scientific << real(coeff_dudn[in + ik*(nMax+1)*(nMax+1)]) << " ";
-      MyFile << scientific << imag(coeff_dudn[in + ik*(nMax+1)*(nMax+1)]) << " ";
-      MyFile << std::endl;
+      MyFile << ik << " " << d_omega_t[ik] << std::endl;
+      MyFile << (nMax+1)*(nMax+1) << " 0 " << std::endl;
+      for (int in = 0; in < (nMax+1)*(nMax+1); ++in)
+      {
+        MyFile << scientific << real(coeff_dudn[in + ik*(nMax+1)*(nMax+1)]) << " ";
+        MyFile << scientific << imag(coeff_dudn[in + ik*(nMax+1)*(nMax+1)]) << " ";
+        MyFile << std::endl;
+      }
     }
+    MyFile.close();
   }
-  MyFile.close();
 #endif
   ///////////////////
   
@@ -1701,6 +1787,7 @@ void KirchhoffIntegrator::integrateOnSphere
   int intLen = numFreq * numProbes;
   std::vector< std::complex<double> > pnoise(intLen, std::complex<double>(0.0, 0.0));
   
+  int totNumNodes = 0;
   double t10 = -d_timer_p->getTime();
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
@@ -1735,7 +1822,7 @@ void KirchhoffIntegrator::integrateOnSphere
         const std::complex<double> *myVal = val + ik * myLen;
         for (int jj = 0; jj < 3; ++jj)
         {
-          p[jj + 3*ik] = myVal[d_globalToNodeID[faces[j][jj]]];
+          p[jj + 3*ik] = myVal[d_globalToNodeID[totNumNodes+faces[j][jj]]];
         }
       }
       //
@@ -1797,13 +1884,22 @@ void KirchhoffIntegrator::integrateOnSphere
       
     } // for (int j = 0; j < faces.size(); ++j)
     
+    totNumNodes += (*d_X_p)(iSub).size();
+
   } // for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
-  
-  std::cout << " ***** Time: " << scientific << (t10 + d_timer_p->getTime()) << std::endl;
-  
+    
   Communicator *MyCom_p = d_domain_p->getCommunicator();
   MyCom_p->globalSum(intLen, &pnoise[0]);
   
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " ***** Time: " << scientific << (t10 + d_timer_p->getTime()) << std::endl;
+  }
+
+  //
+  // Write the values to the disk
+  //
+
   if (MyCom_p->cpuNum() == 0)
   {
     writePValues(pnoise);
@@ -1823,8 +1919,8 @@ void KirchhoffIntegrator::EvaluateSHSatProbes
  )
 {
   
-  // This function computes the Kirchhoff integral.
-  
+  Communicator *MyCom_p = d_domain_p->getCommunicator();
+
   int numFreq = d_omega_t.size();
   
   std::vector<double> observations;
@@ -1846,7 +1942,6 @@ void KirchhoffIntegrator::EvaluateSHSatProbes
     }
   }
 
-  Communicator *MyCom_p = d_domain_p->getCommunicator();
   if (MyCom_p->cpuNum() == 0)
   {
     writePValues(pnoise);
@@ -1904,6 +1999,7 @@ void KirchhoffIntegrator::ffpDataOnSphere
 #endif
   
   
+  int totNumNodes = 0;
 #pragma omp parallel for
   for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   {
@@ -1938,7 +2034,7 @@ void KirchhoffIntegrator::ffpDataOnSphere
         const std::complex<double> *myVal = val + ik * myLen;
         for (int jj = 0; jj < 3; ++jj)
         {
-          p[jj + 3*ik] = myVal[d_globalToNodeID[faces[j][jj]]];
+          p[jj + 3*ik] = myVal[d_globalToNodeID[totNumNodes + faces[j][jj]]];
         }
       }
       //
@@ -2001,6 +2097,8 @@ void KirchhoffIntegrator::ffpDataOnSphere
       
     } // for (int j = 0; j < faces.size(); ++j)
     
+    totNumNodes += (*d_X_p)(iSub).size();
+
   } // for (int iSub = 0; iSub < d_domain_p->getNumLocSub(); ++iSub)
   
   
@@ -2010,9 +2108,12 @@ void KirchhoffIntegrator::ffpDataOnSphere
   
 #ifdef _UH_DEBUG_
   MyCom_p->globalSum(1, &surfaceCheck);
-  std::cout << " Surface " << surfaceCheck << " ";
-  std::cout << std::abs(surfaceCheck - d_R * d_R * 4*M_PI)/(4*d_R * d_R * M_PI);
-  std::cout << std::endl;
+  if (MyCom_p->cpuNum() == 0)
+  {
+    std::cout << " Surface " << surfaceCheck << " ";
+    std::cout << std::abs(surfaceCheck - d_R * d_R * 4*M_PI)/(4*d_R * d_R * M_PI);
+    std::cout << std::endl;
+  }
 #endif
   
   //
@@ -2390,7 +2491,7 @@ void KirchhoffIntegrator::cart2sph_x
   // phi is between 0 and 2*pi
   
   ro = sqrt(xo*xo + yo*yo + zo*zo);
-  to = acos(zo/ro);
+  to = (ro == 0.0) ? 0.0 : acos(zo/ro);
   
   if ((abs(xo) < 1.0e-15 * ro) && (abs(yo) < 1.0e-15 * ro))
   {
@@ -2406,7 +2507,16 @@ void KirchhoffIntegrator::cart2sph_x
   }
   else
   {
-    po = (yo < 0.0) ? 2*M_PI-acos(xo/(ro*sin(to))) : acos(xo/(ro*sin(to)));
+    double angle = xo/(ro * sin(to));
+    if (abs(angle) >= 1.0)
+    {
+      angle = (angle > 0.0) ? 0.0 : M_PI;
+    }
+    else
+    {
+      angle = acos(angle);
+    }
+    po = (yo < 0.0) ? 2.0*M_PI - angle : angle;
   }
   
 }
@@ -2428,7 +2538,14 @@ void KirchhoffIntegrator::cart2sph_y
   // phi is between -pi/2 and 3*pi/2
   
   ro = sqrt(xo*xo + yo*yo + zo*zo);
-  to = acos(zo/ro);
+  if (ro == 0.0)
+  {
+    to = 0.0;
+  }
+  else
+  {
+    to = acos(zo/ro);
+  }
   
   if ((abs(xo) < 1.0e-15 * ro) && (abs(yo) < 1.0e-15 * ro))
   {
@@ -2444,7 +2561,16 @@ void KirchhoffIntegrator::cart2sph_y
   }
   else
   {
-    po = (xo > 0.0) ? asin(yo/(ro*sin(to))) : M_PI - asin(yo/(ro*sin(to)));
+    double angle = yo/(ro * sin(to));
+    if (abs(angle) >= 1.0)
+    {
+      angle = (angle > 0.0) ? 0.5*M_PI : 1.5*M_PI;
+    }
+    else
+    {
+      angle = asin(angle);
+    }
+    po = (xo > 0.0) ? angle : M_PI - angle;
   }
   
 }

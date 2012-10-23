@@ -104,7 +104,26 @@ void TsRestart::writeKPtracesToDisk
     return;
 
   double time = t * refVal->time;
-  int step = it;
+  int step = 0;
+  if (iod.output.restart.frequency > 0)
+  {
+    step = it / iod.output.restart.frequency;      
+    if (it % iod.output.restart.frequency != 0)
+    {
+      if (lastIt)
+      {
+        step += 1;
+      }
+      else
+      {
+        return;
+      }
+    }
+  }
+  else
+  {
+    step = it;
+  }
 
   DistVec<double> Qs(domain->getNodeDistInfo());
 
@@ -170,6 +189,24 @@ void TsRestart::writeKPtracesToDisk
     }
     //
   } // for (int iSub = 0; iSub < domain->getNumLocSub(); ++iSub)
+
+  Communicator *MyCom_p = domain->getCommunicator();
+  if ((iod.output.restart.frequency > 0) && (MyCom_p->cpuNum() == 0))
+  {
+    // std::cout << "Wrote Kirchhoff trace " << step << " to '" << prefix << "'\n";
+    if (lastIt == true)
+    {
+      std::cout << "Kirchhoff traces have been written to " << prefix << "'\n";
+      std::cout << " --> Total Number of Snapshots N = " << step + 1 << std::endl;
+      double TT = time;
+      if (iod.output.restart.frequency > 0)
+        TT += (time/it) * iod.output.restart.frequency;
+      else
+        TT += (time/it);
+      std::cout << " --> Pseudo-period T = " << TT << std::endl;
+      std::cout << " --> The discrete Fourier frequencies will be of the form 2*PI*j/T with j in [0, N-1].\n";
+    }
+  }
 
   delete[] prefix;
 
