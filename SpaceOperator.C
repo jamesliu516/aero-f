@@ -2435,8 +2435,6 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 //  if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
 //    ngradLS->limit(recFcnLS, X, ctrlVol, PhiV);
 
-  DebugTools::PrintElement("Phi",PhiV,63,0,503);
-
   //Now compute the FV fluxes!
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector, 
