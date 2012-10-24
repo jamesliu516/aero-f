@@ -143,9 +143,12 @@ int main(int argc, char **argv)
 
     if (ioData.problem.alltype == ProblemData::_AERO_ACOUSTIC_)
     {
-      std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
+      if (com->cpuNum() == 0)
+      {
+        std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
+      }
       KirchhoffIntegrator doKP(ioData, &domain);
-      doKP.computeIntegral();
+      doKP.Compute();
     }
     else if (ioData.problem.type[ProblemData::LINEARIZED])
     {

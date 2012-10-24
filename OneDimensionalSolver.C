@@ -583,7 +583,7 @@ void OneDimensional::totalTimeIntegration(){
       programmedBurn->setCurrentTime(time,varFcn, U,fluidId,fluidIdn);
 
     if(time+dt>finalTime) dt = finalTime-time;
-    if(iteration % frequency == 0)
+    if(frequency > 0 && iteration % frequency == 0)
       cout <<"*** Iteration " << iteration <<": Time = "<<time*refVal.time<<", and dt = "<<dt*refVal.time<<endl;
     iteration++;
 
@@ -593,7 +593,7 @@ void OneDimensional::totalTimeIntegration(){
 
     outputProbes(time,iteration-1);
 
-    if(iteration % frequency == 0)
+    if(frequency > 0 && iteration % frequency == 0)
       resultsOutput(time,iteration);
   }
   resultsOutput(time,iteration);
