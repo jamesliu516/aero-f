@@ -79,15 +79,19 @@ public:
 
       // actual SparseGrids tabulation
       SparseGridCluster sgCluster;
-      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);
+      int sp = strlen(ioData.output.transient.prefix) + 1;
+      char *sparseGridOutFileName = new char[sp + strlen(ioData.output.transient.sparseGrid)];
+      sprintf(sparseGridOutFileName, "%s%s", 
+	    ioData.output.transient.prefix, ioData.output.transient.sparseGrid);
+      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, sparseGridOutFileName, refIn, refOut, com);
 
       // test the first tabulation of the cluster
       com->barrier();
       SparseGrid sparseGridCopy;
-      int filenameLength = strlen(ioData.output.transient.sparseGrid);
-      char ifilename[filenameLength+1];
-      sprintf(ifilename, "%s%d", ioData.output.transient.sparseGrid, com->cpuNum()+1);
-      sparseGridCopy.readFromFile(refIn, refOut, ifilename);
+      char *sparseGridReadFileName = new char[sp + strlen(ioData.output.transient.sparseGrid)+1];
+      sprintf(sparseGridReadFileName, "%s%s%d", 
+	    ioData.output.transient.prefix, ioData.output.transient.sparseGrid, com->cpuNum()+1);
+      sparseGridCopy.readFromFile(refIn, refOut, sparseGridReadFileName);
       int number = 5;
       sparseGridCopy.test(&LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, 1, &number, parameters);
 
@@ -123,7 +127,11 @@ public:
 */
 
       SparseGridCluster sgCluster;
-      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);
+      int sp = strlen(ioData.output.transient.prefix) + 1;
+      char *sparseGridOutFileName = new char[sp + strlen(ioData.output.transient.sparseGrid)];
+      sprintf(sparseGridOutFileName, "%s%s", 
+	    ioData.output.transient.prefix, ioData.output.transient.sparseGrid);
+      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl, sparseGridOutFileName, refIn, refOut, com);
       delete [] refIn; delete [] refOut; delete parameters;
     }else{
       com->fprintf(stdout, "### SparseGridGeneratorDesc::nothing done!\n");
