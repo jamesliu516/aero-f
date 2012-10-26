@@ -1496,10 +1496,12 @@ void SubDomain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, BcData<dim
 
 template<int dim>
 void SubDomain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-					  SVec<double,dim> &V, SVec<double,dim> &R)
+					  SVec<double,dim> &V, SVec<double,dim> &R, 
+				          Vec<GhostPoint<dim>*> *ghostPoints,
+                                          LevelSetStructure *LSS)
 {
 
-  elems.computeSmagorinskyLESTerm(smag, X, V, R);
+  elems.computeSmagorinskyLESTerm(smag, X, V, R, ghostPoints, LSS);
 
 }
 
@@ -1507,10 +1509,12 @@ void SubDomain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,
 
 template<int dim>
 void SubDomain::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
-			           SVec<double,dim> &V, SVec<double,dim> &R)
+			           SVec<double,dim> &V, SVec<double,dim> &R,
+				   Vec<GhostPoint<dim>*> *ghostPoints,
+                                   LevelSetStructure *LSS)
 {
 
-  elems.computeWaleLESTerm(wale, X, V, R);
+  elems.computeWaleLESTerm(wale, X, V, R, ghostPoints, LSS);
 
 }
 
@@ -1520,10 +1524,12 @@ template<int dim>
 void SubDomain::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
                                       SVec<double,6> &Sij_Test, Vec<double> &modS_Test,
                                       SVec<double,8> &Eng_Test, SVec<double,3> &X,
-				      SVec<double,dim> &V, double gam, double R)
+				      SVec<double,dim> &V, double gam, double R,
+				      Vec<GhostPoint<dim>*> *ghostPoints,
+                                      LevelSetStructure *LSS)
 {
 
-  elems.computeTestFilterAvgs(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
+  elems.computeTestFilterAvgs(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
 
 }
 
@@ -1534,10 +1540,19 @@ template<int dim>
 void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
                                 SVec<double,6> &Sij_Test, Vec<double> &modS_Test,
                                 SVec<double,8> &Eng_Test, SVec<double,2> &Cs,
-				Vec<int> &Ni, SVec<double,3> &X, double gam, double R)
+				Vec<int> &Ni, SVec<double,3> &X, double gam, 
+                                double R, LevelSetStructure *LSS)
 {
 
  for (int i=0; i<nodes.size(); ++i) {
+
+   if (LSS && Mom_Test[i][0] == 0.0) {
+      // Node i is a part of an inactive tet in embedded simulation.
+      // Otherwise Mom_Test[i][0] cannot be zero (unless there is a bug).
+      // Do nothing.
+      continue;
+   }
+
    double vc[5];
    double r_u[3];
    double r_u_u[6];
@@ -1658,10 +1673,13 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
 
 template<int dim>
 void SubDomain::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
-                                      SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
+                                      SVec<double,3> &X, SVec<double,dim> &V, 
+                                      SVec<double,dim> &R,
+				      Vec<GhostPoint<dim>*> *ghostPoints,
+                                      LevelSetStructure *LSS)
 {
 
-  elems.computeDynamicLESTerm(dles, Cs, X, V, R);
+  elems.computeDynamicLESTerm(dles, Cs, X, V, R, ghostPoints, LSS);
 
 }
 

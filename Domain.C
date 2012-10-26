@@ -2065,13 +2065,29 @@ void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> 
 
 template<int dim>
 void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
-				       DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+				       DistSVec<double,dim> &V, DistSVec<double,dim> &R,
+				       DistVec<GhostPoint<dim>*> *ghostPoints, DistLevelSetStructure *LSS)
 
 {
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub), 
+                       ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+  }
+  else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub));
+  }
 
 }
 
@@ -2080,12 +2096,28 @@ void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double
 template<int dim>
 void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs,
                                    DistSVec<double,3> &X, DistSVec<double,dim> &V,
-				   DistSVec<double,dim> &R)
+				   DistSVec<double,dim> &R,
+				   DistVec<GhostPoint<dim>*> *ghostPoints, DistLevelSetStructure *LSS)
 {
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub)
-     subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub),
+                       ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+  }
+  else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub));
+  }
 
 }
 
@@ -2302,13 +2334,29 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
 
 template<int dim>
 void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
-				DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+				DistSVec<double,dim> &V, DistSVec<double,dim> &R,
+				DistVec<GhostPoint<dim>*> *ghostPoints, DistLevelSetStructure *LSS)
 
 {
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub),
+                       ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+  }
+  else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub));
+  }
 
 }
 
@@ -2396,17 +2444,38 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 				     DistVec<int> &Ni,
                                      DistBcData<dim> &bcData,
 				     DistSVec<double,3> &X, DistSVec<double,dim> &V,
-				     double gam, double R)
+				     double gam, double R,
+				     DistVec<GhostPoint<dim>*> *ghostPoints, 
+                                     DistLevelSetStructure *LSS)
 {
 
 // computing test filtered values for all the required flow variables //
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub){
-     subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
-                                            Eng_Test(iSub), X(iSub), V(iSub), gam, R);
-     subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
-   }
+    for (int iSub = 0; iSub < numLocSub; ++iSub){
+      subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
+                                             Eng_Test(iSub), X(iSub), V(iSub), gam, R,
+                                             ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+      subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
+    }
+  }
+  else
+  {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub){
+      subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
+                                             Eng_Test(iSub), X(iSub), V(iSub), gam, R);
+      subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
+    }
+  }
 
    // START OF ALL EXCHANGES
 
@@ -2453,12 +2522,23 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 
 // computing unsmoothed Cs and Pt values //
 
+  if (ghostPoints) {
 #pragma omp parallel for
-   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-     subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
-                                      modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
-				      Ni(iSub), X(iSub), gam, R);
-   }
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
+                                       modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
+         			       Ni(iSub), X(iSub), gam, R,
+                                       &(LSS->operator()(iSub)));
+    }
+  }
+  else {
+#pragma omp parallel for
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
+                                       modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
+         			       Ni(iSub), X(iSub), gam, R);
+    }
+  }
 
 
 // smoothing Cs and Pt values //
