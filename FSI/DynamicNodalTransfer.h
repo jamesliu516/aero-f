@@ -96,6 +96,9 @@ public:
 
   //if embedded mesh provided by FEM
   bool embeddedMeshByFEM() {return getSurfFromFEM;}
+
+  void writeCrackingData(std::ofstream&) const;
+  void readCrackingData(std::ifstream&);
 };
 
 
@@ -158,6 +161,9 @@ public:
         int    (*getStElems())[3] {return structure.Tria;}
         
         CrackingSurface* getCrackingSurface() {return structure.cracking;}
+
+        void writeCrackingData(std::ofstream&) const;
+        void readCrackingData(std::ifstream&);
 
 //        void getEmbeddedMesh(int &n1, double (**xyz)[3], int &n2, int (**abc)[3]) {
 //          structure.getEmbeddedMesh(n1,xyz,n2,abc); 

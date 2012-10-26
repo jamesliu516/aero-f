@@ -73,6 +73,7 @@ struct InputData {
   const char *solutions;
   const char *positions;
   const char *levelsets;
+  const char *cracking;
   const char *rstdata;
   const char *podFile;
   const char *snapFile;
@@ -271,6 +272,7 @@ struct RestartData {
   const char *solutions;
   const char *positions;
   const char *levelsets;
+  const char *cracking;
   const char *data;
 
   int frequency;
@@ -1000,6 +1002,15 @@ struct PointData {
 
 };
 
+struct DummyPointData {
+
+  int fluidModelID;
+
+  DummyPointData();
+  ~DummyPointData() {}
+  Assigner *getAssigner();
+
+};
 //------------------------------------------------------------------------------
 
 struct MultiInitialConditionsData {
@@ -1008,6 +1019,7 @@ struct MultiInitialConditionsData {
   ObjectMap<PrismData>  prismMap;
   ObjectMap<PlaneData>  planeMap;
   ObjectMap<PointData>  pointMap;
+  ObjectMap<DummyPointData>  dummyPointMap;
 
   void setup(const char *, ClassAssigner * = 0);
 };

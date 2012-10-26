@@ -7,6 +7,8 @@
 
 #include<FSI/CrackingSurface.h>
 #include<cstdlib>
+#include <fstream>
+
 using std::map;
 using std::set;
 
@@ -38,6 +40,26 @@ void PhantomElement::update(int* nod, double* ph) {
   if(ph)
     for(int i=0; i<nNodes; i++)
       phi[i] = ph[i];
+}
+
+void PhantomElement::
+writeCrackingData(std::ofstream& restart_file) const {
+
+  restart_file.write(reinterpret_cast<const char*>(&nNodes),sizeof(int));
+  restart_file.write(reinterpret_cast<const char*>(phi),sizeof(double)*nNodes);
+  restart_file.write(reinterpret_cast<const char*>(nodes),sizeof(int)*nNodes);
+}
+
+PhantomElement* PhantomElement::
+readCrackingData(std::ifstream& restart_file) {
+
+  PhantomElement* E = new PhantomElement;
+  restart_file.read(reinterpret_cast<char*>(&E->nNodes),sizeof(int));
+  E->phi = new double[E->nNodes];
+  E->nodes = new int[E->nNodes];
+  restart_file.read(reinterpret_cast<char*>(E->phi),sizeof(double)*E->nNodes);
+  restart_file.read(reinterpret_cast<char*>(E->nodes),sizeof(int)*E->nNodes);
+  return E;
 }
 
 //------------------------------------------------------------------------------
@@ -346,3 +368,48 @@ void CrackingSurface::printInfo(char* filename)
 }
 
 //----------------------------------------------------------------------------
+
+void CrackingSurface::writeCrackingData(std::ofstream& restart_file) const {
+
+  restart_file.write(reinterpret_cast<const char*>(&nTotalQuads), sizeof(nTotalQuads));
+  restart_file.write(reinterpret_cast<const char*>(&nUsedQuads), sizeof(nUsedQuads)); 
+  restart_file.write(reinterpret_cast<const char*>(&nTotalTrias), sizeof(nTotalTrias));
+  restart_file.write(reinterpret_cast<const char*>(&nUsedTrias), sizeof(nUsedTrias));
+  restart_file.write(reinterpret_cast<const char*>(&nTotalNodes), sizeof(nTotalNodes));
+  restart_file.write(reinterpret_cast<const char*>(&nUsedNodes), sizeof(nUsedNodes));
+
+  int sz = phantoms.size();
+  restart_file.write(reinterpret_cast<const char*>(&sz),sizeof(int));
+  for (std::map<int,PhantomElement*>::const_iterator itr = phantoms.begin();
+       itr != phantoms.end(); ++itr) {
+
+    restart_file.write(reinterpret_cast<const char*>(&itr->first),
+                       sizeof(int));
+    (itr->second)->writeCrackingData(restart_file);
+  } 
+
+  restart_file.write(reinterpret_cast<const char*>(cracked), sizeof(bool)*nTotalQuads);
+  restart_file.write(reinterpret_cast<const char*>(deleted), sizeof(bool)*nTotalQuads);
+}
+
+void CrackingSurface::readCrackingData(std::ifstream& restart_file) {
+
+  restart_file.read(reinterpret_cast<char*>(&nTotalQuads), sizeof(nTotalQuads));
+  restart_file.read(reinterpret_cast<char*>(&nUsedQuads), sizeof(nUsedQuads)); 
+  restart_file.read(reinterpret_cast<char*>(&nTotalTrias), sizeof(nTotalTrias));
+  restart_file.read(reinterpret_cast<char*>(&nUsedTrias), sizeof(nUsedTrias));
+  restart_file.read(reinterpret_cast<char*>(&nTotalNodes), sizeof(nTotalNodes));
+  restart_file.read(reinterpret_cast<char*>(&nUsedNodes), sizeof(nUsedNodes));
+
+  int sz,tmp;
+  restart_file.read(reinterpret_cast<char*>(&sz),sizeof(int));
+  for (int i = 0; i < sz; ++i) {
+
+    restart_file.read(reinterpret_cast<char*>(&tmp),
+                      sizeof(int));
+    phantoms[tmp] = PhantomElement::readCrackingData(restart_file);
+  } 
+
+  restart_file.read(reinterpret_cast<char*>(cracked), sizeof(bool)*nTotalQuads);
+  restart_file.read(reinterpret_cast<char*>(deleted), sizeof(bool)*nTotalQuads);
+}

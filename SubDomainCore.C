@@ -4747,7 +4747,8 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
   }
 }
 // ASSUME Max FLUID-ID IS 2
-void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll)
+void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,
+                                 int dimLS)
 {
   /* poll[0,1,2]  |   indication
      -------------+---------------
@@ -4757,7 +4758,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
      0  0  0      |     no info available
      1  1  1      |     can't decide */
   
-  if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
+  //if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
   const Connectivity &Node2Node = *getNodeToNode();
   
   for(int i=0; i<nodes.size(); i++) {
@@ -4766,8 +4767,11 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
     bool occluded = LSS.isOccluded(0.0,i);
 
     if(!swept){ //fluidId should not change.
-      if(occluded || fluidId[i]!=2) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
-        poll[i][fluidId[i]] = true;
+      if(occluded || fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+        //poll[i][fluidId[i]] = true;
+        if (fluidId[i] == 0) poll[i][0] = true;
+        else if (fluidId[i] == dimLS) poll[i][1] = true;
+        else if (fluidId[i] == dimLS+1) poll[i][2] = true;
         continue;
       }
     }
@@ -4793,7 +4797,10 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
         break;
       }
     }
-    
+
+    if (myId == dimLS) myId = 1;
+    else if (myId == dimLS+1) myId = 2;    
+
     if(consistent)
       poll[i][myId] = true; //its visible neighbors have the same id
     else

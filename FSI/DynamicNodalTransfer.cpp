@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <list>
 #include <map>
+#include <fstream>
 
 //------------------------------------------------------------------------------
 
@@ -24,6 +25,20 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 
 {
   timer = tim;
+
+  if (cracking()) {
+
+    if (strcmp(iod.input.cracking,"") != 0) {
+
+      int lns = strlen(iod.input.prefix)+strlen(iod.input.cracking)+1;
+      char* fn = new char[lns];
+      sprintf(fn,"%s%s",iod.input.prefix, iod.input.cracking);
+      std::ifstream infile(fn, std::ios::binary);
+      readCrackingData(infile);
+      delete [] fn;
+    }
+  }
+
 //  com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
 
 {  Communication::Window<double> window(com, 1*sizeof(double), &dts);
@@ -987,3 +1002,30 @@ EmbeddedStructure::getNewCracking()
 
 //------------------------------------------------------------------------------
 
+void DynamicNodalTransfer::writeCrackingData(std::ofstream& restart_file) const {
+
+  structure.writeCrackingData(restart_file);
+}
+
+void DynamicNodalTransfer::readCrackingData(std::ifstream& restart_file) {
+
+  structure.readCrackingData(restart_file);
+}
+
+void EmbeddedStructure::writeCrackingData(std::ofstream& restart_file) const {
+
+  if (!cracking)
+    return;
+
+  restart_file.write(reinterpret_cast<const char*>(Tria), sizeof(int)*totalElems*3);
+  cracking->writeCrackingData(restart_file);
+}
+
+void EmbeddedStructure::readCrackingData(std::ifstream& restart_file){
+
+  if (!cracking)
+    return;
+
+  restart_file.read(reinterpret_cast<char*>(Tria), sizeof(int)*totalElems*3);
+  cracking->readCrackingData(restart_file);
+}

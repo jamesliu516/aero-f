@@ -291,7 +291,8 @@ public:
   template<int dimLS>
   void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin);
   template<int dimLS>
-  void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS = 0);
+  void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS = 0, 
+          Vec<int>* fluidIdToSet = 0);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], SVec<double,dim> &U);
 
@@ -1240,7 +1241,7 @@ public:
   template<int dim>
   void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
 
-  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll);
+  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,int dimLS);
   template<int dimLS>
   void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, Vec<int> &fluidId, bool *masterFlag);
 

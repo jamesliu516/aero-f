@@ -5852,7 +5852,7 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS)
+void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS, Vec<int>* fluidIdToSet)
 {
 
   for(int i=0; i<nodes.size(); i++){
@@ -5861,11 +5861,11 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
       fModel = LSS->fluidModel(0.0, i); 
     else
       fModel = 0;
-    bool swept = LSS ? LSS->isSwept(0.0, i) : 0; // if swept, Phin is not reliable!
+    //bool swept = LSS ? LSS->isSwept(0.0, i) : 0;
     for(int j=0; j<dimLS; j++){
-      if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
+      if(Phi[i][j]*Phin[i][j]<0.0/* && fModel==0 && !swept*/){
         // check if node i HAD a neighbour with a different levelset sign
-        if(weight[i] <= 0.0){
+        if(weight[i] <= 0.0 || (fluidIdToSet && (*fluidIdToSet)[i] != j)){
 //          fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
 //                          " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
 //                         globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
@@ -6516,14 +6516,16 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
 */
 
     if(!swept) {//nothing to be done
-      if(!poll[i][fluidId[i]]) fprintf(stderr,"TOO BAD!\n");
-      if(occluded || fluidId[i]!=2) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+      if((fluidId[i] == 0 && !poll[i][0]) ||
+         (fluidId[i] == dimLS && !poll[i][1]) ||
+         (fluidId[i] == dimLS+1 && !poll[i][2])) fprintf(stderr,"TOO BAD!\n");
+      if(occluded || fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
         continue;
     }
 
     if(occluded) { // Rule No.1
       fluidId[i] = LSS.numOfFluids();
-      if(!poll[i][LSS.numOfFluids()]) fprintf(stderr,"TOO BAD TOO!\n");
+      if(!poll[i][2/*LSS.numOfFluids()*/]) fprintf(stderr,"TOO BAD TOO!\n");
       continue;
     }
 
@@ -6531,10 +6533,14 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     switch (count) {
       case 0: //no info
         fprintf(stderr,"WARNING: More than one layer of nodes are swept in one step (near Node %d).\n", locToGlobNodeMap[i]+1);
+        DebugTools::SpitRank();
         break;
       case 1: // Rule No.2
-        for(int j=0; j<3; j++)
-          if(poll[i][j]) fluidId[i] = j;
+        //for(int j=0; j<3; j++)
+        //  if(poll[i][j]) fluidId[i] = j;
+        if (poll[i][0]) fluidId[i] = 0;
+        else if (poll[i][1]) fluidId[i] = dimLS;
+        else if (poll[i][2]) fluidId[i] = dimLS+1;
         break;
     } 
 
@@ -6647,25 +6653,25 @@ void SubDomain::debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &Ph
   for(int i=0; i<nodes.size(); i++) {
     switch (fluidId[i]) {
       case 0:
-        if(PhiV[i][0]>=0.0)
-          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][0]);
+        if(PhiV[i][dimLS-1]>=0.0)
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][dimLS-1]);
         if(LSS.isOccluded(0,i))
           fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d, PhiV = %e,  but occluded!\n", globSubNum, locToGlobNodeMap[i]+1, 
-                          fluidId[i], PhiV[i][0]);
+                          fluidId[i], PhiV[i][dimLS-1]);
         break;
       case 1:
-        if(PhiV[i][0]<=0.0)
-          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][0]);
+        if(PhiV[i][dimLS-1]<=0.0)
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][dimLS-1]);
         if(LSS.isOccluded(0,i))
           fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d, PhiV = %e,  but occluded!\n", globSubNum, locToGlobNodeMap[i]+1, 
-                          fluidId[i], PhiV[i][0]);
+                          fluidId[i], PhiV[i][dimLS-1]);
         break;
       case 2:
-        if(fabs(PhiV[i][0])>1.0e-8)
-          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][0]);
+        if(fabs(PhiV[i][dimLS-1])>1.0e-8)
+          fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d but PhiV = %e.\n", globSubNum, locToGlobNodeMap[i]+1, fluidId[i], PhiV[i][dimLS-1]);
         if(!LSS.isOccluded(0,i))
           fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d, PhiV = %e,  but NOT occluded!\n", globSubNum, locToGlobNodeMap[i]+1, 
-                          fluidId[i], PhiV[i][0]);
+                          fluidId[i], PhiV[i][dimLS-1]);
         break;
       default:
         fprintf(stderr,"BUGGY: Sub %d, Node %d: Id = %d!\n",  globSubNum, locToGlobNodeMap[i]+1, fluidId[i]);

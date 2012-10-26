@@ -2728,15 +2728,15 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
               const double one_over_weight=(double)1.0/Weights(iSub)[i];
               double phiS = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
               if(phiS<0.0) {
-                Phi(iSub)[i][0] = std::fabs(PhiWeights(iSub)[i][0]*one_over_weight);
+                Phi(iSub)[i][dimLS-1] = std::fabs(PhiWeights(iSub)[i][dimLS-1]*one_over_weight);
                 for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
-                if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
-                for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+                if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][dimLS-1] *= -1.0;
+                for(int d=0;d<dimLS-1;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
               } else {
                 for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
-                Phi(iSub)[i][0] = phiS;
-                if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][0] *= -1.0;
-                for(int d=1;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
+                Phi(iSub)[i][dimLS-1] = phiS;
+                if((*fluidId)(iSub)[i]==0) Phi(iSub)[i][dimLS-1] *= -1.0;
+                for(int d=0;d<dimLS-1;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
               }
 
 //              if(Phi(iSub)[i][0]<0) {
@@ -2777,7 +2777,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
       Rule #4. Otherwise, do nothing.
      -------------------------------------------------------------- */
 
-  this->domain->TagInterfaceNodes(0,Tag,PhiV,distLSS);
+  this->domain->TagInterfaceNodes(dimLS-1,Tag,PhiV,distLSS);
 
   SubDomain **subD = this->domain->getSubDomain();
   int iSub;
@@ -2792,7 +2792,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
     for(int i=0; i<tag.size(); i++) {
       // Rule #1.
       if(LSS.isOccluded(0.0,i)) {
-        phiv[i][0] = 0.0;
+        phiv[i][dimLS-1] = 0.0;
         if(id[i]!=LSS.numOfFluids()) {//just for debug
           fprintf(stderr,"BUG: Node %d is occluded but its status is %d. numOfFluids = %d.\n", locToGlobNodeMap[i]+1, id[i], LSS.numOfFluids());
           exit(-1);
@@ -2806,7 +2806,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
           fprintf(stderr,"BUG: Node %d is near FS interface but its wall distance (%e) is invalid.\n", locToGlobNodeMap[i]+1, dist);
           exit(-1);
         }
-        phiv[i][0] = (phiv[i][0]>0.0) ? dist : -1.0*dist;
+        phiv[i][dimLS-1] = (phiv[i][dimLS-1]>0.0) ? dist : -1.0*dist;
         continue;
       }
       // Rule #3.
@@ -2816,8 +2816,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
           fprintf(stderr,"BUG: Node %d is near FS interface but its wall distance (%e) is invalid.\n", locToGlobNodeMap[i]+1, dist);
           exit(-1);
         }
-        dist = min(dist, fabs(phiv[i][0]));
-        phiv[i][0] = (phiv[i][0]>0.0) ? dist : -1.0*dist;
+        dist = min(dist, fabs(phiv[i][dimLS-1]));
+        phiv[i][dimLS-1] = (phiv[i][dimLS-1]>0.0) ? dist : -1.0*dist;
         continue;
       }
     }

@@ -10,6 +10,7 @@
 #include<LOCAL_LEVELSET.h>
 #include<map>
 #include<set>
+#include<fstream>
 
 //------------------------------------------------------------------------------
 
@@ -28,6 +29,9 @@ struct PhantomElement {
 
   // update nodes
   void update(int* nod, double* ph); //KW: Doesn't have to update both nodes and phi. Use "NULL".
+
+  void writeCrackingData(std::ofstream& restart_file) const ;
+  static PhantomElement* readCrackingData(std::ifstream& restart_file) ;
 };
 
 //------------------------------------------------------------------------------
@@ -80,6 +84,9 @@ public:
 
   // for debug
   void printInfo(char* filename);
+
+  void writeCrackingData(std::ofstream& restart_file) const;
+  void readCrackingData(std::ifstream& restart_file);
 };
 
 //------------------------------------------------------------------------------

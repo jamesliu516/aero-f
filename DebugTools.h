@@ -97,7 +97,29 @@ class DebugTools {
     return debug_process;    
   }
 
+  static void SpitRank() {
 
+#ifdef AEROF_MPI_DEBUG
+
+    int rnk;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+    std::cout << "Rank is " << rnk << std::endl;
+#endif
+  }
+
+  template <class Scalar,int dim>
+  static void PrintElement(const char* tag, DistSVec<Scalar,dim>& V,int rank,int iSub, int i) {
+
+    int rnk;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+    if (rnk == rank) {
+
+      std::cout << tag << "(" << iSub << ", " << i << ") = {";
+      for (int k = 0; k < dim; ++k) 
+        std::cout << V(iSub)[i][k] << ((k < dim-1)?", ":"}");
+      std::cout << std::endl;
+    }
+  }
 
 };
 

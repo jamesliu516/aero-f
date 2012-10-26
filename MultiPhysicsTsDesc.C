@@ -409,13 +409,20 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
     fluidSelector.checkLSConsistency(Phi);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
-    LS->conservativeToPrimitive(Phi,PhiV,U);
+    if (this->lsMethod == 0)
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+    else
+      PhiV = Phi;
     if(withCracking && withMixedLS) {
       this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
       LS->reinitializeLevelSet(*this->X, PhiV, false);
-    } else
+    } else {
       LS->reinitializeLevelSet(*this->X, PhiV);
-    LS->primitiveToConservative(PhiV,Phi,U);
+    }
+    if (this->lsMethod == 0)
+      LS->primitiveToConservative(PhiV,Phi,U);
+    else
+      Phi = PhiV;
     LS->update(Phi);
     if (this->timeState->useNm1()) {
       DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
@@ -511,7 +518,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
-  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
+  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS, dynNodalTransfer);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
   this->output->updatePrtout(t);
@@ -589,7 +596,10 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& 
     this->ghostPoints->deletePointers();
     this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
   }
-  LS->conservativeToPrimitive(Phi,PhiV,U);
+  if (this->lsMethod == 0)
+    LS->conservativeToPrimitive(Phi,PhiV,U);
+  else
+    PhiV = Phi;
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
 
   this->multiPhaseSpaceOp->applyBCsToResidual(U, *this->R);
@@ -696,8 +706,11 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //updateFluidIdFS
-    this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
-    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    if (this->lsMethod == 0)
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+    else
+      PhiV = Phi;
+    //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
     this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                       //  is meaningful. We destroy it so people wouldn't use it

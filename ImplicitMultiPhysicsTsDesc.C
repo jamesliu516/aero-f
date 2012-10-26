@@ -181,8 +181,15 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
       this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
     else
       this->PhiV = this->Phi;
-
-    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+/*
+    int my_pid;// = getpid();
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
+    if (my_pid == 66) {
+    
+      std::cout << "phi[5302] = " << this->Phi(0)[5302][0] << std::endl;
+    } 
+*/
+    //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
      this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                        //  is meaningful. We destroy it so people wouldn't use it

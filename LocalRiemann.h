@@ -120,9 +120,9 @@ protected:
   void riemannInvariantGeneral1stOrder(double *in, double *res, double *phi);
   void riemannInvariantGeneral2ndOrder(double *in, double *res, double *phi);
 
-  void rarefactionJWLderivs(double phi,
-			    double v1, double u1, double p1,
-			    double v, double dVdv[2],SparseGridCluster *sgCluster_);
+  int rarefactionJWLderivs(double phi,
+		           double v1, double u1, double p1,
+			   double v, double dVdv[2],SparseGridCluster *sgCluster_);
 
   struct RiemannInvParams {
 
@@ -133,6 +133,9 @@ protected:
   };
   double riemannInvariantKernel1(double density, const RiemannInvParams& J) ;
 
+  double jwlZeroSoundSpeedJwlDensity(const double density, 
+                                     const double pressure);
+  
   void shockJWL(double phi, double omega,
                 double omp1oom, double frho, double frhoi, 
                 double frhopi,
@@ -263,7 +266,7 @@ int LocalRiemannGfmpar::rarefactionJWL(double phi,
 }
 
 inline
-void LocalRiemannGfmpar::rarefactionJWLderivs(double phi,
+int LocalRiemannGfmpar::rarefactionJWLderivs(double phi,
 					      double v1, double u1, double p1,
 					      double v, double dVdv[2],SparseGridCluster *sgCluster_) {
 
@@ -278,19 +281,21 @@ void LocalRiemannGfmpar::rarefactionJWLderivs(double phi,
   double* ip = &in[0];
   double* gp = &grad1[0];
   in[0] = 1.0/v1; in[1] = entropy;  
-  sgCluster_->interpolateGradient(1,&ip,&gp);
+  int i1 = sgCluster_->interpolateGradient(1,&ip,&gp);
 
   double res2[1] = {0.0};
   double grad2[2];
   gp = &grad2[0];
   in[0] = 1.0/v;
-  sgCluster_->interpolateGradient(1,&ip,&gp);
+  int i2 = sgCluster_->interpolateGradient(1,&ip,&gp);
 
   double dsdp = pow(v, vf_->getOmega(myFluidId) + 1.0 );
   double dsdrho = -c*c*dsdp;
   dVdv[0] = (grad2[0]-grad1[0])*dsdp;
 
   dVdv[1] = (grad2[1]-grad1[1]) + (grad2[0]-grad1[0])*dsdrho;
+
+  return i1 || i2;
 
 }
 //----------------------------------------------------------------------------

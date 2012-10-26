@@ -124,6 +124,7 @@ class OneDimensional {
 
   SVec<double,dim> rupdate;
   Vec<double> weight;
+  Vec<int> fidToSet;
   SVec<double,dim-2> interfacialWi;
   SVec<double,dim-2> interfacialWj;
 

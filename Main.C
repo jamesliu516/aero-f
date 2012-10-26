@@ -46,6 +46,16 @@ void segfault_sigaction(int signal, siginfo_t *si, void *arg)
     exit(-1);
 }
 
+void fpe_sigaction(int signal, siginfo_t *si, void *arg)
+{
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    printf("Caught floating point exception at address %p on MPI rank %d\n", si->si_addr,rank);
+    MPI_Barrier(MPI_COMM_WORLD);
+    exit(-1);
+}
+
+
 
 
 //------------------------------------------------------------------------------
@@ -89,6 +99,9 @@ int main(int argc, char **argv)
     sa.sa_flags   = SA_SIGINFO;
 
     sigaction(SIGSEGV, &sa, NULL);
+    
+    sa.sa_sigaction = fpe_sigaction;
+    sigaction(SIGFPE,&sa, NULL);
   }
  
 #endif
@@ -130,9 +143,12 @@ int main(int argc, char **argv)
 
     if (ioData.problem.alltype == ProblemData::_AERO_ACOUSTIC_)
     {
-      std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
+      if (com->cpuNum() == 0)
+      {
+        std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
+      }
       KirchhoffIntegrator doKP(ioData, &domain);
-      doKP.computeIntegral();
+      doKP.Compute();
     }
     else if (ioData.problem.type[ProblemData::LINEARIZED])
     {

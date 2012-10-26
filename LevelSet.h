@@ -88,8 +88,10 @@ class LevelSet {
   void writeToDisk(char *name);
 
   // reinitialization routines
-  void reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2 = true);
-  void reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2 = true);
+  void reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2 = true,
+                            int lsdim=-1);
+  void reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2 = true,
+                              int lsdim=-1);
 
   // switching from conservative (rho*phi) to primitive (phi) and vice-versa
   template<int dim>

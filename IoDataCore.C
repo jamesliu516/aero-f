@@ -86,6 +86,7 @@ InputData::InputData()
   solutions = "";
   positions = "";
   levelsets = "";
+  cracking = "";
   rstdata = "";
 	podFile = "";
 	snapRefSolutionFile = "";
@@ -138,6 +139,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
   new ClassStr<InputData>(ca, "Position", this, &InputData::positions);
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
+  new ClassStr<InputData>(ca, "Cracking", this, &InputData::cracking);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "SnapshotData", this, &InputData::snapFile);
@@ -557,6 +559,7 @@ RestartData::RestartData()
   prefix = "";
   solutions = "DEFAULT.SOL";
   positions = "DEFAULT.POS";
+  cracking = "DEFAULT.CRK";
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
 
@@ -580,6 +583,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "Prefix", this, &RestartData::prefix);
   new ClassStr<RestartData>(ca, "Solution", this, &RestartData::solutions);
   new ClassStr<RestartData>(ca, "Position", this, &RestartData::positions);
+  new ClassStr<RestartData>(ca, "Cracking", this, &RestartData::cracking);
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
@@ -1754,6 +1758,23 @@ Assigner *PointData::getAssigner()
   return ca;
 }
 
+DummyPointData::DummyPointData()
+{
+  fluidModelID = -1;
+}
+
+//------------------------------------------------------------------------------
+
+Assigner *DummyPointData::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
+
+  new ClassInt<DummyPointData>
+    (ca, "FluidID", this, &DummyPointData::fluidModelID);
+
+  return ca;
+}
 //------------------------------------------------------------------------------
 
 void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
@@ -1764,6 +1785,7 @@ void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
   prismMap.setup("Box", ca);
   planeMap.setup("Plane", ca);
   pointMap.setup("Point", ca);
+  dummyPointMap.setup("DummyPoint", ca);
 
 }
 
@@ -3641,7 +3663,7 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
                                       "NodalState", 0, "RiemannSolution", 1);
   new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
-                                      "Reconstructed", 0, "ControlVolumeFace", 1);
+                                      "ReconstructedSurface", 0, "ControlVolumeFace", 1);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
   new ClassToken<EmbeddedFramework> (ca, "PhaseChangeAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2, "Average", 0, "LeastSquares", 1);
@@ -4454,6 +4476,7 @@ int IoData::checkInputValues()
     bc.inlet.pressure = bc.outlet.pressure;
     bc.inlet.density = bc.outlet.density;
     bc.inlet.alpha = bc.inlet.beta = 0.0;
+    bc.inlet.mach = bc.outlet.mach;
     bc.inlet.temperature = bc.outlet.temperature;
     setupOneDimensional();
   }
@@ -4635,13 +4658,18 @@ int IoData::checkInputValuesAllInitialConditions(){
   set<int> usedModels; 
   for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
        it!=mf.multiInitialConditions.sphereMap.dataMap.end();
-       it++)
-    usedModels.insert(it->second->fluidModelID);
+       it++) {
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
 
   for (map<int, PrismData *>::iterator it=mf.multiInitialConditions.prismMap.dataMap.begin();
        it!=mf.multiInitialConditions.prismMap.dataMap.end();
-       it++)
-    usedModels.insert(it->second->fluidModelID);
+       it++) {
+    
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
  
   if (!input.oneDimensionalInput.dataMap.empty()) {
     if (input.oneDimensionalInput.dataMap.size() > 1) 
@@ -4810,10 +4838,9 @@ void IoData::setupOneDimensional() {
          it!=mf.multiInitialConditions.sphereMap.dataMap.end();
          it++){
       if (it->second->cen_x != 0.0 ||
-	  it->second->cen_x != 0.0 ||
-	  it->second->cen_x != 0.0) {
+	  it->second->cen_y != 0.0 ||
+	  it->second->cen_z != 0.0) {
 	fprintf(stderr,"*** Error: non zero center specified for 1d spherical problem!\n");
-	exit(1);
       }
 
       oneDimensionalInfo.interfacePosition = it->second->radius;

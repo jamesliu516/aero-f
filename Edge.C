@@ -1019,6 +1019,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
     else if(fluidId[i]!=fluidId[j]) { //NOTE: It's NOT equivalent with checking Phi_i x Phi_j < 0!
       if(!masterFlag[l]) continue;
+    
+      // Force constant reconstruction at the interface.
+      for (int k = 0; k < dim; ++k) {
+        Vi[k] = V[i][k];
+        Vj[k] = V[j][k];
+      }      
+
       //ngradLS returns nodal gradients of primitive phi
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface   
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
@@ -1731,7 +1738,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 */
 
     // roe flux
-    if(!iCovered && !jCovered && !intersect)
+    if(1/*!iCovered && !jCovered && !intersect*/)
       for (k=0; k<dimLS; k++){
 
         // Original
@@ -2859,7 +2866,7 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
     Uni      = Vi[1]*normal[l][0]  +Vi[2]*normal[l][1]  +Vi[3]*normal[l][2] - normalVel[l];
     Unj      = Vj[1]*normal[l][0]  +Vj[2]*normal[l][1]  +Vj[3]*normal[l][2] - normalVel[l];
     //Roe averaged variables
-    if (!iCovered && !jCovered) {
+    if (1/*!iCovered && !jCovered*/) {
       for (k = 0; k < dimLS; ++k) {
 
         df[0] = df[1] = 0.0;
