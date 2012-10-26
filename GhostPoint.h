@@ -17,6 +17,7 @@ class GhostPoint {
  public:
   int ng_last;
   Vec<double> Vg; // Sum of the primitive States at the ghost-point. 
+  Vec<double> dVg; // Sum of the second order correction term. 
   int ng; // Number of neighbours in the fluid. State at GP is then equal to Vg/ng.
   // After all GP have been populated, Vg /= ng and ng=1.
   int ghostTag; // We store here the tag of the surrounding nodes. All the tags of the neighbours 
@@ -24,15 +25,17 @@ class GhostPoint {
   // Interaction, this might be no longer true. To be done...
   ~GhostPoint() {};
  GhostPoint() :
-  Vg(dim)
+  Vg(dim), dVg(dim)
   {
     ng = 0;
     Vg = 0.0;
+    dVg = 0.0;
     ghostTag = -2; // Inactive nodes tag
   }
   GhostPoint<dim> & operator=(const GhostPoint<dim> &GP)
     {
       Vg = GP.Vg;
+      dVg = GP.dVg;
       ng = GP.ng;
       ng_last = ng;
       ghostTag = GP.ghostTag;
@@ -48,11 +51,12 @@ class GhostPoint {
 	  exit(-1);
 	}
       Vg += GP.Vg;
+      dVg += GP.dVg;
       ng += GP.ng;
       ng_last = ng;
       return *this;
     }
-  void addNeighbour(Vec<double> &Vi,double distanceRate, Vec3D interfaceVelocity, int tag)
+  void addNeighbour(Vec<double> &Vi,Vec<double> &dVi,double distanceRate, Vec3D interfaceVelocity, int tag)
   {
     // Ui is the state at the neighbour. 
     // distanceRate is the rate of the distances from the GP and the neighbour to the interface = dg/di\
@@ -63,17 +67,23 @@ class GhostPoint {
     // We want the velocity to be zero at the interface and we obtain the 
     // state at the GP by linear interpolation.
     Vg[0]   += Vi[0];
-    for(int i=1;i<4;++i) Vg[i] += interfaceVelocity[i-1] - distanceRate*(Vi[i]-interfaceVelocity[i-1]);
+    dVg[0]  += dVi[0];
+    for(int i=1;i<4;++i) Vg[i]  += 2.0*interfaceVelocity[i-1] - Vi[i];
+    for(int i=1;i<4;++i) dVg[i] += (1.0 - distanceRate)*(Vi[i]-interfaceVelocity[i-1]);
     Vg[4]   += Vi[4];
+    dVg[4]  += dVi[4];
     if(dim == 6) // One Equation Turbulent Model
       {
 	//	Vg[5] -= distanceRate*Vi[5];
 	Vg[5] = 0.0;
+	dVg[5] = 0.0;
       }
     else if(dim == 7) // Two Equations Turbulent Model
       {
 	Vg[5] = 0.0;
 	Vg[6] = 0.0;
+	dVg[5] = 0.0;
+	dVg[6] = 0.0;
       }
 
     // Tag check
@@ -96,6 +106,8 @@ class GhostPoint {
   void reduce()
   {
     Vg /= (double) ng;
+    dVg /= (double) ng;
+    Vg = Vg + dVg;
     ng = 1;
   }
   
