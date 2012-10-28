@@ -2156,6 +2156,7 @@ public:
   void resetInputValues();
   int checkFileNames();
   int checkInputValues();
+  int checkInputValuesAeroAcoustic();
   int checkInputValuesAllEquationsOfState();
   int checkInputValuesProgrammedBurn();
   int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
