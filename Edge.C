@@ -1019,6 +1019,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
     else if(fluidId[i]!=fluidId[j]) { //NOTE: It's NOT equivalent with checking Phi_i x Phi_j < 0!
       if(!masterFlag[l]) continue;
+    
+      // Force constant reconstruction at the interface.
+      for (int k = 0; k < dim; ++k) {
+        Vi[k] = V[i][k];
+        Vj[k] = V[j][k];
+      }      
+
       //ngradLS returns nodal gradients of primitive phi
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface   
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
