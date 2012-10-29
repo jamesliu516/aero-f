@@ -225,8 +225,9 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) ||
                 programmedBurn->isFinished(burnTag))
 	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
-	    else
+	    else {
 	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
+            }
 	    break;
 	  }
 	  else{ 

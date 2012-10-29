@@ -67,14 +67,14 @@ class DebugTools {
 
     int my_pid;// = getpid();
     MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
-    FILE* file = fopen("aerofdebug","r"); 
     char fn[256];
-    sprintf(fn, ".aerofdebug.pid.%d",getpid());
+    sprintf(fn, ".aerofdebug.rnk.%d",my_pid);
+    FILE* file = fopen(fn,"r"); 
     std::cout << "PID " << getpid() << " is MPI rank " << my_pid << std::endl;
     if (!file)
       return false; 
-    bool debug_process = false;
-    while (!feof(file)) {
+    bool debug_process = true;
+/*    while (!feof(file)) {
       int p;
       fscanf(file, "%d",&p);
       if (p == my_pid) {
@@ -82,6 +82,7 @@ class DebugTools {
         break;
       }
     }
+*/
  
     volatile int wait = (debug_process?1:0);
     if (wait) {
