@@ -330,7 +330,7 @@ bool ProgrammedBurn::nodeInside(int tag,int iSub, int i) {
   double r = sqrt((x[i][0]-B->x0[0])*(x[i][0]-B->x0[0])+
 	   (x[i][1]-B->x0[1])*(x[i][1]-B->x0[1])+
 	   (x[i][2]-B->x0[2])*(x[i][2]-B->x0[2]));
-  
+ 
   if ((r <= B->pgData->cjDetonationVelocity*(lastTime-B->pgData->ignitionTime) ||
       (iSub == B->x0subdom && i == B->x0id)) && B->ignited ) {
     return true;
