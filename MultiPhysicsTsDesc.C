@@ -295,14 +295,15 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   else
     LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0, lsMethod);
 
-  if (programmedBurn)
-    programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 
   // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
   //if(this->input->levelsets[0] == 0) // init
   //  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
   //else //restart
   fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
+  
+  if (programmedBurn)
+    programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);

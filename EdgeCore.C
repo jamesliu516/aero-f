@@ -141,13 +141,13 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 
   int ierr = 0;
 
-  if (vf->checkReconstructedValues(Vi, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, IDi, IDj, failsafe)){
+  if (vf->checkReconstructedValues(Vi, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, IDi, IDj, failsafe, IDi)){
     ++ierr;
     if(failsafe)
       tag[i][0] = 1;
   }
 
-  if (vf->checkReconstructedValues(Vj, locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, IDj, IDi, failsafe)){
+  if (vf->checkReconstructedValues(Vj, locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, IDj, IDi, failsafe, IDj)){
     ++ierr;
     if(failsafe)
       tag[j][0] = 1;
