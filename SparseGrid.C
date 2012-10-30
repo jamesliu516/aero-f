@@ -187,7 +187,7 @@ void SparseGrid::test(FnType fn, int type, int *number, double *param){
 
 //1 random testing in the domain ('number' random values in each dimension):
     case 1:{
-      fprintf(stdout, "# testing at random points\n");
+      fprintf(stdout, "\n# The sparse grid is now being tested at random points...\n");
       numTestPoints = static_cast<int>(pow(static_cast<double>(number[0]),dim)+0.1);
       for(int idim=0; idim<dim; idim++){
       	numPointsDim[idim] = number[0];
@@ -202,7 +202,7 @@ void SparseGrid::test(FnType fn, int type, int *number, double *param){
 
 //2 linear testing in the domain ('number' evenly spaces between values in each dimension):
     case 2:{
-      fprintf(stdout, "# testing at uniformly spaced points\n");
+      fprintf(stdout, "\n# The sparse grid is now being tested at uniformly spaced points...\n");
       numTestPoints = static_cast<int>(pow(static_cast<double>(number[0]),dim)+0.1);
       double spacing[dim];
       for(int idim=0; idim<dim; idim++){
@@ -262,16 +262,25 @@ void SparseGrid::test(FnType fn, int type, int *number, double *param){
   interpolate(numTestPoints,coord,tabul);
   
   // print to screen results
+  fprintf(stdout, "# For each test point, the approximated value obtained by the sparse grid is compared with the actual computed value.\n");
+  fprintf(stdout, "# The relative tolerance has been hard-coded to 1e-6.\n# Below are the pairs of test points and values that do not satisfy this criterion.\n");
+  int numErrors = 0;
   for(int i=0; i<numTestPoints; i++){
-  	fprintf(stdout, "test point %d ( ", i);
-  	for(int idim=0; idim<dim; idim++)
-  	  fprintf(stdout, "%e ", coord[i][idim]);
-  	fflush(stdout);
-  	fprintf(stdout, ") \n    -- exact = %e -- approx = %e ", exact[i][0], tabul[i][0]);
-        if(exact[i][0] != 0.0)
-          fprintf(stdout, "(err = %e)\n", (exact[i][0] - tabul[i][0])/exact[i][0]);
-        else fprintf(stdout, "\n");
-  fprintf(stdout, "\n");
+    double error = (exact[i][0] - tabul[i][0])/exact[i][0];
+    if(fabs(error) > 1e-6){
+      numErrors++;
+      fprintf(stdout, "test point %d ( ", i);
+      for(int idim=0; idim<dim; idim++)
+        fprintf(stdout, "%e ", coord[i][idim]);
+      fflush(stdout);
+      fprintf(stdout, ") \n    -- exact = %e -- approx = %e ", exact[i][0], tabul[i][0]);
+      if(exact[i][0] != 0.0)
+        fprintf(stdout, "(err = %e)\n", (exact[i][0] - tabul[i][0])/exact[i][0]);
+      else fprintf(stdout, "\n");
+        fprintf(stdout, "\n");
+    }
   }
+  if(numErrors == 0)
+    fprintf(stdout, "# All test points satisfied the tolerance\n");
 
 }
