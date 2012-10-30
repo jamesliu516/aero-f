@@ -244,7 +244,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->linRecAtInterface,this->nodeTag);
       embeddedU.real() = U;
       embeddedU.setGhost(*this->ghostPoints,this->varFcn); 
     }
@@ -381,8 +381,8 @@ void ImplicitEmbeddedTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &
   mvp->evaluate(it,*(this->X) ,*(this->A), Q, F);
 
   mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
-  if (mvph1 && this->ghostPoints) 
-    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
+//  if (mvph1 && this->ghostPoints) 
+//    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
 
 }
 //------------------------------------------------------------------------------
