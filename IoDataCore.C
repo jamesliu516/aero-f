@@ -5681,8 +5681,10 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
         com->fprintf(stderr, "*** Error: a specific heat at constant pressure must be specified for a stiffened gas in a viscous simulation.");
         error++;
       }
-      else if(eqs.type == EquationsData::EULER)
+      else if(eqs.type == EquationsData::EULER && strcmp(output.transient.temperature, "") != 0) {
         com->fprintf(stderr, "*** Note: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
+	error++;
+      }
     }
   }
 
