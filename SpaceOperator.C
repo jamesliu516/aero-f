@@ -1446,8 +1446,8 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
 //------------------------------------------------------------------------------
 
 template<int dim> 
-void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag)
-{domain->populateGhostPoints(ghostPoints,U,varFcn,distLSS,tag);}
+void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface,DistVec<int> &tag)
+{domain->populateGhostPoints(ghostPoints,X,U,ngrad,varFcn,distLSS,linRecAtInterface,tag);}
 
 //------------------------------------------------------------------------------
 

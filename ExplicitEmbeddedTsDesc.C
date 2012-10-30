@@ -133,7 +133,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->linRecAtInterface,this->nodeTag);
     }
 }
 //------------------------------------------------------------------------------
@@ -169,7 +169,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U0,this->varFcn,this->distLSS,this->nodeTag);
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U0,this->varFcn,this->distLSS,this->linRecAtInterface,this->nodeTag);
     }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
