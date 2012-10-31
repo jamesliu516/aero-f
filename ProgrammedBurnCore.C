@@ -203,7 +203,7 @@ void ProgrammedBurn::computeNearestNode(const double x0n[3], double x0[3], int& 
     x0[0] = x0n[0]; 
     x0[1] = x0n[1];
     x0[2] = x0n[2];
-    std::cout << "Actual ignition location: " << x0[0] << " " << x0[1] << " " << x0[2] << std::endl;
+    //std::cout << "Actual ignition location: " << x0[0] << " " << x0[1] << " " << x0[2] << std::endl;
     x0subdom = mins;
     x0id = mini;
   } else {
@@ -535,8 +535,6 @@ void computeChapmanJouguetState(double p_0,double rho_0,double e_0,
 	}
 
 	s = rho_cj/rho_0*theEOS.computeSoundSpeed(rho_cj, e_cj);
-        std::cout << "CJ sound speed: " << theEOS.computeSoundSpeed(rho_cj, e_cj) << std::endl;
-        std::cout << "CJ velocity: " << (s-theEOS.computeSoundSpeed(rho_cj, e_cj)) << std::endl;
 }
 
 }

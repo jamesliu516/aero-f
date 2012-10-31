@@ -549,24 +549,12 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   varFcn->primitiveToConservative(temp1,BC[1],fluidId[numPoints-1]);
   BCphi[0] = Phi[0][0]/V[0][0];
   BCphi[1] = Phi[numPoints-1][0]/V[numPoints-1][0];
-
-  // output
-  cout<<"**primitive boundary conditions are:"<<endl;
-  cout<<"*    "<<temp0[0]<<" "<<temp0[1]<<" "<<temp0[2]<<" "<<temp0[3]<<" "<<temp0[4]<<endl;
-  cout<<"*    "<<temp1[0]<<" "<<temp1[1]<<" "<<temp1[2]<<" "<<temp1[3]<<" "<<temp1[4]<<endl;
-  cout<<"**conservative boundary conditions are:"<<endl;
-  cout<<"*    "<<BC[0][0]<<" "<<BC[0][1]<<" "<<BC[0][2]<<" "<<BC[0][3]<<" "<<BC[0][4]<<endl;
-  cout<<"*    "<<BC[1][0]<<" "<<BC[1][1]<<" "<<BC[1][2]<<" "<<BC[1][3]<<" "<<BC[1][4]<<endl;
   
 }
 //------------------------------------------------------------------------------
 void OneDimensional::totalTimeIntegration(){
 
   // messages
-  cout<<"***************************************************************"<<endl;
-  cout<<"***  ctrlVol[0] = "<<ctrlVol[0][0]<<" --- ctrlVol[end] = "<<ctrlVol[numPoints-1][0]<<endl;
-  cout<<"***  ctrlSur[0] = "<<ctrlSurf[0][0]<<" --- ctrlSur[end] = "<<ctrlSurf[numPoints][0]<<endl;
-  cout<<"***************************************************************"<<endl;
   SVec<double,1> timeSteps(numPoints);
 
   time = 0.0;

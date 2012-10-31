@@ -5821,7 +5821,7 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
       programmedBurn.cjDensity <= 0.0 ||
       programmedBurn.cjEnergy <= 0.0) {
     
-    com->fprintf(stderr, "*** At least one of the Chapman-Jouguet parameters is invalid\nRecalcuating...\n");
+    com->fprintf(stderr, "*** Computing the Chapman-Jouguet parameters\n");
     const FluidModelData& burnedData = *eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS)->second;
     if (burnedData.fluid == FluidModelData::JWL) {
       ProgrammedBurn::computeChapmanJouguetStateJWL(burnedData.jwlModel.A1, burnedData.jwlModel.A2,
