@@ -47,9 +47,11 @@ public:
 //------------------------------------------------------------------------------
 
   void tabulate(IoData & ioData){
+    bool debugInfo = false;
     srand(time(NULL));
 
-    com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- started\n");
+    if(debugInfo)
+      com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- started\n");
 
     if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
 
@@ -136,7 +138,8 @@ public:
     }else{
       com->fprintf(stdout, "### SparseGridGeneratorDesc::nothing done!\n");
     }
-    com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- finished\n");
+    if(debugInfo)
+      com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- finished\n");
   }
 
 //------------------------------------------------------------------------------
