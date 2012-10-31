@@ -1,5 +1,6 @@
-
 #include <BlockTridiagonalMatrix.h>
+
+#include <memory.h>
 
 template <class Scalar,int dim>
 BlockTridiagonalMatrix<Scalar,dim>::BlockTridiagonalMatrix(int n) : N(n) {

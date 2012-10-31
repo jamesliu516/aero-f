@@ -271,11 +271,12 @@ void MultiGridOperator<Scalar,dim>::computeTimeStep(double cfl, VarFcn *varFcn,
 
 #pragma omp parallel for
   for (iSub = 0; iSub < V.numLocSub(); ++iSub) {
-    mgLevel->getEdges()[iSub]->computeTimeStep(NULL, varFcn,  (mgLevel->getGeoState())(iSub),
+    mgLevel->getEdges()[iSub]->computeTimeStep2(NULL, varFcn,  (mgLevel->getGeoState())(iSub),
                                  (mgLevel->getGeoState().getXn())(iSub),
                                  V(iSub), (*idti)(iSub), (*idtv)(iSub), 
-                                 timeState->getTimeLowMachPrec());
-    mgLevel->getFaces()[iSub]->computeTimeStep(NULL, varFcn,  (mgLevel->getGeoState())(iSub),
+                                 timeState->getTimeLowMachPrec(),
+                                 mgLevel->getEdgeArea()(iSub));
+    mgLevel->getAgglomeratedFaces()[iSub]->computeTimeStep(NULL, varFcn,  
                                  (mgLevel->getGeoState().getXn())(iSub),
                                  V(iSub), (*idti)(iSub), (*idtv)(iSub), 
                                  timeState->getTimeLowMachPrec());
@@ -293,7 +294,7 @@ void MultiGridOperator<Scalar,dim>::computeTimeStep(double cfl, VarFcn *varFcn,
     double (*volume) = mgLevel->getCtrlVol().subData(iSub);
     for (int i = 0; i < mgLevel->getCtrlVol().subSize(iSub); ++i) {
       //   idtimev[i] = idtimev[i] / volume[i];
-      dtime[i] = cfl *volume[i]/(-1.0*idtimei[i]/* + viscous*idtimev[i]*/);
+      dtime[i] = cfl *volume[i]/(1.0*idtimei[i]/* + viscous*idtimev[i]*/);
       //ireynolds[i] = -sprec.getViscousRatio()*idtimev[i] / idtimei[i];
     }
   }
@@ -368,6 +369,12 @@ void MultiGridOperator<Scalar,dim>::applyBCsToJacobian(DistSVec<Scalar2,dim>& U,
 
   }
 
+}
+
+template<class Scalar,int dim>
+double MultiGridOperator<Scalar,dim>::queryTimeStep(int iSub, int i) {
+
+  return timeState->getDt()(iSub)[i];
 }
 
 #define INST_HELPER(S,D) \

@@ -57,7 +57,8 @@ class MultiGridKernel {
                          DistSVec<Scalar2,dim>& dx, 
                          DistSVec<Scalar2,dim>& f, 
                          DistSVec<Scalar2,dim>& forig, 
-                         VarFcn*);
+                         VarFcn*,
+                         MultiGridOperator<Scalar2,dim>*);
                          
   template<class Scalar2, int dim>
   void applyFixes(int,DistSVec<Scalar2,dim>& f); 

@@ -1864,8 +1864,8 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   myGeoState = new DistGeoState(parent->myGeoState->getGeoData(),&domain,
                                 *nodeDistInfo,*edgeDistInfo,*faceNormDistInfo);
 
-  DistVec<double> edge_areas(*edgeDistInfo);
-  edge_areas = 0.0;
+  edgeArea = new DistVec<double>(*edgeDistInfo);
+  *edgeArea = 0.0;
   edgeNormals = &myGeoState->getEdgeNormal();//new DistVec<Vec3D>(*edgeDistInfo);  
   *edgeNormals = Vec3D(0.0);
 
@@ -1883,7 +1883,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       else {
         //(*edgeNormals)(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l];
         if (refinedEdges[iSub]->getMasterFlag()[l]) {
-          edge_areas(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l].norm();
+          (*edgeArea)(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l].norm();
           double sgn = 1.0;
           if (nodeMapping(iSub)[ refinedEdges[iSub]->getPtr()[l][0] ] >
               nodeMapping(iSub)[ refinedEdges[iSub]->getPtr()[l][1] ])
@@ -1897,7 +1897,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
     }
   } 
 
-  //::assemble(domain, *edgeAreaPattern, numSharedEdges, sharedEdges, edge_areas);
+  ::assemble(domain, *edgeAreaPattern, numSharedEdges, sharedEdges, *edgeArea);
   ::assemble(domain, *edgeVecPattern, numSharedEdges, sharedEdges, *edgeNormals);
 
 #pragma omp parallel for
@@ -2083,9 +2083,11 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
           if (itr != myNewFaces.end()) {
 
             (itr->second).getNormal() += n;
+            (itr->second).getArea() += n.norm();
           } else {
 
             AgglomeratedFace A(node,code);
+            A.getArea() += n.norm();
             A.getNormal() += n;
             myNewFaces[std::pair<int,int>(node,code)] = A;
           }
@@ -2120,10 +2122,12 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         if (itr != myNewFaces.end()) {
 
           (itr->second).getNormal() += n;
+          (itr->second).getArea() += F.getArea();
         } else {
 
           AgglomeratedFace A(node,code);
           A.getNormal() += n;
+          A.getArea() += F.getArea();
           myNewFaces[std::pair<int,int>(node,code)] = A;
         }
       }
@@ -2445,21 +2449,23 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 
   int rnk;
   MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
-  if (rnk == 110) {
+/*  if (rnk == 110) {
 
     std::cout << "Calling restrict --- " << std::endl;
   }
+*/
   if (useVolumeWeightedAverage) {
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       for(int i = 0; i < fineData(iSub).size(); ++i)  {
-        if (fineGrid.getMyLevel() == 0 && iSub == 0 && rnk == 110 && 
+ /*       if (fineGrid.getMyLevel() == 0 && iSub == 0 && rnk == 110 && 
             nodeMapping(iSub)[i] == 3136)
           std::cout << "f = [" << fineData(iSub)[i][0] << " " <<
                                   fineData(iSub)[i][1] << " " <<
                                   fineData(iSub)[i][2] << " " <<
                                   fineData(iSub)[i][3] << " " <<
                                   fineData(iSub)[i][4] << "]" << std::endl;
+*/
         for(int j = 0; j < dim; ++j)
           coarseData(iSub)[nodeMapping(iSub)[i]][j] += fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i][j];
       }
@@ -2646,6 +2652,8 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
                                      const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,double relax_factor) const
 {
 
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i) {
@@ -2655,6 +2663,13 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
           fineData(iSub)[i][j] += fineGrid.getCtrlVol()(iSub)[i]*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]) / getCtrlVol()(iSub)[coarseIndex];
         }
       } else {
+        /*if (iSub == 0 && rnk == 110 && (coarseIndex == 3136 || coarseIndex == 2426 || coarseIndex == 2428 || coarseIndex == 3502 || coarseIndex == 3612)) {
+          std::cout << "Pl[" << coarseIndex << "] = ";
+          for(int j = 0; j < dim; ++j)
+            std::cout << coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j] << " ";
+          std::cout << std::endl;
+        }
+          */
         for(int j = 0; j < dim; ++j) {
           fineData(iSub)[i][j] += relax_factor*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
         }

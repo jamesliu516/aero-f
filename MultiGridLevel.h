@@ -117,6 +117,8 @@ class MultiGridLevel {
 
     double total_mesh_volume;
 
+    DistVec<double>* edgeArea;
+
   public:
     MultiGridLevel(MultiGridMethod,MultiGridLevel*,Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
     ~MultiGridLevel();
@@ -288,6 +290,8 @@ class MultiGridLevel {
 
     void setNodeType();
  
+    DistVec<double>& getEdgeArea() { return *edgeArea; }
+
   private:
 
     DistVec<Topology>* nodeTopology;

@@ -34,6 +34,11 @@ class MultiGridSpaceOperator {
                        MultiGridDistSVec<Scalar,dim>& V,
                        MultiGridMvpMatrix<Scalar,neq>& mvp);
 
+  MultiGridOperator<Scalar,dim>* getOperator(int i) {
+
+    return myOperators[i];
+  }
+
  private:
 
   int nLevels;

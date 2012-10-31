@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include <MultiGridSmoothingMatrix.h>
 #include <iostream>
 #include <DenseMatrixOps.h>
