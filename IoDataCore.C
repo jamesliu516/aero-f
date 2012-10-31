@@ -5588,6 +5588,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
   // and this routine is for multiphase flow.
   int fluidModelIDCount = 0;
   FluidModelData::Fluid fluidType = FluidModelData::UNDEFINED;
+  FluidModelData *fluidModel = 0;
   if(eqs.fluidModelMap.dataMap.empty()){
     error++;
     com->fprintf(stderr, "*** Error: no valid FluidModel were specified for Initial Conditions\n");
@@ -5597,6 +5598,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
     for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++)
       if(it->first == fluidModelID){
         fluidModelIDCount++;
+	fluidModel = it->second;
         fluidType = it->second->fluid;
       }
     if(fluidModelIDCount != 1){
@@ -5629,7 +5631,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
       error++;
       com->fprintf(stderr, "*** Error : either initial pressure or density must be specified\n");
     }
-    if(initialConditions.temperature < 0){
+    if(initialConditions.temperature < 0 && fluidModel->liquidModel.burnable == LiquidModelData::NO){
       error++;
       com->fprintf(stderr, "*** Error : an initial temperature must be specified\n");
     }
