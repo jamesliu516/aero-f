@@ -1,0 +1,99 @@
+/* MultiGridKernel.h
+
+ */
+
+#pragma once
+
+#include <DistMatrix.h>
+#include <DistGeoState.h>
+#include <MultiGridLevel.h>
+#include <KspSolver.h>
+#include <DistEmbeddedVector.h>
+#include <MatVecProd.h>
+#include <MultiGridOperator.h>
+#include <DistTimeState.h>
+#include <SpaceOperator.h>
+
+class DistGeoState;
+template<class Scalar,int dim> class DistSVec;
+
+template<class Scalar>
+class MultiGridKernel {
+
+ public:
+
+  MultiGridKernel(Domain *dom, DistGeoState& distGeoState, 
+                  IoData&,int num_levels);
+
+  ~MultiGridKernel();
+
+  void setParameters(int v1, int v2, int
+                     fine_sweeps, double relax, int do_out);
+
+  void initialize(int dim, int neq1,int neq2);
+
+  void setupAlgebraic();
+
+  bool isInitialized() const { return initialized; }
+
+  template<class Scalar2, int dim>
+  void Restrict(int coarseLvl, DistSVec<Scalar2,dim>& fine, 
+                DistSVec<Scalar2,dim>& coarse);
+
+  template<class Scalar2, int dim>
+  void Prolong(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
+               DistSVec<Scalar2,dim>& coarse, DistSVec<Scalar2,dim>& fine,
+               double relax);
+
+  int numLevels() const { return num_levels; }
+ 
+  MultiGridLevel<Scalar> * getLevel(int i) { return multiGridLevels[i]; }
+
+  void setUseVolumeWeightedAverage(bool b);
+
+  template<class Scalar2, int dim>
+  void fixNegativeValues(int,DistSVec<Scalar2,dim>& V, 
+                         DistSVec<Scalar2,dim>& U, 
+                         DistSVec<Scalar2,dim>& dx, 
+                         DistSVec<Scalar2,dim>& f, 
+                         DistSVec<Scalar2,dim>& forig, 
+                         VarFcn*,
+                         MultiGridOperator<Scalar2,dim>*);
+                         
+  template<class Scalar2, int dim>
+  void applyFixes(int,DistSVec<Scalar2,dim>& f); 
+
+ private:
+
+  bool isGeometric;
+
+  int nSmooth1,nSmooth2;
+
+  double relaxationFactor;
+  
+  const int num_levels, agglom_size, numLocSub;
+
+  double beta; 
+ 
+  double prolong_relax_factor;
+  double restrict_relax_factor;
+
+  bool smoothWithGMRES;
+
+  MultiGridLevel<Scalar> ** multiGridLevels;
+ 
+  DistGeoState& geoState;
+
+  IoData& ioData;
+
+  Domain* domain;
+
+  int output;
+
+  int fine_sweeps;
+
+  bool initialized;
+
+  std::set<int>** fixLocations;
+ 
+};

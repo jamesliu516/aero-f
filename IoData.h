@@ -390,6 +390,7 @@ struct ProblemData {
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
+  enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
 
   ProblemData();
@@ -1340,13 +1341,57 @@ struct PcData {
 
   enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5, MG = 6} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
+  
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
+
+  enum MGType { MGALGEBRAIC = 0, MGGEOMETRIC = 1} mg_type;
 
   int fill;
+
+  int num_multigrid_smooth1,num_multigrid_smooth2;
+  int num_multigrid_levels;
+
+  int mg_output;
+
+  double mg_smooth_relax;
+
+  int num_fine_sweeps;
 
   PcData();
   ~PcData() {}
 
   void setup(const char *, ClassAssigner * = 0);
+
+};
+
+struct MultiGridData {
+
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2, MGGMRES = 3 } mg_smoother;
+
+  enum CycleScheme { VCYCLE = 0, WCYCLE = 1} cycle_scheme;
+
+  enum RestrictMethod { VOLUME_WEIGHTED = 0, AVERAGE = 1 } restrictMethod;
+ 
+  int num_multigrid_smooth1,num_multigrid_smooth2;
+  int num_multigrid_levels;
+
+  int mg_output;
+
+  int useGMRESAcceleration;
+
+  double directional_coarsening_factor;
+
+  double mg_smooth_relax;
+
+  double prolong_relax_factor,restrict_relax_factor;
+
+  int num_fine_sweeps;
+ 
+  MultiGridData();
+  ~MultiGridData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
 
 };
 
@@ -1361,6 +1406,8 @@ struct KspData {
   int maxIts;
   int numVectors;
   double eps;
+
+  double absoluteEps;
 
   const char *output;
 
@@ -2055,25 +2102,6 @@ struct ImplosionSetup {
   void setup(const char *);
 };
 
-struct MultigridInfo {
- 
-  MultigridInfo();
-  ~MultigridInfo() {}
-  void setup(const char *);
-
-  const char* fineMesh;
-  const char* coarseMesh;
-
-  const char* fineDec;
-  const char* coarseDec;
-
-  const char* packageFile;
-  const char* collectionFile;
-
-  double radius0;
-  double radiusf;
-  int threshold;
-};
 
 //------------------------------------------------------------------------------
 
@@ -2139,7 +2167,7 @@ public:
   OneDimensionalInfo oneDimensionalInfo;
   ImplosionSetup implosion;
 
-  MultigridInfo multigrid;
+  MultiGridData mg;
 
   // UH (08/2012)
   // The next member is used for the Kirchhoff integral.

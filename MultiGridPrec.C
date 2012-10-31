@@ -2,37 +2,35 @@
 
 #include <Domain.h>
 #include <DistGeoState.h>
-#include <DistMacroCell.h>
+#include <MultiGridLevel.h>
+#include <MatVecProd.h>
+#include <DistMvpMatrix.h>
+
+#include <IoData.h>
 
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim, class Scalar2>
-MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, int **nodeType, BCApplier *bcs)
-    : num_levels(8),agglom_size(8),numLocSub(dom->getNumLocSub()), macroCells(0), geoState(distGeoState),
-    nodeDistInfo(0), edgeDistInfo(0)
+MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, PcData& pcData,KspData& coarseSolverData, IoData& ioData, VarFcn* varFcn,bool createFineA, 
+DistTimeState<dim>* ts,int **nodeType, BCApplier *bcs) : pcData(pcData), DistMat<Scalar2,dim>(dom)
 {
-  bool ** masterFlag = new bool *[numLocSub];
 
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; iSub++)
-    masterFlag[iSub] = dom->getNodeDistInfo().getMasterFlag(iSub);
+  mgKernel = new MultiGridKernel<Scalar,dim,Scalar2>(dom, distGeoState, coarseSolverData, ioData, varFcn,createFineA,pcData.num_multigrid_levels, ts);
+  mgKernel->setParameters(pcData.num_multigrid_smooth1, 
+                          pcData.num_multigrid_smooth2,
+                          pcData.num_fine_sweeps,
+                          pcData.mg_smooth_relax, 
+                          pcData.mg_output);
 
-  macroCells = new DistMacroCellSet(dom, 1.0, masterFlag, agglom_size, num_levels);
-  macroValues = new DistSVec<Scalar2,dim>*[num_levels];
-  nodeDistInfo = new DistInfo*[num_levels];
+}
 
-  const DistInfo& nDistInfo(dom->getNodeDistInfo());
+template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::initialize() {
 
-  for(int level = 0; level < num_levels; ++level) {
-    nodeDistInfo[level] = new DistInfo(nDistInfo.numLocThreads, nDistInfo.numLocSub,
-                                       nDistInfo.numGlobSub,    nDistInfo.locSubToGlobSub, nDistInfo.com);
-#pragma omp parallel for
-    for(int iSub = 0; iSub < numLocSub; ++iSub)
-      nodeDistInfo[level]->setLen(iSub, macroCells->obtainMacroCell(iSub,level)->size());
-    nodeDistInfo[level]->finalize(true);
-
-    macroValues[level] = new DistSVec<Scalar2,dim>(*nodeDistInfo[level]);
-  }
+  mgKernel->initialize();
+  
+  if (pcData.mg_type == PcData::MGGEOMETRIC)
+    mgKernel->setGeometric();
 }
 
 //------------------------------------------------------------------------------
@@ -40,24 +38,37 @@ MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& dist
 template<class Scalar, int dim, class Scalar2>
 MultiGridPrec<Scalar,dim,Scalar2>::~MultiGridPrec()
 {
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; iSub++) {
-    delete nodeDistInfo[iSub];
-    delete edgeDistInfo[iSub];
-    delete macroValues[iSub];
-  }
+  delete mgKernel;
+}
 
-  delete []nodeDistInfo;
-  delete []edgeDistInfo;
-  delete []macroValues;
-  delete macroCells;
+template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::setOperators(SpaceOperator<dim>* spo) {
+
+  mgKernel->setOperators(spo);
 }
 
 //------------------------------------------------------------------------------
+template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::setup() {
+
+  std::cout << "Error: wrong setup called.  For multigrid you should call "
+               "MultiGridPrec<Scalar,dim,Scalar2>::setup(DistSVec<Scalar2,dim>& V)" << std::endl;
+  exit(1);
+}
 
 template<class Scalar, int dim, class Scalar2>
-void MultiGridPrec<Scalar,dim,Scalar2>::setup()
+void MultiGridPrec<Scalar,dim,Scalar2>::setup(DistSVec<Scalar2,dim>& U)
 {
+  if (pcData.mg_type == PcData::MGGEOMETRIC)
+    mgKernel->setupGeometric(U);
+  else
+    mgKernel->setupAlgebraic();
+}
+
+template<class Scalar, int dim, class Scalar2>
+bool MultiGridPrec<Scalar,dim,Scalar2>::isInitialized() {
+
+  return mgKernel->isInitialized();
 }
 
 //------------------------------------------------------------------------------
@@ -65,21 +76,65 @@ void MultiGridPrec<Scalar,dim,Scalar2>::setup()
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-  static bool doInitialTasks = true;
-
-  macroCells->computeVBar(doInitialTasks, geoState, x, *macroValues[0], 0, 1);
-  for(int level = 1; level < num_levels; ++level) {
-  }
-  doInitialTasks = false;
-
-  // Not really even a preconditioner at all!
-  Px = x;
+  mgKernel->cycleV(x, Px);
 }
 
 //------------------------------------------------------------------------------
 
-template class MultiGridPrec<float, 1, double>;
-template class MultiGridPrec<float, 2, double>;
-template class MultiGridPrec<float, 5, double>;
-template class MultiGridPrec<float, 6, double>;
-template class MultiGridPrec<float, 7, double>;
+template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::getData(DistMat<Scalar2,dim>& mat)/* ,
+                                                DistSVec<Scalar2,dim>& V,
+                                                SpaceOperator<dim>& spo,
+                                                DistTimeState<dim>* timeState)*/
+{
+//  VarFcn* varFcn = spo.getVarFcn();
+
+  mgKernel->getData(mat);
+  
+/*  *macroValues[0] = V;
+  if (timeState)
+    *macroIrey[0] = *timeState->getInvReynolds();
+  else
+    *macroIrey[0] = 0.0;
+*/
+  //std::cout << "Vnorm 0 = " << V*V <<std::endl;
+  //smooth(0, *macroValues[0], V);
+/*#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    for (int i = 0; i < macroValues[0]->subSize(iSub); ++i)
+      std::cout << i << " " << (*macroValues[0])(iSub)[i][0] << " " << 
+        (*timeState)(iSub).getDt()[i] << std::endl;
+  }
+*/
+}
+
+template<class Scalar, int dim, class Scalar2>
+DistMat<Scalar2,dim>& MultiGridPrec<Scalar,dim,Scalar2>::
+operator= (const Scalar2 s) {
+
+  return (mgKernel->getFineMatrix() = s);
+}
+
+template<class Scalar, int dim, class Scalar2>
+GenMat<Scalar2,dim>& MultiGridPrec<Scalar,dim,Scalar2>::
+operator() (int i) {
+
+  return mgKernel->getFineMatrix()(i);
+}
+
+//------------------------------------------------------------------------------
+#define INSTANTIATION_HELPER(T,dim) \
+    template class MultiGridPrec<T, dim, double>;
+
+INSTANTIATION_HELPER(float,1);
+INSTANTIATION_HELPER(float,2);
+INSTANTIATION_HELPER(float,5);
+INSTANTIATION_HELPER(float,6);
+INSTANTIATION_HELPER(float,7);
+
+INSTANTIATION_HELPER(double,1);
+INSTANTIATION_HELPER(double,2);
+INSTANTIATION_HELPER(double,5);
+INSTANTIATION_HELPER(double,6);
+INSTANTIATION_HELPER(double,7);

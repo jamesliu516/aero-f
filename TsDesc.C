@@ -96,7 +96,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
     fixSol = 1;
 
 	timeState = 0;
-	mmh = 0;
+	mmh = 0; 
 }
 
 //------------------------------------------------------------------------------
@@ -301,7 +301,7 @@ template<int dim>
 double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
 {
   double t0 = timer->getTime();
-//  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
+  //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   data->computeCflNumber(it - 1, data->residual / restart->residual);
   int numSubCycles = 1;
 

@@ -7,7 +7,7 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_admin")
 # Local Variables #
 ###################
 SITE_NAME(HOSTNAME)
-FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
+#FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
 MARK_AS_ADVANCED(HOSTNAME)
 MARK_AS_ADVANCED(LOCAL_DIR)
 ###################
@@ -166,7 +166,9 @@ ADD_LIBRARY(FluidBase
              Solvers/NavierStokesCoupledSolver7.C
              Solvers/NavierStokesSegSolver651.C
              Solvers/NavierStokesSegSolver752.C
+             AgglomeratedFace.C
              BcFcnCore.C
+             BlockTridiagonalMatrix.C
              CommunicatorCore.C 
              CommunicatorMPI.C 
              ConnectivityCore.C 
@@ -199,7 +201,18 @@ ADD_LIBRARY(FluidBase
              MemoryPool.C 
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
-             MultiGridPrec.C
+             #MultiGridPrec.C
+             MultiGridDistSVec.C
+             MultiGridLevel.C
+             MultiGridKernel.C
+             MultiGridKspSolver.C
+             MultiGridMvpMatrix.C
+             MultiGridOperator.C 
+             MultiGridSpaceOperator.C 
+             MultiGridSmoothingMatrix.C
+             MultiGridSmoothingMatrices.C
+             MultiGridCoupledTsDesc.C
+             MultiGridSegTsDesc.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 

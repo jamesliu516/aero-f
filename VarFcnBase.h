@@ -125,6 +125,14 @@ public:
   virtual double computeTemperature(double *V) const{
     fprintf(stderr, "*** Error:  computeTemperature Function not defined\n");
     exit(1); }
+  virtual void computeTemperatureGradient(double *V,double* Tg) const{
+    fprintf(stderr, "*** Error:  computeTemperatureGradient Function not defined\n");
+    exit(1); }
+  virtual void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
+                                 double& Tpp) const { 
+    fprintf(stderr, "*** Error:  computeTemperatureHessian Function not defined\n");
+    exit(1); }
+  
   virtual double computeRhoEnergy(double *V)   const{
     fprintf(stderr, "*** Error:  computeRhoEnergy Function not defined\n");
     exit(1); }

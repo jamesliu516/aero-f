@@ -7,7 +7,7 @@
 #include <MatVecProd.h>
 #include <KspSolver.h>
 #include <NewtonSolver.h>
-#include <MultiGridPrec.h>
+//#include <MultiGridPrec.h>
 
 //------------------------------------------------------------------------------
 
@@ -27,6 +27,7 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);
 
+  myIoDataPtr = &ioData;
 }
 
 //------------------------------------------------------------------------------
@@ -131,9 +132,17 @@ KspPrec<neq> *ImplicitTsDesc<dim>::createPreconditioner(PcData &pcdata, Domain *
 	   pcdata.type == PcData::ASH || 
 	   pcdata.type == PcData::AAS)
     _pc = new IluPrec<Scalar,neq>(pcdata, dom);
-//  else if (pcdata.type == PcData::MG)
-//    _pc = new MultiGridPrec<Scalar,neq>(dom, *this->geoState);
-
+/*  else if (pcdata.type == PcData::MG)  {
+    // WARNING: The last parameter is bullshit if dim != neq!
+    // I just need something to compile
+    _pc = new MultiGridPrec<Scalar,neq>(dom, *this->geoState,pcdata,
+                                        myIoDataPtr->ts.implicit.newton.ksp.ns,
+                                        *myIoDataPtr,this->varFcn, 
+                                        myIoDataPtr->ts.implicit.mvp != ImplicitData::H1,
+                                        reinterpret_cast<DistTimeState<neq>*>(this->timeState));
+    reinterpret_cast<MultiGridPrec<Scalar,dim>*>(_pc)->setOperators(this->spaceOp);
+  }
+*/
   return _pc;
 
 }

@@ -12,7 +12,7 @@ template<class Scalar, int dim> class SVec;
 
 class GeoState {
 
-  GeoData &data;
+  const GeoData &data;
 
   Vec<double> &ctrlVol_n;
   Vec<double> &ctrlVol_nm1;
@@ -38,12 +38,12 @@ class GeoState {
 public:
 
 // Included (MB)
-  GeoState(GeoData &, Vec<double> &, Vec<double> &, Vec<double> &, 
+  GeoState(const GeoData &, Vec<double> &, Vec<double> &, Vec<double> &,
            Vec<double> &,
 	   Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&,
            Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, SVec<double,3> &, SVec<double,3> &);
 
-  GeoState(GeoData &, Vec<double> &, Vec<double> &, Vec<double> &,
+  GeoState(const GeoData &, Vec<double> &, Vec<double> &, Vec<double> &,
            Vec<double> &,
 	   Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&);
   ~GeoState() {}
