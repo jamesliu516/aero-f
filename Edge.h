@@ -87,6 +87,12 @@ public:
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
                        Vec<double> &, TimeLowMachPrec &);
+
+  template<int dim>
+  void computeTimeStep2(FemEquationTerm *, VarFcn *, GeoState &,
+		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
+                       Vec<double> &, TimeLowMachPrec &, Vec<double>&);
+ 
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
                        TimeLowMachPrec &, Vec<int> &, int,Vec<double>*);

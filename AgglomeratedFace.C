@@ -4,11 +4,12 @@
 
 #include "FemEquationTerm.h"
 
-AgglomeratedFace::AgglomeratedFace() : node(0), code(0), normal(0.0) {
+AgglomeratedFace::AgglomeratedFace() : node(0), code(0), normal(0.0), area(0.0) {
 
 }
 
-AgglomeratedFace::AgglomeratedFace(int node, int code) : node(node), code(code), normal(0.0) {
+AgglomeratedFace::AgglomeratedFace(int node, int code) : node(node), code(code), normal(0.0),
+                                    area(0.0) {
 
 }
 
@@ -54,6 +55,34 @@ void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn,
     } 
   }
 }
+
+template<int dim>
+void AgglomeratedFace::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn,
+			   SVec<double,3> &X, SVec<double,dim> &V, 
+			   Vec<double> &idti, Vec<double> &idtv,
+			   TimeLowMachPrec &tprec)
+{
+  double S = sqrt(normal * normal);
+  double invS = 1.0 / S;
+
+  Vec3D n = invS * normal;
+  double ndot = 0.0;//invS * getNormalVel(normalVel);
+
+  Vec3D u = varFcn->getVelocity(V[ node ]);
+  double a = varFcn->computeSoundSpeed(V[ node]);
+  double un = u * n - ndot;
+
+  // Low-Mach Preconditioner
+  double locMach = varFcn->computeMachNumber(V[ node ]);
+  double locbeta = tprec.getBeta(locMach,true);
+  double beta2 = locbeta * locbeta;
+  double coeff1 = fabs((1.0+beta2)*un);
+  double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+
+  idti[ node ] += 0.5*(coeff1+coeff2)* area;
+    
+}
+
 
 void AgglomeratedFace::setNodeType(int* priority, int* nodeType) {
  
@@ -394,6 +423,19 @@ computeJacobianThinLayerViscousFiniteVolumeTerm(class FemEquationTerm* fet,
   }
 }
 
+template<int dim>
+void AgglomeratedFaceSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn,
+			   SVec<double,3> &X, SVec<double,dim> &V, 
+			   Vec<double> &idti, Vec<double> &idtv,
+			   TimeLowMachPrec &tprec)
+{
+  for (int i = 0; i < numFaces; ++i) {
+   
+    myFaces[i].computeTimeStep(fet,varFcn,X,V,idti,idtv,tprec);
+  } 
+}
+
+
 
 #define INST_HELPER(dim) \
 template void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn, \
@@ -418,7 +460,15 @@ template void AgglomeratedFace::assignFreeStreamValues2(SVec<double,dim> &Uin, S
                                         SVec<double,dim> &dZ, \
                                         Vec<double>& d2wall,\
                                         SVec<double,dim>& Vwall, \
-			                SVec<double,dim> &fluxes);
+		                        SVec<double,dim> &fluxes); \
+template void AgglomeratedFace::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, \
+			   SVec<double,3> &X, SVec<double,dim> &V,  \
+			   Vec<double> &idti, Vec<double> &idtv, \
+			   TimeLowMachPrec &tprec); \
+template void AgglomeratedFaceSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, \
+			   SVec<double,3> &X, SVec<double,dim> &V,  \
+			   Vec<double> &idti, Vec<double> &idtv, \
+			   TimeLowMachPrec &tprec);
 
 #define INST_HELPER2(dim,Scalar,neq) \
 template void AgglomeratedFace::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, \

@@ -80,6 +80,60 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
   }
 
 }
+
+template<int dim>
+void EdgeSet::computeTimeStep2(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
+                              SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti, Vec<double> &idtv,
+                              TimeLowMachPrec &tprec, Vec<double>& edgeArea)
+{
+
+  double Vmid[dim];
+  double Xmid[3];
+  double vis = 0.0;
+  Vec<Vec3D> &normal = geoState.getEdgeNormal();
+  Vec<double> &normalVel = geoState.getEdgeNormalVel();
+  double locbeta=0.0;
+
+  for (int l=0; l<numEdges; ++l) {
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    double S = sqrt(normal[l] * normal[l]);
+    double invS = 1.0 / S;
+
+    Vec3D n = invS * normal[l];
+    double ndot = invS * normalVel[l];
+
+    for (int k=0; k<dim; ++k)
+      Vmid[k] = 0.5 * (V[i][k] + V[j][k]);
+    for (int k=0; k<3; k++)
+      Xmid[k] = 0.5 *(X[i][k]+X[j][k]);
+
+    Vec3D u = varFcn->getVelocity(Vmid);
+    double a = varFcn->computeSoundSpeed(Vmid);
+
+    double un = u * n - ndot;
+    double locMach = varFcn->computeMachNumber(Vmid);
+    locbeta = tprec.getBeta(locMach,true);
+
+    double beta2 = locbeta * locbeta;
+    double coeff1 = fabs((1.0+beta2)*un);
+    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+
+    idti[i] += 0.5*(coeff1+coeff2) * edgeArea[l];
+    idti[j] += 0.5*(coeff1+coeff2) * edgeArea[l];
+
+    /*
+    if(fet) vis = fet->computeViscousTimeStep(Xmid, Vmid)*S*S;
+    idtv[i] += vis;
+    idtv[j] += vis;
+    */
+  }
+
+}
 //------------------------------------------------------------------------------
 
 // Included (MB)

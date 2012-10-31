@@ -125,7 +125,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
     mgSpaceOp->updateStateVectors(lvl,x);
 
-    mgSpaceOp->computeTimeStep(lvl,this->data->cfl*pow(0.5,lvl),
+    mgSpaceOp->computeTimeStep(lvl,this->data->cfl*pow(0.75,lvl),
                                V);
  
     mgSpaceOp->computeResidual(lvl, x, V, res);
@@ -141,7 +141,8 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     x(lvl) += dx(lvl);
    
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
-    pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f,Forig(lvl), this->varFcn);
+    pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f,Forig(lvl), this->varFcn,
+                               mgSpaceOp->getOperator(lvl));
     mgSpaceOp->computeResidual(lvl, x, V, R, false);
     R(lvl) = f-R(lvl);
   }
@@ -165,7 +166,13 @@ void MultiGridCoupledTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
     Uold(lvl+1) = U(lvl+1);
     
     this->varFcn->conservativeToPrimitive(U(lvl+1), V(lvl+1));
+    //pKernel->fixNegativeValues(lvl+1,V(lvl+1), x(lvl+1), dx(lvl+1), R(lvl+1),Forig(lvl+1), this->varFcn);
     mgSpaceOp->computeResidual(lvl+1, U, V, F, false);
+    //pKernel->fixNegativeValues(lvl+1,V(lvl+1), x(lvl+1), dx(lvl+1), F(lvl+1),Forig(lvl+1), this->varFcn);
+    if (lvl == 0) {
+
+      pKernel->getLevel(lvl+1)->writePVTUSolutionFile("myR",R(lvl+1));
+    }
     pKernel->applyFixes(lvl+1, R(lvl+1));
     F(lvl+1) += R(lvl+1)*restrict_relax_factor;
     for (int i = 0; i < mc; ++i)

@@ -59,6 +59,8 @@ class MultiGridOperator {
 
   DistSVec<Scalar,dim>& getBoundaryState() const { return *boundaryState; }
 
+  double queryTimeStep(int iSub, int i);
+
  private:
 
   MultiGridLevel<Scalar>* mgLevel;

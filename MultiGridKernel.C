@@ -128,7 +128,8 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
                   DistSVec<Scalar2,dim>& dx, 
                   DistSVec<Scalar2,dim>& f, 
                   DistSVec<Scalar2,dim>& forig, 
-                  VarFcn* vf) {
+                  VarFcn* vf,
+                  MultiGridOperator<Scalar2,dim>* op) {
 
   int rnk;
   MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
@@ -149,31 +150,33 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
     for (int i = 0; i < Vl.size(); ++i) {
 
       if (vf->getPressure(Vl[i]) <= 0.0 ||
-          vf->getDensity(Vl[i]) <= 0.0 || (iSub == 0 && rnk == 110 && i == 3136)) {
+          vf->getDensity(Vl[i]) <= 0.0 /*|| (iSub == 0 && rnk == 17 && i == 1604 && lvl == 1)*/) {
 
-        fprintf(stderr,"iSub = %d, rank = %d\n", iSub, rnk);
+        fprintf(stderr,"lvl = %d iSub = %d, rank = %d\n", lvl,iSub, rnk);
         fprintf(stderr,"Fixed negative value (p, rho) = (%lf, %lf) at"
                        " node %d (x = [%lf, %lf, %lf])\n", vf->getPressure(Vl[i]), vf->getDensity(Vl[i]),
                        i, X[i][0],X[i][1],X[i][2]);
 
         Connectivity* con = multiGridLevels[lvl]->getConnectivity()[iSub];
-        fprintf(stderr,"f[i] = [%lf, %lf, %lf, %lf, %lf]\n",
+        fprintf(stderr,"f[i] = [%e, %e, %e, %e, %e]\n",
                 fl[i][0], fl[i][1], fl[i][2], fl[i][3], fl[i][4]);
-        fprintf(stderr,"U[i] = [%lf, %lf, %lf, %lf, %lf]\n",
+        fprintf(stderr,"U[i] = [%e, %e, %e, %e, %e]\n",
                 Ul[i][0]-dxl[i][0], Ul[i][1]-dxl[i][1], Ul[i][2]-dxl[i][2], Ul[i][3]-dxl[i][3], Ul[i][4]-dxl[i][4]);
+        fprintf(stderr,"dt = %lf\n", op->queryTimeStep(iSub,i));
         fprintf(stderr,"nodetype[i] = %d\n", multiGridLevels[lvl]->getNodeType(iSub)[i]);
         fprintf(stderr,"ctrlvol[i] = %e\n", ctrlVol(iSub)[i]);
         for (int j = 0; j < con->num(i); ++j) {
 
           if ((*con)[i][j] == i) continue;
           int l = (*con)[i][j];
-          fprintf(stderr,"f[%d] = [%lf, %lf, %lf, %lf, %lf]\n",l,
+          fprintf(stderr,"f[%d] = [%e, %e, %e, %e, %e]\n",l,
                   fl[l][0], fl[l][1], fl[l][2], fl[l][3], fl[l][4]);
-          fprintf(stderr,"U[%d] = [%lf, %lf, %lf, %lf, %lf]\n",l,
+          fprintf(stderr,"U[%d] = [%e, %e, %e, %e, %e]\n",l,
                 Ul[l][0]-dxl[l][0], Ul[l][1]-dxl[l][1], Ul[l][2]-dxl[l][2], Ul[l][3]-dxl[l][3], Ul[l][4]-dxl[l][4]);
+          fprintf(stderr,"dt = %lf\n", op->queryTimeStep(iSub,l));
           fprintf(stderr,"nodetype[%d] = %d\n",l, multiGridLevels[lvl]->getNodeType(iSub)[l]);
           int edge_l = multiGridLevels[lvl]->getEdges()[iSub]->findOnly(i,l);
-          fprintf(stderr,"Edge_normal = [%e %e %e]\n", edgeNorm(iSub)[edge_l][0],edgeNorm(iSub)[edge_l][1],edgeNorm(iSub)[edge_l][2]);
+          fprintf(stderr,"Edge_normal = [%e %e %e]; area = %e\n", edgeNorm(iSub)[edge_l][0],edgeNorm(iSub)[edge_l][1],edgeNorm(iSub)[edge_l][2],edgeNorm(iSub)[edge_l].norm());
         fprintf(stderr,"ctrlvol[%d] = %e\n", l, ctrlVol(iSub)[l]);
 
 
@@ -224,7 +227,7 @@ fixNegativeValues(int,DistSVec<T2,D>& V, \
                   DistSVec<T2,D>& dx,  \
                   DistSVec<T2,D>& f, \
                   DistSVec<T2,D>& forig, \
-                  VarFcn* vf);\
+                  VarFcn* vf, MultiGridOperator<T2,D>*);\
 template void MultiGridKernel<T>:: \
 applyFixes(int,DistSVec<T2,D>& V);
 

@@ -4,6 +4,8 @@
 #include <FluxFcn.h>
 #include <GenMatrix.h>
 
+#include <FemEquationTerm.h>
+
 class AgglomeratedFace {
 
  public:
@@ -16,6 +18,12 @@ class AgglomeratedFace {
 
   ~AgglomeratedFace();
   
+  template<int dim>
+  void computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn,
+	   SVec<double,3> &X, SVec<double,dim> &V, 
+			   Vec<double> &idti, Vec<double> &idtv,
+			   TimeLowMachPrec &tprec);
+
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, 
 			       SVec<double,dim> &V, 
@@ -65,6 +73,8 @@ class AgglomeratedFace {
 
   void setNodeType(int*, int*);
 
+  double& getArea() { return area; }
+
  private:
 
   int code;
@@ -72,6 +82,8 @@ class AgglomeratedFace {
   int node;
 
   Vec3D normal;
+ 
+  double area;
 };
 
 class AgglomeratedFaceSet {
@@ -81,6 +93,12 @@ class AgglomeratedFaceSet {
   AgglomeratedFaceSet(int size);
 
   ~AgglomeratedFaceSet();
+
+  template<int dim>
+  void computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn,
+	   SVec<double,3> &X, SVec<double,dim> &V, 
+			   Vec<double> &idti, Vec<double> &idtv,
+			   TimeLowMachPrec &tprec);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, 
