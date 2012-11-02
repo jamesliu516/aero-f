@@ -410,8 +410,8 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
   }
 
   double ooreynolds_mu,mutilde,mut,lambdat,kappat;
-  if (ns) ns->get_ooreynolds_mu(); 
-  if (sa) sa->get_ooreynolds_mu(); 
+  if (ns) ooreynolds_mu = ns->get_ooreynolds_mu(); 
+  if (sa) ooreynolds_mu = sa->get_ooreynolds_mu(); 
   
   for (int l=0; l<numSampledEdges; ++l) {    
 

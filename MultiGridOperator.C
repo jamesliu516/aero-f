@@ -77,7 +77,7 @@ void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, Di
     mgLevel->getAgglomeratedFaces()[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn,V(iSub), 
                                                  getBoundaryState()(iSub),
                                                  matrices(iSub));
-
+/*
     if (fet) {
      
       mgLevel->getEdges()[iSub]->computeJacobianThinLayerViscousFiniteVolumeTerm(
@@ -91,7 +91,7 @@ void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, Di
          (*myBcData)(iSub).getFaceStateVector(),matrices(iSub));
           
     }
- 
+ */
     Vec<double>& ctrlVol = mgLevel->getCtrlVol()(iSub); 
     for (int i=0; i<ctrlVol.size(); ++i) {
       Scalar voli = 1.0 / ctrlVol[i];
@@ -159,7 +159,7 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
     mgLevel->getAgglomeratedFaces()[iSub]->computeFiniteVolumeTerm(fluxFcn, 
                                          V(iSub),getBoundaryState()(iSub),
                                          res(iSub));
-
+/*
     if (fet) {
  
       mgLevel->getEdges()[iSub]->template 
@@ -176,7 +176,7 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
                                       res(iSub)); 
                                                     
     }    
-
+*/
   }
   
   mgLevel->assemble(res);
