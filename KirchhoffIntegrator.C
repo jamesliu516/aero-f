@@ -88,7 +88,7 @@ void KirchhoffIntegrator::Compute
 {
 #ifdef AEROACOUSTIC
   char prefix[192];
-  sprintf(&prefix[0], "%s", d_iod.input.strKPtraces);
+  sprintf(&prefix[0], "%s%s", d_iod.input.prefix, d_iod.input.strKPtraces);
   
   int *vecLen = new int[d_domain_p->getNumLocSub() + 1];
   vecLen[0] = 0;
