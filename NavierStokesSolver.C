@@ -167,9 +167,10 @@ void startSparseGridGeneration(IoData &ioData, Domain &domain)
 
   Communicator* com = domain.getCommunicator();
 
-  fprintf(stdout, "*** Warning: Generating a sparse grid\n");
+  fprintf(stdout, "*** Generating a sparse grid\n");
   SparseGridGeneratorDesc sgDesc(ioData, com);
   sgDesc.tabulate(ioData);
+  fprintf(stdout, "*** The sparse grid was generated and the simulation is finished\n");
 
 }
 

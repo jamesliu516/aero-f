@@ -4454,6 +4454,16 @@ int IoData::checkFileNames()
 
   int error = 0;
 
+  // only a single set of input files must be specified for _AERO_ACOUSTIC_ simulations
+  if(problem.alltype == ProblemData::_AERO_ACOUSTIC_){
+    if(strcmp(input.strKPtraces, "") == 0){
+      com->fprintf(stderr, "*** Error: a PressureKirchhoff file must be specified in the Input object\n");
+      error++;
+    }
+    // the rest of the function does not concern _AERO_ACOUSTIC_ simulations
+    return error;
+  }
+
   // no input files for Sparse Grid generation, hence no check
   // or if we are doing a one dimensional problem!
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_ || problem.alltype == ProblemData::_ONE_DIMENSIONAL_)
@@ -4526,6 +4536,11 @@ int IoData::checkInputValues()
 
   int error = 0;
 
+  // no need for all input values for Aeroacoustic simulation
+  // check only the ones of interest and exit this routine
+  if(problem.alltype == ProblemData::_AERO_ACOUSTIC_)
+    return checkInputValuesAeroAcoustic();
+
   // input values for flow solver
   error += checkInputValuesAllEquationsOfState();
 
@@ -4596,6 +4611,43 @@ int IoData::checkInputValues()
   return error;
 
 }
+//------------------------------------------------------------------------------
+// this routine checks the input values for an _AERO_ACOUSTIC_ simulation
+int IoData::checkInputValuesAeroAcoustic(){
+
+  int error = 0;
+
+  // checking that binary files (containing the time-history of an unsteady pressure field
+  // on a surface have been specified) has already been checked in checkFileNames()
+
+  // check that the type of the Kirchhoff surface was specified
+  if (surfKI.d_surfaceType != KirchhoffData::CYLINDRICAL &&
+      surfKI.d_surfaceType != KirchhoffData::SPHERICAL){
+    com->fprintf(stderr, "*** Error: AcousticPressure.KirchhoffSurface "
+        "must either be 'Spherical' or 'Cylindrical'\n");
+    error++;
+  }
+
+  // check quantities related to output of far-field pattern
+  if(strcmp(output.transient.probes.farfieldpattern, "") != 0 &&  surfKI.d_angularIncrement <= 0){
+    com->fprintf(stderr, "*** Error: AcousticPressure.Increment must be positive to output "
+        "the far-field pattern\n");
+    error++;
+  }
+
+  // check that pressure probes were specified... this is the goal of this simulation
+  if(strcmp(output.transient.probes.pressure, "") == 0){
+    com->fprintf(stdout, "*** Warning: no acoustic pressure probe has been specified\n");
+  }
+  if(strcmp(output.transient.probes.pressure, "") != 0 && surfKI.d_nyquist < 0){
+    com->fprintf(stderr, "*** Error: AcousticPressure.NyquistMaximum must be positive\n");
+    error++;
+  }
+
+  return error;
+
+}
+
 //------------------------------------------------------------------------------
 
 int IoData::checkInputValuesAllEquationsOfState(){
@@ -5542,6 +5594,10 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
 
   int error = 0;
 
+  // no solver value to check for _AERO_ACOUSTIC_ simulations
+  if(problem.alltype == ProblemData::_AERO_ACOUSTIC_)
+    return 0;
+
   if (problem.type[ProblemData::ACCELERATED] && !problem.type[ProblemData::AERO] &&
       rmesh.timestep < 0.0) {
     com->fprintf(stderr, "*** Error: no valid timestep (%d) given\n", rmesh.timestep);
@@ -5602,6 +5658,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
   // and this routine is for multiphase flow.
   int fluidModelIDCount = 0;
   FluidModelData::Fluid fluidType = FluidModelData::UNDEFINED;
+  FluidModelData *fluidModel = 0;
   if(eqs.fluidModelMap.dataMap.empty()){
     error++;
     com->fprintf(stderr, "*** Error: no valid FluidModel were specified for Initial Conditions\n");
@@ -5611,6 +5668,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
     for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++)
       if(it->first == fluidModelID){
         fluidModelIDCount++;
+	fluidModel = it->second;
         fluidType = it->second->fluid;
       }
     if(fluidModelIDCount != 1){
@@ -5643,7 +5701,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
       error++;
       com->fprintf(stderr, "*** Error : either initial pressure or density must be specified\n");
     }
-    if(initialConditions.temperature < 0){
+    if(initialConditions.temperature < 0 && fluidModel->liquidModel.burnable == LiquidModelData::NO){
       error++;
       com->fprintf(stderr, "*** Error : an initial temperature must be specified\n");
     }
@@ -5695,8 +5753,10 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
         com->fprintf(stderr, "*** Error: a specific heat at constant pressure must be specified for a stiffened gas in a viscous simulation.");
         error++;
       }
-      else if(eqs.type == EquationsData::EULER)
+      else if(eqs.type == EquationsData::EULER && strcmp(output.transient.temperature, "") != 0) {
         com->fprintf(stderr, "*** Note: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
+	error++;
+      }
     }
   }
 
