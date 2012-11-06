@@ -5233,13 +5233,18 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
         for (int k=0; k<dim; ++k) {
           dV[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+          Vj[k] = Vi[k] + dV[k];
         }
+        dV[0] = dV[4]*Vi[0]/Vi[4];
+        Vj[0] = Vi[0] + dV[0];
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>;}
 
+        double rho = varFcn->getDensity(Vj.v);
+        double p = varFcn->checkPressure(Vj.v);
 // Drop to first order: if second order is not asked for ...OR...
 //                      if second order reconstruction results in unphysical values.
-        if (!linRecFSI || abs(dV[0]) > 0.05*Vi[0] || abs(dV[4]) > 0.05*Vi[4]) {
+        if (!linRecFSI || rho <= 0.0 || p <= 0.0) {
           for (int k=0; k<dim; ++k) {
             dV[k] = 0.0;
           }  
@@ -5247,7 +5252,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         }
         else {
           distancerate = resij.alpha/(1.0-resij.alpha);
-          if (distancerate > 2.0) distancerate = 2.0; // Set limit for stability 
+          if (distancerate > 1.0) distancerate = 1.0; // Set limit for stability 
         }
 
         ghostPoints[j]->addNeighbour(Vi,dV,distancerate,resij.normVel,tagI);
@@ -5258,13 +5263,19 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
         for (int k=0; k<dim; ++k) {
           dV[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+          Vi[k] = Vj[k] + dV[k];
         }
+        dV[0] = dV[4]*Vj[0]/Vj[4];
+        Vi[0] = Vj[0] + dV[0];
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>;}
 
+        double rho = varFcn->getDensity(Vi.v);
+        double p = varFcn->checkPressure(Vi.v);
+
 // Drop to first order: if second order is not asked for ...OR...
 //                      if second order reconstruction results in unphysical values.
-        if (!linRecFSI || abs(dV[0]) > 0.05*Vj[0] || abs(dV[4]) > 0.05*Vj[4]) {
+        if (!linRecFSI || rho <= 0.0 || p <= 0.0) {
           for (int k=0; k<dim; ++k) {
             dV[k] = 0.0;
           }  
@@ -5272,7 +5283,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         }
         else {
           distancerate = resji.alpha/(1.0-resji.alpha);
-          if (distancerate > 2.0) distancerate = 2.0; // Set limit for stability 
+          if (distancerate > 1.0) distancerate = 1.0; // Set limit for stability 
         }
         ghostPoints[i]->addNeighbour(Vj,dV,distancerate,resji.normVel,tagJ);
       }
