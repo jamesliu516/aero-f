@@ -370,6 +370,66 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+// least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+template<class Scalar>
+void SubDomain::computeGradientLeastSquares(SVec<double,3> &X,
+                const Vec<int> &fluidId, SVec<double,6> &R,
+                Vec<Scalar> &var, Vec<Scalar> &ddx,
+                Vec<Scalar> &ddy, Vec<Scalar> &ddz,
+                LevelSetStructure *LSS)  {
+
+  ddx = (Scalar) 0.0;
+  ddy = (Scalar) 0.0;
+  ddz = (Scalar) 0.0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+
+    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
+                          higherOrderMF->isCellCut(j)))
+      continue;
+
+    double Wi[3], Wj[3];
+    Scalar deltaVar;
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
+      computeLocalWeightsLeastSquares(dx, R[i], Wi);
+    else{ // gradient is set to 0.0
+      Wi[0] = 0.0;
+      Wi[1] = 0.0;
+      Wi[2] = 0.0;
+    }
+
+    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10) // should be positive for a well posed least square problem
+      computeLocalWeightsLeastSquares(dx, R[j], Wj);
+    else{ // gradient is set to 0.0
+      Wj[0] = 0.0;
+      Wj[1] = 0.0;
+      Wj[2] = 0.0;
+    }
+    deltaVar = var[j] - var[i];
+
+    ddx[i] += Wi[0] * deltaVar;
+    ddy[i] += Wi[1] * deltaVar;
+    ddz[i] += Wi[2] * deltaVar;
+    ddx[j] -= Wj[0] * deltaVar;
+    ddy[j] -= Wj[1] * deltaVar;
+    ddz[j] -= Wj[2] * deltaVar;
+  }
+}
+
+//------------------------------------------------------------------------------
 // least square gradient involving only nodes of fluid (FSI)
 // if Wstar is available, they are also involved in gradient computation
 template<int dim, class Scalar>

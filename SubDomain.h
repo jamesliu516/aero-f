@@ -347,6 +347,13 @@ public:
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     bool linRecFSI = true, LevelSetStructure* =0);
 
+  template<class Scalar>
+  void computeGradientLeastSquares(SVec<double,3> &, const Vec<int> &,
+                                    SVec<double,6> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    LevelSetStructure* =0);
+
   template<int dim, class Scalar>
   void computeGradientsLeastSquares(SVec<double,3> &, const Vec<int> &,
                                     SVec<double,6> &,
