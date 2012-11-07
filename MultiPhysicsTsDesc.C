@@ -107,10 +107,12 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
 
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false;
+    viscSecOrder = false;
 
   //for phase-change update
   Weights = 0;
@@ -592,16 +594,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateOutputToStructure(double dt, double dt
 template<int dim, int dimLS>
 double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-  // Ghost-Points Population (for Navier-Stokes only)
-  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
-    this->ghostPoints->deletePointers();
-    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
-  }
+//  // Ghost-Points Population (for Navier-Stokes only)
+//  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
+//    this->ghostPoints->deletePointers();
+//    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,*(this->fluidSelector.fluidId));
+//  }
   if (this->lsMethod == 0)
     LS->conservativeToPrimitive(Phi,PhiV,U);
   else
     PhiV = Phi;
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, viscSecOrder, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
 
   this->multiPhaseSpaceOp->applyBCsToResidual(U, *this->R);
 

@@ -65,7 +65,7 @@ public:
     DistLevelSetStructure* LSS;
     DistVec<int>* fluidId;
     DistExactRiemannSolver<dim>* riemann;
-    bool linRecAtInterface;
+    bool linRecAtInterface, viscSecOrder;
     DistSVec<double,3>* Nsbar;
     DistSVec<double,dim>* Wtemp;
     int Nriemann;
@@ -431,7 +431,7 @@ public:
     DistLevelSetStructure* LSS;
     DistVec<int>* fluidId;
     DistExactRiemannSolver<dim>* riemann;
-    bool linRecAtInterface;
+    bool linRecAtInterface, viscSecOrder;
     DistSVec<double,3>* Nsbar;
     DistSVec<double,dim>* Wtemp;
     int Nriemann;

@@ -5231,17 +5231,20 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+
         for (int k=0; k<dim; ++k) {
           dV[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
           Vj[k] = Vi[k] + dV[k];
         }
-        dV[0] = dV[4]*Vi[0]/Vi[4];
-        Vj[0] = Vi[0] + dV[0];
+        dV[0] = 0.0; // Not extrapolating density for stability
+        Vj[0] = Vi[0];
+
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>;}
 
         double rho = varFcn->getDensity(Vj.v);
         double p = varFcn->checkPressure(Vj.v);
+
 // Drop to first order: if second order is not asked for ...OR...
 //                      if second order reconstruction results in unphysical values.
         if (!linRecFSI || rho <= 0.0 || p <= 0.0) {
@@ -5261,12 +5264,15 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         double dx[3] = {X[i][0] - X[j][0], X[i][1] - X[j][1], X[i][2] - X[j][2]};
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+
         for (int k=0; k<dim; ++k) {
           dV[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
           Vi[k] = Vj[k] + dV[k];
         }
-        dV[0] = dV[4]*Vj[0]/Vj[4];
-        Vi[0] = Vj[0] + dV[0];
+
+        dV[0] = 0.0; // Not extrapolating density for stability
+        Vi[0] = Vj[0];
+
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>;}
 
