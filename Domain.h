@@ -196,8 +196,7 @@ public:
   CommPattern<double> *getCommPat(DistSVec<double,dim> &vec) { return vecPat; }
   template<int dim>
   CommPattern<bcomp> *getCommPat(DistSVec<bcomp,dim> &vec) { return compVecPat; }
-  //CommPattern<double> *getCommPat(DistVec<double> &vec) { return vecPat; }
-	// should return volPat....
+  CommPattern<double> *getCommPat(DistVec<double> &vec) { return volPat; }
 
   Communicator *getCommunicator() const { return com; }
   Communicator *getStrCommunicator() { return strCom; }
@@ -292,6 +291,13 @@ public:
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true,
+                                    DistLevelSetStructure* =0);
+
+  template<class Scalar>
+  void computeGradientLeastSquares(DistSVec<double,3> &, DistVec<int> &,
+                                    DistSVec<double,6> &,
+                                    DistVec<Scalar> &, DistVec<Scalar> &,
+                                    DistVec<Scalar> &, DistVec<Scalar> &,
                                     DistLevelSetStructure* =0);
 
   template<int dim, class Scalar>

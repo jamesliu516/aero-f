@@ -79,6 +79,9 @@ public:
   void conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistVec<int> *tag = 0);
   template<int dim>
   void primitiveToConservativeDerivative(DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistVec<int> *tag = 0);
+  template<int dim>
+  void computeTemperature(DistSVec<double,dim> &V, DistVec<double> &T, DistVec<int> *tag = 0);
+
   /* Non-Distributed Operators */
   template<int dim>
   void conservativeToPrimitive(SVec<double,dim> &U, SVec<double,dim> &V, Vec<int> *tag = 0);
@@ -88,6 +91,9 @@ public:
   void conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,dim> &dU, SVec<double,dim> &V, SVec<double,dim> &dV, Vec<int> *tag = 0);
   template<int dim>
   void primitiveToConservativeDerivative(SVec<double,dim> &V, SVec<double,dim> &dV, SVec<double,dim> &U, SVec<double,dim> &dU, Vec<int> *tag = 0);
+  template<int dim>
+  void computeTemperature(SVec<double,dim> &V, Vec<double> &T, Vec<int> *tag = 0);
+
   /* Node-Level Operators */
   void conservativeToPrimitive(double *U, double *V, int tag=0) { check(tag); varFcn[tag]->conservativeToPrimitive(U,V); }
   void primitiveToConservative(double *V, double *U, int tag=0) { check(tag); varFcn[tag]->primitiveToConservative(V,U); }
@@ -142,6 +148,7 @@ public:
   }
 
   double computeTemperature(double *V, int tag=0) const{check(tag); return varFcn[tag]->computeTemperature(V); }
+  void getV4FromTemperature(double *V, double T, int tag=0) const{check(tag); varFcn[tag]->getV4FromTemperature(V,T); }
   double computeRhoEnergy(double *V, int tag=0)   const{check(tag); return varFcn[tag]->computeRhoEnergy(V); }
   //this function computes the internal energy (=rho*e-0.5*rho*u^2)
   double computeRhoEpsilon(double *V, int tag=0)  const{ check(tag); return varFcn[tag]->computeRhoEpsilon(V); }
@@ -511,6 +518,44 @@ void VarFcn::primitiveToConservativeDerivative(DistSVec<double,dim> &V, DistSVec
     }
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void VarFcn::computeTemperature(SVec<double,dim> &V, Vec<double> &T, Vec<int> *tag)
+{
+
+ if (tag){
+    for (int i=0; i<V.size(); ++i)
+      T[i] = varFcn[(*tag)[i]]->computeTemperature(V[i]);
+  }else{
+    for (int i=0; i<V.size(); ++i){
+      T[i] = varFcn[0]->computeTemperature(V[i]);
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void VarFcn::computeTemperature(DistSVec<double,dim> &V, DistVec<double> &T, DistVec<int> *tag)
+{
+
+  int numLocSub = V.numLocSub();
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*v)[dim] = V.subData(iSub);
+    double (*t) = T.subData(iSub);
+    if(tag){
+      int *loctag = tag->subData(iSub);
+      for (int i=0; i<V.subSize(iSub); ++i)
+        t[i] = varFcn[loctag[i]]->computeTemperature(v[i]);
+    }else{
+      for (int i=0; i<V.subSize(iSub); ++i)
+        t[i] = varFcn[0]->computeTemperature(v[i]);
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

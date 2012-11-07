@@ -258,6 +258,38 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+// least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+template<class Scalar>
+void Domain::computeGradientLeastSquares(DistSVec<double,3> &X,
+                                         DistVec<int> &fluidId,
+                                         DistSVec<double,6> &R,
+                                         DistVec<Scalar> &var,
+                                         DistVec<Scalar> &ddx,
+                                         DistVec<Scalar> &ddy,
+                                         DistVec<Scalar> &ddz,
+                                         DistLevelSetStructure *distLSS)
+{
+
+  if(distLSS) {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeGradientLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
+                                                    ddx(iSub), ddy(iSub), ddz(iSub), &((*distLSS)(iSub)));
+  } else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeGradientLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
+                                                    ddx(iSub), ddy(iSub), ddz(iSub), 0);
+  }
+
+  CommPattern<Scalar> *vPat = getCommPat(var);
+  assemble(vPat, ddx);
+  assemble(vPat, ddy);
+  assemble(vPat, ddz);
+
+}
+
+//------------------------------------------------------------------------------
 // least square gradient involving only nodes of fluid (FSI)
 // Wstar is involved in gradient computation
 template<int dim, class Scalar>
