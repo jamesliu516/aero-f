@@ -130,11 +130,11 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   }
 
   // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->linRecAtInterface,this->nodeTag);
-    }
+//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+//    {
+//      this->ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+//    }
 }
 //------------------------------------------------------------------------------
 
@@ -166,11 +166,11 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   this->checkSolution(U0);
 
   // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U0,this->varFcn,this->distLSS,this->linRecAtInterface,this->nodeTag);
-    }
+//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+//    {
+//      this->ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U0,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+//    }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/2.0 * (k1 + k2);
@@ -229,10 +229,10 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
   this->spaceOp->applyBCsToSolutionVector(Ulocal,this->distLSS); //KW: (?)only for Navier-Stokes.
   if (this->interfaceAlg)
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, *this->countWstarij, *this->countWstarji, this->distLSS,
-                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, this->timeState->getTime(), this->intersectAlpha, it, this->ghostPoints);
+                                   this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, this->timeState->getTime(), this->intersectAlpha, it, this->ghostPoints);
   else
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
+                                   this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
 
   this->timeState->multiplyByTimeStep(dU);
   
