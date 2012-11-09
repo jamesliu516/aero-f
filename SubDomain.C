@@ -5275,7 +5275,12 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
   SVec<double,dim>& dVdx = ngrad.getX();
   SVec<double,dim>& dVdy = ngrad.getY();
   SVec<double,dim>& dVdz = ngrad.getZ();
+  Vec<double>& dTdx = ngrad.getTX();
+  Vec<double>& dTdy = ngrad.getTY();
+  Vec<double>& dTdz = ngrad.getTZ();
+
   Vec<double> Vi(dim),Vj(dim),dV(dim);
+  double Ti,Tj,dT;
 
   for (int l=0; l<edges.size(); l++) {
     if(!edgeFlag[l]) continue; //not a master edge
@@ -5291,13 +5296,23 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+        Ti = varFcn->computeTemperature(Vi.v,tagI);
 
         for (int k=0; k<dim; ++k) {
           dV[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
           Vj[k] = Vi[k] + dV[k];
         }
-        dV[0] = 0.0; // Not extrapolating density for stability
+        dT = dx[0]*dTdx[i] + dx[1]*dTdy[i] + dx[2]*dTdz[i];
+        Tj = Ti + dT;
+
+//Keep density constant and obtain pressure based on extrapolated temperature
+        dV[0] = 0.0;
         Vj[0] = Vi[0];
+//        varFcn->getV4FromTemperature(Vj.v,Tj,tagI);
+//        fprintf(stdout,"Pressurei-> %e,%e,%e\n",Vi[4],Vj[4],Vi[4]+dV[4]);
+//        dV[4] = Vj[4] - Vi[4]; 
+        dV[4] = 0.0;
+        Vj[4] = Vi[4];
 
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>;}
@@ -5324,14 +5339,23 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         double dx[3] = {X[i][0] - X[j][0], X[i][1] - X[j][1], X[i][2] - X[j][2]};
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+        Tj = varFcn->computeTemperature(Vj.v,tagJ);
 
         for (int k=0; k<dim; ++k) {
           dV[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
           Vi[k] = Vj[k] + dV[k];
         }
+        dT = dx[0]*dTdx[j] + dx[1]*dTdy[j] + dx[2]*dTdz[j];
+        Ti = Tj + dT;
 
-        dV[0] = 0.0; // Not extrapolating density for stability
+//Keep density constant and obtain pressure based on extrapolated temperature
+        dV[0] = 0.0;
         Vi[0] = Vj[0];
+//        varFcn->getV4FromTemperature(Vi.v,Ti,tagJ);
+//        fprintf(stdout,"Pressurej -> %e,%e,%e\n",Vj[4],Vi[4],Vj[4]+dV[4]);
+//        dV[4] = Vi[4] - Vj[4]; 
+        dV[4] = 0.0;
+        Vi[4] = Vj[4];
 
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>;}
