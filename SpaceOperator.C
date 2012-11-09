@@ -1153,9 +1153,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // compute gradient of V using Phi:
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
-//    bool linFSI = linRecAtInterface || viscSecOrder;
+    bool linFSI = linRecAtInterface || viscSecOrder;
     ngrad->compute(geoState->getConfig(), X, ctrlVol, 
-                   fluidId, *V, linRecAtInterface, distLSS);
+                   fluidId, *V, linFSI, distLSS);
     timer->addNodalGradTime(t0);
   }
 
