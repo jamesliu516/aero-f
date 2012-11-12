@@ -356,8 +356,9 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
         }
         double UU[dim];
         computeInitialState(volIt->second->initialConditions, *fluidIt->second, UU);
-        domain->getCommunicator()->fprintf(stdout, "- Initializing volume %d(EOS=%d) with \n", volIt->first, volIt->second->fluidModelID);
+/*        domain->getCommunicator()->fprintf(stdout, "- Initializing volume %d(EOS=%d) with \n", volIt->first, volIt->second->fluidModelID);
         domain->getCommunicator()->fprintf(stdout, "    non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+*/
         domain->setupUVolumesInitialConditions(volIt->first, UU, *Un);
       }
   }
@@ -394,8 +395,9 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(planeIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
       domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);
+*/
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -424,8 +426,9 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(sphereIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
       domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+*/
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -520,9 +523,9 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int
 
       double UU[dim];
       computeInitialState(pointIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "- Initializing PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
       domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-
+*/
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &subUn((*Un)(iSub));

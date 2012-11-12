@@ -205,7 +205,7 @@ void
 DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<double,3> &fs)
 {
   if(F.size() != fs.size()) {
-    com.fprintf(stderr,"force vector in DynamicNodalTransfer resized (from %d to %d)!\n", F.size(), fs.size());
+   // com.fprintf(stderr,"force vector in DynamicNodalTransfer resized (from %d to %d)!\n", F.size(), fs.size());
     F.resize(fs.size());
   }
   F = fs;
