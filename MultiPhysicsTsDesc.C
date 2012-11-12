@@ -206,7 +206,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   totStructNodes = dynNodalTransfer ? dynNodalTransfer->totStNodes() : numStructNodes;
 
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes.\n", numStructNodes, totStructNodes);
+    //this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes.\n", numStructNodes, totStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[totStructNodes][3];
   } else
