@@ -839,10 +839,14 @@ public:
   template<int dim>
   void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
+  void sndNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
   void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
 
   template<int dim>
   void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void rcvNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
   void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
 
