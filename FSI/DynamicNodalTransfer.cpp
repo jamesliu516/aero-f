@@ -375,6 +375,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     tMax = tScale*structExc->getMaxTime();
     algNum = structExc->getAlgorithmNumber();
 
+
     if(cracking) {
       getInitialCrack();
       cracking->setNewCrackingFlag(false);
