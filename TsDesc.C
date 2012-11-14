@@ -708,7 +708,7 @@ template<int dim>
 void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
 
-  com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+  //com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
 
   if (!problemType[ProblemData::UNSTEADY]) {
     double trhs = timer->getTimeSyncro();

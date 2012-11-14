@@ -205,7 +205,7 @@ void
 DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<double,3> &fs)
 {
   if(F.size() != fs.size()) {
-    com.fprintf(stderr,"force vector in DynamicNodalTransfer resized (from %d to %d)!\n", F.size(), fs.size());
+   // com.fprintf(stderr,"force vector in DynamicNodalTransfer resized (from %d to %d)!\n", F.size(), fs.size());
     F.resize(fs.size());
   }
   F = fs;
@@ -576,7 +576,7 @@ void
 EmbeddedStructure::sendTimeStep(Communication::Window<double> *window)
 {
   if(com.cpuNum()>0) return; // only proc #1 sends the time.
-  std::cout << "Sending the timestep (" << dt << ") to fluid " << std::endl;
+  //std::cout << "Sending the timestep (" << dt << ") to fluid " << std::endl;
 {
   for(int i = 0; i < com.size(); ++i) {
     window->put(&dt, 0, 1, i, 0);
@@ -590,7 +590,7 @@ void
 EmbeddedStructure::sendMaxTime(Communication::Window<double> *window)
 {
   if(com.cpuNum()>0) return; // only proc #1 sends the time.
-  std::cout << "Sending the max time (" << tMax << ") to fluid " << std::endl;
+  //std::cout << "Sending the max time (" << tMax << ") to fluid " << std::endl;
 {
   for(int i = 0; i < com.size(); ++i) {
     window->put(&tMax, 0, 1, i, 0);

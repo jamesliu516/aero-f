@@ -2138,6 +2138,7 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SchemeData>(ca, "XiC", this, &SchemeData::xic);
   new ClassDouble<SchemeData>(ca, "Eps", this, &SchemeData::eps);
 
+  fluxMap.setup("FluxMap",ca);
 }
 
 //------------------------------------------------------------------------------
@@ -2168,7 +2169,7 @@ void SFixData::setup(const char *name, ClassAssigner *father)
   ClassToken<SFixData>* sf = new ClassToken<SFixData>
 	(ca, "FailSafe", this,
 	 reinterpret_cast<int SFixData::*>(&SFixData::failsafe), 2,
-         "Off", 0, "On",1, "AlwayOn", 2);
+         "Off", 0, "On",1, "AlwaysOn", 2);
   
   sf->allowIntPair(&SFixData::failsafeN);
 }
@@ -2347,6 +2348,18 @@ void SchemesData::setup(const char *name, ClassAssigner *father)
   bc.setup("Boundaries", ca);
 
   tm.reconstruction = SchemeData::CONSTANT;
+}
+
+Assigner* SchemeData::MaterialFluxData::getAssigner() {
+
+  ClassAssigner *ca = new ClassAssigner("normal", 1, nullAssigner);
+
+  new ClassToken<MaterialFluxData>
+      (ca, "Flux", this,
+       reinterpret_cast<int MaterialFluxData::*>(&MaterialFluxData::flux), 4,
+       "Roe", 0, "VanLeer", 1, "HLLE", 2, "HLLC", 3);
+ 
+  return ca;
 }
 
 //------------------------------------------------------------------------------
@@ -5420,13 +5433,14 @@ int IoData::checkInputValuesEssentialBC()
     ref.velocity = bc.inlet.velocity;
 
   if (ref.mach <= 0.0) {
-    com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
+    //com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
     if (ref.velocity<0.0){
-      com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given\n");
+      com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given (Mach = %e, Velocity = %e)\n", 
+                   ref.mach, ref.velocity);
       ++error;
     }
-    else
-      com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
+    //else
+    //  com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
   }
   if (bc.inlet.alpha > 360.0) {
     com->fprintf(stderr, "*** Error: no valid angle of attack (%e) given\n", bc.inlet.alpha);
