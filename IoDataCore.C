@@ -5433,13 +5433,14 @@ int IoData::checkInputValuesEssentialBC()
     ref.velocity = bc.inlet.velocity;
 
   if (ref.mach <= 0.0) {
-    com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
+    //com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
     if (ref.velocity<0.0){
-      com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given\n");
+      com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given (Mach = %e, Velocity = %e)\n", 
+                   ref.mach, ref.velocity);
       ++error;
     }
-    else
-      com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
+    //else
+    //  com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
   }
   if (bc.inlet.alpha > 360.0) {
     com->fprintf(stderr, "*** Error: no valid angle of attack (%e) given\n", bc.inlet.alpha);
