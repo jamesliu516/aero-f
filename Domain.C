@@ -3153,23 +3153,37 @@ void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints)
   int iSub;
   // Adam 2010.10.27
   // Caution, the order of the calls matters, because a ghost point can lie on a domain boundary, 
-  // in which case we may want to create its state after during the exchange. The Ghost weight is 
-  // going to be used as a parameter.
+  // in which case we may want to create its state after during the exchange. The num ghost 
+  // states is going to be used as a parameter.
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
-      subDomain[iSub]->sndGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->sndNumGhostStates(*levelPat, ghostPoints(iSub));
       subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub));
     }
 
-  volPat->exchange();
+  levelPat->exchange();
   vecPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     {
-      subDomain[iSub]->rcvGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->rcvNumGhostStates(*levelPat, ghostPoints(iSub));
       subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub));
+    }
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->sndGhostWeights(*vecPat, ghostPoints(iSub));
+    }
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    {
+      subDomain[iSub]->rcvGhostWeights(*vecPat, ghostPoints(iSub));
     }
 }
 //------------------------------------------------------------------------------

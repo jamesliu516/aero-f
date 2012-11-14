@@ -380,7 +380,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
-      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
+//      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
       this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
     }
   // Population of spaceOp->V for the force computation

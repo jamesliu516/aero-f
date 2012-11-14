@@ -15,103 +15,117 @@ template<class Scalar> class Vec;
 template<int dim>
 class GhostPoint {
  public:
-  int ng_last;
-  Vec<double> Vg; // Sum of the primitive States at the ghost-point. 
-  Vec<double> dVg; // Sum of the second order correction term. 
-  int ng; // Number of neighbours in the fluid. State at GP is then equal to Vg/ng.
-  // After all GP have been populated, Vg /= ng and ng=1.
+  double* Vg;	// Sum of weighted primitive states at the ghost-point. 
+  		// After population, it is set to the primitive state at the ghost-point.
+  double* Ws; 	// Sum of the weights 
+  int ng; 	// Number of neighbours in the fluid.
+  		// After all GP have been populated, ng=0.
   int ghostTag; // We store here the tag of the surrounding nodes. All the tags of the neighbours 
-  // should be the same. In the case of a complex multiphase flow simulation with Fluid/Structure 
-  // Interaction, this might be no longer true. To be done...
-  ~GhostPoint() {};
- GhostPoint() :
-  Vg(dim), dVg(dim)
-  {
+  		// should be the same. In the case of a complex multiphase flow simulation with Fluid/Structure 
+  		// Interaction, this might be no longer true. To be done...
+//  ~GhostPoint();
+
+//=============================================================================
+
+  GhostPoint() {
     ng = 0;
-    Vg = 0.0;
-    dVg = 0.0;
+    Vg = new double[dim];
+    Ws = new double[dim];
+    for(int i=0;i<dim;++i) {
+      Vg[i] = 0.0;
+      Ws[i] = 0.0;
+    }
     ghostTag = -2; // Inactive nodes tag
   }
-  GhostPoint<dim> & operator=(const GhostPoint<dim> &GP)
-    {
-      Vg = GP.Vg;
-      dVg = GP.dVg;
-      ng = GP.ng;
-      ng_last = ng;
-      ghostTag = GP.ghostTag;
-      return *this;
-    }
-  GhostPoint<dim> & operator+=(const GhostPoint<dim> &GP)
-    {
-      if(ghostTag<0) ghostTag = GP.ghostTag;
-      else if(ghostTag != GP.ghostTag) 
-	{
-	  fprintf(stderr,"The two ghost States refer to different Fluids\n");
-	  fprintf(stderr,"ghostTag: %i, GP.ghostTag: %i",ghostTag,GP.ghostTag);
-	  exit(-1);
-	}
-      Vg += GP.Vg;
-      dVg += GP.dVg;
-      ng += GP.ng;
-      ng_last = ng;
-      return *this;
-    }
-  void addNeighbour(Vec<double> &Vi,Vec<double> &dVi,double distanceRate, Vec3D interfaceVelocity, int tag)
-  {
-    // Ui is the state at the neighbour. 
-    // distanceRate is the rate of the distances from the GP and the neighbour to the interface = dg/di\
-    
-    ng++;
-    ng_last = ng;
+//=============================================================================
 
-    // We want the velocity to be zero at the interface and we obtain the 
-    // state at the GP by linear interpolation.
-    Vg[0]   += Vi[0];
-    dVg[0]  += dVi[0];
-    for(int i=1;i<4;++i) Vg[i]  += 2.0*interfaceVelocity[i-1] - Vi[i];
-    for(int i=1;i<4;++i) dVg[i] += (1.0 - distanceRate)*(Vi[i]-interfaceVelocity[i-1]);
-    Vg[4]   += Vi[4];
-    dVg[4]  += dVi[4];
-    if(dim == 6) // One Equation Turbulent Model
+  GhostPoint<dim> & operator=(const GhostPoint<dim> &GP) {
+    Vg = GP.Vg;
+    Ws = GP.Ws;
+    ng = GP.ng;
+    ghostTag = GP.ghostTag;
+    return *this;
+  }
+//=============================================================================
+
+  GhostPoint<dim> & operator+=(const GhostPoint<dim> &GP) {
+    if(ghostTag<0) ghostTag = GP.ghostTag;
+    else if(ghostTag != GP.ghostTag) 
       {
-	//	Vg[5] -= distanceRate*Vi[5];
-	Vg[5] = 0.0;
-	dVg[5] = 0.0;
+        fprintf(stderr,"The two ghost States refer to different Fluids\n");
+        fprintf(stderr,"ghostTag: %i, GP.ghostTag: %i",ghostTag,GP.ghostTag);
+        exit(-1);
       }
-    else if(dim == 7) // Two Equations Turbulent Model
-      {
-	Vg[5] = 0.0;
-	Vg[6] = 0.0;
-	dVg[5] = 0.0;
-	dVg[6] = 0.0;
+    Vg += GP.Vg;
+    Ws += GP.Ws;
+    ng += GP.ng;
+    return *this;
+  }
+//=============================================================================
+
+  void addNeighbour(double *Vi, double *Wi, int tag) {
+
+// We want to satisfy interface condition in least squares manner 
+
+    if (ng == 0) { // First neighbour
+      for (int i=0;i<5;++i) {
+        Vg[i] = Wi[i]*Vi[i];
+        Ws[i] = Wi[i];
       }
+    }
+
+    for(int i=0;i<5;++i) {
+      Vg[i] += Wi[i]*Vi[i];
+      Ws[i] += Wi[i];
+    }
+
+    if(dim == 6) { // One Equation Turbulent Model
+      Vg[5] = 0.0;
+      Ws[5] = 1.0;
+    }
+    else if(dim == 7) {// Two Equations Turbulent Model
+      Vg[5] = 0.0;
+      Vg[6] = 0.0;
+      Ws[5] = 1.0;
+      Ws[6] = 1.0;
+    }
 
     // Tag check
-    if(ghostTag < 0)
-      {
-	ghostTag = tag;
-      }
-    else if(ghostTag != tag)
-      {
-	fprintf(stderr,"We have a ghost node here with two active neighbours having different tags\n");
-	fprintf(stderr,"ghostTag: %i, neighbourTag: %i",ghostTag,tag);
-	exit(-1);
-      }
+    if(ghostTag < 0) {
+      ghostTag = tag;
+    }
+    else if(ghostTag != tag) {
+      fprintf(stderr,"We have a ghost node here with two active neighbours having different tags\n");
+      fprintf(stderr,"ghostTag: %i, neighbourTag: %i",ghostTag,tag);
+      exit(-1);
+    }
+
+    ng++;
+
   }
+//=============================================================================
+
   double* getPrimitiveState()
   {
-    //    fprintf(stderr,"State: %f %f %f %f %f",Vg.v[0],Vg.v[1],Vg.v[2],Vg.v[3],Vg.v[4]);
-    return Vg.v;    
+    return Vg;    
   }
+//=============================================================================
+
   void reduce()
   {
-    Vg /= (double) ng;
-    dVg /= (double) ng;
-    Vg = Vg + dVg;
-    ng = 1;
+    for(int i=0;i<dim;++i) {
+      Vg[i] /= Ws[i];
+      Ws[i] = 1.0;
+    }
+    ng = 0;
   }
-  
-  int lastCount() { return ng_last; }
+//=============================================================================
+
+  ~GhostPoint() {
+    delete [] Vg;
+    delete [] Ws;
+  }
+//=============================================================================
 };
 
 #endif
