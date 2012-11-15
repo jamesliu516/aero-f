@@ -402,7 +402,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 template<int dim>
 double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
-                                             DistSVec<double,dim> &U)
+                                             DistSVec<double,dim> &U, double angle)
 {
   if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
@@ -430,7 +430,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
   if(TsDesc<dim>::failSafeFlag == false){
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
-      this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+      this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
       if(numFluid==1)
         dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->X, *this->A, U);

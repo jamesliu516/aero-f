@@ -118,7 +118,8 @@ public:
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
-  virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
+  virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
+  virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }
   virtual double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
@@ -172,6 +173,8 @@ public:
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
   void computeDistanceToWall(IoData &ioData);
+ 
+  TsParameters* getTsParams() {return data;}
 };
 
 //------------------------------------------------------------------------------

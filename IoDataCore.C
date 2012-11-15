@@ -2551,6 +2551,65 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+CFLData::CFLData()
+{
+
+  strategy = HYBRID;
+
+  cfl0 = 5.0;
+  cflCoef1 = 0.0;
+  cflMax = 100000.0;
+  cflMin = 1.0;
+  dualtimecfl = 100.0;
+
+  checksol = 1;
+  checklinsolve = 1;
+
+  ser = 0.7;
+
+  angle_growth = 2.0;
+  angle_zero = 0.2;
+
+  dft_history = 8;
+  dft_freqcutoff = 3;
+  dft_growth = 1.3;
+
+}
+
+//------------------------------------------------------------------------------
+
+void CFLData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
+
+  new ClassToken<CFLData>(ca, "Strategy", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 4,
+			 "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3); 
+  new ClassToken<CFLData>(ca, "CheckSolution", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 2,
+			 "Off", 0, "On", 1);
+  new ClassToken<CFLData>(ca, "CheckLinearSolver", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 2,
+			 "Off", 0, "On", 1);
+		  
+  new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
+  new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
+  new ClassDouble<CFLData>(ca, "CflMax", this, &CFLData::cflMax);
+  new ClassDouble<CFLData>(ca, "CflMin", this, &CFLData::cflMin);
+  new ClassDouble<CFLData>(ca, "DualTimeCfl", this, &CFLData::dualtimecfl);
+
+  new ClassDouble<CFLData>(ca, "Ser", this, &CFLData::ser);
+  new ClassDouble<CFLData>(ca, "AngleGrowth", this, &CFLData::angle_growth);
+  new ClassDouble<CFLData>(ca, "AngleZero", this, &CFLData::angle_zero);
+  new ClassInt<CFLData>(ca, "DFTHistory", this, &CFLData::dft_history);
+  new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
+  new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
+
+}
+
+//------------------------------------------------------------------------------
+
 TsData::TsData()
 {
 
@@ -2570,15 +2629,15 @@ TsData::TsData()
   maxTime = 1.e99;
 
   residual = -1;
-  cfl0 = 5.0;
-  cflCoef1 = 0.0;
-  cflCoef2 = 0.0;
-  cflMax = 1000.0;
-  cflMin = 1.0;
-  ser = 0.7;
+  //cfl0 = 5.0;
+  //cflCoef1 = 0.0;
+  //cflCoef2 = 0.0;
+  //cflMax = 1000.0;
+  //cflMin = 1.0;
+  //ser = 0.7;
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
-  dualtimecfl = 100.0;
+  //dualtimecfl = 100.0;
 
   output = "";
 
@@ -2617,19 +2676,20 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "TimeStepInitial", this, &TsData::timestepinitial);
   new ClassDouble<TsData>(ca, "MaxTime", this, &TsData::maxTime);
   new ClassInt<TsData>(ca, "Residual", this, &TsData::residual);
-  new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
-  new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
-  new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
-  new ClassDouble<TsData>(ca, "CflMax", this, &TsData::cflMax);
-  new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
-  new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
+  //new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
+  //new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
+  //new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
+  //new ClassDouble<TsData>(ca, "CflMax", this, &TsData::cflMax);
+  //new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
+  //new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
-  new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
+  //new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
+  cfl.setup("CFLLaw",ca);
 
 }
 

@@ -441,6 +441,8 @@ int ImplicitEmbeddedTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> 
   ksp->setup(it, this->maxItsNewton, embeddedB);
   
   int lits = ksp->solve(embeddedB, embeddeddQ);
+
+  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
  
   dQ = embeddeddQ.real();
   embeddedU.ghost() += embeddeddQ.ghost();

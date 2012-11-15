@@ -363,7 +363,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
 
 template<int dim, int dimLS>
 double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
-                                                  DistSVec<double,dim> &U)
+                                                  DistSVec<double,dim> &U, double angle)
 {
   if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
@@ -377,7 +377,7 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
   }
 
   double t0 = this->timer->getTime();
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
   int numSubCycles = 1;
 
   double dt;
