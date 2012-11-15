@@ -84,7 +84,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     unphysical=false;
     badlinsolve=false;
     cfl *= 0.5;
-    std::printf("Unphysicality detected. Reducing CFL number to %f.\n",cfl);
+    //std::printf("Unphysicality detected. Reducing CFL number to %f.\n",cfl);
     if (cfl < cfl0/1000.) {std::printf("Could not resolve unphysicality by reducing CFL number. Aborting.\n"); exit(-1);}
     return;
   }
@@ -92,7 +92,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     unphysical=false;
     badlinsolve=false;
     cfl *= 0.5;
-    std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
+    //std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
     if (cfl < cfl0/1000.) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
     return;
   }
@@ -110,14 +110,14 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     cfl = cfl_prev;
     cfl *= pow(reshistory[1]/reshistory[0],ser);
     cfl_res = cfl;
-    std::printf("CFL residual strategy: old residual: %e, new residual: %e, CFL proposal: %e\n",reshistory[1],reshistory[0],cfl_res);
+    //std::printf("CFL residual strategy: old residual: %e, new residual: %e, CFL proposal: %e\n",reshistory[1],reshistory[0],cfl_res);
   }
   if (cfllaw == CFLData::DIRECTION || cfllaw == CFLData::HYBRID){
     // compute direction strategy proposal
     cfl = cfl_prev;
     if (angle != -2.0) cfl *= pow(angle_growth,angle-angle_zero);
     cfl_dir = cfl;
-    std::printf("CFL direction strategy: angle: %e, CFL proposal: %e\n",angle,cfl_dir);
+    //std::printf("CFL direction strategy: angle: %e, CFL proposal: %e\n",angle,cfl_dir);
   }
   if (cfllaw == CFLData::DFT || cfllaw == CFLData::HYBRID){
     // compute dft strategy proposal
@@ -149,18 +149,18 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
 
     cfl *= pow(dft_growth, 1-2*hf_ratio);
     cfl_dft = cfl;
-    std::printf("CFL DFT strategy: e_ac: %e, e_hf: %e, CFL proposal: %e\n",e_ac,e_hf,cfl_dft);
+    //std::printf("CFL DFT strategy: e_ac: %e, e_hf: %e, CFL proposal: %e\n",e_ac,e_hf,cfl_dft);
   }
   if (cfllaw == CFLData::HYBRID){
     // compute hybrid strategy cfl
     if (hf_ratio > 0.66) cfl = cfl_dft;
     else if (angle < angle_zero) cfl = cfl_dir;
     else cfl = max(cfl_dir, cfl_res);
-    std::printf("CFL Hybrid strategy: dft_proposal: %e, direction proposal: %e, residual proposal: %e, chosen cfl: %e\n",cfl_dft,cfl_dir,cfl_res,cfl);
+    //std::printf("CFL Hybrid strategy: dft_proposal: %e, direction proposal: %e, residual proposal: %e, chosen cfl: %e\n",cfl_dft,cfl_dir,cfl_res,cfl);
   }
 
   cfl = (min(max(cfl, cflCoef1),cflMax));
-  std::printf("CFL number chosen: %e\n",cfl);
+  //std::printf("CFL number chosen: %e\n",cfl);
   return;
 }
 
