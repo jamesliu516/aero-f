@@ -66,6 +66,8 @@ class MultiGridKernel {
  private:
 
   bool isGeometric;
+ 
+  bool coarsen4to1;
 
   int nSmooth1,nSmooth2;
 

@@ -2455,6 +2455,8 @@ MultiGridData::MultiGridData()
   useGMRESAcceleration = 0;
 
   restrictMethod = VOLUME_WEIGHTED;
+  addViscousTerms = 0;
+  coarseningRatio = TWOTOONE;
 }
 
 //------------------------------------------------------------------------------
@@ -2480,10 +2482,19 @@ void MultiGridData::setup(const char *name, ClassAssigner *father)
 MultiGridData::*>(&MultiGridData::restrictMethod), 2,
 			 "VolumeWeighted",0,"Average", 1);
   
+  new ClassToken<MultiGridData>(ca, "AddViscousTerms", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::addViscousTerms), 2,
+			 "No",0,"Yes", 1);
+  
   new ClassToken<MultiGridData>(ca, "UseGMRESAcceleration", this,
 			 reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::useGMRESAcceleration), 2,
 			 "No",0,"Yes", 1);
+  new ClassToken<MultiGridData>(ca, "CoarseningRatio", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
+			 "TwoToOne",0,"FourToOne", 1);
 
   new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth1",this, &MultiGridData::num_multigrid_smooth1);
   new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth2",this, &MultiGridData::num_multigrid_smooth2);

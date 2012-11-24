@@ -9,6 +9,9 @@
 #include <MultiGridSmoothingMatrix.h>
 #include <SpaceOperator.h>
 #include <MultiGridKernel.h>
+#include <MultiGridMvpMatrix.h>
+#include <MultiGridSmoothingMatrices.h>
+#include <MultiGridDistSVec.h>
 
 class Domain;
 class DistGeoState;
@@ -18,18 +21,14 @@ class MultiGridPrec : public KspPrec<dim, Scalar2>, public DistMat<Scalar2,dim> 
 
 public:
 
-  MultiGridPrec(Domain *, DistGeoState &, PcData&,
-                KspData&,IoData&, VarFcn*,bool createFineA,
-                DistTimeState<dim>*,int ** = 0, BCApplier* =0);
+  MultiGridPrec(Domain *, DistGeoState &, IoData&);
   ~MultiGridPrec();
 
   void initialize();
 
   bool isInitialized(); 
 
-  void setOperators(SpaceOperator<dim>*);
-
-  void setup();
+  void setup() { } 
 
   void setup(DistSVec<Scalar2,dim>&);
 
@@ -44,11 +43,28 @@ public:
 
   GenMat<Scalar2,dim> &operator() (int i);// { return macroA[0]->operator()(i); }
 
+  void computeResidual(int lvl, MultiGridDistSVec<double,dim>& b,
+                       MultiGridDistSVec<double,dim>& x,
+                       MultiGridDistSVec<double,dim>& R);
+
  private:
 
-  PcData& pcData;
+  void cycle(int lvl, MultiGridDistSVec<double,dim>& b,
+             MultiGridDistSVec<double,dim>& x);
 
-  MultiGridKernel<Scalar,dim,Scalar2>* mgKernel;
+  DistMat<Scalar2,dim>* myFineMat;
+
+  MultiGridKernel<Scalar2>* mgKernel;
+
+  MultiGridMvpMatrix<Scalar2,dim>* mvpMatrices;
+
+  MultiGridSmoothingMatrices<Scalar2, dim>* smoothingMatrices;
+
+  MultiGridDistSVec<Scalar2,dim> xold, myX, myPx, myR;  
+
+  DistMvpMatrix<Scalar2,dim>* mvpMat;
+
+  Domain* domain;
 };
 
 #endif

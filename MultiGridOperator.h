@@ -83,4 +83,5 @@ class MultiGridOperator {
 
   BcFcn* bcFcn,*bcFcn1;
 
+  int addViscousTerms;
 };

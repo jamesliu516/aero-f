@@ -493,8 +493,8 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     for (int k = 0; k < dim; ++k) {
 
       double ft = fluxl[k][0]*normal[l][0]+fluxl[k][1]*normal[l][1]+fluxl[k][2]*normal[l][2];
-      fluxes[i][k] += ft;
-      fluxes[j][k] -= ft;
+      fluxes[i][k] -= ft;
+      fluxes[j][k] += ft;
     }
   }
 
@@ -686,26 +686,26 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
     if (masterFlag[l]) {
       for (int k = 0; k < neq; ++k) {
         for (int k2 = 0; k2 < neq; ++k2) {
-          jaci[k*neq+k2] += tmp[k*dim+k2];
+          jaci[k*neq+k2] -= tmp[k*dim+k2];
         }
       }
     }
     for (int k = 0; k < neq; ++k) {
       for (int k2 = 0; k2 < neq; ++k2) {
-        jacji[k*neq+k2] -= tmp[k*dim+k2]*volj;
+        jacji[k*neq+k2] += tmp[k*dim+k2]*volj;
       }
     }
     varFcn->postMultiplyBydVdU(V[j], jac_ij,tmp);
     if (masterFlag[l]) {
       for (int k = 0; k < neq; ++k) {
         for (int k2 = 0; k2 < neq; ++k2) {
-          jacj[k*neq+k2] -= tmp[k*dim+k2];
+          jacj[k*neq+k2] += tmp[k*dim+k2];
         }
       }
     }
     for (int k = 0; k < neq; ++k) {
       for (int k2 = 0; k2 < neq; ++k2) {
-        jacij[k*neq+k2] += tmp[k*dim+k2]*voli;
+        jacij[k*neq+k2] -= tmp[k*dim+k2]*voli;
       }
     }
  /* 

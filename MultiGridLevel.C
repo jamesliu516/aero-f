@@ -17,7 +17,7 @@ MultiGridLevel<Scalar>::MultiGridLevel(MultiGridMethod mgm,MultiGridLevel* mg, D
 faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,
                               refinedEdgeDistInfo.locSubToGlobSub, refinedEdgeDistInfo.com)),
     numLocSub(refinedNodeDistInfo.numLocSub), ownsData(true), connectivity(new Connectivity*[numLocSub]),
-    edges(new EdgeSet*[numLocSub]),faces(new FaceSet*[numLocSub]), nodeMapping(refinedNodeDistInfo), edgeMapping(refinedEdgeDistInfo),
+    edges(new EdgeSet*[numLocSub]),faces(new FaceSet*[numLocSub]), pNodeMapping(new DistVec<int>(refinedNodeDistInfo)), pEdgeMapping(new DistVec<int>(refinedEdgeDistInfo)),
     lineMap(refinedNodeDistInfo),lineIDMap(refinedNodeDistInfo),lineLocIDMap(refinedNodeDistInfo)
 {
 #pragma omp parallel for
@@ -51,7 +51,48 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
   agglomFaceDistInfo = new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com);
 
 }
+/*
+template<class Scalar>
+void MultiGridLevel<Scalar>::MultiGridLevel(MultiGridLevel& level1, MultiGridLevel& level2) :
+my_dim(level1.my_dim), neq1(level1.neq1), neq2(level1.neq2),
+domain(level1.domain)  
+  {
 
+  nodeIdPattern = level2.nodeIdPattern;
+  nodeVolPattern = level2.nodeValPattern;
+  nodeVecPattern = level2.nodeVecPattern;
+  nodeVecPatternEq1 = level2.nodeVecPatternEq1;
+  nodeVecPatternEq2 = level2.nodeVecPatternEq2;
+  nodeNormalsPattern = level2.nodeNormalsPattern;
+  nodePosnPattern = level2.nodePosnPattern;
+  matPattern = level2.matPattern;
+  offDiagMatPattern = level2.offDiagMatPattern;
+  edgeAreaPattern = level2.edgeAreaPattern;
+  edgeVecPattern = level2.edgeVecPattern;
+
+  sharedNodes = level2.sharedNodes;
+  nodeToNodeMaskILU = level2.nodeToNodeMaskILU;
+
+  myGeoState = level2.myGeoState;
+  myIoData = level2.myIoData;
+
+  useVolumeWeightedAverage = level2.useVolumeWeightedAverage;
+
+  nodeDistInfo = level2.nodeDistInfo;
+  edgeDistInfo = level2.edgeDistInfo;
+  faceDistInfo = level2.faceDistInfo;
+  agglomFaceDistInfo = level2.agglomFaceDistInfo;
+  faceNormDistInfo = level2.faceNormDistInfo;
+  inletNodeDistInfo = level2.inletNodeDistInfo;
+
+  numLocSub = level2.numLocSub;
+  connectivity = level2.connectivity;
+  edges = level2.edges;
+  faces = level2.faces;
+  agglomeratedFaces = level2.agglomeratedFaces;
+  sharedEdges = level2.sharedEdges 
+}
+*/
 template<class Scalar>
 void MultiGridLevel<Scalar>::WriteTopFile(const std::string& fileName) {
 
@@ -178,6 +219,40 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
 }
 
 //------------------------------------------------------------------------------
+
+template<class Scalar>
+void MultiGridLevel<Scalar>::mergeFinerInto(MultiGridLevel& finer) {
+
+  DistVec<int>* pn = new DistVec<int>(*finer.pNodeMapping);
+  DistVec<int>* en = new DistVec<int>(*finer.pEdgeMapping);
+  
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+ 
+    for (int i = 0; i < (*pn)(iSub).size(); ++i) {
+   
+      (*pn)(iSub)[i] = (*pNodeMapping)(iSub)[(*pn)(iSub)[i]];
+    }
+    for (int i = 0; i < (*en)(iSub).size(); ++i) {
+  
+      if ((*en)(iSub)[i] >= 0) 
+        (*en)(iSub)[i] = (*pEdgeMapping)(iSub)[(*en)(iSub)[i]];
+    }
+  }
+
+  delete pEdgeMapping;
+  delete pNodeMapping;
+
+  parent = finer.parent;
+
+  pNodeMapping = pn;
+  pEdgeMapping = en;
+
+  delete nodeTopology;
+  delete topologyNormal;
+
+  computeNodeNormalClasses();
+}
 
 template<class Scalar>
 void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo,const DistInfo& refinedInletNodeDistInfo,const DistInfo& refinedFaceDistInfo,
@@ -964,7 +1039,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
                                          DistVec<Vec3D>& refinedEdgeNormals,
                                          DistVec<double>& refinedVol,
                                          DistVec<int>* finestNodeMapping_p1,
-                                         double beta)
+                                         double beta,int maxNumNodesPerAgglom)
 {
   static int cnt = 0;
   ++cnt;
@@ -989,6 +1064,9 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   edgeVecPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
 
   Connectivity* subToSub = domain.getSubToSub();
+
+  DistVec<int>& nodeMapping = *pNodeMapping;
+  DistVec<int>& edgeMapping = *pEdgeMapping;
 
   nodeMapping = -1;
   edgeMapping = -1;
@@ -1225,6 +1303,41 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
              //   myAggNormal2[nodeMapping(iSub)[neighbor]] += refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node,neighbor)];
             }
           }
+
+          //max_weight = std::max(max_weight, refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm());
+          max_weight = std::max(max_weight, 1.0/refinedEdges[iSub]->viewEdgeLength()[refinedEdges[iSub]->findOnly(current_node, neighbor)]);
+          const Topology& Toth = (*nodeTopology)(iSub)[neighbor];
+          /*if (Toth == TopoVertex) continue;
+          if (currentTopology == TopoLine) {
+
+            if (Toth != TopoLine) continue;
+            if (fabs((*topologyNormal)(iSub)[current_node]*(*topologyNormal)(iSub)[neighbor]) < 
+                mesh_topology_threshold)
+              continue;
+            Vec3D a(parent->getXn()(iSub)[current_node][0]-parent->getXn()(iSub)[neighbor][0],
+                    parent->getXn()(iSub)[current_node][1]-parent->getXn()(iSub)[neighbor][1],
+                    parent->getXn()(iSub)[current_node][2]-parent->getXn()(iSub)[neighbor][2]);
+            a /= a.norm();
+            if (fabs(a*(*topologyNormal)(iSub)[current_node]) < mesh_topology_threshold)
+              continue;
+          } else if (Toth == TopoLine)
+            continue; 
+          else if (currentTopology == TopoFace) {
+
+            if (Toth == TopoFace) {
+ 
+              if (currentNormal*(*topologyNormal)(iSub)[neighbor] < mesh_topology_threshold)
+                continue;
+            } else
+              continue;
+          }*/
+          if (currentTopology == TopoInterior) {
+
+            if (Toth != TopoInterior) {
+              continue;
+            }
+          }
+
           if(current_node == neighbor || nodeMapping(iSub)[neighbor] >= 0) continue;
           bool ok = true;
           bool has_new = false;
@@ -1249,8 +1362,6 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
             }
           }
           if (has_new && !is_superset) continue;
-          max_weight = std::max(max_weight, refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm());
-          //max_weight = std::max(max_weight, 1.0/refinedEdges[iSub]->viewEdgeLength()[refinedEdges[iSub]->findOnly(current_node, neighbor)]);
         }
         
         for(std::set<int>::iterator s_it = myNtoN[current_node].begin(); 
@@ -1318,10 +1429,10 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
             }
           }
           if (has_new && !is_superset) continue;
-          if (beta*max_weight <  
-              refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm()) {
+          //if (beta*max_weight <  
+          //    refinedEdgeNormals(iSub)[refinedEdges[iSub]->findOnly(current_node, neighbor)].norm()) {
         
-          //if (beta*max_weight < 1.0/refinedEdges[iSub]->viewEdgeLength()[refinedEdges[iSub]->findOnly(current_node, neighbor)]) {
+          if (beta*max_weight < 1.0/refinedEdges[iSub]->viewEdgeLength()[refinedEdges[iSub]->findOnly(current_node, neighbor)]) {
             bool encloses_node = false;
             std::map<int,Vec3D> tmpSums;
             for(std::set<int>::iterator s_it2 = myNtoN[neighbor].begin(); 
@@ -1404,6 +1515,9 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
               continue;
             }
+            if (agglom.size() >= maxNumNodesPerAgglom)
+              continue;
+
             currentAgglomVolume += refinedVol(iSub)[neighbor];
             
             agglom.push_back(neighbor);
@@ -1901,6 +2015,18 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
   ::assemble(domain, *edgeVecPattern, numSharedEdges, sharedEdges, *edgeNormals);
 
 #pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+    for (int i = 0; i < edges[iSub]->size(); ++i) {
+
+      if (fabs((*edgeNormals)(iSub)[i].norm()) < 1.0e-15) {
+
+        std::cout << "Error: normal = 0!" << std::endl;
+      }
+    }
+  }
+
+#pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
    
     *nodeDistInfo->getMasterFlag(iSub) = true;
@@ -2248,11 +2374,11 @@ void MultiGridLevel<Scalar>::computeNodeNormalClasses() {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
-      for (int i = 0; i < parent->nodeMapping(iSub).size(); ++i) {
+      for (int i = 0; i < (*parent->pNodeMapping)(iSub).size(); ++i) {
 
         if ((*parent->nodeTopology)(iSub)[i] != TopoInterior) {
 
-          (*topologyNormal)(iSub)[parent->nodeMapping(iSub)[i]] = 
+          (*topologyNormal)(iSub)[(*parent->pNodeMapping)(iSub)[i]] = 
             (*parent->topologyNormal)(iSub)[i];
         }
       }
@@ -2454,6 +2580,8 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
     std::cout << "Calling restrict --- " << std::endl;
   }
 */
+
+  DistVec<int>& nodeMapping = *pNodeMapping;
   if (useVolumeWeightedAverage) {
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -2512,6 +2640,8 @@ template<class Scalar> template<class Scalar2>
 void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistVec<Scalar2>& fineData, DistVec<Scalar2>& coarseData) const
 {
   coarseData = 0.0;
+
+  DistVec<int>& nodeMapping = *pNodeMapping;
 
   if (useVolumeWeightedAverage) {
 #pragma omp parallel for
@@ -2579,6 +2709,9 @@ void MultiGridLevel<Scalar>::RestrictOperator(const MultiGridLevel<Scalar>& fine
 
   coarseOperator = 0.0;
 
+  DistVec<int>& nodeMapping = *pNodeMapping;
+  DistVec<int>& edgeMapping = *pEdgeMapping;
+
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
 
@@ -2621,7 +2754,7 @@ void MultiGridLevel<Scalar>::RestrictOperator(const MultiGridLevel<Scalar>& fine
         Scalar2* Aii_coarse = coarseOperator(iSub).getElem_ii(ci);
         for (int k = 0; k < dim*dim; ++k) {
 
-          Aii_coarse[k] += Aij[k]*ratj/*rati*/+Aji[k]*rati/*ratj*/;
+          Aii_coarse[k] += Aij[k]*rati/*rati*/+Aji[k]*ratj/*ratj*/;
         }
       } else {
 
@@ -2636,8 +2769,8 @@ void MultiGridLevel<Scalar>::RestrictOperator(const MultiGridLevel<Scalar>& fine
           tmp = Aij_coarse; Aij_coarse = Aji_coarse; Aji_coarse = tmp;
         }
         for (int k = 0; k < dim*dim; ++k) { 
-          Aij_coarse[k] += Aij[k]*ratj/*ratj*/;
-          Aji_coarse[k] += Aji[k]*rati/*rati*/;
+          Aij_coarse[k] += Aij[k]*rati/*ratj*/;
+          Aji_coarse[k] += Aji[k]*ratj/*rati*/;
         }
       }
     }
@@ -2654,6 +2787,8 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
 
   int rnk;
   MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+
+  DistVec<int>& nodeMapping = *pNodeMapping;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     for(int i = 0; i < fineData(iSub).size(); ++i) {

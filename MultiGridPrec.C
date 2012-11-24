@@ -11,26 +11,32 @@
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim, class Scalar2>
-MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, PcData& pcData,KspData& coarseSolverData, IoData& ioData, VarFcn* varFcn,bool createFineA, 
-DistTimeState<dim>* ts,int **nodeType, BCApplier *bcs) : pcData(pcData), DistMat<Scalar2,dim>(dom)
+MultiGridPrec<Scalar,dim,Scalar2>::MultiGridPrec(Domain *dom, DistGeoState& distGeoState, IoData& ioData) : domain(dom), DistMat<Scalar2,dim>(dom)
 {
 
-  mgKernel = new MultiGridKernel<Scalar,dim,Scalar2>(dom, distGeoState, coarseSolverData, ioData, varFcn,createFineA,pcData.num_multigrid_levels, ts);
-  mgKernel->setParameters(pcData.num_multigrid_smooth1, 
-                          pcData.num_multigrid_smooth2,
-                          pcData.num_fine_sweeps,
-                          pcData.mg_smooth_relax, 
-                          pcData.mg_output);
+  mgKernel = new MultiGridKernel<Scalar2>(dom, distGeoState, ioData,
+                                         ioData.mg.num_multigrid_levels);
 
 }
 
 template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::initialize() {
 
-  mgKernel->initialize();
-  
-  if (pcData.mg_type == PcData::MGGEOMETRIC)
-    mgKernel->setGeometric();
+  mgKernel->initialize(dim,dim,0);
+
+  smoothingMatrices = 
+    new MultiGridSmoothingMatrices<Scalar2, dim>(mgKernel, 
+              MultiGridSmoothingMatrix<Scalar2,dim>::RAS);
+
+  myX.init(mgKernel);
+  myR.init(mgKernel);
+  myPx.init(mgKernel);
+  xold.init(mgKernel);
+
+  mvpMatrices = new MultiGridMvpMatrix<Scalar2,dim>(domain, mgKernel);
+
+  mvpMat = new DistMvpMatrix<Scalar2,dim>(domain, mgKernel->getLevel(0)->getNodeDistInfo().subLen,
+                               mgKernel->getLevel(0)->getEdges(),0);
 }
 
 //------------------------------------------------------------------------------
@@ -42,27 +48,8 @@ MultiGridPrec<Scalar,dim,Scalar2>::~MultiGridPrec()
 }
 
 template<class Scalar, int dim, class Scalar2>
-void MultiGridPrec<Scalar,dim,Scalar2>::setOperators(SpaceOperator<dim>* spo) {
-
-  mgKernel->setOperators(spo);
-}
-
-//------------------------------------------------------------------------------
-template<class Scalar, int dim, class Scalar2>
-void MultiGridPrec<Scalar,dim,Scalar2>::setup() {
-
-  std::cout << "Error: wrong setup called.  For multigrid you should call "
-               "MultiGridPrec<Scalar,dim,Scalar2>::setup(DistSVec<Scalar2,dim>& V)" << std::endl;
-  exit(1);
-}
-
-template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::setup(DistSVec<Scalar2,dim>& U)
 {
-  if (pcData.mg_type == PcData::MGGEOMETRIC)
-    mgKernel->setupGeometric(U);
-  else
-    mgKernel->setupAlgebraic();
 }
 
 template<class Scalar, int dim, class Scalar2>
@@ -74,9 +61,82 @@ bool MultiGridPrec<Scalar,dim,Scalar2>::isInitialized() {
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::
+computeResidual(int lvl, MultiGridDistSVec<double,dim>& b,
+                MultiGridDistSVec<double,dim>& x,
+                MultiGridDistSVec<double,dim>& R) {
+
+  if (lvl == 0)
+    mgKernel->getLevel(lvl)->computeMatVecProd(*myFineMat, x(lvl), R(lvl));
+  else
+    mgKernel->getLevel(lvl)->computeMatVecProd((*mvpMatrices)(lvl), x(lvl), R(lvl));
+  R(lvl) = b(lvl)-R(lvl);  
+}
+
+template<class Scalar, int dim, class Scalar2>
+void MultiGridPrec<Scalar,dim,Scalar2>::cycle(int lvl, MultiGridDistSVec<double,dim>& b,
+                                              MultiGridDistSVec<double,dim>& x) {
+
+  static double lvl_times[] = {0.0,0.0,0.0,0.0,0.0};
+  const static int num_presmooth[] = {0,0,0,0,0,0,0};
+  const static int num_postsmooth[] = {1,2,3,3,3,3,3};//3,3,3,3,3,3,3};
+  static int zero_cnt = 0;
+  if (lvl == 0)
+    zero_cnt++;
+
+  for (int i = 0; i < num_presmooth[lvl]; ++i) {
+    computeResidual(lvl,b,x,myR);
+    smoothingMatrices->apply(lvl, x, myR);
+    x(lvl) += xold(lvl); 
+  }
+ 
+  if (lvl < mgKernel->numLevels()-1) {
+
+    if ( num_presmooth[lvl] > 0)
+      computeResidual(lvl,b,x,myR);
+    else
+      myR(lvl) = b(lvl);
+    //mgKernel->Restrict(lvl+1, x(lvl), x(lvl+1)); 
+    mgKernel->Restrict(lvl+1, myR(lvl), b(lvl+1));
+    xold(lvl+1) = 0.0;//x(lvl+1); 
+    x(lvl+1) = 0.0;
+    cycle(lvl+1, b,x);
+
+    mgKernel->Prolong(lvl+1, xold(lvl+1), x(lvl+1), x(lvl), 1.0);
+  }
+
+  double t = domain->getTimer()->getTime();
+  for (int i = 0; i < num_postsmooth[lvl]; ++i) {
+    computeResidual(lvl,b,x,myR);
+    smoothingMatrices->apply(lvl, xold, myR);
+    x(lvl) += xold(lvl);
+  }
+  lvl_times[lvl] += domain->getTimer()->getTime() - t;
+
+  if (zero_cnt % 50 == 0)
+    domain->getCommunicator()->fprintf(stdout, "Time[%d] = %e\n",lvl, lvl_times[lvl]);
+  
+  //computeResidual(lvl,b,x,myR);
+}
+
+template<class Scalar, int dim, class Scalar2>
 void MultiGridPrec<Scalar,dim,Scalar2>::apply(DistSVec<Scalar2,dim> & x, DistSVec<Scalar2,dim> & Px)
 {
-  mgKernel->cycleV(x, Px);
+  static int cnt = 0;
+  static double prec_time = 0.0;
+  ++cnt; 
+  double t = domain->getTimer()->getTime();
+  myX(0) = x;
+  myPx(0) = 0.0;//Px;
+  //for (int i = 0; i < 20; ++i) {
+    cycle(0, myX, myPx);
+    
+  //  domain->getCommunicator()->fprintf(stdout,"%e\n",myR(0).norm());;
+  //}
+  Px = myPx(0);
+  prec_time += domain->getTimer()->getTime() - t;
+  if (cnt % 50 == 0)
+    domain->getCommunicator()->fprintf(stdout, "Prec time = %e\n",prec_time);
 }
 
 //------------------------------------------------------------------------------
@@ -87,40 +147,43 @@ void MultiGridPrec<Scalar,dim,Scalar2>::getData(DistMat<Scalar2,dim>& mat)/* ,
                                                 SpaceOperator<dim>& spo,
                                                 DistTimeState<dim>* timeState)*/
 {
-//  VarFcn* varFcn = spo.getVarFcn();
 
-  mgKernel->getData(mat);
-  
-/*  *macroValues[0] = V;
-  if (timeState)
-    *macroIrey[0] = *timeState->getInvReynolds();
-  else
-    *macroIrey[0] = 0.0;
-*/
-  //std::cout << "Vnorm 0 = " << V*V <<std::endl;
-  //smooth(0, *macroValues[0], V);
-/*#pragma omp parallel for
-  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+  static int cnt = 0;
+  static double prec_time = 0.0;
+  ++cnt; 
+  double t = domain->getTimer()->getTime();
+  myFineMat = &mat;
+//  mgKernel->getData(mat);
+  smoothingMatrices->acquire(mat);
+  for (int i = 1; i < mgKernel->numLevels(); ++i) {
 
-    for (int i = 0; i < macroValues[0]->subSize(iSub); ++i)
-      std::cout << i << " " << (*macroValues[0])(iSub)[i][0] << " " << 
-        (*timeState)(iSub).getDt()[i] << std::endl;
-  }
-*/
+    if (i == 1)
+      mgKernel->getLevel(i)->RestrictOperator(*mgKernel->getLevel(i-1),
+                                              mat,
+                                              (*mvpMatrices)(i));
+   else 
+      mgKernel->getLevel(i)->RestrictOperator(*mgKernel->getLevel(i-1),
+                                              (*mvpMatrices)(i-1),
+                                              (*mvpMatrices)(i));
+    smoothingMatrices->acquire(i, (*mvpMatrices));
+  }  
+  prec_time += domain->getTimer()->getTime() - t;
+  if (cnt % 10 == 0)
+    domain->getCommunicator()->fprintf(stdout, "Prec setup time = %e\n",prec_time);
 }
 
 template<class Scalar, int dim, class Scalar2>
 DistMat<Scalar2,dim>& MultiGridPrec<Scalar,dim,Scalar2>::
 operator= (const Scalar2 s) {
 
-  return (mgKernel->getFineMatrix() = s);
+  return (*mvpMat = s);
 }
 
 template<class Scalar, int dim, class Scalar2>
 GenMat<Scalar2,dim>& MultiGridPrec<Scalar,dim,Scalar2>::
 operator() (int i) {
 
-  return mgKernel->getFineMatrix()(i);
+  return (*mvpMat)(i);//mgKernel->getFineMatrix()(i);
 }
 
 //------------------------------------------------------------------------------

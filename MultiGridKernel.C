@@ -26,6 +26,8 @@ MultiGridKernel<Scalar>::MultiGridKernel(Domain *dom, DistGeoState& distGeoState
 
     fixLocations[lvl] = new std::set<int>[numLocSub];
   }
+
+  coarsen4to1 = (ioData.mg.coarseningRatio == MultiGridData::FOURTOONE);
 }
 
 template<class Scalar>
@@ -55,6 +57,10 @@ void MultiGridKernel<Scalar>::initialize(int dim,int neq1,int neq2) {
   multiGridLevels[0] = new MultiGridLevel<Scalar>(mgm,NULL,*domain, domain->getNodeDistInfo(), domain->getEdgeDistInfo());
   multiGridLevels[0]->copyRefinedState(domain->getNodeDistInfo(), domain->getEdgeDistInfo(),domain->getInletNodeDistInfo(), domain->getFaceDistInfo(),geoState, *domain,dim,neq1,neq2);
 
+  int maxNumNodesPerAgglom = 6;
+  if (coarsen4to1)
+    maxNumNodesPerAgglom = 3;
+
   char top_file_name[256];
   for(int level = 0; level < num_levels-1; ++level) {
     multiGridLevels[level+1] = new MultiGridLevel<Scalar>(mgm,multiGridLevels[level],*domain, multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
@@ -69,7 +75,28 @@ void MultiGridKernel<Scalar>::initialize(int dim,int neq1,int neq2) {
                                           *domain,dim,neq1,neq2,
                                           multiGridLevels[level]->getEdgeNormals(),
                                           multiGridLevels[level]->getCtrlVol(),
-                                          NULL,beta);
+                                          NULL,beta, maxNumNodesPerAgglom);
+
+    if (coarsen4to1) {
+
+      MultiGridLevel<Scalar>* mg2 = new MultiGridLevel<Scalar>(mgm,multiGridLevels[level+1],*domain, multiGridLevels[level+1]->getNodeDistInfo(), multiGridLevels[level+1]->getEdgeDistInfo());
+      mg2->agglomerate(multiGridLevels[level+1]->getNodeDistInfo(),
+                       multiGridLevels[level+1]->getEdgeDistInfo(),
+                       multiGridLevels[level+1]->getIdPat(),
+                       multiGridLevels[level+1]->getSharedNodes(),
+                       multiGridLevels[level+1]->getConnectivity(),
+                       multiGridLevels[level+1]->getEdges(),
+                       multiGridLevels[level+1]->getSharedEdges(),
+                       multiGridLevels[level+1]->getNumSharedEdges(),
+                       *domain,dim,neq1,neq2,
+                       multiGridLevels[level+1]->getEdgeNormals(),
+                       multiGridLevels[level+1]->getCtrlVol(),
+                       NULL,beta, maxNumNodesPerAgglom);
+      mg2->mergeFinerInto(*multiGridLevels[level+1]);
+      //delete multiGridLevels[level+1];
+      multiGridLevels[level+1] = mg2;
+    }
+
     sprintf(top_file_name,"level%d",level+1);
     multiGridLevels[level+1]->writePVTUFile(top_file_name);
     sprintf(top_file_name,"agglevel%d",level+1);
@@ -236,6 +263,8 @@ applyFixes(int,DistSVec<T2,D>& V);
 //INSTANTIATION_HELPER(float);
 
 INSTANTIATION_HELPER(double);
+INSTANTIATION_HELPER2(double,double,1);
+INSTANTIATION_HELPER2(double,double,2);
 INSTANTIATION_HELPER2(double,double,5);
 INSTANTIATION_HELPER2(double,double,6);
 INSTANTIATION_HELPER2(double,double,7);

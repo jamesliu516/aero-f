@@ -201,7 +201,7 @@ ADD_LIBRARY(FluidBase
              MemoryPool.C 
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
-             #MultiGridPrec.C
+             MultiGridPrec.C
              MultiGridDistSVec.C
              MultiGridLevel.C
              MultiGridKernel.C

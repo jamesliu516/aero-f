@@ -104,6 +104,8 @@ class IluPrec : public KspPrec<dim, Scalar2>, public DistMat<Scalar,dim> {
   //DistSVec<double,dim> tmp;
   int fill;
 
+  Domain* domain;
+
 public:
 
   IluPrec(PcData &, Domain *, int ** = 0);
