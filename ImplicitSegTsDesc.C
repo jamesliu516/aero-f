@@ -267,6 +267,13 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
   DistMat<PrecScalar,neq> *_pc = dynamic_cast<DistMat<PrecScalar,neq> *>(pc);
   DistMat<double,neq> *_pc2 = dynamic_cast<DistMat<double,neq> *>(pc);
 
+  MultiGridPrec<PrecScalar,neq> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,neq> *>(pc);
+
+  if (pmg) {
+    if (!pmg->isInitialized())
+      pmg->initialize();
+  }
+
   if (_pc || _pc2) {
 
     MatVecProdFD<dim, neq> *mvpfdtmp = dynamic_cast<MatVecProdFD<dim, neq> *>(mvp);
@@ -290,11 +297,22 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
           spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
           this->timeState->addToJacobian(*this->A, *_pc2, Q);
           spaceOp1->applyBCsToJacobian(Q, *_pc2);
+          if (pmg) {
+            if (!pmg->isInitialized())
+              pmg->initialize();
+            pmg->getData(*_pc2);
+          }
+ 
         }
         else  {
           spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
           this->timeState->addToJacobian(*this->A, *_pc2, Q);
           spaceOp2->applyBCsToJacobian(Q, *_pc2);
+          if (pmg) {
+            if (!pmg->isInitialized())
+              pmg->initialize();
+            pmg->getData(*_pc2);
+          }
         }
       }
     }
@@ -307,8 +325,11 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
         jac->getData(*mvph1);
       else if (ilu) 
         ilu->getData(*mvph1);
-      //else if (pmg)
-      //  pmg->getData(*mvph1);
+      else if (pmg) {
+        if (!pmg->isInitialized())
+          pmg->initialize();
+        pmg->getData(*mvph1);
+      }
     }
 
   }

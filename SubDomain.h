@@ -238,6 +238,8 @@ public:
   void getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
   void getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
 
+  void constructLines(std::vector<std::vector<int>*>& pLines, int& numLines);
+
   void setFaceType(int *);
   void setNodeType(int*, CommPattern<int> &);
   void setNodeFaceType(CommPattern<int> &);

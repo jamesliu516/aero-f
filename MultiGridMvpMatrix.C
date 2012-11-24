@@ -29,6 +29,8 @@ MultiGridMvpMatrix<Scalar,dim>::
   delete [] myA;
 }
 
+template class MultiGridMvpMatrix<double,1>;
+template class MultiGridMvpMatrix<double,2>;
 template class MultiGridMvpMatrix<double,5>;
 template class MultiGridMvpMatrix<double,6>;
 template class MultiGridMvpMatrix<double,7>;

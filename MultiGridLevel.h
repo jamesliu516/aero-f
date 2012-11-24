@@ -73,8 +73,8 @@ class MultiGridLevel {
     EdgeDef*** sharedEdges;
     int** numSharedEdges;
 
-    DistVec<int> nodeMapping;
-    DistVec<int> edgeMapping;
+    DistVec<int>* pNodeMapping;
+    DistVec<int>* pEdgeMapping;
     DistVec<int>* faceMapping;
     DistVec<Vec3D>* edgeNormals;
     DistSVec<double,3>* globalFaceNormals;
@@ -121,6 +121,10 @@ class MultiGridLevel {
 
   public:
     MultiGridLevel(MultiGridMethod,MultiGridLevel*,Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
+
+    // level1 is finer than level2
+    //MultiGridLevel(MultiGridLevel& level1, MultiGridLevel& level2);
+
     ~MultiGridLevel();
 
     MultiGridLevel* getParent() { return parent; }
@@ -141,7 +145,7 @@ class MultiGridLevel {
 
     int mapFineToCoarse(int iSub,int i) {
       if (parent)
-        return nodeMapping(iSub)[parent->mapFineToCoarse(iSub,i)];
+        return (*pNodeMapping)(iSub)[parent->mapFineToCoarse(iSub,i)];
       else
         return i;
     }
@@ -152,6 +156,8 @@ class MultiGridLevel {
       else
         return i;
     }
+
+    void mergeFinerInto(MultiGridLevel& finer);
   
     double getTotalMeshVolume() { return parent ? parent->getTotalMeshVolume() : total_mesh_volume;  }
 
@@ -188,7 +194,7 @@ class MultiGridLevel {
     CommPattern<int>& getIdPat()      { return *nodeIdPattern; }
     Connectivity ** getSharedNodes()  { return sharedNodes; }
 
-    DistVec<int>& getNodeMapping() { return nodeMapping; }
+    DistVec<int>& getNodeMapping() { return *pNodeMapping; }
 
     DistVec<Vec3D>& getEdgeNormals() { return *edgeNormals; }
     DistVec<double>& getCtrlVol() const { return *ctrlVol; }
@@ -214,7 +220,7 @@ class MultiGridLevel {
                      Domain& domain,int dim,int neq1,int neq2,
                      DistVec<Vec3D>& refinedEdgeNormals,
                      DistVec<double>& refinedVol,
-                     DistVec<int>*,double beta);
+                     DistVec<int>*,double beta,int maxNumNodesPerAgglom);
 
     void computeRestrictedQuantities(const DistGeoState& refinedGeoState);
 

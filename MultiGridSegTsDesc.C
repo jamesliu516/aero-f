@@ -173,6 +173,9 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f,Forig(lvl), this->varFcn,
                                mgSpaceOp->getOperator(lvl));
 
+  }
+ 
+  if (steps > 0) {   
     mgSpaceOp->computeResidual(lvl, x, V, R, false);
     R(lvl) = f-R(lvl);
   }
@@ -209,10 +212,10 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
     mgSpaceOp->computeResidual(lvl+1, U, V, F, false);
     pKernel->applyFixes(lvl+1, R(lvl+1));
     //pKernel->fixNegativeValues(lvl+1,V(lvl+1), U(lvl+1), dx(lvl+1), F(lvl+1), this->varFcn);
-    if (lvl == 0 && globalIt % 25 == 0) {
+    /*if (lvl == 0 && globalIt % 25 == 0) {
 
       pKernel->getLevel(lvl+1)->writePVTUSolutionFile("myR",R(lvl+1));
-    }
+    }*/
     Forig(lvl+1) = F(lvl+1);
     F(lvl+1) += R(lvl+1)*restrict_relax_factor;
     for (int i = 0; i < mc; ++i)

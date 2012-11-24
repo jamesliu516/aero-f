@@ -33,6 +33,8 @@ MultiGridOperator<Scalar,dim>::MultiGridOperator(MultiGridLevel<Scalar>* mg_lvl,
   DX[2] = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
   
   myVarFcn = varFcn;
+
+  addViscousTerms = ioData.mg.addViscousTerms;
 }
 
 template <class Scalar,int dim>
@@ -77,8 +79,8 @@ void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, Di
     mgLevel->getAgglomeratedFaces()[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn,V(iSub), 
                                                  getBoundaryState()(iSub),
                                                  matrices(iSub));
-/*
-    if (fet) {
+
+    if (fet && addViscousTerms) {
      
       mgLevel->getEdges()[iSub]->computeJacobianThinLayerViscousFiniteVolumeTerm(
         NULL, myVarFcn, fet, mgLevel->getGeoState()(iSub), 
@@ -91,7 +93,7 @@ void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, Di
          (*myBcData)(iSub).getFaceStateVector(),matrices(iSub));
           
     }
- */
+ 
     Vec<double>& ctrlVol = mgLevel->getCtrlVol()(iSub); 
     for (int i=0; i<ctrlVol.size(); ++i) {
       Scalar voli = 1.0 / ctrlVol[i];
@@ -107,7 +109,9 @@ void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, Di
   if (timeState) {
 
     timeState->addToJacobian(mgLevel->getCtrlVol(), matrices, U);
-  } 
+  }
+
+  applyBCsToJacobian(U, matrices); 
 }
 
 template<class Scalar,int dim>
@@ -159,8 +163,8 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
     mgLevel->getAgglomeratedFaces()[iSub]->computeFiniteVolumeTerm(fluxFcn, 
                                          V(iSub),getBoundaryState()(iSub),
                                          res(iSub));
-/*
-    if (fet) {
+
+    if (fet && addViscousTerms) {
  
       mgLevel->getEdges()[iSub]->template 
         computeThinLayerViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
@@ -176,7 +180,7 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
                                       res(iSub)); 
                                                     
     }    
-*/
+
   }
   
   mgLevel->assemble(res);
@@ -197,7 +201,7 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
                           mgLevel->getCtrlVol(), U, res);
   } 
   
-  
+  applyBCsToResidual(U, res);
 } 
 
 template<class Scalar,int dim>

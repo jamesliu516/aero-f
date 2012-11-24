@@ -1371,6 +1371,8 @@ struct MultiGridData {
   enum CycleScheme { VCYCLE = 0, WCYCLE = 1} cycle_scheme;
 
   enum RestrictMethod { VOLUME_WEIGHTED = 0, AVERAGE = 1 } restrictMethod;
+
+  enum CoarseningRatio { TWOTOONE = 0, FOURTOONE = 1} coarseningRatio;
  
   int num_multigrid_smooth1,num_multigrid_smooth2;
   int num_multigrid_levels;
@@ -1386,6 +1388,8 @@ struct MultiGridData {
   double prolong_relax_factor,restrict_relax_factor;
 
   int num_fine_sweeps;
+
+  int addViscousTerms;
  
   MultiGridData();
   ~MultiGridData() {}

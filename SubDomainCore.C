@@ -4890,3 +4890,21 @@ void SubDomain::getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundary
     }
   }
 }
+
+void SubDomain::constructLines(std::vector<int>** pLines, int& numLines) {
+
+  std::tr1::unordered_set<int> surfaceNodes;
+  std::tr1::unordered_set<int> subdBoundaryNodes;
+
+  getSurfaceNodes(surfaceNodes);
+  getSubDomainBoundaryNodes(subdBoundaryNodes);
+
+  Vec<int> available(numNodes());
+  available = 1;
+
+  for (int i = 0; i < numNodes(); ++i) {
+
+  }
+  
+}
+
