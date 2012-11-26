@@ -215,7 +215,7 @@ void DistBcData<dim>::finalize(DistSVec<double,3> &X)
   this->vf->conservativeToPrimitive(this->Uout, Vout);
 
   double Pressure = this->vf->getPressure(Vin);
-  com->printf(2, "Non-dimensionalized primitive state vector:\n");
+/*  com->printf(2, "Non-dimensionalized primitive state vector:\n");
   com->printf(2, "Inlet: ");
   for (int k=0; k<dim; ++k)
     com->printf(2, " %g", Vin[k]);
@@ -223,7 +223,7 @@ void DistBcData<dim>::finalize(DistSVec<double,3> &X)
   for (int k=0; k<dim; ++k)
     com->printf(2, " %g", Vout[k]);
   com->printf(2,"\n");
-
+*/
 #pragma omp parallel for
   for (int iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->assignFreeStreamValues2(this->Ufarin(iSub),

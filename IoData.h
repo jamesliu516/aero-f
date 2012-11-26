@@ -1159,8 +1159,22 @@ struct SchemeData {
   double xic;
   double eps;
 
+  struct MaterialFluxData {
+
+    Flux flux;
+
+    Assigner *getAssigner();
+  };
+
+  // We now allow different flux functions to be used for different materials.  
+  // The behavior is that if the flux is specified for a fluid id in this map,
+  // then it is used.  Otherwise, the default (schemedata.flux) is used for
+  // that material.
+  ObjectMap<MaterialFluxData> fluxMap;
+
   int allowsFlux;
 
+  // allowsFlux = 0 for levelset equation (the choice of flux for the levelset is hardcoded)
   SchemeData(int allowsFlux = 1);
   ~SchemeData() {}
 

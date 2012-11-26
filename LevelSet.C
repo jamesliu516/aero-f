@@ -152,7 +152,7 @@ void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<dou
     map<int, VolumeData *>::iterator volIt;
     for (volIt=iod.volumes.volumeMap.dataMap.begin(); volIt!=iod.volumes.volumeMap.dataMap.end();volIt++)
       if(volIt->second->type==VolumeData::FLUID){
-        com->fprintf(stdout, "Processing initialization of LevelSet for volume %d paired with EOS %d\n", volIt->first, volIt->second->fluidModelID);
+        //com->fprintf(stdout, "Processing initialization of LevelSet for volume %d paired with EOS %d\n", volIt->first, volIt->second->fluidModelID);
         domain->setupPhiVolumesInitialConditions(volIt->first, volIt->second->fluidModelID,Phi);
       }
   }
@@ -221,7 +221,7 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     for(planeIt  = iod.mf.multiInitialConditions.planeMap.dataMap.begin();
         planeIt != iod.mf.multiInitialConditions.planeMap.dataMap.end();
         planeIt++){
-      com->fprintf(stdout, "Processing initialization of LevelSet for plane %d paired with EOS %d\n", planeIt->first, planeIt->second->fluidModelID);
+      //com->fprintf(stdout, "Processing initialization of LevelSet for plane %d paired with EOS %d\n", planeIt->first, planeIt->second->fluidModelID);
       double nx = planeIt->second->nx;
       double ny = planeIt->second->ny;
       double nz = planeIt->second->nz;
@@ -256,7 +256,7 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     for(sphereIt  = iod.mf.multiInitialConditions.sphereMap.dataMap.begin();
         sphereIt != iod.mf.multiInitialConditions.sphereMap.dataMap.end();
         sphereIt++){
-      com->fprintf(stdout, "Processing initialization of LevelSet for sphere %d paired with EOS %d\n", sphereIt->first, sphereIt->second->fluidModelID);
+      //com->fprintf(stdout, "Processing initialization of LevelSet for sphere %d paired with EOS %d\n", sphereIt->first, sphereIt->second->fluidModelID);
       double x0 = sphereIt->second->cen_x;
       double y0 = sphereIt->second->cen_y;
       double z0 = sphereIt->second->cen_z;
