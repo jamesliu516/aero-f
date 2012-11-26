@@ -18,7 +18,7 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
                               refinedEdgeDistInfo.locSubToGlobSub, refinedEdgeDistInfo.com)),
     numLocSub(refinedNodeDistInfo.numLocSub), ownsData(true), connectivity(new Connectivity*[numLocSub]),
     edges(new EdgeSet*[numLocSub]),faces(new FaceSet*[numLocSub]), pNodeMapping(new DistVec<int>(refinedNodeDistInfo)), pEdgeMapping(new DistVec<int>(refinedEdgeDistInfo)),
-    lineMap(refinedNodeDistInfo),lineIDMap(refinedNodeDistInfo),lineLocIDMap(refinedNodeDistInfo)
+    lineMap(new DistSVec<int,2>(refinedNodeDistInfo)),lineIDMap(new DistVec<int>(refinedNodeDistInfo)),lineLocIDMap(new DistVec<int>(refinedNodeDistInfo))
 {
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -26,7 +26,7 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
     edges[iSub] = 0;
     faces[iSub] = 0;
   }
-  lineIDMap = -1;
+  *lineIDMap = -1;
 
   mgMethod = mgm;
 
@@ -50,6 +50,7 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
   inletNodeDistInfo = new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com);
   agglomFaceDistInfo = new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com);
 
+  edgeArea = NULL;
 }
 /*
 template<class Scalar>
@@ -225,19 +226,94 @@ void MultiGridLevel<Scalar>::mergeFinerInto(MultiGridLevel& finer) {
 
   DistVec<int>* pn = new DistVec<int>(*finer.pNodeMapping);
   DistVec<int>* en = new DistVec<int>(*finer.pEdgeMapping);
-  
+
+  Connectivity** nToN = finer.parent->getConnectivity(); 
+
+  delete lineIDMap;
+  delete lineMap;
+
+  lineLocIDMap = new DistVec<int>(*finer.pNodeMapping);
+  lineIDMap = new DistVec<int>(*finer.pNodeMapping);
+ 
+  lineMap = new DistSVec<int,2>(*finer.parent->nodeDistInfo);
+
+  *lineIDMap = -1;
+
+  *lineMap = -1;
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    delete [] lineLengths[iSub];
+    lineLengths[iSub] = new int[(*pn)(iSub).size()];
+    lineids[iSub].clear();
+    numLines[iSub] = 0;
+
+    std::vector<int>* agglom = new std::vector<int>[nodeDistInfo->subSize(iSub)];
  
     for (int i = 0; i < (*pn)(iSub).size(); ++i) {
    
       (*pn)(iSub)[i] = (*pNodeMapping)(iSub)[(*pn)(iSub)[i]];
+      if (nodeDistInfo->getMasterFlag(iSub)[i])
+        agglom[(*pn)(iSub)[i]].push_back(i);
     }
     for (int i = 0; i < (*en)(iSub).size(); ++i) {
   
       if ((*en)(iSub)[i] >= 0) 
         (*en)(iSub)[i] = (*pEdgeMapping)(iSub)[(*en)(iSub)[i]];
     }
+
+    for (int i = 0; i < nodeDistInfo->subSize(iSub); ++i) {
+
+      bool isLine = true;
+
+      int j = 0;
+      for(std::vector<int>::const_iterator iter = agglom[i].begin(); iter != agglom[i].end(); iter++,++j) {
+        const int current_node = *iter;
+        //nodeMapping(iSub)[current_node] = agglom_id;
+        for(int n = 0; n < nToN[iSub]->num(current_node) && isLine; ++n) {
+          const int neighbor = (*nToN[iSub])[current_node][n];
+          if (current_node == neighbor) continue;
+  
+          for (int k = 0; k < agglom[i].size(); ++k) {
+            if ((k > j+1 || k < j-1) && neighbor == agglom[i][k]) { 
+              isLine = false;
+              break;
+            }
+          }
+        }
+      }
+ 
+      if (isLine && agglom[i].size() > 1) {
+        int k;
+        for (k = 0; k < agglom[i].size(); ++k) {
+  
+          (*lineLocIDMap)(iSub)[agglom[i][k]] = k;         
+ 
+          (*lineIDMap)(iSub)[agglom[i][k]] = numLines[iSub];
+          if (k > 0)
+            (*lineMap)(iSub)[agglom[i][k]][0] = agglom[i][k-1];
+          else
+            (*lineMap)(iSub)[agglom[i][k]][0] = -1;
+          if (k < agglom[i].size()-1)
+            (*lineMap)(iSub)[agglom[i][k]][1] = agglom[i][k+1];  
+          else
+            (*lineMap)(iSub)[agglom[i][k]][1] = -1;
+          lineids[iSub].push_back(agglom[i][k]);
+        }
+        lineLengths[iSub][numLines[iSub]] = k;
+
+        for (; k < 8; ++k)
+          lineids[iSub].push_back(-1);
+
+        ++numLines[iSub];
+      } else {
+        for (int k = 0; k < agglom[i].size(); ++k) {
+          (*lineMap)(iSub)[agglom[i][k]][0] = (*lineMap)(iSub)[agglom[i][k]][1] = -1;
+        }
+      }      
+    }
+    delete [] agglom;
   }
 
   delete pEdgeMapping;
@@ -1037,6 +1113,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
                                          int** refinedNumSharedEdges,
                                          Domain& domain,int dim,int lneq1,int lneq2,
                                          DistVec<Vec3D>& refinedEdgeNormals,
+                                         DistVec<double>* refinedEdgeAreas,
                                          DistVec<double>& refinedVol,
                                          DistVec<int>* finestNodeMapping_p1,
                                          double beta,int maxNumNodesPerAgglom)
@@ -1075,7 +1152,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
   *faceMapping = -1;
 
-  lineMap = -1;
+  *lineMap = -1;
 
   int myLevel = getMyLevel();  
   int rank,size;
@@ -1591,17 +1668,17 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         for (k = 0; k < agglom.size(); ++k) {
   
           assert(refinedNodeDistInfo.getMasterFlag(iSub)[agglom[k]]);
-          lineLocIDMap(iSub)[agglom[k]] = k;         
+          (*lineLocIDMap)(iSub)[agglom[k]] = k;         
  
-          lineIDMap(iSub)[agglom[k]] = numLines[iSub];
+          (*lineIDMap)(iSub)[agglom[k]] = numLines[iSub];
           if (k > 0)
-            lineMap(iSub)[agglom[k]][0] = agglom[k-1];
+            (*lineMap)(iSub)[agglom[k]][0] = agglom[k-1];
           else
-            lineMap(iSub)[agglom[k]][0] = -1;
+            (*lineMap)(iSub)[agglom[k]][0] = -1;
           if (k < agglom.size()-1)
-            lineMap(iSub)[agglom[k]][1] = agglom[k+1];  
+            (*lineMap)(iSub)[agglom[k]][1] = agglom[k+1];  
           else
-            lineMap(iSub)[agglom[k]][1] = -1;
+            (*lineMap)(iSub)[agglom[k]][1] = -1;
           lineids[iSub].push_back(agglom[k]);
         }
         lineLengths[iSub][numLines[iSub]] = k;
@@ -1612,7 +1689,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
         ++numLines[iSub];
       } else {
         for (int k = 0; k < agglom.size(); ++k) {
-          lineMap(iSub)[agglom[k]][0] = lineMap(iSub)[agglom[k]][1] = -1;
+          (*lineMap)(iSub)[agglom[k]][0] = (*lineMap)(iSub)[agglom[k]][1] = -1;
         }
       }
 
@@ -1997,7 +2074,10 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
       else {
         //(*edgeNormals)(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l];
         if (refinedEdges[iSub]->getMasterFlag()[l]) {
-          (*edgeArea)(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l].norm();
+          if (refinedEdgeAreas)
+            (*edgeArea)(iSub)[coarse_index] += (*refinedEdgeAreas)(iSub)[l];
+          else
+            (*edgeArea)(iSub)[coarse_index] += refinedEdgeNormals(iSub)[l].norm();
           double sgn = 1.0;
           if (nodeMapping(iSub)[ refinedEdges[iSub]->getPtr()[l][0] ] >
               nodeMapping(iSub)[ refinedEdges[iSub]->getPtr()[l][1] ])
@@ -2862,23 +2942,23 @@ bool MultiGridLevel<Scalar>::isLine(int iSub,int edgei,int edgej,int* lineid,int
 {
 
   int idm1,idp1;
-  idm1 = lineMap(iSub)[edgei][0];
-  idp1 = lineMap(iSub)[edgei][1];
+  idm1 = (*lineMap)(iSub)[edgei][0];
+  idp1 = (*lineMap)(iSub)[edgei][1];
 
   if (edgei == edgej) {
 
     if (idm1 >= 0 || idp1 >= 0) {
-      *lineid = lineIDMap(iSub)[edgei];
-      *loci = lineLocIDMap(iSub)[edgei];
+      *lineid = (*lineIDMap)(iSub)[edgei];
+      *loci = (*lineLocIDMap)(iSub)[edgei];
       *locj = *loci;
       return true;
     }
   }
 
   if (idm1 == edgej || idp1 == edgej) {
-    *lineid = lineIDMap(iSub)[edgei];
-    *loci = lineLocIDMap(iSub)[edgei];
-    *locj = lineLocIDMap(iSub)[edgej];
+    *lineid = (*lineIDMap)(iSub)[edgei];
+    *loci = (*lineLocIDMap)(iSub)[edgei];
+    *locj = (*lineLocIDMap)(iSub)[edgej];
     return true;
   } else {
     return false;
