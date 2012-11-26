@@ -74,6 +74,7 @@ void MultiGridKernel<Scalar>::initialize(int dim,int neq1,int neq2) {
                                           multiGridLevels[level]->getNumSharedEdges(),
                                           *domain,dim,neq1,neq2,
                                           multiGridLevels[level]->getEdgeNormals(),
+                                          multiGridLevels[level]->getEdgeAreaPointer(),
                                           multiGridLevels[level]->getCtrlVol(),
                                           NULL,beta, maxNumNodesPerAgglom);
 
@@ -90,6 +91,7 @@ void MultiGridKernel<Scalar>::initialize(int dim,int neq1,int neq2) {
                        multiGridLevels[level+1]->getNumSharedEdges(),
                        *domain,dim,neq1,neq2,
                        multiGridLevels[level+1]->getEdgeNormals(),
+                       multiGridLevels[level+1]->getEdgeAreaPointer(),
                        multiGridLevels[level+1]->getCtrlVol(),
                        NULL,beta, maxNumNodesPerAgglom);
       mg2->mergeFinerInto(*multiGridLevels[level+1]);

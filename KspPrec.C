@@ -272,8 +272,8 @@ void IluPrec<Scalar,dim, Scalar2>::apply(DistSVec<Scalar2,dim> &y, DistSVec<Scal
     this->subDomain[iSub]->addRcvData(*vPat, x.subData(iSub));
 
   prec_time += domain->getTimer()->getTime() - t;
-  if (cnt % 50 == 0)
-    domain->getCommunicator()->fprintf(stdout, "Prec time = %e\n",prec_time);
+//  if (cnt % 50 == 0)
+//    domain->getCommunicator()->fprintf(stdout, "Prec time = %e\n",prec_time);
 }
 
 //------------------------------------------------------------------------------

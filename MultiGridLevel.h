@@ -79,14 +79,14 @@ class MultiGridLevel {
     DistVec<Vec3D>* edgeNormals;
     DistSVec<double,3>* globalFaceNormals;
 
-    DistSVec<int, 2> lineMap;
+    DistSVec<int, 2>* lineMap;
     DistSVec<double, 3>* Xn;
 
     DistVec<int>* finestNodeMapping;
 
-    DistVec<int> lineIDMap;
+    DistVec<int> *lineIDMap;
     
-    DistVec<int> lineLocIDMap;
+    DistVec<int> *lineLocIDMap;
 
     DistVec<double>* ctrlVol; 
     DistVec<double>* ctrlVolCount;
@@ -219,6 +219,7 @@ class MultiGridLevel {
                      EdgeDef***, int**,
                      Domain& domain,int dim,int neq1,int neq2,
                      DistVec<Vec3D>& refinedEdgeNormals,
+                     DistVec<double>* refinedEdgeAreas,
                      DistVec<double>& refinedVol,
                      DistVec<int>*,double beta,int maxNumNodesPerAgglom);
 
@@ -297,6 +298,7 @@ class MultiGridLevel {
     void setNodeType();
  
     DistVec<double>& getEdgeArea() { return *edgeArea; }
+    DistVec<double>* getEdgeAreaPointer() { return edgeArea; }
 
   private:
 

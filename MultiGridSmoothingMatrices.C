@@ -29,9 +29,15 @@ pKernel(pKernel) {
 
       int nn = pKernel->getLevel(i)->getNodeDistInfo().subSize(iSub);
       int ne = pKernel->getLevel(i)->getEdges()[iSub]->size();
-      
+
+      typename MultiGridSmoothingMatrix<Scalar,dim>::SmoothingMode s = 
+        smoothingMode;
+  
+      if (i == nLevels-1 && s == MultiGridSmoothingMatrix<Scalar,dim>::LineJacobi)
+        s = MultiGridSmoothingMatrix<Scalar,dim>::RAS;    
+  
       pMatrices[i][iSub] = 
-        new MultiGridSmoothingMatrix<Scalar,dim>(smoothingMode,iSub, nn,ne,0,
+        new MultiGridSmoothingMatrix<Scalar,dim>(s,iSub, nn,ne,0,
                                                  pL, pR);
                                                  
     }
