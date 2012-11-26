@@ -252,7 +252,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   totStructNodes = dynNodalTransfer ? dynNodalTransfer->totStNodes() : numStructNodes;
 
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes\n", numStructNodes, totStructNodes);
+    //this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes\n", numStructNodes, totStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[totStructNodes][3];
   } else 
@@ -614,7 +614,7 @@ template<int dim>
 void EmbeddedTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
 
-  this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+  //this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
     this->data->residual = computeResidualNorm(U);

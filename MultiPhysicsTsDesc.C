@@ -45,7 +45,6 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
   if (numBurnableFluids > 0) {
-    this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
   }
@@ -207,7 +206,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   totStructNodes = dynNodalTransfer ? dynNodalTransfer->totStNodes() : numStructNodes;
 
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes.\n", numStructNodes, totStructNodes);
+    //this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes.\n", numStructNodes, totStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[totStructNodes][3];
   } else
@@ -618,7 +617,7 @@ template<int dim, int dimLS>
 void MultiPhysicsTsDesc<dim,dimLS>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
   /* only used for steady simulations. Is it meaningful when a ff interface is present */
-  this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+  //this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
     this->data->residual = computeResidualNorm(U);
