@@ -71,7 +71,7 @@ public:
   void addToJacobianLS(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,bool);
   
   template<class Scalar, int neq>
-  void addToJacobianNoPrecLocal(int, double, SVec<double,dim> &, GenMat<Scalar,neq> &);
+  void addToJacobianNoPrecLocal(int, double, SVec<double,dim> &, GenMat<Scalar,neq> &,int);
 
   template<class Scalar, int neq>
   void addToJacobianGasPrec(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,
@@ -86,7 +86,7 @@ public:
   template<class Scalar, int neq>
   void addToJacobianLiquidPrecLocal(int, double, VarFcn *, TimeLowMachPrec &, double,
 				    SVec<double,dim> &, GenMat<Scalar,neq> &);
-
+  
   template<class Scalar, int neq>
   void addToH1(bool *, Vec<double> &, GenMat<Scalar,neq> &);
 
@@ -133,6 +133,8 @@ public:
                     SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
 
   double getTimeNorm()  {  return dt.norm(); }
+
+  Vec<double>& getDt() { return dt; }
 
   private:
 

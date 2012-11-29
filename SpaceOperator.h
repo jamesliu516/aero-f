@@ -121,6 +121,9 @@ public:
 
   int **getNodeType() {return domain->getNodeType(); }
 
+  FluxFcn** getFluxFcn() { return fluxFcn; }
+  DistBcData<dim>* getDistBcData() { return bcData; }
+
   BcFcn *createBcFcn(IoData &);
   FluxFcn **createFluxFcn(IoData &);
   RecFcn *createRecFcn(IoData &);
@@ -134,6 +137,10 @@ public:
   void setFemEquationTerm(FemEquationTerm *);
   void fix(DistSVec<bool,2>&);
   void resetTag();
+
+  BcFcn* getBcFcn() { return bcFcn; }
+
+  DistSVec<double,dim>* getCurrentPrimitiveVector() { return V; }
 
   FemEquationTerm *getFemEquationTerm() { return fet;}
   void conservativeToPrimitive(DistSVec<double,dim> &U) {varFcn->conservativeToPrimitive(U, *V);}

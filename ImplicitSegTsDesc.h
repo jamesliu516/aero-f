@@ -19,8 +19,6 @@ class ImplicitSegTsDesc : public ImplicitTsDesc<dim> {
   DistSVec<double,neq1> b1, dQ1;
   DistSVec<double,neq2> b2, dQ2;
 
-  SpaceOperator<dim> *spaceOp1;
-  SpaceOperator<dim> *spaceOp2;
 
   MatVecProd<dim,neq1> *mvp1;
   MatVecProd<dim,neq2> *mvp2;
@@ -43,6 +41,11 @@ private:
   template<int neq>
   void setOperator(MatVecProd<dim,neq> *, KspPrec<neq> *, DistSVec<double,dim> &, SpaceOperator<dim> *);
 
+protected:
+
+  SpaceOperator<dim> *spaceOp1;
+  SpaceOperator<dim> *spaceOp2;
+
 public:
 
   ImplicitSegTsDesc(IoData &, GeoSource &, Domain *);
@@ -52,6 +55,30 @@ public:
   void setOperators(DistSVec<double,dim> &);
 
   int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  DistMat<double,neq1>* GetJacobian1() { 
+    MatVecProdH1<dim,double,neq1>* mvph1 = 
+      dynamic_cast<MatVecProdH1<dim,double,neq1>*>(this->mvp1);
+    if (mvph1) 
+      return dynamic_cast<DistMat<double,neq1>*>(mvph1);
+    MatVecProdH2<dim,double,neq1>* mvph2 = 
+      dynamic_cast<MatVecProdH2<dim,double,neq1>*>(this->mvp1);
+    if (mvph2) 
+      return dynamic_cast<DistMat<double,neq1>*>(mvph2);
+    return NULL;
+  }
+
+  DistMat<double,neq2>* GetJacobian2() { 
+    MatVecProdH1<dim,double,neq2>* mvph1 = 
+      dynamic_cast<MatVecProdH1<dim,double,neq2>*>(this->mvp2);
+    if (mvph1) 
+      return dynamic_cast<DistMat<double,neq2>*>(mvph1);
+    MatVecProdH2<dim,double,neq2>* mvph2 = 
+      dynamic_cast<MatVecProdH2<dim,double,neq2>*>(this->mvp2);
+    if (mvph2) 
+      return dynamic_cast<DistMat<double,neq2>*>(mvph2);
+    return NULL;
+  }
 
 };
 

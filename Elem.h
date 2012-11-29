@@ -899,6 +899,12 @@ class ElemSet {
 
 public:
 
+  BlockAlloc& getBlockAllocator() { return memElems; }
+
+  // Dummy constructor.  Sometimes we need to create a dummy elem set
+  // object.
+  ElemSet() : elems(NULL) { }
+
   ElemSet(int);
   ~ElemSet();
 

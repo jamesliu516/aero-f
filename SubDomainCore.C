@@ -4831,3 +4831,80 @@ void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellSt
   faces.attachHigherOrderMF(higherOrderMF);
 }
 
+void SubDomain::getSurfaceNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    int code = faces[i].getCode();
+    if (code != BC_SLIP_WALL_MOVING &&
+        code != BC_SLIP_WALL_FIXED && code != BC_ADIABATIC_WALL_MOVING &&
+        code != BC_ADIABATIC_WALL_FIXED && code != BC_ISOTHERMAL_WALL_MOVING &&
+        code != BC_ISOTHERMAL_WALL_FIXED)
+      continue;
+
+    for (int k = 0; k < faces[i].numNodes(); ++k)
+      boundaryNodes.insert(faces[i][k]); 
+    
+  }
+}
+
+
+void SubDomain::getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    int code = faces[i].getCode();
+    if (code != BC_SYMMETRY && code != BC_SLIP_WALL_MOVING &&
+        code != BC_SLIP_WALL_FIXED && code != BC_ADIABATIC_WALL_MOVING &&
+        code != BC_ADIABATIC_WALL_FIXED && code != BC_ISOTHERMAL_WALL_MOVING &&
+        code != BC_ISOTHERMAL_WALL_FIXED)
+      continue;
+
+    for (int k = 0; k < faces[i].numNodes(); ++k)
+      boundaryNodes.insert(faces[i][k]); 
+    
+  }
+}
+
+void SubDomain::getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    int code = faces[i].getCode();
+    if (code != BC_OUTLET_MOVING && code != BC_OUTLET_FIXED &&
+        code != BC_INLET_MOVING && code != BC_INLET_FIXED)  
+      continue;
+
+    for (int k = 0; k < faces[i].numNodes(); ++k)
+      boundaryNodes.insert(faces[i][k]); 
+    
+  }
+}
+
+void SubDomain::getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+
+  for(int iSub=0; iSub<numNeighb; iSub++) {
+    for(int i=0; i<sharedNodes->num(iSub); i++) {
+      int me = (*sharedNodes)[iSub][i];
+      boundaryNodes.insert(me);
+    }
+  }
+}
+
+void SubDomain::constructLines(std::vector<std::vector<int>*>& pLines, int& numLines) {
+
+  std::tr1::unordered_set<int> surfaceNodes;
+  std::tr1::unordered_set<int> subdBoundaryNodes;
+
+  getSurfaceNodes(surfaceNodes);
+  getSubDomainBoundaryNodes(subdBoundaryNodes);
+
+  Vec<int> available(numNodes());
+  available = 1;
+
+  for (int i = 0; i < numNodes(); ++i) {
+
+  }
+  
+}
+
