@@ -85,6 +85,11 @@ public:
 
   NodalGrad<dim, Scalar> &operator() (int i) const { return *subNodalGrad[i]; }
 
+  DistSVec<Scalar,dim>& getX() { return *ddx; }
+  DistSVec<Scalar,dim>& getY() { return *ddy; }
+  DistSVec<Scalar,dim>& getZ() { return *ddz; }
+  DistSVec<double,6>& getR() { return *R; }
+
   void updateFixes();
 
   void computeWeights(DistSVec<double,3> &);

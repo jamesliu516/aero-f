@@ -29,9 +29,14 @@ protected:
 
   Communicator *com;
 
+  bool ownsCommPatterns;
+
 public:
 
   DistMat(Domain *);
+  
+  DistMat(Domain*, CommPattern<double> *, CommPattern<bcomp> *,
+          CommPattern<Scalar> *, CommPattern<Scalar> *);
   ~DistMat();
 
   virtual DistMat<Scalar,dim> &operator= (const Scalar) = 0;
@@ -81,6 +86,20 @@ DistMat<Scalar,dim>::DistMat(Domain *domain)
   diagMatPat->finalize();
   offDiagMatPat->finalize();
 
+}
+
+template<class Scalar, int dim>  
+DistMat<Scalar,dim>::DistMat(Domain* domain, CommPattern<double> * a1, CommPattern<bcomp> * a2,
+                             CommPattern<Scalar> * a3, CommPattern<Scalar> * a4) {
+
+  subDomain = NULL;
+
+  com = domain->getCommunicator();
+  
+  vecPat = a1;
+  compVecPat = a2;
+  diagMatPat = a3;
+  offDiagMatPat = a4;
 }
 
 //------------------------------------------------------------------------------
