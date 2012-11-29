@@ -1432,6 +1432,10 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
     Weights = 0.0; VWeights = 0.0;
     init = next_init;
     com->globalOp(1,&finished,MPI_PROD);
+    if(iter > 100000) {
+      fprintf(stderr,"ERROR: infinite loop in SpaceOperator::updateSweptNodes. Abort...\n");
+      exit(-1);
+    }
   }
 
 #pragma omp parallel for
@@ -2758,6 +2762,10 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
     Weights = 0.0; VWeights = 0.0; PhiWeights = 0.0;
     init = next_init;
     this->com->globalOp(1,&finished,MPI_PROD);
+    if(iter > 100000) {
+      fprintf(stderr,"ERROR: infinite loop in MultiPhaseSpaceOperator::updateSweptNodes. Abort...\n");
+      exit(-1);
+    }
   }
 
   this->varFcn->primitiveToConservative(V, U, fluidId);
