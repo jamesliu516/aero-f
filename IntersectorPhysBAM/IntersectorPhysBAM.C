@@ -111,6 +111,11 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   delete []intersector;
   delete physInterface;
   delete floodFill;
+
+  if(stElem) delete[] stElem;
+  if(solidX) delete solidX;
+  if(solidX0) delete solidX0;
+  if(solidXn) delete solidXn;
 }
 
 //----------------------------------------------------------------------------

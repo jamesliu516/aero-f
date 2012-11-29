@@ -303,12 +303,15 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   delete wall_computer;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
-  //PJSA if (Fs) delete[] Fs;
+  if (Fs) operator delete[] (Fs, *this->com);
   if(ghostPoints) 
     {
       ghostPoints->deletePointers();
       delete ghostPoints;
     }
+
+  if (nodeTagCopy) delete nodeTagCopy;
+  if (nodeTag0Copy) delete nodeTag0Copy;
 }
 
 //------------------------------------------------------------------------------
