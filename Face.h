@@ -395,6 +395,10 @@ protected:
 
 public:
 
+  int getEdgeNum(int i) { return edgeNum(i); }
+
+  virtual void setEdgeNum(int edge_id, int l) = 0;
+
   void attachHigherOrderMF(class HigherOrderMultiFluid* mf) { higherOrderMF = mf; }
   void updateHHCoeffs(double dt) {hhcoeffs.currentDt = dt;}
   void updateHHState() {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i];}
@@ -989,6 +993,8 @@ public:
   /* Need to define constructor and destructor! */
   FaceSet(int);
   ~FaceSet();
+
+  BlockAlloc& getBlockAllocator() { return memFaces; }
 
   Face &operator[](int i) { return *faces[i]; }
 

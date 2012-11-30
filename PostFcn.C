@@ -859,7 +859,7 @@ Vec3D PostFcnNS::computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dud
 {
 
   Vec3D Fv;
-  // Could be useful later…
+  // Could be useful later
   /*
   if (wallFcn)
     Fv = wallFcn->computeForce(n, d2w, Vwall, Vface);

@@ -280,8 +280,8 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
-    if (ndMax!=numStNodes) {
-      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+    if ((!cracking && ndMax!=numStNodes) || (cracking && ndMax != cracking->totNodes())) {
+      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong; ndMax = %d; numStNodes = %d\n", ndMax , numStNodes);
       exit(1);
     }
 
@@ -381,8 +381,8 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
-    if (ndMax!=numStNodes) {
-      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+    if ((!cracking && ndMax!=numStNodes) || (cracking && ndMax != cracking->totNodes())) {
+      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong; ndMax = %d; numStNodes = %d\n", ndMax , numStNodes);
       exit(1);
     }
 

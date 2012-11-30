@@ -19,6 +19,8 @@
 
 #include <HigherOrderMultiFluid.h>
 
+#include <tr1/unordered_set>
+
 #ifdef OLD_STL
 #include <map.h>
 #else
@@ -82,6 +84,17 @@ template<class Scalar, int dim> class GenMat;
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
+
+  EdgeDef() { }
+
+  EdgeDef(int glLeft, int glRight, int edgeNum, 
+          int sign) : glLeft(glLeft), glRight(glRight),
+                      edgeNum(edgeNum), sign(sign) {
+
+  }
+
+  EdgeDef(const EdgeDef& oth) : glLeft(oth.glLeft), glRight(oth.glRight),
+                                edgeNum(oth.edgeNum), sign(oth.sign) { }
 
   int glLeft, glRight, edgeNum, sign;
 
@@ -189,6 +202,9 @@ public:
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
 
+  EdgeDef** getSharedEdges() { return sharedEdges; }
+  const int* getNumSharedEdges() const { return numSharedEdges; }
+
 	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
 
   Connectivity *createElemBasedConnectivity();
@@ -216,6 +232,13 @@ public:
   // Returns -1 if it does not exist.  Warning: This method is O(N)
   int getLocalNodeNum(int globNodeNum) const;
   // geometry
+
+  void getSurfaceNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
+  void getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
+  void getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
+  void getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
+
+  void constructLines(std::vector<std::vector<int>*>& pLines, int& numLines);
 
   void setFaceType(int *);
   void setNodeType(int*, CommPattern<int> &);
