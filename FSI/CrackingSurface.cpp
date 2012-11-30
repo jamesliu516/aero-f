@@ -8,6 +8,7 @@
 #include<FSI/CrackingSurface.h>
 #include<cstdlib>
 #include <fstream>
+#include <iostream>
 
 using std::map;
 using std::set;
@@ -412,4 +413,6 @@ void CrackingSurface::readCrackingData(std::ifstream& restart_file) {
 
   restart_file.read(reinterpret_cast<char*>(cracked), sizeof(bool)*nTotalQuads);
   restart_file.read(reinterpret_cast<char*>(deleted), sizeof(bool)*nTotalQuads);
+
+  std::cout << "Read cracking surface, with " << nTotalNodes << " total nodes, " << nUsedNodes << " used nodes" << std::endl;
 }
