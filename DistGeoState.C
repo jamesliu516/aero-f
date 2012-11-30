@@ -1,5 +1,6 @@
 #include <DistGeoState.h>
 
+#include <DistInfo.h>
 #include <IoData.h>
 #include <TimeData.h>
 #include <Domain.h>
@@ -152,106 +153,46 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
 //------------------------------------------------------------------------------
 
-DistGeoState::DistGeoState(const GeoData& data, Domain *dom) : data(data), domain(dom)
+DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo,DistInfo& faceNormDistInfo)
+: data(data), domain(dom), Xnm1(0), Xnm2(0), Xdot(0), Xsave(0), edgeNorm_nm1(0), edgeNormVel_nm1(0), edgeNorm_nm2(0), edgeNormVel_nm2(0),
+    faceNorm_nm1(0), faceNormVel_nm1(0), faceNorm_nm2(0), faceNormVel_nm2(0), ctrlVol_save(0), Xsa(0), dXsa(0), dEdgeNorm(0), dFaceNorm(0),
+    dEdgeNormVel(0), dFaceNormVel(0)
 {
   numLocSub = domain->getNumLocSub();
   com = domain->getCommunicator();
   oolscale = 1.0;
 
-  if (data.use_n) {
-    Xn = new DistSVec<double,3>(domain->getNodeDistInfo());
-    ctrlVol_n = new DistVec<double>(domain->getNodeDistInfo());
-    // Initialize the values
-    *Xn = 0.0;
-    *ctrlVol_n = 0.0;
-  } else {
-    Xn = 0;
-    ctrlVol_n = 0;
-  }
+  Xn = new DistSVec<double,3>(nodeDistInfo);
+  ctrlVol_n = new DistVec<double>(nodeDistInfo);
+  ctrlVol_nm1 = new DistVec<double>(nodeDistInfo);
+  ctrlVol_nm2 = new DistVec<double>(nodeDistInfo);
+  // Initialize the values
+  *Xn = 0.0;
+  *ctrlVol_n = 0.0;
+  *ctrlVol_nm1 = 0.0;
+  *ctrlVol_nm2 = 0.0;
 
-  if (data.use_nm1) {
-    Xnm1 = new DistSVec<double,3>(domain->getNodeDistInfo());
-    ctrlVol_nm1 = new DistVec<double>(domain->getNodeDistInfo());
-    // Initialize the values
-    *Xnm1 = 0.0;
-    *ctrlVol_nm1 = 0.0;
-  } else {
-    Xnm1 = 0;
-    ctrlVol_nm1 = 0;
-  }
+  d2wall = new DistVec<double>(nodeDistInfo);
 
-  if (data.use_nm2) {
-    Xnm2 = new DistSVec<double,3>(domain->getNodeDistInfo());
-    ctrlVol_nm2 = new DistVec<double>(domain->getNodeDistInfo());
-    // Initialize the values
-    *Xnm2 = 0.0;
-    *ctrlVol_nm2 = 0.0;
-  } else {
-    Xnm2 = 0;
-    ctrlVol_nm2 = 0;
-  }
+  edgeNorm    = new DistVec<Vec3D>(edgeDistInfo);
+  edgeNormVel = new DistVec<double>(edgeDistInfo);
 
-  Xdot = new DistSVec<double,3>(domain->getNodeDistInfo());
-
-// for mesh motion (ALE) with RK2 only
-  if (data.use_save) { //true only if explicit with moving mesh
-    ctrlVol_save = new DistVec<double>(domain->getNodeDistInfo());
-    Xsave = new DistSVec<double,3>(domain->getNodeDistInfo());
-  } else {
-    ctrlVol_save = 0;
-    Xsave = 0;
-  }
-// end ALE-RK2
-
-  d2wall = 0;
-
-  edgeNorm    = new DistVec<Vec3D>(domain->getEdgeDistInfo());
-  edgeNormVel = new DistVec<double>(domain->getEdgeDistInfo());
-  edgeNorm_nm1    = 0;
-  edgeNormVel_nm1 = 0;
-  edgeNorm_nm2    = 0;
-  edgeNormVel_nm2 = 0;
-
-  faceNorm    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
-  faceNormVel = new DistVec<double>(domain->getFaceNormDistInfo());
-  faceNorm_nm1    = 0;
-  faceNormVel_nm1 = 0;
-  faceNorm_nm2    = 0;
-  faceNormVel_nm2 = 0;
+  faceNorm    = new DistVec<Vec3D>(faceNormDistInfo);
+  faceNormVel = new DistVec<double>(faceNormDistInfo);
   
   inletNodeNorm = new DistVec<Vec3D>(domain->getInletNodeDistInfo());
   numFaceNeighb = new DistVec<int>(domain->getInletNodeDistInfo());
 
-
-// Included (MB)
-//  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_){
-    optFlag = 1;
-    Xsa = new DistSVec<double,3>(domain->getNodeDistInfo());
-    dXsa = new DistSVec<double,3>(domain->getNodeDistInfo());
-    dEdgeNorm = new DistVec<Vec3D>(domain->getEdgeDistInfo());
-    dFaceNorm = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
-    dEdgeNormVel = new DistVec<double>(domain->getEdgeDistInfo());
-    dFaceNormVel = new DistVec<double>(domain->getFaceNormDistInfo());
-//  }
-
-  if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_GCL) {
-    edgeNorm_nm1    = new DistVec<Vec3D>(domain->getEdgeDistInfo());
-    edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNorm_nm1    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
-  } 
-  else if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_EZGCL) {
-    edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
-  } 
-  else if (data.typeNormals == DGCLData::IMPLICIT_THIRD_ORDER_EZGCL) {
-    edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    edgeNormVel_nm2 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
-    faceNormVel_nm2 = new DistVec<double>(domain->getFaceNormDistInfo());
-  } 
-
   subGeoState = new GeoState*[numLocSub];
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
+                                     (*ctrlVol_nm2)(iSub),
+                                     (*d2wall)(iSub),
+                                     (*edgeNorm)(iSub), (*faceNorm)(iSub),
+                                     (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
+                                     (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
 }
 
 //------------------------------------------------------------------------------

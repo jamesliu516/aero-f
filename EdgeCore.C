@@ -24,6 +24,7 @@ EdgeSet::EdgeSet()
   masterFlag= 0;
   mp        = new MapPair;
   sampleMesh = false;
+  numSampledEdges = 0;
 
   programmedBurn = 0;
   higherOrderMF = 0;
