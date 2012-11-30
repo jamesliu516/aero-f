@@ -17,3 +17,5 @@ bin/*
 syntax: regexp
 .*\#.*\#$
 Project/*
+Release/*
+Debug/*

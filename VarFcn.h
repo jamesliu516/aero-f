@@ -142,6 +142,11 @@ public:
   }
 
   double computeTemperature(double *V, int tag=0) const{check(tag); return varFcn[tag]->computeTemperature(V); }
+  void computeTemperatureGradient(double *V,double* Tg, int tag=0) const{check(tag); varFcn[tag]->computeTemperatureGradient(V,Tg); }
+  void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
+                                 double& Tpp,int tag=0) const { 
+    check(tag); varFcn[tag]->computeTemperatureHessian(V,Trr,Trp,Tpp);
+  }
   double computeRhoEnergy(double *V, int tag=0)   const{check(tag); return varFcn[tag]->computeRhoEnergy(V); }
   //this function computes the internal energy (=rho*e-0.5*rho*u^2)
   double computeRhoEpsilon(double *V, int tag=0)  const{ check(tag); return varFcn[tag]->computeRhoEpsilon(V); }

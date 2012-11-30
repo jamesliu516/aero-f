@@ -43,6 +43,7 @@ struct Vec3D {
   void print(const char *msg = "") { fprintf(stdout, "%s(%e %e %e)\n", msg, v[0], v[1], v[2]); }
 
   double norm() { return(sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2])); }
+  double normsq() { return(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); }
 };
 
 //------------------------------------------------------------------------------
