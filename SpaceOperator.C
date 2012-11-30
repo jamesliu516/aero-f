@@ -1380,9 +1380,9 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
         init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1);
   next_init = init;
 
-  int iter=0;
+  int iter=0, maxIter=1e6;
   int finished = 0;
-  while(finished == 0){++iter;finished = 1;
+  while(finished == 0 && iter < maxIter){++iter;finished = 1;
     switch(phaseChangeChoice){
     case 0: 
 	  switch (phaseChangeAlg) {
@@ -1432,10 +1432,10 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
     Weights = 0.0; VWeights = 0.0;
     init = next_init;
     com->globalOp(1,&finished,MPI_PROD);
-    if(iter > 100000) {
-      fprintf(stderr,"ERROR: infinite loop in SpaceOperator::updateSweptNodes. Abort...\n");
-      exit(-1);
-    }
+  }
+  if(iter == maxIter) {
+    fprintf(stderr,"ERROR: abnormal termination in SpaceOperator::updateSweptNodes. Abort...\n");
+    exit(-1);
   }
 
 #pragma omp parallel for
@@ -2670,9 +2670,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 
   next_init = init;
 
-  int iter=0;
+  int iter=0, maxIter=1e6;
   int finished = 0;
-  while(finished == 0){++iter;finished = 1;
+  while(finished == 0 && iter < maxIter){++iter;finished = 1;
     switch(phaseChangeChoice){
     case 0: this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,
                                                           init, next_init, distLSS, fluidId);
@@ -2762,10 +2762,10 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
     Weights = 0.0; VWeights = 0.0; PhiWeights = 0.0;
     init = next_init;
     this->com->globalOp(1,&finished,MPI_PROD);
-    if(iter > 100000) {
-      fprintf(stderr,"ERROR: infinite loop in MultiPhaseSpaceOperator::updateSweptNodes. Abort...\n");
-      exit(-1);
-    }
+  }
+  if(iter == maxIter) {
+    fprintf(stderr,"ERROR: abnormal termination in SpaceOperator::updateSweptNodes. Abort...\n");
+    exit(-1);
   }
 
   this->varFcn->primitiveToConservative(V, U, fluidId);

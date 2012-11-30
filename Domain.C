@@ -3642,7 +3642,8 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
 
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
-  assemble(levelPat, next_init);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
 }
 
 //------------------------------------------------------------------------------
@@ -3682,7 +3683,8 @@ void Domain::computeWeightsLeastSquaresForEmbeddedStruct(
 
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
-  assemble(levelPat, next_init);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
   if (R) delete R;
   if (count) delete count;
 }
@@ -3706,7 +3708,8 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
   assemble(vecPat, VWeights);
   assemble(phiVecPat, PhiWeights);
   assemble(volPat, Weights);
-  assemble(levelPat, next_init);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
 }
 
 //------------------------------------------------------------------------------
