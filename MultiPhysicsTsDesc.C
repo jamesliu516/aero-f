@@ -154,6 +154,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
 //        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
+        std::cout << "nNodes = " << nNodes << std::endl;
         int nElems = dynNodalTransfer->numStElems();
         double *xyz = dynNodalTransfer->getStNodes();
         int (*abc)[3] = dynNodalTransfer->getStElems();
