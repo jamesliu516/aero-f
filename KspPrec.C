@@ -137,7 +137,7 @@ void JacobiPrec<Scalar,dim, Scalar2>::getData(DistMat<MatScal,dim> &B)
 */
 template<class Scalar, int dim, class Scalar2>
 IluPrec<Scalar,dim, Scalar2>::IluPrec(PcData &pcData, Domain *domain, int **nodeType) : 
-  DistMat<Scalar,dim>(domain), jw(domain->getNodeDistInfo())  {
+  DistMat<Scalar,dim>(domain), jw(domain->getNodeDistInfo()) , domain(domain) {
 
 #ifdef _OPENMP
   this->numLocSub = DistMat<Scalar,dim>::numLocSub; //BUG omp
@@ -244,6 +244,11 @@ void IluPrec<Scalar,dim, Scalar2>::apply(DistSVec<Scalar2,dim> &y, DistSVec<Scal
 
   int iSub;
 
+  static int cnt = 0;
+  static double prec_time = 0.0;
+  ++cnt; 
+  double t = domain->getTimer()->getTime();
+  
   DistSVec<Scalar2, dim> tmp(y);
 
   if (type == PcData::ASH) tmp.restrict();
@@ -266,6 +271,9 @@ void IluPrec<Scalar,dim, Scalar2>::apply(DistSVec<Scalar2,dim> &y, DistSVec<Scal
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->addRcvData(*vPat, x.subData(iSub));
 
+  prec_time += domain->getTimer()->getTime() - t;
+//  if (cnt % 50 == 0)
+//    domain->getCommunicator()->fprintf(stdout, "Prec time = %e\n",prec_time);
 }
 
 //------------------------------------------------------------------------------

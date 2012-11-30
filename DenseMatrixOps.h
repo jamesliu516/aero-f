@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <cmath>
+
 #include <complex>
 
 typedef std::complex<double> bcomp;
@@ -130,7 +132,9 @@ dim);
     ludfdbksb(a,index,b,n);
     delete [] index;
   }
-                                                        
+  
+  inline static double abs(double x) { return (x > 0.0 ? x : (-x)); }
+  inline static double abs(bcomp x) { return std::abs(x); }
                                                         
   static void ludec(Scalar *a, int *index, double d, int n)  {
                                                         
@@ -214,10 +218,6 @@ dim);
     }
                                                         
   }
-
-
-
-
 };
 
 //------------------------------------------------------------------------------
