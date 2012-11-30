@@ -113,6 +113,10 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
               ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
   
   fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
+
+  badlinsolve = false;
+  dt_coeff = 1.0;
+  dt_coeff_count = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -622,6 +626,7 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     printf("WARNING: Cfl0 is chosen too big!! \n");
 
   double dt_glob;
+  updateDtCoeff();
   if (data->dt_imposed > 0.0) 
     dt_glob = data->dt_imposed;
   else 
@@ -642,9 +647,34 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     dt_glob = *dtLeft / double(*numSubCycles);
     *dtLeft -= dt_glob;
   }
+
+  dt_glob *= dt_coeff;
+
   data->computeCoefficients(*dt, dt_glob);
 
   return dt_glob;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::updateDtCoeff(){
+  if(badlinsolve){
+    dt_coeff_count=0;
+    dt_coeff /= 2.0;
+    if(dt_coeff<0.0001){
+      printf("Could not resolve unphysicality by reducing timestep. Aborting.");
+      exit(-1);
+    }
+  }
+  dt_coeff_count++;
+  
+  if(dt_coeff_count>4){
+    dt_coeff *= 2.0;
+    dt_coeff=min(dt_coeff,1.0);
+    dt_coeff_count = 2;
+  }
 
 }
 
