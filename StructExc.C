@@ -281,8 +281,10 @@ void StructExc::getNewCracking(int numConnUpdate, int numLSUpdate, int* phantoms
   if(strCom->cpuNum()==0)
     strCom->recFrom(CRACK_TAG2, integer_pack, integer_pack_size);
   com->broadcast(integer_pack_size, integer_pack);
-  for(int i=0; i<5*numConnUpdate; i++)
+  for(int i=0; i<5*numConnUpdate; i++) {
     phantoms[i] = integer_pack[i];
+    assert(integer_pack[i] >= 0);
+  }
   for(int i=0; i<numLSUpdate; i++)
     phiIndex[i] = integer_pack[5*numConnUpdate+i];
   for(int i=0; i<newNodes; i++) {
