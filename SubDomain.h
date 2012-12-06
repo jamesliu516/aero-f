@@ -19,7 +19,7 @@
 
 #include <HigherOrderMultiFluid.h>
 
-#include <tr1/unordered_set>
+#include <Aerof_unordered_set.h>
 
 #ifdef OLD_STL
 #include <map.h>
@@ -233,10 +233,10 @@ public:
   int getLocalNodeNum(int globNodeNum) const;
   // geometry
 
-  void getSurfaceNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
-  void getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
-  void getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
-  void getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const;
+  void getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getSolidBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getFarFieldBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getSubDomainBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
 
   void constructLines(std::vector<std::vector<int>*>& pLines, int& numLines);
 

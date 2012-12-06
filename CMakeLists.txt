@@ -369,15 +369,19 @@ ENDIF(EXTRALIB)
 
 SET(INC_DIR .)
 
+FIND_PACKAGE(Boost 1.19.0)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+endif(Boost_FOUND)
+
 ##############################
 # For the embedded framework #
 ##############################
 if (NOT WITH_PHYSBAM EQUAL 0)
 
-  FIND_PACKAGE(Boost 1.19.0 REQUIRED)
-  if(Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-  endif(Boost_FOUND)
+  if(NOT Boost_FOUND) 
+    message(FATAL_ERROR "Compiling with PhysBAM requires boost")
+  endif(NOT Boost_FOUND)
 
   SET(INC_DIR PhysBAM_Interface PhysBAM_Interface/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR})
