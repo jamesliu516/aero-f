@@ -104,12 +104,12 @@ class DebugTools {
 
   static void SpitRank() {
 
-#ifdef AEROF_MPI_DEBUG
+//#ifdef AEROF_MPI_DEBUG
 
     int rnk;
     MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
     std::cout << "Rank is " << rnk << std::endl;
-#endif
+//#endif
   }
 
   template <class Scalar,int dim>

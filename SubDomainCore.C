@@ -4746,7 +4746,6 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
     }
   }
 }
-// ASSUME Max FLUID-ID IS 2
 void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,
                                  int dimLS)
 {
