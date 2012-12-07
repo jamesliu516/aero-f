@@ -259,7 +259,7 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
 
     for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
       if(LSS.isOccluded(0.0,iNode)) {
-        phi[iNode][dim-1] = 0.0;
+        //phi[iNode][dim-1] = 0.0;
         tag[iNode] = LSS.numOfFluids();
         continue;
       }

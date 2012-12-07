@@ -2779,7 +2779,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
 {
   /* -------------------------------------------------------------
       Reset PhiV for the first layer of nodes near the interface
-      Rule #1. If it is occluded, set PhiV to 0.
+      Rule #1. If it is occluded, set PhiV to 0. (temporarily removed rule 1, seems to be causing issues)
       Rule #2. If it is near the FS interface but not FF interface, set PhiV to its dist to wall.
       Rule #3. If it is near both FS and FF interface, set PhiV to min(PhiV, d2wall).
       Rule #4. Otherwise, do nothing.
@@ -2800,7 +2800,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
     for(int i=0; i<tag.size(); i++) {
       // Rule #1.
       if(LSS.isOccluded(0.0,i)) {
-        phiv[i][dimLS-1] = 0.0;
+        //phiv[i][dimLS-1] = 0.0;
         if(id[i]!=LSS.numOfFluids()) {//just for debug
           fprintf(stderr,"BUG: Node %d is occluded but its status is %d. numOfFluids = %d.\n", locToGlobNodeMap[i]+1, id[i], LSS.numOfFluids());
           exit(-1);

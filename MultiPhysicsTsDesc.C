@@ -405,8 +405,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 {
   this->geoState->update(*this->X, *this->A);
   
-  if(withCracking && withMixedLS)
-    fluidSelector.checkLSConsistency(Phi);
+//  if(withCracking && withMixedLS)
+//    fluidSelector.checkLSConsistency(Phi);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
     if (this->lsMethod == 0)
