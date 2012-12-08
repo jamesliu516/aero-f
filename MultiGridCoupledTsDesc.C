@@ -82,33 +82,33 @@ smooth0(DistSVec<double,dim>& x,int steps) {
 
   int i;
   double dummy = 0.0;
-  updateStateVectors(x, 0);
+  this->updateStateVectors(x, 0);
   for (i = 0; i < steps; ++i) {
 
-    computeTimeStep(globalIt,&dummy, x);
+    this->computeTimeStep(globalIt,&dummy, x);
     ++globalIt;
-    computeFunction(0, x, R(0));
-    computeJacobian(0, x, R(0));
+    this->computeFunction(0, x, R(0));
+    this->computeJacobian(0, x, R(0));
     if (smoothWithGMRES)
-      setOperators(x);
+      this->setOperators(x);
     else
       smoothingMatrices->acquire( *this->GetJacobian());
   
     R(0) *= -1.0;
     if (smoothWithGMRES)
-      solveLinearSystem(0, R(0),dx(0));
+      this->solveLinearSystem(0, R(0),dx(0));
     else
       smoothingMatrices->apply(0, dx, R);
     
     x += dx(0);
     
-    updateStateVectors(x, 0);
-    monitorConvergence(0, x);
+    this->updateStateVectors(x, 0);
+    this->monitorConvergence(0, x);
     R(0) = -1.0*this->getCurrentResidual();
     
   }
   if (i == 0) {
-    monitorConvergence(0, x);
+    this->monitorConvergence(0, x);
     R(0) = -1.0*this->getCurrentResidual();
   }
 }
