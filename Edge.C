@@ -1093,7 +1093,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      Vj[k] = V[j][k];
 	    }
 	  }
-	    
+	
+          // Check for negative pressures/densities.
+          // If a negative value is detected, drop back to first order extrapolation 
+          // (i.e., the Riemann solution)
+          if (Vi[0] <= 0.0)
+            Vi[0] = V[i][0];
+          if (Vi[4] <= 0.0)
+            Vi[4] = V[i][4];
+          if (Vj[0] <= 0.0)
+            Vj[0] = V[j][0];
+          if (Vj[4] <= 0.0)
+            Vj[4] = V[j][4];
+        
+    
 	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 					 Wi,Wj,i,j,l,dx,true);
 
@@ -1139,9 +1152,23 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  if (it == 1) {
 	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
 	    Vec<double> &weight = riemann.getRiemannWeight();
+            double updatei[dim],updatej[dim];
 	    for (int k = 0; k < dim; ++k) {
-	      rupdate[i][k] += (2.0*Vj[k]-V[j][k]);
-	      rupdate[j][k] += (2.0*Vi[k]-V[i][k]);
+              updatei[k] = (2.0*Vj[k]-V[j][k]);
+              updatej[k] = (2.0*Vi[k]-V[i][k]);
+            }
+            if (updatei[0] <= 0.0 || updatei[4] <= 0.0) {
+	      for (int k = 0; k < dim; ++k)
+                updatei[k] = Vj[k];
+            }
+            if (updatej[0] <= 0.0 || updatej[4] <= 0.0) {
+	      for (int k = 0; k < dim; ++k) 
+                updatej[k] = Vi[k];
+            }
+
+	    for (int k = 0; k < dim; ++k) {
+	      rupdate[i][k] += updatei[k];
+	      rupdate[j][k] += updatej[k];
 	    }
 	    weight[i] += 1.0;
 	    weight[j] += 1.0;	  
@@ -1181,8 +1208,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    if (it == 1 /*&& fluidId[j] != fluidId[i]*/) {
 	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
 	      Vec<double> &weight = riemann.getRiemannWeight();
+              double updatej[dim];
+   	      for (int k = 0; k < dim; ++k) {
+                updatej[k] = (2.0*Vi[k]-V[i][k]);
+              }
+              if (updatej[0] <= 0.0 || updatej[4] <= 0.0) {
+	        for (int k = 0; k < dim; ++k) 
+                  updatej[k] = Vi[k];
+              }
 	      for (int k = 0; k < dim; ++k) {
-		rupdate[j][k] += (2.0*Vi[k]-V[i][k]);
+		rupdate[j][k] += updatej[k];
 	      }
 	      weight[j] += 1.0;
 	    }
@@ -1240,8 +1275,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    if (it == 1) {
 	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
 	      Vec<double> &weight = riemann.getRiemannWeight();
+              double updatei[dim];
+   	      for (int k = 0; k < dim; ++k) {
+                updatei[k] = (2.0*Vj[k]-V[j][k]);
+              }
+              if (updatei[0] <= 0.0 || updatei[4] <= 0.0) {
+	        for (int k = 0; k < dim; ++k) 
+                  updatei[k] = Vj[k];
+              }
 	      for (int k = 0; k < dim; ++k) {
-		rupdate[i][k] += (2.0*Vj[k]-V[j][k]);
+		rupdate[i][k] += updatei[k];
 	      }
 	      weight[i] += 1.0;
 	    }
