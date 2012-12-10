@@ -4830,7 +4830,7 @@ void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellSt
   faces.attachHigherOrderMF(higherOrderMF);
 }
 
-void SubDomain::getSurfaceNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+void SubDomain::getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
 
   for (int i = 0; i < faces.size(); ++i) {
 
@@ -4848,7 +4848,7 @@ void SubDomain::getSurfaceNodes(std::tr1::unordered_set<int>& boundaryNodes) con
 }
 
 
-void SubDomain::getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+void SubDomain::getSolidBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
 
   for (int i = 0; i < faces.size(); ++i) {
 
@@ -4865,7 +4865,7 @@ void SubDomain::getSolidBoundaryNodes(std::tr1::unordered_set<int>& boundaryNode
   }
 }
 
-void SubDomain::getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+void SubDomain::getFarFieldBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
 
   for (int i = 0; i < faces.size(); ++i) {
 
@@ -4880,7 +4880,7 @@ void SubDomain::getFarFieldBoundaryNodes(std::tr1::unordered_set<int>& boundaryN
   }
 }
 
-void SubDomain::getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundaryNodes) const {
+void SubDomain::getSubDomainBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
 
   for(int iSub=0; iSub<numNeighb; iSub++) {
     for(int i=0; i<sharedNodes->num(iSub); i++) {
@@ -4890,10 +4890,11 @@ void SubDomain::getSubDomainBoundaryNodes(std::tr1::unordered_set<int>& boundary
   }
 }
 
+// This implementation is currently incomplete (AM)
 void SubDomain::constructLines(std::vector<std::vector<int>*>& pLines, int& numLines) {
 
-  std::tr1::unordered_set<int> surfaceNodes;
-  std::tr1::unordered_set<int> subdBoundaryNodes;
+  Aerof_unordered_set<int>::type surfaceNodes;
+  Aerof_unordered_set<int>::type subdBoundaryNodes;
 
   getSurfaceNodes(surfaceNodes);
   getSubDomainBoundaryNodes(subdBoundaryNodes);
