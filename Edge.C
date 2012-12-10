@@ -1106,6 +1106,19 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    if (s > 0.1)
 	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s;
 	  }
+
+          // Check for negative pressures/densities.
+          // If a negative value is detected, drop back to first order extrapolation 
+          // (i.e., the Riemann solution)
+          if (Vi[0] <= 0.0)
+            Vi[0] = Wi[0];
+          if (Vi[4] <= 0.0)
+            Vi[4] = Wi[4];
+          if (Vj[0] <= 0.0)
+            Vj[0] = Wj[0];
+          if (Vj[4] <= 0.0)
+            Vj[4] = Wj[4];
+        
 	    
 	  if (s < 0.9)
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
