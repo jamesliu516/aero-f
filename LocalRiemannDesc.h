@@ -3284,7 +3284,14 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
     
     double ud = u-ui;
     double q = 2.0*sqrt(a*b)/(b-1.0);
-    rhoi = pow(-ud/q+pow(rho,(b-1.0)*0.5), 2.0/(b-1.0));
+    double qp = -ud/q+pow(rho,(b-1.0)*0.5);
+    if (qp > 0.0)
+      rhoi = pow(qp, 2.0/(b-1.0));
+    else {
+      // will be handled by verification below.
+      rhoi = 0.0;
+    }
+     
     //pi = a*pow(rhoi,b)+pref;
     Vdummy[0] = rhoi;
     vf->getVarFcnBase(Id)->verification(0,Udummy,Vdummy);
