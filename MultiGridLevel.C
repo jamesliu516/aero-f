@@ -730,12 +730,12 @@ void assemble(Domain & domain, CommPattern<double> & commPat, Connectivity ** sh
 };
     
 template <class Scalar>
-void MultiGridLevel<Scalar>::mapNodeList(int iSub,std::tr1::unordered_set<int>& l) {
+void MultiGridLevel<Scalar>::mapNodeList(int iSub,Aerof_unordered_set<int>::type&  l) {
 
-  std::tr1::unordered_set<int> tmp(l);
+  Aerof_unordered_set<int>::type tmp(l);
   l.clear();
 
-  for (std::tr1::unordered_set<int>::iterator it = tmp.begin();
+  for (Aerof_unordered_set<int>::type::iterator it = tmp.begin();
        it != tmp.end(); ++it) {
 
     l.insert(parent->mapFineToCoarse(iSub,*it));
@@ -2169,7 +2169,6 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     SubDomain& subD(*domain.getSubDomain()[iSub]);
-    typedef std::tr1::unordered_set<int> PriorityNodes;
     PriorityNodes nodesOnSolidAndFront, nodesOnSolid,
                   nodesOnFarFieldAndFront, nodesOnFarField,
                   nodesOnSubDomainBoundaryAndFront, nodesOnSubDomainBoundary,

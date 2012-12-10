@@ -13,13 +13,12 @@
 #include <list>
 #include <set>
 
-#include <tr1/unordered_map>
 
 class Connectivity;
 class EdgeSet;
 template<class Scalar, int dim> class DistSVec;
 
-typedef std::tr1::unordered_set<int> PriorityNodes;
+typedef Aerof_unordered_set<int>::type PriorityNodes;
 
 template<class Scalar>
 class MultiGridLevel {
@@ -176,7 +175,7 @@ class MultiGridLevel {
 
     DistSVec<double,3>& getXn() const { return myGeoState->getXn(); }
     
-    void mapNodeList(int iSub,std::tr1::unordered_set<int>&);
+    void mapNodeList(int iSub,Aerof_unordered_set<int>::type&);
 
     enum SeedNodeChoice { Random, Mavripilis };
 
