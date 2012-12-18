@@ -1380,7 +1380,7 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
         init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1);
   next_init = init;
 
-  int iter=0, maxIter=1e6;
+  int iter=0, maxIter=1000000;
   int finished = 0;
   while(finished == 0 && iter < maxIter){++iter;finished = 1;
     switch(phaseChangeChoice){
@@ -2670,7 +2670,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 
   next_init = init;
 
-  int iter=0, maxIter=1e6;
+  int iter=0, maxIter=1000000;
   int finished = 0;
   while(finished == 0 && iter < maxIter){++iter;finished = 1;
     switch(phaseChangeChoice){
