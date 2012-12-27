@@ -10,6 +10,7 @@
 #include <GhostPoint.h>
 #include <complex>
 #include <HigherOrderMultiFluid.h>
+#include <LevelSet/LevelSetStructure.h>
 typedef std::complex<double> bcomp;
 #include <iostream>
 using std::cout;
@@ -356,9 +357,15 @@ public:
   template<int dimLS>
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
+  void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level,DistLevelSetStructure *distLSS=0);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
+  template<int dimLS>
+  void pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
+				DistSVec<double,dimLS> &d2wall, int level, 
+				DistVec<int> &sortedNodes, int *nSortedNodes,
+				int *firstCheckedNode,DistLevelSetStructure *distLSS=0,
+			 	DistVec<ClosestPoint> *closestPoints=0);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 

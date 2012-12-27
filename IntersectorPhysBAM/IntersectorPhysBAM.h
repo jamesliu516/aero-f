@@ -130,7 +130,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
-    DistVec<ClosestPoint> &getClosestPoints() {return *closest;}
+    DistVec<ClosestPoint> * getClosestPointsPointer() {return closest;}
+    DistVec<ClosestPoint> & getClosestPoints() {return *closest;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; }
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }

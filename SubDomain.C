@@ -3379,22 +3379,42 @@ void SubDomain::minRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 }
 
 //------------------------------------------------------------------------------
-
 template<class Scalar, int dim>
 void SubDomain::maxRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 {
-
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
-
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
-
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
       for (int j = 0; j < dim; ++j)
         if (buffer[iNode][j] > w[ (*sharedNodes)[iSub][iNode] ][j])
           w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
   }
+}
 
+//------------------------------------------------------------------------------
+// Adam 2011.09: Called from Domain::pseudoFastMarchingMethod. 
+// Need to take into account the updated value after communication
+template<class Scalar, int dim>
+void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim],int &nSortedNodes, Vec<int> &sortedNodes)
+{
+  assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
+
+  int sharedNodeID;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      sharedNodeID = (*sharedNodes)[iSub][iNode];
+      for (int j = 0; j < dim; ++j) {
+        if (buffer[iNode][j] > w[sharedNodeID][j]) {
+          w[sharedNodeID][j]        = buffer[iNode][j];
+	  sortedNodes[nSortedNodes] = sharedNodeID;
+	  nSortedNodes++;
+	}
+      }
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -5877,37 +5897,110 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
   }
 
 }
+
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level)
+void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level,LevelSetStructure *LSS)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
 
-  if(level==0){
+  if(level==1){
   // tag nodes that are closest to interface by looking at phi[i]*phi[j]
     Tag = 0;
-    edges.TagInterfaceNodes(lsdim,Tag,Phi);
+    edges.TagInterfaceNodes(lsdim,Tag,Phi,LSS);
 
   }else{
   // tag nodes that are neighbours of already tagged nodes.
-    int nNeighs,nei,k;
+    int nNeighs,nei,k,lowerLevel=level-1;
     for(int i=0; i<nodes.size(); i++){
 
-      if(Tag[i]==level){
+      if(Tag[i]==lowerLevel){
 
         nNeighs = NodeToNode->num(i);
         for(k=0;k<nNeighs;k++){
           nei = (*NodeToNode)[i][k];
           if(nei==i) continue;
-          if(Tag[nei]==0) Tag[nei] = level+1;
+          if(Tag[nei]==0) Tag[nei] = level;
         }
 
       }
     }
   }
+}
 
+//------------------------------------------------------------------------------
 
+template<int dimLS>
+void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
+					 SVec<double,dimLS> &d2wall, int level,
+					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
+					 LevelSetStructure *LSS,Vec<ClosestPoint> *closestPoint)
+{
+  if(!NodeToNode)
+     NodeToNode = createEdgeBasedConnectivity();
+  if(!NodeToElem) 
+     NodeToElem = createNodeToElementConnectivity();
+  if(level == 0) { // just get inactive nodes
+    nSortedNodes     = 0;
+    firstCheckedNode = 0;
+    for(int i=0;i<Tag.size();++i) {
+      if(!LSS->isActive(0.0,i))
+      {
+	d2wall[i][0] = 0.0;
+	Tag[i]       = 0;
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+    }
+  }
+  else if(level==1){
+/*
+    for(int i=0;i<closestPoint.size();++i) {
+      if(Tag[i]<0) {
+        if(closestPoint[i].nearInterface() && closestPoint[i].dist >= 0)
+        {
+  	  d2wall[i][0] = closestPoint[i].dist;
+	  Tag[i]       = 1;
+	  sortedNodes[nSortedNodes] = i;
+	  nSortedNodes++;
+	}
+      }
+    }
+*/
+//    Tag = -1;  // Tag is globally set to -1. 0 level are inactive nodes
+    firstCheckedNode = nSortedNodes;
+    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,nSortedNodes,LSS,closestPoint);
+  }
+  else{
+  // Tag nodes that are neighbours of already Tagged nodes and compute their distance
+    int nNeighs,nTets,nei,tet,lowerLevel=level-1;
+    int inter = nSortedNodes,fixedNode;
+    for(int i=firstCheckedNode;i<inter; i++){
+      fixedNode = sortedNodes[i];
+//      if(Tag[fixedNode] == 0) continue; //structure nodes
+      // Should be useless. Remove the following assert.Adam 2011.09
+      // if(Tag[fixedNode]==lowerLevel){
+      assert(Tag[fixedNode] == lowerLevel);
+      nNeighs = NodeToNode->num(fixedNode);
+      for(int k=0;k<nNeighs;k++){
+        nei = (*NodeToNode)[fixedNode][k];
+	 // Not necessary because of following test.
+       // if(nei==i) continue;
+        if(Tag[nei]<0) {
+          Tag[nei] = level;
+          sortedNodes[nSortedNodes] = nei;
+          nTets = NodeToElem->num(nei);
+          for(int j=0;j<nTets;j++) { 
+            tet        = (*NodeToElem)[nei][j];
+            elems[tet].FastMarchingDistanceUpdate(nei,Tag,lowerLevel,X,d2wall);
+          }
+          nSortedNodes++;
+        }  
+      }
+    }
+    firstCheckedNode = inter;
+  }
 }
 //------------------------------------------------------------------------------
 
@@ -7002,4 +7095,5 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
     }
   }
 }
-  
+ 
+ 
