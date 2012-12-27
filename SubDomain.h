@@ -883,6 +883,9 @@ public:
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
+  template<class Scalar, int dim>
+  void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],int &, Vec<int> &);
+
   template<class Scalar1, class Scalar2, int dim1, int dim2>
   void TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],
                           CommPattern<Scalar2> &sppsi, Scalar2 (*psi)[dim2]);
@@ -982,9 +985,14 @@ public:
   NodeSet &getNodes() { return nodes; }
 
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level, LevelSetStructure *LSS=0);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
+  template<int dimLS>
+  void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
+				SVec<double,dimLS> &d2wall, int level,
+			        Vec<int> &sortedNodes, int& nSortedNodes, int &firstCheckedNode,
+				LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);

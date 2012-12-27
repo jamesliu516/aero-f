@@ -1124,8 +1124,17 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-  else if (type == PostFcn::CONTROL_VOLUME) 
+  else if (type == PostFcn::CONTROL_VOLUME) { 
     Q = A;
+  else if (type == PostFcn::D2WALL) 
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      double* q = Q.subData(iSub);
+      for (int i=0; i<Q.subSize(iSub); ++i) {
+        q[i] = geoState->operator()(iSub).getDistanceToWall()[i];
+      }
+    }
+  }
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {

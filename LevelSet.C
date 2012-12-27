@@ -495,8 +495,8 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<dou
     Psi = 1.0;
 
     // tag nodes that are close to interface up to level 'bandlevel'
-    int level = 0;
-    for (level=0; level<bandlevel; level++)
+    int level = 1;
+    for (level=1; level<=bandlevel; level++)
       domain->TagInterfaceNodes(idim,Tag,Phi,level);
 
 

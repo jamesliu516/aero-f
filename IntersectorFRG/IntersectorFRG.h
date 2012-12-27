@@ -119,7 +119,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
-    DistVec<ClosestPoint> &getClosestPoints() {
+    DistVec<ClosestPoint> * getClosestPointsPointer() {return NULL;}
+    DistVec<ClosestPoint> & getClosestPoints() {
       fprintf(stderr,"ERROR: closest point not stored in IntersectorFRG.\n");exit(-1);
       DistVec<ClosestPoint> *toto = new DistVec<ClosestPoint>(status->info()); return *toto;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; } //for reset after failSafe

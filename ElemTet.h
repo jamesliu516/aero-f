@@ -184,6 +184,9 @@ public:
   template<int dim>
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
+  template<int dim>
+  void FastMarchingDistanceUpdate(int node,Vec<int> &Tag,int level,
+                                 SVec<double,3> &X,SVec<double,dim> &d2wall);
 
 
   template<int dim, class Obj>

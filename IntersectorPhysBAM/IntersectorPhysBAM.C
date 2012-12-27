@@ -1081,9 +1081,10 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
       ++numCloseNodes;
       for(int j=1;j<=candidates.Size();++j) addToPackage(i,candidates(j));
       Vec3D x0(X[i][0], X[i][1], X[i][2]);
-      if(distIntersector.cracking && 1 /*need a flag for 'multi-phase'*/)
+      if(distIntersector.cracking || 1 /*need a flag for 'multi-phase'*/)
         findNodeClosestPoint(i,x0,candidates); //fill closest[i]
-    } else {
+    } 
+    else {
       is_occluded[i]=false;
       closest[i].mode = -1; // set to "far"
     }
