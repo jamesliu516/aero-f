@@ -114,7 +114,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   
   fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
 
-  badlinsolve = false;
+  unphysical = false;
   dt_coeff = 1.0;
   dt_coeff_count = 0;
 }
@@ -627,8 +627,10 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
 
   double dt_glob;
   updateDtCoeff();
-  if (data->dt_imposed > 0.0) 
+  if (data->dt_imposed > 0.0) {
     dt_glob = data->dt_imposed;
+    dt_glob *= dt_coeff;
+  }
   else 
     dt_glob = max ( dtMin, (factor * data->dt_nm1));
 
@@ -648,8 +650,6 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     *dtLeft -= dt_glob;
   }
 
-  dt_glob *= dt_coeff;
-
   data->computeCoefficients(*dt, dt_glob);
 
   return dt_glob;
@@ -660,7 +660,8 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
 
 template<int dim>
 void DistTimeState<dim>::updateDtCoeff(){
-  if(badlinsolve){
+  if(unphysical){
+    unphysical = false;
     dt_coeff_count=0;
     dt_coeff /= 2.0;
     if(dt_coeff<0.0001){
