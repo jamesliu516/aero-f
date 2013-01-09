@@ -85,7 +85,7 @@ private:
   int dt_coeff_count;
 
 public:
-  bool badlinsolve;
+  bool unphysical;
 
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
