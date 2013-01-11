@@ -719,13 +719,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   if (umax && isGFMPAR) {
     double udt = umax->min();
     if (udt < dt_glob) {
-      //dt_glob = udt;
-      //domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
-      //domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
+      domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
+      domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
       dt_glob = udt;
     }
   }
-                                                                           
+
   if (data->typeStartup == ImplicitData::MODIFIED &&
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
        (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
