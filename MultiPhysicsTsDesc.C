@@ -381,7 +381,8 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
   int numSubCycles = 1;
 
   double dt;
-  umax = 0.0;
+  umax = 0.0; 
+  
   dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                           &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
