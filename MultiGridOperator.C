@@ -150,7 +150,8 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
 #pragma omp parallel for
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
 
-    NodalGrad<dim,Scalar2> ngrad((*zero)(iSub), (*zero)(iSub), (*zero)(iSub));
+    NodalGrad<dim,Scalar2> ngrad((*zero)(iSub), (*zero)(iSub), (*zero)(iSub),
+	                         (*scalar_zero)(iSub), (*scalar_zero)(iSub), (*scalar_zero)(iSub));
     mgLevel->getEdges()[iSub]->template computeFiniteVolumeTerm<dim>(NULL, irey(iSub), fluxFcn,
                                          recFcn, dummy, (mgLevel->getGeoState())(iSub),
                                          (mgLevel->getGeoState().getXn())(iSub), V(iSub), ngrad, NULL, res(iSub),
