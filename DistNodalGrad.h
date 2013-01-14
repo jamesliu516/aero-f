@@ -56,6 +56,10 @@ class DistNodalGrad {
   DistSVec<Scalar,dim> *ddy;
   DistSVec<Scalar,dim> *ddz;
 
+  DistVec<Scalar> *dTdx;
+  DistVec<Scalar> *dTdy;
+  DistVec<Scalar> *dTdz;
+
   Domain *domain;
 
   NodalGrad<dim, Scalar> **subNodalGrad;
@@ -100,6 +104,10 @@ public:
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
                DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true, DistLevelSetStructure* =0);
+
+  template<class Scalar2>
+  void computeTemperatureGradient(int, DistSVec<double,3> &, DistVec<double> &,
+               DistVec<int> &, DistVec<Scalar2> &, DistLevelSetStructure* =0);
 
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &, DistVec<int> &, 
