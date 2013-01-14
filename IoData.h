@@ -2075,6 +2075,7 @@ struct EmbeddedFramework {
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
+  enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
