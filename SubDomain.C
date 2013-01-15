@@ -3196,7 +3196,7 @@ void SubDomain::sndGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &g
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
       if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
 	{
-	  v = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->getPrimitiveState();
+	  v = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->getState();
 	  for (int j = 0; j < dim; ++j) buffer[iNode][j] = v[j];
 	}
       else 
@@ -3263,6 +3263,30 @@ void SubDomain::sndGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::sndGhostTags(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<int> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    int (*buffer)[1] = reinterpret_cast<int (*)[1]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  buffer[iNode][0] = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ghostTag;
+	}
+      else 
+	{
+	  buffer[iNode][0] = -2;
+	}
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::rcvGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
 {
   GhostPoint<dim> *gp;
@@ -3288,7 +3312,7 @@ void SubDomain::rcvGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &g
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::rcvNumGhostStates(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+void SubDomain::rcvNumGhostStates(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn)
 {
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
 
@@ -3299,7 +3323,7 @@ void SubDomain::rcvNumGhostStates(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &g
       if( buffer[iNode][0] == 0) continue; // if the weight is zero, the whole buffered state is gonna be zero.
       if(!ghostPoints[ (*sharedNodes)[iSub][iNode] ])
 	{
-	  ghostPoints[ (*sharedNodes)[iSub][iNode] ] = new GhostPoint<dim>;
+	  ghostPoints[ (*sharedNodes)[iSub][iNode] ] = new GhostPoint<dim>(varFcn);
 	}  
       ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ng += buffer[iNode][0];    
     }
@@ -3327,6 +3351,35 @@ void SubDomain::rcvGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &
 	      gp->Ws[j] += buffer[iNode][j];
 	    }
 	}
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::rcvGhostTags(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+  GhostPoint<dim> *gp;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<int> sInfo = sp.recData(rcvChannel[iSub]);
+    int (*buffer)[1] = reinterpret_cast<int (*)[1]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+
+      if( buffer[iNode][0] < 0) continue; // if the ghostTag is not set 
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+      {
+        gp = ghostPoints[ (*sharedNodes)[iSub][iNode] ];
+        if (gp->ghostTag<0) gp->ghostTag = buffer[iNode][0];    
+        else if (gp->ghostTag != buffer[iNode][0])
+        {
+          fprintf(stderr,"The two ghost States refer to different Fluids in comm\n");
+          fprintf(stderr,"ghostTag: %i, buffer: %i\n",gp->ghostTag,buffer[iNode][0]);
+          exit(-1);
+        }
+      }  
     }
   }
 }
@@ -5345,19 +5398,10 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
-  SVec<double,dim>& dVdx = ngrad.getX();
-  SVec<double,dim>& dVdy = ngrad.getY();
-  SVec<double,dim>& dVdz = ngrad.getZ();
-  Vec<double>& dTdx = ngrad.getTX();
-  Vec<double>& dTdy = ngrad.getTY();
-  Vec<double>& dTdz = ngrad.getTZ();
-
-  double *Vi,*Vj,*dV,*weights;
+  double *Vi,*Vj,*weights;
   Vi = new double[dim];
   Vj = new double[dim];
-  dV = new double[dim];
   weights = new double[dim];
-  double Ti,Tj,dT;
 
   for (int l=0; l<edges.size(); l++) {
     if(!edgeFlag[l]) continue; //not a master edge
@@ -5370,98 +5414,71 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
       bool jIsActive = LSS.isActive(0.0,j);
 
       if(iIsActive) {
-        double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         varFcn->conservativeToPrimitive(U[i],Vi,tagI);
-        Ti = varFcn->computeTemperature(Vi,tagI);
 
+// Initialize all variables and weights
         for (int k=0; k<dim; ++k) {
-          dV[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-          Vj[k] = Vi[k] + dV[k];
+          Vj[k] = Vi[k];
 	  weights[k] = 1.0;
         }
-        dT = dx[0]*dTdx[i] + dx[1]*dTdy[i] + dx[2]*dTdz[i];
-        Tj = Ti + dT;
 
-//Keep density constant and obtain pressure based on extrapolated temperature
-        dV[0] = 0.0;
-        Vj[0] = Vi[0];
-//        varFcn->getV4FromTemperature(Vj,Tj,tagI);
-//        fprintf(stdout,"Pressurei-> %e,%e,%e\n",Vi[4],Vj[4],Vi[4]+dV[4]);
-//        dV[4] = Vj[4] - Vi[4]; 
-        dV[4] = 0.0;
-        Vj[4] = Vi[4];
+// Replace fourth variable with temperature
+        double T = varFcn->computeTemperature(Vi,tagI);
+        Vj[4] = T;
 
-        if(!ghostPoints[j]) // GP has not been created
-        {ghostPoints[j]=new GhostPoint<dim>;}
-
-        double rho = varFcn->getDensity(Vj);
-        double p = varFcn->checkPressure(Vj);
-
-// Drop to first order: if second order is not asked for ...OR...
-//                      if second order reconstruction results in unphysical values.
-        if (!linRecFSI || rho <= 0.0 || p <= 0.0) {
-          for (int k=0; k<dim; ++k) {
-            dV[k] = 0.0;
-          }  
+// Determine intersection alpha 
+        if (!linRecFSI) { //first order
           alpha = 0.5;
         }
         else {
           alpha = resij.alpha;
-          if (alpha > 0.6) alpha = 0.6; // Set limit for stability 
+          if (alpha > 0.5) alpha = 0.5; // Set limit for stability 
         }
+
+// Update velocity
         for (int k=1; k<4; ++k) {
 	  Vj[k] = ((resij.normVel)[k-1] - alpha*Vi[k])/(1.0-alpha);
           weights[k] = (1.0-alpha)*(1.0-alpha);
         }
 
+        if(!ghostPoints[j]) // GP has not been created
+        {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
+
         ghostPoints[j]->addNeighbour(Vj,weights,tagI);
       }
       if(jIsActive) {
-        double dx[3] = {X[i][0] - X[j][0], X[i][1] - X[j][1], X[i][2] - X[j][2]};
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         varFcn->conservativeToPrimitive(U[j],Vj,tagJ);
-        Tj = varFcn->computeTemperature(Vj,tagJ);
 
+// Initialize all variables and weights
         for (int k=0; k<dim; ++k) {
-          dV[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-          Vi[k] = Vj[k] + dV[k];
+          Vi[k] = Vj[k];
 	  weights[k] = 1.0;
         }
-        dT = dx[0]*dTdx[j] + dx[1]*dTdy[j] + dx[2]*dTdz[j];
-        Ti = Tj + dT;
 
-//Keep density constant and obtain pressure based on extrapolated temperature
-        dV[0] = 0.0;
-        Vi[0] = Vj[0];
-//        varFcn->getV4FromTemperature(Vi,Ti,tagJ);
-//        fprintf(stdout,"Pressurej -> %e,%e,%e\n",Vj[4],Vi[4],Vj[4]+dV[4]);
-//        dV[4] = Vi[4] - Vj[4]; 
-        dV[4] = 0.0;
-        Vi[4] = Vj[4];
+// Replace fourth variable with temperature
+        double T = varFcn->computeTemperature(Vj,tagJ);
+        Vi[4] = T;
 
-        if(!ghostPoints[i]) // GP has not been created
-        {ghostPoints[i]=new GhostPoint<dim>;}
-
-        double rho = varFcn->getDensity(Vi);
-        double p = varFcn->checkPressure(Vi);
-
-// Drop to first order: if second order is not asked for ...OR...
-//                      if second order reconstruction results in unphysical values.
-        if (!linRecFSI || rho <= 0.0 || p <= 0.0) {
-          for (int k=0; k<dim; ++k) {
-            dV[k] = 0.0;
-          }  
+// Determine intersection alpha 
+        if (!linRecFSI) { //first order
           alpha = 0.5;
         }
         else {
           alpha = resji.alpha;
-          if (alpha > 0.6) alpha = 0.6; // Set limit for stability 
+          if (alpha > 0.5) alpha = 0.5; // Set limit for stability 
         }
+
+// Update velocity
         for (int k=1; k<4; ++k) {
 	  Vi[k] = ((resji.normVel)[k-1] - alpha*Vj[k])/(1.0-alpha);
           weights[k] = (1.0-alpha)*(1.0-alpha);
         }
+
+        if(!ghostPoints[i]) // GP has not been created
+        {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
+
         ghostPoints[i]->addNeighbour(Vi,weights,tagJ);
       }
     }

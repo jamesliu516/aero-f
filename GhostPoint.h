@@ -1,7 +1,7 @@
 #ifndef _GHOST_POINT_H_
 #define _GHOST_POINT_H_
 
-//#include<VarFcn.h>
+#include<VarFcn.h>
 #include <Vector.h>
 #include <Vector3D.h>
 #include <iostream>
@@ -10,13 +10,18 @@
 using std::cout;
 using std::endl;
 
+class VarFcn;
+
 template<class Scalar> class Vec;
 
 template<int dim>
-class GhostPoint {
+class GhostPoint{
+ protected:
+  VarFcn *varFcn;
+
  public:
-  double* Vg;	// Sum of weighted primitive states at the ghost-point. 
-  		// After population, it is set to the primitive state at the ghost-point.
+  double* Vg;	// Sum of weighted states (rho,u,v,w,T) at the ghost-point. 
+  		// After population, it is set to the state at the ghost-point.
   double* Ws; 	// Sum of the weights 
   int ng; 	// Number of neighbours in the fluid.
   		// After all GP have been populated, ng=0.
@@ -27,7 +32,7 @@ class GhostPoint {
 
 //=============================================================================
 
-  GhostPoint() {
+  GhostPoint(VarFcn *vf) : varFcn(vf) {
     ng = 0;
     Vg = new double[dim];
     Ws = new double[dim];
@@ -40,6 +45,7 @@ class GhostPoint {
 //=============================================================================
 
   GhostPoint<dim> & operator=(const GhostPoint<dim> &GP) {
+    varFcn = GP.varFcn;
     Vg = GP.Vg;
     Ws = GP.Ws;
     ng = GP.ng;
@@ -66,14 +72,6 @@ class GhostPoint {
   void addNeighbour(double *Vi, double *Wi, int tag) {
 
 // We want to satisfy interface condition in least squares manner 
-
-    if (ng == 0) { // First neighbour
-      for (int i=0;i<5;++i) {
-        Vg[i] = Wi[i]*Vi[i];
-        Ws[i] = Wi[i];
-      }
-    }
-
     for(int i=0;i<5;++i) {
       Vg[i] += Wi[i]*Vi[i];
       Ws[i] += Wi[i];
@@ -105,9 +103,18 @@ class GhostPoint {
   }
 //=============================================================================
 
-  double* getPrimitiveState()
+  double* getState()
   {
     return Vg;    
+  }
+//=============================================================================
+
+  double* getPrimitiveState()
+  {
+    double* V = new double[dim];
+    for (int i=0; i<dim; ++i) V[i] = Vg[i];
+    varFcn->getV4FromTemperature(V,Vg[4],ghostTag);
+    return V;    
   }
 //=============================================================================
 

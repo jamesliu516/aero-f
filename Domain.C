@@ -3148,7 +3148,7 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W, const Op
 
 //------------------------------------------------------------------------------
 template<int dim>
-void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints)
+void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn)
 {
   int iSub;
   // Adam 2010.10.27
@@ -3168,7 +3168,7 @@ void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints)
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     {
-      subDomain[iSub]->rcvNumGhostStates(*levelPat, ghostPoints(iSub));
+      subDomain[iSub]->rcvNumGhostStates(*levelPat, ghostPoints(iSub), varFcn);
       subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub));
     }
 
@@ -3176,14 +3176,17 @@ void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints)
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
       subDomain[iSub]->sndGhostWeights(*vecPat, ghostPoints(iSub));
+      subDomain[iSub]->sndGhostTags(*levelPat, ghostPoints(iSub));
     }
 
   vecPat->exchange();
+  levelPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     {
       subDomain[iSub]->rcvGhostWeights(*vecPat, ghostPoints(iSub));
+      subDomain[iSub]->rcvGhostTags(*levelPat, ghostPoints(iSub));
     }
 }
 //------------------------------------------------------------------------------
@@ -3785,7 +3788,7 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
     }
 
   // Adam 2010.10.26
-  assembleGhostPoints(*ghostPoints);
+  assembleGhostPoints(*ghostPoints,varFcn);
 
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
