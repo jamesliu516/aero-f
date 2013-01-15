@@ -787,7 +787,7 @@ public:
   void assembleEdge(CommPattern<double> *commPat, DistVec<double> &W);
 
   template<int dim>
-  void assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints);
+  void assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn);
 
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);

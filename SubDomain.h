@@ -865,13 +865,17 @@ public:
   void sndNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
   void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void sndGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<int dim>
   void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
-  void rcvNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
+  void rcvNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &, VarFcn *varFcn);
   template<int dim>
   void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void rcvGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<class Scalar, int dim, class OpType>
   void operateRcvData(CommPattern<Scalar> &, Scalar (*)[dim], const OpType &oper);
