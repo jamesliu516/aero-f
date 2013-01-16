@@ -479,6 +479,10 @@ DistNodalGrad<dim, Scalar>::~DistNodalGrad()
   if (ddy) delete ddy;
   if (ddz) delete ddz;
 
+  if (dTdx) delete dTdx;
+  if (dTdy) delete dTdy;
+  if (dTdz) delete dTdz;
+
   if (subNodalGrad) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)

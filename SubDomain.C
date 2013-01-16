@@ -5483,6 +5483,9 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
       }
     }
   }
+  delete[] Vi;
+  delete[] Vj;
+  delete[] weights;
 }
 
 //------------------------------------------------------------------------------

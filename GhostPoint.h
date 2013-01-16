@@ -22,6 +22,7 @@ class GhostPoint{
  public:
   double* Vg;	// Sum of weighted states (rho,u,v,w,T) at the ghost-point. 
   		// After population, it is set to the state at the ghost-point.
+  double *V;    // Stores the final primitive states
   double* Ws; 	// Sum of the weights 
   int ng; 	// Number of neighbours in the fluid.
   		// After all GP have been populated, ng=0.
@@ -35,9 +36,11 @@ class GhostPoint{
   GhostPoint(VarFcn *vf) : varFcn(vf) {
     ng = 0;
     Vg = new double[dim];
+    V  = new double[dim];
     Ws = new double[dim];
     for(int i=0;i<dim;++i) {
       Vg[i] = 0.0;
+      V[i]  = 0.0;
       Ws[i] = 0.0;
     }
     ghostTag = -2; // Inactive nodes tag
@@ -47,6 +50,7 @@ class GhostPoint{
   GhostPoint<dim> & operator=(const GhostPoint<dim> &GP) {
     varFcn = GP.varFcn;
     Vg = GP.Vg;
+    V  = GP.V;
     Ws = GP.Ws;
     ng = GP.ng;
     ghostTag = GP.ghostTag;
@@ -111,9 +115,6 @@ class GhostPoint{
 
   double* getPrimitiveState()
   {
-    double* V = new double[dim];
-    for (int i=0; i<dim; ++i) V[i] = Vg[i];
-    varFcn->getV4FromTemperature(V,Vg[4],ghostTag);
     return V;    
   }
 //=============================================================================
@@ -125,11 +126,16 @@ class GhostPoint{
       Ws[i] = 1.0;
     }
     ng = 0;
+
+// populate primitive state vector
+    for (int i=0; i<dim; ++i) V[i] = Vg[i];
+    varFcn->getV4FromTemperature(V,Vg[4],ghostTag);
   }
 //=============================================================================
 
   ~GhostPoint() {
     delete [] Vg;
+    delete [] V;
     delete [] Ws;
   }
 //=============================================================================
