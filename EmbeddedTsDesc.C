@@ -821,11 +821,6 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
 template<int dim>
 void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
 { 
-  this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
-  wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
-  this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
-  return;
-
   if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
         ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
