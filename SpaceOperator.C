@@ -109,6 +109,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   fet = createFemEquationTerm(ioData);
   volForce = createVolumicForceTerm(ioData);
 
+  T = 0;
   if (fet && ioData.embed.viscousinterfaceorder == EmbeddedFramework::SECOND)
     T = new DistVec<double>(domain->getNodeDistInfo());
 
@@ -197,6 +198,7 @@ SpaceOperator<dim>::~SpaceOperator()
 
   if (locAlloc) {
     if (V) delete V;
+    if (T) delete T;
     if (bcFcn) delete bcFcn;
     if (fluxFcn) {
         fluxFcn += BC_MIN_CODE;
