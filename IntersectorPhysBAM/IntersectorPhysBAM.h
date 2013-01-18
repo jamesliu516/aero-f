@@ -14,6 +14,8 @@
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
 
+#define MAXLINE 500
+
 using std::pair;
 using std::map;
 using std::list;
@@ -71,6 +73,10 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
+    // surface rotation
+    int *surfaceID;
+    int *rotOwn;
+
     int (*stElem)[3]; //structure elements (topology)
 
     Vec3D *Xsdot; //velocity
@@ -109,6 +115,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
+    void makerotationownership(IoData &iod);
+    void updatebc(IoData &iod);
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
