@@ -14,6 +14,8 @@
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
 
+#define MAXLINE 500
+
 using std::pair;
 using std::map;
 using std::list;
@@ -62,6 +64,10 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
+    // surface rotation
+    int *surfaceID;
+    int *rotOwn;
+
     int (*stElem)[3];     //structural elements (element to node connectivity)
     set<int> *node2node;  //structural node to node connectivity
     set<int> *node2elem;  //structural node to element (triangle) connectivity
@@ -100,6 +106,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
+    void makerotationownership(IoData &iod);
+    void updatebc(IoData &iod);
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
