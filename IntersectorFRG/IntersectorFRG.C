@@ -751,59 +751,13 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
       }
       if (type_read == 2) {
 	sscanf(line,"%d %d %d %d %d", &num0, &num1, &node1, &node2, &node3);
-//	if (num0<0) {com->fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, solidSurface); exit(-1);}
         elemList1.push_back(node1-1);
         elemList2.push_back(node2-1);
         elemList3.push_back(node3-1);
 	surfaceIDList.push_back(surfaceid);
-//        if(num0-1>maxElem) maxElem = num0-1;
       }
     }
   }
-
-//  int toto = fscanf(topFile, "%s %s\n", c1, c2);
-//  char debug[6]="Nodes";
-//  for (int i=0; i<5; i++)
-//    if(debug[i]!=c1[i]) {com->fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", solidSurface); exit(-1);}
-//
-//  while(1) {
-//    nInputs = fscanf(topFile,"%s", c1);
-//    if(nInputs!=1) break;
-//    if(c1[0]=='E') //done with the node set
-//      break;
-//    num1 = atoi(c1);
-//    if(num1<1) {com->fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
-//    indexList.push_back(num1);
-//    if(num1>maxIndex)
-//      maxIndex = num1;
-//
-//    toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
-//    x1 /= XScale;
-//    x2 /= XScale;
-//    x3 /= XScale;
-//    nodeList.push_back(Vec3D(x1,x2,x3));
-//  }
-
-//  // load the elements.
-//  if(nInputs!=1) {
-//    com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
-//  toto = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
-//  char debug2[6] = "using";
-//  for (int i=0; i<5; i++) 
-//    if(debug2[i]!=c2[i]) {com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
-//
-//  while(1) {
-//    nInputs = fscanf(topFile,"%d", &num0);
-//    if(nInputs!=1) break;
-//    toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
-//    if(num0<1) {com->fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, solidSurface); exit(-1);}
-//    elemIdList.push_back(num0-1);  //start from 0.
-//    elemList1.push_back(node1-1);
-//    elemList2.push_back(node2-1);
-//    elemList3.push_back(node3-1);
-//    if(num0-1>maxIndex)
-//      maxIndex = num0-1;
-//  }
 
   numStNodes = nodeList.size();
   if(numStNodes != maxIndex) {
@@ -814,12 +768,6 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   }
 
   numStElems = elemList1.size();
-//  if(numStElems != maxElem+1) {
-//    com->fprintf(stderr,"ERROR: The element set of the embedded surface have gap(s). \n");
-//    com->fprintf(stderr,"       Detected max index = %d, number of elements = %d\n", maxElem+1, numStElems);
-//    com->fprintf(stderr,"NOTE: Currently the element set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
-//    exit(-1);
-//  }
 
   // feed data to Xss. 
   Xs      = new Vec3D[numStNodes];
