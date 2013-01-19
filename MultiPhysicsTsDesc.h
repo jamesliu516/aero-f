@@ -143,8 +143,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
 
-  void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]);
+  void getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D* Fi, Vec3D* Mi);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 

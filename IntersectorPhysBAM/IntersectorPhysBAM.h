@@ -134,7 +134,6 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     PhysBAMInterface<double> &getInterface() { return *physInterface; }
     const Vec3D &getSurfaceNorm(int i) const {return triNorms[i]; }
     const Vec3D &getNodalNorm(int i) const {if (!nodalNormal) {fprintf(stderr,"ERROR: nodal normal not initialized!\n");exit(-1);} return nodalNormal[i];}
-
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
@@ -143,6 +142,16 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; }
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
+
+    int getSurfaceID(int k) { 
+      if (k >=0 && k < numStNodes) {
+	return surfaceID[k]; 
+      }
+      else {
+        fprintf(stderr,"Error:: SurfaceID requested for invalid point.\n");
+        exit(-1);
+      }
+    }
 };
 
 class IntersectorPhysBAM : public LevelSetStructure {

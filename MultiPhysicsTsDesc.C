@@ -655,25 +655,33 @@ void MultiPhysicsTsDesc<dim,dimLS>::computeForceLoad(DistSVec<double,dim> *Wij, 
 //-------------------------------------------------------------------------------
 
 template <int dim, int dimLS>
-void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                                        double F[3], double M[3])
+void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D *Fi, Vec3D *Mi)
 {
-  if (!FsComputed)
+  int idx;
+  if (!FsComputed) 
     computeForceLoad(this->Wstarij, this->Wstarji);
-
-  F[0] = F[1] = F[2] = 0.0;
 
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
-  for (int i=0; i<numStructNodes; i++) {
-    F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
 
-  M[0] = M[1] = M[2] = 0;
   Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
-  for (int i = 0; i < numStructNodes; ++i) {
-     M[0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
-     M[1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
-     M[2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
+
+  for (int i=0; i<numStructNodes; i++) {
+    map<int,int>::iterator it = surfOutMap.find(distLSS->getSurfaceID(i));
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      idx = 0;
+    }
+
+    Fi[idx][0] += Fs[i][0]; 
+    Fi[idx][1] += Fs[i][1]; 
+    Fi[idx][2] += Fs[i][2];
+
+    Mi[idx][0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
+    Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
+    Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
   }
 }
 
