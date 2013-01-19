@@ -142,8 +142,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
-  void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]);
+  void getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D* Fi, Vec3D* Mi);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
   virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}

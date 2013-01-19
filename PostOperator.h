@@ -36,8 +36,8 @@ template<int dim> class DistExactRiemannSolver;
 template<int dim>
 class ForceGenerator {
   public:
-    virtual void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]) = 0;
+    virtual void getForcesAndMoments(map<int,int> &surfMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D* Fi, Vec3D* Mi) = 0;
 };
 
 //------------------------------------------------------------------------------
