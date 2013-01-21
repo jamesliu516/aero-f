@@ -4567,6 +4567,16 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
     }
   }
 
+  // Check for abnormally large velocities, which may be the result of an instability
+  for (int i=0; i<U.size(); ++i) {
+
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+  }
+
+
+
   return ierr;
 }
 
@@ -4618,6 +4628,14 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
 
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
+  }
+
+  // Check for abnormally large velocities, which may be the result of an instability
+  for (int i=0; i<U.size(); ++i) {
+
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
   }
 
   return ierr;
