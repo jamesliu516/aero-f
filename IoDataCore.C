@@ -3768,6 +3768,7 @@ EmbeddedFramework::EmbeddedFramework() {
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
 
+  stabil_alpha = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -3790,6 +3791,8 @@ void EmbeddedFramework::setup(const char *name) {
   embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
+  
+  new ClassDouble<EmbeddedFramework>(ca, "StabilizingAlpha", this, &EmbeddedFramework::stabil_alpha);
 
   //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,

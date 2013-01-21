@@ -1968,8 +1968,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         switch (Nriemann) {
           case 0: //structure normal
-            if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
-            else                                normalDir = -1.0*resij.gradPhi;
+            normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+            //if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
+            //else                                normalDir = -1.0*resij.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
@@ -2003,8 +2004,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         switch (Nriemann) {
           case 0: //structure normal
-            if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
-            else                                normalDir = -1.0*resji.gradPhi;
+            normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+            //if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
+            //else                                normalDir = -1.0*resji.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];

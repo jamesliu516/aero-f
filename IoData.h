@@ -2066,6 +2066,10 @@ struct EmbeddedFramework {
   double alpha;		// In the case of solve Riemann problem at intersection, this parameter
   					// controls whether to switch to a first order method to avoid divided-by-zero
 
+  // stabilizing alpha (attempt at stabilizing the structure normal)
+  // Tries to add some dissipation.  should be small.
+  double stabil_alpha;
+
   MultiInitialConditionsData embedIC;
   
   int nLevelset; //number of level-sets. Currently only consider bubbles.
