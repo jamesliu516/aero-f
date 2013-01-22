@@ -14,6 +14,8 @@
 #include <map>
 #include <cstring>
 
+#define MAXLINE 500
+
 using std::pair;
 
 class IoData;
@@ -69,6 +71,10 @@ class EmbeddedStructure {
   double (*F)[3]; //force (received from fluid).
   std::map<int,int> pairing;
 
+  int *surfaceID;
+  int *rotOwn;
+  map<int,RotationData*> *rotationMap;
+
   DistInfo *di;
   MatchNodeSet **mns;
   
@@ -83,6 +89,8 @@ public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc, Timer *tim);
   ~EmbeddedStructure();
 
+  void makerotationownership(IoData &iod);
+  void updaterotation(double time);
   int getAlgorithmNumber() {return algNum;}
   int numStructNodes() {return nNodes;}
   void sendTimeStep(Communication::Window<double> *window);

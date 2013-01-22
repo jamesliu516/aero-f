@@ -215,7 +215,7 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 
 EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom, Timer *tim) : com(comm), 
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
-                                             UScale(iod.ref.rv.tvelocity),  nNodes(0), nElems(0), elemType(3),
+                                             UScale(iod.ref.rv.tvelocity), nNodes(0), nElems(0), elemType(3),
                                              cracking(0), X(0), X0(0), Tria(0), U(0), Udot(0), XandUdot(0), F(0), it(0), 
                                              structExc(0), mns(0), algNum(6) //A6
 {
@@ -254,8 +254,10 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 1;
     else if(iod.forced.type==ForcedData::PITCHING)
       mode = 2;
-	else if (iod.forced.type==ForcedData::DEFORMING)
-	  mode = 99;
+    else if(iod.forced.type==ForcedData::VELOCITY)
+      mode = 3;
+    else if (iod.forced.type==ForcedData::DEFORMING)
+      mode = 99;
     else {
       com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
       exit(-1);
@@ -395,43 +397,87 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     FILE *topFile = 0;
     topFile = fopen(meshFile,"r");
     if(!topFile) com.fprintf(stderr,"ERROR: Embedded surface mesh file could not be found!\n");
-    char c1[200], c2[200], c3[200];
-    int num0 = 0, num1 = 0, count, nInputs;
+
+    char line[MAXLINE],key1[MAXLINE],key2[MAXLINE];
+
+    int num0 = 0; 
+    int num1 = 0;
+
     double x1,x2,x3;
-    int toto = fscanf(topFile, "%s %s\n", c1, c2);
-    char debug[6]="Nodes";
-    for (int i=0; i<5; i++) 
-      if(debug[i]!=c1[i]) {com.fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", meshFile); exit(-1);}
-  
-    std::list<Vec3D> nodeList;
+    int node1, node2, node3;
+
+    int type_read = 0;
+    int surfaceid = 0;
+
     std::list<int> indexList;
-    std::list<Vec3D>::iterator it1;
-    std::list<int>::iterator it2;
-    int maxIndex = 0;
+    std::list<Vec3D> nodeList;
+    std::list<int> elemIdList;    
+    std::list<int> elemList1;
+    std::list<int> elemList2;
+    std::list<int> elemList3;
+    std::list<int> surfaceIDList;
 
-    while(1) {
-      nInputs = fscanf(topFile,"%s", c1);
-      if(nInputs!=1) break;
-      if(c1[0]=='E') //done with the node set
-        break;
-      num1 = atoi(c1);
-      if(num1<1) {com.fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
-      indexList.push_back(num1);
-      if(num1>maxIndex)
-        maxIndex = num1;
+    int maxIndex = 0, maxElem = -1;
 
-      toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
-      nodeList.push_back(Vec3D(x1,x2,x3));
+    while (fgets(line,MAXLINE,topFile) != 0) {
+      sscanf(line, "%s", key1);
+      bool skip = false;
+      if (strcmp(key1, "Nodes") == 0) {
+        sscanf(line, "%*s %s", key2);
+        skip = true;
+        type_read = 1;
+      }
+      if (strcmp(key1, "Elements") == 0) {
+        sscanf(line, "%*s %s", key2);
+        skip = true;
+        type_read = 2;
+        int underscore_pos = -1;
+        int k = 0;
+        while((key2[k] != '\0') && (k<MAXLINE)) {
+          if(key2[k] == '_') underscore_pos = k;
+          k++;
+        }
+        if(underscore_pos > -1)
+          sscanf(key2+(underscore_pos+1),"%d",&surfaceid); 
+      }
+      if (!skip) {
+        if (type_read == 1) {
+  	  sscanf(line, "%d %lf %lf %lf", &num1, &x1, &x2, &x3);
+  	  if(num1<1) {com.fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
+          indexList.push_back(num1);
+          if(num1>maxIndex) maxIndex = num1;
+          nodeList.push_back(Vec3D(x1,x2,x3));
+        }
+        if (type_read == 2) {
+          sscanf(line,"%d %d %d %d %d", &num0, &num1, &node1, &node2, &node3);
+          elemList1.push_back(node1-1);
+          elemList2.push_back(node2-1);
+          elemList3.push_back(node3-1);
+          surfaceIDList.push_back(surfaceid);
+        }
+      }
     }
+
     nNodes = totalNodes = nodeList.size();
+    nElems = totalElems = elemList1.size();
+
     if(nNodes != maxIndex) {
       com.fprintf(stderr,"ERROR: The node set of the embedded surface have gap(s). \n");
       com.fprintf(stderr,"       Detected max index = %d, number of nodes = %d\n", maxIndex, nNodes);
       com.fprintf(stderr,"NOTE: Currently the node set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
       exit(-1);
     }
+
     X0 = new (com) double[totalNodes][3];
     X  = new (com) double[totalNodes][3];
+    surfaceID = new int[totalNodes];
+
+    std::list<Vec3D>::iterator it1;
+    std::list<int>::iterator it2;
+    std::list<int>::iterator it_1;
+    std::list<int>::iterator it_2;
+    std::list<int>::iterator it_3;
+    std::list<int>::iterator it_4;
 
     it2=indexList.begin();
     for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
@@ -441,63 +487,33 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       it2++; 
     }
 
-    // now load the elements
-    if(nInputs!=1) {
-      com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
-    int nm = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
-    char debug2[6] = "using";
-    for (int i=0; i<5; i++)
-      if(debug2[i]!=c2[i]) {com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
-
-    std::list<int> elemIdList;
-    std::list<int> elemList1;
-    std::list<int> elemList2;
-    std::list<int> elemList3;
-    std::list<int>::iterator it_0;
-    std::list<int>::iterator it_1;
-    std::list<int>::iterator it_2;
-    std::list<int>::iterator it_3;
-    int node1, node2, node3;
-    maxIndex = -1;
-
-    while(1) {
-      nInputs = fscanf(topFile,"%d", &num0);
-      if(nInputs!=1) break;
-      toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
-      if(num0<1) {com.fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, meshFile); exit(-1);}
-      elemIdList.push_back(num0-1);  //start from 0.
-      elemList1.push_back(node1-1);
-      elemList2.push_back(node2-1);
-      elemList3.push_back(node3-1);
-      if(num0-1>maxIndex)
-        maxIndex = num0-1;
-    }
-    nElems = totalElems = elemList1.size();
-    if(nElems != maxIndex+1) {
-      com.fprintf(stderr,"ERROR: The element set of the embedded surface have gap(s). \n");
-      com.fprintf(stderr,"       Detected max index = %d, number of elements = %d\n", maxIndex+1, nElems);
-      com.fprintf(stderr,"NOTE: Currently the element set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
-      exit(-1);
+    for (int k=0; k<totalNodes; k++) {
+      surfaceID[k] = 0;
     }
 
     Tria = new (com) int[totalElems][3];
 
-    it_0 = elemIdList.begin();
     it_1 = elemList1.begin();
     it_2 = elemList2.begin();
     it_3 = elemList3.begin();
+    it_4 = surfaceIDList.begin();
     for (int i=0; i<nElems; i++) {
-      Tria[*it_0][0] = *it_1;
-      Tria[*it_0][1] = *it_2;
-      Tria[*it_0][2] = *it_3;
-      it_0++;
+      Tria[i][0] = *it_1;
+      Tria[i][1] = *it_2;
+      Tria[i][2] = *it_3;
+      surfaceID[*it_1] = *it_4;
+      surfaceID[*it_2] = *it_4;
+      surfaceID[*it_3] = *it_4;
       it_1++;
       it_2++;
       it_3++;
+      it_4++;
     }
 
     fclose(topFile);
   }
+
+  makerotationownership(iod);
 
   // ----------------------------------
   //               End
@@ -541,6 +557,8 @@ EmbeddedStructure::~EmbeddedStructure()
   if(Udot)     operator delete[] (Udot, com);
   if(XandUdot) operator delete[] (XandUdot, com);
   if(F)        operator delete[] (F, com);
+  if(surfaceID) delete[] surfaceID;
+  if(rotOwn) delete[] rotOwn;
 
   if(structExc) delete structExc;  
   if(mns)      {delete mns[0]; delete [] mns;}
@@ -562,6 +580,133 @@ EmbeddedStructure::getTargetData()
   return pair<double*,int>((double*)F,nNodes);
 }
 
+//------------------------------------------------------------------------------
+void EmbeddedStructure::makerotationownership(IoData &iod) {
+  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+  map<int,SurfaceData *>::iterator it = surfaceMap.begin();
+  rotationMap = &(iod.forced.vel.rotationMap.dataMap);
+  rotOwn = 0;
+  
+  int numRotSurfs = 0;
+  int numTransWalls = 0;
+  while(it != surfaceMap.end()) {
+    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->rotationID);
+    if(it1!=rotationMap->end()) {
+      if(it1->second->infRadius) {
+        numTransWalls++;
+        com.fprintf(stderr," ... surface %2d is ``translating''\n",it->first, it1->first);
+        com.fprintf(stderr,"     -> uniform velocity V = %3.2e in direction %3.2e %3.2e %3.2e\n",
+                     it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
+      } else {
+        numRotSurfs++;
+        com.fprintf(stderr," ... surface %2d is ``rotating'' in DynamicNodalTranser using rotation data %2d\n",it->first, it1->first);
+        com.fprintf(stderr,"     -> omega = %3.2e, rotation axis = %3.2e %3.2e %3.2e\n",
+                     it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
+      }
+    }
+    it++;
+  }
+
+  if(numRotSurfs || numTransWalls) {
+    rotOwn = new int[nNodes];
+
+    for (int k=0; k<nNodes; k++) {
+      rotOwn[k] = -1;
+
+      map<int,SurfaceData *>::iterator it = surfaceMap.find(surfaceID[k]);
+      if(it != surfaceMap.end()) {
+         int rotID = it->second->rotationID; // = -1 if not defined in input file
+         if ((rotOwn[k] != -1 && rotOwn[k] != rotID) ||
+             (rotOwn[k] != -1 && rotOwn[k] != rotID) ||
+             (rotOwn[k] != -1 && rotOwn[k] != rotID))  {
+           com.fprintf(stderr, " ... WARNING: Embedded Node %d associated to more than 1 Rotation ID\n",k);
+         }
+         rotOwn[k] = rotID;
+         rotOwn[k] = rotID;
+         rotOwn[k] = rotID;
+      }
+    }
+  }
+}
+//------------------------------------------------------------------------------
+void EmbeddedStructure::updaterotation(double time) {
+  if (rotOwn)  { 
+    for (int k=0; k<nNodes; k++) {
+      if (rotOwn[k]>=0) {    // node belongs to a (potential) "rotating" surface
+        map<int,RotationData *>::iterator it =  rotationMap->find(rotOwn[k]);
+        if(it != rotationMap->end()) { // the rotation data have been defined
+	  if(it->second->infRadius == RotationData::TRUE) {
+            double vel = it->second->omega;
+	    U[k][0] = vel*it->second->nx*time;
+	    U[k][1] = vel*it->second->ny*time;
+	    U[k][2] = vel*it->second->nz*time;
+	    Udot[k][0] = vel*it->second->nx;
+	    Udot[k][1] = vel*it->second->ny;
+	    Udot[k][2] = vel*it->second->nz;
+	  } 
+          else {
+	    double xd = X0[k][0] - it->second->x0;
+	    double yd = X0[k][1] - it->second->y0;
+	    double zd = X0[k][2] - it->second->z0;
+	    double theta = it->second->omega*time;
+	    double costheta = cos(theta);
+	    double sintheta = sin(theta);
+	    double ix = it->second->nx;
+	    double iy = it->second->ny;
+	    double iz = it->second->nz;
+
+	    double dx[3] = {0.,0.,0.};
+            dx[0] += (costheta + (1 - costheta) * ix * ix) * xd;
+            dx[0] += ((1 - costheta) * ix * iy - iz * sintheta) * yd;
+            dx[0] += ((1 - costheta) * ix * iz + iy * sintheta) * zd;
+
+            dx[1] += ((1 - costheta) * ix * iy + iz * sintheta) * xd;
+            dx[1] += (costheta + (1 - costheta) * iy * iy) * yd;
+            dx[1] += ((1 - costheta) * iy * iz - ix * sintheta) * zd;
+
+            dx[2] += ((1 - costheta) * ix * iz - iy * sintheta) * xd;
+            dx[2] += ((1 - costheta) * iy * iz + ix * sintheta) * yd;
+            dx[2] += (costheta + (1 - costheta) * iz * iz) * zd;
+
+            dx[0] += it->second->x0;
+            dx[1] += it->second->y0;
+            dx[2] += it->second->z0;
+
+	    U[k][0] = dx[0] - X0[k][0]; 
+	    U[k][1] = dx[1] - X0[k][1];
+	    U[k][2] = dx[2] - X0[k][2];
+
+	    double ox = it->second->omega*it->second->nx;
+	    double oy = it->second->omega*it->second->ny;
+	    double oz = it->second->omega*it->second->nz;
+	    xd = dx[0] - it->second->x0;
+	    yd = dx[1] - it->second->y0;
+	    zd = dx[2] - it->second->z0;
+	    Udot[k][0] = oy*zd-oz*yd;
+	    Udot[k][1] = oz*xd-ox*zd;
+	    Udot[k][2] = ox*yd-oy*xd;
+	  }
+	} 
+        else  { // no rotation data
+          U[k][0] = 0.;
+          U[k][1] = 0.;
+          U[k][2] = 0.;
+          Udot[k][0] = 0.;
+          Udot[k][1] = 0.;
+          Udot[k][2] = 0.;
+	}
+      }
+      else  { // no rotation data
+        U[k][0] = 0.;
+        U[k][1] = 0.;
+        U[k][2] = 0.;
+        Udot[k][0] = 0.;
+        Udot[k][1] = 0.;
+        Udot[k][2] = 0.;
+      }
+    }
+  }
+}
 //------------------------------------------------------------------------------
 
 void
@@ -794,14 +939,15 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       }
     }
     else if (mode==3) //heaving with a constant velocity (in this case dx dy dz are velocity
-      for(int i=0; i < nNodes; ++i) {
-        U[i][0] = time*dx;
-        U[i][1] = time*dy;
-        U[i][2] = time*dz;
-        Udot[i][0] = dx;
-        Udot[i][1] = dy;
-        Udot[i][2] = dz;
-      }
+//      for(int i=0; i < nNodes; ++i) {
+//        U[i][0] = time*dx;
+//        U[i][1] = time*dy;
+//        U[i][2] = time*dz;
+//        Udot[i][0] = dx;
+//        Udot[i][1] = dy;
+//        Udot[i][2] = dz;
+//      }
+      updaterotation(time);
     else if (mode==99) { // for debugging use.
 	  bool shrinking_sphere = true;	
 	  if (shrinking_sphere) {

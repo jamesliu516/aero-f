@@ -3125,18 +3125,19 @@ ForcedData::ForcedData()
 void ForcedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 3,
-     "Heaving", 0, "Pitching", 1, "Deforming", 2);
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 4,
+     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
 
   hv.setup("Heaving", ca);
   pt.setup("Pitching", ca);
+  vel.setup("Velocity",ca);
   df.setup("Deforming", ca);
 
 }
@@ -3576,10 +3577,16 @@ void Surfaces::setup(const char *name)  {
 
 //------------------------------------------------------------------------------
 
-void Velocity::setup(const char *name)  {
+void Velocity::setup(const char *name, ClassAssigner *father)  {
 
-  ClassAssigner *ca = new ClassAssigner(name, 0, 0);
-  rotationMap.setup("RotationAxis", 0);
+  if (father) {
+    ClassAssigner *ca = new ClassAssigner(name, 1, father);
+    rotationMap.setup("RotationAxis", ca);
+  }
+  else {
+    ClassAssigner *ca = new ClassAssigner(name, 0, 0);
+    rotationMap.setup("RotationAxis", 0);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3629,6 +3636,24 @@ Assigner *RotationData::getAssigner()  {
 
 //------------------------------------------------------------------------------
 
+void RotationData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+
+  new ClassDouble<RotationData>(ca, "Nx", this, &RotationData::nx);
+  new ClassDouble<RotationData>(ca, "Ny", this, &RotationData::ny);
+  new ClassDouble<RotationData>(ca, "Nz", this, &RotationData::nz);
+
+  new ClassDouble<RotationData>(ca, "X0", this, &RotationData::x0);
+  new ClassDouble<RotationData>(ca, "Y0", this, &RotationData::y0);
+  new ClassDouble<RotationData>(ca, "Z0", this, &RotationData::z0);
+
+  new ClassDouble<RotationData>(ca, "Omega", this, &RotationData::omega);
+  new ClassToken<RotationData> (ca, "InfiniteRadius", this, reinterpret_cast<int RotationData::*>(&RotationData::infRadius), 2, "False" , 0, "True", 1);
+
+}
+
+//------------------------------------------------------------------------------
 VolumeData::VolumeData()  {
 
   type = FLUID;
@@ -5635,7 +5660,7 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
       com->fprintf(stderr, "*** Error: no valid timestep (%d) given\n", forced.timestep);
       ++error;
     }
-    if (forced.frequency < 0.0) {
+    if (forced.frequency < 0.0 && forced.type != ForcedData::VELOCITY) {
       com->fprintf(stderr, "*** Error: no valid frequency (%d) given\n", forced.frequency);
       ++error;
     }
