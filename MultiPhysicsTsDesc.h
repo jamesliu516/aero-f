@@ -41,7 +41,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool withCracking;
 
   int orderOfAccuracy; // consistent with the reconstruction type for space
-  bool linRecAtInterface;
+  bool linRecAtInterface, viscSecOrder;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;

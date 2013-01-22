@@ -370,6 +370,13 @@ public:
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     bool linRecFSI = true, LevelSetStructure* =0);
 
+  template<class Scalar>
+  void computeGradientLeastSquares(SVec<double,3> &, const Vec<int> &,
+                                    SVec<double,6> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    LevelSetStructure* =0);
+
   template<int dim, class Scalar>
   void computeGradientsLeastSquares(SVec<double,3> &, const Vec<int> &,
                                     SVec<double,6> &,
@@ -855,12 +862,20 @@ public:
   template<int dim>
   void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
+  void sndNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
   void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void sndGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<int dim>
   void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
+  void rcvNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &, VarFcn *varFcn);
+  template<int dim>
   void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void rcvGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<class Scalar, int dim, class OpType>
   void operateRcvData(CommPattern<Scalar> &, Scalar (*)[dim], const OpType &oper);
@@ -1017,7 +1032,7 @@ public:
   void extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV);
 
   template<int dim>
-    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag);
+    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,3> &X,SVec<double,dim> &U,NodalGrad<dim, double> &ngrad,VarFcn *varFcn,LevelSetStructure &LSS,bool linRecFSI,Vec<int> &tag);
   
   template<int dim,int neq>
     void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<double,neq>& A);

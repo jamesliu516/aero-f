@@ -3792,6 +3792,7 @@ EmbeddedFramework::EmbeddedFramework() {
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
+  viscousinterfaceorder = FIRST;
 
 }
 
@@ -3825,6 +3826,8 @@ void EmbeddedFramework::setup(const char *name) {
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
+  new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
+                                      "First", 0, "Second", 1);
 }
 
 //------------------------------------------------------------------------------
