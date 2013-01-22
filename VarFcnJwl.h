@@ -83,6 +83,9 @@ public:
   double computeTemperature(double *V) const{
     return invomega * (V[4]-computeFrho(V)) / V[0]; 
   }
+  void getV4FromTemperature(double *V, double T) const {
+    V[4] = T*omega*V[0] + computeFrho(V);
+  }
   double computeRhoEnergy(double *V)   const{
     return invomega * (V[4]-computeFrho(V)) + 0.5 * V[0] * getVelocitySquare(V);
   }

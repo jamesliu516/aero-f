@@ -18,6 +18,10 @@ class NodalGrad {
   SVec<Scalar,dim> &ddy;
   SVec<Scalar,dim> &ddz;
 
+  Vec<Scalar> &dTdx;
+  Vec<Scalar> &dTdy;
+  Vec<Scalar> &dTdz;
+
 // Included
   SVec<Scalar,dim> *dddx;
   SVec<Scalar,dim> *dddy;
@@ -27,17 +31,23 @@ public:
 
 // Included
   NodalGrad(SVec<Scalar,dim> &dx, SVec<Scalar,dim> &dy, SVec<Scalar,dim> &dz,
+            Vec<Scalar> &DTdx, Vec<Scalar> &DTdy, Vec<Scalar> &DTdz,
             SVec<Scalar,dim> &dX, SVec<Scalar,dim> &dY, SVec<Scalar,dim> &dZ) :
-            ddx(dx), ddy(dy), ddz(dz)
+            ddx(dx), ddy(dy), ddz(dz), dTdx(DTdx), dTdy(DTdy), dTdz(DTdz)
             { dddx = &dX; dddy = &dY; dddz = &dZ; }
 
-  NodalGrad(SVec<Scalar,dim> &dx, SVec<Scalar,dim> &dy, SVec<Scalar,dim> &dz) : 
-    ddx(dx), ddy(dy), ddz(dz) {}
+  NodalGrad(SVec<Scalar,dim> &dx, SVec<Scalar,dim> &dy, SVec<Scalar,dim> &dz, 
+            Vec<Scalar> &DTdx, Vec<Scalar> &DTdy, Vec<Scalar> &DTdz) : 
+    ddx(dx), ddy(dy), ddz(dz) , dTdx(DTdx), dTdy(DTdy), dTdz(DTdz) {}
   ~NodalGrad() {}
 
   SVec<Scalar,dim> &getX() const { return ddx; }
   SVec<Scalar,dim> &getY() const { return ddy; }
   SVec<Scalar,dim> &getZ() const { return ddz; }
+
+  Vec<Scalar> &getTX() const { return dTdx; }
+  Vec<Scalar> &getTY() const { return dTdy; }
+  Vec<Scalar> &getTZ() const { return dTdz; }
 
 // Included
   SVec<Scalar,dim> &getXderivative() const { return *dddx; }

@@ -63,10 +63,13 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
       
-  if(orderOfAccuracy==1) //first-order everywhere...
+  if(orderOfAccuracy==1) { //first-order everywhere...
     linRecAtInterface = false; 
+    viscSecOrder = false; 
+  }
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -380,8 +383,8 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
-      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
-      this->spaceOp->populateGhostPoints(this->ghostPoints,*U,this->varFcn,this->distLSS,this->nodeTag);
+//      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
     }
   // Population of spaceOp->V for the force computation
   this->spaceOp->conservativeToPrimitive(*U);
@@ -594,13 +597,13 @@ void EmbeddedTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 template<int dim>
 double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {  
-  // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES) {
-    this->ghostPoints->deletePointers();
-    this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
-  }
+//  // Ghost-Points Population
+//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES) {
+//    this->ghostPoints->deletePointers();
+//    this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+//  }
 
-  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
+  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  viscSecOrder, nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
 
@@ -827,11 +830,6 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
 template<int dim>
 void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
 { 
-  this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
-  wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
-  this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
-  return;
-
   if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
         ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {

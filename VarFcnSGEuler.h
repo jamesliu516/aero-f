@@ -136,6 +136,9 @@ public:
     Trp = -invgam1 /(V[0]*V[0]);
     Tpp = 0.0; 
   }
+  void getV4FromTemperature(double *V, double T) const {
+    V[4] = T*V[0]*gam1 - Pstiff;
+  }
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }

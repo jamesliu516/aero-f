@@ -69,8 +69,8 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
     // update the phase-change (U & Phi) caused by the motion of FS interface
     updatePhaseChangeFS(U);
   }
-  // populate ghost nodes (only for Navier-Stokes.)
-  populateGhostPointsForNavierStokes(U);
+//  // populate ghost nodes (only for Navier-Stokes.)
+//  populateGhostPointsForNavierStokes(U);
   // evolve the fluid equation using FE, RK2, or RK4
   solveNLNavierStokes(U);
   // evolve the level-set equation using FE, RK2, or RK4.
@@ -158,7 +158,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::populateGhostPointsForNavierStokes(D
 {
   if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
     this->ghostPoints->deletePointers();
-    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
+    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,*(this->fluidSelector.fluidId));
   }
 }
 
@@ -223,12 +223,12 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
-  // Ghost-Points Population
-  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS, *this->fluidSelector.fluidId);
-    }
+//  // Ghost-Points Population
+//  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
+//    {
+//      this->ghostPoints->deletePointers();
+//      this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder, *this->fluidSelector.fluidId);
+//    }
 
   computeRKUpdate(U0, k2, 2);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
@@ -285,7 +285,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>
   
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(Ulocal);
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji,
-                                           this->distLSS, this->linRecAtInterface, this->riemann, 
+                                           this->distLSS, this->linRecAtInterface, this->viscSecOrder, this->riemann, 
                                            this->riemannNormal, this->Nsbar,*locphi, this->fluidSelector,
                                            dU, it, this->ghostPoints);
                                            //Q: why send PhiV?

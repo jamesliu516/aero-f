@@ -109,6 +109,10 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   fet = createFemEquationTerm(ioData);
   volForce = createVolumicForceTerm(ioData);
 
+  T = 0;
+  if (fet && ioData.embed.viscousinterfaceorder == EmbeddedFramework::SECOND)
+    T = new DistVec<double>(domain->getNodeDistInfo());
+
   if (ioData.problem.type[ProblemData::LINEARIZED])  {
     use_modal = true;
     if (ioData.linearizedData.domain == LinearizedData::FREQUENCY)  {
@@ -194,6 +198,7 @@ SpaceOperator<dim>::~SpaceOperator()
 
   if (locAlloc) {
     if (V) delete V;
+    if (T) delete T;
     if (bcFcn) delete bcFcn;
     if (fluxFcn) {
         fluxFcn += BC_MIN_CODE;
@@ -1137,7 +1142,7 @@ template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *distLSS,
-                                         bool linRecAtInterface, DistVec<int> &fluidId, 
+                                         bool linRecAtInterface, bool viscSecOrder, DistVec<int> &fluidId, 
                                          DistSVec<double,dim> &R, DistExactRiemannSolver<dim> *riemann, 
                                          int Nriemann, DistSVec<double,3> *Nsbar, int it,
                                          DistVec<GhostPoint<dim>*> *ghostPoints)
@@ -1150,9 +1155,19 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // compute gradient of V using Phi:
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
+    bool linFSI = linRecAtInterface || viscSecOrder;
     ngrad->compute(geoState->getConfig(), X, ctrlVol, 
-                   fluidId, *V, linRecAtInterface, distLSS);
+                   fluidId, *V, linFSI, distLSS);
     timer->addNodalGradTime(t0);
+  }
+
+  if (fet) {
+    if (viscSecOrder) {
+      varFcn->computeTemperature(*V,*T,&fluidId);
+      ngrad->computeTemperatureGradient(geoState->getConfig(), X, ctrlVol, 
+                     fluidId, *T, distLSS);
+    }
+    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
   }
 
   if (egrad)
@@ -1220,7 +1235,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, 
 										 DistVec<int> &countWstarij, DistVec<int> &countWstarji,
-										 DistLevelSetStructure *distLSS, bool linRecAtInterface, 
+										 DistLevelSetStructure *distLSS, bool linRecAtInterface, bool viscSecOrder, 
 										 DistVec<int> &fluidId, DistSVec<double,dim> &R, 
 										 DistExactRiemannSolver<dim> *riemann, int Nriemann, 
 										 DistSVec<double,3> *Nsbar, double dt, double alpha, 
@@ -1234,10 +1249,20 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // compute gradient of V using Phi:
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
+        bool linFSI = linRecAtInterface || viscSecOrder;
 	ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, 
 			  	   Wstarij, Wstarji, countWstarij, countWstarji, 
-			  	   linRecAtInterface, distLSS);
+			  	   linFSI, distLSS);
     timer->addNodalGradTime(t0);
+  }
+
+  if (fet) {
+    if (viscSecOrder) {
+      varFcn->computeTemperature(*V,*T,&fluidId);
+      ngrad->computeTemperatureGradient(geoState->getConfig(), X, ctrlVol, 
+                     fluidId, *T, distLSS);
+    }
+    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
   }
 
   if (egrad)
@@ -1450,8 +1475,11 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
 //------------------------------------------------------------------------------
 
 template<int dim> 
-void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag)
-{domain->populateGhostPoints(ghostPoints,U,varFcn,distLSS,tag);}
+void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linFSI,DistVec<int> &tag)
+{
+ghostPoints->deletePointers();
+domain->populateGhostPoints(ghostPoints,X,U,ngrad,varFcn,distLSS,linFSI,tag);
+}
 
 //------------------------------------------------------------------------------
 
@@ -2416,7 +2444,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U, 
                      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-                     DistLevelSetStructure *distLSS, bool linRecAtInterface, DistExactRiemannSolver<dim> *riemann, int Nriemann, DistSVec<double,3> *Nsbar,
+                     DistLevelSetStructure *distLSS, bool linRecAtInterface, bool viscSecOrder, DistExactRiemannSolver<dim> *riemann, int Nriemann, DistSVec<double,3> *Nsbar,
                      DistSVec<double,dimLS> &PhiV, FluidSelector &fluidSelector, DistSVec<double,dim> &R, int it,
                      DistVec<GhostPoint<dim>*> *ghostPoints)
 {
@@ -2424,8 +2452,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
+    bool linFSI = linRecAtInterface || viscSecOrder;
     double t0 = this->timer->getTime();
-    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V), linRecAtInterface, distLSS);
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V), linFSI, distLSS);
     this->timer->addNodalGradTime(t0);
   }
 
@@ -2435,6 +2464,15 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
     //fluid Id (status) is used only to distinguish different materials. By using distLSS->getStatus(), we allow crossing FF interface but not FS interface.
     //  One can alternatively try to use fluidSelector.fluidId, which avoids crossing both FF and FS interfaces.
     this->timer->addNodalGradTime(t0);
+  }
+
+  if (this->fet) {
+    if (viscSecOrder) {
+      this->varFcn->computeTemperature(*(this->V),*(this->T),fluidSelector.fluidId);
+      this->ngrad->computeTemperatureGradient(this->geoState->getConfig(), X, ctrlVol, 
+                     *fluidSelector.fluidId, *(this->T), distLSS);
+    }
+    this->populateGhostPoints(ghostPoints,X,U,this->varFcn,distLSS,viscSecOrder,*fluidSelector.fluidId);
   }
 
   if (this->egrad)
