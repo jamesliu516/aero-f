@@ -487,13 +487,14 @@ void DistIntersectorPhysBAM::updatebc(IoData &iod) {
 	    Xsdot[k][2] = vel*it->second->nz + Xsdot[k][2];
 	  } 
           else {
+            double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
 	    double tref = iod.ref.rv.time;
 	    double ox = tref*it->second->omega*it->second->nx;
 	    double oy = tref*it->second->omega*it->second->ny;
 	    double oz = tref*it->second->omega*it->second->nz;
-	    double xd = Xs[k][0] - it->second->x0;
-	    double yd = Xs[k][1] - it->second->y0;
-	    double zd = Xs[k][2] - it->second->z0;
+	    double xd = Xs[k][0] - it->second->x0 / XScale;
+	    double yd = Xs[k][1] - it->second->y0 / XScale;
+	    double zd = Xs[k][2] - it->second->z0 / XScale;
 	    Xsdot[k][0] = oy*zd-oz*yd + Xsdot[k][0];
 	    Xsdot[k][1] = oz*xd-ox*zd + Xsdot[k][1];
 	    Xsdot[k][2] = ox*yd-oy*xd + Xsdot[k][2];
