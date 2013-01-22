@@ -1808,17 +1808,42 @@ struct DeformingData {
 
 };
 
-//----------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+struct RotationData  {
+
+  double nx, ny, nz;
+  double x0, y0, z0;
+  double omega;
+  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
+
+  RotationData();
+  Assigner *getAssigner();
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//-----------------------------------------------------------------------------
+
+struct Velocity  {
+
+  ObjectMap<RotationData> rotationMap;
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, DEFORMING = 2} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
   PitchingData pt;
+  Velocity vel;
   DeformingData df;
 
   ForcedData();
@@ -2026,29 +2051,6 @@ struct Surfaces  {
 struct PadeFreq  {
 
   ObjectMap<double> freqMap;
-  void setup(const char *);
-};
-
-//------------------------------------------------------------------------------
-
-struct RotationData  {
-
-  double nx, ny, nz;
-  double x0, y0, z0;
-  double omega;
-  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
-
-  RotationData();
-  Assigner *getAssigner();
-
-};
-
-//-----------------------------------------------------------------------------
-
-struct Velocity  {
-
-  ObjectMap<RotationData> rotationMap;
-
   void setup(const char *);
 };
 
