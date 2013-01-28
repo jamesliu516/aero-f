@@ -125,7 +125,9 @@ template<int dim, int dimLS>
 double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
                                             DistSVec<double,dim> &U, double angle)
 {
+
   double t0 = this->timer->getTime();
+  this->timeState->unphysical = this->data->unphysical;
 
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
 

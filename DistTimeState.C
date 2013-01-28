@@ -660,7 +660,10 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
 
 template<int dim>
 void DistTimeState<dim>::updateDtCoeff(){
+
+  //std::printf("DT Coefficient: %f \n", dt_coeff);
   if(unphysical){
+
     unphysical = false;
     dt_coeff_count=0;
     dt_coeff /= 2.0;
