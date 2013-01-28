@@ -22,6 +22,7 @@ class TsParameters {
   int dft_history;
   int dft_freqcutoff;
   double dft_growth;
+  int fixedunsteady_counter;
  
   double* reshistory;
   complex<double>* dft;
@@ -42,6 +43,7 @@ public:
   int checklinsolve;
   bool unphysical;
   bool badlinsolve;
+  int forbidreduce;
 
 public:
 

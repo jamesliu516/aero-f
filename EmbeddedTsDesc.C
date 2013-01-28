@@ -425,6 +425,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
   this->com->barrier();
   double t0 = this->timer->getTime();
+  this->timeState->unphysical = this->data->unphysical;
   int numSubCycles = 1;
   double dt=0.0;
 

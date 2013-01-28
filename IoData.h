@@ -1435,7 +1435,7 @@ struct ImplicitData {
 
 struct CFLData {
 
-  enum Strategy {RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3} strategy;
+  enum Strategy {RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3, FIXEDUNSTEADY = 4} strategy;
 
   // global cfl parameters
   double cfl0;
@@ -1447,6 +1447,7 @@ struct CFLData {
   // cfl control parameters
   int checksol;
   int checklinsolve;
+  int forbidreduce;
 
   // residual based parameters
   double ser;
@@ -1459,6 +1460,9 @@ struct CFLData {
   int dft_history;
   int dft_freqcutoff;
   double dft_growth;
+
+  // for unsteady problems
+  int useSteadyStrategy;
 
   CFLData();
   ~CFLData() {}
@@ -1489,16 +1493,16 @@ struct TsData {
 
   int residual;
   double errorTol;
-/*
+
+  // Kept for back compatibility
   double cfl0;
   double cflCoef1;
   double cflCoef2;
   double cflMax;
   double cflMin;
   double ser;
-  double errorTol;
   double dualtimecfl;
-*/
+
 
   const char *output;
 
@@ -2200,6 +2204,7 @@ public:
   int checkInputValuesProgrammedBurn();
   int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
 			       InitialConditions& IC);
+  int checkCFLBackwardsCompatibility();
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();
