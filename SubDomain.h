@@ -19,6 +19,8 @@
 
 #include <HigherOrderMultiFluid.h>
 
+#include <Aerof_unordered_set.h>
+
 #ifdef OLD_STL
 #include <map.h>
 #else
@@ -82,6 +84,17 @@ template<class Scalar, int dim> class GenMat;
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
+
+  EdgeDef() { }
+
+  EdgeDef(int glLeft, int glRight, int edgeNum, 
+          int sign) : glLeft(glLeft), glRight(glRight),
+                      edgeNum(edgeNum), sign(sign) {
+
+  }
+
+  EdgeDef(const EdgeDef& oth) : glLeft(oth.glLeft), glRight(oth.glRight),
+                                edgeNum(oth.edgeNum), sign(oth.sign) { }
 
   int glLeft, glRight, edgeNum, sign;
 
@@ -189,6 +202,9 @@ public:
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
 
+  EdgeDef** getSharedEdges() { return sharedEdges; }
+  const int* getNumSharedEdges() const { return numSharedEdges; }
+
 	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
 
   Connectivity *createElemBasedConnectivity();
@@ -216,6 +232,13 @@ public:
   // Returns -1 if it does not exist.  Warning: This method is O(N)
   int getLocalNodeNum(int globNodeNum) const;
   // geometry
+
+  void getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getSolidBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getFarFieldBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getSubDomainBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+
+  void constructLines(std::vector<std::vector<int>*>& pLines, int& numLines);
 
   void setFaceType(int *);
   void setNodeType(int*, CommPattern<int> &);
@@ -346,6 +369,13 @@ public:
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     bool linRecFSI = true, LevelSetStructure* =0);
+
+  template<class Scalar>
+  void computeGradientLeastSquares(SVec<double,3> &, const Vec<int> &,
+                                    SVec<double,6> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    LevelSetStructure* =0);
 
   template<int dim, class Scalar>
   void computeGradientsLeastSquares(SVec<double,3> &, const Vec<int> &,
@@ -522,10 +552,13 @@ public:
 
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &,
-				 SVec<double,dim> &);
+				 SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
+                                 LevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, 
+                          SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
+                          LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
@@ -546,15 +579,17 @@ public:
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
-                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double, 
+                             Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeCsValues(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
-                       SVec<double,8> &, SVec<double,2> &, Vec<int> &, SVec<double,3> &, double, double);
+                       SVec<double,8> &, SVec<double,2> &, Vec<int> &, SVec<double,3> &, double, double,LevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, SVec<double,dim> &,
-                             SVec<double,dim> &);
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
+                             SVec<double,dim> &, SVec<double,dim> &, 
+                             Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVMSLES_Step1(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
@@ -827,12 +862,20 @@ public:
   template<int dim>
   void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
+  void sndNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
   void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void sndGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<int dim>
   void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
+  void rcvNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &, VarFcn *varFcn);
+  template<int dim>
   void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void rcvGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<class Scalar, int dim, class OpType>
   void operateRcvData(CommPattern<Scalar> &, Scalar (*)[dim], const OpType &oper);
@@ -854,6 +897,9 @@ public:
 
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
+  template<class Scalar, int dim>
+  void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],int &, Vec<int> &);
 
   template<class Scalar1, class Scalar2, int dim1, int dim2>
   void TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],
@@ -954,9 +1000,14 @@ public:
   NodeSet &getNodes() { return nodes; }
 
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level, LevelSetStructure *LSS=0);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
+  template<int dimLS>
+  void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
+				SVec<double,dimLS> &d2wall, int level,
+			        Vec<int> &sortedNodes, int& nSortedNodes, int &firstCheckedNode,
+				LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
@@ -981,7 +1032,7 @@ public:
   void extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV);
 
   template<int dim>
-    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag);
+    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,3> &X,SVec<double,dim> &U,NodalGrad<dim, double> &ngrad,VarFcn *varFcn,LevelSetStructure &LSS,bool linRecFSI,Vec<int> &tag);
   
   template<int dim,int neq>
     void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<double,neq>& A);

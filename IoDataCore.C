@@ -646,6 +646,8 @@ ProblemData::ProblemData()
   framework = BODYFITTED;
   solvefluid = ON;
 
+  solutionMethod = TIMESTEPPING;
+
   test = REGULAR;
   verbose = 4;
 
@@ -699,6 +701,10 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int ProblemData::*>(&ProblemData::test), 1,
      "Regular", 0);
 
+  new ClassToken<ProblemData>
+    (ca, "SolutionMethod", this,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::solutionMethod), 2,
+     "TimeStepping", 0, "MultiGrid", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -2138,6 +2144,7 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SchemeData>(ca, "XiC", this, &SchemeData::xic);
   new ClassDouble<SchemeData>(ca, "Eps", this, &SchemeData::eps);
 
+  fluxMap.setup("FluxMap",ca);
 }
 
 //------------------------------------------------------------------------------
@@ -2168,7 +2175,7 @@ void SFixData::setup(const char *name, ClassAssigner *father)
   ClassToken<SFixData>* sf = new ClassToken<SFixData>
 	(ca, "FailSafe", this,
 	 reinterpret_cast<int SFixData::*>(&SFixData::failsafe), 2,
-         "Off", 0, "On",1, "AlwayOn", 2);
+         "Off", 0, "On",1, "AlwaysOn", 2);
   
   sf->allowIntPair(&SFixData::failsafeN);
 }
@@ -2349,6 +2356,18 @@ void SchemesData::setup(const char *name, ClassAssigner *father)
   tm.reconstruction = SchemeData::CONSTANT;
 }
 
+Assigner* SchemeData::MaterialFluxData::getAssigner() {
+
+  ClassAssigner *ca = new ClassAssigner("normal", 1, nullAssigner);
+
+  new ClassToken<MaterialFluxData>
+      (ca, "Flux", this,
+       reinterpret_cast<int MaterialFluxData::*>(&MaterialFluxData::flux), 4,
+       "Roe", 0, "VanLeer", 1, "HLLE", 2, "HLLC", 3);
+ 
+  return ca;
+}
+
 //------------------------------------------------------------------------------
 
 ExplicitData::ExplicitData()
@@ -2383,6 +2402,16 @@ PcData::PcData()
 
   fill = 0;
 
+  num_multigrid_smooth1 = 5;
+  num_multigrid_levels = 5;
+  num_multigrid_smooth2 = 5;
+  
+  mg_smooth_relax = 1.0;
+  mg_smoother = MGJACOBI;
+  mg_type = MGGEOMETRIC;
+  mg_output = 0;
+
+  num_fine_sweeps = 5; 
 }
 
 //------------------------------------------------------------------------------
@@ -2401,7 +2430,94 @@ void PcData::setup(const char *name, ClassAssigner *father)
 			 "Natural", 0, "Rcm", 1);
 
   new ClassInt<PcData>(ca, "Fill", this, &PcData::fill);
+  new ClassInt<PcData>(ca, "MultiGridOutput", this, &PcData::mg_output);
+  new ClassDouble<PcData>(ca, "MultiGridSmoothingRelaxation", this, &PcData::mg_smooth_relax);
+  
+  new ClassToken<PcData>(ca, "MultiGridSmoother", this,
+			 reinterpret_cast<int PcData::*>(&PcData::mg_smoother), 3,
+			 "BlockJacobi",0,"LineJacobi",1,"RAS",2);
+  
+  new ClassToken<PcData>(ca, "MultiGridType", this,
+			 reinterpret_cast<int PcData::*>(&PcData::mg_type), 2,
+			 "Algebraic",0,"Geometric",1);
 
+  new ClassInt<PcData>(ca, "NumMultiGridSmooth1",this, &PcData::num_multigrid_smooth1);
+  new ClassInt<PcData>(ca, "NumMultiGridSmooth2",this, &PcData::num_multigrid_smooth2);
+  new ClassInt<PcData>(ca, "NumMultiGridLevels",this, &PcData::num_multigrid_levels);
+  new ClassInt<PcData>(ca, "NumFineSweeps",this, &PcData::num_fine_sweeps);
+}
+
+MultiGridData::MultiGridData()
+{
+
+  num_multigrid_smooth1 = 5;
+  num_multigrid_levels = 5;
+  num_multigrid_smooth2 = 5;
+  
+  mg_smooth_relax = 1.0;
+  mg_smoother = MGJACOBI;
+  mg_output = 0;
+
+  directional_coarsening_factor = 0.0;
+  num_fine_sweeps = 5; 
+  prolong_relax_factor = 1.0; 
+  restrict_relax_factor = 1.0;
+
+  cycle_scheme = VCYCLE;
+
+  useGMRESAcceleration = 0;
+
+  restrictMethod = VOLUME_WEIGHTED;
+  addViscousTerms = 0;
+  coarseningRatio = TWOTOONE;
+}
+
+//------------------------------------------------------------------------------
+
+void MultiGridData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassInt<MultiGridData>(ca, "MultiGridOutput", this, &MultiGridData::mg_output);
+  new ClassDouble<MultiGridData>(ca, "MultiGridSmoothingRelaxation", this, &MultiGridData::mg_smooth_relax);
+  
+  new ClassToken<MultiGridData>(ca, "MultiGridSmoother", this,
+			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::mg_smoother), 4,
+			 "BlockJacobi",0,"LineJacobi",1,"RAS",2,"GMRES", 3);
+  
+  new ClassToken<MultiGridData>(ca, "CycleScheme", this,
+			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::cycle_scheme), 2,
+			 "VCycle",0,"WCycle", 1);
+  
+  new ClassToken<MultiGridData>(ca, "RestrictionMethod", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::restrictMethod), 2,
+			 "VolumeWeighted",0,"Average", 1);
+  
+  new ClassToken<MultiGridData>(ca, "AddViscousTerms", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::addViscousTerms), 2,
+			 "No",0,"Yes", 1);
+  
+  new ClassToken<MultiGridData>(ca, "UseGMRESAcceleration", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::useGMRESAcceleration), 2,
+			 "No",0,"Yes", 1);
+  new ClassToken<MultiGridData>(ca, "CoarseningRatio", this,
+			 reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
+			 "TwoToOne",0,"FourToOne", 1);
+
+  new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth1",this, &MultiGridData::num_multigrid_smooth1);
+  new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth2",this, &MultiGridData::num_multigrid_smooth2);
+  new ClassInt<MultiGridData>(ca, "NumMultiGridLevels",this, &MultiGridData::num_multigrid_levels);
+  new ClassInt<MultiGridData>(ca, "NumFineSweeps",this, &MultiGridData::num_fine_sweeps);
+  new ClassDouble<MultiGridData>(ca, "DirectionalCoarseningFactor",this, &MultiGridData::directional_coarsening_factor);
+  new ClassDouble<MultiGridData>(ca, "ProlongRelaxFactor",this,
+&MultiGridData::prolong_relax_factor);
+  new ClassDouble<MultiGridData>(ca, "RestrictRelaxFactor",this,
+&MultiGridData::restrict_relax_factor);
 }
 
 //------------------------------------------------------------------------------
@@ -2416,6 +2532,8 @@ KspData::KspData()
   maxIts = 30;
   numVectors = 30;
   eps = 1.e-2;
+
+  absoluteEps = 0.0;
 
   output = "";
 
@@ -2445,6 +2563,7 @@ void KspData::setup(const char *name, ClassAssigner *father)
   new ClassInt<KspData>(ca, "KrylovVectors", this, &KspData::numVectors);
 
   new ClassDouble<KspData>(ca, "Eps", this, &KspData::eps);
+  new ClassDouble<KspData>(ca, "AbsoluteEps", this, &KspData::absoluteEps);
 
   new ClassStr<KspData>(ca, "Output", this, &KspData::output);
 
@@ -3078,18 +3197,19 @@ ForcedData::ForcedData()
 void ForcedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 3,
-     "Heaving", 0, "Pitching", 1, "Deforming", 2);
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 4,
+     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
 
   hv.setup("Heaving", ca);
   pt.setup("Pitching", ca);
+  vel.setup("Velocity",ca);
   df.setup("Deforming", ca);
 
 }
@@ -3529,10 +3649,16 @@ void Surfaces::setup(const char *name)  {
 
 //------------------------------------------------------------------------------
 
-void Velocity::setup(const char *name)  {
+void Velocity::setup(const char *name, ClassAssigner *father)  {
 
-  ClassAssigner *ca = new ClassAssigner(name, 0, 0);
-  rotationMap.setup("RotationAxis", 0);
+  if (father) {
+    ClassAssigner *ca = new ClassAssigner(name, 1, father);
+    rotationMap.setup("RotationAxis", ca);
+  }
+  else {
+    ClassAssigner *ca = new ClassAssigner(name, 0, 0);
+    rotationMap.setup("RotationAxis", 0);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3582,6 +3708,24 @@ Assigner *RotationData::getAssigner()  {
 
 //------------------------------------------------------------------------------
 
+void RotationData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+
+  new ClassDouble<RotationData>(ca, "Nx", this, &RotationData::nx);
+  new ClassDouble<RotationData>(ca, "Ny", this, &RotationData::ny);
+  new ClassDouble<RotationData>(ca, "Nz", this, &RotationData::nz);
+
+  new ClassDouble<RotationData>(ca, "X0", this, &RotationData::x0);
+  new ClassDouble<RotationData>(ca, "Y0", this, &RotationData::y0);
+  new ClassDouble<RotationData>(ca, "Z0", this, &RotationData::z0);
+
+  new ClassDouble<RotationData>(ca, "Omega", this, &RotationData::omega);
+  new ClassToken<RotationData> (ca, "InfiniteRadius", this, reinterpret_cast<int RotationData::*>(&RotationData::infRadius), 2, "False" , 0, "True", 1);
+
+}
+
+//------------------------------------------------------------------------------
 VolumeData::VolumeData()  {
 
   type = FLUID;
@@ -3720,6 +3864,7 @@ EmbeddedFramework::EmbeddedFramework() {
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
+  viscousinterfaceorder = FIRST;
 
 }
 
@@ -3735,7 +3880,7 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
                                       "NodalState", 0, "RiemannSolution", 1);
   new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
-                                      "Reconstructed", 0, "ControlVolumeFace", 1);
+                                      "ReconstructedSurface", 0, "ControlVolumeFace", 1);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
   new ClassToken<EmbeddedFramework> (ca, "PhaseChangeAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2, "Average", 0, "LeastSquares", 1);
@@ -3753,6 +3898,8 @@ void EmbeddedFramework::setup(const char *name) {
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
+  new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
+                                      "First", 0, "Second", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -3817,38 +3964,6 @@ void ImplosionSetup::setup(const char *name) {
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
   new ClassDouble<ImplosionSetup>(ca, "Tmax", this, &ImplosionSetup::tmax);
   new ClassInt<ImplosionSetup>(ca, "InterfaceTrackingFrequency", this, &ImplosionSetup::intersector_freq);
-}
-
-MultigridInfo::MultigridInfo() {
-
-  fineMesh = "";
-  coarseMesh = "";
-  fineDec = "";
-  coarseDec = "";
-  packageFile = "";
-  collectionFile = "";
-
-  radius0 = 1.0;
-  radiusf = 2.0;
-  threshold = 10;
-}
-
-void MultigridInfo::setup(const char * name) {
-  
-  ClassAssigner *ca = new ClassAssigner(name, 9, 0);
-  new ClassDouble<MultigridInfo>(ca, "Radius0", this, &MultigridInfo::radius0);
-  new ClassDouble<MultigridInfo>(ca, "RadiusF", this, &MultigridInfo::radiusf);
-  new ClassInt<MultigridInfo>(ca, "Threshold", this, &MultigridInfo::threshold);
-
-  new ClassStr<MultigridInfo>(ca, "FineMesh", this, &MultigridInfo::fineMesh);
-  new ClassStr<MultigridInfo>(ca, "CoarseMesh", this, &MultigridInfo::coarseMesh);
-
-  new ClassStr<MultigridInfo>(ca, "FineDec", this, &MultigridInfo::fineDec);
-  new ClassStr<MultigridInfo>(ca, "CoarseDec", this, &MultigridInfo::coarseDec);
-  
-  new ClassStr<MultigridInfo>(ca, "PackageFile", this, &MultigridInfo::packageFile);
-  new ClassStr<MultigridInfo>(ca, "CollectionFile", this, &MultigridInfo::collectionFile);
-
 }
 
 //------------------------------------------------------------------------------
@@ -3977,7 +4092,7 @@ void IoData::setupCmdFileVariables()
   embed.setup("EmbeddedFramework");
   oneDimensionalInfo.setup("1DGrid");
   implosion.setup("ImplosionSetup");
-  
+  mg.setup("MultiGrid");
   surfKI.setup(com, "AcousticPressure");
 
 }
@@ -4452,6 +4567,13 @@ void IoData::resetInputValues()
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
     problem.mode = ProblemData::DIMENSIONAL;
 
+  if (problem.type[ProblemData::UNSTEADY] && 
+      problem.solutionMethod == ProblemData::MULTIGRID) {
+
+    com->fprintf(stderr, "*** Error: Multigrid solution method (ProblemData.SolutionMethod = MultiGrid)"
+                         " cannot be used for unsteady problems.\n");
+    exit(1);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -4460,6 +4582,16 @@ int IoData::checkFileNames()
 {
 
   int error = 0;
+
+  // only a single set of input files must be specified for _AERO_ACOUSTIC_ simulations
+  if(problem.alltype == ProblemData::_AERO_ACOUSTIC_){
+    if(strcmp(input.strKPtraces, "") == 0){
+      com->fprintf(stderr, "*** Error: a PressureKirchhoff file must be specified in the Input object\n");
+      error++;
+    }
+    // the rest of the function does not concern _AERO_ACOUSTIC_ simulations
+    return error;
+  }
 
   // no input files for Sparse Grid generation, hence no check
   // or if we are doing a one dimensional problem!
@@ -4492,11 +4624,13 @@ int IoData::checkFileNames()
       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
     if (eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
+/*
     if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS &&
 	strcmp(input.d2wall, "") == 0) {
       com->fprintf(stderr, "*** Error: no distance to wall file given\n");
       ++error;
     }
+*/
    if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
 	strcmp(input.d2wall, "") == 0) {
       com->fprintf(stderr, "*** Error: no distance to wall file given\n");
@@ -4533,6 +4667,11 @@ int IoData::checkInputValues()
 
   int error = 0;
 
+  // no need for all input values for Aeroacoustic simulation
+  // check only the ones of interest and exit this routine
+  if(problem.alltype == ProblemData::_AERO_ACOUSTIC_)
+    return checkInputValuesAeroAcoustic();
+
   // input values for flow solver
   error += checkInputValuesAllEquationsOfState();
   checkCFLBackwardsCompatibility();
@@ -4554,6 +4693,7 @@ int IoData::checkInputValues()
     bc.inlet.pressure = bc.outlet.pressure;
     bc.inlet.density = bc.outlet.density;
     bc.inlet.alpha = bc.inlet.beta = 0.0;
+    bc.inlet.mach = bc.outlet.mach;
     bc.inlet.temperature = bc.outlet.temperature;
     setupOneDimensional();
   }
@@ -4603,6 +4743,43 @@ int IoData::checkInputValues()
   return error;
 
 }
+//------------------------------------------------------------------------------
+// this routine checks the input values for an _AERO_ACOUSTIC_ simulation
+int IoData::checkInputValuesAeroAcoustic(){
+
+  int error = 0;
+
+  // checking that binary files (containing the time-history of an unsteady pressure field
+  // on a surface have been specified) has already been checked in checkFileNames()
+
+  // check that the type of the Kirchhoff surface was specified
+  if (surfKI.d_surfaceType != KirchhoffData::CYLINDRICAL &&
+      surfKI.d_surfaceType != KirchhoffData::SPHERICAL){
+    com->fprintf(stderr, "*** Error: AcousticPressure.KirchhoffSurface "
+        "must either be 'Spherical' or 'Cylindrical'\n");
+    error++;
+  }
+
+  // check quantities related to output of far-field pattern
+  if(strcmp(output.transient.probes.farfieldpattern, "") != 0 &&  surfKI.d_angularIncrement <= 0){
+    com->fprintf(stderr, "*** Error: AcousticPressure.Increment must be positive to output "
+        "the far-field pattern\n");
+    error++;
+  }
+
+  // check that pressure probes were specified... this is the goal of this simulation
+  if(strcmp(output.transient.probes.pressure, "") == 0){
+    com->fprintf(stdout, "*** Warning: no acoustic pressure probe has been specified\n");
+  }
+  if(strcmp(output.transient.probes.pressure, "") != 0 && surfKI.d_nyquist < 0){
+    com->fprintf(stderr, "*** Error: AcousticPressure.NyquistMaximum must be positive\n");
+    error++;
+  }
+
+  return error;
+
+}
+
 //------------------------------------------------------------------------------
 
 int IoData::checkInputValuesAllEquationsOfState(){
@@ -4933,10 +5110,9 @@ void IoData::setupOneDimensional() {
          it!=mf.multiInitialConditions.sphereMap.dataMap.end();
          it++){
       if (it->second->cen_x != 0.0 ||
-	  it->second->cen_x != 0.0 ||
-	  it->second->cen_x != 0.0) {
+	  it->second->cen_y != 0.0 ||
+	  it->second->cen_z != 0.0) {
 	fprintf(stderr,"*** Error: non zero center specified for 1d spherical problem!\n");
-	exit(1);
       }
 
       oneDimensionalInfo.interfacePosition = it->second->radius;
@@ -5464,13 +5640,14 @@ int IoData::checkInputValuesEssentialBC()
     ref.velocity = bc.inlet.velocity;
 
   if (ref.mach <= 0.0) {
-    com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
+    //com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
     if (ref.velocity<0.0){
-      com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given\n");
+      com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given (Mach = %e, Velocity = %e)\n", 
+                   ref.mach, ref.velocity);
       ++error;
     }
-    else
-      com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
+    //else
+    //  com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
   }
   if (bc.inlet.alpha > 360.0) {
     com->fprintf(stderr, "*** Error: no valid angle of attack (%e) given\n", bc.inlet.alpha);
@@ -5568,6 +5745,10 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
 
   int error = 0;
 
+  // no solver value to check for _AERO_ACOUSTIC_ simulations
+  if(problem.alltype == ProblemData::_AERO_ACOUSTIC_)
+    return 0;
+
   if (problem.type[ProblemData::ACCELERATED] && !problem.type[ProblemData::AERO] &&
       rmesh.timestep < 0.0) {
     com->fprintf(stderr, "*** Error: no valid timestep (%d) given\n", rmesh.timestep);
@@ -5578,7 +5759,7 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
       com->fprintf(stderr, "*** Error: no valid timestep (%d) given\n", forced.timestep);
       ++error;
     }
-    if (forced.frequency < 0.0) {
+    if (forced.frequency < 0.0 && forced.type != ForcedData::VELOCITY) {
       com->fprintf(stderr, "*** Error: no valid frequency (%d) given\n", forced.frequency);
       ++error;
     }
@@ -5628,6 +5809,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
   // and this routine is for multiphase flow.
   int fluidModelIDCount = 0;
   FluidModelData::Fluid fluidType = FluidModelData::UNDEFINED;
+  FluidModelData *fluidModel = 0;
   if(eqs.fluidModelMap.dataMap.empty()){
     error++;
     com->fprintf(stderr, "*** Error: no valid FluidModel were specified for Initial Conditions\n");
@@ -5637,6 +5819,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
     for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++)
       if(it->first == fluidModelID){
         fluidModelIDCount++;
+	fluidModel = it->second;
         fluidType = it->second->fluid;
       }
     if(fluidModelIDCount != 1){
@@ -5669,7 +5852,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
       error++;
       com->fprintf(stderr, "*** Error : either initial pressure or density must be specified\n");
     }
-    if(initialConditions.temperature < 0){
+    if(initialConditions.temperature < 0 && fluidModel->liquidModel.burnable == LiquidModelData::NO){
       error++;
       com->fprintf(stderr, "*** Error : an initial temperature must be specified\n");
     }
@@ -5721,8 +5904,10 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
         com->fprintf(stderr, "*** Error: a specific heat at constant pressure must be specified for a stiffened gas in a viscous simulation.");
         error++;
       }
-      else if(eqs.type == EquationsData::EULER)
+      else if(eqs.type == EquationsData::EULER && strcmp(output.transient.temperature, "") != 0) {
         com->fprintf(stderr, "*** Note: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
+	error++;
+      }
     }
   }
 
@@ -5917,7 +6102,7 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
       programmedBurn.cjDensity <= 0.0 ||
       programmedBurn.cjEnergy <= 0.0) {
     
-    com->fprintf(stderr, "*** At least one of the Chapman-Jouguet parameters is invalid\nRecalcuating...\n");
+    com->fprintf(stderr, "*** Computing the Chapman-Jouguet parameters\n");
     const FluidModelData& burnedData = *eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS)->second;
     if (burnedData.fluid == FluidModelData::JWL) {
       ProgrammedBurn::computeChapmanJouguetStateJWL(burnedData.jwlModel.A1, burnedData.jwlModel.A2,

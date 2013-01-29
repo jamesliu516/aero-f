@@ -4746,7 +4746,6 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
     }
   }
 }
-// ASSUME Max FLUID-ID IS 2
 void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,
                                  int dimLS)
 {
@@ -4829,5 +4828,83 @@ void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellSt
 
   edges.attachHigherOrderMultiFluid(higherOrderMF);
   faces.attachHigherOrderMF(higherOrderMF);
+}
+
+void SubDomain::getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    int code = faces[i].getCode();
+    if (code != BC_SLIP_WALL_MOVING &&
+        code != BC_SLIP_WALL_FIXED && code != BC_ADIABATIC_WALL_MOVING &&
+        code != BC_ADIABATIC_WALL_FIXED && code != BC_ISOTHERMAL_WALL_MOVING &&
+        code != BC_ISOTHERMAL_WALL_FIXED)
+      continue;
+
+    for (int k = 0; k < faces[i].numNodes(); ++k)
+      boundaryNodes.insert(faces[i][k]); 
+    
+  }
+}
+
+
+void SubDomain::getSolidBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    int code = faces[i].getCode();
+    if (code != BC_SYMMETRY && code != BC_SLIP_WALL_MOVING &&
+        code != BC_SLIP_WALL_FIXED && code != BC_ADIABATIC_WALL_MOVING &&
+        code != BC_ADIABATIC_WALL_FIXED && code != BC_ISOTHERMAL_WALL_MOVING &&
+        code != BC_ISOTHERMAL_WALL_FIXED)
+      continue;
+
+    for (int k = 0; k < faces[i].numNodes(); ++k)
+      boundaryNodes.insert(faces[i][k]); 
+    
+  }
+}
+
+void SubDomain::getFarFieldBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    int code = faces[i].getCode();
+    if (code != BC_OUTLET_MOVING && code != BC_OUTLET_FIXED &&
+        code != BC_INLET_MOVING && code != BC_INLET_FIXED)  
+      continue;
+
+    for (int k = 0; k < faces[i].numNodes(); ++k)
+      boundaryNodes.insert(faces[i][k]); 
+    
+  }
+}
+
+void SubDomain::getSubDomainBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
+
+  for(int iSub=0; iSub<numNeighb; iSub++) {
+    for(int i=0; i<sharedNodes->num(iSub); i++) {
+      int me = (*sharedNodes)[iSub][i];
+      boundaryNodes.insert(me);
+    }
+  }
+}
+
+// This implementation is currently incomplete (AM)
+void SubDomain::constructLines(std::vector<std::vector<int>*>& pLines, int& numLines) {
+
+  Aerof_unordered_set<int>::type surfaceNodes;
+  Aerof_unordered_set<int>::type subdBoundaryNodes;
+
+  getSurfaceNodes(surfaceNodes);
+  getSubDomainBoundaryNodes(subdBoundaryNodes);
+
+  Vec<int> available(numNodes());
+  available = 1;
+
+  for (int i = 0; i < numNodes(); ++i) {
+
+  }
+  
 }
 

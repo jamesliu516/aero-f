@@ -10,6 +10,8 @@
 template<class Scalar, int dim>
 class MvpMat : public GenMat<Scalar,dim> {
 
+protected:
+
   int n;
   int numEdges;
 

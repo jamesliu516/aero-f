@@ -80,6 +80,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   else {
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
+    makerotationownership(iod);
+    updatebc(iod);
   }
   comm->barrier();
 
@@ -111,6 +113,13 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   delete []intersector;
   delete physInterface;
   delete floodFill;
+
+  if(stElem) delete[] stElem;
+  if(solidX) delete solidX;
+  if(solidX0) delete solidX0;
+  if(solidXn) delete solidXn;
+  if(surfaceID) delete[] surfaceID;
+  if(rotOwn) delete[] rotOwn;
 }
 
 //----------------------------------------------------------------------------
@@ -133,39 +142,70 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   topFile = fopen(solidSurface, "r");
   if (topFile == NULL) {com->fprintf(stderr, "Embedded structure surface mesh doesn't exist: %s, %s\n",solidSurface,restartSolidSurface); exit(1); }
 
+  char line[MAXLINE],key1[MAXLINE],key2[MAXLINE];
+
   // load the nodes and initialize all node-based variables.
 
   // load solid nodes at t=0
-  char c1[200], c2[200], c3[200];
-  int num0 = 0, num1 = 0, nInputs;
+  int num0 = 0; 
+  int num1 = 0;
+
   double x1,x2,x3;
-  int toto = fscanf(topFile, "%s %s\n", c1, c2);
-  char debug[6]="Nodes";
-  for (int i=0; i<5; i++)
-    if(debug[i]!=c1[i]) {com->fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", solidSurface); exit(-1);}
+  int node1, node2, node3;
 
-  std::list<Vec3D> nodeList;
+  int type_read = 0;
+  int surfaceid = 0;
+
   std::list<int> indexList;
-  std::list<Vec3D>::iterator it1;
-  std::list<int>::iterator it2;
-  int maxIndex = 0;
+  std::list<Vec3D> nodeList;
+  std::list<int> elemIdList;    
+  std::list<int> elemList1;
+  std::list<int> elemList2;
+  std::list<int> elemList3;
+  std::list<int> surfaceIDList;
 
-  while(1) {
-    nInputs = fscanf(topFile,"%s", c1);
-    if(nInputs!=1) break;
-    if(c1[0]=='E') //done with the node set
-      break;
-    num1 = atoi(c1);
-    if(num1<1) {com->fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
-    indexList.push_back(num1);
-    if(num1>maxIndex)
-      maxIndex = num1;
+  int maxIndex = 0, maxElem = -1;
 
-    toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
-    x1 /= XScale;
-    x2 /= XScale;
-    x3 /= XScale;
-    nodeList.push_back(Vec3D(x1,x2,x3));
+  while (fgets(line,MAXLINE,topFile) != 0) {
+    sscanf(line, "%s", key1);
+    bool skip = false;
+    if (strcmp(key1, "Nodes") == 0) {
+      sscanf(line, "%*s %s", key2);
+      skip = true;
+      type_read = 1;
+    }
+    if (strcmp(key1, "Elements") == 0) {
+      sscanf(line, "%*s %s", key2);
+      skip = true;
+      type_read = 2;
+      int underscore_pos = -1;
+      int k = 0;
+      while((key2[k] != '\0') && (k<MAXLINE)) {
+        if(key2[k] == '_') underscore_pos = k;
+        k++;
+      }
+      if(underscore_pos > -1)
+        sscanf(key2+(underscore_pos+1),"%d",&surfaceid); 
+    }
+    if (!skip) {
+      if (type_read == 1) {
+	sscanf(line, "%d %lf %lf %lf", &num1, &x1, &x2, &x3);
+	if(num1<1) {com->fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
+        x1 /= XScale;
+        x2 /= XScale;
+        x3 /= XScale;
+        indexList.push_back(num1);
+        if(num1>maxIndex) maxIndex = num1;
+        nodeList.push_back(Vec3D(x1,x2,x3));
+      }
+      if (type_read == 2) {
+	sscanf(line,"%d %d %d %d %d", &num0, &num1, &node1, &node2, &node3);
+        elemList1.push_back(node1-1);
+        elemList2.push_back(node2-1);
+        elemList3.push_back(node3-1);
+	surfaceIDList.push_back(surfaceid);
+      }
+    }
   }
 
   numStNodes = nodeList.size();
@@ -176,6 +216,8 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
     exit(-1);
   }
 
+  numStElems = elemList1.size();
+
   // feed data to Xss. 
   Xs      = new Vec3D[numStNodes];
   Xs0     = new Vec3D[numStNodes];
@@ -185,7 +227,17 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
-  
+
+  surfaceID = new int[numStNodes];
+  rotOwn = 0;
+
+  std::list<Vec3D>::iterator it1;
+  std::list<int>::iterator it2;
+  std::list<int>::iterator it_1;
+  std::list<int>::iterator it_2;
+  std::list<int>::iterator it_3;
+  std::list<int>::iterator it_4;
+
   it2 = indexList.begin();
   for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
     Xs[(*it2)-1] = *it1;
@@ -197,65 +249,32 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
     Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
-  }
-
-  // load the elements.
-  if(nInputs!=1) {
-    com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
-  toto = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
-  char debug2[6] = "using";
-  for (int i=0; i<5; i++)
-    if(debug2[i]!=c2[i]) {com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
-
-  std::list<int> elemIdList;
-  std::list<int> elemList1;
-  std::list<int> elemList2;
-  std::list<int> elemList3;
-  std::list<int>::iterator it_0;
-  std::list<int>::iterator it_1;
-  std::list<int>::iterator it_2;
-  std::list<int>::iterator it_3;
-  int node1, node2, node3;
-  maxIndex = -1;
-
-  while(1) {
-    nInputs = fscanf(topFile,"%d", &num0);
-    if(nInputs!=1) break;
-    toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
-    if(num0<1) {com->fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, solidSurface); exit(-1);}
-    elemIdList.push_back(num0-1);  //start from 0.
-    elemList1.push_back(node1-1);
-    elemList2.push_back(node2-1);
-    elemList3.push_back(node3-1);
-    if(num0-1>maxIndex)
-      maxIndex = num0-1;
-  }
-  numStElems = elemList1.size();
-  if(numStElems != maxIndex+1) {
-    com->fprintf(stderr,"ERROR: The element set of the embedded surface have gap(s). \n");
-    com->fprintf(stderr,"       Detected max index = %d, number of elements = %d\n", maxIndex+1, numStElems);
-    com->fprintf(stderr,"NOTE: Currently the element set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
-    exit(-1);
+    surfaceID[k] = 0;
   }
 
   stElem = new int[numStElems][3];
 
-  it_0 = elemIdList.begin();
   it_1 = elemList1.begin();
   it_2 = elemList2.begin();
   it_3 = elemList3.begin();
+  it_4 = surfaceIDList.begin();
   for (int i=0; i<numStElems; i++) {
-    stElem[*it_0][0] = *it_1;
-    stElem[*it_0][1] = *it_2;
-    stElem[*it_0][2] = *it_3;
-    it_0++;
+    stElem[i][0] = *it_1;
+    stElem[i][1] = *it_2;
+    stElem[i][2] = *it_3;
+    surfaceID[*it_1] = *it_4;
+    surfaceID[*it_2] = *it_4;
+    surfaceID[*it_3] = *it_4;
     it_1++;
     it_2++;
     it_3++;
+    it_4++;
   }
 
   fclose(topFile);
 
+  int nInputs;
+  char c1[200], c2[200], c3[200];
   // load solid nodes at restart time.
   if (restartSolidSurface[0] != 0) {
     FILE* resTopFile = fopen(restartSolidSurface, "r");
@@ -271,12 +290,12 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
-      toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      int toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
-    if (ndMax!=numStNodes) {
-      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+    if ((!cracking && ndMax!=numStNodes) || (cracking && ndMax != cracking->totNodes())) {
+      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong; ndMax = %d; numStNodes = %d\n", ndMax , numStNodes);
       exit(1);
     }
 
@@ -376,8 +395,8 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
-    if (ndMax!=numStNodes) {
-      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+    if ((!cracking && ndMax!=numStNodes) || (cracking && ndMax != cracking->totNodes())) {
+      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong; ndMax = %d; numStNodes = %d\n", ndMax , numStNodes);
       exit(1);
     }
 
@@ -406,6 +425,95 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
   initializePhysBAM();
 }
 
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::makerotationownership(IoData &iod) {
+  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+  map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
+  map<int,SurfaceData *>::iterator it = surfaceMap.begin();
+  
+  int numRotSurfs = 0;
+  int numTransWalls = 0;
+  while(it != surfaceMap.end()) {
+    map<int,RotationData*>::iterator it1 = rotationMap.find(it->second->rotationID);
+    if(it1!=rotationMap.end()) {
+      if(it1->second->infRadius) {
+        numTransWalls++;
+        com->fprintf(stderr," ... surface %2d is ``translating''\n",it->first, it1->first);
+        com->fprintf(stderr,"     -> uniform velocity V = %3.2e in direction %3.2e %3.2e %3.2e\n",
+                     it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
+      } else {
+        numRotSurfs++;
+        com->fprintf(stderr," ... surface %2d is ``rotating'' using rotation data %2d\n",it->first, it1->first);
+        com->fprintf(stderr,"     -> omega = %3.2e, rotation axis = %3.2e %3.2e %3.2e\n",
+                     it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
+      }
+    }
+    it++;
+  }
+
+  if(numRotSurfs || numTransWalls) {
+    rotOwn = new int[numStNodes];
+
+    for (int k=0; k<numStNodes; k++) {
+      rotOwn[k] = -1;
+
+      map<int,SurfaceData *>::iterator it = surfaceMap.find(surfaceID[k]);
+      if(it != surfaceMap.end()) {
+         int rotID = it->second->rotationID; // = -1 if not defined in input file
+         if ((rotOwn[k] != -1 && rotOwn[k] != rotID) ||
+             (rotOwn[k] != -1 && rotOwn[k] != rotID) ||
+             (rotOwn[k] != -1 && rotOwn[k] != rotID))  {
+           com->fprintf(stderr, " ... WARNING: Embedded Node %d associated to more than 1 Rotation ID\n",k);
+         }
+         rotOwn[k] = rotID;
+         rotOwn[k] = rotID;
+         rotOwn[k] = rotID;
+      }
+    }
+  }
+}
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::updatebc(IoData &iod) {
+  map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
+  if (rotOwn)  { 
+    for (int k=0; k<numStNodes; k++) {
+      if (rotOwn[k]>=0) {    // node belongs to a (potential) "rotating" surface
+        map<int,RotationData *>::iterator it =  rotationMap.find(rotOwn[k]);
+        if(it != rotationMap.end()) { // the rotation data have been defined
+	  if(it->second->infRadius == RotationData::TRUE) {
+            double vel = it->second->omega / iod.ref.rv.velocity;
+	    Xsdot[k][0] = vel*it->second->nx + Xsdot[k][0];
+	    Xsdot[k][1] = vel*it->second->ny + Xsdot[k][1];
+	    Xsdot[k][2] = vel*it->second->nz + Xsdot[k][2];
+	  } 
+          else {
+            double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
+	    double tref = iod.ref.rv.time;
+	    double ox = tref*it->second->omega*it->second->nx;
+	    double oy = tref*it->second->omega*it->second->ny;
+	    double oz = tref*it->second->omega*it->second->nz;
+	    double xd = Xs[k][0] - it->second->x0 / XScale;
+	    double yd = Xs[k][1] - it->second->y0 / XScale;
+	    double zd = Xs[k][2] - it->second->z0 / XScale;
+	    Xsdot[k][0] = oy*zd-oz*yd + Xsdot[k][0];
+	    Xsdot[k][1] = oz*xd-ox*zd + Xsdot[k][1];
+	    Xsdot[k][2] = ox*yd-oy*xd + Xsdot[k][2];
+	  }
+	} 
+        else  { // no rotation data -> use velocity from mesh motion if any
+          Xsdot[k][0] = Xsdot[k][0];
+          Xsdot[k][1] = Xsdot[k][1];
+          Xsdot[k][2] = Xsdot[k][2];
+	}
+      }
+      else  { // no rotation data -> use velocity from mesh motion if any
+        Xsdot[k][0] = Xsdot[k][0];
+        Xsdot[k][1] = Xsdot[k][1];
+        Xsdot[k][2] = Xsdot[k][2];
+      }
+    }
+  }
+}
 //----------------------------------------------------------------------------
 
 void
@@ -1076,9 +1184,10 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
       ++numCloseNodes;
       for(int j=1;j<=candidates.Size();++j) addToPackage(i,candidates(j));
       Vec3D x0(X[i][0], X[i][1], X[i][2]);
-      if(distIntersector.cracking && 1 /*need a flag for 'multi-phase'*/)
+      if(distIntersector.cracking || 1 /*need a flag for 'multi-phase'*/)
         findNodeClosestPoint(i,x0,candidates); //fill closest[i]
-    } else {
+    } 
+    else {
       is_occluded[i]=false;
       closest[i].mode = -1; // set to "far"
     }

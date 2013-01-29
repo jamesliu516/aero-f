@@ -162,6 +162,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
       }
 
+      
+      probDesc->printf(1,"dts = %lf  dt = %lf\n", dts,dt);
+
       t += dt;
 
       // update coefficients for enforcing the Farfield BC.

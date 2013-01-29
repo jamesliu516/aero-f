@@ -96,7 +96,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
     fixSol = 1;
 
 	timeState = 0;
-	mmh = 0;
+	mmh = 0; 
 }
 
 //------------------------------------------------------------------------------
@@ -301,7 +301,7 @@ template<int dim>
 double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U, double angle)
 {
   double t0 = timer->getTime();
-//  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
+  //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   timeState->unphysical = data->unphysical;
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
@@ -709,7 +709,7 @@ template<int dim>
 void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
 
-  com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+  //com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
 
   if (!problemType[ProblemData::UNSTEADY]) {
     double trhs = timer->getTimeSyncro();

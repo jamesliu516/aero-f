@@ -116,6 +116,9 @@ public:
   }
 
   double computeTemperature(double *V) const{ return V[4]; }
+  void getV4FromTemperature(double *V, double T) const {
+    V[4] = T;
+  }
   double computeRhoEnergy(double *V)   const{
     return computeRhoEpsilon(V) + 0.5 * V[0] * getVelocitySquare(V);
   }
@@ -200,7 +203,14 @@ void VarFcnTait::conservativeToPrimitive(double *U, double *V){
 
   V[0] = U[0];
 
-  double invRho = 1.0 / U[0];
+  double invRho;
+
+  // Avoid divide by zero errors, in case this function is called with an 
+  // invalid density
+  if (U[0] > 0.0)
+    invRho = 1.0 / U[0];
+  else
+    invRho = 0.0;
    
   V[1] = U[1] * invRho;
   V[2] = U[2] * invRho;
@@ -208,7 +218,14 @@ void VarFcnTait::conservativeToPrimitive(double *U, double *V){
       
   double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
    
-  double pb = (!burnable?getPressure(V[0]):0.0); 
+  double pb;
+  // Avoid divide by zero errors, in case this function is called with an 
+  // invalid density
+  if (U[0] > 0.0)
+    pb = (!burnable?getPressure(V[0]):0.0); 
+  else
+    pb = -1.0e20;
+
   V[4] = invRho * invC_ * (U[4] - 0.5 * U[0] * vel2 + pb);
   //note that h = cp * T and not epsilon = cv * T
 
@@ -220,7 +237,12 @@ int VarFcnTait::verification(int glob, double *U, double *V)
 //verification of pressure value
 //if pressure < pmin, set pressure to pmin
 //and rewrite V and U!!
-  double locPressure = getPressure(V);
+  double locPressure;
+  if (V[0] > 0.0)
+    locPressure = getPressure(V);
+  else {
+    return 1;
+  }
   if(locPressure<pmin){
     if(verif_clipping)
       fprintf(stdout, "clip pressure[%d] in tait from %e to %e\n", glob, locPressure, pmin);

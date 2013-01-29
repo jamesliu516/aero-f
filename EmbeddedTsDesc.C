@@ -63,10 +63,13 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
       
-  if(orderOfAccuracy==1) //first-order everywhere...
+  if(orderOfAccuracy==1) { //first-order everywhere...
     linRecAtInterface = false; 
+    viscSecOrder = false; 
+  }
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -252,7 +255,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   totStructNodes = dynNodalTransfer ? dynNodalTransfer->totStNodes() : numStructNodes;
 
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes\n", numStructNodes, totStructNodes);
+    //this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes\n", numStructNodes, totStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[totStructNodes][3];
   } else 
@@ -303,12 +306,15 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   delete wall_computer;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
-  //PJSA if (Fs) delete[] Fs;
+  if (Fs) operator delete[] (Fs, *this->com);
   if(ghostPoints) 
     {
       ghostPoints->deletePointers();
       delete ghostPoints;
     }
+
+  if (nodeTagCopy) delete nodeTagCopy;
+  if (nodeTag0Copy) delete nodeTag0Copy;
 }
 
 //------------------------------------------------------------------------------
@@ -377,8 +383,8 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
-      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
-      this->spaceOp->populateGhostPoints(this->ghostPoints,*U,this->varFcn,this->distLSS,this->nodeTag);
+//      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
     }
   // Population of spaceOp->V for the force computation
   this->spaceOp->conservativeToPrimitive(*U);
@@ -592,13 +598,13 @@ void EmbeddedTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 template<int dim>
 double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {  
-  // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES) {
-    this->ghostPoints->deletePointers();
-    this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
-  }
+//  // Ghost-Points Population
+//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES) {
+//    this->ghostPoints->deletePointers();
+//    this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+//  }
 
-  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
+  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  viscSecOrder, nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
 
@@ -615,7 +621,7 @@ template<int dim>
 void EmbeddedTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
 
-  this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+  //this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
     this->data->residual = computeResidualNorm(U);
@@ -667,24 +673,33 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
 //-------------------------------------------------------------------------------
 
 template <int dim>
-void EmbeddedTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]) 
+void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D *Fi, Vec3D *Mi) 
 {
+  int idx;
   if (!FsComputed) 
     computeForceLoad(this->Wstarij, this->Wstarji);
 
-  F[0] = F[1] = F[2] = 0.0;
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
-  for (int i=0; i<numStructNodes; i++) {
-    F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
 
-  M[0] = M[1] = M[2] = 0;
   Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
-  for (int i = 0; i < numStructNodes; ++i) {
-     M[0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
-     M[1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
-     M[2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
+
+  for (int i=0; i<numStructNodes; i++) {
+    map<int,int>::iterator it = surfOutMap.find(distLSS->getSurfaceID(i));
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      idx = 0;
+    }
+
+    Fi[idx][0] += Fs[i][0]; 
+    Fi[idx][1] += Fs[i][1]; 
+    Fi[idx][2] += Fs[i][2];
+
+    Mi[idx][0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
+    Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
+    Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
   }
 }
 
@@ -815,7 +830,7 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
 
 template<int dim>
 void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
-{
+{ 
   if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
         ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {

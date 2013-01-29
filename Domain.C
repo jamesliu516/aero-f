@@ -258,6 +258,38 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+// least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+template<class Scalar>
+void Domain::computeGradientLeastSquares(DistSVec<double,3> &X,
+                                         DistVec<int> &fluidId,
+                                         DistSVec<double,6> &R,
+                                         DistVec<Scalar> &var,
+                                         DistVec<Scalar> &ddx,
+                                         DistVec<Scalar> &ddy,
+                                         DistVec<Scalar> &ddz,
+                                         DistLevelSetStructure *distLSS)
+{
+
+  if(distLSS) {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeGradientLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
+                                                    ddx(iSub), ddy(iSub), ddz(iSub), &((*distLSS)(iSub)));
+  } else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeGradientLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
+                                                    ddx(iSub), ddy(iSub), ddz(iSub), 0);
+  }
+
+  CommPattern<Scalar> *vPat = getCommPat(var);
+  assemble(vPat, ddx);
+  assemble(vPat, ddy);
+  assemble(vPat, ddz);
+
+}
+
+//------------------------------------------------------------------------------
 // least square gradient involving only nodes of fluid (FSI)
 // Wstar is involved in gradient computation
 template<int dim, class Scalar>
@@ -2065,13 +2097,29 @@ void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> 
 
 template<int dim>
 void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
-				       DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+				       DistSVec<double,dim> &V, DistSVec<double,dim> &R,
+				       DistVec<GhostPoint<dim>*> *ghostPoints, DistLevelSetStructure *LSS)
 
 {
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub), 
+                       ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+  }
+  else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub));
+  }
 
 }
 
@@ -2080,12 +2128,28 @@ void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double
 template<int dim>
 void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs,
                                    DistSVec<double,3> &X, DistSVec<double,dim> &V,
-				   DistSVec<double,dim> &R)
+				   DistSVec<double,dim> &R,
+				   DistVec<GhostPoint<dim>*> *ghostPoints, DistLevelSetStructure *LSS)
 {
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub)
-     subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub),
+                       ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+  }
+  else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub));
+  }
 
 }
 
@@ -2302,13 +2366,29 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
 
 template<int dim>
 void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
-				DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+				DistSVec<double,dim> &V, DistSVec<double,dim> &R,
+				DistVec<GhostPoint<dim>*> *ghostPoints, DistLevelSetStructure *LSS)
 
 {
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub),
+                       ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+  }
+  else {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub));
+  }
 
 }
 
@@ -2396,17 +2476,38 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 				     DistVec<int> &Ni,
                                      DistBcData<dim> &bcData,
 				     DistSVec<double,3> &X, DistSVec<double,dim> &V,
-				     double gam, double R)
+				     double gam, double R,
+				     DistVec<GhostPoint<dim>*> *ghostPoints, 
+                                     DistLevelSetStructure *LSS)
 {
 
 // computing test filtered values for all the required flow variables //
 
+  if (ghostPoints)
+  {
+    if (!LSS) 
+    {
+      com->fprintf(stderr, "***** Domain::LSS has to be provided in the case of an LES simulation\n");
+      exit(1);
+    }
+
 #pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub){
-     subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
-                                            Eng_Test(iSub), X(iSub), V(iSub), gam, R);
-     subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
-   }
+    for (int iSub = 0; iSub < numLocSub; ++iSub){
+      subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
+                                             Eng_Test(iSub), X(iSub), V(iSub), gam, R,
+                                             ghostPoints->operator[](iSub), &(LSS->operator()(iSub)));
+      subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
+    }
+  }
+  else
+  {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub){
+      subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
+                                             Eng_Test(iSub), X(iSub), V(iSub), gam, R);
+      subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
+    }
+  }
 
    // START OF ALL EXCHANGES
 
@@ -2453,12 +2554,23 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 
 // computing unsmoothed Cs and Pt values //
 
+  if (ghostPoints) {
 #pragma omp parallel for
-   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-     subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
-                                      modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
-				      Ni(iSub), X(iSub), gam, R);
-   }
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
+                                       modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
+         			       Ni(iSub), X(iSub), gam, R,
+                                       &(LSS->operator()(iSub)));
+    }
+  }
+  else {
+#pragma omp parallel for
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
+                                       modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
+         			       Ni(iSub), X(iSub), gam, R);
+    }
+  }
 
 
 // smoothing Cs and Pt values //
@@ -3036,28 +3148,45 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W, const Op
 
 //------------------------------------------------------------------------------
 template<int dim>
-void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints)
+void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn)
 {
   int iSub;
   // Adam 2010.10.27
   // Caution, the order of the calls matters, because a ghost point can lie on a domain boundary, 
-  // in which case we may want to create its state after during the exchange. The Ghost weight is 
-  // going to be used as a parameter.
+  // in which case we may want to create its state after during the exchange. The num ghost 
+  // states is going to be used as a parameter.
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
-      subDomain[iSub]->sndGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->sndNumGhostStates(*levelPat, ghostPoints(iSub));
       subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub));
     }
 
-  volPat->exchange();
+  levelPat->exchange();
   vecPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     {
-      subDomain[iSub]->rcvGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->rcvNumGhostStates(*levelPat, ghostPoints(iSub), varFcn);
       subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub));
+    }
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->sndGhostWeights(*vecPat, ghostPoints(iSub));
+      subDomain[iSub]->sndGhostTags(*levelPat, ghostPoints(iSub));
+    }
+
+  vecPat->exchange();
+  levelPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    {
+      subDomain[iSub]->rcvGhostWeights(*vecPat, ghostPoints(iSub));
+      subDomain[iSub]->rcvGhostTags(*levelPat, ghostPoints(iSub));
     }
 }
 //------------------------------------------------------------------------------
@@ -3562,7 +3691,8 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
 
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
-  assemble(levelPat, next_init);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
 }
 
 //------------------------------------------------------------------------------
@@ -3602,7 +3732,8 @@ void Domain::computeWeightsLeastSquaresForEmbeddedStruct(
 
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
-  assemble(levelPat, next_init);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
   if (R) delete R;
   if (count) delete count;
 }
@@ -3626,7 +3757,8 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
   assemble(vecPat, VWeights);
   assemble(phiVecPat, PhiWeights);
   assemble(volPat, Weights);
-  assemble(levelPat, next_init);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
 }
 
 //------------------------------------------------------------------------------
@@ -3646,17 +3778,17 @@ void Domain::extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dim
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag)
+void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface,DistVec<int> &tag)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
-      subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub),U(iSub),varFcn,(*distLSS)(iSub),tag(iSub));
+      subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub),X(iSub),U(iSub),(*ngrad)(iSub),varFcn,(*distLSS)(iSub),linRecAtInterface,tag(iSub));
     }
 
   // Adam 2010.10.26
-  assembleGhostPoints(*ghostPoints);
+  assembleGhostPoints(*ghostPoints,varFcn);
 
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
@@ -3976,12 +4108,12 @@ void Domain::setupPhiVolumesInitialConditions(const int volid, const int fluidId
 
 template<int dimLS>
 void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi,
-                               int level)
+                               int level, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub),Phi(iSub),level);
+    subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub),Phi(iSub),level,&((*distLSS)(iSub)));
     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
   }
 
@@ -3990,6 +4122,33 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+}
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
+				DistSVec<double,dimLS> &d2wall, int level, 
+				DistVec<int> &sortedNodes, int *nSortedNodes,
+				int *firstCheckedNode, DistLevelSetStructure *distLSS,
+				DistVec<ClosestPoint> *closestPoint)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->pseudoFastMarchingMethod<dimLS>(Tag(iSub),X(iSub),d2wall(iSub),level,sortedNodes(iSub),*(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL,closestPoint?&((*closestPoint)(iSub)):NULL);
+    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+  }
+
+  levelPat->exchange();
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->maxRcvDataAndCountUpdates(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
+    subDomain[iSub]->minRcvData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+  }
 }
 
 //------------------------------------------------------------------------------

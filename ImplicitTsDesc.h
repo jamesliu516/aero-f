@@ -36,6 +36,8 @@ protected:
 
   NewtonSolver<ImplicitTsDesc<dim> > *ns;
 
+  IoData* myIoDataPtr;
+
 protected:
 
   template<class Scalar, int neq>

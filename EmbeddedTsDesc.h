@@ -35,7 +35,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
   int numStructNodes;
   int totStructNodes;
-  bool linRecAtInterface;
+  bool linRecAtInterface, viscSecOrder;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;
@@ -143,8 +143,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
-  void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]);
+  void getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D* Fi, Vec3D* Mi);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
   virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}

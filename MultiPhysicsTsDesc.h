@@ -41,7 +41,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool withCracking;
 
   int orderOfAccuracy; // consistent with the reconstruction type for space
-  bool linRecAtInterface;
+  bool linRecAtInterface, viscSecOrder;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;
@@ -144,8 +144,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
 
-  void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]);
+  void getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D* Fi, Vec3D* Mi);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 
