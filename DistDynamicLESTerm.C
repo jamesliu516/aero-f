@@ -57,7 +57,9 @@ void DistDynamicLESTerm<dim>::compute(DistVec<double> &ctrlVol,
                                       DistBcData<dim> &bcData,
 				      DistSVec<double,3> &X, 
 				      DistSVec<double,dim> &V, 
-                                      DistSVec<double,dim> &R)
+                                      DistSVec<double,dim> &R,
+                                      DistVec<GhostPoint<dim>*> *ghostPoints, 
+                                      DistLevelSetStructure *LSS)
 {
 
   *VCap = 0.0;       // contains test filtered values of the primitive variables //
@@ -68,8 +70,9 @@ void DistDynamicLESTerm<dim>::compute(DistVec<double> &ctrlVol,
   *Cs = 0.0;         // contains Cs and Pt values //
 
   domain->computeTestFilterValues(ctrlVol, *VCap, *Mom_Test, *Sij_Test, *modS_Test, 
-                                  *Eng_Test, *Cs, *Ni, bcData, X, V, gam, Rideal);
-  domain->computeDynamicLESTerm(dlest, *Cs, X, V, R);
+                                  *Eng_Test, *Cs, *Ni, bcData, X, V, gam, Rideal, 
+                                  ghostPoints, LSS);
+  domain->computeDynamicLESTerm(dlest, *Cs, X, V, R, ghostPoints, LSS);
 
 }
 

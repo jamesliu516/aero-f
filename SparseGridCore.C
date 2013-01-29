@@ -136,7 +136,7 @@ void SparseGrid::initialize(SparseGridData &data, double *param,
   fnmin = new double[out];
   fnmax = new double[out];
   
-  scaleGrid(refIn, refOut);
+  scaleGrid(refIn, refOut, 1);
 
 }
 
@@ -811,11 +811,11 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut, int output
         
   }
 
-  if(outputRangeFlag==0){
-    fprintf(stdout, "SparseGrid range = {");
+  if(outputRangeFlag==1){
+    fprintf(stdout, "# The ranges of the sparse grid in each dimension are\n");
     for(int idim=0; idim<dim; idim++)
-      fprintf(stdout, "[%e %e] ", range[idim][0],range[idim][1]);
-    fprintf(stdout, "}\n");
+      fprintf(stdout, "#      [% e % e]\n", range[idim][0],range[idim][1]);
+    fprintf(stdout, "\n");
   }
 
 }
@@ -1279,13 +1279,13 @@ void SparseGrid::messages(const int flag, const int arg) const{
 
 
   if(flag==10){
-  	fprintf(stdout, "###########################################\n");
+  	fprintf(stdout, "##############################################################\n");
   	fprintf(stdout, "# tabulation done\n");
   	fprintf(stdout, "# number of subgrids = %d\n", nSubGrids);
   	fprintf(stdout, "# number of points   = %d\n", nPoints);
   	fprintf(stdout, "# max number of points   = %d\n", maxPoints);
   	fprintf(stdout, "# relative and absolute accuracy = %e %e\n", actualRelAcc, actualAbsAcc);
-  	fprintf(stdout, "###########################################\n");
+  	fprintf(stdout, "##############################################################\n");
   }
   
   if(flag==1 && verbose>0){

@@ -112,15 +112,18 @@ public:
                                                                                                                           
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
-				 SVec<double,dim> &R);
+				 SVec<double,dim> &R,
+			         Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &,
-                             SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+                             SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
+			     Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
-		          SVec<double,dim> &R);
+		          SVec<double,dim> &R,
+			  Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &, 
@@ -140,7 +143,8 @@ public:
 
   template<int dim>
   void computeP1Avg(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, Vec<double> &,
-                    SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+                    SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double,
+     		    Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0);
 
 // Included (MB)
   double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &);
@@ -180,6 +184,9 @@ public:
   template<int dim>
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
+  template<int dim>
+  void FastMarchingDistanceUpdate(int node,Vec<int> &Tag,int level,
+                                 SVec<double,3> &X,SVec<double,dim> &d2wall);
 
 
   template<int dim, class Obj>

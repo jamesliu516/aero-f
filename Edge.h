@@ -21,6 +21,7 @@ using std::pair;
 
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
+#include <LevelSet/LevelSetStructure.h>
 
 class FluidSelector;
 class VarFcn;
@@ -87,6 +88,12 @@ public:
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
                        Vec<double> &, TimeLowMachPrec &);
+
+  template<int dim>
+  void computeTimeStep2(FemEquationTerm *, VarFcn *, GeoState &,
+		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
+                       Vec<double> &, TimeLowMachPrec &, Vec<double>&);
+ 
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
                        TimeLowMachPrec &, Vec<int> &, int,Vec<double>*);
@@ -95,6 +102,29 @@ public:
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dim>&, SVec<int,2>&, int, int);
+  
+  template<int dim>
+  int computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+                                     VarFcn* varFcn,
+                                     class FemEquationTerm*,
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V,
+                                     SVec<double,dim>& fluxes);
+  
+  template<int dim,class Scalar,int neq>
+  int computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+                                     VarFcn* varFcn,
+                                     class FemEquationTerm*,
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V,
+                                     Vec<double>& ctrlVol,
+/*                                     SVec<double,3>& faceJacX,
+                                     SVec<double,3>& faceJacY,
+                                     SVec<double,3>& faceJacZ,
+                                     bool* boundaryFlag,
+*/
+                                     GenMat<Scalar,neq>& A);
+
   template<int dim>
   int computeFiniteVolumeTermRestrict(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
@@ -200,7 +230,12 @@ public:
 */
 
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi);
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi,LevelSetStructure *LSS=0);
+  template<int dimLS>
+  void pseudoFastMarchingMethodInitialization(
+		Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
+		Vec<int> &sortedNodes, int &nSortedNodes,
+		LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }

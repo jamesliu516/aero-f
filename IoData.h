@@ -390,6 +390,7 @@ struct ProblemData {
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
+  enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
 
   ProblemData();
@@ -1158,8 +1159,22 @@ struct SchemeData {
   double xic;
   double eps;
 
+  struct MaterialFluxData {
+
+    Flux flux;
+
+    Assigner *getAssigner();
+  };
+
+  // We now allow different flux functions to be used for different materials.  
+  // The behavior is that if the flux is specified for a fluid id in this map,
+  // then it is used.  Otherwise, the default (schemedata.flux) is used for
+  // that material.
+  ObjectMap<MaterialFluxData> fluxMap;
+
   int allowsFlux;
 
+  // allowsFlux = 0 for levelset equation (the choice of flux for the levelset is hardcoded)
   SchemeData(int allowsFlux = 1);
   ~SchemeData() {}
 
@@ -1340,13 +1355,61 @@ struct PcData {
 
   enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5, MG = 6} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
+  
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
+
+  enum MGType { MGALGEBRAIC = 0, MGGEOMETRIC = 1} mg_type;
 
   int fill;
+
+  int num_multigrid_smooth1,num_multigrid_smooth2;
+  int num_multigrid_levels;
+
+  int mg_output;
+
+  double mg_smooth_relax;
+
+  int num_fine_sweeps;
 
   PcData();
   ~PcData() {}
 
   void setup(const char *, ClassAssigner * = 0);
+
+};
+
+struct MultiGridData {
+
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2, MGGMRES = 3 } mg_smoother;
+
+  enum CycleScheme { VCYCLE = 0, WCYCLE = 1} cycle_scheme;
+
+  enum RestrictMethod { VOLUME_WEIGHTED = 0, AVERAGE = 1 } restrictMethod;
+
+  enum CoarseningRatio { TWOTOONE = 0, FOURTOONE = 1} coarseningRatio;
+ 
+  int num_multigrid_smooth1,num_multigrid_smooth2;
+  int num_multigrid_levels;
+
+  int mg_output;
+
+  int useGMRESAcceleration;
+
+  double directional_coarsening_factor;
+
+  double mg_smooth_relax;
+
+  double prolong_relax_factor,restrict_relax_factor;
+
+  int num_fine_sweeps;
+
+  int addViscousTerms;
+ 
+  MultiGridData();
+  ~MultiGridData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
 
 };
 
@@ -1361,6 +1424,8 @@ struct KspData {
   int maxIts;
   int numVectors;
   double eps;
+
+  double absoluteEps;
 
   const char *output;
 
@@ -1787,17 +1852,42 @@ struct DeformingData {
 
 };
 
-//----------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+struct RotationData  {
+
+  double nx, ny, nz;
+  double x0, y0, z0;
+  double omega;
+  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
+
+  RotationData();
+  Assigner *getAssigner();
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//-----------------------------------------------------------------------------
+
+struct Velocity  {
+
+  ObjectMap<RotationData> rotationMap;
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, DEFORMING = 2} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
   PitchingData pt;
+  Velocity vel;
   DeformingData df;
 
   ForcedData();
@@ -2010,29 +2100,6 @@ struct PadeFreq  {
 
 //------------------------------------------------------------------------------
 
-struct RotationData  {
-
-  double nx, ny, nz;
-  double x0, y0, z0;
-  double omega;
-  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
-
-  RotationData();
-  Assigner *getAssigner();
-
-};
-
-//-----------------------------------------------------------------------------
-
-struct Velocity  {
-
-  ObjectMap<RotationData> rotationMap;
-
-  void setup(const char *);
-};
-
-//------------------------------------------------------------------------------
-
 struct EmbeddedFramework { 
 
   enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
@@ -2054,6 +2121,7 @@ struct EmbeddedFramework {
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
+  enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
@@ -2099,25 +2167,6 @@ struct ImplosionSetup {
   void setup(const char *);
 };
 
-struct MultigridInfo {
- 
-  MultigridInfo();
-  ~MultigridInfo() {}
-  void setup(const char *);
-
-  const char* fineMesh;
-  const char* coarseMesh;
-
-  const char* fineDec;
-  const char* coarseDec;
-
-  const char* packageFile;
-  const char* collectionFile;
-
-  double radius0;
-  double radiusf;
-  int threshold;
-};
 
 //------------------------------------------------------------------------------
 
@@ -2183,7 +2232,7 @@ public:
   OneDimensionalInfo oneDimensionalInfo;
   ImplosionSetup implosion;
 
-  MultigridInfo multigrid;
+  MultiGridData mg;
 
   // UH (08/2012)
   // The next member is used for the Kirchhoff integral.
@@ -2200,6 +2249,7 @@ public:
   void resetInputValues();
   int checkFileNames();
   int checkInputValues();
+  int checkInputValuesAeroAcoustic();
   int checkInputValuesAllEquationsOfState();
   int checkInputValuesProgrammedBurn();
   int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,

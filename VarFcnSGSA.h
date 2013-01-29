@@ -87,6 +87,18 @@ public:
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
   }
+  void computeTemperatureGradient(double *V,double* Tg) const {
+    if (isnan(1.0/V[0])) {
+      fprintf(stderr, "ERROR*** computeTemp\n");
+      throw std::exception();
+    }
+    Tg[0] =  -invgam1 * (V[4]+Pstiff) / (V[0]*V[0]);
+    Tg[1] = Tg[2] = Tg[3] = 0.0;
+    Tg[4] = invgam1 / V[0]; 
+  }
+  void getV4FromTemperature(double *V, double T) const {
+    V[4] = T*V[0]*gam1 - Pstiff;
+  }
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }

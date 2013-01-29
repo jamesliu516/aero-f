@@ -91,9 +91,23 @@ private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
 public:
 
+  TimeLowMachPrec& getTimeLowMachPrec() { return tprec; }
+  SpatialLowMachPrec& getSpatialLowMachPrec() { return sprec; }
+
   DistTimeState(IoData &, SpaceOperator<dim> *, VarFcn *, Domain *, DistSVec<double,dim> * = 0);
+  DistTimeState(IoData &, SpaceOperator<dim> *, VarFcn *, Domain *,
+                DistInfo& dI, DistSVec<double,dim> * = 0);
   DistTimeState(const DistTimeState<dim> &, bool, IoData &);
   ~DistTimeState();
+
+  void copyTimeData(DistTimeState<dim>* oth);
+
+  DistVec<double>& getDt() const { return *dt; }
+
+  void createSubStates();
+
+  void initialize(IoData &ioData, SpaceOperator<dim> *spo, VarFcn *vf,
+		  Domain *dom, DistSVec<double,dim> *v, DistInfo& dI) ;
 
   TimeState<dim> &operator() (int i) const { return *subTimeState[i]; }
 

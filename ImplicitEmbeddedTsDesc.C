@@ -70,6 +70,7 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     &this->nodeTag,
     this->riemann,
     this->linRecAtInterface,
+    this->viscSecOrder,
     this->Nsbar,
     &this->Wtemp,
     this->riemannNormal,
@@ -217,7 +218,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       if (!this->existsWstarnm1) {
         
         this->spaceOp->computeResidual(*this->X, *this->A, Unm1, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 this->linRecAtInterface, this->nodeTag, this->Vtemp, this->riemann, 
+                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, this->Vtemp, this->riemann, 
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
       }
 
@@ -240,14 +241,14 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   
   }
 
-  // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
-      embeddedU.real() = U;
-      embeddedU.setGhost(*this->ghostPoints,this->varFcn); 
-    }
+//  // Ghost-Points Population
+//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+//    {
+//      this->ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+//      embeddedU.real() = U;
+//      embeddedU.setGhost(*this->ghostPoints,this->varFcn); 
+//    }
   return 0;
 }
 //------------------------------------------------------------------------------
@@ -302,11 +303,11 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 //  int BuggyNode = 340680;
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
-  if (this->ghostPoints) {
-    embeddedU.getGhost(*this->ghostPoints,this->varFcn); 
-  }
+//  if (this->ghostPoints) {
+//    embeddedU.getGhost(*this->ghostPoints,this->varFcn); 
+//  }
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 this->linRecAtInterface, this->nodeTag, F, this->riemann, 
+                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, F, this->riemann, 
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
 
 //  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
@@ -322,7 +323,7 @@ void ImplicitEmbeddedTsDesc<dim>::doErrorEstimation(DistSVec<double,dim> &U)
   DistSVec<double,dim> *flux = new DistSVec<double,dim>(TsDesc<dim>::domain->getNodeDistInfo());
 
   this->spaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 this->linRecAtInterface, this->nodeTag, *flux, this->riemann, 
+                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, *flux, this->riemann, 
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
 
   this->timeState->calculateErrorEstiNorm(U, *flux); 
@@ -381,8 +382,8 @@ void ImplicitEmbeddedTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &
   mvp->evaluate(it,*(this->X) ,*(this->A), Q, F);
 
   mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
-  if (mvph1 && this->ghostPoints) 
-    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
+//  if (mvph1 && this->ghostPoints) 
+//    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
 
 }
 //------------------------------------------------------------------------------

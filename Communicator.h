@@ -291,6 +291,7 @@ public:
 #endif
 
   void setLen(int ID, int size, int lDim=-1, int nv = 1);
+  int getLen(int ID) const { return sRecInfo[ID].len; }
   void finalize(); // complete the internal setup
   SubRecInfo<T> recData(int channel);
   void sendData(int channel, T *);

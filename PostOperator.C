@@ -336,17 +336,22 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     delete [] mv;
   }
 
-  double F[3], M[3];
-  F[0] = F[1] = F[2] = M[0] = M[1] = M[2] = 0.0;
+  Vec3D *fi = new Vec3D[numSurf];
+  Vec3D *mi = new Vec3D[numSurf];
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    fi[iSurf] = 0.0;
+    mi[iSurf] = 0.0;
+  }
   if(forceGen != 0)
-    forceGen->getForcesAndMoments(U, X, F, M);
+    forceGen->getForcesAndMoments(surfOutMap, U, X, fi, mi);
 
-  Fi[0][0] += F[0]; //assuming there is only one surface! (or the "embedded force" is associated to surf#1.)
-  Fi[0][1] += F[1];
-  Fi[0][2] += F[2];
-  Mi[0][0] += M[0];
-  Mi[0][1] += M[1];
-  Mi[0][2] += M[2];
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    Fi[iSurf] += fi[iSurf];
+    Mi[iSurf] += mi[iSurf];
+  }
+
+  delete [] fi;
+  delete [] mi;
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
@@ -470,17 +475,22 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&rieman
     delete [] mv;
   }
 
-  double F[3], M[3];
-  F[0] = F[1] = F[2] = M[0] = M[1] = M[2] = 0.0;
+  Vec3D *fi = new Vec3D[numSurf];
+  Vec3D *mi = new Vec3D[numSurf];
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    fi[iSurf] = 0.0;
+    mi[iSurf] = 0.0;
+  }
   if(forceGen != 0)
-    forceGen->getForcesAndMoments(U, X, F, M);
+    forceGen->getForcesAndMoments(surfOutMap, U, X, fi, mi);
 
-  Fi[0][0] += F[0]; //assuming there is only one surface! (or the "embedded force" is associated to surf#1.)
-  Fi[0][1] += F[1];
-  Fi[0][2] += F[2];
-  Mi[0][0] += M[0];
-  Mi[0][1] += M[1];
-  Mi[0][2] += M[2];
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    Fi[iSurf] += fi[iSurf];
+    Mi[iSurf] += mi[iSurf];
+  }
+
+  delete [] fi;
+  delete [] mi;
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
@@ -1124,8 +1134,18 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-  else if (type == PostFcn::CONTROL_VOLUME) 
+  else if (type == PostFcn::CONTROL_VOLUME) { 
     Q = A;
+  }
+  else if (type == PostFcn::D2WALL) { 
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      double* q = Q.subData(iSub);
+      for (int i=0; i<Q.subSize(iSub); ++i) {
+        q[i] = geoState->operator()(iSub).getDistanceToWall()[i];
+      }
+    }
+  }
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {

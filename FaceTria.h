@@ -55,6 +55,8 @@ public:
   int numNodes() { return 3; }
 
   int nodeNum(int i) const  { return nodeNumT[i]; }
+  
+  void setEdgeNum(int edge_id, int l) { edgeNumT[edge_id] = l; }
 
   // Get element type
   Type type() { return Face::TRIA; }

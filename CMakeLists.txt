@@ -7,7 +7,7 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_admin")
 # Local Variables #
 ###################
 SITE_NAME(HOSTNAME)
-FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
+#FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
 MARK_AS_ADVANCED(HOSTNAME)
 MARK_AS_ADVANCED(LOCAL_DIR)
 ###################
@@ -166,7 +166,9 @@ ADD_LIBRARY(FluidBase
              Solvers/NavierStokesCoupledSolver7.C
              Solvers/NavierStokesSegSolver651.C
              Solvers/NavierStokesSegSolver752.C
+             AgglomeratedFace.C
              BcFcnCore.C
+             BlockTridiagonalMatrix.C
              CommunicatorCore.C 
              CommunicatorMPI.C 
              ConnectivityCore.C 
@@ -200,6 +202,17 @@ ADD_LIBRARY(FluidBase
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
              MultiGridPrec.C
+             MultiGridDistSVec.C
+             MultiGridLevel.C
+             MultiGridKernel.C
+             MultiGridKspSolver.C
+             MultiGridMvpMatrix.C
+             MultiGridOperator.C 
+             MultiGridSpaceOperator.C 
+             MultiGridSmoothingMatrix.C
+             MultiGridSmoothingMatrices.C
+             MultiGridCoupledTsDesc.C
+             MultiGridSegTsDesc.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 
@@ -356,15 +369,19 @@ ENDIF(EXTRALIB)
 
 SET(INC_DIR .)
 
+FIND_PACKAGE(Boost 1.19.0)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+endif(Boost_FOUND)
+
 ##############################
 # For the embedded framework #
 ##############################
 if (NOT WITH_PHYSBAM EQUAL 0)
 
-  FIND_PACKAGE(Boost 1.19.0 REQUIRED)
-  if(Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-  endif(Boost_FOUND)
+  if(NOT Boost_FOUND) 
+    message(FATAL_ERROR "Compiling with PhysBAM requires boost")
+  endif(NOT Boost_FOUND)
 
   SET(INC_DIR PhysBAM_Interface PhysBAM_Interface/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR})

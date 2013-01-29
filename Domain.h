@@ -10,6 +10,7 @@
 #include <GhostPoint.h>
 #include <complex>
 #include <HigherOrderMultiFluid.h>
+#include <LevelSet/LevelSetStructure.h>
 typedef std::complex<double> bcomp;
 #include <iostream>
 using std::cout;
@@ -160,6 +161,8 @@ class Domain {
 
 	int output_newton_step;	// for writing newton residual snapshots
 
+  Connectivity* mySubToSub;
+
 public:
 
   Domain();
@@ -177,6 +180,9 @@ public:
     int** empty = 0;
     return empty;
   }
+ 
+  Connectivity* getSubToSub() { return mySubToSub; } 
+  
   int *getOutputNewtonStep() { return &output_newton_step; }	// allow functions to change it
   BCApplier* getMeshMotionBCs() const { return meshMotionBCs; } //HB
   CommPattern<double> *getVecPat() const { return vecPat; }
@@ -196,8 +202,7 @@ public:
   CommPattern<double> *getCommPat(DistSVec<double,dim> &vec) { return vecPat; }
   template<int dim>
   CommPattern<bcomp> *getCommPat(DistSVec<bcomp,dim> &vec) { return compVecPat; }
-  //CommPattern<double> *getCommPat(DistVec<double> &vec) { return vecPat; }
-	// should return volPat....
+  CommPattern<double> *getCommPat(DistVec<double> &vec) { return volPat; }
 
   Communicator *getCommunicator() const { return com; }
   Communicator *getStrCommunicator() { return strCom; }
@@ -294,6 +299,13 @@ public:
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true,
                                     DistLevelSetStructure* =0);
 
+  template<class Scalar>
+  void computeGradientLeastSquares(DistSVec<double,3> &, DistVec<int> &,
+                                    DistSVec<double,6> &,
+                                    DistVec<Scalar> &, DistVec<Scalar> &,
+                                    DistVec<Scalar> &, DistVec<Scalar> &,
+                                    DistLevelSetStructure* =0);
+
   template<int dim, class Scalar>
   void computeGradientsLeastSquares(DistSVec<double,3> &, DistVec<int> &,
                                     DistSVec<double,6> &,
@@ -351,9 +363,15 @@ public:
   template<int dimLS>
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
+  void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level,DistLevelSetStructure *distLSS=0);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
+  template<int dimLS>
+  void pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
+				DistSVec<double,dimLS> &d2wall, int level, 
+				DistVec<int> &sortedNodes, int *nSortedNodes,
+				int *firstCheckedNode,DistLevelSetStructure *distLSS=0,
+			 	DistVec<ClosestPoint> *closestPoints=0);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
@@ -395,7 +413,7 @@ public:
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
 
   template<int dim>
-  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface, DistVec<int> &tag);
 
   template<int dim,int neq>
   void populateGhostJacobian(DistVec<GhostPoint<dim>*> &ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure &LSS,DistVec<int> &tag, DistMat<double,neq>& A);
@@ -582,10 +600,15 @@ public:
 
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, DistSVec<double,3> &,
-				 DistSVec<double,dim> &, DistSVec<double,dim> &);
+				 DistSVec<double,dim> &, DistSVec<double,dim> &,
+			         DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                                 DistLevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeWaleLESTerm(WaleLESTerm *, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void computeWaleLESTerm(WaleLESTerm *, DistSVec<double,3> &, DistSVec<double,dim> &, 
+                          DistSVec<double,dim> &,
+			  DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                          DistLevelSetStructure *LSS=0);
 
 
   //---start computation of MutOMu terms
@@ -649,11 +672,16 @@ public:
                                DistSVec<double,16> &, DistSVec<double,6> &,
                                DistVec<double> &, DistSVec<double,8> &,
                                DistSVec<double,2> &, DistVec<int> &, DistBcData<dim> &,
-                               DistSVec<double,3> &, DistSVec<double,dim> &, double, double);
+                               DistSVec<double,3> &, DistSVec<double,dim> &, double, double,
+			       DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                               DistLevelSetStructure *LSS=0);
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, DistSVec<double,2> &,
-                             DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+                             DistSVec<double,3> &, DistSVec<double,dim> &, 
+                             DistSVec<double,dim> &,
+			     DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+                             DistLevelSetStructure *LSS=0);
 
 
   template<int dim>
@@ -759,7 +787,7 @@ public:
   void assembleEdge(CommPattern<double> *commPat, DistVec<double> &W);
 
   template<int dim>
-  void assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints);
+  void assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn);
 
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
