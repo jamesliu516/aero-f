@@ -127,6 +127,7 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 {
 
   double t0 = this->timer->getTime();
+  this->data->allowstop = this->timeState->allowcflstop;
   this->timeState->unphysical = this->data->unphysical;
 
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);

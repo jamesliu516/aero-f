@@ -1500,7 +1500,7 @@ struct ImplicitData {
 
 struct CFLData {
 
-  enum Strategy {RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3, FIXEDUNSTEADY = 4} strategy;
+  enum Strategy {RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3, FIXEDUNSTEADY = 4, OLD = 5} strategy;
 
   // global cfl parameters
   double cfl0;

@@ -43,6 +43,7 @@ public:
   int checklinsolve;
   bool unphysical;
   bool badlinsolve;
+  bool allowstop;
   int forbidreduce;
 
 public:

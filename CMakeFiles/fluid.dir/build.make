@@ -120,7 +120,6 @@ bin/aerof.opt: libUtils.a
 bin/aerof.opt: /usr/lib64/liblapack.so
 bin/aerof.opt: /usr/lib64/libblas.so
 bin/aerof.opt: /usr/lib64/libblas.so
-bin/aerof.opt: /opt/intel/fce/10.1.015/lib/libifcore.so
 bin/aerof.opt: libIntersector.a
 bin/aerof.opt: /usr/mpi/gcc/openmpi-1.2.6/lib64/libmpi_cxx.so
 bin/aerof.opt: /usr/mpi/gcc/openmpi-1.2.6/lib64/libmpi.so

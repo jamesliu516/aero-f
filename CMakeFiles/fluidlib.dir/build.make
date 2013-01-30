@@ -120,7 +120,6 @@ bin/aerof.opt.so: libUtils.a
 bin/aerof.opt.so: /usr/lib64/liblapack.so
 bin/aerof.opt.so: /usr/lib64/libblas.so
 bin/aerof.opt.so: /usr/lib64/libblas.so
-bin/aerof.opt.so: /opt/intel/fce/10.1.015/lib/libifcore.so
 bin/aerof.opt.so: libIntersector.a
 bin/aerof.opt.so: libphysbam.a
 bin/aerof.opt.so: CMakeFiles/fluidlib.dir/build.make

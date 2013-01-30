@@ -226,7 +226,7 @@ CMAKE_USE_RELATIVE_PATHS:BOOL=OFF
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
 //Extra link parameters
-EXTRALIB:STRING=/opt/intel/fce/10.1.015/lib/libifcore.so
+EXTRALIB:STRING=
 
 //Path to a program.
 FLEX_EXECUTABLE:FILEPATH=/usr/bin/flex
@@ -239,9 +239,6 @@ FortranLib_LIB_DEPENDS:STATIC=
 
 //Name of the computer/site where compile is being run
 HOSTNAME:STRING=su-ahpcrc.stanford.edu
-
-//Path to a library.
-IntelFCE_Lib:FILEPATH=/opt/intel/fce/10.1.015/lib/libifcore.so
 
 //Dependencies for the target
 Intersector_LIB_DEPENDS:STATIC=general;physbam;
@@ -257,9 +254,6 @@ LAPACK_lapack_LIBRARY:FILEPATH=/usr/lib64/liblapack.so
 
 //Path to a library.
 LAPACK_vecLib_LIBRARY:FILEPATH=LAPACK_vecLib_LIBRARY-NOTFOUND
-
-//The directory containing a CMake configuration file for LOCAL.
-LOCAL_DIR:PATH=/lustre/home/ibuenros/Fluid/localconfig
 
 //Path to a program.
 MERCURIAL_EXECUTABLE:FILEPATH=/usr/bin/hg
@@ -315,7 +309,7 @@ SCALAPACKLIB:FILEPATH=/usr/lib64/libscalapack.a
 Utils_LIB_DEPENDS:STATIC=
 
 //Dependencies for the target
-fluidlib_LIB_DEPENDS:STATIC=general;FluidBase;general;Parser;general;FortranLib;general;Utils;general;/usr/lib64/liblapack.so;general;/usr/lib64/libblas.so;general;/usr/lib64/libblas.so;general;/opt/intel/fce/10.1.015/lib/libifcore.so;general;Intersector;general;-lgfortran;
+fluidlib_LIB_DEPENDS:STATIC=general;FluidBase;general;Parser;general;FortranLib;general;Utils;general;/usr/lib64/liblapack.so;general;/usr/lib64/libblas.so;general;/usr/lib64/libblas.so;general;Intersector;general;-lgfortran;
 
 //Dependencies for target
 physbam_LIB_DEPENDS:STATIC=
@@ -519,8 +513,6 @@ LAPACK_lapack_WORKS-ADVANCED:INTERNAL=1
 LAPACK_lapack_WORKS:INTERNAL=1
 //ADVANCED property for variable: LAPACK_vecLib_LIBRARY
 LAPACK_vecLib_LIBRARY-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: LOCAL_DIR
-LOCAL_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: MPIEXEC
 MPIEXEC-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: MPIEXEC_MAX_NUMPROCS
