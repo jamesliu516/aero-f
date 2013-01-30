@@ -2707,8 +2707,8 @@ void CFLData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 23, father);
 
   new ClassToken<CFLData>(ca, "Strategy", this,
-			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 5,
-			 "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4); 
+			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
+			 "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
   new ClassToken<CFLData>(ca, "CheckSolution", this,
 			 reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
 			 "Off", 0, "On", 1);
@@ -4833,7 +4833,8 @@ int IoData::checkInputValuesAllEquationsOfState(){
 int IoData::checkCFLBackwardsCompatibility(){
 
   if(ts.cfl0 != -1.0 || ts.cflCoef1 != -1.0 || ts.cflCoef2 != -1.0 || ts.cflMax != -1.0 || ts.cflMin != -1.0 || ts.ser != -1.0 || ts.dualtimecfl != -1.0 ){
-    com->fprintf(stderr, "*** Warning: Using CFL values under Time for backwards compatibility. The program will run, but correct execution requires all CFL parameters to be under CFLLaw.\n");
+    com->fprintf(stderr, "*** Warning: Using CFL values under Time and old CFL law for backwards compatibility. The program will run, but correct execution requires all CFL parameters to be under CFLLaw.\n");
+    ts.cfl.strategy = CFLData::OLD;
     //com->fprintf(stderr, "cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",ts.cfl0,ts.cflCoef1,ts.cflCoef2,ts.cflMax,ts.cflMin,ts.ser,ts.dualtimecfl);
   }
   if(ts.cfl0 != -1.0) ts.cfl.cfl0 = ts.cfl0;

@@ -135,6 +135,7 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   unphysical = false;
   dt_coeff = 1.0;
   dt_coeff_count = 0;
+  allowcflstop = true;
 }
 
 //------------------------------------------------------------------------------
@@ -661,6 +662,7 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
   updateDtCoeff();
   if (data->dt_imposed > 0.0) {
     dt_glob = data->dt_imposed;
+    allowcflstop = false; 
     dt_glob *= dt_coeff;
   }
   else 

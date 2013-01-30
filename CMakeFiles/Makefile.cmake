@@ -12,7 +12,6 @@ SET(CMAKE_MAKEFILE_DEPENDS
   "CMakeFiles/CMakeFortranCompiler.cmake"
   "CMakeFiles/CMakeSystem.cmake"
   "CMakeLists.txt"
-  "localconfig/su-ahpcrc.stanford.edu-config.cmake"
   "/usr/share/cmake-2.8/Modules/CMakeCCompiler.cmake.in"
   "/usr/share/cmake-2.8/Modules/CMakeCCompilerABI.c"
   "/usr/share/cmake-2.8/Modules/CMakeCInformation.cmake"

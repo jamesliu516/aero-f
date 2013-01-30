@@ -86,6 +86,7 @@ private:
 
 public:
   bool unphysical;
+  bool allowcflstop;
 
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);

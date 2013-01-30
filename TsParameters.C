@@ -64,6 +64,7 @@ TsParameters::TsParameters(IoData &ioData)
 
   unphysical = false;
   badlinsolve = false;
+  allowstop = true;
 
 }
 
@@ -80,7 +81,12 @@ TsParameters::~TsParameters()
 
 void TsParameters::computeCflNumber(int its, double res, double angle)
 {
-  //cfl = min( max( max(cflCoef1, cflCoef2*its), cfl0/pow(res,ser) ), cflMax );
+
+  // for backwards compatibility
+  if (cfllaw == CFLData::OLD){
+    cfl = min( max( max(cflCoef1, cflCoef2*its), cfl0/pow(res,ser) ), cflMax );
+    return;
+  }
 
   // First run automatic CFL checks
   if (unphysical){
@@ -90,7 +96,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     fixedunsteady_counter = 1;
     //std::printf("Reduction params: cfl0=%f, cfl=%f\n",cfl0,cfl);
     //std::printf("Unphysicality detected. Reducing CFL number to %f.\n",cfl);
-    if (cfl < cfl0/100000.) {
+    if (cfl < cfl0/10000. && allowstop ) {
       std::printf("Could not resolve unphysicality by reducing CFL number. Aborting.\n"); 
       std::printf("Params: cfl0=%f, cfl=%f\n",cfl0,cfl);
       exit(-1);
@@ -103,7 +109,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     cfl *= 0.5;
     fixedunsteady_counter = 1;
     //std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
-    if (cfl < cfl0/100000.) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
+    if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
     return;
   }
 

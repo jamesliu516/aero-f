@@ -422,6 +422,14 @@ openmpi/ompi/mpi/cxx/file_inln.h
 
 /usr/mpi/gcc/openmpi-1.2.6/include/openmpi/ompi/mpi/cxx/win_inln.h
 
+Aerof_unordered_set.h
+set
+-
+tr1/unordered_map
+-
+boost/unordered_set.hpp
+-
+
 BCond.h
 BinFileHandler.h
 -
@@ -548,6 +556,8 @@ DenseMatrixOps.h
 cstdio
 -
 cstdlib
+-
+cmath
 -
 complex
 -
@@ -805,6 +815,8 @@ complex
 -
 HigherOrderMultiFluid.h
 -
+LevelSet/LevelSetStructure.h
+-
 iostream
 -
 Domain.C
@@ -871,6 +883,8 @@ FluidSelector.h
 /FluidSelector.h
 DenseMatrixOps.h
 /DenseMatrixOps.h
+FemEquationTermDesc.h
+/FemEquationTermDesc.h
 
 Edge.h
 map.h
@@ -888,6 +902,8 @@ cstdio
 ProgrammedBurn.h
 -
 HigherOrderMultiFluid.h
+-
+LevelSet/LevelSetStructure.h
 -
 Edge.C
 -
@@ -1150,6 +1166,24 @@ WallFcn.h
 Vector.h
 -
 
+FemEquationTermDesc.h
+FemEquationTerm.h
+-
+NavierStokesTerm.h
+-
+SpalartAllmarasTerm.h
+-
+KEpsilonTerm.h
+-
+DESTerm.h
+-
+Vector3D.h
+-
+cstdlib
+-
+cstdio
+-
+
 FluidSelector.C
 LevelSet/LevelSetStructure.h
 /LevelSet/LevelSetStructure.h
@@ -1251,6 +1285,8 @@ IoData.h
 GeoState.h
 
 GhostPoint.h
+VarFcn.h
+-
 Vector.h
 -
 Vector3D.h
@@ -2599,6 +2635,8 @@ PolygonReconstructionData.h
 -
 HigherOrderMultiFluid.h
 -
+Aerof_unordered_set.h
+-
 map.h
 -
 map
@@ -2687,6 +2725,8 @@ VarFcnBase.h
 VarFcnSGEuler.h
 VarFcnBase.h
 -
+mpi.h
+/mpi.h
 
 VarFcnSGKE.h
 VarFcnBase.h
