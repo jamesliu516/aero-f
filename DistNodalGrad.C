@@ -406,9 +406,17 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int which
   ddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
 
+  dTdx = new DistVec<Scalar>(domain->getNodeDistInfo());
+  dTdy = new DistVec<Scalar>(domain->getNodeDistInfo());
+  dTdz = new DistVec<Scalar>(domain->getNodeDistInfo());
+
   *ddx = 0.0;
   *ddy = 0.0;
   *ddz = 0.0;
+
+  *dTdx = 0.0;
+  *dTdy = 0.0;
+  *dTdz = 0.0;
 
   if(whichone==3){
     //select galerkin gradient
