@@ -43,7 +43,7 @@ template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 {
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
-
+  
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
   int status = resolve(U, ioData);
@@ -92,6 +92,20 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 {
   bool lastIt = false;
 
+  typename ProblemDescriptor::SolVecType *dU = NULL;
+  typename ProblemDescriptor::SolVecType *dUPrev = NULL;
+  typename ProblemDescriptor::SolVecType *dUPrevPrev = NULL;
+  double angle = -2.0;
+
+  if (ioData.ts.cfl.strategy == CFLData::DIRECTION || ioData.ts.cfl.strategy == CFLData::HYBRID){
+    dU = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+    dUPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+    dUPrevPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+    (*dU) = 0.0;
+    (*dUPrev) = 0.0;
+    (*dUPrevPrev) = 0.0;
+  }
+
   // dts is structural time step
   double dt, dts;
   int it = probDesc->getInitialIteration();
@@ -128,7 +142,10 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         ioData.problem.alltype == ProblemData::_FORCED_) {
       probDesc->computeDistanceToWall(ioData);
     }
+    bool repeat;
     do { // Subcycling
+      repeat = false;
+      double dtLeftPrev = dtLeft;
       stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
@@ -139,8 +156,11 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         dt = dtLeft;
         dtLeft = 0.0;
       }
-      else
-        dt = probDesc->computeTimeStep(it, &dtLeft, U);
+      else{
+        if (dU && dUPrev && dUPrev->norm() != 0) angle = ((*dU) * (*dUPrev))/(dU->norm()*dUPrev->norm());
+        else angle = -2.0;
+        dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
+      }
 
       
       probDesc->printf(1,"dts = %lf  dt = %lf\n", dts,dt);
@@ -159,7 +179,25 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         solveOrNot = false;
       }
       if(solveOrNot){
+        if (dU && dUPrev){
+          *dUPrevPrev = *dUPrev;
+          *dUPrev = *dU;
+          *dU = -1.0*U;
+        }
         stat = probDesc->solveNonLinearSystem(U, it);
+        if (stat == -10){ // must redo iteration with a different CFL number, undo everything we have done so far
+          probDesc->printf(1,"Found unphysical solution. Re-calculating CFL number and repeating iteration.\n");
+          repeat = true;
+          if (dU && dUPrev){
+            *dU = *dUPrev;
+            *dUPrev = *dUPrevPrev;
+          }
+          t -= dt;
+          itSc--;
+          dtLeft = dtLeftPrev;
+          continue;
+        }
+        if (dU && dUPrev) *dU += U;
         if(stat>0){
           itNl += stat;
           // compute the current aerodynamic force
@@ -180,7 +218,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         probDesc->updateStateVectors(U, it);
       }
 
-    } while (dtLeft != 0.0 || stat<0);
+    } while (repeat || dtLeft != 0.0 || stat<0);
 
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);

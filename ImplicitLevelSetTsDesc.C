@@ -347,6 +347,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<double
   ksp->setup(it, this->maxItsNewton, b);
   
   int lits = ksp->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
   
   this->timer->addKspTime(t0);
   
@@ -423,6 +425,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<doub
   kspLS->setup(it, this->maxItsNewton, b);
 
   int lits = kspLS->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
 
   //mvpLS->apply(dQ, fnew);
  

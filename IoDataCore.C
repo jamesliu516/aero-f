@@ -2670,6 +2670,75 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+CFLData::CFLData()
+{
+
+  strategy = HYBRID;
+
+  cfl0 = 5.0;
+  cflCoef1 = 0.0;
+  cflMax = 100000.0;
+  cflMin = 1.0;
+  dualtimecfl = 100.0;
+
+  checksol = 1;
+  checklinsolve = 1;
+
+  ser = 0.7;
+
+  angle_growth = 2.0;
+  angle_zero = 0.2;
+
+  dft_history = 8;
+  dft_freqcutoff = 3;
+  dft_growth = 1.3;
+
+  forbidreduce = 0;
+
+  useSteadyStrategy = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void CFLData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
+
+  new ClassToken<CFLData>(ca, "Strategy", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
+			 "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
+  new ClassToken<CFLData>(ca, "CheckSolution", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
+			 "Off", 0, "On", 1);
+  new ClassToken<CFLData>(ca, "CheckLinearSolver", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::checklinsolve), 2,
+			 "Off", 0, "On", 1);
+  new ClassToken<CFLData>(ca, "ForbidReductions", this,
+                         reinterpret_cast<int CFLData::*>(&CFLData::forbidreduce), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<CFLData>(ca, "UseSteadyStrategy", this,
+                         reinterpret_cast<int CFLData::*>(&CFLData::useSteadyStrategy), 2,
+                         "Off", 0, "On", 1);
+	  
+  new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
+  new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
+  new ClassDouble<CFLData>(ca, "CflMax", this, &CFLData::cflMax);
+  new ClassDouble<CFLData>(ca, "CflMin", this, &CFLData::cflMin);
+  new ClassDouble<CFLData>(ca, "DualTimeCfl", this, &CFLData::dualtimecfl);
+
+  new ClassDouble<CFLData>(ca, "Ser", this, &CFLData::ser);
+  new ClassDouble<CFLData>(ca, "AngleGrowth", this, &CFLData::angle_growth);
+  new ClassDouble<CFLData>(ca, "AngleZero", this, &CFLData::angle_zero);
+  new ClassInt<CFLData>(ca, "DFTHistory", this, &CFLData::dft_history);
+  new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
+  new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
+
+}
+
+//------------------------------------------------------------------------------
+
 TsData::TsData()
 {
 
@@ -2689,15 +2758,17 @@ TsData::TsData()
   maxTime = 1.e99;
 
   residual = -1;
-  cfl0 = 5.0;
-  cflCoef1 = 0.0;
-  cflCoef2 = 0.0;
-  cflMax = 1000.0;
-  cflMin = 1.0;
-  ser = 0.7;
+  // These variables stay here for back compatibility
+  cfl0 = -1.0;
+  cflCoef1 = -1.0;
+  cflCoef2 = -1.0;
+  cflMax = -1.0;
+  cflMin = -1.0;
+  ser = -1.0; 
+  dualtimecfl = -1.0;
+  //
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
-  dualtimecfl = 100.0;
 
   output = "";
 
@@ -2749,6 +2820,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
+  cfl.setup("CFLLaw",ca);
 
 }
 
@@ -4379,6 +4451,11 @@ void IoData::resetInputValues()
   //
   // Part 3
   //
+ 
+  if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
+    com->fprintf(stderr, "*** Warning: Using fixed unsteady CFL strategy for unsteady problem. To force a strategy designed for steady problems, set UseSteadyStrategy to On.\n");
+    ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
+  }
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||
@@ -4597,6 +4674,7 @@ int IoData::checkInputValues()
 
   // input values for flow solver
   error += checkInputValuesAllEquationsOfState();
+  checkCFLBackwardsCompatibility();
 
   // no need for all input values for Sparse Grid generation
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
@@ -4748,6 +4826,25 @@ int IoData::checkInputValuesAllEquationsOfState(){
 
   return error;
 
+}
+
+//------------------------------------------------------------------------------
+
+int IoData::checkCFLBackwardsCompatibility(){
+
+  if(ts.cfl0 != -1.0 || ts.cflCoef1 != -1.0 || ts.cflCoef2 != -1.0 || ts.cflMax != -1.0 || ts.cflMin != -1.0 || ts.ser != -1.0 || ts.dualtimecfl != -1.0 ){
+    com->fprintf(stderr, "*** Warning: Using CFL values under Time and old CFL law for backwards compatibility. The program will run, but correct execution requires all CFL parameters to be under CFLLaw.\n");
+    ts.cfl.strategy = CFLData::OLD;
+    //com->fprintf(stderr, "cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",ts.cfl0,ts.cflCoef1,ts.cflCoef2,ts.cflMax,ts.cflMin,ts.ser,ts.dualtimecfl);
+  }
+  if(ts.cfl0 != -1.0) ts.cfl.cfl0 = ts.cfl0;
+  if(ts.cflCoef1 != -1.0) ts.cfl.cflCoef1 = ts.cflCoef1;
+  if(ts.cflMax != -1.0) ts.cfl.cflMax = ts.cflMax;
+  if(ts.cflMin != -1.0) ts.cfl.cflMin = ts.cflMin;
+  if(ts.ser != -1.0) ts.cfl.ser = ts.ser;
+  if(ts.dualtimecfl != -1.0) ts.cfl.dualtimecfl = ts.dualtimecfl;
+
+  return 0;
 }
 
 //------------------------------------------------------------------------------
