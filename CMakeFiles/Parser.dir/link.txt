@@ -1,0 +1,2 @@
+/usr/bin/ar cr libParser.a  CMakeFiles/Parser.dir/parser/Dictionary.C.o CMakeFiles/Parser.dir/parser/StringManager.C.o CMakeFiles/Parser.dir/parser/AssignerCore.C.o CMakeFiles/Parser.dir/parser/ParseTree.cpp.o CMakeFiles/Parser.dir/flex_Lexer.cpp.o CMakeFiles/Parser.dir/Parser.tab.C.o
+/usr/bin/ranlib libParser.a

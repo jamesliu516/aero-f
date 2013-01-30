@@ -37,7 +37,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   // time and space domain definition
   maxDistance = mesh[np-1];
   finalTime = ioData.ts.maxTime;
-  cfl = ioData.ts.cfl0;
+  cfl = ioData.ts.cfl.cfl0;
 
   // Copy 1D mesh to X
   X = 0.0;

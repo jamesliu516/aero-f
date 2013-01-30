@@ -53,6 +53,7 @@ int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, const int
   TsDesc<dim>::setFailSafe(false);
 
   its = this->ns->solve(U, timeStep);
+  if(its==-10) return its; // need to recompute CFL and redo iteration
   if(its<0){  //failSafe
     U = this->timeState->getUn();
     return its;

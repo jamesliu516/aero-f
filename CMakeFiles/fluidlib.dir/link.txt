@@ -1,0 +1,1 @@
+/usr/bin/c++  -fPIC -O3 -DNDEBUG  -shared -Wl,-soname,aerof.opt.so -o bin/aerof.opt.so CMakeFiles/fluidlib.dir/Main.C.o CMakeFiles/fluidlib.dir/hgidentity.C.o libFluidBase.a libParser.a libFortran.a libUtils.a -llapack -lblas -lblas libIntersector.a -lgfortran libphysbam.a -lgfortranbegin -lgfortran 

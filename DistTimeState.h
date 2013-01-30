@@ -81,6 +81,13 @@ private:
   bool isGFMPAR;
   int fvmers_3pbdf ;
 
+  double dt_coeff;
+  int dt_coeff_count;
+
+public:
+  bool unphysical;
+  bool allowcflstop;
+
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
 public:
@@ -208,6 +215,8 @@ public:
   inline bool useNm1() const { return data->use_nm1; }
 
   double getTime()  { return data->dt_n; }
+  
+  void updateDtCoeff();
 
   void rstVar(IoData &);
 

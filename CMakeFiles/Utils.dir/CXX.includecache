@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/lustre/home/ibuenros/Fluid/utils/Laguerre.C
+cstdio
+-
+cmath
+-
+complex
+-
+
+/lustre/home/ibuenros/Fluid/utils/Predicate.C
+cstdio
+-
+cstdlib
+-
+cmath
+-
+sys/time.h
+-
+
