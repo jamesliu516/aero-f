@@ -266,7 +266,7 @@ VarFcn::VarFcn(IoData &iod)
   int numRealFluid = numPhases;
 
   // In the case of Embedded Framework, add a VarFcn for Ghost
-  if(iod.problem.framework == ProblemData::EMBEDDED)
+  if(iod.problem.framework == ProblemData::EMBEDDED || iod.problem.framework == ProblemData::EMBEDDEDALE)
     numPhases++;
 
   varFcn = new VarFcnBase *[numPhases];
@@ -291,7 +291,7 @@ VarFcn::VarFcn(IoData &iod)
 
   // In the case of an Embedded Simulation, Structure VarFcn points on VarFcn[0]
   // by default. It is just convienient. This can be changed eventually.
-  if(iod.problem.framework == ProblemData::EMBEDDED) {
+  if(iod.problem.framework == ProblemData::EMBEDDED || iod.problem.framework == ProblemData::EMBEDDEDALE) {
     ghostId = numPhases - 1;
     varFcn[ghostId] = createVarFcnBase(iod, iod.eqs.fluidModel);
     ghostPhase = 0; //same as varFcn[0]

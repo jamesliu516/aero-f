@@ -395,7 +395,7 @@ void EmbeddedCorotSolver::solveRotMat(double m[3][3], double v[3])
 
 //------------------------------------------------------------------------------
 
-void EmbeddedCorotSolver::solve(double *dXs, double *Xs, int nNodes, DistSVec<double,3> &X)
+void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &X)
 {
 
   if(nNodes!=numStNodes) {
@@ -403,17 +403,10 @@ void EmbeddedCorotSolver::solve(double *dXs, double *Xs, int nNodes, DistSVec<do
     exit(-1);
   }
 
-  double *Xtilde = new double [3*nNodes];
-
-  for (int i=0; i<3*nNodes; ++i) Xtilde[i] = Xs[i]  + dXs[i];
-
   // compute cg(n+1)
   double cg1[3];
   computeCG(Xtilde, cg1);
 
-#define SYMMETRIC_CG
-#ifdef SYMMETRIC_CG
-   //HB: force translation to be parallel to the symmetry plane 
   switch(SymAxis) {
     case(EmbeddedCorotSolver::AXIS_X):
       cg1[0] = cg0[0];
@@ -427,7 +420,6 @@ void EmbeddedCorotSolver::solve(double *dXs, double *Xs, int nNodes, DistSVec<do
       cg1[2] = cg0[2];
       break;
   }
-#endif
 
   // solve for the incremental rotations via Newton-Rhapson
   double deltaRot[3][3];
@@ -451,27 +443,6 @@ void EmbeddedCorotSolver::solve(double *dXs, double *Xs, int nNodes, DistSVec<do
   for (i = 0; i < 3; i++)
     cgN[i] = cg1[i];
 
-  delete Xtilde;
-}
-
-//------------------------------------------------------------------------------
-
-void
-EmbeddedCorotSolver::setup(double *Xs)
-{
-  // NOTE: This is the restart procedure that is not based on saving the
-  // rotation tensor. The result is that we may hit a singularity sometimes
-  // compute cg(n+1)
-  double cg1[3];
-  computeCG(Xs, cg1);
-
-  // solve for the incremental rotations via Newton-Rhapson
-  double deltaRot[3][3];
-  solveDeltaRot(Xs, deltaRot, cg1);
-  
-  // update CG(n)
-  for (int i = 0; i < 3; i++)
-    cgN[i] = cg1[i];
 }
 
 //------------------------------------------------------------------------------

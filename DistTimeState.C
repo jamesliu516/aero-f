@@ -246,7 +246,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     domain->readVectorFromFile(name, 0, 0, *Un);
     if (data->use_nm1) {
       data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-      if (isGFMPAR || iod.problem.framework == ProblemData::EMBEDDED) {
+      if (isGFMPAR || ( iod.problem.framework == ProblemData::EMBEDDED ||  iod.problem.framework == ProblemData::EMBEDDEDALE )) {
         //domain->getCommunicator()->fprintf(stderr,"*** Warning: Backward Euler being used instead of 3BDF for multiphase flows on first step after restart\n");
         data->exist_nm1 = false;
       }

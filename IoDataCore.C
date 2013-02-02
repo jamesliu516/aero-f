@@ -688,8 +688,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Framework", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 2,
-     "BodyFitted", 0, "Embedded", 1);
+     reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 3,
+     "BodyFitted", 0, "Embedded", 1, "EmbeddedALE", 2);
 
   new ClassToken<ProblemData>
     (ca, "SolveFluid", this,
@@ -4539,7 +4539,7 @@ int IoData::checkFileNames()
     ++error;
   }
   if ((problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO]) &&
-       problem.framework!=ProblemData::EMBEDDED && strcmp(input.match, "") == 0) {
+      (problem.framework!=ProblemData::EMBEDDED && problem.framework!=ProblemData::EMBEDDEDALE) && strcmp(input.match, "") == 0) {
     com->fprintf(stderr, "*** Error: no matcher file given\n");
     ++error;
   }
@@ -4626,7 +4626,7 @@ int IoData::checkInputValues()
   error += checkInputValuesEssentialBC();
   
   // check input values for the Embedded Framework.
-  if(problem.framework == ProblemData::EMBEDDED) 
+  if(problem.framework == ProblemData::EMBEDDED || problem.framework == ProblemData::EMBEDDEDALE) 
     error += checkInputValuesEmbeddedFramework();
 
   error += checkInputValuesNonDimensional();
@@ -5102,7 +5102,7 @@ int IoData::checkInputValuesNonDimensional()
   if (problem.mode == ProblemData::NON_DIMENSIONAL) {
 
     // no multiphase flow in non-dimensional
-    if(eqs.numPhase > 1 && problem.framework != ProblemData::EMBEDDED){ 
+    if(eqs.numPhase > 1 && (problem.framework != ProblemData::EMBEDDED && problem.framework != ProblemData::EMBEDDEDALE) ){ 
       com->fprintf(stderr, "*** Error: multiphase flow are possible only in Dimensional Mode \n");
       ++error;
       return error;

@@ -57,9 +57,8 @@ public:
   EmbeddedCorotSolver(DefoMeshMotionData &, Domain *, double*, int);
   ~EmbeddedCorotSolver() {};
 
-  void solve(double *dXs, double *Xs, int nNodes, DistSVec<double,3> &X);
+  void solve(double *Xtilde, int nNodes, DistSVec<double,3> &X);
   // setup computes the rotation and CG that will fit best for restarting
-  void setup(double *);
 		
 };
 

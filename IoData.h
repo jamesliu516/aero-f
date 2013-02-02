@@ -388,7 +388,7 @@ struct ProblemData {
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
-  enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
+  enum Framework {BODYFITTED = 0, EMBEDDED = 1, EMBEDDEDALE = 2} framework;
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
   enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
