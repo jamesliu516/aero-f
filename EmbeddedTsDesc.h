@@ -77,6 +77,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   DistSVec<double,dim> Wtemp;
   DynamicNodalTransfer *dynNodalTransfer;
+  MeshMotionHandler* emmh;
 
   //buckling cylinder parameters
   // pressure is increased in the fluid at rate Prate from
@@ -120,6 +121,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   //-- overrides the functions implemented in TsDesc.
   void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   double computeTimeStep(int, double *, DistSVec<double,dim> &);
+  double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
   void updateStateVectors(DistSVec<double,dim> &, int = 0);
   int checkSolution(DistSVec<double,dim> &);
   void setupOutputToDisk(IoData &, bool *, int, double,
@@ -128,7 +130,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                         DistSVec<double,dim> &);
   void outputForces(IoData &, bool*, int, int, int, double, double,
                     DistSVec<double,dim> &);
-  void outputPositionVectorToDisk(DistSVec<double,dim>&);
+//  void outputPositionVectorToDisk(DistSVec<double,dim>&);
   void resetOutputToStructure(DistSVec<double,dim> &);
   /** Override the TsDesc routine because forces are sent to the structure
    * in a different way than the general case */
@@ -153,6 +155,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double currentPressure(double t);
 
   void computeDistanceToWall(IoData &ioData);
+
+  MeshMotionHandler *createEmbeddedALEMeshMotionHandler(IoData &, GeoSource &, DistLevelSetStructure *);
 };
 
 

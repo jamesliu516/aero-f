@@ -45,7 +45,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(data[0], "");
 
   structPos = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0 && iod.problem.framework == ProblemData::EMBEDDED)
+  if (iod.output.restart.positions[0] != 0 && (iod.problem.framework == ProblemData::EMBEDDED || iod.problem.framework == ProblemData::EMBEDDEDALE) )
     sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(structPos, "");

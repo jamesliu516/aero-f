@@ -1625,7 +1625,7 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   } 
 
   else if (it>1 && it>it0)
@@ -1646,7 +1646,7 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes());
 
-    X = X0;
+//    X = X0;
   }
 
   else if (it>1 || it==it0)
@@ -1682,7 +1682,7 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
     if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
     dts *= 0.5;
 
-    X = X0;
+//    X = X0;
   }
 
   else if(it==it0) {
@@ -1767,7 +1767,7 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   }
 }
 
@@ -1789,7 +1789,7 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   } 
   else // last iteration 
     dts = 0.0; 
@@ -1811,13 +1811,102 @@ void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   } 
   else // last iteration 
     dts = 0.0; 
 }
 //------------------------------------------------------------------------------
 
+EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *dom,
+                              DistLevelSetStructure *distlss) : MeshMotionHandler(iod, dom)
+{
+  dt = iod.ts.timestep;
+  distLSS = distlss;
+
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition_0();
+  Xs0 = new double [3*distLSS->getNumStructNodes()];
+
+  for (int i=0; i<Xstruct.size(); i++)
+    for (int j=0; j<3; j++)
+      Xs0[3*i + j] = Xstruct[i][j];
+
+  cs = new EmbeddedCorotSolver(iod.dmesh, domain, Xs0, distLSS->getNumStructNodes());
+
+}
+
+//------------------------------------------------------------------------------
+
+EmbeddedALEMeshMotionHandler::~EmbeddedALEMeshMotionHandler()
+{
+
+  if (cs) delete cs;
+  if (Xs0) delete Xs0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X)
+{
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
+
+  double *Xs = new double [3*distLSS->getNumStructNodes()];
+
+  for (int i=0; i<Xstruct.size(); i++)
+    for (int j=0; j<3; j++)
+      Xs[3*i + j] = Xstruct[i][j];
+
+  cs->solve(Xs, distLSS->getNumStructNodes(), X);
+
+  delete Xs;
+}
+
+//------------------------------------------------------------------------------
+
+double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
+                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  
+  if (*lastIt) return dt;
+
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
+
+  double *Xs = new double [3*distLSS->getNumStructNodes()];
+
+  for (int i=0; i<Xstruct.size(); i++)
+    for (int j=0; j<3; j++)
+      Xs[3*i + j] = Xstruct[i][j];
+
+  cs->solve(Xs, distLSS->getNumStructNodes(), X);
+
+  delete Xs;
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double EmbeddedALEMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+{
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double EmbeddedALEMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return update(lastIt, it, t, Xdot, X);
+
+}
+
+//------------------------------------------------------------------------------
 RbmExtractor::RbmExtractor(IoData &iod, Domain *dom) 
   : MeshMotionHandler(iod, dom)
 {

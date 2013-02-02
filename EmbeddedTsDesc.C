@@ -91,6 +91,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     VWeights = new DistSVec<double,dim>(this->getVecInfo());
   } else
     dynNodalTransfer = 0;
+
+  emmh = 0;
 //-------------------------------------------------------------
 
 #ifdef DO_EMBEDDED
@@ -306,6 +308,7 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   delete wall_computer;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
+  if (emmh) delete emmh;
   if (Fs) operator delete[] (Fs, *this->com);
   if(ghostPoints) 
     {
@@ -336,11 +339,27 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Initialize fluid Ids
   nodeTag0 = nodeTag = distLSS->getStatus();
   // Initialize the embedded FSI handler
-  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
-  if(_mmh) {
+  EmbeddedMeshMotionHandler* _emmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->emmh);
+  if(_emmh) {
     double *tMax = &(this->data)->maxTime;
-    _mmh->setup(tMax); //obtain maxTime from structure
+    _emmh->setup(tMax); //obtain maxTime from structure
   }
+
+  EmbeddedALEMeshMotionHandler* _mmh = dynamic_cast<EmbeddedALEMeshMotionHandler*>(this->mmh);
+  HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(this->mmh);
+  PitchingMeshMotionHandler* _pmmh = dynamic_cast<PitchingMeshMotionHandler*>(this->mmh);
+
+  if (_mmh)
+    _mmh->setup(*(this->X));
+  else if (_hmmh)
+    _hmmh->setup(*(this->X));
+  else if (_pmmh)
+    _pmmh->setup(*(this->X));
+
+  if (this->hth)
+    this->hth->setup(&(this->restart)->frequency, &(this->data)->maxTime);
+  
+  *(this->Xs) = *(this->X);
 
   this->initializeFarfieldCoeffs();
 
@@ -468,6 +487,56 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 //  fprintf(stderr,"dt = %e, dtfLeft = %e, dtLeft = %e.\n", dt, dtfLeft, *dtLeft);
   return dt;
 }
+//------------------------------------------------------------------------------
+
+template<int dim>
+double EmbeddedTsDesc<dim>::computePositionVector(bool *lastIt, int it, double t, DistSVec<double,dim> &U)
+{
+  double dt = 0.0;
+
+  if (this->emmh && this->emmh->structureSubcycling()) {
+    double dtleft = 0.0;
+    double dtf = this->computeTimeStep(it+1, &dtleft, U); 
+    this->emmh->storeFluidSuggestedTimestep(dtf);
+  }
+
+  if (this->emmh) {
+    double t0 = this->timer->getTime();
+    dt = this->emmh->updateStep1(lastIt, it, t, this->bcData->getVelocityVector(), *(this->Xs), &(this->data)->maxTime);
+    this->timer->addMeshSolutionTime(t0);
+  }
+    
+  if (this->emmh) {
+    double t0 = this->timer->getTime();
+    this->emmh->updateStep2(lastIt, it, t, this->bcData->getVelocityVector(), *(this->Xs));
+    this->timer->addMeshSolutionTime(t0);
+  }
+
+  if (this->mmh) {
+    double t0 = this->timer->getTime();
+    this->mmh->updateStep1(lastIt, it, t, this->bcData->getVelocityVector(), *(this->Xs), &(this->data)->maxTime);
+    this->timer->addMeshSolutionTime(t0);
+  }
+
+  if (this->hth) {
+    double dth = this->hth->updateStep1(lastIt, it, this->bcData->getTemperatureVector());
+    if (!this->mmh && !this->emmh)
+      dt = dth;
+  }
+
+  if (this->mmh) {
+    double t0 = this->timer->getTime();
+    this->mmh->updateStep2(lastIt, it, t, this->bcData->getVelocityVector(), *(this->Xs));
+    this->timer->addMeshSolutionTime(t0);
+  }
+
+  if (this->hth) {
+    this->hth->updateStep2(lastIt, it, this->bcData->getTemperatureVector());
+  }
+
+  return dt;
+
+}
 
 //---------------------------------------------------------------------------
 
@@ -505,6 +574,7 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
   else 
     monitorInitialState(it, U);
 
+  this->output->setMeshMotionHandler(ioData, this->mmh);
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
   this->output->cleanProbesFile();
@@ -582,9 +652,9 @@ void EmbeddedTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
-{}
+//template<int dim>
+//void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
+//{}
 
 //------------------------------------------------------------------------------
 
@@ -736,9 +806,9 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
 
   // max pressure not reached, so we do not solve and we increase pressure and let structure react
   
-  if(this->mmh && !inSubCycling) {
+  if(this->emmh && !inSubCycling) {
     //get structure timestep dts
-    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    this->dts = this->emmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
     double tw = this->timer->getTime();
     if(intersector_freq==1||((it-1)%intersector_freq==0&&(it>1))) {
@@ -840,3 +910,58 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
   }
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+MeshMotionHandler *EmbeddedTsDesc<dim>::
+createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLevelSetStructure *distLSS)
+{
+
+  MeshMotionHandler *_mmh = 0;
+
+  if (ioData.problem.type[ProblemData::AERO]) {
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    //check that algorithm number is consistent with simulation in special case RK2-CD
+    // if C0 and RK2 then RK2DGCL is needed!
+    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
+      if(ioData.ts.type == TsData::EXPLICIT &&
+         (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
+          ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
+          ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis )){
+        if(!(ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2 &&
+             ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL)){
+          this->com->fprintf(stderr, "***Error: Computation of the normals or velocities (%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities);
+          this->com->fprintf(stderr, "***       is not consistent with Aeroelastic algorithm\n");
+          exit(1);
+        }
+      }
+    }
+  }
+  else if (ioData.problem.type[ProblemData::FORCED]) {
+    if (ioData.problem.type[ProblemData::ACCELERATED])
+      _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    else {
+      if (ioData.forced.type == ForcedData::HEAVING) {
+        _mmh = new HeavingMeshMotionHandler(ioData, this->domain);
+	ioData.forced.hv.domain = HeavingData::VOLUME;
+      }
+      else if (ioData.forced.type  == ForcedData::PITCHING) {
+        _mmh = new PitchingMeshMotionHandler(ioData, this->domain);
+	ioData.forced.pt.domain = PitchingData::VOLUME;
+      }
+      else if (ioData.forced.type  == ForcedData::DEFORMING)
+        _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    }
+  }
+  else if (ioData.problem.type[ProblemData::ACCELERATED])
+    _mmh = new AccMeshMotionHandler(ioData, this->varFcn, this->bcData->getInletPrimitiveState(), this->domain);
+  else if (ioData.problem.type[ProblemData::ROLL])
+    _mmh = new RigidRollMeshMotionHandler(ioData, this->bcData->getInletAngles(), this->domain);
+  else if (ioData.problem.type[ProblemData::RBM])
+    _mmh = new RbmExtractor(ioData, this->domain);
+
+  return _mmh;
+
+}
+
+//------------------------------------------------------------------------------
