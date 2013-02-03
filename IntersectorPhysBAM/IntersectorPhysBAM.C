@@ -118,6 +118,7 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(solidX) delete solidX;
   if(solidX0) delete solidX0;
   if(solidXn) delete solidXn;
+  if(solidXnp1) delete solidXnp1;
   if(surfaceID) delete[] surfaceID;
   if(rotOwn) delete[] rotOwn;
 }
@@ -227,6 +228,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   surfaceID = new int[numStNodes];
   rotOwn = 0;
@@ -349,6 +351,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
   solidX  = new Vec<Vec3D>(totStNodes, Xs);
   solidX0 = new Vec<Vec3D>(totStNodes, Xs0);
   solidXn = new Vec<Vec3D>(totStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(totStNodes, Xs_np1);
 
   for (int k=0; k<numStNodes; k++) {
     Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
@@ -1051,6 +1054,7 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool f
   updatePhysBAMInterface(Xs, numStNodes,*X, gotNewCracking,retry);
 
   buildSolidNormals();
+  domain->findNodeBoundingBoxes(*X,*boxMin,*boxMax);
 
 //  for(int i=0; i<numStNodes; i++)
 //    fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);

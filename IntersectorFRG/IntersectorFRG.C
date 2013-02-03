@@ -656,6 +656,7 @@ DistIntersectorFRG::~DistIntersectorFRG()
   delete solidX;
   delete solidX0;
   delete solidXn;
+  delete solidXnp1;
   if(surfaceID) delete[] surfaceID;
   if(rotOwn) delete[] rotOwn;
   if(status0)     delete   status0;
@@ -778,6 +779,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   surfaceID = new int[numStNodes];
   rotOwn = 0;
@@ -894,6 +896,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   for (int k=0; k<numStNodes; k++) {
     Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
@@ -1360,6 +1363,7 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
   //updateStructCoords(0.0, 1.0);
   updateStructCoords(( (dtfLeft-dtf)/dts ), ( 1.0 - (dtfLeft-dtf)/dts ));
   buildSolidNormals();
+  domain->findNodeBoundingBoxes(*X,*boxMin,*boxMax);
   expandScope();
 
   //Debug only!
