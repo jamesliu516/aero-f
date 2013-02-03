@@ -17,19 +17,11 @@ class EmbeddedCorotSolver {
 
   int numLocSub;
 
-  int *nInterfNd;  // int nInerfNd[3] ==> number of nodes for sub 3
-  int **interfNd;  // int *interfNd[3] ==> array of nodes for sub 3
-  int *nInfNd;     // number of nodes at infinity per sub
-  int **infNd;
-  int *nInternalNd;
-  int **internalNd;
-
   double *Xs0;
 
   DistSVec<double,3> X0;
 
   double cg0[3];
-  double cgN[3];
 
   double R[3][3];
 
@@ -45,10 +37,9 @@ private:
 			    double [3], double [3], double [3][3]);
   void computeRotMat(double *, double [3][3]);
   void rotLocVec(double [3][3], double [3]);
-  void solveDeltaRot(double *, double [3][3], double [3]);
+  void solveDeltaRot(double *, double [3]);
   void solveRotMat(double [3][3], double [3]);
-  void computeInfNodeRot(double [3][3], DistSVec<double, 3> &, double [3], double [3]);
-  void computeNodeRot(double [3][3], DistSVec<double,3> &, double [3]);
+  void computeNodeRot(double [3][3], DistSVec<double,3> &, double [3], double [3]);
 
   void printRotMat(double mat[3][3]);
 
