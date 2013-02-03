@@ -24,14 +24,8 @@ EmbeddedCorotSolver::EmbeddedCorotSolver(DefoMeshMotionData &data, Domain *dom, 
 
   domain->getReferenceMeshPosition(X0);
 
-  domain->getNdAeroLists(nInterfNd, interfNd, nInfNd, infNd, nInternalNd, internalNd, 0); //HB
-
   computeCG(Xs0, cg0);
 
-  cgN[0] = cg0[0];
-  cgN[1] = cg0[1];
-  cgN[2] = cg0[2];
-  
   double zeroRot[3] = {0.0, 0.0, 0.0};
   computeRotMat(zeroRot, R);
 
@@ -247,67 +241,35 @@ void EmbeddedCorotSolver::computeCG(double *Xs, double cg[3])
 
 //------------------------------------------------------------------------------
 
-void EmbeddedCorotSolver::computeInfNodeRot(double RR[3][3], DistSVec<double,3> &X, 
-				    double cg00[3], double cg1[3])
-{
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; iSub++)  {
-    SVec<double, 3> &subNd = X(iSub);
-    SVec<double, 3> &subX0 = X0(iSub);
-    double x[3];
-    for (int i = 0; i < nInfNd[iSub]; i++)  {
-      x[0] = subX0[infNd[iSub][i]][0] - cg00[0];
-      x[1] = subX0[infNd[iSub][i]][1] - cg00[1];
-      x[2] = subX0[infNd[iSub][i]][2] - cg00[2];
-
-      rotLocVec(RR, x);
-
-      subNd[infNd[iSub][i]][0] = x[0] + cg1[0];
-      subNd[infNd[iSub][i]][1] = x[1] + cg1[1];
-      subNd[infNd[iSub][i]][2] = x[2] + cg1[2];
-
-    }
-  }
-}
-
-//------------------------------------------------------------------------------
-
-void EmbeddedCorotSolver::computeNodeRot(double dRot[3][3], DistSVec<double,3> &X, 
-				 double deltaT[3])
+void EmbeddedCorotSolver::computeNodeRot(double RR[3][3], DistSVec<double,3> &X, 
+				 double cg00[3], double cg1[3])
 {
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)  {
 
-    double (*locX)[3] = X.subData(iSub);
+    double (*x)[3]  = X.subData(iSub);
+    double (*x0)[3] = X0.subData(iSub);
 
-    int i;
-    for (i = 0; i < nInterfNd[iSub]; ++i)  {
-      rotLocVec(dRot, locX[interfNd[iSub][i]]);
+    for (int i = 0; i < X.subSize(iSub); ++i)  {
+      x[i][0] = x0[i][0] - cg00[0];
+      x[i][1] = x0[i][1] - cg00[1];
+      x[i][2] = x0[i][2] - cg00[2];
 
-      locX[interfNd[iSub][i]][0] += deltaT[0];
-      locX[interfNd[iSub][i]][1] += deltaT[1];
-      locX[interfNd[iSub][i]][2] += deltaT[2];
-    }
-    for (i = 0; i < nInternalNd[iSub]; ++i)  {
-      rotLocVec(dRot, locX[internalNd[iSub][i]]);
+      rotLocVec(RR, x[i]);
 
-      locX[internalNd[iSub][i]][0] += deltaT[0];
-      locX[internalNd[iSub][i]][1] += deltaT[1];
-      locX[internalNd[iSub][i]][2] += deltaT[2];
+      x[i][0] = x[i][0] + cg1[0];
+      x[i][1] = x[i][1] + cg1[1];
+      x[i][2] = x[i][2] + cg1[2];
     }
   }
 }
 
 //------------------------------------------------------------------------------
 
-void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double deltaRot[3][3], double cg1[3])
+void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double cg1[3])
 {
   double jac[3][3], grad[3];
   double dRot[3][3];
-
-  // Initialize deltaRot to Identity Matrix
-  double zeroRot[3] = {0.0, 0.0, 0.0};
-  computeRotMat(zeroRot, deltaRot);
 
   int maxits = 10;
   double atol = 1.e-12;
@@ -362,7 +324,6 @@ void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double deltaRot[3][3], doubl
     computeRotMat(grad, dRot);
 
     denseMatrixTimesDenseMatrixInPlace(dRot, R);
-    denseMatrixTimesDenseMatrixInPlace(dRot, deltaRot);
 
   }
 
@@ -422,26 +383,10 @@ void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &
   }
 
   // solve for the incremental rotations via Newton-Rhapson
-  double deltaRot[3][3];
-  solveDeltaRot(Xtilde, deltaRot, cg1);
+  solveDeltaRot(Xtilde, cg1);
 
-  // rotate cgN by incremental rotation matrix, deltaRot
-  rotLocVec(deltaRot, cgN);
-
-  int i;
-  double deltaT[3];
-  for (i = 0; i < 3; i++)
-    deltaT[i] = cg1[i] - cgN[i];
-
-  // compute Xinf(n+1)
-  computeInfNodeRot(R, X, cg0, cg1);
-
-  // compute Xboundary(n+1) and Xinternal(n)
-  computeNodeRot(deltaRot, X, deltaT);
-
-  // update CG(n)
-  for (i = 0; i < 3; i++)
-    cgN[i] = cg1[i];
+// Update node
+  computeNodeRot(R, X, cg0, cg1);
 
 }
 
