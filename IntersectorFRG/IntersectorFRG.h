@@ -62,6 +62,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec3D *Xs_np1;
     Vec<Vec3D> *solidX;   //pointer to Xs
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
+    Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
     // surface rotation
@@ -126,6 +127,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
+    Vec<Vec3D> &getStructPosition_np1() { return *solidXnp1; }
     DistVec<ClosestPoint> * getClosestPointsPointer() {return NULL;}
     DistVec<ClosestPoint> & getClosestPoints() {
       fprintf(stderr,"ERROR: closest point not stored in IntersectorFRG.\n");exit(-1);
