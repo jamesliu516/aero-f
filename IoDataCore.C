@@ -4455,6 +4455,7 @@ void IoData::resetInputValues()
   if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
     com->fprintf(stderr, "*** Warning: Using fixed unsteady CFL strategy for unsteady problem. To force a strategy designed for steady problems, set UseSteadyStrategy to On.\n");
     ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
+    ts.cfl.checklinsolve = 0;
   }
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||

@@ -1,2 +1,0 @@
-/usr/bin/ar cr libUtils.a  CMakeFiles/Utils.dir/utils/Predicate.C.o CMakeFiles/Utils.dir/utils/Laguerre.C.o
-/usr/bin/ranlib libUtils.a
