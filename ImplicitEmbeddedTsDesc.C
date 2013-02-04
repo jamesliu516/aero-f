@@ -188,10 +188,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     //recompute intersections
     double tw = this->timer->getTime();
 
-    HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(this->mmh);
-    PitchingMeshMotionHandler* _pmmh = dynamic_cast<PitchingMeshMotionHandler*>(this->mmh);
-
-    if (!_hmmh && !_pmmh) failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts,true,TsDesc<dim>::failSafeFlag); 
+    failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts,true,TsDesc<dim>::failSafeFlag); 
     this->com->globalMin(1, &failSafe);
     if(failSafe<0) //in case of intersection failure -1 is returned by recompute 
        return failSafe;

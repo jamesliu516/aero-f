@@ -346,15 +346,9 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   }
 
   EmbeddedALEMeshMotionHandler* _mmh = dynamic_cast<EmbeddedALEMeshMotionHandler*>(this->mmh);
-  HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(this->mmh);
-  PitchingMeshMotionHandler* _pmmh = dynamic_cast<PitchingMeshMotionHandler*>(this->mmh);
 
   if (_mmh)
     _mmh->setup(*(this->X));
-  else if (_hmmh)
-    _hmmh->setup(*(this->X));
-  else if (_pmmh)
-    _pmmh->setup(*(this->X));
 
   if (this->hth)
     this->hth->setup(&(this->restart)->frequency, &(this->data)->maxTime);
@@ -938,20 +932,7 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
     }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
-    if (ioData.problem.type[ProblemData::ACCELERATED])
-      _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
-    else {
-      if (ioData.forced.type == ForcedData::HEAVING) {
-        _mmh = new HeavingMeshMotionHandler(ioData, this->domain);
-	ioData.forced.hv.domain = HeavingData::VOLUME;
-      }
-      else if (ioData.forced.type  == ForcedData::PITCHING) {
-        _mmh = new PitchingMeshMotionHandler(ioData, this->domain);
-	ioData.forced.pt.domain = PitchingData::VOLUME;
-      }
-      else if (ioData.forced.type  == ForcedData::DEFORMING)
-        _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
-    }
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
   }
   else if (ioData.problem.type[ProblemData::ACCELERATED])
     _mmh = new AccMeshMotionHandler(ioData, this->varFcn, this->bcData->getInletPrimitiveState(), this->domain);

@@ -105,10 +105,6 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     //recompute intersections
     double tw = this->timer->getTime();
 
-    HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(this->mmh);
-    PitchingMeshMotionHandler* _pmmh = dynamic_cast<PitchingMeshMotionHandler*>(this->mmh);
-
-    if (!_hmmh && !_pmmh)
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag);
     this->timer->addIntersectionTime(tw);
     this->com->barrier();
