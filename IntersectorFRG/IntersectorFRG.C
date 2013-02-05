@@ -596,9 +596,9 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
 
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
-  struct_restart_pos = new char[sp + strlen(iod.input.positions)];
-  if(iod.input.positions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
+  struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
+  if(iod.input.embeddedpositions[0] != 0)
+    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
   else //no restart position file provided
     struct_restart_pos[0] = '\0'; 
   

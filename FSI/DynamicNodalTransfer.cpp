@@ -237,6 +237,13 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   int sp = strlen(iod.input.prefix) + 1;
   meshFile = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(meshFile,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
+
+  restartmeshFile = new char[sp + strlen(iod.input.embeddedpositions)];
+  if(iod.input.embeddedpositions[0] != 0)
+    sprintf(restartmeshFile,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
+  else //no restart position file provided
+    restartmeshFile[0] = '\0'; 
+
   matcherFile = new char[sp + strlen(iod.input.match)];
   sprintf(matcherFile,"%s%s", iod.input.prefix, iod.input.match); 
 
@@ -511,6 +518,44 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     }
 
     fclose(topFile);
+
+    int nInputs;
+    char c1[200], c2[200], c3[200];
+    // load solid nodes at restart time.
+    if (restartmeshFile[0] != 0) {
+      FILE* resTopFile = fopen(restartmeshFile, "r");
+      if(resTopFile==NULL) {com.fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
+      int ndMax = 0, ndMax2 = 0;
+      std::list<std::pair<int,Vec3D> > nodeList2;
+      std::list<std::pair<int,Vec3D> >::iterator it2;
+
+      while(1) {
+        nInputs = fscanf(resTopFile,"%s", c1);
+        if(nInputs!=1) break;    
+        char *endptr;
+        num1 = strtol(c1, &endptr, 10);
+        if(endptr == c1) break;
+
+        int toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+        nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+        ndMax = std::max(num1, ndMax);
+      }
+      if (ndMax!=totalNodes) {
+        com.fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+        exit(1);
+      }
+
+      for(int i=0; i<totalNodes; i++)
+        X[i][0] = X[i][1] = X[i][2] = 0.0;
+      
+      for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++) {
+        X[it2->first-1][0] = (it2->second)[0];
+        X[it2->first-1][1] = (it2->second)[1];
+        X[it2->first-1][2] = (it2->second)[2];
+      }
+
+      fclose(resTopFile);
+    }
   }
 
   makerotationownership(iod);
@@ -563,6 +608,7 @@ EmbeddedStructure::~EmbeddedStructure()
   if(structExc) delete structExc;  
   if(mns)      {delete mns[0]; delete [] mns;}
   delete[] meshFile;
+  if(restartmeshFile) delete[] restartmeshFile;
   delete[] matcherFile;
 
   if(coupled) delete di;
@@ -925,10 +971,10 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         if(it==1) {
           if(algNum==6)
             for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X0[i][j])/(0.5*dt);
+              Udot[i][j] = (U[i][j]-X[i][j])/(0.5*dt);
           else
             for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X0[i][j])/dt;
+              Udot[i][j] = (U[i][j]-X[i][j])/dt;
         } else {
           for(int j=0; j<3; j++)
             Udot[i][j] = (U[i][j]-X[i][j])/dt;
