@@ -28,6 +28,8 @@ class EmbeddedCorotSolver {
   Domain *domain;
   Communicator *com;
 
+  BCApplier* meshMotionBCs;
+
   enum SymmetryAxis {NONE, AXIS_X, AXIS_Y, AXIS_Z} SymAxis;
 
 private:
@@ -47,6 +49,8 @@ public:
 
   EmbeddedCorotSolver(DefoMeshMotionData &, Domain *, double*, int);
   ~EmbeddedCorotSolver() {};
+
+  void applyProjector(DistSVec<double,3> &Xdot);
 
   void solve(double *Xtilde, int nNodes, DistSVec<double,3> &X);
   // setup computes the rotation and CG that will fit best for restarting

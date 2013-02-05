@@ -348,7 +348,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   EmbeddedALEMeshMotionHandler* _mmh = dynamic_cast<EmbeddedALEMeshMotionHandler*>(this->mmh);
 
   if (_mmh)
-    _mmh->setup(*(this->X));
+    _mmh->setup(*(this->X),this->bcData->getVelocityVector());
 
   if (this->hth)
     this->hth->setup(&(this->restart)->frequency, &(this->data)->maxTime);

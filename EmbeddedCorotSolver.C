@@ -23,6 +23,7 @@ EmbeddedCorotSolver::EmbeddedCorotSolver(DefoMeshMotionData &data, Domain *dom, 
   com = domain->getCommunicator();
 
   domain->getReferenceMeshPosition(X0);
+  meshMotionBCs = domain->getMeshMotionBCs();
 
   computeCG(Xs0, cg0);
 
@@ -352,6 +353,12 @@ void EmbeddedCorotSolver::solveRotMat(double m[3][3], double v[3])
     v[i] /= m[i][i];
 
   }
+}
+
+//------------------------------------------------------------------------------
+void EmbeddedCorotSolver::applyProjector(DistSVec<double,3> &Xdot)
+{
+   if(meshMotionBCs) meshMotionBCs->applyP(Xdot);
 }
 
 //------------------------------------------------------------------------------

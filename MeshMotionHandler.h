@@ -384,7 +384,7 @@ public:
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
-  void setup(DistSVec<double,3> &);
+  void setup(DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
 
