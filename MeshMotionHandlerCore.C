@@ -1847,7 +1847,7 @@ EmbeddedALEMeshMotionHandler::~EmbeddedALEMeshMotionHandler()
 
 //------------------------------------------------------------------------------
 
-void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X)
+void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,3> &Xdot)
 {
   Vec<Vec3D>& Xstruct = distLSS->getStructPosition_n();
 
@@ -1858,6 +1858,7 @@ void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X)
       Xs[3*i + j] = Xstruct[i][j];
 
   cs->solve(Xs, distLSS->getNumStructNodes(), X);
+  cs->applyProjector(Xdot);
 
   delete Xs;
 }
@@ -1879,6 +1880,7 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
       Xs[3*i + j] = Xstruct[i][j];
 
   cs->solve(Xs, distLSS->getNumStructNodes(), X);
+  cs->applyProjector(Xdot);
 
   delete Xs;
 
