@@ -51,9 +51,9 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
 
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
-  struct_restart_pos = new char[sp + strlen(iod.input.positions)];
-  if(iod.input.positions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
+  struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
+  if(iod.input.embeddedpositions[0] != 0)
+    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
   else //no restart position file provided
     strcpy(struct_restart_pos,""); 
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
@@ -86,7 +86,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   comm->barrier();
 
   delete[] struct_mesh;
-  if(iod.input.positions[0] != 0) delete[] struct_restart_pos;
+  if(iod.input.embeddedpositions[0] != 0) delete[] struct_restart_pos;
 }
 
 //----------------------------------------------------------------------------

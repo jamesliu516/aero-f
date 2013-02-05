@@ -33,6 +33,7 @@ class EmbeddedStructure {
   bool getSurfFromFEM;
 
   char *meshFile;
+  char *restartmeshFile;
   char *matcherFile;
  
   bool coupled;

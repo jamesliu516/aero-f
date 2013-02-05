@@ -72,6 +72,7 @@ struct InputData {
   const char *perturbed;
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
   const char *rstdata;
@@ -271,6 +272,7 @@ struct RestartData {
 
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
   const char *data;

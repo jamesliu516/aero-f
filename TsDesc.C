@@ -55,7 +55,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   geoState = new DistGeoState(ioData, domain);
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  if(ioData.problem.framework==ProblemData::BODYFITTED) 
+  if(ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) 
     geoState->setup1(input->positions, X, A);
   else {
     char temp[1]; temp[0] = '\0';
