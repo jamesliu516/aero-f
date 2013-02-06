@@ -404,6 +404,8 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<do
   ksp->setup(it, this->maxItsNewton, b);
   
   int lits = ksp->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
   
   this->timer->addKspTime(t0);
   
@@ -480,6 +482,8 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<
   kspLS->setup(it, this->maxItsNewton, b);
   
   int lits = kspLS->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
 
   //mvpLS->apply(dQ, fnew);
 

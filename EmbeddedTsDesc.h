@@ -120,7 +120,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   //-- overrides the functions implemented in TsDesc.
   void setupTimeStepping(DistSVec<double,dim> *, IoData &);
-  double computeTimeStep(int, double *, DistSVec<double,dim> &);
+  double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
+  double computeTimeStep(int a, double * b, DistSVec<double,dim> & c){ return computeTimeStep(a,b,c,-2.0);}
   double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
   void updateStateVectors(DistSVec<double,dim> &, int = 0);
   int checkSolution(DistSVec<double,dim> &);

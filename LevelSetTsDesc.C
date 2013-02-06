@@ -123,11 +123,14 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
 template<int dim, int dimLS>
 double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
-                                            DistSVec<double,dim> &U)
+                                            DistSVec<double,dim> &U, double angle)
 {
-  double t0 = this->timer->getTime();
 
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+  double t0 = this->timer->getTime();
+  this->data->allowstop = this->timeState->allowcflstop;
+  this->timeState->unphysical = this->data->unphysical;
+
+  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
 
   umax = 0.0;
   int numSubCycles = 1;
