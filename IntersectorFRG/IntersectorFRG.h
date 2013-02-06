@@ -49,12 +49,15 @@ class DistIntersectorFRG : public DistLevelSetStructure {
   using DistLevelSetStructure::edge_intersects;
 
   protected:
+
+    IoData &iod;
+    
     int numStNodes, numStElems;
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
     DistVec<int> *tId;
 
     bool twoPhase; //including fluid-shell-fluid and fluid-solid
-    
+
     // struct node coords
     Vec3D *Xs;
     Vec3D *Xs0;
@@ -107,8 +110,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
-    void makerotationownership(IoData &iod);
-    void updatebc(IoData &iod);
+    void makerotationownership();
+    void updatebc();
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();

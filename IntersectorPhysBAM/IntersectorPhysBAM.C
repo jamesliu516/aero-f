@@ -37,9 +37,9 @@ int IntersectorPhysBAM::OUTSIDECOLOR;
 //int debug_PhysBAM_count = 0;
 //----------------------------------------------------------------------------
 
-DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes,
+DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *comm, int nNodes,
                                                double *xyz, int nElems, int (*abc)[3], CrackingSurface *cs)
-    : DistLevelSetStructure()
+    : DistLevelSetStructure(), iod(iodata)
 {
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
@@ -80,8 +80,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   else {
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
-    makerotationownership(iod);
-    updatebc(iod);
+    makerotationownership();
+    updatebc();
   }
   comm->barrier();
 
@@ -429,7 +429,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
 }
 
 //----------------------------------------------------------------------------
-void DistIntersectorPhysBAM::makerotationownership(IoData &iod) {
+void DistIntersectorPhysBAM::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   map<int,SurfaceData *>::iterator it = surfaceMap.begin();
@@ -476,7 +476,7 @@ void DistIntersectorPhysBAM::makerotationownership(IoData &iod) {
   }
 }
 //----------------------------------------------------------------------------
-void DistIntersectorPhysBAM::updatebc(IoData &iod) {
+void DistIntersectorPhysBAM::updatebc() {
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   if (rotOwn)  { 
     for (int k=0; k<numStNodes; k++) {
@@ -935,6 +935,9 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
       Xs[it->first] = Xs[it->second]; //add new phantom nodes but keep the old node corrdinates.
     initializePhysBAM(); //delete the old interface and create a new one. Use the modified Xs.
   }
+
+// add surface velocity contribution
+  updatebc();
 }
 
 //----------------------------------------------------------------------------
