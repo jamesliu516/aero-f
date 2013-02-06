@@ -3608,6 +3608,7 @@ SurfaceData::SurfaceData()  {
   forceResults = NO;
 
   rotationID = -1;
+  forceID = -1;
   velocity = 0.0;
 
   type = (Type) UNSPECIFIED; 
@@ -3620,7 +3621,7 @@ SurfaceData::SurfaceData()  {
 //------------------------------------------------------------------------------
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 12, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 13, nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
@@ -3633,6 +3634,7 @@ Assigner *SurfaceData::getAssigner()  {
   new ClassToken<SurfaceData> (ca, "SeparateHeatFlux", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
+  new ClassInt<SurfaceData>(ca, "ForcedVelocityID", this, &SurfaceData::forceID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);
 
   new ClassToken<SurfaceData>(ca, "Type", this,

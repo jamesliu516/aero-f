@@ -636,7 +636,7 @@ void EmbeddedStructure::makerotationownership(IoData &iod) {
   int numRotSurfs = 0;
   int numTransWalls = 0;
   while(it != surfaceMap.end()) {
-    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->rotationID);
+    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->forceID);
     if(it1!=rotationMap->end()) {
       if(it1->second->infRadius) {
         numTransWalls++;
@@ -661,7 +661,7 @@ void EmbeddedStructure::makerotationownership(IoData &iod) {
 
       map<int,SurfaceData *>::iterator it = surfaceMap.find(surfaceID[k]);
       if(it != surfaceMap.end()) {
-         int rotID = it->second->rotationID; // = -1 if not defined in input file
+         int rotID = it->second->forceID; // = -1 if not defined in input file
          if ((rotOwn[k] != -1 && rotOwn[k] != rotID) ||
              (rotOwn[k] != -1 && rotOwn[k] != rotID) ||
              (rotOwn[k] != -1 && rotOwn[k] != rotID))  {
