@@ -298,11 +298,13 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 //------------------------------------------------------------------------------
 
 template<int dim>
-double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
+double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U, double angle)
 {
   double t0 = timer->getTime();
   //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
-  data->computeCflNumber(it - 1, data->residual / restart->residual);
+  this->data->allowstop = this->timeState->allowcflstop;
+  timeState->unphysical = data->unphysical;
+  data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
   double dt = 0.0;

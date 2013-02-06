@@ -24,7 +24,6 @@ class KspSolver {
 
 protected:
 
-  int maxits;
   double eps;
   double absoluteEps;
   bool checkFinalRes;
@@ -38,6 +37,7 @@ protected:
   FILE *output;
 
 public:
+  int maxits;
 
   KspSolver() {}
   KspSolver(KspData &, MatVecProdOp *, PrecOp *, IoOp *);
