@@ -847,10 +847,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   it++;
   if(!coupled) {
     double time;
-    if(it==1 && algNum==6)
-      time = t0 + 0.5*dt*(double)it;
-    else
-      time = t0 + dt*(double)it;
+    time = t0 + dt*(double)it;
      
     if (mode==1) //heaving
       for(int i=0; i < nNodes; ++i) {
@@ -968,17 +965,8 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         U[i][1] += yy1[1];                                        
         U[i][2] += yy1[2];                                     
 
-        if(it==1) {
-          if(algNum==6)
-            for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X[i][j])/(0.5*dt);
-          else
-            for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X[i][j])/dt;
-        } else {
-          for(int j=0; j<3; j++)
-            Udot[i][j] = (U[i][j]-X[i][j])/dt;
-        }
+        for(int j=0; j<3; j++)
+          Udot[i][j] = (U[i][j]-X[i][j])/dt;
 
         for(int j=0; j<3; j++)
           U[i][j] -= X0[i][j];
