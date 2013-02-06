@@ -2070,6 +2070,7 @@ struct SurfaceData  {
   enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
+  int forceID;
   double velocity;
 
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
