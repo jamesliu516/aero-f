@@ -580,9 +580,9 @@ void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, i
 
 //----------------------------------------------------------------------------
 
-DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes,
+DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int nNodes,
                                                double *xyz, int nElems, int (*abc)[3])
-    : DistLevelSetStructure()
+    : DistLevelSetStructure(),iod(iodata)
 {
   this->numFluid = iod.eqs.numPhase;
   twoPhase = false;
@@ -624,8 +624,8 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
   else {
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
-    makerotationownership(iod);
-    updatebc(iod);
+    makerotationownership();
+    updatebc();
   }
 
   if(numStElems<=0||numStNodes<=0) {
@@ -968,7 +968,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
 }
 
 //----------------------------------------------------------------------------
-void DistIntersectorFRG::makerotationownership(IoData &iod) {
+void DistIntersectorFRG::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   map<int,SurfaceData *>::iterator it = surfaceMap.begin();
@@ -1015,7 +1015,7 @@ void DistIntersectorFRG::makerotationownership(IoData &iod) {
   }
 }
 //----------------------------------------------------------------------------
-void DistIntersectorFRG::updatebc(IoData &iod) {
+void DistIntersectorFRG::updatebc() {
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   if (rotOwn)  { 
     for (int k=0; k<numStNodes; k++) {
@@ -1339,6 +1339,9 @@ void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int
       Xs_n[i][j] = Xs_np1[i][j];
       Xs_np1[i][j] = xs[3*i+j];
       Xsdot[i][j] = Vs[3*i+j];}
+
+// add surface velocity contribution
+  updatebc();
 }
 
 //----------------------------------------------------------------------------

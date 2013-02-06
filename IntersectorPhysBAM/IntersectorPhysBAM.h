@@ -53,6 +53,9 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   using DistLevelSetStructure::edge_intersects;
 
   protected:
+
+    IoData &iod;
+
     int numStNodes, numStElems;
     int totStNodes, totStElems;
     bool gotNewCracking;
@@ -116,8 +119,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
-    void makerotationownership(IoData &iod);
-    void updatebc(IoData &iod);
+    void makerotationownership();
+    void updatebc();
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
