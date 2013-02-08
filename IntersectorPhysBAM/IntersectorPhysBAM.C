@@ -923,6 +923,7 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
     for(int j=0; j<3; j++) {
       Xs_n[i][j] = (i<previous) ? Xs_np1[i][j] : xs[3*i+j];
       Xs_np1[i][j] = xs[3*i+j];
+      Xs[i][j] = Xs_np1[i][j];
       Xsdot[i][j] = Vs[3*i+j];}
 
   if(gotNewCracking) {
