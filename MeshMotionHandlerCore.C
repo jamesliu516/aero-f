@@ -786,8 +786,8 @@ double DeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
   if (*lastIt) return dt;
 
   if (dXmax) {
-    dX = sin(omega * (t + dt)) * (*dXmax) - (X - X0);
-    Xdot = omega * cos(omega * (t + dt)) * (*dXmax);
+    dX = 0.5 * (1.0 - cos(omega * (t + dt))) * (*dXmax) - (X - X0);
+    Xdot = 0.5 * omega * sin(omega * (t + dt)) * (*dXmax);
   }
   else
   {

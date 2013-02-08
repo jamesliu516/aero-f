@@ -1045,8 +1045,8 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
     {
       for(int i=0; i<nNodes; ++i) {
         for(int j=0; j<3; j++) {
-          U[i][j] = sin(omega*time)*dXmax[i][j];
-          Udot[i][j] = omega*cos(omega*time)*dXmax[i][j];
+          U[i][j] = 0.5*(1.0-cos(omega*time))*dXmax[i][j];
+          Udot[i][j] = 0.5*omega*sin(omega*time)*dXmax[i][j];
 	}
 
       }
