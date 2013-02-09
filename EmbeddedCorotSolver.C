@@ -284,13 +284,13 @@ void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double cg1[3])
 
     //HB: zero terms depending on the axis of the plane of symmetry
     switch(SymAxis) {
-      case(EmbeddedCorotSolver::AXIS_X): 
-        grad[1] = grad[2] = 0.0;
+      case(EmbeddedCorotSolver::AXIS_X): // grad[2] is rotation angle about X-axis
+        grad[0] = grad[1] = 0.0;
         jac[0][1] = jac[1][0] = jac[0][2] = jac[2][0] = 0.0;
         jac[1][2] = jac[2][1] = 0.0;
-        jac[1][1] = jac[2][2] = 1.0;
+        jac[0][0] = jac[1][1] = 1.0;
         break;
-      
+
       case(EmbeddedCorotSolver::AXIS_Y):
         grad[0] = grad[2] = 0.0;
         jac[0][1] = jac[1][0] = jac[0][2] = jac[2][0] = 0.0;
@@ -298,12 +298,13 @@ void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double cg1[3])
         jac[0][0] = jac[2][2] = 1.0;
         break;
 
-      case(EmbeddedCorotSolver::AXIS_Z):
-        grad[0] = grad[1] = 0.0;
+      case(EmbeddedCorotSolver::AXIS_Z): 
+        grad[1] = grad[2] = 0.0;
         jac[0][1] = jac[1][0] = jac[0][2] = jac[2][0] = 0.0;
         jac[1][2] = jac[2][1] = 0.0;
-        jac[0][0] = jac[1][1] = 1.0;
+        jac[1][1] = jac[2][2] = 1.0;
         break;
+      
     }
 
     res = sqrt(grad[0]*grad[0] + grad[1]*grad[1] + grad[2]*grad[2]);
