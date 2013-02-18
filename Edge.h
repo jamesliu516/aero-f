@@ -21,6 +21,7 @@ using std::pair;
 
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
+#include <LevelSet/LevelSetStructure.h>
 
 class FluidSelector;
 class VarFcn;
@@ -229,7 +230,12 @@ public:
 */
 
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi);
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi,LevelSetStructure *LSS=0);
+  template<int dimLS>
+  void pseudoFastMarchingMethodInitialization(
+		Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
+		Vec<int> &sortedNodes, int &nSortedNodes,
+		LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }

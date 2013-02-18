@@ -116,6 +116,9 @@ public:
   }
 
   double computeTemperature(double *V) const{ return V[4]; }
+  void getV4FromTemperature(double *V, double T) const {
+    V[4] = T;
+  }
   double computeRhoEnergy(double *V)   const{
     return computeRhoEpsilon(V) + 0.5 * V[0] * getVelocitySquare(V);
   }

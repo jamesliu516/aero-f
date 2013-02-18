@@ -132,6 +132,10 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
 
   *dtau = 1.0;
+  unphysical = false;
+  dt_coeff = 1.0;
+  dt_coeff_count = 0;
+  allowcflstop = true;
 }
 
 //------------------------------------------------------------------------------
@@ -246,7 +250,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     domain->readVectorFromFile(name, 0, 0, *Un);
     if (data->use_nm1) {
       data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-      if (isGFMPAR || iod.problem.framework == ProblemData::EMBEDDED) {
+      if (isGFMPAR || ( iod.problem.framework == ProblemData::EMBEDDED ||  iod.problem.framework == ProblemData::EMBEDDEDALE )) {
         //domain->getCommunicator()->fprintf(stderr,"*** Warning: Backward Euler being used instead of 3BDF for multiphase flows on first step after restart\n");
         data->exist_nm1 = false;
       }
@@ -655,8 +659,12 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     printf("WARNING: Cfl0 is chosen too big!! \n");
 
   double dt_glob;
-  if (data->dt_imposed > 0.0) 
+  updateDtCoeff();
+  if (data->dt_imposed > 0.0) {
     dt_glob = data->dt_imposed;
+    allowcflstop = false; 
+    dt_glob *= dt_coeff;
+  }
   else 
     dt_glob = max ( dtMin, (factor * data->dt_nm1));
 
@@ -675,9 +683,36 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     dt_glob = *dtLeft / double(*numSubCycles);
     *dtLeft -= dt_glob;
   }
+
   data->computeCoefficients(*dt, dt_glob);
 
   return dt_glob;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::updateDtCoeff(){
+
+  //std::printf("DT Coefficient: %f \n", dt_coeff);
+  if(unphysical){
+
+    unphysical = false;
+    dt_coeff_count=0;
+    dt_coeff /= 2.0;
+    if(dt_coeff<0.0001){
+      printf("Could not resolve unphysicality by reducing timestep. Aborting.");
+      exit(-1);
+    }
+  }
+  dt_coeff_count++;
+  
+  if(dt_coeff_count>4){
+    dt_coeff *= 2.0;
+    dt_coeff=min(dt_coeff,1.0);
+    dt_coeff_count = 2;
+  }
 
 }
 
@@ -719,13 +754,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   if (umax && isGFMPAR) {
     double udt = umax->min();
     if (udt < dt_glob) {
-      //dt_glob = udt;
-      //domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
-      //domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
+      domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
+      domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
       dt_glob = udt;
     }
   }
-                                                                           
+
   if (data->typeStartup == ImplicitData::MODIFIED &&
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
        (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {

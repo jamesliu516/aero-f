@@ -35,7 +35,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
   int numStructNodes;
   int totStructNodes;
-  bool linRecAtInterface;
+  bool linRecAtInterface, viscSecOrder;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;
@@ -77,6 +77,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   DistSVec<double,dim> Wtemp;
   DynamicNodalTransfer *dynNodalTransfer;
+  MeshMotionHandler* emmh;
 
   //buckling cylinder parameters
   // pressure is increased in the fluid at rate Prate from
@@ -119,7 +120,9 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   //-- overrides the functions implemented in TsDesc.
   void setupTimeStepping(DistSVec<double,dim> *, IoData &);
-  double computeTimeStep(int, double *, DistSVec<double,dim> &);
+  double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
+  double computeTimeStep(int a, double * b, DistSVec<double,dim> & c){ return computeTimeStep(a,b,c,-2.0);}
+  double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
   void updateStateVectors(DistSVec<double,dim> &, int = 0);
   int checkSolution(DistSVec<double,dim> &);
   void setupOutputToDisk(IoData &, bool *, int, double,
@@ -128,7 +131,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                         DistSVec<double,dim> &);
   void outputForces(IoData &, bool*, int, int, int, double, double,
                     DistSVec<double,dim> &);
-  void outputPositionVectorToDisk(DistSVec<double,dim>&);
+//  void outputPositionVectorToDisk(DistSVec<double,dim>&);
   void resetOutputToStructure(DistSVec<double,dim> &);
   /** Override the TsDesc routine because forces are sent to the structure
    * in a different way than the general case */
@@ -142,8 +145,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
-  void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]);
+  void getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D* Fi, Vec3D* Mi);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
   virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}
@@ -153,6 +156,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double currentPressure(double t);
 
   void computeDistanceToWall(IoData &ioData);
+
+  MeshMotionHandler *createEmbeddedALEMeshMotionHandler(IoData &, GeoSource &, DistLevelSetStructure *);
 };
 
 

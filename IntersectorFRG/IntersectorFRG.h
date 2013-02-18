@@ -14,6 +14,8 @@
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
 
+#define MAXLINE 500
+
 using std::pair;
 using std::map;
 using std::list;
@@ -47,12 +49,15 @@ class DistIntersectorFRG : public DistLevelSetStructure {
   using DistLevelSetStructure::edge_intersects;
 
   protected:
+
+    IoData &iod;
+    
     int numStNodes, numStElems;
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
     DistVec<int> *tId;
 
     bool twoPhase; //including fluid-shell-fluid and fluid-solid
-    
+
     // struct node coords
     Vec3D *Xs;
     Vec3D *Xs0;
@@ -60,7 +65,12 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec3D *Xs_np1;
     Vec<Vec3D> *solidX;   //pointer to Xs
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
+    Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
+
+    // surface rotation
+    int *surfaceID;
+    int *rotOwn;
 
     int (*stElem)[3];     //structural elements (element to node connectivity)
     set<int> *node2node;  //structural node to node connectivity
@@ -100,6 +110,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
+    void makerotationownership();
+    void updatebc();
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
@@ -115,17 +127,28 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     PhysBAMInterface<double> &getInterface() { return *globPhysInterface; }
     const Vec3D &getSurfaceNorm(int i) const {return triNorms[i]; }
     const Vec3D &getNodalNorm(int i) const {if (!nodalNormal) {fprintf(stderr,"ERROR: nodal normal not initialized!\n");exit(-1);} return nodalNormal[i];}
-
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
-    DistVec<ClosestPoint> &getClosestPoints() {
+    Vec<Vec3D> &getStructPosition_np1() { return *solidXnp1; }
+    DistVec<ClosestPoint> * getClosestPointsPointer() {return NULL;}
+    DistVec<ClosestPoint> & getClosestPoints() {
       fprintf(stderr,"ERROR: closest point not stored in IntersectorFRG.\n");exit(-1);
       DistVec<ClosestPoint> *toto = new DistVec<ClosestPoint>(status->info()); return *toto;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; } //for reset after failSafe
 
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
+
+    int getSurfaceID(int k) { 
+      if (k >=0 && k < numStNodes) {
+	return surfaceID[k]; 
+      }
+      else {
+        fprintf(stderr,"Error:: SurfaceID requested for invalid point.\n");
+        exit(-1);
+      }
+    }
 };
 
 class IntersectorFRG : public LevelSetStructure {

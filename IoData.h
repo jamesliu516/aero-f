@@ -72,6 +72,7 @@ struct InputData {
   const char *perturbed;
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
   const char *rstdata;
@@ -271,6 +272,7 @@ struct RestartData {
 
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
   const char *data;
@@ -388,7 +390,7 @@ struct ProblemData {
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
-  enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
+  enum Framework {BODYFITTED = 0, EMBEDDED = 1, EMBEDDEDALE = 2} framework;
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
   enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
@@ -1500,6 +1502,46 @@ struct ImplicitData {
 
 //------------------------------------------------------------------------------
 
+struct CFLData {
+
+  enum Strategy {RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3, FIXEDUNSTEADY = 4, OLD = 5} strategy;
+
+  // global cfl parameters
+  double cfl0;
+  double cflCoef1;
+  double cflMax;
+  double cflMin;
+  double dualtimecfl;
+
+  // cfl control parameters
+  int checksol;
+  int checklinsolve;
+  int forbidreduce;
+
+  // residual based parameters
+  double ser;
+
+  // direction based parameters
+  double angle_growth;
+  double angle_zero;
+
+  // dft based parameters
+  int dft_history;
+  int dft_freqcutoff;
+  double dft_growth;
+
+  // for unsteady problems
+  int useSteadyStrategy;
+
+  CFLData();
+  ~CFLData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct TsData {
 
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
@@ -1519,19 +1561,23 @@ struct TsData {
   double maxTime;
 
   int residual;
+  double errorTol;
+
+  // Kept for back compatibility
   double cfl0;
   double cflCoef1;
   double cflCoef2;
   double cflMax;
   double cflMin;
   double ser;
-  double errorTol;
   double dualtimecfl;
+
 
   const char *output;
 
   ExplicitData expl;
   ImplicitData implicit;
+  CFLData cfl;
 
   TsData();
   ~TsData() {}
@@ -1810,17 +1856,42 @@ struct DeformingData {
 
 };
 
-//----------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+struct RotationData  {
+
+  double nx, ny, nz;
+  double x0, y0, z0;
+  double omega;
+  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
+
+  RotationData();
+  Assigner *getAssigner();
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//-----------------------------------------------------------------------------
+
+struct Velocity  {
+
+  ObjectMap<RotationData> rotationMap;
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, DEFORMING = 2} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
   PitchingData pt;
+  Velocity vel;
   DeformingData df;
 
   ForcedData();
@@ -2001,6 +2072,7 @@ struct SurfaceData  {
   enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
+  int forceID;
   double velocity;
 
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
@@ -2033,29 +2105,6 @@ struct PadeFreq  {
 
 //------------------------------------------------------------------------------
 
-struct RotationData  {
-
-  double nx, ny, nz;
-  double x0, y0, z0;
-  double omega;
-  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
-
-  RotationData();
-  Assigner *getAssigner();
-
-};
-
-//-----------------------------------------------------------------------------
-
-struct Velocity  {
-
-  ObjectMap<RotationData> rotationMap;
-
-  void setup(const char *);
-};
-
-//------------------------------------------------------------------------------
-
 struct EmbeddedFramework { 
 
   enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
@@ -2081,6 +2130,7 @@ struct EmbeddedFramework {
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
+  enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
@@ -2213,6 +2263,7 @@ public:
   int checkInputValuesProgrammedBurn();
   int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
 			       InitialConditions& IC);
+  int checkCFLBackwardsCompatibility();
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();

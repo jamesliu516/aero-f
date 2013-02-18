@@ -85,6 +85,7 @@ InputData::InputData()
   perturbed = "";
   solutions = "";
   positions = "";
+  embeddedpositions = "";
   levelsets = "";
   cracking = "";
   rstdata = "";
@@ -126,7 +127,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 32, father);
+  ClassAssigner *ca = new ClassAssigner(name, 36, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -138,6 +139,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
   new ClassStr<InputData>(ca, "Position", this, &InputData::positions);
+  new ClassStr<InputData>(ca, "EmbeddedPosition", this, &InputData::embeddedpositions);
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
   new ClassStr<InputData>(ca, "Cracking", this, &InputData::cracking);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
@@ -559,6 +561,7 @@ RestartData::RestartData()
   prefix = "";
   solutions = "DEFAULT.SOL";
   positions = "DEFAULT.POS";
+  embeddedpositions = "DEFAULT.EMBPOS";
   cracking = "DEFAULT.CRK";
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
@@ -575,7 +578,7 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 11, father);
   new ClassToken<RestartData>(ca, "Type", this,
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
 			      "Single", 0, "Double", 1);
@@ -583,6 +586,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "Prefix", this, &RestartData::prefix);
   new ClassStr<RestartData>(ca, "Solution", this, &RestartData::solutions);
   new ClassStr<RestartData>(ca, "Position", this, &RestartData::positions);
+  new ClassStr<RestartData>(ca, "EmbeddedPosition", this, &RestartData::embeddedpositions);
   new ClassStr<RestartData>(ca, "Cracking", this, &RestartData::cracking);
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
@@ -688,8 +692,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Framework", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 2,
-     "BodyFitted", 0, "Embedded", 1);
+     reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 3,
+     "BodyFitted", 0, "Embedded", 1, "EmbeddedALE", 2);
 
   new ClassToken<ProblemData>
     (ca, "SolveFluid", this,
@@ -2677,6 +2681,75 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+CFLData::CFLData()
+{
+
+  strategy = HYBRID;
+
+  cfl0 = 5.0;
+  cflCoef1 = 0.0;
+  cflMax = 100000.0;
+  cflMin = 1.0;
+  dualtimecfl = 100.0;
+
+  checksol = 1;
+  checklinsolve = 1;
+
+  ser = 0.7;
+
+  angle_growth = 2.0;
+  angle_zero = 0.2;
+
+  dft_history = 8;
+  dft_freqcutoff = 3;
+  dft_growth = 1.3;
+
+  forbidreduce = 0;
+
+  useSteadyStrategy = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void CFLData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
+
+  new ClassToken<CFLData>(ca, "Strategy", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
+			 "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
+  new ClassToken<CFLData>(ca, "CheckSolution", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
+			 "Off", 0, "On", 1);
+  new ClassToken<CFLData>(ca, "CheckLinearSolver", this,
+			 reinterpret_cast<int CFLData::*>(&CFLData::checklinsolve), 2,
+			 "Off", 0, "On", 1);
+  new ClassToken<CFLData>(ca, "ForbidReductions", this,
+                         reinterpret_cast<int CFLData::*>(&CFLData::forbidreduce), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<CFLData>(ca, "UseSteadyStrategy", this,
+                         reinterpret_cast<int CFLData::*>(&CFLData::useSteadyStrategy), 2,
+                         "Off", 0, "On", 1);
+	  
+  new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
+  new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
+  new ClassDouble<CFLData>(ca, "CflMax", this, &CFLData::cflMax);
+  new ClassDouble<CFLData>(ca, "CflMin", this, &CFLData::cflMin);
+  new ClassDouble<CFLData>(ca, "DualTimeCfl", this, &CFLData::dualtimecfl);
+
+  new ClassDouble<CFLData>(ca, "Ser", this, &CFLData::ser);
+  new ClassDouble<CFLData>(ca, "AngleGrowth", this, &CFLData::angle_growth);
+  new ClassDouble<CFLData>(ca, "AngleZero", this, &CFLData::angle_zero);
+  new ClassInt<CFLData>(ca, "DFTHistory", this, &CFLData::dft_history);
+  new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
+  new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
+
+}
+
+//------------------------------------------------------------------------------
+
 TsData::TsData()
 {
 
@@ -2696,15 +2769,17 @@ TsData::TsData()
   maxTime = 1.e99;
 
   residual = -1;
-  cfl0 = 5.0;
-  cflCoef1 = 0.0;
-  cflCoef2 = 0.0;
-  cflMax = 1000.0;
-  cflMin = 1.0;
-  ser = 0.7;
+  // These variables stay here for back compatibility
+  cfl0 = -1.0;
+  cflCoef1 = -1.0;
+  cflCoef2 = -1.0;
+  cflMax = -1.0;
+  cflMin = -1.0;
+  ser = -1.0; 
+  dualtimecfl = -1.0;
+  //
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
-  dualtimecfl = 100.0;
 
   output = "";
 
@@ -2756,6 +2831,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
+  cfl.setup("CFLLaw",ca);
 
 }
 
@@ -3132,18 +3208,19 @@ ForcedData::ForcedData()
 void ForcedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 3,
-     "Heaving", 0, "Pitching", 1, "Deforming", 2);
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 4,
+     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
 
   hv.setup("Heaving", ca);
   pt.setup("Pitching", ca);
+  vel.setup("Velocity",ca);
   df.setup("Deforming", ca);
 
 }
@@ -3538,6 +3615,7 @@ SurfaceData::SurfaceData()  {
   forceResults = NO;
 
   rotationID = -1;
+  forceID = -1;
   velocity = 0.0;
 
   type = (Type) UNSPECIFIED; 
@@ -3550,7 +3628,7 @@ SurfaceData::SurfaceData()  {
 //------------------------------------------------------------------------------
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 12, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 13, nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
@@ -3563,6 +3641,7 @@ Assigner *SurfaceData::getAssigner()  {
   new ClassToken<SurfaceData> (ca, "SeparateHeatFlux", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
+  new ClassInt<SurfaceData>(ca, "ForcedVelocityID", this, &SurfaceData::forceID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);
 
   new ClassToken<SurfaceData>(ca, "Type", this,
@@ -3583,10 +3662,16 @@ void Surfaces::setup(const char *name)  {
 
 //------------------------------------------------------------------------------
 
-void Velocity::setup(const char *name)  {
+void Velocity::setup(const char *name, ClassAssigner *father)  {
 
-  ClassAssigner *ca = new ClassAssigner(name, 0, 0);
-  rotationMap.setup("RotationAxis", 0);
+  if (father) {
+    ClassAssigner *ca = new ClassAssigner(name, 1, father);
+    rotationMap.setup("RotationAxis", ca);
+  }
+  else {
+    ClassAssigner *ca = new ClassAssigner(name, 0, 0);
+    rotationMap.setup("RotationAxis", 0);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3636,6 +3721,24 @@ Assigner *RotationData::getAssigner()  {
 
 //------------------------------------------------------------------------------
 
+void RotationData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+
+  new ClassDouble<RotationData>(ca, "Nx", this, &RotationData::nx);
+  new ClassDouble<RotationData>(ca, "Ny", this, &RotationData::ny);
+  new ClassDouble<RotationData>(ca, "Nz", this, &RotationData::nz);
+
+  new ClassDouble<RotationData>(ca, "X0", this, &RotationData::x0);
+  new ClassDouble<RotationData>(ca, "Y0", this, &RotationData::y0);
+  new ClassDouble<RotationData>(ca, "Z0", this, &RotationData::z0);
+
+  new ClassDouble<RotationData>(ca, "Omega", this, &RotationData::omega);
+  new ClassToken<RotationData> (ca, "InfiniteRadius", this, reinterpret_cast<int RotationData::*>(&RotationData::infRadius), 2, "False" , 0, "True", 1);
+
+}
+
+//------------------------------------------------------------------------------
 VolumeData::VolumeData()  {
 
   type = FLUID;
@@ -3774,6 +3877,7 @@ EmbeddedFramework::EmbeddedFramework() {
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
+  viscousinterfaceorder = FIRST;
 
   stabil_alpha = 0.0;
 }
@@ -3810,6 +3914,8 @@ void EmbeddedFramework::setup(const char *name) {
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
+  new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
+                                      "First", 0, "Second", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -4361,6 +4467,12 @@ void IoData::resetInputValues()
   //
   // Part 3
   //
+ 
+  if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
+    com->fprintf(stderr, "*** Warning: Using fixed unsteady CFL strategy for unsteady problem. To force a strategy designed for steady problems, set UseSteadyStrategy to On.\n");
+    ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
+    ts.cfl.checklinsolve = 0;
+  }
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||
@@ -4521,7 +4633,7 @@ int IoData::checkFileNames()
     ++error;
   }
   if ((problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO]) &&
-       problem.framework!=ProblemData::EMBEDDED && strcmp(input.match, "") == 0) {
+      (problem.framework!=ProblemData::EMBEDDED && problem.framework!=ProblemData::EMBEDDEDALE) && strcmp(input.match, "") == 0) {
     com->fprintf(stderr, "*** Error: no matcher file given\n");
     ++error;
   }
@@ -4529,11 +4641,13 @@ int IoData::checkFileNames()
       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
     if (eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
+/*
     if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS &&
 	strcmp(input.d2wall, "") == 0) {
       com->fprintf(stderr, "*** Error: no distance to wall file given\n");
       ++error;
     }
+*/
    if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
 	strcmp(input.d2wall, "") == 0) {
       com->fprintf(stderr, "*** Error: no distance to wall file given\n");
@@ -4577,6 +4691,7 @@ int IoData::checkInputValues()
 
   // input values for flow solver
   error += checkInputValuesAllEquationsOfState();
+  checkCFLBackwardsCompatibility();
 
   // no need for all input values for Sparse Grid generation
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
@@ -4606,7 +4721,7 @@ int IoData::checkInputValues()
   error += checkInputValuesEssentialBC();
   
   // check input values for the Embedded Framework.
-  if(problem.framework == ProblemData::EMBEDDED) 
+  if(problem.framework == ProblemData::EMBEDDED || problem.framework == ProblemData::EMBEDDEDALE) 
     error += checkInputValuesEmbeddedFramework();
 
   error += checkInputValuesNonDimensional();
@@ -4728,6 +4843,25 @@ int IoData::checkInputValuesAllEquationsOfState(){
 
   return error;
 
+}
+
+//------------------------------------------------------------------------------
+
+int IoData::checkCFLBackwardsCompatibility(){
+
+  if(ts.cfl0 != -1.0 || ts.cflCoef1 != -1.0 || ts.cflCoef2 != -1.0 || ts.cflMax != -1.0 || ts.cflMin != -1.0 || ts.ser != -1.0 || ts.dualtimecfl != -1.0 ){
+    com->fprintf(stderr, "*** Warning: Using CFL values under Time and old CFL law for backwards compatibility. The program will run, but correct execution requires all CFL parameters to be under CFLLaw.\n");
+    ts.cfl.strategy = CFLData::OLD;
+    //com->fprintf(stderr, "cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",ts.cfl0,ts.cflCoef1,ts.cflCoef2,ts.cflMax,ts.cflMin,ts.ser,ts.dualtimecfl);
+  }
+  if(ts.cfl0 != -1.0) ts.cfl.cfl0 = ts.cfl0;
+  if(ts.cflCoef1 != -1.0) ts.cfl.cflCoef1 = ts.cflCoef1;
+  if(ts.cflMax != -1.0) ts.cfl.cflMax = ts.cflMax;
+  if(ts.cflMin != -1.0) ts.cfl.cflMin = ts.cflMin;
+  if(ts.ser != -1.0) ts.cfl.ser = ts.ser;
+  if(ts.dualtimecfl != -1.0) ts.cfl.dualtimecfl = ts.dualtimecfl;
+
+  return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -5082,7 +5216,7 @@ int IoData::checkInputValuesNonDimensional()
   if (problem.mode == ProblemData::NON_DIMENSIONAL) {
 
     // no multiphase flow in non-dimensional
-    if(eqs.numPhase > 1 && problem.framework != ProblemData::EMBEDDED){ 
+    if(eqs.numPhase > 1 && (problem.framework != ProblemData::EMBEDDED && problem.framework != ProblemData::EMBEDDEDALE) ){ 
       com->fprintf(stderr, "*** Error: multiphase flow are possible only in Dimensional Mode \n");
       ++error;
       return error;
@@ -5658,7 +5792,7 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
       com->fprintf(stderr, "*** Error: no valid timestep (%d) given\n", forced.timestep);
       ++error;
     }
-    if (forced.frequency < 0.0) {
+    if (forced.frequency < 0.0 && forced.type != ForcedData::VELOCITY) {
       com->fprintf(stderr, "*** Error: no valid frequency (%d) given\n", forced.frequency);
       ++error;
     }

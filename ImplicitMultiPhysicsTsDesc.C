@@ -78,6 +78,7 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->fluidSelector.fluidId,
     this->riemann,
     this->linRecAtInterface,
+    this->viscSecOrder,
     this->Nsbar,
     &this->Wtemp,
     this->riemannNormal,
@@ -234,7 +235,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
 /*  if(this->eqsType == TsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->mulitPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+      this->mulitPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
     }
 */
 }
@@ -289,12 +290,12 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<dou
   if (this->lsMethod == 0) {  
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, this->riemann,  
+                                   this->linRecAtInterface, this->viscSecOrder, this->riemann,  
                                    this->riemannNormal, this->Nsbar, this->PhiV, this->fluidSelector,F, 1, this->ghostPoints);
   } else {
 
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, this->riemann,  
+                                   this->linRecAtInterface, this->viscSecOrder, this->riemann,  
                                    this->riemannNormal, this->Nsbar, this->Phi, this->fluidSelector,F, 1, this->ghostPoints);
   }
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
@@ -403,6 +404,8 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<do
   ksp->setup(it, this->maxItsNewton, b);
   
   int lits = ksp->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
   
   this->timer->addKspTime(t0);
   
@@ -479,6 +482,8 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<
   kspLS->setup(it, this->maxItsNewton, b);
   
   int lits = kspLS->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
 
   //mvpLS->apply(dQ, fnew);
 
