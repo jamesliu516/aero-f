@@ -358,8 +358,6 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
 
   // load solid nodes at restart time.
   if (restartSolidSurface[0] != 0) {
-    if(cracking) com->fprintf(stderr,"WARNING: not sure if restart works with cracking...\n");
-
     FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
     int ndMax2 = 0;
