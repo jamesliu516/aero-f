@@ -565,6 +565,7 @@ struct LiquidModelData {
   double specificHeat;
   double k1water;
   double k2water;
+  double Bwater;
   double Prefwater;
   double RHOrefwater;
 
@@ -1084,6 +1085,7 @@ struct MultiFluidData {
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
+  enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
   MultiInitialConditionsData multiInitialConditions;

@@ -82,6 +82,19 @@ public:
 
 };
 
+class FluxFcnTaitModifiedGhidagliaEuler3D : public FluxFcnModifiedGhidagliaEuler3D {
+
+public:
+
+  FluxFcnTaitModifiedGhidagliaEuler3D(IoData &ioData, VarFcnTait *varFcnTait, Type tp = CONSERVATIVE) :
+    FluxFcnModifiedGhidagliaEuler3D(varFcnTait, tp) {}
+  ~FluxFcnTaitModifiedGhidagliaEuler3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+
 //------------------------------------------------------------------------------
 
 class FluxFcnTaitInflowEuler3D : public FluxFcnInflowEuler3D {
