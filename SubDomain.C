@@ -370,6 +370,66 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+// least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+template<class Scalar>
+void SubDomain::computeGradientLeastSquares(SVec<double,3> &X,
+                const Vec<int> &fluidId, SVec<double,6> &R,
+                Vec<Scalar> &var, Vec<Scalar> &ddx,
+                Vec<Scalar> &ddy, Vec<Scalar> &ddz,
+                LevelSetStructure *LSS)  {
+
+  ddx = (Scalar) 0.0;
+  ddy = (Scalar) 0.0;
+  ddz = (Scalar) 0.0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+
+    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
+                          higherOrderMF->isCellCut(j)))
+      continue;
+
+    double Wi[3], Wj[3];
+    Scalar deltaVar;
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
+      computeLocalWeightsLeastSquares(dx, R[i], Wi);
+    else{ // gradient is set to 0.0
+      Wi[0] = 0.0;
+      Wi[1] = 0.0;
+      Wi[2] = 0.0;
+    }
+
+    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10) // should be positive for a well posed least square problem
+      computeLocalWeightsLeastSquares(dx, R[j], Wj);
+    else{ // gradient is set to 0.0
+      Wj[0] = 0.0;
+      Wj[1] = 0.0;
+      Wj[2] = 0.0;
+    }
+    deltaVar = var[j] - var[i];
+
+    ddx[i] += Wi[0] * deltaVar;
+    ddy[i] += Wi[1] * deltaVar;
+    ddz[i] += Wi[2] * deltaVar;
+    ddx[j] -= Wj[0] * deltaVar;
+    ddy[j] -= Wj[1] * deltaVar;
+    ddz[j] -= Wj[2] * deltaVar;
+  }
+}
+
+//------------------------------------------------------------------------------
 // least square gradient involving only nodes of fluid (FSI)
 // if Wstar is available, they are also involved in gradient computation
 template<int dim, class Scalar>
@@ -3136,7 +3196,7 @@ void SubDomain::sndGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &g
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
       if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
 	{
-	  v = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->getPrimitiveState();
+	  v = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->getState();
 	  for (int j = 0; j < dim; ++j) buffer[iNode][j] = v[j];
 	}
       else 
@@ -3152,22 +3212,73 @@ void SubDomain::sndGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &g
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::sndGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+void SubDomain::sndNumGhostStates(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
 {
 
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
 
-    SubRecInfo<double> sInfo = sp.getSendBuffer(sndChannel[iSub]);
-    double (*buffer)[1] = reinterpret_cast<double (*)[1]>(sInfo.data);
+    SubRecInfo<int> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    int (*buffer)[1] = reinterpret_cast<int (*)[1]>(sInfo.data);
 
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
       if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
 	{
-	  buffer[iNode][0] = double(ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ng);
+	  buffer[iNode][0] = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ng;
 	}
       else 
 	{
-	  buffer[iNode][0] = 0.0;
+	  buffer[iNode][0] = 0;
+	}
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::sndGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+
+  double *v;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<double> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    double (*buffer)[dim] = reinterpret_cast<double (*)[dim]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  v = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->Ws;
+	  for (int j = 0; j < dim; ++j) buffer[iNode][j] = v[j];
+	}
+      else 
+	{
+	  // It can happened that all the edges containing the ghostPoint are not master in this SubDomain.
+	  // In which case we do not want to send garbage.
+	  for (int j = 0; j < dim; ++j) buffer[iNode][j] = 0.0;
+	}
+    }
+  }
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::sndGhostTags(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<int> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    int (*buffer)[1] = reinterpret_cast<int (*)[1]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  buffer[iNode][0] = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ghostTag;
+	}
+      else 
+	{
+	  buffer[iNode][0] = -2;
 	}
     }
   }
@@ -3201,20 +3312,74 @@ void SubDomain::rcvGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &g
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::rcvGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+void SubDomain::rcvNumGhostStates(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn)
 {
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
 
-    SubRecInfo<double> sInfo = sp.recData(rcvChannel[iSub]);
-    double (*buffer)[1] = reinterpret_cast<double (*)[1]>(sInfo.data);
+    SubRecInfo<int> sInfo = sp.recData(rcvChannel[iSub]);
+    int (*buffer)[1] = reinterpret_cast<int (*)[1]>(sInfo.data);
 
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
-      if( buffer[iNode][0] < 1e-14) continue; // if the weight is zero, the whole buffered state is gonna be zero.
+      if( buffer[iNode][0] == 0) continue; // if the weight is zero, the whole buffered state is gonna be zero.
       if(!ghostPoints[ (*sharedNodes)[iSub][iNode] ])
 	{
-	  ghostPoints[ (*sharedNodes)[iSub][iNode] ] = new GhostPoint<dim>;
+	  ghostPoints[ (*sharedNodes)[iSub][iNode] ] = new GhostPoint<dim>(varFcn);
 	}  
-      ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ng += int(buffer[iNode][0]);    
+      ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ng += buffer[iNode][0];    
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::rcvGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+  GhostPoint<dim> *gp;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<double> sInfo = sp.recData(rcvChannel[iSub]);
+    double (*buffer)[dim] = reinterpret_cast<double (*)[dim]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  gp = ghostPoints[ (*sharedNodes)[iSub][iNode] ];
+	  for (int j = 0; j < dim; ++j)  
+	    {
+	      gp->Ws[j] += buffer[iNode][j];
+	    }
+	}
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::rcvGhostTags(CommPattern<int> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+  GhostPoint<dim> *gp;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<int> sInfo = sp.recData(rcvChannel[iSub]);
+    int (*buffer)[1] = reinterpret_cast<int (*)[1]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+
+      if( buffer[iNode][0] < 0) continue; // if the ghostTag is not set 
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+      {
+        gp = ghostPoints[ (*sharedNodes)[iSub][iNode] ];
+        if (gp->ghostTag<0) gp->ghostTag = buffer[iNode][0];    
+        else if (gp->ghostTag != buffer[iNode][0])
+        {
+          fprintf(stderr,"The two ghost States refer to different Fluids in comm\n");
+          fprintf(stderr,"ghostTag: %i, buffer: %i\n",gp->ghostTag,buffer[iNode][0]);
+          exit(-1);
+        }
+      }  
     }
   }
 }
@@ -3379,22 +3544,42 @@ void SubDomain::minRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 }
 
 //------------------------------------------------------------------------------
-
 template<class Scalar, int dim>
 void SubDomain::maxRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 {
-
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
-
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
-
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
       for (int j = 0; j < dim; ++j)
         if (buffer[iNode][j] > w[ (*sharedNodes)[iSub][iNode] ][j])
           w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
   }
+}
 
+//------------------------------------------------------------------------------
+// Adam 2011.09: Called from Domain::pseudoFastMarchingMethod. 
+// Need to take into account the updated value after communication
+template<class Scalar, int dim>
+void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim],int &nSortedNodes, Vec<int> &sortedNodes)
+{
+  assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
+
+  int sharedNodeID;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      sharedNodeID = (*sharedNodes)[iSub][iNode];
+      for (int j = 0; j < dim; ++j) {
+        if (buffer[iNode][j] > w[sharedNodeID][j]) {
+          w[sharedNodeID][j]        = buffer[iNode][j];
+	  sortedNodes[nSortedNodes] = sharedNodeID;
+	  nSortedNodes++;
+	}
+      }
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -5222,15 +5407,22 @@ void SubDomain::extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag)
+void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, VarFcn *varFcn,LevelSetStructure &LSS,bool linRecFSI,Vec<int> &tag)
 {
 
   int i, j, k;
+  double alpha;
 
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
+  double *Vi,*Vj,*weights;
+  Vi = new double[dim];
+  Vj = new double[dim];
+  weights = new double[dim];
+
   for (int l=0; l<edges.size(); l++) {
+    if(!edgeFlag[l]) continue; //not a master edge
     i = edgePtr[l][0];
     j = edgePtr[l][1];
     if(LSS.edgeIntersectsStructure(0.0,l)) { // at interface
@@ -5241,24 +5433,77 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
 
       if(iIsActive) {
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-        Vec<double> Vi(dim);
-        varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+        varFcn->conservativeToPrimitive(U[i],Vi,tagI);
+
+// Initialize all variables and weights
+        for (int k=0; k<dim; ++k) {
+          Vj[k] = Vi[k];
+	  weights[k] = 1.0;
+        }
+
+// Replace fourth variable with temperature
+        double T = varFcn->computeTemperature(Vi,tagI);
+        Vj[4] = T;
+
+// Determine intersection alpha 
+        if (!linRecFSI) { //first order
+          alpha = 0.5;
+        }
+        else {
+          alpha = resij.alpha;
+          if (alpha > 0.5) alpha = 0.5; // Set limit for stability 
+        }
+
+// Update velocity
+        for (int k=1; k<4; ++k) {
+	  Vj[k] = ((resij.normVel)[k-1] - alpha*Vi[k])/(1.0-alpha);
+          weights[k] = (1.0-alpha)*(1.0-alpha);
+        }
+
         if(!ghostPoints[j]) // GP has not been created
-        {ghostPoints[j]=new GhostPoint<dim>;}
-        // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-        if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
+        {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
+
+        ghostPoints[j]->addNeighbour(Vj,weights,tagI);
       }
       if(jIsActive) {
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-        Vec<double> Vj(dim);
-        varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+        varFcn->conservativeToPrimitive(U[j],Vj,tagJ);
+
+// Initialize all variables and weights
+        for (int k=0; k<dim; ++k) {
+          Vi[k] = Vj[k];
+	  weights[k] = 1.0;
+        }
+
+// Replace fourth variable with temperature
+        double T = varFcn->computeTemperature(Vj,tagJ);
+        Vi[4] = T;
+
+// Determine intersection alpha 
+        if (!linRecFSI) { //first order
+          alpha = 0.5;
+        }
+        else {
+          alpha = resji.alpha;
+          if (alpha > 0.5) alpha = 0.5; // Set limit for stability 
+        }
+
+// Update velocity
+        for (int k=1; k<4; ++k) {
+	  Vi[k] = ((resji.normVel)[k-1] - alpha*Vj[k])/(1.0-alpha);
+          weights[k] = (1.0-alpha)*(1.0-alpha);
+        }
+
         if(!ghostPoints[i]) // GP has not been created
-        {ghostPoints[i]=new GhostPoint<dim>;}
-        // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
-        if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resji.normVel,tagJ);}
+        {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
+
+        ghostPoints[i]->addNeighbour(Vi,weights,tagJ);
       }
     }
   }
+  delete[] Vi;
+  delete[] Vj;
+  delete[] weights;
 }
 
 //------------------------------------------------------------------------------
@@ -5279,60 +5524,60 @@ template<int dim,int neq>
 void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,
                                       GenMat<double,neq>& A)
 {
-
-  int i, j, k;
-
-  bool* edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
-
-  double B[neq*neq],tmp[neq*neq];
-  double dUdV[neq*neq],dVdU[neq*neq];
-  memset(tmp,0,sizeof(double)*neq*neq);
-  memset(dUdV,0,sizeof(double)*neq*neq);
-  memset(dVdU,0,sizeof(double)*neq*neq);
-  memset(B,0,sizeof(double)*neq*neq);
-  B[0] = B[5*neq-1] = 1.0;
-  for (k = 1; k < 4; ++k) {
-    B[k*neq+k] = -1.0;
-  }
-  for (int l=0; l<edges.size(); l++) {
-    i = edgePtr[l][0];
-    j = edgePtr[l][1];
-    if(LSS.edgeIntersectsStructure(0.0,l)) { //at interface
-	  int tagI = tag[i];
-	  int tagJ = tag[j];
-      bool iIsActive = LSS.isActive(0.0,i);
-      bool jIsActive = LSS.isActive(0.0,j);
-	  
-	  if(iIsActive) {
-        double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
-        Vec<double> Vi(dim);
-        varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
-        varFcn->getVarFcnBase()->computedVdU(Vi.v,dVdU);
-        varFcn->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
-        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
-      }
-      if(jIsActive) {
-        double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
-        Vec<double> Vj(dim);
-        varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
-        varFcn->getVarFcnBase()->computedVdU(Vj.v,dVdU);
-        varFcn->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
-        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
-	  }
-	}
-  }
-
-  for (int l = 0; l < ghostPoints.size(); ++l) {
-    if (ghostPoints[l]) {
-      double *Aii = A.getGhostGhostElem_ij(i,i);
-      memset(Aii,0,sizeof(double)*neq*neq);
-      for (k = 0; k < neq; ++k)
-        Aii[k*neq+k] = ghostPoints[l]->lastCount();
-    }
-  }
+//
+//  int i, j, k;
+//
+//  bool* edgeFlag = edges.getMasterFlag();
+//  int (*edgePtr)[2] = edges.getPtr();
+//
+//  double B[neq*neq],tmp[neq*neq];
+//  double dUdV[neq*neq],dVdU[neq*neq];
+//  memset(tmp,0,sizeof(double)*neq*neq);
+//  memset(dUdV,0,sizeof(double)*neq*neq);
+//  memset(dVdU,0,sizeof(double)*neq*neq);
+//  memset(B,0,sizeof(double)*neq*neq);
+//  B[0] = B[5*neq-1] = 1.0;
+//  for (k = 1; k < 4; ++k) {
+//    B[k*neq+k] = -1.0;
+//  }
+//  for (int l=0; l<edges.size(); l++) {
+//    i = edgePtr[l][0];
+//    j = edgePtr[l][1];
+//    if(LSS.edgeIntersectsStructure(0.0,l)) { //at interface
+//	  int tagI = tag[i];
+//	  int tagJ = tag[j];
+//      bool iIsActive = LSS.isActive(0.0,i);
+//      bool jIsActive = LSS.isActive(0.0,j);
+//	  
+//	  if(iIsActive) {
+//        double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
+//        Vec<double> Vi(dim);
+//        varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+//        varFcn->getVarFcnBase()->computedVdU(Vi.v,dVdU);
+//        varFcn->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
+//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
+//      }
+//      if(jIsActive) {
+//        double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
+//        Vec<double> Vj(dim);
+//        varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+//        varFcn->getVarFcnBase()->computedVdU(Vj.v,dVdU);
+//        varFcn->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
+//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
+//	  }
+//	}
+//  }
+//
+//  for (int l = 0; l < ghostPoints.size(); ++l) {
+//    if (ghostPoints[l]) {
+//      double *Aii = A.getGhostGhostElem_ij(i,i);
+//      memset(Aii,0,sizeof(double)*neq*neq);
+//      for (k = 0; k < neq; ++k)
+//        Aii[k*neq+k] = ghostPoints[l]->lastCount();
+//    }
+//  }
 }
 
 //--------------------------------------------------------------------------
@@ -5895,37 +6140,110 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
   }
 
 }
+
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level)
+void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level,LevelSetStructure *LSS)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
 
-  if(level==0){
+  if(level==1){
   // tag nodes that are closest to interface by looking at phi[i]*phi[j]
     Tag = 0;
-    edges.TagInterfaceNodes(lsdim,Tag,Phi);
+    edges.TagInterfaceNodes(lsdim,Tag,Phi,LSS);
 
   }else{
   // tag nodes that are neighbours of already tagged nodes.
-    int nNeighs,nei,k;
+    int nNeighs,nei,k,lowerLevel=level-1;
     for(int i=0; i<nodes.size(); i++){
 
-      if(Tag[i]==level){
+      if(Tag[i]==lowerLevel){
 
         nNeighs = NodeToNode->num(i);
         for(k=0;k<nNeighs;k++){
           nei = (*NodeToNode)[i][k];
           if(nei==i) continue;
-          if(Tag[nei]==0) Tag[nei] = level+1;
+          if(Tag[nei]==0) Tag[nei] = level;
         }
 
       }
     }
   }
+}
 
+//------------------------------------------------------------------------------
 
+template<int dimLS>
+void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
+					 SVec<double,dimLS> &d2wall, int level,
+					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
+					 LevelSetStructure *LSS,Vec<ClosestPoint> *closestPoint)
+{
+  if(!NodeToNode)
+     NodeToNode = createEdgeBasedConnectivity();
+  if(!NodeToElem) 
+     NodeToElem = createNodeToElementConnectivity();
+  if(level == 0) { // just get inactive nodes
+    nSortedNodes     = 0;
+    firstCheckedNode = 0;
+    for(int i=0;i<Tag.size();++i) {
+      if(!LSS->isActive(0.0,i))
+      {
+	d2wall[i][0] = 0.0;
+	Tag[i]       = 0;
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+    }
+  }
+  else if(level==1){
+/*
+    for(int i=0;i<closestPoint.size();++i) {
+      if(Tag[i]<0) {
+        if(closestPoint[i].nearInterface() && closestPoint[i].dist >= 0)
+        {
+  	  d2wall[i][0] = closestPoint[i].dist;
+	  Tag[i]       = 1;
+	  sortedNodes[nSortedNodes] = i;
+	  nSortedNodes++;
+	}
+      }
+    }
+*/
+//    Tag = -1;  // Tag is globally set to -1. 0 level are inactive nodes
+    firstCheckedNode = nSortedNodes;
+    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,nSortedNodes,LSS,closestPoint);
+  }
+  else{
+  // Tag nodes that are neighbours of already Tagged nodes and compute their distance
+    int nNeighs,nTets,nei,tet,lowerLevel=level-1;
+    int inter = nSortedNodes,fixedNode;
+    for(int i=firstCheckedNode;i<inter; i++){
+      fixedNode = sortedNodes[i];
+//      if(Tag[fixedNode] == 0) continue; //structure nodes
+      // Should be useless. Remove the following assert.Adam 2011.09
+      // if(Tag[fixedNode]==lowerLevel){
+      assert(Tag[fixedNode] == lowerLevel);
+      nNeighs = NodeToNode->num(fixedNode);
+      for(int k=0;k<nNeighs;k++){
+        nei = (*NodeToNode)[fixedNode][k];
+	 // Not necessary because of following test.
+       // if(nei==i) continue;
+        if(Tag[nei]<0) {
+          Tag[nei] = level;
+          sortedNodes[nSortedNodes] = nei;
+          nTets = NodeToElem->num(nei);
+          for(int j=0;j<nTets;j++) { 
+            tet        = (*NodeToElem)[nei][j];
+            elems[tet].FastMarchingDistanceUpdate(nei,Tag,lowerLevel,X,d2wall);
+          }
+          nSortedNodes++;
+        }  
+      }
+    }
+    firstCheckedNode = inter;
+  }
 }
 //------------------------------------------------------------------------------
 
@@ -7020,4 +7338,5 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
     }
   }
 }
-  
+ 
+ 

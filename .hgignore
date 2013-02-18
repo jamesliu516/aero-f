@@ -13,6 +13,8 @@ parser/Parser.output
 parser/Parser.tab.c
 parser/Parser.tab.h
 bin/*
+.*.swp
+.*.swo
 
 syntax: regexp
 .*\#.*\#$

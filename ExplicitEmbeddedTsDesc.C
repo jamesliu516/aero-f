@@ -37,7 +37,7 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     else FE = false;
   } // if RK4 and FE are both false, do RK2.
 
-  //initialize mmh (EmbeddedMeshMotionHandler).
+  //initialize emmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) 
     {
       /*
@@ -45,12 +45,18 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
       this->mmh = _mmh;
       */
-      this->mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+      this->emmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
     } 
   else
     { 
-      this->mmh = 0;
+      this->emmh = 0;
     }
+
+  if (ioData.problem.framework==ProblemData::EMBEDDEDALE && this->emmh) 
+    this->mmh = this->createEmbeddedALEMeshMotionHandler(ioData, geoSource, this->distLSS);
+  else
+    this->mmh = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -92,12 +98,13 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 {
   // Adam 04/06/10: Took everything in common in solveNLAllFE and solveNLAllRK2 and put it here. Added Ghost-Points treatment for viscous flows.
 
-  if(this->mmh && !this->inSubCycling) {
+  if(this->emmh && !this->inSubCycling) {
     //get structure timestep dts
-    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    this->dts = this->emmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
     //recompute intersections
     double tw = this->timer->getTime();
+
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag);
     this->timer->addIntersectionTime(tw);
     this->com->barrier();
@@ -130,11 +137,11 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   }
 
   // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
-    }
+//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+//    {
+//      this->ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+//    }
 }
 //------------------------------------------------------------------------------
 
@@ -166,11 +173,11 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   this->checkSolution(U0);
 
   // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U0,this->varFcn,this->distLSS,this->nodeTag);
-    }
+//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+//    {
+//      this->ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U0,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+//    }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/2.0 * (k1 + k2);
@@ -229,14 +236,14 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
   this->spaceOp->applyBCsToSolutionVector(Ulocal,this->distLSS); //KW: (?)only for Navier-Stokes.
   if (this->interfaceAlg)
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, *this->countWstarij, *this->countWstarji, this->distLSS,
-                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, this->timeState->getTime(), this->intersectAlpha, it, this->ghostPoints);
+                                   this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, this->timeState->getTime(), this->intersectAlpha, it, this->ghostPoints);
   else
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
+                                   this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
 
   this->timeState->multiplyByTimeStep(dU);
   
-  if(this->numFluid==1&&!this->mmh)
+  if(this->numFluid==1&&!this->emmh)
     this->timeState->multiplyByPreconditioner(Ulocal,dU);
       //KW:This is the TEMPORAL low-mach precondition which is only for steady-state sims.
 }

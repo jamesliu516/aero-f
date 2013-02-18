@@ -137,7 +137,15 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     // verify that the solution is physical
     if (probDesc->checkSolution(Q)) {
-      if (probDesc->checkFailSafe(Q) && fsIt < 5) {
+      if (probDesc->getTsParams()->checksol){
+        probDesc->getTsParams()->unphysical = true; 
+        probDesc->checkFailSafe(Q);
+        Q = rhs;
+        --it;
+        ++fsIt;
+        return -10; // signal re-compute CFL number
+      }
+      else if (probDesc->checkFailSafe(Q) && fsIt < 5) {
 	probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
 	Q = rhs;
 	--it;

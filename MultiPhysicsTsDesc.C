@@ -106,10 +106,12 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
 
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false;
+    viscSecOrder = false;
 
   //for phase-change update
   Weights = 0;
@@ -363,7 +365,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
 
 template<int dim, int dimLS>
 double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
-                                                  DistSVec<double,dim> &U)
+                                                  DistSVec<double,dim> &U, double angle)
 {
   if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
@@ -377,11 +379,12 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
   }
 
   double t0 = this->timer->getTime();
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
   int numSubCycles = 1;
 
   double dt;
-  umax = 0.0;
+  umax = 0.0; 
+  
   dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                           &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
@@ -591,16 +594,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateOutputToStructure(double dt, double dt
 template<int dim, int dimLS>
 double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-  // Ghost-Points Population (for Navier-Stokes only)
-  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
-    this->ghostPoints->deletePointers();
-    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
-  }
+//  // Ghost-Points Population (for Navier-Stokes only)
+//  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
+//    this->ghostPoints->deletePointers();
+//    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,*(this->fluidSelector.fluidId));
+//  }
   if (this->lsMethod == 0)
     LS->conservativeToPrimitive(Phi,PhiV,U);
   else
     PhiV = Phi;
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, viscSecOrder, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
 
   this->multiPhaseSpaceOp->applyBCsToResidual(U, *this->R);
 
@@ -654,25 +657,33 @@ void MultiPhysicsTsDesc<dim,dimLS>::computeForceLoad(DistSVec<double,dim> *Wij, 
 //-------------------------------------------------------------------------------
 
 template <int dim, int dimLS>
-void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                                        double F[3], double M[3])
+void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D *Fi, Vec3D *Mi)
 {
-  if (!FsComputed)
+  int idx;
+  if (!FsComputed) 
     computeForceLoad(this->Wstarij, this->Wstarji);
-
-  F[0] = F[1] = F[2] = 0.0;
 
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
-  for (int i=0; i<numStructNodes; i++) {
-    F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
 
-  M[0] = M[1] = M[2] = 0;
   Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
-  for (int i = 0; i < numStructNodes; ++i) {
-     M[0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
-     M[1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
-     M[2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
+
+  for (int i=0; i<numStructNodes; i++) {
+    map<int,int>::iterator it = surfOutMap.find(distLSS->getSurfaceID(i));
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      idx = 0;
+    }
+
+    Fi[idx][0] += Fs[i][0]; 
+    Fi[idx][1] += Fs[i][1]; 
+    Fi[idx][2] += Fs[i][2];
+
+    Mi[idx][0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
+    Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
+    Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
   }
 }
 

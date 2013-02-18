@@ -10,7 +10,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 {
   Communicator* com = domain.getCommunicator();
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
-  if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
+  if (ioData.problem.framework==ProblemData::EMBEDDED || ioData.problem.framework==ProblemData::EMBEDDEDALE) { //Trigger the embedded framework
     if (ioData.eqs.type == EquationsData::EULER) {
       com->fprintf(stderr, "*** Running an Embedded Inviscid %d Phase Fluid-Structure Simulation with %d Level-Set(s) ***\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
       switch(ioData.embed.nLevelset) {

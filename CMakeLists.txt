@@ -179,6 +179,7 @@ ADD_LIBRARY(FluidBase
              DistMacroCellCore.C 
              DomainCore.C 
              EdgeCore.C 
+	     EmbeddedCorotSolver.C
              FaceCore.C 
              FaceTriaCore.C 
              ElemCore.C 

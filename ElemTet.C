@@ -2105,6 +2105,7 @@ void ElemTet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,
   int type = findLSIntersectionPoint(lsdim,Phi,ddx,ddy,ddz,X,reorder,P,MultiFluidData::LINEAR);
   if(type>0) recomputeDistanceToInterface(type,X,reorder,P,Psi,Tag);
 }
+
 //------------------------------------------------------------------------------
 template<int dim>
 void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
@@ -2123,6 +2124,26 @@ void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
       Psi[nodeNum(i)][0] = min(Psi[nodeNum(i)][0], psi);
     }
   }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                                    SVec<double,3> &X,SVec<double,dim> &d2wall)
+{
+  if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
+       Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level   ))
+    return;
+
+  // Looking for node position in the Tet
+  int i;
+  for (i=0; i<4; i++) {if(nodeNum(i)==node) break;} // Found i
+  if(i==4) { // Didn't find it. Something is wrong
+    printf("This may not be the tet you are looking for\n Node: %d, Tet Nodes: %d %d %d %d\nAbort!",node,nodeNum(0),nodeNum(1),nodeNum(2),nodeNum(3));
+    exit(-1);
+  }
+  double distance = computeDistancePlusPhi(i,X,d2wall);
+  d2wall[nodeNum(i)][0] = min(d2wall[nodeNum(i)][0], distance);
 }
 
 //------------------------------------------------------------------------------
@@ -2158,7 +2179,7 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
 
   found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,minimum,show);
 	
-  computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,minimum,show);
+  if(!found) computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,minimum,show);
 
   return minimum;
 

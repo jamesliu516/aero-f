@@ -14,6 +14,8 @@
 #include <map>
 #include <cstring>
 
+#define MAXLINE 500
+
 using std::pair;
 
 class IoData;
@@ -31,6 +33,7 @@ class EmbeddedStructure {
   bool getSurfFromFEM;
 
   char *meshFile;
+  char *restartmeshFile;
   char *matcherFile;
  
   bool coupled;
@@ -49,6 +52,10 @@ class EmbeddedStructure {
   double dx, dy, dz;
   double alpha_in, alpha_max, x1[3], x2[3], u, v, w, ix, iy, iz;
   double beta_in, beta_max, y1[3], y2[3];
+
+  char *deformMeshFile;
+  double (*Xd)[3]; //deformed node coordinates
+  double (*dXmax)[3]; //maximum deformation
 
   double t0; // starting time.
   int it;
@@ -69,6 +76,10 @@ class EmbeddedStructure {
   double (*F)[3]; //force (received from fluid).
   std::map<int,int> pairing;
 
+  int *surfaceID;
+  int *rotOwn;
+  map<int,RotationData*> *rotationMap;
+
   DistInfo *di;
   MatchNodeSet **mns;
   
@@ -83,6 +94,8 @@ public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc, Timer *tim);
   ~EmbeddedStructure();
 
+  void makerotationownership(IoData &iod);
+  void updaterotation(double time);
   int getAlgorithmNumber() {return algNum;}
   int numStructNodes() {return nNodes;}
   void sendTimeStep(Communication::Window<double> *window);

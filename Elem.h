@@ -187,6 +187,10 @@ public:
   virtual
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi) = 0;
+  virtual
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                              SVec<double,3> &X,SVec<double,dim> &d2wall) = 0;
+
 
   // X is the deformed nodal location vector
   virtual
@@ -315,6 +319,10 @@ public:
                                  SVec<double,dim> &ddz,
                                  SVec<double,dim> &Phi,SVec<double,1> &Psi){
     t->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
+  }
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                              SVec<double,3> &X,SVec<double,dim> &d2wall){
+    t->FastMarchingDistanceUpdate(node,Tag,level,X,d2wall);
   }
 
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
@@ -716,6 +724,16 @@ public:
       (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
     wrapper->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
   }
+  template<int dimLS>
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                               SVec<double,3> &X,SVec<double,dimLS> &d2wall)
+  {
+    ElemHelper_dim<dimLS> h;
+    char xx[64];
+    GenElemWrapper_dim<dimLS> *wrapper=
+      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
+    wrapper->FastMarchingDistanceUpdate(node,Tag,level,X,d2wall);
+  }
 
   template<int dimLS>
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
@@ -882,7 +900,12 @@ public:
     void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int) {
     fprintf(stderr, "Error: undefined function (integrateFunction) for this elem type\n"); exit(1);
   }
-
+  template<int dim>
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                              SVec<double,3> &X,SVec<double,dim> &d2wall)
+  {
+	fprintf(stderr, "Error: undefined function (FastMarchingDistanceUpdate) for this elem type\n"); exit(1);
+  }
 };
 
 //------------------------------------------------------------------------------

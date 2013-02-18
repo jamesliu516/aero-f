@@ -55,7 +55,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   geoState = new DistGeoState(ioData, domain);
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  if(ioData.problem.framework==ProblemData::BODYFITTED) 
+  if(ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) 
     geoState->setup1(input->positions, X, A);
   else {
     char temp[1]; temp[0] = '\0';
@@ -298,11 +298,13 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 //------------------------------------------------------------------------------
 
 template<int dim>
-double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
+double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U, double angle)
 {
   double t0 = timer->getTime();
   //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
-  data->computeCflNumber(it - 1, data->residual / restart->residual);
+  this->data->allowstop = this->timeState->allowcflstop;
+  timeState->unphysical = data->unphysical;
+  data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
   double dt = 0.0;
@@ -372,8 +374,8 @@ void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 {
   if (!mmh) return;
 
-  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
-  if (_mmh) return;
+//  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
+//  if (_mmh) return;
 
   geoState->interpolate(dt, dtLeft, *Xs, *X);
 
@@ -384,9 +386,9 @@ void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 template<int dim>
 void TsDesc<dim>::computeMeshMetrics(int it)
 {
-  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
+//  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
 
-  if (mmh && !_mmh) {
+  if (mmh) {
     if (it >= 0) com->fprintf(stderr, "GeoState Computing for it %d\n", it);
     double t0 = timer->getTime();
     geoState->compute(timeState->getData(), bcData->getVelocityVector(), *X, *A);
@@ -394,7 +396,7 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if ((mmh && !_mmh) || hth) 
+  if (mmh || hth) 
     bcData->update(*X);
 
 }

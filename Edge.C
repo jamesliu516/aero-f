@@ -3565,20 +3565,73 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
 
 //------------------------------------------------------------------------------
 template<int dimLS>
-void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi)
+void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS)
 {
-
+  bool intersect = false;
   int tag = 1;
   for(int l=0; l<numEdges; l++){
     int i = ptr[l][0];
     int j = ptr[l][1];
-
-    if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0){
+    if(LSS) intersect = LSS->edgeIntersectsStructure(0,l);
+    if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0 || intersect){
       Tag[i] = tag;
       Tag[j] = tag;
     }
   }
+}
 
+//------------------------------------------------------------------------------
+template<int dimLS>
+void EdgeSet::pseudoFastMarchingMethodInitialization(
+				Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
+				Vec<int> &sortedNodes, int &nSortedNodes,
+				LevelSetStructure *LSS,
+				Vec<ClosestPoint> *closestPoint)
+{
+  assert(LSS);
+  bool intersect;
+//  int tag = 1;
+  for(int l=0; l<numEdges; l++){
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+    bool iActive = LSS->isActive(0.0,i);
+    bool jActive = LSS->isActive(0.0,j);
+/*    if(!iActive && !jActive) {
+      if(Tag[i]<0) {
+        Tag[i] = 0;
+        d2wall[i][0] = 0.0;
+        sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
+      }
+      if(Tag[j]<0) {
+        Tag[j] = 0;
+        d2wall[j][0] = 0.0;
+        sortedNodes[nSortedNodes] = j;
+        nSortedNodes++;
+      }
+    }
+*/
+    if(LSS->edgeIntersectsStructure(0,l)) {
+      if(iActive && Tag[i] < 0) {
+	sortedNodes[nSortedNodes] = i;
+ 	nSortedNodes++;
+	Tag[i]  = 1;
+        // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
+        // In the case of the FRG Intersector, closestPoint is not populated and 0.0 value is prescribed
+	// for layer 1.
+	d2wall[i][0] = closestPoint?(*closestPoint)[i].dist:0.0;
+      }
+      if(jActive && Tag[j] < 0) {
+	sortedNodes[nSortedNodes] = j;
+ 	nSortedNodes++;
+	Tag[j]  = 1;
+        // Active nodes belonging to an edge cut by the structure are projected exactly on the surface. 
+        // In the case of the FRG Intersector, closestPoint is not populated and 0.0 value is prescribed
+	// for layer 1.
+	d2wall[j][0] = closestPoint?(*closestPoint)[j].dist:0.0;
+      }
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
