@@ -87,6 +87,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     CrackingSurface *cracking; //only a pointer.
 
+    double interface_thickness;
+
   public:
     DistVec<int> *status0;  //previous node status
     DistVec<bool> *occluded_node0;// previous occluded node status

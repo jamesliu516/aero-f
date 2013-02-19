@@ -6552,6 +6552,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
 
       // compute force...
       double dist13,dist02;
+      double fac1,fac2;
       double *Xface[3], *Vface[3];
       int fid_face[3];
       double oneThird = 1.0/3.0;
@@ -6580,9 +6581,11 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
           sendLocalForce(fi2,lsRes[2],Fs);
           break;
         case 4: //got a quadrangle. cut it into two triangles.
-          dist02 = (Xinter[2]-Xinter[0]).norm();
-          dist13 = (Xinter[3]-Xinter[1]).norm();
-          if(dist02<dist13){ // connect 0,2.
+          //dist02 = (Xinter[2]-Xinter[0]).norm();
+          //dist13 = (Xinter[3]-Xinter[1]).norm();
+          fac1 = lsRes[0].gradPhi*lsRes[2].gradPhi;                                                    
+          fac2 = lsRes[1].gradPhi*lsRes[3].gradPhi;
+          if(fac1 > fac2){ // connect 0,2.
             //for triangle 012
             nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
             if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;

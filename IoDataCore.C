@@ -3880,6 +3880,8 @@ EmbeddedFramework::EmbeddedFramework() {
   viscousinterfaceorder = FIRST;
 
   stabil_alpha = 0.0;
+
+  interfaceThickness = 1e-8;
 }
 
 //------------------------------------------------------------------------------
@@ -3902,6 +3904,7 @@ void EmbeddedFramework::setup(const char *name) {
   embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
+  new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);
   
   new ClassDouble<EmbeddedFramework>(ca, "StabilizingAlpha", this, &EmbeddedFramework::stabil_alpha);
 

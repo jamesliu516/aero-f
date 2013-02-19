@@ -91,6 +91,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
 
   delete[] struct_mesh;
   if(iod.input.embeddedpositions[0] != 0) delete[] struct_restart_pos;
+
+  interface_thickness = iod.embed.interfaceThickness;
 }
 
 //----------------------------------------------------------------------------
@@ -539,7 +541,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
-  physInterface->SetThickness(1e-4);
+  physInterface->SetThickness(interface_thickness);
 }
 
 //----------------------------------------------------------------------------
