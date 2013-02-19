@@ -2121,6 +2121,8 @@ struct EmbeddedFramework {
   // Tries to add some dissipation.  should be small.
   double stabil_alpha;
 
+  double interfaceThickness;
+
   MultiInitialConditionsData embedIC;
   
   int nLevelset; //number of level-sets. Currently only consider bubbles.

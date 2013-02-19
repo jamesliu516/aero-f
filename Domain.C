@@ -4113,7 +4113,11 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub),Phi(iSub),level,&((*distLSS)(iSub)));
+    if (distLSS)
+      subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub),Phi(iSub),level,&((*distLSS)(iSub)));
+    else
+      subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub),Phi(iSub),level,NULL);
+
     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
   }
 
@@ -4161,6 +4165,7 @@ void Domain::TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub), Phi(iSub), &((*distLSS)(iSub)));
+     
     subDomain[iSub]->sndData(*bool2Pat, reinterpret_cast<bool (*)[2]>(Tag.subData(iSub)));
   }
   bool2Pat->exchange();
