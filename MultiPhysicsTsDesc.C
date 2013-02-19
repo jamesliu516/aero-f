@@ -287,6 +287,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
 
+  *(this->Xs) = *(this->X);
+
   this->initializeFarfieldCoeffs();
 
   // Initialize level-sets 
