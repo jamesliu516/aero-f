@@ -618,6 +618,10 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
   tId = 0;
   poly = 0;
 
+  rotOwn = 0;
+
+  surfaceID = NULL;
+
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
