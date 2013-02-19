@@ -140,7 +140,9 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
 
-    int getSurfaceID(int k) { 
+    int getSurfaceID(int k) {
+      if (!surfaceID)
+        return 0; 
       if (k >=0 && k < numStNodes) {
 	return surfaceID[k]; 
       }

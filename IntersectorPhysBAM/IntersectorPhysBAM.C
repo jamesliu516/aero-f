@@ -71,6 +71,10 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
   boxMax = 0;
   is_swept_helper = 0;
 
+  rotOwn = 0;
+
+  surfaceID = NULL;
+
   cracking = cs;
   gotNewCracking = false;
 
