@@ -265,6 +265,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 3;
     else if (iod.forced.type==ForcedData::DEFORMING)
       mode = 4;
+    else if (iod.forced.type==ForcedData::DEBUGDEFORMING)
+      mode = 99;
     else {
       com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
       exit(-1);
