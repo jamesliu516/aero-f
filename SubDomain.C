@@ -4760,6 +4760,16 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
     }
   }
 
+  // Check for abnormally large velocities, which may be the result of an instability
+  for (int i=0; i<U.size(); ++i) {
+
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+  }
+
+
+
   return ierr;
 }
 
@@ -4811,6 +4821,14 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
 
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
+  }
+
+  // Check for abnormally large velocities, which may be the result of an instability
+  for (int i=0; i<U.size(); ++i) {
+
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
   }
 
   return ierr;
@@ -6542,6 +6560,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
 
       // compute force...
       double dist13,dist02;
+      double fac1,fac2;
       double *Xface[3], *Vface[3];
       int fid_face[3];
       double oneThird = 1.0/3.0;
@@ -6570,9 +6589,11 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
           sendLocalForce(fi2,lsRes[2],Fs);
           break;
         case 4: //got a quadrangle. cut it into two triangles.
-          dist02 = (Xinter[2]-Xinter[0]).norm();
-          dist13 = (Xinter[3]-Xinter[1]).norm();
-          if(dist02<dist13){ // connect 0,2.
+          //dist02 = (Xinter[2]-Xinter[0]).norm();
+          //dist13 = (Xinter[3]-Xinter[1]).norm();
+          fac1 = lsRes[0].gradPhi*lsRes[2].gradPhi;                                                    
+          fac2 = lsRes[1].gradPhi*lsRes[3].gradPhi;
+          if(fac1 > fac2){ // connect 0,2.
             //for triangle 012
             nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
             if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;

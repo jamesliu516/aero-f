@@ -71,6 +71,10 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
   boxMax = 0;
   is_swept_helper = 0;
 
+  rotOwn = 0;
+
+  surfaceID = NULL;
+
   cracking = cs;
   gotNewCracking = false;
 
@@ -87,6 +91,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
 
   delete[] struct_mesh;
   if(iod.input.embeddedpositions[0] != 0) delete[] struct_restart_pos;
+
+  interface_thickness = iod.embed.interfaceThickness;
 }
 
 //----------------------------------------------------------------------------
@@ -375,8 +381,6 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
 
   // load solid nodes at restart time.
   if (restartSolidSurface[0] != 0) {
-    if(cracking) com->fprintf(stderr,"WARNING: not sure if restart works with cracking...\n");
-
     FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
     int ndMax2 = 0;
@@ -537,7 +541,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
-  physInterface->SetThickness(1e-4);
+  physInterface->SetThickness(interface_thickness);
 }
 
 //----------------------------------------------------------------------------

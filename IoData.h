@@ -568,6 +568,7 @@ struct LiquidModelData {
   double specificHeat;
   double k1water;
   double k2water;
+  double Bwater;
   double Prefwater;
   double RHOrefwater;
 
@@ -1087,6 +1088,7 @@ struct MultiFluidData {
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
+  enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
   MultiInitialConditionsData multiInitialConditions;
@@ -1883,7 +1885,7 @@ struct Velocity  {
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4} type;
 
   double frequency;
   double timestep;
@@ -2115,6 +2117,12 @@ struct EmbeddedFramework {
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
   double alpha;		// In the case of solve Riemann problem at intersection, this parameter
   					// controls whether to switch to a first order method to avoid divided-by-zero
+
+  // stabilizing alpha (attempt at stabilizing the structure normal)
+  // Tries to add some dissipation.  should be small.
+  double stabil_alpha;
+
+  double interfaceThickness;
 
   MultiInitialConditionsData embedIC;
   
