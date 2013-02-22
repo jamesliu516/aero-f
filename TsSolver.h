@@ -198,8 +198,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       }
 
       
-      probDesc->printf(1,"dts = %lf  dt = %lf\n", dts,dt);
-
       t += dt;
 
       // update coefficients for enforcing the Farfield BC.

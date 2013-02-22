@@ -87,6 +87,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     CrackingSurface *cracking; //only a pointer.
 
+    double interface_thickness;
+
   public:
     DistVec<int> *status0;  //previous node status
     DistVec<bool> *occluded_node0;// previous occluded node status
@@ -148,7 +150,10 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
 
-    int getSurfaceID(int k) { 
+    int getSurfaceID(int k) {
+      if (!surfaceID)
+        return 0;
+ 
       if (k >=0 && k < numStNodes) {
 	return surfaceID[k]; 
       }

@@ -952,7 +952,13 @@ void TsDesc<dim>::initializeFarfieldCoeffs()
   if(!modifiedGhidaglia) return;
   double *Vin = bcData->getInletPrimitiveState();
   double soundspeed = varFcn->computeSoundSpeed(Vin);
-  double gamma = varFcn->getGamma();
+  double gamma;
+  if (varFcn->getType() == VarFcnBase::STIFFENEDGAS ||
+      varFcn->getType() == VarFcnBase::PERFECTGAS)
+    gamma = varFcn->getGamma();
+  else
+    gamma = varFcn->getBetaWater();
+
   double HH_init = -2.0*soundspeed/(gamma - 1.0);
   //fprintf(stderr,"HH_init is set to %e.\n", HH_init);
 

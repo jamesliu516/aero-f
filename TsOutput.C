@@ -672,7 +672,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       int lis = -1;
 #pragma omp parallel for
       for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
-	locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id );
+	locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id-1 );
 //	fprintf(stdout,"locid = %i\n",locid);
 	if (locid >= 0) {
 	  lis = iSub;

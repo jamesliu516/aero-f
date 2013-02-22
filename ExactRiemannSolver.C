@@ -27,8 +27,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(iod.problem.framework==ProblemData::EMBEDDED || iod.problem.framework==ProblemData::EMBEDDEDALE || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN) 
+  if(iod.problem.framework==ProblemData::EMBEDDED || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN) { 
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
+    dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setStabilAlpha(iod.embed.stabil_alpha);
+  }
 
   for (int i = 0; i < 10; ++i) {
     for (int j = 0; j < 10; ++j)

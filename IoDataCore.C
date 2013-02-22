@@ -946,6 +946,7 @@ LiquidModelData::LiquidModelData()
   k2water     = 7.15;
   Prefwater   = -1.0;
   RHOrefwater = -1.0;
+  Bwater = -1.0;
   burnable = NO;
 
   //these parameters are the adimensionalized parameters used by the VarFcn where the
@@ -978,6 +979,7 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LiquidModelData>(ca, "Pressure", this, &LiquidModelData::Prefwater);
   new ClassDouble<LiquidModelData>(ca, "Density", this, &LiquidModelData::RHOrefwater);
   new ClassDouble<LiquidModelData>(ca, "SpecificHeat", this, &LiquidModelData::specificHeat);
+  new ClassDouble<LiquidModelData>(ca, "B", this, &LiquidModelData::Bwater);
 
 }
 
@@ -2005,6 +2007,7 @@ MultiFluidData::MultiFluidData()
 
   interfaceTreatment = FIRSTORDER;
   interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
+  interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
   interfaceOmitCells = 0;
 }
@@ -2062,6 +2065,10 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "InterfaceExtrapolation", this,
 				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
 				 "FirstOrder", 0, "SecondOrder", 1);
+  
+  new ClassToken<MultiFluidData>(ca, "InterfaceLimiter", this,
+				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceLimiter),2,
+				 "None", 0, "Alex1", 1);
 
   new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
 				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),4,
@@ -3207,8 +3214,8 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 4,
-     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3);
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 5,
+     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
@@ -3873,6 +3880,9 @@ EmbeddedFramework::EmbeddedFramework() {
   reconstruct = CONSTANT;
   viscousinterfaceorder = FIRST;
 
+  stabil_alpha = 0.0;
+
+  interfaceThickness = 1e-8;
 }
 
 //------------------------------------------------------------------------------
@@ -3895,6 +3905,9 @@ void EmbeddedFramework::setup(const char *name) {
   embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
+  new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);
+  
+  new ClassDouble<EmbeddedFramework>(ca, "StabilizingAlpha", this, &EmbeddedFramework::stabil_alpha);
 
   //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
@@ -5255,6 +5268,13 @@ int IoData::checkInputValuesNonDimensional()
     double R2    = eqs.fluidModel.jwlModel.R2;
     double rhoref= eqs.fluidModel.jwlModel.rhoref;
 
+    if (eqs.fluidModel.liquidModel.Bwater > 0.0 && 
+        eqs.fluidModel.fluid == FluidModelData::LIQUID) {
+
+      eqs.fluidModel.liquidModel.k1water = 
+        eqs.fluidModel.liquidModel.k2water*(eqs.fluidModel.liquidModel.Bwater-eqs.fluidModel.liquidModel.Prefwater);   
+    }
+
     double Prefwater = eqs.fluidModel.liquidModel.Prefwater;
     double k1water = eqs.fluidModel.liquidModel.k1water;
     double k2water = eqs.fluidModel.liquidModel.k2water;
@@ -5347,6 +5367,14 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   double R1jwl     = eqs.fluidModel.jwlModel.R1;
   double R2jwl     = eqs.fluidModel.jwlModel.R2;
   double rhorefjwl = eqs.fluidModel.jwlModel.rhoref;
+
+  if (eqs.fluidModel.liquidModel.Bwater > 0.0 && 
+      eqs.fluidModel.fluid == FluidModelData::LIQUID) {
+
+    eqs.fluidModel.liquidModel.k1water = 
+      eqs.fluidModel.liquidModel.k2water*(eqs.fluidModel.liquidModel.Bwater-eqs.fluidModel.liquidModel.Prefwater);   
+  }
+
 
   double Cwater = eqs.fluidModel.liquidModel.specificHeat;
   double k1water = eqs.fluidModel.liquidModel.k1water;
@@ -5977,6 +6005,14 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
   }
 
   else if(fluidModel.fluid == FluidModelData::LIQUID){
+
+    if (fluidModel.liquidModel.Bwater > 0.0) {
+
+      fluidModel.liquidModel.k1water = 
+        fluidModel.liquidModel.k2water*(fluidModel.liquidModel.Bwater-fluidModel.liquidModel.Prefwater);   
+    }
+
+
     double Pref = -fluidModel.liquidModel.k1water/fluidModel.liquidModel.k2water;
     double awater = (fluidModel.liquidModel.Prefwater - Pref)/pow(fluidModel.liquidModel.RHOrefwater, fluidModel.liquidModel.k2water);
     double bwater = fluidModel.liquidModel.k2water;
