@@ -1179,6 +1179,8 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   									       egrad, fluxes, it, tag, failsafe, rshift, v6data); 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
+  delete [] v6data;
+
   return ierr;
 
 }
