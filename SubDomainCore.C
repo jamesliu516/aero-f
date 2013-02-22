@@ -3567,26 +3567,26 @@ SubDomain::createSlipSurfProjection(int*surfOwn, CommPattern<int>&cpat,
         double nx = surfData[surfNum]->nx;
         double ny = surfData[surfNum]->ny;
         double nz = surfData[surfNum]->nz;
-	double invlen = 1.0/sqrt(nx*nx+ny*ny+nz*nz);
-	nx *= invlen; ny *= invlen; nz *= invlen;
+				double invlen = 1.0/sqrt(nx*nx+ny*ny+nz*nz);
+				nx *= invlen; ny *= invlen; nz *= invlen;
         // orthogonalyze with respect to the previous projection directions found at this node
-	for(int j = 0; j < numActDir; ++j) {
-	  double dot = nx*normals[j][0]+ny*normals[j][1]+nz*normals[j][2];
-	  nx -= dot*normals[j][0];
-	  ny -= dot*normals[j][1];
-	  nz -= dot*normals[j][2];
-	}
-        double len = sqrt(nx*nx+ny*ny+nz*nz);
-	if(len > 1e-4) {
-	  double invlen = 1.0/len;
-	  normals[numActDir][0] = invlen*nx;
-	  normals[numActDir][1] = invlen*ny;
-	  normals[numActDir][2] = invlen*nz;
-	  bcApplier->addProj(locSubNum, i, normals[numActDir]);
-	  numActDir++;
-	  if(numActDir==3) // no more than 3 independant projection directions at a node
-	    break;
-	}
+				for(int j = 0; j < numActDir; ++j) {
+				  double dot = nx*normals[j][0]+ny*normals[j][1]+nz*normals[j][2];
+				  nx -= dot*normals[j][0];
+				  ny -= dot*normals[j][1];
+				  nz -= dot*normals[j][2];
+				}
+	      double len = sqrt(nx*nx+ny*ny+nz*nz);
+				if(len > 1e-4) {
+				  double invlen = 1.0/len;
+				  normals[numActDir][0] = invlen*nx;
+				  normals[numActDir][1] = invlen*ny;
+				  normals[numActDir][2] = invlen*nz;
+				  bcApplier->addProj(locSubNum, i, normals[numActDir]);
+				  numActDir++;
+				  if(numActDir==3) // no more than 3 independant projection directions at a node
+				    break;
+				}
       }
       surfNum++; locOwn >>= 1; // go to next sliding surface
     }

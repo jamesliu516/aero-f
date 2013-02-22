@@ -4614,6 +4614,8 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
   const int MaxSize = (3*Elem::MaxNumNd);
   double kEl[MaxSize*MaxSize];
   double fEl[MaxSize];
+		double minVolume = 10000.0;
+  int minElemNum = 0;
 
   F = 0.0;
   K = 0.0;
@@ -4633,13 +4635,18 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
     }
 
     case DefoMeshMotionData::NON_LINEAR_FE : {
+      double vol = elems[i].computeVolume(X); 
+      if(minVolume > vol) {
+								minElemNum = i+1;
+        minVolume = vol;	
+      }
       elems[i].computeStiffAndForce(fEl, kEl, X, nodes, volStiff);
       for (j=0, fEl_loc = fEl;
-	   j<elems[i].numNodes();
-	   j++, fEl_loc+=3) {
-	F[ elems[i][j] ][0] -= fEl_loc[0];
-	F[ elems[i][j] ][1] -= fEl_loc[1];
-	F[ elems[i][j] ][2] -= fEl_loc[2];
+       	   j<elems[i].numNodes();
+	          j++, fEl_loc+=3) {
+	       F[ elems[i][j] ][0] -= fEl_loc[0];
+	       F[ elems[i][j] ][1] -= fEl_loc[1];
+	       F[ elems[i][j] ][2] -= fEl_loc[2];
       }
       break;
     }
@@ -4657,9 +4664,9 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
     case DefoMeshMotionData::NL_BALL_VERTEX : {
       elems[i].computeStiffAndForceBallVertex(fEl, kEl, X, nodes, volStiff);
       for (j=0, fEl_loc = fEl; j<elems[i].numNodes(); j++, fEl_loc+=3) {
-	F[ elems[i][j] ][0] -= fEl_loc[0];
-	F[ elems[i][j] ][1] -= fEl_loc[1];
-	F[ elems[i][j] ][2] -= fEl_loc[2];
+	       F[ elems[i][j] ][0] -= fEl_loc[0];
+       	F[ elems[i][j] ][1] -= fEl_loc[1];
+       	F[ elems[i][j] ][2] -= fEl_loc[2];
       }
       break;
     }
@@ -4672,6 +4679,7 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
       P->addContrib(elems[i].numNodes(), elems[i], kEl);
 
   }
+//		fprintf(stderr,"element %d with minimum volume of %6.3e.\n", minElemNum, minVolume);  
 
   if(ndType){
     for (i = 0; i < nodes.size(); ++i) {

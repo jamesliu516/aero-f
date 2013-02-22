@@ -832,10 +832,12 @@ double DeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
 
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
     mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+		com->fprintf(stderr,"at iteration %d, mesh is updated. ", it);
 
   }
-  else
+  else {
     X += dX;
+  }	
 
   return dt;
 

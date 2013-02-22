@@ -22,8 +22,10 @@ public:
 
   int solve(IoData &);
 
+	int fsoSolve(IoData &);
 // Included (MB)
   int fsaSolve(IoData &);
+
 
 };
 
@@ -83,6 +85,39 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   return 0;
 
 }
+
+
+//------------------------------------------------------------------------------
+
+template<class ProblemDescriptor>
+int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
+{
+
+  typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
+
+  //
+  // Check that an input file for the solution is specified
+  //
+  if (ioData.input.solutions[0] == 0)
+  {
+    probDesc->fsoPrintTextOnScreen("\n !!! SensitivityAnalysis requires an input solution !!!\n\n");
+    exit(1);
+  }
+
+
+  // initialize solutions and geometry
+  probDesc->setupTimeStepping(&U, ioData);
+
+  probDesc->fsoPrintTextOnScreen("**********************************\n");
+  probDesc->fsoPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
+  probDesc->fsoPrintTextOnScreen("**********************************\n");
+
+  probDesc->fsoHandler(ioData, U);
+
+  return 0;
+
+}
+
 
 //------------------------------------------------------------------------------
 

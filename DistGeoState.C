@@ -102,7 +102,7 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_){
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_){
     optFlag = 1;
     Xsa = new DistSVec<double,3>(domain->getNodeDistInfo());
     dXsa = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -490,27 +490,27 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
 
 //Remark: Error mesage for pointers
   if (Xsa == 0) {
-    fprintf(stderr, "*** Error: Varible Xsa does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xsa does not exist!\n");
     exit(1);
   }
   if (dXsa == 0) {
-    fprintf(stderr, "*** Error: Varible dXsa does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dXsa does not exist!\n");
     exit(1);
   }
   if (dEdgeNorm == 0) {
-    fprintf(stderr, "*** Error: Varible dEdgeNorm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dEdgeNorm does not exist!\n");
     exit(1);
   }
   if (dFaceNorm == 0) {
-    fprintf(stderr, "*** Error: Varible dFaceNorm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dFaceNorm does not exist!\n");
     exit(1);
   }
   if (dEdgeNormVel == 0) {
-    fprintf(stderr, "*** Error: Varible dEdgeNormVel does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dEdgeNormVel does not exist!\n");
     exit(1);
   }
   if (dFaceNormVel == 0) {
-    fprintf(stderr, "*** Error: Varible dFaceNormVel does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dFaceNormVel does not exist!\n");
     exit(1);
   }
 

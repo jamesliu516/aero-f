@@ -30,11 +30,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   Qs = 0;
   Qv = 0;
   output_newton_step = domain->getOutputNewtonStep();
-  for (i=0; i<PostFcn::AVSSIZE; ++i) 
-    {
-      AvQs[i] = 0;
-      AvQv[i] = 0;
-    }
+  for (i=0; i<PostFcn::AVSSIZE; ++i) AvQs[i] = 0;
+	for (i=0; i<PostFcn::AVVSIZE; ++i) AvQv[i] = 0;
 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
@@ -554,7 +551,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.velocitynorm);
   }
 
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -646,7 +643,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   switchOpt = true;
   }
-  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
     switchOpt = false;
   }
 
@@ -741,8 +738,10 @@ TsOutput<dim>::~TsOutput()
 {
 
   for (int i=0; i<PostFcn::AVSSIZE; ++i) {
-    delete AvQs[i];
-    delete AvQv[i];
+    if(AvQs[i]) delete AvQs[i];
+	} 
+	for (int i=0; i<PostFcn::AVVSIZE; ++i) {
+    if(AvQv[i]) delete AvQv[i];
   }
   if (Qs) delete Qs;
   if (Qv) delete Qv;
@@ -2809,11 +2808,15 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
   if (lastIt) {
     // Before deletion, check that pointers have been allocated
     for (i=0; i<PostFcn::AVSSIZE; ++i) 
-      if ((avscalars[i]) && (AvQs[i]))
+      if ((avscalars[i]) && (AvQs[i])) {
         delete AvQs[i];
+				AvQs[i] = 0;
+			}
     for (i=0; i<PostFcn::AVVSIZE; ++i) 
-      if ((avvectors[i]) && (AvQv[i]))
+      if ((avvectors[i]) && (AvQv[i])) {
         delete AvQv[i];
+				AvQv[i] = 0;
+			}
   }
 
   counter += 1; // increment the counter for keeping track of the averaging

@@ -39,7 +39,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
     V = new DistSVec<double,dim>(dom->getNodeDistInfo());
 
 // Included (MB)
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
   }
   else {

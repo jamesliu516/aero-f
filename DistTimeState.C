@@ -108,7 +108,7 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
     subTimeState[iSub] = 0;
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
     dIdti = new DistVec<double>(dI);
     dIdtv = new DistVec<double>(dI);
     dIrey = new DistVec<double>(dI);
@@ -1511,15 +1511,15 @@ DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState,
 
 //Remark: Error mesage for pointers
   if (dIdti == 0) {
-    fprintf(stderr, "*** Error: Varible dIdti does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dIdti does not exist!\n");
     exit(1);
   }
   if (dIdtv == 0) {
-    fprintf(stderr, "*** Error: Varible dIdtv does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dIdtv does not exist!\n");
     exit(1);
   }
   if (dIrey == 0) {
-    fprintf(stderr, "*** Error: Varible dIrey does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dIrey does not exist!\n");
     exit(1);
   }
 

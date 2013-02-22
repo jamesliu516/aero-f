@@ -111,6 +111,7 @@ InputData::InputData()
 
 // Included (MB)
   shapederivatives = "";
+	wallsurfacedisplac = "";
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
@@ -164,6 +165,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
+  new ClassStr<InputData>(ca, "WallSurfaceDisplac", this, &InputData::wallsurfacedisplac);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
@@ -665,7 +667,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 34,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 35,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -678,7 +680,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
 		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
 		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33);
+     "Aeroacoustic", 33, "ShapeOptimization", 34);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3330,7 +3332,6 @@ void DeformingData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<DeformingData>(ca, "Position", this, &DeformingData::positions);
   new ClassDouble<DeformingData>(ca, "Amplification", this, &DeformingData::amplification);
-
 }
 
 ModelReductionData::ModelReductionData()
@@ -4129,6 +4130,7 @@ void IoData::readCmdFile()
 
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
+		com->fprintf(stderr, "input.\n");
     if (strncmp(input.rstdata, "/", 1) == 0)
       sprintf(name, "%s", input.rstdata);
     else
@@ -4280,7 +4282,7 @@ void IoData::resetInputValues()
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) 
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) 
   {
 
     //
@@ -4386,7 +4388,7 @@ void IoData::resetInputValues()
     }
 
 
-  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
+  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_)
 
   //
   // Check parameters for the matrix-vector product in implicit simulations.
