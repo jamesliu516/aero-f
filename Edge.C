@@ -357,6 +357,8 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
       Vj[k+dim] = V[j][k];
     }
 
+    if (normal[l].norm() < 1e-18) continue;
+
     fluxFcn[BC_INTERNAL]->compute(length, edgeirey, normal[l], normalVel[l], Vi, Vj, flux);
 
     for (int k=0; k<dim; ++k) {
@@ -568,7 +570,9 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
 
     // Compute the interal terms
     double area = normal[l].norm();
-  
+
+    if (area < 1e-18) continue; 
+ 
     Vec3D xhat = normal[l];
     xhat /= area;
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
