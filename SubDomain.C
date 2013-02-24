@@ -3959,6 +3959,7 @@ double SubDomain::readTagFromFile(const char *prefix, int no, int *neq, int *nso
 
   *neq = info[1];
   *nsol = info[2];
+//	fprintf(stderr, "numStep is %d.\n", info[2]);
   double tag = 0.0;
 
   if (no < *nsol) {

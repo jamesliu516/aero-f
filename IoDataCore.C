@@ -109,9 +109,9 @@ InputData::InputData()
 
   convergence_file = "";
 
+	wallsurfacedisplac = "";
 // Included (MB)
   shapederivatives = "";
-	wallsurfacedisplac = "";
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
@@ -163,9 +163,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "ReducedMesh", this, &InputData::mesh);
   new ClassStr<InputData>(ca, "ReducedFullNodeMap", this, &InputData::reducedfullnodemap);
 
+  new ClassStr<InputData>(ca, "WallSurfaceDisplac", this, &InputData::wallsurfacedisplac);
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
-  new ClassStr<InputData>(ca, "WallSurfaceDisplac", this, &InputData::wallsurfacedisplac);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);

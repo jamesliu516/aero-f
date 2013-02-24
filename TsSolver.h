@@ -100,7 +100,7 @@ int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
   //
   if (ioData.input.solutions[0] == 0)
   {
-    probDesc->fsoPrintTextOnScreen("\n !!! SensitivityAnalysis requires an input solution !!!\n\n");
+    probDesc->fsoPrintTextOnScreen("\n !!! Shape Optimization Handler requires an input solution !!!\n\n");
     exit(1);
   }
 
@@ -108,9 +108,9 @@ int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
 
-  probDesc->fsoPrintTextOnScreen("**********************************\n");
-  probDesc->fsoPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
-  probDesc->fsoPrintTextOnScreen("**********************************\n");
+  probDesc->fsoPrintTextOnScreen("******************************************\n");
+  probDesc->fsoPrintTextOnScreen("*** Fluid Shape Optimization Interface ***\n");
+  probDesc->fsoPrintTextOnScreen("******************************************\n");
 
   probDesc->fsoHandler(ioData, U);
 
