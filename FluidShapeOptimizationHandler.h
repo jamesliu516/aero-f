@@ -63,6 +63,7 @@ private:
   DistSVec<double,3> dPdS;
   DistSVec<double,3> dXdS;
   DistSVec<double,3> dXdSb;
+	DistSVec<double,3> dXb;
   DistSVec<double,3> Xc;
   DistSVec<double,3> *Xp;
   DistSVec<double,3> *Xm;
@@ -165,8 +166,7 @@ public:
     IoData &,
     DistSVec<double,3> &,
     DistVec<double> &,
-    DistSVec<double,dim> &,
-    int
+    DistSVec<double,dim> &
   );
 
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);

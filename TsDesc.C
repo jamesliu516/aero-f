@@ -236,6 +236,7 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
   else if (ioData.problem.type[ProblemData::RBM])
     _mmh = new RbmExtractor(ioData, domain);
 
+
   return _mmh;
 
 }

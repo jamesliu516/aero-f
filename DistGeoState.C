@@ -435,6 +435,7 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
   }
   else if (data.typeNormals == DGCLData::EXPLICIT_RK2 && data.use_save){
 
+
     // Xsave is temporarily used to compute the different configurations on which to compute the normals
     //       and the normal velocities
     *edgeNorm = 0.0;

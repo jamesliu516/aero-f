@@ -27,6 +27,7 @@ FluidShapeOptimizationHandler<dim>::FluidShapeOptimizationHandler
 ) :
 ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
+dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
 dXdSb(dom->getNodeDistInfo()),
 Xc(dom->getNodeDistInfo()),
@@ -884,7 +885,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadFiniteDifference(
 
 template<int dim>
 void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, 
-                                                                                                                  DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
+                                             DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
 {
 
   double gamma = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
@@ -1288,7 +1289,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   this->output->openAsciiFiles();
 
-// Reseting the configuration control of the geometry datas
+	// Reseting the configuration control of the geometry datas
   this->geoState->resetConfigSA();
 
   if (this->com->cpuNum() == 0) {
@@ -1313,10 +1314,10 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
 
-    bool stepStop = false;
     double tag = 0.0;
 
-    step = ioData.sa.si;
+    step = 0;
+		dXb  = 0.0;
     dXdS = 0.0;
     dXdSb = 0.0;
     dAdS = 0.0;
@@ -1325,11 +1326,17 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
     DFSPAR[2] = 0.0;
     actvar = 1;
 
-    while (!stepStop) {
+		// move the mesh to be compatible with wall surface deformation
+		bool readOK = domain->readVectorFromFile(this->input->wallsurfacedisplac, step, &tag, dXb);
+		mms->solve(dXb, *this->X);
+		this->com->fprintf(stderr, "\n *** mesh has been moved \n\n");
+
+    while (true) {
 
       // Reading derivative of the overall deformation
-      domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
-			this->com->fprintf(stderr, "norm of dXdSb is %e.\n", dXdSb.norm()); // YC
+      readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
+//			fprintf(stderr,"tag is %e.\n", tag);	
+			if(!readOK) break;
 
 // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
@@ -1353,18 +1360,13 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
         this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
       }
 
-      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
   
       fsoComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
 
       dXdSb = 0.0;
 
       step = step + 1;
-			this->com->fprintf(stderr, "ioData.sa.sf = %d, step = %d.\n", ioData.sa.sf, step);
-
-      if ((ioData.sa.sf >= 0) && (ioData.sa.sf < step))
-        stepStop = true;
-
     }
 
     fsoPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
@@ -1380,7 +1382,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
     DFSPAR[2] = 0.0;
     actvar = 2;
 
-    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsoComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1401,7 +1403,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
     if (!ioData.sa.angleRad) 
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsoComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1425,7 +1427,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
     if (!ioData.sa.angleRad)
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsoComputeSensitivities(ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1460,8 +1462,7 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution
   IoData &ioData, 
   DistSVec<double,3> &X, 
   DistVec<double> &A, 
-  DistSVec<double,dim> &U,
-  int step
+  DistSVec<double,dim> &U
 )
 {
 
