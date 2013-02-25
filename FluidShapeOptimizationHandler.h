@@ -29,6 +29,7 @@ class FluidShapeOptimizationHandler : public ImplicitCoupledTsDesc<dim> {
 private:
 
   Domain *domain;
+	TsSolver<ImplicitCoupledTsDesc<dim> > *tsSolver;
   MeshMotionSolver *mms;
 
   // UH (08/10) This pointer is never used.
@@ -100,7 +101,8 @@ public:
   (
     IoData &ioData,
     GeoSource &geoSource,
-    Domain *dom
+    Domain *dom,
+		TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
   );
 
   ~FluidShapeOptimizationHandler();

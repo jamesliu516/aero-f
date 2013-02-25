@@ -1676,7 +1676,7 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 
 template<int dim>
 void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+																      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<int> *fluidId)
 {
 
