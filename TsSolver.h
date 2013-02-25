@@ -98,15 +98,17 @@ int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
   //
   // Check that an input file for the solution is specified
   //
-  if (ioData.input.solutions[0] == 0)
+/*  if (ioData.input.solutions[0] == 0)
   {
     probDesc->fsoPrintTextOnScreen("\n !!! Shape Optimization Handler requires an input solution !!!\n\n");
     exit(1);
   }
-
+*/
 
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
+
+	probDesc->moveMesh(
 
   probDesc->fsoPrintTextOnScreen("******************************************\n");
   probDesc->fsoPrintTextOnScreen("*** Fluid Shape Optimization Interface ***\n");

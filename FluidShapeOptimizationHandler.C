@@ -23,10 +23,12 @@ FluidShapeOptimizationHandler<dim>::FluidShapeOptimizationHandler
 (
   IoData &ioData,
   GeoSource &geoSource,
-  Domain *dom
+  Domain *dom,
+	TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
 ) :
 ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
+tsSolver(_tsSolver),
 dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
 dXdSb(dom->getNodeDistInfo()),
@@ -39,11 +41,11 @@ dPdS(dom->getNodeDistInfo()),
 Flux(dom->getNodeDistInfo()),
 FluxFD(dom->getNodeDistInfo()),
 Pin(dom->getFaceDistInfo()),
-Uc(dom->getNodeDistInfo())
+Uc(dom->getNodeDistInfo()),
 // Tests
-, Xplus(dom->getNodeDistInfo())
-, Xminus(dom->getNodeDistInfo())
-, dX(dom->getNodeDistInfo())
+Xplus(dom->getNodeDistInfo()),
+Xminus(dom->getNodeDistInfo()),
+dX(dom->getNodeDistInfo())
 {
 
   // Initialize
@@ -154,6 +156,8 @@ FluidShapeOptimizationHandler<dim>::~FluidShapeOptimizationHandler()
   if (pc) delete pc;
 
   if (ksp) delete ksp;
+
+	if (tsSolver) delete tsSolver;
 
 }
 
@@ -1331,10 +1335,13 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 		mms->solve(dXb, *this->X);
 		this->com->fprintf(stderr, "\n *** mesh has been moved \n\n");
 
+		// fluid solve after mesh update
+    tsSolver->solve(ioData);
+
     while (true) {
 
       // Reading derivative of the overall deformation
-      readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
+      bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
 //			fprintf(stderr,"tag is %e.\n", tag);	
 			if(!readOK) break;
 

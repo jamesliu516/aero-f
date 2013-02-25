@@ -280,9 +280,9 @@ void PostOperator<dim>::computeDerivativeOfNodalHeatPower(DistSVec<double,3>& X,
 
 template<int dim>
 void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
-					      DistSVec<double,dim> &U, 
+																				      DistSVec<double,dim> &U, 
                                               DistVec<int> *fluidId, Vec3D *Fi, 
-					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+																				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
@@ -357,8 +357,8 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 //#pragma omp critical
     double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
                        Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
-		       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
-		       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
+								       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
+								       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
     com->globalSum(12, coef);
 
     Fi[iSurf][0] = coef[0]; 
