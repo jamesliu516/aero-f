@@ -4330,10 +4330,10 @@ void SubDomain::computeDerivativeOfNodalHeatPower(PostFcn* postFcn, BcData<dim>&
 
 template<int dim>
 void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
-				      GeoState &geoState, SVec<double,3> &X,
-				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
-				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
-                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
+																      GeoState &geoState, SVec<double,3> &X,
+																      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
+																      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
+												              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();

@@ -1922,8 +1922,8 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
 template<int dim>
 void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<int> *fluidId)
+																     double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                     DistVec<int> *fluidId)
 {
 
 // This routine outputs both the non-averaged and time-averaged values of the lift and drag 

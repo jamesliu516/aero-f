@@ -29,7 +29,7 @@ class FluidShapeOptimizationHandler : public ImplicitCoupledTsDesc<dim> {
 private:
 
   Domain *domain;
-	TsSolver<ImplicitCoupledTsDesc<dim> > *tsSolver;
+//	TsSolver<ImplicitCoupledTsDesc<dim> > *tsSolver;
   MeshMotionSolver *mms;
 
   // UH (08/10) This pointer is never used.
@@ -101,8 +101,8 @@ public:
   (
     IoData &ioData,
     GeoSource &geoSource,
-    Domain *dom,
-		TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
+    Domain *dom//,
+//		TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
   );
 
   ~FluidShapeOptimizationHandler();
@@ -132,46 +132,14 @@ public:
   /// \note This function is implemented but never called.
   void fsoGetDerivativeOfLoadAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
-  void fsoSemiAnalytical
-  (
-    IoData &,
-    DistSVec<double,3> &,
-    DistVec<double> &,
-    DistSVec<double,dim> &,
-    DistSVec<double,dim> &
-  );
-
-  void fsoAnalytical
-  (
-    IoData &,
-    DistSVec<double,3> &,
-    DistVec<double> &,
-    DistSVec<double,dim> &,
-    DistSVec<double,dim> &
-  );
-
+  void fsoSemiAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fsoAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void fsoSetUpLinearSolver(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
-
-  void fsoLinearSolver
-  (
-    IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &
-  );
-
-  int fsoHandler
-  (
-    IoData &,
-    DistSVec<double,dim> &
-  );
-
-  void fsoComputeDerivativesOfFluxAndSolution
-  (
-    IoData &,
-    DistSVec<double,3> &,
-    DistVec<double> &,
-    DistSVec<double,dim> &
-  );
-
+  void fsoLinearSolver(IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  int fsoHandler(IoData &, DistSVec<double,dim> &);
+  void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
+	void fsoMoveMesh(IoData &ioData, DistSVec<double,dim> &U);
 
 };
 
