@@ -23,12 +23,12 @@ FluidShapeOptimizationHandler<dim>::FluidShapeOptimizationHandler
 (
   IoData &ioData,
   GeoSource &geoSource,
-  Domain *dom,
-	TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
+  Domain *dom//,
+//	TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
 ) :
 ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
-tsSolver(_tsSolver),
+//tsSolver(_tsSolver),
 dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
 dXdSb(dom->getNodeDistInfo()),
@@ -157,7 +157,7 @@ FluidShapeOptimizationHandler<dim>::~FluidShapeOptimizationHandler()
 
   if (ksp) delete ksp;
 
-	if (tsSolver) delete tsSolver;
+//	if (tsSolver) delete tsSolver;
 
 }
 
@@ -1074,13 +1074,7 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
 
 template<int dim>
 void FluidShapeOptimizationHandler<dim>::fsoAnalytical
-(
-  IoData &ioData, 
-  DistSVec<double,3> &X,
-  DistVec<double> &A,
-  DistSVec<double,dim> &U,
-  DistSVec<double,dim> &dFdS
-)
+(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
 {
  
   //
@@ -1115,16 +1109,11 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
-(
-  IoData &ioData, DistSVec<double,3> &X,
-  DistVec<double> &A,
-  DistSVec<double,dim> &U,
-  DistSVec<double,dim> &dFdS
-)
+void FluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, 
+																															DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
 {
 
-// Prepraring the linear solver
+// Preparing the linear solver
 
   fsoRestartBcFluxs(ioData);
 
@@ -1278,19 +1267,8 @@ fclose(outFile);
 //------------------------------------------------------------------------------
 
 template<int dim>
-int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<double,dim> &U)
+void FluidShapeOptimizationHandler<dim>::fsoMoveMesh(IoData &ioData, DistSVec<double,dim> &U)
 {
-
-  // xmach      -  Mach number
-  // alpha      -  pitch angle
-  // teta       -  yaw angle
-  // DFSPAR(1)  -  Mach number differential
-  // DFSPAR(2)  -  angle of attack differential
-  // DFSPAR(3)  -  yaw angle differential
-
-  // Start basic timer
-  double MyLocalTimer = -this->timer->getTime();
-
   this->output->openAsciiFiles();
 
 	// Reseting the configuration control of the geometry datas
@@ -1315,13 +1293,40 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   // Setting up the linear solver
   fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+	
+	dXb = 0.0;
+	// move the mesh to be compatible with wall surface deformation
+	domain->readVectorFromFile(this->input->wallsurfacedisplac, 0, 0, dXb);
+	mms->solve(dXb, *this->Xs);
+	*this->X = *this->Xs;
+	this->com->fprintf(stderr, "\n *** mesh has been moved \n\n");
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<double,dim> &U)
+{
+
+  // xmach      -  Mach number
+  // alpha      -  pitch angle
+  // teta       -  yaw angle
+  // DFSPAR(1)  -  Mach number differential
+  // DFSPAR(2)  -  angle of attack differential
+  // DFSPAR(3)  -  yaw angle differential
+
+  // Start basic timer
+  double MyLocalTimer = -this->timer->getTime();
+
+  double dtLeft = 0.0;
+  this->computeTimeStep(1, &dtLeft, U);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
 
     double tag = 0.0;
 
     step = 0;
-		dXb  = 0.0;
     dXdS = 0.0;
     dXdSb = 0.0;
     dAdS = 0.0;
@@ -1329,14 +1334,6 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
     DFSPAR[1] = 0.0;
     DFSPAR[2] = 0.0;
     actvar = 1;
-
-		// move the mesh to be compatible with wall surface deformation
-		bool readOK = domain->readVectorFromFile(this->input->wallsurfacedisplac, step, &tag, dXb);
-		mms->solve(dXb, *this->X);
-		this->com->fprintf(stderr, "\n *** mesh has been moved \n\n");
-
-		// fluid solve after mesh update
-    tsSolver->solve(ioData);
 
     while (true) {
 
@@ -1446,6 +1443,10 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
       ioData.sa.eps /= acos(-1.0) / 180.0;
   }
 
+	bool lastIt = true;
+//	this->outputToDisk(ioData, &lastIt, 0, 0, 0, 0, dtLeft, U); 
+	this->outputPositionVectorToDisk(U);
+
   this->output->closeAsciiFiles();
 
   this->com->barrier();
@@ -1464,13 +1465,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution
-(
-  IoData &ioData, 
-  DistSVec<double,3> &X, 
-  DistVec<double> &A, 
-  DistSVec<double,dim> &U
-)
+void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U)
 {
 
   dFdS = 0.0;
