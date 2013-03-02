@@ -1518,7 +1518,7 @@ void TsOutput<dim>::closeAsciiFiles()
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
     if (fpHydroStaticForces[iSurf]) fclose(fpHydroStaticForces[iSurf]);
-    if (fpLift[iSurf]) fclose(fpLift[iSurf]);
+    if (fpLift[iSurf]) { fclose(fpLift[iSurf]); fpLift[iSurf] = 0; }
     if (fpTavForces[iSurf]) fclose(fpTavForces[iSurf]);
     if (fpTavLift[iSurf]) fclose(fpTavLift[iSurf]);
   } 
