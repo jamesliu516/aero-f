@@ -24,11 +24,9 @@ FluidShapeOptimizationHandler<dim>::FluidShapeOptimizationHandler
   IoData &ioData,
   GeoSource &geoSource,
   Domain *dom//,
-//	TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
 ) :
 ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
-//tsSolver(_tsSolver),
 dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
 dXdSb(dom->getNodeDistInfo()),
@@ -1287,9 +1285,6 @@ void FluidShapeOptimizationHandler<dim>::fsoMoveMesh(IoData &ioData, DistSVec<do
   double dtLeft = 0.0;
   this->computeTimeStep(1, &dtLeft, U);
 
-  this->computeMeshMetrics();
-
-  this->updateStateVectors(U);  
 
   // Setting up the linear solver
   fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
@@ -1301,6 +1296,11 @@ void FluidShapeOptimizationHandler<dim>::fsoMoveMesh(IoData &ioData, DistSVec<do
 	*this->X = *this->Xs;
 	this->com->fprintf(stderr, "\n *** mesh has been moved \n\n");
 
+  this->computeMeshMetrics();
+  this->updateStateVectors(U);  
+
+  // Setting up the linear solver
+  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 }
 
 //------------------------------------------------------------------------------

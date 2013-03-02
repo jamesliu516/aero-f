@@ -102,7 +102,6 @@ public:
     IoData &ioData,
     GeoSource &geoSource,
     Domain *dom//,
-//		TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
   );
 
   ~FluidShapeOptimizationHandler();
