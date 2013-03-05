@@ -1078,27 +1078,17 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   //
   // Computing the normal, derivative of the normal and of the control volume
   //
-  this->geoState->computeDerivatives
-  (
-    X, dXdS, this->bcData->getVelocityVector(),
-    this->bcData->getDerivativeOfVelocityVector(), dAdS
-  );
+  this->geoState->computeDerivatives(X, dXdS, this->bcData->getVelocityVector(), this->bcData->getDerivativeOfVelocityVector(), dAdS);
 
   //
   // Computing the derivatives of the boundary fluxes
   //
-  this->bcData->initializeSA
-  (
-    ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]
-  );
+  this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
 
   //
   // Computing the partial derivative of the flux with respect to the variables
   //
-  this->spaceOp->computeDerivativeOfResidual
-  (
-    X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState
-  );
+  this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
 
@@ -1321,6 +1311,8 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   double dtLeft = 0.0;
   this->computeTimeStep(1, &dtLeft, U);
+
+	fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
 
