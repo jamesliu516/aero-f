@@ -1311,7 +1311,8 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   double dtLeft = 0.0;
   this->computeTimeStep(1, &dtLeft, U);
-
+	this->computeMeshMetrics();
+	this->updateStateVectors(U);
 	fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
@@ -1481,7 +1482,7 @@ template<int dim>
 void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData, const char *mesage, const char *fileName, DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
 
-// Computing efforts
+// Computing efforts (F: force, M: moment)
   Vec3D F, M;
   fsoGetEfforts(ioData, X, U, F, M);
 

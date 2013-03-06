@@ -262,6 +262,7 @@ void DistGeoState::setup(const char *name, TimeData &timeData,
 void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
 
+
   if (!data.use_n) {
     Xn = X->alias();
     ctrlVol_n = ctrlVol->alias();
