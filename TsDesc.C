@@ -564,8 +564,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
     if (com->getMaxVerbose() >= 2)
       timer->print(domain->getStrTimer());
 
-    output->closeAsciiFiles();
-
+		if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+	    output->closeAsciiFiles();
+		}
   }
 
 }

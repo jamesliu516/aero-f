@@ -29,6 +29,8 @@ ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
 dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
+dXdS1(dom->getNodeDistInfo()),
+dXdS2(dom->getNodeDistInfo()),
 dXdSb(dom->getNodeDistInfo()),
 Xc(dom->getNodeDistInfo()),
 dAdS(dom->getNodeDistInfo()),
@@ -119,8 +121,9 @@ dX(dom->getNodeDistInfo())
   mvp->exportMemory(&mp);
   pc->exportMemory(&mp);
 
-  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
+  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
     mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(),domain,0);
+	}
 
   length = ioData.output.transient.length;
   surface = ioData.output.transient.surface;
@@ -128,6 +131,8 @@ dX(dom->getNodeDistInfo())
   numLocSub = domain->getNumLocSub();
 
   dXdS=0.0;
+  dXdS1=0.0;
+  dXdS2=0.0;
   dFdS=0.0;
   dUdS=0.0;
   p=0.0;
@@ -1313,6 +1318,8 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
   this->computeTimeStep(1, &dtLeft, U);
 	this->computeMeshMetrics();
 	this->updateStateVectors(U);
+
+
 	fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
@@ -1321,6 +1328,8 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
     step = 0;
     dXdS = 0.0;
+    dXdS1 = 0.0;
+    dXdS2 = 0.0;
     dXdSb = 0.0;
     dAdS = 0.0;
     DFSPAR[0] = 0.0;
@@ -1332,7 +1341,6 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
       // Reading derivative of the overall deformation
       bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
-//			fprintf(stderr,"tag is %e.\n", tag);	
 			if(!readOK) break;
 
 // Checking if dXdSb has entries different from zero at the interior of the mesh

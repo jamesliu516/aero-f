@@ -63,6 +63,8 @@ private:
   DistSVec<double,3> p;
   DistSVec<double,3> dPdS;
   DistSVec<double,3> dXdS;
+	DistSVec<double,3> dXdS1;
+	DistSVec<double,3> dXdS2;
   DistSVec<double,3> dXdSb;
 	DistSVec<double,3> dXb;
   DistSVec<double,3> Xc;
