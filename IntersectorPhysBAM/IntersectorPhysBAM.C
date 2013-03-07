@@ -41,6 +41,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
                                                double *xyz, int nElems, int (*abc)[3], CrackingSurface *cs)
     : DistLevelSetStructure(), iod(iodata)
 {
+
+  interface_thickness = iod.embed.interfaceThickness;
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
   com = comm;
@@ -91,8 +93,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
 
   delete[] struct_mesh;
   if(iod.input.embeddedpositions[0] != 0) delete[] struct_restart_pos;
-
-  interface_thickness = iod.embed.interfaceThickness;
 }
 
 //----------------------------------------------------------------------------
