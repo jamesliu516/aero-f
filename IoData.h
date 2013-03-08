@@ -2111,7 +2111,7 @@ struct EmbeddedFramework {
   enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
-  enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
+  enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;

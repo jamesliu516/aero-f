@@ -44,6 +44,8 @@ using std::max;
 #include <DenseMatrixOps.h>
 #include <limits>
 #include <PolygonReconstructionData.h> 
+#include <Quadrature.h>
+#include <RTree.h>
 
 
 extern "C" {
@@ -6451,6 +6453,116 @@ void SubDomain::getSignedDistance(int lsdim, SVec<double,1> &Psi, SVec<double,di
   }
 }
 
+//-----------------------------------------------------------------------------------------------
+
+class ElemForceCalcValid {
+
+  public:
+
+    bool Valid(Elem*) { return true; }
+};
+
+template<int dim>
+void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<double,3> &X,
+                                             double (*Fs)[3], int sizeFs, int numStructElems, int (*stElem)[3], Vec<Vec3D>& Xstruct, LevelSetStructure &LSS, double pInfty, 
+                                             SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
+                                             Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim, double> &ngrad, VarFcn* vf, Vec<int>* fid)
+{
+  if (forceApp!=2) 
+    {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
+
+  int qOrder = 3;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double (*qloc)[3](quadrature_formula.qloc);
+  double *qweight(quadrature_formula.weight);
+
+  int iElem = -1;
+  int T[4];       //nodes in a tet.
+
+  double dudxj[3][3];
+
+  Vec3D vectorIJ, gradP, flocal;
+  SVec<double,dim> gradX = ngrad.getX();
+  SVec<double,dim> gradY = ngrad.getY();
+  SVec<double,dim> gradZ = ngrad.getZ();
+  
+  int stNode[3];
+  Vec3D Xst[3];
+  Vec3D Xp;
+  for(int nSt = 0; nSt < numStructElems; ++nSt) {
+
+    for (int j=0; j<3; ++j) {
+      stNode[j] = stElem[nSt][j];
+      Xst[j] = Xstruct[stNode[j]]; 
+    }
+    Vec3D normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+
+    for(int nq=0; nq<nqPoint; ++nq) {
+
+      for (int j=0; j<3; ++j) {
+	Xp[j] = qloc[nq][0]*Xst[0][j] + qloc[nq][1]*Xst[1][j] + qloc[nq][2]*Xst[2][j];
+      }
+      ElemForceCalcValid myObj;
+      Elem* E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+	             &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+      if (!E) continue;      
+
+      for (int i=0; i<4; i++) T[i] = (*E)[i];
+      Vec3D Xf[4]; 
+      for (int i=0; i<4; i++)
+        for(int j=0;j<3;++j) Xf[i][j] = X[T[i]][j];
+
+// Check for the nearest active node of the tet on the either side of the surface element
+      double mindist[2] = {1.e10,1.e10};
+      int node[2] = {-1,-1};
+      Vec3D nf[2] = {-normal,normal};
+      for (int i=0; i<4; i++) {
+	double dist = (Xp-Xf[i]).norm();
+        if(normal*(Xp-Xf[i]) <= 0) {
+	  if( LSS.isActive(0,T[i]) && dist < mindist[0] ) {
+	    mindist[0] = dist;
+	    node[0] = T[i];
+	  }
+	}
+	else {
+	  if( LSS.isActive(0,T[i]) && dist < mindist[1] ) {
+	    mindist[1] = dist;
+	    node[1] = T[i];
+	  }
+	}
+      }
+
+      for (int n = 0; n < 2; ++n) {
+	int i = node[n];
+	if (i < 0) continue;
+	double *v = V[i];
+        gradP[0] = gradX[i][4];
+        gradP[1] = gradY[i][4];
+        gradP[2] = gradZ[i][4];
+        for(int m=0;m<3;++m) {
+          vectorIJ[m] = Xp[m] - X[i][m];
+        }
+        double pp = vf->getPressure(v, fid?(*fid)[i]:0);
+        flocal = (pp - pInfty + gradP*vectorIJ)*nf[n];
+
+        if(ghostPoints) {// Viscous Simulation
+          dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
+          dudxj[1][0] = gradX[i][2]; dudxj[1][1] = gradY[i][2]; dudxj[1][2] = gradZ[i][2];
+          dudxj[2][0] = gradX[i][3]; dudxj[2][1] = gradY[i][3]; dudxj[2][2] = gradZ[i][3];
+          flocal += postFcn->computeViscousForceCVBoundary(nf[n],v,dudxj);
+	}
+      }	
+
+      for (int j=0; j<3; ++j) {
+        Fs[stNode[0]][j] += qweight[nq]*flocal[j]*qloc[nq][0];
+        Fs[stNode[1]][j] += qweight[nq]*flocal[j]*qloc[nq][1];
+        Fs[stNode[2]][j] += qweight[nq]*flocal[j]*qloc[nq][2];
+      }
+    }
+  }
+}
 
 //-----------------------------------------------------------------------------------------------
 
