@@ -413,7 +413,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
       this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
     }
   // Population of spaceOp->V for the force computation
-  this->spaceOp->conservativeToPrimitive(*U);
+  this->spaceOp->conservativeToPrimitive(*U,&this->nodeTag);
 
 
   computeForceLoad(Wij, Wji);

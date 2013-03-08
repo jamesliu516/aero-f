@@ -6534,6 +6534,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
 	}
       }
 
+      flocal = 0.0;
       for (int n = 0; n < 2; ++n) {
 	int i = node[n];
 	if (i < 0) continue;
@@ -6545,7 +6546,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
           vectorIJ[m] = Xp[m] - X[i][m];
         }
         double pp = vf->getPressure(v, fid?(*fid)[i]:0);
-        flocal = (pp - pInfty + gradP*vectorIJ)*nf[n];
+        flocal += (pp - pInfty + gradP*vectorIJ)*nf[n];
 
         if(ghostPoints) {// Viscous Simulation
           dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
