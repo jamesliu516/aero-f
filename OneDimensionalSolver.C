@@ -1045,9 +1045,12 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         int iteration = 0;
         double fluxi[dim], fluxj[dim];
         int I,J;
-        double betap = 1.0;
-        if (limiterRight == 0)
-          betap = 0.0;
+        double betapr = 1.0;
+        double betapl = 1.0;
+        if (limiterRight == 0) {
+          betapr = 0.0;
+          betapl = 0.0;
+        }
         if (cutCellStatus[j] == 1) {
 
           if (interfaceExtrapolation == 1) {
@@ -1056,13 +1059,18 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
 	      Vir[k] = (interfaceLocation-X[i-1][0])/(X[i][0]-X[i-1][0])*V[i][k] - (interfaceLocation-X[i][0])/(X[i][0]-X[i-1][0])*V[i-1][k];
 	      Vjr[k] = (interfaceLocation-X[j+2][0])/(X[j+1][0]-X[j+2][0])*V[j+1][k] - (interfaceLocation-X[j+1][0])/(X[j+1][0]-X[j+2][0])*V[j+2][k];
-              if (k != 2 && k != 3 && limiterRight == 2)
-                betap = std::min<double>(betap, fabs(V[j+3][k]-V[j+2][k])/std::max<double>(1.0e-8,fabs(V[j+2][k]-V[j+1][k])));
+              if (k != 2 && k != 3 && limiterRight == 2) {
+                if (Vjr[1] > 0.0)
+                  betapr = std::min<double>(betapr, fabs(V[j+3][k]-V[j+2][k])/std::max<double>(1.0e-8,fabs(V[j+2][k]-V[j+1][k])));
+                if (Vir[1] < 0.0)
+                  betapl = std::min<double>(betapl, fabs(V[i-2][k]-V[i-1][k])/std::max<double>(1.0e-8,fabs(V[i][k]-V[i-1][k])));
+              }
 	      //std::cout << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j+1][k] << " " << V[i-1][k] << " " << V[j+2][k] << std::endl;
 	    }
             
 	    for (int k = 0; k < dim; ++k) {
-              Vjr[k] = betap*Vjr[k]+(1.0-betap)*V[j+1][k];
+              Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i][k];
+              Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j+1][k];
             }
 	    //memcpy(Vir, V[i], sizeof(double)*dim);
 	    //memcpy(Vjr, V[j+1], sizeof(double)*dim);
@@ -1081,12 +1089,17 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	      
 	      Vir[k] = (interfaceLocation-X[i-2][0])/(X[i-1][0]-X[i-2][0])*V[i-1][k] - (interfaceLocation-X[i-1][0])/(X[i-1][0]-X[i-2][0])*V[i-2][k];
 	      Vjr[k] = (interfaceLocation-X[j+1][0])/(X[j][0]-X[j+1][0])*V[j][k] - (interfaceLocation-X[j][0])/(X[j][0]-X[j+1][0])*V[j+1][k];
-              if (k != 2 && k != 3 && limiterRight == 2)
-                betap = std::min<double>(betap, fabs(V[j+2][k]-V[j+1][k])/std::max<double>(1.0e-8,fabs(V[j+1][k]-V[j][k])));
+              if (k != 2 && k != 3 && limiterRight == 2) {
+                if (Vjr[1] > 0.0)
+                  betapr = std::min<double>(betapr, fabs(V[j+2][k]-V[j+1][k])/std::max<double>(1.0e-8,fabs(V[j+1][k]-V[j][k])));
+                if (Vir[1] < 0.0)
+                  betapl = std::min<double>(betapl, fabs(V[i-3][k]-V[i-2][k])/std::max<double>(1.0e-8,fabs(V[i-1][k]-V[i-2][k])));
+              }
 	      //std::cout << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
 	    }
 	    for (int k = 0; k < dim; ++k) {
-              Vjr[k] = betap*Vjr[k]+(1.0-betap)*V[j][k];
+              Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i-1][k];
+              Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j][k];
             }
 	    //memcpy(Vir, V[i-1], sizeof(double)*dim);
 	    //memcpy(Vjr, V[j], sizeof(double)*dim);
@@ -1126,11 +1139,12 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
           if (cutCellStatus[j] == 1) {
 	    for (int k = 0; k < dim; ++k) {
 	      Wi[k] = (Y[i+1][0]-X[i][0])/(interfaceLocation-X[i][0])*Wir[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[i][0])*V[i][k];
+              Wi[k] = betapl*Wi[k]+(1.0-betapl)*Wir[k];
 	    }
           } else {
 	    for (int k = 0; k < dim; ++k) {
 	      Wj[k] = (Y[i+1][0]-X[j][0])/(interfaceLocation-X[j][0])*Wjr[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[j][0])*V[j][k];
-              Wj[k] = betap*Wj[k]+(1.0-betap)*Wjr[k];
+              Wj[k] = betapr*Wj[k]+(1.0-betapr)*Wjr[k];
             }
           }
           //memcpy(Wi, Wir, sizeof(double)*dim);

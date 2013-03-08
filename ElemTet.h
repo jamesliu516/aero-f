@@ -47,6 +47,8 @@ public:
   int  faceNnd(int i) { return 3; }
   Type type() { return Elem::TET; }
 
+  bool isPointInside(SVec<double,3> &,const Vec3D&);
+
   // Number of nodes
   int numNodes() { return 4; }
 

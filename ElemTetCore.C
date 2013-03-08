@@ -1976,3 +1976,15 @@ void ElemTet::computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, 
 
   DenseMatrixOp<double,3,3>::lu(A,bary,3);
 }
+
+bool ElemTet::isPointInside(SVec<double,3> & X,const Vec3D& V) {
+
+  double bary[3];
+  computeBarycentricCoordinates(X,V,bary);
+  if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 ||
+      bary[0]+bary[1]+bary[2] > 1.0)
+    return false;
+  else
+    return true;
+}
+

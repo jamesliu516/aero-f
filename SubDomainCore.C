@@ -28,6 +28,8 @@
 using std::stable_sort;
 #endif
 
+#include <RTree.h>
+
 extern "C" {
   void F77NAME(psplotmask)(const int &, int *, int *, const int &, const int &);
 };
@@ -92,6 +94,8 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   for(int i=0;i<3;i++)
    dGradP[i] = new double[locNodes->size()];
 
+  myTree = new RTree<Elem>;  
+  myTree->construct<&Elem::computeBoundingBox>(nodes, elems.getPointer(), elems.size());
 }
 
 //------------------------------------------------------------------------------

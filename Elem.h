@@ -450,6 +450,10 @@ public:
   virtual int  faceNnd(int i) = 0;
   virtual Type type() = 0;
 
+  virtual bool isPointInside(SVec<double,3>& X, const Vec3D&) = 0;
+
+  void computeBoundingBox(SVec<double,3>& X, double*);
+
   // Number of nodes
   virtual int numNodes() = 0;
 
@@ -932,6 +936,8 @@ public:
   ~ElemSet();
 
   Elem &operator[](int i) const { return *elems[i]; }
+
+  Elem** getPointer() { return elems; }
 
   void addElem(int i, Elem *elem) { elems[i] = elem; }
 

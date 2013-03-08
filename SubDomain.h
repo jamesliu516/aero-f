@@ -81,6 +81,8 @@ template<class Scalar, int dim> class MvpMat;
 template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
+template <class T> class RTree;
+
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
@@ -181,6 +183,7 @@ class SubDomain {
   // List of nodes on a surface for the Kirchhoff integral
   std::set<int> kirchhoffNodesList;
 
+  RTree<Elem>* myTree;
 
 public:
   
