@@ -102,6 +102,9 @@ void EdgeSet::computeTimeStep2(FemEquationTerm *fet, VarFcn *varFcn, GeoState &g
     int j = ptr[l][1];
 
     double S = sqrt(normal[l] * normal[l]);
+  
+    if (fabs(S) < 1e-18) S = 1.0; 
+
     double invS = 1.0 / S;
 
     Vec3D n = invS * normal[l];
@@ -2464,6 +2467,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
     if(fluxFcn){
+      if (normal[l].norm() < 1e-18) continue;
       fluxFcn[BC_INTERNAL]->computeJacobians(length, edgeirey, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj);
 
       if (masterFlag[l]) {
