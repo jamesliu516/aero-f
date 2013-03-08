@@ -631,6 +631,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.dDisplacement);
   }
+	if (iod.output.transient.dLiftDrag[0] != 0) {
+		dLiftDrag = new char[dsp + strlen(iod.output.transient.dLiftDrag)];
+		sprintf(dLiftDrag, "%s%s", iod.output.transient.prefix, iod.output.transient.dLiftDrag);
+	}
+	else
+		dLiftDrag = 0;
+
+	fpdLiftDrag = 0;
 
   if (iod.output.transient.dForces[0] != 0) {
     dForces = new char[dsp + strlen(iod.output.transient.dForces)];
@@ -754,6 +762,7 @@ TsOutput<dim>::~TsOutput()
   if (switchOpt) //STEADY_SENSITIVITY_ANALYSIS
     {
       delete[] dForces;
+			delete[] dLiftDrag;
       
       int i;
       for (i=0; i<PostFcn::DSSIZE; ++i) {
@@ -1008,7 +1017,6 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", dForces);
         exit(1);
       }
-
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpdForces, "Step Variable Cfx Cfy Cfz Cmx Cmy Cmz sboom dCfx dCfy dCfz dCmx dCmy dCmz dSboom \n");
       else
@@ -1016,6 +1024,19 @@ void TsOutput<dim>::openAsciiFiles()
 
       fflush(fpdForces);
     }
+		if (dLiftDrag) {
+			fpdLiftDrag = fopen(dLiftDrag, "w");
+			if (!fpdLiftDrag) {
+				fprintf(stderr, "*** Error: could not open \'%s\'\n", dLiftDrag);
+				exit(1);			
+			}
+			if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        fprintf(fpdLiftDrag, "Step Variable CLx CLy CLz dCLx dCLy dCLz \n");
+      else
+        fprintf(fpdLiftDrag, "Step Variable Lx Ly Lz dLx dLy dLz \n");
+	
+			fflush(fpdLiftDrag);
+		}
   }
   if (hydrostaticforces) {
     if (it0 != 0){
@@ -1805,6 +1826,20 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
   delete[] Fv;
   delete[] Mi;
   delete[] Mv;
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & L, Vec3D & dL)
+{
+
+  if (fpdLiftDrag) {
+    fprintf(fpdLiftDrag, "%d %d %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e \n", it, actvar, L[0], L[1], L[2], dL[0], dL[1], dL[2]);
+    fflush(fpdLiftDrag);
+  }
+
 }
 
 //------------------------------------------------------------------------------

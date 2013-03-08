@@ -352,6 +352,7 @@ TransientData::TransientData()
   dVelocityVector = "";
   dDisplacement = "";
   dForces = "";
+	dLiftDrag = "";
   dEddyvis = "";
 
   tempnormalderivative = "";
@@ -471,6 +472,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "VelocitySensitivity", this, &TransientData::dVelocityVector);
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
+  new ClassStr<TransientData>(ca, "LiftDragSensitivity", this, &TransientData::dLiftDrag); //YC
 
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
