@@ -178,6 +178,7 @@ ADD_LIBRARY(FluidBase
              DistLeastSquareSolver.C
              DistMacroCellCore.C 
              DomainCore.C 
+	     Dunavant.C
              EdgeCore.C 
 	     EmbeddedCorotSolver.C
              FaceCore.C 

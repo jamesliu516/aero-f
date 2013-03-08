@@ -153,6 +153,8 @@ class DistLevelSetStructure {
     virtual Vec<Vec3D> &getStructPosition_n() = 0;
     virtual Vec<Vec3D> &getStructPosition_np1() = 0;
     virtual int getNumStructNodes() = 0;
+    virtual int getNumStructElems() = 0;
+    virtual int (*getStructElems())[3] = 0;
     virtual int getSurfaceID(int) = 0;
 };
 

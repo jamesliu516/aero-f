@@ -2144,6 +2144,11 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
                                       *V,ghostPoints,postFcn,ngrad,varFcn,fid);
       break;
 
+    case 2: // Embedded Surface
+      domain->computeEmbSurfBasedForceLoad(forceApp,orderOfAccuracy,X,Fs,sizeFs,
+					   distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,ngrad,varFcn,fid);
+      break;
+
     case 3: // Reconstructed Surface
       domain->computeRecSurfBasedForceLoad(forceApp,orderOfAccuracy,X,Fs,sizeFs,
 					   distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,varFcn,fid);

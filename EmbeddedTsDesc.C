@@ -49,8 +49,21 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   phaseChangeAlg	 = (ioData.embed.phaseChangeAlg==EmbeddedFramework::LEAST_SQUARES) ? 1 : 0;
   interfaceAlg		 = (ioData.embed.interfaceAlg==EmbeddedFramework::INTERSECTION) ? 1 : 0;
   intersectAlpha	 = ioData.embed.alpha;
-  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
-
+  switch (ioData.embed.forceAlg) {
+    case EmbeddedFramework::CONTROL_VOLUME_BOUNDARY :
+      forceApp = 1;
+      break;
+    case EmbeddedFramework::EMBEDDED_SURFACE :
+      forceApp = 2;
+      break;
+    case EmbeddedFramework::RECONSTRUCTED_SURFACE :
+      forceApp = 3;
+      break;
+    default:
+      this->com->fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); 
+      exit(-1);
+  }
+//  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
 
   // Debug - To be deleted
   std::ifstream forceCalculationType("forceCalculationType.txt");

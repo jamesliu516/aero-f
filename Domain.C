@@ -4016,6 +4016,52 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
 
 //-------------------------------------------------------------------------------
 template<int dim>
+void Domain::computeEmbSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+                                          double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS, double pInfty, 
+                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+                                          DistSVec<double,dim> &V, 
+                                          DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad, 
+					  VarFcn* vf, DistVec<int> *fid)
+{
+
+  
+  //PJSA double subFs[numLocSub][sizeFs][3];
+  typedef double array3d[3];
+  array3d **subFs = new array3d * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+
+  int numStructElems = distLSS->getNumStructElems();
+  int (*stElem)[3] = distLSS->getStructElems();
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
+
+  Vec<GhostPoint<dim>*> *gp=0;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+    subDomain[iSub]->computeEmbSurfBasedForceLoad(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs, numStructElems, stElem, Xstruct,
+						     (*distLSS)(iSub), pInfty, 
+						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn, (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0);
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
+    }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
+  delete [] subFs;
+}
+
+//-------------------------------------------------------------------------------
+template<int dim>
 void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
                                           double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS, double pInfty, 
                                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
