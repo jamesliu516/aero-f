@@ -6480,8 +6480,6 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
   int iElem = -1;
   int T[4];       //nodes in a tet.
 
-  double dudxj[3][3];
-
   Vec3D vectorIJ, gradP, flocal;
   SVec<double,dim> gradX = ngrad.getX();
   SVec<double,dim> gradY = ngrad.getY();
@@ -6513,6 +6511,26 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       Vec3D Xf[4]; 
       for (int i=0; i<4; i++)
         for(int j=0;j<3;++j) Xf[i][j] = X[T[i]][j];
+
+// For viscous simulation
+      double dp1dxj[4][3]; // Gradient of the P1 basis functions
+      for(int i=0;i<4;++i) for(int j=0;j<3;++j) dp1dxj[i][j] = 0.0;
+      double d2w[3]; // not used, but required by postFcn->computeViscousForce(...)
+      d2w[0] = d2w[1] = d2w[2] = 0.0;
+      double *Vwall = 0;
+      double *Vface[3] = {0,0,0};
+
+      double *vtet[4];
+      if(ghostPoints) {
+        E->computeGradientP1Function(X, dp1dxj);
+        for(int i=0; i<4; ++i) vtet[i] = V[T[i]];
+
+        GhostPoint<dim> *gp;
+        for(int i=0; i<4; ++i) {
+	  gp = (*ghostPoints)[T[i]];
+          if (gp) vtet[i] = gp->getPrimitiveState();
+        }
+      }
 
 // Check for the nearest active node of the tet on the either side of the surface element
       double mindist[2] = {1.e10,1.e10};
@@ -6549,10 +6567,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
         flocal += (pp - pInfty + gradP*vectorIJ)*nf[n];
 
         if(ghostPoints) {// Viscous Simulation
-          dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
-          dudxj[1][0] = gradX[i][2]; dudxj[1][1] = gradY[i][2]; dudxj[1][2] = gradZ[i][2];
-          dudxj[2][0] = gradX[i][3]; dudxj[2][1] = gradY[i][3]; dudxj[2][2] = gradZ[i][3];
-          flocal += postFcn->computeViscousForceCVBoundary(nf[n],v,dudxj);
+          flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet);
 	}
       }	
 
