@@ -1,0 +1,187 @@
+under Problem {
+  Type = Steady, Unsteady, AcceleratedUnsteady, SteadyAeroelastic, UnsteadyAeroelastic, AcceleratedUnsteadyAeroelastic, Forced;
+  Mode = NonDimensional, Dimensional;
+}
+
+under Input {
+  Prefix = "";
+  Connectivity = "";
+  Geometry = "";
+  Decomposition = "";
+  CpuMap = "";
+  Matcher = "";
+  WallDistance = "";
+  Solution = "";
+  Position = "";
+  RestartData = "";
+}
+
+under Output {
+  under Postpro {
+    Prefix = "";
+    Density = "";
+    Mach = "";
+    Pressure = "";
+    Temperature = "";
+    TotalPressure = "";
+    Vorticity = "";
+    NuTilde = "";
+    K = "";
+    Eps = "";
+    EddyViscosity = "";
+    DeltaPlus = "";
+    Velocity = "";
+    Displacement = "";
+    Force = "";
+    Residual = "";
+    Frequency = 0;
+    Length = 1.0;
+    Surface = 1.0;
+    XM = 0.0;
+    YM = 0.0;
+    ZM = 0.0;
+  }
+  under Restart {
+    Prefix = "";
+    Solution = "DEFAULT.SOL";
+    Position = "DEFAULT.POS";
+    RestartData = "DEFAULT.RST";
+    Frequency = 0;
+  }
+}
+
+under Equations {
+  Type = Euler, NavierStokes;
+  under ViscosityModel {
+    Type = Sutherland, Constant;
+    SutherlandReferenceTemperature = 110.6;
+    SutherlandConstant = 1.458e-6;
+  }
+  under TurbulenceClosure {
+    Type = None, TurbulenceModel, LESModel;
+    under TurbulenceModel {
+      Type = SpalartAllmaras, KEpsilon;
+    }
+    under LESModel {
+      Type = Smagorinski, VMS;
+      under VMS {
+        Csprime = 0.1;
+        AgglomerationDepth = 1;
+      }
+    }
+  }
+}
+
+under ReferenceState {
+  Temperature = -1.0;
+  Reynolds = -1.0;
+  Length = 1.0;
+}
+
+under BoundaryConditions {
+  under Inlet {
+    Mach = -1.0;
+    Alpha = 400.0;
+    Beta = 400.0;
+    Density = -1.0;
+    Pressure = -1.0;
+    NuTilde = -1.0;
+    K = -1.0;
+    Eps = -1.0;
+  }
+  under Wall {
+    Type = Adiabatic, Isothermal;
+    Integration = WallFunction, Full;
+    Temperature = -1.0;
+    Delta = -1.0;
+  }
+}
+
+under Space {
+  under NavierStokes { 
+    Reconstruction = Linear, Constant;
+    Limiter = None, VanAlbada, Barth, Venkatakrishnan;
+    Gradient = LeastSquares, Galerkin;
+    Dissipation = SecondOrder, SixthOrder;
+    Beta = 0.5;
+    XiU  = -2.0/15.0;
+    XiC = -1.0/30.0;
+    Gamma = 1.0;
+  }
+  under TurbulenceModel {}
+}
+
+under Time {
+  MaxIts = 100;
+  Eps = 1.e-6;
+  TimeStep = -1.0;
+  MaxTime = 1.e99;
+  Cfl0 = 5.0;
+  Cfl1 = 0.0;
+  Cfl2 = 0.0;
+  CflMax = 1000.0;
+  Ser = 0.7;
+  under Implicit {
+    Type = BackwardEuler, ThreePointBackwardDifference;
+    MatrixVectorProduct = Approximate, Exact, FiniteDifference;
+    under Newton {
+      MaxIts = 1;
+      Eps = 0.01;
+      under LinearSolver { 
+        under NavierStokes { 
+          Type = Gmres, Richardson, Cg;
+	  Output = "";
+          MaxIts = 30;
+          KrylovVectors = 30;
+          Eps = 0.01;
+	  under Preconditioner { 
+            Type = Ras, Identity, Jacobi; 
+            Fill = 0; 
+          }
+        }
+        under TurbulenceModel {}
+      }
+    }
+  }
+}
+
+under Aeroelastic {
+  Force = Last, Averaged;
+  InsidePressure = -1.0;
+}
+
+under Forced {
+  Type = Flexible, Rigid;
+  Position = "";
+  Amplification = 1.0;
+  Frequency = -1.0;
+  TimeStep = -1.0;
+}
+
+under Accelerated {
+  Tag = Mach, Time;
+  AccelerationX = 0.0;
+  AccelerationY = 0.0;
+  AccelerationZ = 0.0;
+  TimeStep = -1.0;
+}
+ 
+under MeshMotion {
+  Type = Basic, Corotational;
+  Element = TorsionalSprings, LinearFiniteElement, NonLinearFiniteElement;
+  under Newton {
+    MaxIts = 1;
+    Eps = 0.01;
+    under LinearSolver {
+      Type = Cg, Richardson, Gmres;
+      MaxIts = 20;
+      KrylovVectors = 30;
+      Eps = 0.001;
+      Output = "";
+      under Preconditioner { 
+        Type = Jacobi, Ras, Identity; 
+        Fill = 0; 
+      }
+    }
+  }
+}
