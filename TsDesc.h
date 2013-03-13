@@ -102,6 +102,8 @@ protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
 
+	void moveMesh(IoData &ioData, GeoSource &geoSource);  // YC
+
 // Included (MB)
   bool monitorForceConvergence(IoData &, int, DistSVec<double,dim> &);
   bool monitorAvgForceConvergence(IoData &, int, DistSVec<double,dim> &);

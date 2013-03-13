@@ -58,14 +58,12 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   // position of the mesh.
   if (ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) {
     geoState->setup1(input->positions, X, A);
-		mems = 0;
+		moveMesh(ioData, geoSource);
 	} else {
     char temp[1]; temp[0] = '\0';
     geoState->setup1(temp, X, A);
+		moveMesh(ioData, geoSource);
   }
-
-
-
 
   bcData = createBcData(ioData);
 
@@ -103,24 +101,6 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 	timeState = 0;
 	mmh = 0; 
 
-  if (input->wallsurfacedisplac != 0) {
-    PosVecType dXb(getVecInfo());
-    mems = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);
-//    mems = new TetMeshMotionSolver(ioData.dmesh, 0, domain, 0);
-    domain->readVectorFromFile(input->wallsurfacedisplac, 0, 0, dXb);
-    mems->solve(dXb, *X);
-		*Xs = *X;	
-		if(X->norm() == 0.0)
-		{
-			this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
-			exit(1);
-		}
-		com->fprintf(stderr," ... mesh has been moved.\n");
-    char temp[1]; temp[0] = '\0';
-		geoState->setup3(temp, X, A);
-	} else {
-		mems = 0;
-	}
 }
 
 //------------------------------------------------------------------------------
@@ -154,6 +134,34 @@ TsDesc<dim>::~TsDesc()
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
+{
+    if (input->wallsurfacedisplac != 0) {
+			com->fprintf(stderr,"InitialWallDisplacement will be read.\n");
+			cout << input->wallsurfacedisplac << endl;
+      PosVecType dXb(getVecInfo());
+      mems = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);
+//      mems = new TetMeshMotionSolver(ioData.dmesh, 0, domain, 0);
+      domain->readVectorFromFile(input->wallsurfacedisplac, 0, 0, dXb);
+      mems->solve(dXb, *X);
+  		*Xs = *X;	
+  		if(X->norm() == 0.0)
+  		{
+  			this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
+  			exit(1);
+  		}
+  		com->fprintf(stderr," *** mesh has been moved.\n");
+    	char temp[1]; temp[0] = '\0';
+  		geoState->setup3(temp, X, A);
+  	} else {
+  		mems = 0;
+  	}
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void TsDesc<dim>::printf(int verbose, const char *format, ...)
