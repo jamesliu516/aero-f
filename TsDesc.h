@@ -15,6 +15,7 @@ class VarFcn;
 class GeoSource;
 class DistGeoState;
 class MeshMotionHandler;
+class MeshMotionSolver;
 class HeatTransferHandler;
 class MemoryPool;
 class Timer;
@@ -76,6 +77,7 @@ protected:
   PostOperator<dim> *postOp;
 
   MeshMotionHandler* mmh;
+	MeshMotionSolver* mems;
   HeatTransferHandler* hth;
 
   Domain *domain;
