@@ -535,6 +535,8 @@ public:
 
   virtual double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]) = 0;
 
+  virtual void computeBarycentricCoordinates(SVec<double,3>&, const Vec3D& , double [3]) = 0;
+
   //-----Virtual template functions (handled through helpers classes, defined ElemTYPE.C)
 
   template<int dim>
@@ -910,6 +912,7 @@ public:
   {
 	fprintf(stderr, "Error: undefined function (FastMarchingDistanceUpdate) for this elem type\n"); exit(1);
   }
+  
 };
 
 //------------------------------------------------------------------------------
