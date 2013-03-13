@@ -6532,13 +6532,26 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
         }
       }
 
+// Determine the side of the nodes of the tet
+      double norm[4];
+      for (int e=0; e<6; ++e) {
+	int l = E->edgeNum(e);
+	if (LSS.edgeIntersectsStructure(0,l)) {
+          LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+	  int i = E->edgeEnd(e,0);
+	  int j = E->edgeEnd(e,1);
+          norm[i] = lsRes.gradPhi*(Xstruct[lsRes.trNodes[0]]-Xf[i]); 
+          norm[j] = lsRes.gradPhi*(Xstruct[lsRes.trNodes[0]]-Xf[j]); 
+	}
+      }
+
 // Check for the nearest active node of the tet on the either side of the surface element
-      double mindist[2] = {1.e10,1.e10};
+      double mindist[2] = {FLT_MAX,FLT_MAX};
       int node[2] = {-1,-1};
       Vec3D nf[2] = {-normal,normal};
       for (int i=0; i<4; i++) {
 	double dist = (Xp-Xf[i]).norm();
-        if(normal*(Xp-Xf[i]) <= 0) {
+        if (norm[i] <= 0.) {
 	  if( LSS.isActive(0,T[i]) && dist < mindist[0] ) {
 	    mindist[0] = dist;
 	    node[0] = T[i];
