@@ -106,8 +106,17 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
         //each volume (volIt->first) is setup using
   }
 
-	int *output_newton_step = domain->getOutputNewtonStep();
-	*output_newton_step = data->getOutputNewtonStep();
+  double* outputNewtonTag = domain->getNewtonTag();
+  *outputNewtonTag = data->getNewtonTag();
+
+  int* outputNewtonStateStep = domain->getNewtonStateStep();
+  *outputNewtonStateStep = data->getNewtonStateStep();
+
+  int* outputNewtonResidualStep = domain->getNewtonResidualStep(); 
+  *outputNewtonResidualStep = data->getNewtonResidualStep();
+
+  int* outputKrylovStep = domain->getKrylovStep();
+  *outputKrylovStep = data->getKrylovStep();
 
   isGFMPAR = (ioData.eqs.numPhase > 1 &&
               ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
@@ -1466,6 +1475,28 @@ DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState,
 //------------------------------------------------------------------------------
 
 template<int dim> 
-int DistTimeState<dim>::getOutputNewtonStep() const {
-	return *(domain->getOutputNewtonStep()); 
+double DistTimeState<dim>::getNewtonTag() const {
+	return *(domain->getNewtonTag()); 
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int DistTimeState<dim>::getNewtonStateStep() const {
+  return *(domain->getNewtonStateStep());
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int DistTimeState<dim>::getNewtonResidualStep() const {
+  return *(domain->getNewtonResidualStep());
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int DistTimeState<dim>::getKrylovStep() const {
+  return *(domain->getKrylovStep());
+}
+

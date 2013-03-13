@@ -11,6 +11,8 @@ GnatPreprocessingStep2<dim>::GnatPreprocessingStep2(Communicator *_com, IoData
 			else
 				backupPlan = false;
 
+kyle, this will require fixing:
+
 			this->outputOnlineMatricesFull = true;
 			this->outputOnlineMatricesSample = false;	// already using sample mesh, so output in `full' coordinates
 */

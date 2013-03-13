@@ -5,6 +5,8 @@
 #include <TsDesc.h>
 #include <KspPrec.h>
 #include <NonlinearRom.h>
+#include <NonlinearRomOnlineII.h>
+#include <NonlinearRomOnlineIII.h>
 
 struct DistInfo;
 
@@ -34,23 +36,22 @@ protected:
 
   VecSet<DistSVec<double, dim> > pod;
 
-  NonlinearRom<dim> localRom;
+  NonlinearRom<dim>* rom;
+
   int currentCluster;
-  bool useNonlinearRom;
-  FILE *clustUsageFile;
+
+  int basisUpdateFreq;  
 
   FullM jac;
   
   int nPod;
-	int subtractIC;	// =1 if you subtract IC from basis
-  virtual void readPodBasis(const char *);
 
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
   Vec<double> dUrom;
-  Vec<double> UromTotal;
-  Vec<double> *dUnormAccum;	// accumulated contributions
+  //Vec<double> UromTotal;
+  //Vec<double> *dUnormAccum;	// accumulated contributions
 
 	double target, res0;	// for Newton convergence
 
@@ -59,8 +60,7 @@ protected:
 
   virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
-  void writeClusterUsage(const int, int, int, double, double);
-	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop) = 0;
+	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &) = 0;
 	// each ROM has a different way of solving the Newton system
   virtual void updateGlobalTimeSteps(const int _it) {};	// broyden needs to know global time steps
   int solveLinearSystem(int, Vec<double> &, Vec<double> &);
@@ -72,15 +72,25 @@ protected:
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
-	void savedUnormAccum();
-	virtual void writeStateRomToDisk(int it, double cpu);
+  virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int);
+	//void savedUnormAccum();
+	//virtual void writeStateRomToDisk(int it, double cpu);
 	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
 	virtual bool breakloop1(const bool);
 	virtual bool breakloop2(const bool);
-	void determineFileName(const char *fileNameInput, const char
-		*currentExtension, const char *prefix, string &fileName);
+
+  virtual void setReferenceResidual() {};
+  virtual void setProblemSize(DistSVec<double, dim> &) {};
 
 	double *projVectorTmp; // temporary vector for projectVector
+
+  bool updateFreq;
+  bool clusterSwitch;
+
+protected:
+  template<class Scalar, int neq>
+  KspPrec<neq> *createPreconditioner(PcData &, Domain *);
+
 public:
   
   ImplicitRomTsDesc(IoData &, GeoSource &, Domain *);

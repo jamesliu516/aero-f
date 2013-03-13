@@ -44,6 +44,7 @@ using std::max;
 #include <DenseMatrixOps.h>
 #include <limits>
 #include <PolygonReconstructionData.h> 
+#include <sys/stat.h>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -3550,6 +3551,21 @@ void SubDomain::addRcvGhostOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,
   }
 
 }
+
+//------------------------------------------------------------------------------
+template<class Scalar, int dim>
+bool SubDomain::checkIfFileExists(const char *prefix)
+{
+
+  char name[MAXLINE];
+  sprintf(name, "%s%s", prefix, suffix);
+
+  struct stat buf;
+  
+  return (stat(name, &buf) != -1) ? true : false;
+
+}
+
 
 //------------------------------------------------------------------------------
 

@@ -28,7 +28,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   TavL = 0;
   Qs = 0;
   Qv = 0;
-  output_newton_step = domain->getOutputNewtonStep();
+  
   for (i=0; i<PostFcn::AVSSIZE; ++i) 
     {
       AvQs[i] = 0;
@@ -38,39 +38,15 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
 
+  stateOutputFreqTime = iod.output.rom.stateOutputFreqTime;
+  stateOutputFreqNewton = iod.output.rom.stateOutputFreqNewton;
+  residualOutputFreqTime = iod.output.rom.residualOutputFreqTime;
+  residualOutputFreqNewton = iod.output.rom.residualOutputFreqNewton; 
+
   int sp = strlen(iod.output.transient.prefix) + 1;
   int spn = strlen(iod.output.transient.probes.prefix) + 1;
   int sprom = strlen(iod.output.rom.prefix) + 1;
 
-  if (iod.output.transient.solutions[0] != 0) {
-    solutions = new char[sp + strlen(iod.output.transient.solutions)];
-    sprintf(solutions, "%s%s", iod.output.transient.prefix, iod.output.transient.solutions);
-  }
-  else
-    solutions = 0;
-  /*
-  // GAPPY POD STUFF (CBM+KTC)
-  if (iod.output.rom.newtonresiduals[0] != 0) {
-    newtonresiduals = new char[sprom + strlen(iod.output.rom.newtonresiduals)];
-    sprintf(newtonresiduals, "%s%s", iod.output.rom.prefix, iod.output.rom.newtonresiduals);
-  }
-  else
-    newtonresiduals = 0;
-
-  if (iod.output.rom.jacobiandeltastate[0] != 0) {
-    jacobiandeltastate = new char[sprom + strlen(iod.output.rom.jacobiandeltastate)];
-    sprintf(jacobiandeltastate, "%s%s", iod.output.rom.prefix, iod.output.rom.jacobiandeltastate);
-  }
-  else
-    jacobiandeltastate = 0;
-
-  if (iod.output.rom.reducedjac[0] != 0) {
-    reducedjac = new char[sprom + strlen(iod.output.rom.reducedjac)];
-    sprintf(reducedjac, "%s%s", iod.output.rom.prefix, iod.output.rom.reducedjac);
-  }
-  else
-    reducedjac = 0;
-  */
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
     scalars[i] = 0;
@@ -450,13 +426,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
-      if (iod.output.rom.staterom[0] != 0) {
-    staterom = new char[sprom + strlen(iod.output.rom.staterom)];
-    sprintf(staterom, "%s%s", iod.output.rom.prefix, iod.output.rom.staterom);
-  }
-  else
-    staterom = 0;
-
   if (iod.output.transient.materialVolumes[0] != 0) {
     material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
     sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
@@ -485,6 +454,22 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     conservation = 0;
 
+  // for ROMs (only active for implicit time stepping)
+  if (iod.output.rom.stateVector[0] != 0) {
+    stateVectors = new char[sprom + strlen(iod.output.rom.stateVector)];
+    sprintf(stateVectors, "%s%s", iod.output.rom.prefix, iod.output.rom.stateVector);
+  }
+  else
+    stateVectors = 0;
+
+  // for ROMs (only active for implicit time stepping)
+  if (iod.output.rom.residualVector[0] != 0) {
+    residualVectors = new char[sprom + strlen(iod.output.rom.residualVector)];
+    sprintf(residualVectors, "%s%s", iod.output.rom.prefix, iod.output.rom.residualVector);
+  }
+  else
+    residualVectors = 0;
+
   it0 = iod.restart.iteration;
   //std::cout << "it0 = " << it0 << std::endl;
   numFluidPhases = iod.eqs.numPhase;
@@ -497,12 +482,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[1] = iod.output.transient.y0;
   x0[2] = iod.output.transient.z0;
 
+  fpCpuTiming = 0;
   fpResiduals = 0;
-  fpStateRom = 0;
   fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
-  fpError = 0;
 
   int nSurf = postOp->getNumSurf();
   int nSurfHF = postOp->getNumSurfHF();
@@ -636,6 +620,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     switchOpt = false;
   }
 
+
   // Initialize nodal output structures
   Probes& myProbes = iod.output.transient.probes;
   nodal_output.step = 0;
@@ -646,7 +631,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   nodal_output.locations.resize(Probes::MAXNODES);
 
   nodal_output.step = 0;
-					      
+
+			      
   for (i = 0; i < Probes::MAXNODES; ++i) {
     nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX/iod.ref.rv.length,
                                       myProbes.myNodes[i].locationY/iod.ref.rv.length,
@@ -689,6 +675,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   com->fprintf(stdout,"[Probe] Number of probing nodes is %d\n",i);
 
   nodal_output.numNodes = i;
+  
 
   if (iod.output.transient.probes.density[0] != 0) {
     nodal_scalars[PostFcn::DENSITY] = new char[spn + strlen(iod.output.transient.probes.density)];
@@ -767,8 +754,6 @@ TsOutput<dim>::~TsOutput()
   delete[] material_volumes;
   delete[] embeddedsurface;
   delete[] cputiming;
-  delete[] staterom;
-  delete[] error;
   delete[] conservation;
 
   delete[] lift;
@@ -1398,34 +1383,6 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpResiduals);
   }
   
-  if (staterom) {
-    if (it0 != 0) 
-      fpStateRom = backupAsciiFile(staterom);
-    if (it0 == 0 || fpStateRom == 0) {
-      fpStateRom = fopen(staterom, "w");
-      if (!fpStateRom) {
-	fprintf(stderr, "*** Error: could not open \'%s\'\n", staterom);
-	exit(1);
-      }
-      fprintf(fpStateRom, "# TimeIteration ElapsedTime StatePodCoords \n");
-    }
-    fflush(fpStateRom);
-  }
-
-  if (error) {
-    if (it0 != 0) 
-      fpError = backupAsciiFile(error);
-    if (it0 == 0 || fpError == 0) {
-      fpError = fopen(error, "w");
-      if (!fpError) {
-	fprintf(stderr, "*** Error: could not open \'%s\'\n", error);
-	exit(1);
-      }
-      fprintf(fpError, "# TimeIteration ElapsedTime RelativeError AbsoluteError \n");
-    }
-    fflush(fpError);
-  }
-
   if (material_volumes) {
     if (it0 != 0)
       fpMatVolumes = backupAsciiFile(material_volumes);
@@ -1514,8 +1471,6 @@ void TsOutput<dim>::closeAsciiFiles()
   if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
   if (fpCpuTiming) fclose(fpCpuTiming);
-  if (fpStateRom) fclose(fpStateRom);
-  if (fpError) fclose(fpError);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
 }
@@ -2249,41 +2204,6 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-		DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL, VecSet< DistSVec<double,dim> > *U3 = NULL)
-{
-
-	double tag = 0.0;	// do not tag for now
-
-	if (newtonresiduals && U1)  {	// for both pg residuals and fom residuals
-		DistSVec<double,dim> soltn(*U1);
-		if (refVal->mode == RefVal::DIMENSIONAL)
-			domain->scaleSolution(soltn, refVal);
-		domain->writeVectorToFile(newtonresiduals, *output_newton_step, tag, *U1);	//TODO: output_newton_step should accumulate over restarts
-	}
-
-	if (jacobiandeltastate && U2)  {
-		DistSVec<double,dim> soltn(*U2);
-		if (refVal->mode == RefVal::DIMENSIONAL)
-			domain->scaleSolution(soltn, refVal);
-		domain->writeVectorToFile(jacobiandeltastate, *output_newton_step, tag, *U2);	//TODO: output_newton_step should accumulate over restarts
-	}
-
-	if (reducedjac && U3)  {	// entire JPhi
-		for (int i = 0; i < U3->numVectors(); ++i) {
-			DistSVec<double,dim> soltn((*U3)[i]);
-			if (refVal->mode == RefVal::DIMENSIONAL)
-				domain->scaleSolution(soltn, refVal);
-			domain->writeVectorToFile(reducedjac, *output_newton_step, tag, soltn);	//TODO: output_newton_step should accumulate over restarts
-		}
-	}
-
-	++(*output_newton_step);
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
 void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag, 
                       DistSVec<double,3> &X, DistSVec<double,dim> &U){
 
@@ -2311,12 +2231,10 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 		else
 			tag = t * refVal->time;
 
-		if (solutions)  {
-			DistSVec<double,dim> soltn(U);
-			//if (refVal->mode == RefVal::DIMENSIONAL)
-				//domain->scaleSolution(soltn, refVal);  // I can't think of a scenario where this makes sense
-			domain->writeVectorToFile(solutions, step, tag, soltn);
-		}
+//		if (stateVector)  { // Moved to NewtonSolver.h
+//			DistSVec<double,dim> soltn(U);
+//			domain->writeVectorToFile(stateVector, step, tag, soltn);
+//		}
 
 		int i;
 		for (i=0; i<PostFcn::SSIZE; ++i) {
@@ -2375,8 +2293,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     else
       tag = t * refVal->time;
 
-    if (solutions)
-      domain->writeVectorToFile(solutions, step, tag, U);
+    //if (stateVector) // MOR not supported for embedded framework
+    //  domain->writeVectorToFile(stateVector, step, tag, U);
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {
@@ -2518,8 +2436,6 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
     else
       tag = t * refVal->time;
     
-    // if (solutions)
-    // domain->writeVectorToFile(solutions, step, tag, U);
     
     int i;
     const char* mode = nodal_output.step ? "a" : "w";
@@ -3046,36 +2962,40 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<double> &UromTotal)
-{
-/*
-  if (com->cpuNum() != 0) return;
-
-  if (fpStateRom) {
-    fprintf(fpStateRom, "%d %e", it, cpu);
-		for (int iPod = 0; iPod < nPod; ++iPod) {
-			fprintf(fpStateRom, " %23.15e", UromTotal[iPod]);	// write out with high precision
-		}
-    fprintf(fpStateRom, "\n");
-    fflush(fpStateRom);
-  }
-*/
-}
 
 template<int dim>
-void TsOutput<dim>::writeErrorToDisk(const int it, const double cpu, const int nErr, const double *error)
-{
-/*
-  if (com->cpuNum() != 0) return;
+void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
+                                                  DistSVec<double,dim> *state = NULL, DistSVec<double,dim> *residual = NULL)
+{ // Outputs state and residual snapshots (from the FOM newton solver) for building a nonlinear ROM.
+  // The logic tests ensure that every state from a given timestep is ouput (if requested), but that 
+  // no state snapshot is stored twice. (Need to be careful because the initial state of any given 
+  // timestep is the converged state from the previous timestep)
 
-  if (fpError) {
-    fprintf(fpError, "%d %e", it, cpu);
-		for (int iErr = 0; iErr < nErr; ++iErr) {
-			fprintf(fpError, " %23.15e", error[iErr]);	// write out with high precision
-		}
-    fprintf(fpError, "\n");
-    fflush(fpError);
+  timeStep = timeStep - 1; //need the counting to start at 0, not 1
+
+  if (state && stateVectors) {
+    double tag = *(domain->getNewtonTag());
+    double prevTag = -1;
+    int step = *(domain->getNewtonStateStep());  
+    int prevStep = step-1;
+    int dummy;
+    if (prevStep>=0) domain->readTagFromFile<double,dim>(stateVectors, prevStep, &prevTag, &dummy);
+    if ((stateOutputFreqNewton==0) && !lastNewtonIt) { //do nothing
+    } else if ((newtonIt==0) && (step!=0) && (prevTag==tag)) { //do nothing
+    } else if ((timeStep%stateOutputFreqTime==0) && (((stateOutputFreqNewton==0)&&lastNewtonIt)||(newtonIt%stateOutputFreqNewton==0)))  { 
+      // output FOM state 
+      domain->writeVectorToFile(stateVectors, step, tag, *state);
+      ++(*(domain->getNewtonStateStep()));
+    }
   }
-*/
+
+  if (residual && residualVectors && (timeStep%residualOutputFreqTime==0) && (newtonIt%residualOutputFreqNewton==0)) { 
+    // for FOM residuals only (residuals from PG are clustered during the online simulations)
+    domain->writeVectorToFile(residualVectors, *(domain->getNewtonResidualStep()), *(domain->getNewtonTag()), *residual);
+    ++(*(domain->getNewtonResidualStep()));
+  }
+
 }
+
+
+//------------------------------------------------------------------------------

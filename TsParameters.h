@@ -10,7 +10,9 @@ class TsParameters {
   double cfl0;
   double cflCoef1;
   double cflCoef2;
+  double cflCoef3;
   double cflMax;
+  double cflMaxSlope;
   double cflMin;
   double ser;
 

@@ -5,6 +5,7 @@
 #include <MatVecProd.h>
 #include <KspSolver.h>
 #include <MemoryPool.h>
+#include <string.h>
 
 #ifdef TYPE_MAT
 #define MatScalar TYPE_MAT
@@ -189,5 +190,38 @@ void ImplicitCoupledTsDesc<dim>::rstVarImplicitCoupledTsDesc(IoData &ioData)
     mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
 
 }
+
+//------------------------------------------------------------------------------
+
+
+template<int dim>
+template<int neq>
+KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, KspPrec<neq>, Communicator> *
+ImplicitCoupledTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &kspdata,
+          MatVecProd<dim,neq> *_mvp, KspPrec<neq> *_pc,
+          Communicator *_com)
+{
+
+  KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+    KspPrec<neq>, Communicator> *_ksp = 0;
+
+  if (kspdata.type == KspData::RICHARDSON) {
+    _ksp = new RichardsonSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+      KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
+  } else if (kspdata.type == KspData::CG) {
+    _ksp = new CgSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+      KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
+  } else if (kspdata.type == KspData::GMRES) {
+    _ksp = new GmresSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+      KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
+    if (this->kspBinaryOutput)  _ksp->setKspBinaryOutput(this->kspBinaryOutput);
+  } else if (kspdata.type == KspData::GCR) {
+     _ksp = new GcrSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+       KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
+  }
+  return _ksp;
+
+}
+
 
 //------------------------------------------------------------------------------

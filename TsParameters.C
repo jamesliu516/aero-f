@@ -22,7 +22,9 @@ TsParameters::TsParameters(IoData &ioData)
   cfl0 = ioData.ts.cfl0;
   cflCoef1 = ioData.ts.cflCoef1;
   cflCoef2 = ioData.ts.cflCoef2;
+  cflCoef3 = ioData.ts.cflCoef3;  // undocumented -- coefficient for quadratic CFL law
   cflMax = ioData.ts.cflMax;
+  cflMaxSlope = ioData.ts.cflMaxSlope;  //undocumented -- slope of cflMax curve
   cflMin = ioData.ts.cflMin;
   ser = ioData.ts.ser;
   dualtimecfl = ioData.ts.dualtimecfl;
@@ -53,7 +55,7 @@ TsParameters::~TsParameters()
 void TsParameters::computeCflNumber(int its, double res)
 {
 
-  cfl = min( max( max(cflCoef1, cflCoef2*its), cfl0/pow(res,ser) ), cflMax );
+  cfl = min( max( max(cflCoef1, max(cflCoef2*its, cflCoef3*its*its)), cfl0/pow(res,ser) ), (cflMax + cflMaxSlope*its) );
 
 }
 

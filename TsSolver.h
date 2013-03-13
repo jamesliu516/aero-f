@@ -119,7 +119,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-     
+    
+    *(probDesc->getTimeIt()) = it;
+ 
     bool solveOrNot = true;
     
     // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall

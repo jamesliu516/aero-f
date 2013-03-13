@@ -56,8 +56,8 @@ RestrictionMapping<dim>::RestrictionMapping(Domain * domain, InputIterator globa
 template <int dim>
 const DistSVec<double, dim> &
 RestrictionMapping<dim>::restriction(const DistSVec<double, dim> & in, DistSVec<double, dim> & out) const {
-  assert(&in.info() == &originDistInfo());
-  assert(&out.info() == &restrictedDistInfo());
+  //assert(&in.info() == &originDistInfo());
+  //assert(&out.info() == &restrictedDistInfo());
 
   for (int iSub = 0; iSub < localSubdomainCount(); ++iSub) {
     const SVec<double, dim> & subIn = in(iSub);
@@ -78,8 +78,8 @@ RestrictionMapping<dim>::restriction(const DistSVec<double, dim> & in, DistSVec<
 template <int dim>
 const DistSVec<double, dim> &
 RestrictionMapping<dim>::expansion(const DistSVec<double, dim> & in, DistSVec<double, dim> & out) const {
-  assert(&in.info() == &restrictedDistInfo());
-  assert(&out.info() == &originDistInfo());
+  //assert(&in.info() == &restrictedDistInfo());
+  //assert(&out.info() == &originDistInfo());
  
   out = 0.0;
 
@@ -102,8 +102,8 @@ RestrictionMapping<dim>::expansion(const DistSVec<double, dim> & in, DistSVec<do
 template <int dim>
 double
 RestrictionMapping<dim>::dotProduct(const DistSVec<double, dim> & originVec, const DistSVec<double, dim> & restrictedVec) const {
-  assert(&originVec.info() == &originDistInfo());
-  assert(&restrictedVec.info() == &restrictedDistInfo());
+  //assert(&originVec.info() == &originDistInfo());
+  //assert(&restrictedVec.info() == &restrictedDistInfo());
 
 #ifndef MPI_OMP_REDUCTION
   const int globalSubdomainCount = originDistInfo().numGlobSub;

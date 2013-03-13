@@ -353,7 +353,10 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
 	std::vector<std::vector<int> > sampledLocNodes =
 		restrictionMapping.getRestrictedToOriginLocNode() ;
 
-  double eps = computeEpsilon(Q, p);
+  DistSVec<double, dim> pRestricted(restrictionMapping.restrictedDistInfo());
+  restrictionMapping.restriction(p,pRestricted);
+
+  double eps = computeEpsilon(Q, pRestricted);
 
 // Included (MB)
   Qepstmp = Q + eps * p;

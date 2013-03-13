@@ -104,7 +104,7 @@ int main(int argc, char **argv)
     // choose between linearized, offline ROM, and nonlinear solvers
     if (ioData.problem.type[ProblemData::LINEARIZED]) {
       startModalSolver(com, ioData, domain);
-    } else if (ioData.problem.type[ProblemData::ROMOFFLINE]) {
+    } else if (ioData.problem.type[ProblemData::NLROMOFFLINE]) {
       startNonlinearRomOfflineSolver(com, ioData, domain);
     } else {
       startNavierStokesSolver(ioData, geoSource, domain);

@@ -95,7 +95,7 @@ protected:
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
-  bool monitorConvergence(int, DistSVec<double,dim> &);
+  virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
 // Included (MB)
   bool monitorForceConvergence(IoData &, int, DistSVec<double,dim> &);
@@ -125,7 +125,7 @@ public:
   void setFailSafe(bool flag){ failSafeFlag = flag; }
 
 // Modified (MB)
-  bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
+  virtual bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
 
   virtual void setupOutputToDisk(IoData &, bool *, int, double,
 			 	DistSVec<double,dim> &);
@@ -159,12 +159,17 @@ public:
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
   virtual void setFluidSubcycling(bool inSub) { }
 
-  virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
   void computeDistanceToWall(IoData &ioData);
+
+  virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
+
+  virtual void incrementNewtonOutputTag() {}
+  int *getTimeIt() { return domain->getTimeIt(); }
+  int *getNewtonIt() { return domain->getNewtonIt(); }
 };
 
 //------------------------------------------------------------------------------
