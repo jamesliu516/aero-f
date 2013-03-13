@@ -6512,6 +6512,20 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       for (int i=0; i<4; i++)
         for(int j=0;j<3;++j) Xf[i][j] = X[T[i]][j];
 
+// Compute barycentric coordinates
+      Vec3D bary;
+      E->computeBarycentricCoordinates(X,Xp,bary); 
+      if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0) {
+        E = 0;
+	continue;
+      }
+
+      Vec3D dbary[4];
+      dbary[0] = Vec3D(1.0-bary[0],bary[1],bary[2]);
+      dbary[1] = Vec3D(bary[0],1.0-bary[1],bary[2]);
+      dbary[2] = Vec3D(bary[0],bary[1],1.0-bary[2]);
+      dbary[3] = Vec3D(bary[0],bary[1],bary[2]);
+
 // For viscous simulation
       double dp1dxj[4][3]; // Gradient of the P1 basis functions
       for(int i=0;i<4;++i) for(int j=0;j<3;++j) dp1dxj[i][j] = 0.0;
@@ -6545,12 +6559,12 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
 	}
       }
 
-// Check for the nearest active node of the tet on the either side of the surface element
+// Check for the dual volume using barycentric coordinates) of the tet on the either side of the surface element
       double mindist[2] = {FLT_MAX,FLT_MAX};
       int node[2] = {-1,-1};
       Vec3D nf[2] = {-normal,normal};
       for (int i=0; i<4; i++) {
-	double dist = (Xp-Xf[i]).norm();
+	double dist = dbary[i].norm();
         if (norm[i] <= 0.) {
 	  if( LSS.isActive(0,T[i]) && dist < mindist[0] ) {
 	    mindist[0] = dist;
