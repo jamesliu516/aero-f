@@ -30,6 +30,10 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
+
+
+
+
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
   {
 // Modified (MB)
