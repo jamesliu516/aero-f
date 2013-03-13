@@ -1,90 +1,42 @@
-#ifndef _NONLINEAR_ROM_H_
-#define _NONLINEAR_ROM_H_
+#ifndef _NONLINEAR_ROM_DATABASE_CONSTRUCTION_H_
+#define _NONLINEAR_ROM_DATABASE_CONSTRUCTION_H_
+
+#include <NonlinearRom.h>
 
 template <int dim>
-class NonlinearRom {
+class NonlinearRomDatabaseConstruction : public NonlinearRom<dim> {
 
-  private:
-  Domain &domain;
-  Communicator *com; 
-  IoData *ioData;
+  protected:
 
-  // read from ioData->snapshots.clustering
-  int nClusters;
-  int minClusterSize;
-  int kMeansRandSeed;  
-  double percentOverlap;
-  double kMeansTol;
-
-  // read from ioData->snapshots.dataCompression
-  int maxBasisSize;
-  double singValTolerance;
-  double maxPercentEnergyRetained;
-
-  // file and directory names
-  const char* prefix;
-  const char* indexName;
-  const char* mapName;
-  const char* connName;
-  const char* centersName;
-  const char* nearestName;
-  const char* snapsName;
-  const char* basisName;
-  const char* clusterName;
-  const char* databaseName;
-  const char* singValName;
-  const char* projErrorName;
-  const char* basisUpdateName;
-
-  // intermediate quantities
-  int nTotSnaps;
-  VecSet< DistSVec<double, dim> >* snap; // snap(nTotSnaps, domain.getNodeDistInfo())
-  VecSet< DistSVec<double, dim> >* clusterCenters; // average of all snapshots in a cluster 
-  VecSet< DistSVec<double, dim> >* nearestSnapsToCenters; // closest snapshot to each cluster center 
-  int* snapsInCluster; // number of snaps in each cluster
-  int* clusterIndex; // stores original cluster association for each snapshot (before any overlap is introduced)
-  int** clusterSnapshotMap;  // one vector per cluster, lists snapshots to include in the cluster (including overlapping snapshots) 
-  int** clusterNeighbors;  // one vector per cluster, lists neighboring clusters
-  int* clusterNeighborsCount; // stores number of neighbors for each cluster
   VecSet<Vec<double> >* projErrorLog;
-  DistSVec<double, dim>* snapRefSol; 
+//  DistSVec<double, dim>* snapRefSol; 
 
-  // thin svd update quantities
-  double* columnSumsV;
-  double* sVals;
-  DistSVec<double, dim>* Uinit; 
+  // for snapshot collection method 0 (requires offline clustering of FOM residuals and Krylov vectors)
+  int nSnapshotFiles;         // number of snapshot files; should be the same for all FOM snapshots (state, residual, etc.)
+  int* stateSnapsFromFile;    // stateSnapsFromFile[iFile] = number of snapshots taken from file iFile;
+  double** stateSnapshotTags; // stateSnapshotInfo[iFile][iSnap] = tag associated with snapshot iSnap from file iFile
+  bool*** stateSnapshotClustersAfterOverlap;  // stateSnapshotClustersAfterOverlap[iFile][iSnap][iCluster] = true or false depending on whether snap iSnap
+                                              // from file iFile is a member of cluster iCluster
 
   // private functions
-  void readSnapshotFile(bool);
-  double distance(DistSVec<double, dim> &, DistSVec<double, dim> &);
   double calcResidual(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &);
-  void localPod();
+  void localPod(char *);
   void kmeans();
-  void outputClusterSnapshots();
-  void outputClusterBasis(int);
-  void readClusterSnapshots(int, bool);
-  void readNearestSnapsToCenters();
-  void localRelProjError();
+  void localRelProjError(); 
+ 
+  // IO functions that are independent of database structure
   void writeProjErrorToDisk();
-  void readReferenceSolution();
-  void outputClusterReferenceSnapshot(int, DistSVec<double, dim> &);
-  void readClusterReferenceSnapshot(int);
- 
- 
+  void readSnapshotFile(char *, bool);
+  void placeNonStateSnapshotsInClusters(char *);
+
   public:
 
-  NonlinearRom(Communicator *, IoData &, Domain &);
-  ~NonlinearRom();
+  NonlinearRomDatabaseConstruction(Communicator *, IoData &, Domain &);
+  ~NonlinearRomDatabaseConstruction();
 
-  VecSet< DistSVec<double, dim> >* basis;
-
-  void createAndAnalyzeDatabase();
-  void closestCenter(DistSVec<double, dim> &, int &, int &, double &, double &);
-  void readClusterCenters();
-  void readClusterBasis(int);
-  void updateBasis(int, DistSVec<double, dim> &);
+  void constructDatabase();
 
 };
 
-#include "NonlinearRom.C"
+#include "NonlinearRomDatabaseConstruction.C"
 #endif

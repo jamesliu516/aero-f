@@ -7,6 +7,7 @@
 #include <NonlinearRomOffline.h>
 #include <IoData.h>
 #include <NonlinearRom.h>
+#include <NonlinearRomDatabaseConstruction.h>
 #include <DistVector.h>
 #include <VectorSet.h>
 #include <MatVecProd.h>
@@ -37,17 +38,28 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
  Timer *modalTimer = domain.getTimer();
  double t0;
 
- const char *snapsFile = tInput->snapFile;
 
- if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile){
-   t0 = modalTimer->getTime();
-   NonlinearRom<dim> NonlinearRom(com,*ioData,domain);
-   NonlinearRom.createAndAnalyzeDatabase();
-   modalTimer->addPodConstrTime(t0);
+ if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_) {
+   // create file system, cluster snapshots, construct ROBs
+   if (ioData->romDatabase.nClusters > 0) {
+     t0 = modalTimer->getTime();
+     NonlinearRomDatabaseConstruction<dim> rom(com,*ioData,domain);
+     rom.constructDatabase();
+     modalTimer->addPodConstrTime(t0);
+   }
+   // perform GNAT preprocessing (probably for snapshot collection method 0)
+   const char *gnatPrefix = ioData->romDatabase.files.gnatPrefix;
+   const char *sampledNodesName = ioData->romDatabase.files.sampledStateBasisName;
+   if (gnatPrefix || sampledNodesName) {
+     geoState = new DistGeoState(*ioData, &domain);
+     geoState->setup1(ioData->input.positions, &Xref, &controlVol);
+     GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);
+     gappy.buildReducedModel();
+   }
  }
  else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_){
    geoState = new DistGeoState(*ioData, &domain);
-   geoState->setup1(tInput->positions, &Xref, &controlVol);
+   geoState->setup1(ioData->input.positions, &Xref, &controlVol);
    GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);
    gappy.buildReducedModel();
  }

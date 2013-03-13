@@ -50,19 +50,19 @@ TsInput::~TsInput() {
   delete[] positions;
   delete[] levelsets;
   delete[] podFile;
-  delete[] snapFile;
-  delete[] snapRefSolutionFile;
-  delete[] podFileRes;
-  delete[] podFileJac;
-  delete[] podFileResHat;
-  delete[] podFileJacHat;
-  delete[] sampleNodes;
-  delete[] jacMatrix;
-  delete[] resMatrix;
+ // delete[] snapFile;
+ // delete[] snapRefSolutionFile;
+ // delete[] podFileRes;
+ // delete[] podFileJac;
+ // delete[] podFileResHat;
+ // delete[] podFileJacHat;
+ // delete[] sampleNodes;
+ // delete[] jacMatrix;
+ // delete[] resMatrix;
   delete[] shapederivatives; 
-  delete[] staterom;
-  delete[] reducedfullnodemap ;
-  delete[] mesh ;
+ // delete[] staterom;
+ // delete[] reducedfullnodemap ;
+ // delete[] mesh ;
 }
 
 //------------------------------------------------------------------------------

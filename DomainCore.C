@@ -112,7 +112,13 @@ Domain::Domain()
 
   numGlobNode = 0;	// only compute if needed
   
-  output_newton_step = 0;
+  // for outputting ROM snapshots from FOM
+  outputTimeIt = 0;
+  outputNewtonIt = 0;
+  outputNewtonTag = 0.0;
+  outputNewtonStateStep = 0; 
+  outputNewtonResidualStep = 0;
+  outputKrylovStep = 0;
  
 }
 
@@ -123,7 +129,8 @@ Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType
     vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0),
     weightPat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
     inletCountPat(0), inletRhsPat(0), Delta(0), CsDelSq(0), PrT(0), WCsDelSq(0), WPrT(0), tag(0), tagBar(0),
-    weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), output_newton_step(0)
+    weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), outputTimeIt(0),
+    outputNewtonIt(0), outputNewtonTag(0.0), outputNewtonStateStep(0), outputNewtonResidualStep(0), outputKrylovStep(0)
 {
   timer = new Timer(com);
 }
@@ -1632,28 +1639,6 @@ void Domain::computeNumGlobNode() {
 	com->globalSum(1, &numGlobNode);
 }
 
-void Domain::readSampleNodes(std::vector<int> &sampleNodes, int &nSampleNodes,
-		const char *sampleNodeFileName) {
-
-	// INPUT: sample node file name
-	// OUTPUT: nSampleNodes, sampleNodes
-
-	FILE *sampleNodeFile = fopen(sampleNodeFileName, "r");
-	int nSampleNodesTmp, count;
-	count = fscanf(sampleNodeFile, "%d",&nSampleNodesTmp);	// first entry is the number of sample nodes
-
-	if (nSampleNodes == 0) {
-		nSampleNodes = nSampleNodesTmp;
-	}
-	sampleNodes.reserve(nSampleNodes);	// know it will be nSampleNodes long (efficiency)
-
-	int index, currentSampleNode;
-	for (int i = 0; i < nSampleNodes; ++i){
-		count = fscanf(sampleNodeFile, "%d",&index);
-		count = fscanf(sampleNodeFile, "%d",&currentSampleNode);
-		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
-	}
-}
 
 void Domain::computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes) {
 

@@ -8,6 +8,7 @@
 #include <KspSolver.h>
 #include <NewtonSolver.h>
 #include <MultiGridPrec.h>
+#include <string.h>
 
 //------------------------------------------------------------------------------
 
@@ -27,6 +28,12 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);
 
+  if (strcmp(ioData.output.rom.krylovVector,"")==0) {
+    kspBinaryOutput = NULL;
+  } else {
+    kspBinaryOutput = new KspBinaryOutput<DistSVec<double,dim> >(this->domain->getCommunicator(), &ioData, this->domain);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -34,9 +41,9 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
 template<int dim>
 ImplicitTsDesc<dim>::~ImplicitTsDesc()
 {
-
   if (tag) delete tag;
   if (ns) delete ns;
+  if (kspBinaryOutput) delete kspBinaryOutput;
 
 }
 
@@ -163,7 +170,6 @@ ImplicitTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &kspdata,
   else if (kspdata.type == KspData::GCR)
      _ksp = new GcrSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
        KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
-                                                        
   return _ksp;
 
 }
@@ -195,3 +201,21 @@ void ImplicitTsDesc<dim>::resetFixesTag()
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
+                                                        DistSVec<double,dim> *state = NULL, DistSVec<double,dim> *residual = NULL)
+{
+  this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, state, residual); 
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitTsDesc<dim>::incrementNewtonOutputTag()
+{
+    ++(*(this->domain->getNewtonTag()));
+
+}
+

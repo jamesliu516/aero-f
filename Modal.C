@@ -1815,7 +1815,7 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
     }
   }
 
-  double tolerance = ioData->romOffline.rob.dataCompression.tolerance;
+  double tolerance = ioData->linearizedData.tolerance;
 
   com->barrier();
   ARdsSymMatrix<double> pod(nSnaps, rVals, 'U');
@@ -2652,6 +2652,7 @@ void ModalSolver<dim>::computeRelativeEnergy(FILE *sValsFile, const Vec<double> 
 }
 
 //------------------------------------------------------------------------------
+/*  // an interesting idea, but not currently implemented (KMW)
 template<int dim>
 void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSnap, const int nSnaps){
 
@@ -2674,7 +2675,7 @@ void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSna
 	}
 	snap *= scalingFactor;
 }
-
+*/
 //------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::wait(const int seconds )

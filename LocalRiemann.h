@@ -28,7 +28,7 @@ public:
   virtual ~LocalRiemann()  { vf_ = 0; }
 
   // multiphase Riemann problem
-  virtual int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){}
+  virtual int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){return 0;}
   virtual void computeRiemannSolution(double *Vi, double *Vj,
 				      int IDi, int IDj, double *nphi,
 				      double *initWi, double *initWj,

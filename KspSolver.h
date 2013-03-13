@@ -5,6 +5,7 @@
 #include <Vector.h>
 #include <DenseMatrix.h>
 #include <VectorSet.h>
+#include <KspBinaryOutput.h>
 
 class KspData;
 class KspConvCriterion;
@@ -34,6 +35,7 @@ protected:
 
   KspConvCriterion *kspConvCriterion;
 
+
   FILE *output;
 
 public:
@@ -48,6 +50,10 @@ public:
   virtual int solveLS(VecType &, VecType &) { return 0; };
 
   void printParam() { ioOp->fprintf(stderr, " solver params: %d maxits, %e eps\n", maxits, eps);  }
+
+  void setKspBinaryOutput(KspBinaryOutput<VecType>*);
+  KspBinaryOutput<VecType> *kspBinaryOutput;
+
 };
 
 //------------------------------------------------------------------------------
@@ -114,7 +120,8 @@ public:
   void applyPreviousRotations(int, GenFullM<ScalarT> &, GenFullM<ScalarT> &);
   void applyNewRotation(int, GenFullM<ScalarT> &, GenFullM<ScalarT> &, Vec<ScalarT> &);
   void backwardSolve(int, GenFullM<ScalarT> &, Vec<ScalarT> &, Vec<ScalarT> &);
-
+  
+  //void writeKrylovVectors();
 };
 
 //------------------------------------------------------------------------------

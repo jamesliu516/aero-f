@@ -28,16 +28,18 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
     }
-		else if ((ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_) || (ioData.problem.alltype == ProblemData::_ACC_NONLINEAR_ROM_) ) {
+		else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
+             (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
+             (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ) {
 			if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 0) {
-				ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-				TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
-				tsSolver.solve(ioData);
+        ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
+        tsSolver.solve(ioData);
 			}
 			else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 1) {
-					ImplicitGnatTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-					TsSolver<ImplicitGnatTsDesc<dim> > tsSolver(&tsDesc);
-					tsSolver.solve(ioData);
+        ImplicitGnatTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        TsSolver<ImplicitGnatTsDesc<dim> > tsSolver(&tsDesc);
+        tsSolver.solve(ioData);
 			}
 			/*else if (ioData.rom.projection == 1 && ioData.rom.systemApproximation == 0) {
 					ImplicitGalerkinTsDesc<dim> tsDesc(ioData, geoSource, &domain);
@@ -45,12 +47,12 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
 					tsSolver.solve(ioData);
 			}*/
 			else
-				com->fprintf(stderr, "*** Error: this type of nonlinear ROM simulation is not currently supported\n");
+        com->fprintf(stderr, "*** Error: this type of nonlinear ROM simulation is not currently supported\n");
 		}
     else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
-				ImplicitRomPostproTsDesc <dim> tsDesc(ioData, geoSource, &domain);
-				TsSolver<ImplicitRomPostproTsDesc<dim> > tsSolver(&tsDesc);
-				tsSolver.solve(ioData);
+      ImplicitRomPostproTsDesc <dim> tsDesc(ioData, geoSource, &domain);
+      TsSolver<ImplicitRomPostproTsDesc<dim> > tsSolver(&tsDesc);
+      tsSolver.solve(ioData);
 		}
     else if (ioData.ts.type == TsData::IMPLICIT) {
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
