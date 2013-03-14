@@ -939,6 +939,7 @@ struct ProgrammedBurnData {
   double ignitionTime;
   double factorB;
   double factorS;
+  double stopWhenShockReachesPercentDistance;
   int ignited;
   int limitPeak;
   

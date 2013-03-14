@@ -111,10 +111,17 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   riemann = new ExactRiemannSolver<5>(ioData,rupdate,weight, interfacialWi,
 				      interfacialWj, varFcn,
 				      tabulationC, fidToSet);
-  
+
   if (ioData.oneDimensionalInfo.programmedBurn.unburnedEOS >= 0) {
     programmedBurn = new ProgrammedBurn(ioData,&this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
+  }
+  programmedBurnStopPercentDistance = ioData.oneDimensionalInfo.programmedBurn.stopWhenShockReachesPercentDistance ;
+  if ( ioData.oneDimensionalInfo.programmedBurn.unburnedEOS >= 0 ){
+    programmedBurnIsUsed = true ;
+  }
+  else{
+    programmedBurnIsUsed = false ;
   }
 
   setupOutputFiles(ioData);
@@ -123,7 +130,6 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   setupFixes(ioData);
 
   cutCellStatus = 0;
-
 
   if (ioData.schemes.ns.dissipation == SchemeData::SIXTH_ORDER) {
     isSixthOrder = true;
@@ -577,9 +583,9 @@ void OneDimensional::totalTimeIntegration(){
     // determine how much to advance in time
     dt = cfl*computeMaxTimeStep();
 
-    if (programmedBurn)
+    if (programmedBurn){
       programmedBurn->setCurrentTime(time,varFcn, U,fluidId,fluidIdn);
-
+    }
     if(time+dt>finalTime) dt = finalTime-time;
     if(frequency > 0 && iteration % frequency == 0)
       cout <<"*** Iteration " << iteration <<": Time = "<<time*refVal.time<<", and dt = "<<dt*refVal.time<<endl;
@@ -588,6 +594,32 @@ void OneDimensional::totalTimeIntegration(){
     // advance one iteration
     singleTimeIntegration(dt);
     time += dt;
+
+    // Programmed burn shock sensor:
+    // If programmed burn is used, if the shock reaches a specified maximum location, stop the simulation:
+    if (programmedBurnIsUsed == true && iteration > 10 ){
+      // Obtain the shock sensor node numbers:
+      int shockSensorNode3 = floor( numPoints * programmedBurnStopPercentDistance ) ;
+      int shockSensorNode2 = shockSensorNode3 - 1 ;
+      int shockSensorNode1 = shockSensorNode2 - 1 ;
+      // Obtain the x-velocity at the shock sensor nodes:
+      double velocityAtShockSensorNode1 = abs(V[shockSensorNode1][1]) ;
+      double velocityAtShockSensorNode2 = abs(V[shockSensorNode2][1]) ;
+      double velocityAtShockSensorNode3 = abs(V[shockSensorNode3][1]) ;
+      // Calculate the shock sensor value (this is similar to how a flux limiter works):
+      double shockSensorValue = 1.0 ;
+      if (velocityAtShockSensorNode1 > 0.0 && velocityAtShockSensorNode2 > 0.0 && velocityAtShockSensorNode3 > 0.0 ) {
+        shockSensorValue = ( velocityAtShockSensorNode2 - velocityAtShockSensorNode1 )/( velocityAtShockSensorNode3 - velocityAtShockSensorNode2 ) ;
+      }
+      // The shock sensor value tends to 0 on a strong shock, and tends to 1 otherwise.
+      // If the shock sensor is less than a threshold value (0.5), the detonation shock has reached the sensor, and the simulation is stopped:
+      if (shockSensorValue < 0.5 ){
+        double currentTime = time ;
+        finalTime = time ;
+        std::cout << "*** The shockwave has reached " << programmedBurnStopPercentDistance*100.0 << " percent of the mesh distance at the time of " << currentTime*refVal.time << " seconds." << std::endl ;
+        std::cout << "*** The simulation has stopped automatically." << std::endl ;
+      }
+    }
 
     outputProbes(time,iteration-1);
 
