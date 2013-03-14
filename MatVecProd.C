@@ -241,18 +241,18 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
   Qepstmp.pad(Qeps);
   
-  // Ghost-Points Population
-  if(this->isFSI && this->fsi.ghostPoints)
-    {
-      this->fsi.ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
-    }
+//  // Ghost-Points Population
+//  if(this->isFSI && this->fsi.ghostPoints)
+//    {
+//      this->fsi.ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+//    }
 
   if (!this->isFSI)
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   else
     spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
-                             this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
+                             this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                              Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
 
   if (timeState) {
@@ -276,17 +276,17 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     
     Qepstmp.pad(Qeps);
   
-    if(this->isFSI && this->fsi.ghostPoints)
-    {
-      this->fsi.ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
-    }
-
+//    if(this->isFSI && this->fsi.ghostPoints)
+//    {
+//      this->fsi.ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+//    }
+//
     if (!this->isFSI)
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     else
       spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
-                               this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
+                               this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                                Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
  
     if (timeState) {
@@ -1495,7 +1495,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, -1);
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
-                                   this->fsi.LSS, this->fsi.linRecAtInterface,
+                                   this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
                                    this->riemann, this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
                                    *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
 
@@ -1519,7 +1519,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, -1);
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
-                                   this->fsi.LSS, this->fsi.linRecAtInterface,
+                                   this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
                                    this->riemann,this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
                                    *this->fluidSelector, F, 0, this->fsi.ghostPoints);    
 

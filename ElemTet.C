@@ -170,10 +170,22 @@ void ElemTet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,
 template<int dim>
 void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
                            Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
-                           SVec<double,dim> &V, double gam, double R)
+                           SVec<double,dim> &V, double gam, double R,
+                           Vec<GhostPoint<dim>*> *ghostPoints,
+                           LevelSetStructure *LSS)
 
 {
 
+// In the case of an embedded simulation, check if the tetrahedra is actually active
+  bool isTetInactive=true,isAtTheInterface=false;
+  if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
+    for (int i=0;i<4;++i)
+      isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
+    for (int l=0; l<6; ++l)
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    if (isTetInactive) return;
+  }
+  
   double dp1dxj[4][3], dudxj[4][3], u[4][3];
   double NCG;
   double Int;                         // stores intermediate values
@@ -185,6 +197,24 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   int i_eng = 0;
   int i_sij = -1;
 
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+
+  if (ghostPoints && isAtTheInterface) { // Don't update states associated to ghost points
+    GhostPoint<dim> *gp;
+    for (int j=0; j<4; ++j) {
+      int idx = nodeNum(j);
+      if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
+        for (int e=0; e<6; e++) {
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          {
+            int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+            gp = (*ghostPoints)[nodeNum(l)];
+            if (gp) v[l] = gp->getPrimitiveState();
+          }
+        }
+      }
+    }
+  }
 
   // Multiplication factor for averaging //
 
@@ -195,7 +225,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   for (i=0; i<dim; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum(j)][i];
+      Int += v[j][i];
     }
     for (j=0; j<4; ++j){
       VCap[nodeNum(j)][i] += (NCG*Int);
@@ -213,7 +243,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   for (i=1; i<4; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum(j)][0]*V[nodeNum(j)][i];
+      Int += v[j][0]*v[j][i];
     }
     ++i_mom;
     for (j=0; j<4; ++j){
@@ -227,7 +257,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     for (k=i; k<4; ++k){
       Int = 0.0;
       for (j=0; j<4; ++j){
-        Int += V[nodeNum(j)][0]*V[nodeNum(j)][i]*V[nodeNum(j)][k];
+        Int += v[j][0]*v[j][i]*v[j][k];
       }
       ++i_mom;
       for (j=0; j<4; ++j){
@@ -240,21 +270,21 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
 
   // step -1 : getting the velocities in to u matrix
 
-    u[0][0] = V[nodeNum(0)][1];
-    u[0][1] = V[nodeNum(0)][2];
-    u[0][2] = V[nodeNum(0)][3];
+    u[0][0] = v[0][1];
+    u[0][1] = v[0][2];
+    u[0][2] = v[0][3];
 
-    u[1][0] = V[nodeNum(1)][1];
-    u[1][1] = V[nodeNum(1)][2];
-    u[1][2] = V[nodeNum(1)][3];
+    u[1][0] = v[1][1];
+    u[1][1] = v[1][2];
+    u[1][2] = v[1][3];
 
-    u[2][0] = V[nodeNum(2)][1];
-    u[2][1] = V[nodeNum(2)][2];
-    u[2][2] = V[nodeNum(2)][3];
+    u[2][0] = v[2][1];
+    u[2][1] = v[2][2];
+    u[2][2] = v[2][3];
 
-    u[3][0] = V[nodeNum(3)][1];
-    u[3][1] = V[nodeNum(3)][2];
-    u[3][2] = V[nodeNum(3)][3];
+    u[3][0] = v[3][1];
+    u[3][1] = v[3][2];
+    u[3][2] = v[3][3];
 
   
   // step -2 : compute velocity gradients
@@ -323,7 +353,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   for (i=0; i<6; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum(j)][0]*sqrt2S2*Pij[i];
+      Int += v[j][0]*sqrt2S2*Pij[i];
     }
     ++i_mom;
     for (j=0; j<4; ++j){
@@ -355,7 +385,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   
   Int = 0.0;
   for (j=0; j<4; ++j){
-    Int += V[nodeNum(j)][0]*((1.0/gam1)*(V[nodeNum(j)][4]/V[nodeNum(j)][0])+0.5*squ[j]);
+    Int += v[j][0]*((1.0/gam1)*(v[j][4]/v[j][0])+0.5*squ[j]);
   }
   for (j=0; j<4; ++j){
     Eng_Test[nodeNum(j)][i_eng] += (NCG*Int);
@@ -367,7 +397,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
 
   Int = 0.0;
   for (j=0; j<4; ++j){
-    Int += V[nodeNum(j)][0]*((1.0/gam1)*(V[nodeNum(j)][4]/V[nodeNum(j)][0])+0.5*squ[j])+V[nodeNum(j)][4];
+    Int += v[j][0]*((1.0/gam1)*(v[j][4]/v[j][0])+0.5*squ[j])+v[j][4];
   }
   for (j=0; j<4; ++j){
     Eng_Test[nodeNum(j)][i_eng] += (NCG*Int);
@@ -380,7 +410,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
  
   double t[4]; 
   for (j=0; j<4; ++j)
-    t[j] = V[nodeNum(j)][4]/(R*V[nodeNum(j)][0]);
+    t[j] = v[j][4]/(R*v[j][0]);
 
   // step-2: computing derivative of temp at the cg 
 
@@ -394,7 +424,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   for (i=0; i<3; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum(j)][0]*sqrt2S2*dtdxj[i];
+      Int += v[j][0]*sqrt2S2*dtdxj[i];
     }
     ++i_eng;
     for (j=0; j<4; ++j){
@@ -568,8 +598,20 @@ void ElemTet::computeVMSLESTerm(VMSLESTerm *vmst,
 
 template<int dim>
 void ElemTet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-					SVec<double,dim> &V, SVec<double,dim> &R)
+					SVec<double,dim> &V, SVec<double,dim> &R, 
+                                        Vec<GhostPoint<dim>*> *ghostPoints,
+                                        LevelSetStructure *LSS)
 {
+
+// In the case of an embedded simulation, check if the tetrahedra is actually active
+  bool isTetInactive=true,isAtTheInterface=false;
+  if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
+    for (int i=0;i<4;++i)
+      isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
+    for (int l=0; l<6; ++l)
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    if (isTetInactive) return;
+  }
   
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
@@ -577,8 +619,25 @@ void ElemTet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
   
   double r[3][dim];
   
+  if (ghostPoints && isAtTheInterface) { // Don't update states associated to ghost points
+    GhostPoint<dim> *gp;
+    for (int j=0; j<4; ++j) {
+      int idx = nodeNum(j);
+      if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
+        for (int e=0; e<6; e++) {
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          {
+            int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+            gp = (*ghostPoints)[nodeNum(l)];
+            if (gp) v[l] = gp->getPrimitiveState();
+          }
+        }
+      }
+    }
+  }
+
   smag->compute(vol, dp1dxj, v, reinterpret_cast<double *>(r), X, nodeNum());
-  
+
   for (int j=0; j<4; ++j) {
     int idx = nodeNum(j);
     for (int k=0; k<dim; ++k) {
@@ -593,8 +652,20 @@ void ElemTet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
 
 template<int dim>
 void ElemTet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
-			     SVec<double,dim> &V, SVec<double,dim> &R)
+			     SVec<double,dim> &V, SVec<double,dim> &R,
+                             Vec<GhostPoint<dim>*> *ghostPoints,
+                             LevelSetStructure *LSS)
 {
+  
+// In the case of an embedded simulation, check if the tetrahedra is actually active
+  bool isTetInactive=true,isAtTheInterface=false;
+  if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
+    for (int i=0;i<4;++i)
+      isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
+    for (int l=0; l<6; ++l)
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    if (isTetInactive) return;
+  }
   
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
@@ -602,6 +673,23 @@ void ElemTet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
   
   double r[3][dim];
   
+  if (ghostPoints && isAtTheInterface) { // Don't update states associated to ghost points
+    GhostPoint<dim> *gp;
+    for (int j=0; j<4; ++j) {
+      int idx = nodeNum(j);
+      if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
+        for (int e=0; e<6; e++) {
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          {
+            int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+            gp = (*ghostPoints)[nodeNum(l)];
+            if (gp) v[l] = gp->getPrimitiveState();
+          }
+        }
+      }
+    }
+  }
+
   wale->compute(vol, dp1dxj, v, reinterpret_cast<double *>(r), X, nodeNum());
   
   for (int j=0; j<4; ++j) {
@@ -618,9 +706,22 @@ void ElemTet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 
 template<int dim>
 void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
-                                    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
+                                    SVec<double,3> &X, SVec<double,dim> &V, 
+                                    SVec<double,dim> &R,
+                                    Vec<GhostPoint<dim>*> *ghostPoints,
+                                    LevelSetStructure *LSS)
 {
 
+  // In the case of an embedded simulation, check if the tetrahedra is actually active
+  bool isTetInactive=true,isAtTheInterface=false;
+  if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
+    for (int i=0;i<4;++i)
+      isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
+    for (int l=0; l<6; ++l)
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    if (isTetInactive) return;
+  }
+  
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
   double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
@@ -630,6 +731,23 @@ void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
                   Cs[nodeNum(2)][1], Cs[nodeNum(3)][1]};
 
   double r[3][dim];
+
+  if (ghostPoints && isAtTheInterface) { // Don't update states associated to ghost points
+    GhostPoint<dim> *gp;
+    for (int j=0; j<4; ++j) {
+      int idx = nodeNum(j);
+      if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
+        for (int e=0; e<6; e++) {
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          {
+            int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+            gp = (*ghostPoints)[nodeNum(l)];
+            if (gp) v[l] = gp->getPrimitiveState();
+          }
+        }
+      }
+    }
+  }
 
   dles->compute(vol, dp1dxj, v, cs, pt, reinterpret_cast<double *>(r), X, nodeNum());
 
@@ -1987,6 +2105,7 @@ void ElemTet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,
   int type = findLSIntersectionPoint(lsdim,Phi,ddx,ddy,ddz,X,reorder,P,MultiFluidData::LINEAR);
   if(type>0) recomputeDistanceToInterface(type,X,reorder,P,Psi,Tag);
 }
+
 //------------------------------------------------------------------------------
 template<int dim>
 void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
@@ -2005,6 +2124,26 @@ void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
       Psi[nodeNum(i)][0] = min(Psi[nodeNum(i)][0], psi);
     }
   }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                                    SVec<double,3> &X,SVec<double,dim> &d2wall)
+{
+  if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
+       Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level   ))
+    return;
+
+  // Looking for node position in the Tet
+  int i;
+  for (i=0; i<4; i++) {if(nodeNum(i)==node) break;} // Found i
+  if(i==4) { // Didn't find it. Something is wrong
+    printf("This may not be the tet you are looking for\n Node: %d, Tet Nodes: %d %d %d %d\nAbort!",node,nodeNum(0),nodeNum(1),nodeNum(2),nodeNum(3));
+    exit(-1);
+  }
+  double distance = computeDistancePlusPhi(i,X,d2wall);
+  d2wall[nodeNum(i)][0] = min(d2wall[nodeNum(i)][0], distance);
 }
 
 //------------------------------------------------------------------------------
@@ -2040,7 +2179,7 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
 
   found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,minimum,show);
 	
-  computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,minimum,show);
+  if(!found) computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,minimum,show);
 
   return minimum;
 

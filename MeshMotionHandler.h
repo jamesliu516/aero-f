@@ -6,12 +6,14 @@
 #include <Vector3D.h>
 #include <LevelSet/LevelSetStructure.h>
 #include <FSI/DynamicNodalTransfer.h>
+#include <EmbeddedCorotSolver.h>
 
 class VarFcn;
 class MatchNodeSet;
 class Domain;
 class StructExc;
 class CorotSolver;
+class EmbeddedCorotSolver;
 class MeshMotionSolver;
 class MemoryPool;
 
@@ -215,14 +217,21 @@ class PitchingMeshMotionHandler : public MeshMotionHandler {
   double alpha_in;
   double alpha_max;
 
+  double beta_in;
+  double beta_max;
+
   double dt;
   double omega;
 
   double x1[3];
   double x2[3];
 
+  double y1[3];
+  double y2[3];
+
   double u, v, w;
   double ix, iy, iz;
+  double jx, jy, jz;
 
   MeshMotionSolver *mms;
 
@@ -353,6 +362,34 @@ public:
 };
 
 //------------------------------------------------------------------------------
+//
+class EmbeddedALEMeshMotionHandler : public MeshMotionHandler {
+
+protected:
+
+  double dt;
+
+  DistLevelSetStructure *distLSS; //<! interface finder (not necessarily a levelset solver).
+
+  EmbeddedCorotSolver *cs;
+
+  double *Xs0;
+
+public:
+
+  EmbeddedALEMeshMotionHandler(IoData &, Domain *, DistLevelSetStructure *);
+  ~EmbeddedALEMeshMotionHandler();
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  void setup(DistSVec<double,3> &, DistSVec<double,3> &);
+
+};
+
+//------------------------------------------------------------------------------
+
 
 class RbmExtractor : public MeshMotionHandler {
 

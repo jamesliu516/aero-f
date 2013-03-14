@@ -111,7 +111,7 @@ Uc(dom->getNodeDistInfo())
   pc = ImplicitTsDesc<dim>::template
     createPreconditioner<PrecScalar,dim>(ioData.sa.ksp.pc, domain);
 
-  ksp = createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
+  ksp = this->createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
 
   MemoryPool mp;
 
@@ -997,7 +997,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   A=*Ap;
 
   dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->spaceOp->computeResidual(*Xp, *Ap, U, *Fp, this->timeState);
 
@@ -1026,7 +1026,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   A=*Am;
 
   dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->spaceOp->computeResidual(*Xm, *Am, U, *Fm, this->timeState);
 
@@ -1053,7 +1053,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   this->bcData->update(X);
 
   dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->spaceOp->computeGradP(X, A, U);
 
@@ -1302,21 +1302,20 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
   teta = ioData.sa.betaref;
 
   double dtLeft = 0.0;
-  computeTimeStep(1, &dtLeft, U);
+  this->computeTimeStep(1, &dtLeft, U);
 
   this->computeMeshMetrics();
 
-  updateStateVectors(U);  
+  this->updateStateVectors(U);  
 
   // Setting up the linear solver
   fsaSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
 
-    bool stepStop = false;
     double tag = 0.0;
 
-    step = ioData.sa.si;
+    step = 0;
     dXdS = 0.0;
     dXdSb = 0.0;
     dAdS = 0.0;
@@ -1325,10 +1324,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     DFSPAR[2] = 0.0;
     actvar = 1;
 
-    while (!stepStop) {
+    while (true) {
 
       // Reading derivative of the overall deformation
-      domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
+      bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
+			if(!readOK) break;
 
 // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
@@ -1352,16 +1352,13 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
         this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
       }
 
-      fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+      fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
   
       fsaComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
 
       dXdSb = 0.0;
 
       step = step + 1;
-
-      if ((ioData.sa.sf >= 0) && (ioData.sa.sf < step))
-        stepStop = true;
 
     }
 
@@ -1378,7 +1375,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     DFSPAR[2] = 0.0;
     actvar = 2;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsaComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1399,7 +1396,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     if (!ioData.sa.angleRad) 
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsaComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1423,7 +1420,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     if (!ioData.sa.angleRad)
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsaComputeSensitivities(ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1458,8 +1455,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeDerivativesOfFluxAndSolutio
   IoData &ioData, 
   DistSVec<double,3> &X, 
   DistVec<double> &A, 
-  DistSVec<double,dim> &U,
-  int step
+  DistSVec<double,dim> &U
 )
 {
 

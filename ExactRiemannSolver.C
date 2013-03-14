@@ -13,10 +13,12 @@ template<int dim>
 ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupdate,
                                             Vec<double> &_weight, SVec<double,dim-2> &_interfacialWi,
                                             SVec<double,dim-2> &_interfacialWj, VarFcn *vf,
-                                            SparseGridCluster *sgCluster):
+                                            SparseGridCluster *sgCluster,
+                                            Vec<int>& fluidIdToSet):
                                             rupdate(_rupdate), weight(_weight),
                                             interfacialWi(_interfacialWi),
-                                            interfacialWj(_interfacialWj)
+                                            interfacialWj(_interfacialWj),
+                                            fluidIdToSet(fluidIdToSet)
 {
 
   iteration = -1;
@@ -25,8 +27,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(iod.problem.framework==ProblemData::EMBEDDED || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN) 
+  if(iod.problem.framework==ProblemData::EMBEDDED || iod.problem.framework==ProblemData::EMBEDDEDALE || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN) { 
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
+    dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setStabilAlpha(iod.embed.stabil_alpha);
+  }
 
   for (int i = 0; i < 10; ++i) {
     for (int j = 0; j < 10; ++j)
@@ -182,6 +186,8 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 					      Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
 					      dx,iteration,isHigherOrder);
 
+  fluidIdToSet[i] = fluidIdToSet[j] = (IDi+IDj-1);
+
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -244,6 +250,7 @@ void ExactRiemannSolver<dim>::reset(int it)
   if(iteration==1){
     rupdate = 0.0;
     weight  = 0.0;
+    fluidIdToSet = -1;
   }
 
 }

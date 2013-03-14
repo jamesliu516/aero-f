@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 enable_language(Fortran)
 
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_admin")
+
 ###################
 # Local Variables #
 ###################
 SITE_NAME(HOSTNAME)
-FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
+#FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
 MARK_AS_ADVANCED(HOSTNAME)
 MARK_AS_ADVANCED(LOCAL_DIR)
 ###################
+
+option(AEROACOUSTIC "Enable aeroacoustic computations" OFF)
 
 IF(USE_OPENMP)
   FIND_PACKAGE(OpenMP REQUIRED)
@@ -41,6 +45,14 @@ IF(NOT EXTRALIB)
 SET(EXTRALIB "")
 ENDIF(NOT EXTRALIB)
 
+IF(AEROACOUSTIC)
+  FIND_PACKAGE(GSL REQUIRED)
+  FIND_PACKAGE(FFTW REQUIRED)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GSL_CFLAGS} -I${FFTW_INCLUDE_DIR} -DAEROACOUSTIC")
+ENDIF(AEROACOUSTIC)
+
+#message("${GSL_LIBRARIES} ${FFTW_LIBRARIES}")
+
 SET(EXTRALIB ${EXTRALIB} CACHE STRING "Extra link parameters")
 
 SET(CMAKE_DEBUG_POSTFIX "_debug")
@@ -57,6 +69,11 @@ IF(LAPACK_LIBRARIES)
   SET(EXTRALIBRARIES ${LAPACK_LIBRARIES} ${EXTRALIBRARIES})
 ENDIF(LAPACK_LIBRARIES)
 
+#message("${GSL_LIBRARIES} ${FFTW_LIBRARIES}")
+if (AEROACOUSTIC)
+  SET(EXTRALIB ${EXTRALIB} ${GSL_LIBRARIES} ${FFTW_LIBRARIES})
+ENDIF(AEROACOUSTIC)
+
 FIND_PACKAGE(MPI)
 
 SET(TARGETS_INST fluid)
@@ -66,7 +83,7 @@ IF(UNIX)
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 
     IF(NOT WITH_ARPACK EQUAL 0)
-      FIND_LIBRARY(ARPACKLIB NAMES arpack 
+      FIND_LIBRARY(ARPACKLIB NAMES arpack arpack_LINUX
          PATHS  . /usr/lib /usr/local/lib)
     ELSE(NOT WITH_ARPACK EQUAL 0)
       SET(ARPACKLIB "ARPACKLIB-NOTFOUND")
@@ -149,7 +166,9 @@ ADD_LIBRARY(FluidBase
              Solvers/NavierStokesCoupledSolver7.C
              Solvers/NavierStokesSegSolver651.C
              Solvers/NavierStokesSegSolver752.C
+             AgglomeratedFace.C
              BcFcnCore.C
+             BlockTridiagonalMatrix.C
              CommunicatorCore.C 
              CommunicatorMPI.C 
              ConnectivityCore.C 
@@ -159,7 +178,9 @@ ADD_LIBRARY(FluidBase
              DistLeastSquareSolver.C
              DistMacroCellCore.C 
              DomainCore.C 
+	     Dunavant.C
              EdgeCore.C 
+	     EmbeddedCorotSolver.C
              FaceCore.C 
              FaceTriaCore.C 
              ElemCore.C 
@@ -183,6 +204,17 @@ ADD_LIBRARY(FluidBase
              MeshMotionHandlerCore.C 
              MeshMotionSolver.C 
              MultiGridPrec.C
+             MultiGridDistSVec.C
+             MultiGridLevel.C
+             MultiGridKernel.C
+             MultiGridKspSolver.C
+             MultiGridMvpMatrix.C
+             MultiGridOperator.C 
+             MultiGridSpaceOperator.C 
+             MultiGridSmoothingMatrix.C
+             MultiGridSmoothingMatrices.C
+             MultiGridCoupledTsDesc.C
+             MultiGridSegTsDesc.C
              ModalSolver.C
              NonlinearRomOfflineSolver.C 
              Node.C 
@@ -213,6 +245,7 @@ ADD_LIBRARY(FluidBase
              OneDimensionalSolver.C
 	     Multigrid.C
              PolygonReconstructionData.C
+             KirchhoffIntegrator.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
@@ -339,15 +372,19 @@ ENDIF(EXTRALIB)
 
 SET(INC_DIR .)
 
+FIND_PACKAGE(Boost 1.19.0)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+endif(Boost_FOUND)
+
 ##############################
 # For the embedded framework #
 ##############################
 if (NOT WITH_PHYSBAM EQUAL 0)
 
-  FIND_PACKAGE(Boost 1.19.0 REQUIRED)
-  if(Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-  endif(Boost_FOUND)
+  if(NOT Boost_FOUND) 
+    message(FATAL_ERROR "Compiling with PhysBAM requires boost")
+  endif(NOT Boost_FOUND)
 
   SET(INC_DIR PhysBAM_Interface PhysBAM_Interface/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR})
@@ -445,8 +482,9 @@ f77src/eriemann_gw.f
 f77src/eriemann_ww.f
 f77src/g_boundflux5.f
 f77src/genbcfluxgas.f
-f77src/genbcfluxgas_INT.f
+f77src/genbcfluxgas_HH.f
 f77src/genbcfluxtait.f
+f77src/genbcfluxtait_HH.f
 f77src/genbcfluxjwl.f
 f77src/g_roeflux5.f
 f77src/g_roeflux6.f
@@ -575,6 +613,7 @@ IF(USE_SCALAPACK)
 ELSE(USE_SCALAPACK)
  MESSAGE("Parallel SVD capability:  NO *******")
 ENDIF(USE_SCALAPACK)
+MESSAGE("Aeroacoustic capability:  ${AEROACOUSTIC}")
 MESSAGE("Build type:               " ${CMAKE_BUILD_TYPE})
 MESSAGE("Extra link flags:         " ${EXTRALIB})
 MESSAGE("=================================================")

@@ -54,7 +54,7 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U)  {
 
-	projectVector(this->AJ, this->F, From);
+	this->projectVector(this->AJ, this->F, From);
 	Vec<double> rhs(this->nPod);
 	rhs = -1.0 * From;
 
@@ -94,7 +94,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 				this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
 			}
 		} 
-		solveLinearSystem(it, rhs, this->dUrom);
+		this->solveLinearSystem(it, rhs, this->dUrom);
 	} 
   else if (lsSolver == 2) {  // regularized normal equations
     transMatMatProd(this->AJ,this->AJ,jactmp);  // TODO: make symmetric product
@@ -112,7 +112,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     }
 
     rhs = rhs + *PhiT_A_Uinit - *PhiT_A_U;
-    solveLinearSystem(it, rhs, this->dUrom);    
+    this->solveLinearSystem(it, rhs, this->dUrom);    
   }
 }
 

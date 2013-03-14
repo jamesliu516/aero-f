@@ -12,50 +12,64 @@
 #include <OneDimensionalSolver.h>
 using namespace std;
 //------------------------------------------------------------------------------
-
 template<int dim>
 DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFcn *vf,
 				  Domain *dom, DistSVec<double,dim> *v) 
-  : varFcn(vf), domain(dom)
+  : varFcn(vf), domain(dom) {
+
+  initialize(ioData,spo,vf,dom,v,dom->getNodeDistInfo());
+}
+
+template<int dim>
+DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFcn *vf,
+				  Domain *dom, DistInfo& dI,DistSVec<double,dim> *v) 
+  : varFcn(vf), domain(dom) {
+
+  initialize(ioData,spo,vf,dom,v,dI);
+}
+
+template<int dim>
+void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, VarFcn *vf,
+				  Domain *dom, DistSVec<double,dim> *v, DistInfo& dI) 
 {
   locAlloc = true;
 
   if (v) V = v->alias();
-  else V = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  else V = new DistSVec<double,dim>(dI);
 
   numLocSub = domain->getNumLocSub();
 
   data = new TimeData(ioData);  
 
-  dt  = new DistVec<double>(dom->getNodeDistInfo());
-  idti = new DistVec<double>(dom->getNodeDistInfo());
-  idtv = new DistVec<double>(dom->getNodeDistInfo());
-  dtau  = new DistVec<double>(dom->getNodeDistInfo());
-  irey  = new DistVec<double>(dom->getNodeDistInfo());
+  dt  = new DistVec<double>(dI);
+  idti = new DistVec<double>(dI);
+  idtv = new DistVec<double>(dI);
+  dtau  = new DistVec<double>(dI);
+  irey  = new DistVec<double>(dI);
   viscousCst = ioData.ts.viscousCst;
-  Un  = new DistSVec<double,dim>(domain->getNodeDistInfo());
-  Vn = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  Un  = new DistSVec<double,dim>(dI);
+  Vn = new DistSVec<double,dim>(dI);
 
   if (data->use_nm1)
-    Unm1 = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    Unm1 = new DistSVec<double,dim>(dI);
   else
     Unm1 = Un->alias();
 
   if (data->use_nm2)
-    Unm2 = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    Unm2 = new DistSVec<double,dim>(dI);
   else
     Unm2 = Unm1->alias();
 
   if (ioData.eqs.tc.les.type == LESModelData::DYNAMICVMS) {
-    QBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    VnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    UnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    QBar = new DistSVec<double,dim>(dI);
+    VnBar = new DistSVec<double,dim>(dI);
+    UnBar = new DistSVec<double,dim>(dI);
     if (data->use_nm1)
-      Unm1Bar = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      Unm1Bar = new DistSVec<double,dim>(dI);
     else
       Unm1Bar = UnBar->alias();
     if (data->use_nm2)
-      Unm2Bar = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      Unm2Bar = new DistSVec<double,dim>(dI);
     else
       Unm2Bar = Unm1Bar->alias();
   }
@@ -69,7 +83,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   }
                                                                                                                           
   if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON)
-    Rn = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    Rn = new DistSVec<double,dim>(dI);
   else
     Rn = Un->alias();
 
@@ -79,7 +93,10 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
-  fet = spo->getFemEquationTerm();
+  if (spo)
+    fet = spo->getFemEquationTerm();
+  else
+    fet = NULL;
 
   //preconditioner setup
   tprec.setup(ioData);
@@ -91,10 +108,10 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     subTimeState[iSub] = 0;
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-    dIdti = new DistVec<double>(dom->getNodeDistInfo());
-    dIdtv = new DistVec<double>(dom->getNodeDistInfo());
-    dIrey = new DistVec<double>(dom->getNodeDistInfo());
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+    dIdti = new DistVec<double>(dI);
+    dIdtv = new DistVec<double>(dI);
+    dIrey = new DistVec<double>(dI);
     *dIdti = 0.0; 
     *dIdtv = 0.0; 
     *dIrey = 0.0;
@@ -122,6 +139,12 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
               ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
   
   fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
+
+  *dtau = 1.0;
+  unphysical = false;
+  dt_coeff = 1.0;
+  dt_coeff_count = 0;
+  allowcflstop = true;
 }
 
 //------------------------------------------------------------------------------
@@ -236,7 +259,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     domain->readVectorFromFile(name, 0, 0, *Un);
     if (data->use_nm1) {
       data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-      if (isGFMPAR || iod.problem.framework == ProblemData::EMBEDDED) {
+      if (isGFMPAR || ( iod.problem.framework == ProblemData::EMBEDDED ||  iod.problem.framework == ProblemData::EMBEDDEDALE )) {
         //domain->getCommunicator()->fprintf(stderr,"*** Warning: Backward Euler being used instead of 3BDF for multiphase flows on first step after restart\n");
         data->exist_nm1 = false;
       }
@@ -251,6 +274,12 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     *Unm1 = *Un;
   if (data->use_nm2 && !data->exist_nm2)
     *Unm2 = *Unm1;
+  
+  createSubStates();
+}
+
+template<int dim>
+void DistTimeState<dim>::createSubStates() {
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
@@ -261,6 +290,11 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::copyTimeData(DistTimeState<dim>* oth) {
+
+  data->copy(*oth->data);
+}
 
 template<int dim>
 void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
@@ -363,8 +397,9 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
         }
         double UU[dim];
         computeInitialState(volIt->second->initialConditions, *fluidIt->second, UU);
-        domain->getCommunicator()->fprintf(stdout, "- Initializing volume %d(EOS=%d) with \n", volIt->first, volIt->second->fluidModelID);
+/*        domain->getCommunicator()->fprintf(stdout, "- Initializing volume %d(EOS=%d) with \n", volIt->first, volIt->second->fluidModelID);
         domain->getCommunicator()->fprintf(stdout, "    non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+*/
         domain->setupUVolumesInitialConditions(volIt->first, UU, *Un);
       }
   }
@@ -401,8 +436,9 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(planeIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
       domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);
+*/
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -431,8 +467,9 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(sphereIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
       domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+*/
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -527,9 +564,9 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int
 
       double UU[dim];
       computeInitialState(pointIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "- Initializing PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
       domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-
+*/
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &subUn((*Un)(iSub));
@@ -631,8 +668,12 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     printf("WARNING: Cfl0 is chosen too big!! \n");
 
   double dt_glob;
-  if (data->dt_imposed > 0.0) 
+  updateDtCoeff();
+  if (data->dt_imposed > 0.0) {
     dt_glob = data->dt_imposed;
+    allowcflstop = false; 
+    dt_glob *= dt_coeff;
+  }
   else 
     dt_glob = max ( dtMin, (factor * data->dt_nm1));
 
@@ -651,9 +692,36 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     dt_glob = *dtLeft / double(*numSubCycles);
     *dtLeft -= dt_glob;
   }
+
   data->computeCoefficients(*dt, dt_glob);
 
   return dt_glob;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::updateDtCoeff(){
+
+  //std::printf("DT Coefficient: %f \n", dt_coeff);
+  if(unphysical){
+
+    unphysical = false;
+    dt_coeff_count=0;
+    dt_coeff /= 2.0;
+    if(dt_coeff<0.0001){
+      printf("Could not resolve unphysicality by reducing timestep. Aborting.");
+      exit(-1);
+    }
+  }
+  dt_coeff_count++;
+  
+  if(dt_coeff_count>4){
+    dt_coeff *= 2.0;
+    dt_coeff=min(dt_coeff,1.0);
+    dt_coeff_count = 2;
+  }
 
 }
 
@@ -695,13 +763,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   if (umax && isGFMPAR) {
     double udt = umax->min();
     if (udt < dt_glob) {
-      //dt_glob = udt;
-      //domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
-      //domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
+      domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
+      domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
       dt_glob = udt;
     }
   }
-                                                                           
+
   if (data->typeStartup == ImplicitData::MODIFIED &&
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
        (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
@@ -1453,15 +1520,15 @@ DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState,
 
 //Remark: Error mesage for pointers
   if (dIdti == 0) {
-    fprintf(stderr, "*** Error: Varible dIdti does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dIdti does not exist!\n");
     exit(1);
   }
   if (dIdtv == 0) {
-    fprintf(stderr, "*** Error: Varible dIdtv does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dIdtv does not exist!\n");
     exit(1);
   }
   if (dIrey == 0) {
-    fprintf(stderr, "*** Error: Varible dIrey does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dIrey does not exist!\n");
     exit(1);
   }
 

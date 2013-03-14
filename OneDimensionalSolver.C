@@ -27,7 +27,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   Wr(numPoints),Vslope(numPoints),Phislope(numPoints),
   rupdate(numPoints), weight(numPoints), interfacialWi(numPoints),
   interfacialWj(numPoints), riemannStatus(numPoints), Phin(numPoints),
-  programmedBurn(NULL)
+  programmedBurn(NULL), fidToSet(numPoints),lastPhaseChangeValue(numPoints)
 {
   // equation modelling
   coordType  = ioData.oneDimensionalInfo.coordType;
@@ -37,7 +37,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   // time and space domain definition
   maxDistance = mesh[np-1];
   finalTime = ioData.ts.maxTime;
-  cfl = ioData.ts.cfl0;
+  cfl = ioData.ts.cfl.cfl0;
 
   // Copy 1D mesh to X
   X = 0.0;
@@ -106,9 +106,11 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
   loadSparseGrid(ioData);
 
+  fidToSet = 0;
+
   riemann = new ExactRiemannSolver<5>(ioData,rupdate,weight, interfacialWi,
 				      interfacialWj, varFcn,
-				      tabulationC);
+				      tabulationC, fidToSet);
   
   if (ioData.oneDimensionalInfo.programmedBurn.unburnedEOS >= 0) {
     programmedBurn = new ProgrammedBurn(ioData,&this->X);
@@ -138,7 +140,15 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   interfaceExtrapolation = 0;
   if (ioData.mf.interfaceExtrapolation == MultiFluidData::EXTRAPOLATIONSECONDORDER)
     interfaceExtrapolation = 1;
-  
+
+  if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1) {
+
+    limiterLeft = limiterRight = 2; 
+  } else {
+
+    limiterLeft = limiterRight = 1; 
+  }
+
   
   if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
     levelSetMethod = 1;
@@ -547,29 +557,19 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
   varFcn->primitiveToConservative(temp1,BC[1],fluidId[numPoints-1]);
   BCphi[0] = Phi[0][0]/V[0][0];
   BCphi[1] = Phi[numPoints-1][0]/V[numPoints-1][0];
-
-  // output
-  cout<<"**primitive boundary conditions are:"<<endl;
-  cout<<"*    "<<temp0[0]<<" "<<temp0[1]<<" "<<temp0[2]<<" "<<temp0[3]<<" "<<temp0[4]<<endl;
-  cout<<"*    "<<temp1[0]<<" "<<temp1[1]<<" "<<temp1[2]<<" "<<temp1[3]<<" "<<temp1[4]<<endl;
-  cout<<"**conservative boundary conditions are:"<<endl;
-  cout<<"*    "<<BC[0][0]<<" "<<BC[0][1]<<" "<<BC[0][2]<<" "<<BC[0][3]<<" "<<BC[0][4]<<endl;
-  cout<<"*    "<<BC[1][0]<<" "<<BC[1][1]<<" "<<BC[1][2]<<" "<<BC[1][3]<<" "<<BC[1][4]<<endl;
   
 }
 //------------------------------------------------------------------------------
 void OneDimensional::totalTimeIntegration(){
 
   // messages
-  cout<<"***************************************************************"<<endl;
-  cout<<"***  ctrlVol[0] = "<<ctrlVol[0][0]<<" --- ctrlVol[end] = "<<ctrlVol[numPoints-1][0]<<endl;
-  cout<<"***  ctrlSur[0] = "<<ctrlSurf[0][0]<<" --- ctrlSur[end] = "<<ctrlSurf[numPoints][0]<<endl;
-  cout<<"***************************************************************"<<endl;
   SVec<double,1> timeSteps(numPoints);
 
   time = 0.0;
   double dt   = 0.0;
   int iteration = 0;
+
+  lastPhaseChangeValue = -1;//V;
 
   resultsOutput(time,iteration);
   double cpu_time = myTimer->getTime();
@@ -581,7 +581,7 @@ void OneDimensional::totalTimeIntegration(){
       programmedBurn->setCurrentTime(time,varFcn, U,fluidId,fluidIdn);
 
     if(time+dt>finalTime) dt = finalTime-time;
-    if(iteration % frequency == 0)
+    if(frequency > 0 && iteration % frequency == 0)
       cout <<"*** Iteration " << iteration <<": Time = "<<time*refVal.time<<", and dt = "<<dt*refVal.time<<endl;
     iteration++;
 
@@ -591,7 +591,7 @@ void OneDimensional::totalTimeIntegration(){
 
     outputProbes(time,iteration-1);
 
-    if(iteration % frequency == 0)
+    if(frequency > 0 && iteration % frequency == 0)
       resultsOutput(time,iteration);
   }
   resultsOutput(time,iteration);
@@ -679,14 +679,40 @@ void OneDimensional::singleTimeIntegration(double dt){
 	    int j = i+1;
 	    if (fluidId[i-1] == fluidId[i])
 	      j = i-1;
-	    double xi = (X[j][0]+X[i][0])*0.5;
+            int l = (j-i)*2+i;
+	    //double xi = (X[j][0]+X[i][0])*0.5;
+	    std::cout << std::endl << std::endl;	
+            double alpha = 1.0;
+            if (limiterLeft == 0)
+              alpha = 0.0;
+            else if (limiterLeft == 2) {
+              for (int k = 0; k < 5; ++k) {
+                if (k != 2 && k != 3) {
+                  alpha = std::min<double>(alpha, fabs(V[j][k]-lastPhaseChangeValue[j][k])/
+                                           std::max<double>(1e-8,fabs(V[j][k]-V[l][k])));
+                 // alpha = std::min<double>(alpha,fabs(2.0*V[j][1]-V[l][1])/fabs(lastPhaseChangeValue[j][1]));
+                }
+              }
+            }
+
 	    for (int k = 0; k < 5; ++k) {
-	      V[i][k] = (X[i][0]-X[j][0])/(xi-X[j][0])*Wr[j][k]-
-		(X[i][0]-xi)/(xi-X[j][0])*V[j][k];
+	      std::cout << V[j][k] << " ";
+	      //V[i][k] = (X[i][0]-X[j][0])/(xi-X[j][0])*Wr[j][k]-
+		//(X[i][0]-xi)/(xi-X[j][0])*V[j][k];
+	      std::cout << fabs(V[j][k]-lastPhaseChangeValue[j][k]) << " " <<
+                std::max<double>(1e-8,fabs(V[j][k]-V[l][k])) << std::endl;
+              //alpha = std::min<double>(alpha,fabs(2.0*V[j][1]-V[l][1])/lastPhaseChangeValue[j][1]);
+              std::cout << "alpha = " << alpha << std::endl;
+	      V[i][k] = alpha*((X[i][0]-X[j][0])/(X[l][0]-X[j][0])*V[l][k]+
+		(X[i][0]-X[l][0])/(X[j][0]-X[l][0])*V[j][k]) + 
+                        (1.0-alpha)*V[j][k];
 	      std::cout << V[i][k] << " ";
+              std::cout << std::endl;
+              lastPhaseChangeValue[i][k] = -1.0;
 	    }
+	    //memcpy(V[i],V[j],sizeof(double)*5);
 	  }
-	  std::cout << std::endl;	
+	  std::cout << std::endl << std::endl;	
 	}
 	cutCellStatus[i] = 0;
       }
@@ -1019,6 +1045,12 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         int iteration = 0;
         double fluxi[dim], fluxj[dim];
         int I,J;
+        double betapr = 1.0;
+        double betapl = 1.0;
+        if (limiterRight == 0) {
+          betapr = 0.0;
+          betapl = 0.0;
+        }
         if (cutCellStatus[j] == 1) {
 
           if (interfaceExtrapolation == 1) {
@@ -1027,8 +1059,21 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
 	      Vir[k] = (interfaceLocation-X[i-1][0])/(X[i][0]-X[i-1][0])*V[i][k] - (interfaceLocation-X[i][0])/(X[i][0]-X[i-1][0])*V[i-1][k];
 	      Vjr[k] = (interfaceLocation-X[j+2][0])/(X[j+1][0]-X[j+2][0])*V[j+1][k] - (interfaceLocation-X[j+1][0])/(X[j+1][0]-X[j+2][0])*V[j+2][k];
+              if (k != 2 && k != 3 && limiterRight == 2) {
+                if (Vjr[1] > 0.0)
+                  betapr = std::min<double>(betapr, fabs(V[j+3][k]-V[j+2][k])/std::max<double>(1.0e-8,fabs(V[j+2][k]-V[j+1][k])));
+                if (Vir[1] < 0.0)
+                  betapl = std::min<double>(betapl, fabs(V[i-2][k]-V[i-1][k])/std::max<double>(1.0e-8,fabs(V[i][k]-V[i-1][k])));
+              }
 	      //std::cout << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j+1][k] << " " << V[i-1][k] << " " << V[j+2][k] << std::endl;
 	    }
+            
+	    for (int k = 0; k < dim; ++k) {
+              Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i][k];
+              Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j+1][k];
+            }
+	    //memcpy(Vir, V[i], sizeof(double)*dim);
+	    //memcpy(Vjr, V[j+1], sizeof(double)*dim);
           } else {
 	    memcpy(Vir, V[i], sizeof(double)*dim);
 	    memcpy(Vjr, V[j+1], sizeof(double)*dim);
@@ -1044,8 +1089,20 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	      
 	      Vir[k] = (interfaceLocation-X[i-2][0])/(X[i-1][0]-X[i-2][0])*V[i-1][k] - (interfaceLocation-X[i-1][0])/(X[i-1][0]-X[i-2][0])*V[i-2][k];
 	      Vjr[k] = (interfaceLocation-X[j+1][0])/(X[j][0]-X[j+1][0])*V[j][k] - (interfaceLocation-X[j][0])/(X[j][0]-X[j+1][0])*V[j+1][k];
+              if (k != 2 && k != 3 && limiterRight == 2) {
+                if (Vjr[1] > 0.0)
+                  betapr = std::min<double>(betapr, fabs(V[j+2][k]-V[j+1][k])/std::max<double>(1.0e-8,fabs(V[j+1][k]-V[j][k])));
+                if (Vir[1] < 0.0)
+                  betapl = std::min<double>(betapl, fabs(V[i-3][k]-V[i-2][k])/std::max<double>(1.0e-8,fabs(V[i-1][k]-V[i-2][k])));
+              }
 	      //std::cout << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
 	    }
+	    for (int k = 0; k < dim; ++k) {
+              Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i-1][k];
+              Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j][k];
+            }
+	    //memcpy(Vir, V[i-1], sizeof(double)*dim);
+	    //memcpy(Vjr, V[j], sizeof(double)*dim);
           } else {
 	    memcpy(Vir, V[i-1], sizeof(double)*dim);
 	    memcpy(Vjr, V[j], sizeof(double)*dim);
@@ -1054,7 +1111,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	    }
           }
         }
- 
+
+        //std::cout << "beta = " << betap << std::endl; 
         memset(fluxi,0,sizeof(double)*dim);
         memset(fluxj,0,sizeof(double)*dim);
 	varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vir);
@@ -1063,16 +1121,34 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         riemann->computeRiemannSolution(Vir,Vjr,fluidId[i-1],fluidId[j+1],gradphi,varFcn,
 	  			        Wir,Wjr,i,j,i,dx,false);
 
+        if (lastPhaseChangeValue[i][0] < 0.0) {
+
+          memcpy(lastPhaseChangeValue[i], Wir, sizeof(double)*5);
+
+          for (int mm = 0; mm < 5; ++mm)
+  	    std::cout << lastPhaseChangeValue[i][mm] << " ";
+        }
+        if (lastPhaseChangeValue[j][0] < 0.0) {
+
+          memcpy(lastPhaseChangeValue[j], Wjr, sizeof(double)*5);
+          for (int mm = 0; mm < 5; ++mm)
+  	    std::cout << lastPhaseChangeValue[j][mm] << " ";
+        }
+
         if (interfaceExtrapolation == 1) {
           if (cutCellStatus[j] == 1) {
 	    for (int k = 0; k < dim; ++k) {
 	      Wi[k] = (Y[i+1][0]-X[i][0])/(interfaceLocation-X[i][0])*Wir[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[i][0])*V[i][k];
+              Wi[k] = betapl*Wi[k]+(1.0-betapl)*Wir[k];
 	    }
           } else {
 	    for (int k = 0; k < dim; ++k) {
 	      Wj[k] = (Y[i+1][0]-X[j][0])/(interfaceLocation-X[j][0])*Wjr[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[j][0])*V[j][k];
+              Wj[k] = betapr*Wj[k]+(1.0-betapr)*Wjr[k];
             }
           }
+          //memcpy(Wi, Wir, sizeof(double)*dim);
+	  //memcpy(Wj, Wjr, sizeof(double)*dim);
 	} else {
           memcpy(Wi, Wir, sizeof(double)*dim);
 	  memcpy(Wj, Wjr, sizeof(double)*dim);

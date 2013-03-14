@@ -28,7 +28,7 @@ public:
                    SPEED = 18, HYDROSTATICPRESSURE = 19, HYDRODYNAMICPRESSURE = 20, 
                    WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, TEMPERATURE_NORMAL_DERIVATIVE = 24, 
                    SURFACE_HEAT_FLUX = 25, PRESSURECOEFFICIENT = 26, CONTROL_VOLUME = 27, FLUIDID = 28,
-                   SSIZE = 29};
+                   D2WALL = 29, SSIZE = 30};
 
   enum VectorType {VELOCITY = 0, DISPLACEMENT = 1, FLIGHTDISPLACEMENT = 2, LOCALFLIGHTDISPLACEMENT = 3, VSIZE = 4};
   enum ScalarAvgType {DENSITYAVG = 0, MACHAVG = 1, PRESSUREAVG = 2, TEMPERATUREAVG = 3,
@@ -59,6 +59,11 @@ public:
   virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int *fid = 0, bool = true) = 0;
   virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
+  {
+    fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+    exit(-1);
+  }
+  virtual Vec3D computeViscousForce(double [4][3], Vec3D&, double [3], double*, double* [3], double* [4])
   {
     fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
     exit(-1);
@@ -127,6 +132,11 @@ public:
     fprintf(stderr,"Calling a PostFcnEuler Function for Viscous Forces. Doesn't make sense!\n");
     exit(-1);
   }
+  virtual Vec3D computeViscousForce(double [4][3], Vec3D&, double [3], double*, double* [3], double* [4])
+  {
+    fprintf(stderr,"Calling a PostFcnEuler Function for Viscous Forces. Doesn't make sense!\n");
+    exit(-1);
+  }
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 				       double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
@@ -160,8 +170,6 @@ protected:
 
 private:
 
-  Vec3D computeViscousForce(double [4][3], Vec3D&, double [3], double*, double* [3], double* [4]);
-
 // Included (MB)
   Vec3D computeDerivativeOfViscousForce(double [4][3], double [4][3], Vec3D&, Vec3D&, double [3], double*, double*, double* [3], double* [3], double* [4], double* [4], double [3]);
 
@@ -177,6 +185,8 @@ public:
   virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int* fid = 0, bool = true);
   virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3]);
+  virtual Vec3D computeViscousForce(double [4][3], Vec3D&, double [3], double*, double* [3], double* [4]);
+
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 				       double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
   double computeHeatPower(double [4][3], Vec3D&, double [3],

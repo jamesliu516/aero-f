@@ -16,13 +16,14 @@
 #include <Timer.h>
 
 #include "OneDimensionalSolver.h"
+#include "DebugTools.h"
+#include "KirchhoffIntegrator.h"
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
 extern void startNonlinearRomOfflineSolver(Communicator *, IoData &, Domain &);
 extern void startSparseGridGeneration(IoData &, Domain &);
 int interruptCode = 0;
-
 
 //int  atexit(void (*function)(void)) { exit(-1);}
 
@@ -37,6 +38,35 @@ extern "C" void processSignal(int num)
   }
 
 }
+
+void segfault_sigaction(int signal, siginfo_t *si, void *arg)
+{
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    printf("Caught segfault at address %p on MPI rank %d\n", si->si_addr,rank);
+    MPI_Barrier(MPI_COMM_WORLD);
+    exit(-1);
+}
+
+void fpe_sigaction(int signal, siginfo_t *si, void *arg)
+{
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    printf("Caught floating point exception at address %p on MPI rank %d\n", si->si_addr,rank);
+    MPI_Barrier(MPI_COMM_WORLD);
+    exit(-1);
+}
+
+void abort_sigaction(int signal, siginfo_t *si, void *arg)
+{
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    printf("Caught abort signal at address %p on MPI rank %d; likely due to an assertion failure\n", si->si_addr,rank);
+    MPI_Barrier(MPI_COMM_WORLD);
+    exit(-1);
+}
+
+
 
 //------------------------------------------------------------------------------
 
@@ -66,6 +96,29 @@ int main(int argc, char **argv)
   signal(SIGUSR1, processSignal);
 
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
+
+#ifdef AEROF_MPI_DEBUG
+
+  bool debug_process = DebugTools::TryWaitForDebug();
+  if (!debug_process) {
+    struct sigaction sa;
+
+    memset(&sa, 0, sizeof(struct sigaction));
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = segfault_sigaction;
+    sa.sa_flags   = SA_SIGINFO;
+
+    sigaction(SIGSEGV, &sa, NULL);
+    
+    sa.sa_sigaction = fpe_sigaction;
+    sigaction(SIGFPE,&sa, NULL);
+    
+    sa.sa_sigaction = abort_sigaction;
+    sigaction(SIGABRT,&sa, NULL);
+  }
+ 
+#endif
+
 
   Domain domain;
   Timer *timer = domain.getTimer();
@@ -101,14 +154,25 @@ int main(int argc, char **argv)
 
     domain.printElementStatistics();
 
-    // choose between linearized, offline ROM, and nonlinear solvers
-    if (ioData.problem.type[ProblemData::LINEARIZED]) {
+    if (ioData.problem.alltype == ProblemData::_AERO_ACOUSTIC_)
+    {
+      if (com->cpuNum() == 0)
+      {
+        std::cout << "\n ... Aeroacoustic Postprocessing ... \n\n";
+      }
+      KirchhoffIntegrator doKP(ioData, &domain);
+      doKP.Compute();
+    } else if (ioData.problem.type[ProblemData::LINEARIZED]) {
+      // Choose linearized fluid problem
       startModalSolver(com, ioData, domain);
     } else if (ioData.problem.type[ProblemData::NLROMOFFLINE]) {
+      // Choose nonlinear ROM preprocessing solver
       startNonlinearRomOfflineSolver(com, ioData, domain);
     } else {
+      // Choose nonlinear fluid problem
       startNavierStokesSolver(ioData, geoSource, domain);
     }
+
   }
 
 #ifndef CREATE_DSO

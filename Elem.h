@@ -132,15 +132,21 @@ public:
   
   virtual
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
-				 SVec<double,dim> &R) = 0;
+				 SVec<double,dim> &R, 
+                                 Vec<GhostPoint<dim>*> * ghostPoints=0, 
+			         LevelSetStructure *LSS=0) = 0;
 
   virtual
   void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V, 
-                          SVec<double,dim> &R) = 0;
+                          SVec<double,dim> &R, 
+                          Vec<GhostPoint<dim>*> * ghostPoints=0, 
+			  LevelSetStructure *LSS=0) = 0;
   
   virtual
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
-                             SVec<double,dim> &, SVec<double,dim> &) = 0;    
+                             SVec<double,dim> &, SVec<double,dim> &, 
+                             Vec<GhostPoint<dim>*> * ghostPoints=0, 
+			     LevelSetStructure *LSS=0) = 0;    
 
   virtual
   void computeFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 
@@ -149,7 +155,9 @@ public:
   
   virtual
   void computeP1Avg(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, Vec<double> &, 
-                    SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double) = 0;
+                    SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double,
+                    Vec<GhostPoint<dim>*> * ghostPoints=0, 
+		    LevelSetStructure *LSS=0) = 0;    
   
 
 // Included (MB)
@@ -179,6 +187,10 @@ public:
   virtual
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi) = 0;
+  virtual
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                              SVec<double,3> &X,SVec<double,dim> &d2wall) = 0;
+
 
   // X is the deformed nodal location vector
   virtual
@@ -247,18 +259,21 @@ public:
   }
   
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-				 SVec<double,dim> &V, SVec<double,dim> &R) {
-    t->computeSmagorinskyLESTerm(smag, X, V, R);
+				 SVec<double,dim> &V, SVec<double,dim> &R,
+			         Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+    t->computeSmagorinskyLESTerm(smag, X, V, R, ghostPoints, LSS);
   }
 
   void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
-		          SVec<double,dim> &V, SVec<double,dim> &R) {
-    t->computeWaleLESTerm(wale, X, V, R);
+		          SVec<double,dim> &V, SVec<double,dim> &R,
+			  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+    t->computeWaleLESTerm(wale, X, V, R, ghostPoints, LSS);
   }  
 
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
-                   SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {
-    t->computeDynamicLESTerm(dles, Cs, X, V, R);
+                   SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,
+	           Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+    t->computeDynamicLESTerm(dles, Cs, X, V, R, ghostPoints, LSS);
   }
 
   
@@ -271,8 +286,9 @@ public:
 
   void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
                     Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
-                    SVec<double,dim> &V, double gam, double R) {
-    t->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
+                    SVec<double,dim> &V, double gam, double R,
+	            Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+    t->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
   }
   
 
@@ -303,6 +319,10 @@ public:
                                  SVec<double,dim> &ddz,
                                  SVec<double,dim> &Phi,SVec<double,1> &Psi){
     t->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
+  }
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                              SVec<double,3> &X,SVec<double,dim> &d2wall){
+    t->FastMarchingDistanceUpdate(node,Tag,level,X,d2wall);
   }
 
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
@@ -429,6 +449,10 @@ public:
   virtual int  faceDef(int i, int k) = 0;
   virtual int  faceNnd(int i) = 0;
   virtual Type type() = 0;
+
+  virtual bool isPointInside(SVec<double,3>& X, const Vec3D&) = 0;
+
+  void computeBoundingBox(SVec<double,3>& X, double*);
 
   // Number of nodes
   virtual int numNodes() = 0;
@@ -562,34 +586,37 @@ public:
   
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-				 SVec<double,dim> &V, SVec<double,dim> &R) {
+				 SVec<double,dim> &V, SVec<double,dim> &R, 
+                                 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeSmagorinskyLESTerm(smag, X, V, R);
+    wrapper->computeSmagorinskyLESTerm(smag, X, V, R, ghostPoints, LSS);
   }
  
  
    template<int dim>
    void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
-		           SVec<double,dim> &V, SVec<double,dim> &R) {
+		           SVec<double,dim> &V, SVec<double,dim> &R,
+                           Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeWaleLESTerm(wale, X, V, R);
+    wrapper->computeWaleLESTerm(wale, X, V, R, ghostPoints, LSS);
   }
  
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
-                             SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {  
+                             SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,  
+                             Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeDynamicLESTerm(dles, Cs, X, V, R);
+    wrapper->computeDynamicLESTerm(dles, Cs, X, V, R, ghostPoints, LSS);
   }
   
   template<int dim>
@@ -607,12 +634,13 @@ public:
   template<int dim>
   void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
                        Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
-                       SVec<double,dim> &V, double gam, double R) {
+                       SVec<double,dim> &V, double gam, double R,
+                       Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
+    wrapper->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
   }  
 
   template<int dim, class Scalar, int neq>
@@ -700,6 +728,16 @@ public:
       (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
     wrapper->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
   }
+  template<int dimLS>
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                               SVec<double,3> &X,SVec<double,dimLS> &d2wall)
+  {
+    ElemHelper_dim<dimLS> h;
+    char xx[64];
+    GenElemWrapper_dim<dimLS> *wrapper=
+      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
+    wrapper->FastMarchingDistanceUpdate(node,Tag,level,X,d2wall);
+  }
 
   template<int dimLS>
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
@@ -762,20 +800,23 @@ public:
   
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-				 SVec<double,dim> &V, SVec<double,dim> &R) {
+				 SVec<double,dim> &V, SVec<double,dim> &R,
+                                 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
-		          SVec<double,dim> &V, SVec<double,dim> &R) {
+		          SVec<double,dim> &V, SVec<double,dim> &R,
+                          Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
-			     SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {
+			     SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,
+                             Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
@@ -790,7 +831,8 @@ public:
   template<int dim>
   void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
                     Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
-                    SVec<double,dim> &V, double gam, double R) {
+                    SVec<double,dim> &V, double gam, double R,
+                    Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
@@ -862,7 +904,12 @@ public:
     void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int) {
     fprintf(stderr, "Error: undefined function (integrateFunction) for this elem type\n"); exit(1);
   }
-
+  template<int dim>
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
+                              SVec<double,3> &X,SVec<double,dim> &d2wall)
+  {
+	fprintf(stderr, "Error: undefined function (FastMarchingDistanceUpdate) for this elem type\n"); exit(1);
+  }
 };
 
 //------------------------------------------------------------------------------
@@ -879,10 +926,18 @@ class ElemSet {
 
 public:
 
+  BlockAlloc& getBlockAllocator() { return memElems; }
+
+  // Dummy constructor.  Sometimes we need to create a dummy elem set
+  // object.
+  ElemSet() : elems(NULL) { }
+
   ElemSet(int);
   ~ElemSet();
 
   Elem &operator[](int i) const { return *elems[i]; }
+
+  Elem** getPointer() { return elems; }
 
   void addElem(int i, Elem *elem) { elems[i] = elem; }
 
@@ -918,19 +973,23 @@ public:
   
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &,
-				 SVec<double,dim> &);
+				 SVec<double,dim> &,
+			         Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &,
-		          SVec<double,dim> &);
+		          SVec<double,dim> &,
+			  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &,
-                             SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+                             SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
+			     Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &,Vec<double> &,
-                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double,
+			     Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 

@@ -169,34 +169,37 @@ void ElemSet::computeVMSLESTerm(VMSLESTerm *vmst,
 
 template<int dim>
 void ElemSet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-					SVec<double,dim> &V, SVec<double,dim> &R)
+					SVec<double,dim> &V, SVec<double,dim> &R,
+				        Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
 
 {
   for (int i=0; i<numElems; ++i)
-    elems[i]->computeSmagorinskyLESTerm(smag, X, V, R);
+    elems[i]->computeSmagorinskyLESTerm(smag, X, V, R, ghostPoints, LSS);
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void ElemSet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
-				SVec<double,dim> &V, SVec<double,dim> &R)
+				SVec<double,dim> &V, SVec<double,dim> &R,
+			        Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
 
 {
   for (int i=0; i<numElems; ++i)
-    elems[i]->computeWaleLESTerm(wale, X, V, R);
+    elems[i]->computeWaleLESTerm(wale, X, V, R, ghostPoints, LSS);
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
-                                    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
+                                    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,
+				    Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
 
 {
 
  for (int i=0; i<numElems; ++i)
-    elems[i]->computeDynamicLESTerm(dles, Cs, X, V, R);
+    elems[i]->computeDynamicLESTerm(dles, Cs, X, V, R, ghostPoints, LSS);
 
 }
 
@@ -222,11 +225,12 @@ template<int dim>
 void ElemSet::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
                                    SVec<double,6> &Sij_Test, Vec<double> &modS_Test, 
                                    SVec<double,8> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V, 
-                                   double gam, double R)
+                                   double gam, double R,
+                                   Vec<GhostPoint<dim>*>* ghostPoints,LevelSetStructure *LSS)
 {
 
  for (int i=0; i<numElems; ++i)
-   elems[i]->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
+   elems[i]->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
 
 }
 

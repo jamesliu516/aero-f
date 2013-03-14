@@ -6,6 +6,7 @@
 #include <DistVector.h>
 #include <KspPrec.h>
 #include <BCApplier.h>
+#include <TsParameters.h>
 
 class MatchNodeSet;
 class CorotSolver;
@@ -99,6 +100,7 @@ public:
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   
   void setup(DistSVec<double,3> &X);
+  TsParameters* getTsParams() { return NULL; }
 
   // Included (MB)
   int fixSolution(DistSVec<double,3> &X, DistSVec<double,3> &dX) { return 0; }

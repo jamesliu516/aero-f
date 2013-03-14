@@ -254,6 +254,20 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnSGModifiedGhidagliaEuler3D : public FluxFcnModifiedGhidagliaEuler3D {
+
+public:
+
+  FluxFcnSGModifiedGhidagliaEuler3D(IoData &ioData, VarFcnSGEuler *varFcnSGEuler, Type tp = CONSERVATIVE) :
+    FluxFcnModifiedGhidagliaEuler3D(varFcnSGEuler, tp) {}
+  ~FluxFcnSGModifiedGhidagliaEuler3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnSGInflowEuler3D : public FluxFcnInflowEuler3D {
 
 public:

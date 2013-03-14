@@ -72,7 +72,9 @@ struct InputData {
   const char *perturbed;
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
+  const char *cracking;
   const char *rstdata;
   const char *podFile;
   //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
@@ -92,8 +94,15 @@ struct InputData {
   
   const char* exactInterfaceLocation;
 
+  //
+  // String for the input files of pressure snapshots
+  // This file is used for computing the Kirchhoff integral.
+  // UH (08/2012)
+  const char* strKPtraces;
+
 // Included (MB)
   const char *shapederivatives;
+  const char *wallsurfacedisplac;
 
   ObjectMap< OneDimensionalInputData > oneDimensionalInput;
 
@@ -128,6 +137,9 @@ struct Probes {
   const char *temperature;
   const char *velocity;
   const char *displacement;
+  
+  // UH >> for Aeroacoustic
+  const char *farfieldpattern;
 
   Probes();
   ~Probes() {}
@@ -251,11 +263,20 @@ struct RestartData {
 
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
+  const char *cracking;
   const char *data;
 
   int frequency;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+
+  /// UH (06/2012)
+  ///
+  /// The following member is used for computing the Kirchhoff integral.
+  /// When active, this variable contains the prefix for saving the data.
+  /// 
+  const char *strKPtraces;
 
   RestartData();
   ~RestartData() {}
@@ -352,13 +373,15 @@ struct ProblemData {
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
 		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
 		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31,
-    _ROB_INNER_PRODUCT_ = 32, _ACC_UNSTEADY_NONLINEAR_ROM_ = 33, _STEADY_NONLINEAR_ROM_ = 34} alltype;
+		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
+                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34,  _ACC_UNSTEADY_NONLINEAR_ROM_ = 35,
+                _STEADY_NONLINEAR_ROM_ = 36} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
-  enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
+  enum Framework {BODYFITTED = 0, EMBEDDED = 1, EMBEDDEDALE = 2} framework;
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
+  enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
 
   ProblemData();
@@ -533,6 +556,7 @@ struct LiquidModelData {
   double specificHeat;
   double k1water;
   double k2water;
+  double Bwater;
   double Prefwater;
   double RHOrefwater;
 
@@ -971,6 +995,15 @@ struct PointData {
 
 };
 
+struct DummyPointData {
+
+  int fluidModelID;
+
+  DummyPointData();
+  ~DummyPointData() {}
+  Assigner *getAssigner();
+
+};
 //------------------------------------------------------------------------------
 
 struct MultiInitialConditionsData {
@@ -979,6 +1012,7 @@ struct MultiInitialConditionsData {
   ObjectMap<PrismData>  prismMap;
   ObjectMap<PlaneData>  planeMap;
   ObjectMap<PointData>  pointMap;
+  ObjectMap<DummyPointData>  dummyPointMap;
 
   void setup(const char *, ClassAssigner * = 0);
 };
@@ -1042,6 +1076,7 @@ struct MultiFluidData {
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
+  enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
   MultiInitialConditionsData multiInitialConditions;
@@ -1117,8 +1152,22 @@ struct SchemeData {
   double xic;
   double eps;
 
+  struct MaterialFluxData {
+
+    Flux flux;
+
+    Assigner *getAssigner();
+  };
+
+  // We now allow different flux functions to be used for different materials.  
+  // The behavior is that if the flux is specified for a fluid id in this map,
+  // then it is used.  Otherwise, the default (schemedata.flux) is used for
+  // that material.
+  ObjectMap<MaterialFluxData> fluxMap;
+
   int allowsFlux;
 
+  // allowsFlux = 0 for levelset equation (the choice of flux for the levelset is hardcoded)
   SchemeData(int allowsFlux = 1);
   ~SchemeData() {}
 
@@ -1253,7 +1302,7 @@ struct BoundarySchemeData {
   enum Type { STEGER_WARMING = 0,
 	      CONSTANT_EXTRAPOLATION = 1,
 	      LINEAR_EXTRAPOLATION = 2,
-	      GHIDAGLIA = 3 } type;
+	      GHIDAGLIA = 3, MODIFIED_GHIDAGLIA = 4} type;
 
   BoundarySchemeData();
   ~BoundarySchemeData() {}
@@ -1299,13 +1348,61 @@ struct PcData {
 
   enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5, MG = 6} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
+  
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
+
+  enum MGType { MGALGEBRAIC = 0, MGGEOMETRIC = 1} mg_type;
 
   int fill;
+
+  int num_multigrid_smooth1,num_multigrid_smooth2;
+  int num_multigrid_levels;
+
+  int mg_output;
+
+  double mg_smooth_relax;
+
+  int num_fine_sweeps;
 
   PcData();
   ~PcData() {}
 
   void setup(const char *, ClassAssigner * = 0);
+
+};
+
+struct MultiGridData {
+
+  enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2, MGGMRES = 3 } mg_smoother;
+
+  enum CycleScheme { VCYCLE = 0, WCYCLE = 1} cycle_scheme;
+
+  enum RestrictMethod { VOLUME_WEIGHTED = 0, AVERAGE = 1 } restrictMethod;
+
+  enum CoarseningRatio { TWOTOONE = 0, FOURTOONE = 1} coarseningRatio;
+ 
+  int num_multigrid_smooth1,num_multigrid_smooth2;
+  int num_multigrid_levels;
+
+  int mg_output;
+
+  int useGMRESAcceleration;
+
+  double directional_coarsening_factor;
+
+  double mg_smooth_relax;
+
+  double prolong_relax_factor,restrict_relax_factor;
+
+  int num_fine_sweeps;
+
+  int addViscousTerms;
+ 
+  MultiGridData();
+  ~MultiGridData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
 
 };
 
@@ -1320,6 +1417,8 @@ struct KspData {
   int maxIts;
   int numVectors;
   double eps;
+
+  double absoluteEps;
 
   const char *output;
   
@@ -1392,6 +1491,48 @@ struct ImplicitData {
 
 //------------------------------------------------------------------------------
 
+struct CFLData {
+
+  enum Strategy {RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3, FIXEDUNSTEADY = 4, OLD = 5} strategy;
+
+  // global cfl parameters
+  double cfl0;
+  double cflCoef1;
+  double cflCoef2;
+  double cflCoef3;
+  double cflMax;
+  double cflMin;
+  double dualtimecfl;
+
+  // cfl control parameters
+  int checksol;
+  int checklinsolve;
+  int forbidreduce;
+
+  // residual based parameters
+  double ser;
+
+  // direction based parameters
+  double angle_growth;
+  double angle_zero;
+
+  // dft based parameters
+  int dft_history;
+  int dft_freqcutoff;
+  double dft_growth;
+
+  // for unsteady problems
+  int useSteadyStrategy;
+
+  CFLData();
+  ~CFLData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct TsData {
 
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
@@ -1411,21 +1552,24 @@ struct TsData {
   double maxTime;
 
   int residual;
+  double errorTol;
+
+  // Kept for back compatibility
   double cfl0;
   double cflCoef1;
   double cflCoef2;
   double cflCoef3;
   double cflMax;
-  double cflMaxSlope;
   double cflMin;
   double ser;
-  double errorTol;
   double dualtimecfl;
+
 
   const char *output;
 
   ExplicitData expl;
   ImplicitData implicit;
+  CFLData cfl;
 
   TsData();
   ~TsData() {}
@@ -1665,13 +1809,21 @@ struct PitchingData {
 
   double alpha_in;
   double alpha_max;
-  double x1;
-  double y1;
-  double z1;
-  double x2;
-  double y2;
-  double z2;
+  double x11;
+  double y11;
+  double z11;
+  double x21;
+  double y21;
+  double z21;
 
+  double beta_in;
+  double beta_max;
+  double x12;
+  double y12;
+  double z12;
+  double x22;
+  double y22;
+  double z22;
   PitchingData();
   ~PitchingData() {}
 
@@ -1696,17 +1848,42 @@ struct DeformingData {
 
 };
 
-//----------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+struct RotationData  {
+
+  double nx, ny, nz;
+  double x0, y0, z0;
+  double omega;
+  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
+
+  RotationData();
+  Assigner *getAssigner();
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//-----------------------------------------------------------------------------
+
+struct Velocity  {
+
+  ObjectMap<RotationData> rotationMap;
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, DEFORMING = 2} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
   PitchingData pt;
+  Velocity vel;
   DeformingData df;
 
   ForcedData();
@@ -2208,6 +2385,7 @@ struct SurfaceData  {
   enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
+  int forceID;
   double velocity;
 
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
@@ -2240,36 +2418,23 @@ struct PadeFreq  {
 
 //------------------------------------------------------------------------------
 
-struct RotationData  {
-
-  double nx, ny, nz;
-  double x0, y0, z0;
-  double omega;
-  enum InfRadius {FALSE = 0, TRUE = 1} infRadius;
-
-  RotationData();
-  Assigner *getAssigner();
-
-};
-
-//-----------------------------------------------------------------------------
-
-struct Velocity  {
-
-  ObjectMap<RotationData> rotationMap;
-
-  void setup(const char *);
-};
-
-//------------------------------------------------------------------------------
-
 struct EmbeddedFramework { 
 
   enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
-  enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
+  enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
+  enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
+  enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
+  double alpha;		// In the case of solve Riemann problem at intersection, this parameter
+  					// controls whether to switch to a first order method to avoid divided-by-zero
+
+  // stabilizing alpha (attempt at stabilizing the structure normal)
+  // Tries to add some dissipation.  should be small.
+  double stabil_alpha;
+
+  double interfaceThickness;
 
   MultiInitialConditionsData embedIC;
   
@@ -2280,6 +2445,7 @@ struct EmbeddedFramework {
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
+  enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
@@ -2325,25 +2491,29 @@ struct ImplosionSetup {
   void setup(const char *);
 };
 
-struct MultigridInfo {
- 
-  MultigridInfo();
-  ~MultigridInfo() {}
-  void setup(const char *);
 
-  const char* fineMesh;
-  const char* coarseMesh;
+//------------------------------------------------------------------------------
 
-  const char* fineDec;
-  const char* coarseDec;
+struct KirchhoffData {
+  
+  /// UH (08/2012)
+  ///
+  /// This structure stores information for computing the Kirchhoff integral.
+  /// Information is used with the problem type "Aeroacoustic".
+  ///
+  
+  enum Type {CYLINDRICAL = 0, SPHERICAL = 1} d_surfaceType;
+  double d_energyFraction;
+  int d_angularIncrement;
+  int d_nyquist;
+    
+  KirchhoffData();
+  ~KirchhoffData() {}
+  
+  void setup(Communicator *communicator, const char *name, ClassAssigner * = 0);
 
-  const char* packageFile;
-  const char* collectionFile;
-
-  double radius0;
-  double radiusf;
-  int threshold;
 };
+
 //------------------------------------------------------------------------------
 
 class IoData {
@@ -2386,7 +2556,11 @@ public:
   OneDimensionalInfo oneDimensionalInfo;
   ImplosionSetup implosion;
 
-  MultigridInfo multigrid;
+  MultiGridData mg;
+
+  // UH (08/2012)
+  // The next member is used for the Kirchhoff integral.
+  KirchhoffData surfKI;
 
 public:
 
@@ -2399,10 +2573,12 @@ public:
   void resetInputValues();
   int checkFileNames();
   int checkInputValues();
+  int checkInputValuesAeroAcoustic();
   int checkInputValuesAllEquationsOfState();
   int checkInputValuesProgrammedBurn();
   int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
 			       InitialConditions& IC);
+  int checkCFLBackwardsCompatibility();
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();

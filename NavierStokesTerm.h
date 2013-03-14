@@ -79,7 +79,11 @@ public:
 
   NavierStokesTerm(IoData &, VarFcn *);
   virtual ~NavierStokesTerm();
+  
+  ViscoFcn * getViscoFcn() const { return viscoFcn; }
+  double get_ooreynolds_mu() const { return ooreynolds_mu; }
 
+  ThermalCondFcn* getThermalCondFcn() const { return thermalCondFcn; }
 };
 
 //------------------------------------------------------------------------------

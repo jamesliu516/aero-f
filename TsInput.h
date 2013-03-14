@@ -30,6 +30,7 @@ struct TsInput {
 //  char *reducedfullnodemap;
 //  char *mesh;
 
+	char *wallsurfacedisplac;
   char *shapederivatives;
 
   TsInput(IoData &);

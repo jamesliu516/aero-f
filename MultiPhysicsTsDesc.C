@@ -45,7 +45,6 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
   if (numBurnableFluids > 0) {
-    this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
   }
@@ -105,12 +104,28 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   this->postOp->setForceGenerator(this);
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
-  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
+//  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
+  switch (ioData.embed.forceAlg) {
+    case EmbeddedFramework::CONTROL_VOLUME_BOUNDARY :
+      forceApp = 1;
+      break;
+    case EmbeddedFramework::EMBEDDED_SURFACE :
+      forceApp = 2;
+      break;
+    case EmbeddedFramework::RECONSTRUCTED_SURFACE :
+      forceApp = 3;
+      break;
+    default:
+      this->com->fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); 
+      exit(-1);
+  }
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
 
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false;
+    viscSecOrder = false;
 
   //for phase-change update
   Weights = 0;
@@ -207,7 +222,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   totStructNodes = dynNodalTransfer ? dynNodalTransfer->totStNodes() : numStructNodes;
 
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes.\n", numStructNodes, totStructNodes);
+    //this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes.\n", numStructNodes, totStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[totStructNodes][3];
   } else
@@ -286,6 +301,10 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
 
+  *(this->Xs) = *(this->X);
+
+  this->initializeFarfieldCoeffs();
+
   // Initialize level-sets 
   if(withCracking && withMixedLS) 
     LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 
@@ -293,14 +312,15 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   else
     LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0, lsMethod);
 
-  if (programmedBurn)
-    programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 
   // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
   //if(this->input->levelsets[0] == 0) // init
   //  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
   //else //restart
   fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
+  
+  if (programmedBurn)
+    programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
@@ -361,7 +381,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
 
 template<int dim, int dimLS>
 double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
-                                                  DistSVec<double,dim> &U)
+                                                  DistSVec<double,dim> &U, double angle)
 {
   if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
@@ -375,11 +395,12 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
   }
 
   double t0 = this->timer->getTime();
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
   int numSubCycles = 1;
 
   double dt;
-  umax = 0.0;
+  umax = 0.0; 
+  
   dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                           &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
@@ -403,17 +424,24 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 {
   this->geoState->update(*this->X, *this->A);
   
-  if(withCracking && withMixedLS)
-    fluidSelector.checkLSConsistency(Phi);
+//  if(withCracking && withMixedLS)
+//    fluidSelector.checkLSConsistency(Phi);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
-    LS->conservativeToPrimitive(Phi,PhiV,U);
+    if (this->lsMethod == 0)
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+    else
+      PhiV = Phi;
     if(withCracking && withMixedLS) {
       this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
       LS->reinitializeLevelSet(*this->X, PhiV, false);
-    } else
+    } else {
       LS->reinitializeLevelSet(*this->X, PhiV);
-    LS->primitiveToConservative(PhiV,Phi,U);
+    }
+    if (this->lsMethod == 0)
+      LS->primitiveToConservative(PhiV,Phi,U);
+    else
+      Phi = PhiV;
     LS->update(Phi);
     if (this->timeState->useNm1()) {
       DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
@@ -509,7 +537,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
-  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
+  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS, dynNodalTransfer);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
   this->output->updatePrtout(t);
@@ -582,13 +610,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateOutputToStructure(double dt, double dt
 template<int dim, int dimLS>
 double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-  // Ghost-Points Population (for Navier-Stokes only)
-  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
-    this->ghostPoints->deletePointers();
-    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
-  }
-  LS->conservativeToPrimitive(Phi,PhiV,U);
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
+//  // Ghost-Points Population (for Navier-Stokes only)
+//  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
+//    this->ghostPoints->deletePointers();
+//    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,*(this->fluidSelector.fluidId));
+//  }
+  if (this->lsMethod == 0)
+    LS->conservativeToPrimitive(Phi,PhiV,U);
+  else
+    PhiV = Phi;
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, viscSecOrder, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
 
   this->multiPhaseSpaceOp->applyBCsToResidual(U, *this->R);
 
@@ -605,7 +636,7 @@ template<int dim, int dimLS>
 void MultiPhysicsTsDesc<dim,dimLS>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
   /* only used for steady simulations. Is it meaningful when a ff interface is present */
-  this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+  //this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
     this->data->residual = computeResidualNorm(U);
@@ -642,25 +673,33 @@ void MultiPhysicsTsDesc<dim,dimLS>::computeForceLoad(DistSVec<double,dim> *Wij, 
 //-------------------------------------------------------------------------------
 
 template <int dim, int dimLS>
-void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                                        double F[3], double M[3])
+void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D *Fi, Vec3D *Mi)
 {
-  if (!FsComputed)
+  int idx;
+  if (!FsComputed) 
     computeForceLoad(this->Wstarij, this->Wstarji);
-
-  F[0] = F[1] = F[2] = 0.0;
 
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
-  for (int i=0; i<numStructNodes; i++) {
-    F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
 
-  M[0] = M[1] = M[2] = 0;
   Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
-  for (int i = 0; i < numStructNodes; ++i) {
-     M[0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
-     M[1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
-     M[2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
+
+  for (int i=0; i<numStructNodes; i++) {
+    map<int,int>::iterator it = surfOutMap.find(distLSS->getSurfaceID(i));
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      idx = 0;
+    }
+
+    Fi[idx][0] += Fs[i][0]; 
+    Fi[idx][1] += Fs[i][1]; 
+    Fi[idx][2] += Fs[i][2];
+
+    Mi[idx][0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
+    Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
+    Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
   }
 }
 
@@ -694,8 +733,11 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
     //updateFluidIdFS
-    this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
-    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    if (this->lsMethod == 0)
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+    else
+      PhiV = Phi;
+    //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
     this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                       //  is meaningful. We destroy it so people wouldn't use it

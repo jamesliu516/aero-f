@@ -172,6 +172,8 @@ double WallFcn::computeFrictionVelocity(Vec3D &t, double delta, double rho, Vec3
 
   double utau = sqrt(mu * ut / (reynolds * rho * delta));
 
+  double res;
+  double target;
   int it;
   for (it=0; it<maxits; ++it) {
 
@@ -187,9 +189,8 @@ double WallFcn::computeFrictionVelocity(Vec3D &t, double delta, double rho, Vec3
 
     double F = utau * f - ut;
 
-    double res = F * F;
+    res = F * F;
 
-    double target;
     if (it == 0) 
       target = eps * res;
 
@@ -205,7 +206,7 @@ double WallFcn::computeFrictionVelocity(Vec3D &t, double delta, double rho, Vec3
   }
 
   if (it == maxits) 
-    fprintf(stderr, "*** Warning: Newton did not converge on utau\n");
+    fprintf(stderr, "*** Warning: Newton did not converge on utau; t =[%lf %lf %lf]; delta = %lf rho = %lf u = [%lf %lf %lf] mu = %lf; res = %lf \n", t[0],t[1],t[2],delta,rho,u[0],u[1],u[2], mu, res);
 
   if (utau <= 0.0)
     fprintf(stderr, "*** Warning: utau=%e\n", utau);
@@ -232,6 +233,8 @@ double WallFcn::computeDerivativeOfFrictionVelocity(Vec3D &t, Vec3D &dt, double 
   double utau = sqrt( mu * ut / ( reynolds * rho * delta ) );
 
   double dutau;
+
+  double target;
 
   if (ut != 0.0)
     dutau = 1.0 / (2.0 * utau) * ( ( dmu * ut + mu * dut ) * ( reynolds * rho ) - ( mu * ut ) * ( dRedMach * dMach * rho + reynolds * drho ) ) / ( reynolds * reynolds * rho * rho * delta );
@@ -262,7 +265,6 @@ double WallFcn::computeDerivativeOfFrictionVelocity(Vec3D &t, Vec3D &dt, double 
 
     double res = F * F;
 
-    double target;
     if (it == 0)
       target = eps * res;
 

@@ -44,6 +44,8 @@ Domain::Domain()
   faceNormDistInfo = 0;
   inletNodeDistInfo = 0;
 
+  kirchhoffNodeDistInfo = (DistInfo*) 0;
+
   vecPat = 0;
   phiVecPat = 0;
   compVecPat = 0;
@@ -53,6 +55,7 @@ Domain::Domain()
   bool2Pat = 0;
   bool3Pat = 0;
   weightPat = 0;
+  weightPhaseChangePat = 0;
   edgePat = 0;
   scalarEdgePat = 0;
   momPat = 0;
@@ -125,9 +128,9 @@ Domain::Domain()
 //------------------------------------------------------------------------------
 
 Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType(0), nodeFaceType(0),
-    nodeDistInfo(0), edgeDistInfo(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0),
+    nodeDistInfo(0), edgeDistInfo(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0), kirchhoffNodeDistInfo(0),
     vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0),
-    weightPat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
+    weightPat(0), weightPhaseChangePat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
     inletCountPat(0), inletRhsPat(0), Delta(0), CsDelSq(0), PrT(0), WCsDelSq(0), WPrT(0), tag(0), tagBar(0),
     weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), outputTimeIt(0),
     outputNewtonIt(0), outputNewtonTag(0.0), outputNewtonStateStep(0), outputNewtonResidualStep(0), outputKrylovStep(0)
@@ -161,6 +164,7 @@ Domain::~Domain()
   if (bool2Pat) delete bool2Pat;
   if (bool3Pat) delete bool3Pat;
   if (weightPat) delete weightPat;
+  if (weightPhaseChangePat) delete weightPhaseChangePat;
   if (edgePat) delete edgePat;
   if (scalarEdgePat) delete scalarEdgePat;
   if (momPat) delete momPat;
@@ -190,6 +194,7 @@ Domain::~Domain()
   if (faceDistInfo) delete faceDistInfo;
   if (faceNormDistInfo) delete faceNormDistInfo;
   if (inletNodeDistInfo) delete inletNodeDistInfo;
+  if (kirchhoffNodeDistInfo) delete kirchhoffNodeDistInfo;
 
   //communication Structures
   int numCpu = globCom->size();
@@ -264,6 +269,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   exit(1);
 #endif
 
+  mySubToSub = geoSource.getSubToSub();
+
   subTopo = new SubDTopo(com->cpuNum(), geoSource.getSubToSub(), geoSource.getCpuToSub());
   volPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   levelPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend); // New Comm Pattern
@@ -271,6 +278,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   bool3Pat = new CommPattern<bool>(subTopo, com, CommPattern<bool>::CopyOnSend); // New Comm Pattern
   vec3DPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   weightPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
+  weightPhaseChangePat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   momPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   csPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   engPat =  new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
@@ -287,9 +295,17 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   faceDistInfo      = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   faceNormDistInfo  = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   inletNodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
+
+  //--- UH (07/2012) Check whether the Kirchhoff integral is computed
+  if (strlen(ioData.output.restart.strKPtraces) > 0)
+  {
+    kirchhoffNodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
+  }
+
   if (!(ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
         ioData.schemes.bc.type != BoundarySchemeData::STEGER_WARMING &&
-        ioData.schemes.bc.type != BoundarySchemeData::GHIDAGLIA)){
+        ioData.schemes.bc.type != BoundarySchemeData::GHIDAGLIA &&
+        ioData.schemes.bc.type != BoundarySchemeData::MODIFIED_GHIDAGLIA)){
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; ++iSub) {
       subDomain[iSub]->markLenNull(*inletNodeDistInfo);
@@ -303,6 +319,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->markLenNodes(*nodeDistInfo);
     subDomain[iSub]->markLenFaces(*faceDistInfo);
     subDomain[iSub]->markLenFaceNorms(*faceNormDistInfo);
+    if (kirchhoffNodeDistInfo)
+      subDomain[iSub]->markLenKirchhoffNodes(ioData, *kirchhoffNodeDistInfo);
     subDomain[iSub]->setChannelNums(*subTopo);
     subDomain[iSub]->setComLenNodes(1, *volPat);
     subDomain[iSub]->setComLenNodes(1, *levelPat); // New Comm Pattern
@@ -312,6 +330,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setComLenNodes(2, *fsPat);
     subDomain[iSub]->setComLenNodes(3, *vec3DPat);
     subDomain[iSub]->setComLenNodes(6, *weightPat);
+	subDomain[iSub]->setComLenNodes(10, *weightPhaseChangePat);
     subDomain[iSub]->setComLenNodes(8, *engPat);
     subDomain[iSub]->setComLenNodes(16, *momPat);
     // Initialize pointer
@@ -323,6 +342,9 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   faceDistInfo->finalize(false);
   faceNormDistInfo->finalize(false);
 
+  if (kirchhoffNodeDistInfo)
+    kirchhoffNodeDistInfo->finalize(false);
+
   volPat->finalize();
   levelPat->finalize();
   bool2Pat->finalize();
@@ -332,6 +354,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   fsPat->finalize();
   vec3DPat->finalize();
   weightPat->finalize();
+  weightPhaseChangePat->finalize();
   momPat->finalize();
 
 // Included (MB)
@@ -1217,6 +1240,40 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 }
 
 //------------------------------------------------------------------------------
+// least square gradient involving only nodes of same fluid (FSI)
+// with option to take into account of Riemann solution at interface
+void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
+                                        DistSVec<double,6> &R, DistVec<int> &countWstarij,
+										DistVec<int> &countWstarji, 
+										DistLevelSetStructure *distLSS)
+{
+
+  int iSub;
+  //double t0 = timer->getTime();
+  DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
+
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) { 
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), countWstarij(iSub), countWstarji(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
+    subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
+    subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
+  }
+
+  weightPat->exchange();
+  levelPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
+    subDomain[iSub]->addRcvData(*levelPat, (*count).subData(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresNodePart((*count)(iSub), R(iSub));
+  }
+
+  //timer->addNodalWeightsTime(t0);
+  if (count) delete count;
+}
+
+//------------------------------------------------------------------------------
 
 // Included (MB)
 void Domain::computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,6> &dR)
@@ -1435,12 +1492,12 @@ void Domain::computeCharacteristicEdgeLength(DistSVec<double,3> &X, double& minL
 
 // ------------------------------------------------------------------------------------------
 
-/*void Domain::getTriangulatedSurfaceFromFace(DistSVec<double,3> &X)
-// get the Walls (in the sense of triangulated surfaces ) from Face.
-{
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->getTriangulatedSurfaceFromFace(X(iSub));
-}*/
+//void Domain::getTriangulatedSurfaceFromFace(DistSVec<double,3> &X)
+//{
+//  // get the Walls (in the sense of triangulated surfaces ) from Face.
+//  for (int iSub=0; iSub<numLocSub; iSub++)
+//    subDomain[iSub]->getTriangulatedSurfaceFromFace(X(iSub));
+//}
 
 //--------------------------------------------------------------------------------
 

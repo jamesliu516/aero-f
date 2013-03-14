@@ -1078,7 +1078,7 @@ void GnatPreprocessing<dim>::computeBCFaces(bool liftContribution) {
     for (int iFace = 0; iFace < subD[iSub]->numFaces(); ++iFace) {  // check all faces  
       faceBCCode = currentFaces[iFace].getCode();
       int codeIsPos = faceBCCode >0;
-      if (faceBCCode != 0) {
+      if ((faceBCCode <= BC_MAX_CODE) && (faceBCCode != 0)) {
         
         // check if the face is in the sample mesh
          if (liftContribution && includeLiftFaces > 0) {  // including lift faces

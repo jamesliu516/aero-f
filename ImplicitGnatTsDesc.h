@@ -37,7 +37,6 @@ protected:
 	virtual bool breakloop1(const bool);
 	virtual bool breakloop2(const bool);
 
-  bool monitorConvergence(int, DistSVec<double,dim> &);
   double computeGnatResidualNorm(DistSVec<double,dim> &);
   void setReferenceResidual();
 
@@ -46,6 +45,7 @@ public:
   
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
   void monitorInitialState(int, DistSVec<double,dim> &);
+  bool monitorConvergence(int, DistSVec<double,dim> &);
 
   ImplicitGnatTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitGnatTsDesc();
