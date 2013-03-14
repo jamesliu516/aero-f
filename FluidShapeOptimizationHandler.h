@@ -29,7 +29,7 @@ class FluidShapeOptimizationHandler : public ImplicitCoupledTsDesc<dim> {
 private:
 
   Domain *domain;
-//	TsSolver<ImplicitCoupledTsDesc<dim> > *tsSolver;
+//  TsSolver<ImplicitCoupledTsDesc<dim> > *tsSolver;
   MeshMotionSolver *mms;
 
   // UH (08/10) This pointer is never used.
@@ -64,7 +64,7 @@ private:
   DistSVec<double,3> dPdS;
   DistSVec<double,3> dXdS;
   DistSVec<double,3> dXdSb;
-	DistSVec<double,3> dXb;
+  DistSVec<double,3> dXb;
   DistSVec<double,3> Xc;
   DistSVec<double,3> *Xp;
   DistSVec<double,3> *Xm;
@@ -138,7 +138,7 @@ public:
   int fsoHandler(IoData &, DistSVec<double,dim> &);
   void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
-	void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
+  void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
 
 };
 
