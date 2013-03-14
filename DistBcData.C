@@ -634,6 +634,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
 
   double velin2 = 0.0;
   double velout2 = 0.0;
+
   if(iod.bc.inlet.mach >= 0.0 && iod.bc.outlet.mach >= 0.0){
     velin2 = gam * (pressurein + Pstiff)*
       iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;

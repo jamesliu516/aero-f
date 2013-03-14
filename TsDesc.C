@@ -53,13 +53,16 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   input = new TsInput(ioData);
   geoState = new DistGeoState(ioData, domain);
+
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  if(ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) 
+  if (ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) {
     geoState->setup1(input->positions, X, A);
-  else {
+		moveMesh(ioData, geoSource);
+	} else {
     char temp[1]; temp[0] = '\0';
     geoState->setup1(temp, X, A);
+		moveMesh(ioData, geoSource);
   }
 
   bcData = createBcData(ioData);
@@ -97,6 +100,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
 	timeState = 0;
 	mmh = 0; 
+
 }
 
 //------------------------------------------------------------------------------
@@ -123,12 +127,40 @@ TsDesc<dim>::~TsDesc()
   if (spaceOp) delete spaceOp;
   if (postOp) delete postOp;
   if (mmh) delete mmh;
+  if (mems) delete mems;
   if (hth) delete hth;
   if (forceNorms) delete forceNorms;
   if (riemann1) delete riemann1;
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
+{
+    if (strcmp(input->wallsurfacedisplac,"") != 0 && strcmp(input->positions,"") == 0) {
+			cout << input->wallsurfacedisplac << endl;
+      PosVecType dXb(getVecInfo());
+      mems = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);
+//      mems = new TetMeshMotionSolver(ioData.dmesh, 0, domain, 0);
+      domain->readVectorFromFile(input->wallsurfacedisplac, 0, 0, dXb);
+      mems->solve(dXb, *X);
+  		*Xs = *X;	
+  		if(X->norm() == 0.0)
+  		{
+  			this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
+  			exit(1);
+  		}
+  		com->fprintf(stderr," *** mesh has been moved.\n");
+    	char temp[1]; temp[0] = '\0';
+  		geoState->setup3(temp, X, A);
+  	} else {
+  		mems = 0;
+  	}
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void TsDesc<dim>::printf(int verbose, const char *format, ...)
@@ -564,8 +596,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
     if (com->getMaxVerbose() >= 2)
       timer->print(domain->getStrTimer());
 
-    output->closeAsciiFiles();
-
+		if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+	    output->closeAsciiFiles();
+		}
   }
 
 }

@@ -449,9 +449,9 @@ void FaceTria::computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFc
 
 template<int dim>
 void FaceTria::computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
-				     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
-				     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
-				     double* gradP[3], int hydro,
+																     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
+																     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
+				     												 double* gradP[3], int hydro,
                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
                                      Vec<double> *genCF)
 {

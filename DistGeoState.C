@@ -259,8 +259,72 @@ void DistGeoState::setup(const char *name, TimeData &timeData,
 
 //------------------------------------------------------------------------------
 
+void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
+{
+
+	com->printf(2, "in DistGeoState::setup3.\n");
+
+  if (!data.use_n) {
+    Xn = X->alias();
+    ctrlVol_n = ctrlVol->alias();
+  }
+  if (!data.use_nm1) {
+    Xnm1 = Xn->alias();
+    ctrlVol_nm1 = ctrlVol_n->alias();
+  }
+  if (!data.use_nm2) {
+    Xnm2 = Xnm1->alias();
+    ctrlVol_nm2 = ctrlVol_nm1->alias();
+  }
+
+  bool read_n = false;
+  bool read_nm1 = false;
+  bool read_nm2 = false;
+
+  // This effectively `restarts' the geometry of the mesh, recovering the
+  // last 3 positions.
+  if (name[0] != 0) {
+    read_n = domain->readVectorFromFile(name, 0, 0, *Xn, &oolscale);
+    if (data.use_nm1)
+      read_nm1 = domain->readVectorFromFile(name, 1, 0, *Xnm1, &oolscale);
+    if (data.use_nm2) 
+      read_nm2 = domain->readVectorFromFile(name, 2, 0, *Xnm2, &oolscale);
+  }
+
+  if (data.use_nm1)
+    *Xnm1 = *Xn;
+  if (data.use_nm2)
+    *Xnm2 = *Xnm1;
+
+  data.config = 0;
+
+  domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  if (data.use_nm1)
+    domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
+  if (data.use_nm2)
+    domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+
+	*Xn = *X;
+  *ctrlVol = *ctrlVol_n;
+
+  double bbMin[3], bbMax[3];
+  X->min(bbMin); X->max(bbMax);
+
+  com->printf(2,
+        "Control volume statistics: min=%.3e, max=%.3e, total=%.3e\n"
+        "Mesh bounding box: (Xmin,Ymin,Zmin) = (%.3e %.3e %.3e)\n"
+        "                   (Xmax,Ymax,Zmax) = (%.3e %.3e %.3e)\n",
+        ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum(),
+              bbMin[0], bbMin[1], bbMin[2], bbMax[0], bbMax[1], bbMax[2]);
+
+}
+
+//------------------------------------------------------------------------------
+
 void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
+
+	com->printf(2, "in DistGeoState::setup1.\n");
 
   if (!data.use_n) {
     Xn = X->alias();
