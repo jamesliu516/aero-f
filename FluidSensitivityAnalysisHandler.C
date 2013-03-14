@@ -120,7 +120,7 @@ Uc(dom->getNodeDistInfo())
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
     mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(),domain,0);
-	}
+  }
 
   length = ioData.output.transient.length;
   surface = ioData.output.transient.surface;
@@ -1330,7 +1330,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
       // Reading derivative of the overall deformation
       bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
-			if(!readOK) break;
+      if(!readOK) break;
 
 // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
