@@ -138,8 +138,7 @@ TsDesc<dim>::~TsDesc()
 template<int dim>
 void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
 {
-    if (input->wallsurfacedisplac != 0) {
-			com->fprintf(stderr,"InitialWallDisplacement will be read.\n");
+    if (strcmp(input->wallsurfacedisplac,"") != 0 && strcmp(input->positions,"") == 0) {
 			cout << input->wallsurfacedisplac << endl;
       PosVecType dXb(getVecInfo());
       mems = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);

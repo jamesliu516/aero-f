@@ -102,7 +102,7 @@ int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
   probDesc->fsoPrintTextOnScreen("*** Fluid Shape Optimization Interface ***\n");
   probDesc->fsoPrintTextOnScreen("******************************************\n");
 
-//	probDesc->fsoMoveMesh(ioData, U);
+	probDesc->fsoInitialize(ioData, U);
 	resolve(U, ioData);
   probDesc->fsoHandler(ioData, U);
 
