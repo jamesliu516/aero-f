@@ -71,7 +71,8 @@ protected:
       prec = 1; //at least spatial preconditioning
       if(iod.ts.prec == TsData::PREC){
         prec = 2;
-        if(iod.problem.alltype != ProblemData::_STEADY_ &&
+        if(iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ &&
+					 iod.problem.alltype != ProblemData::_STEADY_ &&
            iod.problem.alltype != ProblemData::_STEADY_AEROELASTIC_ &&
            iod.problem.alltype != ProblemData::_STEADY_THERMO_ &&
            iod.problem.alltype != ProblemData::_STEADY_AEROTHERMOELASTIC_){

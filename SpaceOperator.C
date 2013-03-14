@@ -51,7 +51,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     V = new DistSVec<double,dim>(domain->getNodeDistInfo());
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
     dU = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dRm = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -503,24 +503,29 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
   }
 
-  if (egrad)
+  if (egrad) {
     egrad->compute(geoState->getConfig(), X);
+	}
 
   if (xpol){
     xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
   }
 
-  if (vms)
+  if (vms) {
     vms->compute(geoState->getConfig(), ctrlVol, X, *V, R);
+	}
 
-  if (smag)
+  if (smag) {
     domain->computeSmagorinskyLESTerm(smag, X, *V, R);
+	}
 
-  if (wale)
+  if (wale) {
      domain->computeWaleLESTerm(wale, X, *V, R);
+	}
 
-  if (dles)
+  if (dles) {
     dles->compute(ctrlVol, *bcData, X, *V, R);
+	}
 
   DistVec<double> *irey;
   if(timeState)
@@ -531,6 +536,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   }
 
   if (fet) {
+		fprintf(stderr,"fet is on.\n");
     domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
     bcData->computeNodeValue(X);
   }
@@ -1801,7 +1807,7 @@ void SpaceOperator<dim>::applyBCsToDerivativeOfResidual(DistSVec<double,dim> &U,
 
 //Remark: Error mesage for pointers
   if (dU == 0) {
-    fprintf(stderr, "*** Error: Varible dU does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dU does not exist!\n");
     exit(1);
   }
 
@@ -2142,6 +2148,11 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
                                       sizeFs, distLSS, pinternal, Wstarij, Wstarji,
                                       *V,ghostPoints,postFcn,ngrad,varFcn,fid);
+      break;
+
+    case 2: // Embedded Surface
+      domain->computeEmbSurfBasedForceLoad(forceApp,orderOfAccuracy,X,Fs,sizeFs,
+					   distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,ngrad,varFcn,fid);
       break;
 
     case 3: // Reconstructed Surface

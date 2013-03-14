@@ -144,7 +144,7 @@ public:
   DistSVec<double,dim>* getCurrentPrimitiveVector() { return V; }
 
   FemEquationTerm *getFemEquationTerm() { return fet;}
-  void conservativeToPrimitive(DistSVec<double,dim> &U) {varFcn->conservativeToPrimitive(U, *V);}
+  void conservativeToPrimitive(DistSVec<double,dim> &U,DistVec<int>* fid = 0) {varFcn->conservativeToPrimitive(U, *V,fid);}
 
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,

@@ -970,7 +970,7 @@ public:
     return vmax;
   }
 
-#ifdef USE_IOSTREAM
+//#ifdef USE_IOSTREAM
   void print(char *msg = "") { 
     if (msg) cerr << msg << endl;
     for (int i=0; i<len; ++i) {
@@ -981,7 +981,7 @@ public:
       cerr.flush();
     }
   }
-#endif
+//#endif
 
   void min(Scalar vmin[dim]) const {
     for (int idim=0; idim<dim; idim++)

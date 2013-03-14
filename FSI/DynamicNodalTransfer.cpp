@@ -237,6 +237,13 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   int sp = strlen(iod.input.prefix) + 1;
   meshFile = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(meshFile,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
+
+  restartmeshFile = new char[sp + strlen(iod.input.embeddedpositions)];
+  if(iod.input.embeddedpositions[0] != 0)
+    sprintf(restartmeshFile,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
+  else //no restart position file provided
+    restartmeshFile[0] = '\0'; 
+
   matcherFile = new char[sp + strlen(iod.input.match)];
   sprintf(matcherFile,"%s%s", iod.input.prefix, iod.input.match); 
 
@@ -257,6 +264,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     else if(iod.forced.type==ForcedData::VELOCITY)
       mode = 3;
     else if (iod.forced.type==ForcedData::DEFORMING)
+      mode = 4;
+    else if (iod.forced.type==ForcedData::DEBUGDEFORMING)
       mode = 99;
     else {
       com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
@@ -300,6 +309,15 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   u = x2[0]-x1[0];  v = x2[1]-x1[1];  w = x2[2]-x1[2];
   // unit normals of axis of rotation //
   ix = u/sqrt(u*u+v*v+w*w);  iy = v/sqrt(u*u+v*v+w*w);  iz = w/sqrt(u*u+v*v+w*w);
+
+  // for deforming data
+  deformMeshFile = new char[strlen(iod.forced.df.positions) + 1];
+  if(iod.forced.df.positions[0] != 0)
+    sprintf(deformMeshFile,"%s", iod.forced.df.positions);
+  else //no deforming data position file provided
+    deformMeshFile[0] = '\0'; 
+  Xd = 0;
+  dXmax = 0;
 
   // ----------------------------------
   //               End
@@ -511,6 +529,91 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     }
 
     fclose(topFile);
+
+    int nInputs;
+    char c1[200], c2[200], c3[200];
+    // load solid nodes at restart time.
+    if (restartmeshFile[0] != 0) {
+      FILE* resTopFile = fopen(restartmeshFile, "r");
+      if(resTopFile==NULL) {com.fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
+      int ndMax = 0, ndMax2 = 0;
+      std::list<std::pair<int,Vec3D> > nodeList2;
+      std::list<std::pair<int,Vec3D> >::iterator it2;
+
+      while(1) {
+        nInputs = fscanf(resTopFile,"%s", c1);
+        if(nInputs!=1) break;    
+        char *endptr;
+        num1 = strtol(c1, &endptr, 10);
+        if(endptr == c1) break;
+
+        int toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+        nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+        ndMax = std::max(num1, ndMax);
+      }
+      if (ndMax!=totalNodes) {
+        com.fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+        exit(1);
+      }
+
+      for(int i=0; i<totalNodes; i++)
+        X[i][0] = X[i][1] = X[i][2] = 0.0;
+      
+      for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++) {
+        X[it2->first-1][0] = (it2->second)[0];
+        X[it2->first-1][1] = (it2->second)[1];
+        X[it2->first-1][2] = (it2->second)[2];
+      }
+
+      fclose(resTopFile);
+    }
+
+    if (mode==4) { //deforming data
+      int nInputs;
+      char c1[200], c2[200], c3[200];
+      // load deforming data
+      if (deformMeshFile[0] != 0) {
+        FILE* defoTopFile = fopen(deformMeshFile, "r");
+        if(defoTopFile==NULL) {com.fprintf(stderr, "Deforming data topFile doesn't exist.\n"); exit(1);}
+        int ndMax = 0, ndMax2 = 0;
+        std::list<std::pair<int,Vec3D> > nodeList2;
+        std::list<std::pair<int,Vec3D> >::iterator it2;
+
+        while(1) {
+          nInputs = fscanf(defoTopFile,"%s", c1);
+          if(nInputs!=1) break;    
+          char *endptr;
+          num1 = strtol(c1, &endptr, 10);
+          if(endptr == c1) break;
+
+          int toto = fscanf(defoTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+          nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+          ndMax = std::max(num1, ndMax);
+        }
+        if (ndMax!=totalNodes) {
+          com.fprintf(stderr,"ERROR: number of nodes in Deforming data top-file is wrong.\n");
+          exit(1);
+        }
+
+        Xd  = new (com) double[totalNodes][3];
+        dXmax  = new (com) double[totalNodes][3];
+
+        for(int i=0; i<totalNodes; i++)
+          Xd[i][0] = Xd[i][1] = Xd[i][2] = 0.0;
+        
+        for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++) {
+          Xd[it2->first-1][0] = (it2->second)[0];
+          Xd[it2->first-1][1] = (it2->second)[1];
+          Xd[it2->first-1][2] = (it2->second)[2];
+          dXmax[it2->first-1][0] = iod.forced.df.amplification*(Xd[it2->first-1][0] - X0[it2->first-1][0]);
+          dXmax[it2->first-1][1] = iod.forced.df.amplification*(Xd[it2->first-1][1] - X0[it2->first-1][1]);
+          dXmax[it2->first-1][2] = iod.forced.df.amplification*(Xd[it2->first-1][2] - X0[it2->first-1][2]);
+        }
+
+        fclose(defoTopFile);
+      }
+    }
+
   }
 
   makerotationownership(iod);
@@ -552,6 +655,8 @@ EmbeddedStructure::~EmbeddedStructure()
 {
   if(X0)       operator delete[] (X0, com);
   if(X)        operator delete[] (X, com);
+  if(Xd)       operator delete[] (Xd, com);
+  if(dXmax)    operator delete[] (dXmax, com);
   if(Tria)     operator delete[] (Tria, com);
   if(U)        operator delete[] (U, com);
   if(Udot)     operator delete[] (Udot, com);
@@ -563,6 +668,8 @@ EmbeddedStructure::~EmbeddedStructure()
   if(structExc) delete structExc;  
   if(mns)      {delete mns[0]; delete [] mns;}
   delete[] meshFile;
+  if(restartmeshFile) delete[] restartmeshFile;
+  if(deformMeshFile) delete[] deformMeshFile;
   delete[] matcherFile;
 
   if(coupled) delete di;
@@ -590,7 +697,7 @@ void EmbeddedStructure::makerotationownership(IoData &iod) {
   int numRotSurfs = 0;
   int numTransWalls = 0;
   while(it != surfaceMap.end()) {
-    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->rotationID);
+    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->forceID);
     if(it1!=rotationMap->end()) {
       if(it1->second->infRadius) {
         numTransWalls++;
@@ -615,7 +722,7 @@ void EmbeddedStructure::makerotationownership(IoData &iod) {
 
       map<int,SurfaceData *>::iterator it = surfaceMap.find(surfaceID[k]);
       if(it != surfaceMap.end()) {
-         int rotID = it->second->rotationID; // = -1 if not defined in input file
+         int rotID = it->second->forceID; // = -1 if not defined in input file
          if ((rotOwn[k] != -1 && rotOwn[k] != rotID) ||
              (rotOwn[k] != -1 && rotOwn[k] != rotID) ||
              (rotOwn[k] != -1 && rotOwn[k] != rotID))  {
@@ -801,10 +908,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   it++;
   if(!coupled) {
     double time;
-    if(it==1 && algNum==6)
-      time = t0 + 0.5*dt*(double)it;
-    else
-      time = t0 + dt*(double)it;
+    time = t0 + dt*(double)it;
      
     if (mode==1) //heaving
       for(int i=0; i < nNodes; ++i) {
@@ -922,17 +1026,8 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         U[i][1] += yy1[1];                                        
         U[i][2] += yy1[2];                                     
 
-        if(it==1) {
-          if(algNum==6)
-            for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X0[i][j])/(0.5*dt);
-          else
-            for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X0[i][j])/dt;
-        } else {
-          for(int j=0; j<3; j++)
-            Udot[i][j] = (U[i][j]-X[i][j])/dt;
-        }
+        for(int j=0; j<3; j++)
+          Udot[i][j] = (U[i][j]-X[i][j])/dt;
 
         for(int j=0; j<3; j++)
           U[i][j] -= X0[i][j];
@@ -948,6 +1043,16 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 //        Udot[i][2] = dz;
 //      }
       updaterotation(time);
+    else if (mode==4) //deforming data
+    {
+      for(int i=0; i<nNodes; ++i) {
+        for(int j=0; j<3; j++) {
+          U[i][j] = sin(omega*time)*dXmax[i][j];
+          Udot[i][j] = omega*cos(omega*time)*dXmax[i][j];
+	}
+
+      }
+    }
     else if (mode==99) { // for debugging use.
 	  bool shrinking_sphere = true;	
 	  if (shrinking_sphere) {

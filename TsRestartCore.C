@@ -20,7 +20,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(solutions[0], "");
 
   positions[0] = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0 && iod.problem.framework == ProblemData::BODYFITTED)
+  if (iod.output.restart.positions[0] != 0 && (iod.problem.framework == ProblemData::BODYFITTED || iod.problem.framework == ProblemData::EMBEDDEDALE))
     sprintf(positions[0], "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(positions[0], "");
@@ -44,9 +44,9 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   else
     sprintf(data[0], "");
 
-  structPos = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0 && iod.problem.framework == ProblemData::EMBEDDED)
-    sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
+  structPos = new char[sp + strlen(iod.output.restart.embeddedpositions)];
+  if (iod.output.restart.embeddedpositions[0] != 0 && (iod.problem.framework == ProblemData::EMBEDDED || iod.problem.framework == ProblemData::EMBEDDEDALE) )
+    sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.embeddedpositions);
   else
     sprintf(structPos, "");
 

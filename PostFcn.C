@@ -212,8 +212,8 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
 
 void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
                                 double *Vwall, double *Vface[3], double *Vtet[4],
-				double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro,
-				int fid)
+																double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro,
+																int fid)
 {
 
   double pcg[3], p[3];
@@ -943,8 +943,8 @@ Vec3D PostFcnNS::computeDerivativeOfViscousForce(double dp1dxj[4][3], double ddp
 //------------------------------------------------------------------------------
 
 void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
-			     double *Vwall, double *Vface[3], double *Vtet[4], 
-                    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro, int fid)
+												     double *Vwall, double *Vface[3], double *Vtet[4], 
+					                   double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro, int fid)
 {
 
   PostFcnEuler::computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro,fid);
@@ -956,8 +956,8 @@ void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, do
 //------------------------------------------------------------------------------
 
 void PostFcnNS::computeForceEmbedded(int orderOfAccuracy,double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
-				     double *Vwall, double *Vface[3], double *Vtet[4], 
-				     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
+																     double *Vwall, double *Vface[3], double *Vtet[4], 
+																     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
                                      int hydro, int* fid, bool applyRealForce)
 {
 

@@ -1,4 +1,4 @@
-#include <FluidSensitivityAnalysisHandler.h>
+#include <FluidShapeOptimizationHandler.h>
 
 #include <IoData.h>
 #include <Domain.h>
@@ -19,14 +19,15 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-FluidSensitivityAnalysisHandler<dim>::FluidSensitivityAnalysisHandler
+FluidShapeOptimizationHandler<dim>::FluidShapeOptimizationHandler
 (
   IoData &ioData,
   GeoSource &geoSource,
-  Domain *dom
+  Domain *dom//,
 ) :
 ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
+dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
 dXdSb(dom->getNodeDistInfo()),
 Xc(dom->getNodeDistInfo()),
@@ -38,11 +39,11 @@ dPdS(dom->getNodeDistInfo()),
 Flux(dom->getNodeDistInfo()),
 FluxFD(dom->getNodeDistInfo()),
 Pin(dom->getFaceDistInfo()),
-Uc(dom->getNodeDistInfo())
+Uc(dom->getNodeDistInfo()),
 // Tests
-, Xplus(dom->getNodeDistInfo())
-, Xminus(dom->getNodeDistInfo())
-, dX(dom->getNodeDistInfo())
+Xplus(dom->getNodeDistInfo()),
+Xminus(dom->getNodeDistInfo()),
+dX(dom->getNodeDistInfo())
 {
 
   // Initialize
@@ -144,7 +145,7 @@ Uc(dom->getNodeDistInfo())
 //------------------------------------------------------------------------------
 
 template<int dim>
-FluidSensitivityAnalysisHandler<dim>::~FluidSensitivityAnalysisHandler()
+FluidShapeOptimizationHandler<dim>::~FluidShapeOptimizationHandler()
 {
 
   if (mms) delete mms;
@@ -155,12 +156,14 @@ FluidSensitivityAnalysisHandler<dim>::~FluidSensitivityAnalysisHandler()
 
   if (ksp) delete ksp;
 
+//  if (tsSolver) delete tsSolver;
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
+void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
 {
 
   double gamma = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
@@ -425,8 +428,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaGetEfforts(IoData &ioData, 
-                                  DistSVec<double,3> &X, DistSVec<double,dim> &U, Vec3D &F, Vec3D &M)
+void FluidShapeOptimizationHandler<dim>::fsoGetEfforts(IoData &ioData, 
+                                  DistSVec<double,3> &X, DistSVec<double,dim> &U, Vec3D &F, Vec3D &M, Vec3D &L)
 {
 
   int nSurfs = this->postOp->getNumSurf();
@@ -461,12 +464,22 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetEfforts(IoData &ioData,
     M *= this->refVal->energy;
   }
 
+  L[0] = F[0]*cos(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) +
+         F[1]*cos(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
+         F[2]*sin(ioData.bc.inlet.alpha);
+
+  L[1] = -F[0]*sin(ioData.bc.inlet.beta) + F[1]*cos(ioData.bc.inlet.beta);
+
+  L[2] = -F[0]*sin(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) -
+          F[1]*sin(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
+          F[2]*cos(ioData.bc.inlet.alpha);
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDifference(IoData &ioData,
+void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifference(IoData &ioData,
                                                           DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &A,
                                                           DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
                                                           Vec3D &dForces, Vec3D &dMoments)
@@ -571,7 +584,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   alprad=alpradc+eps*DFSPAR[1];
   teta=tetac+eps*DFSPAR[2];
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(*Xp);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xp, *Ap);
@@ -605,7 +618,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   alprad=alpradc-eps*DFSPAR[1];
   teta=tetac-eps*DFSPAR[2];
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(*Xm);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xm, *Am);
@@ -640,7 +653,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   alprad=alpradc;
   teta=tetac;
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(X);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
@@ -668,10 +681,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsAnalytical(IoData &ioData,
+void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(IoData &ioData,
                                                           DistSVec<double,3> &X, DistSVec<double,3> &dX,
                                                           DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
-                                                          Vec3D &dForces, Vec3D &dMoments)
+                                                          Vec3D &dForces, Vec3D &dMoments, Vec3D &dL)
 {
 
 
@@ -734,12 +747,22 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsAnalytical(I
     dMoments = dM+M;
   }
 
+  dL[0] = dF[0]*cos(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) +
+          dF[1]*cos(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
+          dF[2]*sin(ioData.bc.inlet.alpha);
+
+  dL[1] = -dF[0]*sin(ioData.bc.inlet.beta) + dF[1]*cos(ioData.bc.inlet.beta);
+
+  dL[2] = -dF[0]*sin(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) -
+           dF[1]*sin(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
+           dF[2]*cos(ioData.bc.inlet.alpha);
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifference(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &A,
+void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadFiniteDifference(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &A,
                                                                                                                             DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
 {
 
@@ -820,7 +843,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
   alprad=alpradc+eps*DFSPAR[1];
   teta=tetac+eps*DFSPAR[2];
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(*Xp);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xp, *Ap);
@@ -844,7 +867,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
   alprad=alpradc-eps*DFSPAR[1];
   teta=tetac-eps*DFSPAR[2];
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(*Xm);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xm, *Am);
@@ -864,7 +887,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
   alprad=alpradc;
   teta=tetac;
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(X);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
@@ -884,8 +907,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadAnalytical(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, 
-                                                                                                                  DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
+void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, 
+                                             DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
 {
 
   double gamma = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
@@ -917,7 +940,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadAnalytical(IoDa
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
+void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
 (
   IoData &ioData, 
   DistSVec<double,3> &X,
@@ -989,7 +1012,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   alprad=alpradc+eps*DFSPAR[1];
   teta=tetac+eps*DFSPAR[2];
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(*Xp);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xp, *Ap);
@@ -1018,7 +1041,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   alprad=alpradc-eps*DFSPAR[1];
   teta=tetac-eps*DFSPAR[2];
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(*Xm);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xm, *Am);
@@ -1047,7 +1070,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
   alprad=alpradc;
   teta=tetac;
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(X);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
@@ -1069,40 +1092,24 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaAnalytical
-(
-  IoData &ioData, 
-  DistSVec<double,3> &X,
-  DistVec<double> &A,
-  DistSVec<double,dim> &U,
-  DistSVec<double,dim> &dFdS
-)
+void FluidShapeOptimizationHandler<dim>::fsoAnalytical
+(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
 {
  
   //
   // Computing the normal, derivative of the normal and of the control volume
   //
-  this->geoState->computeDerivatives
-  (
-    X, dXdS, this->bcData->getVelocityVector(),
-    this->bcData->getDerivativeOfVelocityVector(), dAdS
-  );
+  this->geoState->computeDerivatives(X, dXdS, this->bcData->getVelocityVector(), this->bcData->getDerivativeOfVelocityVector(), dAdS);
 
   //
   // Computing the derivatives of the boundary fluxes
   //
-  this->bcData->initializeSA
-  (
-    ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]
-  );
+  this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
 
   //
   // Computing the partial derivative of the flux with respect to the variables
   //
-  this->spaceOp->computeDerivativeOfResidual
-  (
-    X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState
-  );
+  this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
 
@@ -1111,18 +1118,13 @@ void FluidSensitivityAnalysisHandler<dim>::fsaAnalytical
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver
-(
-  IoData &ioData, DistSVec<double,3> &X,
-  DistVec<double> &A,
-  DistSVec<double,dim> &U,
-  DistSVec<double,dim> &dFdS
-)
+void FluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, 
+                                                              DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
 {
 
-// Prepraring the linear solver
+// Preparing the linear solver
 
-  fsaRestartBcFluxs(ioData);
+  fsoRestartBcFluxs(ioData);
 
   this->geoState->reset(X);
 
@@ -1167,7 +1169,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver
 
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaLinearSolver
+void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
 (
   IoData &ioData, 
   DistSVec<double,dim> &dFdS, DistSVec<double,dim> &dUdS
@@ -1198,7 +1200,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaLinearSolver
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaPrintTextOnScreen(const char *Text)
+void FluidShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char *Text)
 {
    this->com->fprintf(stderr, Text);
 }
@@ -1206,7 +1208,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaPrintTextOnScreen(const char *Text
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaOutput1D(const char *fileName, DistVec<double> &V)
+void FluidShapeOptimizationHandler<dim>::fsoOutput1D(const char *fileName, DistVec<double> &V)
 {
 
 outFile = fopen(fileName,"w");
@@ -1226,7 +1228,7 @@ fclose(outFile);
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaOutput3D(const char *fileName, DistSVec<double,3> &V)
+void FluidShapeOptimizationHandler<dim>::fsoOutput3D(const char *fileName, DistSVec<double,3> &V)
 {
 
 outFile = fopen(fileName,"w");
@@ -1250,7 +1252,7 @@ fclose(outFile);
 
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaOutputDimD(const char *fileName, DistSVec<double,dim> &V)
+void FluidShapeOptimizationHandler<dim>::fsoOutputDimD(const char *fileName, DistSVec<double,dim> &V)
 {
 
 
@@ -1274,22 +1276,11 @@ fclose(outFile);
 //------------------------------------------------------------------------------
 
 template<int dim>
-int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<double,dim> &U)
+void FluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, DistSVec<double,dim> &U)
 {
-
-  // xmach      -  Mach number
-  // alpha      -  pitch angle
-  // teta       -  yaw angle
-  // DFSPAR(1)  -  Mach number differential
-  // DFSPAR(2)  -  angle of attack differential
-  // DFSPAR(3)  -  yaw angle differential
-
-  // Start basic timer
-  double MyLocalTimer = -this->timer->getTime();
-
   this->output->openAsciiFiles();
 
-// Reseting the configuration control of the geometry datas
+  // Reseting the configuration control of the geometry datas
   this->geoState->resetConfigSA();
 
   if (this->com->cpuNum() == 0) {
@@ -1306,12 +1297,34 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
   this->computeTimeStep(1, &dtLeft, U);
 
   this->computeMeshMetrics();
-
   this->updateStateVectors(U);  
 
-
   // Setting up the linear solver
-  fsaSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<double,dim> &U)
+{
+
+  // xmach      -  Mach number
+  // alpha      -  pitch angle
+  // teta       -  yaw angle
+  // DFSPAR(1)  -  Mach number differential
+  // DFSPAR(2)  -  angle of attack differential
+  // DFSPAR(3)  -  yaw angle differential
+
+  // Start basic timer
+  double MyLocalTimer = -this->timer->getTime();
+
+  double dtLeft = 0.0;
+  this->computeTimeStep(1, &dtLeft, U);
+  this->computeMeshMetrics();
+  this->updateStateVectors(U);
+
+  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
 
@@ -1348,24 +1361,22 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
       mms->solve(dXdSb, dXdS);
       dXdS -= *this->X;
 
-
       // Check that the mesh perturbation is propagated
       if (dXdS.norm() == 0.0)
       {
         this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
       }
 
-      fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
   
-      fsaComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
+      fsoComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
 
       dXdSb = 0.0;
 
       step = step + 1;
-
     }
 
-    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
+    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
 
   }
 
@@ -1378,11 +1389,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     DFSPAR[2] = 0.0;
     actvar = 2;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
-    fsaComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
+    fsoComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
 
-    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the Mach number were computed! \n");
+    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the Mach number were computed! \n");
 
     step = step + 1;
   }
@@ -1399,11 +1410,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     if (!ioData.sa.angleRad) 
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
-    fsaComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
+    fsoComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
 
-    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the angle of attack were computed! \n");
+    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the angle of attack were computed! \n");
 
     step = step + 1;
 
@@ -1423,11 +1434,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     if (!ioData.sa.angleRad)
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
-    fsaComputeSensitivities(ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
+    fsoComputeSensitivities(ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
 
-    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the yaw angle were computed! \n");
+    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the yaw angle were computed! \n");
 
     step = step + 1;
 
@@ -1435,13 +1446,17 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
       ioData.sa.eps /= acos(-1.0) / 180.0;
   }
 
+  bool lastIt = true;
+//  this->outputToDisk(ioData, &lastIt, 0, 0, 0, 0, dtLeft, U); 
+  this->outputPositionVectorToDisk(U);
+
   this->output->closeAsciiFiles();
 
   this->com->barrier();
   MyLocalTimer += this->timer->getTime();
   if (this->com->cpuNum() == 0)
   {
-    std::cout << "\n *** FluidSensityAnalysisHandler::fsaHandler >> Exit";
+    std::cout << "\n *** FluidSensityAnalysisHandler::fsoHandler >> Exit";
     std::cout << " (" << MyLocalTimer << " s)";
     std::cout << "\n\n";
   }
@@ -1453,26 +1468,20 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaComputeDerivativesOfFluxAndSolution
-(
-  IoData &ioData, 
-  DistSVec<double,3> &X, 
-  DistVec<double> &A, 
-  DistSVec<double,dim> &U
-)
+void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U)
 {
 
   dFdS = 0.0;
 
   // Derivative of the Flux, either analytical or semi-analytical
   if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL )
-    fsaAnalytical(ioData, X, A, U, dFdS);
+    fsoAnalytical(ioData, X, A, U, dFdS);
   else
-    fsaSemiAnalytical(ioData, X, A, U, dFdS);
+    fsoSemiAnalytical(ioData, X, A, U, dFdS);
 
   // Computing the derivative of the fluid variables 
-  // with respect to the fsaimization variables
-  fsaLinearSolver(ioData, dFdS, dUdS);
+  // with respect to the fsoimization variables
+  fsoLinearSolver(ioData, dFdS, dUdS);
 
 
 }
@@ -1480,20 +1489,20 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeDerivativesOfFluxAndSolutio
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioData, const char *mesage, const char *fileName, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData, const char *mesage, const char *fileName, DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
 
-// Computing efforts
-  Vec3D F, M;
-  fsaGetEfforts(ioData, X, U, F, M);
+// Computing efforts (F: force, M: moment, L:LiftAndDrag)
+  Vec3D F, M, L;
+  fsoGetEfforts(ioData, X, U, F, M, L);
 
 // Computing derivative of the efforts
-  Vec3D dFds, dMds;
+  Vec3D dFds, dMds, dLds;
 
   if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE )
-    fsaGetDerivativeOfEffortsFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, dFds, dMds);
+    fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, dFds, dMds);
   else
-    fsaGetDerivativeOfEffortsAnalytical(ioData, X, dXdS, U, dUdS, dFds, dMds);
+    fsoGetDerivativeOfEffortsAnalytical(ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
 
   if ((!ioData.sa.angleRad) && (DFSPAR[1] || DFSPAR[2])) {
     dFds *= acos(-1.0) / 180.0;
@@ -1529,7 +1538,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
   // This function is simply writing to the disk.
   //
   this->output->writeDerivativeOfForcesToDisk(step, actvar, F, dFds, M, dMds, sboom, dSboom);
-  
+  this->output->writeDerivativeOfLiftDragToDisk(step, actvar, L, dLds); 
+ 
   //
   // This function is writing to the disk quantities of interest in binary files.
   // The possible quantities of interest include
@@ -1539,15 +1549,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
   // - Derivative of Vector Quantities: VelocityVector, Displacement
   //
   //
-  // Check that the mesh perturbation is propagated
-  if (dXdS.norm() == 0.0)
-  {
-    this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
-  }
-
   this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
 
 }
 
 //------------------------------------------------------------------------------
+
 

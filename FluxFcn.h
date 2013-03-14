@@ -551,6 +551,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+          else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnTaitModifiedGhidagliaEuler3D(iod, vftait, typeJac);
           else if (iod.bc.outlet.type == BcsFreeStreamData::INTERNAL)
             localff = new FluxFcnTaitInternalOutflowEuler3D(iod, vftait, typeJac);
           else{
@@ -564,6 +567,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+          else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnTaitModifiedGhidagliaEuler3D(iod, vftait, typeJac);
           else if (iod.bc.inlet.type == BcsFreeStreamData::INTERNAL)
             localff = new FluxFcnTaitInternalInflowEuler3D(iod, vftait, typeJac);
           else{

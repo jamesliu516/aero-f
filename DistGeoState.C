@@ -102,7 +102,7 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_){
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_){
     optFlag = 1;
     Xsa = new DistSVec<double,3>(domain->getNodeDistInfo());
     dXsa = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -259,8 +259,72 @@ void DistGeoState::setup(const char *name, TimeData &timeData,
 
 //------------------------------------------------------------------------------
 
+void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
+{
+
+	com->printf(2, "in DistGeoState::setup3.\n");
+
+  if (!data.use_n) {
+    Xn = X->alias();
+    ctrlVol_n = ctrlVol->alias();
+  }
+  if (!data.use_nm1) {
+    Xnm1 = Xn->alias();
+    ctrlVol_nm1 = ctrlVol_n->alias();
+  }
+  if (!data.use_nm2) {
+    Xnm2 = Xnm1->alias();
+    ctrlVol_nm2 = ctrlVol_nm1->alias();
+  }
+
+  bool read_n = false;
+  bool read_nm1 = false;
+  bool read_nm2 = false;
+
+  // This effectively `restarts' the geometry of the mesh, recovering the
+  // last 3 positions.
+  if (name[0] != 0) {
+    read_n = domain->readVectorFromFile(name, 0, 0, *Xn, &oolscale);
+    if (data.use_nm1)
+      read_nm1 = domain->readVectorFromFile(name, 1, 0, *Xnm1, &oolscale);
+    if (data.use_nm2) 
+      read_nm2 = domain->readVectorFromFile(name, 2, 0, *Xnm2, &oolscale);
+  }
+
+  if (data.use_nm1)
+    *Xnm1 = *Xn;
+  if (data.use_nm2)
+    *Xnm2 = *Xnm1;
+
+  data.config = 0;
+
+  domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  if (data.use_nm1)
+    domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
+  if (data.use_nm2)
+    domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+
+	*Xn = *X;
+  *ctrlVol = *ctrlVol_n;
+
+  double bbMin[3], bbMax[3];
+  X->min(bbMin); X->max(bbMax);
+
+  com->printf(2,
+        "Control volume statistics: min=%.3e, max=%.3e, total=%.3e\n"
+        "Mesh bounding box: (Xmin,Ymin,Zmin) = (%.3e %.3e %.3e)\n"
+        "                   (Xmax,Ymax,Zmax) = (%.3e %.3e %.3e)\n",
+        ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum(),
+              bbMin[0], bbMin[1], bbMin[2], bbMax[0], bbMax[1], bbMax[2]);
+
+}
+
+//------------------------------------------------------------------------------
+
 void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
+
+	com->printf(2, "in DistGeoState::setup1.\n");
 
   if (!data.use_n) {
     Xn = X->alias();
@@ -435,6 +499,7 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
   }
   else if (data.typeNormals == DGCLData::EXPLICIT_RK2 && data.use_save){
 
+
     // Xsave is temporarily used to compute the different configurations on which to compute the normals
     //       and the normal velocities
     *edgeNorm = 0.0;
@@ -490,27 +555,27 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
 
 //Remark: Error mesage for pointers
   if (Xsa == 0) {
-    fprintf(stderr, "*** Error: Varible Xsa does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xsa does not exist!\n");
     exit(1);
   }
   if (dXsa == 0) {
-    fprintf(stderr, "*** Error: Varible dXsa does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dXsa does not exist!\n");
     exit(1);
   }
   if (dEdgeNorm == 0) {
-    fprintf(stderr, "*** Error: Varible dEdgeNorm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dEdgeNorm does not exist!\n");
     exit(1);
   }
   if (dFaceNorm == 0) {
-    fprintf(stderr, "*** Error: Varible dFaceNorm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dFaceNorm does not exist!\n");
     exit(1);
   }
   if (dEdgeNormVel == 0) {
-    fprintf(stderr, "*** Error: Varible dEdgeNormVel does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dEdgeNormVel does not exist!\n");
     exit(1);
   }
   if (dFaceNormVel == 0) {
-    fprintf(stderr, "*** Error: Varible dFaceNormVel does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dFaceNormVel does not exist!\n");
     exit(1);
   }
 

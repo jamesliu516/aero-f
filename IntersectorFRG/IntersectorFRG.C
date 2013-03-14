@@ -580,9 +580,9 @@ void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, i
 
 //----------------------------------------------------------------------------
 
-DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes,
+DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int nNodes,
                                                double *xyz, int nElems, int (*abc)[3])
-    : DistLevelSetStructure()
+    : DistLevelSetStructure(),iod(iodata)
 {
   this->numFluid = iod.eqs.numPhase;
   twoPhase = false;
@@ -596,9 +596,9 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
 
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
-  struct_restart_pos = new char[sp + strlen(iod.input.positions)];
-  if(iod.input.positions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
+  struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
+  if(iod.input.embeddedpositions[0] != 0)
+    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
   else //no restart position file provided
     struct_restart_pos[0] = '\0'; 
   
@@ -618,14 +618,18 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
   tId = 0;
   poly = 0;
 
+  rotOwn = 0;
+
+  surfaceID = NULL;
+
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
   else {
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
-    makerotationownership(iod);
-    updatebc(iod);
+    makerotationownership();
+    updatebc();
   }
 
   if(numStElems<=0||numStNodes<=0) {
@@ -656,6 +660,7 @@ DistIntersectorFRG::~DistIntersectorFRG()
   delete solidX;
   delete solidX0;
   delete solidXn;
+  delete solidXnp1;
   if(surfaceID) delete[] surfaceID;
   if(rotOwn) delete[] rotOwn;
   if(status0)     delete   status0;
@@ -778,6 +783,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   surfaceID = new int[numStNodes];
   rotOwn = 0;
@@ -894,6 +900,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   for (int k=0; k<numStNodes; k++) {
     Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
@@ -965,7 +972,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
 }
 
 //----------------------------------------------------------------------------
-void DistIntersectorFRG::makerotationownership(IoData &iod) {
+void DistIntersectorFRG::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   map<int,SurfaceData *>::iterator it = surfaceMap.begin();
@@ -1012,7 +1019,7 @@ void DistIntersectorFRG::makerotationownership(IoData &iod) {
   }
 }
 //----------------------------------------------------------------------------
-void DistIntersectorFRG::updatebc(IoData &iod) {
+void DistIntersectorFRG::updatebc() {
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   if (rotOwn)  { 
     for (int k=0; k<numStNodes; k++) {
@@ -1335,7 +1342,11 @@ void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int
     for(int j=0; j<3; j++) {
       Xs_n[i][j] = Xs_np1[i][j];
       Xs_np1[i][j] = xs[3*i+j];
+      Xs[i][j] = Xs_np1[i][j];
       Xsdot[i][j] = Vs[3*i+j];}
+
+// add surface velocity contribution
+  updatebc();
 }
 
 //----------------------------------------------------------------------------
@@ -1360,6 +1371,7 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
   //updateStructCoords(0.0, 1.0);
   updateStructCoords(( (dtfLeft-dtf)/dts ), ( 1.0 - (dtfLeft-dtf)/dts ));
   buildSolidNormals();
+  domain->findNodeBoundingBoxes(*X,*boxMin,*boxMax);
   expandScope();
 
   //Debug only!

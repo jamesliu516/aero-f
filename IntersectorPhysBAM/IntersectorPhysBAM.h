@@ -53,6 +53,9 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   using DistLevelSetStructure::edge_intersects;
 
   protected:
+
+    IoData &iod;
+
     int numStNodes, numStElems;
     int totStNodes, totStElems;
     bool gotNewCracking;
@@ -71,6 +74,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec3D *Xs_np1;
     Vec<Vec3D> *solidX;   //pointer to Xs
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
+    Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
     // surface rotation
@@ -82,6 +86,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec3D *Xsdot; //velocity
 
     CrackingSurface *cracking; //only a pointer.
+
+    double interface_thickness;
 
   public:
     DistVec<int> *status0;  //previous node status
@@ -115,8 +121,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
-    void makerotationownership(IoData &iod);
-    void updatebc(IoData &iod);
+    void makerotationownership();
+    void updatebc();
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
@@ -137,13 +143,18 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
+    Vec<Vec3D> &getStructPosition_np1() { return *solidXnp1; }
     DistVec<ClosestPoint> * getClosestPointsPointer() {return closest;}
     DistVec<ClosestPoint> & getClosestPoints() {return *closest;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; }
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
+    int (*getStructElems())[3] { return stElem; }
 
-    int getSurfaceID(int k) { 
+    int getSurfaceID(int k) {
+      if (!surfaceID)
+        return 0;
+ 
       if (k >=0 && k < numStNodes) {
 	return surfaceID[k]; 
       }

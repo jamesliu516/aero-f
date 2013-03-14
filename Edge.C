@@ -102,6 +102,9 @@ void EdgeSet::computeTimeStep2(FemEquationTerm *fet, VarFcn *varFcn, GeoState &g
     int j = ptr[l][1];
 
     double S = sqrt(normal[l] * normal[l]);
+  
+    if (fabs(S) < 1e-18) S = 1.0; 
+
     double invS = 1.0 / S;
 
     Vec3D n = invS * normal[l];
@@ -357,6 +360,8 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
       Vj[k+dim] = V[j][k];
     }
 
+    if (normal[l].norm() < 1e-18) continue;
+
     fluxFcn[BC_INTERNAL]->compute(length, edgeirey, normal[l], normalVel[l], Vi, Vj, flux);
 
     for (int k=0; k<dim; ++k) {
@@ -568,7 +573,9 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
 
     // Compute the interal terms
     double area = normal[l].norm();
-  
+
+    if (area < 1e-18) continue; 
+ 
     Vec3D xhat = normal[l];
     xhat /= area;
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
@@ -1056,6 +1063,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	
 	assert(fluidId[i] != fluidId[j] || !higherOrderMF->isCellCut(i) ||
 	       !higherOrderMF->isCellCut(j));
+
+        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
+                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
 	
 	// There are two cases.  In the first case the surrogate interface is the
 	// same for both fluids.  This implies that the edge in question is cut by
@@ -1106,10 +1116,35 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           if (Vj[4] <= 0.0)
             Vj[4] = V[j][4];
         
-    
+/*
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "i = " << locToGlobNodeMap[i]+1 << " j = " << locToGlobNodeMap[j]+1 << std::endl;
+            std::cout << "Initial values\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << V[i][k] << "\t" << V[j][k] << std::endl;
+            }
+
+            std::cout << "Inputs to R/S\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Vi[k] << "\t" << Vj[k] << std::endl;
+            }
+          }
+ */
 	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 					 Wi,Wj,i,j,l,dx,true);
+/*
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
 
+            std::cout << "Outputs from R/S\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Wi[k] << "\t" << Wj[k] << std::endl;
+            }
+          }
+ */
 	  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
 	  
 	  for (int k = 0; k < dim; ++k) {
@@ -1131,16 +1166,25 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             Vj[0] = Wj[0];
           if (Vj[4] <= 0.0)
             Vj[4] = Wj[4];
-        
+ /*
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "Surrogate i.f. values\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Vi[k] << "\t" << Vj[k] << std::endl;
+            }
+          }
+   */     
 	    
-	  if (s < 0.9)
+	  if (s < 0.9 && !hasFix)
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 					  Vi, Vi, fluxi, fluidId[i]);
 	  else
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 					  V[i], Wi, fluxi, fluidId[i]);
 	  
-	  if (s > 0.1)
+	  if (s > 0.1 && !hasFix)
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 					  Vj, Vj, fluxj, fluidId[j]);
 	  else
@@ -1157,14 +1201,24 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
               updatei[k] = (2.0*Vj[k]-V[j][k]);
               updatej[k] = (2.0*Vi[k]-V[i][k]);
             }
-            if (updatei[0] <= 0.0 || updatei[4] <= 0.0) {
+            if (updatei[0] <= 0.0 || updatei[4] <= 0.0 || hasFix) {
 	      for (int k = 0; k < dim; ++k)
-                updatei[k] = Vj[k];
+                updatei[k] = Wj[k];
             }
-            if (updatej[0] <= 0.0 || updatej[4] <= 0.0) {
+            if (updatej[0] <= 0.0 || updatej[4] <= 0.0 || hasFix) {
 	      for (int k = 0; k < dim; ++k) 
-                updatej[k] = Vi[k];
+                updatej[k] = Wi[k];
             }
+ /*
+            if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+	      std::cout << "Extrapolated Updates\n";
+	      for (int k = 0; k < dim; ++k) { 
+		      
+	        std::cout << updatei[k] << "\t" << updatej[k] << std::endl;
+	      }
+	    }
+*/	
 
 	    for (int k = 0; k < dim; ++k) {
 	      rupdate[i][k] += updatei[k];
@@ -1193,16 +1247,49 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      }
 	      higherOrderMF->template printCutCellData<dim>(j);
 	      }*/
-          
+   /*       
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "i = " << locToGlobNodeMap[i]+1 << " j (cut) = " << locToGlobNodeMap[j]+1 << std::endl;
+            std::cout << "Inputs to R/S\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Vi[k] << "\t" << Vj[k] << std::endl;
+            }
+          }
+*/
 	    riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
 					   Wi,Wj,i,j,l,dx,true);
-	    
+/*	 
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "Outputs from R/S (Wj not used!)\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Wi[k] << "\t" << Wj[k] << std::endl;
+            }
+          }
+ */
+    
 	    for (int k = 0; k < dim; ++k) {
 	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s);
 	    }
-	    
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vi, Vi, fluxi, fluidId[i]);
+/*	     
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "Surrogate i.f. values (Vi only)\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Vi[k] << std::endl;
+            }
+          }
+*/
+            if (!hasFix)
+  	      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+	  				    Vi, Vi, fluxi, fluidId[i]);
+            else
+  	      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+	  				    V[i], Wi, fluxi, fluidId[i]); 
 	    
 	    // Now extrapolate back to compute the riemann update for cells i/j
 	    if (it == 1 /*&& fluidId[j] != fluidId[i]*/) {
@@ -1212,10 +1299,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
    	      for (int k = 0; k < dim; ++k) {
                 updatej[k] = (2.0*Vi[k]-V[i][k]);
               }
-              if (updatej[0] <= 0.0 || updatej[4] <= 0.0) {
+              if (updatej[0] <= 0.0 || updatej[4] <= 0.0 || hasFix) {
 	        for (int k = 0; k < dim; ++k) 
-                  updatej[k] = Vi[k];
+                  updatej[k] = Wi[k];
               }
+/* 
+            if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+	      std::cout << "Extrapolated Updates (j only)\n";
+	      for (int k = 0; k < dim; ++k) { 
+		      
+	        std::cout << updatej[k] << std::endl;
+	      }
+	    }
+*/		
 	      for (int k = 0; k < dim; ++k) {
 		rupdate[j][k] += updatej[k];
 	      }
@@ -1223,12 +1320,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    }
 	  } else {
 
+            // This represents an "edge" case, where the fluid interface is almost
+            // on the other side of cell j.  Shouldn't be called often. 
 	    double Vxt[dim][3],Vjl[dim];
 	    higherOrderMF->template getCutCellData<dim>(j, fluidId[i], Vjl, Vxt);
 	    for (int k=0; k<dim; ++k) {
 	      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
 	      ddVji[k] = dx[0]*Vxt[k][0] + dx[1]*Vxt[k][1] + dx[2]*Vxt[k][2];
 	    }
+  /*          
+            if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+              std::cout << "In edge case for edge " << locToGlobNodeMap[i]+1 << " " <<
+                        locToGlobNodeMap[j]+1 << " with cell j cut" << std::endl;
+            }
+*/
 	    recFcn->compute(V[i], ddVij, Vjl, ddVji, Vi, Vj);
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
 	    /*if (it == 1 && fluidId[j] != fluidId[i]) {
@@ -1260,16 +1365,50 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      }
 	      higherOrderMF->template printCutCellData<dim>(i);
 	      }*/
-	    
+/*	     
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "i (cut) = " << locToGlobNodeMap[i]+1 << " j = " << locToGlobNodeMap[j]+1 << std::endl;
+            std::cout << "Inputs to R/S\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Vi[k] << "\t" << Vj[k] << std::endl;
+            }
+          }
+*/
+
 	    riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
 					   Wi,Wj,i,j,l,dx,true);
-	    
+/*	     
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "Outputs from R/S (Wi not used!)\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Wi[k] << "\t" << Wj[k] << std::endl;
+            }
+          }
+ */
 	    for (int k = 0; k < dim; ++k) {
 	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s;
 	    }
-	    
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vj, Vj, fluxj, fluidId[j]);
+/*	         
+          if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+            std::cout << "Surrogate i.f. values (Vj only)\n";
+            for (int k = 0; k < dim; ++k) { 
+              
+              std::cout << Vj[k] << std::endl;
+            }
+          }
+*/
+
+            if (!hasFix)
+  	      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+	  				    Vj, Vj, fluxj, fluidId[j]);
+            else
+              fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+                                            Wj, V[j], fluxj, fluidId[j]);
 	    
 	    // Now extrapolate back to compute the riemann update for cells i/j
 	    if (it == 1) {
@@ -1279,10 +1418,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
    	      for (int k = 0; k < dim; ++k) {
                 updatei[k] = (2.0*Vj[k]-V[j][k]);
               }
-              if (updatei[0] <= 0.0 || updatei[4] <= 0.0) {
+              if (updatei[0] <= 0.0 || updatei[4] <= 0.0 || hasFix) {
 	        for (int k = 0; k < dim; ++k) 
-                  updatei[k] = Vj[k];
+                  updatei[k] = Wj[k];
               }
+/* 
+            if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+
+	      std::cout << "Extrapolated Updates (i only)\n";
+	      for (int k = 0; k < dim; ++k) { 
+		      
+	        std::cout << updatei[k] << std::endl;
+	      }
+	    }
+*/
 	      for (int k = 0; k < dim; ++k) {
 		rupdate[i][k] += updatei[k];
 	      }
@@ -1296,6 +1445,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
 	      ddVij[k] = dx[0]*Vxt[k][0] + dx[1]*Vxt[k][1] + dx[2]*Vxt[k][2];
 	    }
+            if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+              std::cout << "In edge case for edge " << locToGlobNodeMap[i]+1 << " " <<
+                        locToGlobNodeMap[j]+1 << " with cell i cut" << std::endl;
+            }
+	
 	    recFcn->compute(Vjl, ddVij, V[j], ddVji, Vi, Vj);
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[i]);	  
 	    /*if (it == 1) {
@@ -1319,6 +1473,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       for (int k=0; k<dim; k++){
+        /*if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+          std::cout << "fluxi[" << k << "] = " << fluxi[k] << " fluxj[] = " << -fluxj[k] << std::endl;
+        }*/
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
       }
@@ -1818,8 +1975,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         switch (Nriemann) {
           case 0: //structure normal
-            if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
-            else                                normalDir = -1.0*resij.gradPhi;
+            normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+            //if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
+            //else                                normalDir = -1.0*resij.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
@@ -1853,8 +2011,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         switch (Nriemann) {
           case 0: //structure normal
-            if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
-            else                                normalDir = -1.0*resji.gradPhi;
+            normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+            //if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
+            //else                                normalDir = -1.0*resji.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
@@ -2308,6 +2467,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
     if(fluxFcn){
+      if (normal[l].norm() < 1e-18) continue;
       fluxFcn[BC_INTERNAL]->computeJacobians(length, edgeirey, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj);
 
       if (masterFlag[l]) {

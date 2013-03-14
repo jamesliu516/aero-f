@@ -81,6 +81,8 @@ template<class Scalar, int dim> class MvpMat;
 template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
+template <class T> class RTree;
+
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
@@ -181,6 +183,7 @@ class SubDomain {
   // List of nodes on a surface for the Kirchhoff integral
   std::set<int> kirchhoffNodesList;
 
+  RTree<Elem>* myTree;
 
 public:
   
@@ -1259,6 +1262,10 @@ public:
   void computeCVBasedForceLoad(int, int, GeoState &,SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
                                SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
                                Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int> *fid);
+  template<int dim>
+  void computeEmbSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, LevelSetStructure&, double pInfty, 
+                                    SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+			                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int>* fid);
   template<int dim>
   void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
                                     SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 

@@ -44,6 +44,9 @@ using std::max;
 #include <DenseMatrixOps.h>
 #include <limits>
 #include <PolygonReconstructionData.h> 
+#include <Quadrature.h>
+#include <RTree.h>
+
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -1178,6 +1181,8 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 										   fluidId, Nriemann, Nsbar, dt, alpha, ngrad,
   									       egrad, fluxes, it, tag, failsafe, rshift, v6data); 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
+
+  delete [] v6data;
 
   return ierr;
 
@@ -3957,6 +3962,7 @@ double SubDomain::readTagFromFile(const char *prefix, int no, int *neq, int *nso
 
   *neq = info[1];
   *nsol = info[2];
+//	fprintf(stderr, "numStep is %d.\n", info[2]);
   double tag = 0.0;
 
   if (no < *nsol) {
@@ -4327,10 +4333,10 @@ void SubDomain::computeDerivativeOfNodalHeatPower(PostFcn* postFcn, BcData<dim>&
 
 template<int dim>
 void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
-				      GeoState &geoState, SVec<double,3> &X,
-				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
-				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
-                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
+																      GeoState &geoState, SVec<double,3> &X,
+																      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
+																      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
+												              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
@@ -4614,6 +4620,8 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
   const int MaxSize = (3*Elem::MaxNumNd);
   double kEl[MaxSize*MaxSize];
   double fEl[MaxSize];
+		double minVolume = 10000.0;
+  int minElemNum = 0;
 
   F = 0.0;
   K = 0.0;
@@ -4633,13 +4641,18 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
     }
 
     case DefoMeshMotionData::NON_LINEAR_FE : {
+      double vol = elems[i].computeVolume(X); 
+      if(minVolume > vol) {
+								minElemNum = i+1;
+        minVolume = vol;	
+      }
       elems[i].computeStiffAndForce(fEl, kEl, X, nodes, volStiff);
       for (j=0, fEl_loc = fEl;
-	   j<elems[i].numNodes();
-	   j++, fEl_loc+=3) {
-	F[ elems[i][j] ][0] -= fEl_loc[0];
-	F[ elems[i][j] ][1] -= fEl_loc[1];
-	F[ elems[i][j] ][2] -= fEl_loc[2];
+       	   j<elems[i].numNodes();
+	          j++, fEl_loc+=3) {
+	       F[ elems[i][j] ][0] -= fEl_loc[0];
+	       F[ elems[i][j] ][1] -= fEl_loc[1];
+	       F[ elems[i][j] ][2] -= fEl_loc[2];
       }
       break;
     }
@@ -4657,9 +4670,9 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
     case DefoMeshMotionData::NL_BALL_VERTEX : {
       elems[i].computeStiffAndForceBallVertex(fEl, kEl, X, nodes, volStiff);
       for (j=0, fEl_loc = fEl; j<elems[i].numNodes(); j++, fEl_loc+=3) {
-	F[ elems[i][j] ][0] -= fEl_loc[0];
-	F[ elems[i][j] ][1] -= fEl_loc[1];
-	F[ elems[i][j] ][2] -= fEl_loc[2];
+	       F[ elems[i][j] ][0] -= fEl_loc[0];
+       	F[ elems[i][j] ][1] -= fEl_loc[1];
+       	F[ elems[i][j] ][2] -= fEl_loc[2];
       }
       break;
     }
@@ -4672,6 +4685,7 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
       P->addContrib(elems[i].numNodes(), elems[i], kEl);
 
   }
+//		fprintf(stderr,"element %d with minimum volume of %6.3e.\n", minElemNum, minVolume);  
 
   if(ndType){
     for (i = 0; i < nodes.size(); ++i) {
@@ -4752,6 +4766,16 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
     }
   }
 
+  // Check for abnormally large velocities, which may be the result of an instability
+  for (int i=0; i<U.size(); ++i) {
+
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+  }
+
+
+
   return ierr;
 }
 
@@ -4803,6 +4827,14 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
 
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
+  }
+
+  // Check for abnormally large velocities, which may be the result of an instability
+  for (int i=0; i<U.size(); ++i) {
+
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
   }
 
   return ierr;
@@ -6421,6 +6453,159 @@ void SubDomain::getSignedDistance(int lsdim, SVec<double,1> &Psi, SVec<double,di
   }
 }
 
+//-----------------------------------------------------------------------------------------------
+
+class ElemForceCalcValid {
+
+  public:
+
+    bool Valid(Elem*) { return true; }
+};
+
+template<int dim>
+void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<double,3> &X,
+                                             double (*Fs)[3], int sizeFs, int numStructElems, int (*stElem)[3], Vec<Vec3D>& Xstruct, LevelSetStructure &LSS, double pInfty, 
+                                             SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
+                                             Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim, double> &ngrad, VarFcn* vf, Vec<int>* fid)
+{
+  if (forceApp!=2) 
+    {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
+
+  int qOrder = 3;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double (*qloc)[3](quadrature_formula.qloc);
+  double *qweight(quadrature_formula.weight);
+
+  int iElem = -1;
+  int T[4];       //nodes in a tet.
+
+  Vec3D vectorIJ, gradP, flocal;
+  SVec<double,dim> gradX = ngrad.getX();
+  SVec<double,dim> gradY = ngrad.getY();
+  SVec<double,dim> gradZ = ngrad.getZ();
+  
+  int stNode[3];
+  Vec3D Xst[3];
+  Vec3D Xp;
+  for(int nSt = 0; nSt < numStructElems; ++nSt) {
+
+    for (int j=0; j<3; ++j) {
+      stNode[j] = stElem[nSt][j];
+      Xst[j] = Xstruct[stNode[j]]; 
+    }
+    Vec3D normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+
+    for(int nq=0; nq<nqPoint; ++nq) {
+
+      for (int j=0; j<3; ++j) {
+	Xp[j] = qloc[nq][0]*Xst[0][j] + qloc[nq][1]*Xst[1][j] + qloc[nq][2]*Xst[2][j];
+      }
+      ElemForceCalcValid myObj;
+      Elem* E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+	             &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+      if (!E) continue;      
+
+      for (int i=0; i<4; i++) T[i] = (*E)[i];
+      Vec3D Xf[4]; 
+      for (int i=0; i<4; i++)
+        for(int j=0;j<3;++j) Xf[i][j] = X[T[i]][j];
+
+// Compute barycentric coordinates
+      Vec3D bary;
+      E->computeBarycentricCoordinates(X,Xp,bary); 
+      if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0) {
+        E = 0;
+	continue;
+      }
+
+      Vec3D dbary[4];
+      dbary[0] = Vec3D(1.0-bary[0],bary[1],bary[2]);
+      dbary[1] = Vec3D(bary[0],1.0-bary[1],bary[2]);
+      dbary[2] = Vec3D(bary[0],bary[1],1.0-bary[2]);
+      dbary[3] = Vec3D(bary[0],bary[1],bary[2]);
+
+// For viscous simulation
+      double dp1dxj[4][3]; // Gradient of the P1 basis functions
+      for(int i=0;i<4;++i) for(int j=0;j<3;++j) dp1dxj[i][j] = 0.0;
+      double d2w[3]; // not used, but required by postFcn->computeViscousForce(...)
+      d2w[0] = d2w[1] = d2w[2] = 0.0;
+      double *Vwall = 0;
+      double *Vface[3] = {0,0,0};
+
+      double *vtet[4];
+      if(ghostPoints) {
+        E->computeGradientP1Function(X, dp1dxj);
+        for(int i=0; i<4; ++i) vtet[i] = V[T[i]];
+
+        GhostPoint<dim> *gp;
+        for(int i=0; i<4; ++i) {
+	  gp = (*ghostPoints)[T[i]];
+          if (gp) vtet[i] = gp->getPrimitiveState();
+        }
+      }
+
+// Determine the side of the nodes of the tet
+      double norm[4];
+      for (int e=0; e<6; ++e) {
+	int l = E->edgeNum(e);
+	if (LSS.edgeIntersectsStructure(0,l)) {
+          LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+	  int i = E->edgeEnd(e,0);
+	  int j = E->edgeEnd(e,1);
+          norm[i] = lsRes.gradPhi*(Xstruct[lsRes.trNodes[0]]-Xf[i]); 
+          norm[j] = lsRes.gradPhi*(Xstruct[lsRes.trNodes[0]]-Xf[j]); 
+	}
+      }
+
+// Check for the dual volume using barycentric coordinates) of the tet on the either side of the surface element
+      double mindist[2] = {FLT_MAX,FLT_MAX};
+      int node[2] = {-1,-1};
+      Vec3D nf[2] = {-normal,normal};
+      for (int i=0; i<4; i++) {
+	double dist = dbary[i].norm();
+        if (norm[i] <= 0.) {
+	  if( LSS.isActive(0,T[i]) && dist < mindist[0] ) {
+	    mindist[0] = dist;
+	    node[0] = T[i];
+	  }
+	}
+	else {
+	  if( LSS.isActive(0,T[i]) && dist < mindist[1] ) {
+	    mindist[1] = dist;
+	    node[1] = T[i];
+	  }
+	}
+      }
+
+      flocal = 0.0;
+      for (int n = 0; n < 2; ++n) {
+	int i = node[n];
+	if (i < 0) continue;
+	double *v = V[i];
+        gradP[0] = gradX[i][4];
+        gradP[1] = gradY[i][4];
+        gradP[2] = gradZ[i][4];
+        for(int m=0;m<3;++m) {
+          vectorIJ[m] = Xp[m] - X[i][m];
+        }
+        double pp = vf->getPressure(v, fid?(*fid)[i]:0);
+        flocal += (pp - pInfty + gradP*vectorIJ)*nf[n];
+
+        if(ghostPoints) {// Viscous Simulation
+          flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet);
+	}
+      }	
+
+      for (int j=0; j<3; ++j) {
+        Fs[stNode[0]][j] += qweight[nq]*flocal[j]*qloc[nq][0];
+        Fs[stNode[1]][j] += qweight[nq]*flocal[j]*qloc[nq][1];
+        Fs[stNode[2]][j] += qweight[nq]*flocal[j]*qloc[nq][2];
+      }
+    }
+  }
+}
 
 //-----------------------------------------------------------------------------------------------
 
@@ -6534,6 +6719,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
 
       // compute force...
       double dist13,dist02;
+      double fac1,fac2;
       double *Xface[3], *Vface[3];
       int fid_face[3];
       double oneThird = 1.0/3.0;
@@ -6562,9 +6748,11 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
           sendLocalForce(fi2,lsRes[2],Fs);
           break;
         case 4: //got a quadrangle. cut it into two triangles.
-          dist02 = (Xinter[2]-Xinter[0]).norm();
-          dist13 = (Xinter[3]-Xinter[1]).norm();
-          if(dist02<dist13){ // connect 0,2.
+          //dist02 = (Xinter[2]-Xinter[0]).norm();
+          //dist13 = (Xinter[3]-Xinter[1]).norm();
+          fac1 = lsRes[0].gradPhi*lsRes[2].gradPhi;                                                    
+          fac2 = lsRes[1].gradPhi*lsRes[3].gradPhi;
+          if(fac1 > fac2){ // connect 0,2.
             //for triangle 012
             nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
             if(nf*(Xinter[1]-start_vertex) <= 0) nf *=-1;
