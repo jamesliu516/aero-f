@@ -29,8 +29,6 @@ ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
 dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
-dXdS1(dom->getNodeDistInfo()),
-dXdS2(dom->getNodeDistInfo()),
 dXdSb(dom->getNodeDistInfo()),
 Xc(dom->getNodeDistInfo()),
 dAdS(dom->getNodeDistInfo()),
@@ -131,8 +129,6 @@ dX(dom->getNodeDistInfo())
   numLocSub = domain->getNumLocSub();
 
   dXdS=0.0;
-  dXdS1=0.0;
-  dXdS2=0.0;
   dFdS=0.0;
   dUdS=0.0;
   p=0.0;
@@ -1280,7 +1276,7 @@ fclose(outFile);
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoMoveMesh(IoData &ioData, DistSVec<double,dim> &U)
+void FluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, DistSVec<double,dim> &U)
 {
   this->output->openAsciiFiles();
 
@@ -1299,16 +1295,6 @@ void FluidShapeOptimizationHandler<dim>::fsoMoveMesh(IoData &ioData, DistSVec<do
 
   double dtLeft = 0.0;
   this->computeTimeStep(1, &dtLeft, U);
-
-  // Setting up the linear solver
-  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
-	
-	dXb = 0.0;
-	// move the mesh to be compatible with wall surface deformation
-	domain->readVectorFromFile(this->input->wallsurfacedisplac, 0, 0, dXb);
-	mms->solve(dXb, *this->Xs);
-	*this->X = *this->Xs;
-	this->com->fprintf(stderr, "\n *** mesh has been moved \n\n");
 
   this->computeMeshMetrics();
   this->updateStateVectors(U);  
@@ -1338,7 +1324,6 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 	this->computeMeshMetrics();
 	this->updateStateVectors(U);
 
-
 	fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
@@ -1347,8 +1332,6 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
     step = 0;
     dXdS = 0.0;
-    dXdS1 = 0.0;
-    dXdS2 = 0.0;
     dXdSb = 0.0;
     dAdS = 0.0;
     DFSPAR[0] = 0.0;

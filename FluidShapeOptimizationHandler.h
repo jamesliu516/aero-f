@@ -63,8 +63,6 @@ private:
   DistSVec<double,3> p;
   DistSVec<double,3> dPdS;
   DistSVec<double,3> dXdS;
-	DistSVec<double,3> dXdS1;
-	DistSVec<double,3> dXdS2;
   DistSVec<double,3> dXdSb;
 	DistSVec<double,3> dXb;
   DistSVec<double,3> Xc;
@@ -140,7 +138,7 @@ public:
   int fsoHandler(IoData &, DistSVec<double,dim> &);
   void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
-	void fsoMoveMesh(IoData &ioData, DistSVec<double,dim> &U);
+	void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
 
 };
 
