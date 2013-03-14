@@ -33,6 +33,7 @@ class EmbeddedStructure {
   bool getSurfFromFEM;
 
   char *meshFile;
+  char *restartmeshFile;
   char *matcherFile;
  
   bool coupled;
@@ -51,6 +52,10 @@ class EmbeddedStructure {
   double dx, dy, dz;
   double alpha_in, alpha_max, x1[3], x2[3], u, v, w, ix, iy, iz;
   double beta_in, beta_max, y1[3], y2[3];
+
+  char *deformMeshFile;
+  double (*Xd)[3]; //deformed node coordinates
+  double (*dXmax)[3]; //maximum deformation
 
   double t0; // starting time.
   int it;

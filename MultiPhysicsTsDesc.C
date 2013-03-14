@@ -104,7 +104,21 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   this->postOp->setForceGenerator(this);
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
-  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
+//  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
+  switch (ioData.embed.forceAlg) {
+    case EmbeddedFramework::CONTROL_VOLUME_BOUNDARY :
+      forceApp = 1;
+      break;
+    case EmbeddedFramework::EMBEDDED_SURFACE :
+      forceApp = 2;
+      break;
+    case EmbeddedFramework::RECONSTRUCTED_SURFACE :
+      forceApp = 3;
+      break;
+    default:
+      this->com->fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); 
+      exit(-1);
+  }
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
@@ -286,6 +300,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+
+  *(this->Xs) = *(this->X);
 
   this->initializeFarfieldCoeffs();
 

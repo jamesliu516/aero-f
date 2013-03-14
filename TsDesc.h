@@ -15,6 +15,7 @@ class VarFcn;
 class GeoSource;
 class DistGeoState;
 class MeshMotionHandler;
+class MeshMotionSolver;
 class HeatTransferHandler;
 class MemoryPool;
 class Timer;
@@ -76,6 +77,7 @@ protected:
   PostOperator<dim> *postOp;
 
   MeshMotionHandler* mmh;
+  MeshMotionSolver* mems;
   HeatTransferHandler* hth;
 
   Domain *domain;
@@ -99,6 +101,8 @@ protected:
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
+
+  void moveMesh(IoData &ioData, GeoSource &geoSource);  // YC
 
 // Included (MB)
   bool monitorForceConvergence(IoData &, int, DistSVec<double,dim> &);
@@ -138,14 +142,14 @@ public:
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
 
   virtual void setupOutputToDisk(IoData &, bool *, int, double,
-			 	DistSVec<double,dim> &);
+        DistSVec<double,dim> &);
   virtual void outputToDisk(IoData &, bool*, int, int, int, double, double,
-				DistSVec<double,dim> &);
-	virtual void writeStateRomToDisk(int it, double cpu) {};
-	virtual void writeErrorToDisk(int it, double cpu) {};
+        DistSVec<double,dim> &);
+  virtual void writeStateRomToDisk(int it, double cpu) {};
+  virtual void writeErrorToDisk(int it, double cpu) {};
 
   virtual void outputForces(IoData &, bool*, int, int, int, double, double,
-		    DistSVec<double,dim> &);
+        DistSVec<double,dim> &);
 
   void outputPositionVectorToDisk(DistSVec<double,dim> &U);
   virtual void resetOutputToStructure(DistSVec<double,dim> &);

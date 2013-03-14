@@ -2848,9 +2848,11 @@ template<int dim>
 class LocalRiemannFluidStructure : public LocalRiemann {
 
 public:
-  LocalRiemannFluidStructure() : LocalRiemann() {fluid1 = fluid2 = 0;}
-  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf,0,0) {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure() : LocalRiemann(), stabil_alpha(0.0) {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf,0,0), stabil_alpha(0.0) {fluid1 = fluid2 = 0;}
   virtual ~LocalRiemannFluidStructure() { vf_ = 0; }
+
+  void setStabilAlpha(double a) { stabil_alpha = a; }
 
   void computeRiemannSolution(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
@@ -2904,6 +2906,8 @@ private:
 
   template <int d>
   friend class FSJac;
+
+  double stabil_alpha;
 };
 
 //------------------------------------------------------------------------------
@@ -2931,6 +2935,12 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   U_1 = vni;
   P_1  = vf->getPressure(Vi,Id);
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
+/*
+  double normv = Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3];
+
+  // Attempt at stabilization of structure normal.
+  U_1 += stabil_alpha*sqrt(normv - U_1*U_1);
+*/
   switch (vf->getType(Id)) {
   case VarFcnBase::STIFFENEDGAS:
   case VarFcnBase::PERFECTGAS:
@@ -2942,9 +2952,9 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   }
 
   Wstar[0]  = R_i;
-  Wstar[1]  = vti[0]+U_i*nphi[0];
-  Wstar[2]  = vti[1]+U_i*nphi[1];
-  Wstar[3]  = vti[2]+U_i*nphi[2];
+  Wstar[1]  = (1.0-stabil_alpha)*vti[0]+U_i*nphi[0];
+  Wstar[2]  = (1.0-stabil_alpha)*vti[1]+U_i*nphi[1];
+  Wstar[3]  = (1.0-stabil_alpha)*vti[2]+U_i*nphi[2];
   if (vf->getType(Id) == VarFcnBase::TAIT)
     Wstar[4] = vf->computeTemperature(Vi, Id);
   else
@@ -2987,9 +2997,9 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   }
 
   Wstar[dim]    = R_i;
-  Wstar[dim+1]  = vti[0]+U_i*nphi[0];
-  Wstar[dim+2]  = vti[1]+U_i*nphi[1];
-  Wstar[dim+3]  = vti[2]+U_i*nphi[2];
+  Wstar[dim+1]  = (1.0-stabil_alpha)*vti[0]+U_i*nphi[0];
+  Wstar[dim+2]  = (1.0-stabil_alpha)*vti[1]+U_i*nphi[1];
+  Wstar[dim+3]  = (1.0-stabil_alpha)*vti[2]+U_i*nphi[2];
   if (vf->getType(Id) == VarFcnBase::TAIT) 
     Wstar[dim+4] = vf->computeTemperature(Vi, Id);
   else
@@ -3051,6 +3061,12 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   P_1  = vf->getPressure(Vi,Id);
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
   P_i = vf->getPressure(Wstar,Id);
+/*
+  double normv = Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3];
+
+  // Attempt at stabilization of structure normal.
+  U_1 += stabil_alpha*sqrt(normv - U_1*U_1);
+*/
   switch (vf->getType(Id)) {
   case VarFcnBase::STIFFENEDGAS:
   case VarFcnBase::PERFECTGAS:
@@ -3086,7 +3102,15 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
     dWstardU[(i+1)] = nphi[i]*dWdW[1];
     dWstardU[(i+1)+4*dim] = nphi[i]*dWdW[7];
   }
+/*
+  for (int i = 0; i < 3; ++i) {
+ 
+    for (int j = 0; j < 3; ++j) {
 
+      dWstardU[(i+1)*dim+(j+1)] = ((i==j?1.0:0.0) - nphi[i]*nphi[j])*(1.0-stabil_alpha);
+    }
+  }
+*/
   dWstardU[4] = dWdW[2];
   dWstardU[dim*4] = dWdW[6]; 
 }
@@ -3284,7 +3308,14 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
     
     double ud = u-ui;
     double q = 2.0*sqrt(a*b)/(b-1.0);
-    rhoi = pow(-ud/q+pow(rho,(b-1.0)*0.5), 2.0/(b-1.0));
+    double qp = -ud/q+pow(rho,(b-1.0)*0.5);
+    if (qp > 0.0)
+      rhoi = pow(qp, 2.0/(b-1.0));
+    else {
+      // will be handled by verification below.
+      rhoi = 0.0;
+    }
+     
     //pi = a*pow(rhoi,b)+pref;
     Vdummy[0] = rhoi;
     vf->getVarFcnBase(Id)->verification(0,Udummy,Vdummy);

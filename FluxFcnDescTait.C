@@ -29,6 +29,8 @@ extern "C" {
 			 const double&, const int&);
   void F77NAME(genbcfluxtait)(const int&, const double&, const double&, const double&, 
 			 const double&,  double*, const double&, double*, double*, double*);
+  void F77NAME(genbcfluxtait_hh)(const int&, const double&, const double&, const double&,
+                         const double&,  double*, const double&, double*, double*, double*,double*, double&, const double&, const double&);
 };
 
 //------------------------------------------------------------------------------
@@ -449,6 +451,19 @@ void FluxFcnTaitGhidagliaEuler3D::compute(double length, double irey, double *no
   F77NAME(genbcfluxtait)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux);
 
 }
+
+void FluxFcnTaitModifiedGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel, 
+                                                  double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+ int dim = 5;
+ // fprintf(stderr,"faceCenter = %e %e %e;  s_ff = %e;  dt = %e.\n", flux[dim], flux[dim+1], flux[dim+2], flux[dim+3], flux[dim+4]);
+ double snew;
+ F77NAME(genbcfluxtait_hh)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux, flux+2*dim, snew, *(flux+2*dim+3), *(flux+2*dim+5));
+                           flux[2*dim+3] = snew;
+ 
+}
+
 
 //------------------------------------------------------------------------------
 

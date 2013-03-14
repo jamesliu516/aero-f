@@ -85,19 +85,20 @@ InputData::InputData()
   perturbed = "";
   solutions = "";
   positions = "";
+  embeddedpositions = "";
   levelsets = "";
   cracking = "";
   rstdata = "";
-	podFile = "";
-	snapRefSolutionFile = "";
-	staterom = "";
-	snapFile = "";
+  podFile = "";
+  snapRefSolutionFile = "";
+  staterom = "";
+  snapFile = "";
 
-	// gnat
-	gnatPrefix = "";
-	sampleNodes = "";
-	resMatrix = "";
-	jacMatrix = "";
+  // gnat
+  gnatPrefix = "";
+  sampleNodes = "";
+  resMatrix = "";
+  jacMatrix = "";
   podFileState = "";
   podFileRes = "";
   podFileJac = "";
@@ -108,6 +109,7 @@ InputData::InputData()
 
   convergence_file = "";
 
+  wallsurfacedisplac = "";
 // Included (MB)
   shapederivatives = "";
   strModesFile = "";
@@ -126,7 +128,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 32, father);
+  ClassAssigner *ca = new ClassAssigner(name, 36, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -138,6 +140,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
   new ClassStr<InputData>(ca, "Position", this, &InputData::positions);
+  new ClassStr<InputData>(ca, "EmbeddedPosition", this, &InputData::embeddedpositions);
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
   new ClassStr<InputData>(ca, "Cracking", this, &InputData::cracking);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
@@ -146,7 +149,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolutionFile);
   new ClassStr<InputData>(ca, "ROBStateCoordinates", this, &InputData::staterom);
 
-	// sample mesh
+  // sample mesh
   new ClassStr<InputData>(ca, "GNATPrefix", this, &InputData::gnatPrefix);
   new ClassStr<InputData>(ca, "SampledNodes", this, &InputData::sampleNodes);
   new ClassStr<InputData>(ca, "GappyJacMat", this, &InputData::jacMatrix);
@@ -156,10 +159,11 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "ROBJacobian", this, &InputData::podFileJac);
   new ClassStr<InputData>(ca, "SampledROBResidual", this, &InputData::podFileResHat);
   new ClassStr<InputData>(ca, "SampledROBJacobian", this, &InputData::podFileJacHat);
-	// ???
+  // ???
   new ClassStr<InputData>(ca, "ReducedMesh", this, &InputData::mesh);
   new ClassStr<InputData>(ca, "ReducedFullNodeMap", this, &InputData::reducedfullnodemap);
 
+  new ClassStr<InputData>(ca, "InitialWallDisplacement", this, &InputData::wallsurfacedisplac); // YC
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
@@ -348,6 +352,7 @@ TransientData::TransientData()
   dVelocityVector = "";
   dDisplacement = "";
   dForces = "";
+  dLiftDrag = "";
   dEddyvis = "";
 
   tempnormalderivative = "";
@@ -450,8 +455,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
   new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
 
-	// Gappy POD offline
-	// Gappy POD snapshots
+  // Gappy POD offline
+  // Gappy POD snapshots
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "StateVectorSensitivity", this, &TransientData::dSolutions); //KW(Aug.17,2010): used to be SolutionSensitivity
@@ -467,6 +472,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "VelocitySensitivity", this, &TransientData::dVelocityVector);
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
+  new ClassStr<TransientData>(ca, "LiftDragSensitivity", this, &TransientData::dLiftDrag); //YC
 
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
@@ -475,7 +481,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<TransientData>(ca, "BubbleRadius", this, &TransientData::bubbleRadius);
 
-	//do defaults
+  //do defaults
 
 }
 
@@ -529,7 +535,7 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
   ClassAssigner *ca = new ClassAssigner(name, 18, father); 
   new ClassStr<ROMOutputData>(ca, "Prefix", this, &ROMOutputData::prefix);
-	
+  
   new ClassStr<ROMOutputData>(ca, "Residual", this, &ROMOutputData::newtonresiduals);
   new ClassStr<ROMOutputData>(ca, "JacobianDeltaState", this, &ROMOutputData::jacobiandeltastate);
   new ClassStr<ROMOutputData>(ca, "ReducedJac", this, &ROMOutputData::reducedjac);
@@ -559,6 +565,7 @@ RestartData::RestartData()
   prefix = "";
   solutions = "DEFAULT.SOL";
   positions = "DEFAULT.POS";
+  embeddedpositions = "DEFAULT.EMBPOS";
   cracking = "DEFAULT.CRK";
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
@@ -575,14 +582,15 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 11, father);
   new ClassToken<RestartData>(ca, "Type", this,
-			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
-			      "Single", 0, "Double", 1);
+            reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
+            "Single", 0, "Double", 1);
 
   new ClassStr<RestartData>(ca, "Prefix", this, &RestartData::prefix);
   new ClassStr<RestartData>(ca, "Solution", this, &RestartData::solutions);
   new ClassStr<RestartData>(ca, "Position", this, &RestartData::positions);
+  new ClassStr<RestartData>(ca, "EmbeddedPosition", this, &RestartData::embeddedpositions);
   new ClassStr<RestartData>(ca, "Cracking", this, &RestartData::cracking);
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
@@ -661,20 +669,20 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 34,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 35,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
-		 "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11,
-		 "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
-		 "UnsteadyLinearized", 15, "ROBConstruction", 16, "ROMAeroelastic", 17,
-		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
-		 "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
-		 "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
-		 "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
-		 "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33);
+     "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11,
+     "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
+     "UnsteadyLinearized", 15, "ROBConstruction", 16, "ROMAeroelastic", 17,
+     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
+     "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
+     "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
+     "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
+     "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
+     "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
+     "Aeroacoustic", 33, "ShapeOptimization", 34);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -688,8 +696,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Framework", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 2,
-     "BodyFitted", 0, "Embedded", 1);
+     reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 3,
+     "BodyFitted", 0, "Embedded", 1, "EmbeddedALE", 2);
 
   new ClassToken<ProblemData>
     (ca, "SolveFluid", this,
@@ -802,14 +810,14 @@ void BcsWallData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassToken<BcsWallData>(ca, "Type", this,
-			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::type), 2,
-			      "Isothermal", 0, "Adiabatic", 1);
+            reinterpret_cast<int BcsWallData::*>(&BcsWallData::type), 2,
+            "Isothermal", 0, "Adiabatic", 1);
   new ClassToken<BcsWallData>(ca, "Integration", this,
-			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::integration), 2,
-			      "WallFunction", 1, "Full", 2);
+            reinterpret_cast<int BcsWallData::*>(&BcsWallData::integration), 2,
+            "WallFunction", 1, "Full", 2);
   new ClassToken<BcsWallData>(ca, "Reconstruction", this,
-			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::reconstruction), 2,
-			      "Constant", 0, "ExactRiemann", 1);
+            reinterpret_cast<int BcsWallData::*>(&BcsWallData::reconstruction), 2,
+            "Constant", 0, "ExactRiemann", 1);
   new ClassDouble<BcsWallData>(ca, "Temperature", this, &BcsWallData::temperature);
   new ClassDouble<BcsWallData>(ca, "Delta", this, &BcsWallData::delta);
 
@@ -877,8 +885,8 @@ void GasModelData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassToken<GasModelData>(ca, "Type", this,
-			       reinterpret_cast<int GasModelData::*>(&GasModelData::type), 2,
-			       "Ideal", 0, "Stiffened", 1);
+             reinterpret_cast<int GasModelData::*>(&GasModelData::type), 2,
+             "Ideal", 0, "Stiffened", 1);
   new ClassDouble<GasModelData>(ca, "SpecificHeatRatio", this,
                                 &GasModelData::specificHeatRatio);
   new ClassDouble<GasModelData>(ca, "IdealGasConstant", this,
@@ -914,8 +922,8 @@ void JWLModelData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
   new ClassToken<JWLModelData>(ca, "Type", this,
-			       reinterpret_cast<int JWLModelData::*>(&JWLModelData::type), 2,
-			       "Ideal", 0, "JWL", 1);
+             reinterpret_cast<int JWLModelData::*>(&JWLModelData::type), 2,
+             "Ideal", 0, "JWL", 1);
   new ClassDouble<JWLModelData>(ca, "Omega", this,
                                 &JWLModelData::omega);
   new ClassDouble<JWLModelData>(ca, "IdealGasConstant", this,
@@ -940,6 +948,7 @@ LiquidModelData::LiquidModelData()
   k2water     = 7.15;
   Prefwater   = -1.0;
   RHOrefwater = -1.0;
+  Bwater = -1.0;
   burnable = NO;
 
   //these parameters are the adimensionalized parameters used by the VarFcn where the
@@ -972,6 +981,7 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LiquidModelData>(ca, "Pressure", this, &LiquidModelData::Prefwater);
   new ClassDouble<LiquidModelData>(ca, "Density", this, &LiquidModelData::RHOrefwater);
   new ClassDouble<LiquidModelData>(ca, "SpecificHeat", this, &LiquidModelData::specificHeat);
+  new ClassDouble<LiquidModelData>(ca, "B", this, &LiquidModelData::Bwater);
 
 }
 
@@ -996,9 +1006,9 @@ Assigner *FluidModelData::getAssigner()
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas",   FluidModelData::PERFECT_GAS,
-				 "Liquid",       FluidModelData::LIQUID,
-				 "StiffenedGas", FluidModelData::STIFFENED_GAS,
-				 "JWL",          FluidModelData::JWL);
+         "Liquid",       FluidModelData::LIQUID,
+         "StiffenedGas", FluidModelData::STIFFENED_GAS,
+         "JWL",          FluidModelData::JWL);
   new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
@@ -1020,9 +1030,9 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas",   FluidModelData::PERFECT_GAS,
-				 "Liquid",       FluidModelData::LIQUID,
-				 "StiffenedGas", FluidModelData::STIFFENED_GAS,
-				 "JWL",          FluidModelData::JWL);
+         "Liquid",       FluidModelData::LIQUID,
+         "StiffenedGas", FluidModelData::STIFFENED_GAS,
+         "JWL",          FluidModelData::JWL);
   new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
@@ -1095,16 +1105,16 @@ void ViscosityModelData::setup(const char *name, ClassAssigner *father)
     (ca, "Type", this, reinterpret_cast<int ViscosityModelData::*>
                        (&ViscosityModelData::type), 3,
                        "Constant",   ViscosityModelData::CONSTANT, 
-		       "Sutherland", ViscosityModelData::SUTHERLAND, 
-		       "Prandtl",    ViscosityModelData::PRANDTL);
+           "Sutherland", ViscosityModelData::SUTHERLAND, 
+           "Prandtl",    ViscosityModelData::PRANDTL);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandReferenceTemperature", this,
-				      &ViscosityModelData::sutherlandReferenceTemperature);
+              &ViscosityModelData::sutherlandReferenceTemperature);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandConstant", this,
-				      &ViscosityModelData::sutherlandConstant);
+              &ViscosityModelData::sutherlandConstant);
   new ClassDouble<ViscosityModelData>(ca, "DynamicViscosity", this,
-				      &ViscosityModelData::dynamicViscosity);
+              &ViscosityModelData::dynamicViscosity);
   new ClassDouble<ViscosityModelData>(ca, "BulkViscosity", this,
-				      &ViscosityModelData::bulkViscosity);
+              &ViscosityModelData::bulkViscosity);
 
 }
 
@@ -1434,8 +1444,8 @@ void LESModelData::setup(const char *name, ClassAssigner *father)
     (ca, "Type", this, reinterpret_cast<int LESModelData::*>
      (&LESModelData::type), 5, "Smagorinsky", 0, "Dynamic", 1, "VMS", 2, "DynamicVMS", 3, "WALE", 4);
   new ClassToken<LESModelData>
-	(ca, "Delta", this,
-	 reinterpret_cast<int LESModelData::*>(&LESModelData::delta), 2,
+  (ca, "Delta", this,
+   reinterpret_cast<int LESModelData::*>(&LESModelData::delta), 2,
          "Volume", 0, "Side", 1);
 
   sma.setup("Smagorinsky", ca);
@@ -1692,8 +1702,8 @@ Assigner *PrismData::getAssigner()
 bool PrismData::inside(double x,double y, double z) const {
 
   return (x <= cen_x+w_x*0.5 && x >=cen_x-w_x*0.5 &&
-	  y <= cen_y+w_y*0.5 && y >=cen_y-w_y*0.5 &&
-	  z <= cen_z+w_z*0.5 && z >=cen_z-w_z*0.5);
+    y <= cen_y+w_y*0.5 && y >=cen_y-w_y*0.5 &&
+    z <= cen_z+w_z*0.5 && z >=cen_z-w_z*0.5);
 }
 
 //------------------------------------------------------------------------------
@@ -1925,6 +1935,7 @@ ProgrammedBurnData::ProgrammedBurnData() {
   ignited = 0;
   factorB = 1.0;
   factorS = 1.0;
+  stopWhenShockReachesPercentDistance = 0.99;
   limitPeak = 0;
 }
 
@@ -1950,7 +1961,6 @@ void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
     (ca, "IgnitionTime", this, &ProgrammedBurnData::ignitionTime);
   new ClassToken<ProgrammedBurnData>
     (ca, "Ignite", this, &ProgrammedBurnData::ignited, 2, "False", 1, "True", 0);
-
   new ClassDouble<ProgrammedBurnData>
     (ca, "E0", this, &ProgrammedBurnData::e0);
   new ClassDouble<ProgrammedBurnData>
@@ -1965,12 +1975,12 @@ void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
     (ca, "FactorB", this, &ProgrammedBurnData::factorB);
   new ClassDouble<ProgrammedBurnData>
     (ca, "FactorS", this, &ProgrammedBurnData::factorS);
-  
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "StopWhenShockReachesPercentDistance", this, &ProgrammedBurnData::stopWhenShockReachesPercentDistance);  
   new ClassToken<ProgrammedBurnData>(ca, "LimitPeak", this,
              reinterpret_cast<int ProgrammedBurnData::*>(&ProgrammedBurnData::limitPeak), 2,
              "False", 0, "True", 1);
 }
-
 
 //------------------------------------------------------------------------------
 
@@ -1999,6 +2009,7 @@ MultiFluidData::MultiFluidData()
 
   interfaceTreatment = FIRSTORDER;
   interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
+  interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
   interfaceOmitCells = 0;
 }
@@ -2013,7 +2024,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
              "None", 0, "GhostFluidForThePoor", 1, "FiniteVolumeWithExactTwoPhaseRiemann", 2);
   new ClassToken<MultiFluidData>(ca, "Problem", this,
-				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
+         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
              "Bubble", 0, "ShockTube", 1);
   new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
@@ -2023,7 +2034,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              "FirstOrder", 0, "SecondOrder", 1, "TabulationRiemannInvariant", 2,
              "TabulationRiemannProblem", 3);
   new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
-		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
              "Global", 0, "Local", 1);
   new ClassToken<MultiFluidData>(ca, "InterfaceTracking", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),3,
@@ -2051,24 +2062,28 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
 
   new ClassToken<MultiFluidData>(ca, "InterfaceTreatment", this,
-				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
-				 "FirstOrder", 0, "SecondOrder", 1);
+         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
+         "FirstOrder", 0, "SecondOrder", 1);
   new ClassToken<MultiFluidData>(ca, "InterfaceExtrapolation", this,
-				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
-				 "FirstOrder", 0, "SecondOrder", 1);
+         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
+         "FirstOrder", 0, "SecondOrder", 1);
+  
+  new ClassToken<MultiFluidData>(ca, "InterfaceLimiter", this,
+         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceLimiter),2,
+         "None", 0, "Alex1", 1);
 
   new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
-				 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),4,
-				 "Conservative", 0, "HJWENO", 1,"Scalar", 2, "Primitive",3);
+         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),4,
+         "Conservative", 0, "HJWENO", 1,"Scalar", 2, "Primitive",3);
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
-				  &MultiFluidData::jwlRelaxationFactor);
+          &MultiFluidData::jwlRelaxationFactor);
 
   new ClassInt<MultiFluidData>(ca, "TestCase", this,
-			       &MultiFluidData::testCase);
+             &MultiFluidData::testCase);
   
   new ClassInt<MultiFluidData>(ca, "OmitCells", this,
-			       &MultiFluidData::interfaceOmitCells);
+             &MultiFluidData::interfaceOmitCells);
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
@@ -2173,8 +2188,8 @@ void SFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SFixData>(ca, "Radius", this, &SFixData::r);
 
   ClassToken<SFixData>* sf = new ClassToken<SFixData>
-	(ca, "FailSafe", this,
-	 reinterpret_cast<int SFixData::*>(&SFixData::failsafe), 2,
+  (ca, "FailSafe", this,
+   reinterpret_cast<int SFixData::*>(&SFixData::failsafe), 2,
          "Off", 0, "On",1, "AlwaysOn", 2);
   
   sf->allowIntPair(&SFixData::failsafeN);
@@ -2211,8 +2226,8 @@ void BFixData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<BFixData>(ca, "Z1", this, &BFixData::z1);
 
   ClassToken<BFixData>* sf = new ClassToken<BFixData>
-	(ca, "FailSafe", this,
-	 reinterpret_cast<int BFixData::*>(&BFixData::failsafe), 2,
+  (ca, "FailSafe", this,
+   reinterpret_cast<int BFixData::*>(&BFixData::failsafe), 2,
          "Off", 0, "On",1, "AlwayOn", 2);
   
   sf->allowIntPair(&BFixData::failsafeN);
@@ -2329,7 +2344,7 @@ void BoundarySchemeData::setup(const char *name, ClassAssigner *father)
   new ClassToken<BoundarySchemeData>(ca, "Type", this,
          reinterpret_cast<int BoundarySchemeData::*>(&BoundarySchemeData::type), 5,
          "StegerWarming", 0, "ConstantExtrapolation", 1, "LinearExtrapolation", 2,
-	 "Ghidaglia", 3, "ModifiedGhidaglia", 4);
+   "Ghidaglia", 3, "ModifiedGhidaglia", 4);
 
 }
 
@@ -2422,24 +2437,24 @@ void PcData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   new ClassToken<PcData>(ca, "Type", this,
-			 reinterpret_cast<int PcData::*>(&PcData::type), 7,
-			 "Identity", 0, "Jacobi", 1, "As", 2, "Ras", 3, "Has", 4, "Aas", 5, "MultiGrid", 6);
+       reinterpret_cast<int PcData::*>(&PcData::type), 7,
+       "Identity", 0, "Jacobi", 1, "As", 2, "Ras", 3, "Has", 4, "Aas", 5, "MultiGrid", 6);
 
   new ClassToken<PcData>(ca, "Renumbering", this,
-			 reinterpret_cast<int PcData::*>(&PcData::renumbering), 2,
-			 "Natural", 0, "Rcm", 1);
+       reinterpret_cast<int PcData::*>(&PcData::renumbering), 2,
+       "Natural", 0, "Rcm", 1);
 
   new ClassInt<PcData>(ca, "Fill", this, &PcData::fill);
   new ClassInt<PcData>(ca, "MultiGridOutput", this, &PcData::mg_output);
   new ClassDouble<PcData>(ca, "MultiGridSmoothingRelaxation", this, &PcData::mg_smooth_relax);
   
   new ClassToken<PcData>(ca, "MultiGridSmoother", this,
-			 reinterpret_cast<int PcData::*>(&PcData::mg_smoother), 3,
-			 "BlockJacobi",0,"LineJacobi",1,"RAS",2);
+       reinterpret_cast<int PcData::*>(&PcData::mg_smoother), 3,
+       "BlockJacobi",0,"LineJacobi",1,"RAS",2);
   
   new ClassToken<PcData>(ca, "MultiGridType", this,
-			 reinterpret_cast<int PcData::*>(&PcData::mg_type), 2,
-			 "Algebraic",0,"Geometric",1);
+       reinterpret_cast<int PcData::*>(&PcData::mg_type), 2,
+       "Algebraic",0,"Geometric",1);
 
   new ClassInt<PcData>(ca, "NumMultiGridSmooth1",this, &PcData::num_multigrid_smooth1);
   new ClassInt<PcData>(ca, "NumMultiGridSmooth2",this, &PcData::num_multigrid_smooth2);
@@ -2483,31 +2498,31 @@ void MultiGridData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<MultiGridData>(ca, "MultiGridSmoothingRelaxation", this, &MultiGridData::mg_smooth_relax);
   
   new ClassToken<MultiGridData>(ca, "MultiGridSmoother", this,
-			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::mg_smoother), 4,
-			 "BlockJacobi",0,"LineJacobi",1,"RAS",2,"GMRES", 3);
+       reinterpret_cast<int MultiGridData::*>(&MultiGridData::mg_smoother), 4,
+       "BlockJacobi",0,"LineJacobi",1,"RAS",2,"GMRES", 3);
   
   new ClassToken<MultiGridData>(ca, "CycleScheme", this,
-			 reinterpret_cast<int MultiGridData::*>(&MultiGridData::cycle_scheme), 2,
-			 "VCycle",0,"WCycle", 1);
+       reinterpret_cast<int MultiGridData::*>(&MultiGridData::cycle_scheme), 2,
+       "VCycle",0,"WCycle", 1);
   
   new ClassToken<MultiGridData>(ca, "RestrictionMethod", this,
-			 reinterpret_cast<int
+       reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::restrictMethod), 2,
-			 "VolumeWeighted",0,"Average", 1);
+       "VolumeWeighted",0,"Average", 1);
   
   new ClassToken<MultiGridData>(ca, "AddViscousTerms", this,
-			 reinterpret_cast<int
+       reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::addViscousTerms), 2,
-			 "No",0,"Yes", 1);
+       "No",0,"Yes", 1);
   
   new ClassToken<MultiGridData>(ca, "UseGMRESAcceleration", this,
-			 reinterpret_cast<int
+       reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::useGMRESAcceleration), 2,
-			 "No",0,"Yes", 1);
+       "No",0,"Yes", 1);
   new ClassToken<MultiGridData>(ca, "CoarseningRatio", this,
-			 reinterpret_cast<int
+       reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
-			 "TwoToOne",0,"FourToOne", 1);
+       "TwoToOne",0,"FourToOne", 1);
 
   new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth1",this, &MultiGridData::num_multigrid_smooth1);
   new ClassInt<MultiGridData>(ca, "NumMultiGridSmooth2",this, &MultiGridData::num_multigrid_smooth2);
@@ -2547,16 +2562,16 @@ void KspData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
   new ClassToken<KspData>(ca, "Type", this,
-			   reinterpret_cast<int KspData::*>(&KspData::type), 4,
-			   "Richardson", 0, "Cg", 1, "Gmres", 2, "Gcr", 3);
+         reinterpret_cast<int KspData::*>(&KspData::type), 4,
+         "Richardson", 0, "Cg", 1, "Gmres", 2, "Gcr", 3);
 
   new ClassToken<KspData>(ca, "EpsFormula", this,
-			   reinterpret_cast<int KspData::*>(&KspData::epsFormula), 2,
-			   "Constant", 0, "Eisenstadt", 1);
+         reinterpret_cast<int KspData::*>(&KspData::epsFormula), 2,
+         "Constant", 0, "Eisenstadt", 1);
 
   new ClassToken<KspData>(ca, "CheckFinalRes", this,
-			   reinterpret_cast<int KspData::*>(&KspData::checkFinalRes), 2,
-			   "No", 0, "Yes", 1);
+         reinterpret_cast<int KspData::*>(&KspData::checkFinalRes), 2,
+         "No", 0, "Yes", 1);
 
   new ClassInt<KspData>(ca, "MaxIts", this, &KspData::maxIts);
 
@@ -2707,21 +2722,21 @@ void CFLData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 23, father);
 
   new ClassToken<CFLData>(ca, "Strategy", this,
-			 reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
-			 "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
+       reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
+       "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
   new ClassToken<CFLData>(ca, "CheckSolution", this,
-			 reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
-			 "Off", 0, "On", 1);
+       reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
+       "Off", 0, "On", 1);
   new ClassToken<CFLData>(ca, "CheckLinearSolver", this,
-			 reinterpret_cast<int CFLData::*>(&CFLData::checklinsolve), 2,
-			 "Off", 0, "On", 1);
+       reinterpret_cast<int CFLData::*>(&CFLData::checklinsolve), 2,
+       "Off", 0, "On", 1);
   new ClassToken<CFLData>(ca, "ForbidReductions", this,
                          reinterpret_cast<int CFLData::*>(&CFLData::forbidreduce), 2,
                          "Off", 0, "On", 1);
   new ClassToken<CFLData>(ca, "UseSteadyStrategy", this,
                          reinterpret_cast<int CFLData::*>(&CFLData::useSteadyStrategy), 2,
                          "Off", 0, "On", 1);
-	  
+    
   new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
   new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
   new ClassDouble<CFLData>(ca, "CflMax", this, &CFLData::cflMax);
@@ -2782,20 +2797,20 @@ void TsData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 23, father);
 
   new ClassToken<TsData>(ca, "Type", this,
-			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
-			 "Explicit", 0, "Implicit", 1);
+       reinterpret_cast<int TsData::*>(&TsData::type), 2,
+       "Explicit", 0, "Implicit", 1);
   new ClassToken<TsData>(ca, "TypeTimeStep", this,
-			 reinterpret_cast<int TsData::*>(&TsData::typeTimeStep), 2,
-			 "Local", 1, "Global", 2);
+       reinterpret_cast<int TsData::*>(&TsData::typeTimeStep), 2,
+       "Local", 1, "Global", 2);
   new ClassToken<TsData>(ca, "DualTimeStepping", this,
                          reinterpret_cast<int TsData::*>(&TsData::dualtimestepping), 2,
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
-			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
-			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
+       reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
+       "None", 0, "AbsoluteValue", 1, "Freestream", 2);
   new ClassToken<TsData>(ca, "TimeStepAdaptation", this,
-			 reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
-			 "Cfl", 0, "ErrorEstimation", 1);
+       reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
+       "Cfl", 0, "ErrorEstimation", 1);
   new ClassToken<TsData>(ca, "Prec", this,
                          reinterpret_cast<int TsData::*>(&TsData::prec), 2,
                          "NonPreconditioned", 0, "LowMach", 1);
@@ -3201,8 +3216,8 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 4,
-     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3);
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 5,
+     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
@@ -3326,62 +3341,61 @@ void DeformingData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<DeformingData>(ca, "Position", this, &DeformingData::positions);
   new ClassDouble<DeformingData>(ca, "Amplification", this, &DeformingData::amplification);
-
 }
 
 ModelReductionData::ModelReductionData()
 {
-	projection = PETROV_GALERKIN;
-	systemApproximation = SYSTEM_APPROXIMATION_NONE;
-	basisType = POD;
-	lsSolver = QR;
-	dimension = 0;
+  projection = PETROV_GALERKIN;
+  systemApproximation = SYSTEM_APPROXIMATION_NONE;
+  basisType = POD;
+  lsSolver = QR;
+  dimension = 0;
 }
 
 SnapshotsData::SnapshotsData()
 {
-	normalizeSnaps = NORMALIZE_FALSE;
-	incrementalSnaps = INCREMENTAL_FALSE;
-	subtractIC = SUBTRACT_IC_FALSE;
-	relProjError = REL_PROJ_ERROR_OFF;
-//	sampleFreq = 1; // this is now included in the snapshot ascii file	
-	snapshotWeights = UNIFORM;
+  normalizeSnaps = NORMALIZE_FALSE;
+  incrementalSnaps = INCREMENTAL_FALSE;
+  subtractIC = SUBTRACT_IC_FALSE;
+  relProjError = REL_PROJ_ERROR_OFF;
+//  sampleFreq = 1; // this is now included in the snapshot ascii file  
+  snapshotWeights = UNIFORM;
   
 }
 
 DataCompressionData::DataCompressionData()
 {
-	type = POD;
-	podMethod = SVD;
-	maxVecStorage = 0;
-	energyOnly = ENERGY_ONLY_FALSE;	// if ROB computation should only compute total energy of snapshots
+  type = POD;
+  podMethod = SVD;
+  maxVecStorage = 0;
+  energyOnly = ENERGY_ONLY_FALSE; // if ROB computation should only compute total energy of snapshots
   tolerance = 1e-8;
 }
 
 GNATData::GNATData()
 {
 
-	nRobState = -1;
-	robNonlinear = UNSPECIFIED_NONLIN;
-	nRobNonlin = -1;
-	nRobRes = -1;
-	nRobJac = -1;
+  nRobState = -1;
+  robNonlinear = UNSPECIFIED_NONLIN;
+  nRobNonlin = -1;
+  nRobRes = -1;
+  nRobJac = -1;
 
-	robGreedy = UNSPECIFIED_GREEDY;
-	nRobGreedy = 0;
-  sampleNodeFactor = -1;	// specify default of 2.0 elsewhere
+  robGreedy = UNSPECIFIED_GREEDY;
+  nRobGreedy = 0;
+  sampleNodeFactor = -1;  // specify default of 2.0 elsewhere
   nSampleNodes = 0;
-	layers = 2;	// by default, include two layers of nodes (2nd-order flux)
+  layers = 2; // by default, include two layers of nodes (2nd-order flux)
 
-	includeLiftFaces = NONE_LIFTFACE;
+  includeLiftFaces = NONE_LIFTFACE;
 
-	computeGappyRes = YES_GAPPYRES;
-	// if NO, only output things corresponding to the jacobian (first pod basis),
-	// and assume podTpod = I. Useful when you want to use another basis for
-	// determining sample nodes
+  computeGappyRes = YES_GAPPYRES;
+  // if NO, only output things corresponding to the jacobian (first pod basis),
+  // and assume podTpod = I. Useful when you want to use another basis for
+  // determining sample nodes
 
-	sampleMeshUsed = SAMPLE_MESH_USED;
-	pseudoInverseNodes = 20;	// if pod computation should only compute total energy of snapshots
+  sampleMeshUsed = SAMPLE_MESH_USED;
+  pseudoInverseNodes = 20;  // if pod computation should only compute total energy of snapshots
 }
 
 //------------------------------------------------------------------------------
@@ -3392,17 +3406,17 @@ void ModelReductionData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassInt<ModelReductionData>(ca, "Dimension", this, &ModelReductionData::dimension);
-	new ClassToken<ModelReductionData> (ca, "Projection", this, reinterpret_cast<int
-			ModelReductionData::*>(&ModelReductionData::projection), 3, "PetrovGalerkin", 0, "Galerkin", 1,
-			"ProjError", 2);	// ProjErrorcomputes projection error onto a basis
-	new ClassToken<ModelReductionData> (ca, "SystemApproximation", this, reinterpret_cast<int
-			ModelReductionData::*>(&ModelReductionData::systemApproximation), 4,
-			"None", 0, "GNAT", 1, "Collocation", 2, "Broyden", 3);
-	new ClassToken<ModelReductionData> (ca, "BasisType", this, reinterpret_cast<int
-			ModelReductionData::*>(&ModelReductionData::basisType), 3, "Snaps", 0, "POD", 1,
-			"None", 2);
-	new ClassToken<ModelReductionData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
-			ModelReductionData::*>(&ModelReductionData::lsSolver), 2, "QR", 0, "NormalEquations", 1);
+  new ClassToken<ModelReductionData> (ca, "Projection", this, reinterpret_cast<int
+      ModelReductionData::*>(&ModelReductionData::projection), 3, "PetrovGalerkin", 0, "Galerkin", 1,
+      "ProjError", 2);  // ProjErrorcomputes projection error onto a basis
+  new ClassToken<ModelReductionData> (ca, "SystemApproximation", this, reinterpret_cast<int
+      ModelReductionData::*>(&ModelReductionData::systemApproximation), 4,
+      "None", 0, "GNAT", 1, "Collocation", 2, "Broyden", 3);
+  new ClassToken<ModelReductionData> (ca, "BasisType", this, reinterpret_cast<int
+      ModelReductionData::*>(&ModelReductionData::basisType), 3, "Snaps", 0, "POD", 1,
+      "None", 2);
+  new ClassToken<ModelReductionData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
+      ModelReductionData::*>(&ModelReductionData::lsSolver), 2, "QR", 0, "NormalEquations", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -3410,33 +3424,33 @@ void ModelReductionData::setup(const char *name, ClassAssigner *father)
 void SnapshotsData::setup(const char *name, ClassAssigner *father)
 {
 
-	ClassAssigner *ca = new ClassAssigner(name, 6, father);
-	new ClassToken<SnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
-			SnapshotsData::*>(&SnapshotsData::normalizeSnaps), 2, "False", 0, "True", 1);
-	new ClassToken<SnapshotsData> (ca, "IncrementalSnaps", this, reinterpret_cast<int
-			SnapshotsData::*>(&SnapshotsData::incrementalSnaps), 2, "False", 0, "True", 1);
-	new ClassToken<SnapshotsData> (ca, "SubtractIC", this, reinterpret_cast<int
-			SnapshotsData::*>(&SnapshotsData::subtractIC), 2, "False", 0, "True", 1);
- 	new ClassToken<SnapshotsData> (ca, "RelProjError", this, reinterpret_cast<int
-			SnapshotsData::*>(&SnapshotsData::relProjError), 2, "Off", 0, "On", 1);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  new ClassToken<SnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
+      SnapshotsData::*>(&SnapshotsData::normalizeSnaps), 2, "False", 0, "True", 1);
+  new ClassToken<SnapshotsData> (ca, "IncrementalSnaps", this, reinterpret_cast<int
+      SnapshotsData::*>(&SnapshotsData::incrementalSnaps), 2, "False", 0, "True", 1);
+  new ClassToken<SnapshotsData> (ca, "SubtractIC", this, reinterpret_cast<int
+      SnapshotsData::*>(&SnapshotsData::subtractIC), 2, "False", 0, "True", 1);
+  new ClassToken<SnapshotsData> (ca, "RelProjError", this, reinterpret_cast<int
+      SnapshotsData::*>(&SnapshotsData::relProjError), 2, "Off", 0, "On", 1);
  // new ClassInt<SnapshotsData>(ca, "Frequency", this, &SnapshotsData::sampleFreq);
 
-	new ClassToken<SnapshotsData> (ca, "SnapshotWeights", this, reinterpret_cast<int
-			SnapshotsData::*>(&SnapshotsData::snapshotWeights), 2, "Uniform", 0, "RBF", 1);
+  new ClassToken<SnapshotsData> (ca, "SnapshotWeights", this, reinterpret_cast<int
+      SnapshotsData::*>(&SnapshotsData::snapshotWeights), 2, "Uniform", 0, "RBF", 1);
 
-	dataCompression.setup("DataCompression",ca);
+  dataCompression.setup("DataCompression",ca);
 
 }
 
 void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
-	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
-	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
-			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
+  new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
+  new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
+      DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
   new ClassInt<DataCompressionData>(ca, "MaxNumStoredVectors", this, &DataCompressionData::maxVecStorage);
-	new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
-			DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
+  new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
+      DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
   new ClassDouble<DataCompressionData>(ca, "Tolerance", this, &DataCompressionData::tolerance);
 
 }
@@ -3444,35 +3458,35 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 void GNATData::setup(const char *name, ClassAssigner *father) {
 
   ClassAssigner *ca = new ClassAssigner(name, 14, father);
-	// optional: document
-  new ClassInt<GNATData>(ca, "DimensionROBState", this, &GNATData::nRobState);	// default: full size
+  // optional: document
+  new ClassInt<GNATData>(ca, "DimensionROBState", this, &GNATData::nRobState);  // default: full size
 
-	new ClassToken<GNATData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int GNATData::*>(&GNATData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);	// ProjErrorcomputes projection error onto a basis
-
-
-	new ClassToken<GNATData>(ca, "ROBNonlinear", this, reinterpret_cast<int GNATData::*>(&GNATData::robNonlinear), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);
-
-  new ClassInt<GNATData>(ca, "DimensionROBNonlinear", this, &GNATData::nRobNonlin);	// default: 0 (make sure C file reads in everything)
-  new ClassInt<GNATData>(ca, "DimensionROBResidual", this, &GNATData::nRobRes);	// default: nRobNonlin
-  new ClassInt<GNATData>(ca, "DimensionROBJacobian", this, &GNATData::nRobJac);	// default: nRobNonlin
+  new ClassToken<GNATData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int GNATData::*>(&GNATData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2); // ProjErrorcomputes projection error onto a basis
 
 
-	new ClassToken<GNATData>(ca, "ROBGreedy", this, reinterpret_cast<int GNATData::*>(&GNATData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);	// ProjErrorcomputes projection error onto a basis
+  new ClassToken<GNATData>(ca, "ROBNonlinear", this, reinterpret_cast<int GNATData::*>(&GNATData::robNonlinear), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);
+
+  new ClassInt<GNATData>(ca, "DimensionROBNonlinear", this, &GNATData::nRobNonlin); // default: 0 (make sure C file reads in everything)
+  new ClassInt<GNATData>(ca, "DimensionROBResidual", this, &GNATData::nRobRes); // default: nRobNonlin
+  new ClassInt<GNATData>(ca, "DimensionROBJacobian", this, &GNATData::nRobJac); // default: nRobNonlin
+
+
+  new ClassToken<GNATData>(ca, "ROBGreedy", this, reinterpret_cast<int GNATData::*>(&GNATData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "Jacobian", 1, "Both", 2);  // ProjErrorcomputes projection error onto a basis
   new ClassInt<GNATData>(ca, "DimensionROBGreedy", this, &GNATData::nRobGreedy);
 
 
   new ClassDouble<GNATData>(ca, "SampledNodeFactor", this, &GNATData::sampleNodeFactor); // default: 2
   new ClassInt<GNATData>(ca, "NumSampledNodes", this, &GNATData::nSampleNodes); // overrides SampleNodeFactor to determine the number of sample nodes
-  new ClassInt<GNATData>(ca, "NumSampledMeshLayers", this, &GNATData::layers);	// default: 2
+  new ClassInt<GNATData>(ca, "NumSampledMeshLayers", this, &GNATData::layers);  // default: 2
 
-	// optional: undocumented
-	new ClassToken<GNATData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
-			GNATData::*>(&GNATData::computeGappyRes), 2, "False", 0, "True", 1);	
+  // optional: undocumented
+  new ClassToken<GNATData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
+      GNATData::*>(&GNATData::computeGappyRes), 2, "False", 0, "True", 1);  
 
-	new ClassToken<GNATData> (ca, "SampledMeshUsed", this, reinterpret_cast<int
-			GNATData::*>(&GNATData::sampleMeshUsed), 2, "False", 0, "True", 1);	
+  new ClassToken<GNATData> (ca, "SampledMeshUsed", this, reinterpret_cast<int
+      GNATData::*>(&GNATData::sampleMeshUsed), 2, "False", 0, "True", 1); 
 
-  new ClassInt<GNATData>(ca, "NumPseudoInvNodesAtATime", this, &GNATData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
+  new ClassInt<GNATData>(ca, "NumPseudoInvNodesAtATime", this, &GNATData::pseudoInverseNodes);  // how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
 
 }
 //------------------------------------------------------------------------------
@@ -3525,7 +3539,7 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
 
   pade.setup("Pade", ca);
-	dataCompression.setup("DataCompression", ca);
+  dataCompression.setup("DataCompression", ca);
 
 }
 
@@ -3604,6 +3618,7 @@ SurfaceData::SurfaceData()  {
   forceResults = NO;
 
   rotationID = -1;
+  forceID = -1;
   velocity = 0.0;
 
   type = (Type) UNSPECIFIED; 
@@ -3616,7 +3631,7 @@ SurfaceData::SurfaceData()  {
 //------------------------------------------------------------------------------
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 12, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 13, nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
@@ -3629,6 +3644,7 @@ Assigner *SurfaceData::getAssigner()  {
   new ClassToken<SurfaceData> (ca, "SeparateHeatFlux", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
+  new ClassInt<SurfaceData>(ca, "ForcedVelocityID", this, &SurfaceData::forceID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);
 
   new ClassToken<SurfaceData>(ca, "Type", this,
@@ -3866,6 +3882,9 @@ EmbeddedFramework::EmbeddedFramework() {
   reconstruct = CONSTANT;
   viscousinterfaceorder = FIRST;
 
+  stabil_alpha = 0.0;
+
+  interfaceThickness = 1e-8;
 }
 
 //------------------------------------------------------------------------------
@@ -3879,8 +3898,8 @@ void EmbeddedFramework::setup(const char *name) {
                                       "ElementBased", 0, "NodeBased", 1);
   new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
                                       "NodalState", 0, "RiemannSolution", 1);
-  new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
-                                      "ReconstructedSurface", 0, "ControlVolumeFace", 1);
+  new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 3,
+                                      "ReconstructedSurface", 0, "ControlVolumeFace", 1, "EmbeddedSurface", 2);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
   new ClassToken<EmbeddedFramework> (ca, "PhaseChangeAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2, "Average", 0, "LeastSquares", 1);
@@ -3888,6 +3907,9 @@ void EmbeddedFramework::setup(const char *name) {
   embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
+  new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);
+  
+  new ClassDouble<EmbeddedFramework>(ca, "StabilizingAlpha", this, &EmbeddedFramework::stabil_alpha);
 
   //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
@@ -4082,9 +4104,9 @@ void IoData::setupCmdFileVariables()
   rmesh.setup("Accelerated");
   aero.setup("Aeroelastic");
   forced.setup("Forced");
-	rom.setup("NonlinearModelReduction");
-	gnat.setup("GNAT");
-	snapshots.setup("Snapshots");
+  rom.setup("NonlinearModelReduction");
+  gnat.setup("GNAT");
+  snapshots.setup("Snapshots");
   linearizedData.setup("Linearized");
   surfaces.setup("Surfaces");
   rotations.setup("Velocity");
@@ -4123,6 +4145,7 @@ void IoData::readCmdFile()
 
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
+    com->fprintf(stderr, "input.\n");
     if (strncmp(input.rstdata, "/", 1) == 0)
       sprintf(name, "%s", input.rstdata);
     else
@@ -4147,7 +4170,7 @@ void IoData::readCmdFile()
   error += checkSolverValues(surfaces.surfaceMap.dataMap);
   if (error) {
     com->fprintf(stderr, "*** Error: command file contained %d error%s\n",
-		 error, error>1? "s":"");
+     error, error>1? "s":"");
     exit(-1);
   }
 //  printDebug();
@@ -4264,17 +4287,17 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
       problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
-			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
-			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
-			problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
-			problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
-			problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_) 
+      problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
+      problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
+      problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
+      problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
+      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) 
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) 
   {
 
     //
@@ -4380,7 +4403,7 @@ void IoData::resetInputValues()
     }
 
 
-  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
+  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_)
 
   //
   // Check parameters for the matrix-vector product in implicit simulations.
@@ -4427,12 +4450,12 @@ void IoData::resetInputValues()
     {
       map<int, FluidModelData *>::iterator it;
       for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
-	if (it->second->fluid != FluidModelData::PERFECT_GAS &&
+  if (it->second->fluid != FluidModelData::PERFECT_GAS &&
             it->second->fluid != FluidModelData::STIFFENED_GAS)
-	{
-	  com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
-	  schemes.ns.flux = SchemeData::ROE;
-	}    
+  {
+    com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
+    schemes.ns.flux = SchemeData::ROE;
+  }    
       }
     }
   } // END of if (schemes.ns.flux != SchemeData::ROE)
@@ -4485,7 +4508,7 @@ void IoData::resetInputValues()
 
   if (bc.wall.integration == BcsWallData::AUTO) {
     if (eqs.type == EquationsData::NAVIER_STOKES &&
-	eqs.tc.type == TurbulenceClosureData::NONE)
+  eqs.tc.type == TurbulenceClosureData::NONE)
       bc.wall.integration = BcsWallData::FULL;
     else
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
@@ -4617,7 +4640,7 @@ int IoData::checkFileNames()
     ++error;
   }
   if ((problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO]) &&
-       problem.framework!=ProblemData::EMBEDDED && strcmp(input.match, "") == 0) {
+      (problem.framework!=ProblemData::EMBEDDED && problem.framework!=ProblemData::EMBEDDEDALE) && strcmp(input.match, "") == 0) {
     com->fprintf(stderr, "*** Error: no matcher file given\n");
     ++error;
   }
@@ -4627,20 +4650,20 @@ int IoData::checkFileNames()
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
 /*
     if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS &&
-	strcmp(input.d2wall, "") == 0) {
+  strcmp(input.d2wall, "") == 0) {
       com->fprintf(stderr, "*** Error: no distance to wall file given\n");
       ++error;
     }
 */
    if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
-	strcmp(input.d2wall, "") == 0) {
+  strcmp(input.d2wall, "") == 0) {
       com->fprintf(stderr, "*** Error: no distance to wall file given\n");
     ++error;
    }
     if (bc.wall.integration == BcsWallData::WALL_FUNCTION) {
       if (bc.wall.delta < 0.0) {
-	com->fprintf(stderr, "*** Error: no delta value given\n");
-	++error;
+  com->fprintf(stderr, "*** Error: no delta value given\n");
+  ++error;
       }
     }
     else
@@ -4705,7 +4728,7 @@ int IoData::checkInputValues()
   error += checkInputValuesEssentialBC();
   
   // check input values for the Embedded Framework.
-  if(problem.framework == ProblemData::EMBEDDED) 
+  if(problem.framework == ProblemData::EMBEDDED || problem.framework == ProblemData::EMBEDDEDALE) 
     error += checkInputValuesEmbeddedFramework();
 
   error += checkInputValuesNonDimensional();
@@ -4893,8 +4916,8 @@ int IoData::checkInputValuesAllInitialConditions(){
 
       
       if(it->second->w_x <= 0.0 || 
-	 it->second->w_y <= 0.0 || 
-	 it->second->w_z <= 0.0 ){
+   it->second->w_y <= 0.0 || 
+   it->second->w_z <= 0.0 ){
         error++;
         com->fprintf(stderr, "*** Error: a size must be specified for box[%d] initial conditions\n", it->first);
       }
@@ -5112,9 +5135,9 @@ void IoData::setupOneDimensional() {
          it!=mf.multiInitialConditions.sphereMap.dataMap.end();
          it++){
       if (it->second->cen_x != 0.0 ||
-	  it->second->cen_y != 0.0 ||
-	  it->second->cen_z != 0.0) {
-	fprintf(stderr,"*** Error: non zero center specified for 1d spherical problem!\n");
+    it->second->cen_y != 0.0 ||
+    it->second->cen_z != 0.0) {
+  fprintf(stderr,"*** Error: non zero center specified for 1d spherical problem!\n");
       }
 
       oneDimensionalInfo.interfacePosition = it->second->radius;
@@ -5200,7 +5223,7 @@ int IoData::checkInputValuesNonDimensional()
   if (problem.mode == ProblemData::NON_DIMENSIONAL) {
 
     // no multiphase flow in non-dimensional
-    if(eqs.numPhase > 1 && problem.framework != ProblemData::EMBEDDED){ 
+    if(eqs.numPhase > 1 && (problem.framework != ProblemData::EMBEDDED && problem.framework != ProblemData::EMBEDDEDALE) ){ 
       com->fprintf(stderr, "*** Error: multiphase flow are possible only in Dimensional Mode \n");
       ++error;
       return error;
@@ -5246,6 +5269,13 @@ int IoData::checkInputValuesNonDimensional()
     double R1    = eqs.fluidModel.jwlModel.R1;
     double R2    = eqs.fluidModel.jwlModel.R2;
     double rhoref= eqs.fluidModel.jwlModel.rhoref;
+
+    if (eqs.fluidModel.liquidModel.Bwater > 0.0 && 
+        eqs.fluidModel.fluid == FluidModelData::LIQUID) {
+
+      eqs.fluidModel.liquidModel.k1water = 
+        eqs.fluidModel.liquidModel.k2water*(eqs.fluidModel.liquidModel.Bwater-eqs.fluidModel.liquidModel.Prefwater);   
+    }
 
     double Prefwater = eqs.fluidModel.liquidModel.Prefwater;
     double k1water = eqs.fluidModel.liquidModel.k1water;
@@ -5340,6 +5370,14 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   double R2jwl     = eqs.fluidModel.jwlModel.R2;
   double rhorefjwl = eqs.fluidModel.jwlModel.rhoref;
 
+  if (eqs.fluidModel.liquidModel.Bwater > 0.0 && 
+      eqs.fluidModel.fluid == FluidModelData::LIQUID) {
+
+    eqs.fluidModel.liquidModel.k1water = 
+      eqs.fluidModel.liquidModel.k2water*(eqs.fluidModel.liquidModel.Bwater-eqs.fluidModel.liquidModel.Prefwater);   
+  }
+
+
   double Cwater = eqs.fluidModel.liquidModel.specificHeat;
   double k1water = eqs.fluidModel.liquidModel.k1water;
   double k2water = eqs.fluidModel.liquidModel.k2water;
@@ -5412,7 +5450,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
         viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
         (1.0 + eqs.viscosityModel.sutherlandReferenceTemperature/ref.temperature);
         if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT)
-	  viscosity = eqs.viscosityModel.dynamicViscosity;
+    viscosity = eqs.viscosityModel.dynamicViscosity;
         ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
       }
 
@@ -5449,10 +5487,10 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       fprintf(stderr,"You are asking for a Dimensional Simulation for a Gas\n");
       fprintf(stderr,"Constants      : gamma   = %f, R        = %f, Pstiff   = %f, Length  = %f\n",gamma, R, Pstiff,ref.length);
       fprintf(stderr,"State          : density = %f, velocity = %f, pressure = %f, temp    = %f, viscosity = %f\n",
-	      ref.density, velocity, ref.pressure, ref.temperature, viscosity);
+        ref.density, velocity, ref.pressure, ref.temperature, viscosity);
       fprintf(stderr,"Flow Parameters: mach    = %f, reynolds = %f\n", ref.mach,ref.reynolds_mu);
       fprintf(stderr,"Ref Values     : length  = %f, density  = %f, velocity = %f, pressure = %f, temp = %f, viscosity = %f\n",
-	      ref.length,ref.rv.density, ref.rv.velocity, ref.rv.pressure, ref.rv.temperature, ref.rv.viscosity_mu);
+        ref.length,ref.rv.density, ref.rv.velocity, ref.rv.pressure, ref.rv.temperature, ref.rv.viscosity_mu);
       fprintf(stderr,"\n");
       */
     }
@@ -5821,7 +5859,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
     for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++)
       if(it->first == fluidModelID){
         fluidModelIDCount++;
-	fluidModel = it->second;
+  fluidModel = it->second;
         fluidType = it->second->fluid;
       }
     if(fluidModelIDCount != 1){
@@ -5908,14 +5946,14 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
       }
       else if(eqs.type == EquationsData::EULER && strcmp(output.transient.temperature, "") != 0) {
         com->fprintf(stderr, "*** Note: a specific heat at constant pressure must be specified for a stiffened gas for post-processing temperature.\n");
-	error++;
+  error++;
       }
     }
   }
 
   // ******* JWL GAS ******** //
   else if (fluidModel.fluid         == FluidModelData::JWL &&
-	   fluidModel.jwlModel.type == JWLModelData::IDEAL){
+     fluidModel.jwlModel.type == JWLModelData::IDEAL){
     fluidModel.jwlModel.A1 = 0.0;
     fluidModel.jwlModel.A2 = 0.0;
   }
@@ -5969,6 +6007,14 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
   }
 
   else if(fluidModel.fluid == FluidModelData::LIQUID){
+
+    if (fluidModel.liquidModel.Bwater > 0.0) {
+
+      fluidModel.liquidModel.k1water = 
+        fluidModel.liquidModel.k2water*(fluidModel.liquidModel.Bwater-fluidModel.liquidModel.Prefwater);   
+    }
+
+
     double Pref = -fluidModel.liquidModel.k1water/fluidModel.liquidModel.k2water;
     double awater = (fluidModel.liquidModel.Prefwater - Pref)/pow(fluidModel.liquidModel.RHOrefwater, fluidModel.liquidModel.k2water);
     double bwater = fluidModel.liquidModel.k2water;
@@ -6082,11 +6128,16 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 }
 
  int IoData::checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
-				      InitialConditions& IC) {
+              InitialConditions& IC) {
 
   int error = 0;
   if (programmedBurn.unburnedEOS < 0)
     return 0;
+
+  if (programmedBurn.stopWhenShockReachesPercentDistance > 0.99 || programmedBurn.stopWhenShockReachesPercentDistance < 0.05 ){
+  ++error;
+  com->fprintf(stderr,"*** Error: StopWhenShockReachesPercentDistance must be a number between 0.05 and 0.99.\n");
+  }
   
   if (eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS) == eqs.fluidModelMap.dataMap.end()) {
     com->fprintf(stderr, "*** Error: Cannot find burned EOS %d in fluid models\n",programmedBurn.burnedEOS);
@@ -6108,35 +6159,35 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
     const FluidModelData& burnedData = *eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS)->second;
     if (burnedData.fluid == FluidModelData::JWL) {
       ProgrammedBurn::computeChapmanJouguetStateJWL(burnedData.jwlModel.A1, burnedData.jwlModel.A2,
-						    burnedData.jwlModel.R1*burnedData.jwlModel.rhoref,
-						    burnedData.jwlModel.R2*burnedData.jwlModel.rhoref,
-						    burnedData.jwlModel.omega,IC.pressure,
-						    IC.density,
-						    programmedBurn.e0,
-						    programmedBurn.cjDensity, programmedBurn.cjPressure,
-						    programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
+                burnedData.jwlModel.R1*burnedData.jwlModel.rhoref,
+                burnedData.jwlModel.R2*burnedData.jwlModel.rhoref,
+                burnedData.jwlModel.omega,IC.pressure,
+                IC.density,
+                programmedBurn.e0,
+                programmedBurn.cjDensity, programmedBurn.cjPressure,
+                programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
       
       com->fprintf(stderr,"Computed CJ state for JWL gas as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
-		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity, programmedBurn.cjEnergy,
-		   programmedBurn.cjDetonationVelocity);
+       programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity, programmedBurn.cjEnergy,
+       programmedBurn.cjDetonationVelocity);
       
     } else if (burnedData.fluid == FluidModelData::PERFECT_GAS ||
                burnedData.fluid == FluidModelData::STIFFENED_GAS){
       if (burnedData.gasModel.pressureConstant != 0.0) {
-	com->fprintf(stderr,"*** Warning: Correct CJ state only computed with perfect gas.  You have specified a stiffened gas for the burned state\n");
+  com->fprintf(stderr,"*** Warning: Correct CJ state only computed with perfect gas.  You have specified a stiffened gas for the burned state\n");
       }
       
       ProgrammedBurn::computeChapmanJouguetStatePG(burnedData.gasModel.specificHeatRatio,IC.pressure,
-						   IC.density,
-						   programmedBurn.e0,
-						   programmedBurn.cjDensity, programmedBurn.cjPressure,
-						   programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
+               IC.density,
+               programmedBurn.e0,
+               programmedBurn.cjDensity, programmedBurn.cjPressure,
+               programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
       
       com->fprintf(stderr,"Computed CJ state for PG gas as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
-		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity,programmedBurn.cjEnergy,
-		   programmedBurn.cjDetonationVelocity);
+       programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity,programmedBurn.cjEnergy,
+       programmedBurn.cjDetonationVelocity);
       
-    }	
+    } 
     
   }
   
@@ -6180,7 +6231,7 @@ int IoData::checkInputValuesProgrammedBurn() {
       ProgrammedBurnData& programmedBurn = it->second->programmedBurn;
       InitialConditions& IC = it->second->initialConditions;
       error += checkProgrammedBurnLocal(programmedBurn,
-					IC);
+          IC);
     }
   }
 
@@ -6193,11 +6244,9 @@ int IoData::checkInputValuesProgrammedBurn() {
       ProgrammedBurnData& programmedBurn = itp->second->programmedBurn;
       InitialConditions& IC = itp->second->initialConditions;
       error += checkProgrammedBurnLocal(programmedBurn,
-					IC);
+          IC);
     }
   }
-
-  
 
   return error;
 }

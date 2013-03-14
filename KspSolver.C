@@ -307,7 +307,6 @@ GmresSolver(const typename VecType::InfoType &info, KspData &data,
 
   double sizeMB = (numVec + 1) * V[0].sizeMB();
 
-  numVecClamp = numVec;
   outputConvergenceInfo = true;
 
   this->ioOp->globalSum(1, &sizeMB);
@@ -329,13 +328,6 @@ GmresSolver(const typename VecType::InfoType &info, KspData &data,
   pages = "856--869",
 } 
 */
-
-template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
-void GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::setVecClamp(int c) {
-
-  numVecClamp = c;
-}
-
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
 void GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::
 disableConvergenceInfo() {
@@ -384,7 +376,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
     //std::cout << "V = " << V[0].norm() << std::endl;
     int j;
-    for (j=0; j<std::min(numVec,numVecClamp); ++j) {
+    for (j=0; j<numVec; ++j) {
 
       switch (typePrec) {
       case 0: { this->mvpOp->apply(V[j], w); } break;
@@ -438,7 +430,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
     x += w;
 
-  } while (exitLoop == 0 && numVecClamp < numVec);
+  } while (exitLoop == 0);
 
 
   if (this->checkFinalRes) {

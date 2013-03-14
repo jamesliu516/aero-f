@@ -107,7 +107,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       res0 = res;
     }
 
-    //probDesc->printf(1,"Newton residual = %e,target = %e\n",res,target);
+//    probDesc->printf(1,"Newton residual = %e, target = %e\n",res,target);
     if (res == 0.0 || res <= target) break;
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
@@ -166,7 +166,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->printf(1, "*** Warning: Newton solver reached %d its", maxIts);
     probDesc->printf(1, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);    
   }
-
+  
   return it;
 
 }

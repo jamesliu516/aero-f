@@ -49,12 +49,15 @@ class DistIntersectorFRG : public DistLevelSetStructure {
   using DistLevelSetStructure::edge_intersects;
 
   protected:
+
+    IoData &iod;
+    
     int numStNodes, numStElems;
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
     DistVec<int> *tId;
 
     bool twoPhase; //including fluid-shell-fluid and fluid-solid
-    
+
     // struct node coords
     Vec3D *Xs;
     Vec3D *Xs0;
@@ -62,6 +65,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec3D *Xs_np1;
     Vec<Vec3D> *solidX;   //pointer to Xs
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
+    Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
     // surface rotation
@@ -106,8 +110,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
-    void makerotationownership(IoData &iod);
-    void updatebc(IoData &iod);
+    void makerotationownership();
+    void updatebc();
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
@@ -126,6 +130,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
+    Vec<Vec3D> &getStructPosition_np1() { return *solidXnp1; }
     DistVec<ClosestPoint> * getClosestPointsPointer() {return NULL;}
     DistVec<ClosestPoint> & getClosestPoints() {
       fprintf(stderr,"ERROR: closest point not stored in IntersectorFRG.\n");exit(-1);
@@ -134,8 +139,11 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
+    int (*getStructElems())[3] { return stElem; }
 
-    int getSurfaceID(int k) { 
+    int getSurfaceID(int k) {
+      if (!surfaceID)
+        return 0; 
       if (k >=0 && k < numStNodes) {
 	return surfaceID[k]; 
       }

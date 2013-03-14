@@ -1,5 +1,5 @@
-#ifndef _FLUID_SENSITIVITY_ANALYSIS_HANDLER_H_
-#define _FLUID_SENSITIVITY_ANALYSIS_HANDLER_H_
+#ifndef _FLUID_SHAPE_OPTIMIZATION_HANDLER_H_
+#define _FLUID_SHAPE_OPTIMIZATION_HANDLER_H_
 
 #include <ImplicitCoupledTsDesc.h>
 
@@ -24,11 +24,12 @@ template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = d
 
 //------------------------------------------------------------------------------
 template<int dim>
-class FluidSensitivityAnalysisHandler : public ImplicitCoupledTsDesc<dim> {
+class FluidShapeOptimizationHandler : public ImplicitCoupledTsDesc<dim> {
 
 private:
 
   Domain *domain;
+//  TsSolver<ImplicitCoupledTsDesc<dim> > *tsSolver;
   MeshMotionSolver *mms;
 
   // UH (08/10) This pointer is never used.
@@ -63,6 +64,7 @@ private:
   DistSVec<double,3> dPdS;
   DistSVec<double,3> dXdS;
   DistSVec<double,3> dXdSb;
+  DistSVec<double,3> dXb;
   DistSVec<double,3> Xc;
   DistSVec<double,3> *Xp;
   DistSVec<double,3> *Xm;
@@ -95,80 +97,48 @@ public:
   /// \note The pointer 'dom' is passed to ImplicitCoupledTsDesc
   /// and stored in the member variable domain.
   /// It seems redundant (UH - 08/10)
-  FluidSensitivityAnalysisHandler
+  FluidShapeOptimizationHandler
   (
     IoData &ioData,
     GeoSource &geoSource,
-    Domain *dom
+    Domain *dom//,
   );
 
-  ~FluidSensitivityAnalysisHandler();
+  ~FluidShapeOptimizationHandler();
 
   /// \note This function is implemented but never called.
-  void fsaOutput1D(const char *, DistVec<double> &);
+  void fsoOutput1D(const char *, DistVec<double> &);
 
   /// \note This function is implemented but never called.
-  void fsaOutput3D(const char *, DistSVec<double,3> &);
+  void fsoOutput3D(const char *, DistSVec<double,3> &);
 
   /// \note This function is implemented but never called.
-  void fsaOutputDimD(const char *, DistSVec<double,dim> &);
+  void fsoOutputDimD(const char *, DistSVec<double,dim> &);
 
-  void fsaPrintTextOnScreen(const char *);
+  void fsoPrintTextOnScreen(const char *);
 
-  void fsaRestartBcFluxs(IoData &);
+  void fsoRestartBcFluxs(IoData &);
 
-  void fsaGetEfforts(IoData &, DistSVec<double,3> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
+  void fsoGetEfforts(IoData &, DistSVec<double,3> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
 
-  void fsaGetDerivativeOfEffortsFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double>&, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
+  void fsoGetDerivativeOfEffortsFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double>&, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
 
-  void fsaGetDerivativeOfEffortsAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
-
-  /// \note This function is implemented but never called.
-  void fsaGetDerivativeOfLoadFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
+  void fsoGetDerivativeOfEffortsAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
 
   /// \note This function is implemented but never called.
-  void fsaGetDerivativeOfLoadAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
+  void fsoGetDerivativeOfLoadFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
-  void fsaSemiAnalytical
-  (
-    IoData &,
-    DistSVec<double,3> &,
-    DistVec<double> &,
-    DistSVec<double,dim> &,
-    DistSVec<double,dim> &
-  );
+  /// \note This function is implemented but never called.
+  void fsoGetDerivativeOfLoadAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
-  void fsaAnalytical
-  (
-    IoData &,
-    DistSVec<double,3> &,
-    DistVec<double> &,
-    DistSVec<double,dim> &,
-    DistSVec<double,dim> &
-  );
-
-  void fsaSetUpLinearSolver(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
-
-  void fsaLinearSolver
-  (
-    IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &
-  );
-
-  int fsaHandler
-  (
-    IoData &,
-    DistSVec<double,dim> &
-  );
-
-  void fsaComputeDerivativesOfFluxAndSolution
-  (
-    IoData &,
-    DistSVec<double,3> &,
-    DistVec<double> &,
-    DistSVec<double,dim> &
-  );
-
-  void fsaComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void fsoSemiAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fsoAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fsoSetUpLinearSolver(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fsoLinearSolver(IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  int fsoHandler(IoData &, DistSVec<double,dim> &);
+  void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
+  void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
 
 };
 
@@ -177,8 +147,9 @@ public:
 
 
 #ifdef TEMPLATE_FIX
-#include <FluidSensitivityAnalysisHandler.C>
+#include <FluidShapeOptimizationHandler.C>
 #endif
 
 #endif
+
 

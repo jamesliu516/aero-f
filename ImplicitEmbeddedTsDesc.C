@@ -49,19 +49,19 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   
   ksp = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.ns, mvp, pc, this->com);
   
-  //initialize mmh (EmbeddedMeshMotionHandler).
+  //initialize emmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) 
     {
       /*
       MeshMotionHandler *_mmh = 0;
       _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
-      this->mmh = _mmh;
+      this->emmh = _mmh;
       */
-      this->mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+      this->emmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
     } 
   else
     { 
-      this->mmh = 0;
+      this->emmh = 0;
     }
 
   typename MatVecProd<dim,dim>::_fsi fsi = {
@@ -80,6 +80,11 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   mvp->AttachStructure(fsi);
   
   this->existsWstarnm1 = false;
+
+  if (ioData.problem.framework==ProblemData::EMBEDDEDALE && this->emmh) 
+    this->mmh = this->createEmbeddedALEMeshMotionHandler(ioData, geoSource, this->distLSS);
+  else
+    this->mmh = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -152,8 +157,8 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 {
   // Adam 04/06/10: Took everything in common in solveNLAllFE and solveNLAllRK2 and put it here. Added Ghost-Points treatment for viscous flows.
 
-  //if(this->mmh && !this->inSubCycling) {  //subcycling is allowed from now on
-  if(this->mmh) {
+  //if(this->emmh && !this->inSubCycling) {  //subcycling is allowed from now on
+  if(this->emmh) {
     int failSafe=0;
     if(TsDesc<dim>::failSafeFlag == false){
       *this->WstarijCopy = *this->Wstarij;
@@ -177,11 +182,12 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     }
 
     //get structure timestep dts
-    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    this->dts = this->emmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
 
     //recompute intersections
     double tw = this->timer->getTime();
+
     failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts,true,TsDesc<dim>::failSafeFlag); 
     this->com->globalMin(1, &failSafe);
     if(failSafe<0) //in case of intersection failure -1 is returned by recompute 

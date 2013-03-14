@@ -757,7 +757,7 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
   for (i = 0; i < 3; ++i)
     for (j = 0; j < 3; ++j)
       F[i][j] = X[nodeNum(0)][i]*nGrad[0][j] +
-  	        X[nodeNum(1)][i]*nGrad[1][j] +
+       	        X[nodeNum(1)][i]*nGrad[1][j] +
                 X[nodeNum(2)][i]*nGrad[2][j] +
                 X[nodeNum(3)][i]*nGrad[3][j];
 
@@ -855,8 +855,13 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
 
     double volume = sixth * (v3 * (v1 ^ v2));
     if (volume < 0.0) {
+      fprintf(stderr,"print x...\n"); 
+						for(int i=0; i<4; ++i) { 
+        x[i].print();
+      }
+						fprintf(stderr,"volume of element is %6.3e.\n",volume);
       fprintf(stderr, "*** Error: negative jacobian\n");
-      exit(-1);
+//      exit(-1);
     }
 
     // compute volume derivatives 
@@ -1971,3 +1976,15 @@ void ElemTet::computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, 
 
   DenseMatrixOp<double,3,3>::lu(A,bary,3);
 }
+
+bool ElemTet::isPointInside(SVec<double,3> & X,const Vec3D& V) {
+
+  double bary[3];
+  computeBarycentricCoordinates(X,V,bary);
+  if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 ||
+      bary[0]+bary[1]+bary[2] > 1.0)
+    return false;
+  else
+    return true;
+}
+

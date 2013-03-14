@@ -25,9 +25,9 @@ public:
   ~ObjectMap()
     {
       for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
-	{
-	  delete it->second;
-	}
+  {
+    delete it->second;
+  }
     }
 };
 
@@ -72,6 +72,7 @@ struct InputData {
   const char *perturbed;
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
   const char *rstdata;
@@ -85,7 +86,7 @@ struct InputData {
 
   const char *stateVecFile;//CBM
 
-	// Gappy POD
+  // Gappy POD
 
   const char *gnatPrefix;
   const char *sampleNodes;
@@ -109,6 +110,7 @@ struct InputData {
   // UH (08/2012)
   const char* strKPtraces;
 
+  const char *wallsurfacedisplac; //YC
 // Included (MB)
   const char *shapederivatives;
 
@@ -236,6 +238,7 @@ struct TransientData {
   const char *dVelocityVector;
   const char *dDisplacement;
   const char *dForces;
+  const char *dLiftDrag;
 
   const char *tempnormalderivative;
   const char *surfaceheatflux;
@@ -271,6 +274,7 @@ struct RestartData {
 
   const char *solutions;
   const char *positions;
+  const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
   const char *data;
@@ -301,7 +305,7 @@ struct ROMOutputData {
   const char *reducedjac;
   const char *stateRom;
 
-	// specific gnat quantities
+  // specific gnat quantities
   const char *gnatPrefix;
 
   const char *mesh;
@@ -315,7 +319,7 @@ struct ROMOutputData {
   const char *error;
   const char *dUnormAccum;
 
-	// in full mesh coordinates (optional)
+  // in full mesh coordinates (optional)
   const char *sampleNodesFull;
   const char *onlineMatrixFull;
   const char *reducedfullnodemap;
@@ -370,25 +374,25 @@ struct RestartParametersData {
 struct ProblemData {
 
   enum Type {UNSTEADY = 0, ACCELERATED = 1, AERO = 2, THERMO = 3, FORCED = 4,
-	     ROLL = 5, RBM = 6, LINEARIZED = 7, SIZE = 8};
+       ROLL = 5, RBM = 6, LINEARIZED = 7, SIZE = 8};
   bool type[SIZE];
 
   enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3,
-		_UNSTEADY_AEROELASTIC_ = 4, _ACC_UNSTEADY_AEROELASTIC_ = 5,
-		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
-		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
-		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-		_UNSTEADY_LINEARIZED_ = 15, _ROB_CONSTRUCTION_ = 16,
-		_ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
-		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
-                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33} alltype;
+    _UNSTEADY_AEROELASTIC_ = 4, _ACC_UNSTEADY_AEROELASTIC_ = 5,
+    _STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
+    _UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
+    _ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
+    _UNSTEADY_LINEARIZED_ = 15, _ROB_CONSTRUCTION_ = 16,
+    _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
+    _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+    _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
+    _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
+    _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
+    _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
-  enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
+  enum Framework {BODYFITTED = 0, EMBEDDED = 1, EMBEDDEDALE = 2} framework;
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
   enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
@@ -565,6 +569,7 @@ struct LiquidModelData {
   double specificHeat;
   double k1water;
   double k2water;
+  double Bwater;
   double Prefwater;
   double RHOrefwater;
 
@@ -935,6 +940,7 @@ struct ProgrammedBurnData {
   double ignitionTime;
   double factorB;
   double factorS;
+  double stopWhenShockReachesPercentDistance;
   int ignited;
   int limitPeak;
   
@@ -1084,6 +1090,7 @@ struct MultiFluidData {
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
+  enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
   MultiInitialConditionsData multiInitialConditions;
@@ -1307,9 +1314,9 @@ struct SchemeFixData {
 struct BoundarySchemeData {
 
   enum Type { STEGER_WARMING = 0,
-	      CONSTANT_EXTRAPOLATION = 1,
-	      LINEAR_EXTRAPOLATION = 2,
-	      GHIDAGLIA = 3, MODIFIED_GHIDAGLIA = 4} type;
+        CONSTANT_EXTRAPOLATION = 1,
+        LINEAR_EXTRAPOLATION = 2,
+        GHIDAGLIA = 3, MODIFIED_GHIDAGLIA = 4} type;
 
   BoundarySchemeData();
   ~BoundarySchemeData() {}
@@ -1880,7 +1887,7 @@ struct Velocity  {
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4} type;
 
   double frequency;
   double timestep;
@@ -1931,15 +1938,15 @@ struct PadeData {
 
 struct ModelReductionData {
 
-	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1, PROJECTION_ERROR = 2} projection;
-	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1,
-		COLLOCATION = 2, BROYDEN = 3} systemApproximation;
-	enum BasisType {POD = 0, SNAPSHOTS = 1, BASIS_TYPE_NONE = 2} basisType;
-	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1} lsSolver;
+  enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1, PROJECTION_ERROR = 2} projection;
+  enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1,
+    COLLOCATION = 2, BROYDEN = 3} systemApproximation;
+  enum BasisType {POD = 0, SNAPSHOTS = 1, BASIS_TYPE_NONE = 2} basisType;
+  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1} lsSolver;
 
-	int dimension;	// used by all nonlinear ROMs
-	int dimensionROBJacobian;	// used by GNAT
-	int dimensionROBResidual;	// used by GNAT
+  int dimension;  // used by all nonlinear ROMs
+  int dimensionROBJacobian; // used by GNAT
+  int dimensionROBResidual; // used by GNAT
 
   ModelReductionData();
   ~ModelReductionData() {}
@@ -1952,32 +1959,32 @@ struct ModelReductionData {
 
 struct GNATData {
 
-	// optional: to document
+  // optional: to document
 
   int nRobState;
 
-	enum ROBNonlinear {UNSPECIFIED_NONLIN = -1, RESIDUAL_NONLIN = 0,
-		JACOBIAN_NONLIN  = 1, BOTH_NONLIN = 2} robNonlinear;	// default: -1
+  enum ROBNonlinear {UNSPECIFIED_NONLIN = -1, RESIDUAL_NONLIN = 0,
+    JACOBIAN_NONLIN  = 1, BOTH_NONLIN = 2} robNonlinear;  // default: -1
 
   int nRobNonlin;
-  int nRobRes;	// default: nRobNonlin
-  int nRobJac;	// default: nRobNonlin
+  int nRobRes;  // default: nRobNonlin
+  int nRobJac;  // default: nRobNonlin
 
-	enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
-		JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;	// default: ROBNonlinear
+  enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
+    JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy; // default: ROBNonlinear
 
-  int nRobGreedy;	// default: nRobNonlin
+  int nRobGreedy; // default: nRobNonlin
 
-  double sampleNodeFactor;	// default: 2.0
+  double sampleNodeFactor;  // default: 2.0
   int nSampleNodes;
-	int layers;
+  int layers;
 
-	enum IncludeLiftFaces {NONE_LIFTFACE = 0,
-		SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
+  enum IncludeLiftFaces {NONE_LIFTFACE = 0,
+    SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
 
-	enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
+  enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
 
-	enum SampleMeshUsed {SAMPLE_MESH_NOT_USED = 0, SAMPLE_MESH_USED = 1} sampleMeshUsed;
+  enum SampleMeshUsed {SAMPLE_MESH_NOT_USED = 0, SAMPLE_MESH_USED = 1} sampleMeshUsed;
   int pseudoInverseNodes;
 
   GNATData();
@@ -1990,11 +1997,11 @@ struct GNATData {
 
 struct DataCompressionData {
 
-	enum Type {POD = 0, BALANCED_POD = 1} type;
-	enum PODMethod {SVD = 0, Eig = 1} podMethod;
-	int maxVecStorage;
-	enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
-	double tolerance;
+  enum Type {POD = 0, BALANCED_POD = 1} type;
+  enum PODMethod {SVD = 0, Eig = 1} podMethod;
+  int maxVecStorage;
+  enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
+  double tolerance;
 
   DataCompressionData();
   ~DataCompressionData() {}
@@ -2007,16 +2014,16 @@ struct DataCompressionData {
 
 struct SnapshotsData {
 
-	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
- 	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
-	enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
-	enum RelProjError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
-	// int sampleFreq; // this is now specified in the ascii snapshot file
-	enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
-	DataCompressionData dataCompression;
+  enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
+  enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
+  enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
+  enum RelProjError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
+  // int sampleFreq; // this is now specified in the ascii snapshot file
+  enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
+  DataCompressionData dataCompression;
 
-	SnapshotsData();
-	~SnapshotsData() {}
+  SnapshotsData();
+  ~SnapshotsData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 };
@@ -2047,7 +2054,7 @@ struct LinearizedData {
   int numPOD;
   int numStrModes;
   const char *romFile;
-	DataCompressionData dataCompression;
+  DataCompressionData dataCompression;
 
   PadeData pade;
 
@@ -2068,6 +2075,7 @@ struct SurfaceData  {
   enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
+  int forceID;
   double velocity;
 
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
@@ -2105,12 +2113,18 @@ struct EmbeddedFramework {
   enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
-  enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
+  enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
-  double alpha;		// In the case of solve Riemann problem at intersection, this parameter
-  					// controls whether to switch to a first order method to avoid divided-by-zero
+  double alpha;   // In the case of solve Riemann problem at intersection, this parameter
+            // controls whether to switch to a first order method to avoid divided-by-zero
+
+  // stabilizing alpha (attempt at stabilizing the structure normal)
+  // Tries to add some dissipation.  should be small.
+  double stabil_alpha;
+
+  double interfaceThickness;
 
   MultiInitialConditionsData embedIC;
   
@@ -2221,9 +2235,9 @@ public:
   RigidMeshMotionData rmesh;
   AeroelasticData aero;
   ForcedData forced;
-	ModelReductionData rom;
-	GNATData gnat;
-	SnapshotsData snapshots;
+  ModelReductionData rom;
+  GNATData gnat;
+  SnapshotsData snapshots;
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
@@ -2253,7 +2267,7 @@ public:
   int checkInputValuesAllEquationsOfState();
   int checkInputValuesProgrammedBurn();
   int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
-			       InitialConditions& IC);
+             InitialConditions& IC);
   int checkCFLBackwardsCompatibility();
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();

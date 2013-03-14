@@ -104,6 +104,8 @@ class OneDimensional {
   // Needed for appropriate handling of phase change updates.
   SVec<double,5> Wr;
 
+  SVec<double,5> lastPhaseChangeValue;
+  
   SVec<double,5> Vslope;
   SVec<double,1> Phislope;
 
@@ -133,6 +135,9 @@ class OneDimensional {
   SparseGridCluster* tabulationC;
 
   ProgrammedBurn* programmedBurn;
+
+  double programmedBurnStopPercentDistance;
+  bool programmedBurnIsUsed;
 
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
@@ -167,6 +172,11 @@ class OneDimensional {
 
   int interfaceTreatment;
   int interfaceExtrapolation;
+
+  // 0 - constant reconstruction
+  // 1 - linear reconstruction
+  // 2 - limited
+  int limiterLeft,limiterRight;
 
   int levelSetMethod;
 

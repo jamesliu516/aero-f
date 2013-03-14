@@ -37,10 +37,12 @@ int IntersectorPhysBAM::OUTSIDECOLOR;
 //int debug_PhysBAM_count = 0;
 //----------------------------------------------------------------------------
 
-DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes,
+DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *comm, int nNodes,
                                                double *xyz, int nElems, int (*abc)[3], CrackingSurface *cs)
-    : DistLevelSetStructure()
+    : DistLevelSetStructure(), iod(iodata)
 {
+
+  interface_thickness = iod.embed.interfaceThickness;
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
   com = comm;
@@ -51,9 +53,9 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
 
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
-  struct_restart_pos = new char[sp + strlen(iod.input.positions)];
-  if(iod.input.positions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
+  struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
+  if(iod.input.embeddedpositions[0] != 0)
+    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
   else //no restart position file provided
     strcpy(struct_restart_pos,""); 
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
@@ -71,6 +73,10 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   boxMax = 0;
   is_swept_helper = 0;
 
+  rotOwn = 0;
+
+  surfaceID = NULL;
+
   cracking = cs;
   gotNewCracking = false;
 
@@ -80,13 +86,13 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   else {
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
-    makerotationownership(iod);
-    updatebc(iod);
+    makerotationownership();
+    updatebc();
   }
   comm->barrier();
 
   delete[] struct_mesh;
-  if(iod.input.positions[0] != 0) delete[] struct_restart_pos;
+  if(iod.input.embeddedpositions[0] != 0) delete[] struct_restart_pos;
 }
 
 //----------------------------------------------------------------------------
@@ -118,6 +124,7 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(solidX) delete solidX;
   if(solidX0) delete solidX0;
   if(solidXn) delete solidXn;
+  if(solidXnp1) delete solidXnp1;
   if(surfaceID) delete[] surfaceID;
   if(rotOwn) delete[] rotOwn;
 }
@@ -227,6 +234,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   surfaceID = new int[numStNodes];
   rotOwn = 0;
@@ -349,6 +357,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
   solidX  = new Vec<Vec3D>(totStNodes, Xs);
   solidX0 = new Vec<Vec3D>(totStNodes, Xs0);
   solidXn = new Vec<Vec3D>(totStNodes, Xs_n);
+  solidXnp1 = new Vec<Vec3D>(totStNodes, Xs_np1);
 
   for (int k=0; k<numStNodes; k++) {
     Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
@@ -372,8 +381,6 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
 
   // load solid nodes at restart time.
   if (restartSolidSurface[0] != 0) {
-    if(cracking) com->fprintf(stderr,"WARNING: not sure if restart works with cracking...\n");
-
     FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
     int ndMax2 = 0;
@@ -426,7 +433,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
 }
 
 //----------------------------------------------------------------------------
-void DistIntersectorPhysBAM::makerotationownership(IoData &iod) {
+void DistIntersectorPhysBAM::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   map<int,SurfaceData *>::iterator it = surfaceMap.begin();
@@ -473,7 +480,7 @@ void DistIntersectorPhysBAM::makerotationownership(IoData &iod) {
   }
 }
 //----------------------------------------------------------------------------
-void DistIntersectorPhysBAM::updatebc(IoData &iod) {
+void DistIntersectorPhysBAM::updatebc() {
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   if (rotOwn)  { 
     for (int k=0; k<numStNodes; k++) {
@@ -534,7 +541,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
-  physInterface->SetThickness(1e-4);
+  physInterface->SetThickness(interface_thickness);
 }
 
 //----------------------------------------------------------------------------
@@ -920,6 +927,7 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
     for(int j=0; j<3; j++) {
       Xs_n[i][j] = (i<previous) ? Xs_np1[i][j] : xs[3*i+j];
       Xs_np1[i][j] = xs[3*i+j];
+      Xs[i][j] = Xs_np1[i][j];
       Xsdot[i][j] = Vs[3*i+j];}
 
   if(gotNewCracking) {
@@ -932,6 +940,9 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
       Xs[it->first] = Xs[it->second]; //add new phantom nodes but keep the old node corrdinates.
     initializePhysBAM(); //delete the old interface and create a new one. Use the modified Xs.
   }
+
+// add surface velocity contribution
+  updatebc();
 }
 
 //----------------------------------------------------------------------------
@@ -1051,6 +1062,7 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool f
   updatePhysBAMInterface(Xs, numStNodes,*X, gotNewCracking,retry);
 
   buildSolidNormals();
+  domain->findNodeBoundingBoxes(*X,*boxMin,*boxMax);
 
 //  for(int i=0; i<numStNodes; i++)
 //    fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
