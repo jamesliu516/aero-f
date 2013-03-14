@@ -254,6 +254,7 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
   commonPart(U);
 
   int its = this->ns->solve(U);
+  if(its == -10) return its;
   
   this->timer->addFluidSolutionTime(t0);
    

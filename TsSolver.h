@@ -209,7 +209,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           *dUPrev = *dU;
           *dU = -1.0*U;
         }
+        //probDesc->printf(1,"Solving Non-linear system. Initial solution norm %e\n.", U.norm());
         stat = probDesc->solveNonLinearSystem(U, it);
+        //probDesc->printf(1,"Solving Non-linear system. Final solution norm %e\n.", U.norm());
         if (stat == -10){ // must redo iteration with a different CFL number, undo everything we have done so far
           probDesc->printf(1,"Found unphysical solution. Re-calculating CFL number and repeating iteration.\n");
           repeat = true;
