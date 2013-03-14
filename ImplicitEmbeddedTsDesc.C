@@ -262,6 +262,7 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
 { 
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());
+  Ubc = U;
 
   int its = 0;
   its = commonPart(U); //failure gives negative values 
@@ -271,6 +272,10 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
   TsDesc<dim>::setFailSafe(false);
 
   its = this->ns->solve(U);
+  if(its==-10){
+    U=Ubc;
+    return its;
+  }
   if(its<0){  //failSafe
     U = *EmbeddedTsDesc<dim>::UCopy;
     return its;
