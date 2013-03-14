@@ -238,6 +238,7 @@ struct TransientData {
   const char *dVelocityVector;
   const char *dDisplacement;
   const char *dForces;
+  const char *dLiftDrag;
 
   const char *tempnormalderivative;
   const char *surfaceheatflux;

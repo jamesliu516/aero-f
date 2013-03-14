@@ -102,7 +102,6 @@ public:
     IoData &ioData,
     GeoSource &geoSource,
     Domain *dom//,
-//		TsSolver<ImplicitCoupledTsDesc<dim> > *_tsSolver
   );
 
   ~FluidShapeOptimizationHandler();
@@ -120,11 +119,11 @@ public:
 
   void fsoRestartBcFluxs(IoData &);
 
-  void fsoGetEfforts(IoData &, DistSVec<double,3> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
+  void fsoGetEfforts(IoData &, DistSVec<double,3> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
 
   void fsoGetDerivativeOfEffortsFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double>&, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
 
-  void fsoGetDerivativeOfEffortsAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
+  void fsoGetDerivativeOfEffortsAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
 
   /// \note This function is implemented but never called.
   void fsoGetDerivativeOfLoadFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
@@ -139,7 +138,7 @@ public:
   int fsoHandler(IoData &, DistSVec<double,dim> &);
   void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
-	void fsoMoveMesh(IoData &ioData, DistSVec<double,dim> &U);
+	void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
 
 };
 

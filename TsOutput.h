@@ -130,8 +130,10 @@ private:
   char *dVectors[PostFcn::DVSIZE];
   char *dSolutions;
   char *dForces;
+  char *dLiftDrag;
 
   FILE *fpdForces;
+  FILE *fpdLiftDrag;
 
   char *heatfluxes;
   FILE **fpHeatFluxes;
@@ -230,6 +232,8 @@ public:
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
+// Included (YC)
+	void writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & L, Vec3D & dL);
 
 // Included (MB)
   void rstVar(IoData &);

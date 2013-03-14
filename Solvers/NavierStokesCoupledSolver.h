@@ -30,6 +30,10 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
+
+
+
+
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
   {
 // Modified (MB)
@@ -38,12 +42,9 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       tsSolver.fsaSolve(ioData);
   }
 	else if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
-			ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
       FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
-//      FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain, &tsSolver);
-      TsSolver<FluidShapeOptimizationHandler<dim> > tsoSolver(&fsoh);
-      tsoSolver.fsoSolve(ioData);
+      TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
 	}
 	else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_ ) {
 		if (ioData.rom.projection == 0 && ioData.rom.systemApproximation == 0) {

@@ -118,8 +118,9 @@ Uc(dom->getNodeDistInfo())
   mvp->exportMemory(&mp);
   pc->exportMemory(&mp);
 
-  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
+  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
     mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(),domain,0);
+	}
 
   length = ioData.output.transient.length;
   surface = ioData.output.transient.surface;
@@ -1308,6 +1309,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
   this->updateStateVectors(U);  
 
+
   // Setting up the linear solver
   fsaSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
@@ -1345,6 +1347,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
       dXdS = *this->X;
       mms->solve(dXdSb, dXdS);
       dXdS -= *this->X;
+
 
       // Check that the mesh perturbation is propagated
       if (dXdS.norm() == 0.0)
@@ -1536,6 +1539,12 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
   // - Derivative of Vector Quantities: VelocityVector, Displacement
   //
   //
+  // Check that the mesh perturbation is propagated
+  if (dXdS.norm() == 0.0)
+  {
+    this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
+  }
+
   this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
 
 }
