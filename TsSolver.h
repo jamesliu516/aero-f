@@ -22,7 +22,7 @@ public:
 
   int solve(IoData &);
 
-	int fsoSolve(IoData &);
+  int fsoSolve(IoData &);
 // Included (MB)
   int fsaSolve(IoData &);
 
@@ -79,7 +79,7 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   probDesc->fsaPrintTextOnScreen("**********************************\n");
   probDesc->fsaPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
   probDesc->fsaPrintTextOnScreen("**********************************\n");
-	
+  
   probDesc->fsaHandler(ioData, U);
 
   return 0;
@@ -102,8 +102,8 @@ int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
   probDesc->fsoPrintTextOnScreen("*** Fluid Shape Optimization Interface ***\n");
   probDesc->fsoPrintTextOnScreen("******************************************\n");
 
-	probDesc->fsoInitialize(ioData, U);
-	resolve(U, ioData);
+  probDesc->fsoInitialize(ioData, U);
+  resolve(U, ioData);
   probDesc->fsoHandler(ioData, U);
 
   return 0;
