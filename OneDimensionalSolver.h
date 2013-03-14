@@ -136,6 +136,9 @@ class OneDimensional {
 
   ProgrammedBurn* programmedBurn;
 
+  double programmedBurnStopPercentDistance;
+  bool programmedBurnIsUsed;
+
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
 
