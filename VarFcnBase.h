@@ -57,6 +57,11 @@ public:
   virtual int  verification(int glob, double *U, double *V) { return 0; }
   virtual void computedVdU(double *V, double *dVdU) = 0;
   virtual void computedUdV(double *V, double *dUdV) = 0;
+
+  virtual void computeFofU(double n[3], double *U, double *F) {}
+  virtual void computeFofV(double n[3], double *V, double *F) {}
+  virtual void computedFdU(double n[3], double *V, double *dFdU) {}
+  virtual void computedFdV(double n[3], double *V, double *dFdV) {}
   
   virtual void multiplyBydVdU(double *V, double *vec, double *res);
   virtual void multiplyBydVdU(double *V, bcomp *vec, bcomp *res);
@@ -119,6 +124,16 @@ public:
 
   virtual double computeTemperature(double *V) const{
     fprintf(stderr, "*** Error:  computeTemperature Function not defined\n");
+    exit(1); }
+  virtual void computeTemperatureGradient(double *V,double* Tg) const{
+    fprintf(stderr, "*** Error:  computeTemperatureGradient Function not defined\n");
+    exit(1); }
+  virtual void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
+                                 double& Tpp) const { 
+    fprintf(stderr, "*** Error:  computeTemperatureHessian Function not defined\n");
+    exit(1); }
+  virtual void getV4FromTemperature(double *V, double T) const{
+    fprintf(stderr, "*** Error:  getV4FromTemperature Function not defined\n");
     exit(1); }
   virtual double computeRhoEnergy(double *V)   const{
     fprintf(stderr, "*** Error:  computeRhoEnergy Function not defined\n");

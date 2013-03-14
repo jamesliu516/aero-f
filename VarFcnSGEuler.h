@@ -3,6 +3,10 @@
 
 #include <VarFcnBase.h>
 
+#ifdef AEROF_MPI_DEBUG
+#include "mpi.h"
+#endif
+
 //--------------------------------------------------------------------------
 // This class is the VarFcn class for the Stiffened Gas EOS in Euler 
 // Equations. Only elementary functions are declared and/or defined here.
@@ -40,6 +44,11 @@ private:
   void computedVdU(double *V, double *dVdU);
   void computedUdV(double *V, double *dUdV);
   int verification(int glob, double *U, double *V);
+
+  void computeFofU(double n[3], double *U, double *F); 
+  void computeFofV(double n[3], double *V, double *F);
+  void computedFdU(double n[3], double *V, double *dFdU);
+  void computedFdV(double n[3], double *V, double *dFdV);
 
 public:
   VarFcnSGEuler(FluidModelData &data);
@@ -92,6 +101,13 @@ public:
         fprintf(stderr, "*** Error:  negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
             V[4]+Pstiff, nodeNum, V[0], nodeNum, double(phi), otherNodeNum, double(otherPhi));
     }
+    if (error && !failsafe) {
+#ifdef AEROF_MPI_DEBUG
+      int mpi_rank;
+      MPI_Comm_rank(MPI_COMM_WORLD,&mpi_rank);
+      fprintf(stderr," Rank is %d\n", mpi_rank);
+#endif
+    }
     return error;
   }
   double computeTemperature(double *V) const {
@@ -100,6 +116,28 @@ public:
       throw std::exception();
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
+  }
+  void computeTemperatureGradient(double *V,double* Tg) const {
+    if (isnan(1.0/V[0])) {
+      fprintf(stderr, "ERROR*** computeTemp\n");
+      throw std::exception();
+    }
+    Tg[0] =  -invgam1 * (V[4]+Pstiff) / (V[0]*V[0]);
+    Tg[1] = Tg[2] = Tg[3] = 0.0;
+    Tg[4] = invgam1 / V[0]; 
+  }
+  void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
+                                 double& Tpp) const {
+    if (isnan(1.0/V[0])) {
+      fprintf(stderr, "ERROR*** computeTemp\n");
+      throw std::exception();
+    }
+    Trr = 2.0*invgam1*(V[4]+Pstiff) / (V[0]*V[0]*V[0]);
+    Trp = -invgam1 /(V[0]*V[0]);
+    Tpp = 0.0; 
+  }
+  void getV4FromTemperature(double *V, double T) const {
+    V[4] = T*V[0]*gam1 - Pstiff;
   }
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
@@ -478,5 +516,92 @@ void VarFcnSGEuler::computedUdV(double *V, double *dUdV)
   dUdV[24] = invgam1;
 }
 //------------------------------------------------------------------------------
+inline
+void VarFcnSGEuler::computeFofU(double n[3], double *U, double *F)
+{
+  double invrho = 1.0 / U[0];
+  double velnrm = invrho * (U[1]*n[0] + U[2]*n[1] + U[3]*n[2]);
+  double prs    = gam1 * (U[4]-0.5 * invrho * (U[1]*U[1] + U[2]*U[2] + U[3]*U[3])) - gam * Pstiff;
+  F[0] = U[0] * velnrm;
+  F[1] = U[1] * velnrm + prs * n[0];
+  F[2] = U[2] * velnrm + prs * n[1];
+  F[3] = U[3] * velnrm + prs * n[2];
+  F[4] = (U[4] + prs) * velnrm;
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnSGEuler::computeFofV(double n[3], double *V, double *F)
+{
+	double velnrm = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+	double vel2   = V[1]*V[1] + V[2]*V[2] + V[3]*V[3];
+	F[0] = V[0] * velnrm;
+	F[1] = V[0] * V[1] * velnrm + V[4] * n[0];
+	F[2] = V[0] * V[2] * velnrm + V[4] * n[1];
+	F[3] = V[0] * V[3] * velnrm + V[4] * n[2];
+	F[4] = (invgam1 * gam * (V[4] + Pstiff) + 0.5 * V[0] * vel2) * velnrm;
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnSGEuler::computedFdU(double n[3], double *V, double *dFdU)
+{
+	double invrho = 1.0 / V[0];
+	double velnrm = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+	double vel2   = V[1]*V[1] + V[2]*V[2] + V[3]*V[3];
+	double enthal = invgam1 * gam * invrho * (V[4] + Pstiff) + 0.5 * vel2;
+	dFdU[1]  = n[0];
+	dFdU[2]  = n[1];
+	dFdU[3]  = n[2];
+	dFdU[5]  = - V[1] * velnrm + 0.5 * gam1 * vel2 * n[0];
+	dFdU[6]  = velnrm + (1.0 - gam1) * V[1] * n[0];
+	dFdU[7]  = - gam1 * V[2] * n[0] + V[1] * n[1];
+	dFdU[8]  = - gam1 * V[3] * n[0] + V[1] * n[2];
+	dFdU[9]  = gam1 * n[0];
+	dFdU[10] = - V[2] * velnrm + 0.5 * gam1 * vel2 * n[1];
+	dFdU[11] = - gam1 * V[1] * n[1] + V[2] * n[0]; 
+	dFdU[12] = velnrm + (1.0 - gam1) * V[2] * n[1];
+	dFdU[13] = - gam1 * V[3] * n[1] + V[2] * n[2];
+	dFdU[14] = gam1 * n[1];
+	dFdU[15] = - V[3] * velnrm + 0.5 * gam1 * vel2 * n[2];
+	dFdU[16] = - gam1 * V[1] * n[2] + V[3] * n[0];
+	dFdU[17] = - gam1 * V[2] * n[2] + V[3] * n[1];
+	dFdU[18] = velnrm + (1.0 - gam1) * V[3] * n[2];
+	dFdU[19] = gam1 * n[2];
+	dFdU[20] = (0.5*gam1*vel2 - enthal) * velnrm;
+	dFdU[21] = enthal * n[0] - gam1 * V[1] * velnrm;
+	dFdU[22] = enthal * n[1] - gam1 * V[2] * velnrm;
+	dFdU[23] = enthal * n[2] - gam1 * V[3] * velnrm;
+	dFdU[24] = gam * velnrm;
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnSGEuler::computedFdV(double n[3], double *V, double *dFdV)
+{
+	double velnrm = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+	double vel2   = V[1]*V[1] + V[2]*V[2] + V[3]*V[3];
+	dFdV[0]  = velnrm;
+	dFdV[1]  = V[0] * n[0];
+	dFdV[2]  = V[0] * n[1];
+	dFdV[3]  = V[0] * n[2];
+	dFdV[5]  = V[1] * velnrm;
+	dFdV[6]  = V[0] * (V[1]*n[0] + velnrm);
+	dFdV[7]  = V[0] * V[1] * n[1];
+	dFdV[8]  = V[0] * V[1] * n[2];
+	dFdV[9]  = n[0];
+	dFdV[10] = V[2] * velnrm;
+	dFdV[11] = V[0] * V[2] * n[0];
+	dFdV[12] = V[0] * (V[2]*n[1] + velnrm);
+	dFdV[13] = V[0] * V[2] * n[2];
+	dFdV[14] = n[1];
+	dFdV[15] = V[3] * velnrm;
+	dFdV[16] = V[0] * V[3] * n[0];
+	dFdV[17] = V[0] * V[3] * n[1];
+	dFdV[18] = V[0] * (V[3]*n[2] + velnrm);
+	dFdV[19] = n[2];
+	dFdV[20] = 0.5 * vel2 * velnrm;
+	dFdV[21] = (invgam1 * gam * (V[4] + Pstiff) + 0.5 * V[0] * vel2) * n[0] + V[0] * V[1] * velnrm;
+	dFdV[22] = (invgam1 * gam * (V[4] + Pstiff) + 0.5 * V[0] * vel2) * n[1] + V[0] * V[2] * velnrm;
+	dFdV[23] = (invgam1 * gam * (V[4] + Pstiff) + 0.5 * V[0] * vel2) * n[2] + V[0] * V[3] * velnrm;
+	dFdV[24] = invgam1 * gam * velnrm;
+}
 
 #endif

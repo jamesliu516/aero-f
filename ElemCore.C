@@ -94,6 +94,22 @@ int Elem::setFaceToElementConnectivity(int i, Vec<bool> &tagNodes,
   return nswap;
 }
 
+void Elem::computeBoundingBox(SVec<double,3>& X, double* bb) {
+ 
+  bb[0] = bb[2] = bb[4] = FLT_MAX;
+  bb[1] = bb[3] = bb[5] = -FLT_MAX;
+  int numNd = numNodes();
+  int* nnn = nodeNum();
+  
+  for (int i = 0; i < numNd; ++i) {
+  
+    for (int j = 0; j < 3; ++j) {
+      bb[j*2] = std::min(bb[j*2], X[nnn[i]][j]);
+      bb[j*2+1] = std::max(bb[j*2+1], X[nnn[i]][j]);
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 
 ElemSet::ElemSet(int value)  
@@ -223,4 +239,5 @@ void ElemSet::computeConnectedElems(const std::vector<int> &locSampleNodes)
 	numSampledElems = elemsConnectedToSampleNode.size();
 	int tmp;
 }
+
 

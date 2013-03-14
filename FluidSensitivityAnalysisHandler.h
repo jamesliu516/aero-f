@@ -165,8 +165,7 @@ public:
     IoData &,
     DistSVec<double,3> &,
     DistVec<double> &,
-    DistSVec<double,dim> &,
-    int
+    DistSVec<double,dim> &
   );
 
   void fsaComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);

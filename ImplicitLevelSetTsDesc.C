@@ -183,7 +183,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
-  checkSolution(U);
+  this->checkSolution(U);
 
   return its;
   
@@ -220,14 +220,14 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
 
-  DistSVec<double,dimLS>& locphi = this->Phi;
+  DistSVec<double,dimLS>* locphi = &this->Phi;
   if (this->lsMethod == 0)
-    locphi = this->PhiV;
+    locphi = &this->PhiV;
   //else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
   //  locphi = this->Phi0;
 
   if (this->interfaceOrder == 2 && this->useCutCells) {
-    this->multiPhaseSpaceOp->findCutCells(locphi,
+    this->multiPhaseSpaceOp->findCutCells(*locphi,
                                           this->cutCellStatus,
                                           *this->fluidSelector.fluidId,
                                           Q,
@@ -347,6 +347,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<double
   ksp->setup(it, this->maxItsNewton, b);
   
   int lits = ksp->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
   
   this->timer->addKspTime(t0);
   
@@ -423,6 +425,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<doub
   kspLS->setup(it, this->maxItsNewton, b);
 
   int lits = kspLS->solve(b, dQ);
+
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
 
   //mvpLS->apply(dQ, fnew);
  

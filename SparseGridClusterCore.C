@@ -58,7 +58,7 @@ int SparseGridCluster::interpolate(const int numRes, double **coord, double **re
 	
 }
 //------------------------------------------------------------------------------
-void SparseGridCluster::interpolateGradient(const int numRes, double **coord, double **res)
+int SparseGridCluster::interpolateGradient(const int numRes, double **coord, double **res)
 {
   bool inSparseGrid = false;
   for(int iRes=0; iRes<numRes; iRes++){
@@ -73,10 +73,12 @@ void SparseGridCluster::interpolateGradient(const int numRes, double **coord, do
       fprintf(stdout, "coord[%d] = ( ", iRes);
       for(int idim=0; idim<dim_; idim++)
         fprintf(stdout, "%e ", coord[iRes][idim]);
-      fprintf(stdout, ") is out of range of all SparseGrids. Exiting\n");
-      exit(1);
+      fprintf(stdout, ") is out of range of all SparseGrids.\n");
+      return 1;
     }
   }
+ 
+  return 0;
 	
 }
 //------------------------------------------------------------------------------

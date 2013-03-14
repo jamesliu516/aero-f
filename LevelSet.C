@@ -127,12 +127,12 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     if(fabs(minDist[idim])==fabs(maxDist[idim]) && fabs(minDist[idim]) == 1)
       trueLevelSet[idim] = false;
     else trueLevelSet[idim] = true;
-    com->fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
+    //com->fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
   }
 
   if(closest && fsId) {//cracking...
-    if(dimLS!=1){fprintf(stderr,"ERROR: Multi-Phase FSI w/ Cracking supports only one level-set! dimLS = %d.\n", dimLS);exit(-1);}
-    trueLevelSet[0] = true;
+    //if(dimLS!=1){fprintf(stderr,"ERROR: Multi-Phase FSI w/ Cracking supports only one level-set! dimLS = %d.\n", dimLS);exit(-1);}
+    trueLevelSet[dimLS-1] = true;
   }
 
   // for reinitialization testing
@@ -152,7 +152,7 @@ void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<dou
     map<int, VolumeData *>::iterator volIt;
     for (volIt=iod.volumes.volumeMap.dataMap.begin(); volIt!=iod.volumes.volumeMap.dataMap.end();volIt++)
       if(volIt->second->type==VolumeData::FLUID){
-        com->fprintf(stdout, "Processing initialization of LevelSet for volume %d paired with EOS %d\n", volIt->first, volIt->second->fluidModelID);
+        //com->fprintf(stdout, "Processing initialization of LevelSet for volume %d paired with EOS %d\n", volIt->first, volIt->second->fluidModelID);
         domain->setupPhiVolumesInitialConditions(volIt->first, volIt->second->fluidModelID,Phi);
       }
   }
@@ -221,7 +221,7 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     for(planeIt  = iod.mf.multiInitialConditions.planeMap.dataMap.begin();
         planeIt != iod.mf.multiInitialConditions.planeMap.dataMap.end();
         planeIt++){
-      com->fprintf(stdout, "Processing initialization of LevelSet for plane %d paired with EOS %d\n", planeIt->first, planeIt->second->fluidModelID);
+      //com->fprintf(stdout, "Processing initialization of LevelSet for plane %d paired with EOS %d\n", planeIt->first, planeIt->second->fluidModelID);
       double nx = planeIt->second->nx;
       double ny = planeIt->second->ny;
       double nz = planeIt->second->nz;
@@ -256,7 +256,7 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     for(sphereIt  = iod.mf.multiInitialConditions.sphereMap.dataMap.begin();
         sphereIt != iod.mf.multiInitialConditions.sphereMap.dataMap.end();
         sphereIt++){
-      com->fprintf(stdout, "Processing initialization of LevelSet for sphere %d paired with EOS %d\n", sphereIt->first, sphereIt->second->fluidModelID);
+      //com->fprintf(stdout, "Processing initialization of LevelSet for sphere %d paired with EOS %d\n", sphereIt->first, sphereIt->second->fluidModelID);
       double x0 = sphereIt->second->cen_x;
       double y0 = sphereIt->second->cen_y;
       double z0 = sphereIt->second->cen_z;
@@ -348,7 +348,7 @@ template<int dimLS>
 void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, 
                                                               DistVec<ClosestPoint> &closest, DistVec<int> &status)
 {
-  trueLevelSet[0] = true; //this is a 'true' level-set.
+  trueLevelSet[dimLS-1] = true; //this is a 'true' level-set.
   //initialize the level-set near FS interface  
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -358,13 +358,13 @@ void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistS
       for(int i=0; i<phi.size(); i++) {
         switch (stat[i]) {
           case 0 : //outside the structure
-            phi[i][0] = clo[i].nearInterface() ? -1.0*clo[i].dist : -1.0;
+            phi[i][dimLS-1] = clo[i].nearInterface() ? -1.0*clo[i].dist : -1.0;
             break;
-          case 1 : //inside the structure
-            phi[i][0] = clo[i].nearInterface() ?  1.0*clo[i].dist :  1.0;
+          case dimLS : //inside the structure
+            phi[i][dimLS-1] = clo[i].nearInterface() ?  1.0*clo[i].dist :  1.0;
             break;
-          case 2 : //occluded
-            phi[i][0] = 0.0;
+          case (dimLS+1)://2 : //occluded
+            phi[i][dimLS-1] = 0.0;
             break;
           default :
             fprintf(stderr,"ERROR: Status cannot be %d.\n", stat[i]);
@@ -374,7 +374,7 @@ void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistS
     }
 
   //call "reinitialize"
-  reinitializeLevelSet(X, Phi, false);
+  reinitializeLevelSet(X, Phi, false,dimLS-1);
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -461,20 +461,27 @@ void LevelSet<dimLS>::primitiveToConservative(DistSVec<double,dimLS> &Prim, Dist
 
 //-------------------------------------------------------------------------
 template<int dimLS>
-void LevelSet<dimLS>::reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2)
+void LevelSet<dimLS>::reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2,int lsdim)
 {
   // XXX reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
-  reinitializeLevelSetFM(X,Phi,copylv2);
+  reinitializeLevelSetFM(X,Phi,copylv2,lsdim);
 
 }
 //-------------------------------------------------------------------------
 template<int dimLS>
-void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2)
+void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2,int lsdim)
 {
 
   // reinitialize each LevelSet separately
-  for(int idim=0; idim<dimLS; idim++){
+  int itmin=0,itmax=dimLS;
+  if (lsdim >= 0) {
+
+    itmin = lsdim;
+    itmax = lsdim+1;
+  }
+  for(int idim=itmin; idim<itmax; idim++){
     if(!trueLevelSet[idim]) continue;
+    com->fprintf(stdout, "Reinitializing level set %d\n", idim);
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub){
       double (*phi)[dimLS] = Phi.subData(iSub);
@@ -488,8 +495,8 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<dou
     Psi = 1.0;
 
     // tag nodes that are close to interface up to level 'bandlevel'
-    int level = 0;
-    for (level=0; level<bandlevel; level++)
+    int level = 1;
+    for (level=1; level<=bandlevel; level++)
       domain->TagInterfaceNodes(idim,Tag,Phi,level);
 
 
@@ -503,13 +510,13 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<dou
     double eps = conv_eps;
     int it=0;
     for (level=2; level<bandlevel; level++){
-      com->fprintf(stdout, "*** level = %d\n", level);
+      //com->fprintf(stdout, "*** level = %d\n", level);
       res = 1.0;
       resn = 1.0; resnm1 = 1.0;
       it = 0;
       while(res>eps || it<=1){
         resnm1 = resn;
-        if(level==2 && !copylv2)
+        if(level==2 && !copylv2 && idim == dimLS-1)
           domain->computeDistanceLevelNodes(idim,Tag,level,X,Psi,resn,Phi,MultiFluidData::FALSE);
         else
           domain->computeDistanceLevelNodes(idim,Tag,level,X,Psi,resn,Phi,copy);
@@ -528,7 +535,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<dou
       double (*psi)[1]     = Psi.subData(iSub);
       for (int i=0; i<Phi.subSize(iSub); i++){
         if(diff)
-          phi[i][idim] -= psi[i][0];
+          phi[i][idim] = -psi[i][0];
         else
           phi[i][idim] = psi[i][0];
       }

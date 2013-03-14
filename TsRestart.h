@@ -7,9 +7,13 @@
 class IoData;
 class RefVal;
 class DistGeoState;
+class Domain;
 
 template<int dimLS> class LevelSet;
+template<class Scalar, int dim> class DistSVec;
+template<class Scalar> class DistVec;
 template<int dim> class DistTimeState;
+template<int dim> class PostOperator;
 
 //------------------------------------------------------------------------------
 
@@ -18,6 +22,10 @@ class TsRestart {
   RefVal *refVal;
 
   int index;
+
+  // Boolean to flag whether pressure snapshots are needed
+  // for a Kirchhoff integral.
+  bool writeKPtraces;
 
 public:
 
@@ -29,6 +37,7 @@ public:
   char *solutions[3];
   char *positions[3];
   char *levelsets[3];
+  char *cracking[3];
   char *data[3];
 
   char *structPos;
@@ -50,7 +59,8 @@ public:
 
   template<int dim, int dimLS>
   void writeToDisk(int, bool, int, double, double, 
-		   DistTimeState<dim> &, DistGeoState &, LevelSet<dimLS> *levelSet = 0);
+		   DistTimeState<dim> &, DistGeoState &, LevelSet<dimLS> *levelSet = 0,
+                   class DynamicNodalTransfer* = NULL);
 
   /** Function to write the structure positions to disk. Used for the embedded-method only. */
   void writeStructPosToDisk(int, bool, Vec<Vec3D>&);
@@ -69,6 +79,28 @@ public:
 	}
       delete[] structPos;
     }
+
+
+  //! Function to write pressure snapshots for a Kirchhoff integral
+  ///
+  /// This function writes pressure snapshots for a Kirchhoff integral.
+  ///
+  /// UH (07/2012)
+  /// 
+  template<int dim>
+  void writeKPtracesToDisk
+    (
+      IoData &iod,
+      bool lastIt, int it, double t,
+      DistSVec<double,3> &X,
+      DistVec<double> &A,
+      DistSVec<double,dim> &U,
+      DistTimeState<dim> *timeState,
+      Domain *domain,
+      PostOperator<dim> *postOp
+    );
+
+
 };
 
 //------------------------------------------------------------------------------

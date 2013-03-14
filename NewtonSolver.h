@@ -109,7 +109,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       res0 = res;
     }
 
-    //probDesc->printf(1,"Newton residual = %e,target = %e\n",res,target);
+//    probDesc->printf(1,"Newton residual = %e, target = %e\n",res,target);
     if (res == 0.0 || res <= target) break;
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
@@ -140,7 +140,15 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     // verify that the solution is physical
     if (probDesc->checkSolution(Q)) {
-      if (probDesc->checkFailSafe(Q) && fsIt < 5) {
+      if (probDesc->getTsParams()->checksol){
+        probDesc->getTsParams()->unphysical = true; 
+        probDesc->checkFailSafe(Q);
+        Q = rhs;
+        --it;
+        ++fsIt;
+        return -10; // signal re-compute CFL number
+      }
+      else if (probDesc->checkFailSafe(Q) && fsIt < 5) {
 	probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
 	Q = rhs;
 	--it;
@@ -163,7 +171,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   }
 
   probDesc->writeBinaryVectorsToDiskRom(true, timeStep, it, &Q, NULL);  // save state after final iteration for ROM
-
+  
   return it;
 
 }

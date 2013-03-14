@@ -13,6 +13,7 @@
 #include <BinFileHandler.h>
 #include <VectorSet.h>
 #include <GhostPoint.h>
+#include <SubDomain.h>
 
 //------------------------------------------------------------------------------
 
@@ -29,11 +30,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   Qs = 0;
   Qv = 0;
   
-  for (i=0; i<PostFcn::AVSSIZE; ++i) 
-    {
-      AvQs[i] = 0;
-      AvQv[i] = 0;
-    }
+  for (i=0; i<PostFcn::AVSSIZE; ++i) AvQs[i] = 0;
+	for (i=0; i<PostFcn::AVVSIZE; ++i) AvQv[i] = 0;
 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
@@ -66,8 +64,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     avvectors[i] = 0;
   }
 
+  sscale[PostFcn::DENSITY] = iod.ref.rv.density;
+  sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
+  sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
+  vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
+  vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
+  
   if (iod.output.transient.density[0] != 0) {
-    sscale[PostFcn::DENSITY] = iod.ref.rv.density;
     scalars[PostFcn::DENSITY] = new char[sp + strlen(iod.output.transient.density)];
     sprintf(scalars[PostFcn::DENSITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.density);
@@ -104,7 +107,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.tavmach);
   }
   if (iod.output.transient.pressure[0] != 0) {
-    sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::PRESSURE] = new char[sp + strlen(iod.output.transient.pressure)];
     sprintf(scalars[PostFcn::PRESSURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.pressure);
@@ -140,7 +142,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
   }
   if (iod.output.transient.temperature[0] != 0) {
-    sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
 //    sscale[PostFcn::TEMPERATURE] = 1;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
     sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
@@ -284,7 +285,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.controlvolume);
   }
   if (iod.output.transient.velocity[0] != 0) {
-    vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
     sprintf(vectors[PostFcn::VELOCITY], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.velocity);
@@ -296,7 +296,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.tavvelocity);
   }
   if (iod.output.transient.displacement[0] != 0) {
-    vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
     vectors[PostFcn::DISPLACEMENT] = new char[sp + strlen(iod.output.transient.displacement)];
     sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.displacement);
@@ -475,7 +474,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
   frequency_dt = iod.output.transient.frequency_dt;
-  prtout = iod.restart.etime;
+  prtout = iod.restart.iteration ? frequency_dt*(floor(iod.restart.etime/frequency_dt)+1.0) : iod.restart.etime;
   length = iod.output.transient.length;
   surface = iod.output.transient.surface;
   x0[0] = iod.output.transient.x0;
@@ -487,6 +486,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
+  fpEmbeddedSurface = 0;
+  fpCpuTiming = 0;
+
+  fpEmbeddedSurface = 0;
+  fpCpuTiming = 0;
 
   int nSurf = postOp->getNumSurf();
   int nSurfHF = postOp->getNumSurfHF();
@@ -524,7 +528,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.velocitynorm);
   }
 
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -616,7 +620,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   switchOpt = true;
   }
-  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
     switchOpt = false;
   }
 
@@ -647,7 +651,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       int lis = -1;
 #pragma omp parallel for
       for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
-	locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id );
+	locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id-1 );
 //	fprintf(stdout,"locid = %i\n",locid);
 	if (locid >= 0) {
 	  lis = iSub;
@@ -714,8 +718,10 @@ TsOutput<dim>::~TsOutput()
 {
 
   for (int i=0; i<PostFcn::AVSSIZE; ++i) {
-    delete AvQs[i];
-    delete AvQv[i];
+    if(AvQs[i]) delete AvQs[i];
+	} 
+	for (int i=0; i<PostFcn::AVVSIZE; ++i) {
+    if(AvQv[i]) delete AvQv[i];
   }
   if (Qs) delete Qs;
   if (Qv) delete Qv;
@@ -795,7 +801,8 @@ bool TsOutput<dim>::toWrite(int it, bool lastIt, double t)
   if(frequency_dt<=0.0)
     return (((frequency > 0) && (it % frequency == 0)) || lastIt);
 
-  return (t>=prtout || lastIt);
+  return (it==0 || t>=prtout || lastIt);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1456,6 +1463,7 @@ void TsOutput<dim>::openAsciiFiles()
 template<int dim>
 void TsOutput<dim>::closeAsciiFiles()
 {
+
   for (int iSurf = 0; iSurf < postOp->getNumSurf(); iSurf++)  {
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
@@ -1467,6 +1475,7 @@ void TsOutput<dim>::closeAsciiFiles()
   for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
+
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
@@ -1615,7 +1624,7 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 
 template<int dim>
 void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+																      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<int> *fluidId)
 {
 
@@ -1861,8 +1870,8 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
 template<int dim>
 void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<int> *fluidId)
+																     double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                     DistVec<int> *fluidId)
 {
 
 // This routine outputs both the non-averaged and time-averaged values of the lift and drag 
@@ -2707,16 +2716,21 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
   if (lastIt) {
     // Before deletion, check that pointers have been allocated
     for (i=0; i<PostFcn::AVSSIZE; ++i) 
-      if ((avscalars[i]) && (AvQs[i]))
+      if ((avscalars[i]) && (AvQs[i])) {
         delete AvQs[i];
+				AvQs[i] = 0;
+			}
     for (i=0; i<PostFcn::AVVSIZE; ++i) 
-      if ((avvectors[i]) && (AvQv[i]))
+      if ((avvectors[i]) && (AvQv[i])) {
         delete AvQv[i];
+				AvQv[i] = 0;
+			}
   }
 
   counter += 1; // increment the counter for keeping track of the averaging
  
 }
+
 
 //------------------------------------------------------------------------------
 

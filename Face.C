@@ -37,6 +37,13 @@ void Face::renumberNodes(NodeMap &nodemap)
 template<int dim>
 void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout, double *U)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   int k, j;
 
   NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
@@ -55,6 +62,7 @@ void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout
   else
     for (k=0; k<dim; ++k)
       U[k] = 0.0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -62,6 +70,13 @@ void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout
 template<int dim>
 void Face::assignFreeStreamValues(double *Uin, double *Uout, double *U)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   int k;
 
   if (code == BC_INLET_MOVING || code == BC_INLET_FIXED)
@@ -185,7 +200,7 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &nor
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -219,7 +234,7 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
 
     // Low-Mach Preconditioner
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
     double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -284,9 +299,9 @@ void Face::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
     //double locMach = fabs(un/a); //local Preconditioning (ARL)
-    double locbeta = tprec.getBeta(locMach);
+    double locbeta = tprec.getBeta(locMach,true);
     double dLocMach = varFcn->computeDerivativeOfMachNumber(V[ nodeNum(l) ], dV[ nodeNum(l) ], dMach);
-    double dbeta = tprec.getdBeta(locMach,dLocMach);
+    double dbeta = tprec.getdBeta(locMach,dLocMach,true);
 
     double beta2 = locbeta * locbeta;
     double dbeta2 = 2.0 * locbeta * dbeta;
@@ -318,16 +333,46 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   Vec<double> &normalVel, SVec<double,dim> &V, 
 				   double *Ub, SVec<double,dim> &fluxes)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   if(fluxFcn[code]){
-    double flux[dim];
+    bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    const int dim0 = 5;
+    double flux[2*dim0+6];
+//    double* flux;
+    if(hhcoeffs.currentDt>=0.0 && farfield) { //KW: Modified Ghidaglia
+//      flux = new double [2*dim0+6];
+      for(int j=0; j<3; j++)
+        flux[2*dim0+j] = faceCenter[j];
+      flux[2*dim0+5] = hhcoeffs.currentDt;
+    }
+    // else
+    //  flux = new double [dim];
+
     for (int l=0; l<numNodes(); ++l) {
-      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
-			     V[nodeNum(l)], Ub, flux);
+
+      if(hhcoeffs.currentDt>=0.0 && farfield) {
+        flux[2*dim0+3] = hhcoeffs.s1[l];
+        flux[2*dim0+4] = hhcoeffs.s0[l];
+      }
+
+      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
+                             V[nodeNum(l)], Ub, flux);
       for (int k=0; k<dim; ++k){
+      
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
+
+      if(hhcoeffs.currentDt>=0.0 && farfield)
+        hhcoeffs.s1[l] = flux[2*dim0+3];
     }
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -338,6 +383,13 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                    Vec<double> &normalVel, SVec<double,dim> &V,
                                    double *Ub, SVec<double,dim> &fluxes)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
   if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
      code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
@@ -365,16 +417,40 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     return;
   }
 
-  if(fluxFcn[code]){
-    double flux[dim];
+  if(fluxFcn[code]) {
+    bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    const int dim0 = 5;
+//    double* flux;
+    double flux[2*dim0+6];
+    if(hhcoeffs.currentDt>=0.0 && farfield) { //KW: Modified Ghidaglia
+//      flux = new double [2*dim0+6];
+      for(int j=0; j<3; j++)
+        flux[2*dim0+j] = faceCenter[j];
+      flux[2*dim0+5] = hhcoeffs.currentDt;
+    } 
+    // else
+    //  flux = new double [dim];
+
     for (int l=0; l<numNodes(); ++l) {
-      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
-                             V[nodeNum(l)], Ub, flux);
-      for (int k=0; k<dim; ++k){
-        fluxes[ nodeNum(l) ][k] += flux[k];
+
+      if(hhcoeffs.currentDt>=0.0 && farfield) {
+        flux[2*dim0+3] = hhcoeffs.s1[l];
+        flux[2*dim0+4] = hhcoeffs.s0[l];
       }
+
+      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
+                           V[nodeNum(l)], Ub, flux);
+      for (int k=0; k<dim; ++k)
+      {
+      fluxes[ nodeNum(l) ][k] += flux[k];
+      }
+
+
+      if(hhcoeffs.currentDt>=0.0 && farfield)
+        hhcoeffs.s1[l] = flux[2*dim0+3];
     }
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -388,6 +464,12 @@ void Face::computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &no
 				      double *dUb, SVec<double,dim> &dFluxes)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+    
   if(fluxFcn[code]){
     double flux[dim];
     double dFlux[dim];
@@ -410,9 +492,28 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   double *Ub, Vec<int> &fluidId, 
 				   SVec<double,dim> &fluxes, LevelSetStructure *LSS)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   Vec3D normal = getNormal(normals);
-  double flux[dim];
+  const int dim0 = 5;
+  //double* flux;
+  double flux[2*dim0+6];
   bool cracking = LSS ? LSS->withCracking() : false;
+  bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+    
+  if(hhcoeffs.currentDt>=0.0 && farfield) {
+//    flux = new double [2*dim0+6];
+    for(int j=0; j<3; j++)
+      flux[2*dim0+j] = faceCenter[j];
+    flux[2*dim0+5] = hhcoeffs.currentDt;
+  }
+  // else
+  //  flux = new double [dim];
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
@@ -422,13 +523,26 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
         if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;}
 
       if (!higherOrderMF || !higherOrderMF->isCellCut(nodeNum(l))) {
+
+        if(hhcoeffs.currentDt>=0.0 && farfield) {
+          flux[2*dim0+3] = hhcoeffs.s1[l];
+          flux[2*dim0+4] = hhcoeffs.s0[l];
+//          fprintf(stderr,"face: %e %e %e | %e %e | %e.\n", flux[2*dim0], flux[2*dim0+1], flux[2*dim0+2], flux[2*dim0+3], 
+//                  flux[2*dim0+4], flux[2*dim0+5]);
+        }
+
 	fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			       V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
 	for (int k=0; k<dim; ++k)
 	  fluxes[ nodeNum(l) ][k] += flux[k];
+
+        if(hhcoeffs.currentDt>=0.0 && farfield) 
+          hhcoeffs.s1[l] = flux[2*dim0+3];
       }
     }
   }
+
+//  delete [] flux; 
 }
 
 //------------------------------------------------------------------------------
@@ -439,6 +553,13 @@ void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				     Vec<double> &normalVel, SVec<double,dim> &V,
 				     SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiF)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double Uf = 0.0;
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
       code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
@@ -471,6 +592,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 					   double *Ub, GenMat<Scalar,neq> &A)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     Vec3D  normal = getNormal(normals, l);
@@ -492,6 +619,13 @@ void Face::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, Flu
                                            Vec<double> &normalVel, SVec<double,dim> &V,
                                            double *Ub, GenMat<Scalar,neq> &A)
 {
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
      code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
@@ -549,6 +683,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 					   double *Ub, GenMat<Scalar,neq> &A, int* nodeType)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     if(!(code == BC_INLET_MOVING || code == BC_OUTLET_MOVING ||
@@ -575,6 +715,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
                                            LevelSetStructure* LSS)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     Vec3D  normal = getNormal(normals, l);
@@ -599,6 +745,12 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
                                            Vec<int> &fluidId, int* nodeType)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
     if(!(code == BC_INLET_MOVING || code == BC_OUTLET_MOVING ||
@@ -624,6 +776,12 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
 					     GenMat<Scalar,dimLS> &A)
 {
 
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+  
   double Uf = 0.0;
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
       code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
@@ -788,6 +946,7 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
   for (int i=0; i<numFaces; ++i)  {
     faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluidId, fluxes, LSS);
   }
+
 }
 
 //------------------------------------------------------------------------------

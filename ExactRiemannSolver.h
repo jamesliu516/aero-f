@@ -23,6 +23,7 @@ class ExactRiemannSolver{
   int iteration;
   SVec<double,dim>  &rupdate;
   Vec<double>       &weight;
+  Vec<int>       &fluidIdToSet;
   SVec<double,dim-2>  &interfacialWi;
   SVec<double,dim-2>  &interfacialWj;
 
@@ -37,7 +38,7 @@ class ExactRiemannSolver{
 
   ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, 
                      SVec<double,dim-2> &, SVec<double,dim-2> &,
-                     VarFcn *, SparseGridCluster *);
+                     VarFcn *, SparseGridCluster *, Vec<int>& fluidIdToSet);
   ~ExactRiemannSolver();
 
 

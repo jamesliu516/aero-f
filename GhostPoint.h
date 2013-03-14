@@ -1,7 +1,7 @@
 #ifndef _GHOST_POINT_H_
 #define _GHOST_POINT_H_
 
-//#include<VarFcn.h>
+#include<VarFcn.h>
 #include <Vector.h>
 #include <Vector3D.h>
 #include <iostream>
@@ -10,96 +10,135 @@
 using std::cout;
 using std::endl;
 
+class VarFcn;
+
 template<class Scalar> class Vec;
 
 template<int dim>
-class GhostPoint {
+class GhostPoint{
+ protected:
+  VarFcn *varFcn;
+
  public:
-  int ng_last;
-  Vec<double> Vg; // Sum of the primitive States at the ghost-point. 
-  int ng; // Number of neighbours in the fluid. State at GP is then equal to Vg/ng.
-  // After all GP have been populated, Vg /= ng and ng=1.
+  double* Vg;	// Sum of weighted states (rho,u,v,w,T) at the ghost-point. 
+  		// After population, it is set to the state at the ghost-point.
+  double *V;    // Stores the final primitive states
+  double* Ws; 	// Sum of the weights 
+  int ng; 	// Number of neighbours in the fluid.
+  		// After all GP have been populated, ng=0.
   int ghostTag; // We store here the tag of the surrounding nodes. All the tags of the neighbours 
-  // should be the same. In the case of a complex multiphase flow simulation with Fluid/Structure 
-  // Interaction, this might be no longer true. To be done...
-  ~GhostPoint() {};
- GhostPoint() :
-  Vg(dim)
-  {
+  		// should be the same. In the case of a complex multiphase flow simulation with Fluid/Structure 
+  		// Interaction, this might be no longer true. To be done...
+//  ~GhostPoint();
+
+//=============================================================================
+
+  GhostPoint(VarFcn *vf) : varFcn(vf) {
     ng = 0;
-    Vg = 0.0;
+    Vg = new double[dim];
+    V  = new double[dim];
+    Ws = new double[dim];
+    for(int i=0;i<dim;++i) {
+      Vg[i] = 0.0;
+      V[i]  = 0.0;
+      Ws[i] = 0.0;
+    }
     ghostTag = -2; // Inactive nodes tag
   }
-  GhostPoint<dim> & operator=(const GhostPoint<dim> &GP)
-    {
-      Vg = GP.Vg;
-      ng = GP.ng;
-      ng_last = ng;
-      ghostTag = GP.ghostTag;
-      return *this;
-    }
-  GhostPoint<dim> & operator+=(const GhostPoint<dim> &GP)
-    {
-      if(ghostTag<0) ghostTag = GP.ghostTag;
-      else if(ghostTag != GP.ghostTag) 
-	{
-	  fprintf(stderr,"The two ghost States refer to different Fluids\n");
-	  fprintf(stderr,"ghostTag: %i, GP.ghostTag: %i",ghostTag,GP.ghostTag);
-	  exit(-1);
-	}
-      Vg += GP.Vg;
-      ng += GP.ng;
-      ng_last = ng;
-      return *this;
-    }
-  void addNeighbour(Vec<double> &Vi,double distanceRate, Vec3D interfaceVelocity, int tag)
-  {
-    // Ui is the state at the neighbour. 
-    // distanceRate is the rate of the distances from the GP and the neighbour to the interface = dg/di\
-    
-    ng++;
-    ng_last = ng;
+//=============================================================================
 
-    // We want the velocity to be zero at the interface and we obtain the 
-    // state at the GP by linear interpolation.
-    Vg[0]   += Vi[0];
-    for(int i=1;i<4;++i) Vg[i] += interfaceVelocity[i-1] - distanceRate*(Vi[i]-interfaceVelocity[i-1]);
-    Vg[4]   += Vi[4];
-    if(dim == 6) // One Equation Turbulent Model
+  GhostPoint<dim> & operator=(const GhostPoint<dim> &GP) {
+    varFcn = GP.varFcn;
+    Vg = GP.Vg;
+    V  = GP.V;
+    Ws = GP.Ws;
+    ng = GP.ng;
+    ghostTag = GP.ghostTag;
+    return *this;
+  }
+//=============================================================================
+
+  GhostPoint<dim> & operator+=(const GhostPoint<dim> &GP) {
+    if(ghostTag<0) ghostTag = GP.ghostTag;
+    else if(ghostTag != GP.ghostTag) 
       {
-	//	Vg[5] -= distanceRate*Vi[5];
-	Vg[5] = 0.0;
+        fprintf(stderr,"The two ghost States refer to different Fluids\n");
+        fprintf(stderr,"ghostTag: %i, GP.ghostTag: %i",ghostTag,GP.ghostTag);
+        exit(-1);
       }
-    else if(dim == 7) // Two Equations Turbulent Model
-      {
-	Vg[5] = 0.0;
-	Vg[6] = 0.0;
-      }
+    Vg += GP.Vg;
+    Ws += GP.Ws;
+    ng += GP.ng;
+    return *this;
+  }
+//=============================================================================
+
+  void addNeighbour(double *Vi, double *Wi, int tag) {
+
+// We want to satisfy interface condition in least squares manner 
+    for(int i=0;i<5;++i) {
+      Vg[i] += Wi[i]*Vi[i];
+      Ws[i] += Wi[i];
+    }
+
+    if(dim == 6) { // One Equation Turbulent Model
+      Vg[5] = 0.0;
+      Ws[5] = 1.0;
+    }
+    else if(dim == 7) {// Two Equations Turbulent Model
+      Vg[5] = 0.0;
+      Vg[6] = 0.0;
+      Ws[5] = 1.0;
+      Ws[6] = 1.0;
+    }
 
     // Tag check
-    if(ghostTag < 0)
-      {
-	ghostTag = tag;
-      }
-    else if(ghostTag != tag)
-      {
-	fprintf(stderr,"We have a ghost node here with two active neighbours having different tags\n");
-	fprintf(stderr,"ghostTag: %i, neighbourTag: %i",ghostTag,tag);
-	exit(-1);
-      }
+    if(ghostTag < 0) {
+      ghostTag = tag;
+    }
+    else if(ghostTag != tag) {
+      fprintf(stderr,"We have a ghost node here with two active neighbours having different tags\n");
+      fprintf(stderr,"ghostTag: %i, neighbourTag: %i",ghostTag,tag);
+      exit(-1);
+    }
+
+    ng++;
+
   }
+//=============================================================================
+
+  double* getState()
+  {
+    return Vg;    
+  }
+//=============================================================================
+
   double* getPrimitiveState()
   {
-    //    fprintf(stderr,"State: %f %f %f %f %f",Vg.v[0],Vg.v[1],Vg.v[2],Vg.v[3],Vg.v[4]);
-    return Vg.v;    
+    return V;    
   }
+//=============================================================================
+
   void reduce()
   {
-    Vg /= (double) ng;
-    ng = 1;
+    for(int i=0;i<dim;++i) {
+      Vg[i] /= Ws[i];
+      Ws[i] = 1.0;
+    }
+    ng = 0;
+
+// populate primitive state vector
+    for (int i=0; i<dim; ++i) V[i] = Vg[i];
+    varFcn->getV4FromTemperature(V,Vg[4],ghostTag);
   }
-  
-  int lastCount() { return ng_last; }
+//=============================================================================
+
+  ~GhostPoint() {
+    delete [] Vg;
+    delete [] V;
+    delete [] Ws;
+  }
+//=============================================================================
 };
 
 #endif

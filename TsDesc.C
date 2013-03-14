@@ -55,7 +55,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   geoState = new DistGeoState(ioData, domain);
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  if(ioData.problem.framework==ProblemData::BODYFITTED) 
+  if(ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) 
     geoState->setup1(input->positions, X, A);
   else {
     char temp[1]; temp[0] = '\0';
@@ -88,13 +88,15 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   iForce = 0;
   iTotal = 0;
 
+  modifiedGhidaglia = (ioData.schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA);
+
   if (ioData.sa.fixsol == 0)
     fixSol = 0;
   else if (ioData.sa.fixsol == 1)
     fixSol = 1;
 
 	timeState = 0;
-	mmh = 0;
+	mmh = 0; 
 
 }
 
@@ -235,6 +237,7 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
   else if (ioData.problem.type[ProblemData::RBM])
     _mmh = new RbmExtractor(ioData, domain);
 
+
   return _mmh;
 
 }
@@ -290,16 +293,20 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     hth->setup(&restart->frequency, &data->maxTime);
 
   *Xs = *X;
+
+  initializeFarfieldCoeffs();
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
+double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U, double angle)
 {
   double t0 = timer->getTime();
-//  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
-  data->computeCflNumber(it - 1, data->residual / restart->residual);
+  //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
+  this->data->allowstop = this->timeState->allowcflstop;
+  timeState->unphysical = data->unphysical;
+  data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
   double dt = 0.0;
@@ -369,8 +376,8 @@ void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 {
   if (!mmh) return;
 
-  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
-  if (_mmh) return;
+//  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
+//  if (_mmh) return;
 
   geoState->interpolate(dt, dtLeft, *Xs, *X);
 
@@ -381,9 +388,9 @@ void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 template<int dim>
 void TsDesc<dim>::computeMeshMetrics(int it)
 {
-  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
+//  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
 
-  if (mmh && !_mmh) {
+  if (mmh) {
     if (it >= 0) com->fprintf(stderr, "GeoState Computing for it %d\n", it);
     double t0 = timer->getTime();
     geoState->compute(timeState->getData(), bcData->getVelocityVector(), *X, *A);
@@ -391,7 +398,7 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if ((mmh && !_mmh) || hth) 
+  if (mmh || hth) 
     bcData->update(*X);
 
 }
@@ -516,6 +523,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    restart->writeKPtracesToDisk(ioData, *lastIt, it, t, *X, *A, U, timeState, domain, postOp);
     writeStateRomToDisk(it, 0.0);
     writeErrorToDisk(it, 0.0);
   }
@@ -539,15 +547,17 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
-	writeStateRomToDisk(it, cpu);
+  writeStateRomToDisk(it, cpu);
   output->writeMaterialVolumesToDisk(it, t, *A);
   output->writeCPUTimingToDisk(*lastIt, it, t, timer);
-	writeErrorToDisk(it, cpu);
+  writeErrorToDisk(it, cpu);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeProbesToDisk(*lastIt, it, t, *X, *A, U, timeState,fluidIdDummy);
   restart->writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
   output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
+
+  restart->writeKPtracesToDisk(ioData, *lastIt, it, t, *X, *A, U, timeState, domain, postOp);
 
   this->output->updatePrtout(t);
   if (*lastIt) {
@@ -589,7 +599,7 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 
-  if(mmh->getAlgNum() == 1)
+  if(mmh && mmh->getAlgNum() == 1)
     output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
 
   timer->setRunTime();
@@ -702,7 +712,7 @@ template<int dim>
 void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
 
-  com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+  //com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
 
   if (!problemType[ProblemData::UNSTEADY]) {
     double trhs = timer->getTimeSyncro();
@@ -896,12 +906,58 @@ void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
   // Nothing to do here by default.
 }
 
-//------------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 
-//template<int dim>
-//void TsDesc<dim>::incrementNewtonOutputTag()
-//{
-//    ++(*(this->domain->getNewtonTag()));
 
-//}
+template<int dim>
+void TsDesc<dim>::updateFarfieldCoeffs(double dt)
+{
+  if(!modifiedGhidaglia) return;
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->updateFarfieldCoeffs(dt);
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::updateBoundaryExternalState()
+{
+  if(!modifiedGhidaglia) return;
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->updateBoundaryExternalState();
+}
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::initializeFarfieldCoeffs()
+{
+  if(!modifiedGhidaglia) return;
+  double *Vin = bcData->getInletPrimitiveState();
+  double soundspeed = varFcn->computeSoundSpeed(Vin);
+  double gamma;
+  if (varFcn->getType() == VarFcnBase::STIFFENEDGAS ||
+      varFcn->getType() == VarFcnBase::PERFECTGAS)
+    gamma = varFcn->getGamma();
+  else
+    gamma = varFcn->getBetaWater();
+
+  double HH_init = -2.0*soundspeed/(gamma - 1.0);
+  //fprintf(stderr,"HH_init is set to %e.\n", HH_init);
+
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<nSub; iSub++)
+    sub[iSub]->initializeFarfieldCoeffs(HH_init);
+}
 

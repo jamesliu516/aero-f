@@ -66,10 +66,10 @@ ImplicitSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
 
   pc1 = ImplicitTsDesc<dim>::template 
     createPreconditioner<PrecScalar,neq1>(implicitData.newton.ksp.ns.pc, this->domain);
-  ksp1 = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.ns, mvp1, pc1, this->com);
+  ksp1 = this->createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.ns, mvp1, pc1, this->com);
   pc2 = ImplicitTsDesc<dim>::template 
     createPreconditioner<PrecScalar,neq2>(implicitData.newton.ksp.tm.pc, this->domain);
-  ksp2 = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.tm, mvp2, pc2, this->com);
+  ksp2 = this->createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.tm, mvp2, pc2, this->com);
 
   MemoryPool mp;
 
@@ -265,33 +265,71 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
 {
 
   DistMat<PrecScalar,neq> *_pc = dynamic_cast<DistMat<PrecScalar,neq> *>(pc);
+  DistMat<double,neq> *_pc2 = dynamic_cast<DistMat<double,neq> *>(pc);
 
-  if (_pc) {
+  MultiGridPrec<PrecScalar,neq> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,neq> *>(pc);
+
+  if (pmg) {
+    if (!pmg->isInitialized())
+      pmg->initialize();
+  }
+
+  if (_pc || _pc2) {
 
     MatVecProdFD<dim, neq> *mvpfdtmp = dynamic_cast<MatVecProdFD<dim, neq> *>(mvp);
     MatVecProdH1<dim,MatScalar,neq> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,neq> *>(mvp);
     MatVecProdH2<dim,MatScalar,neq> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,neq> *>(mvp);
 
     if ((mvpfdtmp) || (mvph2))  {
-      if (neq > 2)  {
-        spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
-        this->timeState->addToJacobian(*this->A, *_pc, Q);
-        spaceOp1->applyBCsToJacobian(Q, *_pc);
-      }
-      else  {
-        spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
-        this->timeState->addToJacobian(*this->A, *_pc, Q);
-        spaceOp2->applyBCsToJacobian(Q, *_pc);
+      if (_pc) {
+        if (neq > 2)  {
+          spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc, Q);
+          spaceOp1->applyBCsToJacobian(Q, *_pc);
+        }
+        else  {
+          spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc, Q);
+          spaceOp2->applyBCsToJacobian(Q, *_pc);
+        }
+      } else {
+        if (neq > 2)  {
+          spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc2, Q);
+          spaceOp1->applyBCsToJacobian(Q, *_pc2);
+          if (pmg) {
+            if (!pmg->isInitialized())
+              pmg->initialize();
+            pmg->getData(*_pc2);
+          }
+ 
+        }
+        else  {
+          spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
+          this->timeState->addToJacobian(*this->A, *_pc2, Q);
+          spaceOp2->applyBCsToJacobian(Q, *_pc2);
+          if (pmg) {
+            if (!pmg->isInitialized())
+              pmg->initialize();
+            pmg->getData(*_pc2);
+          }
+        }
       }
     }
     else if (mvph1) 
     {
       JacobiPrec<PrecScalar,neq> *jac = dynamic_cast<JacobiPrec<PrecScalar,neq> *>(pc);
       IluPrec<PrecScalar,neq> *ilu = dynamic_cast<IluPrec<PrecScalar,neq> *>(pc);
+      //MultiGridPrec<PrecScalar,neq> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,neq> *>(pc);
       if (jac) 
         jac->getData(*mvph1);
       else if (ilu) 
         ilu->getData(*mvph1);
+      else if (pmg) {
+        if (!pmg->isInitialized())
+          pmg->initialize();
+        pmg->getData(*mvph1);
+      }
     }
 
   }
@@ -344,6 +382,8 @@ int ImplicitSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec<double,
   ksp2->setup(it,this->maxItsNewton, b2);
 
   int lits2 = ksp2->solve(b2, dQ2);
+
+  if(this->data->checklinsolve && (lits1 == ksp1->maxits || lits2 == ksp2->maxits)) this->data->badlinsolve=true;
 
   this->timer->addKspTime(t0);
 

@@ -47,7 +47,7 @@ private:
     assert(tag<numPhases_);
   }
 
-  FluxFcnBase *createFluxFcn(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, VarFcnBase *vfb, FluxFcnBase::Type typeJac = FluxFcnBase::CONSERVATIVE);
+  FluxFcnBase *createFluxFcn(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, VarFcnBase *vfb, FluxFcnBase::Type typeJac = FluxFcnBase::CONSERVATIVE, int fid = 0);
 
   //for Implicit Segregated Navier-Stokes solver ONLY!
   FluxFcnBase *createFluxFcnSeg1(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, FluxFcnBase::Type typeJac = FluxFcnBase::CONSERVATIVE);
@@ -126,7 +126,7 @@ FluxFcn::FluxFcn(int rshift, int ffType, IoData &iod, VarFcn *vf, FluxFcnBase::T
       fprintf(stderr, "*** Error: member varFcn[0] of VarFcn has not been initialized correctly\n");
       exit(1);
     }
-    ff_[0] = createFluxFcn(rshift, ffType, iod.eqs.fluidModel, iod, vf_->varFcn[0], typeJac);
+    ff_[0] = createFluxFcn(rshift, ffType, iod.eqs.fluidModel, iod, vf_->varFcn[0], typeJac,0);
   }
 
   for(int iPhase=1; iPhase<numPhases_; iPhase++){
@@ -135,7 +135,8 @@ FluxFcn::FluxFcn(int rshift, int ffType, IoData &iod, VarFcn *vf, FluxFcnBase::T
       fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", iPhase);
       exit(1);
     }
-    ff_[iPhase] = createFluxFcn(rshift, ffType, *it->second, iod, vf_->varFcn[iPhase], typeJac);
+    ff_[iPhase] = createFluxFcn(rshift, ffType, *it->second, iod, vf_->varFcn[iPhase], typeJac,
+                                iPhase);
   }
 
 }
@@ -162,10 +163,19 @@ FluxFcn::FluxFcn(int rshift, int ffType, IoData &iod, VarFcn *vf, int segPart, F
 
 inline
 FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, 
-                                    VarFcnBase *vfb, FluxFcnBase::Type typeJac){
+                                    VarFcnBase *vfb, FluxFcnBase::Type typeJac,
+                                    int iPhase){
 
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
+
+  SchemeData::Flux ns_flux = iod.schemes.ns.flux; 
+
+  // Check to see if the user has specified a particular flux for this material
+  if (iod.schemes.ns.fluxMap.dataMap.find(iPhase) != iod.schemes.ns.fluxMap.dataMap.end()) {
+    ns_flux = iod.schemes.ns.fluxMap.dataMap.find(iPhase)->second->flux;
+    //fprintf(stderr,"*** using flux = %d for iPhase = %d\n", ns_flux, iPhase); 
+  }
 
   if(fmodel.fluid == FluidModelData::PERFECT_GAS || fmodel.fluid == FluidModelData::STIFFENED_GAS){
     if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
@@ -215,7 +225,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             break;
 
           case BC_INTERNAL:
-            if (iod.schemes.ns.flux == SchemeData::ROE) {
+            if (ns_flux == SchemeData::ROE) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacRoeSA3D(gamma, iod, vfsgsa, typeJac);
               else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
@@ -223,7 +233,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
               else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT)
                 localff = new FluxFcnSGExactJacRoeSA3D(gamma, iod, vfsgsa, typeJac);
             }
-            else if (iod.schemes.ns.flux == SchemeData::HLLE) {
+            else if (ns_flux == SchemeData::HLLE) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacHLLESA3D(gamma, iod, vfsgsa, typeJac);
               else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
@@ -234,7 +244,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
                 exit(1);
               }
             }
-            else if (iod.schemes.ns.flux == SchemeData::HLLC) {
+            else if (ns_flux == SchemeData::HLLC) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacHLLCSA3D(gamma, iod, vfsgsa, typeJac);
               else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
@@ -279,7 +289,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             break;
   
           case BC_INTERNAL:
-            if (iod.schemes.ns.flux == SchemeData::ROE) {
+            if (ns_flux == SchemeData::ROE) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacRoeKE3D(gamma, iod, vfsgke, typeJac);
               else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
@@ -287,7 +297,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
               else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT)
                 localff = new FluxFcnSGExactJacRoeKE3D(gamma, iod, vfsgke, typeJac);
             }
-            else if (iod.schemes.ns.flux == SchemeData::HLLE) {
+            else if (ns_flux == SchemeData::HLLE) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacHLLEKE3D(gamma, iod, vfsgke, typeJac);
               else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
@@ -298,7 +308,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
                 exit(1);
               }
             }
-            else if (iod.schemes.ns.flux == SchemeData::HLLC) {
+            else if (ns_flux == SchemeData::HLLC) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacHLLCKE3D(gamma, iod, vfsgke, typeJac);
               else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
@@ -333,6 +343,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
                   iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+          else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
           else{
             fprintf(stderr, "*** Error: no outlet boundary flux has been selected for Stiffened Gas\n");
             exit(-1);
@@ -349,6 +362,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
                   iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+          else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
           else{
             fprintf(stderr, "*** Error: no inlet boundary flux has been selected for Stiffened Gas\n");
             exit(-1);
@@ -366,11 +382,11 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           break;
 
         case BC_INTERNAL:
-          if (iod.schemes.ns.flux == SchemeData::VANLEER)
+          if (ns_flux == SchemeData::VANLEER)
           {
             localff = new FluxFcnSGVanLeerEuler3D(iod, vfsgeuler, typeJac);
           }
-          else if (iod.schemes.ns.flux == SchemeData::ROE) 
+          else if (ns_flux == SchemeData::ROE) 
           {
             if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
             {
@@ -385,7 +401,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
               localff = new FluxFcnSGExactJacRoeEuler3D(gamma, iod, vfsgeuler, typeJac);
             }
           }
-          else if (iod.schemes.ns.flux == SchemeData::HLLE) 
+          else if (ns_flux == SchemeData::HLLE) 
           {
             if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
               localff = new FluxFcnSGFDJacHLLEEuler3D(gamma, iod, vfsgeuler, typeJac);
@@ -397,7 +413,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
               exit(1);
             }
           }
-	  else if (iod.schemes.ns.flux == SchemeData::HLLC) 
+	  else if (ns_flux == SchemeData::HLLC) 
           {
             if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
               localff = new FluxFcnSGFDJacHLLCEuler3D(gamma, iod, vfsgeuler, typeJac);
@@ -458,7 +474,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             break;
 
           case BC_INTERNAL:
-            if (iod.schemes.ns.flux == SchemeData::ROE) {
+            if (ns_flux == SchemeData::ROE) {
               localff = new FluxFcnTaitApprJacRoeSA3D(rshift, gamma, iod, vftaitsa, typeJac);
             }
             else{
@@ -509,7 +525,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             break;
 
           case BC_INTERNAL:
-            if (iod.schemes.ns.flux == SchemeData::ROE) {
+            if (ns_flux == SchemeData::ROE) {
               localff = new FluxFcnTaitApprJacRoeKE3D(rshift, gamma, iod, vftaitke, typeJac);
             }
             else{
@@ -535,6 +551,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+          else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnTaitModifiedGhidagliaEuler3D(iod, vftait, typeJac);
           else if (iod.bc.outlet.type == BcsFreeStreamData::INTERNAL)
             localff = new FluxFcnTaitInternalOutflowEuler3D(iod, vftait, typeJac);
           else{
@@ -548,6 +567,9 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
              iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
             localff = new FluxFcnTaitGhidagliaEuler3D(iod, vftait, typeJac);
+          else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                  iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+            localff = new FluxFcnTaitModifiedGhidagliaEuler3D(iod, vftait, typeJac);
           else if (iod.bc.inlet.type == BcsFreeStreamData::INTERNAL)
             localff = new FluxFcnTaitInternalInflowEuler3D(iod, vftait, typeJac);
           else{
@@ -567,7 +589,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           break;
   
         case BC_INTERNAL:
-          if (iod.schemes.ns.flux == SchemeData::ROE &&
+          if (ns_flux == SchemeData::ROE &&
               iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
             localff = new FluxFcnTaitApprJacRoeEuler3D(rshift, gamma, iod, vftait, typeJac);
           else{
@@ -606,7 +628,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         break;
 
       case BC_INTERNAL:
-        if (iod.schemes.ns.flux == SchemeData::ROE &&
+        if (ns_flux == SchemeData::ROE &&
             iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE){
           localff = new FluxFcnJwlApprJacRoeEuler3D(rshift, gamma, iod, vfjwl, typeJac);
         }else{
@@ -648,6 +670,9 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
         else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
                 iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
           localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+        else if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
+                iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+          localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
         else{
           fprintf(stderr, "*** Error: no outlet boundary flux has been selected for Stiffened Gas\n");
           exit(-1);
@@ -664,6 +689,9 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
         else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
                 iod.schemes.bc.type == BoundarySchemeData::GHIDAGLIA)
           localff = new FluxFcnSGGhidagliaEuler3D(iod, vfsgeuler, typeJac);
+        else if(iod.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
+                iod.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA)
+          localff = new FluxFcnSGModifiedGhidagliaEuler3D(iod, vfsgeuler, typeJac);
         else{
           fprintf(stderr, "*** Error: no inlet boundary flux has been selected for Stiffened Gas\n");
           exit(-1);

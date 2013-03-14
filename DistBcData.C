@@ -12,22 +12,27 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
-  Xdot(domain->getNodeDistInfo()), Temp(domain->getNodeDistInfo()),vf(varFcn),
-  Ufarin(domain->getNodeDistInfo()), Ufarout(domain->getNodeDistInfo()),
-  Uface(domain->getFaceDistInfo()), Unode(domain->getNodeDistInfo()),
-  Uinletnode(domain->getInletNodeDistInfo()), rotInfo(ioData.rotations.rotationMap.dataMap)
+DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
+                            DistInfo* __nodeDistInfo,DistInfo* __inletNodeDistInfo,
+                            DistInfo* __faceDistInfo ) : 
+  nodeDistInfo(__nodeDistInfo?*__nodeDistInfo:domain->getNodeDistInfo()),
+  inletNodeDistInfo(__inletNodeDistInfo?*__inletNodeDistInfo:domain->getInletNodeDistInfo()),
+  faceDistInfo(__faceDistInfo?*__faceDistInfo:domain->getFaceDistInfo()),
+  Xdot(nodeDistInfo), Temp(nodeDistInfo),vf(varFcn),
+  Ufarin(nodeDistInfo), Ufarout(nodeDistInfo),
+  Uface(faceDistInfo), Unode(nodeDistInfo),
+  Uinletnode(inletNodeDistInfo), rotInfo(ioData.rotations.rotationMap.dataMap)
 {
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-    this->dXdot = new DistSVec<double,3>(domain->getNodeDistInfo());
-    this->dTemp = new DistVec<double>(domain->getNodeDistInfo());
-    this->dUface = new DistSVec<double,dim>(domain->getFaceDistInfo());
-    this->dUnode = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    this->dUinletnode = new DistSVec<double,dim>(domain->getFaceDistInfo());
-    this->dUfarin = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    this->dUfarout = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+    this->dXdot = new DistSVec<double,3>(nodeDistInfo);
+    this->dTemp = new DistVec<double>(nodeDistInfo);
+    this->dUface = new DistSVec<double,dim>(faceDistInfo);
+    this->dUnode = new DistSVec<double,dim>(nodeDistInfo);
+    this->dUinletnode = new DistSVec<double,dim>(faceDistInfo);
+    this->dUfarin = new DistSVec<double,dim>(nodeDistInfo);
+    this->dUfarout = new DistSVec<double,dim>(nodeDistInfo);
   }
   else {
     this->dXdot = 0;
@@ -40,8 +45,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   }
   if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
     if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
-      this->dUfaceSA = new DistSVec<double,dim>(domain->getFaceDistInfo());
-      this->dUnodeSA = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      this->dUfaceSA = new DistSVec<double,dim>(faceDistInfo);
+      this->dUnodeSA = new DistSVec<double,dim>(nodeDistInfo);
     } 
     else {
       this->dUfaceSA = 0;
@@ -62,7 +67,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
 #pragma omp parallel for
   for (int iSub=0; iSub<this->numLocSub; ++iSub)
 // Included (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  	if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
           subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
@@ -120,32 +125,40 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   vref = ioData.ref.rv.velocity;
 
   /** Update the temperature for walls for which a different temperature was specified. */
-  DistVec<int> faceFlag(domain->getNodeDistInfo());
-  faceFlag = 0;
-  CommPattern<int> ndC(domain->getSubTopo(), this->com, CommPattern<int>::CopyOnSend);
+
+  // The input __nodeDistInfo is only specified for multigrid problems, 
+  // in which we specify our own DistInfo.  For these problems, this block is turned
+  // off.
+  if (!__nodeDistInfo) {
+
+    DistVec<int> faceFlag(nodeDistInfo);
+    faceFlag = 0;
+    CommPattern<int> ndC(domain->getSubTopo(), this->com, CommPattern<int>::CopyOnSend);
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->setComLenNodes(1, ndC);
+   for (int iSub = 0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->setComLenNodes(1, ndC);
 
-  ndC.finalize();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->markFaceBelongsToSurface(faceFlag(iSub), ndC);
-
-  ndC.exchange();
+    ndC.finalize();
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->completeFaceBelongsToSurface(faceFlag(iSub), Temp(iSub),
-                        ioData.surfaces.surfaceMap.dataMap, ndC);
+    for (int iSub = 0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->markFaceBelongsToSurface(faceFlag(iSub), ndC);
+
+    ndC.exchange();
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->completeFaceBelongsToSurface(faceFlag(iSub), Temp(iSub),
+                          ioData.surfaces.surfaceMap.dataMap, ndC);
 
 
- this->com->sync();
+   this->com->sync();
+  }
+
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
     (*dXdot) = 0.0;
     (*dTemp) = 0.0;
     (*dUface) = 0.0;
@@ -202,7 +215,7 @@ void DistBcData<dim>::finalize(DistSVec<double,3> &X)
   this->vf->conservativeToPrimitive(this->Uout, Vout);
 
   double Pressure = this->vf->getPressure(Vin);
-  com->printf(2, "Non-dimensionalized primitive state vector:\n");
+/*  com->printf(2, "Non-dimensionalized primitive state vector:\n");
   com->printf(2, "Inlet: ");
   for (int k=0; k<dim; ++k)
     com->printf(2, " %g", Vin[k]);
@@ -210,7 +223,7 @@ void DistBcData<dim>::finalize(DistSVec<double,3> &X)
   for (int k=0; k<dim; ++k)
     com->printf(2, " %g", Vout[k]);
   com->printf(2,"\n");
-
+*/
 #pragma omp parallel for
   for (int iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->assignFreeStreamValues2(this->Ufarin(iSub),
@@ -228,7 +241,7 @@ void DistBcData<dim>::finalizeSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, 
 
 //Remark: Error mesage for pointers
   if (dUface == 0) {
-    fprintf(stderr, "*** Error: Varible dUface does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dUface does not exist!\n");
     exit(1);
   }
 
@@ -322,11 +335,11 @@ void DistBcData<dim>::updateSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, do
 
 //Remark: Error mesage for pointers
   if (dUface == 0) {
-    fprintf(stderr, "*** Error: Varible dUface does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dUface does not exist!\n");
     exit(1);
   }
   if (dUnode == 0) {
-    fprintf(stderr, "*** Error: Varible dUnode does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dUnode does not exist!\n");
     exit(1);
   }
 
@@ -1824,7 +1837,7 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
     vec2Pat = new CommPattern<double>(dom->getSubTopo(), this->com, CommPattern<double>::CopyOnSend);
 
 // Included (MB)
-    if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
       dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
     }
     else {
@@ -1948,7 +1961,7 @@ void DistBcDataSA<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
 
 //Remark: Error mesage for pointers
   if (dtmp == 0) {
-    fprintf(stderr, "*** Warning: Varible dtmp does not exist!\n");
+    fprintf(stderr, "*** Warning: Variable dtmp does not exist!\n");
     //exit(1);
   }
 
@@ -2028,7 +2041,7 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
   vec3Pat = dom->getVec3DPat();
 
 // Included (MB)
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
     dtmp = new DistSVec<double,3>(dom->getNodeDistInfo());
   }
   else {
@@ -2109,8 +2122,8 @@ void DistBcDataKE<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
 
 //Remark: Error mesage for pointers
   if (dtmp == 0) {
-    fprintf(stderr, "*** Warning: Varible dtmp does not exist!\n");
-    //fprintf(stderr, "*** Error: Varible dtmp does not exist!\n");
+    fprintf(stderr, "*** Warning: Variable dtmp does not exist!\n");
+    //fprintf(stderr, "*** Error: Variable dtmp does not exist!\n");
     //exit(1);
   }
 

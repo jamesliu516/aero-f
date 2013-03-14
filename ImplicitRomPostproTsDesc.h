@@ -18,14 +18,13 @@ protected:
   DistSVec<double, dim> Uinitial;	// solution increment at EACH NEWTON ITERATION in full coordinates
 	virtual void postProStep(DistSVec<double,dim> &, int);	// by default, do not do post processing
   void checkLocalRomStatus(DistSVec<double, dim> &, const int);
-
-  bool monitorConvergence(int, DistSVec<double,dim> &);
   
   double dt;
 
 public:
 
-  double computeTimeStep(int, double*, DistSVec<double,dim> &);
+  double computeTimeStep(int, double*, DistSVec<double,dim> &, double);
+  bool monitorConvergence(int, DistSVec<double,dim> &);
  
   ImplicitRomPostproTsDesc(IoData &, GeoSource &, Domain *);
 

@@ -8,6 +8,7 @@
 #include <TsParameters.h>
 //#include <Domain.h>
 #include <DistVector.h>
+#include <MultiGridKernel.h>
 
 class RefVal;
 class VarFcn;
@@ -92,10 +93,12 @@ protected:
 
   bool failSafeFlag;
 
+  //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
+  bool modifiedGhidaglia;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
-  virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
 // Included (MB)
   bool monitorForceConvergence(IoData &, int, DistSVec<double,dim> &);
@@ -113,9 +116,14 @@ public:
 
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
+  SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
+  
+  virtual bool monitorConvergence(int, DistSVec<double,dim> &);
+
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
-  virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
+  virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
+  virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }
   virtual double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
@@ -123,6 +131,8 @@ public:
   bool checkForLastIteration(int, double, double, DistSVec<double,dim> &); //KW: not used?
 
   void setFailSafe(bool flag){ failSafeFlag = flag; }
+
+  DistSVec<double,dim>& getCurrentResidual() { return *R; }
 
 // Modified (MB)
   virtual bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
@@ -161,9 +171,15 @@ public:
 
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
+  void updateFarfieldCoeffs(double dt);
+  void updateBoundaryExternalState();
+  void initializeFarfieldCoeffs();
+
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
   void computeDistanceToWall(IoData &ioData);
+ 
+  TsParameters* getTsParams() {return data;}
 
   virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
 

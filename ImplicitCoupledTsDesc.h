@@ -46,6 +46,17 @@ public:
 // Included (MB)
   void rstVarImplicitCoupledTsDesc(IoData &);
 
+  DistMat<double,dim>* GetJacobian() { 
+    MatVecProdH1<dim,double,dim>* mvph1 = 
+      dynamic_cast<MatVecProdH1<dim,double,dim>*>(this->mvp);
+    if (mvph1) 
+      return dynamic_cast<DistMat<double,dim>*>(mvph1);
+    MatVecProdH2<dim,double,dim>* mvph2 = 
+      dynamic_cast<MatVecProdH2<dim,double,dim>*>(this->mvp);
+    if (mvph2) 
+      return dynamic_cast<DistMat<double,dim>*>(mvph2);
+    return NULL;
+  }
 };
 
 //------------------------------------------------------------------------------

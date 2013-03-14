@@ -36,8 +36,8 @@ template<int dim> class DistExactRiemannSolver;
 template<int dim>
 class ForceGenerator {
   public:
-    virtual void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]) = 0;
+    virtual void getForcesAndMoments(map<int,int> &surfMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           Vec3D* Fi, Vec3D* Mi) = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -115,6 +115,7 @@ public:
 
   double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);
 
+
   void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistVec<double> &, 
                              DistVec<double> &, DistTimeState<dim> *);
@@ -167,7 +168,6 @@ public:
 
   PostFcn* getPostFcn() {return postFcn;}
   
-
 // Included (MB)
   void computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *);
 

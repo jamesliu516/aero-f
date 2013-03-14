@@ -1,2 +1,2 @@
-FIND_LIBRARY(IntelFCE_Lib NAMES ifcore PATHS /opt/intel/fce/10.1.015/lib)
+FIND_LIBRARY(IntelFCE_Lib NAMES ifcore PATHS /opt/intel/lib/intel64/)
 SET(EXTRALIB ${EXTRALIB} ${IntelFCE_Lib})

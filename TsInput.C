@@ -24,6 +24,7 @@ TsInput::TsInput(IoData &iod) {
   //sampleNodes = absolutePath(iod.input.sampleNodes, prefix);
   //jacMatrix = absolutePath(iod.input.jacMatrix, prefix);
   //resMatrix = absolutePath(iod.input.resMatrix, prefix);
+	wallsurfacedisplac = absolutePath(iod.input.wallsurfacedisplac, prefix);
   shapederivatives = absolutePath(iod.input.shapederivatives, prefix);
   //staterom = absolutePath(iod.input.staterom, prefix);
   //reducedfullnodemap = absolutePath(iod.input.reducedfullnodemap , prefix);
@@ -59,6 +60,7 @@ TsInput::~TsInput() {
  // delete[] sampleNodes;
  // delete[] jacMatrix;
  // delete[] resMatrix;
+	delete[] wallsurfacedisplac;
   delete[] shapederivatives; 
  // delete[] staterom;
  // delete[] reducedfullnodemap ;

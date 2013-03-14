@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <list>
 #include <map>
+#include <fstream>
 
 //------------------------------------------------------------------------------
 
@@ -24,6 +25,20 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 
 {
   timer = tim;
+
+  if (cracking()) {
+
+    if (strcmp(iod.input.cracking,"") != 0) {
+
+      int lns = strlen(iod.input.prefix)+strlen(iod.input.cracking)+1;
+      char* fn = new char[lns];
+      sprintf(fn,"%s%s",iod.input.prefix, iod.input.cracking);
+      std::ifstream infile(fn, std::ios::binary);
+      readCrackingData(infile);
+      delete [] fn;
+    }
+  }
+
 //  com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
 
 {  Communication::Window<double> window(com, 1*sizeof(double), &dts);
@@ -135,7 +150,7 @@ DynamicNodalTransfer::getNewCracking()
 
   if(numConnUpdate) { //update "windows".
     int N = structure.nNodes;
-    if((N*2*3*sizeof(double) == winDisp->size())) {com.fprintf(stderr,"WEIRD!\n");exit(-1);}
+//    if((N*2*3*sizeof(double) == winDisp->size())) {com.fprintf(stderr,"WEIRD!\n");exit(-1);}
 
     delete winDisp;
     winDisp = new Communication::Window<double> (com, 2*3*N*sizeof(double), (double *)XandUdot);
@@ -190,7 +205,7 @@ void
 DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<double,3> &fs)
 {
   if(F.size() != fs.size()) {
-    com.fprintf(stderr,"force vector in DynamicNodalTransfer resized (from %d to %d)!\n", F.size(), fs.size());
+   // com.fprintf(stderr,"force vector in DynamicNodalTransfer resized (from %d to %d)!\n", F.size(), fs.size());
     F.resize(fs.size());
   }
   F = fs;
@@ -200,7 +215,7 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 
 EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom, Timer *tim) : com(comm), 
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
-                                             UScale(iod.ref.rv.tvelocity),  nNodes(0), nElems(0), elemType(3),
+                                             UScale(iod.ref.rv.tvelocity), nNodes(0), nElems(0), elemType(3),
                                              cracking(0), X(0), X0(0), Tria(0), U(0), Udot(0), XandUdot(0), F(0), it(0), 
                                              structExc(0), mns(0), algNum(6) //A6
 {
@@ -222,6 +237,13 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   int sp = strlen(iod.input.prefix) + 1;
   meshFile = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(meshFile,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
+
+  restartmeshFile = new char[sp + strlen(iod.input.embeddedpositions)];
+  if(iod.input.embeddedpositions[0] != 0)
+    sprintf(restartmeshFile,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
+  else //no restart position file provided
+    restartmeshFile[0] = '\0'; 
+
   matcherFile = new char[sp + strlen(iod.input.match)];
   sprintf(matcherFile,"%s%s", iod.input.prefix, iod.input.match); 
 
@@ -239,6 +261,12 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 1;
     else if(iod.forced.type==ForcedData::PITCHING)
       mode = 2;
+    else if(iod.forced.type==ForcedData::VELOCITY)
+      mode = 3;
+    else if (iod.forced.type==ForcedData::DEFORMING)
+      mode = 4;
+    else if (iod.forced.type==ForcedData::DEBUGDEFORMING)
+      mode = 99;
     else {
       com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
       exit(-1);
@@ -252,22 +280,44 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   omega = 2.0*acos(-1.0)*(1.0/tScale)*iod.forced.frequency;
 
   // for heaving
-  dx    = iod.ref.rv.length*iod.forced.hv.ax; //tlength = length / aero.displacementScaling;
-  dy    = iod.ref.rv.length*iod.forced.hv.ay;
-  dz    = iod.ref.rv.length*iod.forced.hv.az;  
+  if (mode!=99) {				
+    dx    = iod.ref.rv.length*iod.forced.hv.ax;
+    dy    = iod.ref.rv.length*iod.forced.hv.ay;
+    dz    = iod.ref.rv.length*iod.forced.hv.az;  
+  }																	
+  else {															
+	dx = dy = dz = iod.ref.rv.length*iod.forced.df.amplification;	
+  }																	
 
   // for pitching
   alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
   alpha_max = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;  // maximum angle of rotation
-  x1[0] = iod.forced.pt.x1;  x1[1] = iod.forced.pt.y1;  x1[2] = iod.forced.pt.z1;
-  x2[0] = iod.forced.pt.x2;  x2[1] = iod.forced.pt.y2;  x2[2] = iod.forced.pt.z2;
+  x1[0] = iod.forced.pt.x11;  x1[1] = iod.forced.pt.y11;  x1[2] = iod.forced.pt.z11;
+  x2[0] = iod.forced.pt.x21;  x2[1] = iod.forced.pt.y21;  x2[2] = iod.forced.pt.z21;
+
+  beta_in  = (acos(-1.0)*iod.forced.pt.beta_in) / 180.0;  // initial angle of rotation
+  beta_max = (acos(-1.0)*iod.forced.pt.beta_max) / 180.0;  // maximum angle of rotation
+  y1[0] = iod.forced.pt.x12;  y1[1] = iod.forced.pt.y12;  y1[2] = iod.forced.pt.z12;
+  y2[0] = iod.forced.pt.x22;  y2[1] = iod.forced.pt.y22;  y2[2] = iod.forced.pt.z22;
+
   for(int i=0; i<3; i++) { //get back to user-specified coordinates.
     x1[i] *= iod.ref.rv.length;
     x2[i] *= iod.ref.rv.length;
+    y1[i] *= iod.ref.rv.length;
+    y2[i] *= iod.ref.rv.length;
   }
   u = x2[0]-x1[0];  v = x2[1]-x1[1];  w = x2[2]-x1[2];
   // unit normals of axis of rotation //
   ix = u/sqrt(u*u+v*v+w*w);  iy = v/sqrt(u*u+v*v+w*w);  iz = w/sqrt(u*u+v*v+w*w);
+
+  // for deforming data
+  deformMeshFile = new char[strlen(iod.forced.df.positions) + 1];
+  if(iod.forced.df.positions[0] != 0)
+    sprintf(deformMeshFile,"%s", iod.forced.df.positions);
+  else //no deforming data position file provided
+    deformMeshFile[0] = '\0'; 
+  Xd = 0;
+  dXmax = 0;
 
   // ----------------------------------
   //               End
@@ -345,6 +395,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     tMax = tScale*structExc->getMaxTime();
     algNum = structExc->getAlgorithmNumber();
 
+
     if(cracking) {
       getInitialCrack();
       cracking->setNewCrackingFlag(false);
@@ -364,43 +415,87 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     FILE *topFile = 0;
     topFile = fopen(meshFile,"r");
     if(!topFile) com.fprintf(stderr,"ERROR: Embedded surface mesh file could not be found!\n");
-    char c1[200], c2[200], c3[200];
-    int num0 = 0, num1 = 0, count, nInputs;
+
+    char line[MAXLINE],key1[MAXLINE],key2[MAXLINE];
+
+    int num0 = 0; 
+    int num1 = 0;
+
     double x1,x2,x3;
-    int toto = fscanf(topFile, "%s %s\n", c1, c2);
-    char debug[6]="Nodes";
-    for (int i=0; i<5; i++) 
-      if(debug[i]!=c1[i]) {com.fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", meshFile); exit(-1);}
-  
-    std::list<Vec3D> nodeList;
+    int node1, node2, node3;
+
+    int type_read = 0;
+    int surfaceid = 0;
+
     std::list<int> indexList;
-    std::list<Vec3D>::iterator it1;
-    std::list<int>::iterator it2;
-    int maxIndex = 0;
+    std::list<Vec3D> nodeList;
+    std::list<int> elemIdList;    
+    std::list<int> elemList1;
+    std::list<int> elemList2;
+    std::list<int> elemList3;
+    std::list<int> surfaceIDList;
 
-    while(1) {
-      nInputs = fscanf(topFile,"%s", c1);
-      if(nInputs!=1) break;
-      if(c1[0]=='E') //done with the node set
-        break;
-      num1 = atoi(c1);
-      if(num1<1) {com.fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
-      indexList.push_back(num1);
-      if(num1>maxIndex)
-        maxIndex = num1;
+    int maxIndex = 0, maxElem = -1;
 
-      toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
-      nodeList.push_back(Vec3D(x1,x2,x3));
+    while (fgets(line,MAXLINE,topFile) != 0) {
+      sscanf(line, "%s", key1);
+      bool skip = false;
+      if (strcmp(key1, "Nodes") == 0) {
+        sscanf(line, "%*s %s", key2);
+        skip = true;
+        type_read = 1;
+      }
+      if (strcmp(key1, "Elements") == 0) {
+        sscanf(line, "%*s %s", key2);
+        skip = true;
+        type_read = 2;
+        int underscore_pos = -1;
+        int k = 0;
+        while((key2[k] != '\0') && (k<MAXLINE)) {
+          if(key2[k] == '_') underscore_pos = k;
+          k++;
+        }
+        if(underscore_pos > -1)
+          sscanf(key2+(underscore_pos+1),"%d",&surfaceid); 
+      }
+      if (!skip) {
+        if (type_read == 1) {
+  	  sscanf(line, "%d %lf %lf %lf", &num1, &x1, &x2, &x3);
+  	  if(num1<1) {com.fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
+          indexList.push_back(num1);
+          if(num1>maxIndex) maxIndex = num1;
+          nodeList.push_back(Vec3D(x1,x2,x3));
+        }
+        if (type_read == 2) {
+          sscanf(line,"%d %d %d %d %d", &num0, &num1, &node1, &node2, &node3);
+          elemList1.push_back(node1-1);
+          elemList2.push_back(node2-1);
+          elemList3.push_back(node3-1);
+          surfaceIDList.push_back(surfaceid);
+        }
+      }
     }
+
     nNodes = totalNodes = nodeList.size();
+    nElems = totalElems = elemList1.size();
+
     if(nNodes != maxIndex) {
       com.fprintf(stderr,"ERROR: The node set of the embedded surface have gap(s). \n");
       com.fprintf(stderr,"       Detected max index = %d, number of nodes = %d\n", maxIndex, nNodes);
       com.fprintf(stderr,"NOTE: Currently the node set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
       exit(-1);
     }
+
     X0 = new (com) double[totalNodes][3];
     X  = new (com) double[totalNodes][3];
+    surfaceID = new int[totalNodes];
+
+    std::list<Vec3D>::iterator it1;
+    std::list<int>::iterator it2;
+    std::list<int>::iterator it_1;
+    std::list<int>::iterator it_2;
+    std::list<int>::iterator it_3;
+    std::list<int>::iterator it_4;
 
     it2=indexList.begin();
     for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
@@ -410,63 +505,118 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       it2++; 
     }
 
-    // now load the elements
-    if(nInputs!=1) {
-      com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
-    int nm = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
-    char debug2[6] = "using";
-    for (int i=0; i<5; i++)
-      if(debug2[i]!=c2[i]) {com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
-
-    std::list<int> elemIdList;
-    std::list<int> elemList1;
-    std::list<int> elemList2;
-    std::list<int> elemList3;
-    std::list<int>::iterator it_0;
-    std::list<int>::iterator it_1;
-    std::list<int>::iterator it_2;
-    std::list<int>::iterator it_3;
-    int node1, node2, node3;
-    maxIndex = -1;
-
-    while(1) {
-      nInputs = fscanf(topFile,"%d", &num0);
-      if(nInputs!=1) break;
-      toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
-      if(num0<1) {com.fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, meshFile); exit(-1);}
-      elemIdList.push_back(num0-1);  //start from 0.
-      elemList1.push_back(node1-1);
-      elemList2.push_back(node2-1);
-      elemList3.push_back(node3-1);
-      if(num0-1>maxIndex)
-        maxIndex = num0-1;
-    }
-    nElems = totalElems = elemList1.size();
-    if(nElems != maxIndex+1) {
-      com.fprintf(stderr,"ERROR: The element set of the embedded surface have gap(s). \n");
-      com.fprintf(stderr,"       Detected max index = %d, number of elements = %d\n", maxIndex+1, nElems);
-      com.fprintf(stderr,"NOTE: Currently the element set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
-      exit(-1);
+    for (int k=0; k<totalNodes; k++) {
+      surfaceID[k] = 0;
     }
 
     Tria = new (com) int[totalElems][3];
 
-    it_0 = elemIdList.begin();
     it_1 = elemList1.begin();
     it_2 = elemList2.begin();
     it_3 = elemList3.begin();
+    it_4 = surfaceIDList.begin();
     for (int i=0; i<nElems; i++) {
-      Tria[*it_0][0] = *it_1;
-      Tria[*it_0][1] = *it_2;
-      Tria[*it_0][2] = *it_3;
-      it_0++;
+      Tria[i][0] = *it_1;
+      Tria[i][1] = *it_2;
+      Tria[i][2] = *it_3;
+      surfaceID[*it_1] = *it_4;
+      surfaceID[*it_2] = *it_4;
+      surfaceID[*it_3] = *it_4;
       it_1++;
       it_2++;
       it_3++;
+      it_4++;
     }
 
     fclose(topFile);
+
+    int nInputs;
+    char c1[200], c2[200], c3[200];
+    // load solid nodes at restart time.
+    if (restartmeshFile[0] != 0) {
+      FILE* resTopFile = fopen(restartmeshFile, "r");
+      if(resTopFile==NULL) {com.fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
+      int ndMax = 0, ndMax2 = 0;
+      std::list<std::pair<int,Vec3D> > nodeList2;
+      std::list<std::pair<int,Vec3D> >::iterator it2;
+
+      while(1) {
+        nInputs = fscanf(resTopFile,"%s", c1);
+        if(nInputs!=1) break;    
+        char *endptr;
+        num1 = strtol(c1, &endptr, 10);
+        if(endptr == c1) break;
+
+        int toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+        nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+        ndMax = std::max(num1, ndMax);
+      }
+      if (ndMax!=totalNodes) {
+        com.fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+        exit(1);
+      }
+
+      for(int i=0; i<totalNodes; i++)
+        X[i][0] = X[i][1] = X[i][2] = 0.0;
+      
+      for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++) {
+        X[it2->first-1][0] = (it2->second)[0];
+        X[it2->first-1][1] = (it2->second)[1];
+        X[it2->first-1][2] = (it2->second)[2];
+      }
+
+      fclose(resTopFile);
+    }
+
+    if (mode==4) { //deforming data
+      int nInputs;
+      char c1[200], c2[200], c3[200];
+      // load deforming data
+      if (deformMeshFile[0] != 0) {
+        FILE* defoTopFile = fopen(deformMeshFile, "r");
+        if(defoTopFile==NULL) {com.fprintf(stderr, "Deforming data topFile doesn't exist.\n"); exit(1);}
+        int ndMax = 0, ndMax2 = 0;
+        std::list<std::pair<int,Vec3D> > nodeList2;
+        std::list<std::pair<int,Vec3D> >::iterator it2;
+
+        while(1) {
+          nInputs = fscanf(defoTopFile,"%s", c1);
+          if(nInputs!=1) break;    
+          char *endptr;
+          num1 = strtol(c1, &endptr, 10);
+          if(endptr == c1) break;
+
+          int toto = fscanf(defoTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+          nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+          ndMax = std::max(num1, ndMax);
+        }
+        if (ndMax!=totalNodes) {
+          com.fprintf(stderr,"ERROR: number of nodes in Deforming data top-file is wrong.\n");
+          exit(1);
+        }
+
+        Xd  = new (com) double[totalNodes][3];
+        dXmax  = new (com) double[totalNodes][3];
+
+        for(int i=0; i<totalNodes; i++)
+          Xd[i][0] = Xd[i][1] = Xd[i][2] = 0.0;
+        
+        for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++) {
+          Xd[it2->first-1][0] = (it2->second)[0];
+          Xd[it2->first-1][1] = (it2->second)[1];
+          Xd[it2->first-1][2] = (it2->second)[2];
+          dXmax[it2->first-1][0] = iod.forced.df.amplification*(Xd[it2->first-1][0] - X0[it2->first-1][0]);
+          dXmax[it2->first-1][1] = iod.forced.df.amplification*(Xd[it2->first-1][1] - X0[it2->first-1][1]);
+          dXmax[it2->first-1][2] = iod.forced.df.amplification*(Xd[it2->first-1][2] - X0[it2->first-1][2]);
+        }
+
+        fclose(defoTopFile);
+      }
+    }
+
   }
+
+  makerotationownership(iod);
 
   // ----------------------------------
   //               End
@@ -503,18 +653,26 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
 EmbeddedStructure::~EmbeddedStructure()
 {
-/* PJSA
-  if(X)         delete[] X;
-  if(Tria)      delete[] Tria;
-  if(U)         delete[] U;
-  if(Udot)      delete[] Udot;
-  if(XandUdot)  delete[] XandUdot;
-  if(F)         delete[] F;
-*/
+  if(X0)       operator delete[] (X0, com);
+  if(X)        operator delete[] (X, com);
+  if(Xd)       operator delete[] (Xd, com);
+  if(dXmax)    operator delete[] (dXmax, com);
+  if(Tria)     operator delete[] (Tria, com);
+  if(U)        operator delete[] (U, com);
+  if(Udot)     operator delete[] (Udot, com);
+  if(XandUdot) operator delete[] (XandUdot, com);
+  if(F)        operator delete[] (F, com);
+  if(surfaceID) delete[] surfaceID;
+  if(rotOwn) delete[] rotOwn;
+
   if(structExc) delete structExc;  
   if(mns)      {delete mns[0]; delete [] mns;}
   delete[] meshFile;
+  if(restartmeshFile) delete[] restartmeshFile;
+  if(deformMeshFile) delete[] deformMeshFile;
   delete[] matcherFile;
+
+  if(coupled) delete di;
 }
 
 //------------------------------------------------------------------------------
@@ -529,6 +687,133 @@ EmbeddedStructure::getTargetData()
   return pair<double*,int>((double*)F,nNodes);
 }
 
+//------------------------------------------------------------------------------
+void EmbeddedStructure::makerotationownership(IoData &iod) {
+  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+  map<int,SurfaceData *>::iterator it = surfaceMap.begin();
+  rotationMap = &(iod.forced.vel.rotationMap.dataMap);
+  rotOwn = 0;
+  
+  int numRotSurfs = 0;
+  int numTransWalls = 0;
+  while(it != surfaceMap.end()) {
+    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->forceID);
+    if(it1!=rotationMap->end()) {
+      if(it1->second->infRadius) {
+        numTransWalls++;
+        com.fprintf(stderr," ... surface %2d is ``translating''\n",it->first, it1->first);
+        com.fprintf(stderr,"     -> uniform velocity V = %3.2e in direction %3.2e %3.2e %3.2e\n",
+                     it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
+      } else {
+        numRotSurfs++;
+        com.fprintf(stderr," ... surface %2d is ``rotating'' in DynamicNodalTranser using rotation data %2d\n",it->first, it1->first);
+        com.fprintf(stderr,"     -> omega = %3.2e, rotation axis = %3.2e %3.2e %3.2e\n",
+                     it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
+      }
+    }
+    it++;
+  }
+
+  if(numRotSurfs || numTransWalls) {
+    rotOwn = new int[nNodes];
+
+    for (int k=0; k<nNodes; k++) {
+      rotOwn[k] = -1;
+
+      map<int,SurfaceData *>::iterator it = surfaceMap.find(surfaceID[k]);
+      if(it != surfaceMap.end()) {
+         int rotID = it->second->forceID; // = -1 if not defined in input file
+         if ((rotOwn[k] != -1 && rotOwn[k] != rotID) ||
+             (rotOwn[k] != -1 && rotOwn[k] != rotID) ||
+             (rotOwn[k] != -1 && rotOwn[k] != rotID))  {
+           com.fprintf(stderr, " ... WARNING: Embedded Node %d associated to more than 1 Rotation ID\n",k);
+         }
+         rotOwn[k] = rotID;
+         rotOwn[k] = rotID;
+         rotOwn[k] = rotID;
+      }
+    }
+  }
+}
+//------------------------------------------------------------------------------
+void EmbeddedStructure::updaterotation(double time) {
+  if (rotOwn)  { 
+    for (int k=0; k<nNodes; k++) {
+      if (rotOwn[k]>=0) {    // node belongs to a (potential) "rotating" surface
+        map<int,RotationData *>::iterator it =  rotationMap->find(rotOwn[k]);
+        if(it != rotationMap->end()) { // the rotation data have been defined
+	  if(it->second->infRadius == RotationData::TRUE) {
+            double vel = it->second->omega;
+	    U[k][0] = vel*it->second->nx*time;
+	    U[k][1] = vel*it->second->ny*time;
+	    U[k][2] = vel*it->second->nz*time;
+	    Udot[k][0] = vel*it->second->nx;
+	    Udot[k][1] = vel*it->second->ny;
+	    Udot[k][2] = vel*it->second->nz;
+	  } 
+          else {
+	    double xd = X0[k][0] - it->second->x0;
+	    double yd = X0[k][1] - it->second->y0;
+	    double zd = X0[k][2] - it->second->z0;
+	    double theta = it->second->omega*time;
+	    double costheta = cos(theta);
+	    double sintheta = sin(theta);
+	    double ix = it->second->nx;
+	    double iy = it->second->ny;
+	    double iz = it->second->nz;
+
+	    double dx[3] = {0.,0.,0.};
+            dx[0] += (costheta + (1 - costheta) * ix * ix) * xd;
+            dx[0] += ((1 - costheta) * ix * iy - iz * sintheta) * yd;
+            dx[0] += ((1 - costheta) * ix * iz + iy * sintheta) * zd;
+
+            dx[1] += ((1 - costheta) * ix * iy + iz * sintheta) * xd;
+            dx[1] += (costheta + (1 - costheta) * iy * iy) * yd;
+            dx[1] += ((1 - costheta) * iy * iz - ix * sintheta) * zd;
+
+            dx[2] += ((1 - costheta) * ix * iz - iy * sintheta) * xd;
+            dx[2] += ((1 - costheta) * iy * iz + ix * sintheta) * yd;
+            dx[2] += (costheta + (1 - costheta) * iz * iz) * zd;
+
+            dx[0] += it->second->x0;
+            dx[1] += it->second->y0;
+            dx[2] += it->second->z0;
+
+	    U[k][0] = dx[0] - X0[k][0]; 
+	    U[k][1] = dx[1] - X0[k][1];
+	    U[k][2] = dx[2] - X0[k][2];
+
+	    double ox = it->second->omega*it->second->nx;
+	    double oy = it->second->omega*it->second->ny;
+	    double oz = it->second->omega*it->second->nz;
+	    xd = dx[0] - it->second->x0;
+	    yd = dx[1] - it->second->y0;
+	    zd = dx[2] - it->second->z0;
+	    Udot[k][0] = oy*zd-oz*yd;
+	    Udot[k][1] = oz*xd-ox*zd;
+	    Udot[k][2] = ox*yd-oy*xd;
+	  }
+	} 
+        else  { // no rotation data
+          U[k][0] = 0.;
+          U[k][1] = 0.;
+          U[k][2] = 0.;
+          Udot[k][0] = 0.;
+          Udot[k][1] = 0.;
+          Udot[k][2] = 0.;
+	}
+      }
+      else  { // no rotation data
+        U[k][0] = 0.;
+        U[k][1] = 0.;
+        U[k][2] = 0.;
+        Udot[k][0] = 0.;
+        Udot[k][1] = 0.;
+        Udot[k][2] = 0.;
+      }
+    }
+  }
+}
 //------------------------------------------------------------------------------
 
 void
@@ -545,7 +830,7 @@ void
 EmbeddedStructure::sendTimeStep(Communication::Window<double> *window)
 {
   if(com.cpuNum()>0) return; // only proc #1 sends the time.
-  std::cout << "Sending the timestep (" << dt << ") to fluid " << std::endl;
+  //std::cout << "Sending the timestep (" << dt << ") to fluid " << std::endl;
 {
   for(int i = 0; i < com.size(); ++i) {
     window->put(&dt, 0, 1, i, 0);
@@ -559,7 +844,7 @@ void
 EmbeddedStructure::sendMaxTime(Communication::Window<double> *window)
 {
   if(com.cpuNum()>0) return; // only proc #1 sends the time.
-  std::cout << "Sending the max time (" << tMax << ") to fluid " << std::endl;
+  //std::cout << "Sending the max time (" << tMax << ") to fluid " << std::endl;
 {
   for(int i = 0; i < com.size(); ++i) {
     window->put(&tMax, 0, 1, i, 0);
@@ -623,10 +908,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   it++;
   if(!coupled) {
     double time;
-    if(it==1 && algNum==6)
-      time = t0 + 0.5*dt*(double)it;
-    else
-      time = t0 + dt*(double)it;
+    time = t0 + dt*(double)it;
      
     if (mode==1) //heaving
       for(int i=0; i < nNodes; ++i) {
@@ -641,12 +923,72 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       double theta = alpha_in + alpha_max*sin(omega*time);
       double costheta = cos(theta);
       double sintheta = sin(theta);
-      for(int i=0; i<nNodes; ++i) {
-        U[i][0] = U[i][1] = U[i][2] = 0.0;
-        double p[3];
-        for(int j=0; j<3; j++)
-          p[j] = X0[i][j] - x1[j];
 
+      double phi = beta_in + beta_max*sin(omega*time); 
+      double cosphi = cos(phi);
+      double sinphi = sin(phi);
+
+// Rotate the axis of 2nd rotation about the first rotation axis
+      double p[3], yy1[3], yy2[3];
+
+      p[0] = y1[0] - x1[0];                                         
+      p[1] = y1[1] - x1[1];                                         
+      p[2] = y1[2] - x1[2];                                         
+
+      yy1[0] = 0.0; yy1[1] = 0.0; yy1[2] = 0.0;           
+      yy1[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+      yy1[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];    
+      yy1[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];    
+
+      yy1[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];   
+      yy1[1] += (costheta + (1 - costheta) * iy * iy) * p[1];         
+      yy1[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];    
+
+      yy1[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+      yy1[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];    
+      yy1[2] += (costheta + (1 - costheta) * iz * iz) * p[2];         
+
+      yy1[0] += x1[0];                                                  
+      yy1[1] += x1[1];                                                   
+      yy1[2] += x1[2];                                                 
+
+      p[0] = y2[0] - x1[0];                                    
+      p[1] = y2[1] - x1[1];                                    
+      p[2] = y2[2] - x1[2];                                    
+
+      yy2[0] = 0.0; yy2[1] = 0.0; yy2[2] = 0.0;                         
+      yy2[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+      yy2[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];   
+      yy2[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];   
+
+      yy2[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];    
+      yy2[1] += (costheta + (1 - costheta) * iy * iy) * p[1];        
+      yy2[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];  
+
+      yy2[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+      yy2[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];   
+      yy2[2] += (costheta + (1 - costheta) * iz * iz) * p[2];      
+
+      yy2[0] += x1[0];                                                
+      yy2[1] += x1[1];                                             
+      yy2[2] += x1[2];                                       
+
+// unit normals of axis of 2nd rotation //
+
+      u = yy2[0]-yy1[0];                                      
+      v = yy2[1]-yy1[1];                                  
+      w = yy2[2]-yy1[2];                            
+
+      double jx = u/sqrt(u*u+v*v+w*w);
+      double jy = v/sqrt(u*u+v*v+w*w);
+      double jz = w/sqrt(u*u+v*v+w*w);
+
+      for(int i=0; i<nNodes; ++i) {
+        p[0] = X0[i][0] - x1[0];
+        p[1] = X0[i][1] - x1[1];
+        p[2] = X0[i][2] - x1[2];
+
+        U[i][0] = 0.0; U[i][1] = 0.0; U[i][2] = 0.0;              
         U[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
         U[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
         U[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
@@ -663,42 +1005,87 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         U[i][1] += x1[1];
         U[i][2] += x1[2];
 
-        if(it==1) {
-          if(algNum==6)
-            for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X0[i][j])/(0.5*dt);
-          else
-            for(int j=0; j<3; j++)
-              Udot[i][j] = (U[i][j]-X0[i][j])/dt;
-        } else {
-          for(int j=0; j<3; j++)
-            Udot[i][j] = (U[i][j]-X[i][j])/dt;
-        }
+        p[0] = U[i][0] -  yy1[0];                               
+        p[1] = U[i][1] -  yy1[1];                               
+        p[2] = U[i][2] -  yy1[2];                               
+
+        U[i][0] = 0.0; U[i][1] = 0.0; U[i][2] = 0.0;              
+        U[i][0] += (cosphi + (1 - cosphi) * jx * jx) * p[0];            
+        U[i][0] += ((1 - cosphi) * jx * jy - jz * sinphi) * p[1];      
+        U[i][0] += ((1 - cosphi) * jx * jz + jy * sinphi) * p[2];    
+
+        U[i][1] += ((1 - cosphi) * jx * jy + jz * sinphi) * p[0];       
+        U[i][1] += (cosphi + (1 - cosphi) * jy * jy) * p[1];           
+        U[i][1] += ((1 - cosphi) * jy * jz - jx * sinphi) * p[2];     
+
+        U[i][2] += ((1 - cosphi) * jx * jz - jy * sinphi) * p[0];   
+        U[i][2] += ((1 - cosphi) * jy * jz + jx * sinphi) * p[1];  
+        U[i][2] += (cosphi + (1 - cosphi) * jz * jz) * p[2];           
+
+        U[i][0] += yy1[0];                                            
+        U[i][1] += yy1[1];                                        
+        U[i][2] += yy1[2];                                     
+
+        for(int j=0; j<3; j++)
+          Udot[i][j] = (U[i][j]-X[i][j])/dt;
 
         for(int j=0; j<3; j++)
           U[i][j] -= X0[i][j];
       }
     }
     else if (mode==3) //heaving with a constant velocity (in this case dx dy dz are velocity
-      for(int i=0; i < nNodes; ++i) {
-        U[i][0] = time*dx;
-        U[i][1] = time*dy;
-        U[i][2] = time*dz;
-        Udot[i][0] = dx;
-        Udot[i][1] = dy;
-        Udot[i][2] = dz;
+//      for(int i=0; i < nNodes; ++i) {
+//        U[i][0] = time*dx;
+//        U[i][1] = time*dy;
+//        U[i][2] = time*dz;
+//        Udot[i][0] = dx;
+//        Udot[i][1] = dy;
+//        Udot[i][2] = dz;
+//      }
+      updaterotation(time);
+    else if (mode==4) //deforming data
+    {
+      for(int i=0; i<nNodes; ++i) {
+        for(int j=0; j<3; j++) {
+          U[i][j] = sin(omega*time)*dXmax[i][j];
+          Udot[i][j] = omega*cos(omega*time)*dXmax[i][j];
+	}
+
       }
-    else if (mode==99) // for debugging use.
-      for(int i=0; i < nNodes; ++i) { // expand / shrink the structure in y-z plane w.r.t. the origin
-        double cosTheta = X[i][1]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
-        double sinTheta = X[i][2]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
-        U[i][0] = 0.0;
-        U[i][1] = dy*time*cosTheta;
-        U[i][2] = dz*time*sinTheta;
-        Udot[i][0] = 0.0;
-        Udot[i][1] = dy*cosTheta;
-        Udot[i][2] = dz*sinTheta;
-      }
+    }
+    else if (mode==99) { // for debugging use.
+	  bool shrinking_sphere = true;	
+	  if (shrinking_sphere) {
+//		for (int i=0; i<nNodes; ++i) {
+//		  for (int j=0; j<3; j++) {
+//			U[i][j] = 0.0;
+//			Udot[i][j] = 0.0;
+//		  }
+//		}
+		double tt = t0+dt*(double)(it-1);
+		double dist, dir[3];
+        for(int i=0; i < nNodes; ++i) {
+          dist = sqrt(X0[i][0]*X0[i][0]+X0[i][1]*X0[i][1]+X0[i][2]*X0[i][2]);
+          for(int j=0; j<3; j++) {
+            dir[j] = X0[i][j]/dist; 
+            U[i][j] = -tt*tt*tt*tt/8.0*dir[j]*dx; 
+            Udot[i][j] = -tt*tt*tt/2.0*dir[j]*dx;
+          }
+        }
+	  }	
+	  else { 
+        for(int i=0; i < nNodes; ++i) { // expand / shrink the structure in y-z plane w.r.t. the origin
+          double cosTheta = X[i][1]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
+          double sinTheta = X[i][2]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
+          U[i][0] = 0.0;
+          U[i][1] = dy*time*cosTheta;
+          U[i][2] = dz*time*sinTheta;
+          Udot[i][0] = 0.0;
+          Udot[i][1] = dy*cosTheta;
+          Udot[i][2] = dz*sinTheta;
+        }
+	  }
+	}
   }
 
   for(int i=0; i<nNodes; i++) {
@@ -841,7 +1228,7 @@ EmbeddedStructure::getNewCracking(int numConnUpdate, int numLSUpdate, int newNod
   int phantElems[5*numConnUpdate]; // elem.id and node id.
   double phi[4*numLSUpdate];
   int phiIndex[numLSUpdate];
-  int new2old[newNodes*2];
+  int new2old[std::max(1,newNodes*2)]; //in the case of Element Deletion, newNodes might be 0
  
   structExc->getNewCracking(numConnUpdate, numLSUpdate, phantElems, phi, phiIndex, new2old, newNodes); 
 
@@ -851,7 +1238,7 @@ EmbeddedStructure::getNewCracking(int numConnUpdate, int numLSUpdate, int newNod
   if(nElems!=cracking->usedTrias()) {
     com.fprintf(stderr,"ERROR: inconsistency in the number of used triangles. (Software bug.)\n");exit(-1);}
 
-  if(com.cpuNum()==0)
+  if(com.cpuNum()==0 && newNodes)
     structExc->updateNumStrNodes(nNodes); //set numStrNodes to nNodes in structExc and mns
 }
 
@@ -869,3 +1256,30 @@ EmbeddedStructure::getNewCracking()
 
 //------------------------------------------------------------------------------
 
+void DynamicNodalTransfer::writeCrackingData(std::ofstream& restart_file) const {
+
+  structure.writeCrackingData(restart_file);
+}
+
+void DynamicNodalTransfer::readCrackingData(std::ifstream& restart_file) {
+
+  structure.readCrackingData(restart_file);
+}
+
+void EmbeddedStructure::writeCrackingData(std::ofstream& restart_file) const {
+
+  if (!cracking)
+    return;
+
+  restart_file.write(reinterpret_cast<const char*>(Tria), sizeof(int)*totalElems*3);
+  cracking->writeCrackingData(restart_file);
+}
+
+void EmbeddedStructure::readCrackingData(std::ifstream& restart_file){
+
+  if (!cracking)
+    return;
+
+  restart_file.read(reinterpret_cast<char*>(Tria), sizeof(int)*totalElems*3);
+  cracking->readCrackingData(restart_file);
+}

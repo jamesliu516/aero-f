@@ -120,8 +120,8 @@ ARluSymStdEig(int nevp, ARdsSymMatrix<ARFLOAT>& A,
 {
 
   this->NoShift();
-  DefineParameters(A.ncols(), nevp, &A, &ARdsSymMatrix<ARFLOAT>::MultMv,
-                   whichp, ncvp, tolp, maxitp, residp, ishiftp);
+  this->DefineParameters(A.ncols(), nevp, &A, &ARdsSymMatrix<ARFLOAT>::MultMv,
+                         whichp, ncvp, tolp, maxitp, residp, ishiftp);
 
 } // Long constructor (regular mode).
 

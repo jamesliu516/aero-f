@@ -120,7 +120,7 @@ template<int dim>
 void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int totalTimeSteps)  {
 
   DistSVec<double, dim> dU(this->domain->getNodeDistInfo());
-	expandVector(this->dUrom, dU); // solution increment in full coordinates
+	this->expandVector(this->dUrom, dU); // solution increment in full coordinates
 	U += dU;
 
 }
@@ -138,10 +138,10 @@ bool ImplicitRomPostproTsDesc<dim>::monitorConvergence(int it, DistSVec<double,d
 //------------------------------------------------------------------------------
 
 template<int dim>
-double ImplicitRomPostproTsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
+double ImplicitRomPostproTsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U, double angle)
 {
   double t0 = this->timer->getTime();
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
   int numSubCycles = 1;
 
   if(it==1) {

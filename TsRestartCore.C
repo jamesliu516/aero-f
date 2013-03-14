@@ -8,6 +8,7 @@
 //------------------------------------------------------------------------------
 
 TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
+  , writeKPtraces(false)
 {
 
   int sp = strlen(iod.output.restart.prefix) + 1;
@@ -19,7 +20,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(solutions[0], "");
 
   positions[0] = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0 && iod.problem.framework == ProblemData::BODYFITTED)
+  if (iod.output.restart.positions[0] != 0 && (iod.problem.framework == ProblemData::BODYFITTED || iod.problem.framework == ProblemData::EMBEDDEDALE))
     sprintf(positions[0], "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(positions[0], "");
@@ -30,15 +31,22 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   else
     sprintf(levelsets[0], "");
 
+  cracking[0] = new char[sp + strlen(iod.output.restart.cracking)];
+  if (iod.output.restart.cracking[0] != 0)
+    sprintf(cracking[0], "%s%s", iod.output.restart.prefix, iod.output.restart.cracking);
+  else
+    sprintf(cracking[0], "");
+
+
   data[0] = new char[sp + strlen(iod.output.restart.data)];
   if (iod.output.restart.data[0] != 0)
     sprintf(data[0], "%s%s", iod.output.restart.prefix, iod.output.restart.data);
   else
     sprintf(data[0], "");
 
-  structPos = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0 && iod.problem.framework == ProblemData::EMBEDDED)
-    sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
+  structPos = new char[sp + strlen(iod.output.restart.embeddedpositions)];
+  if (iod.output.restart.embeddedpositions[0] != 0 && (iod.problem.framework == ProblemData::EMBEDDED || iod.problem.framework == ProblemData::EMBEDDEDALE) )
+    sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.embeddedpositions);
   else
     sprintf(structPos, "");
 
@@ -48,6 +56,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
       solutions[i] = solutions[0];
       positions[i] = positions[0];
       levelsets[i] = levelsets[0];
+      cracking[i] = cracking[0];
       data[i] = data[0];
 
     }
@@ -75,6 +84,13 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
       else
 	sprintf(levelsets[i], "");
 
+      cracking[i] = new char[strlen(cracking[0]) + 5 + 1];
+      if (cracking[0][0] != 0)
+	sprintf(cracking[i], "%s.%drst", cracking[0], i);
+      else
+	sprintf(cracking[i], "");
+
+
       data[i] = new char[strlen(data[0]) + 5 + 1];
       if (data[0][0] != 0)
 	sprintf(data[i], "%s.%drst", data[0], i);
@@ -94,6 +110,15 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   frequency = iod.output.restart.frequency;
   frequency_dt = iod.output.restart.frequency_dt;
   prtout = 0.0;
+
+  //
+  // Check whether pressure snapshots are needed.
+  // UH (07/2012)
+  //
+  if (strlen(iod.output.restart.strKPtraces) > 0)
+  {
+    writeKPtraces = true;
+  }
 
 }
 

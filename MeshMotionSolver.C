@@ -186,7 +186,12 @@ void TetMeshMotionSolver::computeFunction(int it, DistSVec<double,3> &X,
     }
 
   // PJSA FIX
-  if(meshMotionBCs) meshMotionBCs->applyPD(F);
+  if(meshMotionBCs) {
+//		meshMotionBCs->applyD(F);
+//		com->fprintf(stderr,"F*F in TetMeshMotionSolver::computeFunction after applyD in final PJSA FIX is %e.\n", F*F);
+//		meshMotionBCs->applyP(F);
+		meshMotionBCs->applyPD(F);
+	}
 
 }
 

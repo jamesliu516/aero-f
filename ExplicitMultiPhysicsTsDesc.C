@@ -69,14 +69,15 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
     // update the phase-change (U & Phi) caused by the motion of FS interface
     updatePhaseChangeFS(U);
   }
-  // populate ghost nodes (only for Navier-Stokes.)
-  populateGhostPointsForNavierStokes(U);
+//  // populate ghost nodes (only for Navier-Stokes.)
+//  populateGhostPointsForNavierStokes(U);
   // evolve the fluid equation using FE, RK2, or RK4
   solveNLNavierStokes(U);
   // evolve the level-set equation using FE, RK2, or RK4.
   solveNLLevelSet(U);
   // update fluidId (fluidId0 = fluidId, fluidId = new).
   fluidId0 = *(this->fluidSelector.fluidId); // used in updatePhaseChangeFF
+//  DebugTools::PrintElement("Phi_post_update",this->Phi,63,0,503);
 
   if(this->withCracking && this->withMixedLS)
     this->fluidSelector.updateFluidIdFF2(this->distLSS, this->Phi);
@@ -85,9 +86,10 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
   // update the phase-change (only U) caused by the movement of FF interface
   updatePhaseChangeFF(U);
   // check the consistency of Phi and FluidId. Can be removed for better efficiency! 
-  this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
-  if(this->withCracking && this->withMixedLS)
-    this->domain->debugMultiPhysics(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), U);
+  if (this->lsMethod == 0)
+    this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
+//  if(this->withCracking && this->withMixedLS)
+//    this->domain->debugMultiPhysics(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), U);
 }
 
 //------------------------------------------------------------------------------
@@ -137,11 +139,11 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updateFluidIdFS(DistSVec<double,dim>
     this->PhiV = this->Phi;
 
   if(this->withCracking && this->withMixedLS) {
-    this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
+    //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
     //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
     this->domain->updateFluidIdFS2(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId));
   } else {
-    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
   }
   this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
@@ -156,7 +158,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::populateGhostPointsForNavierStokes(D
 {
   if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES) {
     this->ghostPoints->deletePointers();
-    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
+    this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,*(this->fluidSelector.fluidId));
   }
 }
 
@@ -176,6 +178,8 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokes(DistSVec<double,
     default:
       this->com->fprintf(stderr,"ERROR: Choose time-integrator from ForwardEuler, RungeKutta2, and RungeKutta4!\n");
   }
+
+  this->updateBoundaryExternalState();
 
   // for FF phase-change update using extrapolation
   this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
@@ -199,7 +203,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesFE(DistSVec<doubl
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U0); //(?)for Navier-Stokes only
 
   U = U0;
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
@@ -217,21 +221,21 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
 //  this->com->fprintf(stderr,"Half done.\n");
 //  this->com->barrier();
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
-  // Ghost-Points Population
-  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS, *this->fluidSelector.fluidId);
-    }
+//  // Ghost-Points Population
+//  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
+//    {
+//      this->ghostPoints->deletePointers();
+//      this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder, *this->fluidSelector.fluidId);
+//    }
 
   computeRKUpdate(U0, k2, 2);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/2.0 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
@@ -247,26 +251,26 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK4(DistSVec<doub
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k2, 2);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 3);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  checkSolution(U0);
+  this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 4);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
@@ -275,14 +279,14 @@ template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                                             DistSVec<double,dim>& dU, int it)
 {
-  DistSVec<double,dimLS>& locphi = this->Phi;
+  DistSVec<double,dimLS>* locphi = &this->Phi;
   if (this->lsMethod == 0)
-    locphi = this->PhiV;
+    locphi = &this->PhiV;
   
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(Ulocal);
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji,
-                                           this->distLSS, this->linRecAtInterface, this->riemann, 
-                                           this->riemannNormal, this->Nsbar,locphi, this->fluidSelector,
+                                           this->distLSS, this->linRecAtInterface, this->viscSecOrder, this->riemann, 
+                                           this->riemannNormal, this->Nsbar,*locphi, this->fluidSelector,
                                            dU, it, this->ghostPoints);
                                            //Q: why send PhiV?
                                            //A: Riemann solver needs gradPhi.
@@ -392,7 +396,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFF(DistSVec<double,
 {
   this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
   this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
-  checkSolution(U);
+  this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------

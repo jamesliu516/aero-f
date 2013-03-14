@@ -832,10 +832,12 @@ double DeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
 
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
     mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+		com->fprintf(stderr,"at iteration %d, mesh is updated. ", it);
 
   }
-  else
+  else {
     X += dX;
+  }	
 
   return dt;
 
@@ -873,13 +875,24 @@ PitchingMeshMotionHandler::PitchingMeshMotionHandler(IoData &iod, Domain *dom) :
   alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
   alpha_max = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;  // maximum angle of rotation
 
-  x1[0] = iod.forced.pt.x1;
-  x1[1] = iod.forced.pt.y1;
-  x1[2] = iod.forced.pt.z1;
+  beta_in  = (acos(-1.0)*iod.forced.pt.beta_in) / 180.0;  // initial angle of second rotation
+  beta_max = (acos(-1.0)*iod.forced.pt.beta_max) / 180.0;  // maximum angle of second rotation
 
-  x2[0] = iod.forced.pt.x2;
-  x2[1] = iod.forced.pt.y2;
-  x2[2] = iod.forced.pt.z2;
+  x1[0] = iod.forced.pt.x11;
+  x1[1] = iod.forced.pt.y11;
+  x1[2] = iod.forced.pt.z11;
+
+  x2[0] = iod.forced.pt.x21;
+  x2[1] = iod.forced.pt.y21;
+  x2[2] = iod.forced.pt.z21;
+
+  y1[0] = iod.forced.pt.x12;
+  y1[1] = iod.forced.pt.y12;
+  y1[2] = iod.forced.pt.z12;
+
+  y2[0] = iod.forced.pt.x22;
+  y2[1] = iod.forced.pt.y22;
+  y2[2] = iod.forced.pt.z22;
 
   u = x2[0]-x1[0];
   v = x2[1]-x1[1];
@@ -979,7 +992,66 @@ double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
   double costheta = cos(theta);
   double sintheta = sin(theta);
 
+  double phi = beta_in + beta_max * sin(omega * (t + dt)); 
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+
   int numLocSub = domain->getNumLocSub();
+
+// Rotate the axis of 2nd rotation about the first rotation axis
+  double p[3], yy1[3], yy2[3];
+
+  p[0] = y1[0] - x1[0];                                         
+  p[1] = y1[1] - x1[1];                                        
+  p[2] = y1[2] - x1[2];                                      
+
+  yy1[0] = 0.0; yy1[1] = 0.0; yy1[2] = 0.0;           
+  yy1[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+  yy1[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];    
+  yy1[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];    
+
+  yy1[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];   
+  yy1[1] += (costheta + (1 - costheta) * iy * iy) * p[1];         
+  yy1[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];    
+
+  yy1[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+  yy1[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];    
+  yy1[2] += (costheta + (1 - costheta) * iz * iz) * p[2];         
+
+  yy1[0] += x1[0];                                                  
+  yy1[1] += x1[1];                                                   
+  yy1[2] += x1[2];                                                 
+
+  p[0] = y2[0] - x1[0];                                    
+  p[1] = y2[1] - x1[1];                               
+  p[2] = y2[2] - x1[2];                            
+
+  yy2[0] = 0.0; yy2[1] = 0.0; yy2[2] = 0.0;                         
+  yy2[0] += (costheta + (1 - costheta) * ix * ix) * p[0];         
+  yy2[0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];   
+  yy2[0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];   
+
+  yy2[1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];    
+  yy2[1] += (costheta + (1 - costheta) * iy * iy) * p[1];        
+  yy2[1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];  
+
+  yy2[2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];    
+  yy2[2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];   
+  yy2[2] += (costheta + (1 - costheta) * iz * iz) * p[2];      
+
+  yy2[0] += x1[0];                                                
+  yy2[1] += x1[1];                                             
+  yy2[2] += x1[2];                                       
+
+// unit normals of axis of 2nd rotation //
+
+  u = yy2[0]-yy1[0];                                      
+  v = yy2[1]-yy1[1];                                  
+  w = yy2[2]-yy1[2];                            
+
+  jx = u/sqrt(u*u+v*v+w*w);
+  jy = v/sqrt(u*u+v*v+w*w);
+  jz = w/sqrt(u*u+v*v+w*w);
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -989,13 +1061,11 @@ double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
 
     for (int i=0; i<dX.subSize(iSub); ++i) {
 
+      p[0] = x0[i][0] - x1[0];
+      p[1] = x0[i][1] - x1[1];
+      p[2] = x0[i][2] - x1[2];
+
       dx[i][0] = 0.0; dx[i][1] = 0.0; dx[i][2] = 0.0;
-
-      double p[3];
-      p[0] = x0[i][0] -  x1[0];
-      p[1] = x0[i][1] -  x1[1];
-      p[2] = x0[i][2] -  x1[2];
-
       dx[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
       dx[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
       dx[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
@@ -1012,8 +1082,27 @@ double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
       dx[i][1] += x1[1];
       dx[i][2] += x1[2];
 
-    }
+      p[0] = dx[i][0] - yy1[0];                               
+      p[1] = dx[i][1] - yy1[1];                             
+      p[2] = dx[i][2] - yy1[2];                         
 
+      dx[i][0] = 0.0; dx[i][1] = 0.0; dx[i][2] = 0.0;              
+      dx[i][0] += (cosphi + (1 - cosphi) * jx * jx) * p[0];            
+      dx[i][0] += ((1 - cosphi) * jx * jy - jz * sinphi) * p[1];      
+      dx[i][0] += ((1 - cosphi) * jx * jz + jy * sinphi) * p[2];    
+
+      dx[i][1] += ((1 - cosphi) * jx * jy + jz * sinphi) * p[0];       
+      dx[i][1] += (cosphi + (1 - cosphi) * jy * jy) * p[1];           
+      dx[i][1] += ((1 - cosphi) * jy * jz - jx * sinphi) * p[2];     
+
+      dx[i][2] += ((1 - cosphi) * jx * jz - jy * sinphi) * p[0];   
+      dx[i][2] += ((1 - cosphi) * jy * jz + jx * sinphi) * p[1];  
+      dx[i][2] += (cosphi + (1 - cosphi) * jz * jz) * p[2];           
+
+      dx[i][0] += yy1[0];                                            
+      dx[i][1] += yy1[1];                                        
+      dx[i][2] += yy1[2];                                     
+    }
   }
 
   dX -= X;
@@ -1501,7 +1590,7 @@ void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
   dts = dynNodalTransfer->getStructureTimeStep();
 
   if (it==0) {
-    dts *= 0.5;
+//    dts *= 0.5;							/* XY */
 
     int numStructNodes = dynNodalTransfer->numStNodes();
     if(numStructNodes != distLSS->getNumStructNodes()) {
@@ -1538,7 +1627,7 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   } 
 
   else if (it>1 && it>it0)
@@ -1559,7 +1648,7 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes());
 
-    X = X0;
+//    X = X0;
   }
 
   else if (it>1 || it==it0)
@@ -1595,7 +1684,7 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
     if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
     dts *= 0.5;
 
-    X = X0;
+//    X = X0;
   }
 
   else if(it==it0) {
@@ -1680,7 +1769,7 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   }
 }
 
@@ -1702,7 +1791,7 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   } 
   else // last iteration 
     dts = 0.0; 
@@ -1724,13 +1813,104 @@ void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
     distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
                              dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
-    X = X0;
+//    X = X0;
   } 
   else // last iteration 
     dts = 0.0; 
 }
 //------------------------------------------------------------------------------
 
+EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *dom,
+                              DistLevelSetStructure *distlss) : MeshMotionHandler(iod, dom)
+{
+  dt = iod.ts.timestep;
+  distLSS = distlss;
+
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition_0();
+  Xs0 = new double [3*distLSS->getNumStructNodes()];
+
+  for (int i=0; i<Xstruct.size(); i++)
+    for (int j=0; j<3; j++)
+      Xs0[3*i + j] = Xstruct[i][j];
+
+  cs = new EmbeddedCorotSolver(iod.dmesh, domain, Xs0, distLSS->getNumStructNodes());
+
+}
+
+//------------------------------------------------------------------------------
+
+EmbeddedALEMeshMotionHandler::~EmbeddedALEMeshMotionHandler()
+{
+
+  if (cs) delete cs;
+  if (Xs0) delete Xs0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,3> &Xdot)
+{
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition_n();
+
+  double *Xs = new double [3*distLSS->getNumStructNodes()];
+
+  for (int i=0; i<Xstruct.size(); i++)
+    for (int j=0; j<3; j++)
+      Xs[3*i + j] = Xstruct[i][j];
+
+  cs->solve(Xs, distLSS->getNumStructNodes(), X);
+  cs->applyProjector(Xdot);
+
+  delete Xs;
+}
+
+//------------------------------------------------------------------------------
+
+double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
+                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  
+  if (*lastIt) return dt;
+
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition_np1();
+
+  double *Xs = new double [3*distLSS->getNumStructNodes()];
+
+  for (int i=0; i<Xstruct.size(); i++)
+    for (int j=0; j<3; j++)
+      Xs[3*i + j] = Xstruct[i][j];
+
+  cs->solve(Xs, distLSS->getNumStructNodes(), X);
+  cs->applyProjector(Xdot);
+
+  delete Xs;
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double EmbeddedALEMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+{
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double EmbeddedALEMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return update(lastIt, it, t, Xdot, X);
+
+}
+
+//------------------------------------------------------------------------------
 RbmExtractor::RbmExtractor(IoData &iod, Domain *dom) 
   : MeshMotionHandler(iod, dom)
 {

@@ -34,7 +34,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     phi = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
 
 // Included (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
       dVmin = new DistSVec<double,dim>(domain->getNodeDistInfo());
       dVmax = new DistSVec<double,dim>(domain->getNodeDistInfo());
       dphi = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -71,8 +71,12 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
   ddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
 
+  dTdx = new DistVec<Scalar>(domain->getNodeDistInfo());
+  dTdy = new DistVec<Scalar>(domain->getNodeDistInfo());
+  dTdz = new DistVec<Scalar>(domain->getNodeDistInfo());
+
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
     dddx = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     dddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     dddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
@@ -90,6 +94,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
   *ddy = 0.0;
   *ddz = 0.0;
 
+  *dTdx = 0.0;
+  *dTdy = 0.0;
+  *dTdz = 0.0;
+
   if (typeGradient == SchemeData::LEAST_SQUARES) {
     R = new DistSVec<double,6>(domain->getNodeDistInfo());
     wii = wij = wji = 0;
@@ -98,7 +106,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     dwii = 0;
     dwij = 0;
     dwji = 0;
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
       dR = new DistSVec<double,6>(domain->getNodeDistInfo());
     }
     else {
@@ -114,7 +122,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 
 // Included (MB)
     dR = 0;
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
       dwii = new DistSVec<double,3>(domain->getNodeDistInfo());
       dwij = new DistSVec<double,3>(domain->getEdgeDistInfo());
       dwji = new DistSVec<double,3>(domain->getEdgeDistInfo());
@@ -132,13 +140,13 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 // Included (MB)
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub),
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub), (*dTdx)(iSub), (*dTdy)(iSub), (*dTdz)(iSub),
                                              (*dddx)(iSub), (*dddy)(iSub), (*dddz)(iSub));
       lastConfigSA = -1;
     }
     else
-      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
+      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub), (*dTdx)(iSub), (*dTdy)(iSub), (*dTdz)(iSub));
 
   lastConfig = -1;
 
@@ -398,9 +406,17 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int which
   ddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
 
+  dTdx = new DistVec<Scalar>(domain->getNodeDistInfo());
+  dTdy = new DistVec<Scalar>(domain->getNodeDistInfo());
+  dTdz = new DistVec<Scalar>(domain->getNodeDistInfo());
+
   *ddx = 0.0;
   *ddy = 0.0;
   *ddz = 0.0;
+
+  *dTdx = 0.0;
+  *dTdy = 0.0;
+  *dTdz = 0.0;
 
   if(whichone==3){
     //select galerkin gradient
@@ -444,7 +460,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int which
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
+    subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub), (*dTdx)(iSub), (*dTdy)(iSub), (*dTdz)(iSub));
 }
 //------------------------------------------------------------------------------
 
@@ -470,6 +486,10 @@ DistNodalGrad<dim, Scalar>::~DistNodalGrad()
   if (ddx) delete ddx;
   if (ddy) delete ddy;
   if (ddz) delete ddz;
+
+  if (dTdx) delete dTdx;
+  if (dTdy) delete dTdy;
+  if (dTdz) delete dTdz;
 
   if (subNodalGrad) {
 #pragma omp parallel for
@@ -707,6 +727,42 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 
   domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS);
   domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, distLSS);
+
+}
+
+//------------------------------------------------------------------------------
+// least square gradient of temperature involving only nodes of same fluid (multiphase flow)
+template<int dim, class Scalar>
+template<class Scalar2>
+void DistNodalGrad<dim, Scalar>::computeTemperatureGradient(int config, DistSVec<double,3> &X,
+                                 DistVec<double> &ctrlVol, DistVec<int> &fluidId,
+                                 DistVec<Scalar2> &T,
+                                 DistLevelSetStructure *distLSS)
+{
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
+
+  domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS);
+  domain->computeGradientLeastSquares(X, fluidId, *R, T, *dTdx, *dTdy, *dTdz, distLSS);
+
+}
+
+//------------------------------------------------------------------------------
+// least square gradient involving only nodes of fluid (FSI)
+// Wstar is involved in gradient computation
+template<int dim, class Scalar>
+template<class Scalar2>
+void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
+                                 DistVec<double> &ctrlVol, DistVec<int> &fluidId,
+                                 DistSVec<Scalar2, dim> &V, 
+								 DistSVec<Scalar2, dim> &Wstarij, DistSVec<Scalar2, dim> &Wstarji, 
+								 DistVec<int> &countWstarij, DistVec<int> &countWstarji,
+								 bool linFSI, DistLevelSetStructure *distLSS)
+{
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
+
+  domain->computeWeightsLeastSquares(X, fluidId, *R, countWstarij, countWstarji, distLSS);
+  domain->computeGradientsLeastSquares(X, fluidId, *R, V, Wstarij, Wstarji, 
+		  countWstarij, countWstarji, *ddx, *ddy, *ddz, linFSI, distLSS);
 
 }
 

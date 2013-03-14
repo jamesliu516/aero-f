@@ -25,8 +25,8 @@ class KspSolver {
 
 protected:
 
-  int maxits;
   double eps;
+  double absoluteEps;
   bool checkFinalRes;
 
   MatVecProdOp *mvpOp;
@@ -39,12 +39,17 @@ protected:
   FILE *output;
 
 public:
+  int maxits;
 
   KspSolver() {}
   KspSolver(KspData &, MatVecProdOp *, PrecOp *, IoOp *);
   virtual ~KspSolver() { if (kspConvCriterion) delete kspConvCriterion; }
 
   void setup(int, int, VecType &);
+
+  void setMaxIts(int i) { maxits = i; }
+  void setEps(double e) { eps = e; }
+  void disableOutput() { output = NULL; } 
 
   virtual int solve(VecType &, VecType &) = 0;
   virtual int solveLS(VecType &, VecType &) { return 0; };
@@ -106,11 +111,15 @@ class GmresSolver : public KspSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT> 
   VecSet<VecType> V;
   VecType w, r;
 
+  bool outputConvergenceInfo;
+
 public:
 
   GmresSolver(const typename VecType::InfoType &, KspData &, 
 	      MatVecProdOp *, PrecOp *, IoOp *);
   ~GmresSolver() {}
+
+  void disableConvergenceInfo();
 
   int solve(VecType &, VecType &);
   int solveLS(VecType &, VecType &);

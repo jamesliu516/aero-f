@@ -520,6 +520,7 @@ DistEmbeddedVec<Scalar,dim>::operator=(const DistEmbeddedVec<Scalar,dim> &y)
   realVec = y.realVec;
   
   int nls = y.realVec.info().numLocSub ; 
+  delete [] ghostNodes; // fixes memory leak
   ghostNodes = new std::set<int>[ nls ];
 #pragma omp parallel for
   for (int i = 0; i < nls; ++i) {

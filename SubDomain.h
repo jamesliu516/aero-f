@@ -19,12 +19,16 @@
 
 #include <HigherOrderMultiFluid.h>
 
+#include <Aerof_unordered_set.h>
+
 #ifdef OLD_STL
 #include <map.h>
 #else
 #include <map>
 using std::map;
 #endif
+
+#include <set>
 
 #include <complex>
 typedef std::complex<double> bcomp;
@@ -77,9 +81,22 @@ template<class Scalar, int dim> class MvpMat;
 template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
+template <class T> class RTree;
+
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
+
+  EdgeDef() { }
+
+  EdgeDef(int glLeft, int glRight, int edgeNum, 
+          int sign) : glLeft(glLeft), glRight(glRight),
+                      edgeNum(edgeNum), sign(sign) {
+
+  }
+
+  EdgeDef(const EdgeDef& oth) : glLeft(oth.glLeft), glRight(oth.glRight),
+                                edgeNum(oth.edgeNum), sign(oth.sign) { }
 
   int glLeft, glRight, edgeNum, sign;
 
@@ -162,6 +179,12 @@ class SubDomain {
   std::vector<int> locSampleNodes;	// for Gappy ROM
   
 
+  // UH (07/2012)
+  // List of nodes on a surface for the Kirchhoff integral
+  std::set<int> kirchhoffNodesList;
+
+  RTree<Elem>* myTree;
+
 public:
   
   HigherOrderMultiFluid* higherOrderMF;
@@ -181,6 +204,9 @@ public:
   int *getRcvChannel() { return rcvChannel; }
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
+
+  EdgeDef** getSharedEdges() { return sharedEdges; }
+  const int* getNumSharedEdges() const { return numSharedEdges; }
 
 	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
 
@@ -210,6 +236,13 @@ public:
   int getLocalNodeNum(int globNodeNum) const;
   // geometry
 
+  void getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getSolidBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getFarFieldBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+  void getSubDomainBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNodes) const;
+
+  void constructLines(std::vector<std::vector<int>*>& pLines, int& numLines);
+
   void setFaceType(int *);
   void setNodeType(int*, CommPattern<int> &);
   void setNodeFaceType(CommPattern<int> &);
@@ -234,6 +267,9 @@ public:
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
 					  SVec<int,1> &, SVec<double,6> &, LevelSetStructure* =0);
+  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
+					  SVec<int,1> &, SVec<double,6> &, Vec<int> &, Vec<int> &, 
+					  LevelSetStructure* =0);
   void computeWeightsLeastSquaresNodePart(SVec<int,1> &, SVec<double,6> &);
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &,
 			      SVec<double,3> &, SVec<double,3> &);
@@ -281,7 +317,8 @@ public:
   template<int dimLS>
   void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin);
   template<int dimLS>
-  void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS = 0);
+  void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS = 0, 
+          Vec<int>* fluidIdToSet = 0);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], SVec<double,dim> &U);
 
@@ -336,6 +373,21 @@ public:
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     bool linRecFSI = true, LevelSetStructure* =0);
 
+  template<class Scalar>
+  void computeGradientLeastSquares(SVec<double,3> &, const Vec<int> &,
+                                    SVec<double,6> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    Vec<Scalar> &, Vec<Scalar> &,
+                                    LevelSetStructure* =0);
+
+  template<int dim, class Scalar>
+  void computeGradientsLeastSquares(SVec<double,3> &, const Vec<int> &,
+                                    SVec<double,6> &,
+                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+									SVec<Scalar,dim> &, Vec<int> &,
+									Vec<int> &, SVec<Scalar,dim> &,
+                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+                                    bool linRecFSI = true, LevelSetStructure* =0);
 
   template<int dim, class Scalar>
   void computeGradientsGalerkin(Vec<double> &, SVec<double,3> &, SVec<double,3> &,
@@ -400,6 +452,17 @@ public:
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, Vec<int> &, int,
                               SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
+
+  template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&,
+                              SVec<double,dim>&, SVec<double,dim>&, 
+							  Vec<int>&, Vec<int>&, LevelSetStructure &, bool, 
+							  Vec<int> &, int, SVec<double,3>*, double, double, 
+							  NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int); 
+
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,Vec<int>& fluidId,
@@ -492,10 +555,13 @@ public:
 
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &,
-				 SVec<double,dim> &);
+				 SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
+                                 LevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, 
+                          SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
+                          LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
@@ -516,15 +582,17 @@ public:
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
-                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double, 
+                             Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeCsValues(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
-                       SVec<double,8> &, SVec<double,2> &, Vec<int> &, SVec<double,3> &, double, double);
+                       SVec<double,8> &, SVec<double,2> &, Vec<int> &, SVec<double,3> &, double, double,LevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, SVec<double,dim> &,
-                             SVec<double,dim> &);
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
+                             SVec<double,dim> &, SVec<double,dim> &, 
+                             Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVMSLES_Step1(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
@@ -719,6 +787,7 @@ public:
   void computeFaceScalarQuantity(PostFcn::ScalarType, PostFcn *, BcData<dim> &, GeoState &,
 				 SVec<double,3> &, SVec<double,dim> &, SVec<double,2> &);
 
+  
   template<int dim>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
 				 SVec<double,dim> &, SVec<double,3> &, Vec<double> &);
@@ -751,6 +820,24 @@ public:
   void markLenFaces(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.size()); }
   void markLenFaceNorms(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.sizeNorms()); }
   void markLenInletNodes(DistInfo &distInfo) {distInfo.setLen(locSubNum, inletNodes.size()); }
+
+
+  //! Function to set the length for the object distInfo with the nodes on a Kirchhoff surface
+  ///
+  /// Function to set the length for the object distInfo with the nodes on a Kirchhoff surface
+  ///
+  void markLenKirchhoffNodes(IoData &iod, DistInfo &distInfo);
+
+
+  //! Function to obtain the list of nodes on a surface for the Kirchhoff integral
+  ///
+  /// This function returns the list of nodes on a surface for the Kirchhoff integral.
+  ///
+  /// UH (07/2012)
+  ///
+  const std::set<int>& getKirchhoffNodesList() const { return kirchhoffNodesList; };
+
+
   void markLenNull(DistInfo &distInfo) {distInfo.setLen(locSubNum, 0); }
   void makeMasterFlag(DistInfo &);
   void setChannelNums(SubDTopo &);
@@ -780,12 +867,20 @@ public:
   template<int dim>
   void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
+  void sndNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
   void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void sndGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<int dim>
   void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
+  void rcvNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &, VarFcn *varFcn);
+  template<int dim>
   void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void rcvGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<class Scalar, int dim, class OpType>
   void operateRcvData(CommPattern<Scalar> &, Scalar (*)[dim], const OpType &oper);
@@ -807,6 +902,9 @@ public:
 
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
+  template<class Scalar, int dim>
+  void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],int &, Vec<int> &);
 
   template<class Scalar1, class Scalar2, int dim1, int dim2>
   void TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],
@@ -907,9 +1005,14 @@ public:
   NodeSet &getNodes() { return nodes; }
 
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level, LevelSetStructure *LSS=0);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
+  template<int dimLS>
+  void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
+				SVec<double,dimLS> &d2wall, int level,
+			        Vec<int> &sortedNodes, int& nSortedNodes, int &firstCheckedNode,
+				LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
@@ -917,6 +1020,14 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init);
+  void computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
+					  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init);
+  void computeWeightsLeastSquaresNodePartForEmbeddedStruct(
+		  SVec<int,1> &count, SVec<double,10> &R);
+  template<int dim>
+  void computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, SVec<double,10> &R, 
+		  SVec<double,dim> &V, Vec<double> &Weights, SVec<double,dim> &VWeights, 
+		  LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init);
 
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights, 
@@ -926,7 +1037,7 @@ public:
   void extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV);
 
   template<int dim>
-    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag);
+    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,3> &X,SVec<double,dim> &U,NodalGrad<dim, double> &ngrad,VarFcn *varFcn,LevelSetStructure &LSS,bool linRecFSI,Vec<int> &tag);
   
   template<int dim,int neq>
     void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<double,neq>& A);
@@ -1154,6 +1265,10 @@ public:
                                SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
                                Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int> *fid);
   template<int dim>
+  void computeEmbSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, LevelSetStructure&, double pInfty, 
+                                    SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+			                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int>* fid);
+  template<int dim>
   void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
                                     SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
 			                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, VarFcn *vf, Vec<int>* fid);
@@ -1181,7 +1296,7 @@ public:
   template<int dim>
   void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
 
-  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll);
+  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,int dimLS);
   template<int dimLS>
   void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, Vec<int> &fluidId, bool *masterFlag);
 
@@ -1242,6 +1357,9 @@ public:
 
   HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
 
+  void updateFarfieldCoeffs(double dt) {faces.updateHHCoeffs(dt);}
+  void updateBoundaryExternalState() {faces.updateHHState();}
+  void initializeFarfieldCoeffs(double cc) {faces.initializeHHCoeffs(cc);}
   
 };
 //------------------------------------------------------------------------------

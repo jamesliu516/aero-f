@@ -224,7 +224,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 		saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
 
     // verify that the solution is physical
-    if (checkSolution(U)) {
+    if (this->checkSolution(U)) {
       if (checkFailSafe(U) && fsIt < 5) {
         this->com->fprintf(stderr, "*** Warning: Not yet implemented\n");
         //fprintf(stderr,"*** Warning: Newton solver redoing iteration %d\n", it+1);

@@ -11,8 +11,12 @@
 //#include <ImplicitGalerkinTsDesc.h>
 #include <ImplicitGnatTsDesc.h>
 #include <ImplicitRomPostproTsDesc.h>
+#include <MultiGridSolver.h>
+#include <MultiGridCoupledTsDesc.h>
+#include <FluidShapeOptimizationHandler.h>  // YC
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
+
 
 template<int dim>
 void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -22,50 +26,65 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
+  {
 // Modified (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
       FluidSensitivityAnalysisHandler<dim> fsah(ioData, geoSource, &domain);
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
-    }
-		else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
-             (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
-             (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ) {
-			if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 0) {
+  }
+  else if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
+      ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+      TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
+      FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+//      FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain, &tsSolver);
+      TsSolver<FluidShapeOptimizationHandler<dim> > tsoSolver(&fsoh);
+      tsoSolver.fsoSolve(ioData);
+  }
+  else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
+           (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
+           (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ) {
+    if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 0) { 
         ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
-			}
+		}
 			else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 1) {
         ImplicitGnatTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitGnatTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
-			}
-			/*else if (ioData.rom.projection == 1 && ioData.rom.systemApproximation == 0) {
-					ImplicitGalerkinTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-					TsSolver<ImplicitGalerkinTsDesc<dim> > tsSolver(&tsDesc);
-					tsSolver.solve(ioData);
-			}*/
-			else
-        com->fprintf(stderr, "*** Error: this type of nonlinear ROM simulation is not currently supported\n");
 		}
-    else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+			/*else if (ioData.rom.projection == 1 && ioData.rom.systemApproximation == 0) {
+			ImplicitGalerkinTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+			TsSolver<ImplicitGalerkinTsDesc<dim> > tsSolver(&tsDesc);
+			tsSolver.solve(ioData);
+			}*/
+		else
+        com->fprintf(stderr, "*** Error: this type of nonlinear ROM simulation is not currently supported\n");
+	}
+  else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
       ImplicitRomPostproTsDesc <dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitRomPostproTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);
-		}
-    else if (ioData.ts.type == TsData::IMPLICIT) {
+	}
+  else if (ioData.ts.type == TsData::IMPLICIT) {
+    if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);
+    } else {
+      MultiGridCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+      MultiGridSolver<MultiGridCoupledTsDesc<dim> > mgSolver(&tsDesc);
+      mgSolver.solve(ioData);
     }
-    else if (ioData.ts.type == TsData::EXPLICIT) {
-      ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      TsSolver<ExplicitTsDesc<dim> > tsSolver(&tsDesc);
-      tsSolver.solve(ioData);
-    }
-    else
-      com->fprintf(stderr, "*** Error: wrong time-integrator\n");
+  }
+  else if (ioData.ts.type == TsData::EXPLICIT) {
+    ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+    TsSolver<ExplicitTsDesc<dim> > tsSolver(&tsDesc);
+    tsSolver.solve(ioData);
+  }
+  else
+    com->fprintf(stderr, "*** Error: wrong time-integrator\n");
       
 }
 

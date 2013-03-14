@@ -143,6 +143,7 @@ class DistLevelSetStructure {
     DistVec<bool> & getIntersectedEdges() const { return *edge_intersects; }
 
     virtual DistVec<ClosestPoint> &getClosestPoints() = 0;
+    virtual DistVec<ClosestPoint> *getClosestPointsPointer() = 0;
     virtual void setStatus(DistVec<int> nodeTag) = 0;                                
 
     virtual void updateStructure(double *Xs, double *Vs, int nNodes, int(*abc)[3]=0) = 0;
@@ -150,7 +151,11 @@ class DistLevelSetStructure {
     virtual Vec<Vec3D> &getStructPosition() = 0;
     virtual Vec<Vec3D> &getStructPosition_0() = 0;
     virtual Vec<Vec3D> &getStructPosition_n() = 0;
+    virtual Vec<Vec3D> &getStructPosition_np1() = 0;
     virtual int getNumStructNodes() = 0;
+    virtual int getNumStructElems() = 0;
+    virtual int (*getStructElems())[3] = 0;
+    virtual int getSurfaceID(int) = 0;
 };
 
 #endif

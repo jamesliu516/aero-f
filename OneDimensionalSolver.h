@@ -104,6 +104,8 @@ class OneDimensional {
   // Needed for appropriate handling of phase change updates.
   SVec<double,5> Wr;
 
+  SVec<double,5> lastPhaseChangeValue;
+  
   SVec<double,5> Vslope;
   SVec<double,1> Phislope;
 
@@ -124,6 +126,7 @@ class OneDimensional {
 
   SVec<double,dim> rupdate;
   Vec<double> weight;
+  Vec<int> fidToSet;
   SVec<double,dim-2> interfacialWi;
   SVec<double,dim-2> interfacialWj;
 
@@ -166,6 +169,11 @@ class OneDimensional {
 
   int interfaceTreatment;
   int interfaceExtrapolation;
+
+  // 0 - constant reconstruction
+  // 1 - linear reconstruction
+  // 2 - limited
+  int limiterLeft,limiterRight;
 
   int levelSetMethod;
 
@@ -286,17 +294,27 @@ class OneDimensional {
 
 	double alpha = (localRadius-x_1D[a])/(x_1D[a+1]-x_1D[a]);
 	if (fids[a] != fids[a+1]) {
-	  if(rad-localRadius > 0.0)
+	  if(rad-localRadius > 0.0) {
 	    alpha = 0.0; 
-	  else
+	    fid_new = fids[a];
+	    if (oned && oned->fluidRemap.dataMap.find(fids[a]) != oned->fluidRemap.dataMap.end())
+	      fid_new = oned->fluidRemap.dataMap.find(fids[a])->second->newID;
+          }
+	  else {
 	    alpha = 1.0;
-	}
-
-	
-	//if (fluidSelector) {
+	    fid_new = fids[a+1];
+	    if (oned && oned->fluidRemap.dataMap.find(fids[a+1]) != oned->fluidRemap.dataMap.end())
+	      fid_new = oned->fluidRemap.dataMap.find(fids[a+1])->second->newID;
+          }
+	} else {
 	  fid_new = fids[a];
 	  if (oned && oned->fluidRemap.dataMap.find(fids[a]) != oned->fluidRemap.dataMap.end())
 	    fid_new = oned->fluidRemap.dataMap.find(fids[a])->second->newID;
+
+        }
+
+	
+	//if (fluidSelector) {
 	  //lsdim = fluidSelector->getLevelSetDim(0,fid_new);
 	  //}
 
@@ -322,8 +340,10 @@ class OneDimensional {
 	    ff[4] = v_1D[a*5+2]*(1.0-alpha)+v_1D[(a+1)*5+2]*(alpha);
 	  varFcn->primitiveToConservative(ff,f,fid_new);
 	} else if (xrad <= rad) {
-	  varFcn->primitiveToConservative(boundaryStateL,f,fids[0]);
 	  fid_new = fids[0];
+	  if (oned && oned->fluidRemap.dataMap.find(fids[0]) != oned->fluidRemap.dataMap.end())
+	    fid_new = oned->fluidRemap.dataMap.find(fids[0])->second->newID;
+	  varFcn->primitiveToConservative(boundaryStateL,f,fid_new);
 	  if (spherical) {
 	    for (int j = 1; j <= 3; ++j) {
 	      f[j] = boundaryStateL[0]*boundaryStateL[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
@@ -334,8 +354,10 @@ class OneDimensional {
 	  }
 	    
 	} else {
-	  varFcn->primitiveToConservative(boundaryStateR,f,fids[numPoints-1]);
 	  fid_new = fids[numPoints-1];
+	  if (oned && oned->fluidRemap.dataMap.find(fids[numPoints-1]) != oned->fluidRemap.dataMap.end())
+	    fid_new = oned->fluidRemap.dataMap.find(fids[numPoints-1])->second->newID;
+	  varFcn->primitiveToConservative(boundaryStateR,f,fid_new);
 	  if (spherical) {
 	    for (int j = 1; j <= 3; ++j) {
 	      f[j] = boundaryStateR[0]*boundaryStateR[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
@@ -349,8 +371,8 @@ class OneDimensional {
       else {
 	//if (fluidSelector) {
 	  fid_new = fids[numPoints-1];
-	  if (oned && oned->fluidRemap.dataMap.find(fids[a]) != oned->fluidRemap.dataMap.end())
-	    fid_new = oned->fluidRemap.dataMap.find(fids[a])->second->newID;
+	  if (oned && oned->fluidRemap.dataMap.find(fids[numPoints-1]) != oned->fluidRemap.dataMap.end())
+	    fid_new = oned->fluidRemap.dataMap.find(fids[numPoints-1])->second->newID;
 	  // lsdim = fluidSelector->getLevelSetDim(0,fid_new);
 	  //}
 	varFcn->primitiveToConservative(outletState,f,fid_new);	

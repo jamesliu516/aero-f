@@ -87,7 +87,8 @@ public:
    double *, double *, double *, double *, double
    );
   
-  
+  void computeTransportCoefficientsPublic(const double T, double &mu, 
+                                          double &lambda, double &kappa);
 };
 
 //------------------------------------------------------------------------------
@@ -106,9 +107,6 @@ public:
 private:
   void computeLaminarTransportCoefficients(const double T, 
 		  double &mu, double &lambda, double &kappa);
-  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
-		  const double mul, const double lambdal, double kappal,
-		  double &mutilde, double &mut, double &lambdat, double &kappat);
 
 public:
   FemEquationTermSA(IoData &, VarFcn *);
@@ -116,6 +114,9 @@ public:
   
   double computeViscousTimeStep(double *, double *);
   
+  void computeTurbulentTransportCoefficients(double *V[], int nodeNum[], SVec<double,3> &X,
+		  const double mul, const double lambdal, double kappal,
+		  double &mutilde, double &mut, double &lambdat, double &kappat);
   
   bool computeVolumeTerm
   (
