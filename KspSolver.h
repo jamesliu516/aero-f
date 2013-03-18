@@ -130,7 +130,6 @@ public:
   void applyNewRotation(int, GenFullM<ScalarT> &, GenFullM<ScalarT> &, Vec<ScalarT> &);
   void backwardSolve(int, GenFullM<ScalarT> &, Vec<ScalarT> &, Vec<ScalarT> &);
   
-  //void writeKrylovVectors();
 };
 
 //------------------------------------------------------------------------------

@@ -45,16 +45,16 @@ struct kspSortStruct {
 
 template<class VecType>
 template<int dim>
-void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistSVec<double, dim> >& kspVecs, Vec<double> kspCoords) {
+void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistSVec<double, dim> >& kspVecs, Vec<double> kspCoords, int numVecs) {
 
   if ((*(timeIt)%krylovFreqTime==0) && (*(newtonIt)%krylovFreqNewton==0)) {
-    int numVecs = kspVecs.numVectors();
-    com->fprintf(stdout, "norm %e\n", kspCoords.norm());
-    kspCoords *= (1/kspCoords.norm());
+    Vec<double> kspCoordsTrunc(numVecs);
+    for (int iVec=0; iVec<numVecs; ++iVec) kspCoordsTrunc[iVec] = kspCoords[iVec];
+    kspCoordsTrunc *= (1/kspCoordsTrunc.norm());
     kspSortStruct* kspIndexedCoords = new kspSortStruct[numVecs]; 
     for (int iVec=0; iVec<numVecs; ++iVec) {
       kspIndexedCoords[iVec].kspIndex = iVec;
-      kspIndexedCoords[iVec].energy = pow(kspCoords[iVec],2);
+      kspIndexedCoords[iVec].energy = pow(kspCoordsTrunc[iVec],2);
     }
     sort(kspIndexedCoords, kspIndexedCoords+numVecs); //ascending order
     double cumEnergy = 0;
@@ -74,7 +74,7 @@ void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistSVec<double, dim> >
 
 template<class VecType>
 template<int dim>
-void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistSVec<bcomp, dim> >& kspVecs, Vec<bcomp> kspCoords) {
+void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistSVec<bcomp, dim> >& kspVecs, Vec<bcomp> kspCoords, int numVecs) {
 // do nothing
 }
 
@@ -82,7 +82,7 @@ void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistSVec<bcomp, dim> >&
 
 template<class VecType>
 template<int dim, class Scalar>
-void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistEmbeddedVec<Scalar, dim> >& kspVecs, Vec<Scalar> y) {
+void KspBinaryOutput<VecType>::writeKrylovVectors(VecSet<DistEmbeddedVec<Scalar, dim> >& kspVecs, Vec<Scalar> kspCoords, int numVecs) {
 // do nothing
 }
 

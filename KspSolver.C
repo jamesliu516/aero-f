@@ -360,6 +360,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
   int iter = 0;
   int exitLoop = 0;
 
+  int numOutputVecs = 0;
+
   if (!this->pcOp)
     typePrec = 0;
 
@@ -443,6 +445,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
     x += w;
 
+    numOutputVecs = j+1;
+
   } while (exitLoop == 0);
 
 
@@ -472,13 +476,12 @@ target);
 
   if (this->kspBinaryOutput) {
     if (typePrec == 2) {  //apply preconditioner before outputting
-      int numVecs = V.numVectors();
-      for (int iVec=0; iVec<numVecs; ++iVec) {
+      for (int iVec=0; iVec<numOutputVecs; ++iVec) {
         this->pcOp->apply(V[iVec], r);
         V[iVec] = r;    
       }
     }
-    this->kspBinaryOutput->writeKrylovVectors(V, y);
+    this->kspBinaryOutput->writeKrylovVectors(V, y, numOutputVecs);
   }
 
   return iter;
@@ -925,21 +928,11 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecSet<VecType> &b
 
   }
 
-  if (this->kspBinaryOutput) this->kspBinaryOutput->writeKrylovVectors(V);
+  //if (this->kspBinaryOutput) this->kspBinaryOutput->writeKrylovVectors(V, y);
 
   return iter;
 
 }
-
-//------------------------------------------------------------------------------
- 
-// template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
-//void GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::writeKrylovVectors() 
-//{
-
-//   this->ioOp->fprintf(this->output, "I'm trying to print krylov vectors\n");
-
-//}
 
 //------------------------------------------------------------------------------
                                                         
