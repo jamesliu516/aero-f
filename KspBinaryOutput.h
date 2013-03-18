@@ -32,13 +32,13 @@ class KspBinaryOutput {
   ~KspBinaryOutput();
 
   template <int dim>
-  void writeKrylovVectors(VecSet<DistSVec<double, dim> >&, Vec<double>);
+  void writeKrylovVectors(VecSet<DistSVec<double, dim> >&, Vec<double>, int);
 
   template <int dim>
-  void writeKrylovVectors(VecSet<DistSVec<bcomp, dim> >&, Vec<bcomp>);
+  void writeKrylovVectors(VecSet<DistSVec<bcomp, dim> >&, Vec<bcomp>, int);
 
   template <int dim, class Scalar>
-  void writeKrylovVectors(VecSet<DistEmbeddedVec<Scalar, dim> >&, Vec<Scalar>);
+  void writeKrylovVectors(VecSet<DistEmbeddedVec<Scalar, dim> >&, Vec<Scalar>, int);
 };
 
 #include "KspBinaryOutput.C"
