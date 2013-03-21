@@ -6592,7 +6592,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
         for(int m=0;m<3;++m) {
           vectorIJ[m] = Xp[m] - X[i][m];
         }
-        for (int k = 0; k < dim; k) {
+        for (int k = 0; k < dim; ++k) {
           Vext[k] = v[k] + gradX[i][k]*vectorIJ[0]+
                  gradY[i][k]*vectorIJ[1]+
                  gradZ[i][k]*vectorIJ[2];
