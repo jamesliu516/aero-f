@@ -646,6 +646,10 @@ double DistTimeState<dim>::computeTimeStepFailSafe(double* dtLeft, int* numSubCy
 template<int dim> 
 double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCycles)
 {
+  if (data->dt_imposed > 0.0 && *dtLeft == 0.0) 
+  //Allows for use of subcycling in fluid only simulations with imposed time step
+    *dtLeft = data->dt_imposed;
+
   double incfac = 1.25 + (1.15 * pow((2.71828),(- double(it-2) / 3.0)));
   double decfac = max(0.2 , (0.75 + (-1.25 * pow((2.71828),(- double(it-2) / 3.0)))));
 

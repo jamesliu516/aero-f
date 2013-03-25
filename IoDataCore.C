@@ -2692,6 +2692,7 @@ CFLData::CFLData()
 
   cfl0 = 5.0;
   cflCoef1 = 0.0;
+  cflCoef2 = 0.0;
   cflMax = 100000.0;
   cflMin = 1.0;
   dualtimecfl = 100.0;
@@ -4863,6 +4864,7 @@ int IoData::checkCFLBackwardsCompatibility(){
   }
   if(ts.cfl0 != -1.0) ts.cfl.cfl0 = ts.cfl0;
   if(ts.cflCoef1 != -1.0) ts.cfl.cflCoef1 = ts.cflCoef1;
+  if(ts.cflCoef2 != -1.0) ts.cfl.cflCoef2 = ts.cflCoef2;
   if(ts.cflMax != -1.0) ts.cfl.cflMax = ts.cflMax;
   if(ts.cflMin != -1.0) ts.cfl.cflMin = ts.cflMin;
   if(ts.ser != -1.0) ts.cfl.ser = ts.ser;

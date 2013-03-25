@@ -30,7 +30,7 @@ TsParameters::TsParameters(IoData &ioData)
 
   cfl0 = ioData.ts.cfl.cfl0;
   cflCoef1 = ioData.ts.cfl.cflCoef1;
-  cflCoef2 = 0.0;
+  cflCoef2 = ioData.ts.cfl.cflCoef2;
   cflMax = ioData.ts.cfl.cflMax;
   cflMin = ioData.ts.cfl.cflMin;
   dualtimecfl = ioData.ts.cfl.dualtimecfl;
@@ -140,7 +140,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     cfl = cfl_prev;
 
     if (reshistory[0] != 0.0){
-      double e_hf, e_ac, e_dc, e_total, hf_ratio;
+      double e_hf, e_ac, e_dc, e_total;
       int cutofflow = dft_history/2 - (dft_freqcutoff-1)/2; 
       int cutoffhigh = (dft_history+1)/2 + (dft_freqcutoff-1)/2;
 
