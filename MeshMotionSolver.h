@@ -47,7 +47,7 @@ public:
   typedef DistSVec<double,1> PhiVecType;
   typedef DistVec<double> VolVecType;
 
-private:
+protected:
 
   int maxItsNewton;
   double epsNewton;
@@ -76,9 +76,10 @@ private:
 public:
 
   TetMeshMotionSolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
-  ~TetMeshMotionSolver();
+  TetMeshMotionSolver(Domain *dom) : domain(dom) {};
+  virtual ~TetMeshMotionSolver();
 
-  int solve(DistSVec<double,3> &, DistSVec<double,3> &);
+  virtual int solve(DistSVec<double,3> &, DistSVec<double,3> &);
 
   void applyProjector(DistSVec<double,3> &X);
  
@@ -110,6 +111,17 @@ public:
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,3> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0) {}
 
+};
+
+//------------------------------------------------------------------------------
+//
+class EmbeddedALETetMeshMotionSolver : public TetMeshMotionSolver {
+
+public:
+
+  EmbeddedALETetMeshMotionSolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
+  ~EmbeddedALETetMeshMotionSolver(){};
+  int solve(DistSVec<double,3> &, DistSVec<double,3> &);
 };
 
 //------------------------------------------------------------------------------
