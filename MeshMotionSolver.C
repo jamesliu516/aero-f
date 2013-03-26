@@ -243,3 +243,81 @@ int TetMeshMotionSolver::solveLinearSystem(int it, DistSVec<double,3> &rhs,
 
 //--------------------------------------------------------------------------------------------------
 
+EmbeddedALETetMeshMotionSolver::EmbeddedALETetMeshMotionSolver
+(
+  DefoMeshMotionData &data, MatchNodeSet **matchNodes, 
+  Domain *dom, MemoryPool *mp
+) 
+: TetMeshMotionSolver(dom)
+{
+
+  com = domain->getCommunicator();
+
+  KspData &kspData = data.newton.ksp;
+  PcData &pcData = data.newton.ksp.pc;
+
+  typeElement = data.element;
+  maxItsNewton = data.newton.maxIts;
+  if (data.element == DefoMeshMotionData::TORSIONAL_SPRINGS || data.element == DefoMeshMotionData::BALL_VERTEX)
+    maxItsNewton = 1;
+  epsNewton = data.newton.eps;
+  epsAbsResNewton = data.newton.epsAbsRes;
+  epsAbsIncNewton = data.newton.epsAbsInc;
+
+  timer = domain->getTimer();
+
+  F0 = new DistSVec<double,3>(domain->getNodeDistInfo());
+
+  cs = 0;
+
+  //int **ndType = domain->getNodeType();
+  int **ndType = 0;
+
+  meshMotionBCs = domain->getMeshMotionBCs(); //HB
+
+  if (meshMotionBCs)   {
+    meshMotionBCs->setEmbeddedALEDofType(matchNodes);
+  }
+
+  mvp = new StiffMat<double,3>(domain, ndType, mp, meshMotionBCs);
+
+  if (pcData.type == PcData::IDENTITY)
+    pc = new IdentityPrec<3>(meshMotionBCs);
+  else if (pcData.type == PcData::JACOBI)
+    //pc = new JacobiPrec<PrecScalar,3>(DiagMat<PrecScalar,3>::DIAGONAL, domain, ndType, meshMotionBCs);
+    pc = new JacobiPrec<PrecScalar,3>(DiagMat<PrecScalar,3>::DENSE, domain, ndType, meshMotionBCs);
+
+  else if (pcData.type == PcData::AS || pcData.type == PcData::RAS || pcData.type == PcData::ASH || pcData.type == PcData::AAS)
+    pc = new IluPrec<PrecScalar,3>(pcData, domain, ndType);
+
+  if (kspData.type == KspData::RICHARDSON)
+    ksp = new RichardsonSolver<DistSVec<double,3>, StiffMat<double,3>, KspPrec<3>, Communicator>
+      (domain->getNodeDistInfo(), kspData, mvp, pc, com);
+  else if (kspData.type == KspData::CG)
+    ksp = new CgSolver<DistSVec<double,3>, StiffMat<double,3>, KspPrec<3>, Communicator>
+      (domain->getNodeDistInfo(), kspData, mvp, pc, com);
+  else if (kspData.type == KspData::GMRES)
+    ksp = new GmresSolver<DistSVec<double,3>, StiffMat<double,3>, KspPrec<3>, Communicator>
+      (domain->getNodeDistInfo(), kspData, mvp, pc, com);
+
+  ns = new NewtonSolver<TetMeshMotionSolver>(this);
+
+  volStiff = data.volStiff;
+
+}  
+
+//------------------------------------------------------------------------------
+/*
+  X = current configuration
+  dX = relative displacement (i.e. with respect to X) of the boundaries
+*/
+int EmbeddedALETetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<double,3> &X)  {
+
+  dX0 = &dX;
+
+  ns->solve(X);
+
+  return 0;
+}
+
+//------------------------------------------------------------------------------
