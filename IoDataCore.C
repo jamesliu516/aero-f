@@ -4222,17 +4222,19 @@ void IoData::resetInputValues()
      delete [] name;
    }
 
-   if (eqs.type == EquationsData::NAVIER_STOKES && 
-       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
-       ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
-         eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
-      if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
-       char* name = new char[strlen(input.geometryprefix) + strlen(".dwall") + 1];
-       sprintf(name, "%s%s", input.geometryprefix,".dwall");
-       input.d2wall = new char[strlen(name) + 1];
-       strcpy( (char*)input.d2wall , name );
-       delete [] name;
-      }
+   if ( problem.framework!=ProblemData::EMBEDDED && problem.framework!=ProblemData::EMBEDDEDALE ) {
+     if (eqs.type == EquationsData::NAVIER_STOKES && 
+         eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
+         ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+           eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
+        if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+         char* name = new char[strlen(input.geometryprefix) + strlen(".dwall") + 1];
+         sprintf(name, "%s%s", input.geometryprefix,".dwall");
+         input.d2wall = new char[strlen(name) + 1];
+         strcpy( (char*)input.d2wall , name );
+         delete [] name;
+        }
+     }
    }
 
   // part 1

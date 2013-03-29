@@ -536,7 +536,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   }
 
   if (fet) {
-		fprintf(stderr,"fet is on.\n");
     domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
     bcData->computeNodeValue(X);
   }
