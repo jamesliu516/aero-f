@@ -26,46 +26,56 @@ EmbeddedCorotSolver::EmbeddedCorotSolver(DefoMeshMotionData &data, Domain *dom, 
   meshMotionBCs = domain->getMeshMotionBCs();
 
   computeCG(Xs0, cg0);
+  
+  cgN[0] = cg0[0];
+  cgN[1] = cg0[1];
+  cgN[2] = cg0[2];
 
   double zeroRot[3] = {0.0, 0.0, 0.0};
   computeRotMat(zeroRot, R);
 
+  type = EmbeddedCorotSolver::BASIC;
+  if (data.type==DefoMeshMotionData::COROTATIONAL)
+    type = EmbeddedCorotSolver::COROTATIONAL;
+
   //HB: look if a symmetry plane was specified in the input file
-  double nx = data.symmetry.nx;
-  double ny = data.symmetry.ny;
-  double nz = data.symmetry.nz;
-  double nrm= sqrt(nx*nx+ny*ny+nz*nz);
+  n[0] = data.symmetry.nx;
+  n[1] = data.symmetry.ny;
+  n[2] = data.symmetry.nz;
+  double nrm= sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
   SymAxis = EmbeddedCorotSolver::NONE;
-  if(nrm!=0.0){
-    nx /= nrm; ny /= nrm; nz /= nrm; 
-    if((fabs(nx)==1.0) & (ny==0.0) & (nz==0.0))
-      SymAxis = EmbeddedCorotSolver::AXIS_X;
-    else if((nx==0.0) & (fabs(ny)==1.0) & (nz==0.0))
-      SymAxis = EmbeddedCorotSolver::AXIS_Y;
-    else if((nx==0.0) & (ny==0.0) & (fabs(nz)==1.0))
-      SymAxis = EmbeddedCorotSolver::AXIS_Z;
-    else {
-      com->fprintf(stderr," *** ERROR: embedded corotational solver only supports a canonical plane as a symmetry plane.\n");
-      exit(-1);
+  if (type == EmbeddedCorotSolver::BASIC) {
+    if(nrm!=0.0) {
+      n[0] /= nrm; n[1] /= nrm; n[2] /= nrm; 
+      if((fabs(n[0])==1.0) & (n[1]==0.0) & (n[2]==0.0))
+        SymAxis = EmbeddedCorotSolver::AXIS_X;
+      else if((n[0]==0.0) & (fabs(n[1])==1.0) & (n[2]==0.0))
+        SymAxis = EmbeddedCorotSolver::AXIS_Y;
+      else if((n[0]==0.0) & (n[1]==0.0) & (fabs(n[2])==1.0))
+        SymAxis = EmbeddedCorotSolver::AXIS_Z;
+      else {
+        com->fprintf(stderr," *** ERROR: embedded corotational solver only supports a canonical plane as a symmetry plane.\n");
+        exit(-1);
+      }
+    } 
+    switch(SymAxis) {
+      case(EmbeddedCorotSolver::NONE):
+        com->fprintf(stderr," ... No symmetry plane is used in the embedded corotational solver.\n");
+        com->fprintf(stderr,"     -> the 3 rotations axis (X,Y,Z) & 3 translation axis (X,Y,Z) are used.\n");
+        break;
+      case(EmbeddedCorotSolver::AXIS_X):
+        com->fprintf(stderr," ... Symmetry plane of normal X is used in the embedded corotational solver.\n");
+        com->fprintf(stderr,"     -> only rotation around axis X & translations in the Y-Z plane are allowed.\n");
+        break;
+      case(EmbeddedCorotSolver::AXIS_Y):
+        com->fprintf(stderr," ... Symmetry plane of normal Y is used in the embedded corotational solver.\n");
+        com->fprintf(stderr,"     -> only rotation around axis Y & translations in the X-Z plane are allowed.\n");
+        break;
+      case(EmbeddedCorotSolver::AXIS_Z):
+        com->fprintf(stderr," ... Symmetry plane of normal Z is used in the embedded corotational solver.\n");
+        com->fprintf(stderr,"     -> only rotation around axis Z & translations in the X-Y plane are allowed.\n");
+        break;
     }
-  } 
-  switch(SymAxis) {
-    case(EmbeddedCorotSolver::NONE):
-      com->fprintf(stderr," ... No symmetry plane is used in the embedded corotational solver.\n");
-      com->fprintf(stderr,"     -> the 3 rotations axis (X,Y,Z) & 3 translation axis (X,Y,Z) are used.\n");
-      break;
-    case(EmbeddedCorotSolver::AXIS_X):
-      com->fprintf(stderr," ... Symmetry plane of normal X is used in the embedded corotational solver.\n");
-      com->fprintf(stderr,"     -> only rotation around axis X & translations in the Y-Z plane are allowed.\n");
-      break;
-    case(EmbeddedCorotSolver::AXIS_Y):
-      com->fprintf(stderr," ... Symmetry plane of normal Y is used in the embedded corotational solver.\n");
-      com->fprintf(stderr,"     -> only rotation around axis Y & translations in the X-Z plane are allowed.\n");
-      break;
-    case(EmbeddedCorotSolver::AXIS_Z):
-      com->fprintf(stderr," ... Symmetry plane of normal Z is used in the embedded corotational solver.\n");
-      com->fprintf(stderr,"     -> only rotation around axis Z & translations in the X-Y plane are allowed.\n");
-      break;
   }
 }
 
@@ -267,10 +277,46 @@ void EmbeddedCorotSolver::computeNodeRot(double RR[3][3], DistSVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 
-void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double cg1[3])
+void EmbeddedCorotSolver::computeDeltaNodeRot(double RR[3][3], DistSVec<double,3> &X, DistSVec<double,3> &dX, 
+				 double cg00[3], double cg1[3])
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)  {
+
+    double (*x)[3]  = X.subData(iSub);
+    double (*dx)[3] = dX.subData(iSub);
+
+    for (int i = 0; i < X.subSize(iSub); ++i)  {
+      dx[i][0] = x[i][0] - cg00[0];
+      dx[i][1] = x[i][1] - cg00[1];
+      dx[i][2] = x[i][2] - cg00[2];
+
+      rotLocVec(RR, dx[i]);
+
+      dx[i][0] = dx[i][0] + cg1[0];
+      dx[i][1] = dx[i][1] + cg1[1];
+      dx[i][2] = dx[i][2] + cg1[2];
+
+      dx[i][0] = dx[i][0] - x[i][0];
+      dx[i][1] = dx[i][1] - x[i][1];
+      dx[i][2] = dx[i][2] - x[i][2];
+
+      x[i][0] = x[i][0] + dx[i][0];
+      x[i][1] = x[i][1] + dx[i][1];
+      x[i][2] = x[i][2] + dx[i][2];
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double deltaRot[3][3], double cg1[3])
 {
   double jac[3][3], grad[3];
   double dRot[3][3];
+
+// Initialize deltaRot to Identity Matrix
+  double zeroRot[3] = {0.0, 0.0, 0.0};
+  computeRotMat(zeroRot, deltaRot);
 
   int maxits = 10;
   double atol = 1.e-12;
@@ -326,6 +372,7 @@ void EmbeddedCorotSolver::solveDeltaRot(double *Xs, double cg1[3])
     computeRotMat(grad, dRot);
 
     denseMatrixTimesDenseMatrixInPlace(dRot, R);
+    denseMatrixTimesDenseMatrixInPlace(dRot, deltaRot);
 
   }
 
@@ -363,8 +410,84 @@ void EmbeddedCorotSolver::applyProjector(DistSVec<double,3> &Xdot)
 }
 
 //------------------------------------------------------------------------------
+void EmbeddedCorotSolver::findProjection(DistSVec<double,3> &dX)
+{
+  if(meshMotionBCs) {
+    DistSVec<double,3> dXp(dX);
+    double meandX[3];
+    computeMeanDXForSlidingPlane(dX,meandX);
+    meshMotionBCs->applyD2(dX,meandX);
+    meshMotionBCs->applyP(dX);
+    dX = dX - dXp;
+  }
+}
 
-void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &X)
+//------------------------------------------------------------------------------
+void EmbeddedCorotSolver::computeMeanDXForSlidingPlane(DistSVec<double,3> &dX, double meandX[3])
+{
+  int iSub, i, j, size = 0;
+  const DistInfo &distInfo = dX.info();
+
+  int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0;
+
+  if(DofType)
+  {
+    double (*sumdX)[3] = reinterpret_cast<double (*)[3]>
+                         (alloca(sizeof(double) * 3*distInfo.numGlobSub));
+
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub)
+      for (j=0; j<3; ++j)
+        sumdX[iSub][j] = 0.0;
+
+    #pragma omp parallel for private(i,j) reduction(+: size)
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+
+      double (*dx)[3] = dX.subData(iSub);
+      int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
+      bool *flag = dX.getMasterFlag(iSub);
+
+      int locsize = 0;
+      double locsumdx[3] = {0.0, 0.0, 0.0};
+
+      for(int i=0;i<dX.subSize(iSub); i++) {
+        if (flag[i]) {
+	  if (dofType[i][0]==BC_MATCHEDSLIDE ||
+	      dofType[i][1]==BC_MATCHEDSLIDE ||
+	      dofType[i][2]==BC_MATCHEDSLIDE) {
+            ++locsize;
+            for (j=0; j<3; ++j)
+              if (dofType[i][j]==BC_MATCHEDSLIDE) locsumdx[j] += dx[i][j];
+          }
+        }
+      }
+
+      size += locsize;
+
+      for (j=0; j<3; ++j)
+        sumdX[distInfo.locSubToGlobSub[iSub]][j] = locsumdx[j];
+
+    }
+
+    com->globalSum(1, &size);
+    com->globalSum(3*distInfo.numGlobSub, reinterpret_cast<double *>(sumdX));
+
+    for (j=0; j<3; ++j)
+      meandX[j] = 0.0;
+
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub)
+      for (j=0; j<3; ++j)
+        meandX[j] += sumdX[iSub][j];
+
+    double invTotN = 1.0 / double(size);
+
+    for (j=0; j<3; ++j)
+      meandX[j] *= invTotN;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX)
 {
 
   if(nNodes!=numStNodes) {
@@ -391,11 +514,58 @@ void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &
   }
 
   // solve for the incremental rotations via Newton-Rhapson
-  solveDeltaRot(Xtilde, cg1);
+  double deltaRot[3][3];
+  solveDeltaRot(Xtilde, deltaRot, cg1);
 
 // Update node
-  computeNodeRot(R, X, cg0, cg1);
+  if (type==EmbeddedCorotSolver::BASIC)
+    computeNodeRot(R, X, cg0, cg1);
+  else if (type==EmbeddedCorotSolver::COROTATIONAL) {
+    computeDeltaNodeRot(deltaRot, X, dX, cgN, cg1);
+    findProjection(dX);
+  }
 
+  cgN[0] = cg1[0];
+  cgN[1] = cg1[1];
+  cgN[2] = cg1[2];
+
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedCorotSolver::setup(double *Xtilde, int nNodes)
+{
+
+  if(nNodes!=numStNodes) {
+    com->fprintf(stderr,"Number of structure nodes has changed!\n");
+    exit(-1);
+  }
+
+  // compute cg(n+1)
+  double cg1[3];
+  computeCG(Xtilde, cg1);
+
+  switch(SymAxis) {
+    case(EmbeddedCorotSolver::AXIS_X):
+      cg1[0] = cg0[0];
+      break;
+
+    case(EmbeddedCorotSolver::AXIS_Y):
+      cg1[1] = cg0[1];
+      break;
+
+    case(EmbeddedCorotSolver::AXIS_Z):
+      cg1[2] = cg0[2];
+      break;
+  }
+
+  // solve for the incremental rotations via Newton-Rhapson
+  double deltaRot[3][3];
+  solveDeltaRot(Xtilde, deltaRot, cg1);
+
+  cgN[0] = cg1[0];
+  cgN[1] = cg1[1];
+  cgN[2] = cg1[2];
 }
 
 //------------------------------------------------------------------------------

@@ -21,8 +21,9 @@
 #define BC_KIRCHHOFF_SURFACE 9
 
 
-#define BC_FREE        0
-#define BC_FIXED       1
-#define BC_MATCHED     2
-#define BC_CONSTRAINED 3 
+#define BC_FREE         0
+#define BC_FIXED        1
+#define BC_MATCHED      2
+#define BC_MATCHEDSLIDE 3 
+#define BC_CONSTRAINED  4 
 #endif

@@ -1512,6 +1512,7 @@ struct CFLData {
   // global cfl parameters
   double cfl0;
   double cflCoef1;
+  double cflCoef2;
   double cflMax;
   double cflMin;
   double dualtimecfl;

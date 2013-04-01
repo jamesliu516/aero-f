@@ -375,6 +375,8 @@ protected:
 
   double *Xs0;
 
+  MeshMotionSolver *mms;
+
 public:
 
   EmbeddedALEMeshMotionHandler(IoData &, Domain *, DistLevelSetStructure *);
