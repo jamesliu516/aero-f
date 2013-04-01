@@ -64,7 +64,23 @@ MultiGridKspSolver<Scalar,neq,Scalar2>::
     delete coarseMvps[i];
     delete coarsePrecs[i];
     delete coarseSolvers[i];
+
+#pragma omp parallel for
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+      delete smoothingMatrices[i][iSub];
+    }
+  
+    delete [] smoothingMatrices[i];
+
   }
+
+  delete [] smoothingMatrices;
+
+  delete [] coarseMvps;
+  delete [] coarsePrecs;
+  delete [] coarseSolvers;
+
 }
 
 template<class Scalar,int neq,class Scalar2>

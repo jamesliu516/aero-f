@@ -6599,7 +6599,6 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
         }
         double pp = vf->getPressure(Vext, fid?(*fid)[i]:0);
         flocal += (pp - pInfty)*nf[n];
-
         if(ghostPoints) {// Viscous Simulation
           flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet);
 	}
