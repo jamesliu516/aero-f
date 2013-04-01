@@ -1411,6 +1411,8 @@ struct MultiGridData {
   int num_fine_sweeps;
 
   int addViscousTerms;
+
+  SchemeFixData fixes;
  
   MultiGridData();
   ~MultiGridData() {}
