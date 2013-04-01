@@ -64,6 +64,10 @@ class MultiGridKernel {
   void applyFixes(int,DistSVec<Scalar2,dim>& f); 
 
  private:
+ 
+  void
+  setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0);
+
 
   bool isGeometric;
  

@@ -155,6 +155,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
     limiterLeft = limiterRight = 1; 
   }
 
+  limiterLeft = limiterRight = 0;
   
   if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
     levelSetMethod = 1;
@@ -1147,8 +1148,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         //std::cout << "beta = " << betap << std::endl; 
         memset(fluxi,0,sizeof(double)*dim);
         memset(fluxj,0,sizeof(double)*dim);
-	varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vir);
-	varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vjr);
+	varFcn->getVarFcnBase(fluidId[i-1])->verification(0,Udummy,Vir);
+	varFcn->getVarFcnBase(fluidId[j+1])->verification(0,Udummy,Vjr);
 
         riemann->computeRiemannSolution(Vir,Vjr,fluidId[i-1],fluidId[j+1],gradphi,varFcn,
 	  			        Wir,Wjr,i,j,i,dx,false);
