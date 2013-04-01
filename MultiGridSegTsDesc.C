@@ -135,6 +135,9 @@ smooth0(DistSVec<double,dim>& x,int steps) {
     this->monitorConvergence(0, x);
     R(0) = -1.0*this->getCurrentResidual();
   }
+  double one = 1.0;
+  if (globalIt%500 == 1) 
+    this->domain->writeVectorToFile("myResidual", globalIt/500, globalIt, R(0), &one);
 }
 
 template <int dim,int neq1,int neq2>

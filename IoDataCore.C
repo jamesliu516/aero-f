@@ -2533,6 +2533,8 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
 &MultiGridData::prolong_relax_factor);
   new ClassDouble<MultiGridData>(ca, "RestrictRelaxFactor",this,
 &MultiGridData::restrict_relax_factor);
+  
+  fixes.setup("Fixes", ca);
 }
 
 //------------------------------------------------------------------------------
@@ -5661,6 +5663,30 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     schemes.fixes.cones[j]->y1 /= ref.rv.tlength;
     schemes.fixes.cones[j]->z1 /= ref.rv.tlength;
     schemes.fixes.cones[j]->r1 /= ref.rv.tlength;
+  }
+  
+  // Multigrid fixes.
+  mg.fixes.dihedralAngle *= acos(-1.0) / 180.0;
+  for (int j=0; j<mg.fixes.num; ++j) {
+    mg.fixes.spheres[j]->x0 /= ref.rv.tlength;
+    mg.fixes.spheres[j]->y0 /= ref.rv.tlength;
+    mg.fixes.spheres[j]->z0 /= ref.rv.tlength;
+    mg.fixes.spheres[j]->r /= ref.rv.tlength;
+    mg.fixes.boxes[j]->x0 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->y0 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->z0 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->x1 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->y1 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->z1 /= ref.rv.tlength;
+
+    mg.fixes.cones[j]->x0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->y0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->z0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->r0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->x1 /= ref.rv.tlength;
+    mg.fixes.cones[j]->y1 /= ref.rv.tlength;
+    mg.fixes.cones[j]->z1 /= ref.rv.tlength;
+    mg.fixes.cones[j]->r1 /= ref.rv.tlength;
   }
   
   return error;
