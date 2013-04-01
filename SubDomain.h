@@ -990,6 +990,8 @@ public:
 
   int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 );
 
+  int* getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 );
+
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
   void changeSurfaceType(map<int,SurfaceData*>& surfaceMap);

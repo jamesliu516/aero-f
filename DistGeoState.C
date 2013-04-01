@@ -262,7 +262,6 @@ void DistGeoState::setup(const char *name, TimeData &timeData,
 void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
 
-	com->printf(2, "in DistGeoState::setup3.\n");
 
   if (!data.use_n) {
     Xn = X->alias();
