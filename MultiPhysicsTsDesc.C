@@ -364,6 +364,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
     }
   }
 
+  this->spaceOp->conservativeToPrimitive(*U,fluidSelector.fluidId);
   computeForceLoad(Wij, Wji);
   delete Wij;
   delete Wji;

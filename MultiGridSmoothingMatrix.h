@@ -22,6 +22,8 @@ class MultiGridSmoothingMatrix : public GenMat<Scalar,dim> {
                            int nn, int ne, int nBC,
                            MultiGridLevel<Scalar>*,
                            MultiGridLevel<Scalar>*);
+
+  ~MultiGridSmoothingMatrix();
  
   MultiGridSmoothingMatrix<Scalar,dim> &operator= (const Scalar x) { a = x; return *this; }
   MultiGridSmoothingMatrix<Scalar,dim> &operator*= (const Scalar x) { a *= x; return *this; }

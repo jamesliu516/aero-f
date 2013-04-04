@@ -6506,7 +6506,8 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
   SVec<double,dim> gradX = ngrad.getX();
   SVec<double,dim> gradY = ngrad.getY();
   SVec<double,dim> gradZ = ngrad.getZ();
-  
+ 
+  double Vext[dim]; 
   int stNode[3];
   Vec3D Xst[3];
   Vec3D Xp;
@@ -6606,15 +6607,20 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
 	int i = node[n];
 	if (i < 0) continue;
 	double *v = V[i];
-        gradP[0] = gradX[i][4];
-        gradP[1] = gradY[i][4];
-        gradP[2] = gradZ[i][4];
+        /*gradP[0] = gradX[i][4];
+          gradP[1] = gradY[i][4];
+          gradP[2] = gradZ[i][4];
+        */
         for(int m=0;m<3;++m) {
           vectorIJ[m] = Xp[m] - X[i][m];
         }
-        double pp = vf->getPressure(v, fid?(*fid)[i]:0);
-        flocal += (pp - pInfty + gradP*vectorIJ)*nf[n];
-
+        for (int k = 0; k < dim; ++k) {
+          Vext[k] = v[k] + gradX[i][k]*vectorIJ[0]+
+                 gradY[i][k]*vectorIJ[1]+
+                 gradZ[i][k]*vectorIJ[2];
+        }
+        double pp = vf->getPressure(Vext, fid?(*fid)[i]:0);
+        flocal += (pp - pInfty)*nf[n];
         if(ghostPoints) {// Viscous Simulation
           flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet);
 	}

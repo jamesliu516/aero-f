@@ -21,7 +21,9 @@ MultiGridSmoothingMatrix(SmoothingMode m, int isub,
                                                           mgLevelRefined(mglvlR) {
 
   n = nn; numEdges = ne; 
-  
+
+  lineJacobiMatrices = NULL; 
+ 
   switch (mySmoothingMode) {
 
    case RAS:
@@ -42,6 +44,39 @@ MultiGridSmoothingMatrix(SmoothingMode m, int isub,
   }
 }
  
+template <class Scalar, int dim>
+MultiGridSmoothingMatrix<Scalar,dim>::
+~MultiGridSmoothingMatrix() {
+
+  switch (mySmoothingMode) {
+
+   case RAS:
+
+    delete iluA;
+    delete iluJW;
+    break;
+
+   case LineJacobi:
+   case BlockJacobi:
+
+    delete indices;
+    break;
+   default:
+    // Should never be reached in normal operation
+    std::cout << "Error: Unsupported smoother in MultiGridSmoothingMatrix()" << std::endl;
+    break;
+  }
+
+  if (lineJacobiMatrices) {
+
+    for (int i = 0; i < numLines; ++i)
+      delete lineJacobiMatrices[i];
+    delete [] lineJacobiMatrices;
+  }  
+
+}
+ 
+
 template <class Scalar, int dim>
 void MultiGridSmoothingMatrix<Scalar,dim>::
 getData(GenMat<Scalar,dim>& mat) {
@@ -115,11 +150,14 @@ getDataLineJacobi(GenMat<Scalar,dim>& mat) {
   bool* masterFlag = mgLevelRefined->getNodeDistInfo().getMasterFlag(iSub);
   int nl = 0,lineid,edgei,edgej,loci,locj;
   numLines = mgLevel->NumLines(iSub);
-  lineJacobiMatrices = new BlockTridiagonalMatrix<Scalar,dim>*[mgLevel->NumLines(iSub)]; 
+
+  if (!lineJacobiMatrices) {
+    lineJacobiMatrices = new BlockTridiagonalMatrix<Scalar,dim>*[mgLevel->NumLines(iSub)]; 
     
-  for (int i = 0; i < mgLevel->NumLines(iSub); ++i) {
+    for (int i = 0; i < mgLevel->NumLines(iSub); ++i) {
    
-    lineJacobiMatrices[i] = new BlockTridiagonalMatrix<Scalar,dim>(mgLevel->lineLength(iSub,i));
+      lineJacobiMatrices[i] = new BlockTridiagonalMatrix<Scalar,dim>(mgLevel->lineLength(iSub,i));
+    }
   }
 
   for (int i = 0; i < n; ++i) {

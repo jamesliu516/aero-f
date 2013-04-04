@@ -1675,7 +1675,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
     else if(fluidId[i]!=fluidId[j]) { //NOTE: It's NOT equivalent with checking Phi_i x Phi_j < 0!
       if(!masterFlag[l]) continue;
-    
+
+      /*int rnk;
+      MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+      std::cout << rnk << std::endl;   
+ */
       // Force constant reconstruction at the interface.
       for (int k = 0; k < dim; ++k) {
         Vi[k] = V[i][k];
