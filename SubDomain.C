@@ -5474,6 +5474,17 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
           weights[k] = (1.0-alpha)*(1.0-alpha);
         }
 
+	if (dim==6) {  // One Equation Turbulent Model
+	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+	}
+	else if (dim==7) { // Two Equations Turbulent Model
+	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
+	  Vj[6] = -alpha*Vi[6]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+          weights[6] = (1.0-alpha)*(1.0-alpha);
+	}
+
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
 
@@ -5507,6 +5518,17 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 	  Vi[k] = ((resji.normVel)[k-1] - alpha*Vj[k])/(1.0-alpha);
           weights[k] = (1.0-alpha)*(1.0-alpha);
         }
+
+	if (dim==6) {  // One Equation Turbulent Model
+	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+	}
+	else if (dim==7) { // Two Equations Turbulent Model
+	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
+	  Vi[6] = -alpha*Vj[6]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+          weights[6] = (1.0-alpha)*(1.0-alpha);
+	}
 
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
