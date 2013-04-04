@@ -76,21 +76,21 @@ class GhostPoint{
   void addNeighbour(double *Vi, double *Wi, int tag) {
 
 // We want to satisfy interface condition in least squares manner 
-    for(int i=0;i<5;++i) {
+    for(int i=0;i<dim;++i) {
       Vg[i] += Wi[i]*Vi[i];
       Ws[i] += Wi[i];
     }
 
-    if(dim == 6) { // One Equation Turbulent Model
-      Vg[5] = 0.0;
-      Ws[5] = 1.0;
-    }
-    else if(dim == 7) {// Two Equations Turbulent Model
-      Vg[5] = 0.0;
-      Vg[6] = 0.0;
-      Ws[5] = 1.0;
-      Ws[6] = 1.0;
-    }
+//    if(dim == 6) { // One Equation Turbulent Model
+//      Vg[5] = 0.0;
+//      Ws[5] = 1.0;
+//    }
+//    else if(dim == 7) {// Two Equations Turbulent Model
+//      Vg[5] = 0.0;
+//      Vg[6] = 0.0;
+//      Ws[5] = 1.0;
+//      Ws[6] = 1.0;
+//    }
 
     // Tag check
     if(ghostTag < 0) {
