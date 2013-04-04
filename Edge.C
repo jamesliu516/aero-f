@@ -3095,7 +3095,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   double Vi[2*dim], Vj[2*dim];
   double Wstar[2*dim];
-  double dUdU[dim*dim],dfdUi[dim*dim],dfdUj[dim*dim],dkk[dim*dim],dWdW[dim*dim],dWdU[dim*dim];
+  double dUdU[neq*neq],dfdUi[neq*neq],dfdUj[neq*neq],dkk[neq*neq],dWdW[dim*dim],dW1dW1[neq*neq],dWdU[neq*neq];
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
   Scalar * Aii,*Ajj,*Aij,*Aji;
@@ -3139,7 +3139,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       Ajj = A.getElem_ii(j);
 
       if (masterFlag[l]) {
-        for (k=0; k<dim*dim; ++k) {
+        for (k=0; k<neq*neq; ++k) {
           Aii[k] += dfdUi[k];
 	  Ajj[k] -= dfdUj[k];
         }
@@ -3151,7 +3151,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         double voli = 1.0 / ctrlVol[i];
         double volj = 1.0 / ctrlVol[j];
  
-        for (k=0; k<dim*dim; ++k) {
+        for (k=0; k<neq*neq; ++k) {
 	  Aij[k] += dfdUj[k] * voli;
 	  Aji[k] -= dfdUi[k] * volj;
 	}
@@ -3181,15 +3181,29 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
         riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
-        riemann.computeFSIRiemannJacobian(Vi,resij.normVel,normalDir,varFcn,Wstar,j,dWdW,fluidId[i]);
-        
-        varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[i]);
-        varFcn->preMultiplyBydUdV(Vi, dWdU, dUdU,fluidId[i]);
+
+        if (neq > 2) {
+          riemann.computeFSIRiemannJacobian(Vi,resij.normVel,normalDir,varFcn,Wstar,j,dWdW,fluidId[i]);
+          for (k=0; k<neq*neq; ++k) {
+	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
+	  }
+          
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Wstar, dW1dW1, dWdU);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->preMultiplyBydUdV(Vi, dWdU, dUdU);
+          //varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[i]);
+          //varFcn->preMultiplyBydUdV(Vi, dWdU, dUdU,fluidId[i]);
+        }
+        else {
+          for (k=0; k<neq*neq; ++k) {
+            dUdU[k] = 0.;
+          }
+        }
 
         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wstar, dfdUi, dfdUj, fluidId[i],false);
-        DenseMatrixOp<double, dim, dim*dim>::applyToDenseMatrix(&dfdUj,0,&dUdU, 0, &dkk,0);
+        DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUj,0,&dUdU, 0, &dkk,0);
+
         Aii = A.getElem_ii(i);
-        for (k=0; k<dim*dim; ++k) {
+        for (k=0; k<neq*neq; ++k) {
           Aii[k] += dfdUi[k]+dkk[k];
         }
       }
@@ -3218,15 +3232,29 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
   
         riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
-        riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
-        
-        varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[j]);
-        varFcn->preMultiplyBydUdV(Vj, dWdU, dUdU,fluidId[j]);
+
+        if (neq > 2) {
+          riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
+          for (k=0; k<neq*neq; ++k) {
+	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
+	  }
+          
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Wstar, dW1dW1, dWdU);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->preMultiplyBydUdV(Vj, dWdU, dUdU);
+          //varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[j]);
+          //varFcn->preMultiplyBydUdV(Vj, dWdU, dUdU,fluidId[j]);
+        }
+        else {
+          for (k=0; k<neq*neq; ++k) {
+            dUdU[k] = 0.;
+          }
+        }
   
         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar,Vj, dfdUi, dfdUj, fluidId[j],false); 
-        DenseMatrixOp<double, dim, dim*dim>::applyToDenseMatrix(&dfdUi,0,&dUdU, 0, &dkk,0);
+        DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUi,0,&dUdU, 0, &dkk,0);
+
         Ajj = A.getElem_ii(j);
-        for (k=0; k<dim*dim; ++k) {
+        for (k=0; k<neq*neq; ++k) {
           Ajj[k] -= dfdUj[k]+dkk[k];
         }
       }
