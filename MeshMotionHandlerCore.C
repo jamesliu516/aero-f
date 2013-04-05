@@ -1835,8 +1835,10 @@ EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *
 
   cs = new EmbeddedCorotSolver(iod.dmesh, domain, Xs0, distLSS->getNumStructNodes());
 
-  if (iod.dmesh.type = DefoMeshMotionData::COROTATIONAL)
+  if (iod.dmesh.type == DefoMeshMotionData::COROTATIONAL)
     mms = new EmbeddedALETetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+  else
+    mms = 0;
 
 }
 
