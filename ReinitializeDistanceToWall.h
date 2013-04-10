@@ -15,6 +15,7 @@ class LevelSetStructure;
 template<int dimLS>
 class ReinitializeDistanceToWall
 {
+  IoData& iod;
   Domain& dom;
   DistVec<bool> done;
   DistSVec<double,1> d2wall;
@@ -25,7 +26,7 @@ class ReinitializeDistanceToWall
   DistSVec<double,dimLS> dummyPhi;
 
 public:
-  ReinitializeDistanceToWall(Domain& domain);
+  ReinitializeDistanceToWall(IoData &ioData, Domain& domain);
   ~ReinitializeDistanceToWall();
 
   void ComputeWallFunction(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);

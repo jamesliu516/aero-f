@@ -6,8 +6,8 @@
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-ReinitializeDistanceToWall<dimLS>::ReinitializeDistanceToWall(Domain& domain)
-  : dom(domain),done(domain.getNodeDistInfo()),d2wall(domain.getNodeDistInfo()),tag(domain.getNodeDistInfo()),dummyPhi(domain.getNodeDistInfo()),sortedNodes(domain.getNodeDistInfo())
+ReinitializeDistanceToWall<dimLS>::ReinitializeDistanceToWall(IoData &ioData, Domain& domain)
+  : iod(ioData),dom(domain),done(domain.getNodeDistInfo()),d2wall(domain.getNodeDistInfo()),tag(domain.getNodeDistInfo()),dummyPhi(domain.getNodeDistInfo()),sortedNodes(domain.getNodeDistInfo())
 {
   int nSub         = dom.getNumLocSub();
   nSortedNodes     = new int[nSub];
@@ -28,10 +28,19 @@ ReinitializeDistanceToWall<dimLS>::~ReinitializeDistanceToWall()
 template<int dimLS>
 void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState)
 {
- // DistanceToClosestPointOnMovingStructure(LSS,X,distGeoState);
+
+  if (iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::ITERATIVE) {
+    DistanceToClosestPointOnMovingStructure(LSS,X,distGeoState);
   // PrescribedValues(LSS,X,distGeoState);
-  // GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
-   PseudoFastMarchingMethod(LSS,X,distGeoState);
+    GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
+  }
+  else if (iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE) {
+    PseudoFastMarchingMethod(LSS,X,distGeoState);
+  }
+  else {
+    fprintf(stderr," *** Error ***, Unknown wall distance method\n");
+    exit(1);
+  }
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
@@ -39,7 +48,9 @@ void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructur
           distGeoState(iSub).getDistanceToWall()[i]=d2wall(iSub)[i][0];
   }
   
+#ifdef ERROR_CHECK
   computeExactErrors(LSS,X,distGeoState);
+#endif
   return;
 }
 
@@ -176,7 +187,7 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(
     ++level;
   }
   dom.getCommunicator()->globalMax(1,&max_level);
-  dom.getCommunicator()->fprintf(stderr,"There are %d levels\n",--level);
+//  dom.getCommunicator()->fprintf(stderr,"There are %d levels\n",--level);
   for(int iSub = 0; iSub < dom.getNumLocSub(); ++iSub){// TODO(jontg): Parallelize better!
     for(int i = 0; i < done(iSub).len ; ++i) 
       {if(tag(iSub)[i] == 1) d2wall(iSub)[i][0] = 0.0;}
@@ -200,11 +211,14 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(
 // --------------------------------------------
   // Propagate information outwards
   MultiFluidData::CopyCloseNodes copy=MultiFluidData::FALSE;
+  bool printwarning = false;
+  double maxres = -FLT_MAX; 
+  int maxreslvl = 1;
   for(int ilvl=2;ilvl<=max_level;++ilvl){
   // for(int ilvl=2;ilvl<1;++ilvl){
     double res = 1.0, resn = 1.0, resnm1 = 1.0;
     int it = 0;
-    while(res>1e-4 || it<=1){
+    while(res>iod.eqs.tc.tm.d2wall.eps && it<iod.eqs.tc.tm.d2wall.maxIts){
       resnm1 = resn;
       dom.computeDistanceLevelNodes(1,tag,ilvl,X,d2wall,resn,dummyPhi,copy);
       dom.getCommunicator()->globalMax(1,&resn);
@@ -212,7 +226,16 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(
       res = fabs((resn-resnm1)/(resn+resnm1));
       // dom.getCommunicator()->fprintf(stderr,"Level %d: Iter %d Res %f\n",ilvl,it,res);
     }
+    if (res>iod.eqs.tc.tm.d2wall.eps) {
+      printwarning = true;
+      if (res > maxres) {
+	maxres = res;
+	maxreslvl = ilvl;
+      }
+    }
   }
+  if (printwarning) dom.getCommunicator()->fprintf(stderr, "*** Warning: Distance to wall computation (Max residual: %e at level: %d, target: %e, total levels: %d)\n", maxres,maxreslvl,iod.eqs.tc.tm.d2wall.eps,max_level);
+
   return;
 }
 
@@ -292,7 +315,7 @@ void ReinitializeDistanceToWall<dimLS>::PseudoFastMarchingMethod(
     ++level;
   }
   dom.getCommunicator()->globalMax(1,&level);
-  dom.getCommunicator()->fprintf(stderr,"There are %d levels\n",--level);
+//  dom.getCommunicator()->fprintf(stderr,"There are %d levels\n",--level);
   return;
 }
 //------------------------------------------------------------------------------
