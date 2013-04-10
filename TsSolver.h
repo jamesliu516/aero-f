@@ -138,14 +138,14 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
 
-  // For an embedded viscous simulation with turbulence model, compute the distance to the wall
-  probDesc->computeDistanceToWall(ioData);
-
   // setup solution output files
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
   /** for embedded method: send force (if it>0) and receive disp (from Struct). */
   dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+  // For an embedded viscous simulation with turbulence model, compute the distance to the wall
+  probDesc->computeDistanceToWall(ioData);
 
   if (lastIt)
     probDesc->outputPositionVectorToDisk(U);
@@ -163,12 +163,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
      
     bool solveOrNot = true;
     
-    // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
-    if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-        ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
-        ioData.problem.alltype == ProblemData::_FORCED_) {
-      probDesc->computeDistanceToWall(ioData);
-    }
     bool repeat;
     do { // Subcycling
       repeat = false;
@@ -252,6 +246,16 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
     dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+  // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
+    if ( (ioData.problem.framework == ProblemData::EMBEDDED) || 
+         (ioData.problem.framework == ProblemData::EMBEDDEDALE) )
+      if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
+          ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
+          ioData.problem.alltype == ProblemData::_FORCED_) {
+        if (!lastIt) probDesc->computeDistanceToWall(ioData);
+      }
+
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
 
   }

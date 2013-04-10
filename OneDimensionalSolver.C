@@ -600,7 +600,7 @@ void OneDimensional::totalTimeIntegration(){
     // If programmed burn is used, if the shock reaches a specified maximum location, stop the simulation:
     if (programmedBurnIsUsed == true && iteration > 10 ){
       // Obtain the shock sensor node numbers:
-      int shockSensorNode3 = floor( numPoints * programmedBurnStopPercentDistance ) ;
+      int shockSensorNode3 = (int)( numPoints * programmedBurnStopPercentDistance ) ;
       int shockSensorNode2 = shockSensorNode3 - 1 ;
       int shockSensorNode1 = shockSensorNode2 - 1 ;
       // Obtain the x-velocity at the shock sensor nodes:

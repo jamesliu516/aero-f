@@ -336,6 +336,7 @@ TransientData::TransientData()
   philevel = "";
   controlvolume = "";
   fluidid="";
+  d2wall="";
   embeddedsurface = "";
   cputiming = "";
 
@@ -452,6 +453,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
+  new ClassStr<TransientData>(ca, "WallDistance", this, &TransientData::d2wall);
   new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
   new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
 
@@ -1259,11 +1261,36 @@ void KEModelData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
-TurbulenceModelData::TurbulenceModelData()
+WallDistanceMethodData::WallDistanceMethodData()
+{
+  type = NONITERATIVE;
+
+  maxIts = 10;
+  eps = 1.e-4;
+}
+
+//------------------------------------------------------------------------------
+
+void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
 {
 
-  type = ONE_EQUATION_SPALART_ALLMARAS;
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
+  new ClassToken<WallDistanceMethodData>
+    (ca, "Type", this, reinterpret_cast<int WallDistanceMethodData::*>
+     (&WallDistanceMethodData::type), 2, "Iterative", 0, "NonIterative", 1);
+
+  new ClassInt<WallDistanceMethodData>(ca, "MaxIts", this, &WallDistanceMethodData::maxIts);
+
+  new ClassDouble<WallDistanceMethodData>(ca, "Eps", this, &WallDistanceMethodData::eps);
+
+}
+
+//------------------------------------------------------------------------------
+
+TurbulenceModelData::TurbulenceModelData()
+{
+  type = ONE_EQUATION_SPALART_ALLMARAS;
 }
 
 //------------------------------------------------------------------------------
@@ -1271,21 +1298,21 @@ TurbulenceModelData::TurbulenceModelData()
 void TurbulenceModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassToken<TurbulenceModelData>
     (ca, "Type", this, reinterpret_cast<int TurbulenceModelData::*>
-     (&TurbulenceModelData::type), 3,
-     "SpalartAllmaras", 0, "DES", 1, "KEpsilon", 2);
+     (&TurbulenceModelData::type), 3, "SpalartAllmaras", 0, "DES", 1, "KEpsilon", 2);
 
   sa.setup("SpalartAllmaras", ca);
   des.setup("DES", ca);
   ke.setup("KEpsilon", ca);
+  d2wall.setup("WallDistanceMethod", ca);
 
 }
 
 //------------------------------------------------------------------------------
-
+//
 SmagorinskyLESData::SmagorinskyLESData()
 {
 
