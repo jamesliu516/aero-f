@@ -478,7 +478,9 @@ void EmbeddedCorotSolver::computeMeanDXForSlidingPlane(DistSVec<double,3> &dX, d
       for (j=0; j<3; ++j)
         meandX[j] += sumdX[iSub][j];
 
-    double invTotN = 1.0 / double(size);
+    double invTotN;
+    if (size != 0) invTotN = 1.0 / double(size);
+    else invTotN = 0.;
 
     for (j=0; j<3; ++j)
       meandX[j] *= invTotN;
