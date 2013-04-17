@@ -5,7 +5,7 @@
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
-StiffMat<Scalar,dim>::StiffMat(Domain *domain, int **nodeType, MemoryPool *mp, BCApplier* bcs=0) 
+StiffMat<Scalar,dim>::StiffMat(Domain *domain, int **nodeType, MemoryPool *mp, BCApplier* bcs) 
   : DistMat<Scalar,dim>(domain)
 {
 

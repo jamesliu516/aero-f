@@ -1172,7 +1172,7 @@ void GnatPreprocessing<dim>::addFaceNodesElements(FaceSet&
 template<int dim>
 void GnatPreprocessing<dim>::addNodesOnFace(FaceSet&
 		currentFaces, const int iFace, const int iSub, const int
-		*locToGlobNodeMap, int *locNodeNums = NULL){
+		*locToGlobNodeMap, int *locNodeNums){
 	// output: locNodeNums
 
 	int globalNodeNum;

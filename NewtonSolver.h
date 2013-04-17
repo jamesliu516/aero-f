@@ -43,7 +43,7 @@ public:
 
   NewtonSolver(ProblemDescriptor *);
   ~NewtonSolver() {}
-  int solve(typename ProblemDescriptor::SolVecType &, const int timeStep, const double time);
+  int solve(typename ProblemDescriptor::SolVecType &, const int timeStep = 0, const double time = 0.0);
   int solveLS(typename ProblemDescriptor::PhiVecType &, typename ProblemDescriptor::SolVecType &);
 
   typename ProblemDescriptor::SolVecType* GetResidual() { return &F; }
@@ -67,7 +67,7 @@ NewtonSolver<ProblemDescriptor>::NewtonSolver(ProblemDescriptor *prbd) :
 
 template<class ProblemDescriptor>
 int
-NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q , const int timeStep = 0, const double t = 0.0)
+NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q , const int timeStep, const double t)
 {
 
   double res, target;
