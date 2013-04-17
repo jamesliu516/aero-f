@@ -81,6 +81,7 @@ SET(TARGETS_INST fluid)
 IF(UNIX)
   MESSAGE("-- Building for system type: " ${CMAKE_SYSTEM_NAME} ".")
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+    add_definitions(-D__LINUX)
 
     IF(NOT WITH_ARPACK EQUAL 0)
       FIND_LIBRARY(ARPACKLIB NAMES arpack arpack_LINUX
@@ -569,7 +570,7 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 #add_subdirectory(tools)
 
 
-add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
+add_definitions(-DTEMPLATE_FIX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
 IF(NOT USE_SCALAPACK)
   TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
