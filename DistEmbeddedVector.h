@@ -191,7 +191,7 @@ public:
 
   DistEmbeddedVec<Scalar,dim> *alias() const;
 
-  const DistInfo &info() const { return real.info(); }
+  const DistInfo &info() const { return real().info(); }
  
   double sizeMB() { return realVec.sizeMB()*2; }
 
