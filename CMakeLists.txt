@@ -542,7 +542,7 @@ IF(MPI_FOUND)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser FortranLib Utils 
-                          ${EXTRALIBRARIES} ${FORTRAN_HYBRID_LIBRARIES})
+                          ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${FORTRAN_HYBRID_LIBRARIES})
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES 
                           LIBRARY_OUTPUT_DIRECTORY ${BINDIR}
