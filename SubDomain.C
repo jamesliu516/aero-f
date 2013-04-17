@@ -6685,7 +6685,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       int nEdges = polygon.numberOfEdges;
 
       // get intersection information.
-      LevelSetResult lsRes[nEdges];
+      std::vector<LevelSetResult> lsRes(nEdges);
       if(!nEdges) continue; //KW: why need this?
       for (int k=0; k<nEdges; ++k) {
         lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edge[k],polygon.edgeWithVertex[k][0]<polygon.edgeWithVertex[k][1]);
@@ -6716,7 +6716,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       }
 
       // get information at intersection points (3 for triangles, 4 for quadrangles).
-      Vec3D Xinter[nEdges];
+      std::vector<Vec3D> Xinter(nEdges);
       double Vinter[nEdges][dim];
       Vec3D start_vertex;for(int m=0;m<3;++m) start_vertex[m]=X[polygon.nodeToLookFrom][m];
       for(int k=0; k<nEdges; ++k) {
