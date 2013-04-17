@@ -2307,7 +2307,8 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-                                                DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL, VecSet< DistSVec<double,dim> > *U3 = NULL)
+                                                DistSVec<double,dim> *U1, DistSVec<double,dim> *U2,
+                                                VecSet< DistSVec<double,dim> > *U3)
 {
 
   double tag = 0.0; // do not tag for now

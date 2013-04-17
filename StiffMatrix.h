@@ -25,7 +25,7 @@ class StiffMat : public DistMat<Scalar,dim> {
 public:
   BCApplier* BCs; //PJSA
   
-  StiffMat(Domain *, int **, MemoryPool *, BCApplier*);
+  StiffMat(Domain *, int **, MemoryPool *, BCApplier* bcs = NULL);
   ~StiffMat();
 
   DistMat<Scalar,dim> &operator= (const Scalar);

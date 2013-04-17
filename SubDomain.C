@@ -4615,7 +4615,7 @@ inline double SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, Pos
 template<class S1, class S2>
 void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
 				     SVec<double,3>& X, SVec<double,3>& F, GenMat<S1,3>& K, GenMat<S2,3>* P,
-                                     double volStiff, int* ndType=0)
+                                     double volStiff, int* ndType)
 {
   const int MaxSize = (3*Elem::MaxNumNd);
   double kEl[MaxSize*MaxSize];

@@ -347,7 +347,7 @@ public:
 
   template<class MatScalar, class PrecScalar>
   void computeStiffAndForce(DefoMeshMotionData::Element, SVec<double,3>&, SVec<double,3>&, GenMat<MatScalar,3>&,
-                            GenMat<PrecScalar,3>*, double volStiff, int* ndType);
+                            GenMat<PrecScalar,3>*, double volStiff, int* ndType = 0);
 
   // spatial discretization
   template<int dim>
