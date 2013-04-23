@@ -279,7 +279,8 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
 
   its = this->ns->solve(U);
   if(its==-10){
-    U=Ubc;
+    U=Ubc; // original failsafe uses UCopy, however, this vector is only initialized if there is a mesh motion handler, which was causing bugs. 
+           //Therefore, I used Ubc which appears to be unused to store the initial value instead. 
     return its;
   }
   if(its<0){  //failSafe

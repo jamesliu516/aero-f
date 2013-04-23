@@ -4732,7 +4732,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
     }
   }
 
-  return ierr;
+  return (ierr>0 ? ierr : -numclipping);
 }
 
 //------------------------------------------------------------------------------
@@ -4774,9 +4774,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
                      " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
   }
 
-
-
-  return ierr;
+  return (ierr>0 ? ierr : -numclipping);
 }
 
 //------------------------------------------------------------------------------
@@ -4822,7 +4820,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
       if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
               U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
-        ++ierr;
+        --ierr; // Used to be ++ierr. but I need ierr to be negative if clippings are active.
+        // This can cause an edge case bug if AutoCFL reduction is off, a PressureCutoff is set, but not aDensityCutoff. This could cause a floating point exception because the negative density is not caught.
       }
 
     }
@@ -4837,7 +4836,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
                      " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
   }
 
-  return ierr;
+  return (ierr>0 ? ierr : -numclipping);
 
 }
 

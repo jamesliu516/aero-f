@@ -504,6 +504,9 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   else
     ierr = domain->checkSolution(varFcn, U);
 
+  if (ierr != 0 && data->checksol) data->unphysical = true;
+  ierr = max(ierr,0);
+
   return ierr;
 
 }
