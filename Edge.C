@@ -3622,11 +3622,10 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
 
 //------------------------------------------------------------------------------
 template<int dimLS>
-void EdgeSet::pseudoFastMarchingMethodInitialization(
+void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
 				Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
 				Vec<int> &sortedNodes, int &nSortedNodes,
-				LevelSetStructure *LSS,
-				Vec<ClosestPoint> *closestPoint)
+				LevelSetStructure *LSS)
 {
   assert(LSS);
   bool intersect;
@@ -3657,18 +3656,16 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(
  	nSortedNodes++;
 	Tag[i]  = 1;
         // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-        // In the case of the FRG Intersector, closestPoint is not populated and 0.0 value is prescribed
-	// for layer 1.
-	d2wall[i][0] = closestPoint?(*closestPoint)[i].dist:0.0;
+        LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+	d2wall[i][0] = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
       }
       if(jActive && Tag[j] < 0) {
 	sortedNodes[nSortedNodes] = j;
  	nSortedNodes++;
 	Tag[j]  = 1;
         // Active nodes belonging to an edge cut by the structure are projected exactly on the surface. 
-        // In the case of the FRG Intersector, closestPoint is not populated and 0.0 value is prescribed
-	// for layer 1.
-	d2wall[j][0] = closestPoint?(*closestPoint)[j].dist:0.0;
+        LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
+	d2wall[j][0] = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
       }
     }
   }
