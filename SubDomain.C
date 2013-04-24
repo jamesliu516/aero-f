@@ -6214,7 +6214,7 @@ template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 					 SVec<double,dimLS> &d2wall, int level,
 					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-					 LevelSetStructure *LSS,Vec<ClosestPoint> *closestPoint)
+					 LevelSetStructure *LSS)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
@@ -6234,22 +6234,9 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     }
   }
   else if(level==1){
-/*
-    for(int i=0;i<closestPoint.size();++i) {
-      if(Tag[i]<0) {
-        if(closestPoint[i].nearInterface() && closestPoint[i].dist >= 0)
-        {
-  	  d2wall[i][0] = closestPoint[i].dist;
-	  Tag[i]       = 1;
-	  sortedNodes[nSortedNodes] = i;
-	  nSortedNodes++;
-	}
-      }
-    }
-*/
 //    Tag = -1;  // Tag is globally set to -1. 0 level are inactive nodes
     firstCheckedNode = nSortedNodes;
-    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,nSortedNodes,LSS,closestPoint);
+    edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
   }
   else{
   // Tag nodes that are neighbours of already Tagged nodes and compute their distance

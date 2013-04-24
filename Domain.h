@@ -370,8 +370,7 @@ public:
   void pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
 				DistSVec<double,dimLS> &d2wall, int level, 
 				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode,DistLevelSetStructure *distLSS=0,
-			 	DistVec<ClosestPoint> *closestPoints=0);
+				int *firstCheckedNode,DistLevelSetStructure *distLSS=0);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 

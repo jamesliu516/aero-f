@@ -62,7 +62,6 @@ void ReinitializeDistanceToWall<dimLS>::DistanceToClosestPointOnMovingStructure(
 {
   done=false;
   tag=0;
-  DistVec<ClosestPoint> *closestPoint = LSS.getClosestPointsPointer();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
@@ -75,7 +74,7 @@ void ReinitializeDistanceToWall<dimLS>::DistanceToClosestPointOnMovingStructure(
       d2wall(iSub)[i][0] = distGeoState(iSub).getDistanceToWall()[i];
 #endif
 
-    InitializeWallFunction(*dom.getSubDomain()[iSub],LSS(iSub),done(iSub),X(iSub),d2wall(iSub),tag(iSub),closestPoint?&((*closestPoint)(iSub)):NULL);
+    InitializeWallFunction(*dom.getSubDomain()[iSub],LSS(iSub),done(iSub),X(iSub),d2wall(iSub),tag(iSub));
     dom.getSubDomain()[iSub]->sndData(*dom.getVolPat(),d2wall(iSub).data());
   }
 
@@ -91,16 +90,20 @@ void ReinitializeDistanceToWall<dimLS>::DistanceToClosestPointOnMovingStructure(
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void ReinitializeDistanceToWall<dimLS>::InitializeWallFunction(SubDomain& subD,LevelSetStructure& LSS,Vec<bool>& done,SVec<double,3>& X,SVec<double,1>& d2w,Vec<int>& tag,Vec<ClosestPoint> *closestPoint)
+void ReinitializeDistanceToWall<dimLS>::InitializeWallFunction(SubDomain& subD,LevelSetStructure& LSS,Vec<bool>& done,SVec<double,3>& X,SVec<double,1>& d2w,Vec<int>& tag)
 {
   int (*ptrEdge)[2]=subD.getEdges().getPtr();
   for(int l=0;l<subD.getEdges().size();++l){
     if(LSS.edgeIntersectsStructure(0,l)){
       int i=ptrEdge[l][0],j=ptrEdge[l][1];
+
       done[i]=true;tag[i]=1;
+      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+      d2w[i][0] = LSS.isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
+
       done[j]=true;tag[j]=1;
-      d2w[i][0] = closestPoint?(*closestPoint)[i].dist:0.0;
-      d2w[j][0] = closestPoint?(*closestPoint)[j].dist:0.0;
+      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+      d2w[j][0] = LSS.isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
     }
   }
 }
@@ -172,59 +175,9 @@ void ReinitializeDistanceToWall<dimLS>::PseudoFastMarchingMethod(
   tag          = -1;
   int isDone   = 0;
 
-  // First, get an accurate distance to the wall for the first layer
-  /*
-  DistVec<ClosestPoint>& closestPoint(LSS.getClosestPoints());
-  #pragma omp parallel for
-  for(int iSub=0;iSub<nSub;iSub++) {
-    nSortedNodes[iSub]     = 0;
-    firstCheckedNode[iSub] = 0;
-    for(int i=0;i<closestPoint(iSub).size();++i) {
-      if(!LSS(iSub).isActive(0.0,i))
-      {
-	d2wall(iSub)[i][0] = 0.0;
-	tag(iSub)[i]       = 0;
-	sortedNodes(iSub)[nSortedNodes[iSub]] = i;
-	nSortedNodes[iSub]++;
-      }
-    }
-    dom.getSubDomain()[iSub]->sndData(*dom.getLevelPat(),reinterpret_cast<int (*)[1]>(tag.subData(iSub)));
-    dom.getSubDomain()[iSub]->sndData(*dom.getVolPat(),d2wall(iSub).data());
-  }
-  #pragma omp parallel for
-  for(int iSub=0;iSub<nSub;iSub++) {
-    dom.getSubDomain()[iSub]->maxRcvDataAndCountUpdates(*dom.getLevelPat(),reinterpret_cast<int (*)[1]>(tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
-    dom.getSubDomain()[iSub]->minRcvData(*dom.getVolPat(), d2wall(iSub).data());
-    firstCheckedNode[iSub] = nSortedNodes[iSub];
-  }
- 
-
-  #pragma omp parallel for
-  for(int iSub=0;iSub<nSub;iSub++) {
-    for(int i=0;i<closestPoint(iSub).size();++i) {
-      if(tag(iSub)[i]<0) {
-        if(closestPoint(iSub)[i].nearInterface() && closestPoint(iSub)[i].dist >= 0)
-        {
-  	  d2wall(iSub)[i][0] = closestPoint(iSub)[i].dist;
-	  tag(iSub)[i]       = 1;
-	  sortedNodes(iSub)[nSortedNodes[iSub]] = i;
-	  nSortedNodes++;
-	}
-      }
-    }
-    dom.getSubDomain()[iSub]->sndData(*dom.getLevelPat(),reinterpret_cast<int (*)[1]>(tag.subData(iSub)));
-    dom.getSubDomain()[iSub]->sndData(*dom.getVolPat(),d2wall(iSub).data());
-  }
-  #pragma omp parallel for
-  for(int iSub=0;iSub<nSub;iSub++) {
-    dom.getSubDomain()[iSub]->maxRcvDataAndCountUpdates(*dom.getLevelPat(),reinterpret_cast<int (*)[1]>(tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
-    dom.getSubDomain()[iSub]->minRcvData(*dom.getVolPat(), d2wall(iSub).data());
-  }
-  */
-  DistVec<ClosestPoint> *closestPoint = LSS.getClosestPointsPointer();
   int level   =  0; // Level 0 (inActive nodes) and 1 (Embedded surface neighbors) 
   while(isDone == 0){ // Tag every level
-    dom.pseudoFastMarchingMethod<1>(tag,X,d2wall,level,sortedNodes,nSortedNodes,firstCheckedNode,&LSS,closestPoint);
+    dom.pseudoFastMarchingMethod<1>(tag,X,d2wall,level,sortedNodes,nSortedNodes,firstCheckedNode,&LSS);
     // I don't think it is a good idea to OMP parallelize this loop. nSub should be small, though!
     isDone = 1;
     for(int iSub = 0; iSub < nSub; ++iSub){

@@ -4180,13 +4180,12 @@ template<int dimLS>
 void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
 				DistSVec<double,dimLS> &d2wall, int level, 
 				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode, DistLevelSetStructure *distLSS,
-				DistVec<ClosestPoint> *closestPoint)
+				int *firstCheckedNode, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->pseudoFastMarchingMethod<dimLS>(Tag(iSub),X(iSub),d2wall(iSub),level,sortedNodes(iSub),*(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL,closestPoint?&((*closestPoint)(iSub)):NULL);
+    subDomain[iSub]->pseudoFastMarchingMethod<dimLS>(Tag(iSub),X(iSub),d2wall(iSub),level,sortedNodes(iSub),*(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL);
     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
   }
