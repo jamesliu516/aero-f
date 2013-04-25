@@ -6212,7 +6212,7 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 
 template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-					 SVec<double,dimLS> &d2wall, int level,
+					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
 					 LevelSetStructure *LSS)
 {
@@ -6220,7 +6220,33 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
      NodeToNode = createEdgeBasedConnectivity();
   if(!NodeToElem) 
      NodeToElem = createNodeToElementConnectivity();
-  if(level == 0) { // just get inactive nodes
+  if(level > 0 && level == iterativeLevel) {  
+    nSortedNodes     = 0;
+    firstCheckedNode = 0;
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] < iterativeLevel-1) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+    }
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] == iterativeLevel-1) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+      firstCheckedNode = nSortedNodes;
+    }
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] == iterativeLevel) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+      if(Tag[i] > iterativeLevel) {
+	Tag[i] = -1;
+      }
+    }
+  }
+  else if(level == 0) { // just get inactive nodes
     nSortedNodes     = 0;
     firstCheckedNode = 0;
     for(int i=0;i<Tag.size();++i) {

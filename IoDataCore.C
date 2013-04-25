@@ -1267,6 +1267,7 @@ WallDistanceMethodData::WallDistanceMethodData()
 
   maxIts = 10;
   eps = 1.e-4;
+  iterativelvl = -1;
 }
 
 //------------------------------------------------------------------------------
@@ -1274,15 +1275,17 @@ WallDistanceMethodData::WallDistanceMethodData()
 void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
 
   new ClassToken<WallDistanceMethodData>
     (ca, "Type", this, reinterpret_cast<int WallDistanceMethodData::*>
-     (&WallDistanceMethodData::type), 2, "Iterative", 0, "NonIterative", 1);
+     (&WallDistanceMethodData::type), 3, "Iterative", 0, "NonIterative", 1, "Hybrid", 2);
 
   new ClassInt<WallDistanceMethodData>(ca, "MaxIts", this, &WallDistanceMethodData::maxIts);
 
   new ClassDouble<WallDistanceMethodData>(ca, "Eps", this, &WallDistanceMethodData::eps);
+
+  new ClassInt<WallDistanceMethodData>(ca, "IterativeLevel", this, &WallDistanceMethodData::iterativelvl);
 
 }
 
