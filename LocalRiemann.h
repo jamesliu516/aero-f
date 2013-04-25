@@ -30,7 +30,7 @@ public:
   // multiphase Riemann problem
   virtual int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut)
     {fprintf(stderr,"updatePhaseChange is not implemented here!\n");return 0;}
-  virtual void computeRiemannSolution(double *Vi, double *Vj,
+  virtual int computeRiemannSolution(double *Vi, double *Vj,
 				      int IDi, int IDj, double *nphi,
 				      double *initWi, double *initWj,
 				      double *Wi, double *Wj,
@@ -46,7 +46,7 @@ public:
 				      double* dWjdWi,double*  dWjdWj) {} 
 
   // FS Riemann problem
-  virtual void computeRiemannSolution(double *Vi, double *Vstar,
+  virtual int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {} 

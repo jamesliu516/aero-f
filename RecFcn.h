@@ -23,6 +23,8 @@ struct RecFcnBase {
 
   virtual void compute(double*, double*, double*, double*, double*, double*) = 0;
   virtual void compute(double*, double*, double*, double*, double*, double*, double, double) = 0;
+  virtual void computeExtended(double*, double*, double*, double*, double*, double*,
+                               double pl, double pr,int , int) = 0;
   virtual void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*)=0;
 };
 
@@ -87,6 +89,9 @@ public:
   void compute(double*, double*, double*, double*, double*, double*);
   void compute(double*, double*, double*, double*, double*, double*, double, double);
 
+  void computeExtended(double*, double*, double*, double*, double*, double*,
+                       double pl, double pr,int,int);
+  
   template<int dim, class Scalar1, class Scalar2, class Scalar3>
   void compute(double *, SVec<Scalar1,dim> &, SVec<Scalar1,dim> &,
                 SVec<Scalar1,dim> &, SVec<Scalar1,dim> &, Scalar2 *, Scalar2 *,
@@ -670,6 +675,14 @@ void RecFcn::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
   fprintf(stderr, "*** Error: RecFcn::compute is not overloaded\n");
   exit(1);
 
+}
+
+inline
+void RecFcn::computeExtended(double* Vi, double* ddVij, double* Vj, double* ddVji,
+                             double* Vij, double* Vji,
+                             double pl, double pr,int i, int j) {
+
+  this->compute(Vi,ddVij,Vj,ddVji, Vij,Vji);
 }
 
 //------------------------------------------------------------------------------
