@@ -4903,6 +4903,66 @@ int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim>
 
 }
 
+// Included (MB)
+template<int dim>
+int SubDomain::fixSolution2(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim> &dU, Vec<int>* fluidId,int verboseFlag)
+{
+
+  int ierr = 0;
+
+  for (int i=0; i<U.size(); ++i) {
+    double V[dim];
+    double Un[dim];
+
+    for (int j=0; j<dim; ++j)
+      Un[j] = U[i][j] + dU[i][j];
+
+    int id = 0;
+    if (fluidId)
+      id = (*fluidId)[i];
+      
+    varFcn->conservativeToPrimitive(Un, V,id);
+    double rho = varFcn->getDensity(V,id);
+    double p = varFcn->checkPressure(V,id);
+    
+    varFcn->conservativeToPrimitive(U[i], V,id);
+    double rho0 = varFcn->getDensity(V,id);
+    double p0 = varFcn->checkPressure(V,id);
+
+    double rhomin = varFcn->getVarFcnBase(id)->rhomin;  
+    double pmin = varFcn->getVarFcnBase(id)->pmin;  
+    if (rhomin < 0.0 && pmin < 0.0 || 
+        (rho > rhomin && p > pmin))
+      continue;
+  
+    std::cout << "In fixSolution2 for node " << locToGlobNodeMap[i]+1 << std::endl; 
+    double alpha = 1.0,alphamax = 1.0; 
+    double alphamin = 0.0;
+    while (fabs(alphamax-alphamin) > 1.0e-8) {
+
+      alpha = 0.5*(alphamin+alphamax);
+      for (int j=0; j<dim; ++j)
+        Un[j] = U[i][j] + alpha*dU[i][j];
+
+      varFcn->conservativeToPrimitive(Un, V,id);
+      rho = varFcn->getDensity(V,id);
+      p = varFcn->checkPressure(V,id);
+      if (p < pmin || rho < rhomin)
+        alphamax = alpha;
+      else
+        alphamin = alpha;
+    }
+   
+    std::cout << "Alpha = " << alpha << std::endl;
+    for (int j=0; j<dim; ++j)
+      dU[i][j] *= alpha;
+    
+  }
+
+  return ierr;
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>

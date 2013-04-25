@@ -1233,6 +1233,9 @@ public:
 
   template<int dim>
   int fixSolution(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, Vec<int>*, int);
+  
+  template<int dim>
+  int fixSolution2(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, Vec<int>*, int);
 
   template<int dim>
   void getGradP(NodalGrad<dim>&);

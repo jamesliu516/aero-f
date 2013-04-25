@@ -147,6 +147,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   if (ioData.mf.interfaceExtrapolation == MultiFluidData::EXTRAPOLATIONSECONDORDER)
     interfaceExtrapolation = 1;
 
+
   if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1) {
 
     limiterLeft = limiterRight = 2; 
@@ -154,8 +155,6 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
     limiterLeft = limiterRight = 1; 
   }
-
-  limiterLeft = limiterRight = 0;
   
   if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
     levelSetMethod = 1;
@@ -169,6 +168,8 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
     else if (coordType == OneDimensionalInfo::SPHERICAL)
       source->initialize(2.0,sto,X);
   }
+
+  typePhaseChange = ioData.mf.typePhaseChange;
 
   myTimer = domain->getTimer();
 }
@@ -701,9 +702,14 @@ void OneDimensional::singleTimeIntegration(double dt){
       else {
 	if (cutCellStatus[i] == 1) {
 	  if (interfaceExtrapolation == 0) {
-	    memcpy(V[i],Wr[i],sizeof(double)*5);
+	    int j = i+1;
+	    if (fluidId[i-1] == fluidId[i])
+	      j = i-1;
+	    memcpy(V[i],Wr[j],sizeof(double)*5);
+	    //memcpy(V[i],V[j],sizeof(double)*5);
+            //std::cout << "\nConstant extrapolated value: " << std::endl;
 	    for (int k = 0; k < 5; ++k) {
-	      std::cout << V[i][k] << " ";
+	      //std::cout << V[i][k] << " ";
 	    }
 	  }
 	  else if (interfaceExtrapolation == 1) {
@@ -714,7 +720,7 @@ void OneDimensional::singleTimeIntegration(double dt){
 	      j = i-1;
             int l = (j-i)*2+i;
 	    //double xi = (X[j][0]+X[i][0])*0.5;
-	    std::cout << std::endl << std::endl;	
+	    //std::cout << std::endl << std::endl;	
             double alpha = 1.0;
             if (limiterLeft == 0)
               alpha = 0.0;
@@ -725,27 +731,31 @@ void OneDimensional::singleTimeIntegration(double dt){
                                            std::max<double>(1e-8,fabs(V[j][k]-V[l][k])));
                  // alpha = std::min<double>(alpha,fabs(2.0*V[j][1]-V[l][1])/fabs(lastPhaseChangeValue[j][1]));
                 }
+
               }
             }
 
 	    for (int k = 0; k < 5; ++k) {
-	      std::cout << V[j][k] << " ";
-	      //V[i][k] = (X[i][0]-X[j][0])/(xi-X[j][0])*Wr[j][k]-
-		//(X[i][0]-xi)/(xi-X[j][0])*V[j][k];
-	      std::cout << fabs(V[j][k]-lastPhaseChangeValue[j][k]) << " " <<
-                std::max<double>(1e-8,fabs(V[j][k]-V[l][k])) << std::endl;
+	      //std::cout << V[j][k] << " ";
+	      //std::cout << fabs(V[j][k]-lastPhaseChangeValue[j][k]) << " " <<
+              //  std::max<double>(1e-8,fabs(V[j][k]-V[l][k])) << std::endl;
               //alpha = std::min<double>(alpha,fabs(2.0*V[j][1]-V[l][1])/lastPhaseChangeValue[j][1]);
-              std::cout << "alpha = " << alpha << std::endl;
-	      V[i][k] = alpha*((X[i][0]-X[j][0])/(X[l][0]-X[j][0])*V[l][k]+
-		(X[i][0]-X[l][0])/(X[j][0]-X[l][0])*V[j][k]) + 
-                        (1.0-alpha)*V[j][k];
-	      std::cout << V[i][k] << " ";
-              std::cout << std::endl;
+              //std::cout << "alpha = " << alpha << std::endl;
+              if (typePhaseChange == MultiFluidData::EXTRAPOLATION) {
+  	        V[i][k] = alpha*((X[i][0]-X[j][0])/(X[l][0]-X[j][0])*V[l][k]+
+		  (X[i][0]-X[l][0])/(X[j][0]-X[l][0])*V[j][k]) + 
+                          (1.0-alpha)*V[j][k];
+              } else {
+	        V[i][k] = (X[i][0]-X[j][0])/(interfaceLocation-X[j][0])*Wr[j][k]-
+		  (X[i][0]-interfaceLocation)/(interfaceLocation-X[j][0])*V[j][k];
+              }
+	      //std::cout << V[i][k] << " ";
+              //std::cout << std::endl;
               lastPhaseChangeValue[i][k] = -1.0;
 	    }
 	    //memcpy(V[i],V[j],sizeof(double)*5);
 	  }
-	  std::cout << std::endl << std::endl;	
+	  //std::cout << std::endl << std::endl;	
 	}
 	cutCellStatus[i] = 0;
       }
@@ -1100,7 +1110,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
               }
 	      //std::cout << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j+1][k] << " " << V[i-1][k] << " " << V[j+2][k] << std::endl;
 	    }
-            
+            double beta = std::min<double>(betapl,betapr);
+            betapl = betapr = beta;
 	    for (int k = 0; k < dim; ++k) {
               Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i][k];
               Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j+1][k];
@@ -1130,6 +1141,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
               }
 	      //std::cout << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
 	    }
+            double beta = std::min<double>(betapl,betapr);
+            betapl = betapr = beta;
 	    for (int k = 0; k < dim; ++k) {
               Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i-1][k];
               Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j][k];
@@ -1145,7 +1158,6 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
           }
         }
 
-        //std::cout << "beta = " << betap << std::endl; 
         memset(fluxi,0,sizeof(double)*dim);
         memset(fluxj,0,sizeof(double)*dim);
 	varFcn->getVarFcnBase(fluidId[i-1])->verification(0,Udummy,Vir);
@@ -1158,14 +1170,14 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
           memcpy(lastPhaseChangeValue[i], Wir, sizeof(double)*5);
 
-          for (int mm = 0; mm < 5; ++mm)
-  	    std::cout << lastPhaseChangeValue[i][mm] << " ";
+          //for (int mm = 0; mm < 5; ++mm)
+  	  //  std::cout << lastPhaseChangeValue[i][mm] << " ";
         }
         if (lastPhaseChangeValue[j][0] < 0.0) {
 
           memcpy(lastPhaseChangeValue[j], Wjr, sizeof(double)*5);
-          for (int mm = 0; mm < 5; ++mm)
-  	    std::cout << lastPhaseChangeValue[j][mm] << " ";
+          //for (int mm = 0; mm < 5; ++mm)
+  	  //  std::cout << lastPhaseChangeValue[j][mm] << " ";
         }
 
         if (interfaceExtrapolation == 1) {
