@@ -364,6 +364,11 @@ RecFcn *SpaceOperator<dim>::createRecFcn(IoData &ioData)
 	rf = new RecFcnLinear<dim>(beta, eps);
       else if (ioData.schemes.ns.limiter == SchemeData::VANALBADA)
 	rf = new RecFcnVanAlbada<dim>(beta, eps);
+      else if (ioData.schemes.ns.limiter == SchemeData::EXTENDEDVANALBADA)
+	rf = new RecFcnExtendedVanAlbada<dim>(beta, eps,ioData.eqs.fluidModelMap.dataMap[0]->pmin ,
+                                              ioData.eqs.fluidModelMap.dataMap[0]->rhomin,
+                                              ioData.schemes.ns.xip,
+                                              ioData.schemes.ns.xirho );
       else if (ioData.schemes.ns.limiter == SchemeData::BARTH)
 	rf = new RecFcnBarth<dim>(beta, eps);
       else if (ioData.schemes.ns.limiter == SchemeData::VENKAT)
@@ -536,7 +541,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   }
 
   if (fet) {
-		fprintf(stderr,"fet is on.\n");
     domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
     bcData->computeNodeValue(X);
   }

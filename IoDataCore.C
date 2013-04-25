@@ -2107,6 +2107,9 @@ SchemeData::SchemeData(int af) : allowsFlux(af)
   xiu  = -2.0/15.0;
   xic = -1.0/30.0;
   eps = 0.1;
+ 
+  xirho = 1.0;
+  xip = 1.0;
 
 }
 
@@ -2140,8 +2143,9 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<SchemeData>
     (ca, "Limiter", this,
-     reinterpret_cast<int SchemeData::*>(&SchemeData::limiter), 5,
-     "None", 0, "VanAlbada", 1, "Barth", 2, "Venkatakrishnan", 3, "PressureSensor", 4);
+     reinterpret_cast<int SchemeData::*>(&SchemeData::limiter), 6,
+     "None", 0, "VanAlbada", 1, "Barth", 2, "Venkatakrishnan", 3, "PressureSensor", 4,
+     "ExtendedVanAlbada",5);
 
   new ClassToken<SchemeData>
     (ca, "Gradient", this,
@@ -2158,6 +2162,9 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SchemeData>(ca, "XiU", this, &SchemeData::xiu);
   new ClassDouble<SchemeData>(ca, "XiC", this, &SchemeData::xic);
   new ClassDouble<SchemeData>(ca, "Eps", this, &SchemeData::eps);
+  
+  new ClassDouble<SchemeData>(ca, "XiRho", this, &SchemeData::xirho);
+  new ClassDouble<SchemeData>(ca, "XiP", this, &SchemeData::xip);
 
   fluxMap.setup("FluxMap",ca);
 }
@@ -5690,7 +5697,10 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     mg.fixes.cones[j]->z1 /= ref.rv.tlength;
     mg.fixes.cones[j]->r1 /= ref.rv.tlength;
   }
-  
+
+  schemes.ns.xirho /= ref.rv.density; 
+  schemes.ns.xip /= ref.rv.pressure;
+ 
   return error;
 }
 //------------------------------------------------------------------------------------

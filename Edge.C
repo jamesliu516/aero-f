@@ -958,6 +958,18 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
 
+    if (locToGlobNodeMap[i]+1 == 4284) {
+
+      std::cout << "State[4284] = " << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " <<
+                                       V[i][3] << " " << V[i][4] << std::endl;
+    }
+
+    if (locToGlobNodeMap[j]+1 == 4284) {
+
+      std::cout << "State[4284] = " << V[j][0] << " " << V[j][1] << " " << V[j][2] << " " <<
+                                       V[j][3] << " " << V[j][4] << std::endl;
+    }
+
     for (int i = 0; i < dim; ++i) {
       fluxi[i] = fluxj[i] = 0.0;
     }
@@ -973,7 +985,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     if (!higherOrderMF) {
       if (fluidId[i] == fluidId[j])
-	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+	recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
+                        varFcn->getPressure(V[i],fluidId[i]),
+                        varFcn->getPressure(V[j],fluidId[j]),
+                        locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
       else {
 	for (int k = 0; k < dim; ++k) {
 	  Vi[k] = V[i][k];
@@ -1464,12 +1479,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	}
       }	else {
 
-	riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-				       Wi,Wj,i,j,l,dx,false);
+	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+		         		         Wi,Wj,i,j,l,dx,false);
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Vi, Wi, fluxi, fluidId[i]);
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Wj, Vj, fluxj, fluidId[j]);
+        if (err) {
+
+          std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+        }
       }
 
       for (int k=0; k<dim; k++){

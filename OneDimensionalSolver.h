@@ -163,6 +163,8 @@ class OneDimensional {
 
   int* loctag;
 
+  int typePhaseChange;
+
   bool isSixthOrder;
 
   bool isSinglePhase;

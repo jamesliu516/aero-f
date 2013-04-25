@@ -970,6 +970,8 @@ public:
 
   template<int dim>
   void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &,DistVec<int>* fluidId = NULL);
+  template<int dim>
+  void fixSolution2(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &,DistVec<int>* fluidId = NULL);
 
   template<int dim>
   void getGradP(DistNodalGrad<dim>&);
