@@ -34,7 +34,16 @@ void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructur
     GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
   }
   else if (iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE) {
-    PseudoFastMarchingMethod(LSS,X,distGeoState);
+    PseudoFastMarchingMethod(LSS,X,distGeoState,0);
+  }
+  else if (iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::HYBRID) {
+    int iterativeLevel = 0;
+    if (iod.eqs.tc.tm.d2wall.iterativelvl > 1) { 
+      DistanceToClosestPointOnMovingStructure(LSS,X,distGeoState);
+      GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
+      iterativeLevel = iod.eqs.tc.tm.d2wall.iterativelvl;
+    }
+    PseudoFastMarchingMethod(LSS,X,distGeoState,iterativeLevel);
   }
   else {
   // PrescribedValues(LSS,X,distGeoState);
@@ -131,6 +140,10 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(
   }
   dom.getCommunicator()->globalMax(1,&max_level);
 
+  if (iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::HYBRID && 
+      iod.eqs.tc.tm.d2wall.iterativelvl > 1) 
+    max_level = min(iod.eqs.tc.tm.d2wall.iterativelvl,max_level);
+
 // Propagate information outwards
 //
   MultiFluidData::CopyCloseNodes copy=MultiFluidData::FALSE;
@@ -156,28 +169,29 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(
       }
     }
   }
-  if (printwarning) dom.getCommunicator()->fprintf(stderr, "*** Warning: Distance to wall computation (Max residual: %e at level: %d, target: %e, total levels: %d)\n", maxres,maxreslvl,iod.eqs.tc.tm.d2wall.eps,max_level);
+  if (printwarning) dom.getCommunicator()->fprintf(stderr, "*** Warning: Distance to wall computation (Max residual: %e at level: %d, target: %e)\n", maxres,maxreslvl,iod.eqs.tc.tm.d2wall.eps);
 
-  return;
 }
 
 //------------------------------------------------------------------------------
 
 template<int dimLS>
 void ReinitializeDistanceToWall<dimLS>::PseudoFastMarchingMethod(
-	DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState)
+	DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState,int iterativeLevel)
 {
   // The following is an adaptation of the Fast Marching Method to Embedded Turbulent computation. 
   // Adam 2012.09
   sortedNodes  =-1;
   int nSub     = dom.getNumLocSub();
-  d2wall       = 1.0e10;
-  tag          = -1;
+  if (iterativeLevel == 0) { 
+    d2wall       = 1.0e10;
+    tag          = -1;
+  }
   int isDone   = 0;
 
-  int level   =  0; // Level 0 (inActive nodes) and 1 (Embedded surface neighbors) 
+  int level   =  iterativeLevel; // Level 0 (inActive nodes) and 1 (Embedded surface neighbors) 
   while(isDone == 0){ // Tag every level
-    dom.pseudoFastMarchingMethod<1>(tag,X,d2wall,level,sortedNodes,nSortedNodes,firstCheckedNode,&LSS);
+    dom.pseudoFastMarchingMethod<1>(tag,X,d2wall,level,iterativeLevel,sortedNodes,nSortedNodes,firstCheckedNode,&LSS);
     // I don't think it is a good idea to OMP parallelize this loop. nSub should be small, though!
     isDone = 1;
     for(int iSub = 0; iSub < nSub; ++iSub){

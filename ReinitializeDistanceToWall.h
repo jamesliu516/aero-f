@@ -33,7 +33,7 @@ public:
   void DistanceToClosestPointOnMovingStructure(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
   void PrescribedValues(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
   void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
-  void PseudoFastMarchingMethod(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
+  void PseudoFastMarchingMethod(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState,int iterativeLevel);
   void computeExactErrors(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
 
 private:

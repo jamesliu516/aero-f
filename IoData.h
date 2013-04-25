@@ -754,10 +754,11 @@ struct KEModelData {
 //
 struct WallDistanceMethodData {
 
-  enum Type {ITERATIVE = 0, NONITERATIVE = 1} type;
+  enum Type {ITERATIVE = 0, NONITERATIVE = 1, HYBRID = 2} type;
 
   int maxIts;
   double eps;
+  int iterativelvl;
 
   WallDistanceMethodData();
   ~WallDistanceMethodData() {}
