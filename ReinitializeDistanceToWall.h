@@ -33,11 +33,11 @@ public:
   void DistanceToClosestPointOnMovingStructure(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
   void PrescribedValues(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
   void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
-  void PseudoFastMarchingMethod(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
+  void PseudoFastMarchingMethod(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState,int iterativeLevel);
   void computeExactErrors(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
 
 private:
-  void InitializeWallFunction(SubDomain& subD,LevelSetStructure& LSS,Vec<bool>& done,SVec<double,3>& X,SVec<double,1>& d2w,Vec<int>& tag,Vec<ClosestPoint>& closestPoint);
+  void InitializeWallFunction(SubDomain& subD,LevelSetStructure& LSS,Vec<bool>& done,SVec<double,3>& X,SVec<double,1>& d2w,Vec<int>& tag);
 };
 
 #endif

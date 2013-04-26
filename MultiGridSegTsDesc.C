@@ -27,12 +27,31 @@ MultiGridSegTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   smoothWithGMRES = (iod.mg.mg_smoother == MultiGridData::MGGMRES);
 
   globalIt = 0;
+
+  mgMvp1 = NULL;
+  pKernel = NULL;
+  mgSpaceOp = NULL;
+  mgKspSolver = NULL;
+  smoothingMatrices1 = NULL;
+  smoothingMatrices2 = NULL;
 }
 
 template <int dim,int neq1,int neq2>
 MultiGridSegTsDesc<dim,neq1,neq2>::
 ~MultiGridSegTsDesc() {
 
+  if (mgMvp1)
+    delete mgMvp1;
+  if (pKernel)
+    delete pKernel;
+  if (mgSpaceOp)
+    delete mgSpaceOp;
+  if (mgKspSolver)
+    delete mgKspSolver;
+  if (smoothingMatrices1)
+    delete smoothingMatrices1;
+  if (smoothingMatrices2)
+    delete smoothingMatrices2;
 }
 
 

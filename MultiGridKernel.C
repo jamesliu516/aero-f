@@ -126,18 +126,19 @@ void MultiGridKernel<Scalar>::setUseVolumeWeightedAverage(bool b) {
 template<class Scalar>
 MultiGridKernel<Scalar>::~MultiGridKernel()
 {
-  for (int level = 0; level < num_levels; ++level) {
-    delete multiGridLevels[level];
-  }
-  delete []multiGridLevels;
 
   for (int lvl = 0; lvl < num_levels; ++lvl) {
 
-    delete fixLocations;
+    delete [] fixLocations[lvl];
   }
  
   delete [] fixLocations;
 
+
+  for (int level = 0; level < num_levels; ++level) {
+    delete multiGridLevels[level];
+  }
+  delete []multiGridLevels;
 }
 
 //------------------------------------------------------------------------------

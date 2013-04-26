@@ -1010,9 +1010,9 @@ public:
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
   template<int dimLS>
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-				SVec<double,dimLS> &d2wall, int level,
+				SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 			        Vec<int> &sortedNodes, int& nSortedNodes, int &firstCheckedNode,
-				LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
+				LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
@@ -1233,6 +1233,9 @@ public:
 
   template<int dim>
   int fixSolution(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, Vec<int>*, int);
+  
+  template<int dim>
+  int fixSolution2(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, Vec<int>*, int);
 
   template<int dim>
   void getGradP(NodalGrad<dim>&);

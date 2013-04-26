@@ -958,6 +958,18 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
 
+    if (locToGlobNodeMap[i]+1 == 4284) {
+
+      std::cout << "State[4284] = " << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " <<
+                                       V[i][3] << " " << V[i][4] << std::endl;
+    }
+
+    if (locToGlobNodeMap[j]+1 == 4284) {
+
+      std::cout << "State[4284] = " << V[j][0] << " " << V[j][1] << " " << V[j][2] << " " <<
+                                       V[j][3] << " " << V[j][4] << std::endl;
+    }
+
     for (int i = 0; i < dim; ++i) {
       fluxi[i] = fluxj[i] = 0.0;
     }
@@ -973,7 +985,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     if (!higherOrderMF) {
       if (fluidId[i] == fluidId[j])
-	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+	recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
+                        varFcn->getPressure(V[i],fluidId[i]),
+                        varFcn->getPressure(V[j],fluidId[j]),
+                        locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
       else {
 	for (int k = 0; k < dim; ++k) {
 	  Vi[k] = V[i][k];
@@ -1464,12 +1479,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	}
       }	else {
 
-	riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-				       Wi,Wj,i,j,l,dx,false);
+	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+		         		         Wi,Wj,i,j,l,dx,false);
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Vi, Wi, fluxi, fluidId[i]);
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Wj, Vj, fluxj, fluidId[j]);
+        if (err) {
+
+          std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+        }
       }
 
       for (int k=0; k<dim; k++){
@@ -3622,11 +3641,10 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
 
 //------------------------------------------------------------------------------
 template<int dimLS>
-void EdgeSet::pseudoFastMarchingMethodInitialization(
+void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
 				Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
 				Vec<int> &sortedNodes, int &nSortedNodes,
-				LevelSetStructure *LSS,
-				Vec<ClosestPoint> *closestPoint)
+				LevelSetStructure *LSS)
 {
   assert(LSS);
   bool intersect;
@@ -3657,18 +3675,16 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(
  	nSortedNodes++;
 	Tag[i]  = 1;
         // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-        // In the case of the FRG Intersector, closestPoint is not populated and 0.0 value is prescribed
-	// for layer 1.
-	d2wall[i][0] = closestPoint?(*closestPoint)[i].dist:0.0;
+        LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+	d2wall[i][0] = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
       }
       if(jActive && Tag[j] < 0) {
 	sortedNodes[nSortedNodes] = j;
  	nSortedNodes++;
 	Tag[j]  = 1;
         // Active nodes belonging to an edge cut by the structure are projected exactly on the surface. 
-        // In the case of the FRG Intersector, closestPoint is not populated and 0.0 value is prescribed
-	// for layer 1.
-	d2wall[j][0] = closestPoint?(*closestPoint)[j].dist:0.0;
+        LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
+	d2wall[j][0] = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
       }
     }
   }

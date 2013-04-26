@@ -1,7 +1,8 @@
       SUBROUTINE ERIEMANNWW(DL,UL,PL,DR,UR,PR,
      &                      PM,UM,RIL,RIR,
      &                      ALPHAL,BETAL,PREFL,
-     &                      ALPHAR,BETAR,PREFR)
+     &                      ALPHAR,BETAR,PREFR,errcod,
+     &                      pcutl,pcutr,rcutl,rcutr)
 *
 *----------------------------------------------------------------------*
 *                                                                      *
@@ -14,7 +15,7 @@ C     One Dimensional Euler Equations                                  *
 *
 C     Declaration of variables:
 *
-      INTEGER I, NRITER
+      INTEGER I, NRITER,errcod
       REAL*8  TOLPRE
 *
       REAL*8  DL, UL, PL, DR, UR, PR
@@ -28,12 +29,16 @@ C     Declaration of variables:
       REAL*8  PRATIO,POLD,UDIFF,POLDL,POLDR
       REAL*8  FL, FLD, DLP, FR, FRD, DRP
       REAL*8  AAPR1, AAPR2, RHOOLD, CHANGE
+      REAL*8 pcutl,rcutl,pcutr,rcutr
+      REAL*8 pcut
 
+      errcod = 0
 *********************************************************************
 
       PL = PREFL + ALPHAL*DL**BETAL
       PR = PREFR + ALPHAR*DR**BETAR
 
+      PCUT = MAX(pcutl,pcutr)
 *********************************************************************
       
       TOLPRE  = 1.E-3
@@ -123,6 +128,7 @@ C      Shock wave
 
 
         PM     = POLD - (FL + FR + UDIFF)/(FLD + FRD)
+        IF (PM.LT.PCUT) PM = PCUT
         CHANGE = 2.0*ABS((PM- POLD)/(PM+ POLD))
         IF(CHANGE.LE.TOLPRE)GOTO 20
         IF(PM.LT.0.0)PM = TOLPRE
@@ -132,6 +138,7 @@ C      Shock wave
 *
         WRITE(6,*)'Divergence in Newton-Raphson iteration', PM, PL, PR
 *
+        errcod = 1
  20   CONTINUE
 
       UM = 0.5*(UL + UR + FR - FL)
@@ -147,5 +154,9 @@ C      Shock wave
       ELSE
         RIR  = DR*((PM  +PREFR)/(PR  +PREFR))**(1/BETAR)
       ENDIF
+
+      IF (RIL.LT.rcutl) RIL = rcutl
+      IF (RIR.LT.rcutr) RIR = rcutr
+
 
       END

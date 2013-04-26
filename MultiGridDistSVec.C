@@ -12,6 +12,13 @@ template <class Scalar,int dim>
 MultiGridDistSVec<Scalar,dim>::
 ~MultiGridDistSVec() {
 
+  
+}
+
+template <class Scalar,int dim>
+void MultiGridDistSVec<Scalar,dim>::
+free() {
+
   for (int i = 0; i < nLevels; ++i) {
   
     delete myVecs[i];

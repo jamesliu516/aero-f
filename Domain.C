@@ -3389,6 +3389,24 @@ void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<doubl
   }
 }
 
+template<int dim>
+void Domain::fixSolution2(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<double,dim> &dU,DistVec<int>* fluidId)
+{
+
+  int verboseFlag = com->getMaxVerbose();
+
+//#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    if (fluidId) {
+      subDomain[iSub]->fixSolution2(varFcn, U(iSub), dU(iSub), &((*fluidId)(iSub)), verboseFlag);
+    } else {
+  
+      subDomain[iSub]->fixSolution2(varFcn,U(iSub),dU(iSub),NULL,verboseFlag);
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -4178,15 +4196,14 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
-				DistSVec<double,dimLS> &d2wall, int level, 
+				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
 				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode, DistLevelSetStructure *distLSS,
-				DistVec<ClosestPoint> *closestPoint)
+				int *firstCheckedNode, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->pseudoFastMarchingMethod<dimLS>(Tag(iSub),X(iSub),d2wall(iSub),level,sortedNodes(iSub),*(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL,closestPoint?&((*closestPoint)(iSub)):NULL);
+    subDomain[iSub]->pseudoFastMarchingMethod<dimLS>(Tag(iSub),X(iSub),d2wall(iSub),level,iterativeLevel,sortedNodes(iSub),*(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL);
     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
   }

@@ -754,10 +754,11 @@ struct KEModelData {
 //
 struct WallDistanceMethodData {
 
-  enum Type {ITERATIVE = 0, NONITERATIVE = 1} type;
+  enum Type {ITERATIVE = 0, NONITERATIVE = 1, HYBRID = 2} type;
 
   int maxIts;
   double eps;
+  int iterativelvl;
 
   WallDistanceMethodData();
   ~WallDistanceMethodData() {}
@@ -1174,7 +1175,8 @@ struct SchemeData {
 
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruction;
 
-  enum Limiter {NONE = 0, VANALBADA = 1, BARTH = 2, VENKAT = 3, P_SENSOR = 4} limiter;
+  enum Limiter {NONE = 0, VANALBADA = 1, BARTH = 2, VENKAT = 3, P_SENSOR = 4,
+                EXTENDEDVANALBADA = 5} limiter;
   enum Gradient {LEAST_SQUARES = 0, GALERKIN = 1, NON_NODAL = 2} gradient;
   enum Dissipation {SECOND_ORDER = 0, SIXTH_ORDER = 1} dissipation;
 
@@ -1183,6 +1185,9 @@ struct SchemeData {
   double xiu;
   double xic;
   double eps;
+  
+  double xirho;
+  double xip;
 
   struct MaterialFluxData {
 
