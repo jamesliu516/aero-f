@@ -368,10 +368,9 @@ public:
   void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
   template<int dimLS>
   void pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
-				DistSVec<double,dimLS> &d2wall, int level, 
+				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode,DistLevelSetStructure *distLSS=0,
-			 	DistVec<ClosestPoint> *closestPoints=0);
+				int *firstCheckedNode,DistLevelSetStructure *distLSS=0);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
@@ -970,6 +969,8 @@ public:
 
   template<int dim>
   void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &,DistVec<int>* fluidId = NULL);
+  template<int dim>
+  void fixSolution2(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &,DistVec<int>* fluidId = NULL);
 
   template<int dim>
   void getGradP(DistNodalGrad<dim>&);

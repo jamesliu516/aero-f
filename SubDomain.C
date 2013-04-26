@@ -4903,6 +4903,66 @@ int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim>
 
 }
 
+// Included (MB)
+template<int dim>
+int SubDomain::fixSolution2(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim> &dU, Vec<int>* fluidId,int verboseFlag)
+{
+
+  int ierr = 0;
+
+  for (int i=0; i<U.size(); ++i) {
+    double V[dim];
+    double Un[dim];
+
+    for (int j=0; j<dim; ++j)
+      Un[j] = U[i][j] + dU[i][j];
+
+    int id = 0;
+    if (fluidId)
+      id = (*fluidId)[i];
+      
+    varFcn->conservativeToPrimitive(Un, V,id);
+    double rho = varFcn->getDensity(V,id);
+    double p = varFcn->checkPressure(V,id);
+    
+    varFcn->conservativeToPrimitive(U[i], V,id);
+    double rho0 = varFcn->getDensity(V,id);
+    double p0 = varFcn->checkPressure(V,id);
+
+    double rhomin = varFcn->getVarFcnBase(id)->rhomin;  
+    double pmin = varFcn->getVarFcnBase(id)->pmin;  
+    if (rhomin < 0.0 && pmin < 0.0 || 
+        (rho > rhomin && p > pmin))
+      continue;
+  
+    std::cout << "In fixSolution2 for node " << locToGlobNodeMap[i]+1 << std::endl; 
+    double alpha = 1.0,alphamax = 1.0; 
+    double alphamin = 0.0;
+    while (fabs(alphamax-alphamin) > 1.0e-8) {
+
+      alpha = 0.5*(alphamin+alphamax);
+      for (int j=0; j<dim; ++j)
+        Un[j] = U[i][j] + alpha*dU[i][j];
+
+      varFcn->conservativeToPrimitive(Un, V,id);
+      rho = varFcn->getDensity(V,id);
+      p = varFcn->checkPressure(V,id);
+      if (p < pmin || rho < rhomin)
+        alphamax = alpha;
+      else
+        alphamin = alpha;
+    }
+   
+    std::cout << "Alpha = " << alpha << std::endl;
+    for (int j=0; j<dim; ++j)
+      dU[i][j] *= alpha;
+    
+  }
+
+  return ierr;
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
@@ -6212,15 +6272,41 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 
 template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-					 SVec<double,dimLS> &d2wall, int level,
+					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-					 LevelSetStructure *LSS,Vec<ClosestPoint> *closestPoint)
+					 LevelSetStructure *LSS)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
   if(!NodeToElem) 
      NodeToElem = createNodeToElementConnectivity();
-  if(level == 0) { // just get inactive nodes
+  if(level > 0 && level == iterativeLevel) {  
+    nSortedNodes     = 0;
+    firstCheckedNode = 0;
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] < iterativeLevel-1) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+    }
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] == iterativeLevel-1) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+      firstCheckedNode = nSortedNodes;
+    }
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] == iterativeLevel) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+      if(Tag[i] > iterativeLevel) {
+	Tag[i] = -1;
+      }
+    }
+  }
+  else if(level == 0) { // just get inactive nodes
     nSortedNodes     = 0;
     firstCheckedNode = 0;
     for(int i=0;i<Tag.size();++i) {
@@ -6234,22 +6320,9 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     }
   }
   else if(level==1){
-/*
-    for(int i=0;i<closestPoint.size();++i) {
-      if(Tag[i]<0) {
-        if(closestPoint[i].nearInterface() && closestPoint[i].dist >= 0)
-        {
-  	  d2wall[i][0] = closestPoint[i].dist;
-	  Tag[i]       = 1;
-	  sortedNodes[nSortedNodes] = i;
-	  nSortedNodes++;
-	}
-      }
-    }
-*/
 //    Tag = -1;  // Tag is globally set to -1. 0 level are inactive nodes
     firstCheckedNode = nSortedNodes;
-    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,nSortedNodes,LSS,closestPoint);
+    edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
   }
   else{
   // Tag nodes that are neighbours of already Tagged nodes and compute their distance

@@ -51,6 +51,13 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
   agglomFaceDistInfo = new DistInfo(refinedNodeDistInfo.numLocThreads, refinedNodeDistInfo.numLocSub, refinedEdgeDistInfo.numGlobSub,refinedNodeDistInfo.locSubToGlobSub, refinedNodeDistInfo.com);
 
   edgeArea = NULL;
+
+  nodeToNodeMaskILU = NULL;
+
+  faceMapping = NULL;
+  nodeVecPattern = NULL;
+  nodeVecPatternEq1 = NULL;
+  nodeVecPatternEq2 = NULL;
 }
 /*
 template<class Scalar>
@@ -199,8 +206,19 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
     delete nodeVolPattern;
     delete nodeVecPattern;
     delete nodePosnPattern;
+    if (nodeVecPatternEq1) {
+      delete nodeVecPatternEq1;
+      delete nodeVecPatternEq2;
+    }
+    delete matPattern;
+    delete offDiagMatPattern;
+    delete edgeAreaPattern;
+    delete edgeVecPattern;
+
   }
 
+  if (faceMapping)
+    delete faceMapping;
   delete nodeDistInfo;
   delete edgeDistInfo;
 
@@ -210,6 +228,8 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
       delete connectivity[iSub];
       delete edges[iSub];
     }
+    if (nodeToNodeMaskILU[iSub])
+      delete  nodeToNodeMaskILU[iSub];
   }
   delete []sharedNodes;
   delete []connectivity;
@@ -217,6 +237,11 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
   
   delete [] lineids;
   delete [] numLines;
+
+  delete [] numNodes;
+  if (nodeToNodeMaskILU)
+    delete [] nodeToNodeMaskILU;
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -346,6 +371,7 @@ void MultiGridLevel<Scalar>::copyRefinedState(const DistInfo& refinedNodeDistInf
   numSharedEdges = new int*[numLocSub];
   numNodes = new int[numLocSub]; 
   nodeToNodeMaskILU = new Connectivity*[numLocSub];
+  memset(nodeToNodeMaskILU, 0 , sizeof(Connectivity*)*numLocSub);
 
   my_dim = dim;
   neq1 = lneq1;
@@ -2583,6 +2609,12 @@ void MultiGridLevel<Scalar>::computeNodeNormalClasses() {
     }
   }
 
+  delete nodeNormalsPattern;
+
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    delete [] nodeNormals[iSub];
+ 
+  delete [] nodeNormals;
 }
 
 //------------------------------------------------------------------------------
@@ -3533,7 +3565,7 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
   vtufile <<"  </Piece>  </UnstructuredGrid></VTKFile>\n";
 
   delete [] edgePoints;
-
+  delete [] vertexPoints;
 }
 
 //------------------------------------------------------------------------------
