@@ -133,6 +133,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     (*dUPrevPrev) = 0.0;
   }
 
+  typename ProblemDescriptor::SolVecType *UPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+  (*UPrev) = 0.0;
+
   // dts is structural time step
   double dt, dts;
   int it = probDesc->getInitialIteration();
@@ -171,12 +174,14 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     }
     bool repeat;
     do { // Subcycling
+      (*UPrev) = U;
+
       repeat = false;
       double dtLeftPrev = dtLeft;
       stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
-
+ 
       if(probDesc->structureSubcycling() || //in this case computeTimeStep is called in computePositionVector
          (it>1 && probDesc->willNotSolve(dtLeft,t)) ) {//in this case AERO-F should never subcycle
         probDesc->setFluidSubcycling(false);
@@ -188,7 +193,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         else angle = -2.0;
         dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
       }
-
       
       t += dt;
 
@@ -209,21 +213,26 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           *dUPrev = *dU;
           *dU = -1.0*U;
         }
-        //probDesc->printf(1,"Solving Non-linear system. Initial solution norm %e\n.", U.norm());
         stat = probDesc->solveNonLinearSystem(U, it);
-        //probDesc->printf(1,"Solving Non-linear system. Final solution norm %e\n.", U.norm());
+
+        // stat = -10 signals that the time iteration must be redone!
+        // Regardless of what happens elsewhere, this should work.
         if (stat == -10){ // must redo iteration with a different CFL number, undo everything we have done so far
           probDesc->printf(1,"Found unphysical solution. Re-calculating CFL number and repeating iteration.\n");
+          U = (*UPrev); // Reset U to its previous state
           repeat = true;
+          // Reset directions for direction strategy
           if (dU && dUPrev){
             *dU = *dUPrev;
             *dUPrev = *dUPrevPrev;
           }
+          // undo time step and subcycling
           t -= dt;
           itSc--;
           dtLeft = dtLeftPrev;
           continue;
         }
+
         if (dU && dUPrev) *dU += U;
         if(stat>0){
           itNl += stat;

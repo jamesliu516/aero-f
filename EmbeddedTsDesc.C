@@ -569,7 +569,10 @@ int EmbeddedTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   else
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
 
-  if (ierr != 0 && this->data->checksol) this->data->unphysical = true;
+  if (ierr != 0 && this->data->checksol) {
+    this->data->unphysical = true;
+    return ierr;
+  }
   ierr = max(ierr,0);
 
   return ierr;

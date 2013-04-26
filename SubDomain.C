@@ -4745,6 +4745,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   double V[dim];
   double rho,p;
 
+
   if(varFcn->doVerification())
     for(int i=0; i<U.size(); i++)
       numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
@@ -4817,6 +4818,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     for (int i=0; i<U.size(); ++i) {
 
       numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+
       if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
               U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);

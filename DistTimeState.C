@@ -597,9 +597,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *dtau, *irey, tprec, sprec);
 
   double dt_glob;
-  if (data->dt_imposed > 0.0) 
+  updateDtCoeff();
+  if (data->dt_imposed > 0.0){
     dt_glob = data->dt_imposed;
-  else 
+    allowcflstop = false; 
+    dt_glob *= dt_coeff;
+  } else 
     dt_glob = dt->min();
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
@@ -750,9 +753,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
 			  umax);
                                                                                                          
   double dt_glob;
-  if (data->dt_imposed > 0.0)
+  updateDtCoeff();
+  if (data->dt_imposed > 0.0){
     dt_glob = data->dt_imposed;
-  else
+    allowcflstop = false; 
+    dt_glob *= dt_coeff;
+  }else
     dt_glob = dt->min();
                                                                                                          
   if (umax && isGFMPAR) {
