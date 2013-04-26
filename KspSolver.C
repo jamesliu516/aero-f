@@ -758,7 +758,7 @@ backwardSolve(int m, GenFullM<ScalarT> &H, Vec<ScalarT> &g, Vec<ScalarT> &y)
 //------------------------------------------------------------------------------
 
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
-void
+int
 GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecSet<VecType> &b, 
             VecSet<VecType> &x)
 {

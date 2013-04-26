@@ -12,7 +12,7 @@ class BcFcn {
 public:
 
   BcFcn() {}
-  ~BcFcn() {}
+  virtual ~BcFcn() {}
 
   virtual void applyToSolutionVector(int, double *, double *);
   virtual void applyToResidualTerm(int, double *, double *, double *);

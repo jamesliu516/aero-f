@@ -136,6 +136,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   dt_coeff = 1.0;
   dt_coeff_count = 0;
   allowcflstop = true;
+
+  *irey = 0.0;
 }
 
 //------------------------------------------------------------------------------

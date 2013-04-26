@@ -221,6 +221,7 @@ struct TransientData {
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
+  const char* d2wall;
   const char *embeddedsurface;
   const char *cputiming;
 
@@ -750,6 +751,23 @@ struct KEModelData {
 };
 
 //------------------------------------------------------------------------------
+//
+struct WallDistanceMethodData {
+
+  enum Type {ITERATIVE = 0, NONITERATIVE = 1, HYBRID = 2} type;
+
+  int maxIts;
+  double eps;
+  int iterativelvl;
+
+  WallDistanceMethodData();
+  ~WallDistanceMethodData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
 
 struct TurbulenceModelData {
 
@@ -758,6 +776,7 @@ struct TurbulenceModelData {
   SAModelData sa;
   DESModelData des;
   KEModelData ke;
+  WallDistanceMethodData d2wall;
 
   TurbulenceModelData();
   ~TurbulenceModelData() {}
@@ -1156,7 +1175,8 @@ struct SchemeData {
 
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruction;
 
-  enum Limiter {NONE = 0, VANALBADA = 1, BARTH = 2, VENKAT = 3, P_SENSOR = 4} limiter;
+  enum Limiter {NONE = 0, VANALBADA = 1, BARTH = 2, VENKAT = 3, P_SENSOR = 4,
+                EXTENDEDVANALBADA = 5} limiter;
   enum Gradient {LEAST_SQUARES = 0, GALERKIN = 1, NON_NODAL = 2} gradient;
   enum Dissipation {SECOND_ORDER = 0, SIXTH_ORDER = 1} dissipation;
 
@@ -1165,6 +1185,9 @@ struct SchemeData {
   double xiu;
   double xic;
   double eps;
+  
+  double xirho;
+  double xip;
 
   struct MaterialFluxData {
 
@@ -1411,6 +1434,8 @@ struct MultiGridData {
   int num_fine_sweeps;
 
   int addViscousTerms;
+
+  SchemeFixData fixes;
  
   MultiGridData();
   ~MultiGridData() {}

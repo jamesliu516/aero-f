@@ -302,6 +302,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::FLUIDID], "%s%s",
             iod.output.transient.prefix, iod.output.transient.fluidid);
   }
+  if (iod.output.transient.d2wall[0] != 0) {
+    sscale[PostFcn::D2WALL] = 1.0;
+    scalars[PostFcn::D2WALL] = new char[sp + strlen(iod.output.transient.d2wall)];
+    sprintf(scalars[PostFcn::D2WALL], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.d2wall);
+  }
   if (iod.output.transient.controlvolume[0] != 0) {
     sscale[PostFcn::CONTROL_VOLUME] = iod.ref.rv.length * iod.ref.rv.length * iod.ref.rv.length;
     scalars[PostFcn::CONTROL_VOLUME] = new char[sp + strlen(iod.output.transient.controlvolume)];
@@ -1487,7 +1493,7 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurface);
         exit(1);
       }
-      fprintf(fpEmbeddedSurface, "Vector DISP under NLDynamic for EmbeddedNodes\n");
+      fprintf(fpEmbeddedSurface, "Vector Displacement under NLDynamic for EmbeddedNodes\n");
     }
     fflush(fpEmbeddedSurface);
   }
@@ -2301,7 +2307,8 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-                                                DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL, VecSet< DistSVec<double,dim> > *U3 = NULL)
+                                                DistSVec<double,dim> *U1, DistSVec<double,dim> *U2,
+                                                VecSet< DistSVec<double,dim> > *U3)
 {
 
   double tag = 0.0; // do not tag for now

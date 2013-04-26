@@ -232,10 +232,10 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi,LevelSetStructure *LSS=0);
   template<int dimLS>
-  void pseudoFastMarchingMethodInitialization(
+  void pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
 		Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
 		Vec<int> &sortedNodes, int &nSortedNodes,
-		LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
+		LevelSetStructure *LSS=0);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }

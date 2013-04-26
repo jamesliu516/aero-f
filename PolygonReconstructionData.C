@@ -133,8 +133,8 @@ int getPolygons(Elem &elem, LevelSetStructure &LSS, PolygonReconstructionData* p
 void getPolygonNormal(SVec<double,3>& X, Vec3D &normal, LevelSetStructure &LSS, PolygonReconstructionData &polygon)
 {
   int nEdges = polygon.numberOfEdges;
-  LevelSetResult lsRes[nEdges];
-  Vec3D Xinter[nEdges];
+  std::vector<LevelSetResult> lsRes(nEdges);
+  std::vector<Vec3D> Xinter(nEdges);
   Vec3D start_vertex;for(int m=0;m<3;++m) start_vertex[m]=X[polygon.nodeToLookFrom][m];
   for(int m=0; m<nEdges; m++) {
     lsRes[m] = LSS.getLevelSetDataAtEdgeCenter(0, polygon.edge[m], polygon.edgeWithVertex[m][0]<polygon.edgeWithVertex[m][1]);

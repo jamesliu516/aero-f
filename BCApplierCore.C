@@ -77,6 +77,37 @@ BCApplier::setDofType(MatchNodeSet** matchNodes)
 
 
 //---------------------------------------------------------------------------------------------------------------
+void
+BCApplier::setEmbeddedALEDofType(MatchNodeSet** matchNodes)
+{
+  SubDomain** subD  = domain->getSubDomain();
+  SubDTopo* subTopo = domain->getSubTopo();
+  Communicator* com = domain->getCommunicator();
+
+  dofType = new int*[numLocSub];
+  CommPattern<int> ndC(subTopo, com, CommPattern<int>::CopyOnSend);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub<numLocSub; ++iSub)
+    subD[iSub]->setComLenNodes(3, ndC);
+
+  ndC.finalize();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    MatchNodeSet* subMatchNodes = (matchNodes) ? matchNodes[iSub] : 0;
+    dofType[iSub] = subD[iSub]->getEmbeddedALEMeshMotionDofType(surfaceMap, ndC, subMatchNodes);
+  }
+  
+  ndC.exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub<numLocSub; ++iSub)
+    subD[iSub]->completeMeshMotionDofType(dofType[iSub], ndC);
+}
+
+
+//---------------------------------------------------------------------------------------------------------------
 
 void 
 BCApplier::print()

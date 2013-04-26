@@ -1835,6 +1835,11 @@ EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *
 
   cs = new EmbeddedCorotSolver(iod.dmesh, domain, Xs0, distLSS->getNumStructNodes());
 
+  if (iod.dmesh.type == DefoMeshMotionData::COROTATIONAL)
+    mms = new EmbeddedALETetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+  else
+    mms = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -1843,6 +1848,7 @@ EmbeddedALEMeshMotionHandler::~EmbeddedALEMeshMotionHandler()
 {
 
   if (cs) delete cs;
+  if (mms) delete mms;
   if (Xs0) delete Xs0;
 
 }
@@ -1859,7 +1865,7 @@ void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,
     for (int j=0; j<3; j++)
       Xs[3*i + j] = Xstruct[i][j];
 
-  cs->solve(Xs, distLSS->getNumStructNodes(), X);
+  cs->setup(Xs, distLSS->getNumStructNodes());
   cs->applyProjector(Xdot);
 
   delete Xs;
@@ -1881,8 +1887,36 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
     for (int j=0; j<3; j++)
       Xs[3*i + j] = Xstruct[i][j];
 
-  cs->solve(Xs, distLSS->getNumStructNodes(), X);
+  cs->solve(Xs, distLSS->getNumStructNodes(), X, dX);
   cs->applyProjector(Xdot);
+
+  if (mms) {
+
+//--------------------------------------------------------------
+// The following is only done for safety. 
+// The dX coming out of cs solve should already satisfy this condition 
+    BCApplier* meshMotionBCs = domain->getMeshMotionBCs();
+    int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0;
+
+    if(DofType)
+    {
+      int numLocSub = domain->getNumLocSub();
+      #pragma omp parallel for
+      for(int iSub=0; iSub<numLocSub; ++iSub)
+      {
+        double (*dx)[3] = dX.subData(iSub);
+        int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
+        for(int i=0;i<dX.subSize(iSub); i++)
+          for(int l=0; l<3; l++)
+            if(dofType[i][l]!=BC_MATCHED && dofType[i][l]!=BC_MATCHEDSLIDE) dx[i][l] = 0.0;
+      }
+    }
+//--------------------------------------------------------------
+
+    mms->applyProjector(Xdot); 
+    mms->solve(dX, X);
+
+  }
 
   delete Xs;
 

@@ -847,6 +847,20 @@ double Timer::removeIntersAndPhaseChange(double t0)  //removed from "Fluid Solut
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addWallDistanceTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[walldistance]++;
+  data[walldistance] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
 // note: the timings of both fluid and mesh parts contain their communication
 void Timer::print(Timer *str, FILE *fp)
 {
@@ -938,6 +952,16 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "  Structural Update           : %10.2f %10.2f %10.2f %9d\n",
                tmin[structUpd], tmax[structUpd], tavg[structUpd],
                counter[structUpd]);
+  }
+  if(ioData->problem.framework == ProblemData::EMBEDDED || ioData->problem.framework == ProblemData::EMBEDDEDALE) {
+    if (ioData->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
+      if (ioData->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+          ioData->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+        com->fprintf(fp, "  Wall Distance Computation   : %10.2f %10.2f %10.2f %9d\n",
+                   tmin[walldistance], tmax[walldistance], tavg[walldistance],
+                   counter[walldistance]);
+      }
+    }
   }
   com->fprintf(fp, "\n");
 

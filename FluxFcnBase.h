@@ -22,6 +22,8 @@ public:
   virtual void computeJacobian(double, double, double *, double, double *, double *, double *, bool) {}
   virtual void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool) {}
 
+  VarFcnBase* getVarFcnBase() const { return vf; }
+
   //--- Sensitivity Analysis Function
   virtual void computeDerivative
   (

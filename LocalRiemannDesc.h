@@ -26,11 +26,15 @@ extern "C" {
                             const double&, const double&, const double&,
                             const double&, const double&, const double &,
                             const double &, const double&, const double&,
-                            const double &, const double&);
+                            const double &, const double&,int &,
+                            const double&, const double&, const double&,
+                            const double&);
   void F77NAME(eriemannww) (const double&, const double&, const double&,
                             const double&, const double&, const double&,
                             const double&, const double&, const double&,
                             const double&, const double&, const double&,
+                            const double&, const double&, const double&,
+                            const double&,  int &,
                             const double&, const double&, const double&,
                             const double&);
 };
@@ -43,7 +47,7 @@ public:
   LocalRiemannGfmpGasGas(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpGasGas() { vf_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -60,11 +64,11 @@ public:
     fprintf(stderr,"ERROR: computeRiemannJacobian is not implemeted in LocalRiemannGfmpGasGas!\n");}
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasGas!\n");} 
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasGas!\n"); return 0; } 
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -85,7 +89,7 @@ private:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
@@ -98,6 +102,7 @@ void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
     Wj[i] = Vi[i];
   }
 
+  return 0;
 }
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -108,7 +113,7 @@ public:
   LocalRiemannGfmpTaitTait(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpTaitTait() { vf_ = 0; }
 
-void computeRiemannSolution(double *Vi, double *Vj,
+int computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
                             double *initWi, double *initWj,
                             double *Wi, double *Wj,
@@ -125,11 +130,11 @@ void computeRiemannSolution(double *Vi, double *Vj,
     fprintf(stderr,"ERROR: computeRiemannJacobian is not implemeted in LocalRiemannGfmpTaitTait!\n");}
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar, 
+  int computeRiemannSolution(double *Vi, double *Vstar, 
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpTaitTait!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpTaitTait!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar, 
                               double *nphi, VarFcn *vf,
@@ -150,7 +155,7 @@ private:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
@@ -192,6 +197,7 @@ void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     Wi[5] = pow((temp-p2)/a2,1.0/b2);
   }
 
+  return 0;
 }
 
 //----------------------------------------------------------------------------
@@ -203,7 +209,7 @@ public:
   LocalRiemannGfmpJWLJWL(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpJWLJWL() { vf_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -220,11 +226,11 @@ public:
     fprintf(stderr,"ERROR: computeRiemannJacobian is not implemeted in LocalRiemannGfmpJWLJWL!\n");}
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpJWLJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpJWLJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -245,7 +251,7 @@ private:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
@@ -258,6 +264,7 @@ void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wj[i] = Vi[i];
   }
 
+  return 0;
 }
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -268,7 +275,7 @@ public:
   LocalRiemannGfmpGasJWL(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpGasJWL() { vf_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -285,11 +292,11 @@ public:
     fprintf(stderr,"ERROR: computeRiemannJacobian is not implemeted in LocalRiemannGfmpGasJWL!\n");}
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -310,7 +317,7 @@ private:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 						    int IDi, int IDj, double *nphi,
 						    double *initWi, double *initWj,
 						    double *Wi, double *Wj,
@@ -323,6 +330,7 @@ void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wj[i] = Vi[i];
   }
 
+  return 0;
   //Fedkiw's GFM -- extrapolation of density in the ghost cell
   //fprintf(stderr, "using density to extrapolate in ghost cell\n");
   //Wi[0] = Vi[0]; Wi[5] = Vi[5];
@@ -338,7 +346,7 @@ public:
   LocalRiemannGfmparGasGas(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparGasGas() { vf_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -351,22 +359,24 @@ public:
 			      double *Wi, double *Wj,
 			      double dx[3],int it,
 			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
-
-  void eriemann(double rhol, double ul, double pl, 
+/*
+  int eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
 
+  int err;
   F77NAME(eriemanngg)(  rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,
                         vf_->getGamma(fluid2), vf_->getPressureConstant(fluid2), 
-                        vf_->getGamma(fluid1), vf_->getPressureConstant(fluid1)); 
+                        vf_->getGamma(fluid1), vf_->getPressureConstant(fluid1), err);
+  return err; 
   }
-
+*/
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasGas!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasGas!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -387,7 +397,7 @@ private:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
                 double *initWi, double *initWj,
 		double *Wi, double *Wj,
@@ -410,6 +420,12 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
+  double pmin1 = vf_->getVarFcnBase(fluid1)->pmin;
+  double pmin2 = vf_->getVarFcnBase(fluid2)->pmin;
+  double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
+  double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
+
+  int err;
   if (IDi==fluid1) {
 
     // cell i is fluid1
@@ -419,7 +435,9 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, IDj);
     P_1  = vf_->getPressure(Vi, IDi);
 
-    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1,err,
+                        pmin2,pmin1,rhomin2,rhomin1);
 
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -441,7 +459,14 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vi, IDi);
     P_1  = vf_->getPressure(Vj, IDj);
 
-    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1,err,
+                        pmin2,pmin1,rhomin2,rhomin1);
+
+    Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
+    Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
+    Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
+    Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
+    Wi[4]  = P_i;                     Wi[dim+4]  = Wi[4];
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -471,6 +496,7 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+  return err;
 }
 
 inline 
@@ -536,7 +562,7 @@ public:
   LocalRiemannGfmparGasTait(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparGasTait() { vf_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -551,11 +577,11 @@ public:
 			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasTait!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasTait!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -581,7 +607,9 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 			double &Rig, double &Riw,
 			double alpha,double beta,
 			double pref, double gamma,
-			double Pinf) {
+			double Pinf, double Pcg,
+                        double rhocg, double Pcw,
+                        double rhocw) {
 
   double Q,f,m,n,dQ,df,g,dg,db;
   double ag = sqrt(gamma/Rg*(Pg+Pinf));
@@ -589,7 +617,9 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
   Pi = sqrt(Pw*Pg);
   Riw = pow((Pi-pref)/alpha,1.0/beta);
   double dpdrho = alpha*beta*pow(Riw,beta-1.0);
-  
+
+  double Pmin = std::max<double>(Pcg,Pcw);
+
   int k = 0;
   while (++k < 1000) {
 
@@ -630,9 +660,16 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     if (Pi < 1.0e-10)
       Pi = 1.0e-10;
 
+    if (Pi < Pmin)
+      Pi = Pmin;
+
     Riw = pow((Pi-pref)/alpha,1.0/beta);
-    dpdrho = alpha*beta*pow(Riw,beta-1.0);
-    
+
+    if (Riw < rhocw)
+      Riw = rhocw;
+
+    dpdrho = alpha*beta*pow(Riw,beta-1.0);    
+
   }
 
   if (k == 1000) {
@@ -651,10 +688,11 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
   } else {
     Rig = Rg*pow( (Pi+Pinf)/(Pg+Pinf), 1.0/gamma);
   }
+  Rig = std::max<double>(rhocg, Rig);
 }
 
 inline
-void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 	  int IDi, int IDj, double *nphi,
           double *initWi, double *initWj,
 	  double *Wi, double *Wj,
@@ -693,7 +731,9 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 		R_il,R_ir,
 		alpha,beta,
 		pref,gam,
-		Pinf);
+		Pinf, vf_->getVarFcnBase(IDj)->pmin,
+                vf_->getVarFcnBase(IDj)->rhomin, vf_->getVarFcnBase(IDi)->pmin,
+		vf_->getVarFcnBase(IDi)->rhomin);
 
     Wi[0]  = R_ir;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -725,7 +765,9 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 		R_il,R_ir,
 		alpha,beta,
 		pref,gam,
-		Pinf);
+		Pinf , vf_->getVarFcnBase(IDi)->pmin,
+                vf_->getVarFcnBase(IDi)->rhomin, vf_->getVarFcnBase(IDj)->pmin,
+		vf_->getVarFcnBase(IDj)->rhomin);
 
     //std::cout << "P_i = " << P_i << " " << R_il << " " << R_ir << std::endl;
 
@@ -761,6 +803,7 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+  return 0;
 }
 //----------------------------------------------------------------------------
 
@@ -834,7 +877,7 @@ public:
   LocalRiemannGfmparTaitTait(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparTaitTait() { vf_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -849,11 +892,11 @@ public:
 			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparTaitTait!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparTaitTait!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -874,7 +917,7 @@ private:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
     double *initWi, double *initWj,
     double *Wi, double *Wj,
@@ -899,7 +942,15 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
   double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
-  
+
+  int err; 
+ 
+  double pmin1 = vf_->getVarFcnBase(fluid1)->pmin;
+  double pmin2 = vf_->getVarFcnBase(fluid2)->pmin;
+  double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
+  double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
+
+
   if (IDi==fluid1) {
     // cell j is tait2
     // cell i is tait1
@@ -911,7 +962,8 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     T_2  = vf_->computeTemperature(Vj, IDj);
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
-                        alpha2,beta2,pref2,alpha1,beta1,pref1);
+                        alpha2,beta2,pref2,alpha1,beta1,pref1,err,
+                        pmin2,pmin1,rhomin2,rhomin1);
     
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -938,7 +990,8 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     T_2  = vf_->computeTemperature(Vi, IDi);
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
-                        alpha2,beta2,pref2,alpha1,beta1,pref1);
+                        alpha2,beta2,pref2,alpha1,beta1,pref1,err,
+                        pmin2,pmin1,rhomin2,rhomin1);
     
     Wi[0]  = R_i2;                      Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];        Wi[dim+1]  = Wi[1];
@@ -970,6 +1023,7 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+  return err;
 }
 
 inline 
@@ -1001,6 +1055,13 @@ void LocalRiemannGfmparTaitTait::computeRiemannJacobian(double *Vi, double *Vj,
   // 3x3 Jacobians, directly from implicit riemann jacobian
   double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
 
+  int err; 
+ 
+  double pmin1 = vf_->getVarFcnBase(fluid1)->pmin;
+  double pmin2 = vf_->getVarFcnBase(fluid2)->pmin;
+  double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
+  double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
+
   if (IDi==fluid1) {
 
     //std::cout << "ij" << std::endl << std::endl ;
@@ -1011,7 +1072,9 @@ void LocalRiemannGfmparTaitTait::computeRiemannJacobian(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, IDj);
     P_1  = vf_->getPressure(Vi, IDi);
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
-                        alpha2,beta2,pref2,alpha1,beta1,pref1);
+                        alpha2,beta2,pref2,alpha1,beta1,pref1,err,
+                        pmin2,pmin1,rhomin2,rhomin1);
+;
 
     ImplicitRiemann::computeTaitTaitJacobian(P_i, alpha2,beta2,pref2,P_2,R_2, alpha1, beta1,pref1, P_1,R_1, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
     
@@ -1024,7 +1087,8 @@ void LocalRiemannGfmparTaitTait::computeRiemannJacobian(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vi, IDi);
     P_1  = vf_->getPressure(Vj, IDj);
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
-                        alpha2,beta2,pref2,alpha1,beta1,pref1);
+                        alpha2,beta2,pref2,alpha1,beta1,pref1,err,
+                        pmin2,pmin1,rhomin2,rhomin1);
 
     ImplicitRiemann::computeTaitTaitJacobian(P_i, alpha2,beta2,pref2, P_2,R_2,alpha1, beta1,pref1,P_1,R_1, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
   }
@@ -1043,7 +1107,7 @@ public:
   LocalRiemannGfmparJWLJWL(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparJWLJWL() { vf_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -1057,18 +1121,19 @@ public:
 			      double dx[3],int it,
 			      double* dWidWi,double*  dWidWj,
 			      double* dWjdWi,double*  dWjdWj);
-
+/*
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){ 
     eriemannjj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir); }
+*/
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparJWLJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparJWLJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -1086,13 +1151,14 @@ private:
   LocalRiemannGfmparJWLJWL();
   void eriemannjj(double rhol, double ul, double pl, 
                   double rhor, double ur, double pr, 
-                  double &pi, double &ui, double &rhoil, double &rhoir);
+                  double &pi, double &ui, double &rhoil, double &rhoir,int& err,
+                  double pcl,double pcr, double rhocl,double rhocr);
 };
 
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
                 double *initWi, double *initWj,
 		double *Wi, double *Wj,
@@ -1112,6 +1178,13 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
+  int err; 
+ 
+  double pmin1 = vf_->getVarFcnBase(fluid1)->pmin;
+  double pmin2 = vf_->getVarFcnBase(fluid2)->pmin;
+  double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
+  double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
+
   if (IDi==fluid1) {
 
     // cell i is fluid1
@@ -1121,7 +1194,8 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, IDj);
     P_1  = vf_->getPressure(Vi, IDi);
 
-    eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1);
+   eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,err,
+              pmin2,pmin1,rhomin2,rhomin1);
 
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -1143,7 +1217,8 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vi, IDi);
     P_1  = vf_->getPressure(Vj, IDj);
 
-    eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1);
+    eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,err,
+              pmin2,pmin1,rhomin2,rhomin1);
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -1173,6 +1248,7 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+  return err;
 }
 //----------------------------------------------------------------------------
 
@@ -1221,7 +1297,8 @@ inline
 void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl, 
                                           double rhor, double ur, double pr, 
                                           double &pi, double &ui,  
-                                          double &rhoil, double &rhoir){
+                                          double &rhoil, double &rhoir,int& err,
+                                          double pcl,double pcr, double rhocl,double rhocr){
 
 //initialize
   double uil, uir, pil, pir, duil, duir, dpil, dpir;
@@ -1232,6 +1309,8 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
   double eps = 1.e-6;
   int MaxIts = 100;
   int it = 0;
+
+  double pcut = std::max<double>(pcl,pcr);
 
   double vl  = 1.0/rhol;
   double vr  = 1.0/rhor;
@@ -1248,6 +1327,8 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
   double frhopil = vf_->computeFrhop(1.0/vl,fluid1);
   double frhopir = vf_->computeFrhop(1.0/vr,fluid1);
 //check vacuum ?
+
+  err = 0;
 
 //start newton iteration loop
   while(!convergence){
@@ -1297,7 +1378,7 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
     vil -= increment[0];
     vir -= increment[1];
     //fprintf(stdout, "2 -- vil = %e and vir = %e\n", vil, vir);
-
+    //
     if(vil < vl){ // at next iteration, leftrarefaction => ensures that some conditions are fulfilled
       double temp = omegal*vl/(omegal+2.0);
       if(vil<temp)
@@ -1308,6 +1389,12 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
       if(vir<temp)
         vir = 0.5*(vir+increment[1]+temp);
     }
+
+    if (1.0/vil < rhocl)
+      vil = 1.0/rhocl;
+    if (1.0/vir < rhocr)
+      vir = 1.0/rhocr;
+
     //fprintf(stdout, "3 -- vil = %e and vir = %e\n", vil, vir);
     it++;
 
@@ -1325,11 +1412,11 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
     rhoir = 1.0/vir;
     ui    = 0.5*(uil+uir);
     pi    = 0.5*(pil+pir);
+    pi = std::max<double>(pcut, pi);
   }else{
-    fprintf(stdout, "riemann solver did not converged\n");
-    exit(1);
+    fprintf(stdout, "riemann solver did not converge\n");
+    err = 1;
   }
-
 
 }
 //----------------------------------------------------------------------------
@@ -1351,7 +1438,7 @@ public:
   }
   ~LocalRiemannGfmparGasJWL(){ vf_ = 0; sgCluster_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -1365,11 +1452,12 @@ public:
 			      double dx[3],int it,
 			      double* dWidWi,double*  dWidWj,
 			      double* dWjdWi,double*  dWjdWj);
-
+/*
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
     eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,-1.0,-1.0); }
+*/
   void eriemanngj_wrapper(double *in, double *res, double *para);
   void riemannInvariantGeneral1stOrder_wrapper(
                 double *in, double *res, double *para);
@@ -1377,11 +1465,11 @@ public:
                 double *in, double *res, double *para);
 
  // FS Riemann problem (implemented here just to stop compiler's complaining.)
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -1403,12 +1491,14 @@ protected:
   void eriemanngj_selector(double rhol, double ul, double pl, 
                            double rhor, double ur, double pr, 
                            double &pi, double &ui, double &rhoil, double &rhoir,
-                           double initrhol, double initrhor);
+                           double initrhol, double initrhor,int& err,
+                           double pcl,double pcr, double rhocl,double rhocr);
   bool eriemanngj(double rhol, double ul, double pl, 
                   double rhor, double ur, double pr, 
                   double &pi, double &ui, double &rhoil, double &rhoir,
-                  double initrhol, double initrhor);
-
+                  double initrhol, double initrhor,int& err,
+                  double pcl,double pcr, double rhocl,double rhocr);
+ 
   int riemannInvariantGeneralTabulation(double *in, double *res);
   bool vacuum(const double rhol, const double ul, const double pl,
               const double rhor, const double ur, const double pr,
@@ -1426,7 +1516,7 @@ protected:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
                 double *initWi, double *initWj,
 		double *Wi, double *Wj,
@@ -1445,6 +1535,13 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
+  int err; 
+ 
+  double pmin1 = vf_->getVarFcnBase(fluid1)->pmin;
+  double pmin2 = vf_->getVarFcnBase(fluid2)->pmin;
+  double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
+  double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
+ 
   if (IDi==fluid1) {
 
     // cell i is fluid1
@@ -1455,7 +1552,9 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vi, IDi);
 
     //eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWj[0],initWi[0]); 
-    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1,err,
+              pmin2,pmin1,rhomin2,rhomin1);
+ 
     initWi[0] = R_i1;
     initWi[1] = U_i;
     initWi[2] = P_i;
@@ -1484,7 +1583,9 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vj, IDj);
 
     //eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWi[0],initWj[0]); 
-    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1,err,
+              pmin2,pmin1,rhomin2,rhomin1);
+ 
     initWi[0] = R_i2;
     initWi[1] = U_i;
     initWi[2] = P_i;
@@ -1520,6 +1621,7 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+  return err;
 }
 inline 
 void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
@@ -1621,7 +1723,9 @@ void LocalRiemannGfmparGasJWL::eriemanngj_wrapper(
 {
 
   double dummy1, dummy2;
-  eriemanngj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1], -1.0, -1.0);
+  int err;
+  eriemanngj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1], -1.0, -1.0,
+             err, -1.0,-1.0,-1.0,-1.0);
 
 }
 
@@ -1632,7 +1736,8 @@ void LocalRiemannGfmparGasJWL::eriemanngj_selector(
                                double rhor, double ur, double pr, 
                                double &pi, double &ui,  
                                double &rhoil, double &rhoir,
-                               double initrhol, double initrhor)
+                               double initrhol, double initrhor,int& err,
+                               double pcl,double pcr, double rhocl,double rhocr)
 {
 
   if(riemannComputationType_==MultiFluidData::TABULATION5){
@@ -1666,10 +1771,13 @@ void LocalRiemannGfmparGasJWL::eriemanngj_selector(
 
     ui = 0.5*(uil+uir);
     pi = 0.5*(pil+pir);
+    pi = std::max<double>(pi, std::max<double>(pcl,pcr));
+    rhoil = std::max<double>(rhoil, rhocl);
+    rhoir = std::max<double>(rhoir, rhocr);
     // not checking for vacuum!
   }
   else
-    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor);
+    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor, err,pcl,pcr,rhocl,rhocr);
 
 }
 
@@ -1679,7 +1787,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
                                           double rhor, double ur, double pr, 
                                           double &pi, double &ui,  
                                           double &rhoil, double &rhoir,
-                                          double initrhol, double initrhor){
+                                          double initrhol, double initrhor,int& err,
+                                          double pcl,double pcr, double rhocl,double rhocr){
 // left  -- JWL -- phi = -1.0
 // right -- GAS -- phi = +1.0
   int verbose = -1;
@@ -1702,6 +1811,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double relaxationFactorGas = relaxFactorJwl;//1.0; //0.85; // must be between 0 and 1
   int count = 0;
 
+  double pcut = std::max<double>(pcl,pcr);
+
   double vl  = 1.0/rhol;
   double vr  = 1.0/rhor;
   double vil = vl;
@@ -1723,6 +1834,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double Vr[5] = { 1.0/vr, ur, 0.0, 0.0, pr };
   double cr = vf_->computeSoundSpeed(Vr,fluid1);
   double pastiterates[100][2];
+
+  err = 0;
 
 //check vacuum
   if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
@@ -1880,6 +1993,12 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
         count++;
       }
     }
+    if (1.0/vil < rhocl)
+      vil = 1.0/rhocl;
+    if (1.0/vir < rhocr)
+      vir = 1.0/rhocr;
+
+
     if(verbose>2) fprintf(stdout, "3 -- vil = %e and vir = %e\n", vil, vir);
     //check - in case of rarefaction at next iteration, 1.0/rhoil may not be above a certain value
     if(vacuumValues[0] > 0.0 && vil>1.0/vacuumValues[0]){ // vacuumValues is negative if it does not contain any proper value(see declaration and definition above)
@@ -1913,6 +2032,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   rhoir = 1.0/vir;
   ui    = 0.5*(uil+uir);
   pi    = 0.5*(pil+pir);
+  pi = std::max<double>(pcut, pi);
 
   //std::cout << "JWL results: rhoil = " << 1.0/vil << " rhoir = "  << 1.0/vir << " ui = " << ui << " pi = " << pi << std::endl;
 
@@ -1946,6 +2066,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     pir   = vacuumValues[5];
     ui    = 0.5*(uil+uir);
     pi    = 0.5*(pil+pir);
+    err = 1;
     if(verbose>-1) fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
   }
 
@@ -1958,6 +2079,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
     fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
     fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+    err = 1;
   }
 
   if(convergence) return true;
@@ -2199,7 +2321,7 @@ public:
   }
   ~LocalRiemannGfmparTaitJWL(){ vf_ = 0; sgCluster_ = 0; }
 
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
                               double *initWi, double *initWj,
                               double *Wi, double *Wj,
@@ -2213,11 +2335,12 @@ public:
 			      double dx[3],int it,
 			      double* dWidWi,double*  dWidWj,
 			      double* dWjdWi,double*  dWjdWj);
-
+/*
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
     eriemanntj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,-1.0,-1.0); }
+*/
   void eriemanntj_wrapper(double *in, double *res, double *para);
   void riemannInvariantGeneral1stOrder_wrapper(
                 double *in, double *res, double *para);
@@ -2231,11 +2354,13 @@ protected:
   void eriemanntj_selector(double rhol, double ul, double pl, 
                            double rhor, double ur, double pr, 
                            double &pi, double &ui, double &rhoil, double &rhoir,
-                           double initrhol, double initrhor);
+                           double initrhol, double initrhor,int& err,
+                           double pcl,double pcr, double rhocl,double rhocr);
   bool eriemanntj(double rhol, double ul, double pl, 
                   double rhor, double ur, double pr, 
                   double &pi, double &ui, double &rhoil, double &rhoir,
-                  double initrhol, double initrhor);
+                  double initrhol, double initrhor,int& err,
+                  double pcl,double pcr, double rhocl,double rhocr);
 
   int riemannInvariantGeneralTabulation(double *in, double *res);
   bool vacuum(const double rhol, const double ul, const double pl,
@@ -2247,7 +2372,7 @@ protected:
 //----------------------------------------------------------------------------
 
 inline
-void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
                 double *initWi, double *initWj,
 		double *Wi, double *Wj,
@@ -2266,6 +2391,14 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
+  int err; 
+ 
+  double pmin1 = vf_->getVarFcnBase(fluid1)->pmin;
+  double pmin2 = vf_->getVarFcnBase(fluid2)->pmin;
+  double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
+  double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
+ 
+
   if (IDi==fluid1) {
 
     // cell i is fluid1
@@ -2277,7 +2410,8 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
 
     double cp = vf_->specificHeatCstPressure(IDi);
 
-    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1,err,
+              pmin2,pmin1,rhomin2,rhomin1); 
     initWi[0] = R_i1;
     initWi[1] = U_i;
     initWi[2] = P_i;
@@ -2311,7 +2445,8 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vj, IDj);
     double cp = vf_->specificHeatCstPressure(IDj);
 
-    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1,err,
+              pmin2,pmin1,rhomin2,rhomin1); 
     initWi[0] = R_i2;
     initWi[1] = U_i;
     initWi[2] = P_i;
@@ -2341,6 +2476,7 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+  return err;
 }
 inline 
 void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
@@ -2443,7 +2579,9 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_wrapper(
 {
 
   double dummy1, dummy2;
-  eriemanntj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1], -1.0, -1.0);
+  int err;
+  eriemanntj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1], -1.0, -1.0,
+             err, -1.0, -1.0, -1.0, -1.0);
 
 }
 
@@ -2454,7 +2592,8 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_selector(
                                double rhor, double ur, double pr, 
                                double &pi, double &ui,  
                                double &rhoil, double &rhoir,
-                               double initrhol, double initrhor)
+                               double initrhol, double initrhor,int& err,
+                               double pcl,double pcr, double rhocl,double rhocr)
 {
 
   if(riemannComputationType_==MultiFluidData::TABULATION5){
@@ -2487,10 +2626,13 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_selector(
 
     ui = 0.5*(uil+uir);
     pi = 0.5*(pil+pir);
+    pi = std::max<double>(pi, std::max<double>(pcl,pcr));
+    rhoil = std::max<double>(rhoil, rhocl);
+    rhoir = std::max<double>(rhoir, rhocr);
     // not checking for vacuum!
   }
   else
-    eriemanntj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor);
+    eriemanntj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor, err,pcl,pcr,rhocl,rhocr);
 
 }
 
@@ -2500,7 +2642,8 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
                                           double rhor, double ur, double pr, 
                                           double &pi, double &ui,  
                                           double &rhoil, double &rhoir,
-                                          double initrhol, double initrhor){
+                                          double initrhol, double initrhor,int& err,
+                                          double pcl,double pcr, double rhocl,double rhocr){
 // left  -- JWL -- phi = -1.0
 // right -- GAS -- phi = +1.0
   int verbose = -1;
@@ -2522,6 +2665,8 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
   double relaxationFactorJwl = relaxFactorJwl; //0.85; // must be between 0 and 1
   double relaxationFactorGas = relaxFactorJwl; //0.85; // must be between 0 and 1
   int count = 0;
+
+  double pcut = std::max<double>(pcl,pcr);
 
   double vl  = 1.0/rhol;
   double vr  = 1.0/rhor;
@@ -2545,6 +2690,8 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
   double cr = vf_->computeSoundSpeed(Vr,fluid1);
 
   double res = 1.0e20;
+
+  err = 0;
 
   double vacuumValues[6]; /* rhoil, uil, pil, rhoir, uir, pir */
   vacuumValues[0] = -1.0; // positive if proper vacuum values are computed
@@ -2712,6 +2859,17 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
     if(verbose>0) fprintf(stdout, "rhoil = %e and rhoir = %e\n", 1.0/vil, 1.0/vir);
     it++;
 
+    if (1.0/vil < rhocl)
+      vil = 1.0/rhocl;
+    if (1.0/vir < rhocr)
+      vir = 1.0/rhocr;
+
+    pi = alphar*pow(1.0/vir,betar)+pinfr;
+    if (pi < pcut) {
+
+      vir = pow((pi-pinfr)/alphar,1.0/betar);
+    } 
+
   //check convergence criterion
     if(fabs(increment[0])<eps*fabs(vil) &&
        fabs(increment[1])<eps*fabs(vir) )
@@ -2734,6 +2892,12 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
   rhoir = 1.0/vir;
   ui    = 0.5*(uil+uir);
   pi    = 0.5*(pil+pir);
+  pi = std::max<double>(pcut, pi);
+
+  if (pi == pcut) {
+
+    rhoir = pow((pi-pinfr)/alphar,1.0/betar);
+  }
 
   if(convergence){
     if(verbose>-1) fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
@@ -2748,6 +2912,7 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
     pir   = vacuumValues[5];
     ui    = 0.5*(uil+uir);
     pi    = 0.5*(pil+pir);*/
+    err = 1;
     if(verbose>-1) fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
   }
   
@@ -2854,7 +3019,7 @@ public:
 
   void setStabilAlpha(double a) { stabil_alpha = a; }
 
-  void computeRiemannSolution(double *Vi, double *Vstar,
+  int computeRiemannSolution(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
                             double *Wstar, double *rupdatei,
                             double &weighti, int it, int Id = 0);
@@ -2869,14 +3034,14 @@ public:
                             double &weighti, int it, double* WstardU,int Id = 0);
 
   // Multi-Phase Riemann solvers (implemented here just to stop compiler's complaining...)
-  void computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
                             double *initWi, double *initWj,
                             double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej,
                             double &weighti, double &weightj,
                             double dx[3], int it) {
-    fprintf(stderr,"ERROR: Should not call the two-phase Riemann solver in LocalRiemannFluidStructure!\n");}
+    fprintf(stderr,"ERROR: Should not call the two-phase Riemann solver in LocalRiemannFluidStructure!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vj,
                                       int IDi, int IDj, double *nphi,
@@ -2888,9 +3053,9 @@ public:
 
 
 private:
-  void eriemannfs(double rhol, double ul, double pl,
+  int eriemannfs(double rhol, double ul, double pl,
                   double &rhoi, double ui, double &pi,
-                  VarFcn *vf, int Id = 0); //note: ui shouldn't be changed. so the value (instead of reference) is used.
+                  VarFcn *vf, int Id,int& err,double pc, double rc); //note: ui shouldn't be changed. so the value (instead of reference) is used.
 
   void eriemannfs_grad(double rho, double u, double p,
                        double &rhoi, double ui, double &pi,
@@ -2898,7 +3063,7 @@ private:
   
   void eriemannfs_tait(double rhol, double ul, double pl,
                   double &rhoi, double ui, double &pi,
-                  VarFcn *vf, int Id = 0); //note: ui shouldn't be changed. so the value (instead of reference) is used.
+                  VarFcn *vf, int Id,int& err,double pc, double rc); //note: ui shouldn't be changed. so the value (instead of reference) is used.
 
   void eriemannfs_tait_grad(double rho, double u, double p,
                        double &rhoi, double ui, double &pi,
@@ -2914,7 +3079,7 @@ private:
 
 template<int dim>
 inline
-void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *Vstar,
+int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
                             double *Wstar, double *rupdatej,
                             double &weightj, int it, int Id)
@@ -2941,15 +3106,22 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   // Attempt at stabilization of structure normal.
   U_1 += stabil_alpha*sqrt(normv - U_1*U_1);
 */
+  int err;
+
+  double pc = vf->getVarFcnBase(Id)->pmin;
+  double rc = vf->getVarFcnBase(Id)->rhomin;
   switch (vf->getType(Id)) {
   case VarFcnBase::STIFFENEDGAS:
   case VarFcnBase::PERFECTGAS:
-    eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id); //caution: U_i will not be modified!
+    eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id,err,pc,rc); //caution: U_i will not be modified!
     break;
   case VarFcnBase::TAIT:
-    eriemannfs_tait(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id); //caution: U_i will not be modified!
+    eriemannfs_tait(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id,err,pc,rc); //caution: U_i will not be modified!
     break;
   }
+
+  if (err)
+    return err;
 
   Wstar[0]  = R_i;
   Wstar[1]  = (1.0-stabil_alpha)*vti[0]+U_i*nphi[0];
@@ -2989,10 +3161,10 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   switch (vf->getType(Id)) {
   case VarFcnBase::STIFFENEDGAS:
   case VarFcnBase::PERFECTGAS:
-    eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id); //caution: U_i will not be modified!
+    eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id,err,pc,rc); //caution: U_i will not be modified!
     break;
   case VarFcnBase::TAIT:
-    eriemannfs_tait(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id); //caution: U_i will not be modified!
+    eriemannfs_tait(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id,err,pc,rc); //caution: U_i will not be modified!
     break;
   }
 
@@ -3022,8 +3194,10 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
       rupdatej[k] += Wstar[k];  //TODO: rupdate is never used for FSI. (only used for MPF)
   }
 */
-}
 
+  return err;
+}
+/*
 template<int dim>
 class FSJac {
  
@@ -3038,6 +3212,7 @@ class FSJac {
     ls->eriemannfs_tait(u[0],u[1],u[2],f[0],U_i,f[2],vf,Id); //caution: U_i will not be modified!
   }
 };
+*/
 
 //------------------------------------------------------------------------------
 template<int dim>
@@ -3167,12 +3342,15 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(int tag, double *Vi
 
 template<int dim>
 inline
-void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
+int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
-                                            VarFcn *vf, int Id) //Caution: "ui" will not be modified!
+                                            VarFcn *vf, int Id,int& err, 
+                                            double pc, double rhoc) //Caution: "ui" will not be modified!
 {
   // assume structure on the left of the fluid
   // using the notation of Toro's paper
+
+  err = 0;
 
   double gamma = vf->getGamma(Id);
   double pref  = vf->getPressureConstant(Id);
@@ -3180,7 +3358,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
   if(u==ui){ // contact
     rhoi = rho;
     pi   = p;
-    return;
+    return 0;
   }
 
   if(ui<u){ // rarefaction
@@ -3205,6 +3383,11 @@ void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     double pbar = p + pref;
     rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
   }
+
+  pi = std::max<double>(pi, pc);
+  rhoi = std::max<double>(rhoi,rhoc);
+
+  return err;
 }
 
 template<int dim>
@@ -3289,11 +3472,13 @@ template<int dim>
 inline
 void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, double p,
 						      double &rhoi, double ui, double &pi,
-						      VarFcn *vf, int Id) //Caution: "ui" will not be modified!
+						      VarFcn *vf, int Id,int& err,
+                                                      double pc, double rhoc) //Caution: "ui" will not be modified!
 {
   // assume structure on the left of the fluid
   // using the notation of Toro's paper
 
+  err = 0;
   double a = vf->getAlphaWater(Id);
   double b = vf->getBetaWater(Id);
   double pref  = vf->getPrefWater(Id);
@@ -3321,6 +3506,10 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
     vf->getVarFcnBase(Id)->verification(0,Udummy,Vdummy);
     rhoi = Vdummy[0];
     pi = a*pow(rhoi,b)+pref;
+    pi = std::max<double>(pi,pc);
+    if (pi == pc)
+      rhoi = pow((pi-pref)/a,1.0/b);
+    rhoi = std::max<double>(rhoi,rhoc);
   }
   else{ // shock
     
@@ -3342,9 +3531,15 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
 
       rhoi -= (V+u-ui) / dV;
       pi = a*pow(rhoi,b)+pref;
+      pi = std::max<double>(pi,pc);
+      if (pi == pc)
+        rhoi = pow((pi-pref)/a,1.0/b);
+      rhoi = std::max<double>(rhoi,rhoc);    
+
       ++i;
     } while (i < 100);      
     if (i == 100) {
+      err = 1;
       fprintf(stderr,"%d %lf %lf %lf %lf %lf %lf %lf\n",i,rho,u,p,rhoi,ui,pi,fabs(u-ui+V));
     }
   }

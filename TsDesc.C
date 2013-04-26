@@ -937,8 +937,8 @@ void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<doubl
 
 template<int dim>
 void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-                                              DistSVec<double,dim> *F1 = NULL, DistSVec<double,dim> *F2 = NULL, VecSet< DistSVec<double,dim> > *F3 = NULL)
-
+                                              DistSVec<double,dim> *F1, DistSVec<double,dim> *F2,
+                                              VecSet< DistSVec<double,dim> > *F3)
 {
 
   output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);

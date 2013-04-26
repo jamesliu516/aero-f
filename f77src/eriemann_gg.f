@@ -1,6 +1,7 @@
        SUBROUTINE ERIEMANNGG(DL,UL,PL,DR,UR,PR,
      &                      PM,UM,RIL,RIR,
-     &                      gamL,PREFL,gamR,PREFR)
+     &                      gamL,PREFL,gamR,PREFR,errcod,
+     &                      pcutl,pcutr,rcutl,rcutr)
 C     PREFL  p_c (L)
 *     
 *-----------------------------------------------------------------*
@@ -16,7 +17,7 @@ C     pp 395-418 by Ivings, Causon and Toro			  *
      
 C     Declaration of variables:
      
-      INTEGER i, NRITER
+      INTEGER i, NRITER,errcod
 
       REAL*8 DL,UL,PL,DR,UR,PR
       REAL*8 PM,UM,RIL,RIR
@@ -30,6 +31,10 @@ C     Declaration of variables:
       REAL*8 POLDL,POLDR
       REAL*8 AK, BK, QRT
       REAL*8 TOLPRE
+      REAL*8 pcutl,rcutl,pcutr,rcutr
+      REAL*8 pcut
+
+      errcod = 0
 
 C     TOLPRE is precision tolerance for convergence of newton-raphson
 C     iteration and NRITER is max # of newton-raphson iterations
@@ -39,6 +44,7 @@ C     iteration and NRITER is max # of newton-raphson iterations
       PRR = PR + PREFR
       PLL = PL + PREFL
 
+      PCUT = MAX(pcutl,pcutr)
 *     
 C     Constants for SG EOS R
 *     
@@ -129,6 +135,9 @@ C     Shock wave
 
          PM     = POLD - (FL + FR + UDIFF)/(FLD + FRD)
          CHANGE = 2.0*ABS((PM- POLD)/(PM+ POLD))
+
+         IF (PM.LT.PCUT) PM = PCUT
+
          IF(CHANGE.LE.TOLPRE)GOTO 20
          IF(PM.LT.0.0) PM = TOLPRE*0.001;
          POLD  = PM
@@ -145,6 +154,7 @@ C     Shock wave
       WRITE(*,*) GAML,PREFL,GAMR,PREFR
       WRITE(*,*) 'OUTPUT (PM,UM,RIL,RIR)'
       WRITE(*,*) PM,UM,RIL,RIR
+      errcod = 1
 *     
  20   CONTINUE
 
@@ -164,5 +174,7 @@ C        by rankine hugoniot relationship (24) of reference.
          RIR  = DR* ((PM+PREFR)/PRR+G4R)/((PM+PREFR)*G4R/PRR + 1.0)
       ENDIF
 
+      IF (RIL.LT.rcutl) RIL = rcutl
+      IF (RIR.LT.rcutr) RIR = rcutr
 
       END
