@@ -336,6 +336,7 @@ TransientData::TransientData()
   philevel = "";
   controlvolume = "";
   fluidid="";
+  d2wall="";
   embeddedsurface = "";
   cputiming = "";
 
@@ -452,6 +453,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
+  new ClassStr<TransientData>(ca, "WallDistance", this, &TransientData::d2wall);
   new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
   new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
 
@@ -472,7 +474,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "VelocitySensitivity", this, &TransientData::dVelocityVector);
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
-  new ClassStr<TransientData>(ca, "LiftDragSensitivity", this, &TransientData::dLiftDrag); //YC
+  new ClassStr<TransientData>(ca, "LiftandDragSensitivity", this, &TransientData::dLiftDrag); //YC
 
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
@@ -1259,11 +1261,39 @@ void KEModelData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
-TurbulenceModelData::TurbulenceModelData()
+WallDistanceMethodData::WallDistanceMethodData()
+{
+  type = NONITERATIVE;
+
+  maxIts = 10;
+  eps = 1.e-4;
+  iterativelvl = -1;
+}
+
+//------------------------------------------------------------------------------
+
+void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
 {
 
-  type = ONE_EQUATION_SPALART_ALLMARAS;
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
 
+  new ClassToken<WallDistanceMethodData>
+    (ca, "Type", this, reinterpret_cast<int WallDistanceMethodData::*>
+     (&WallDistanceMethodData::type), 3, "Iterative", 0, "NonIterative", 1, "Hybrid", 2);
+
+  new ClassInt<WallDistanceMethodData>(ca, "MaxIts", this, &WallDistanceMethodData::maxIts);
+
+  new ClassDouble<WallDistanceMethodData>(ca, "Eps", this, &WallDistanceMethodData::eps);
+
+  new ClassInt<WallDistanceMethodData>(ca, "IterativeLevel", this, &WallDistanceMethodData::iterativelvl);
+
+}
+
+//------------------------------------------------------------------------------
+
+TurbulenceModelData::TurbulenceModelData()
+{
+  type = ONE_EQUATION_SPALART_ALLMARAS;
 }
 
 //------------------------------------------------------------------------------
@@ -1271,21 +1301,21 @@ TurbulenceModelData::TurbulenceModelData()
 void TurbulenceModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   new ClassToken<TurbulenceModelData>
     (ca, "Type", this, reinterpret_cast<int TurbulenceModelData::*>
-     (&TurbulenceModelData::type), 3,
-     "SpalartAllmaras", 0, "DES", 1, "KEpsilon", 2);
+     (&TurbulenceModelData::type), 3, "SpalartAllmaras", 0, "DES", 1, "KEpsilon", 2);
 
   sa.setup("SpalartAllmaras", ca);
   des.setup("DES", ca);
   ke.setup("KEpsilon", ca);
+  d2wall.setup("WallDistanceMethod", ca);
 
 }
 
 //------------------------------------------------------------------------------
-
+//
 SmagorinskyLESData::SmagorinskyLESData()
 {
 
@@ -2107,6 +2137,9 @@ SchemeData::SchemeData(int af) : allowsFlux(af)
   xiu  = -2.0/15.0;
   xic = -1.0/30.0;
   eps = 0.1;
+ 
+  xirho = 1.0;
+  xip = 1.0;
 
 }
 
@@ -2140,8 +2173,9 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<SchemeData>
     (ca, "Limiter", this,
-     reinterpret_cast<int SchemeData::*>(&SchemeData::limiter), 5,
-     "None", 0, "VanAlbada", 1, "Barth", 2, "Venkatakrishnan", 3, "PressureSensor", 4);
+     reinterpret_cast<int SchemeData::*>(&SchemeData::limiter), 6,
+     "None", 0, "VanAlbada", 1, "Barth", 2, "Venkatakrishnan", 3, "PressureSensor", 4,
+     "ExtendedVanAlbada",5);
 
   new ClassToken<SchemeData>
     (ca, "Gradient", this,
@@ -2158,6 +2192,9 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SchemeData>(ca, "XiU", this, &SchemeData::xiu);
   new ClassDouble<SchemeData>(ca, "XiC", this, &SchemeData::xic);
   new ClassDouble<SchemeData>(ca, "Eps", this, &SchemeData::eps);
+  
+  new ClassDouble<SchemeData>(ca, "XiRho", this, &SchemeData::xirho);
+  new ClassDouble<SchemeData>(ca, "XiP", this, &SchemeData::xip);
 
   fluxMap.setup("FluxMap",ca);
 }
@@ -2533,6 +2570,8 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
 &MultiGridData::prolong_relax_factor);
   new ClassDouble<MultiGridData>(ca, "RestrictRelaxFactor",this,
 &MultiGridData::restrict_relax_factor);
+  
+  fixes.setup("Fixes", ca);
 }
 
 //------------------------------------------------------------------------------
@@ -4222,17 +4261,19 @@ void IoData::resetInputValues()
      delete [] name;
    }
 
-   if (eqs.type == EquationsData::NAVIER_STOKES && 
-       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
-       ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
-         eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
-      if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
-       char* name = new char[strlen(input.geometryprefix) + strlen(".dwall") + 1];
-       sprintf(name, "%s%s", input.geometryprefix,".dwall");
-       input.d2wall = new char[strlen(name) + 1];
-       strcpy( (char*)input.d2wall , name );
-       delete [] name;
-      }
+   if ( problem.framework!=ProblemData::EMBEDDED && problem.framework!=ProblemData::EMBEDDEDALE ) {
+     if (eqs.type == EquationsData::NAVIER_STOKES && 
+         eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
+         ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+           eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
+        if (strcmp(input.d2wall, "") == 0 && strcmp(input.geometryprefix, "") != 0 ) {
+         char* name = new char[strlen(input.geometryprefix) + strlen(".dwall") + 1];
+         sprintf(name, "%s%s", input.geometryprefix,".dwall");
+         input.d2wall = new char[strlen(name) + 1];
+         strcpy( (char*)input.d2wall , name );
+         delete [] name;
+        }
+     }
    }
 
   // part 1
@@ -5665,6 +5706,33 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     schemes.fixes.cones[j]->r1 /= ref.rv.tlength;
   }
   
+  // Multigrid fixes.
+  mg.fixes.dihedralAngle *= acos(-1.0) / 180.0;
+  for (int j=0; j<mg.fixes.num; ++j) {
+    mg.fixes.spheres[j]->x0 /= ref.rv.tlength;
+    mg.fixes.spheres[j]->y0 /= ref.rv.tlength;
+    mg.fixes.spheres[j]->z0 /= ref.rv.tlength;
+    mg.fixes.spheres[j]->r /= ref.rv.tlength;
+    mg.fixes.boxes[j]->x0 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->y0 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->z0 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->x1 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->y1 /= ref.rv.tlength;
+    mg.fixes.boxes[j]->z1 /= ref.rv.tlength;
+
+    mg.fixes.cones[j]->x0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->y0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->z0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->r0 /= ref.rv.tlength;
+    mg.fixes.cones[j]->x1 /= ref.rv.tlength;
+    mg.fixes.cones[j]->y1 /= ref.rv.tlength;
+    mg.fixes.cones[j]->z1 /= ref.rv.tlength;
+    mg.fixes.cones[j]->r1 /= ref.rv.tlength;
+  }
+
+  schemes.ns.xirho /= ref.rv.density; 
+  schemes.ns.xip /= ref.rv.pressure;
+ 
   return error;
 }
 //------------------------------------------------------------------------------------

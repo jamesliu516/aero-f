@@ -18,7 +18,7 @@ class Timer {
 		romConstr, romTimeInteg, comm, localCom, globalCom, interCom, rmaCom, io,
 		binread, binwrite, levelSet, lsNodalWeightsAndGrad, lsFvTerm,
 		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
-		eulerFSI, embedforce, NUMTIMINGS
+		eulerFSI, embedforce, walldistance, NUMTIMINGS
   };
 
   int numTimings;
@@ -102,6 +102,7 @@ public:
   double addIntersectionTime(double);
   double addEmbedPhaseChangeTime(double);
   double removeIntersAndPhaseChange(double);
+  double addWallDistanceTime(double);
 
   void print(Timer *, FILE * = stdout);
 

@@ -70,11 +70,14 @@ class BCApplier {
 
     template<int dim> void applyD(DistSVec<double,dim> &X);
     template<int dim> void applyDt(DistSVec<double,dim> &X) { applyD(X); }
+    template<int dim> void applyD2(DistSVec<double,dim> &X, double dX[dim]);
 
     template<int dim> void applyPD(DistSVec<double,dim> &X) { applyD(X); applyP(X); }
     template<int dim> void applyPDt(DistSVec<double,dim> &X) { applyPt(X); applyDt(X); }
 
+
     void setDofType(MatchNodeSet** matchNodes=0);
+    void setEmbeddedALEDofType(MatchNodeSet** matchNodes=0);
     void print();
 
 };

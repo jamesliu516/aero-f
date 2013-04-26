@@ -195,8 +195,10 @@ public:
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
-  void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *,
-                                   DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
+  void writeBinaryVectorsToDiskRom(bool, int, double,
+                                   DistSVec<double,dim> *U1 = NULL,
+                                   DistSVec<double,dim> *U2 = NULL,
+                                   VecSet< DistSVec<double,dim> > *U3 = NULL);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

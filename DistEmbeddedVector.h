@@ -191,7 +191,7 @@ public:
 
   DistEmbeddedVec<Scalar,dim> *alias() const;
 
-  const DistInfo &info() const { return real.info(); }
+  const DistInfo &info() const { return real().info(); }
  
   double sizeMB() { return realVec.sizeMB()*2; }
 
@@ -1049,6 +1049,30 @@ DistEmbeddedVec<Scalar,dim>::operator*(const EmbeddedExpr<T, Scalar> &expr)
 
   return res;
 
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+template<int dim1, int dim2>
+inline
+void
+DistEmbeddedVec<Scalar,dim>::split(DistEmbeddedVec<Scalar,dim1> &y, DistEmbeddedVec<Scalar,dim2> &z)
+{
+  this->realVec.split(y.real(),z.real());
+  this->ghostVec.split(y.ghost(),z.ghost());
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+template<int dim1, int dim2>
+inline
+void
+DistEmbeddedVec<Scalar,dim>::merge(DistEmbeddedVec<Scalar,dim1> &y, DistEmbeddedVec<Scalar,dim2> &z)
+{
+  this->realVec.merge(y.real(),z.real());
+  this->ghostVec.merge(y.ghost(),z.ghost());
 }
 
 //------------------------------------------------------------------------------

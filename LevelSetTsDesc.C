@@ -377,6 +377,7 @@ void LevelSetTsDesc<dim,dimLS>::avoidNewPhaseCreation(DistSVec<double,dimLS> &lo
 template<int dim,int dimLS>
 void LevelSetTsDesc<dim,dimLS>::fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU) {
 
+  //this->domain->fixSolution2(this->varFcn,U,dU,fluidSelector.fluidId);
   if (this->fixSol == 1)
     this->domain->fixSolution(this->varFcn,U,dU,fluidSelector.fluidId);
 }

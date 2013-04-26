@@ -173,7 +173,10 @@ public:
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
   virtual void setFluidSubcycling(bool inSub) { }
 
-  virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
+  virtual void writeBinaryVectorsToDiskRom(bool, int, double, 
+		                           DistSVec<double,dim> *F1 = NULL,
+                                           DistSVec<double,dim> *F2 = NULL,
+                                           VecSet< DistSVec<double,dim> > *F3 = NULL);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void updateFarfieldCoeffs(double dt);

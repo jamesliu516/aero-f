@@ -156,7 +156,7 @@ c  set preconditioner beta
       if(prec.eq.0) then
         betaPrec = 1.0d0
       else
-        locMach = sqrt((uar1*uar1+uar2*uar2+uar3*uar3)/cr2)
+        locMach = sqrt((uar2*uar2+uar3*uar3+uar4*uar4)/cr2)
         betaPrec = MAX(betaRef, k1*locMach)
         betaPrec = MIN((1.0d0+DSQRT(irey))*betaPrec, cmach)
       endif

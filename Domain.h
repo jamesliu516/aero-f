@@ -271,7 +271,7 @@ public:
   template<class MatScalar, class PrecScalar>
   void computeStiffAndForce(DefoMeshMotionData::Element, DistSVec<double,3>&,
 			    DistSVec<double,3>&, DistMat<MatScalar,3>&,
-			    DistMat<PrecScalar,3>*, double volStiff, int** ndType);
+			    DistMat<PrecScalar,3>*, double volStiff, int** ndType = 0);
 
   template<int dim>
   void computeTimeStep(double, double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
@@ -368,10 +368,9 @@ public:
   void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
   template<int dimLS>
   void pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
-				DistSVec<double,dimLS> &d2wall, int level, 
+				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode,DistLevelSetStructure *distLSS=0,
-			 	DistVec<ClosestPoint> *closestPoints=0);
+				int *firstCheckedNode,DistLevelSetStructure *distLSS=0);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
@@ -793,18 +792,18 @@ public:
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
 	template<int dim>
-	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
+	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int nBasesNeeded = 0, int *whichFiles = NULL); 	//KTC
 
 	void computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes);
 	void computeConnectedNodes(const std::vector<std::vector<int> > &,
 			std::vector<int> &);
 
-	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated);
+	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated = NULL);
 
-	template<typename Scalar> void makeUnique( std::vector <Scalar> *nodeOrEle, int length);
+	template<typename Scalar> void makeUnique( std::vector <Scalar> *nodeOrEle, int length = 1);
 
   template<int dim>
-  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps);
+  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps = false);
 
   void readInterpNode(const char *, int &, int *&, int *&); // for Gappy Pod
 
@@ -970,6 +969,8 @@ public:
 
   template<int dim>
   void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &,DistVec<int>* fluidId = NULL);
+  template<int dim>
+  void fixSolution2(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &,DistVec<int>* fluidId = NULL);
 
   template<int dim>
   void getGradP(DistNodalGrad<dim>&);

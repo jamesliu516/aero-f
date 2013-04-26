@@ -13,6 +13,8 @@ class MultiGridDistSVec {
 
   void init(MultiGridKernel<Scalar>* pKernel);
 
+  void free();
+
   DistSVec<Scalar,dim>& operator()(int i) { return *myVecs[i]; }
 
  private:
