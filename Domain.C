@@ -12,6 +12,7 @@
 #include <DistVector.h>
 #include <DistMatrix.h>
 #include <Communicator.h>
+//#include <ErrorHandler.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
 #include <GeoState.h>
