@@ -13,6 +13,7 @@
 #include <LevelSet/LevelSetStructure.h>
 typedef std::complex<double> bcomp;
 #include <iostream>
+//#include <ErrorHandler.h>
 using std::cout;
 using std::endl;
 
@@ -141,6 +142,8 @@ class Domain {
   Timer *timer;
   Timer *strTimer;
   Timer *heatTimer;
+
+  //ErrorHandler *errorHandler;
 
   DistVec<double> *Delta;
   DistVec<double> *CsDelSq;
