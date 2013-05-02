@@ -4732,7 +4732,9 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
     }
   }
 
-  return (ierr>0 ? ierr : -numclipping);
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
+  return ierr;
 }
 
 //------------------------------------------------------------------------------
@@ -4770,12 +4772,17 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   // Check for abnormally large velocities, which may be the result of an instability
   for (int i=0; i<U.size(); ++i) {
 
-    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6){
+      errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
       fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
                      " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+    }
   }
 
-  return (ierr>0 ? ierr : -numclipping);
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
+
+  return ierr;
 }
 
 //------------------------------------------------------------------------------
@@ -4822,8 +4829,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
       if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
               U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
-        --ierr; // Used to be ++ierr. but I need ierr to be negative if clippings are active.
-        // This can cause an edge case bug if AutoCFL reduction is off, a PressureCutoff is set, but not aDensityCutoff. This could cause a floating point exception because the negative density is not caught.
+        ++ierr;
       }
 
     }
@@ -4833,13 +4839,16 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   // Check for abnormally large velocities, which may be the result of an instability
   for (int i=0; i<U.size(); ++i) {
 
-    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6){
+      errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
       fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
                      " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+    }
   }
 
-  return (ierr>0 ? ierr : -numclipping);
-
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
+  return ierr;
 }
 
 //------------------------------------------------------------------------------

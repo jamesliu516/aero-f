@@ -21,6 +21,7 @@ using std::pair;
 
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
+#include <ErrorHandler.h>
 #include <LevelSet/LevelSetStructure.h>
 
 class FluidSelector;
@@ -73,6 +74,8 @@ class EdgeSet {
   ProgrammedBurn* programmedBurn;
 
   HigherOrderMultiFluid* higherOrderMF;
+
+  ErrorHandler* errorHandler;
 
 public:
 
@@ -270,6 +273,8 @@ public:
 
   void attachProgrammedBurn(ProgrammedBurn*);
   void attachHigherOrderMultiFluid(HigherOrderMultiFluid*);
+
+  void assignErrorHandler(ErrorHandler* in){errorHandler = in;}
 
   void computeConnectedEdges(const std::vector<int> &);
   std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM

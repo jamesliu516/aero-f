@@ -19,6 +19,8 @@
 
 #include <HigherOrderMultiFluid.h>
 
+#include <ErrorHandler.h>
+
 #include <Aerof_unordered_set.h>
 
 #ifdef OLD_STL
@@ -184,6 +186,8 @@ class SubDomain {
   std::set<int> kirchhoffNodesList;
 
   RTree<Elem>* myTree;
+
+  ErrorHandler* errorHandler;
 
 public:
   
@@ -1347,6 +1351,8 @@ public:
 			  Vec<int>* counts[2], Vec<int>& fluidId);
 
   void createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>&);
+
+  void assignErrorHandler(ErrorHandler* in);
 
   template<int dim>
     void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);

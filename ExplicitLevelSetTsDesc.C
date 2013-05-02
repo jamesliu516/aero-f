@@ -58,7 +58,7 @@ int ExplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     solveNLSystemOneBlock(U);
   else if(timeType == ExplicitData::RUNGE_KUTTA_2 ||
           timeType == ExplicitData::RUNGE_KUTTA_4 )
-    return (solveNLSystemTwoBlocks(U));
+    solveNLSystemTwoBlocks(U);
 
   return 1;
 

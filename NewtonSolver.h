@@ -1,6 +1,8 @@
 #ifndef _NEWTON_SOLVER_H_
 #define _NEWTON_SOLVER_H_
 
+#include <ErrorHandler.h>
+
 #include <cstdlib>
 #include <cmath>
 
@@ -138,6 +140,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     // verify that the solution is physical
     if (probDesc->checkSolution(Q)) {
       if (probDesc->getTsParams()->checksol){
+        probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
         probDesc->getTsParams()->unphysical = true; 
         probDesc->checkFailSafe(Q);
         Q = rhs;

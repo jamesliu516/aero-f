@@ -960,14 +960,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     if (locToGlobNodeMap[i]+1 == 4284) {
 
-      std::cout << "State[4284] = " << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " <<
-                                       V[i][3] << " " << V[i][4] << std::endl;
+      //std::cout << "State[4284] = " << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " <<
+      //                                 V[i][3] << " " << V[i][4] << std::endl;
     }
 
     if (locToGlobNodeMap[j]+1 == 4284) {
 
-      std::cout << "State[4284] = " << V[j][0] << " " << V[j][1] << " " << V[j][2] << " " <<
-                                       V[j][3] << " " << V[j][4] << std::endl;
+      //std::cout << "State[4284] = " << V[j][0] << " " << V[j][1] << " " << V[j][2] << " " <<
+      //                                 V[j][3] << " " << V[j][4] << std::endl;
     }
 
     for (int i = 0; i < dim; ++i) {
@@ -1148,7 +1148,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             }
           }
  */
-	  riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+	  errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 					 Wi,Wj,i,j,l,dx,true);
 /*
           if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
@@ -1273,7 +1273,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             }
           }
 */
-	    riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
+	    errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
 					   Wi,Wj,i,j,l,dx,true);
 /*	 
           if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
@@ -1392,7 +1392,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           }
 */
 
-	    riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
+	    errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
 					   Wi,Wj,i,j,l,dx,true);
 /*	     
           if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
@@ -1481,6 +1481,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 		         		         Wi,Wj,i,j,l,dx,false);
+        errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Vi, Wi, fluxi, fluidId[i]);
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
@@ -1732,7 +1733,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       //if (myrank == 46 && (fluidId[i] == 3 ||fluidId[j] == 3) )
       //	std::cout << "difffluid" << std::endl;
 
-      riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+      errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 				     Wi,Wj,i,j,l,dx,false);
 
       checkReconstructedValues(i, j, Wi, Wj, varFcn, locToGlobNodeMap,
@@ -2761,7 +2762,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Vi[k+5] = Vi[k];
         Vj[k+5] = Vj[k];
       }
-      riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+      errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                      Wi,Wj,i,j,l,dx,false);
       riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                      Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );
@@ -2923,7 +2924,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Vj[k+5] = Vj[k];
       }
       varFcn  = fluxFcn[BC_INTERNAL]->getVarFcn();
-      riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+      errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                      Wi,Wj,i,j,l,dx,false);
 
       riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
@@ -3447,7 +3448,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
         for (int k=0; k<3; k++)
           gradphi[k] /= normgradphi;
 
-        riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+        errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                        Wi,Wj,i,j,l,dx,false);
         riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                        Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );

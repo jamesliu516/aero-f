@@ -40,6 +40,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   Rreal = new DistSVec<double,dim>(getVecInfo());
   timer = domain->getTimer();
   com = domain->getCommunicator();
+  errorHandler = domain->getErrorHandler();
 
   problemType = ioData.problem.type;
   clippingType = ioData.ts.typeClipping;
@@ -72,6 +73,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   postOp = new PostOperator<dim>(ioData, varFcn, bcData, geoState, domain, V);
 
   data = new TsParameters(ioData);
+  data->assignErrorHandler(dom->getErrorHandler());
   output = new TsOutput<dim>(ioData, refVal, domain, postOp);
   restart = new TsRestart(ioData, refVal);
 
@@ -339,6 +341,8 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   timeState->unphysical = data->unphysical;
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
+
+  printf(1,"cfl=%e\n",data->cfl);
 
   double dt = 0.0;
   if(failSafeFlag == false){

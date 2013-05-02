@@ -13,7 +13,7 @@
 #include <LevelSet/LevelSetStructure.h>
 typedef std::complex<double> bcomp;
 #include <iostream>
-//#include <ErrorHandler.h>
+#include <ErrorHandler.h>
 using std::cout;
 using std::endl;
 
@@ -143,7 +143,7 @@ class Domain {
   Timer *strTimer;
   Timer *heatTimer;
 
-  //ErrorHandler *errorHandler;
+  ErrorHandler *errorHandler;
 
   DistVec<double> *Delta;
   DistVec<double> *CsDelSq;
@@ -221,6 +221,8 @@ public:
   DistInfo &getFaceNormDistInfo() const { return *faceNormDistInfo; }
   DistInfo &getInletNodeDistInfo() const { return *inletNodeDistInfo; }
   DistInfo &getKirchhoffNodeDistInfo() const { return *kirchhoffNodeDistInfo; }
+
+  ErrorHandler *getErrorHandler() const {return errorHandler;}
 
   void getGeometry(GeoSource &, IoData&);
   void createRhsPat(int, IoData&);
@@ -1037,6 +1039,9 @@ public:
   template <int dim>
     void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
 
+
+  // Assign ErrorHandler to subdomains
+  void assignErrorHandler();
   
  
  };

@@ -9,6 +9,7 @@
 //#include <Domain.h>
 #include <DistVector.h>
 #include <MultiGridKernel.h>
+#include <ErrorHandler.h>
 
 class RefVal;
 class VarFcn;
@@ -84,6 +85,8 @@ protected:
 
 //  Timer *timer;
   Communicator *com;
+
+  ErrorHandler *errorHandler;
 
 // Included (MB)
   int fixSol;
@@ -188,6 +191,7 @@ public:
   void computeDistanceToWall(IoData &ioData);
  
   TsParameters* getTsParams() {return data;}
+  ErrorHandler* getErrorHandler() {return errorHandler;}
 };
 
 //------------------------------------------------------------------------------
