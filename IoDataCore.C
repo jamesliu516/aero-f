@@ -2012,6 +2012,8 @@ MultiFluidData::MultiFluidData()
   interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
   interfaceOmitCells = 0;
+
+  riemannNormal = REAL;
 }
 
 //------------------------------------------------------------------------------
@@ -2084,6 +2086,11 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   
   new ClassInt<MultiFluidData>(ca, "OmitCells", this,
                                &MultiFluidData::interfaceOmitCells);
+
+  new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
+                                 "Real",0,"Mesh",1);
+
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
@@ -2797,6 +2804,8 @@ TsData::TsData()
 
   output = "";
 
+  rapidPressureThreshold = -1.0;
+  rapidDensityThreshold = -1.0;
 }
 
 //------------------------------------------------------------------------------
@@ -2840,6 +2849,8 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
+  new ClassDouble<TsData>(ca, "RapidPressureThreshold", this, &TsData::rapidPressureThreshold);
+  new ClassDouble<TsData>(ca, "RapidDensityThreshold", this, &TsData::rapidDensityThreshold);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
 
@@ -5738,8 +5749,8 @@ int IoData::checkInputValuesEssentialBC()
 
   if(schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA && ts.type!=TsData::EXPLICIT) {
     com->fprintf(stderr, "*** Warning: The Modified Ghidaglia scheme is only supported by explicit time-integrators.\n");
-    com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
-    schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
+    //com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
+    //schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
   }
 
 // Included (MB)

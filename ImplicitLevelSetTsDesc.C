@@ -198,11 +198,13 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::doErrorEstimation(DistSVec<double,dim> &
   if (this->lsMethod == 0) {
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), this->PhiV, 
-					     this->fluidSelector, *F, this->riemann, 0);
+					     this->fluidSelector, *F, this->riemann, 
+                                             this->timeState,0);
   } else {
 
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), this->Phi, 
-					     this->fluidSelector, *F, this->riemann, 0);
+					     this->fluidSelector, *F, this->riemann, 
+                                             this->timeState,0);
   }
 
   this->timeState->calculateErrorEstiNorm(U, *F); 
@@ -238,11 +240,13 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   if (this->lsMethod == 0) {
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 
-					     this->fluidSelector, F, this->riemann, 1);
+					     this->fluidSelector, F, this->riemann,
+                                             this->timeState, 1);
   } else {
 
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->Phi, 
-					     this->fluidSelector, F, this->riemann, 1);
+					     this->fluidSelector, F, this->riemann, 
+                                             this->timeState,1);
   }
   
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);

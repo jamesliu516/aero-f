@@ -35,6 +35,8 @@ private:
   DistSVec<double,dim> *VnBar;
   DistSVec<double,dim> *QBar;
 
+  DistVec<int> *firstOrderNodes;
+  
   bool locAlloc;
   int numLocSub;
 
@@ -83,6 +85,9 @@ private:
 
   double dt_coeff;
   int dt_coeff_count;
+
+  double checkForRapidlyChangingPressure;
+  double checkForRapidlyChangingDensity;
 
 public:
   bool unphysical;
@@ -224,6 +229,7 @@ public:
 
 	int getOutputNewtonStep() const;
 
+  DistVec<int> * getFirstOrderNodeSet() const { return firstOrderNodes; }
 };
 
 //------------------------------------------------------------------------------

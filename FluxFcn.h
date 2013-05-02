@@ -67,6 +67,11 @@ public:
 
   VarFcn *getVarFcn() { return vf_; }
 
+  void setHHCoeffPointer(double* hh) { 
+
+    for (int i = 0; i < numPhases_; i++)
+       ff_[i]->setHHCoeffPointer(hh);
+  }
 
   //----- General Functions -----//
   void compute(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *flux, int tag=0, bool useLimiter = true){

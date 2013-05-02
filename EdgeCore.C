@@ -32,6 +32,8 @@ EdgeSet::EdgeSet()
 #ifdef EDGE_LENGTH  //HB
   edgeLength= 0;
 #endif
+
+  mfRiemannNormal = MF_RIEMANN_NORMAL_REAL;
 }
 
 //------------------------------------------------------------------------------
@@ -267,3 +269,9 @@ void EdgeSet::computeGlobalConnectedEdges(const std::vector<int> &globalNeighbor
 	}
 	numTwoLayerEdges = edgesTwoLayersSampleNode.size();
 }
+
+void EdgeSet::setMultiFluidRiemannNormal(MultifluidRiemannNormal m) {
+
+  mfRiemannNormal = m;
+}
+

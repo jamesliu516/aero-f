@@ -456,7 +456,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
   }
 
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, *locphi, this->fluidSelector, 
-					   dU, this->riemann,it);
+					   dU, this->riemann,this->timeState,it);
                                  //Q: why send PhiV?
                                  //A: Riemann solver needs gradPhi.
   // for RK2 on moving grids

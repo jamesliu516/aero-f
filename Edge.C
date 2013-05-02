@@ -958,18 +958,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
 
-    if (locToGlobNodeMap[i]+1 == 4284) {
-
-      std::cout << "State[4284] = " << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " <<
-                                       V[i][3] << " " << V[i][4] << std::endl;
-    }
-
-    if (locToGlobNodeMap[j]+1 == 4284) {
-
-      std::cout << "State[4284] = " << V[j][0] << " " << V[j][1] << " " << V[j][2] << " " <<
-                                       V[j][3] << " " << V[j][4] << std::endl;
-    }
-
     for (int i = 0; i < dim; ++i) {
       fluxi[i] = fluxj[i] = 0.0;
     }
@@ -1054,15 +1042,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  lsdim = fluidSelector.getLevelSetDim(higherOrderMF->getOtherFluidId(i,fluidId[j]),
 					       fluidId[j],
 					       locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);	  
-
-	gphii[0] = -dPdx[i][lsdim];
-	gphii[1] = -dPdy[i][lsdim];
-	gphii[2] = -dPdz[i][lsdim];
-	gphij[0] = -dPdx[j][lsdim];
-	gphij[1] = -dPdy[j][lsdim];
-	gphij[2] = -dPdz[j][lsdim];
-	for (int k=0; k<3; k++)
-	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+        
+        if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
+  	  gphii[0] = -dPdx[i][lsdim];
+	  gphii[1] = -dPdy[i][lsdim];
+	  gphii[2] = -dPdz[i][lsdim];
+	  gphij[0] = -dPdx[j][lsdim];
+	  gphij[1] = -dPdy[j][lsdim];
+	  gphij[2] = -dPdz[j][lsdim];
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+        } else {
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = normal[l][k];
+        }
 	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
 	for (int k=0; k<3; k++)
 	  gradphi[k] /= normgradphi;

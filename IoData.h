@@ -1093,6 +1093,8 @@ struct MultiFluidData {
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
+  enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
+
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
@@ -1582,6 +1584,8 @@ struct TsData {
   double ser;
   double dualtimecfl;
 
+  double rapidPressureThreshold;
+  double rapidDensityThreshold;
 
   const char *output;
 

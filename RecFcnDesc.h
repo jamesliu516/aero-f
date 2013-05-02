@@ -806,11 +806,6 @@ void RecFcnExtendedVanAlbada<dim>::computeExtended(double* Vi, double* ddVij, do
   phi_i = std::min<double>(phi_i,phi_vi);
   phi_j = std::min<double>(phi_j,phi_vj);
 
-  if (i == 4284 || j == 4284) {
-
-    std::cout << i << " " << j << " " << phi_pi << " " << phi_pj << " " <<
-              phi_rhoi << " " << phi_rhoj << " " << phi_vi << " " << phi_vj << std::endl;
-  }
   for (int k = 0; k < dim; ++k) {
 
     this->vanalbada(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k]);
