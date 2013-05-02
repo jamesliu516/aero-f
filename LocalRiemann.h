@@ -36,7 +36,7 @@ public:
 				      double *Wi, double *Wj,
 				      double *rupdatei, double *rupdatej,
 				      double &weighti, double &weightj, 
-				      double dx[3], int it, bool isHigherOrder) {} 
+				      double dx[3], int it, bool isHigherOrder) { return 0; } 
 
   virtual void computeRiemannJacobian(double *Vi, double *Vj,
 				      int IDi, int IDj, double *nphi,
@@ -49,7 +49,7 @@ public:
   virtual int computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
-                              double &weighti, int it, int Id = 0) {} 
+                              double &weighti, int it, int Id = 0) { return 0; } 
 
   virtual void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,

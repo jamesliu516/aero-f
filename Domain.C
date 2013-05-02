@@ -12,6 +12,7 @@
 #include <DistVector.h>
 #include <DistMatrix.h>
 #include <Communicator.h>
+#include <ErrorHandler.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
 #include <GeoState.h>
@@ -3299,7 +3300,7 @@ void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
 template<class S1, class S2>
 void Domain::computeStiffAndForce(DefoMeshMotionData::Element type, DistSVec<double,3>& X,
                                   DistSVec<double,3>& F, DistMat<S1,3>& K,
-                                  DistMat<S2,3>* P, double volStiff, int** ndType=0)  {
+                                  DistMat<S2,3>* P, double volStiff, int** ndType)  {
 
   double t0 = timer->getTime();
 
@@ -4196,15 +4197,14 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
-				DistSVec<double,dimLS> &d2wall, int level, 
+				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
 				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode, DistLevelSetStructure *distLSS,
-				DistVec<ClosestPoint> *closestPoint)
+				int *firstCheckedNode, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->pseudoFastMarchingMethod<dimLS>(Tag(iSub),X(iSub),d2wall(iSub),level,sortedNodes(iSub),*(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL,closestPoint?&((*closestPoint)(iSub)):NULL);
+    subDomain[iSub]->pseudoFastMarchingMethod<dimLS>(Tag(iSub),X(iSub),d2wall(iSub),level,iterativeLevel,sortedNodes(iSub),*(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL);
     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
   }
@@ -4505,7 +4505,7 @@ void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,di
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded = 0, int *whichFiles = NULL) {	
+void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded, int *whichFiles) {	
 
 	//	multiPodFile: file containing names of bases
 	//	pod: array of pointers to POD bases. Each one is individually uninitialized
@@ -4564,7 +4564,7 @@ void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,
 
 template<int dim>
 void Domain::readPodBasis(const char *podFile, int &nPod,
-		VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps = false) {
+		VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps) {
 
   // read in POD Vectors
   const char *vecFile = podFile;
@@ -4617,7 +4617,7 @@ void Domain::readPodBasis(const char *podFile, int &nPod,
 
 template<typename Scalar>
 void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
-		int *alreadyCommunicatedArray = NULL){	
+		int *alreadyCommunicatedArray){	
 	
 	// loop over iIslands
 		// figure out how many total entries each cpu has for the iIsland
@@ -4664,7 +4664,7 @@ void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
 }
 
 template<typename Scalar>
-void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length = 1) {
+void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length) {
 
 	// remove redundant entries from a vector <int> nodeOrEle *
 	// apply to nodeOrEle and elements

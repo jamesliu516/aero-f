@@ -27,7 +27,7 @@ public:
 // Included (MB)
   dRe_muMach = iod.ref.dRe_mudMach;
   }
-  ~ViscoFcn() {}
+  virtual ~ViscoFcn() {}
 
   virtual double compute_mu(double) = 0;
   virtual double compute_lambda(double, double) = 0;

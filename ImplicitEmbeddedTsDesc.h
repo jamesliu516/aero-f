@@ -25,12 +25,10 @@
 template<int dim>
 class ImplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
 
+protected:
+
   DistSVec<bool,2> *tag;
 
-  MatVecProd<dim,dim> *mvp;
-  KspPrec<dim> *pc;
-  KspSolver<DistEmbeddedVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
-	
   NewtonSolver<ImplicitEmbeddedTsDesc<dim> > *ns;
 
   int failSafeNewton;
@@ -71,13 +69,13 @@ public:
 
   void resetFixesTag();
 
-  void computeJacobian(int it, DistSVec<double,dim> &Q,
-		       DistSVec<double,dim> &F);
+  virtual void computeJacobian(int it, DistSVec<double,dim> &Q,
+		       DistSVec<double,dim> &F) = 0;
 
-  void setOperators(DistSVec<double,dim> &Q);
+  virtual void setOperators(DistSVec<double,dim> &Q) = 0;
 
-  int solveLinearSystem(int it, DistSVec<double,dim> &b,
-			DistSVec<double,dim> &dQ);
+  virtual int solveLinearSystem(int it, DistSVec<double,dim> &b,
+			DistSVec<double,dim> &dQ) = 0;
 
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }

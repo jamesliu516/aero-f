@@ -221,6 +221,7 @@ struct TransientData {
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
+  const char* d2wall;
   const char *embeddedsurface;
   const char *cputiming;
 
@@ -750,6 +751,23 @@ struct KEModelData {
 };
 
 //------------------------------------------------------------------------------
+//
+struct WallDistanceMethodData {
+
+  enum Type {ITERATIVE = 0, NONITERATIVE = 1, HYBRID = 2} type;
+
+  int maxIts;
+  double eps;
+  int iterativelvl;
+
+  WallDistanceMethodData();
+  ~WallDistanceMethodData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
 
 struct TurbulenceModelData {
 
@@ -758,6 +776,7 @@ struct TurbulenceModelData {
   SAModelData sa;
   DESModelData des;
   KEModelData ke;
+  WallDistanceMethodData d2wall;
 
   TurbulenceModelData();
   ~TurbulenceModelData() {}

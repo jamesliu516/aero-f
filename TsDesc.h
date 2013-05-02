@@ -9,6 +9,7 @@
 //#include <Domain.h>
 #include <DistVector.h>
 #include <MultiGridKernel.h>
+#include <ErrorHandler.h>
 
 class RefVal;
 class VarFcn;
@@ -84,6 +85,8 @@ protected:
 
 //  Timer *timer;
   Communicator *com;
+
+  ErrorHandler *errorHandler;
 
 // Included (MB)
   int fixSol;
@@ -173,7 +176,10 @@ public:
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
   virtual void setFluidSubcycling(bool inSub) { }
 
-  virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
+  virtual void writeBinaryVectorsToDiskRom(bool, int, double, 
+		                           DistSVec<double,dim> *F1 = NULL,
+                                           DistSVec<double,dim> *F2 = NULL,
+                                           VecSet< DistSVec<double,dim> > *F3 = NULL);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void updateFarfieldCoeffs(double dt);
@@ -185,6 +191,7 @@ public:
   void computeDistanceToWall(IoData &ioData);
  
   TsParameters* getTsParams() {return data;}
+  ErrorHandler* getErrorHandler() {return errorHandler;}
 };
 
 //------------------------------------------------------------------------------

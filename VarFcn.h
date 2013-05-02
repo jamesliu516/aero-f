@@ -196,7 +196,7 @@ public:
   double computeWtMachNumber(double *V, int tag=0) {
     check(tag);
     double m = sqrt(computeWtU2(V)) / computeSoundSpeed(V,tag);
-    if (isnan(m))  {
+    if (std::isnan(m))  {
       fprintf(stderr, "Nan: %e %e %e\n", meshVel[0], meshVel[1], meshVel[2]);
       exit(-1);
     }

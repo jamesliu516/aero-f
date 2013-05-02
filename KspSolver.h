@@ -118,7 +118,7 @@ public:
   int solve(VecType &, VecType &);
   int solveLS(VecType &, VecType &);
   int solveT(VecType &, VecType &);
-  void solve(VecSet<VecType> &, VecSet<VecType> &);
+  int solve(VecSet<VecType> &, VecSet<VecType> &);
 
   void applyPreviousRotations(int, GenFullM<ScalarT> &, GenFullM<ScalarT> &);
   void applyNewRotation(int, GenFullM<ScalarT> &, GenFullM<ScalarT> &, Vec<ScalarT> &);

@@ -60,7 +60,7 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim,dimLS> {
 
  private:
   void solveNLSystemOneBlock(DistSVec<double,dim> &U);
-  void solveNLSystemTwoBlocks(DistSVec<double,dim> &U);
+  int solveNLSystemTwoBlocks(DistSVec<double,dim> &U);
 
 // for solving the total system in one block (U and Phi at the same time)
   void solveNLAllFE(DistSVec<double,dim> &U);

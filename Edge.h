@@ -21,6 +21,7 @@ using std::pair;
 
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
+#include <ErrorHandler.h>
 #include <LevelSet/LevelSetStructure.h>
 
 class FluidSelector;
@@ -81,6 +82,8 @@ private:
   HigherOrderMultiFluid* higherOrderMF;
 
   MultifluidRiemannNormal mfRiemannNormal;
+  ErrorHandler* errorHandler;
+
 
 public:
 
@@ -243,10 +246,10 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi,LevelSetStructure *LSS=0);
   template<int dimLS>
-  void pseudoFastMarchingMethodInitialization(
+  void pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
 		Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
 		Vec<int> &sortedNodes, int &nSortedNodes,
-		LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
+		LevelSetStructure *LSS=0);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }
@@ -281,6 +284,8 @@ public:
 
   void attachProgrammedBurn(ProgrammedBurn*);
   void attachHigherOrderMultiFluid(HigherOrderMultiFluid*);
+
+  void assignErrorHandler(ErrorHandler* in){errorHandler = in;}
 
   void computeConnectedEdges(const std::vector<int> &);
   std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM

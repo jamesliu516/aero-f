@@ -40,6 +40,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   Rreal = new DistSVec<double,dim>(getVecInfo());
   timer = domain->getTimer();
   com = domain->getCommunicator();
+  errorHandler = domain->getErrorHandler();
 
   problemType = ioData.problem.type;
   clippingType = ioData.ts.typeClipping;
@@ -72,6 +73,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   postOp = new PostOperator<dim>(ioData, varFcn, bcData, geoState, domain, V);
 
   data = new TsParameters(ioData);
+  data->assignErrorHandler(dom->getErrorHandler());
   output = new TsOutput<dim>(ioData, refVal, domain, postOp);
   restart = new TsRestart(ioData, refVal);
 
@@ -340,6 +342,8 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
+  printf(1,"cfl=%e\n",data->cfl);
+
   double dt = 0.0;
   if(failSafeFlag == false){
     if(timeStepCalculation == TsData::CFL || it==1)
@@ -503,6 +507,9 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
       clipSolution<dim,2>(clippingType, wallType, varFcn, bcData->getInletConservativeState(), U);
   else
     ierr = domain->checkSolution(varFcn, U);
+
+  if (ierr != 0 && data->checksol) data->unphysical = true;
+  ierr = max(ierr,0);
 
   return ierr;
 
@@ -934,8 +941,8 @@ void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<doubl
 
 template<int dim>
 void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-                                              DistSVec<double,dim> *F1 = NULL, DistSVec<double,dim> *F2 = NULL, VecSet< DistSVec<double,dim> > *F3 = NULL)
-
+                                              DistSVec<double,dim> *F1, DistSVec<double,dim> *F2,
+                                              VecSet< DistSVec<double,dim> > *F3)
 {
 
   output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
