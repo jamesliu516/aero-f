@@ -218,6 +218,12 @@ int LevelSetTsDesc<dim,dimLS>::checkSolution(DistSVec<double,dim> &U)
 
   int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, *fluidSelector.fluidId, *fluidSelector.fluidIdn);
 
+  if (ierr != 0 && this->data->checksol){
+    this->data->unphysical = true;
+    return ierr;
+  }
+  ierr = max(0,ierr);
+
   return ierr;
 
 }

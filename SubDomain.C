@@ -4615,7 +4615,7 @@ inline double SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, Pos
 template<class S1, class S2>
 void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
 				     SVec<double,3>& X, SVec<double,3>& F, GenMat<S1,3>& K, GenMat<S2,3>* P,
-                                     double volStiff, int* ndType=0)
+                                     double volStiff, int* ndType)
 {
   const int MaxSize = (3*Elem::MaxNumNd);
   double kEl[MaxSize*MaxSize];
@@ -4732,6 +4732,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
     }
   }
 
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
   return ierr;
 }
 
@@ -4744,6 +4746,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   int numclipping = 0;
   double V[dim];
   double rho,p;
+
 
   if(varFcn->doVerification())
     for(int i=0; i<U.size(); i++)
@@ -4769,12 +4772,15 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   // Check for abnormally large velocities, which may be the result of an instability
   for (int i=0; i<U.size(); ++i) {
 
-    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6){
+      errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
       fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
                      " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+    }
   }
 
-
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
 
   return ierr;
 }
@@ -4819,6 +4825,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     for (int i=0; i<U.size(); ++i) {
 
       numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+
       if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
               U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
@@ -4832,13 +4839,16 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   // Check for abnormally large velocities, which may be the result of an instability
   for (int i=0; i<U.size(); ++i) {
 
-    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6)
+    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6){
+      errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
       fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
                      " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+    }
   }
 
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
   return ierr;
-
 }
 
 //------------------------------------------------------------------------------
@@ -5534,6 +5544,17 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
           weights[k] = (1.0-alpha)*(1.0-alpha);
         }
 
+	if (dim==6) {  // One Equation Turbulent Model
+	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+	}
+	else if (dim==7) { // Two Equations Turbulent Model
+	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
+	  Vj[6] = -alpha*Vi[6]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+          weights[6] = (1.0-alpha)*(1.0-alpha);
+	}
+
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
 
@@ -5567,6 +5588,17 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 	  Vi[k] = ((resji.normVel)[k-1] - alpha*Vj[k])/(1.0-alpha);
           weights[k] = (1.0-alpha)*(1.0-alpha);
         }
+
+	if (dim==6) {  // One Equation Turbulent Model
+	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+	}
+	else if (dim==7) { // Two Equations Turbulent Model
+	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
+	  Vi[6] = -alpha*Vj[6]/(1.0-alpha);
+          weights[5] = (1.0-alpha)*(1.0-alpha);
+          weights[6] = (1.0-alpha)*(1.0-alpha);
+	}
 
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
@@ -6250,15 +6282,41 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 
 template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-					 SVec<double,dimLS> &d2wall, int level,
+					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-					 LevelSetStructure *LSS,Vec<ClosestPoint> *closestPoint)
+					 LevelSetStructure *LSS)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
   if(!NodeToElem) 
      NodeToElem = createNodeToElementConnectivity();
-  if(level == 0) { // just get inactive nodes
+  if(level > 0 && level == iterativeLevel) {  
+    nSortedNodes     = 0;
+    firstCheckedNode = 0;
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] < iterativeLevel-1) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+    }
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] == iterativeLevel-1) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+      firstCheckedNode = nSortedNodes;
+    }
+    for(int i=0;i<Tag.size();++i) {
+      if(Tag[i] == iterativeLevel) {
+	sortedNodes[nSortedNodes] = i;
+	nSortedNodes++;
+      }
+      if(Tag[i] > iterativeLevel) {
+	Tag[i] = -1;
+      }
+    }
+  }
+  else if(level == 0) { // just get inactive nodes
     nSortedNodes     = 0;
     firstCheckedNode = 0;
     for(int i=0;i<Tag.size();++i) {
@@ -6272,22 +6330,9 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     }
   }
   else if(level==1){
-/*
-    for(int i=0;i<closestPoint.size();++i) {
-      if(Tag[i]<0) {
-        if(closestPoint[i].nearInterface() && closestPoint[i].dist >= 0)
-        {
-  	  d2wall[i][0] = closestPoint[i].dist;
-	  Tag[i]       = 1;
-	  sortedNodes[nSortedNodes] = i;
-	  nSortedNodes++;
-	}
-      }
-    }
-*/
 //    Tag = -1;  // Tag is globally set to -1. 0 level are inactive nodes
     firstCheckedNode = nSortedNodes;
-    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,nSortedNodes,LSS,closestPoint);
+    edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
   }
   else{
   // Tag nodes that are neighbours of already Tagged nodes and compute their distance
@@ -6723,7 +6768,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       int nEdges = polygon.numberOfEdges;
 
       // get intersection information.
-      LevelSetResult lsRes[nEdges];
+      std::vector<LevelSetResult> lsRes(nEdges);
       if(!nEdges) continue; //KW: why need this?
       for (int k=0; k<nEdges; ++k) {
         lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edge[k],polygon.edgeWithVertex[k][0]<polygon.edgeWithVertex[k][1]);
@@ -6754,7 +6799,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       }
 
       // get information at intersection points (3 for triangles, 4 for quadrangles).
-      Vec3D Xinter[nEdges];
+      std::vector<Vec3D> Xinter(nEdges);
       double Vinter[nEdges][dim];
       Vec3D start_vertex;for(int m=0;m<3;++m) start_vertex[m]=X[polygon.nodeToLookFrom][m];
       for(int k=0; k<nEdges; ++k) {

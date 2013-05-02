@@ -4892,6 +4892,11 @@ void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellSt
   faces.attachHigherOrderMF(higherOrderMF);
 }
 
+void SubDomain::assignErrorHandler(ErrorHandler* in){
+  errorHandler = in;
+  edges.assignErrorHandler(errorHandler);
+}
+
 void SubDomain::getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
 
   for (int i = 0; i < faces.size(); ++i) {

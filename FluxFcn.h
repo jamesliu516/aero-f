@@ -112,6 +112,8 @@ public:
     ff_[tag]->computeDerivative(ire,dIre,n,dn,nv,dnv,v,ub,dub,f,df);
   }
 
+  FluxFcnBase* getFluxFcnBase(int tag = 0) const { check(tag); return ff_[tag]; }
+
 };
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------

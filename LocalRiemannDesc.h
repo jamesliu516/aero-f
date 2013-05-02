@@ -68,7 +68,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasGas!\n");} 
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasGas!\n"); return 0; } 
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -134,7 +134,7 @@ int computeRiemannSolution(double *Vi, double *Vj,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpTaitTait!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpTaitTait!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar, 
                               double *nphi, VarFcn *vf,
@@ -230,7 +230,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpJWLJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpJWLJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -296,7 +296,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmpGasJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -376,7 +376,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasGas!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasGas!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -581,7 +581,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasTait!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasTait!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -896,7 +896,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparTaitTait!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparTaitTait!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -1133,7 +1133,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparJWLJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparJWLJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -1469,7 +1469,7 @@ public:
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, int Id = 0) {
-    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasJWL!\n");}
+    fprintf(stderr,"ERROR: Should not call the FS Riemann solver in LocalRiemannGfmparGasJWL!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
@@ -3041,7 +3041,7 @@ public:
                             double *rupdatei, double *rupdatej,
                             double &weighti, double &weightj,
                             double dx[3], int it) {
-    fprintf(stderr,"ERROR: Should not call the two-phase Riemann solver in LocalRiemannFluidStructure!\n");}
+    fprintf(stderr,"ERROR: Should not call the two-phase Riemann solver in LocalRiemannFluidStructure!\n"); return 0; }
 
   void computeRiemannJacobian(double *Vi, double *Vj,
                                       int IDi, int IDj, double *nphi,

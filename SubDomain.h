@@ -19,6 +19,8 @@
 
 #include <HigherOrderMultiFluid.h>
 
+#include <ErrorHandler.h>
+
 #include <Aerof_unordered_set.h>
 
 #ifdef OLD_STL
@@ -185,6 +187,8 @@ class SubDomain {
 
   RTree<Elem>* myTree;
 
+  ErrorHandler* errorHandler;
+
 public:
   
   HigherOrderMultiFluid* higherOrderMF;
@@ -347,7 +351,7 @@ public:
 
   template<class MatScalar, class PrecScalar>
   void computeStiffAndForce(DefoMeshMotionData::Element, SVec<double,3>&, SVec<double,3>&, GenMat<MatScalar,3>&,
-                            GenMat<PrecScalar,3>*, double volStiff, int* ndType);
+                            GenMat<PrecScalar,3>*, double volStiff, int* ndType = 0);
 
   // spatial discretization
   template<int dim>
@@ -1010,9 +1014,9 @@ public:
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
   template<int dimLS>
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-				SVec<double,dimLS> &d2wall, int level,
+				SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 			        Vec<int> &sortedNodes, int& nSortedNodes, int &firstCheckedNode,
-				LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
+				LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
@@ -1347,6 +1351,8 @@ public:
 			  Vec<int>* counts[2], Vec<int>& fluidId);
 
   void createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>&);
+
+  void assignErrorHandler(ErrorHandler* in);
 
   template<int dim>
     void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);

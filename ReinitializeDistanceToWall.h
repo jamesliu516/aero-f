@@ -15,6 +15,7 @@ class LevelSetStructure;
 template<int dimLS>
 class ReinitializeDistanceToWall
 {
+  IoData& iod;
   Domain& dom;
   DistVec<bool> done;
   DistSVec<double,1> d2wall;
@@ -25,18 +26,18 @@ class ReinitializeDistanceToWall
   DistSVec<double,dimLS> dummyPhi;
 
 public:
-  ReinitializeDistanceToWall(Domain& domain);
+  ReinitializeDistanceToWall(IoData &ioData, Domain& domain);
   ~ReinitializeDistanceToWall();
 
   void ComputeWallFunction(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
   void DistanceToClosestPointOnMovingStructure(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
   void PrescribedValues(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
   void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
-  void PseudoFastMarchingMethod(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
+  void PseudoFastMarchingMethod(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState,int iterativeLevel);
   void computeExactErrors(DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState);
 
 private:
-  void InitializeWallFunction(SubDomain& subD,LevelSetStructure& LSS,Vec<bool>& done,SVec<double,3>& X,SVec<double,1>& d2w,Vec<int>& tag,Vec<ClosestPoint>& closestPoint);
+  void InitializeWallFunction(SubDomain& subD,LevelSetStructure& LSS,Vec<bool>& done,SVec<double,3>& X,SVec<double,1>& d2w,Vec<int>& tag);
 };
 
 #endif

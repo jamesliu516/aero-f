@@ -266,9 +266,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
-void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
+int ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
 {
- 
+
   solveNLEuler(U);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
@@ -287,8 +287,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,d
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
-  this->checkSolution(U);
+  if(this->checkSolution(U) != 0){
+    return -10;
+  }
 
+  return 0;
 }
 
 //------------------------------------------------------------------------------

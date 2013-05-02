@@ -93,7 +93,9 @@ int main(int argc, char **argv)
   //sleep(20);
   signal(SIGUSR1, processSignal);
 
+#if !defined(__APPLE__) || !defined(__MACH__)
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
+#endif
 
 #ifdef AEROF_MPI_DEBUG
 
@@ -149,6 +151,7 @@ int main(int argc, char **argv)
     domain.setFaceToElementConnectivity();
     domain.makeRotationOwnership(ioData);
     domain.setInletNodes(ioData);
+    domain.assignErrorHandler();
 
     domain.printElementStatistics();
 

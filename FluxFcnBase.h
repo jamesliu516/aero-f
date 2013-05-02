@@ -25,6 +25,8 @@ public:
   virtual void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool) {}
 
   void setHHCoeffPointer(double* hh) { hhcoeffptr = hh; }
+ 
+  VarFcnBase* getVarFcnBase() const { return vf; }
 
   //--- Sensitivity Analysis Function
   virtual void computeDerivative
