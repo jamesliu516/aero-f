@@ -7,6 +7,7 @@
 #include <KspPrec.h>
 #include <BCApplier.h>
 #include <TsParameters.h>
+#include <ErrorHandler.h>
 
 class MatchNodeSet;
 class CorotSolver;
@@ -102,6 +103,7 @@ public:
   
   void setup(DistSVec<double,3> &X);
   TsParameters* getTsParams() { return NULL; }
+  ErrorHandler* getErrorHandler() {return NULL; }
 
   // Included (MB)
   int fixSolution(DistSVec<double,3> &X, DistSVec<double,3> &dX) { return 0; }

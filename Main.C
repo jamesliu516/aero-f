@@ -151,6 +151,7 @@ int main(int argc, char **argv)
     domain.setFaceToElementConnectivity();
     domain.makeRotationOwnership(ioData);
     domain.setInletNodes(ioData);
+    domain.assignErrorHandler();
 
     domain.printElementStatistics();
 

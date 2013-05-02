@@ -2,6 +2,7 @@
 #define _TS_SOLVER_H_
 
 # include<IoData.h>
+#include <ErrorHandler.h>
 
 class IoData;
 
@@ -207,11 +208,17 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           *dUPrev = *dU;
           *dU = -1.0*U;
         }
+        if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->clearError(ErrorHandler::SOLVER);
         stat = probDesc->solveNonLinearSystem(U, it);
+        probDesc->printf(1,"t=%e, dt=%e\n",t,dt);
+        if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->reduceError();
+
+        if(probDesc->getTsParams()) probDesc->getTsParams()->resolveErrors();
 
         // stat = -10 signals that the time iteration must be redone!
         // Regardless of what happens elsewhere, this should work.
-        if (stat == -10){ // must redo iteration with a different CFL number, undo everything we have done so far
+        if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]){ // || stat == -10 // must redo iteration with a different CFL number, undo everything we have done so far 
+          probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]=0;
           probDesc->printf(1,"Found unphysical solution. Re-calculating CFL number and repeating iteration.\n");
           U = (*UPrev); // Reset U to its previous state
           repeat = true;
@@ -239,6 +246,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
             probDesc->printf(1, "Fail safe failed! \n",itSc);
             exit(-1);
           }
+          probDesc->printf(1, "stat: %i \n",stat);
           probDesc->printf(1, "itSc:  %i \n",itSc);
           t -= dt;
           probDesc->setFailSafe(true);
