@@ -959,7 +959,7 @@ struct ProgrammedBurnData {
   double ignitionTime;
   double factorB;
   double factorS;
-  double stopWhenShockReachesPercentDistance;
+  //double stopWhenShockReachesPercentDistance;
   int ignited;
   int limitPeak;
   
@@ -1603,6 +1603,7 @@ struct TsData {
   double ser;
   double dualtimecfl;
 
+  double programmedBurnShockSensor;
   double rapidPressureThreshold;
   double rapidDensityThreshold;
 
