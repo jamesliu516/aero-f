@@ -210,7 +210,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         }
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->clearError(ErrorHandler::SOLVER);
         stat = probDesc->solveNonLinearSystem(U, it);
-        probDesc->printf(1,"t=%e, dt=%e\n",t,dt);
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->reduceError();
 
         if(probDesc->getTsParams()) probDesc->getTsParams()->resolveErrors();
