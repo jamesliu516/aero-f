@@ -116,7 +116,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
     programmedBurn = new ProgrammedBurn(ioData,&this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
   }
-  programmedBurnStopPercentDistance = ioData.oneDimensionalInfo.programmedBurn.stopWhenShockReachesPercentDistance ;
+  programmedBurnStopPercentDistance = ioData.ts.programmedBurnShockSensor ;
   if ( ioData.oneDimensionalInfo.programmedBurn.unburnedEOS >= 0 ){
     programmedBurnIsUsed = true ;
   }
