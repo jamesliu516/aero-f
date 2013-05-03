@@ -1965,7 +1965,7 @@ ProgrammedBurnData::ProgrammedBurnData() {
   ignited = 0;
   factorB = 1.0;
   factorS = 1.0;
-  stopWhenShockReachesPercentDistance = 0.99;
+  //stopWhenShockReachesPercentDistance = 0.99;
   limitPeak = 0;
 }
 
@@ -2005,8 +2005,8 @@ void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
     (ca, "FactorB", this, &ProgrammedBurnData::factorB);
   new ClassDouble<ProgrammedBurnData>
     (ca, "FactorS", this, &ProgrammedBurnData::factorS);
-  new ClassDouble<ProgrammedBurnData>
-    (ca, "StopWhenShockReachesPercentDistance", this, &ProgrammedBurnData::stopWhenShockReachesPercentDistance);  
+  //new ClassDouble<ProgrammedBurnData> // Moved to TsData.
+  //  (ca, "StopWhenShockReachesPercentDistance", this, &ProgrammedBurnData::stopWhenShockReachesPercentDistance);  
   new ClassToken<ProgrammedBurnData>(ca, "LimitPeak", this,
              reinterpret_cast<int ProgrammedBurnData::*>(&ProgrammedBurnData::limitPeak), 2,
              "False", 0, "True", 1);
@@ -2829,6 +2829,7 @@ TsData::TsData()
   ser = -1.0; 
   dualtimecfl = -1.0;
   //
+  programmedBurnShockSensor = 0.99 ;
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
 
@@ -2883,6 +2884,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "RapidDensityThreshold", this, &TsData::rapidDensityThreshold);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
+  new ClassDouble<TsData>(ca, "ProgrammedBurnShockSensor", this, &TsData::programmedBurnShockSensor); // Moved from ProgrammedBurn to TsData.
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
@@ -6215,10 +6217,10 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   if (programmedBurn.unburnedEOS < 0)
     return 0;
 
-  if (programmedBurn.stopWhenShockReachesPercentDistance > 0.99 || programmedBurn.stopWhenShockReachesPercentDistance < 0.05 ){
-  ++error;
-  com->fprintf(stderr,"*** Error: StopWhenShockReachesPercentDistance must be a number between 0.05 and 0.99.\n");
-  }
+  //if (programmedBurn.stopWhenShockReachesPercentDistance > 0.99 || programmedBurn.stopWhenShockReachesPercentDistance < 0.05 ){
+  //++error;
+  //com->fprintf(stderr,"*** Error: ProgrammedBurnShockSensor must be a number between 0.05 and 0.99.\n");
+  //}
   
   if (eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS) == eqs.fluidModelMap.dataMap.end()) {
     com->fprintf(stderr, "*** Error: Cannot find burned EOS %d in fluid models\n",programmedBurn.burnedEOS);
