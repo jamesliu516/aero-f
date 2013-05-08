@@ -28,7 +28,7 @@ template<int dim> class PostOperator;
 #include <SurfMeshGen.h>
 #include <ReducedMeshShapeChanger.h>
 #include <ParallelRom.h> 
-#include <time.h> 
+#include <ctime> 
 
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>

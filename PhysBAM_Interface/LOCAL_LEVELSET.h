@@ -1,6 +1,6 @@
 #ifndef __LOCAL_LEVELSET__
 #define __LOCAL_LEVELSET__
-#include<stdio.h>
+#include<cstdio>
 
 class LocalLevelSet {
 public:
