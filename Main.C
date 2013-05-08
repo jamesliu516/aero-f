@@ -2,6 +2,7 @@
 #include <GeoSource.h>
 #include <Domain.h>
 #include <Modal.h>
+#include <NonlinearRomOffline.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,6 +21,7 @@
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
+extern void startNonlinearRomOfflineSolver(Communicator *, IoData &, Domain &);
 extern void startSparseGridGeneration(IoData &, Domain &);
 int interruptCode = 0;
 
@@ -163,14 +165,13 @@ int main(int argc, char **argv)
       }
       KirchhoffIntegrator doKP(ioData, &domain);
       doKP.Compute();
-    }
-    else if (ioData.problem.type[ProblemData::LINEARIZED])
-    {
+    } else if (ioData.problem.type[ProblemData::LINEARIZED]) {
       // Choose linearized fluid problem
       startModalSolver(com, ioData, domain);
-    }
-    else
-    {
+    } else if (ioData.problem.type[ProblemData::NLROMOFFLINE]) {
+      // Choose nonlinear ROM preprocessing solver
+      startNonlinearRomOfflineSolver(com, ioData, domain);
+    } else {
       // Choose nonlinear fluid problem
       startNavierStokesSolver(ioData, geoSource, domain);
     }

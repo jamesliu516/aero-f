@@ -694,7 +694,7 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
     spaceOp->computeResidual(*X, *A, U, *R, timeState);
   else //wallRecTyp == ExactRiemann
     spaceOp->computeResidual(riemann1, *X, *A, U, *R, timeState);
-    
+
   spaceOp->applyBCsToResidual(U, *R);
 
   double res = 0.0;
@@ -764,7 +764,7 @@ void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
     else
       com->printf(2, "Spatial residual norm[%d] = %.12e\n", data->resType, data->residual);
     com->printf(2, "Time for one residual evaluation: %f s\n", trhs);
-  }
+  } 
 
   com->printf(2, "\n");
 
@@ -940,24 +940,13 @@ void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<doubl
 //----------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-                                              DistSVec<double,dim> *F1, DistSVec<double,dim> *F2,
-                                              VecSet< DistSVec<double,dim> > *F3)
-{
-
-  output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
-
-}
-
-//----------------------------------------------------------------------------
-
-template<int dim>
 void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
 {
   // Nothing to do here by default.
 }
 
 //----------------------------------------------------------------------------
+
 
 template<int dim>
 void TsDesc<dim>::updateFarfieldCoeffs(double dt)

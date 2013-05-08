@@ -14,6 +14,7 @@ class ImplicitPGTsDesc : public ImplicitRomTsDesc<dim> {
 private:
   double **lsCoeff;
   RefVec<DistSVec<double, dim> >residualRef;
+  int currentProblemSize; // for local rom  
 
 protected:
 
@@ -21,9 +22,25 @@ protected:
   Vec<double> rhs;
   Vec<double> From;
   void saveNewtonSystemVectors(const int totalTimeSteps) {this->saveNewtonSystemVectorsAction(totalTimeSteps);}
-  void solveNewtonSystem(const int &it, double &res, bool &breakloop);
+  void solveNewtonSystem(const int &, double &, bool &, DistSVec<double, dim> &, const int& totalTimeSteps = 0);
 	int lsSolver;
 	double *jactmp;
+  KspPrec<dim> *pc;
+
+  DistSVec<double, dim>* A_Uinit;
+  Vec<double>* PhiT_A_Uinit;
+  Vec<double>* PhiT_A_U;
+  VecSet< Vec<double> >* PhiT_A_Phi;
+  VecSet<DistSVec<double, dim> >* A_Phi;
+  double regCoeff;
+  double regThresh; 
+  double minRes;
+
+  double dt;
+  double dtInit;
+  double rhsNormInit;
+
+  void setProblemSize(DistSVec<double, dim> &);
 
 public:
   

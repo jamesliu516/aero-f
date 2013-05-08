@@ -24,7 +24,6 @@ EdgeSet::EdgeSet()
   masterFlag= 0;
   mp        = new MapPair;
   sampleMesh = false;
-  numSampledEdges = 0;
 
   programmedBurn = 0;
   higherOrderMF = 0;
@@ -231,7 +230,7 @@ void EdgeSet::computeConnectedEdges(const std::vector<int> &locSampleNodes)
 {
 
 	sampleMesh = true;
-
+  edgesConnectedToSampleNode.clear();
   for(int l=0; l<numEdges; l++){
 		//compute which nodes are attached
     int i = ptr[l][0];
@@ -253,7 +252,7 @@ void EdgeSet::computeGlobalConnectedEdges(const std::vector<int> &globalNeighbor
 {
 
 	sampleMesh = true;
-
+  edgesTwoLayersSampleNode.clear();
   for(int l=0; l<numEdges; l++){
 		//compute which nodes are attached
     int i = ptr[l][0];

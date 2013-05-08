@@ -14,6 +14,7 @@ class TsParameters {
   double cfl0;
   double cflCoef1;
   double cflCoef2;
+  double cflCoef3;
   double cflMax;
   double cflMin;
   double ser;

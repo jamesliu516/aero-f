@@ -125,7 +125,7 @@ public:
 
   SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
   
-  bool monitorConvergence(int, DistSVec<double,dim> &);
+  virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
@@ -142,7 +142,7 @@ public:
   DistSVec<double,dim>& getCurrentResidual() { return *R; }
 
 // Modified (MB)
-  bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
+  virtual bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
 
   virtual void setupOutputToDisk(IoData &, bool *, int, double,
                                  DistSVec<double,dim> &);
@@ -176,7 +176,6 @@ public:
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
   virtual void setFluidSubcycling(bool inSub) { }
 
-  virtual void writeBinaryVectorsToDiskRom(bool, int, double, 
 		                           DistSVec<double,dim> *F1 = NULL,
                                            DistSVec<double,dim> *F2 = NULL,
                                            VecSet< DistSVec<double,dim> > *F3 = NULL);
@@ -192,6 +191,11 @@ public:
  
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
+  
+  virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
+  virtual void incrementNewtonOutputTag() {}
+  int *getTimeIt() { return domain->getTimeIt(); }
+  int *getNewtonIt() { return domain->getNewtonIt(); }
 };
 
 //------------------------------------------------------------------------------

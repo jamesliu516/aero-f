@@ -720,6 +720,8 @@ public:
 
 
   // I/O
+  template<class Scalar, int dim>
+  bool checkIfFileExists(const char *); // without opening file
 
   template<class Scalar, int dim>
   double readTagFromFile(const char *, int, int *, int *);

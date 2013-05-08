@@ -224,7 +224,8 @@ ADD_LIBRARY(FluidBase
              MultiGridSmoothingMatrices.C
              MultiGridCoupledTsDesc.C
              MultiGridSegTsDesc.C
-             ModalSolver.C 
+             ModalSolver.C
+             NonlinearRomOfflineSolver.C 
              Node.C 
              PostFcn.C 
              ProgrammedBurnCore.C

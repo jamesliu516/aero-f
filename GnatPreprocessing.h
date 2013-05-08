@@ -12,6 +12,7 @@ class Domain;
 #include <vector>
 #include <algorithm>
 #include <iterator>
+#include <NonlinearRom.h>
 
 template <int dim>
 class ArrayVecDist {
@@ -79,7 +80,7 @@ class StaticArray {	//used for the value of a map
 };
 
 template <int dim>
-class GnatPreprocessing {
+class GnatPreprocessing : public NonlinearRom<dim> {
 
 protected:
 
@@ -89,8 +90,7 @@ protected:
 	int includeLiftFaces; 	// if the reduced mesh should include lift faces
 
 	std::vector< ParallelRom<dim> *> parallelRom;	// object for all parallel operations
-	virtual void setUp();	// read in POD bases
-	void setUpPodResJac();
+	void setUpPodResJac(int);
 	void setUpPseudoInverse();
 
 	int nSampleNodes;	// number of parent sample globalNodes
@@ -146,7 +146,7 @@ protected:
 
 	virtual void determineSampleNodes();
 	void greedyIteration(int greedyIt);
-	virtual void setUpGreedy();
+	virtual void setUpGreedy(int iCluster);
 	void computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError);
 	void findMaxAndFillPodHat(const double myMaxNorm, const int locSub, const int locNode, const int globalNode);
 	void makeNodeMaxIfUnique(double nodeError, double &myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int &globalNode);
@@ -215,19 +215,18 @@ protected:
 	virtual void addSampleNodesAndNeighbors();
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh = 0);
 	void communicateAll();
-	void defineMaps();
+  void initialize();
+  void defineMaps();
 	void communicateBCFaces();
-	virtual void outputTopFile();
-	virtual void outputSampleNodes();
-	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const
-			char *sampleNodeFile, const char *sampleNodeFileExtension);
+	virtual void outputTopFile(int);
+	virtual void outputSampleNodes(int);
+	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile);
 
 	// A and B matrices functions
 
 	// pseudo-inverse functions
 	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
 	virtual void computePseudoInverse();
-	virtual void readInPodResJac();
 	void computePseudoInverse(int iPodBasis);
 	//void computePseudoInverseRHS();
 	void checkConsistency();
@@ -242,18 +241,31 @@ protected:
 		// onlineMatrices[1] is related to the jacobian: 
 		// 		podHatPseudoInv[1]^T
 	virtual void assembleOnlineMatrices();
-	void outputOnlineMatrices();
-	virtual void outputOnlineMatricesGeneral(const char *onlineMatrix, 
+	void outputOnlineMatrices(int);
+	virtual void outputOnlineMatricesGeneral( int iCluster, 
 			int numNodes, const std::map<int,int> &sampleNodeMap, const
 			std::vector<int> &sampleNodeVec);
 	virtual void outputReducedToFullNodes();
-	virtual void outputStateReduced();
+  //virtual void outputStateReduced();
+  virtual void outputInitialConditionReduced();
+  virtual void outputLocalStateBasesReduced(int);
 	virtual void outputWallDistanceReduced();
 	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
 	void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
-	void determineFileName(const char *fileNameInput, const char
-			*currentExtension, const char *(&fileNameBase), const char
-			*(&fileNameExtension));
+	//void determineFileName(const char *fileNameInput, const char
+	//		*currentExtension, const char *(&fileNameBase), const char
+	//		*(&fileNameExtension));
+
+  int unionOfSampleNodes; // = -1 (makes the code a bit easier to read)
+	std::set<int> globalSampleNodesUnionSet; // union of sample nodes from each cluster
+  std::vector<int> globalSampleNodesUnion; // union of sample nodes from each cluster (as a vector)
+  std::vector<std::vector<int> > globalSampleNodesForCluster; // stores sampled nodes for each of the clusters   
+  void setSampleNodes(int);
+  void formMaskedNonlinearROBs();
+  //void outputMaskedNonlinearROBs(int, const std::map<int,int> &, const std::vector<int> &);
+  //void readMaskedNonlinearROBs( );
+  void initializeLeastSquaresPseudoInv(int);
+  void formReducedSampleNodeMap();
 
 public:
 	GnatPreprocessing(Communicator *, IoData &, Domain &, DistGeoState *);

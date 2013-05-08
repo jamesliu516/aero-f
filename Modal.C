@@ -120,53 +120,14 @@ void ModalSolver<dim>::solve()  {
  Timer *modalTimer = domain.getTimer();
  double t0;
 
- const char *snapsFile = tInput->snapFile;
  modalTimer->setSetupTime();//CBM
 
  if (ioData->problem.alltype == ProblemData::_INTERPOLATION_)
    interpolatePOD();
  else if (ioData->problem.alltype == ProblemData::_ROB_INNER_PRODUCT_)
    ROBInnerProducts();
- else if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_ && snapsFile){
-   t0 = modalTimer->getTime(); //CBM--check
-   buildGlobalPOD();
-   modalTimer->addPodConstrTime(t0);
- }
- else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_){
-	 geoState = new DistGeoState(*ioData, &domain);
-	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);
-	 gappy.buildReducedModel();
- }
- else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_){
-	 geoState = new DistGeoState(*ioData, &domain);
-	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 GnatPreprocessingStep1<dim> gappy(com,*ioData,domain,geoState);
-	 gappy.buildReducedModel();
- }
- else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_){
-	 geoState = new DistGeoState(*ioData, &domain);
-	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 GnatPreprocessingStep2<dim> gappy(com,*ioData,domain,geoState);
-	 gappy.buildReducedModel();
- }
- else if (ioData->problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_){
-	 geoState = new DistGeoState(*ioData, &domain);
-	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 SurfMeshGen<dim> surfMeshBuilder(com,*ioData,domain,geoState);
-	 surfMeshBuilder.buildReducedModel();	
- }
- else if (ioData->problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_){
-	 //KTC: CHANGE!!!
-	 geoState = new DistGeoState(*ioData, &domain);
-	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 ReducedMeshShapeChanger<dim> reducedMeshShapeChanger(com,*ioData,domain,geoState);
-	 reducedMeshShapeChanger.buildReducedModel();	
- }
  else  {
    preProcess();
-
-   //modalTimer->setSetupTime();
    if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
      t0 = modalTimer->getTime();
      podMethod = 0;
@@ -1786,11 +1747,8 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
  geoState->setup1(tInput->positions, &Xref, &controlVol);
 
 
- 
  if (nPOD == 0)
-	 nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->rom.dimension; // CBM--check   
- if (nPOD == 0)
-	 nPOD = nSnaps;
+	 nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : nSnaps;  //KMW
 
  int nconv = 0;
  if (nPOD > nSnaps) {
@@ -1857,7 +1815,7 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
     }
   }
 
-  double tolerance = ioData->snapshots.dataCompression.tolerance;
+  double tolerance = ioData->linearizedData.tolerance;
 
   com->barrier();
   ARdsSymMatrix<double> pod(nSnaps, rVals, 'U');
@@ -1886,364 +1844,6 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 }
 
 //---------------------------------------------------------------------------------------
-
-template<int dim>
-void ModalSolver<dim>::buildGlobalPOD() {
-
-	char *vecFile = tInput->snapFile;
-	if (!vecFile) strcpy(vecFile,"snapshotFiles.in");
-	FILE *inFP = fopen(vecFile, "r");
-	if (!inFP)  {
-		com->fprintf(stderr, "*** Warning: No snapshots FILES in %s\n", vecFile);
-		exit (-1);
-	}
-
-	int nData, _n;
-	_n = fscanf(inFP, "%d",&nData);
-	com->fprintf(stderr, "Building a global POD basis out of %d solution files \n",nData);
-
-	/* // open snapshot reference solution if it exists
-		 char *snapRefSolFile = tInput->snapRefSolutionFile;
-		 DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
-	//if (inRSFP)  {
-	com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
-	domain.readVectorFromFile(snapRefSolFile, 0, 0, snapRefSol); 
-	}
-	else{
-	com->fprintf(stderr, "*** Warning: No snapshots FILES in %s\n", snapRefSolFile);
-	exit (-1); 
-	}
-	*/
-	char **snapFile = new char *[nData];
-	for (int iData = 0; iData < nData; ++iData)
-		snapFile[iData] = new char[500];
-	char snapFile1[500];
-	int *numSnaps = new int[nData];
-	int *startSnaps = new int[nData];
-  int *endSnaps = new int[nData];  
-  int *sampleFreq = new int[nData]; 
-	double *snapWeight = new double[nData];
-	int nSnap, iStart, iEnd, iFreq; 
-	double weight;
-
-	int relProjError = ioData->snapshots.relProjError;
-
-	if (relProjError && (nData>1))
-  com->fprintf(stderr, "When RelProjError=ON, only the first snapshot file is used \n");
-
-	for (int iData = 0; iData < nData; ++iData){
-		_n = fscanf(inFP, "%s %d %d %d %d %lf", snapFile1,&nSnap,&iStart,&iEnd,&iFreq,&weight);
-		if (iStart < 1) iStart = 1;
-		if (iEnd < 0) iEnd = 0;
-		if (iFreq < 1) iFreq = 1;
-		numSnaps[iData] = nSnap;
-		strcpy(snapFile[iData],snapFile1);
-		startSnaps[iData] = iStart;
-    endSnaps[iData] = iEnd;
-		sampleFreq[iData] = iFreq;
-		snapWeight[iData] = weight;
-		com->fprintf(stderr, " ... Reading snapshots from %s \n", snapFile[iData]);
-	}
-
-	if (ioData->output.transient.podFile[0] == 0)  {
-		com->fprintf(stderr, "*** ERROR: POD Basis File not specified\n");
-		exit (-1);
-	}
-
-	// open snapshot reference solution if it exists
-	char *snapRefSolFile = tInput->snapRefSolutionFile;
-	char **refSnapFile = new char *[nData];
-	for (int iData = 0; iData < nData; ++iData)
-		refSnapFile[iData] = new char[500]; 
-	char refSnapFile1[500];
-	FILE *inRSFP = fopen(snapRefSolFile, "r");
-
-	if (inRSFP){  
-		com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
-
-		for (int iData = 0; iData < nData; ++iData){
-			_n = fscanf(inRSFP, "%s", refSnapFile1);
-			strcpy(refSnapFile[iData],refSnapFile1);
-			com->fprintf(stderr, " ... Reading reference solution for snapshots from %s \n", refSnapFile[iData]);
-		}
-	}
- 	
-	DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
-	//compute the total number of snapshots
-	int nTotSnaps = 0;
-	for (int iData = 0; iData < nData; ++iData) {
-		for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
-			if ( (iSnap>=(startSnaps[iData]-1)) && ((endSnaps[iData]==0) || (iSnap<=endSnaps[iData])) && (iSnap % sampleFreq[iData] == 0) && !(relProjError&&(iData>0)) ) {
-				++nTotSnaps;
-			}
-		}
-	}
-
-
-	int incrementalSnapshots = ioData->snapshots.incrementalSnaps;	// change in solution should be used as a snapshot
-	bool subtractInitialCondition = false;
-  int fewerSnapsNeeded = 0;
-	if (ioData->snapshots.subtractIC==SnapshotsData::SUBTRACT_IC_TRUE)
-		subtractInitialCondition = true;
-	for (int iData=0; iData < nData; ++iData){ //only need to adjust nTotSnaps for subtractInitialCondition when startSnaps[iData]<=1
-		if (startSnaps[iData]<=1) fewerSnapsNeeded++; 
-	}
-	if (incrementalSnapshots || subtractInitialCondition) {	// do not use last snapshot if incremental approach
-		nTotSnaps -= fewerSnapsNeeded;
-		if (incrementalSnapshots) com->fprintf(stderr, " ... using incremental snapshots (increment in state at each time step) ...\n");
-	}
-
-
-	if (ioData->snapshots.dataCompression.podMethod == DataCompressionData::Eig) {
-		podMethod = 1;	// eigenvalue decomposition
-		com->fprintf(stderr, " ... using eigenvalue decomposition to compute POD basis ...\n");
-	}
-	else {
-		podMethod = 0;	// SVD
-		com->fprintf(stderr, " ... using SVD to compute POD basis ...\n");
-	}
-
-	int maxVecStorage = ioData->snapshots.dataCompression.maxVecStorage;
-	if (maxVecStorage > 0 && podMethod == 1){	// eigenvalue problem
-		com->fprintf(stderr, "*** Warning: Not using limited memory POD (not implemented with eigenvalue decomposition) \n");
-		maxVecStorage = 0;
-	}
-
-	bool limitedMemorySVD = (maxVecStorage == 0 ) ? false : true;
-	if (limitedMemorySVD && maxVecStorage > nTotSnaps) {	// do not need to use limited memory algorithm
-		limitedMemorySVD = false;
-	}
-
-	bool energyOnly = false;
-	if (ioData->snapshots.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE)
-		energyOnly = true;
-	bool computeSVD = true;
-	if (energyOnly)
-		computeSVD = false;
-
-
-	int nSVD, iSVD, nStoredSnaps, nHandledSnaps, nHandledProjSnaps;	//nSVD: # of sections for svd; nKeep: # vectors to keep from each section
-	int *nKeep;
-	nStoredSnaps = nTotSnaps;
-
-
-	int nSnapsFirstSVD = 0;
-	if (limitedMemorySVD) {
-		nSVD = (int) ceil((double) nTotSnaps / (double) maxVecStorage);
-		nKeep = new int [nSVD];
-		for (int i = 0; i < nSVD; ++i)
-			nKeep[i] = 0;
-		nSnapsFirstSVD = nTotSnaps - ((nSVD -1)* maxVecStorage);
-		iSVD = 0;	// start with the second SVD (want first to be smallest window)
-		nHandledSnaps = 0;
-		while (nHandledSnaps < maxVecStorage) {
-			if ( iSVD == 0  && nKeep[0] == nSnapsFirstSVD )
-				iSVD = 1;
-			++nKeep[iSVD];
-			++iSVD;
-			++nHandledSnaps;
-			if ( iSVD == nSVD )
-				iSVD = 0;
-		}
-
-		nStoredSnaps = maxVecStorage;
-		iSVD = 0;
-	}
-
-
-	nHandledSnaps = 0;
-	nHandledProjSnaps = 0;
-
-	VecSet< DistSVec<double, dim> > snap(nStoredSnaps, domain.getNodeDistInfo());
-	VecSet< DistSVec<double, dim> > fullSnaps(maxVecStorage, domain.getNodeDistInfo());	// for limited memory
-	DistSVec<double, dim> snapBuf(domain.getNodeDistInfo());
-	DistSVec<double, dim> snapBuf2(domain.getNodeDistInfo());
-	double *eig = new double [nStoredSnaps];
-	double eigBuf;
- 	double eigBuf2;
-
-	int numProjectedSnaps = numSnaps[0];
-	if (subtractInitialCondition && (startSnaps[0]<=1)) numProjectedSnaps--;
-	VecSet<DistSVec<double, dim> > projErrSnaps(numProjectedSnaps, domain.getNodeDistInfo()); // for projection error calculations (only uses first snapshot file, iData=0)
-
-	int numCurrentSnapshots = 0;
-	bool endOfFile;
-	int normalizeSnapshots = ioData->snapshots.normalizeSnaps;
-	if (normalizeSnapshots) com->fprintf(stderr, " ... snapshots normalized ...\n");
-	int iStoredSnaps = 0;	// how many snapshots have been stored so far
-
-	if (subtractInitialCondition && inRSFP)
-		com->fprintf(stderr, " ... WARNING: not using reference solution file. Subtracting initial condition instead ...\n");
-
-
-	for (int iData=0; iData < nData; ++iData){
-		// read in Snapshot Vectors
-		if (inRSFP)
-			domain.readVectorFromFile(refSnapFile[iData], 0, 0, snapRefSol);
-		for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
-			if (!(incrementalSnapshots == 1 && sampleFreq[iData] == 1)) // always read unless incremental snapshots and not skipping at all
-				endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
-			if (subtractInitialCondition && iSnap == 0)
-				snapRefSol = snapBuf;
-			if (relProjError && (iData==0) && !(subtractInitialCondition && (iSnap == 0))){ //need to store full snapshot matrix in memory (first snapshot file only)
-				projErrSnaps[nHandledProjSnaps] = snapBuf;
-			if ((inRSFP || subtractInitialCondition) && (incrementalSnapshots == 0)) projErrSnaps[nHandledProjSnaps] -= snapRefSol; // do not need to subtract snapRefSol if using incremental snapshots
-				if (incrementalSnapshots == 1) {
-					endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf2, snapBuf2);
-					projErrSnaps[nHandledProjSnaps] -= snapBuf2;
-				}
-			nHandledProjSnaps++;
-			}
-			if ((iSnap >= (startSnaps[iData]-1)) && ((endSnaps[iData]==0)||(iSnap<endSnaps[iData])) && (iSnap % sampleFreq[iData] == 0) && !((relProjError)&&(iData>0)) && !(subtractInitialCondition && iSnap == 0)) {	// use snapshot
-				// explanation: snapshot must be between startSnaps and endSnaps, and a multiple of sampleFreq.  Additionally, if relProjError is ON, the code only supports a single set of snapshots 
-				snap[numCurrentSnapshots] = snapBuf;
-				eig[numCurrentSnapshots] = eigBuf;
-				if ((inRSFP || subtractInitialCondition) && incrementalSnapshots == 0) snap[numCurrentSnapshots] -= snapRefSol;	// do not need to subtract snapRefSol if using incremental snapshots
-				if (incrementalSnapshots == 1) {
-					endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
-					snap[numCurrentSnapshots] -= snapBuf;	
-				}
-				if (normalizeSnapshots > 0) normalizeSnap(snap[numCurrentSnapshots], iSnap, numSnaps[iData]);
-				if (snapWeight[iData]) snap[numCurrentSnapshots] *= snapWeight[iData]; //CBM--check
-				totalEnergy += pow(snap[numCurrentSnapshots].norm(),2);	// total energy is square of frobenius norm
-				++numCurrentSnapshots;
-				++nHandledSnaps;
-				if (limitedMemorySVD && (numCurrentSnapshots == maxVecStorage || nHandledSnaps == nTotSnaps || (iSVD == 0 && numCurrentSnapshots == nSnapsFirstSVD ))) {
-					// compute SVD of snaps and put into fullSnaps matrix;
-					if (computeSVD) makeFreqPOD(snap, numCurrentSnapshots, nKeep[iSVD], false);
-					for (int iFullSnap = 0; iFullSnap < nKeep[iSVD] ; ++iFullSnap) {
-						fullSnaps[iStoredSnaps] = snap[iFullSnap];
-						++iStoredSnaps;
-					}
-					numCurrentSnapshots = 0;
-					++iSVD;
-				}
-			}
-		}
-	}
-	
-	com->fprintf(stderr, " ... Total snapshot energy is %e \n", totalEnergy );
-
-	if (limitedMemorySVD && computeSVD) {
-		makeFreqPOD(fullSnaps, iStoredSnaps);
-		delete [] nKeep;
-	}
-	else if (computeSVD) {
-	 	makeFreqPOD(snap, nStoredSnaps);
-	}
-
-	if (relProjError) {
-		computeRelativeProjectionError(iStoredSnaps, nStoredSnaps, limitedMemorySVD, computeSVD, numProjectedSnaps, projErrSnaps, startSnaps, endSnaps, numSnaps);
-	}
-
-	delete [] numSnaps;
-	delete [] startSnaps;
-	delete [] endSnaps;
-	delete [] sampleFreq;
-	delete [] snapWeight;
-	delete [] eig;
-
-}
-
-//-------------------------------------------------------------------------------------------------
-
-template<int dim>
-void ModalSolver<dim>::computeRelativeProjectionError( int iStoredSnaps, int nStoredSnaps, bool limitedMemorySVD, bool computeSVD, int numProjectedSnaps, VecSet<DistSVec<double, dim> > &projErrSnaps, int *startSnaps, int *endSnaps, int *numSnaps) {
-
-		// determine name of POD file
-		int sp = strlen(ioData->output.transient.prefix) + 1;
-		char *podFileName = new char[sp + strlen(ioData->output.transient.podFile)];
-		sprintf(podFileName, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
-
-		int nPodVecs = 0;
-		nPodVecs = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->rom.dimension; // CBM--check   
-		if (((nPodVecs == 0)||(nPodVecs>iStoredSnaps))&&(limitedMemorySVD&&computeSVD)) {
-			nPodVecs = iStoredSnaps;  //kmw--check
-		} else if ((nPodVecs==0)||(nPodVecs>nStoredSnaps)) {
-			nPodVecs = nStoredSnaps;
-		}
-
-  	// read in POD Basis
-  	VecSet<DistSVec<double, dim> > podVecs(nPodVecs, domain.getNodeDistInfo());		
-		double eigValue;
-		int iVec;
-		for (iVec = 0; iVec < nPodVecs; iVec++) {
-			domain.readVectorFromFile(podFileName, iVec+1, &eigValue, podVecs[iVec]);
-			com->fprintf(stderr, " ... Reading vector %i \n", iVec);
-		}
-
-		// basis^T * snapshots		
-		Vec<double> tmpVec(nPodVecs);
-		VecSet<Vec<double> > tmpVecSet(numProjectedSnaps, nPodVecs);
-		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
-			for (int iVec = 0; iVec < nPodVecs; iVec++){
-				tmpVec[iVec] = podVecs[iVec] * projErrSnaps[iSnap];
-			}
-			tmpVecSet[iSnap] = tmpVec;
-		}
-
-		// basis * result
-		DistSVec<double, dim> fullV(domain.getNodeDistInfo());
-		VecSet<DistSVec<double, dim> > projectedSnaps(numProjectedSnaps, domain.getNodeDistInfo());
-		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
-			fullV = 0.0;
-			for (int iVec = 0; iVec < nPodVecs; iVec++)
-				fullV += (tmpVecSet[iSnap])[iVec] * podVecs[iVec];
-			projectedSnaps[iSnap] = fullV;
-		}
-
-		// snaps - projSnaps
-		VecSet<DistSVec<double, dim> > snapDifference(numProjectedSnaps, domain.getNodeDistInfo());
-		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
-		snapDifference[iSnap] = projErrSnaps[iSnap] - projectedSnaps[iSnap];
-		}
-
-		// compute frobenius^2 for each column in snapDifference and projErrSnaps 
-		Vec<double> numeratorNorms(numProjectedSnaps);
-		Vec<double> denominatorNorms(numProjectedSnaps);
-		
-		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
-			numeratorNorms[iSnap] = pow(snapDifference[iSnap].norm(),2);
-			denominatorNorms[iSnap] = pow(projErrSnaps[iSnap].norm(),2);	
-		}
-
-		// compute relative errors for each interval of interest (before training zone, during training zone, after training zone)
-		double numeratorBefore = 0;
-		double denominatorBefore = 0;
-		double numeratorDuring = 0;
-		double denominatorDuring = 0;
-		double numeratorAfter = 0;
-		double denominatorAfter = 0;
-		
-		for (int iSnap = 0; iSnap < numProjectedSnaps; iSnap++) {
-			if (iSnap < (startSnaps[0]-1)){
-					numeratorBefore += numeratorNorms[iSnap];
-			    denominatorBefore += denominatorNorms[iSnap];
-			} else if ((iSnap >= (startSnaps[0]-1)) && ((endSnaps[0]==0)||(iSnap<endSnaps[0]))) {
-    			numeratorDuring += numeratorNorms[iSnap];
-   	 			denominatorDuring += denominatorNorms[iSnap];
-			} else if (iSnap >= endSnaps[0]) {
-          numeratorAfter += numeratorNorms[iSnap];
-          denominatorAfter += denominatorNorms[iSnap];
-			}
-		}
-	
-		double projErrBefore = -1;
-		double projErrDuring = -1;
-		double projErrAfter = -1;
-
-		if (denominatorBefore != 0) projErrBefore = numeratorBefore / denominatorBefore;
-		if (denominatorDuring != 0) projErrDuring = numeratorDuring / denominatorDuring;
-		if (denominatorAfter != 0) projErrAfter = numeratorAfter / denominatorAfter;
-
-		if (startSnaps[0]>1) com->fprintf(stderr, " ... Relative Projection Error of Snapshots in Inteval_1 = %e \n", projErrBefore);
-    com->fprintf(stderr, " ... Relative Projection Error of Snapshots in Inteval_2 = %e \n", projErrDuring);
-    if (!((endSnaps[0]==0)||(endSnaps[0]>numSnaps[0]))) com->fprintf(stderr, " ... Relative Projection Error of Snapshots in Inteval_3 = %e \n", projErrAfter);
-
-}
-
-//---------------------------------------------------------------------------------------
-
 
 // template<int dim>
 // void ModalSolver<dim>::projectFullSoltn() {		// this function is no longer supported
@@ -2314,6 +1914,7 @@ void ModalSolver<dim>::computeRelativeProjectionError( int iStoredSnaps, int nSt
 //    }
 //  }
 // }
+
 //---------------------------------------------------------------------------------------
 template<int dim>
 void
@@ -3051,6 +2652,7 @@ void ModalSolver<dim>::computeRelativeEnergy(FILE *sValsFile, const Vec<double> 
 }
 
 //------------------------------------------------------------------------------
+/*  // an interesting idea, but not currently implemented (KMW)
 template<int dim>
 void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSnap, const int nSnaps){
 
@@ -3073,7 +2675,7 @@ void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSna
 	}
 	snap *= scalingFactor;
 }
-
+*/
 //------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::wait(const int seconds )

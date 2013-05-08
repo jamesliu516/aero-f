@@ -51,14 +51,16 @@ private:
   double surface;
   static int counter;
   Vec3D x0;
-  int *output_newton_step;  // points to domain's
+  int stateOutputFreqTime;
+  int stateOutputFreqNewton;
+  int residualOutputFreqTime;
+  int residualOutputFreqNewton;
 
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
   double avsscale[PostFcn::AVSSIZE];
   double avvscale[PostFcn::AVVSIZE];
 
-  char *solutions;
   char *scalars[PostFcn::SSIZE];
   char *vectors[PostFcn::VSIZE];
   char *avscalars[PostFcn::AVSSIZE];
@@ -78,19 +80,14 @@ private:
   char *modeFile;
   char *embeddedsurface;
   char *cputiming;
+  char *stateVectors;
+  char *residualVectors;
   double tscale;
   double xscale;
 
   Vec3D *TavF, *TavM; 
   Vec3D *TavL;
   VecSet< DistSVec<double,3> > *mX;
-
-  // Gappy POD
-  char *newtonresiduals;
-  char *jacobiandeltastate;
-  char *reducedjac;
-  char *staterom;
-  char *error;
 
   double tprevf, tprevl, tinit;
   double tener,tenerold;
@@ -189,18 +186,16 @@ public:
   void writeMaterialVolumesToDisk(int, double, DistVec<double>&, DistVec<int>* = 0);
   void writeEmbeddedSurfaceToDisk(bool, int, double, Vec<Vec3D>&, Vec<Vec3D>&);
   void writeCPUTimingToDisk(bool, int, double, Timer*);
-  void writeStateRomToDisk(int, double, int, const Vec<double> &);
-  void writeErrorToDisk(const int, const double, const int, const double *);
   void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
-  void writeBinaryVectorsToDiskRom(bool, int, double,
-                                   DistSVec<double,dim> *U1 = NULL,
                                    DistSVec<double,dim> *U2 = NULL,
                                    VecSet< DistSVec<double,dim> > *U3 = NULL);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+
+  void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *);
 
   void cleanProbesFile();
   

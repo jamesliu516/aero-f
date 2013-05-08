@@ -31,6 +31,7 @@ TsParameters::TsParameters(IoData &ioData)
   cfl0 = ioData.ts.cfl.cfl0;
   cflCoef1 = ioData.ts.cfl.cflCoef1;
   cflCoef2 = ioData.ts.cfl.cflCoef2;
+  cflCoef3 = ioData.ts.cfl.cflCoef3;  // undocumented -- coefficient for quadratic CFL law
   cflMax = ioData.ts.cfl.cflMax;
   cflMin = ioData.ts.cfl.cflMin;
   dualtimecfl = ioData.ts.cfl.dualtimecfl;
@@ -116,7 +117,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
 
   // for backwards compatibility
   if (cfllaw == CFLData::OLD){
-    cfl = min( max( max(cflCoef1, cflCoef2*its), cfl0/pow(res,ser) ), cflMax );
+    cfl = min( max( max(cflCoef1, max(cflCoef2*its, cflCoef3*its*its)), cfl0/pow(res,ser) ), cflMax);
     return;
   }
 

@@ -45,6 +45,7 @@ using std::max;
 #include <limits>
 #include <PolygonReconstructionData.h> 
 #include <Quadrature.h>
+#include <sys/stat.h>
 #include <RTree.h>
 
 
@@ -3939,6 +3940,21 @@ void SubDomain::addRcvGhostOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,
   }
 
 }
+
+//------------------------------------------------------------------------------
+template<class Scalar, int dim>
+bool SubDomain::checkIfFileExists(const char *prefix)
+{
+
+  char name[MAXLINE];
+  sprintf(name, "%s%s", prefix, suffix);
+
+  struct stat buf;
+  
+  return (stat(name, &buf) != -1) ? true : false;
+
+}
+
 
 //------------------------------------------------------------------------------
 

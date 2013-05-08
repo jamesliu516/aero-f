@@ -11,96 +11,66 @@ ImplicitGnatTsDesc<dim>::ImplicitGnatTsDesc(IoData &ioData, GeoSource &geoSource
 	leastSquaresSolver(this->com, this->com->size(), 1)// all cpus along rows
 {
 
-	// read in gappy POD matrix for residual
-  VecSet<DistSVec<double, dim> > resMatrixFull(0,dom->getNodeDistInfo());
-	gnatPrefix = ioData.input.gnatPrefix;
-	string fileNameRes;
-	ImplicitRomTsDesc<dim>::determineFileName(this->input->resMatrix, ".gappyRes", gnatPrefix, fileNameRes);
-  nPodJac = -1;
-	dom->readPodBasis(fileNameRes.c_str(), nPodJac, resMatrixFull);
+  nPodJac = 0;  // set when reading the online matrices
+  numResJacMat = this->rom->getNumResJacMat();
 
-	// read in gappy POD matrix for Jacobian
-  VecSet<DistSVec<double, dim> > jacMatrixFull(0,dom->getNodeDistInfo());
-	string fileNameJac;
-	ImplicitRomTsDesc<dim>::determineFileName(this->input->jacMatrix, ".gappyJac", gnatPrefix, fileNameJac);
-	ifstream jacMatFile(fileNameJac.c_str());
-	if (jacMatFile.good()) {	// not specified
-		numResJacMat = 2;	// same matrix
-	}
-	else {
-		numResJacMat = 1;	// different matrices
-	}
-
-	// read in sample nodes
-	nSampleNodes = 0;
-	string fileNameSample;
-	ImplicitRomTsDesc<dim>::determineFileName(this->input->sampleNodes, ".sampledNodes", gnatPrefix, fileNameSample);
-	dom->readSampleNodes(sampleNodes, nSampleNodes, fileNameSample.c_str());
-
-	// assume we have nPodJac
 	leastSquaresSolver.blockSizeIs(32);
-	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
-	
-	// read in resMatrixFull, jacMatrixFull (temporary) (binary files because in reduced mesh)
 
-	// determine mapping to restricted nodes
-	restrictionMapping.reset(new RestrictionMapping<dim>(dom, sampleNodes.begin(), sampleNodes.end()));
-
-	// allocate memory for resMat, jacMat using restrictedDistInfo
-	resMat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
-
-	if (numResJacMat == 1) {
-		jacMat = resMat;
-	}
-	else {
-		dom->readPodBasis(fileNameJac.c_str(), nPodJac, jacMatrixFull);
-		jacMat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
-	}
-
-	// restrict resMatrixFull and jacMatrixFull to be resMat, jacMat
-	for (int i = 0; i < nPodJac; ++i) {
-		restrictionMapping->restriction(resMatrixFull[i],(*resMat)[i]);
-		if (numResJacMat == 2)
-			restrictionMapping->restriction(jacMatrixFull[i],(*jacMat)[i]);
-	}
-
-	jactmp = new double [nPodJac * this->nPod];
-	column = new double [nPodJac];
-
-	AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, getRestrictedDistInfo()));
-	ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
-
-}
-
-template<int dim>
-ImplicitGnatTsDesc<dim>::~ImplicitGnatTsDesc() 
-{
-	delete resMat;
-	if (numResJacMat == 2)
-		delete jacMat;
-	if (jactmp) delete [] jactmp;
-	if (column) delete [] column;
+  jactmp = NULL;
+  column = NULL;
+  
+  Uinit = NULL;
+  
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q) {
+ImplicitGnatTsDesc<dim>::~ImplicitGnatTsDesc() 
+{
+	if (jactmp) delete [] jactmp;
+	if (column) delete [] column;
+  if (Uinit) delete Uinit;
+  
+  ResRestrict.reset();
+  AJRestrict.reset();
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitGnatTsDesc<dim>::deleteRestrictedQuantities() {
+
+  ResRestrict.reset();
+  AJRestrict.reset();
+  
+  this->rom->deleteRestrictedQuantities();
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> *R) {
 
 	// Evaluate residual on full mesh
 
-  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, this->F, this->timeState, *restrictionMapping);
+  if (R==NULL) R=&(this->F);
+
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *R, this->timeState, *(this->rom->restrictMapping()));
 
 	this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q,
-			this->F, restrictionMapping->getRestrictedToOriginLocNode());
+			*R, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
 
-  this->spaceOp->applyBCsToResidual(Q, this->F);
+  this->spaceOp->applyBCsToResidual(Q, *R);
 
 	double t0 = this->timer->getTime();
 
-	restrictMapping()->restriction(this->F, *ResRestrict);
+	(this->rom->restrictMapping())->restriction(*R, *ResRestrict);
 
 	this->timer->addRestrictionTime(t0);
+
 
 }
 
@@ -112,28 +82,30 @@ void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 	// Evaluate action of Jacobian on full mesh
 
 	this->mvpfd->evaluateRestrict(it, *this->X, *this->A, Q, this->F,
-			*restrictionMapping);	// very cheap
+			*(this->rom->restrictMapping()));	// very cheap
   
   for (int iPod = 0; iPod < this->nPod; iPod++) {
 		this->mvpfd->applyRestrict(this->pod[iPod], this->AJ[iPod],
-				*restrictionMapping);
+				*(this->rom->restrictMapping()));
 	}
 
 	double t0 = this->timer->getTime();
 	for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
-		restrictMapping()->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
+		(this->rom->restrictMapping())->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
 	}
 	this->timer->addRestrictionTime(t0);
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
+void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
+
   // Form A * of and distribute
 
 	double t0 = this->timer->getTime();
-	transMatMatProd(*jacMat, *AJRestrict,jactmp);
+	transMatMatProd(*(this->rom->getJacMat()), *AJRestrict,jactmp);
 
   for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {
 		const int globalColIdx = leastSquaresSolver.globalColIdx(iCol);
@@ -147,7 +119,7 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
   // Form B * ResRestrict and distribute
 	// NOTE: do not check if current CPU has rhs
 
-	transMatVecProd(*resMat, *ResRestrict, column);
+	transMatVecProd(*(this->rom->getResMat()), *ResRestrict, column);
 
 	for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
 		const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
@@ -163,15 +135,15 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
 
   // Update vector: The first nPod rows give the components in the pod basis
 	t0 = this->timer->getTime();
-  this->dUrom = 0.0;
+  this->dUromNewtonIt = 0.0;
   for (int localIRow = 0; localIRow < leastSquaresSolver.localSolutionRows(); ++localIRow) {
     const int iRow = leastSquaresSolver.globalRhsRowIdx(localIRow);
-    this->dUrom[iRow] = leastSquaresSolver.rhsEntry(localIRow);
+    this->dUromNewtonIt[iRow] = leastSquaresSolver.rhsEntry(localIRow);
   }
  
   // Consolidate across the cpus
-  this->com->globalSum(this->nPod, this->dUrom.data());
-  res = this->dUrom.norm();
+  this->com->globalSum(this->nPod, this->dUromNewtonIt.data());
+  res = this->dUromNewtonIt.norm();
 
   // Convergence criterion
   if (it == 0) {
@@ -181,7 +153,10 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
 
   breakloop = (res == 0.0) || (res <= this->target);
 	this->timer->addCheckConvergenceTime(t0);
+
 }
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 bool ImplicitGnatTsDesc<dim>::breakloop1(const bool breakloop) {
@@ -190,9 +165,121 @@ bool ImplicitGnatTsDesc<dim>::breakloop1(const bool breakloop) {
 	
 }
 
+//------------------------------------------------------------------------------
+
 template<int dim>
 bool ImplicitGnatTsDesc<dim>::breakloop2(const bool breakloop) {
 
 	return breakloop;
 
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitGnatTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
+ 
+  nPodJac = this->rom->getJacMat()->numVectors();
+
+	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
+
+  if (jactmp) delete [] jactmp;
+  if (column) delete [] column;
+	jactmp = new double [nPodJac * this->nPod];
+	column = new double [nPodJac];
+
+	AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, this->rom->getRestrictedDistInfo()));
+	ResRestrict.reset(new DistSVec<double, dim> (this->rom->getRestrictedDistInfo())); 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitGnatTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
+{
+
+  this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));  
+
+  if (!this->problemType[ProblemData::UNSTEADY]) {
+    this->com->printf(2, "\nNOTE: For steady GNAT simulations the reported residual is calculated using only the sample mesh,\n");
+    this->com->printf(2, "      and is relative to the residual of the initial condition calculated on the same sample mesh.\n");
+    this->com->printf(2, "      (This reference residual is re-restricted after every cluster switch for consistency).\n");
+ 
+    Uinit = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+    *Uinit = U;  // needed for computing the restricted residual after each cluster switch
+  }
+
+  this->com->printf(2, "\n");
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+bool ImplicitGnatTsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double dt, DistSVec<double,dim> &U)
+{
+
+  if (!this->problemType[ProblemData::UNSTEADY] && monitorConvergence(it, U))
+    return true;
+
+  if (!this->problemType[ProblemData::AERO] && !this->problemType[ProblemData::THERMO] && it >= this->data->maxIts) return true;
+
+  if (this->problemType[ProblemData::UNSTEADY] )
+    if(t >= this->data->maxTime - 0.01 * dt)
+      return true;
+
+  return false;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+bool ImplicitGnatTsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
+{// only called for steady simulations
+
+  this->data->residual = computeGnatResidualNorm(U);
+
+  if (this->data->residual == 0.0 || this->data->residual < this->data->eps * this->restart->residual)
+    return true;
+  else
+    return false;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+double ImplicitGnatTsDesc<dim>::computeGnatResidualNorm(DistSVec<double,dim>& Q)
+{ // spatial only
+
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *this->R, this->timeState, *(this->rom->restrictMapping()));
+
+  this->spaceOp->applyBCsToResidual(Q, *this->R);
+
+  double t0 = this->timer->getTime();
+
+  (this->rom->restrictMapping())->restriction(*this->R, *ResRestrict); 
+
+  this->timer->addRestrictionTime(t0);
+
+  double res = 0.0;
+  res = (*ResRestrict) * (*ResRestrict);
+
+  return sqrt(res);
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitGnatTsDesc<dim>::setReferenceResidual()
+{
+  if (Uinit) this->restart->residual = computeGnatResidualNorm(*Uinit);
+
+  this->com->printf(2, "Norm of restricted reference residual = %.12e\n", this->restart->residual);
+
+}
+
+
