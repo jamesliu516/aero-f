@@ -14,11 +14,11 @@ class NonlinearRomOnlineII : public NonlinearRom<dim> {
   NonlinearRomOnlineII(Communicator *, IoData &, Domain &);
   ~NonlinearRomOnlineII();
 
-  void closestCenter(DistSVec<double, dim> &, int*);
   void updateBasis(int, DistSVec<double, dim> &);
   void appendNonStateDataToBasis(int, char *); 
-  void readClusterOnlineQuantities(int);
-  void readDistanceCalcInfo();
+  void readClusteredOnlineQuantities(int);
+
+  void readClosestCenterInfoModelII();
 
   //void appendVectorToBasis(DistSVec<double, dim>*, int numVec = 0);
  

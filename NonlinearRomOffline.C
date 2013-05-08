@@ -50,7 +50,7 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
    // perform GNAT preprocessing (probably for snapshot collection method 0)
    const char *gnatPrefix = ioData->romDatabase.files.gnatPrefix;
    const char *sampledNodesName = ioData->romDatabase.files.sampledStateBasisName;
-   if (gnatPrefix || sampledNodesName) {
+   if (strcmp(gnatPrefix,"")!=0 || strcmp(sampledNodesName,"")!=0) {
      geoState = new DistGeoState(*ioData, &domain);
      geoState->setup1(ioData->input.positions, &Xref, &controlVol);
      GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);

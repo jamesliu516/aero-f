@@ -34,6 +34,8 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
 				SVec<double,dim> &R, LevelSetStructure *LSS)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   for (int i=0; i<dt.size(); ++i) {
     if (LSS && !(LSS->isActive(0.0,i))) {
       // Node i lies in the structure: Do nothing.
@@ -66,6 +68,8 @@ void TimeState<dim>::add_GASPrec_dAW_dt(bool *nodeFlag, GeoState &geoState,
 				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
 				SVec<double,dim> &R, double gam, double pstiff, Vec<double> &irey, TimeLowMachPrec &tprec, LevelSetStructure *LSS)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   for (int i=0; i<dt.size(); ++i) {
     if (LSS && !(LSS->isActive(0.0,i))) {
       // Node i lies in the structure: Do nothing.
@@ -181,6 +185,8 @@ void TimeState<dim>::add_LiquidPrec_dAW_dt(bool *nodeFlag, GeoState &geoState,
 				SVec<double,dim> &R, Vec<double> &irey, 
                                 TimeLowMachPrec &tprec, LevelSetStructure *LSS)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   for (int i=0; i<dt.size(); ++i) {
     if (LSS && !(LSS->isActive(0.0,i))) {
       // Node i lies in the structure: Do nothing.
@@ -232,6 +238,8 @@ void TimeState<dim>::add_dAW_dtRestrict(bool *nodeFlag, GeoState &geoState,
 					SVec<double,dim> &R, const std::vector<int> &sampledLocNodes)
 {
 
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   int i;
   for (int iSampledNode=0; iSampledNode<sampledLocNodes.size(); ++iSampledNode) {
     i = sampledLocNodes[iSampledNode];
@@ -263,6 +271,8 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
 					SVec<double,dimLS> &Qn, SVec<double,dimLS> &Qnm1,
 					SVec<double,dimLS> &Qnm2, SVec<double,dimLS> &R,bool requireSpecialBDF)
 {
+
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
   Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
@@ -369,6 +379,8 @@ void TimeState<dim>::add_dAW_dtau(bool *nodeFlag, GeoState &geoState,
 				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
 				SVec<double,dim> &R, LevelSetStructure *LSS)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   for (int i=0; i<dt.size(); ++i) {
     if (LSS && !(LSS->isActive(0.0,i))) {
       // Node i lies in the structure: Do nothing.
@@ -397,6 +409,8 @@ void TimeState<dim>::add_GASPrec_dAW_dtau(bool *nodeFlag, GeoState &geoState,
 				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
 				SVec<double,dim> &R, double gam, double pstiff, Vec<double> &irey, TimeLowMachPrec &tprec, LevelSetStructure *LSS)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   for (int i=0; i<dt.size(); ++i) {
     if (LSS && !(LSS->isActive(0.0,i))) {
       // Node i lies in the structure: Do nothing.
@@ -504,6 +518,8 @@ void TimeState<dim>::add_LiquidPrec_dAW_dtau(bool *nodeFlag, GeoState &geoState,
 				SVec<double,dim> &R, Vec<double> &irey, 
                                 TimeLowMachPrec &tprec, LevelSetStructure *LSS)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   for (int i=0; i<dt.size(); ++i) {
     if (LSS && !(LSS->isActive(0.0,i))) {
       // Node i lies in the structure: Do nothing.
@@ -572,6 +588,8 @@ void TimeState<dim>::addToJacobianNoPrec(bool *nodeFlag, Vec<double> &ctrlVol, G
                                    SVec<double,dim> &U, VarFcn *vf, int* nodeType)
 {
 
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
   if (data.use_modal == true && data.use_freq == false) A *= 0.5;
 
@@ -592,6 +610,8 @@ template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianLS(bool* nodeFlag,Vec<double> &ctrlVol, GenMat<Scalar,neq> &A,
                                      SVec<double,dim> &U, bool requireSpecialBDF) {
+
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
   double c_np1;
   double coef;
@@ -625,6 +645,8 @@ void TimeState<dim>::addToJacobianNoPrecLocal(int i, double vol,
 					SVec<double,dim> &U, GenMat<Scalar,neq> &A,
                                         int dt_i)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   double c_np1;
 
   switch (descriptorCase) {
@@ -657,6 +679,8 @@ void TimeState<dim>::addToJacobianGasPrec(bool *nodeFlag, Vec<double> &ctrlVol, 
 				   double pstiff, TimeLowMachPrec &tprec,
 				   Vec<double> &irey, int* nodeType)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
   if (data.use_modal == true && data.use_freq == false) A *= 0.5;
                                                                                                                            
@@ -680,6 +704,8 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
 				double pstiff, TimeLowMachPrec &tprec,
 				double irey, SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   double c_np1;
 
   switch (descriptorCase) {
@@ -772,6 +798,8 @@ void TimeState<dim>::addToJacobianLiquidPrec(bool *nodeFlag, Vec<double> &ctrlVo
                                    SVec<double,dim> &U, VarFcn *vf, TimeLowMachPrec &tprec,
 				   Vec<double> &irey, int* nodeType)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
   if (data.use_modal == true && data.use_freq == false) A *= 0.5;
                                                                                                                            
@@ -793,6 +821,8 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
 				TimeLowMachPrec &tprec, double irey,
 				SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
 // ARL : turbulence preconditioning never tested ...
   double c_np1;
   switch (descriptorCase) {
@@ -862,6 +892,8 @@ template<class Scalar, int neq>
 void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar,neq> &A)
 {
 
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
 
   if (data.use_modal == true && data.use_freq == false) A *= 0.5;
@@ -904,6 +936,8 @@ template<class Scalar, int neq>
 void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol,
                 GenMat<Scalar,neq> &A, Scalar shift)
 {
+
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 //  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
 
@@ -949,6 +983,8 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 			     SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
 
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   double dfdUi[dim*dim], dfdVi[dim*dim];
 
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
@@ -993,6 +1029,8 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
                 GenMat<Scalar,neq> &A, Scalar shift)
 {
 
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   Scalar dfdUi[dim*dim], dfdVi[dim*dim];
 
   //if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
@@ -1029,6 +1067,8 @@ template<class Scalar, int neq>
 void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
                              SVec<double,dim> &V, GenMat<Scalar,neq> &A, Scalar coefVol, double coefA)
 {
+
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
   Scalar dfdUi[dim*dim], dfdVi[dim*dim];
 
@@ -1074,6 +1114,8 @@ void TimeState<dim>::addToH2Minus(bool *nodeFlag, VarFcn *varFcn, Vec<double> &c
                                   SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
 
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   double dfdUi[dim*dim], dfdVi[dim*dim];
 
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
@@ -1112,6 +1154,8 @@ template<class Scalar, int neq>
 void TimeState<dim>::addToH2NoPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
 			     SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
+
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
   double dfdUi[dim*dim], dfdVi[dim*dim];
 
@@ -1157,6 +1201,8 @@ void TimeState<dim>::addToH2GasPrec(bool *nodeFlag, VarFcn *varFcn, Vec<double> 
                              double gam, double pstiff, Vec<double> &irey, 
                              TimeLowMachPrec &tprec)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
 
   if (data.use_modal == true && data.use_freq == false) {
@@ -1178,6 +1224,8 @@ void TimeState<dim>::addToH2GasPrecLocal(int i, double vol, VarFcn *vf, double g
 				double pstiff, TimeLowMachPrec &tprec,
 				double irey, SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
+
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
   double dfdUi[dim*dim], dfdVi[dim*dim];
 
@@ -1274,6 +1322,8 @@ void TimeState<dim>::addToH2LiquidPrec(bool *nodeFlag, VarFcn *varFcn, Vec<doubl
 			     SVec<double,dim> &V, GenMat<Scalar,neq> &A, 
                              Vec<double> &irey, TimeLowMachPrec &tprec)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
 
   if (data.use_modal == true && data.use_freq == false) {
@@ -1296,6 +1346,7 @@ void TimeState<dim>::addToH2LiquidPrecLocal(int i, double vol, VarFcn *vf,
 				TimeLowMachPrec &tprec, double irey,
 				SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
+  if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
   double dfdUi[dim*dim], dfdVi[dim*dim];
 

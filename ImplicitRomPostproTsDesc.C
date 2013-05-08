@@ -50,7 +50,7 @@ void ImplicitRomPostproTsDesc<dim>::computeAJ(int, DistSVec<double, dim> &)  {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitRomPostproTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U)  {
+void ImplicitRomPostproTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
 
   breakloop = true;	// after loop, exit will occur because maxItsNewton = 1
 }
@@ -65,13 +65,17 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
   int tmp, _n, closestCluster, nCoords; 
   char switchStr[50], updateStr[50];
 
+
   _n = fscanf(reducedCoordsFile, "%d %s %s %d %d %d %d %d", &tmp, switchStr, updateStr, &closestCluster, &nCoords, &tmp, &tmp, &tmp);
+
+  this->com->fprintf(stdout, "%s %s %d %d\n", switchStr, updateStr, closestCluster, nCoords);
 
   this->clusterSwitch = (strcmp(switchStr,"switch")==0) ? true : false;
   this->updateFreq = (strcmp(updateStr,"update")==0) ? true : false;
 
-  if ((this->rom->nClusters > 1) || (totalTimeSteps == 1) || (this->basisUpdateFreq>0)) {
+  if ((this->rom->nClusters > 1) || (this->basisUpdateFreq>0) || (this->currentCluster == -1))  {
     //rom->closestCenter(U, &closestCluster);
+
     if (this->rom->nClusters > 1) this->com->fprintf(stdout, " ... using basis number %d\n", closestCluster);
 
     //updateFreq = ((basisUpdateFreq > 0) && (totalTimeSteps%basisUpdateFreq == 0)) ? true : false;
@@ -80,7 +84,7 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
     if (this->updateFreq || this->clusterSwitch) {
       if (this->clusterSwitch) {
         this->currentCluster = closestCluster;
-        this->rom->readClusterOnlineQuantities(this->currentCluster);  // read state basis, update info, and (if applicable) gnat online matrices
+        this->rom->readClusteredOnlineQuantities(this->currentCluster);  // read state basis, update info, and (if applicable) gnat online matrices
       }
 
       //if (this->ioData->romOnline.basisUpdates) rom->updateBasis(currentCluster, U);
@@ -94,7 +98,7 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
       }
 
       //AJ.resize(nPod);
-      this->dUrom.resize(this->nPod);
+      this->dUromTimeIt.resize(this->nPod);
       //setProblemSize(U);  // defined in derived classes
       //if (clusterSwitch) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
 
@@ -102,14 +106,15 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
   }
 
   if (this->nPod != nCoords) {
-    this->com->fprintf(stderr, "*** Error: dimension of reduced coordinates does not match dimension of state ROB\n");
+    this->com->fprintf(stderr, "*** Error: dimension of reduced coordinates (%d) does not match dimension of state ROB (%d)\n"
+                       ,nCoords, this->nPod);
     exit(-1);
   }
 
   double tmp2;
   for (int iPod = 0; iPod < this->nPod; ++iPod) {
-    _n = fscanf(reducedCoordsFile, "%lf", &tmp2);
-    this->dUrom[iPod] = tmp2;
+    _n = fscanf(reducedCoordsFile, "%le", &tmp2);
+    this->dUromTimeIt[iPod] = tmp2;
   }
 
 }
@@ -120,7 +125,7 @@ template<int dim>
 void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int totalTimeSteps)  {
 
   DistSVec<double, dim> dU(this->domain->getNodeDistInfo());
-	this->expandVector(this->dUrom, dU); // solution increment in full coordinates
+	this->expandVector(this->dUromTimeIt, dU); // solution increment in full coordinates
 	U += dU;
 
 }

@@ -33,6 +33,7 @@ ImplicitCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)
   {
     this->mvp = new MatVecProdFD<dim,dim>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+    if (ioData.output.rom.fdResiduals==ROMOutputData::FD_RESIDUALS_ON) this->mvp->setTsOutput(this->output);
   }
   else if (implicitData.mvp == ImplicitData::H1)
   {

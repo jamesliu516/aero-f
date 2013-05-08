@@ -84,6 +84,8 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 
 //------------------------------------------------------------------------------
 
+// Not used? KMW
+
 template<int dim>
 void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState, 
 				  SVec<double,3> &X, SVec<double,dim> &V, 

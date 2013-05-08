@@ -48,7 +48,17 @@ RestrictionMapping<dim>::RestrictionMapping(Domain * domain, InputIterator globa
   }
 
 	domain->computeConnectedTopology(restrictedToOrigin_);
-	
+
+	dom = domain;
+}
+
+//------------------------------------------------------------------------------
+
+template <int dim>
+void RestrictionMapping<dim>::recomputeConnectedTopology() {
+
+  dom->computeConnectedTopology(restrictedToOrigin_);
+
 }
 
 //------------------------------------------------------------------------------

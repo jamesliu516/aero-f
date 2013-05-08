@@ -20,17 +20,16 @@ template<int dim>
 NonlinearRomOnlineIII<dim>::NonlinearRomOnlineIII(Communicator* _com, IoData& _ioData, Domain& _domain)  : 
   NonlinearRom<dim>(_com, _ioData, _domain)
 { 
-  // ioData->example, com->example, this->domain.example
 
-  // test for existance of jacMat TODO: move to NonlinearRom.C
-  double tag = 0.0;
-  int numSteps = 0;
-  int tmp = 0;
-  char *jacMatPath = 0;
-  this->determinePath(this->gappyJacActionName, tmp, jacMatPath);  // check cluster 0
-  this->numResJacMat = (this->domain.template readTagFromFile<double, dim>(jacMatPath, tmp, &tag, &numSteps)) ? 2 : 1;
-  delete [] jacMatPath;
- 
+  // this->ioData->example, this->com->example, this->domain.example
+
+  if (this->nClusters>1) readClosestCenterInfoModelIII();
+
+  this->determineNumResJacMat();
+
+  if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
+    this->readAllOnlineQuantities(); // all ROBs, sVals, and update info
+  
 }
 
 //----------------------------------------------------------------------------------
@@ -44,13 +43,35 @@ NonlinearRomOnlineIII<dim>::~NonlinearRomOnlineIII()
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineIII<dim>::readDistanceCalcInfo() {
+void NonlinearRomOnlineIII<dim>::readClosestCenterInfoModelIII() {
 
-  if (true) {
-    // fast distance calculations
-    //
+  if (this->ioData->romOnline.distanceComparisons) {
+    switch (this->ioData->romOnline.basisUpdates) {
+      case (NonlinearRomOnlineData::UPDATES_OFF):
+        this->readDistanceComparisonInfo("noUpdates");
+        break;
+      case (NonlinearRomOnlineData::UPDATES_SIMPLE):
+        this->com->fprintf(stderr, "*** Error: fast distance caluclations are incompatible with simple ROB updates (use Exact)\n");
+        exit(-1);
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
+        if (this->ioData->romOnline.sensitivity.include==NonlinearRomOnlineNonStateData::INCLUDE_ON ||
+            this->ioData->romOnline.krylov.include==NonlinearRomOnlineNonStateData::INCLUDE_ON) {
+          this->com->fprintf(stderr, "*** Error: exact updates not yet supported for heterogeneous ROBs\n");
+          exit(-1);
+        }
+        this->readDistanceComparisonInfo("exactUpdates");
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
+        this->readDistanceComparisonInfo("approxUpdates");
+        break;
+      default:
+        this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+        exit(-1);
+    }
   } else {
-    // full-scale distance calculations
+    this->com->fprintf(stderr, "*** Error: fast cluster selection must be used for local hyper-reduction\n");
+    exit(-1);
   }
 
 }
@@ -58,42 +79,27 @@ void NonlinearRomOnlineIII<dim>::readDistanceCalcInfo() {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineIII<dim>::closestCenter(DistSVec<double, dim> &U, int* closestCluster) {
+void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
 
-  if (true) {
-    // fast distance calculations
-    *closestCluster = 0;
-  } else {
-    // full-scale distance calculations
-  }
+    // read in sample nodes
+    this->readClusteredSampleNodes(iCluster);
 
-}
+    // read in gappy POD matrix for residual
+    this->readClusteredGappyMatrix(iCluster, "resMatrix");
 
+    // read in gappy POD matrix for Jacobian
+    if (this->numResJacMat==2) this->readClusteredGappyMatrix(iCluster, "jacMatrix");
 
-//----------------------------------------------------------------------------------
+    // read in sampled state ROB
+    this->readClusteredBasis(iCluster, "sampledState");
 
-template<int dim>
-void NonlinearRomOnlineIII<dim>::readClusterOnlineQuantities(int iCluster) {
+    // read in fast update quantities
+    //if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::BASIS_UPDATES_OFF)
+    //  this->readClusteredUpdateInfo(iCluster, "sampledState"); 
 
-  // read in sample nodes
-  this->readClusterSampleNodes(iCluster);
+    // read in sampled krylov ROB
 
-  // read in gappy POD matrix for residual
-  this->readClusterGappyMatrix(iCluster, "resMatrix");
-
-  // read in gappy POD matrix for Jacobian
-  if (this->numResJacMat==2) this->readClusterGappyMatrix(iCluster, "jacMatrix");
-
-  // read in sampled state ROB
-  this->readClusterBasis(iCluster, "sampledState");
-
-  // read in fast update quantities
-
-  // read in fast distance calc quantities 
-
-  // read in sampled krylov ROB
-
-  // read in sampled sensitivity ROB
+    // read in sampled sensitivity ROB
 
 }
 
@@ -115,7 +121,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
 */
 
 /*
-  this->readClusterReferenceState(iCluster); // reads Uinit
+  this->readClusteredReferenceState(iCluster); // reads Uinit
 
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
@@ -208,7 +214,7 @@ void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, char* ba
   for (int iVec=0; iVec<robSize; ++iVec)
     basisOld[iVec] = (*(this->basis))[iVec];
  
-  this->readClusterBasis(cluster, basisType);
+  this->readClusteredBasis(cluster, basisType);
   int nonStateSize = this->basis->numVectors();
   VecSet< DistSVec<double, dim> > nonStateBasis(nonStateSize, this->domain.getNodeDistInfo());
 

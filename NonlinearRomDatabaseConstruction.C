@@ -21,6 +21,11 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
   stateSnapshotTags = NULL;
   stateSnapsFromFile = NULL;   
   stateSnapshotClustersAfterOverlap = NULL;
+
+  projErrorLog = NULL;
+  initialCondition = NULL; 
+
+  arbitraryUniformIC = false;
 }
 
 //----------------------------------------------------------------------------------
@@ -28,10 +33,6 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
 template<int dim> 
 NonlinearRomDatabaseConstruction<dim>::~NonlinearRomDatabaseConstruction() 
 {
-  //delete (this->snap);
-  //delete (this->clusterCenters);
-  //delete [] (this->clusterIndex);
-
   if (stateSnapshotClustersAfterOverlap) {
     for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
       for (int iSnap=0;iSnap<stateSnapsFromFile[iFile];++iSnap) {
@@ -55,6 +56,9 @@ NonlinearRomDatabaseConstruction<dim>::~NonlinearRomDatabaseConstruction()
 
   if (stateSnapsFromFile)  delete [] stateSnapsFromFile;
   stateSnapsFromFile = NULL;
+
+  if (initialCondition) delete initialCondition;
+  initialCondition = NULL;
 }
 
 
@@ -69,7 +73,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   if (this->ioData->romOffline.rob.clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
     this->readSnapshotFile("state", false);
     kmeans();
-    this->outputClusterSnapshots("state");
+    this->outputClusteredSnapshots("state");
 
     // for snapshot collection method 0 (all snapshots from FOM)
     if (strcmp(this->ioData->input.residualSnapFile,"")!=0) this->placeNonStateSnapshotsInClusters("residual");
@@ -78,7 +82,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
     if (strcmp(this->ioData->input.sensitivitySnapFile,"")!=0 && 
          strcmp(this->sensitivityClusterName,"")!=0) {
        this->readSnapshotFile("sensitivity", false);
-       this->outputClusterSnapshots("sensitivity");
+       this->outputClusteredSnapshots("sensitivity");
     } 
   }
 
@@ -88,6 +92,15 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   if (this->ioData->romOffline.rob.sensitivity.dataCompression.computePOD) localPod("sensitivity");
   if (this->ioData->romOffline.rob.residual.dataCompression.computePOD) localPod("residual");
   if (this->ioData->romOffline.rob.jacAction.dataCompression.computePOD) localPod("jacAction");
+
+  // preprocessing for fast distance calculations
+  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForNoUpdates || 
+      this->ioData->romOffline.rob.distanceComparisons.preprocessForExactUpdates || 
+      this->ioData->romOffline.rob.distanceComparisons.preprocessForApproxUpdates) preprocessForDistanceComparisons();
+
+  // preprocessing for basis updates
+  // exact
+  // approx
 
   // projection error
   if (this->ioData->romOffline.rob.relativeProjectionError.relProjError) localRelProjError();
@@ -228,7 +241,7 @@ void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, boo
   double tagNew;
 
   int numCurrentSnapshots = 0;
-  bool endOfFile;
+  bool status;
 
   if (subtractRefSol) {
     *snapBufOld = *(this->snapRefState);
@@ -242,9 +255,9 @@ void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, boo
       if (iSnap % sampleFreq[iData] == 0) { //TODO ignore 
         // snapshot must be between startSnaps and endSnaps, and a multiple of sampleFreq. 
         if ((iSnap == startSnaps[iData]) && incrementalSnaps) {
-          endOfFile = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagOld, *snapBufOld);
+          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagOld, *snapBufOld);
         } else {
-          endOfFile = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
+          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
           tags[numCurrentSnapshots] = tagNew;
           (*(this->snap))[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
           if (incrementalSnaps) *snapBufOld = *snapBufNew;
@@ -372,7 +385,7 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(cha
   DistSVec<double, dim>* snapBuf = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
   *snapBuf = 0.0;
   double tag;
-  bool endOfFile;
+  bool status;
 
   this->snapsInCluster = new int[this->nClusters]; 
   for (int iCluster=0;iCluster<(this->nClusters);++iCluster)
@@ -385,7 +398,7 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(cha
     for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
       if (iSnap % sampleFreq[iData] == 0) { //TODO ignore 
         // snapshot must be between startSnaps and endSnaps, and a multiple of sampleFreq. 
-        endOfFile = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tag, *snapBuf);        
+        status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tag, *snapBuf);        
         if (snapWeight[iData]) *snapBuf *= snapWeight[iData]; //CBM--check
         // find associated state
         int stateSnap = -1;
@@ -465,7 +478,7 @@ double NonlinearRomDatabaseConstruction<dim>::calcResidual(VecSet< DistSVec<doub
   double maxNorm = 0.0;
 
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-    norm = this->distance( centers[iCluster], centersOld[iCluster]);
+    norm = this->distanceFull( centers[iCluster], centersOld[iCluster]);
     if (norm > maxNorm) maxNorm = norm;
   }
 
@@ -704,7 +717,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
       if ((this->clusterIndex)[iSnap]==iCluster) { // only need to sort snapshots that are inside the current cluster
         snapDist[snapCount].snapIndex = iSnap;
-        snapDist[snapCount].dist = this->distance((*(this->snap))[iSnap],(*(this->clusterCenters))[iCluster]);
+        snapDist[snapCount].dist = this->distanceFull((*(this->snap))[iSnap],(*(this->clusterCenters))[iCluster]);
         ++snapCount;
       }
     }
@@ -945,7 +958,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
   }
 
   // read cluster centers
-  this->readClusterCenters();
+  this->readClusteredCenters();
 
   bool limitedMemorySVD = (maxVecStorage <= 0 ) ? false : true;
 
@@ -966,7 +979,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
     FullM* Vtrue = NULL;
 
     // read snapshots and preprocess
-    this->readClusterSnapshots(iCluster, true, basisType, 0, (maxVecStorage-1));  
+    this->readClusteredSnapshots(iCluster, true, basisType, 0, (maxVecStorage-1));  
 
     if (limitedMemorySVD && (this->snap->numVectors() == maxVecStorage)) {  // limited memory SVD algorithm
 
@@ -1012,7 +1025,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
         nTotSnaps += nSnaps;
 
         // read next chunk of snapshots
-        this->readClusterSnapshots(iCluster, true, basisType, nTotSnaps, (nTotSnaps + maxVecStorage - 1));  
+        this->readClusteredSnapshots(iCluster, true, basisType, nTotSnaps, (nTotSnaps + maxVecStorage - 1));  
       }
 
       // append extra (<maxBasisSize) snapshots to the fullSnaps matrix
@@ -1096,25 +1109,26 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
     delete Utrue;
     Utrue = NULL;
   
-    (this->columnSumsV) = new double[nTotSnaps];
+    (this->columnSumsV) = new std::vector<double>;
+    this->columnSumsV->resize(nTotSnaps, 0.0);
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-      (this->columnSumsV)[iSnap] = 0.0;
       for (int jSnap=0; jSnap<nTotSnaps; ++jSnap) {
-        (this->columnSumsV)[iSnap] += (*Vtrue)[iSnap][jSnap];
+        (*(this->columnSumsV))[iSnap] += (*Vtrue)[iSnap][jSnap];
       }
     }  
     delete Vtrue;
     Vtrue = NULL;
   
-    (this->sVals) = new double[nTotSnaps]; 
+    (this->sVals) = new std::vector<double>;
+    this->sVals->resize(nTotSnaps);
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-      (this->sVals)[iSnap] = (*singVals)[iSnap];
+      (*this->sVals)[iSnap] = (*singVals)[iSnap];
     } 
     delete singVals;    
     singVals = NULL;
 
     // output the basis and the update quantities
-    this->outputClusterBasis(iCluster, nTotSnaps, basisType); 
+    this->outputClusteredBasis(iCluster, nTotSnaps, basisType); 
   
     this->com->barrier();
 
@@ -1134,13 +1148,213 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
 }
 
 
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
+
+  this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection\n");
+
+  readInitialCondition();
+  
+  this->readClusteredCenters();
+  std::vector<std::vector<double> > clusterCenterNorms; // nClusters-by-1, or nClusters-by-dim
+  clusterCenterNorms.resize(this->nClusters);
+  
+  if (arbitraryUniformIC) {  // preprocess for an arbitrary uniform initial condition
+
+    // loop through all cluster centers, store squared norm of center and component-wise sums of center
+    for (int iCenter=0; iCenter<(this->nClusters); ++iCenter) {
+      clusterCenterNorms[iCenter].reserve(dim+1);
+      DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
+      double norm = ((*(this->clusterCenters))[iCenter]).norm();
+      norm *= norm;
+      (clusterCenterNorms[iCenter]).push_back(norm);
+      double componentSums[dim];
+      ((*(this->clusterCenters))[iCenter]).sum(componentSums);
+      for (int iDim=0; iDim<dim; ++iDim) {
+        (clusterCenterNorms[iCenter]).push_back(componentSums[iDim]);
+      }
+    } 
+
+  } else { // preprocess for specified initial condition
+
+    // loop through all cluster centers, store the squared norm of (center - IC)
+    for (int iCenter=0; iCenter<(this->nClusters); ++iCenter) {
+        DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
+        difference = (*(this->clusterCenters))[iCenter] - *initialCondition;
+        double norm = difference.norm();
+        norm *= norm;  // norm squared
+        (clusterCenterNorms[iCenter]).push_back(norm);
+    }
+
+  }
+ 
+  this->outputCenterNorms(clusterCenterNorms);
+
+  //--------- End (noUpdates || exactUpdates || approxUpdates) ---------------//
+
+
+  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForNoUpdates || 
+      this->ioData->romOffline.rob.distanceComparisons.preprocessForExactUpdates) {
+
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      productOfBasisAndCenterDifferences(iCluster, "state");
+      if (strcmp(this->krylovBasisName,"")!=0) productOfBasisAndCenterDifferences(iCluster, "krylov");
+    }
+
+    if (strcmp(this->sensitivityBasisName,"")!=0) productOfBasisAndCenterDifferences(-2, "sensitivity");
+
+  }
+
+  //--------- End (noUpdates || exactUpdates) ---------------//
+
+
+  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForExactUpdates) {
+      this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For exact online ROB updates)\n");
+
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      productOfVectorAndCenterDifferences(iCluster, "refState");
+    }
+ 
+    productOfVectorAndCenterDifferences(-1, "initialCondition");
+
+  }
+
+  //--------- End (exactUpdates) ---------------//
+
+
+  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForApproxUpdates) {
+    this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For approximate online ROB updates)\n");
+
+    //
+
+  }
+
+  //--------- End (approxUpdates) ---------------//
+
+}
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::productOfBasisAndCenterDifferences(int iCluster, char* basisType) {
+  // helper function for fast distance calculation preprocessing:
+  // computes w_(m,p) = 2 * basis^T *(center_p - center_m) for 0<=p<m<nClusters
+  // note that w_(m,p) = -w_(p,m)
+
+  // note that in this case 0 <= p < m < nClusters, which differes from Amsallem et al., INJME 2012
+  // (this allows for easy indexing [m][p] without any unnecessary storage)
+
+  this->readClusteredBasis(iCluster, basisType);
+  int nPodVecs = this->basis->numVectors();
+  std::vector<std::vector<std::vector<double> > > w;  // collection of vectors: [m][p][iPodVec]
+  w.resize(this->nClusters);
+
+  // w[0][0] is a vector of zeros, no need to compute this
+    
+  for (int mCenter=1; mCenter<this->nClusters; ++mCenter) {
+    for (int pCenter=0; pCenter<mCenter; ++pCenter) {
+      DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
+      difference = (*(this->clusterCenters))[pCenter] - (*(this->clusterCenters))[mCenter]; 
+      std::vector<double> product;
+      product.reserve(nPodVecs);
+      for (int iVec=0; iVec<nPodVecs; ++iVec) { 
+        product.push_back( 2.0 * ((*(this->basis))[iVec] * difference));
+      }
+      w[mCenter].push_back(product); 
+    }
+  }
+ 
+  this->outputClusteredInfoASCII(iCluster, basisType, NULL, NULL, &w);
+
+}
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::productOfVectorAndCenterDifferences(int iCluster, char* vecType) {
+  // helper function for fast distance calculation preprocessing:
+  // computes w_(m,p) = 2 * vector^T *(center_p - center_m) for 0<=p<m<nClusters
+  // note that w_(m,p) = -w_(p,m)
+
+  // note that in this case 0 <= p < m < nClusters, which differes from Amsallem et al., INJME 2012
+  // (this allows for easy indexing [m][p] without any unnecessary storage)
+
+  DistSVec<double,dim>* vec;
+  vec = NULL;
+
+  if (strcmp(vecType,"referenceState")==0) {
+    this->readClusteredReferenceState(iCluster, "state");
+    vec = this->Uref;
+  } else if (strcmp(vecType, "initialCondition")) {
+    if (initialCondition) {
+      vec = initialCondition;
+    } else { //need to precompute component-wise sums of (center_m - center_p)
+      assert(arbitraryUniformIC);
+      return;
+    }
+  } else {
+    this->com->fprintf(stderr, "*** Error: unanticipated vector type '%s' encountered", vecType);
+    exit(-1);
+  }
+
+  std::vector<std::vector<double> > result;  // collection of vectors: [m][p]
+  result.resize(this->nClusters);
+
+  // result[0][0] is a vector of zeros, no need to compute this
+
+  for (int mCenter=1; mCenter<this->nClusters; ++mCenter) {
+    for (int pCenter=0; pCenter<mCenter; ++pCenter) {
+      DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
+      difference = (*(this->clusterCenters))[pCenter] - (*(this->clusterCenters))[mCenter]; 
+      double tmp = 2.0 * ((*vec) * difference);
+      result[mCenter].push_back(tmp); 
+    }
+  }
+
+  this->outputClusteredInfoASCII(iCluster, vecType, NULL, &result);
+
+}
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::readInitialCondition() {
+
+  // check if this function has already been called
+  if (initialCondition || arbitraryUniformIC) return;
+
+  if (strcmp(this->ioData->input.solutions,"")!=0) {
+
+    // read user-specified initial condition that will be used for the online ROM simulation
+    initialCondition = new DistSVec<double,dim>( this->domain.getNodeDistInfo() );
+    double tmp;
+    bool status = this->domain.readVectorFromFile(this->ioData->input.solutions, 0, &tmp, *initialCondition);
+
+    if (!status) {
+      this->com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", this->ioData->input.solutions);
+      exit(-1);
+    }
+
+  } else {
+
+    this->com->fprintf(stdout, "\n ... no initial condition specified; preprocessing for a uniform initial condition\n");
+    arbitraryUniformIC = true;
+
+  }
+
+}
+
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
 /*
-  this->readClusterCenters();
+  this->readClusteredCenters();
   delete (this->clusterCenters);
   (this->clusterCenters) = NULL;
  
@@ -1153,23 +1367,21 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
  
     switch (this->ioData->romOffline.rob.clustering.useExistingClusters) {
       case (ClusteringData::USE_EXISTING_CLUSTERS_FALSE):
-        this->readClusterBasis(iCluster, "state");
+        this->readClusteredBasis(iCluster, "state");
         break;
       case (ClusteringData::USE_EXISTING_STATES):
-        this->readClusterBasis(iCluster, "state");
+        this->readClusteredBasis(iCluster, "state");
         break;
       case (ClusteringData::USE_EXISTING_RESIDUALS):
-        this->readClusterBasis(iCluster, "residual");
+        this->readClusteredBasis(iCluster, "residual");
         break;
       case (ClusteringData::USE_EXISTING_JAC_ACTIONS):
-        this->readClusterBasis(iCluster, "jacAction");
+        this->readClusteredBasis(iCluster, "jacAction");
         break;
       default:
         exit (-1);
     }
 
-    delete [] (this->columnSumsV);
-    (this->columnSumsV) = NULL;
 
     int nPodVecs = this->basis->numVectors();
 

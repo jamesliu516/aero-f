@@ -40,20 +40,34 @@ ImplicitGnatTsDesc<dim>::~ImplicitGnatTsDesc()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q) {
+void ImplicitGnatTsDesc<dim>::deleteRestrictedQuantities() {
+
+  ResRestrict.reset();
+  AJRestrict.reset();
+  
+  this->rom->deleteRestrictedQuantities();
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> *R) {
 
 	// Evaluate residual on full mesh
 
-  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, this->F, this->timeState, *(this->rom->restrictMapping()));
+  if (R==NULL) R=&(this->F);
+
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *R, this->timeState, *(this->rom->restrictMapping()));
 
 	this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q,
-			this->F, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
+			*R, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
 
-  this->spaceOp->applyBCsToResidual(Q, this->F);
+  this->spaceOp->applyBCsToResidual(Q, *R);
 
 	double t0 = this->timer->getTime();
 
-	(this->rom->restrictMapping())->restriction(this->F, *ResRestrict);
+	(this->rom->restrictMapping())->restriction(*R, *ResRestrict);
 
 	this->timer->addRestrictionTime(t0);
 
@@ -86,7 +100,7 @@ void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U)  {
+void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
 
   // Form A * of and distribute
 
@@ -121,15 +135,15 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
 
   // Update vector: The first nPod rows give the components in the pod basis
 	t0 = this->timer->getTime();
-  this->dUrom = 0.0;
+  this->dUromNewtonIt = 0.0;
   for (int localIRow = 0; localIRow < leastSquaresSolver.localSolutionRows(); ++localIRow) {
     const int iRow = leastSquaresSolver.globalRhsRowIdx(localIRow);
-    this->dUrom[iRow] = leastSquaresSolver.rhsEntry(localIRow);
+    this->dUromNewtonIt[iRow] = leastSquaresSolver.rhsEntry(localIRow);
   }
  
   // Consolidate across the cpus
-  this->com->globalSum(this->nPod, this->dUrom.data());
-  res = this->dUrom.norm();
+  this->com->globalSum(this->nPod, this->dUromNewtonIt.data());
+  res = this->dUromNewtonIt.norm();
 
   // Convergence criterion
   if (it == 0) {
@@ -168,7 +182,7 @@ void ImplicitGnatTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
   nPodJac = this->rom->getJacMat()->numVectors();
 
 	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
-	
+
   if (jactmp) delete [] jactmp;
   if (column) delete [] column;
 	jactmp = new double [nPodJac * this->nPod];

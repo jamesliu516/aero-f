@@ -23,7 +23,13 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 		this->jac.setNewSize(this->nPod,this->nPod);
 	}
 
+  minRes = -1;
+  rhsNormInit = -1;
+
   this->rom->initializeClusteredOutputs();
+
+  dtInit = this->ioData->romOnline.reducedTimeStep;
+  dt = dtInit;
 
   A_Uinit = NULL;    
   PhiT_A_Uinit = NULL;
@@ -52,7 +58,7 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 
 //-----------------------------------------------------------------------------
 template<int dim>
-void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U)  {
+void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
 
 	this->projectVector(this->AJ, this->F, From);
 	Vec<double> rhs(this->nPod);
@@ -63,12 +69,16 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 	//writeBinaryVectorsToDisk1(false, it, 0.0, this->F, Dummy);
 
 	res = rhs*rhs;
+  double resReg = 0;
 
 	if (res < 0.0){
 		fprintf(stderr, "*** negative residual: %e\n", res);
 		exit(1);
 	}
 	res = sqrt(res);
+
+  if (minRes<=0) minRes = res / this->restart->residual;
+  
 
 	if (it == 0) {
 		this->target = this->epsNewton*res;
@@ -85,7 +95,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		RefVec<DistSVec<double, dim> > residualRef2(this->F);
 		parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
 		for (int iPod=0; iPod<this->nPod; ++iPod)
-			this->dUrom[iPod] = -lsCoeff[0][iPod];
+			this->dUromNewtonIt[iPod] = -lsCoeff[0][iPod];
 	}
 	else if (lsSolver == 1)	{		// normal equations
 		transMatMatProd(this->AJ,this->AJ,jactmp);	// TODO: make symmetric product
@@ -94,16 +104,15 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 				this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
 			}
 		} 
-		this->solveLinearSystem(it, rhs, this->dUrom);
+		this->solveLinearSystem(it, rhs, this->dUromNewtonIt);
 	} 
   else if (lsSolver == 2) {  // regularized normal equations
-    transMatMatProd(this->AJ,this->AJ,jactmp);  // TODO: make symmetric product
-    for (int iRow = 0; iRow < this->nPod; ++iRow) {
-      for (int iCol = 0; iCol < this->nPod; ++iCol) {
-        this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod] + (*PhiT_A_Phi)[iRow][iCol];
-      }
-    }
-    
+
+    if (it==0) minRes = ((res/this->restart->residual)<minRes) ? res/this->restart->residual : minRes;
+    double scaling =  minRes * minRes / ( 1.0 + double(totalTimeSteps) );
+
+    this->com->fprintf(stdout, "scaling = %e / %d = %e\n", minRes, totalTimeSteps, scaling); 
+
     // forming (PhiT * A) * U
     if (PhiT_A_U) delete PhiT_A_U;
     PhiT_A_U = new Vec<double>(this->nPod);
@@ -111,9 +120,39 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
       (*PhiT_A_U)[iVec] = (*A_Phi)[iVec] * U;
     }
 
-    rhs = rhs + *PhiT_A_Uinit - *PhiT_A_U;
-    this->solveLinearSystem(it, rhs, this->dUrom);    
+    rhs = rhs + (scaling * (*PhiT_A_Uinit - *PhiT_A_U));
+    if (rhsNormInit<0) rhsNormInit = rhs.norm();
+    if (it==0) {
+      double rhsNormPrev = rhs.norm();
+      dt = dtInit * (rhsNormInit/rhsNormPrev) ;  
+    }
+    resReg = sqrt(rhs*rhs);
+    Vec<double> dUrom(this->dUromTimeIt);
+    dUrom /= dt;
+    if (false)
+      rhs -= dUrom; 
+
+    transMatMatProd(this->AJ,this->AJ,jactmp);  // TODO: make symmetric product
+    for (int iRow = 0; iRow < this->nPod; ++iRow) {
+      for (int iCol = 0; iCol < this->nPod; ++iCol) {
+        this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod] + (scaling*(*PhiT_A_Phi)[iRow][iCol]);
+        if (iRow==iCol && false) this->jac[iRow][iCol] = this->jac[iRow][iCol] + 1.0/dt;
+      }
+    }
+ 
+    this->solveLinearSystem(it, rhs, this->dUromNewtonIt);    
+
+    this->com->fprintf(stdout, "||(J*Phi)' * R || = %e\n", res);
+    this->com->fprintf(stdout, "||(J*Phi)' * R + reg|| = %e\n\n", resReg);
+ 
+    res = resReg;
+
   }
+
+
+ 
+
+
 }
 
 //-----------------------------------------------------------------------------

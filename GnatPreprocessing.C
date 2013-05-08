@@ -152,7 +152,7 @@ void GnatPreprocessing<dim>::initialize()
 template<int dim>
 void GnatPreprocessing<dim>::buildReducedModel() {
 
-  this->readClusterCenters(); // double checks the value of nClusters that was given in the input file
+  this->readClusteredCenters(); // double checks the value of nClusters that was given in the input file
   globalSampleNodesForCluster.resize(this->nClusters);
  
     //======================================
@@ -253,8 +253,6 @@ void GnatPreprocessing<dim>::buildReducedModel() {
 
   com->fprintf(stdout," \n... finished with GNAT preprocessing - Exiting...\n");
 
-  //sleep(10);
-  //exit(-1);
 } 
 
 //----------------------------------------------
@@ -310,7 +308,7 @@ void GnatPreprocessing<dim>::setUpPodResJac(int iCluster) {
 
   com->fprintf(stdout, " ... Reading POD bases for the residual and/or Jacobian ...\n");
 
-  this->readClusterBasis(iCluster, "residual");
+  this->readClusteredBasis(iCluster, "residual");
   nPod[0] = this->basis->numVectors(); 
 	pod[0].resize(nPod[0]);
 	for (int iVec=0; iVec<nPod[0]; ++iVec) {
@@ -320,7 +318,7 @@ void GnatPreprocessing<dim>::setUpPodResJac(int iCluster) {
   this->basis = NULL;
 
   if (nPodBasis == 2) {
-    this->readClusterBasis(iCluster, "jacAction");
+    this->readClusteredBasis(iCluster, "jacAction");
     nPod[1] = this->basis->numVectors();
     pod[1].resize(nPod[1]);
     for (int iVec=0; iVec<nPod[1]; ++iVec) {
@@ -2008,7 +2006,12 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
     // read in initial condition
     DistSVec<double,dim> *initialCondition = new DistSVec<double,dim>( domain.getNodeDistInfo() );
     double tmp;
-    domain.readVectorFromFile(ioData->input.solutions, 0, &tmp, *initialCondition);
+    bool status = domain.readVectorFromFile(ioData->input.solutions, 0, &tmp, *initialCondition);
+
+    if (!status) {
+      com->fprintf(stderr, "*** Error: unable to read file %s\n", ioData->input.solutions);
+      exit(-1);
+    }
 
     // output
     outputReducedSVec(*initialCondition,outInitialCondition,0);
@@ -2022,7 +2025,7 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
       delete [] sampledSolutionPath;
       sampledSolutionPath = NULL;
     }
-    if (thisCPU == 0) fclose(outInitialCondition );
+    if (thisCPU == 0) fclose(outInitialCondition);
 
   }
 }
@@ -2037,7 +2040,7 @@ void GnatPreprocessing<dim>::outputLocalStateBasesReduced(int iCluster) {
   // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
 
   com->fprintf(stdout, " ... Reading local state ROB ...\n");
-  this->readClusterBasis(iCluster, "state");
+  this->readClusteredBasis(iCluster, "state");
 
   com->fprintf(stdout," ... Writing local state ROB in sample mesh coordinates ...\n");
 
@@ -2045,7 +2048,7 @@ void GnatPreprocessing<dim>::outputLocalStateBasesReduced(int iCluster) {
   this->determinePath(this->sampledStateBasisName, iCluster, filePath);
 
   FILE *outPodState;
-  if (thisCPU ==0) outPodState = fopen(filePath, "wt");
+  if (thisCPU == 0) outPodState = fopen(filePath, "wt");
 
   com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
   com->fprintf(outPodState,"%d\n", nReducedNodes);
@@ -2053,9 +2056,15 @@ void GnatPreprocessing<dim>::outputLocalStateBasesReduced(int iCluster) {
   for (int iPod = 0; iPod < this->basis->numVectors(); ++iPod) {  // # rows in A and B
     outputReducedSVec((*(this->basis))[iPod],outPodState,iPod);
   }
+
   if (this->basis) {
     delete (this->basis);
     (this->basis) = NULL;
+  }
+
+  if (this->sVals) {
+    delete (this->sVals);
+    (this->sVals) = NULL;
   }
 
   if (filePath) {
@@ -2064,6 +2073,7 @@ void GnatPreprocessing<dim>::outputLocalStateBasesReduced(int iCluster) {
   }
 
   if (thisCPU == 0) fclose(outPodState);
+
 
 }
 

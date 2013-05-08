@@ -20,7 +20,13 @@ template<int dim>
 NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioData, Domain& _domain)  : 
   NonlinearRom<dim>(_com, _ioData, _domain)
 { 
-  // ioData->example, com->example, this->domain.example
+
+  if (this->nClusters>1) readClosestCenterInfoModelII();
+
+  // this->ioData->example, this->com->example, this->domain.example
+  if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
+    this->readAllOnlineQuantities();
+
  
 }
 
@@ -31,40 +37,44 @@ NonlinearRomOnlineII<dim>::~NonlinearRomOnlineII()
 {
   
 }
+
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineII<dim>::readDistanceCalcInfo() {
+void NonlinearRomOnlineII<dim>::readClosestCenterInfoModelII() {
 
-  if (false) {
-    // fast distance calculations
+  if (this->ioData->romOnline.distanceComparisons) {
+    switch (this->ioData->romOnline.basisUpdates) {
+      case (NonlinearRomOnlineData::UPDATES_OFF):
+        this->readDistanceComparisonInfo("noUpdates");
+        break;
+      case (NonlinearRomOnlineData::UPDATES_SIMPLE):
+        this->com->fprintf(stderr, "*** Error: fast distance comparisons are incompatible with simple ROB updates (use Exact)\n");
+        exit(-1);
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
+        this->readDistanceComparisonInfo("exactUpdates");
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
+        this->readDistanceComparisonInfo("approxUpdates");
+        break;
+      default:
+        this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+        exit(-1);
+    }
   } else {
-    this->readClusterCenters();
+    this->readClusteredCenters();
   }
 
 }
 
-
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineII<dim>::closestCenter(DistSVec<double, dim> &U, int* closestCluster) {
-
-  if (false) {
-    // fast distance calculations
-  } else {
-    this->closestCenterFull(U, closestCluster);
-  }
-
-}
-
-//----------------------------------------------------------------------------------
-
-template<int dim>
-void NonlinearRomOnlineII<dim>::readClusterOnlineQuantities(int iCluster) {
+void NonlinearRomOnlineII<dim>::readClusteredOnlineQuantities(int iCluster) {
 
   // only need to read the state basis and update quantities for model II
-  this->readClusterBasis(iCluster, "state");
+  this->readClusteredBasis(iCluster, "state");
 
 }
 
@@ -77,22 +87,23 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
   When updateBasis is called the following quantities are available:
     - nClusters: number of clusters
     - snapsInCluster:  a vector containing the number of snapshots in each cluster, size nClusters
-    - columnSumsV: a vector containing the sums of the columns of V, size ny + buffer
+    - columnSumsV: a vector containing the sums of the columns of V, size ny + buffer (same buffer as basis and sVals?)
     - basis: the local ROB, ny + buffer
     - sVals: the singular values, size ny + buffer
   (As well as all of the ioData values)
 
 */
+  this->readClusteredUpdateInfo(iCluster, "state");
 
-  this->readClusterReferenceState(iCluster); // reads Uinit
+  this->readClusteredReferenceState(iCluster, "state"); // reads Uref
 
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
 
   DistSVec<double, dim> a(this->domain.getNodeDistInfo());
-  a = *(this->Uinit) - U;
+  a = *(this->Uref) - U;
   
-  if (a.norm() >= 1e-6) {  // only update if Uinit is different than U (this handles the case of time=0) 
+  if (a.norm() >= 1e-6) {  // only update if Uref is different than U (this handles the case of time=0) 
 
     double m[robSize];
     for (int iVec=0; iVec<robSize; ++iVec) {
@@ -115,7 +126,7 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
     for (int iCol = 0; iCol < (kSize); ++iCol){
       for (int iRow = 0; iRow < (kSize); ++iRow) {
         if ((iCol == iRow) && (iCol < kSize-1)) {
-          K[iCol*(kSize) + iRow] = this->sVals[iCol];
+          K[iCol*(kSize) + iRow] = (*this->sVals)[iCol];
         } else {
           K[iCol*(kSize) + iRow] = 0.0;
         }
@@ -123,20 +134,20 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
     }
 
     double q = 0;
-    for (int iVec=robSize; iVec<(this->snapsInCluster[iCluster]); ++iVec) {
-      q += pow(this->columnSumsV[iVec], 2);
+    for (int iVec=robSize; iVec<(this->columnSumsV->size()); ++iVec) {
+      q += pow((*(this->columnSumsV))[iVec], 2);
     }
     q = pow(q, 0.5);
 
     for (int iRow = 0; iRow < (kSize-1); ++iRow) {
       for (int iCol = 0; iCol < (kSize-1); ++iCol){
-        K[iCol*(kSize) + iRow] += m[iRow] * (this->columnSumsV[iCol]);
+        K[iCol*(kSize) + iRow] += m[iRow] * ((*(this->columnSumsV))[iCol]);
       }
       K[(kSize-1)*(kSize) + iRow] = m[iRow] * q;
     }
 
     for (int iCol = 0; iCol < kSize-1; ++iCol){
-      K[iCol*(kSize) + (kSize-1)] += Ra * (this->columnSumsV[iCol]);
+      K[iCol*(kSize) + (kSize-1)] += Ra * ((*(this->columnSumsV))[iCol]);
     }
     K[(kSize-1)*(kSize) + kSize-1] += Ra * q;
 
@@ -162,7 +173,9 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
       }
     }
   }
-  delete (this->Uinit);
+  delete (this->Uref);
+  this->Uref = NULL;
+
 }
 
 //----------------------------------------------------------------------------------
@@ -176,7 +189,7 @@ void NonlinearRomOnlineII<dim>::appendNonStateDataToBasis(int cluster, char* bas
   for (int iVec=0; iVec<robSize; ++iVec)
     basisOld[iVec] = (*(this->basis))[iVec];
  
-  this->readClusterBasis(cluster, basisType);
+  this->readClusteredBasis(cluster, basisType);
   int nonStateSize = this->basis->numVectors();
   VecSet< DistSVec<double, dim> > nonStateBasis(nonStateSize, this->domain.getNodeDistInfo());
 

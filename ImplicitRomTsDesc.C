@@ -24,6 +24,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   ImplicitData fddata;
   fddata.mvp = ImplicitData::FD;
+
   mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
 
   switch (ioData->romOnline.systemApproximation) {
@@ -34,11 +35,10 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
       rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
       break;
     default:
+      this->com->fprintf(stderr, "*** Error:  Unexpected system approximation type\n");
       exit (-1);
   }
 
-
-  rom->readDistanceCalcInfo();
   currentCluster = -1;
 
   // nPod = 0 ?
@@ -47,9 +47,10 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   // necessary? 
   pod.resize(nPod);
   AJ.resize(nPod);
-  dUrom.resize(nPod);
-  //UromTotal.resize(nPod);
-  //UromTotal = 0.0;	// before any time step, it is zero
+  dUromNewtonIt.resize(nPod);
+  dUromTimeIt.resize(nPod);
+  dUromCurrentROB.resize(nPod);
+  
   //dUnormAccum = new Vec<double> [2];
   //for (int i = 0 ; i < 2; ++i) { 
   //  dUnormAccum[i].resize(nPod);	// before any time step, it is zero
@@ -128,20 +129,31 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
 
   // checks whether the local ROM needs to be modified
 
-  if ((rom->nClusters > 1) || (totalTimeSteps == 1) || (basisUpdateFreq>0)) {
+  if ((rom->nClusters > 1) || (basisUpdateFreq>0) || (currentCluster == -1)) {
+
+    if (ioData->romOnline.distanceComparisons && (currentCluster == -1)) { 
+      rom->initializeDistanceComparisons(U);
+    }
+
     int closestCluster;
-    rom->closestCenter(U, &closestCluster);
-    if (rom->nClusters > 1) this->com->fprintf(stdout, " ... using basis number %d\n", closestCluster);
+
+    if (rom->nClusters > 1) {
+      rom->closestCenter(U, &closestCluster);
+      this->com->fprintf(stdout, " ... using cluster %d\n", closestCluster);
+    } else {
+      closestCluster = 0;
+    }
 
     updateFreq = ((basisUpdateFreq > 0) && (totalTimeSteps%basisUpdateFreq == 0)) ? true : false;
     clusterSwitch = (currentCluster != closestCluster) ? true : false;
 
     if (updateFreq || clusterSwitch) {
       if (clusterSwitch) {
+        deleteRestrictedQuantities(); // only defined for GNAT
         currentCluster = closestCluster;
-        rom->readClusterOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gnat online matrices
+        rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
       }
-      if (this->ioData->romOnline.basisUpdates) rom->updateBasis(currentCluster, U);
+      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) rom->updateBasis(currentCluster, U);
       if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 
@@ -151,15 +163,18 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
         this->pod[iVec] = (*(rom->basis))[iVec];
       }
       AJ.resize(nPod);
-      dUrom.resize(nPod);
-     // for (int i = 0 ; i < 2; ++i) {
-     //   dUnormAccum[i].resize(nPod);  // before any time step, it is zero
-     // }
+      dUromNewtonIt.resize(nPod);
+      dUromTimeIt.resize(nPod);
+      dUromCurrentROB.resize(nPod);
+      dUromCurrentROB = 0.0;
       setProblemSize(U);  // defined in derived classes
       if (clusterSwitch) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
 
     }
   }
+
+  dUromTimeIt = 0.0;
+
 }
 
 
@@ -168,11 +183,6 @@ template<int dim>
 int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const int totalTimeSteps)  {
 
   checkLocalRomStatus(U, totalTimeSteps);
-  
-  //UromTotal = 0.0;  // before any time step, it is zero // TODO update for local
-  //for (int i = 0 ; i < 2; ++i) {
-  //   dUnormAccum[i] = 0.0; // before any time step, it is zero //TODO this needs to be updated for local
-  //}
 
 	// initializations 
 
@@ -202,22 +212,22 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 		computeAJ(it, U);	// skipped some times for Broyden
 		this->timer->addResidualTime(tRes);
 
-		solveNewtonSystem(it, res, breakloop, U);	// 1) check if residual small enough, 2) solve 
+		solveNewtonSystem(it, res, breakloop, U, totalTimeSteps);	// 1) check if residual small enough, 2) solve 
 			// INPUTS: AJ, F
-			// OUTPUTS: dUrom, res, breakloop
+			// OUTPUTS: dUromNewtonIt, res, breakloop
 		breakloopNow = breakloop1(breakloop);
 		if (breakloopNow) break;
 
-// LINE SEARCH
-//    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
-//    alpha = lineSearch(U,dUrom,it,AJ,epsNewton, convergeFlag);
-//    if (it > 0 && convergeFlag == 1) break;
-//    dUrom *= alpha;
-// END LINE SEARCH
+    if (this->ioData->romOnline.lineSearch) { 
+    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
+    //  alpha = lineSearch(U,dUromNewtonIt,it,AJ,epsNewton, convergeFlag);
+    //  if (it > 0 && convergeFlag == 1) break;
+    //  dUromNewtonIt *= alpha;
+    }
 
 		double tSol = this->timer->getTime();
-    expandVector(dUrom, dUfull); // solution increment in full coordinates
-    //UromTotal += dUrom; // solution increment in reduced coordinates
+    expandVector(dUromNewtonIt, dUfull); // solution increment in full coordinates
+    dUromTimeIt += dUromNewtonIt; // solution increment in reduced coordinates (initialized to zero in checkLocalRomStatus)
     U += dUfull;
 		this->timer->addSolutionIncrementTime(tSol);
 
@@ -234,12 +244,12 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
       }
       else{
         this->com->fprintf(stderr, "*** Exiting\n");
-        exit(1);
+        exit(-1);
       }
     }
 		breakloopNow = breakloop2(breakloop);
 		if (breakloopNow) break;
-   }	// end Newton loop
+  }	// end Newton loop
 
 	//savedUnormAccum();
 	if (fsIt > 0 && checkFailSafe(U) == 1)
@@ -253,7 +263,11 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   this->timer->addFluidSolutionTime(t0);
 
 	// output POD coordinates
-  rom->writeReducedCoords(totalTimeSteps, clusterSwitch, updateFreq, currentCluster, dUrom);
+  dUromCurrentROB += dUromTimeIt;
+  rom->writeReducedCoords(totalTimeSteps, clusterSwitch, updateFreq, currentCluster, dUromTimeIt); 
+
+  if (ioData->romOnline.distanceComparisons)
+    rom->incrementDistanceComparisons(dUromTimeIt, currentCluster);
 
   return (maxItsNewton == 0) ? 1 : it;
 
@@ -262,14 +276,14 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 //------------------------------------------------------------------------------
 
 template<int dim>
-int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<double> &dUrom)
+int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<double> &sol)
 {
 
   double *x = rhs.data();
   FullM myjac(jac);
   myjac.factor();
   myjac.reSolve(x);
-  dUrom = rhs;  
+  sol = rhs;  
 
   return 0;
 
@@ -278,15 +292,29 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
 //------------------------------------------------------------------------------
 // this function evaluates (Aw),t + F(w,x,v)
 template<int dim>
-void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q)
+void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> *R)
 {
+  if (R==NULL) R = &F;
+
   //DistSVec<double, dim> F(this->domain->getNodeDistInfo());
 
-  this->spaceOp->computeResidual(*this->X, *this->A, Q, F, this->timeState);
+  this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
 
-  this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
+  this->com->fprintf(stdout, "after spatial, residual = %e\n", R->norm());
 
-  this->spaceOp->applyBCsToResidual(Q, F);
+  DistSVec<double, dim> Fspace(this->domain->getNodeDistInfo());
+  DistSVec<double, dim> Ftime(this->domain->getNodeDistInfo());
+  DistSVec<double, dim> Fbc(this->domain->getNodeDistInfo());
+  Fspace = *R;
+
+  this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, *R);
+  Ftime = *R - Fspace;
+  this->com->fprintf(stdout, "norm of time component = %e\n", Ftime.norm());
+
+  this->spaceOp->applyBCsToResidual(Q, *R);
+
+  Fbc = F - Fspace - Ftime;
+  this->com->fprintf(stdout, "norm of BC component = %e\n", Fbc.norm());
 }
 
 //------------------------------------------------------------------------------
@@ -296,7 +324,7 @@ double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, D
 
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + stepLength*dQ;
-  computeFullResidual(it,newQ,F);
+  computeFullResidual(it,newQ,&F);
 
   double merit = 0.0;
   merit += F.norm();	// merit function = 1/2 * (norm of full-order residual)^2
@@ -316,7 +344,7 @@ double ImplicitRomTsDesc<dim>::meritFunctionDeriv(int it, DistSVec<double, dim> 
 
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + eps*p;
-  computeFullResidual(it,newQ,newF);
+  computeFullResidual(it,newQ,&newF);
 
   newF -= F;  // overwrite new Flux with finite difference
   newF *= (1.0/eps);
@@ -580,15 +608,6 @@ void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
 //------------------------------------------------------------------------------
 
-//template<int dim>
-//void ImplicitRomTsDesc<dim>::writeStateRomToDisk(int it, double cpu)  {
-// TODO
-//	this->rom->writeStateRomToDisk(it, cpu, nPod, UromTotal);
-
-//}
-
-//------------------------------------------------------------------------------
-
 template<int dim>
 void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSteps) {
 	// only do for PG and Galerkin
@@ -599,9 +618,9 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
     DistSVec<double, dim> AJsol(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
   	AJsol = 0.0;
   	for (int i=0; i<this->nPod; ++i)
-  		 AJsol += this->AJ[i] * this->dUrom[i]; 
+  		 AJsol += this->AJ[i] * this->dUromNewtonIt[i]; 
 
-	  // saving 1) residual and 2) this->AJ * this->dUrom (for GappyPOD)
+	  // saving 1) residual and 2) this->AJ * this->dUromNewtonIt (for GappyPOD)
 	  rom->writeClusteredBinaryVectors(currentCluster, &(this->F), &AJsol);
 	}
 }
@@ -613,8 +632,8 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
 //void ImplicitRomTsDesc<dim>::savedUnormAccum() {
 
 //	for (int iPod = 0; iPod < nPod; ++iPod) {
-//		dUnormAccum[0][iPod] += fabs(dUrom[iPod]);	// 1 norm
-//		dUnormAccum[1][iPod] += dUrom[iPod] * dUrom[iPod];	// 2 norm
+//		dUnormAccum[0][iPod] += fabs(dUromNewtonIt[iPod]);	// 1 norm
+//		dUnormAccum[1][iPod] += dUromNewtonIt[iPod] * dUromNewtonIt[iPod];	// 2 norm
 //	}
 
 //}

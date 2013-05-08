@@ -613,6 +613,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
     timer->addNodalGradTime(t0); 
 	}
 
+
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
 

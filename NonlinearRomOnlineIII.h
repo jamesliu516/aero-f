@@ -14,11 +14,10 @@ class NonlinearRomOnlineIII : public NonlinearRom<dim> {
   NonlinearRomOnlineIII(Communicator *, IoData &, Domain &);
   ~NonlinearRomOnlineIII();
 
-  void closestCenter(DistSVec<double, dim> &, int*);
   void updateBasis(int, DistSVec<double, dim> &);
   void appendNonStateDataToBasis(int, char *); 
-  void readClusterOnlineQuantities(int);
-  void readDistanceCalcInfo();
+  void readClusteredOnlineQuantities(int);
+  void readClosestCenterInfoModelIII();
 
 };
 

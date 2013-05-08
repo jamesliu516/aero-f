@@ -30,15 +30,16 @@ protected:
 
   void setProblemSize(DistSVec<double, dim> &);
 
-	void solveNewtonSystem(const int &, double &, bool &, DistSVec<double, dim> &);
+	void solveNewtonSystem(const int &, double &, bool &, DistSVec<double, dim> &, const int & totalTimeSteps = 0);
 
-	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q);
+	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> *R=NULL);
 	virtual void computeAJ(int, DistSVec<double, dim> &);
 	virtual bool breakloop1(const bool);
 	virtual bool breakloop2(const bool);
 
   double computeGnatResidualNorm(DistSVec<double,dim> &);
   void setReferenceResidual();
+  void deleteRestrictedQuantities();
 
 	double *jactmp, *column;
 public:
