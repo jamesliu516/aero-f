@@ -72,6 +72,25 @@ public:
 
 };
 
+template<int dim>
+class RecFcnExtendedVanAlbada : public RecFcnVanAlbada<dim> {
+
+public:
+
+  RecFcnExtendedVanAlbada(double b, double e, double pc, double rhoc,
+                          double xi_p, double xi_rho) : RecFcnVanAlbada<dim>(b, e),
+                          pc(pc), rhoc(rhoc), xi_p(xi_p),xi_rho(xi_rho) {}
+  ~RecFcnExtendedVanAlbada() {}
+  
+  void computeExtended(double *, double *, double *, double *, double *, double *, double, double,int,int);
+
+private:
+
+  double pc,rhoc;
+  double xi_p, xi_rho;
+};
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -677,7 +696,6 @@ void RecFcnVanAlbada<5>::compute(double* Vi, double* ddVij, double* Vj, double* 
   vanalbada(Vi[2], ddVij[2], Vj[2], ddVji[2], Vij[2], Vji[2]);
   vanalbada(Vi[3], ddVij[3], Vj[3], ddVji[3], Vij[3], Vji[3]);
   vanalbada(Vi[4], ddVij[4], Vj[4], ddVji[4], Vij[4], Vji[4]);
-
 }
 
 //------------------------------------------------------------------------------
@@ -767,6 +785,38 @@ void RecFcnVanAlbada<7>::computeDerivative(double* Vi, double* dVi, double* ddVi
   vanalbadaDerivative(Vi[5], dVi[5], ddVij[5], dddVij[5], Vj[5], dVj[5], ddVji[5], dddVji[5], dVij[5], dVji[5]);
   vanalbadaDerivative(Vi[6], dVi[6], ddVij[6], dddVij[6], Vj[6], dVj[6], ddVji[6], dddVji[6], dVij[6], dVji[6]);
 
+}
+
+template<int dim>
+inline
+void RecFcnExtendedVanAlbada<dim>::computeExtended(double* Vi, double* ddVij, double* Vj, double* ddVji,
+		  	   	                   double* Vij, double* Vji,double pi,double pj,int i, int j) {
+
+  double phi_pi = std::max<double>((pi-pc)/xi_p,0);
+  double phi_pj = std::max<double>((pj-pc)/xi_p,0);
+  double phi_rhoi = std::max<double>((Vi[0]-rhoc)/xi_rho,0);
+  double phi_rhoj = std::max<double>((Vj[0]-rhoc)/xi_rho,0);
+
+  double phi_vi = 1.0/std::max<double>(0.01,Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3]);
+  double phi_vj = 1.0/std::max<double>(0.01,Vj[1]*Vj[1]+Vj[2]*Vj[2]+Vj[3]*Vj[3]);
+
+  double phi_i = std::min<double>(phi_pi,phi_rhoi);
+  double phi_j = std::min<double>(phi_pj,phi_rhoj);
+  
+  phi_i = std::min<double>(phi_i,phi_vi);
+  phi_j = std::min<double>(phi_j,phi_vj);
+
+  for (int k = 0; k < dim; ++k) {
+
+    this->vanalbada(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k]);
+    if (fabs(Vj[k]-Vi[k]) > 1.0e-10) {
+ 
+      Vij[k] = fabs(2.0*(Vij[k]-Vi[k])/(Vj[k]-Vi[k]));
+      Vij[k] = Vi[k] + 0.5*std::min<double>(phi_i, Vij[k])*(Vj[k]-Vi[k]); 
+      Vji[k] = fabs(2.0*(Vji[k]-Vj[k])/(Vj[k]-Vi[k]));
+      Vji[k] = Vj[k] - 0.5*std::min<double>(phi_j, Vji[k])*(Vj[k]-Vi[k]);
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

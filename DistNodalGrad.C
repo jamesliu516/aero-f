@@ -829,7 +829,8 @@ void DistNodalGrad<dim, Scalar>::computeT(int config, DistSVec<double,3> &X,
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
-			       DistVec<double> &ctrlVol, DistSVec<Scalar2,dim> &V)
+			       DistVec<double> &ctrlVol, DistSVec<Scalar2,dim> &V,
+                               DistVec<int>* additionalFirstOrderNodes)
 {
 
   RecFcnLtdMultiDim<dim>* ltdmd = dynamic_cast<RecFcnLtdMultiDim<dim>*>(recFcn);
@@ -843,21 +844,44 @@ void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
   if (tag) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
-			bool *loctag = tag->subData(iSub);
-			Scalar (*locddx)[dim] = ddx->subData(iSub);
-			Scalar (*locddy)[dim] = ddy->subData(iSub);
-			Scalar (*locddz)[dim] = ddz->subData(iSub);
-			for (int i=0; i<tag->subSize(iSub); ++i) {
-				if (loctag[i]) {
-					for (int j=0; j<dim; ++j) {
-						locddx[i][j] = 0.0;
-						locddy[i][j] = 0.0;
-						locddz[i][j] = 0.0;
-					}
-				}
-			}
+      bool *loctag = tag->subData(iSub);
+      Scalar (*locddx)[dim] = ddx->subData(iSub);
+      Scalar (*locddy)[dim] = ddy->subData(iSub);
+      Scalar (*locddz)[dim] = ddz->subData(iSub);
+      for (int i=0; i<tag->subSize(iSub); ++i) {
+ 	if (loctag[i]) {
+ 	  for (int j=0; j<dim; ++j) {
+	    locddx[i][j] = 0.0;
+	    locddy[i][j] = 0.0;
+	    locddz[i][j] = 0.0;
+	  }
+	}
+      }
     }
   }
+
+  if (additionalFirstOrderNodes) {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      int *loctag = additionalFirstOrderNodes->subData(iSub);
+      Scalar (*locddx)[dim] = ddx->subData(iSub);
+      Scalar (*locddy)[dim] = ddy->subData(iSub);
+      Scalar (*locddz)[dim] = ddz->subData(iSub);
+      for (int i=0; i<additionalFirstOrderNodes->subSize(iSub); ++i) {
+ 	if (loctag[i]) {
+  //        std::cout << "Gradient set to zero additionally at x = [" << X(iSub)[i][0] << ", " <<
+  //                   X(iSub)[i][1] << ", " << X(iSub)[i][2] << "] " << std::endl;
+ 	  for (int j=0; j<dim; ++j) {
+	    locddx[i][j] = 0.0;
+	    locddy[i][j] = 0.0;
+	    locddz[i][j] = 0.0;
+	  }
+	}
+      }
+    }
+  }
+
+
 }
 
 //------------------------------------------------------------------------------

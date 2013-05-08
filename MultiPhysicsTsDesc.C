@@ -364,6 +364,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
     }
   }
 
+  this->spaceOp->conservativeToPrimitive(*U,fluidSelector.fluidId);
   computeForceLoad(Wij, Wji);
   delete Wij;
   delete Wji;
@@ -474,6 +475,10 @@ int MultiPhysicsTsDesc<dim,dimLS>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, *fluidSelector.fluidId, *fluidSelector.fluidIdn);
                              // fluidIdn is only used for screen output when an error is found
+
+  if (ierr != 0 && this->data->checksol) this->data->unphysical = true;
+  ierr = max(ierr,0);
+
   return ierr;
 }
 

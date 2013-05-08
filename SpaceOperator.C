@@ -364,6 +364,11 @@ RecFcn *SpaceOperator<dim>::createRecFcn(IoData &ioData)
 	rf = new RecFcnLinear<dim>(beta, eps);
       else if (ioData.schemes.ns.limiter == SchemeData::VANALBADA)
 	rf = new RecFcnVanAlbada<dim>(beta, eps);
+      else if (ioData.schemes.ns.limiter == SchemeData::EXTENDEDVANALBADA)
+	rf = new RecFcnExtendedVanAlbada<dim>(beta, eps,ioData.eqs.fluidModelMap.dataMap[0]->pmin ,
+                                              ioData.eqs.fluidModelMap.dataMap[0]->rhomin,
+                                              ioData.schemes.ns.xip,
+                                              ioData.schemes.ns.xirho );
       else if (ioData.schemes.ns.limiter == SchemeData::BARTH)
 	rf = new RecFcnBarth<dim>(beta, eps);
       else if (ioData.schemes.ns.limiter == SchemeData::VENKAT)
@@ -503,24 +508,29 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
   }
 
-  if (egrad)
+  if (egrad) {
     egrad->compute(geoState->getConfig(), X);
+	}
 
   if (xpol){
     xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
   }
 
-  if (vms)
+  if (vms) {
     vms->compute(geoState->getConfig(), ctrlVol, X, *V, R);
+	}
 
-  if (smag)
+  if (smag) {
     domain->computeSmagorinskyLESTerm(smag, X, *V, R);
+	}
 
-  if (wale)
+  if (wale) {
      domain->computeWaleLESTerm(wale, X, *V, R);
+	}
 
-  if (dles)
+  if (dles) {
     dles->compute(ctrlVol, *bcData, X, *V, R);
+	}
 
   DistVec<double> *irey;
   if(timeState)
@@ -2183,6 +2193,12 @@ MultiPhaseSpaceOperator<dim,dimLS>::MultiPhaseSpaceOperator(IoData &ioData, VarF
       higherOrderData.counts[l] = new DistVec<int>(dom->getNodeDistInfo());
     }
   }
+
+  if (ioData.mf.riemannNormal == MultiFluidData::MESH) {
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      dom->getSubDomain()[iSub]->getEdges().setMultiFluidRiemannNormal(EdgeSet::MF_RIEMANN_NORMAL_MESH);
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2275,7 +2291,9 @@ template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi,
                                          FluidSelector &fluidSelector, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int it)
+                                         DistExactRiemannSolver<dim> *riemann, 
+                                         DistTimeState<dim> * timeState,
+                                         int it)
 {
 
   R = 0.0;
@@ -2330,7 +2348,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
     this->domain->computeVolumicForceTerm(this->volForce, ctrlVol, *(this->V), R);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0)
-    this->ngrad->limit(this->recFcn, X, ctrlVol, *(this->V));
+    this->ngrad->limit(this->recFcn, X, ctrlVol, *(this->V),timeState->getFirstOrderNodeSet());
   //if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)  
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
 
@@ -2455,6 +2473,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
                      DistVec<GhostPoint<dim>*> *ghostPoints)
 {
   R = 0.0;
+  int numLocSub = R.numLocSub();
   this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
@@ -2470,6 +2489,46 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
     //fluid Id (status) is used only to distinguish different materials. By using distLSS->getStatus(), we allow crossing FF interface but not FS interface.
     //  One can alternatively try to use fluidSelector.fluidId, which avoids crossing both FF and FS interfaces.
     this->timer->addNodalGradTime(t0);
+/*
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+     
+      SVec<double,dimLS>* grads[3] = {&(ngradLS->getX()(iSub)),
+                                      &(ngradLS->getY()(iSub)),
+                                      &(ngradLS->getZ()(iSub))}; 
+      for (int i = 0; i < normals[0]->subSize(iSub); ++i) {
+        for (int k = 0; k < dimLS; ++k) {
+          double mag = grads[0]->v[i][k]*grads[0]->v[i][k] + 
+                       grads[1]->v[i][k]*grads[1]->v[i][k] +
+                       grads[2]->v[i][k]*grads[2]->v[i][k];
+          mag = std::max<double>(1.0e-10,sqrt(mag));
+          (*normals[0])(iSub)[i][k] =  grads[0]->v[i][k]/mag;
+          (*normals[1])(iSub)[i][k] =  grads[1]->v[i][k]/mag;
+          (*normals[2])(iSub)[i][k] =  grads[2]->v[i][k]/mag;
+        } 
+      }
+    }
+
+    ngradLS_second[0]->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), 
+                               *normals[0]);
+    ngradLS_second[1]->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), 
+                               *normals[1]);
+    ngradLS_second[2]->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), 
+                               *normals[2]);
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+      for (int i = 0; i < normals[0]->subSize(iSub); ++i) {
+
+        for (int k = 0; k < dimLS; ++k) {
+          (*curvature)(iSub)[i][k] = ngradLS_second[0]->getX()(iSub)[i][k] +
+                                     ngradLS_second[1]->getY()(iSub)[i][k] +
+                                     ngradLS_second[2]->getZ()(iSub)[i][k];
+        }
+      }
+    }
+  */  
   }
 
   if (this->fet) {
@@ -2508,7 +2567,6 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
-    int numLocSub = R.numLocSub();
     int iSub;
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {

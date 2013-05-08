@@ -67,6 +67,8 @@ TsParameters::TsParameters(IoData &ioData)
   badlinsolve = false;
   allowstop = true;
 
+  errorHandler = NULL;
+
 }
 
 //------------------------------------------------------------------------------
@@ -75,6 +77,36 @@ TsParameters::~TsParameters()
 {
 
   if (output) delete [] output;
+
+}
+
+//------------------------------------------------------------------------------
+
+//Figure out what to do with errors (related to time step)
+void TsParameters::resolveErrors(){
+
+  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS])
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+
+  if (checksol && errorHandler->globalErrors[ErrorHandler::UNPHYSICAL]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
+  
+  if (errorHandler->globalErrors[ErrorHandler::BAD_RIEMANN]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
+/*
+  if (checksol && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
+*/
+  if (errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
 
 }
 
@@ -90,6 +122,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
   }
 
   // First run automatic CFL checks
+/*
   if (unphysical){
     unphysical=false;
     badlinsolve=false;
@@ -111,6 +144,16 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     fixedunsteady_counter = 1;
     //std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
     if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
+    return;
+  }
+*/
+
+  if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
+    cfl *= 0.5;
+    fixedunsteady_counter = 1;
+    //std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
+    if (cfl < cfl0/10000. && allowstop) {std::printf("Cannot further reduce CFL number. Aborting.\n"); exit(-1);}
     return;
   }
 
@@ -141,7 +184,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     cfl = cfl_prev;
 
     if (reshistory[0] != 0.0){
-      double e_hf, e_ac, e_dc, e_total; // hf_ratio; // hf_ratio has already been declared (KMW)
+      double e_hf, e_ac, e_dc, e_total;
       int cutofflow = dft_history/2 - (dft_freqcutoff-1)/2; 
       int cutoffhigh = (dft_history+1)/2 + (dft_freqcutoff-1)/2;
 

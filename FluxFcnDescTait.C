@@ -6,7 +6,6 @@
 #include <cstdio>
 
 
-
 //------------------------------------------------------------------------------
 // fortran routines located in f77src folder
 
@@ -456,11 +455,11 @@ void FluxFcnTaitModifiedGhidagliaEuler3D::compute(double length, double irey, do
                                                   double *V, double *Ub, double *flux, bool useLimiter)
 {
 
- int dim = 5;
+  int dim = 5;
  // fprintf(stderr,"faceCenter = %e %e %e;  s_ff = %e;  dt = %e.\n", flux[dim], flux[dim+1], flux[dim+2], flux[dim+3], flux[dim+4]);
- double snew;
- F77NAME(genbcfluxtait_hh)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux, flux+2*dim, snew, *(flux+2*dim+3), *(flux+2*dim+5));
-                           flux[2*dim+3] = snew;
+  double snew;
+  F77NAME(genbcfluxtait_hh)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux, hhcoeffptr, snew, *(hhcoeffptr+3), *(hhcoeffptr+5));
+  hhcoeffptr[3] = snew;
  
 }
 

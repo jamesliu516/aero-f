@@ -28,6 +28,7 @@ MultiGridKernel<Scalar>::MultiGridKernel(Domain *dom, DistGeoState& distGeoState
   }
 
   coarsen4to1 = (ioData.mg.coarseningRatio == MultiGridData::FOURTOONE);
+
 }
 
 template<class Scalar>
@@ -107,6 +108,10 @@ void MultiGridKernel<Scalar>::initialize(int dim,int neq1,int neq2) {
     fflush(stdout);
   }
 
+  for(int level = 0; level < num_levels; ++level) {
+
+    setupFixes(ioData, level, multiGridLevels[level]->getXn());
+  }
 }
 
 template<class Scalar>
@@ -121,6 +126,15 @@ void MultiGridKernel<Scalar>::setUseVolumeWeightedAverage(bool b) {
 template<class Scalar>
 MultiGridKernel<Scalar>::~MultiGridKernel()
 {
+
+  for (int lvl = 0; lvl < num_levels; ++lvl) {
+
+    delete [] fixLocations[lvl];
+  }
+ 
+  delete [] fixLocations;
+
+
   for (int level = 0; level < num_levels; ++level) {
     delete multiGridLevels[level];
   }
@@ -240,6 +254,178 @@ applyFixes(int lvl,DistSVec<Scalar2,dim>& f) {
   }
 }
  
+template <class Scalar>
+void MultiGridKernel<Scalar>::
+setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0) {
+
+  double spheres[SchemeFixData::num * 2][4];
+  double boxes[SchemeFixData::num * 2][2][3];
+  double cones[SchemeFixData::num * 2][2][4];
+
+  int j, nspheres = 0, nboxes = 0, ncones = 0;
+  for (j=0; j<ioData.mg.fixes.num; ++j) {
+
+    if (ioData.mg.fixes.spheres[j]->r > 0.0) {
+      spheres[nspheres][0] = ioData.mg.fixes.spheres[j]->x0;
+      spheres[nspheres][1] = ioData.mg.fixes.spheres[j]->y0;
+      spheres[nspheres][2] = ioData.mg.fixes.spheres[j]->z0;
+      spheres[nspheres][3] = ioData.mg.fixes.spheres[j]->r;
+      ++nspheres;
+      if (ioData.mg.fixes.symmetry == SchemeFixData::X) {
+	spheres[nspheres][0] = - ioData.mg.fixes.spheres[j]->x0;
+	spheres[nspheres][1] = ioData.mg.fixes.spheres[j]->y0;
+	spheres[nspheres][2] = ioData.mg.fixes.spheres[j]->z0;
+	spheres[nspheres][3] = ioData.mg.fixes.spheres[j]->r;
+	++nspheres;
+      }
+      else if (ioData.mg.fixes.symmetry == SchemeFixData::Y) {
+	spheres[nspheres][0] = ioData.mg.fixes.spheres[j]->x0;
+	spheres[nspheres][1] = - ioData.mg.fixes.spheres[j]->y0;
+	spheres[nspheres][2] = ioData.mg.fixes.spheres[j]->z0;
+	spheres[nspheres][3] = ioData.mg.fixes.spheres[j]->r;
+	++nspheres;
+      }
+      else if (ioData.mg.fixes.symmetry == SchemeFixData::Z) {
+	spheres[nspheres][0] = ioData.mg.fixes.spheres[j]->x0;
+	spheres[nspheres][1] = ioData.mg.fixes.spheres[j]->y0;
+	spheres[nspheres][2] = - ioData.mg.fixes.spheres[j]->z0;
+	spheres[nspheres][3] = ioData.mg.fixes.spheres[j]->r;
+	++nspheres;
+      }
+    }
+    if (ioData.mg.fixes.boxes[j]->x0 < ioData.mg.fixes.boxes[j]->x1) {
+      boxes[nboxes][0][0] = ioData.mg.fixes.boxes[j]->x0;
+      boxes[nboxes][0][1] = ioData.mg.fixes.boxes[j]->y0;
+      boxes[nboxes][0][2] = ioData.mg.fixes.boxes[j]->z0;
+      boxes[nboxes][1][0] = ioData.mg.fixes.boxes[j]->x1;
+      boxes[nboxes][1][1] = ioData.mg.fixes.boxes[j]->y1;
+      boxes[nboxes][1][2] = ioData.mg.fixes.boxes[j]->z1;
+      ++nboxes;
+      if (ioData.mg.fixes.symmetry == SchemeFixData::X) {
+	boxes[nboxes][0][0] = -ioData.mg.fixes.boxes[j]->x1;
+	boxes[nboxes][0][1] = ioData.mg.fixes.boxes[j]->y0;
+	boxes[nboxes][0][2] = ioData.mg.fixes.boxes[j]->z0;
+	boxes[nboxes][1][0] = -ioData.mg.fixes.boxes[j]->x0;
+	boxes[nboxes][1][1] = ioData.mg.fixes.boxes[j]->y1;
+	boxes[nboxes][1][2] = ioData.mg.fixes.boxes[j]->z1;
+	++nboxes;
+      }
+      if (ioData.mg.fixes.symmetry == SchemeFixData::Y) {
+	boxes[nboxes][0][0] = ioData.mg.fixes.boxes[j]->x0;
+	boxes[nboxes][0][1] = -ioData.mg.fixes.boxes[j]->y1;
+	boxes[nboxes][0][2] = ioData.mg.fixes.boxes[j]->z0;
+	boxes[nboxes][1][0] = ioData.mg.fixes.boxes[j]->x1;
+	boxes[nboxes][1][1] = -ioData.mg.fixes.boxes[j]->y0;
+	boxes[nboxes][1][2] = ioData.mg.fixes.boxes[j]->z1;
+	++nboxes;
+      }
+     if (ioData.mg.fixes.symmetry == SchemeFixData::Z) {
+	boxes[nboxes][0][0] = ioData.mg.fixes.boxes[j]->x0;
+	boxes[nboxes][0][1] = ioData.mg.fixes.boxes[j]->y0;
+	boxes[nboxes][0][2] = -ioData.mg.fixes.boxes[j]->z1;
+	boxes[nboxes][1][0] = ioData.mg.fixes.boxes[j]->x1;
+	boxes[nboxes][1][1] = ioData.mg.fixes.boxes[j]->y1;
+	boxes[nboxes][1][2] = -ioData.mg.fixes.boxes[j]->z0;
+	++nboxes;
+      }
+    }
+    if (ioData.mg.fixes.cones[j]->r0 >= 0.0 && ioData.mg.fixes.cones[j]->r1 >= 0.0) {
+      cones[ncones][0][0] = ioData.mg.fixes.cones[j]->x0;
+      cones[ncones][0][1] = ioData.mg.fixes.cones[j]->y0;
+      cones[ncones][0][2] = ioData.mg.fixes.cones[j]->z0;
+      cones[ncones][0][3] = ioData.mg.fixes.cones[j]->r0;
+      cones[ncones][1][0] = ioData.mg.fixes.cones[j]->x1;
+      cones[ncones][1][1] = ioData.mg.fixes.cones[j]->y1;
+      cones[ncones][1][2] = ioData.mg.fixes.cones[j]->z1;
+      cones[ncones][1][3] = ioData.mg.fixes.cones[j]->r1;
+      ++ncones;
+      if (ioData.mg.fixes.symmetry == SchemeFixData::X) {
+        cones[ncones][0][0] = -ioData.mg.fixes.cones[j]->x0;
+        cones[ncones][0][1] = ioData.mg.fixes.cones[j]->y0;
+        cones[ncones][0][2] = ioData.mg.fixes.cones[j]->z0;
+        cones[ncones][0][3] = ioData.mg.fixes.cones[j]->r0;
+        cones[ncones][1][0] = -ioData.mg.fixes.cones[j]->x1;
+        cones[ncones][1][1] = ioData.mg.fixes.cones[j]->y1;
+        cones[ncones][1][2] = ioData.mg.fixes.cones[j]->z1;
+        cones[ncones][1][3] = ioData.mg.fixes.cones[j]->r1;
+        ++ncones;
+      }
+      if (ioData.mg.fixes.symmetry == SchemeFixData::Y) {
+        cones[ncones][0][0] = ioData.mg.fixes.cones[j]->x0;
+        cones[ncones][0][1] = -ioData.mg.fixes.cones[j]->y0;
+        cones[ncones][0][2] = ioData.mg.fixes.cones[j]->z0;
+        cones[ncones][0][3] = ioData.mg.fixes.cones[j]->r0;
+        cones[ncones][1][0] = ioData.mg.fixes.cones[j]->x1;
+        cones[ncones][1][1] = -ioData.mg.fixes.cones[j]->y1;
+        cones[ncones][1][2] = ioData.mg.fixes.cones[j]->z1;
+        cones[ncones][1][3] = ioData.mg.fixes.cones[j]->r1;
+        ++ncones;
+      }
+      if (ioData.mg.fixes.symmetry == SchemeFixData::Z) {
+        cones[ncones][0][0] = ioData.mg.fixes.cones[j]->x0;
+        cones[ncones][0][1] = ioData.mg.fixes.cones[j]->y0;
+        cones[ncones][0][2] = -ioData.mg.fixes.cones[j]->z0;
+        cones[ncones][0][3] = ioData.mg.fixes.cones[j]->r0;
+        cones[ncones][1][0] = ioData.mg.fixes.cones[j]->x1;
+        cones[ncones][1][1] = ioData.mg.fixes.cones[j]->y1;
+        cones[ncones][1][2] = -ioData.mg.fixes.cones[j]->z1;
+        cones[ncones][1][3] = ioData.mg.fixes.cones[j]->r1;
+        ++ncones;
+      }
+    }
+  }
+
+  if (nspheres > 0 || nboxes > 0 || ncones > 0) {
+  Communicator* com = domain->getCommunicator();
+    for (j=0; j<nspheres; ++j)
+      com->printf(1, "*** Warning: set the Multigrid updates to zero in [(%g, %g, %g), %g]\n",
+		  spheres[j][0], spheres[j][1], spheres[j][2], spheres[j][3]);
+    for (j=0; j<nboxes; ++j)
+      com->printf(1, "*** Warning: set the Multigrid updates to zero in [(%g, %g, %g), (%g, %g, %g)]\n",
+		  boxes[j][0][0], boxes[j][0][1], boxes[j][0][2],
+		  boxes[j][1][0], boxes[j][1][1], boxes[j][1][2]);
+
+    for (j=0; j<ncones; ++j)
+      com->printf(1, "*** Warning: set the Multigrid updates to zero in cone [(%g, %g, %g), %g; (%g, %g, %g), %g]\n",
+                  cones[j][0][0], cones[j][0][1], cones[j][0][2], cones[j][0][3],
+                  cones[j][1][0], cones[j][1][1], cones[j][1][2], cones[j][1][3]);
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      double (*x0)[3] = X0.subData(iSub);
+      for (int i=0; i<X0.subSize(iSub); ++i) {
+	for (j=0; j<nspheres; ++j) {
+	  double r = sqrt( (x0[i][0] - spheres[j][0])*(x0[i][0] - spheres[j][0]) +
+			   (x0[i][1] - spheres[j][1])*(x0[i][1] - spheres[j][1]) +
+			   (x0[i][2] - spheres[j][2])*(x0[i][2] - spheres[j][2]) );
+	  if (r <= spheres[j][3])
+            fixLocations[lvl][iSub].insert(i);
+	}
+	for (j=0; j<nboxes; ++j) {
+	  if ((x0[i][0] >= boxes[j][0][0]) && (x0[i][0] <= boxes[j][1][0]) &&
+	      (x0[i][1] >= boxes[j][0][1]) && (x0[i][1] <= boxes[j][1][1]) &&
+	      (x0[i][2] >= boxes[j][0][2]) && (x0[i][2] <= boxes[j][1][2]))
+            fixLocations[lvl][iSub].insert(i);
+	}
+        for (j=0; j<ncones; ++j)  {
+          Vec3D dr(cones[j][1][0]-cones[j][0][0], cones[j][1][1]-cones[j][0][1], cones[j][1][2]-cones[j][0][2]);
+          double height = dr.norm();
+          dr /= height;
+          Vec3D xp;
+          Vec3D pr0(x0[i][0]-cones[j][0][0], x0[i][1]-cones[j][0][1], x0[i][2]-cones[j][0][2]);
+          double h = pr0*dr;
+          if (h >= 0.0 && h <= height)  {
+            xp = pr0 - (h*dr);
+            double r = cones[j][0][3] + (cones[j][1][3]-cones[j][0][3]) * h / height;
+            if (xp.norm() < r)
+              fixLocations[lvl][iSub].insert(i);
+          }
+        }
+      }
+    }
+  }
+}
+
 
 #define INSTANTIATION_HELPER(T) \
     template class MultiGridKernel<T>;

@@ -14,7 +14,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
     if (ioData.eqs.type == EquationsData::EULER) {
       com->fprintf(stderr, "*** Running an Embedded Inviscid %d Phase Fluid-Structure Simulation with %d Level-Set(s) ***\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
       switch(ioData.embed.nLevelset) {
-        case 0 : NavierStokesEmbedded<5>::solve(ioData, geoSource, domain); break;
+        case 0 : NavierStokesEmbeddedCoupledSolver<5>::solve(ioData, geoSource, domain); break;
         case 1 : NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain); break;
         case 2 : NavierStokesMultiPhysicsEmbedded<5,2>::solve(ioData,geoSource,domain); break;
         case 3 : NavierStokesMultiPhysicsEmbedded<5,3>::solve(ioData,geoSource,domain); break;
@@ -31,24 +31,24 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 	if(ioData.eqs.tc.type == TurbulenceClosureData::NONE)
 	  {
 	    com->fprintf(stderr,"--- No Turbulent Model Used ***\n");
-	    NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	    NavierStokesEmbeddedCoupledSolver<5>::solve(ioData, geoSource, domain);
 	  }
 	else if(ioData.eqs.tc.type == TurbulenceClosureData::LES)
 	  {
 	    if(ioData.eqs.tc.les.type == LESModelData::SMAGORINSKY)
 	    {
 	      com->fprintf(stderr,"--- Smagorinsky LES Model Used ***\n");
-	      NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	      NavierStokesEmbeddedCoupledSolver<5>::solve(ioData, geoSource, domain);
 	    }
 	    if(ioData.eqs.tc.les.type == LESModelData::DYNAMIC)
 	    {
 	      com->fprintf(stderr,"--- Dynamic LES Model Used ***\n");
-	      NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	      NavierStokesEmbeddedCoupledSolver<5>::solve(ioData, geoSource, domain);
 	    }
 	    if(ioData.eqs.tc.les.type == LESModelData::WALE)
 	    {
 	      com->fprintf(stderr,"--- Wale LES Model Used ***\n");
-	      NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	      NavierStokesEmbeddedCoupledSolver<5>::solve(ioData, geoSource, domain);
 	    }
 	  }
 	else if(ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)
@@ -56,19 +56,31 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 	    if(ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)
 	      {
 		com->fprintf(stderr,"--- Spalart-Allmaras Turbulent Model Used ***\n");
-		NavierStokesEmbedded<6>::solve(ioData, geoSource, domain);
+		if (ioData.ts.type == TsData::IMPLICIT &&
+				ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
+		  NavierStokesEmbeddedSegSolver<6,5,1>::solve(ioData, geoSource, domain);
+		else
+		  NavierStokesEmbeddedCoupledSolver<6>::solve(ioData, geoSource, domain);
 	      }
 	    if(ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
 	      {
 		com->fprintf(stderr,"--- DES Turbulent Model Used ***\n");
 		com->fprintf(stderr, "*** Error: This option should work but has never been tested. Please use carefully. ***\n");
 		exit(1);
-		NavierStokesEmbedded<6>::solve(ioData, geoSource, domain);
+		if (ioData.ts.type == TsData::IMPLICIT &&
+				ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
+		  NavierStokesEmbeddedSegSolver<6,5,1>::solve(ioData, geoSource, domain);
+		else
+		  NavierStokesEmbeddedCoupledSolver<6>::solve(ioData, geoSource, domain);
 	      }
 	    if(ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
 	      {
 		com->fprintf(stderr,"--- K-Epsilon Turbulent Model Used ***\n");
-		NavierStokesEmbedded<7>::solve(ioData, geoSource, domain);
+		if (ioData.ts.type == TsData::IMPLICIT &&
+				ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
+		  NavierStokesEmbeddedSegSolver<7,5,2>::solve(ioData, geoSource, domain);
+		else
+		  NavierStokesEmbeddedCoupledSolver<7>::solve(ioData, geoSource, domain);
 	      }
 	  }
 	else

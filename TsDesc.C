@@ -40,6 +40,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   Rreal = new DistSVec<double,dim>(getVecInfo());
   timer = domain->getTimer();
   com = domain->getCommunicator();
+  errorHandler = domain->getErrorHandler();
 
   problemType = ioData.problem.type;
   clippingType = ioData.ts.typeClipping;
@@ -53,13 +54,16 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   input = new TsInput(ioData);
   geoState = new DistGeoState(ioData, domain);
+
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  if(ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) 
+  if (ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) {
     geoState->setup1(input->positions, X, A);
-  else {
+    moveMesh(ioData, geoSource);
+  } else {
     char temp[1]; temp[0] = '\0';
     geoState->setup1(temp, X, A);
+    moveMesh(ioData, geoSource);
   }
 
   bcData = createBcData(ioData);
@@ -69,6 +73,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   postOp = new PostOperator<dim>(ioData, varFcn, bcData, geoState, domain, V);
 
   data = new TsParameters(ioData);
+  data->assignErrorHandler(dom->getErrorHandler());
   output = new TsOutput<dim>(ioData, refVal, domain, postOp);
   restart = new TsRestart(ioData, refVal);
 
@@ -95,8 +100,8 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   else if (ioData.sa.fixsol == 1)
     fixSol = 1;
 
-	timeState = 0;
-	mmh = 0; 
+  timeState = 0;
+  mmh = 0; 
 
 }
 
@@ -124,12 +129,40 @@ TsDesc<dim>::~TsDesc()
   if (spaceOp) delete spaceOp;
   if (postOp) delete postOp;
   if (mmh) delete mmh;
+  if (mems) delete mems;
   if (hth) delete hth;
   if (forceNorms) delete forceNorms;
   if (riemann1) delete riemann1;
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
+{
+    if (strcmp(input->wallsurfacedisplac,"") != 0 && strcmp(input->positions,"") == 0) {
+      cout << input->wallsurfacedisplac << endl;
+      PosVecType dXb(getVecInfo());
+      mems = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);
+//      mems = new TetMeshMotionSolver(ioData.dmesh, 0, domain, 0);
+      domain->readVectorFromFile(input->wallsurfacedisplac, 0, 0, dXb);
+      mems->solve(dXb, *X);
+      *Xs = *X; 
+      if(X->norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
+        exit(1);
+      }
+      com->fprintf(stderr," *** mesh has been moved.\n");
+      char temp[1]; temp[0] = '\0';
+      geoState->setup3(temp, X, A);
+    } else {
+      mems = 0;
+    }
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void TsDesc<dim>::printf(int verbose, const char *format, ...)
@@ -169,7 +202,7 @@ DistBcData<dim> *TsDesc<dim>::createBcData(IoData &ioData)
   if (ioData.eqs.type == EquationsData::NAVIER_STOKES && 
       ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
-	ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
+        ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
       bc = new DistBcDataSA<dim>(ioData, varFcn, domain, *X);
     else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc = new DistBcDataKE<dim>(ioData, varFcn, domain, *X);
@@ -198,10 +231,10 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
   if (ioData.problem.type[ProblemData::AERO]) {
     if (ioData.problem.type[ProblemData::ACCELERATED])
       _mmh = new AccAeroMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(),
-					  geoSource.getMatchNodes(), domain, mp);
+                                          geoSource.getMatchNodes(), domain, mp);
     else
       _mmh = new AeroMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(),
-				       geoSource.getMatchNodes(), domain, mp);
+                                       geoSource.getMatchNodes(), domain, mp);
     //check that algorithm number is consistent with simulation in special case RK2-CD
     // if C0 and RK2 then RK2DGCL is needed!
     if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
@@ -308,6 +341,8 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   timeState->unphysical = data->unphysical;
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
+
+  printf(1,"cfl=%e\n",data->cfl);
 
   double dt = 0.0;
   if(failSafeFlag == false){
@@ -473,6 +508,9 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   else
     ierr = domain->checkSolution(varFcn, U);
 
+  if (ierr != 0 && data->checksol) data->unphysical = true;
+  ierr = max(ierr,0);
+
   return ierr;
 
 }
@@ -493,7 +531,7 @@ void TsDesc<dim>::fixSolution(DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
 
 template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
-				    DistSVec<double,dim> &U)
+                                    DistSVec<double,dim> &U)
 {
   if (it == data->maxIts)
     *lastIt = true;
@@ -533,7 +571,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
 
 template<int dim>
 void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl, 
-			       double t, double dt, DistSVec<double,dim> &U)
+                               double t, double dt, DistSVec<double,dim> &U)
 {
 
   com->globalSum(1, &interruptCode);
@@ -565,8 +603,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
     if (com->getMaxVerbose() >= 2)
       timer->print(domain->getStrTimer());
 
-    output->closeAsciiFiles();
-
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+      output->closeAsciiFiles();
+    }
   }
 
 }
@@ -575,7 +614,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
 template<int dim>
 void TsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl, 
-			       double t, double dt, DistSVec<double,dim> &U)  {
+                               double t, double dt, DistSVec<double,dim> &U)  {
 
   double cpu = timer->getRunTime();
   if (wallRecType==BcsWallData::CONSTANT)
@@ -627,7 +666,7 @@ void TsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 
 template<int dim>
 void TsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
-					  DistSVec<double,dim> &U)
+                                          DistSVec<double,dim> &U)
 {
 
   if (mmh) {
@@ -682,8 +721,8 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
       bool* flag = R->getMasterFlag(iSub);
       double locres = 0.0;
       for (int i=0; i<R->subSize(iSub); ++i) {
-	if (flag[i])
-	  locres += r[i][data->resType]*r[i][data->resType];
+        if (flag[i])
+          locres += r[i][data->resType]*r[i][data->resType];
       }
 #ifdef MPI_OMP_REDUCTION
       res += locres;

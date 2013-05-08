@@ -49,6 +49,9 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   viscousCst = ioData.ts.viscousCst;
   Un  = new DistSVec<double,dim>(dI);
   Vn = new DistSVec<double,dim>(dI);
+  firstOrderNodes = new DistVec<int>(dI);
+
+  *firstOrderNodes = 0;
 
   if (data->use_nm1)
     Unm1 = new DistSVec<double,dim>(dI);
@@ -145,6 +148,11 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   dt_coeff = 1.0;
   dt_coeff_count = 0;
   allowcflstop = true;
+
+  *irey = 0.0;
+
+  checkForRapidlyChangingPressure = ioData.ts.rapidPressureThreshold;
+  checkForRapidlyChangingDensity = ioData.ts.rapidDensityThreshold;
 }
 
 //------------------------------------------------------------------------------
@@ -606,9 +614,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *dtau, *irey, tprec, sprec);
 
   double dt_glob;
-  if (data->dt_imposed > 0.0) 
+  updateDtCoeff();
+  if (data->dt_imposed > 0.0){
     dt_glob = data->dt_imposed;
-  else 
+    allowcflstop = false; 
+    dt_glob *= dt_coeff;
+  } else 
     dt_glob = dt->min();
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
@@ -655,6 +666,10 @@ double DistTimeState<dim>::computeTimeStepFailSafe(double* dtLeft, int* numSubCy
 template<int dim> 
 double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCycles)
 {
+  if (data->dt_imposed > 0.0 && *dtLeft == 0.0) 
+  //Allows for use of subcycling in fluid only simulations with imposed time step
+    *dtLeft = data->dt_imposed;
+
   double incfac = 1.25 + (1.15 * pow((2.71828),(- double(it-2) / 3.0)));
   double decfac = max(0.2 , (0.75 + (-1.25 * pow((2.71828),(- double(it-2) / 3.0)))));
 
@@ -755,9 +770,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
 			  umax);
                                                                                                          
   double dt_glob;
-  if (data->dt_imposed > 0.0)
+  updateDtCoeff();
+  if (data->dt_imposed > 0.0){
     dt_glob = data->dt_imposed;
-  else
+    allowcflstop = false; 
+    dt_glob *= dt_coeff;
+  }else
     dt_glob = dt->min();
                                                                                                          
   if (umax && isGFMPAR) {
@@ -1403,6 +1421,31 @@ struct MultiphaseRiemannCopy {
   }
 };
 
+struct SetFirstOrderNodes {
+
+  VarFcn* varFcn;
+
+  double threshold;
+
+  SetFirstOrderNodes(VarFcn* varFcn,double t) : varFcn(varFcn),
+      threshold(t) { }
+
+  void Perform(double* uold, double* unew, int& status,int id) const {
+
+    double vold[7], vnew[7];
+    varFcn->conservativeToPrimitive(uold,vold, id);
+    varFcn->conservativeToPrimitive(unew,vnew, id);
+     
+    double pold = varFcn->getPressure(vold,id);
+    double pnew = varFcn->getPressure(vnew,id);
+    if (fabs(pnew-pold)/pold > threshold) {
+      status = 1;
+    }
+    else
+      status = 0;
+  }
+};
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1430,6 +1473,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
       if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
       
       varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
+
+      if (checkForRapidlyChangingPressure > 0.0)
+        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure)); 
+
+      int numFirstOrderNodes = firstOrderNodes->sum(); 
+      if (numFirstOrderNodes > 0)
+        this->domain->getCommunicator()->fprintf(stdout,"%d nodes set to first order accuracy\n",numFirstOrderNodes);
+
       DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
       varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
       *Unm1 = *Vn;

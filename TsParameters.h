@@ -1,6 +1,7 @@
 #ifndef _TS_PARAMETERS_H_
 #define _TS_PARAMETERS_H_
 
+#include <ErrorHandler.h>
 
 class IoData;
 
@@ -28,6 +29,8 @@ class TsParameters {
   double* reshistory;
   complex<double>* dft;
 
+  ErrorHandler* errorHandler;
+
 public:
 
   int maxIts;
@@ -53,7 +56,9 @@ public:
   ~TsParameters();
 
   void computeCflNumber(int, double, double);
+  void resolveErrors();
   double getCflMinOverCfl0(){return (cflMin/cfl0);}
+  void assignErrorHandler(ErrorHandler* in){errorHandler = in; }
 
 // Included (MB)
   void rstVar(IoData &);

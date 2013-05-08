@@ -2,6 +2,7 @@
 #define _TS_SOLVER_H_
 
 # include<IoData.h>
+#include <ErrorHandler.h>
 
 class IoData;
 
@@ -22,7 +23,7 @@ public:
 
   int solve(IoData &);
 
-	int fsoSolve(IoData &);
+  int fsoSolve(IoData &);
 // Included (MB)
   int fsaSolve(IoData &);
 
@@ -79,7 +80,7 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   probDesc->fsaPrintTextOnScreen("**********************************\n");
   probDesc->fsaPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
   probDesc->fsaPrintTextOnScreen("**********************************\n");
-	
+  
   probDesc->fsaHandler(ioData, U);
 
   return 0;
@@ -102,8 +103,8 @@ int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
   probDesc->fsoPrintTextOnScreen("*** Fluid Shape Optimization Interface ***\n");
   probDesc->fsoPrintTextOnScreen("******************************************\n");
 
-	probDesc->fsoMoveMesh(ioData, U);
-	resolve(U, ioData);
+  probDesc->fsoInitialize(ioData, U);
+  resolve(U, ioData);
   probDesc->fsoHandler(ioData, U);
 
   return 0;
@@ -133,19 +134,22 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     (*dUPrevPrev) = 0.0;
   }
 
+  typename ProblemDescriptor::SolVecType *UPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+  (*UPrev) = 0.0;
+
   // dts is structural time step
   double dt, dts;
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
-
-  // For an embedded viscous simulation with turbulence model, compute the distance to the wall
-  probDesc->computeDistanceToWall(ioData);
 
   // setup solution output files
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
   /** for embedded method: send force (if it>0) and receive disp (from Struct). */
   dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+  // For an embedded viscous simulation with turbulence model, compute the distance to the wall
+  probDesc->computeDistanceToWall(ioData);
 
   if (lastIt)
     probDesc->outputPositionVectorToDisk(U);
@@ -165,20 +169,16 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
  
     bool solveOrNot = true;
     
-    // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
-    if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-        ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
-        ioData.problem.alltype == ProblemData::_FORCED_) {
-      probDesc->computeDistanceToWall(ioData);
-    }
     bool repeat;
     do { // Subcycling
+      (*UPrev) = U;
+
       repeat = false;
       double dtLeftPrev = dtLeft;
       stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
-
+ 
       if(probDesc->structureSubcycling() || //in this case computeTimeStep is called in computePositionVector
          (it>1 && probDesc->willNotSolve(dtLeft,t)) ) {//in this case AERO-F should never subcycle
         probDesc->setFluidSubcycling(false);
@@ -190,7 +190,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         else angle = -2.0;
         dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
       }
-
       
       t += dt;
 
@@ -211,19 +210,31 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           *dUPrev = *dU;
           *dU = -1.0*U;
         }
+        if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->clearError(ErrorHandler::SOLVER);
         stat = probDesc->solveNonLinearSystem(U, it);
-        if (stat == -10){ // must redo iteration with a different CFL number, undo everything we have done so far
+        if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->reduceError();
+
+        if(probDesc->getTsParams()) probDesc->getTsParams()->resolveErrors();
+
+        // stat = -10 signals that the time iteration must be redone!
+        // Regardless of what happens elsewhere, this should work.
+        if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]){ // || stat == -10 // must redo iteration with a different CFL number, undo everything we have done so far 
+          probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]=0;
           probDesc->printf(1,"Found unphysical solution. Re-calculating CFL number and repeating iteration.\n");
+          U = (*UPrev); // Reset U to its previous state
           repeat = true;
+          // Reset directions for direction strategy
           if (dU && dUPrev){
             *dU = *dUPrev;
             *dUPrev = *dUPrevPrev;
           }
+          // undo time step and subcycling
           t -= dt;
           itSc--;
           dtLeft = dtLeftPrev;
           continue;
         }
+
         if (dU && dUPrev) *dU += U;
         if(stat>0){
           itNl += stat;
@@ -236,6 +247,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
             probDesc->printf(1, "Fail safe failed! \n",itSc);
             exit(-1);
           }
+          probDesc->printf(1, "stat: %i \n",stat);
           probDesc->printf(1, "itSc:  %i \n",itSc);
           t -= dt;
           probDesc->setFailSafe(true);
@@ -252,6 +264,16 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
     dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+  // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
+    if ( (ioData.problem.framework == ProblemData::EMBEDDED) || 
+         (ioData.problem.framework == ProblemData::EMBEDDEDALE) )
+      if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
+          ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
+          ioData.problem.alltype == ProblemData::_FORCED_) {
+        if (!lastIt) probDesc->computeDistanceToWall(ioData);
+      }
+
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
 
   }

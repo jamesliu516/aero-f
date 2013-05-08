@@ -266,9 +266,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
-void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
+int ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
 {
- 
+
   solveNLEuler(U);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
@@ -287,8 +287,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,d
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
-  this->checkSolution(U);
+  if(this->checkSolution(U) != 0){
+    return -10;
+  }
 
+  return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -456,7 +459,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
   }
 
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, *locphi, this->fluidSelector, 
-					   dU, this->riemann,it);
+					   dU, this->riemann,this->timeState,it);
                                  //Q: why send PhiV?
                                  //A: Riemann solver needs gradPhi.
   // for RK2 on moving grids

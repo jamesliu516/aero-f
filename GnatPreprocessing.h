@@ -209,7 +209,7 @@ protected:
 	void addFaceNodesElements(FaceSet& currentFaces, const int iFace,
 			const int iSub, const int *locToGlobNodeMap);
 	void addNodesOnFace(FaceSet& currentFaces, const int iFace,
-			const int iSub, const int *locToGlobNodeMap, int *globalNodeNums);
+			const int iSub, const int *locToGlobNodeMap, int *locNodeNums);
 	void addElementOfFace(FaceSet& currentFaces, const int iFace,
 			const int iSub, const int *locToGlobNodeMap, const int *globalNodeNums);
 	virtual void addSampleNodesAndNeighbors();

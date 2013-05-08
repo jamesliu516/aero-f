@@ -26,11 +26,40 @@ MultiGridCoupledTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
     mc = 2;     
 
   globalIt = 0;
+
+  mgMvp = NULL;
+  pKernel = NULL;
+  mgSpaceOp = NULL;
+  mgKspSolver = NULL;
+  smoothingMatrices = NULL;
+
 }
 
 template <int dim>
 MultiGridCoupledTsDesc<dim>::
 ~MultiGridCoupledTsDesc() {
+
+  if (mgMvp)
+    delete mgMvp;
+  if (mgSpaceOp)
+    delete mgSpaceOp;
+  if (mgKspSolver)
+    delete mgKspSolver;
+  if (smoothingMatrices)
+    delete smoothingMatrices;
+
+  V.free();
+  res.free();
+  R.free();
+  F.free();
+  Forig.free();
+  U.free();
+  Uold.free(); 
+  dx.free();
+
+
+ if (pKernel)
+    delete pKernel;
 
 }
 

@@ -25,9 +25,9 @@ public:
   ~ObjectMap()
     {
       for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
-	{
-	  delete it->second;
-	}
+      {
+        delete it->second;
+      }
     }
 };
 
@@ -100,9 +100,9 @@ struct InputData {
   // UH (08/2012)
   const char* strKPtraces;
 
+  const char *wallsurfacedisplac; //YC
 // Included (MB)
   const char *shapederivatives;
-  const char *wallsurfacedisplac;
 
   ObjectMap< OneDimensionalInputData > oneDimensionalInput;
 
@@ -210,6 +210,7 @@ struct TransientData {
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
+  const char* d2wall;
   const char *embeddedsurface;
   const char *cputiming;
 
@@ -228,6 +229,7 @@ struct TransientData {
   const char *dVelocityVector;
   const char *dDisplacement;
   const char *dForces;
+  const char *dLiftDrag;
 
   const char *tempnormalderivative;
   const char *surfaceheatflux;
@@ -361,20 +363,20 @@ struct RestartParametersData {
 struct ProblemData {
 
   enum Type {UNSTEADY = 0, ACCELERATED = 1, AERO = 2, THERMO = 3, FORCED = 4,
-	     ROLL = 5, RBM = 6, LINEARIZED = 7, NLROMOFFLINE = 8, NLROMONLINE = 9, SIZE = 10};
+             ROLL = 5, RBM = 6, LINEARIZED = 7, NLROMOFFLINE = 8, NLROMONLINE = 9, SIZE = 10};
   bool type[SIZE];
 
   enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3,
-		_UNSTEADY_AEROELASTIC_ = 4, _ACC_UNSTEADY_AEROELASTIC_ = 5,
-		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
-		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
-		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-		_UNSTEADY_LINEARIZED_ = 15, _NONLINEAR_ROM_OFFLINE_ = 16,
-		_ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
-		_SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-		_NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
+                _UNSTEADY_AEROELASTIC_ = 4, _ACC_UNSTEADY_AEROELASTIC_ = 5,
+                _STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
+                _UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
+                _ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
+                _UNSTEADY_LINEARIZED_ = 15, _NONLINEAR_ROM_OFFLINE_ = 16,
+                _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
+                _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+                _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
+                _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
+                _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
                 _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34,  _ACC_UNSTEADY_NONLINEAR_ROM_ = 35,
                 _STEADY_NONLINEAR_ROM_ = 36} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
@@ -738,6 +740,23 @@ struct KEModelData {
 };
 
 //------------------------------------------------------------------------------
+//
+struct WallDistanceMethodData {
+
+  enum Type {ITERATIVE = 0, NONITERATIVE = 1, HYBRID = 2} type;
+
+  int maxIts;
+  double eps;
+  int iterativelvl;
+
+  WallDistanceMethodData();
+  ~WallDistanceMethodData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
 
 struct TurbulenceModelData {
 
@@ -746,6 +765,7 @@ struct TurbulenceModelData {
   SAModelData sa;
   DESModelData des;
   KEModelData ke;
+  WallDistanceMethodData d2wall;
 
   TurbulenceModelData();
   ~TurbulenceModelData() {}
@@ -928,6 +948,7 @@ struct ProgrammedBurnData {
   double ignitionTime;
   double factorB;
   double factorS;
+  //double stopWhenShockReachesPercentDistance;
   int ignited;
   int limitPeak;
   
@@ -1080,6 +1101,8 @@ struct MultiFluidData {
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
 
+  enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
+
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
@@ -1143,7 +1166,8 @@ struct SchemeData {
 
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruction;
 
-  enum Limiter {NONE = 0, VANALBADA = 1, BARTH = 2, VENKAT = 3, P_SENSOR = 4} limiter;
+  enum Limiter {NONE = 0, VANALBADA = 1, BARTH = 2, VENKAT = 3, P_SENSOR = 4,
+                EXTENDEDVANALBADA = 5} limiter;
   enum Gradient {LEAST_SQUARES = 0, GALERKIN = 1, NON_NODAL = 2} gradient;
   enum Dissipation {SECOND_ORDER = 0, SIXTH_ORDER = 1} dissipation;
 
@@ -1152,6 +1176,9 @@ struct SchemeData {
   double xiu;
   double xic;
   double eps;
+  
+  double xirho;
+  double xip;
 
   struct MaterialFluxData {
 
@@ -1301,9 +1328,9 @@ struct SchemeFixData {
 struct BoundarySchemeData {
 
   enum Type { STEGER_WARMING = 0,
-	      CONSTANT_EXTRAPOLATION = 1,
-	      LINEAR_EXTRAPOLATION = 2,
-	      GHIDAGLIA = 3, MODIFIED_GHIDAGLIA = 4} type;
+              CONSTANT_EXTRAPOLATION = 1,
+              LINEAR_EXTRAPOLATION = 2,
+              GHIDAGLIA = 3, MODIFIED_GHIDAGLIA = 4} type;
 
   BoundarySchemeData();
   ~BoundarySchemeData() {}
@@ -1398,6 +1425,8 @@ struct MultiGridData {
   int num_fine_sweeps;
 
   int addViscousTerms;
+
+  SchemeFixData fixes;
  
   MultiGridData();
   ~MultiGridData() {}
@@ -1565,6 +1594,9 @@ struct TsData {
   double ser;
   double dualtimecfl;
 
+  double programmedBurnShockSensor;
+  double rapidPressureThreshold;
+  double rapidDensityThreshold;
 
   const char *output;
 
@@ -2059,14 +2091,14 @@ struct NonlinearRomFileSystemData {
 
 struct StateSnapshotsData {
 
-	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
- 	enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
+  enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
+  enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
   enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
   enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;
   enum SubtractRefState {SUBTRACT_REF_STATE_FALSE = 0, SUBTRACT_REF_STATE_TRUE = 1} subtractRefState;
 
-	StateSnapshotsData();
-	~StateSnapshotsData() {}
+  StateSnapshotsData();
+  ~StateSnapshotsData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -2091,11 +2123,11 @@ struct SnapshotsData {
 struct DataCompressionData {
 
   enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
-	enum Type {POD = 0, BALANCED_POD = 1} type;
-	enum PODMethod {SVD = 0, Eig = 1} podMethod;
-	int maxVecStorage;
-	enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
-	double tolerance;
+  enum Type {POD = 0, BALANCED_POD = 1} type;
+  enum PODMethod {SVD = 0, Eig = 1} podMethod;
+  int maxVecStorage;
+  enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
+  double tolerance;
   int maxBasisSize;
   int minBasisSize;
   double singValTolerance;
@@ -2114,7 +2146,7 @@ struct DataCompressionData {
 struct StateData {
 
   StateSnapshotsData snapshots;
-	DataCompressionData dataCompression;
+  DataCompressionData dataCompression;
 
   StateData();
   ~StateData() {}
@@ -2460,8 +2492,8 @@ struct EmbeddedFramework {
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
-  double alpha;		// In the case of solve Riemann problem at intersection, this parameter
-  					// controls whether to switch to a first order method to avoid divided-by-zero
+  double alpha;   // In the case of solve Riemann problem at intersection, this parameter
+                  // controls whether to switch to a first order method to avoid divided-by-zero
 
   // stabilizing alpha (attempt at stabilizing the structure normal)
   // Tries to add some dissipation.  should be small.
@@ -2579,7 +2611,7 @@ public:
   AeroelasticData aero;
   ForcedData forced;
   NonlinearRomOfflineData romOffline;
-	NonlinearRomOnlineData romOnline;
+  NonlinearRomOnlineData romOnline;
   NonlinearRomFileSystemData romDatabase;
   LinearizedData linearizedData;
   Surfaces surfaces;
@@ -2610,7 +2642,7 @@ public:
   int checkInputValuesAllEquationsOfState();
   int checkInputValuesProgrammedBurn();
   int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
-			       InitialConditions& IC);
+                               InitialConditions& IC);
   int checkCFLBackwardsCompatibility();
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();

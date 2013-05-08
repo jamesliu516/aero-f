@@ -82,6 +82,9 @@ Domain::Domain()
   globCom->split(FLUID_ID, MAX_CODES, allCom);
 
   com = allCom[FLUID_ID];
+
+  errorHandler = new ErrorHandler(com);
+
   timer = new Timer(com);
   com->setTimer(timer);
 
@@ -1757,4 +1760,13 @@ void Domain::createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellS
     subDomain[iSub]->createHigherOrderMultiFluid(cutCellVec(iSub));
   }
   
+}
+
+void Domain::assignErrorHandler(){
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->assignErrorHandler(errorHandler);
+  }
+
 }

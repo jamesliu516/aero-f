@@ -27,12 +27,31 @@ MultiGridSegTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   smoothWithGMRES = (iod.mg.mg_smoother == MultiGridData::MGGMRES);
 
   globalIt = 0;
+
+  mgMvp1 = NULL;
+  pKernel = NULL;
+  mgSpaceOp = NULL;
+  mgKspSolver = NULL;
+  smoothingMatrices1 = NULL;
+  smoothingMatrices2 = NULL;
 }
 
 template <int dim,int neq1,int neq2>
 MultiGridSegTsDesc<dim,neq1,neq2>::
 ~MultiGridSegTsDesc() {
 
+  if (mgMvp1)
+    delete mgMvp1;
+  if (pKernel)
+    delete pKernel;
+  if (mgSpaceOp)
+    delete mgSpaceOp;
+  if (mgKspSolver)
+    delete mgKspSolver;
+  if (smoothingMatrices1)
+    delete smoothingMatrices1;
+  if (smoothingMatrices2)
+    delete smoothingMatrices2;
 }
 
 
@@ -135,6 +154,9 @@ smooth0(DistSVec<double,dim>& x,int steps) {
     this->monitorConvergence(0, x);
     R(0) = -1.0*this->getCurrentResidual();
   }
+  double one = 1.0;
+  if (globalIt%500 == 1) 
+    this->domain->writeVectorToFile("myResidual", globalIt/500, globalIt, R(0), &one);
 }
 
 template <int dim,int neq1,int neq2>

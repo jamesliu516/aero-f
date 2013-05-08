@@ -21,6 +21,7 @@ using std::pair;
 
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
+#include <ErrorHandler.h>
 #include <LevelSet/LevelSetStructure.h>
 
 class FluidSelector;
@@ -51,6 +52,12 @@ template<class Scalar, int dim> class GenMat;
 
 class EdgeSet {
 
+public:
+
+  enum MultifluidRiemannNormal { MF_RIEMANN_NORMAL_MESH, MF_RIEMANN_NORMAL_REAL };
+
+private:
+
   typedef pair<int, int> Pair;
 
 #ifdef OLD_STL
@@ -74,7 +81,12 @@ class EdgeSet {
 
   HigherOrderMultiFluid* higherOrderMF;
 
+  MultifluidRiemannNormal mfRiemannNormal;
+  ErrorHandler* errorHandler;
+
+
 public:
+
 
   EdgeSet();
   ~EdgeSet();
@@ -83,6 +95,8 @@ public:
   int findOnly(int, int) const;
 
   void createPointers(Vec<int> &);
+
+  void setMultiFluidRiemannNormal(MultifluidRiemannNormal);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
@@ -232,10 +246,10 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi,LevelSetStructure *LSS=0);
   template<int dimLS>
-  void pseudoFastMarchingMethodInitialization(
+  void pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
 		Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
 		Vec<int> &sortedNodes, int &nSortedNodes,
-		LevelSetStructure *LSS=0,Vec<ClosestPoint> *closestPoint=0);
+		LevelSetStructure *LSS=0);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }
@@ -270,6 +284,8 @@ public:
 
   void attachProgrammedBurn(ProgrammedBurn*);
   void attachHigherOrderMultiFluid(HigherOrderMultiFluid*);
+
+  void assignErrorHandler(ErrorHandler* in){errorHandler = in;}
 
   void computeConnectedEdges(const std::vector<int> &);
   std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM

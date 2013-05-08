@@ -26,6 +26,10 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
+
+
+
+
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
   {
 // Modified (MB)
@@ -34,12 +38,9 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       tsSolver.fsaSolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
-      ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
       FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
-//      FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain, &tsSolver);
-      TsSolver<FluidShapeOptimizationHandler<dim> > tsoSolver(&fsoh);
-      tsoSolver.fsoSolve(ioData);
+      TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
   }
   else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
            (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
@@ -48,25 +49,25 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
         ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
-		}
+    }
 			else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 1) {
         ImplicitGnatTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitGnatTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
-		}
+    }
 			/*else if (ioData.rom.projection == 1 && ioData.rom.systemApproximation == 0) {
-			ImplicitGalerkinTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-			TsSolver<ImplicitGalerkinTsDesc<dim> > tsSolver(&tsDesc);
-			tsSolver.solve(ioData);
+      ImplicitGalerkinTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+      TsSolver<ImplicitGalerkinTsDesc<dim> > tsSolver(&tsDesc);
+      tsSolver.solve(ioData);
 			}*/
-		else
+    else
         com->fprintf(stderr, "*** Error: this type of nonlinear ROM simulation is not currently supported\n");
-	}
+  }
   else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
       ImplicitRomPostproTsDesc <dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitRomPostproTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);
-	}
+  }
   else if (ioData.ts.type == TsData::IMPLICIT) {
     if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);

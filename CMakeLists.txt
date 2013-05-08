@@ -7,7 +7,7 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_admin")
 # Local Variables #
 ###################
 SITE_NAME(HOSTNAME)
-#FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
+FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
 MARK_AS_ADVANCED(HOSTNAME)
 MARK_AS_ADVANCED(LOCAL_DIR)
 ###################
@@ -81,7 +81,10 @@ SET(TARGETS_INST fluid)
 IF(UNIX)
   MESSAGE("-- Building for system type: " ${CMAKE_SYSTEM_NAME} ".")
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+    add_definitions(-D__LINUX)
+  ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 
+  IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux OR ${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
     IF(NOT WITH_ARPACK EQUAL 0)
       FIND_LIBRARY(ARPACKLIB NAMES arpack arpack_LINUX
          PATHS  . /usr/lib /usr/local/lib)
@@ -131,18 +134,22 @@ IF(UNIX)
       SET(BLACSFOUND FALSE)
     ENDIF(NOT WITH_BLACS EQUAL 0)
 
-    #SET(USE_SCALAPACK 0)
-    IF(SCALAPACK_FOUND AND BLACS_FOUND)
+    IF(SCALAPACK_FOUND)
       add_definitions(-DDO_SCALAPACK)
-      SET(EXTRALIBRARIES
-          ${SCALAPACKLIB} ${BLACSCLIB} ${BLACSLIB} 
+      IF(BLACS_FOUND)
+        SET(EXTRALIBRARIES
+          ${BLACSCLIB} ${BLACSLIB} 
           ${EXTRALIBRARIES})
+      ENDIF(BLACS_FOUND)
+      SET(EXTRALIBRARIES
+        ${SCALAPACKLIB}
+        ${EXTRALIBRARIES})
       SET(USE_SCALAPACK 1)
-    ELSE(SCALAPACK_FOUND AND BLACS_FOUND)
+    ELSE(SCALAPACK_FOUND)
       SET(USE_SCALAPACK 0)
-    ENDIF(SCALAPACK_FOUND AND BLACS_FOUND)
+    ENDIF(SCALAPACK_FOUND)
     
-  ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+  ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux OR ${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
 ENDIF(UNIX)
 
 
@@ -158,9 +165,11 @@ ADD_LIBRARY(FluidBase
              NavierStokesSolver.C 
              Solvers/LevelSetSolver5.C
              Solvers/NavierStokesCoupledSolver5.C
-             Solvers/NavierStokesEmbedded5.C
-             Solvers/NavierStokesEmbedded6.C
-             Solvers/NavierStokesEmbedded7.C
+             Solvers/NavierStokesEmbeddedCoupledSolver5.C
+             Solvers/NavierStokesEmbeddedCoupledSolver6.C
+             Solvers/NavierStokesEmbeddedCoupledSolver7.C
+             Solvers/NavierStokesEmbeddedSegSolver651.C
+             Solvers/NavierStokesEmbeddedSegSolver752.C
              Solvers/NavierStokesMultiPhysicsEmbedded5.C
              Solvers/NavierStokesCoupledSolver6.C
              Solvers/NavierStokesCoupledSolver7.C
@@ -541,7 +550,7 @@ IF(MPI_FOUND)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser FortranLib Utils 
-                          ${EXTRALIBRARIES} ${FORTRAN_HYBRID_LIBRARIES})
+                          ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${FORTRAN_HYBRID_LIBRARIES})
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES 
                           LIBRARY_OUTPUT_DIRECTORY ${BINDIR}
@@ -568,7 +577,7 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 #add_subdirectory(tools)
 
 
-add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
+add_definitions(-DTEMPLATE_FIX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
 IF(NOT USE_SCALAPACK)
   TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)

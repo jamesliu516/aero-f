@@ -199,11 +199,11 @@ public:
   int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
                           Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn);
 
-private:
-
   //--------------functions in ElemTetCore.C
 
   void computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, double bary[3]);
+
+private:
 
 //Level Set Reinitialization
   double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);

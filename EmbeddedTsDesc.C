@@ -150,7 +150,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
       exit(-1);
   }
-  wall_computer=new ReinitializeDistanceToWall<1>(*this->domain);
+  wall_computer=new ReinitializeDistanceToWall<1>(ioData, *this->domain);
   //wall_computer = 0;
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
@@ -569,6 +569,12 @@ int EmbeddedTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   else
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
 
+  if (ierr != 0 && this->data->checksol) {
+    this->data->unphysical = true;
+    return ierr;
+  }
+  ierr = max(ierr,0);
+
   return ierr;
 }
 
@@ -918,9 +924,11 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
   if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
         ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
-      this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+      double t0 = this->timer->getTime();
+//      this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
       wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
-      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+//      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+      this->timer->addWallDistanceTime(t0);
     }
   }
 }

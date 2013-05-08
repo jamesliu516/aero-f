@@ -127,8 +127,10 @@ private:
   char *dVectors[PostFcn::DVSIZE];
   char *dSolutions;
   char *dForces;
+  char *dLiftDrag;
 
   FILE *fpdForces;
+  FILE *fpdLiftDrag;
 
   char *heatfluxes;
   FILE **fpHeatFluxes;
@@ -163,14 +165,14 @@ public:
   void openAsciiFiles();
   void closeAsciiFiles();
   void writeForcesToDisk(bool, int, int, int, double, double, double*, 
-			 DistSVec<double,3> &, DistSVec<double,dim> &,
+                         DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<int> * = 0); 
   void writeForcesToDisk(DistExactRiemannSolver<dim>&, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<int> * = 0);
   void writeHydroForcesToDisk(bool, int, int, int, double, double, double*, 
-			 DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<int> * = 0);
+                              DistSVec<double,3> &, DistSVec<double,dim> &,
+                              DistVec<int> * = 0);
   void writeLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<int> * = 0);
@@ -188,15 +190,17 @@ public:
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
+                                   DistSVec<double,dim> *U2 = NULL,
+                                   VecSet< DistSVec<double,dim> > *U3 = NULL);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
-				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+                                DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
   void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *);
 
   void cleanProbesFile();
   
   void writeProbesToDisk(bool, int, double, DistSVec<double,3> &, 
-			 DistVec<double> &, DistSVec<double,dim> &,
+                         DistVec<double> &, DistSVec<double,dim> &,
                          DistTimeState<dim> *, DistLevelSetStructure *distLSS = 0, 
                          DistVec<GhostPoint<dim>*> *ghostPoints = 0);
   
@@ -207,7 +211,7 @@ public:
   
   template<int dimLS>
     void writeProbesToDisk(bool, int, double, DistSVec<double,3> &,
-			   DistVec<double> &, DistSVec<double,dim> &,
+                           DistVec<double> &, DistSVec<double,dim> &,
                            DistTimeState<dim> *, DistVec<int> &,DistSVec<double,dimLS>* = NULL,
                            DistLevelSetStructure *distLSS = 0,
                            DistVec<GhostPoint<dim>*> *ghostPoints = 0);
@@ -217,14 +221,16 @@ public:
                                 DistVec<int> &);
 
   void writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
-			 DistVec<double> &A, DistSVec<double,dim> &U,
-			 DistTimeState<dim> *timeState, DistVec<int> &fluidId,
+                         DistVec<double> &A, DistSVec<double,dim> &U,
+                         DistTimeState<dim> *timeState, DistVec<int> &fluidId,
                          DistLevelSetStructure *distLSS = 0,
                          DistVec<GhostPoint<dim>*> *ghostPoints = 0);
   
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
+// Included (YC)
+  void writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & L, Vec3D & dL);
 
 // Included (MB)
   void rstVar(IoData &);

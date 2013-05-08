@@ -3331,6 +3331,64 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
   return(DofType);
 }
 
+// -----------------------------------------------------------
+
+int*
+SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes)  {
+
+  int* DofType = new int[3*nodes.size()];
+  int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType);
+
+  // Step 1. Set all the dofs as BC_FREE
+  int nMoving = 0;
+  for (int i=0;i<nodes.size(); i++) {
+    if(nodeType[i] < BC_INTERNAL)
+      nMoving++; // this node is labelled as moving
+    for(int l = 0; l < 3; l++)
+      dofType[i][l] = BC_FREE;
+  }
+
+  // Step 2. Set appropriate matched bc's 
+  for (int i=0;i<faces.size(); i++) { // Loop over faces
+    bool isSliding = false;
+    map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
+    if(it!=surfaceMap.end()) { // surface has attribut is the input file
+      if(it->second->nx != 0.0 || it->second->ny != 0.0 || it->second->nz != 0.0) // it's a sliding surface
+        isSliding = true;
+    }
+
+    switch(faces[i].getCode()) {
+      case(BC_SYMMETRY):
+        if(!isSliding)
+          for(int j=0; j<faces[i].numNodes();j++)
+            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_MATCHED;
+	else
+          for(int j=0; j<faces[i].numNodes();j++)
+            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = (dofType[faces[i][j]][l] == BC_MATCHED) ? BC_MATCHED : BC_MATCHEDSLIDE;
+	break;
+      case(BC_ISOTHERMAL_WALL_FIXED):
+      case(BC_ADIABATIC_WALL_FIXED):
+      case(BC_OUTLET_FIXED):
+      case(BC_INLET_FIXED):
+      case(BC_SLIP_WALL_FIXED):
+        for(int j=0; j<faces[i].numNodes();j++)
+          for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_MATCHED;
+        break;
+    }
+  }
+
+  // Step 3. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<int> nInfo = ntP.getSendBuffer(sndChannel[iSub]);
+    int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
+    for (int i = 0; i < sharedNodes->num(iSub); ++i)
+      for(int l=0; l<3; l++)
+        buffer[i][l] = dofType[(*sharedNodes)[iSub][i]][l];
+  }
+
+  return(DofType);
+}
+
 //------------------------------------------------------------------------------
 //HB: to ensure same constraint on the shared nodes/dofs (for the mesh motion)
 void
@@ -4832,6 +4890,11 @@ void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellSt
 
   edges.attachHigherOrderMultiFluid(higherOrderMF);
   faces.attachHigherOrderMF(higherOrderMF);
+}
+
+void SubDomain::assignErrorHandler(ErrorHandler* in){
+  errorHandler = in;
+  edges.assignErrorHandler(errorHandler);
 }
 
 void SubDomain::getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) const {
