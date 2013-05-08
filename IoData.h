@@ -296,6 +296,7 @@ struct ROMOutputData {
   const char *residualVector;
   int residualOutputFreqTime;
   int residualOutputFreqNewton;
+  enum FDResiduals {FD_RESIDUALS_OFF = 0, FD_RESIDUALS_ON = 1} fdResiduals;
 
   const char *krylovVector;
   int krylovOutputFreqTime;
@@ -1469,7 +1470,7 @@ struct NewtonData {
 
 struct ImplicitData {
 
-  enum Type {BACKWARD_EULER = 0, CRANK_NICOLSON = 1, THREE_POINT_BDF = 2, FOUR_POINT_BDF = 3} type;
+  enum Type {BACKWARD_EULER = 0, CRANK_NICOLSON = 1, THREE_POINT_BDF = 2, FOUR_POINT_BDF = 3, SPATIAL_ONLY = 4} type;
   enum Startup {REGULAR = 0, MODIFIED = 1} startup;
   enum TurbulenceModelCoupling {WEAK = 0, STRONG = 1} tmcoupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
@@ -1958,13 +1959,15 @@ struct NonlinearRomFilesData {
   const char *connName;
   const char *centersName;
   const char *nearestName;
+  const char *centerNormsName;
 
   // State bases
   const char *stateBasisPrefix;
   const char *stateBasisName;
   const char *stateSingValsName;
   const char *updateInfoName;
-  const char *stateFastDistCalcInfoName;
+  const char *stateDistanceComparisonInfoName;
+  const char *stateDistanceComparisonInfoExactUpdatesName;
   const char *projErrorName;
   const char *refStateName;
 
@@ -1976,7 +1979,7 @@ struct NonlinearRomFilesData {
   const char *krylovBasisPrefix;
   const char *krylovBasisName;
   const char *krylovSingValsName;
-  const char *krylovFastDistCalcInfoName;
+  const char *krylovDistanceComparisonInfoName;
 
   // Sensitivities
   const char *sensitivityPrefix;
@@ -1986,6 +1989,7 @@ struct NonlinearRomFilesData {
   const char *sensitivityBasisPrefix;
   const char *sensitivityBasisName;
   const char *sensitivitySingValsName;
+  const char *sensitivityDistanceComparisonInfoName;
 
   // Residual snaps
   const char *residualPrefix;
@@ -2010,10 +2014,13 @@ struct NonlinearRomFilesData {
   const char *sampledNodesName;         //sampleNodes;
   const char *sampledNodesFullCoordsName; // sampled nodes in full mesh coordinates
   const char *sampledStateBasisName;    //podStateRed;
+  const char *sampledKrylovBasisName;
+  const char *sampledSensitivityBasisName;
   const char *sampledResidualBasisName; //podFileResHat;
   const char *sampledJacActionBasisName; //podFileJacHat;
   const char *sampledMeshName;          //mesh;
   const char *sampledSolutionName;      //solution;
+  const char *sampledRefStateName;
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
   const char *gappyResidualName;             //resMatrix in sampled coords;
@@ -2185,7 +2192,6 @@ struct ClusteringData {
   double kMeansTol;
   int kMeansRandSeed;
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
-  enum ComputeFastDistanceQuantities {COMPUTE_FAST_DIST_QUANTITIES_FALSE = 0, COMPUTE_FAST_DIST_QUANTITIES_TRUE = 1} computeFastDistanceQuantities;
 
   ClusteringData();
   ~ClusteringData() {}
@@ -2193,6 +2199,23 @@ struct ClusteringData {
   void setup(const char *, ClassAssigner * = 0);
 
 };
+
+//------------------------------------------------------------------------------
+
+struct DistanceComparisonsData {
+
+  enum PreprocessForNoUpdates {NO_UPDATES_FALSE = 0, NO_UPDATES_TRUE = 1} preprocessForNoUpdates;
+  enum PreprocessForSimpleUpdates {SIMPLE_UPDATES_FALSE = 0, SIMPLE_UPDATES_TRUE = 1} preprocessForSimpleUpdates;
+  enum PreprocessForExactUpdates {EXACT_UPDATES_FALSE = 0, EXACT_UPDATES_TRUE = 1} preprocessForExactUpdates;
+  enum PreprocessForApproxUpdates {APPROX_UPDATES_FALSE = 0, APPROX_UPDATES_TRUE = 1} preprocessForApproxUpdates;
+
+  DistanceComparisonsData();
+  ~DistanceComparisonsData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
 
 //------------------------------------------------------------------------------
 
@@ -2220,6 +2243,7 @@ struct ROBConstructionData {
   KrylovData krylov;
 
 	ClusteringData clustering;
+  DistanceComparisonsData distanceComparisons;
   RelativeProjectionErrorData relativeProjectionError;
 
   ROBConstructionData();
@@ -2238,6 +2262,14 @@ struct GNATConstructionData {
   int maxDimensionState;
   int minDimensionState;
   double energyState;
+
+  int maxDimensionSensitivity;
+  int minDimensionSensitivity;
+  double energySensitivity;
+
+  int maxDimensionKrylov;
+  int minDimensionKrylov;
+  double energyKrylov;
 
   int maxDimensionResidual;
   int minDimensionResidual;
@@ -2294,7 +2326,7 @@ struct NonlinearRomOfflineData {
 
 struct NonlinearRomOnlineNonStateData {
 
-  enum IncludeSensitivity {INCLUDE_OFF = 0, INCLUDE_ON = 1} include;
+  enum Include {INCLUDE_OFF = 0, INCLUDE_ON = 1} include;
   enum GramSchmidt {GRAMSCHMIDT_OFF = 0, GRAMSCHMIDT_ON = 1} gramSchmidt;
 
 	int minDimension;
@@ -2314,20 +2346,21 @@ struct NonlinearRomOnlineData {
 
 	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
 	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
+  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_TRUE = 1} lineSearch;
 	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2} lsSolver;
 
   double regThresh;
   double regCoeff;  
+  double reducedTimeStep;
 
 	int minDimension;
   int maxDimension;
   double energy;
 
-  int initialKrylovIncluded;
-
-  enum BasisUpdates {BASIS_UPDATES_OFF = 0, BASIS_UPDATES_ON = 1} basisUpdates;
+  enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;
-  enum FastDistanceCalculations {FAST_DISTANCE_CALCS_OFF = 0, FAST_DISTANCE_CALCS_ON = 1} fastDistCalcs;
+  enum DistanceComparisons {DISTANCE_COMPARISONS_OFF = 0, DISTANCE_COMPARISONS_ON = 1} distanceComparisons;
+  enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
 
   NonlinearRomOnlineNonStateData krylov;
   NonlinearRomOnlineNonStateData sensitivity;

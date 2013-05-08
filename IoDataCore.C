@@ -474,6 +474,7 @@ ROMOutputData::ROMOutputData()
   residualVector = "";
   residualOutputFreqTime = 1; 
   residualOutputFreqNewton = 1;
+  fdResiduals = FD_RESIDUALS_OFF;
 
   krylovVector = "";
   krylovOutputFreqTime = 1;
@@ -502,6 +503,8 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "ResidualVector", this, &ROMOutputData::residualVector);
   new ClassInt<ROMOutputData>(ca, "ResidualVectorOutputFrequencyTime", this, &ROMOutputData::residualOutputFreqTime);
   new ClassInt<ROMOutputData>(ca, "ResidualVectorOutputFrequencyNewton", this, &ROMOutputData::residualOutputFreqNewton);  
+  new ClassToken<ROMOutputData>(ca, "OutputResidualsFromMVPFiniteDifference", this,
+            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::fdResiduals), 2, "Off", 0, "On", 1);
 
   new ClassStr<ROMOutputData>(ca, "KrylovVector", this, &ROMOutputData::krylovVector);  
   new ClassInt<ROMOutputData>(ca, "KrylovVectorOutputFrequencyTime", this, &ROMOutputData::krylovOutputFreqTime);
@@ -513,8 +516,7 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "NetReducedCoordinates", this, &ROMOutputData::dUnormAccum);
 
   new ClassToken<ROMOutputData>(ca, "OverwriteModelIISnapshots", this,
-            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::overwriteModelIISnaps), 2,
-            "Off", 0, "On", 1);
+            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::overwriteModelIISnaps), 2, "Off", 0, "On", 1);
 
   new ClassInt<ROMOutputData>(ca, "ResJacOutputFrequencyModelII", this, &ROMOutputData::resjacfrequency);
   
@@ -2604,9 +2606,9 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ImplicitData>
     (ca, "Type", this,
-     reinterpret_cast<int ImplicitData::*>(&ImplicitData::type), 4,
+     reinterpret_cast<int ImplicitData::*>(&ImplicitData::type), 5,
      "BackwardEuler", 0, "CrankNicolson", 1, "ThreePointBackwardDifference", 2,
-     "FourPointBackwardDifference", 3);
+     "FourPointBackwardDifference", 3, "SpatialOnly", 4);
 
   new ClassToken<ImplicitData>
     (ca, "Startup", this,
@@ -3362,7 +3364,7 @@ void NonlinearRomDirectoriesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomDirectoriesData>(ca, "Prefix", this, &NonlinearRomDirectoriesData::prefix);
   new ClassStr<NonlinearRomDirectoriesData>(ca, "TopLevelDirectoryName", this, &NonlinearRomDirectoriesData::databaseName);
   new ClassStr<NonlinearRomDirectoriesData>(ca, "ClusterDirectoryName", this, &NonlinearRomDirectoriesData::clusterName);
-  new ClassStr<NonlinearRomDirectoriesData>(ca, "sensitivityClusterDirectoryName", this, &NonlinearRomDirectoriesData::sensitivityClusterName);
+  new ClassStr<NonlinearRomDirectoriesData>(ca, "SensitivityClusterDirectoryName", this, &NonlinearRomDirectoriesData::sensitivityClusterName);
 
 }
 
@@ -3385,13 +3387,15 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   connName = "";
   centersName = "";
   nearestName = "";
+  centerNormsName = "";
 
   // State bases
   stateBasisPrefix = "";
   stateBasisName = "";
   stateSingValsName = "";
   updateInfoName = "";
-  stateFastDistCalcInfoName = "";
+  stateDistanceComparisonInfoName = "";
+  stateDistanceComparisonInfoExactUpdatesName = "";
   projErrorName = "";
   refStateName = "";
 
@@ -3403,7 +3407,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   krylovBasisPrefix = "";
   krylovBasisName = "";
   krylovSingValsName = "";
-  krylovFastDistCalcInfoName = "";
+  krylovDistanceComparisonInfoName = "";
 
   // Sensitivities
   sensitivityPrefix = "";
@@ -3413,6 +3417,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   sensitivityBasisPrefix = "";
   sensitivityBasisName = "";
   sensitivitySingValsName = "";
+  sensitivityDistanceComparisonInfoName = "";
 
   // Residual snaps
   residualPrefix = "";
@@ -3437,10 +3442,13 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   sampledNodesName = "";
   sampledNodesFullCoordsName = "";
   sampledStateBasisName = "";
+  sampledKrylovBasisName = "";
+  sampledSensitivityBasisName = "";
   sampledResidualBasisName = "";
   sampledJacActionBasisName = "";
   sampledMeshName = "";
   sampledSolutionName = "";
+  sampledRefStateName = "";
   sampledWallDistName = "";
   gappyJacActionName = "";
   gappyResidualName = "";
@@ -3468,13 +3476,15 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "ClusterConnectivity", this, &NonlinearRomFilesData::connName);
   new ClassStr<NonlinearRomFilesData>(ca, "ClusterCenters", this, &NonlinearRomFilesData::centersName);
   new ClassStr<NonlinearRomFilesData>(ca, "NearestSnapsToCenters", this, &NonlinearRomFilesData::nearestName);
+  new ClassStr<NonlinearRomFilesData>(ca, "NormsOfClusterCenters", this, &NonlinearRomFilesData::centerNormsName);
 
   // State bases
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisPrefix", this, &NonlinearRomFilesData::stateBasisPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasis", this, &NonlinearRomFilesData::stateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisSingularValues", this, &NonlinearRomFilesData::stateSingValsName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisUpdateInfo", this, &NonlinearRomFilesData::updateInfoName);
-  new ClassStr<NonlinearRomFilesData>(ca, "FastDistanceCalcInfo", this, &NonlinearRomFilesData::stateFastDistCalcInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfo", this, &NonlinearRomFilesData::stateDistanceComparisonInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdates", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesName);
   new ClassStr<NonlinearRomFilesData>(ca, "ProjectionError", this, &NonlinearRomFilesData::projErrorName);
   new ClassStr<NonlinearRomFilesData>(ca, "ReferenceState", this, &NonlinearRomFilesData::refStateName);
 
@@ -3486,7 +3496,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "KrylovBasisPrefix", this, &NonlinearRomFilesData::krylovBasisPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "KrylovBasis", this, &NonlinearRomFilesData::krylovBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "KrylovBasisSingularValues", this, &NonlinearRomFilesData::krylovSingValsName);
-  new ClassStr<NonlinearRomFilesData>(ca, "KrylovFastDistanceCalcInfo", this, &NonlinearRomFilesData::krylovFastDistCalcInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "KrylovDistanceComparisonInfo", this, &NonlinearRomFilesData::krylovDistanceComparisonInfoName);
 
   // Sensitivities
   new ClassStr<NonlinearRomFilesData>(ca, "SensitivityPrefix", this, &NonlinearRomFilesData::sensitivityPrefix);
@@ -3496,6 +3506,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SensitivityBasisPrefix", this, &NonlinearRomFilesData::sensitivityBasisPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "SensitivityBasis", this, &NonlinearRomFilesData::sensitivityBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SensitivityBasisSingularValues", this, &NonlinearRomFilesData::sensitivitySingValsName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SensitivityDistanceComparisonInfo", this, &NonlinearRomFilesData::sensitivityDistanceComparisonInfoName);
 
   // Residual snaps
   new ClassStr<NonlinearRomFilesData>(ca, "ResidualPrefix", this, &NonlinearRomFilesData::residualPrefix);
@@ -3520,9 +3531,12 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SampledNodes", this, &NonlinearRomFilesData::sampledNodesName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledNodesFullCoords", this, &NonlinearRomFilesData::sampledNodesFullCoordsName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledStateBasis", this, &NonlinearRomFilesData::sampledStateBasisName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledKrylovBasis", this, &NonlinearRomFilesData::sampledKrylovBasisName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledSensitivityBasis", this, &NonlinearRomFilesData::sampledSensitivityBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledResidualBasis", this, &NonlinearRomFilesData::sampledResidualBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledJacActionBasis", this, &NonlinearRomFilesData::sampledJacActionBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledSolution", this, &NonlinearRomFilesData::sampledSolutionName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledReferenceState", this, &NonlinearRomFilesData::sampledRefStateName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledWallDistance", this, &NonlinearRomFilesData::sampledWallDistName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledMesh", this, &NonlinearRomFilesData::sampledMeshName);
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineResidualMatrix", this, &NonlinearRomFilesData::gappyResidualName);
@@ -3543,17 +3557,18 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
 {
 	projection = PETROV_GALERKIN;
 	systemApproximation = SYSTEM_APPROXIMATION_NONE;
+  lineSearch = LINE_SEARCH_FALSE;
 	lsSolver = QR;
-  basisUpdates = BASIS_UPDATES_ON;
+  reducedTimeStep = 1e-10;
+  basisUpdates = UPDATES_OFF;
   basisUpdateFreq = -1;
-  fastDistCalcs = FAST_DISTANCE_CALCS_ON;
+  distanceComparisons = DISTANCE_COMPARISONS_OFF;
+  storeAllClusters = STORE_ALL_CLUSTERS_TRUE;
   maxDimension = -1; 
 	minDimension = 0;
   energy = 1.0;
   regCoeff = 1.0;
   regThresh = 0.0;
-//  initialKrylovIncluded = 0;
-//  includeKrylov = INCLUDE_KRYLOV_OFF;
 }
 
 //------------------------------------------------------------------------------
@@ -3567,38 +3582,40 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projection), 2, "PetrovGalerkin", 0, "Galerkin", 1);
 	new ClassToken<NonlinearRomOnlineData> (ca, "SystemApproximation", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::systemApproximation), 2, "None", 0, "GNAT", 1);
+  new ClassToken<NonlinearRomOnlineData> (ca, "PerformLineSearch", this, reinterpret_cast<int
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 2, "False", 0, "True", 1);
 	new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 3, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2);
  	new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
-			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 2, "Off", 0, "On", 1);
- // new ClassInt<NonlinearRomOnlineData>(ca, "IncludeKrylovAfter", this, &NonlinearRomOnlineData::initialKrylovIncluded);
+			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
   new ClassInt<NonlinearRomOnlineData>(ca, "BasisUpdateFrequency", this, &NonlinearRomOnlineData::basisUpdateFreq);
- 	new ClassToken<NonlinearRomOnlineData> (ca, "FastDistanceCalculations", this, reinterpret_cast<int
-			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::fastDistCalcs), 2, "Off", 0, "On", 1);
+ 	new ClassToken<NonlinearRomOnlineData> (ca, "FastDistanceComparisons", this, reinterpret_cast<int
+			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::distanceComparisons), 2, "Off", 0, "On", 1);
+  new ClassToken<NonlinearRomOnlineData> (ca, "StoreAllClustersInMemory", this, reinterpret_cast<int
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::storeAllClusters), 2, "False", 0, "True", 1);
   new ClassInt<NonlinearRomOnlineData>(ca, "MaximumDimension", this, &NonlinearRomOnlineData::maxDimension);
   new ClassInt<NonlinearRomOnlineData>(ca, "MinimumDimension", this, &NonlinearRomOnlineData::minDimension); 
   new ClassDouble<NonlinearRomOnlineData>(ca, "Energy", this, &NonlinearRomOnlineData::energy);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationCoefficient", this, &NonlinearRomOnlineData::regCoeff);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationThreshold", this, &NonlinearRomOnlineData::regThresh);
-// new ClassToken<NonlinearRomOnlineData>(ca, "IncludeSensitivity", this, reinterpret_cast<int
- //     NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::includeSensitivity), 2, "Off", 0, "On", 1);
- // new ClassToken<NonlinearRomOnlineData>(ca, "IncludeKrylovVectors", this, reinterpret_cast<int
- //     NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::includeKrylov), 2, "Off", 0, "On", 1);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "ReducedTimeStep", this, &NonlinearRomOnlineData::reducedTimeStep);
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
-//  krylov.setup("IncludedKrylovVectors",ca);
+
 }
 
 //------------------------------------------------------------------------------
 
 NonlinearRomOnlineNonStateData::NonlinearRomOnlineNonStateData()
 {
+
   include = INCLUDE_OFF;
   gramSchmidt = GRAMSCHMIDT_ON;
   maxDimension = -1; 
 	minDimension = 0;
   energy = 1.0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -3647,6 +3664,14 @@ GNATConstructionData::GNATConstructionData()
   minDimensionState = 0;
   energyState = 1.0;
 
+  maxDimensionSensitivity = -1;
+  minDimensionSensitivity = 0;
+  energySensitivity = 1.0;
+
+  maxDimensionKrylov = -1;
+  minDimensionKrylov = 0;
+  energyKrylov = 1.0;
+
   maxDimensionResidual = -1;
   minDimensionResidual = 0;
   energyResidual = 1.0;
@@ -3689,6 +3714,13 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<GNATConstructionData>(ca, "MinDimensionStateROB", this, &GNATConstructionData::minDimensionState); // default: 0
   new ClassDouble<GNATConstructionData>(ca, "EnergyStateROB", this, &GNATConstructionData::energyState);
 
+  new ClassInt<GNATConstructionData>(ca, "MaxDimensionSensitivityROB", this, &GNATConstructionData::maxDimensionSensitivity);	// default: full size
+  new ClassInt<GNATConstructionData>(ca, "MinDimensionSensitivityROB", this, &GNATConstructionData::minDimensionSensitivity); // default: 0
+  new ClassDouble<GNATConstructionData>(ca, "EnergySensitivityROB", this, &GNATConstructionData::energySensitivity);
+
+  new ClassInt<GNATConstructionData>(ca, "MaxDimensionKrylovROB", this, &GNATConstructionData::maxDimensionKrylov);	// default: full size
+  new ClassInt<GNATConstructionData>(ca, "MinDimensionKrylovROB", this, &GNATConstructionData::minDimensionKrylov); // default: 0
+  new ClassDouble<GNATConstructionData>(ca, "EnergyKrylovROB", this, &GNATConstructionData::energyKrylov);
 
   new ClassInt<GNATConstructionData>(ca, "MaxDimensionResidualROB", this, &GNATConstructionData::maxDimensionResidual); // default: full size
   new ClassInt<GNATConstructionData>(ca, "MinDimensionResidualROB", this, &GNATConstructionData::minDimensionResidual); // default: 0
@@ -3742,6 +3774,7 @@ void ROBConstructionData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
 	clustering.setup("Clustering",ca);
+  distanceComparisons.setup("FastOnlineClusterSelection",ca);
 
   state.setup("State",ca);
   residual.setup("Residual",ca);
@@ -3766,7 +3799,6 @@ ClusteringData::ClusteringData()
   kMeansTol = 1.0e-6;
   kMeansRandSeed = -1;  // default: generate randomly
   useExistingClusters = USE_EXISTING_CLUSTERS_FALSE;
-  computeFastDistanceQuantities = COMPUTE_FAST_DIST_QUANTITIES_TRUE;
 }
 
 //------------------------------------------------------------------------------
@@ -3785,10 +3817,38 @@ void ClusteringData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<ClusteringData>(ca, "KMeansRandomSeed", this, &ClusteringData::kMeansRandSeed);
   new ClassToken<ClusteringData> (ca, "UseExistingClusters", this, reinterpret_cast<int
       ClusteringData::*>(&ClusteringData::useExistingClusters), 2, "False", 0, "True", 1);
-  new ClassToken<ClusteringData> (ca, "ComputeFastDistanceQuantities", this, reinterpret_cast<int
-      ClusteringData::*>(&ClusteringData::computeFastDistanceQuantities), 2, "False", 0, "True", 1); 
  
 }
+
+//------------------------------------------------------------------------------
+
+DistanceComparisonsData::DistanceComparisonsData()
+{
+  preprocessForNoUpdates = NO_UPDATES_FALSE;
+  preprocessForSimpleUpdates = SIMPLE_UPDATES_FALSE;
+  preprocessForExactUpdates = EXACT_UPDATES_FALSE;
+  preprocessForApproxUpdates = APPROX_UPDATES_FALSE;
+
+}
+
+//------------------------------------------------------------------------------
+
+void DistanceComparisonsData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForNoUpdates", this, reinterpret_cast<int 
+			DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForSimpleUpdates", this, reinterpret_cast<int
+      DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForFastExactUpdates", this, reinterpret_cast<int 
+			DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForExactUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForFastApproxUpdates", this, reinterpret_cast<int 
+			DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForApproxUpdates), 2, "Off", 0, "On", 1);
+
+  // add object to specify parameters for approx updates
+
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -5000,7 +5060,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_)
     problem.mode = ProblemData::DIMENSIONAL;
 
-  if (!problem.type[ProblemData::UNSTEADY]) {
+  if (!problem.type[ProblemData::UNSTEADY] && (ts.implicit.type != ImplicitData::SPATIAL_ONLY)) {
     ts.implicit.type = ImplicitData::BACKWARD_EULER;
   }
 

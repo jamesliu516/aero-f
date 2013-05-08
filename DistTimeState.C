@@ -809,6 +809,7 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
 				    DistSVec<double,dim> &Q, 
 				    DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
   if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
 
@@ -843,6 +844,8 @@ void DistTimeState<dim>::add_dAW_dtRestrict(int it, DistGeoState &geoState,
 					    DistSVec<double,dim> &R, const std::vector<std::vector<int> > &sampledLocNodes)
 {
 
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
 
 #pragma omp parallel for
@@ -863,6 +866,8 @@ void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
                                       DistSVec<double,dimLS> &R,bool requireSpecialBDF)
 {
 
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   //if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
 
 #pragma omp parallel for
@@ -880,6 +885,8 @@ void DistTimeState<dim>::add_dAW_dtau(int it, DistGeoState &geoState,
 				    DistSVec<double,dim> &Q, 
 				    DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
+
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 //  if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
 
@@ -912,6 +919,8 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if(tprec.timePreconditioner()){
     if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
       addToJacobianGasPrec(ctrlVol, A, U);
@@ -934,6 +943,8 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobianLS(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U,bool requireSpecialBDF)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subTimeState[iSub]->addToJacobianLS(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
@@ -946,6 +957,8 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobianNoPrec(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   int** nodeType = domain->getNodeTypeExtrapolation();
   if (nodeType){
 #pragma omp parallel for
@@ -967,6 +980,8 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobianGasPrec(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   int** nodeType = domain->getNodeTypeExtrapolation();
   if (nodeType){
 #pragma omp parallel for
@@ -988,6 +1003,8 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobianLiquidPrec(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   int** nodeType = domain->getNodeTypeExtrapolation();
   if (nodeType){
 #pragma omp parallel for
@@ -1009,6 +1026,7 @@ template<int dim>
 template<class Scalar, int neq>
 void DistTimeState<dim>::addToH1(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1023,6 +1041,7 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToH1(DistVec<double> &ctrlVol,
                 DistMat<Scalar,neq> &A, Scalar shift)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1038,6 +1057,7 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
 				 DistMat<Scalar,neq> &A)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #ifdef DOUBLE_CHECK
   varFcn->conservativeToPrimitive(U, *V);
@@ -1089,6 +1109,7 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
                 DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, Scalar shift)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #ifdef DOUBLE_CHECK
   varFcn->conservativeToPrimitive(U, *V);
@@ -1108,6 +1129,7 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
                 DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, Scalar coefVol, double coefA)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #ifdef DOUBLE_CHECK
   varFcn->conservativeToPrimitive(U, *V);
@@ -1129,6 +1151,7 @@ template<class Scalar,int neq>
 void DistTimeState<dim>::addToH2Minus(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
                                       DistMat<Scalar,neq> &A)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #ifdef DOUBLE_CHECK
   varFcn->conservativeToPrimitive(U, *V);
@@ -1146,6 +1169,7 @@ void DistTimeState<dim>::addToH2Minus(DistVec<double> &ctrlVol, DistSVec<double,
 template<int dim>
 void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dim>& dU)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -1164,6 +1188,7 @@ template<int dim>
 template<int dimLS>
 void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dimLS>& dPhi)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -1181,6 +1206,8 @@ void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dimLS>& dPhi)
 template<int dim>
 void DistTimeState<dim>::multiplyByPreconditioner(DistSVec<double,dim>& U0, DistSVec<double,dim>& dU)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
   if (tprec.timePreconditioner()){
     if (varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
       multiplyByPreconditionerPerfectGas(U0,dU);
@@ -1197,6 +1224,8 @@ void DistTimeState<dim>::multiplyByPreconditioner(DistSVec<double,dim>& U0, Dist
 template<int dim>
 void DistTimeState<dim>::multiplyByPreconditionerPerfectGas(DistSVec<double,dim>& U0, DistSVec<double,dim>& dU)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     double* _irey = irey->subData(iSub);
@@ -1278,6 +1307,8 @@ void DistTimeState<dim>::multiplyByPreconditionerPerfectGas(DistSVec<double,dim>
 template<int dim>
 void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
 {
+  if (data->typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
+
 //ARL : turbulence preconditioner never tested...
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {

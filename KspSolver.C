@@ -478,7 +478,7 @@ target);
     if (typePrec == 2) {  //apply preconditioner before outputting
       for (int iVec=0; iVec<numOutputVecs; ++iVec) {
         this->pcOp->apply(V[iVec], r);
-        V[iVec] = r;    
+        V[iVec] = r;
       }
     }
     this->kspBinaryOutput->writeKrylovVectors(V, y, numOutputVecs);

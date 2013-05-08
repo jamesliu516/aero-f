@@ -12,7 +12,7 @@ protected:
 
 	FILE *reducedCoordsFile;	// file of reduced coordinates
 
-	void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim>&);
+	void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim>&, const int& totalTimeSteps = 0);
 	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q);
 	virtual void computeAJ(int it, DistSVec<double, dim> &Q);
   DistSVec<double, dim> Uinitial;	// solution increment at EACH NEWTON ITERATION in full coordinates

@@ -49,18 +49,22 @@ protected:
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
-  Vec<double> dUrom;
-  //Vec<double> UromTotal;
+  Vec<double> dUromNewtonIt;    // set to zero before each newton iteration
+  Vec<double> dUromTimeIt;      // set to zero before each time iteration
+  Vec<double> dUromCurrentROB;  // set to zero after each cluster switch
+
+  // dUromAccum, 
+
   //Vec<double> *dUnormAccum;	// accumulated contributions
 
 	double target, res0;	// for Newton convergence
 
   virtual void computeAJ(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time
-  virtual void computeFullResidual(int, DistSVec<double, dim> &);  
+  virtual void computeFullResidual(int, DistSVec<double, dim> &, DistSVec<double, dim> *R = NULL);  
 
   virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
-	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &) = 0;
+	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &, const int &totalTimeSteps = 0) = 0;
 	// each ROM has a different way of solving the Newton system
   virtual void updateGlobalTimeSteps(const int _it) {};	// broyden needs to know global time steps
   int solveLinearSystem(int, Vec<double> &, Vec<double> &);
@@ -81,6 +85,7 @@ protected:
 
   virtual void setReferenceResidual() {};
   virtual void setProblemSize(DistSVec<double, dim> &) {};
+  virtual void deleteRestrictedQuantities() {};
 
 	double *projVectorTmp; // temporary vector for projectVector
 
