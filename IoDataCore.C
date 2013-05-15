@@ -4198,7 +4198,6 @@ void IoData::readCmdFile()
 
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
-    com->fprintf(stderr, "input.\n");
     if (strncmp(input.rstdata, "/", 1) == 0)
       sprintf(name, "%s", input.rstdata);
     else

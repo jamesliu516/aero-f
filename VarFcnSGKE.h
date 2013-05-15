@@ -81,7 +81,7 @@ public:
     return error;
   }
   double computeTemperature(double *V) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }

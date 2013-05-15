@@ -7,6 +7,8 @@
 #include "mpi.h"
 #endif
 
+#include <utils/Aerof_math.h>
+
 //--------------------------------------------------------------------------
 // This class is the VarFcn class for the Stiffened Gas EOS in Euler 
 // Equations. Only elementary functions are declared and/or defined here.
@@ -111,14 +113,14 @@ public:
     return error;
   }
   double computeTemperature(double *V) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
   }
   void computeTemperatureGradient(double *V,double* Tg) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
@@ -128,7 +130,7 @@ public:
   }
   void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
                                  double& Tpp) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
