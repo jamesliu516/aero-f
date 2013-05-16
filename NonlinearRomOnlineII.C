@@ -1,7 +1,7 @@
 #include <NonlinearRomOnlineII.h>
 #include <Modal.h>
 #include <TsInput.h>
-#include <math.h>
+#include <cmath>
 //#include <time.h>
 #include <algorithm>
 #include <sys/time.h>
@@ -24,7 +24,9 @@ NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioD
   if (this->nClusters>1) readClosestCenterInfoModelII();
 
   // this->ioData->example, this->com->example, this->domain.example
-  if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
+
+  if (this->ioData->problem.alltype != ProblemData::_NONLINEAR_ROM_OFFLINE_ &&  //projection error
+      this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
     this->readAllOnlineQuantities();
 
  
@@ -181,7 +183,7 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineII<dim>::appendNonStateDataToBasis(int cluster, char* basisType) {
+void NonlinearRomOnlineII<dim>::appendNonStateDataToBasis(int cluster, char* basisType, bool relProjError) {
 
   int robSize = this->basis->numVectors();
   VecSet< DistSVec<double, dim> > basisOld(robSize, this->domain.getNodeDistInfo());
@@ -189,7 +191,7 @@ void NonlinearRomOnlineII<dim>::appendNonStateDataToBasis(int cluster, char* bas
   for (int iVec=0; iVec<robSize; ++iVec)
     basisOld[iVec] = (*(this->basis))[iVec];
  
-  this->readClusteredBasis(cluster, basisType);
+  this->readClusteredBasis(cluster, basisType, relProjError);
   int nonStateSize = this->basis->numVectors();
   VecSet< DistSVec<double, dim> > nonStateBasis(nonStateSize, this->domain.getNodeDistInfo());
 
@@ -205,13 +207,24 @@ void NonlinearRomOnlineII<dim>::appendNonStateDataToBasis(int cluster, char* bas
     (*(this->basis))[iVec] = nonStateBasis[iVec-robSize];
 
   bool gramSchmidt;
-  if (strcmp(basisType, "krylov")==0) {
-    gramSchmidt = (this->ioData->romOnline.krylov.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) ? true : false;
-  } else if (strcmp(basisType, "sensitivity")==0) {
-    gramSchmidt = (this->ioData->romOnline.sensitivity.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) ? true : false;
+  if (relProjError) {
+    if (strcmp(basisType, "krylov")==0) {
+      gramSchmidt = (this->ioData->romOffline.rob.relativeProjectionError.krylov.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) ? true : false;
+    } else if (strcmp(basisType, "sensitivity")==0) {
+      gramSchmidt = (this->ioData->romOffline.rob.relativeProjectionError.sensitivity.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) ? true : false;
+    } else {
+      this->com->fprintf(stderr, "*** Error: unexpected basis type passed to appendNonStateDataToBasis (%s)\n",basisType);
+      exit(-1);
+    }
   } else {
-    this->com->fprintf(stderr, "*** Error: unexpected basis type passed to appendNonStateDataToBasis (%s)\n",basisType);
-    exit(-1);
+    if (strcmp(basisType, "krylov")==0) {
+      gramSchmidt = (this->ioData->romOnline.krylov.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) ? true : false;
+    } else if (strcmp(basisType, "sensitivity")==0) {
+      gramSchmidt = (this->ioData->romOnline.sensitivity.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) ? true : false;
+    } else {
+      this->com->fprintf(stderr, "*** Error: unexpected basis type passed to appendNonStateDataToBasis (%s)\n",basisType);
+      exit(-1);
+    }
   }
 
   if (gramSchmidt) { 

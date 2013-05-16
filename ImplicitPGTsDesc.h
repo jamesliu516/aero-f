@@ -27,13 +27,23 @@ protected:
 	double *jactmp;
   KspPrec<dim> *pc;
 
-  DistSVec<double, dim>* A_Uinit;
-  Vec<double>* PhiT_A_Uinit;
+  DistSVec<double, dim>* A_Uinlet;
+  Vec<double>* PhiT_A_Uinlet;
   Vec<double>* PhiT_A_U;
   VecSet< Vec<double> >* PhiT_A_Phi;
   VecSet<DistSVec<double, dim> >* A_Phi;
-  double regCoeff;
   double regThresh; 
+  double regWeight;
+  double regWeightProportional;
+  double Kp;
+  double regWeightIntegral;
+  double Ki;
+  double Ki_leak;
+  double dKi;
+  double dRegWeightIntegral;
+  double ffError;
+  double ffErrorPrev;
+  double ffErrorTol;
   double minRes;
 
   double dt;
@@ -41,6 +51,11 @@ protected:
   double rhsNormInit;
 
   void setProblemSize(DistSVec<double, dim> &);
+
+  int controlNodeGlobalID;
+  int controlNodeLocalID;
+  int controlNodeSubDomain;
+  int controlNodeCpuNum;
 
 public:
   

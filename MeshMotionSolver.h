@@ -113,6 +113,8 @@ public:
   void incrementNewtonOutputTag() {}
   int *getTimeIt() { return domain->getTimeIt(); }
   int *getNewtonIt() { return domain->getNewtonIt(); }
+  int *getNumResidualsOutputCurrentNewtonIt() { return domain->getNumResidualsOutputCurrentNewtonIt(); }
+  void setCurrentStateForKspBinaryOutput(DistSVec<double,3>&) {}
 };
 
 //------------------------------------------------------------------------------

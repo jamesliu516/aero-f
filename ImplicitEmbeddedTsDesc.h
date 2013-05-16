@@ -81,6 +81,9 @@ public:
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
+
+  void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {}
+ 
 };
 
 

@@ -88,6 +88,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   for (it=0; it<maxIts; ++it) {
 
     *(probDesc->getNewtonIt()) = it;
+    *(probDesc->getNumResidualsOutputCurrentNewtonIt()) = 0;
 
 //    probDesc->printNodalDebug(BuggyNode,11,&Q);
 
@@ -125,6 +126,9 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     // apply preconditioner if available
     probDesc->setOperators(Q);
+
+    // set up krylov snapshots for ROM if applicable
+    probDesc->setCurrentStateForKspBinaryOutput(Q);
 
 //    probDesc->printNodalDebug(BuggyNode,14,&Q);
     probDesc->solveLinearSystem(it, rhs, dQ);

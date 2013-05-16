@@ -224,8 +224,9 @@ class NonlinearRom {
 
   // public database IO functions
 	void determineFileName(const char*, const char*, const char*, char*&);
+	void determinePrefixName(const char*, const char*, char*&);
   void determinePath(char*, int, char*&); // top-level database directory is cluster "-1", sensitivity basis is cluster "-2"
-  void readClusteredBasis(int, char*);
+  void readClusteredBasis(int, char*, bool relProjError = false);
   void readClusteredColumnSumsV(int, char*);
   void readClusteredUpdateInfo(int, char*);
   void readClusteredExactUpdateInfo(int, char*);
@@ -238,7 +239,7 @@ class NonlinearRom {
 
   // for online ROMs (both with and without hyper-reduction)
   virtual void updateBasis(int, DistSVec<double, dim> &) {};
-  virtual void appendNonStateDataToBasis(int, char*) {};
+  virtual void appendNonStateDataToBasis(int, char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};
   void writeReducedCoords(const int, bool, bool, int, Vec<double>); 
 

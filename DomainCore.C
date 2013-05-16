@@ -125,7 +125,9 @@ Domain::Domain()
   outputNewtonStateStep = 0; 
   outputNewtonResidualStep = 0;
   outputKrylovStep = 0;
- 
+  numKrylovVecsOutputPrevNewtonIt = 0;
+  numResidualsOutputCurrentNewtonIt = 0; 
+
 }
 
 //------------------------------------------------------------------------------
@@ -136,7 +138,8 @@ Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType
     weightPat(0), weightPhaseChangePat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
     inletCountPat(0), inletRhsPat(0), Delta(0), CsDelSq(0), PrT(0), WCsDelSq(0), WPrT(0), tag(0), tagBar(0),
     weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), outputTimeIt(0),
-    outputNewtonIt(0), outputNewtonTag(0.0), outputNewtonStateStep(0), outputNewtonResidualStep(0), outputKrylovStep(0)
+    outputNewtonIt(0), outputNewtonTag(0.0), outputNewtonStateStep(0), outputNewtonResidualStep(0), outputKrylovStep(0),
+    numKrylovVecsOutputPrevNewtonIt(0), numResidualsOutputCurrentNewtonIt(0)
 {
   timer = new Timer(com);
 }

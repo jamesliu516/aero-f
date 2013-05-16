@@ -1,7 +1,7 @@
 #include <NonlinearRomOnlineIII.h>
 #include <Modal.h>
 #include <TsInput.h>
-#include <math.h>
+#include <cmath>
 //#include <time.h>
 #include <algorithm>
 #include <sys/time.h>
@@ -206,7 +206,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, char* basisType) {
+void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, char* basisType, bool relProjError) {
 /*
   int robSize = this->basis->numVectors();
   VecSet< DistSVec<double, dim> > basisOld(robSize, this->domain.getNodeDistInfo());

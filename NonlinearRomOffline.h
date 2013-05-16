@@ -3,6 +3,7 @@
 
 class IoData;
 class Domain;
+class GeoSource;
 
 #include <DistVector.h>
 #include <VectorSet.h>
@@ -27,6 +28,7 @@ class NonlinearRomOfflineSolver {
     Communicator *com;
     Domain &domain;
     IoData *ioData;
+    GeoSource &geoSource;
     DistBcData<dim> *bcData;
     DistGeoState *geoState;
     DistVec<double> controlVol;
@@ -34,7 +36,7 @@ class NonlinearRomOfflineSolver {
     TsInput *tInput;
 
   public:
-    NonlinearRomOfflineSolver(Communicator *, IoData &, Domain &);
+    NonlinearRomOfflineSolver(Communicator *, IoData &, Domain &, GeoSource &);
     void solve();
 };
 

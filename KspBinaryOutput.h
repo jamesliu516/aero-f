@@ -7,7 +7,8 @@
 #include <VectorSet.h>
 #include <DistVector.h>
 #include <DistEmbeddedVector.h>
-#include <string.h>
+#include <cstring>
+template <class Scalar, int dim> class DistSVec;
 
 template <class VecType>
 class KspBinaryOutput {
@@ -26,10 +27,14 @@ class KspBinaryOutput {
   int* newtonIt;
   char* fileName;
 
+  VecType* U;
+
   public:
 
   KspBinaryOutput(Communicator *, IoData *, Domain *);
   ~KspBinaryOutput();
+
+  void setCurrentState(VecType&);
 
   template <int dim>
   void writeKrylovVectors(VecSet<DistSVec<double, dim> >&, Vec<double>, int);
@@ -37,7 +42,7 @@ class KspBinaryOutput {
   template <int dim>
   void writeKrylovVectors(VecSet<DistSVec<bcomp, dim> >&, Vec<bcomp>, int);
 
-  template <int dim, class Scalar>
+  template <class Scalar, int dim>
   void writeKrylovVectors(VecSet<DistEmbeddedVec<Scalar, dim> >&, Vec<Scalar>, int);
 };
 

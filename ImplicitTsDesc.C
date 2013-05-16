@@ -8,7 +8,7 @@
 #include <KspSolver.h>
 #include <NewtonSolver.h>
 #include <MultiGridPrec.h>
-#include <string.h>
+#include <cstring>
 
 //------------------------------------------------------------------------------
 

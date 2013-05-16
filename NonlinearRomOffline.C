@@ -20,8 +20,8 @@
 
 
 template <int dim>
-NonlinearRomOfflineSolver<dim>::NonlinearRomOfflineSolver(Communicator *_com, IoData &_ioData, Domain &dom) :
-          domain(dom), Xref(dom.getNodeDistInfo()), controlVol(dom.getNodeDistInfo()) {
+NonlinearRomOfflineSolver<dim>::NonlinearRomOfflineSolver(Communicator *_com, IoData &_ioData, Domain &dom, GeoSource &_geoSource) :
+          domain(dom), Xref(dom.getNodeDistInfo()), controlVol(dom.getNodeDistInfo()), geoSource(_geoSource) {
 
  com = _com;
  ioData = &_ioData;
@@ -43,7 +43,7 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
    // create file system, cluster snapshots, construct ROBs
    if (ioData->romDatabase.nClusters > 0) {
      t0 = modalTimer->getTime();
-     NonlinearRomDatabaseConstruction<dim> rom(com,*ioData,domain);
+     NonlinearRomDatabaseConstruction<dim> rom(com,*ioData,domain,geoSource);
      rom.constructDatabase();
      modalTimer->addPodConstrTime(t0);
    }

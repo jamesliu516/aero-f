@@ -1,5 +1,5 @@
 #include <TsInput.h>
-#include <math.h>
+#include <cmath>
 //#include <time.h>
 #include <algorithm>
 #include <sys/time.h>
@@ -43,7 +43,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(ioData->romDatabase.files.centerNormsName, "centerNorms", ioData->romDatabase.files.statePrefix, centerNormsName);
 
   // State bases
-  determineFileName(ioData->romDatabase.files.stateBasisPrefix, "", ioData->romDatabase.files.statePrefix, stateBasisPrefix);
+  determinePrefixName(ioData->romDatabase.files.stateBasisPrefix, ioData->romDatabase.files.statePrefix, stateBasisPrefix);
   determineFileName(ioData->romDatabase.files.stateBasisName, "rob", stateBasisPrefix, stateBasisName);
   determineFileName(ioData->romDatabase.files.stateSingValsName, "svals", stateBasisPrefix, stateSingValsName);
   determineFileName(ioData->romDatabase.files.updateInfoName, "update", stateBasisPrefix, updateInfoName);
@@ -56,7 +56,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(ioData->romDatabase.files.krylovSnapsName, "snaps", ioData->romDatabase.files.krylovPrefix, krylovSnapsName);
 
   // Krylov bases
-  determineFileName(ioData->romDatabase.files.krylovBasisPrefix, "", ioData->romDatabase.files.krylovPrefix, krylovBasisPrefix);
+  determinePrefixName(ioData->romDatabase.files.krylovBasisPrefix, ioData->romDatabase.files.krylovPrefix, krylovBasisPrefix);
   determineFileName(ioData->romDatabase.files.krylovBasisName, "rob", krylovBasisPrefix, krylovBasisName);
   determineFileName(ioData->romDatabase.files.krylovSingValsName, "svals", krylovBasisPrefix, krylovSingValsName);
   determineFileName(ioData->romDatabase.files.krylovDistanceComparisonInfoName, "dist", krylovBasisPrefix, krylovDistanceComparisonInfoName);
@@ -65,7 +65,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(ioData->romDatabase.files.sensitivitySnapsName, "snaps", ioData->romDatabase.files.sensitivityPrefix, sensitivitySnapsName);
 
   // Sensitivity basis
-  determineFileName(ioData->romDatabase.files.sensitivityBasisPrefix, "", ioData->romDatabase.files.sensitivityPrefix, sensitivityBasisPrefix);
+  determinePrefixName(ioData->romDatabase.files.sensitivityBasisPrefix, ioData->romDatabase.files.sensitivityPrefix, sensitivityBasisPrefix);
   determineFileName(ioData->romDatabase.files.sensitivityBasisName, "rob", sensitivityBasisPrefix, sensitivityBasisName);
   determineFileName(ioData->romDatabase.files.sensitivitySingValsName, "svals", sensitivityBasisPrefix, sensitivitySingValsName);
   determineFileName(ioData->romDatabase.files.sensitivityDistanceComparisonInfoName, "dist", sensitivityBasisPrefix, sensitivityDistanceComparisonInfoName);
@@ -74,7 +74,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(ioData->romDatabase.files.residualSnapsName, "snaps", ioData->romDatabase.files.residualPrefix, residualSnapsName);
 
   // Residual bases
-  determineFileName(ioData->romDatabase.files.residualBasisPrefix, "", ioData->romDatabase.files.residualPrefix, residualBasisPrefix);
+  determinePrefixName(ioData->romDatabase.files.residualBasisPrefix, ioData->romDatabase.files.residualPrefix, residualBasisPrefix);
   determineFileName(ioData->romDatabase.files.residualBasisName, "rob", residualBasisPrefix, residualBasisName);
   determineFileName(ioData->romDatabase.files.residualSingValsName, "svals", residualBasisPrefix, residualSingValsName);
 
@@ -82,7 +82,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(ioData->romDatabase.files.jacActionSnapsName, "snaps", ioData->romDatabase.files.jacActionPrefix, jacActionSnapsName);
 
   // Action-of-Jacobian bases
-  determineFileName(ioData->romDatabase.files.jacActionBasisPrefix, "", ioData->romDatabase.files.jacActionPrefix, jacActionBasisPrefix);
+  determinePrefixName(ioData->romDatabase.files.jacActionBasisPrefix, ioData->romDatabase.files.jacActionPrefix, jacActionBasisPrefix);
   determineFileName(ioData->romDatabase.files.jacActionBasisName, "rob", jacActionBasisPrefix, jacActionBasisName);
   determineFileName(ioData->romDatabase.files.jacActionSingValsName, "svals", jacActionBasisPrefix, jacActionSingValsName);
 
@@ -1002,7 +1002,7 @@ void NonlinearRom<dim>::readNearestSnapsToCenters() {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readClusteredBasis(int iCluster, char* basisType) {
+void NonlinearRom<dim>::readClusteredBasis(int iCluster, char* basisType, bool relProjError) {
 
   if (storedAllOnlineQuantities) {
     if (basis) delete basis;
@@ -1040,12 +1040,28 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, char* basisType) {
   double energyTol;
 
   if (ioData->problem.type[ProblemData::NLROMOFFLINE]) {
-    if (false) { // if (relProjectionError)
-      /* //TODO  relProjError
-      maxDimension = ioData->romOffline.rob.dataCompression.maxBasisSize;
-      minDimension = ioData->romOffline.rob.dataCompression.minBasisSize;
-      energyTol = ioData->romOffline.rob.dataCompression.maxEnergyRetained;
-      */
+    if (relProjError) {
+      if (strcmp(basisType,"state")==0) {
+        maxDimension = ioData->romOffline.rob.relativeProjectionError.maxDimension;
+        minDimension = ioData->romOffline.rob.relativeProjectionError.minDimension;
+        energyTol = ioData->romOffline.rob.relativeProjectionError.energy;
+      } else if (strcmp(basisType,"residual")==0) {
+        maxDimension = ioData->romOffline.rob.relativeProjectionError.maxDimension;
+        minDimension = ioData->romOffline.rob.relativeProjectionError.minDimension;
+        energyTol = ioData->romOffline.rob.relativeProjectionError.energy;
+      } else if (strcmp(basisType,"jacAction")==0) {
+        maxDimension = ioData->romOffline.rob.relativeProjectionError.maxDimension;
+        minDimension = ioData->romOffline.rob.relativeProjectionError.minDimension;
+        energyTol = ioData->romOffline.rob.relativeProjectionError.energy;
+      } else if (strcmp(basisType,"sensitivity")==0) {
+        maxDimension = ioData->romOffline.rob.relativeProjectionError.sensitivity.maxDimension;
+        minDimension = ioData->romOffline.rob.relativeProjectionError.sensitivity.minDimension;
+        energyTol = ioData->romOffline.rob.relativeProjectionError.sensitivity.energy;
+      } else if (strcmp(basisType,"krylov")==0) {
+        maxDimension = ioData->romOffline.rob.relativeProjectionError.krylov.maxDimension;
+        minDimension = ioData->romOffline.rob.relativeProjectionError.krylov.minDimension;
+        energyTol = ioData->romOffline.rob.relativeProjectionError.krylov.energy;
+      }
     } else { 
       if (strcmp(basisType,"state")==0) {
         maxDimension = ioData->romOffline.gnat.maxDimensionState;
@@ -1076,7 +1092,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, char* basisType) {
         }
       }
     }
-  } else { // TODO ONLINE
+  } else { // ONLINE
     if ((strcmp(basisType,"state")==0) || (strcmp(basisType,"sampledState")==0)) {
       maxDimension = ioData->romOnline.maxDimension;
       minDimension = ioData->romOnline.minDimension;
@@ -1414,6 +1430,26 @@ void NonlinearRom<dim>::determineFileName(const char* fileNameInput, const char*
   else {
     fileName = new char[strlen(fileNameInput) + 1];
     sprintf(fileName, "%s", fileNameInput); 
+  }  
+} 
+
+//----------------------------------------------------------------------------------
+
+template<int dim> 
+void NonlinearRom<dim>::determinePrefixName(const char* prefixInput, const char* prefixDefault, char*& prefix) { 
+
+  if (strcmp(prefixInput,"") == 0) {
+    if (strcmp(prefixDefault,"") == 0) {
+      prefix = new char[1];
+      prefix[0] = 0;
+    } else {
+      prefix = new char[strlen(prefixDefault) + 1];
+      sprintf(prefix, "%s", prefixDefault);
+    }
+  } 
+  else {
+    prefix = new char[strlen(prefixInput) + 1];
+    sprintf(prefix, "%s", prefixInput); 
   }  
 } 
 
