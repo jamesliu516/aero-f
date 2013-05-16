@@ -1272,7 +1272,7 @@ public:
                                SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
                                Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int> *fid);
   template<int dim>
-  void computeEmbSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, LevelSetStructure&, double pInfty, 
+  void computeEmbSurfBasedForceLoad(IoData &iod, int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, LevelSetStructure&, double pInfty, 
                                     SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
 			                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int>* fid);
   template<int dim>
