@@ -80,6 +80,8 @@ public:
 
   void doErrorEstimation(DistSVec<double,dim> &U);
 
+  void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {}
+
  protected:
   template<class Scalar, int neq>
   KspPrec<neq> *createPreconditioner(PcData &, Domain *);

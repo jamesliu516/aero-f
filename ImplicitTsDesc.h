@@ -73,8 +73,8 @@ public:
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
 
   void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *);
-
   void incrementNewtonOutputTag();
+  void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {if (kspBinaryOutput) kspBinaryOutput->setCurrentState(Q);}
 
 };
 

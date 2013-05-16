@@ -15,7 +15,7 @@ class NonlinearRomOnlineIII : public NonlinearRom<dim> {
   ~NonlinearRomOnlineIII();
 
   void updateBasis(int, DistSVec<double, dim> &);
-  void appendNonStateDataToBasis(int, char *); 
+  void appendNonStateDataToBasis(int, char *, bool relProjError = false); 
   void readClusteredOnlineQuantities(int);
   void readClosestCenterInfoModelIII();
 

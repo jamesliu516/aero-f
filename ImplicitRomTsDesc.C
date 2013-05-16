@@ -220,9 +220,9 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
     if (this->ioData->romOnline.lineSearch) { 
     // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
-    //  alpha = lineSearch(U,dUromNewtonIt,it,AJ,epsNewton, convergeFlag);
-    //  if (it > 0 && convergeFlag == 1) break;
-    //  dUromNewtonIt *= alpha;
+      alpha = lineSearch(U,dUromNewtonIt,it,AJ,epsNewton, convergeFlag);
+      if (it > 0 && convergeFlag == 1) break;
+      dUromNewtonIt *= alpha;
     }
 
 		double tSol = this->timer->getTime();
@@ -296,25 +296,11 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
 {
   if (R==NULL) R = &F;
 
-  //DistSVec<double, dim> F(this->domain->getNodeDistInfo());
-
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
 
-  this->com->fprintf(stdout, "after spatial, residual = %e\n", R->norm());
-
-  DistSVec<double, dim> Fspace(this->domain->getNodeDistInfo());
-  DistSVec<double, dim> Ftime(this->domain->getNodeDistInfo());
-  DistSVec<double, dim> Fbc(this->domain->getNodeDistInfo());
-  Fspace = *R;
-
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, *R);
-  Ftime = *R - Fspace;
-  this->com->fprintf(stdout, "norm of time component = %e\n", Ftime.norm());
 
   this->spaceOp->applyBCsToResidual(Q, *R);
-
-  Fbc = F - Fspace - Ftime;
-  this->com->fprintf(stdout, "norm of BC component = %e\n", Fbc.norm());
 }
 
 //------------------------------------------------------------------------------

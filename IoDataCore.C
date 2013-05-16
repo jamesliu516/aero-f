@@ -479,11 +479,13 @@ ROMOutputData::ROMOutputData()
   residualOutputFreqTime = 1; 
   residualOutputFreqNewton = 1;
   fdResiduals = FD_RESIDUALS_OFF;
+  fdResidualsLimit = FD_RESIDUALS_LIMIT_OFF;
 
   krylovVector = "";
   krylovOutputFreqTime = 1;
   krylovOutputFreqNewton = 1;
   krylovVectorEnergy = 1.0;
+  addStateToKrylov = ADD_STATE_TO_KRYLOV_ON;
 
   clusterUsage = "";
   reducedCoords = "";
@@ -509,11 +511,16 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<ROMOutputData>(ca, "ResidualVectorOutputFrequencyNewton", this, &ROMOutputData::residualOutputFreqNewton);  
   new ClassToken<ROMOutputData>(ca, "OutputResidualsFromMVPFiniteDifference", this,
             reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::fdResiduals), 2, "Off", 0, "On", 1);
+  new ClassToken<ROMOutputData>(ca, "OutputResidualsFromMVPFiniteDifferenceLimit", this,
+            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::fdResidualsLimit), 2, "Off", 0, "On", 1);
 
   new ClassStr<ROMOutputData>(ca, "KrylovVector", this, &ROMOutputData::krylovVector);  
   new ClassInt<ROMOutputData>(ca, "KrylovVectorOutputFrequencyTime", this, &ROMOutputData::krylovOutputFreqTime);
   new ClassInt<ROMOutputData>(ca, "KrylovVectorOutputFrequencyNewton", this, &ROMOutputData::krylovOutputFreqNewton);
   new ClassDouble<ROMOutputData>(ca, "KrylovVectorEnergy", this, &ROMOutputData::krylovVectorEnergy);
+  new ClassToken<ROMOutputData>(ca, "AddStateToKrylovIncrements", this,
+            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::addStateToKrylov), 2, "Off", 0, "On", 1);
+
 
   new ClassStr<ROMOutputData>(ca, "ClusterUsage", this, &ROMOutputData::clusterUsage);
   new ClassStr<ROMOutputData>(ca, "ReducedCoordinates", this, &ROMOutputData::reducedCoords);
@@ -3621,8 +3628,12 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   maxDimension = -1; 
 	minDimension = 0;
   energy = 1.0;
-  regCoeff = 1.0;
+  proportionalGain = 0.0;
+  integralGain = 0.0;
+  integralLeakGain = 0.0;
   regThresh = 0.0;
+  ffErrorTol = 0.0;
+  controlNodeID = -1;
 }
 
 //------------------------------------------------------------------------------
@@ -3650,8 +3661,12 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassInt<NonlinearRomOnlineData>(ca, "MaximumDimension", this, &NonlinearRomOnlineData::maxDimension);
   new ClassInt<NonlinearRomOnlineData>(ca, "MinimumDimension", this, &NonlinearRomOnlineData::minDimension); 
   new ClassDouble<NonlinearRomOnlineData>(ca, "Energy", this, &NonlinearRomOnlineData::energy);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationCoefficient", this, &NonlinearRomOnlineData::regCoeff);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationProportionalGain", this, &NonlinearRomOnlineData::proportionalGain);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationIntegralGain", this, &NonlinearRomOnlineData::integralGain);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationIntegralLeakGain", this, &NonlinearRomOnlineData::integralLeakGain);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldErrorTolerance", this, &NonlinearRomOnlineData::ffErrorTol);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationThreshold", this, &NonlinearRomOnlineData::regThresh);
+  new ClassInt<NonlinearRomOnlineData>(ca, "ControlNodeID", this, &NonlinearRomOnlineData::controlNodeID);
   new ClassDouble<NonlinearRomOnlineData>(ca, "ReducedTimeStep", this, &NonlinearRomOnlineData::reducedTimeStep);
 
   krylov.setup("Krylov",ca);
@@ -4091,6 +4106,12 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
   relProjError = REL_PROJ_ERROR_OFF;
   projectIncrementalSnaps = PROJECT_INCREMENTAL_SNAPS_FALSE;
 	subtractRefSol= PROJECT_SNAPS_MINUS_REF_SOL_FALSE;
+
+  basisUpdates = UPDATES_OFF;
+  maxDimension = -1; 
+	minDimension = 0;
+  energy = 1.0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -4099,11 +4120,20 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
 
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 	new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
-			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 2, "Off", 0, "On", 1);
+			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 2, "Off", 0, "State", 1, "Residual", 2, "JacAction", 3);
 	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::projectIncrementalSnaps), 2, "False", 0, "True", 1);
 	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectSnapshotsMinusRefSol", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::subtractRefSol), 2, "False", 0, "True", 1);
+
+ 	new ClassToken<RelativeProjectionErrorData> (ca, "BasisUpdates", this, reinterpret_cast<int
+			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::basisUpdates), 4, "Off", 0, "Simple", 1);
+  new ClassInt<RelativeProjectionErrorData>(ca, "MaximumDimension", this, &RelativeProjectionErrorData::maxDimension);
+  new ClassInt<RelativeProjectionErrorData>(ca, "MinimumDimension", this, &RelativeProjectionErrorData::minDimension); 
+  new ClassDouble<RelativeProjectionErrorData>(ca, "Energy", this, &RelativeProjectionErrorData::energy);
+
+  krylov.setup("Krylov",ca);
+  sensitivity.setup("Sensitivities",ca);
 
 }
 

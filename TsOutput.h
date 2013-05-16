@@ -51,10 +51,13 @@ private:
   double surface;
   static int counter;
   Vec3D x0;
+
   int stateOutputFreqTime;
   int stateOutputFreqNewton;
   int residualOutputFreqTime;
   int residualOutputFreqNewton;
+  bool fdResiduals;
+  bool fdResidualsLimit;
 
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
@@ -190,8 +193,7 @@ public:
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
-                                   DistSVec<double,dim> *U2 = NULL,
-                                   VecSet< DistSVec<double,dim> > *U3 = NULL);
+
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

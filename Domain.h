@@ -173,7 +173,8 @@ class Domain {
   int outputNewtonStateStep;
   int outputNewtonResidualStep;
   int outputKrylovStep;  
-
+  int numKrylovVecsOutputPrevNewtonIt;
+  int numResidualsOutputCurrentNewtonIt;
 
 public:
 
@@ -195,12 +196,17 @@ public:
  
   Connectivity* getSubToSub() { return mySubToSub; } 
   
+  // for outputting ROM snapshots from FOM
+  // TODO: move these to a more appropriate location (KMW)
   int *getTimeIt() { return &outputTimeIt; }
   int *getNewtonIt() { return &outputNewtonIt; }
   double *getNewtonTag() { return &outputNewtonTag; } 
   int *getNewtonStateStep() { return &outputNewtonStateStep; }
   int *getNewtonResidualStep() { return &outputNewtonResidualStep; }
   int *getKrylovStep() { return &outputKrylovStep; }
+  int *getNumKrylovVecsOutputPrevNewtonIt() { return &numKrylovVecsOutputPrevNewtonIt; }
+  int *getNumResidualsOutputCurrentNewtonIt() { return &numResidualsOutputCurrentNewtonIt; } 
+
   BCApplier* getMeshMotionBCs() const { return meshMotionBCs; } //HB
   CommPattern<double> *getVecPat() const { return vecPat; }
   CommPattern<bcomp> *getCompVecPat() const { return compVecPat; }

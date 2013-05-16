@@ -1,7 +1,7 @@
 #include <NonlinearRomDatabaseConstruction.h>
 #include <Modal.h>
 #include <TsInput.h>
-#include <math.h>
+#include <cmath>
 //#include <time.h>
 #include <algorithm>
 #include <sys/time.h>
@@ -13,8 +13,8 @@
 using std::stable_sort;
 
 template<int dim> 
-NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communicator* _com, IoData& _ioData, Domain& _domain)  : 
-  NonlinearRom<dim>(_com, _ioData, _domain)
+NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communicator* _com, IoData& _ioData, Domain& _domain, GeoSource& _geoSource)  : 
+  NonlinearRomOnlineII<dim>(_com, _ioData, _domain), geoSource(_geoSource)
 { 
   // ioData->example, com->example, this->domain.example
   nSnapshotFiles = 0;
@@ -103,7 +103,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   // approx
 
   // projection error
-  if (this->ioData->romOffline.rob.relativeProjectionError.relProjError) localRelProjError();
+  if (this->ioData->romOffline.rob.relativeProjectionError.relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
 
 }
 
@@ -1353,7 +1353,7 @@ void NonlinearRomDatabaseConstruction<dim>::readInitialCondition() {
 
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
-/*
+
   this->readClusteredCenters();
   delete (this->clusterCenters);
   (this->clusterCenters) = NULL;
@@ -1363,25 +1363,30 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
  
   projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);
 
+  // if computing residuals
+  //  if (this->ioData->romOffline.rob.relativeProjectionError.basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
+  //  ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
- 
-    switch (this->ioData->romOffline.rob.clustering.useExistingClusters) {
-      case (ClusteringData::USE_EXISTING_CLUSTERS_FALSE):
-        this->readClusteredBasis(iCluster, "state");
+
+    switch (this->ioData->romOffline.rob.relativeProjectionError.relProjError) {
+      case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
+        this->readClusteredBasis(iCluster, "state", true);
+        if (this->ioData->romOffline.rob.relativeProjectionError.basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
+            this->snapRefState!=NULL) 
+          this->updateBasis(iCluster, *(this->snapRefState));
+        if (this->ioData->romOffline.rob.relativeProjectionError.krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
+        if (this->ioData->romOffline.rob.relativeProjectionError.sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
         break;
-      case (ClusteringData::USE_EXISTING_STATES):
-        this->readClusteredBasis(iCluster, "state");
+      case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
+        this->readClusteredBasis(iCluster, "residual", true);
         break;
-      case (ClusteringData::USE_EXISTING_RESIDUALS):
-        this->readClusteredBasis(iCluster, "residual");
-        break;
-      case (ClusteringData::USE_EXISTING_JAC_ACTIONS):
-        this->readClusteredBasis(iCluster, "jacAction");
+      case (RelativeProjectionErrorData::REL_PROJ_ERROR_JACACTION):
+        this->readClusteredBasis(iCluster, "jacAction", true);
         break;
       default:
         exit (-1);
     }
-
 
     int nPodVecs = this->basis->numVectors();
 
@@ -1408,6 +1413,12 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
     }
     delete tmpVecSet;
     tmpVecSet = NULL;
+
+    //OUTPUT projectedSnaps + snapRefState
+    
+
+    // Form R(projectedSnaps + snapRefState)?
+
 
     // snaps - projSnaps
     this->com->fprintf(stdout, " ... difference = originalSnaps - projectedSnaps\n");
@@ -1454,7 +1465,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
   (this->snap) = NULL;
 
   writeProjErrorToDisk();
-*/
+
 }
 
 
@@ -1462,7 +1473,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
 
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::writeProjErrorToDisk()  {
-/*
+
   // output projError as ASCII file in top level of ROM database
   FILE *projErrorFile;
   char *fullProjErrorName = new char[strlen(this->databasePrefix) + strlen(this->databaseName) + 1 + strlen(this->projErrorName) + 1];
@@ -1492,7 +1503,7 @@ void NonlinearRomDatabaseConstruction<dim>::writeProjErrorToDisk()  {
   projErrorLog = NULL;
 
   this->com->barrier();
-*/
+
 }
 
 

@@ -56,6 +56,8 @@ MatVecProdFD<dim, neq>::MatVecProdFD
 
   fdOrder = ioData.ts.implicit.fdOrder; 
 
+  output = NULL;
+
 }
 
 //------------------------------------------------------------------------------

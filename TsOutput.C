@@ -40,6 +40,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   stateOutputFreqNewton = iod.output.rom.stateOutputFreqNewton;
   residualOutputFreqTime = iod.output.rom.residualOutputFreqTime;
   residualOutputFreqNewton = iod.output.rom.residualOutputFreqNewton; 
+  fdResiduals = (iod.output.rom.fdResiduals == ROMOutputData::FD_RESIDUALS_ON) ? true : false;
+  fdResidualsLimit = (iod.output.rom.fdResidualsLimit == ROMOutputData::FD_RESIDUALS_LIMIT_ON) ? true : false;
 
   int sp = strlen(iod.output.transient.prefix) + 1;
   int spn = strlen(iod.output.transient.probes.prefix) + 1;
@@ -2254,7 +2256,6 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 //------------------------------------------------------------------------------
 
 template<int dim>
-                                                VecSet< DistSVec<double,dim> > *U3)
 void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag, 
                       DistSVec<double,3> &X, DistSVec<double,dim> &U){
 
@@ -3045,10 +3046,17 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep,
     }
   }
 
-  if (residual && residualVectors && (timeStep%residualOutputFreqTime==0) && (newtonIt%residualOutputFreqNewton==0)) { 
+  if (residual && residualVectors && (timeStep%residualOutputFreqTime==0) && (newtonIt%residualOutputFreqNewton==0)) {
     // for FOM residuals only (residuals from PG are clustered during the online simulations)
+
+    // if outputting krylov vects, limit number of residuals output per newton iteration to
+    // number of krylov vecs output at previous it 
+    if ((fdResiduals && fdResidualsLimit) && (*(domain->getNumKrylovVecsOutputPrevNewtonIt())>0) && 
+        (*(domain->getNumResidualsOutputCurrentNewtonIt()) >= *(domain->getNumKrylovVecsOutputPrevNewtonIt())))  return; 
+
     domain->writeVectorToFile(residualVectors, *(domain->getNewtonResidualStep()), *(domain->getNewtonTag()), *residual);
     ++(*(domain->getNewtonResidualStep()));
+    ++(*(domain->getNumResidualsOutputCurrentNewtonIt()));
   }
 
 }

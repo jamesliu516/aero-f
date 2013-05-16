@@ -6,7 +6,7 @@
 #include <KspSolver.h>
 #include <MemoryPool.h>
 //#include <MultiGridPrec.h>
-#include <string.h>
+#include <cstring>
 
 #ifdef TYPE_MAT
 #define MatScalar TYPE_MAT
@@ -205,6 +205,8 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
   dQ = 0.0;
 
   ksp->setup(it, this->maxItsNewton, b);
+
+
 
   int lits = ksp->solve(b, dQ);
 

@@ -21,7 +21,7 @@
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
-extern void startNonlinearRomOfflineSolver(Communicator *, IoData &, Domain &);
+extern void startNonlinearRomOfflineSolver(Communicator *, IoData &, Domain &, GeoSource &);
 extern void startSparseGridGeneration(IoData &, Domain &);
 int interruptCode = 0;
 
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
       startModalSolver(com, ioData, domain);
     } else if (ioData.problem.type[ProblemData::NLROMOFFLINE]) {
       // Choose nonlinear ROM preprocessing solver
-      startNonlinearRomOfflineSolver(com, ioData, domain);
+      startNonlinearRomOfflineSolver(com, ioData, domain, geoSource);
     } else {
       // Choose nonlinear fluid problem
       startNavierStokesSolver(ioData, geoSource, domain);

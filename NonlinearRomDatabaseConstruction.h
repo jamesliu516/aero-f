@@ -1,12 +1,14 @@
 #ifndef _NONLINEAR_ROM_DATABASE_CONSTRUCTION_H_
 #define _NONLINEAR_ROM_DATABASE_CONSTRUCTION_H_
 
-#include <NonlinearRom.h>
+#include <NonlinearRomOnlineII.h>
 
 template <int dim>
-class NonlinearRomDatabaseConstruction : public NonlinearRom<dim> {
+class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
 
   protected:
+
+  GeoSource &geoSource;
 
   VecSet<Vec<double> >* projErrorLog;
 //  DistSVec<double, dim>* snapRefSol; 
@@ -40,7 +42,7 @@ class NonlinearRomDatabaseConstruction : public NonlinearRom<dim> {
 
   public:
 
-  NonlinearRomDatabaseConstruction(Communicator *, IoData &, Domain &);
+  NonlinearRomDatabaseConstruction(Communicator *, IoData &, Domain &, GeoSource &);
   ~NonlinearRomDatabaseConstruction();
 
   void constructDatabase();

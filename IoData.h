@@ -299,11 +299,13 @@ struct ROMOutputData {
   int residualOutputFreqTime;
   int residualOutputFreqNewton;
   enum FDResiduals {FD_RESIDUALS_OFF = 0, FD_RESIDUALS_ON = 1} fdResiduals;
+  enum FDResidualsLimit {FD_RESIDUALS_LIMIT_OFF = 0, FD_RESIDUALS_LIMIT_ON = 1} fdResidualsLimit;
 
   const char *krylovVector;
   int krylovOutputFreqTime;
   int krylovOutputFreqNewton;
   double krylovVectorEnergy;
+  enum AddStateToKrylov {ADD_STATE_TO_KRYLOV_OFF = 0, ADD_STATE_TO_KRYLOV_ON = 1} addStateToKrylov;
 
   const char *clusterUsage;
   const char *reducedCoords;  // generalized coords
@@ -2089,6 +2091,84 @@ struct NonlinearRomFileSystemData {
 
 //------------------------------------------------------------------------------
 
+struct NonlinearRomOnlineNonStateData {
+
+  enum Include {INCLUDE_OFF = 0, INCLUDE_ON = 1} include;
+  enum GramSchmidt {GRAMSCHMIDT_OFF = 0, GRAMSCHMIDT_ON = 1} gramSchmidt;
+
+	int minDimension;
+  int maxDimension;
+  double energy;
+
+  NonlinearRomOnlineNonStateData();
+  ~NonlinearRomOnlineNonStateData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct NonlinearRomOnlineData {
+
+	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
+	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
+  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_TRUE = 1} lineSearch;
+	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2} lsSolver;
+
+  double regThresh;
+  double proportionalGain;
+  double integralGain;
+  double integralLeakGain;
+  double ffErrorTol;
+  int controlNodeID; 
+  double reducedTimeStep;
+
+	int minDimension;
+  int maxDimension;
+  double energy;
+
+  enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
+  int basisUpdateFreq;
+  enum DistanceComparisons {DISTANCE_COMPARISONS_OFF = 0, DISTANCE_COMPARISONS_ON = 1} distanceComparisons;
+  enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
+
+  NonlinearRomOnlineNonStateData krylov;
+  NonlinearRomOnlineNonStateData sensitivity;
+
+  NonlinearRomOnlineData();
+  ~NonlinearRomOnlineData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct RelativeProjectionErrorData {
+
+	enum RelativeProjectionError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_STATE = 1, REL_PROJ_ERROR_RESIDUAL = 2, REL_PROJ_ERROR_JACACTION = 3} relProjError;
+	enum ProjectIncrementalSnapshots {PROJECT_INCREMENTAL_SNAPS_FALSE = 0, PROJECT_INCREMENTAL_SNAPS_TRUE = 1} projectIncrementalSnaps;
+	enum ProjectSnapshotsMinusRefSol {PROJECT_SNAPS_MINUS_REF_SOL_FALSE = 0, PROJECT_SNAPS_MINUS_REF_SOL_TRUE = 1} subtractRefSol;
+
+  int minDimension;
+  int maxDimension;
+  double energy;
+
+  enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1} basisUpdates;
+
+  NonlinearRomOnlineNonStateData krylov;
+  NonlinearRomOnlineNonStateData sensitivity;
+
+  RelativeProjectionErrorData();
+  ~RelativeProjectionErrorData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct StateSnapshotsData {
 
   enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
@@ -2248,22 +2328,6 @@ struct DistanceComparisonsData {
 
 };
 
-
-//------------------------------------------------------------------------------
-
-struct RelativeProjectionErrorData {
-
-	enum RelativeProjectionError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
-	enum ProjectIncrementalSnapshots {PROJECT_INCREMENTAL_SNAPS_FALSE = 0, PROJECT_INCREMENTAL_SNAPS_TRUE = 1} projectIncrementalSnaps;
-	enum ProjectSnapshotsMinusRefSol {PROJECT_SNAPS_MINUS_REF_SOL_FALSE = 0, PROJECT_SNAPS_MINUS_REF_SOL_TRUE = 1} subtractRefSol;
-
-  RelativeProjectionErrorData();
-  ~RelativeProjectionErrorData() {}
-
-  void setup(const char *, ClassAssigner * = 0);
-
-};
-
 //------------------------------------------------------------------------------
 
 struct ROBConstructionData {
@@ -2349,56 +2413,6 @@ struct NonlinearRomOfflineData {
 
   NonlinearRomOfflineData();
   ~NonlinearRomOfflineData() {}
-
-  void setup(const char *, ClassAssigner * = 0);
-
-};
-
-//------------------------------------------------------------------------------
-
-struct NonlinearRomOnlineNonStateData {
-
-  enum Include {INCLUDE_OFF = 0, INCLUDE_ON = 1} include;
-  enum GramSchmidt {GRAMSCHMIDT_OFF = 0, GRAMSCHMIDT_ON = 1} gramSchmidt;
-
-	int minDimension;
-  int maxDimension;
-  double energy;
-
-  NonlinearRomOnlineNonStateData();
-  ~NonlinearRomOnlineNonStateData() {}
-
-  void setup(const char *, ClassAssigner * = 0);
-
-};
-
-//------------------------------------------------------------------------------
-
-struct NonlinearRomOnlineData {
-
-	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
-	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
-  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_TRUE = 1} lineSearch;
-	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2} lsSolver;
-
-  double regThresh;
-  double regCoeff;  
-  double reducedTimeStep;
-
-	int minDimension;
-  int maxDimension;
-  double energy;
-
-  enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
-  int basisUpdateFreq;
-  enum DistanceComparisons {DISTANCE_COMPARISONS_OFF = 0, DISTANCE_COMPARISONS_ON = 1} distanceComparisons;
-  enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
-
-  NonlinearRomOnlineNonStateData krylov;
-  NonlinearRomOnlineNonStateData sensitivity;
-
-  NonlinearRomOnlineData();
-  ~NonlinearRomOnlineData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 

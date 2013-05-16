@@ -176,9 +176,6 @@ public:
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
   virtual void setFluidSubcycling(bool inSub) { }
 
-		                           DistSVec<double,dim> *F1 = NULL,
-                                           DistSVec<double,dim> *F2 = NULL,
-                                           VecSet< DistSVec<double,dim> > *F3 = NULL);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void updateFarfieldCoeffs(double dt);
@@ -196,6 +193,7 @@ public:
   virtual void incrementNewtonOutputTag() {}
   int *getTimeIt() { return domain->getTimeIt(); }
   int *getNewtonIt() { return domain->getNewtonIt(); }
+  int *getNumResidualsOutputCurrentNewtonIt() { return domain->getNumResidualsOutputCurrentNewtonIt(); }
 };
 
 //------------------------------------------------------------------------------

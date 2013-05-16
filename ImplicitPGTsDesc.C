@@ -31,13 +31,47 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
   dtInit = this->ioData->romOnline.reducedTimeStep;
   dt = dtInit;
 
-  A_Uinit = NULL;    
-  PhiT_A_Uinit = NULL;
+  A_Uinlet = NULL;    
+  PhiT_A_Uinlet = NULL;
   PhiT_A_U = NULL;
   PhiT_A_Phi = NULL;
   A_Phi = NULL;
-  regCoeff = this->ioData->romOnline.regCoeff;
   regThresh = this->ioData->romOnline.regThresh;
+  regWeight = 0.0;
+  regWeightProportional = 0.0;
+  Kp = this->ioData->romOnline.proportionalGain; 
+  regWeightIntegral = 0.0;
+  dRegWeightIntegral = 0.0;
+  Ki = this->ioData->romOnline.integralGain;
+  Ki_leak = -1.0 * this->ioData->romOnline.integralLeakGain;
+  dKi = 0.0;
+  ffError = 0.0;
+  ffErrorPrev = 0.0;
+  ffErrorTol = this->ioData->romOnline.ffErrorTol;
+  
+  controlNodeGlobalID = this->ioData->romOnline.controlNodeID - 1;
+  controlNodeLocalID = -1;
+  controlNodeSubDomain = -1;
+  controlNodeCpuNum = -1;
+
+  if (lsSolver == 2) {
+    if (controlNodeGlobalID < 0) {
+      fprintf(stderr, "*** Error: ControlNodeID must be specified\n");
+      exit(-1);
+    }    
+    int numLocSub = this->domain->getNumLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      controlNodeLocalID = this->domain->getSubDomain()[iSub]->getLocalNodeNum(controlNodeGlobalID);
+      if (controlNodeLocalID >= 0) {
+        controlNodeSubDomain = iSub;
+        controlNodeCpuNum = this->com->cpuNum();
+        break;
+      }
+    }
+    this->com->globalMax(1,&controlNodeCpuNum);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -49,8 +83,8 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 		if (this->projVectorTmp) delete [] this->projVectorTmp;
 		if (jactmp) delete [] jactmp;
     if (pc) delete pc;
-    if (A_Uinit) delete A_Uinit;
-    if (PhiT_A_Uinit) delete PhiT_A_Uinit;
+    if (A_Uinlet) delete A_Uinlet;
+    if (PhiT_A_Uinlet) delete PhiT_A_Uinlet;
     if (PhiT_A_U) delete PhiT_A_U;
     if (PhiT_A_Phi) delete PhiT_A_Phi;
     if (A_Phi) delete A_Phi;
@@ -108,10 +142,36 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 	} 
   else if (lsSolver == 2) {  // regularized normal equations
 
-    if (it==0) minRes = ((res/this->restart->residual)<minRes) ? res/this->restart->residual : minRes;
-    double scaling =  minRes * minRes / ( 1.0 + double(totalTimeSteps) );
+    //if (it==0) minRes = ((res/this->restart->residual)<minRes) ? res/this->restart->residual : minRes;
+ 
+    ffError = 0.0;
 
-    this->com->fprintf(stdout, "scaling = %e / %d = %e\n", minRes, totalTimeSteps, scaling); 
+    if (this->com->cpuNum() == controlNodeCpuNum) {
+      double (*u)[dim] = U.subData(controlNodeSubDomain); // vector of control volumes
+      for (int j=0; j<dim; ++j) {
+         ffError += pow(u[controlNodeLocalID][j] - (this->bcData->getInletConservativeState())[j], 2);
+      }
+    }
+
+    this->com->globalMax(1,&ffError);
+
+    this->com->fprintf(stdout, " ... Far-field error at control node %d = %e \n", controlNodeGlobalID+1, ffError);
+
+
+    regWeightProportional = (ffError>ffErrorTol) ? Kp*ffError : 0.0 ;
+    //((dRegWeightIntegral<0) && (ffError<ffErrorPrev)) 
+    Ki_leak = (dRegWeightIntegral<0) ? Ki_leak*2.0 : -1.0*(this->ioData->romOnline.integralLeakGain);
+    dRegWeightIntegral = (ffError>ffErrorTol) ? Ki*ffError : Ki_leak*ffErrorTol;
+    regWeightIntegral += dRegWeightIntegral;
+    regWeightIntegral = (regWeightIntegral>0) ? regWeightIntegral : 0;
+
+    regWeight = regWeightProportional + regWeightIntegral;
+    regWeight = (regWeight>0) ? regWeight : 0;
+
+    ffErrorPrev = ffError;
+
+    this->com->fprintf(stdout, " ... Regularization Weighting = %e (P = %e, I = %e)\n",
+                       regWeight, regWeightProportional, regWeightIntegral); 
 
     // forming (PhiT * A) * U
     if (PhiT_A_U) delete PhiT_A_U;
@@ -120,7 +180,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
       (*PhiT_A_U)[iVec] = (*A_Phi)[iVec] * U;
     }
 
-    rhs = rhs + (scaling * (*PhiT_A_Uinit - *PhiT_A_U));
+    rhs = rhs + (regWeight * (*PhiT_A_Uinlet - *PhiT_A_U));
     if (rhsNormInit<0) rhsNormInit = rhs.norm();
     if (it==0) {
       double rhsNormPrev = rhs.norm();
@@ -135,7 +195,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     transMatMatProd(this->AJ,this->AJ,jactmp);  // TODO: make symmetric product
     for (int iRow = 0; iRow < this->nPod; ++iRow) {
       for (int iCol = 0; iCol < this->nPod; ++iCol) {
-        this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod] + (scaling*(*PhiT_A_Phi)[iRow][iCol]);
+        this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod] + (regWeight*(*PhiT_A_Phi)[iRow][iCol]);
         if (iRow==iCol && false) this->jac[iRow][iCol] = this->jac[iRow][iCol] + 1.0/dt;
       }
     }
@@ -148,9 +208,6 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     res = resReg;
 
   }
-
-
- 
 
 
 }
@@ -182,32 +239,36 @@ void ImplicitPGTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
   }
 
   if (lsSolver == 2) {
-    if (A_Uinit==NULL) {  // only needs to be done once
-      this->com->fprintf(stdout, " ... forming A * Uinit\n");
-      A_Uinit = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-      *A_Uinit = U;
-      int numLocSub = A_Uinit->numLocSub();
+    if (A_Uinlet==NULL) {  // only needs to be done once
+      this->com->fprintf(stdout, " ... forming A * Uinlet\n");
+      A_Uinlet = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+      *A_Uinlet = 0.0;
+      int numLocSub = A_Uinlet->numLocSub();
+      double maxCV = 0;
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = this->A->subData(iSub); // vector of control volumes
-        double (*au)[dim] = A_Uinit->subData(iSub);
+        double (*au)[dim] = A_Uinlet->subData(iSub);
         for (int i=0; i<this->A->subSize(iSub); ++i) {
           if (cv[i]>regThresh) {
             for (int j=0; j<dim; ++j)
-              au[i][j] *= (regCoeff * cv[i]);
-          } else {
-            for (int j=0; j<dim; ++j)
-              au[i][j] *= 0.0;
+              au[i][j] = cv[i] * (this->bcData->getInletConservativeState())[j];
           }
+          if (cv[i] > maxCV) maxCV = cv[i];
         }
       }
+      this->com->globalMax(1,&maxCV); 
+      this->com->fprintf(stdout, " ... regularization CV threshold = %e (largest CV = %e) \n", regThresh, maxCV);
     }
 
-    this->com->fprintf(stdout, " ... forming PhiT * (A * Uinit)\n");
-    if (PhiT_A_Uinit) delete PhiT_A_Uinit;
-    PhiT_A_Uinit = new Vec<double>(this->nPod);
+   // for (int j=1; j<dim; ++j)
+   //    this->com->fprintf(stdout, " ... InletConservativeState = %e \n", (this->bcData->getInletConservativeState())[j]);
+
+    this->com->fprintf(stdout, " ... forming PhiT * (A * Uinlet)\n");
+    if (PhiT_A_Uinlet) delete PhiT_A_Uinlet;
+    PhiT_A_Uinlet = new Vec<double>(this->nPod);
     for (int iVec = 0; iVec < this->nPod; iVec++){
-      (*PhiT_A_Uinit)[iVec] = this->pod[iVec] * (*A_Uinit);
+      (*PhiT_A_Uinlet)[iVec] = this->pod[iVec] * (*A_Uinlet);
     }
 
     // form PhiT*A (because we need to compute PhiT*A*U at every timestep)
@@ -226,7 +287,7 @@ void ImplicitPGTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
         for (int i=0; i<this->A->subSize(iSub); ++i) {
           if (cv[i]>regThresh) {
             for (int j=0; j<dim; ++j)
-              au[i][j] *= (regCoeff * cv[i]);
+              au[i][j] *= cv[i];
           } else {
             for (int j=0; j<dim; ++j)
               au[i][j] *= 0.0;

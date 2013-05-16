@@ -73,7 +73,7 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   Communicator> *createKrylovSolver(const DistInfo &, KspData &,
                                     MatVecProdOp *, KspPrec<neq> *, Communicator *);
 
-
+  void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {}
 
  private:
 
