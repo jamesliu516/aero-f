@@ -999,7 +999,7 @@ public:
                                VarFcn* vf, DistVec<int>* fid);
 
   template<int dim>
-  void computeEmbSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
+  void computeEmbSurfBasedForceLoad(IoData &iod, int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
                                     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad, VarFcn* vf, DistVec<int>* fid);
 

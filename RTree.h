@@ -17,7 +17,7 @@ class RTree {
 
  public:
 
-  RTree() { }
+  RTree() { root = NULL; }
 
   ~RTree() { }
   
@@ -27,6 +27,16 @@ class RTree {
   template <void (T::*bbox)(SVec<double,3>& X, double*)>
   void construct(SVec<double,3>& X,T** objects, int num) {
 
+    root = constructInternal<bbox>(X,objects,num);
+  }
+
+  void destruct() {
+    if (root) destructInternal(root);
+  }
+
+  template <void (T::*bbox)(SVec<double,3>& X, double*)>
+  void reconstruct(SVec<double,3>& X,T** objects, int num) {
+    if (root) destructInternal(root);
     root = constructInternal<bbox>(X,objects,num);
   }
 
@@ -121,6 +131,13 @@ private:
     return nn; 
   }
 
+  void destructInternal(Node* nn) {
+    if (!nn->obj) {
+      destructInternal(nn->child1);
+      destructInternal(nn->child2);
+    }
+    delete nn;
+  }
   
 };
 
