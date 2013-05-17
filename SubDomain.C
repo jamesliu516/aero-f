@@ -6677,7 +6677,6 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
       double *Vface[3] = {0,0,0};
 
       double *vtet[2][4];
-      bool activeViscForce[2];
       if(ghostPoints) {
         E->computeGradientP1Function(X, dp1dxj);
         for(int i=0; i<4; ++i) {
@@ -6685,19 +6684,13 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 	  vtet[1][i] = V[T[i]];
 	}
 
-	activeViscForce[0] = true;
-	activeViscForce[1] = true;
         GhostPoint<dim> *gp;
         for(int i=0; i<4; ++i) {
 	  gp = (*ghostPoints)[T[i]];
-          if (norm[i] <= 0.) {
-	    if( !LSS.isActive(0,T[i]) ) activeViscForce[0] = false;
+          if (norm[i] <= 0.)
 	    if (gp)  vtet[1][i] = gp->getPrimitiveState();
-	  }
-	  else {
-	    if( !LSS.isActive(0,T[i]) ) activeViscForce[1] = false;
+	  else
 	    if (gp)  vtet[0][i] = gp->getPrimitiveState();
-	  }
         }
       }
 
@@ -6721,8 +6714,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
         double pp = vf->getPressure(Vext, fid?(*fid)[i]:0);
         flocal += (pp - pInfty)*nf[n];
         if(ghostPoints) {// Viscous Simulation
-	  if (activeViscForce[n])
-            flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet[n]);
+          flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet[n]);
 	}
       }	
 
