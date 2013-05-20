@@ -21,14 +21,14 @@ NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioD
   NonlinearRom<dim>(_com, _ioData, _domain)
 { 
 
-  if (this->nClusters>1) readClosestCenterInfoModelII();
-
   // this->ioData->example, this->com->example, this->domain.example
 
-  if (this->ioData->problem.alltype != ProblemData::_NONLINEAR_ROM_OFFLINE_ &&  //projection error
-      this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
-    this->readAllOnlineQuantities();
-
+  if (this->ioData->problem.alltype != ProblemData::_NONLINEAR_ROM_OFFLINE_) { //projection error
+    if (this->nClusters>1) readClosestCenterInfoModelII();
+   
+    if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
+      this->readAllOnlineQuantities();
+  }
  
 }
 

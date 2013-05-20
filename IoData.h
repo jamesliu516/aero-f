@@ -1844,6 +1844,7 @@ struct PitchingData {
 
   double alpha_in;
   double alpha_max;
+  double alpha_slope;
   double x11;
   double y11;
   double z11;
@@ -1853,6 +1854,7 @@ struct PitchingData {
 
   double beta_in;
   double beta_max;
+  double beta_slope;
   double x12;
   double y12;
   double z12;

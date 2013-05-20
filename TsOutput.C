@@ -3022,7 +3022,7 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
-                                                  DistSVec<double,dim> *state = NULL, DistSVec<double,dim> *residual = NULL)
+                                                  DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
 { // Outputs state and residual snapshots (from the FOM newton solver) for building a nonlinear ROM.
   // The logic tests ensure that every state from a given timestep is ouput (if requested), but that 
   // no state snapshot is stored twice. (Need to be careful because the initial state of any given 
@@ -3037,26 +3037,31 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep,
     int prevStep = step-1;
     int dummy;
     if (prevStep>=0) domain->readTagFromFile<double,dim>(stateVectors, prevStep, &prevTag, &dummy);
-    if ((stateOutputFreqNewton==0) && !lastNewtonIt) { //do nothing
-    } else if ((newtonIt==0) && (step!=0) && (prevTag==tag)) { //do nothing
-    } else if ((timeStep%stateOutputFreqTime==0) && (((stateOutputFreqNewton==0)&&lastNewtonIt)||(newtonIt%stateOutputFreqNewton==0)))  { 
-      // output FOM state 
-      domain->writeVectorToFile(stateVectors, step, tag, *state);
-      ++(*(domain->getNewtonStateStep()));
+    if ((newtonIt==0) && (step!=0) && (prevTag==tag)) { //do nothing
+    } else if (timeStep%stateOutputFreqTime==0) { 
+        if (((stateOutputFreqNewton==0)&&lastNewtonIt) || (((stateOutputFreqNewton>0))&&(newtonIt%stateOutputFreqNewton==0))) {
+          // output FOM state 
+          domain->writeVectorToFile(stateVectors, step, tag, *state);
+          ++(*(domain->getNewtonStateStep()));
+        }
     }
   }
 
-  if (residual && residualVectors && (timeStep%residualOutputFreqTime==0) && (newtonIt%residualOutputFreqNewton==0)) {
-    // for FOM residuals only (residuals from PG are clustered during the online simulations)
+  if (residual && residualVectors) {
+    if (timeStep%residualOutputFreqTime==0) { 
+      if (((residualOutputFreqNewton==0)&&lastNewtonIt) || (((residualOutputFreqNewton>0))&&(newtonIt%residualOutputFreqNewton==0))) {
+        // for FOM residuals only (residuals from PG are clustered during the online simulations)
 
-    // if outputting krylov vects, limit number of residuals output per newton iteration to
-    // number of krylov vecs output at previous it 
-    if ((fdResiduals && fdResidualsLimit) && (*(domain->getNumKrylovVecsOutputPrevNewtonIt())>0) && 
-        (*(domain->getNumResidualsOutputCurrentNewtonIt()) >= *(domain->getNumKrylovVecsOutputPrevNewtonIt())))  return; 
+        // if outputting krylov vects, limit number of residuals output per newton iteration to
+        // number of krylov vecs output at previous it 
+        if ((fdResiduals && fdResidualsLimit) && (*(domain->getNumKrylovVecsOutputPrevNewtonIt())>0) && 
+            (*(domain->getNumResidualsOutputCurrentNewtonIt()) >= *(domain->getNumKrylovVecsOutputPrevNewtonIt())))  return; 
 
-    domain->writeVectorToFile(residualVectors, *(domain->getNewtonResidualStep()), *(domain->getNewtonTag()), *residual);
-    ++(*(domain->getNewtonResidualStep()));
-    ++(*(domain->getNumResidualsOutputCurrentNewtonIt()));
+        domain->writeVectorToFile(residualVectors, *(domain->getNewtonResidualStep()), *(domain->getNewtonTag()), *residual);
+        ++(*(domain->getNewtonResidualStep()));
+        ++(*(domain->getNumResidualsOutputCurrentNewtonIt()));
+      }
+    }
   }
 
 }

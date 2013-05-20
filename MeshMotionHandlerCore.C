@@ -872,11 +872,13 @@ PitchingMeshMotionHandler::PitchingMeshMotionHandler(IoData &iod, Domain *dom) :
   dt = iod.forced.timestep;
   omega = 2.0 * acos(-1.0) * iod.forced.frequency;
 
-  alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
-  alpha_max = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;  // maximum angle of rotation
+  alpha_in    = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;    // initial angle of rotation
+  alpha_max   = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;   // maximum angle of rotation
+  alpha_slope = (acos(-1.0)*iod.forced.pt.alpha_slope) / 180.0; // (for a linear pitching law)
 
-  beta_in  = (acos(-1.0)*iod.forced.pt.beta_in) / 180.0;  // initial angle of second rotation
-  beta_max = (acos(-1.0)*iod.forced.pt.beta_max) / 180.0;  // maximum angle of second rotation
+  beta_in    = (acos(-1.0)*iod.forced.pt.beta_in) / 180.0;    // initial angle of second rotation
+  beta_max   = (acos(-1.0)*iod.forced.pt.beta_max) / 180.0;   // maximum angle of second rotation
+  beta_slope = (acos(-1.0)*iod.forced.pt.beta_slope) / 180.0; // (for a linear pitching law)
 
   x1[0] = iod.forced.pt.x11;
   x1[1] = iod.forced.pt.y11;
@@ -988,11 +990,11 @@ double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   if (*lastIt) return dt;
 
-  double theta = alpha_in + alpha_max * sin(omega * (t + dt));
+  double theta = (omega==0.0 && alpha_slope!=0.0) ? alpha_in + alpha_slope * (t + dt) : alpha_in + alpha_max * sin(omega * (t + dt));
   double costheta = cos(theta);
   double sintheta = sin(theta);
 
-  double phi = beta_in + beta_max * sin(omega * (t + dt)); 
+  double phi = (omega==0.0 && beta_slope!=0.0) ? beta_in + beta_slope * (t + dt) : beta_in + beta_max * sin(omega * (t + dt)); 
   double cosphi = cos(phi);
   double sinphi = sin(phi);
 
