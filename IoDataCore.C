@@ -3306,6 +3306,7 @@ PitchingData::PitchingData()
   domain = VOLUME;
   alpha_in = 0.0;
   alpha_max = 0.0;
+  alpha_slope = 0.0;
   x11 =  0.0;
   y11 = -1.0;
   z11 =  0.0;
@@ -3315,6 +3316,7 @@ PitchingData::PitchingData()
 
   beta_in = 0.0;
   beta_max = 0.0;
+  beta_slope = 0.0;
   x12 = -1.0;
   y12 =  0.0;
   z12 =  0.0;
@@ -3338,6 +3340,7 @@ void PitchingData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<PitchingData>(ca, "Alpha0", this, &PitchingData::alpha_in);
   new ClassDouble<PitchingData>(ca, "AlphaMax", this, &PitchingData::alpha_max);
+  new ClassDouble<PitchingData>(ca, "AlphaTimeSlope", this, &PitchingData::alpha_slope);
   new ClassDouble<PitchingData>(ca, "X11", this, &PitchingData::x11);
   new ClassDouble<PitchingData>(ca, "Y11", this, &PitchingData::y11);
   new ClassDouble<PitchingData>(ca, "Z11", this, &PitchingData::z11);
@@ -3347,6 +3350,7 @@ void PitchingData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<PitchingData>(ca, "Beta0", this, &PitchingData::beta_in);
   new ClassDouble<PitchingData>(ca, "BetaMax", this, &PitchingData::beta_max);
+  new ClassDouble<PitchingData>(ca, "BetaTimeSlope", this, &PitchingData::beta_slope);
   new ClassDouble<PitchingData>(ca, "X12", this, &PitchingData::x12);
   new ClassDouble<PitchingData>(ca, "Y12", this, &PitchingData::y12);
   new ClassDouble<PitchingData>(ca, "Z12", this, &PitchingData::z12);
@@ -6291,6 +6295,8 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     aero.pressure /= ref.rv.pressure;
     forced.timestep /= ref.rv.time;
     forced.frequency *= ref.rv.time;
+    forced.pt.alpha_slope *= ref.rv.time;
+    forced.pt.beta_slope *= ref.rv.time;
 
     bc.hydro.depth /= ref.length;
     eqs.gravity_x /= ref.rv.velocity / ref.rv.time;

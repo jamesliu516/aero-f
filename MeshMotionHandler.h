@@ -216,9 +216,11 @@ class PitchingMeshMotionHandler : public MeshMotionHandler {
 
   double alpha_in;
   double alpha_max;
+  double alpha_slope;
 
   double beta_in;
   double beta_max;
+  double beta_slope;
 
   double dt;
   double omega;
