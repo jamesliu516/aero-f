@@ -6687,10 +6687,10 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
         GhostPoint<dim> *gp;
         for(int i=0; i<4; ++i) {
 	  gp = (*ghostPoints)[T[i]];
-          if (norm[i] <= 0.)
-	    if (gp)  vtet[1][i] = gp->getPrimitiveState();
-	  else
-	    if (gp)  vtet[0][i] = gp->getPrimitiveState();
+	  if (gp) {
+            if (norm[i] <= 0.) vtet[1][i] = gp->getPrimitiveState();
+            else               vtet[0][i] = gp->getPrimitiveState();
+	  }
         }
       }
 
