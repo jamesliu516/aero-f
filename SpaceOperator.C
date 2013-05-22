@@ -159,6 +159,7 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   bcData = spo.bcData;
   geoState = spo.geoState;
   V = spo.V;
+  T = spo.T;
 
   bcFcn = spo.bcFcn;
   fluxFcn = spo.fluxFcn;

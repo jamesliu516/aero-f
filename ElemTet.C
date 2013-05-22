@@ -909,7 +909,7 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
         Aji = A.getRealNodeElem_ij(j,i);
       }
 
-//      if (Aij && Aji) {
+      if ((iactive && Aij) || (jactive && Aji)) {
 	    double cij = 1.0 / ctrlVol[ nodeNum(i) ];
 	    double cji = 1.0 / ctrlVol[ nodeNum(j) ];
 	    int m;
@@ -966,7 +966,7 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 	    for (m=1;m<neq*neq;++m) 
 	      Aji[m] += cji * dPdU[j][i][m];
 	}
-//      }
+      }
     }
   }
 
