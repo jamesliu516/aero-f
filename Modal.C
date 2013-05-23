@@ -998,7 +998,7 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
    if (ierr)  {
      com->fprintf(stderr, " ... WARNING: %d nodes have neg. rho/P \n", ierr);
-     exit(-1);
+//     exit(-1);
    }
 
    if (cnt % 20 == 0)

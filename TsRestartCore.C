@@ -20,7 +20,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(solutions[0], "");
 
   positions[0] = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0 && (iod.problem.framework == ProblemData::BODYFITTED || iod.problem.framework == ProblemData::EMBEDDEDALE))
+  if (iod.output.restart.positions[0] != 0) // && (iod.problem.framework == ProblemData::BODYFITTED || iod.problem.framework == ProblemData::EMBEDDEDALE))
     sprintf(positions[0], "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(positions[0], "");
@@ -73,7 +73,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
 	sprintf(solutions[i], "");
 
       positions[i] = new char[strlen(positions[0]) + 5 + 1];
-      if (positions[0][0] != 0)
+      if (positions[0][0] != 0) 
 	sprintf(positions[i], "%s.%drst", positions[0], i);
       else
 	sprintf(positions[i], "");

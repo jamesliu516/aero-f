@@ -207,7 +207,6 @@ VarFcnSGSA::VarFcnSGSA(FluidModelData &data) : VarFcnBase(data) {
 inline
 void VarFcnSGSA::conservativeToPrimitive(double *U, double *V)
 {
-
   V[0] = U[0];
 
   double invRho = 1.0 / U[0];

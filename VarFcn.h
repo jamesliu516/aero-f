@@ -378,7 +378,6 @@ void VarFcn::conservativeToPrimitive(SVec<double,dim> &U, SVec<double,dim> &V, V
 template<int dim>
 void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &V, DistVec<int> *tag)
 {
- 
   int numLocSub = U.numLocSub();
  
 #pragma omp parallel for

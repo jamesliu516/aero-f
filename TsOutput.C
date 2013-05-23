@@ -1706,7 +1706,6 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<int> *fluidId)
 {
-
   int nSurfs = postOp->getNumSurf();
 
   Vec3D *Fi = new Vec3D[nSurfs];
