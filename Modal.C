@@ -3508,7 +3508,8 @@ void ModalSolver<dim>::ROBInnerProducts()
            case TsData::DESCRIPTOR: {
              for (int j = 0; j < numPod; j++) {
                temp = (*rob[iData2])[j];
-               temp *= controlVol;
+               if (ioData->linearizedData.doGramSchmidt == LinearizedData::FALSE_GS)
+                 temp *= controlVol;
                for (int k = 0; k < numPod; k++) {
                  matVals[j*numPod + k] = ((*rob[iData1])[k]) * temp;
                }
