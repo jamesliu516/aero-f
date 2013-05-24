@@ -7,7 +7,7 @@
 #include <list>
 #include <cstring>
 
-#include <float.h>
+#include <cfloat>
 
 class KDTree {
 

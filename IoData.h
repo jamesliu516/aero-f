@@ -216,6 +216,7 @@ struct TransientData {
   const char *conservation;
   const char *podFile;
   const char *robProductFile;
+  const char *rMatrixFile;
   const char *romFile;
   const char *gendispFile;
   const char *philevel;
@@ -959,7 +960,7 @@ struct ProgrammedBurnData {
   double ignitionTime;
   double factorB;
   double factorS;
-  double stopWhenShockReachesPercentDistance;
+  //double stopWhenShockReachesPercentDistance;
   int ignited;
   int limitPeak;
   
@@ -1111,6 +1112,8 @@ struct MultiFluidData {
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
+
+  enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
 
   MultiInitialConditionsData multiInitialConditions;
 
@@ -1601,6 +1604,9 @@ struct TsData {
   double ser;
   double dualtimecfl;
 
+  double programmedBurnShockSensor;
+  double rapidPressureThreshold;
+  double rapidDensityThreshold;
 
   const char *output;
 
@@ -2064,7 +2070,7 @@ struct LinearizedData {
 
   enum Domain {TIME = 0, FREQUENCY = 1} domain;
   enum InitialCondition {DISPLACEMENT = 0, VELOCITY = 1} initCond;
-
+  enum GramSchmidt {TRUE_GS = 1, FALSE_GS = 0} doGramSchmidt;
   double amplification;
   double frequency;
   double stepsize;

@@ -618,8 +618,6 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
   tId = 0;
   poly = 0;
 
-  rotOwn = 0;
-
   surfaceID = NULL;
 
   //Load files. Compute structure normals. Initialize PhysBAM Interface
@@ -628,9 +626,9 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
   else {
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
-    makerotationownership();
-    updatebc();
   }
+  makerotationownership();
+  updatebc();
 
   if(numStElems<=0||numStNodes<=0) {
     fprintf(stderr,"ERROR: Found %d nodes and %d elements in the embedded surface!\n", numStNodes, numStElems);
@@ -786,7 +784,6 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   surfaceID = new int[numStNodes];
-  rotOwn = 0;
 
   std::list<Vec3D>::iterator it1;
   std::list<int>::iterator it2;
@@ -976,7 +973,8 @@ void DistIntersectorFRG::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   map<int,SurfaceData *>::iterator it = surfaceMap.begin();
-  
+  rotOwn = 0;
+
   int numRotSurfs = 0;
   int numTransWalls = 0;
   while(it != surfaceMap.end()) {

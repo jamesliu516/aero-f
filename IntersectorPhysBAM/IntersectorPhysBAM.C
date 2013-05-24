@@ -86,9 +86,10 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
   else {
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
-    makerotationownership();
-    updatebc();
   }
+  makerotationownership();
+  updatebc();
+
   comm->barrier();
 
   delete[] struct_mesh;
@@ -237,7 +238,6 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
   surfaceID = new int[numStNodes];
-  rotOwn = 0;
 
   std::list<Vec3D>::iterator it1;
   std::list<int>::iterator it2;
@@ -437,6 +437,7 @@ void DistIntersectorPhysBAM::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
   map<int,SurfaceData *>::iterator it = surfaceMap.begin();
+  rotOwn = 0;
   
   int numRotSurfs = 0;
   int numTransWalls = 0;

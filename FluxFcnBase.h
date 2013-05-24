@@ -14,6 +14,8 @@ public:
 protected:
   VarFcnBase *vf;
 
+  double* hhcoeffptr;
+
 public:
   FluxFcnBase(VarFcnBase *varFcn, Type tp);
   virtual ~FluxFcnBase() { vf = 0; }
@@ -22,6 +24,8 @@ public:
   virtual void computeJacobian(double, double, double *, double, double *, double *, double *, bool) {}
   virtual void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool) {}
 
+  void setHHCoeffPointer(double* hh) { hhcoeffptr = hh; }
+ 
   VarFcnBase* getVarFcnBase() const { return vf; }
 
   //--- Sensitivity Analysis Function
@@ -86,6 +90,8 @@ void FluxFcnFD<dim>::computeJacobian(double length, double irey, double *normal,
   const double eps0 = 1.e-6;
 
   double Veps[dim], flux[dim], fluxeps[dim], dfdVL[dim*dim];
+ 
+  
 
   compute(length, irey, normal, normalVel, VL, VR, flux, useLimiter); 
 

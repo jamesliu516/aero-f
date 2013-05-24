@@ -380,7 +380,10 @@ class MultiPhaseSpaceOperator : public SpaceOperator<dim> {
 protected:
 
   RecFcn *recFcnLS;
-  DistNodalGrad<dimLS, double> *ngradLS; 
+  DistNodalGrad<dimLS, double> *ngradLS;
+  DistSVec<double, dimLS>* normals[3]; 
+  DistNodalGrad<dimLS, double> *ngradLS_second[3];
+  DistSVec<double,dimLS>* curvature;
 
   RecFcn *createRecFcnLS(IoData &);
 
@@ -401,7 +404,7 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                        FluidSelector &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int it);
+                       DistExactRiemannSolver<dim> *,DistTimeState<dim>*, int it);
   void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
                        DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool, DistExactRiemannSolver<dim> *, 
                        int, DistSVec<double,3> *, DistSVec<double,dimLS> &, FluidSelector &, 

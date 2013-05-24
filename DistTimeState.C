@@ -49,6 +49,9 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   viscousCst = ioData.ts.viscousCst;
   Un  = new DistSVec<double,dim>(dI);
   Vn = new DistSVec<double,dim>(dI);
+  firstOrderNodes = new DistVec<int>(dI);
+
+  *firstOrderNodes = 0;
 
   if (data->use_nm1)
     Unm1 = new DistSVec<double,dim>(dI);
@@ -139,6 +142,9 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   allowdtstop = true;
 
   *irey = 0.0;
+
+  checkForRapidlyChangingPressure = ioData.ts.rapidPressureThreshold;
+  checkForRapidlyChangingDensity = ioData.ts.rapidDensityThreshold;
 }
 
 //------------------------------------------------------------------------------
@@ -1382,6 +1388,31 @@ struct MultiphaseRiemannCopy {
   }
 };
 
+struct SetFirstOrderNodes {
+
+  VarFcn* varFcn;
+
+  double threshold;
+
+  SetFirstOrderNodes(VarFcn* varFcn,double t) : varFcn(varFcn),
+      threshold(t) { }
+
+  void Perform(double* uold, double* unew, int& status,int id) const {
+
+    double vold[7], vnew[7];
+    varFcn->conservativeToPrimitive(uold,vold, id);
+    varFcn->conservativeToPrimitive(unew,vnew, id);
+     
+    double pold = varFcn->getPressure(vold,id);
+    double pnew = varFcn->getPressure(vnew,id);
+    if (fabs(pnew-pold)/pold > threshold) {
+      status = 1;
+    }
+    else
+      status = 0;
+  }
+};
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1409,6 +1440,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
       if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
       
       varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
+
+      if (checkForRapidlyChangingPressure > 0.0)
+        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure)); 
+
+      int numFirstOrderNodes = firstOrderNodes->sum(); 
+      if (numFirstOrderNodes > 0)
+        this->domain->getCommunicator()->fprintf(stdout,"%d nodes set to first order accuracy\n",numFirstOrderNodes);
+
       DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
       varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
       *Unm1 = *Vn;

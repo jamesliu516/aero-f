@@ -285,7 +285,6 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 																				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
-
 // fluidId must be a null pointer for single-phase flow
 // fluidId points to a DistVec<int> for multi-phase flow
   int iSurf;
@@ -297,6 +296,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
   }
 
   varFcn->conservativeToPrimitive(U, *V, fluidId);
+  
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {

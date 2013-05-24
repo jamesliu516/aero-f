@@ -52,6 +52,12 @@ template<class Scalar, int dim> class GenMat;
 
 class EdgeSet {
 
+public:
+
+  enum MultifluidRiemannNormal { MF_RIEMANN_NORMAL_MESH, MF_RIEMANN_NORMAL_REAL };
+
+private:
+
   typedef pair<int, int> Pair;
 
 #ifdef OLD_STL
@@ -75,9 +81,12 @@ class EdgeSet {
 
   HigherOrderMultiFluid* higherOrderMF;
 
+  MultifluidRiemannNormal mfRiemannNormal;
   ErrorHandler* errorHandler;
 
+
 public:
+
 
   EdgeSet();
   ~EdgeSet();
@@ -86,6 +95,8 @@ public:
   int findOnly(int, int) const;
 
   void createPointers(Vec<int> &);
+
+  void setMultiFluidRiemannNormal(MultifluidRiemannNormal);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &,

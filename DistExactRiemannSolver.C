@@ -106,7 +106,7 @@ void DistExactRiemannSolver<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 						   domain->getSubDomain()[iSub]->getHigherOrderMF());
     if (res >= 0) {
       std::cout << "Phase change update failed at node " << 
-        domain->getSubDomain()[iSub]->getNodeMap()[res] << std::endl;
+        domain->getSubDomain()[iSub]->getNodeMap()[res]+1 << std::endl;
       exit(-1);
     }
   }

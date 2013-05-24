@@ -18,6 +18,8 @@
 typedef std::complex<double> bcomp;
 #include <iostream>
 
+#include <utils/Aerof_math.h>
+
 using std::cout;
 using std::endl;
 
@@ -196,7 +198,7 @@ public:
   double computeWtMachNumber(double *V, int tag=0) {
     check(tag);
     double m = sqrt(computeWtU2(V)) / computeSoundSpeed(V,tag);
-    if (std::isnan(m))  {
+    if (aerof_isnan(m))  {
       fprintf(stderr, "Nan: %e %e %e\n", meshVel[0], meshVel[1], meshVel[2]);
       exit(-1);
     }
@@ -376,7 +378,6 @@ void VarFcn::conservativeToPrimitive(SVec<double,dim> &U, SVec<double,dim> &V, V
 template<int dim>
 void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &V, DistVec<int> *tag)
 {
- 
   int numLocSub = U.numLocSub();
  
 #pragma omp parallel for

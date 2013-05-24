@@ -81,14 +81,14 @@ public:
     return error;
   }
   double computeTemperature(double *V) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
   }
   void computeTemperatureGradient(double *V,double* Tg) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
@@ -207,7 +207,6 @@ VarFcnSGSA::VarFcnSGSA(FluidModelData &data) : VarFcnBase(data) {
 inline
 void VarFcnSGSA::conservativeToPrimitive(double *U, double *V)
 {
-
   V[0] = U[0];
 
   double invRho = 1.0 / U[0];
