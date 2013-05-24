@@ -323,8 +323,6 @@ void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<doubl
 void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
 
-	com->printf(2, "in DistGeoState::setup1.\n");
-
   if (!data.use_n) {
     Xn = X->alias();
     ctrlVol_n = ctrlVol->alias();

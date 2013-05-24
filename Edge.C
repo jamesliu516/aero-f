@@ -959,18 +959,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
 
-    if (locToGlobNodeMap[i]+1 == 4284) {
-
-      //std::cout << "State[4284] = " << V[i][0] << " " << V[i][1] << " " << V[i][2] << " " <<
-      //                                 V[i][3] << " " << V[i][4] << std::endl;
-    }
-
-    if (locToGlobNodeMap[j]+1 == 4284) {
-
-      //std::cout << "State[4284] = " << V[j][0] << " " << V[j][1] << " " << V[j][2] << " " <<
-      //                                 V[j][3] << " " << V[j][4] << std::endl;
-    }
-
     for (int i = 0; i < dim; ++i) {
       fluxi[i] = fluxj[i] = 0.0;
     }
@@ -1055,15 +1043,36 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  lsdim = fluidSelector.getLevelSetDim(higherOrderMF->getOtherFluidId(i,fluidId[j]),
 					       fluidId[j],
 					       locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);	  
-
-	gphii[0] = -dPdx[i][lsdim];
-	gphii[1] = -dPdy[i][lsdim];
-	gphii[2] = -dPdz[i][lsdim];
-	gphij[0] = -dPdx[j][lsdim];
-	gphij[1] = -dPdy[j][lsdim];
-	gphij[2] = -dPdz[j][lsdim];
-	for (int k=0; k<3; k++)
-	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+        
+        if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
+  	  gphii[0] = -dPdx[i][lsdim];
+	  gphii[1] = -dPdy[i][lsdim];
+	  gphii[2] = -dPdz[i][lsdim];
+	  gphij[0] = -dPdx[j][lsdim];
+	  gphij[1] = -dPdy[j][lsdim];
+	  gphij[2] = -dPdz[j][lsdim];
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+        } else {
+  	  gphii[0] = -dPdx[i][lsdim];
+	  gphii[1] = -dPdy[i][lsdim];
+	  gphii[2] = -dPdz[i][lsdim];
+	  gphij[0] = -dPdx[j][lsdim];
+	  gphij[1] = -dPdy[j][lsdim];
+	  gphij[2] = -dPdz[j][lsdim];
+          double t[3]; 
+	  for (int k=0; k<3; k++)
+	    t[k] = 0.5*(gphii[k]+gphij[k]);
+ 
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = normal[l][k];
+ 
+          if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
+	    for (int k=0; k<3; k++)
+	      gradphi[k] = -gradphi[k];
+          }
+          
+        }
 	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
 	for (int k=0; k<3; k++)
 	  gradphi[k] /= normgradphi;
@@ -1712,14 +1721,36 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
 
 	int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
-	gphii[0] = -dPdx[i][lsdim];
-	gphii[1] = -dPdy[i][lsdim];
-	gphii[2] = -dPdz[i][lsdim];
-	gphij[0] = -dPdx[j][lsdim];
-	gphij[1] = -dPdy[j][lsdim];
-	gphij[2] = -dPdz[j][lsdim];
-	for (int k=0; k<3; k++)
-	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+ 
+        if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
+  	  gphii[0] = -dPdx[i][lsdim];
+	  gphii[1] = -dPdy[i][lsdim];
+	  gphii[2] = -dPdz[i][lsdim];
+	  gphij[0] = -dPdx[j][lsdim];
+	  gphij[1] = -dPdy[j][lsdim];
+	  gphij[2] = -dPdz[j][lsdim];
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+        } else {
+  	  gphii[0] = -dPdx[i][lsdim];
+	  gphii[1] = -dPdy[i][lsdim];
+	  gphii[2] = -dPdz[i][lsdim];
+	  gphij[0] = -dPdx[j][lsdim];
+	  gphij[1] = -dPdy[j][lsdim];
+	  gphij[2] = -dPdz[j][lsdim];
+          double t[3]; 
+	  for (int k=0; k<3; k++)
+	    t[k] = 0.5*(gphii[k]+gphij[k]);
+ 
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = normal[l][k];
+ 
+          if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
+	    for (int k=0; k<3; k++)
+	      gradphi[k] = -gradphi[k];
+          }
+          
+        }
 	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
 	for (int k=0; k<3; k++)
 	  gradphi[k] /= normgradphi;
@@ -2906,14 +2937,35 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       //ngradLS returns nodal gradients of phi
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
       int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j]);
-      gphii[0] = -dPdx[i][lsdim];
-      gphii[1] = -dPdy[i][lsdim];
-      gphii[2] = -dPdz[i][lsdim];
-      gphij[0] = -dPdx[j][lsdim];
-      gphij[1] = -dPdy[j][lsdim];
-      gphij[2] = -dPdz[j][lsdim];
-      for (k=0; k<3; k++)
-        gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+ 
+      if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
+        gphii[0] = -dPdx[i][lsdim];
+	gphii[1] = -dPdy[i][lsdim];
+	gphii[2] = -dPdz[i][lsdim];
+	gphij[0] = -dPdx[j][lsdim];
+	gphij[1] = -dPdy[j][lsdim];
+	gphij[2] = -dPdz[j][lsdim];
+	for (int k=0; k<3; k++)
+	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+      } else {
+  	gphii[0] = -dPdx[i][lsdim];
+	gphii[1] = -dPdy[i][lsdim];
+	gphii[2] = -dPdz[i][lsdim];
+	gphij[0] = -dPdx[j][lsdim];
+	gphij[1] = -dPdy[j][lsdim];
+	gphij[2] = -dPdz[j][lsdim];
+        double t[3]; 
+	for (int k=0; k<3; k++)
+	  t[k] = 0.5*(gphii[k]+gphij[k]);
+        for (int k=0; k<3; k++)
+	  gradphi[k] = normal[l][k];
+ 
+        if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = -gradphi[k];
+        }
+          
+      }
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
       for (k=0; k<3; k++)
         gradphi[k] /= normgradphi;
@@ -3437,14 +3489,35 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
         //ngradLS returns nodal gradients of primitive phi
         // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
         int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
-        gphii[0] = -dPdx[i][lsdim];
-        gphii[1] = -dPdy[i][lsdim];
-        gphii[2] = -dPdz[i][lsdim];
-        gphij[0] = -dPdx[j][lsdim];
-        gphij[1] = -dPdy[j][lsdim];
-        gphij[2] = -dPdz[j][lsdim];
-        for (int k=0; k<3; k++)
-          gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+ 
+        if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
+          gphii[0] = -dPdx[i][lsdim];
+  	  gphii[1] = -dPdy[i][lsdim];
+	  gphii[2] = -dPdz[i][lsdim];
+	  gphij[0] = -dPdx[j][lsdim];
+	  gphij[1] = -dPdy[j][lsdim];
+	  gphij[2] = -dPdz[j][lsdim];
+	  for (int k=0; k<3; k++)
+	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+        } else {
+    	  gphii[0] = -dPdx[i][lsdim];
+	  gphii[1] = -dPdy[i][lsdim];
+	  gphii[2] = -dPdz[i][lsdim];
+	  gphij[0] = -dPdx[j][lsdim];
+	  gphij[1] = -dPdy[j][lsdim];
+	  gphij[2] = -dPdz[j][lsdim];
+          double t[3]; 
+	  for (int k=0; k<3; k++)
+	    t[k] = 0.5*(gphii[k]+gphij[k]);
+          for (int k=0; k<3; k++)
+	    gradphi[k] = normal[l][k];
+ 
+          if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
+	   for (int k=0; k<3; k++)
+	     gradphi[k] = -gradphi[k];
+          }
+          
+        }
         double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
         for (int k=0; k<3; k++)
           gradphi[k] /= normgradphi;

@@ -1489,7 +1489,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 
   //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);  
   if (!this->isFSI)
-    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, -1);
+    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann,this->timeState, -1);
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
@@ -1513,7 +1513,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
     Qeps = Q - eps * p;
     
     if (!this->isFSI)
-      this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, -1);
+      this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann,this->timeState, -1);
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,

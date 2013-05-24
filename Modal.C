@@ -726,10 +726,10 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
    if (ierr)  {
      com->fprintf(stderr, " ... WARNING: %d nodes have neg. rho/P \n", ierr);
      cntr++;
-     if (cntr > 4)  {
+     /*if (cntr > 10)  {
        com->barrier();
        exit(-1);
-     }
+     }*/
    }
 
     if (cnt % 20 == 0)
@@ -812,6 +812,13 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
       delWRom[i] = podVecs[i] * delWFull;
   }
 
+  com->fprintf(stderr, " ... Initial Condition for Fluid ROM:\n");
+  com->fprintf(stderr," q0 = [");
+  for (i=0; i < nPodVecs; i++)
+    com->fprintf(stderr,"%e ",delWRom[i]); 
+  com->fprintf(stderr,"];\n");
+
+
  // Compute Reference Modal Force
  DistSVec<double,3> refNodalForce(domain.getNodeDistInfo());
  DistVec<double> Pin(domain.getFaceDistInfo());
@@ -869,7 +876,13 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
  for (i = 0; i < nStrMode; i++)
    refModalF[i] = mX[i]*refNodalForce;
- com->fprintf(stderr, " ... RefModalF = %e\n", refModalF.norm());
+ com->fprintf(stderr, " ... Norm RefModalF = %e\n", refModalF.norm());
+ com->fprintf(stderr, " refModalF = [");
+ for (i = 0; i < nStrMode; i++)
+   com->fprintf(stderr, "%e ",ioData->ref.rv.force*refModalF[i]);
+ com->fprintf(stderr, "];\n");
+
+
  com->fprintf(stderr, " ... Initial delWRom: %e\n", delWRom.norm());
 
  int cntp1;
@@ -914,8 +927,8 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
     cntp1 = cnt+1;
 
     if (cnt == 0){
-      delWRomTemp = prevWRom;
-      for (i = 0; i < nPodVecs; ++i)
+	    delWRomTemp = prevWRom;
+	    for (i = 0; i < nPodVecs; ++i)
         delWRomTemp += 0.5*dt*delWRom[i]*romOp0[i];
 
       for (i = 0; i < nStrMode; ++i){
@@ -996,10 +1009,10 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
     tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, (cnt+1)*dt, com->cpuNum(), tRestart->energy, deltmp, delWFull);
     tOutput->writeBinaryVectorsToDisk(false, cntp1, (cnt+1)*dt, deltmp, controlVol, delWFull, tState);
 
-   if (ierr)  {
+   /*if (ierr)  {
      com->fprintf(stderr, " ... WARNING: %d nodes have neg. rho/P \n", ierr);
-     exit(-1);
-   }
+//     exit(-1);
+   }*/
 
    if (cnt % 20 == 0)
      com->fprintf(stderr, " ... Iteration: %d   Time: %f\n", cnt, cnt*sdt);
@@ -1382,7 +1395,7 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
    spaceOp->computeResidual(Xref, controlVol, Uref, FF, tState);  
  }
 #ifdef DO_MODAL
- checkFluidRomStability(romOperator0, nPodVecs);
+// checkFluidRomStability(romOperator0, nPodVecs);
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
  exit(-1);
@@ -1429,6 +1442,7 @@ template<int dim>
 void ModalSolver<dim>::computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *delY, Vec<double> &refModalF, VecSet<Vec<double> > &PtimesPhi, int nPodVecs, int timeIt) {
 //For ROM
 Vec<double> modalF(nStrMode);
+//modalF = 0.0*ioData->ref.rv.force*refModalF;
 modalF = ioData->ref.rv.force*refModalF;
 for (int i = 0; i < nPodVecs; i++)
   modalF += delWRom[i]*PtimesPhi[i];
@@ -1445,6 +1459,7 @@ void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, D
 
  Vec<double> modalF(nStrMode);
  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
+ //modalF += 0.0*refModalF; // DJA: DEBUG only
  modalF += refModalF;
  modalF *= ioData->ref.rv.force;
 
@@ -2576,13 +2591,13 @@ void ModalSolver<dim>::interpolatePOD()  {
 
 	for (int iPod = 0; iPod < numPod; ++iPod) {
 		newPOD[iPod] = cos(SigInterp[iPod])*podRefVInterp[iPod]+ sin(SigInterp[iPod])*UInterp[iPod];
-
+        }
+        double *Rmatrix =  new double[numPod*numPod];
+        modifiedGramSchmidt(newPOD, Rmatrix, numPod);
 		//Do a Gramm-Schmidt to finalize the POD reconstruction
-		for (int j = 0; j < iPod; ++j)
-			newPOD[iPod] -= (newPOD[iPod] * newPOD[j])*newPOD[j];
-		newPOD[iPod] *= 1.0/newPOD[iPod].norm();
-
-	}
+		//for (int j = 0; j < iPod; ++j)
+		//	newPOD[iPod] -= (newPOD[iPod] * newPOD[j])*newPOD[j];
+		//newPOD[iPod] *= 1.0/newPOD[iPod].norm();
 
 	com->fprintf(stderr, " ... Writing Interpolated POD to %s\n", outFile);
 	// output interpolated pod vectors
@@ -2600,7 +2615,7 @@ void ModalSolver<dim>::interpolatePOD()  {
 		delete [] podFile[iData];
 	delete[] podFile;
 	delete[] outFile;
-
+        delete[] Rmatrix;
 
 	com->fprintf(stderr,"End of InterpolatePOD\n'");
 	modalTimer->setRunTime();
@@ -3365,6 +3380,9 @@ void ModalSolver<dim>::ROBInnerProducts()
   fscanf(inFP, "%d",&nROB);
   fscanf(inFP, "%d",&nLoadMax);
 
+  if (nLoadMax>=nROB)
+    nLoadMax = nROB-1;
+ 
   char **ROBFile = new char *[nROB];
   for (int iROB = 0; iROB < nROB; ++iROB) {
     ROBFile[iROB] = new char[500];
@@ -3385,6 +3403,22 @@ void ModalSolver<dim>::ROBInnerProducts()
     exit (-1);
   }
 
+  //R matrix from Modified Gram Schmidt output file
+  if (ioData->output.transient.rMatrixFile[0] == 0)  {
+    com->fprintf(stderr, "*** ERROR: R matrix Output File not specified\n");
+    exit (-1);
+  }
+
+  int spR = strlen(ioData->output.transient.prefix);
+  char *outputFileR = new char[spR + strlen(ioData->output.transient.rMatrixFile)+1];
+  sprintf(outputFileR, "%s%s", ioData->output.transient.prefix, ioData->output.transient.rMatrixFile);
+  FILE *outFPR = fopen(outputFileR, "w");
+  if (!outFPR)  {     com->fprintf(stderr, "*** Warning: No output file: %s\n", outputFileR);
+    exit (-1);
+  }
+
+
+
 
   //allocate memory for ROBs
   VecSet< DistSVec<double, dim> > **rob = new VecSet< DistSVec<double, dim> >*[nLoadMax];
@@ -3403,6 +3437,11 @@ void ModalSolver<dim>::ROBInnerProducts()
    }
    computedProds[iROB][iROB] = 1;
  }
+ // array to keep track of outputed R matrices 
+ int *outputedRmatrix = new int[nROB];
+ for (int iROB=0; iROB < nROB; ++iROB)
+   outputedRmatrix[iROB] = 0;
+
  
  int nSteps = ROBInnerProductSteps(nROB, nLoadMax); //number of steps
  com->fprintf(stderr,"Inner Products Computation in %d Steps\n",nSteps+1);
@@ -3423,7 +3462,8 @@ void ModalSolver<dim>::ROBInnerProducts()
  geoState = new DistGeoState(*ioData, &domain);
  geoState->setup1(tInput->positions, &Xref, &controlVol);
  DistSVec<double, dim> temp(domain.getNodeDistInfo());
- 
+ double *Rmatrix = new double[numPod*numPod];
+
  for (int iStep = 0; iStep < nSteps; ++iStep) {
 
    // read ROBs
@@ -3440,9 +3480,21 @@ void ModalSolver<dim>::ROBInnerProducts()
 
        for (int iPod = 0; iPod < numPod; ++iPod)
          domain.readVectorFromFile(ROBFile[iROB1-1], iPod+1, &eig[iPod], (*rob[iData])[iPod]);
-      } 
+       if (ioData->linearizedData.doGramSchmidt == LinearizedData::TRUE_GS) {
+         modifiedGramSchmidt(*rob[iData],Rmatrix,numPod);
+         // write R matrix in output file
+         if (!outputedRmatrix[iROB1]) {
+           outputedRmatrix[iROB1] = 1;
+           com->fprintf(outFPR, "%d\n", iROB1);
+           for (int iPod=0; iPod <numPod; ++iPod){
+             for (int jPod=0; jPod <numPod; ++jPod)
+               com->fprintf(outFPR, "%.16e ", Rmatrix[iPod*numPod+jPod]);
+             com->fprintf(outFPR, "\n");
+           }
+         } 
+       }
+     }
    }
-
  
    for (int iData1 = 0; iData1 < nLoadMax; ++iData1) {
      for (int iData2 = 0; iData2 < iData1; ++iData2) {
@@ -3456,7 +3508,8 @@ void ModalSolver<dim>::ROBInnerProducts()
            case TsData::DESCRIPTOR: {
              for (int j = 0; j < numPod; j++) {
                temp = (*rob[iData2])[j];
-               temp *= controlVol;
+               if (ioData->linearizedData.doGramSchmidt == LinearizedData::FALSE_GS)
+                 temp *= controlVol;
                for (int k = 0; k < numPod; k++) {
                  matVals[j*numPod + k] = ((*rob[iData1])[k]) * temp;
                }
@@ -3486,18 +3539,20 @@ void ModalSolver<dim>::ROBInnerProducts()
  }
 
 
-  delete [] matVals;
-  delete [] eig;
-  for (int iROB = 0; iROB < nROB; ++iROB) {
-    delete [] computedProds[iROB];
-    delete [] ROBFile[iROB];
-  }
-  delete [] computedProds;
-  delete [] ROBFile;
-  delete [] outputFile;
-  for (int iStep=0; iStep < nSteps; ++iStep)
-    delete [] cache[iStep];
-  delete [] cache;
+ delete [] matVals;
+ delete [] eig;
+ delete [] Rmatrix;
+ for (int iROB = 0; iROB < nROB; ++iROB) {
+   delete [] computedProds[iROB];
+   delete [] ROBFile[iROB];
+ }
+ delete [] computedProds;
+ delete [] outputedRmatrix;
+ delete [] ROBFile;
+ delete [] outputFile;
+ for (int iStep=0; iStep < nSteps; ++iStep)
+   delete [] cache[iStep];
+ delete [] cache;
   
 }
 //------------------------------------------------------------------------------
@@ -3538,3 +3593,37 @@ void ModalSolver<dim>::checkFluidRomStability(VecSet<Vec<double> > &romOperator,
   delete [] rom;
 }
 #endif
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &vectors, double *Rmatrix, int numVecs)
+{
+
+  for (int iVec = 0; iVec < numVecs; ++iVec) {
+    for (int jVec = 0; jVec < numVecs; +jVec) 
+      Rmatrix[iVec*numVecs+jVec] = 0.0;
+  }
+  
+  Rmatrix[0] = vectors[0].norm();
+  if (Rmatrix[0] == 0.0) {
+    com->fprintf(stderr, "*** Error: Break down in Modified Gram-Schmidt: Vector #1 is zero\n");
+    exit(-1);
+  }
+  else
+    vectors[0] *= 1.0/Rmatrix[0];
+
+
+  for (int iVec = 1; iVec < numVecs; ++iVec) {
+    for (int jVec = 0; jVec < iVec; ++jVec) {
+      Rmatrix[iVec*numVecs+jVec] = vectors[iVec] * vectors[jVec];
+      vectors[iVec] -= Rmatrix[iVec*numVecs+jVec]*vectors[jVec];
+    }
+    Rmatrix[iVec*numVecs+iVec] = vectors[iVec].norm();
+    if (Rmatrix[iVec*numVecs+iVec] == 0.0) {
+      com->fprintf(stderr, "*** Error: Break down in Modified Gram-Schmidt: Vector at Step %d is zero\n",iVec);
+      exit(-1);
+    }
+    else
+      vectors[iVec] *= 1.0/Rmatrix[iVec*numVecs+iVec];
+  }
+
+}

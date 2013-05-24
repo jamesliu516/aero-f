@@ -96,12 +96,12 @@ void TsParameters::resolveErrors(){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
-
+/*
   if (checksol && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
     //errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
-
+*/
   if (errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;

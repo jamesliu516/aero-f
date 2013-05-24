@@ -251,6 +251,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   if(getSurfFromFEM)
     com.fprintf(stderr,"- Using the embedded surface provided by structure code.\n");
 
+  surfaceID = NULL;
+
   // ---- for debug ----
   dim2Treatment = (iod.embed.dim2Treatment == EmbeddedFramework::YES) ? true : false; //by default it's false
   oneWayCoupling = (iod.embed.coupling == EmbeddedFramework::ONEWAY) ? true : false; //by default it's false

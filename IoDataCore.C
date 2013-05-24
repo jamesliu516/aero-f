@@ -332,6 +332,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   robProductFile = "";
+  rMatrixFile = "";  
   gendispFile = "";
   philevel = "";
   controlvolume = "";
@@ -379,7 +380,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 85, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 86, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -448,6 +449,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
+  new ClassStr<TransientData>(ca, "RMatrices", this, &TransientData::rMatrixFile);
   new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
@@ -1965,7 +1967,7 @@ ProgrammedBurnData::ProgrammedBurnData() {
   ignited = 0;
   factorB = 1.0;
   factorS = 1.0;
-  stopWhenShockReachesPercentDistance = 0.99;
+  //stopWhenShockReachesPercentDistance = 0.99;
   limitPeak = 0;
 }
 
@@ -2005,8 +2007,8 @@ void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
     (ca, "FactorB", this, &ProgrammedBurnData::factorB);
   new ClassDouble<ProgrammedBurnData>
     (ca, "FactorS", this, &ProgrammedBurnData::factorS);
-  new ClassDouble<ProgrammedBurnData>
-    (ca, "StopWhenShockReachesPercentDistance", this, &ProgrammedBurnData::stopWhenShockReachesPercentDistance);  
+  //new ClassDouble<ProgrammedBurnData> // Moved to TsData.
+  //  (ca, "StopWhenShockReachesPercentDistance", this, &ProgrammedBurnData::stopWhenShockReachesPercentDistance);  
   new ClassToken<ProgrammedBurnData>(ca, "LimitPeak", this,
              reinterpret_cast<int ProgrammedBurnData::*>(&ProgrammedBurnData::limitPeak), 2,
              "False", 0, "True", 1);
@@ -2042,6 +2044,8 @@ MultiFluidData::MultiFluidData()
   interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
   interfaceOmitCells = 0;
+
+  riemannNormal = REAL;
 }
 
 //------------------------------------------------------------------------------
@@ -2114,6 +2118,11 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   
   new ClassInt<MultiFluidData>(ca, "OmitCells", this,
                                &MultiFluidData::interfaceOmitCells);
+
+  new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
+                                 "Real",0,"Mesh",1);
+
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
@@ -2822,11 +2831,14 @@ TsData::TsData()
   ser = -1.0; 
   dualtimecfl = -1.0;
   //
+  programmedBurnShockSensor = 0.99 ;
   errorTol = 1.e-10;
   form = NONDESCRIPTOR;
 
   output = "";
 
+  rapidPressureThreshold = -1.0;
+  rapidDensityThreshold = -1.0;
 }
 
 //------------------------------------------------------------------------------
@@ -2870,8 +2882,11 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
+  new ClassDouble<TsData>(ca, "RapidPressureThreshold", this, &TsData::rapidPressureThreshold);
+  new ClassDouble<TsData>(ca, "RapidDensityThreshold", this, &TsData::rapidDensityThreshold);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
+  new ClassDouble<TsData>(ca, "ProgrammedBurnShockSensor", this, &TsData::programmedBurnShockSensor); // Moved from ProgrammedBurn to TsData.
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
@@ -3536,6 +3551,7 @@ LinearizedData::LinearizedData()
 
   type = DEFAULT;
   padeReconst = FALSE;
+  doGramSchmidt = FALSE_GS;
   domain = TIME;
   initCond = DISPLACEMENT;
   amplification = 1.0;
@@ -3560,12 +3576,12 @@ LinearizedData::LinearizedData()
 void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 16, father);
+  ClassAssigner *ca = new ClassAssigner(name, 17, father);
 
   new ClassToken<LinearizedData> (ca, "Type", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::type), 3, "Default", 0, "Rom", 1, "Forced", 2);
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
   new ClassToken<LinearizedData> (ca, "InitialCondition", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::initCond), 2, "Displacement", 0, "Velocity", 1);
-
+  new ClassToken<LinearizedData> (ca, "GramSchmidt", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::doGramSchmidt), 2, "False", 0, "True", 1);
   new ClassDouble<LinearizedData>(ca, "Amplification", this, &LinearizedData::amplification);
   new ClassDouble<LinearizedData>(ca, "Frequency", this, &LinearizedData::frequency);
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
@@ -3577,7 +3593,6 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
-
   pade.setup("Pade", ca);
   dataCompression.setup("DataCompression", ca);
 
@@ -4185,7 +4200,6 @@ void IoData::readCmdFile()
 
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
-    com->fprintf(stderr, "input.\n");
     if (strncmp(input.rstdata, "/", 1) == 0)
       sprintf(name, "%s", input.rstdata);
     else
@@ -5770,8 +5784,8 @@ int IoData::checkInputValuesEssentialBC()
 
   if(schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA && ts.type!=TsData::EXPLICIT) {
     com->fprintf(stderr, "*** Warning: The Modified Ghidaglia scheme is only supported by explicit time-integrators.\n");
-    com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
-    schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
+    //com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
+    //schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
   }
 
 // Included (MB)
@@ -6204,10 +6218,10 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   if (programmedBurn.unburnedEOS < 0)
     return 0;
 
-  if (programmedBurn.stopWhenShockReachesPercentDistance > 0.99 || programmedBurn.stopWhenShockReachesPercentDistance < 0.05 ){
-  ++error;
-  com->fprintf(stderr,"*** Error: StopWhenShockReachesPercentDistance must be a number between 0.05 and 0.99.\n");
-  }
+  //if (programmedBurn.stopWhenShockReachesPercentDistance > 0.99 || programmedBurn.stopWhenShockReachesPercentDistance < 0.05 ){
+  //++error;
+  //com->fprintf(stderr,"*** Error: ProgrammedBurnShockSensor must be a number between 0.05 and 0.99.\n");
+  //}
   
   if (eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS) == eqs.fluidModelMap.dataMap.end()) {
     com->fprintf(stderr, "*** Error: Cannot find burned EOS %d in fluid models\n",programmedBurn.burnedEOS);
