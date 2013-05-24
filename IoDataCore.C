@@ -332,6 +332,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   robProductFile = "";
+  rMatrixFile = "";  
   gendispFile = "";
   philevel = "";
   controlvolume = "";
@@ -379,7 +380,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 85, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 86, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -448,6 +449,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
+  new ClassStr<TransientData>(ca, "RMatrices", this, &TransientData::rMatrixFile);
   new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
@@ -3549,6 +3551,7 @@ LinearizedData::LinearizedData()
 
   type = DEFAULT;
   padeReconst = FALSE;
+  doGramSchmidt = FALSE_GS;
   domain = TIME;
   initCond = DISPLACEMENT;
   amplification = 1.0;
@@ -3573,12 +3576,12 @@ LinearizedData::LinearizedData()
 void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 16, father);
+  ClassAssigner *ca = new ClassAssigner(name, 17, father);
 
   new ClassToken<LinearizedData> (ca, "Type", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::type), 3, "Default", 0, "Rom", 1, "Forced", 2);
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
   new ClassToken<LinearizedData> (ca, "InitialCondition", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::initCond), 2, "Displacement", 0, "Velocity", 1);
-
+  new ClassToken<LinearizedData> (ca, "GramSchmidt", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::doGramSchmidt), 2, "False", 0, "True", 1);
   new ClassDouble<LinearizedData>(ca, "Amplification", this, &LinearizedData::amplification);
   new ClassDouble<LinearizedData>(ca, "Frequency", this, &LinearizedData::frequency);
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
@@ -3590,7 +3593,6 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
-
   pade.setup("Pade", ca);
   dataCompression.setup("DataCompression", ca);
 
