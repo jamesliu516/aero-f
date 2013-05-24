@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cstdlib>
 using std::sort;
-#include <Eigen/Dense>
 
 #include <Domain.h>
 #include <Modal.h>
@@ -19,6 +18,9 @@ using std::sort;
 #include <DistTimeState.h>
 #include <PostOperator.h>
 #include <ParallelRom.h>
+#ifdef USE_EIGEN3
+#include <Eigen/Dense>
+#endif
 
 #ifdef DO_MODAL
 #include <arpack++/include/ardsmat.h>
