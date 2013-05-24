@@ -508,8 +508,10 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   else
     ierr = domain->checkSolution(varFcn, U);
 
-  if (ierr != 0 && data->checksol) data->unphysical = true;
-  ierr = max(ierr,0);
+  //if (ierr != 0 && data->checksol) data->unphysical = true;
+  //ierr = max(ierr,0);
+
+  if (ierr) this->errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += 1;
 
   return ierr;
 

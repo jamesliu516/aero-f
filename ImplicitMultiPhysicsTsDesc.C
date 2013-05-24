@@ -254,8 +254,11 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
   commonPart(U);
 
   int its = this->ns->solve(U);
-  if(its == -10) return its;
-  
+ 
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
+ 
   this->timer->addFluidSolutionTime(t0);
    
   this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);

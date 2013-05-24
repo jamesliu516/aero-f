@@ -236,7 +236,6 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
   Vec<Vec3D> &normal = geoState.getEdgeNormal();
   Vec<double> &normalVel = geoState.getEdgeNormalVel();
 
-
   for (int l=0; l<numEdges; ++l) {
 
     if (!masterFlag[l]) continue;
@@ -254,6 +253,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
         Vmid[k] = 0.5 * (V[i][k] + V[j][k]);
 
       u = varFcn->getVelocity(Vmid);
+
       a = varFcn->computeSoundSpeed(Vmid, fluidId[i]);
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(Vmid, fluidId[i]);
@@ -270,6 +270,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
         (*umax)[j] += min(-un,-1.0e-12)*S;
       }
     }else{
+
       u = varFcn->getVelocity(V[i]);
       a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
       un = u * n - ndot;

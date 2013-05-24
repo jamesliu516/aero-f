@@ -98,8 +98,8 @@ void TsParameters::resolveErrors(){
   }
 
   if (checksol && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
-    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
-    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+    //errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
   if (errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]){
@@ -149,8 +149,10 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
 
   if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
+    double cflold=cfl;
     cfl *= 0.5;
     fixedunsteady_counter = 1;
+    errorHandler->com->printf(1,"Reducing CFL. Previous cfl=%e, new cfl=%e.\n",cflold,cfl);
     //std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
     if (cfl < cfl0/10000. && allowstop) {std::printf("Cannot further reduce CFL number. Aborting.\n"); exit(-1);}
     return;

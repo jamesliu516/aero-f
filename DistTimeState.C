@@ -136,6 +136,7 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   dt_coeff = 1.0;
   dt_coeff_count = 0;
   allowcflstop = true;
+  allowdtstop = true;
 
   *irey = 0.0;
 }
@@ -604,8 +605,10 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  } else 
+  } else{
     dt_glob = dt->min();
+    allowdtstop = false;
+  }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
@@ -674,8 +677,10 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     allowcflstop = false; 
     dt_glob *= dt_coeff;
   }
-  else 
+  else{ 
+    allowdtstop = false;
     dt_glob = max ( dtMin, (factor * data->dt_nm1));
+  }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
@@ -710,7 +715,7 @@ void DistTimeState<dim>::updateDtCoeff(){
     unphysical = false;
     dt_coeff_count=0;
     dt_coeff /= 2.0;
-    if(dt_coeff<0.0001){
+    if(dt_coeff<0.0001 && allowdtstop){
       printf("Could not resolve unphysicality by reducing timestep. Aborting.");
       exit(-1);
     }
@@ -760,8 +765,10 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  }else
+  }else{
     dt_glob = dt->min();
+    allowdtstop = false;
+  }
                                                                                                          
   if (umax && isGFMPAR) {
     double udt = umax->min();
