@@ -3599,12 +3599,10 @@ void ModalSolver<dim>::checkFluidRomStability(VecSet<Vec<double> > &romOperator,
 template<int dim>
 void ModalSolver<dim>::modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &vectors, double *Rmatrix, int numVecs)
 {
-
   for (int iVec = 0; iVec < numVecs; ++iVec) {
-    for (int jVec = 0; jVec < numVecs; +jVec) 
+    for (int jVec = 0; jVec < numVecs; ++jVec) 
       Rmatrix[iVec*numVecs+jVec] = 0.0;
   }
-  
   Rmatrix[0] = vectors[0].norm();
   if (Rmatrix[0] == 0.0) {
     com->fprintf(stderr, "*** Error: Break down in Modified Gram-Schmidt: Vector #1 is zero\n");
@@ -3613,19 +3611,17 @@ void ModalSolver<dim>::modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &vector
   else
     vectors[0] *= 1.0/Rmatrix[0];
 
-
-  for (int iVec = 1; iVec < numVecs; ++iVec) {
-    for (int jVec = 0; jVec < iVec; ++jVec) {
+  for (int jVec = 1; jVec < numVecs; ++jVec) {
+    for (int iVec = 0; iVec < jVec; ++iVec) {
       Rmatrix[iVec*numVecs+jVec] = vectors[iVec] * vectors[jVec];
       vectors[iVec] -= Rmatrix[iVec*numVecs+jVec]*vectors[jVec];
     }
-    Rmatrix[iVec*numVecs+iVec] = vectors[iVec].norm();
-    if (Rmatrix[iVec*numVecs+iVec] == 0.0) {
-      com->fprintf(stderr, "*** Error: Break down in Modified Gram-Schmidt: Vector at Step %d is zero\n",iVec);
+    Rmatrix[jVec*numVecs+jVec] = vectors[jVec].norm();
+    if (Rmatrix[jVec*numVecs+jVec] == 0.0) {
+      com->fprintf(stderr, "*** Error: Break down in Modified Gram-Schmidt: Vector at Step %d is zero\n",jVec);
       exit(-1);
     }
     else
-      vectors[iVec] *= 1.0/Rmatrix[iVec*numVecs+iVec];
+      vectors[jVec] *= 1.0/Rmatrix[jVec*numVecs+jVec];
   }
-
 }
