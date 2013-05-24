@@ -148,6 +148,7 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void ROBInnerProductSchedule(int** , int, int, int);
     int ROBInnerProductSteps(int, int);
     void ROBInnerProducts();
+    void modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &, double *, int);
 };
 
 #include "Modal.C"
