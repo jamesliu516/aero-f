@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cstdlib>
 using std::sort;
-
+#include <Eigen/Dense>
 
 #include <Domain.h>
 #include <Modal.h>
