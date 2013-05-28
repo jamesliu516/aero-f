@@ -2885,6 +2885,18 @@ void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
   }
 
 }
+
+ 
+template<class Scalar, int dim>
+void SubDomain::
+computeMatVecProdH1FarFieldHH(bool *nodeFlag, GenMat<Scalar,dim> &A, SVec<double,dim> &p_u,
+	                      SVec<double,dim> &prod_u,Vec<double>& p_hh, 
+                              Vec<double>& prod_hh) {
+
+  faces.computeMatVecProdH1FarFieldHH(A, p_u, prod_u,p_hh, prod_hh);
+
+}
+
 //------------------------------------------------------------------------------
 
 template<class Scalar1, class Scalar2, int dim>
@@ -7620,4 +7632,32 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
   }
 }
  
- 
+template <int dim>
+void SubDomain::computeHHBoundaryTermResidual(BcData<dim> &bcData,SVec<double,dim> &U,Vec<double>& res, VarFcn* vf) {
+
+  faces.computeHHBoundaryTermResidual(bcData,U,res, vf);
+}
+
+template<int dim, class Scalar, int neq>
+void SubDomain::computeJacobianFiniteVolumeTermHH(FluxFcn **fluxFcn, BcData<dim> &bcData,
+						  GeoState& geoState,
+						  Vec<double> &ctrlVol,
+						  SVec<double,dim> &U, 
+						  GenMat<Scalar,neq> &A, VarFcn* vf) {
+
+  faces.computeHHBoundaryTermJacobian(fluxFcn, bcData, U, geoState, A,vf);
+
+  for (int i=0; i<faces.size(); ++i) {
+    Face& F = faces[i];
+    Scalar *Auh = A.getElemUH(i);
+    double voli;
+    for (int l = 0; l < F.numNodes(); ++l) {
+      voli = 1.0 / ctrlVol[F[l]];
+      for (int k=0; k<neq; ++k)
+        Auh[l*neq+k] *= voli;
+    }
+  }
+
+}
+
+

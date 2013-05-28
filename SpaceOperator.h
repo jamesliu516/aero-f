@@ -125,6 +125,8 @@ public:
   FluxFcn** getFluxFcn() { return fluxFcn; }
   DistBcData<dim>* getDistBcData() { return bcData; }
 
+  DistGeoState* getGeoState() { return geoState; }
+
   BcFcn *createBcFcn(IoData &);
   FluxFcn **createFluxFcn(IoData &);
   RecFcn *createRecFcn(IoData &);
@@ -138,6 +140,8 @@ public:
   void setFemEquationTerm(FemEquationTerm *);
   void fix(DistSVec<bool,2>&);
   void resetTag();
+
+  Domain* getDomain() { return domain; }
 
   BcFcn* getBcFcn() { return bcFcn; }
 

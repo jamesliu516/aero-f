@@ -71,6 +71,14 @@ MatVecProdFD<dim, neq>::~MatVecProdFD()
 
 }
 
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::attachHH(DistEmbeddedVec<double,dim>& v) {
+
+  hhRes = new DistVec<double>(v.hhInfo());
+  hhEps = new DistVec<double>(v.hhInfo());
+  hhVal = new DistVec<double>(v.hhInfo());
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
@@ -103,6 +111,14 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
   Qeps.strip(Q);
   Feps.strip(F);
   
+}
+
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateHH(DistVec<double> &hhterm,
+					DistVec<double> &bcVal ) {
+
+  *hhRes = hhterm;
+  *hhVal = bcVal;
 }
 
 //------------------------------------------------------------------------------
@@ -398,7 +414,92 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
 template<int dim, int neq>
 void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) {
 
-  apply(p.real(), prod.real());
+  double eps = computeEpsilon(Q, p.real());
+
+// Included (MB)
+  Qepstmp = Q + eps * p.real();
+
+  Qepstmp.pad(Qeps);
+  
+//  // Ghost-Points Population
+//  if(this->isFSI && this->fsi.ghostPoints)
+//    {
+//      this->fsi.ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+//    }
+
+  if (p.hasHHBoundaryTerm()) {
+    *hhEps = *hhVal + eps*p.hh();
+    *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
+  }
+
+  if (!this->isFSI)
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  else
+    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                             this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+
+  if (p.hasHHBoundaryTerm()) {
+
+    *hhEps = 0.0;
+    spaceOp->getDomain()->
+      computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
+       
+    timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH()
+			     , *hhEps);
+  }
+
+  if (timeState) {
+    timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+    if (iod->ts.dualtimestepping == TsData::ON)
+      timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+  }
+
+  spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  Feps.strip(Fepstmp);
+
+  if (fdOrder == 1) {
+
+    prod.real() = (1.0/eps) * (Fepstmp - F);
+    if (p.hasHHBoundaryTerm()) {
+      *hhEps = (1.0/eps) * (*hhEps - *hhRes);
+      prod.setHH(*hhEps);
+    }
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qepstmp = Q - eps * p.real();
+    
+    Qepstmp.pad(Qeps);
+  
+//    if(this->isFSI && this->fsi.ghostPoints)
+//    {
+//      this->fsi.ghostPoints->deletePointers();
+//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+//    }
+//
+    if (!this->isFSI)
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    else
+      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                               this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+ 
+    if (timeState) {
+      timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+      if (iod->ts.dualtimestepping == TsData::ON)
+        timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+    }
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+
+    prod.real() = (0.5/eps) * (Fepstmp - Ftmp);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -615,6 +716,8 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
  
   }
 
+  areHHTermsActive = false;
+
   this->com->globalSum(1, &size);
   
   this->com->printf(2, "Memory required for matvec with H1 (dim=%d): %3.2f MB\n", neq, size);
@@ -642,10 +745,26 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
     size += double(A[iSub]->numNonZeroBlocks()*neq*neq*sizeof(Scalar)) / (1024.*1024.);
   }
 
+  areHHTermsActive = false;
+
   this->com->globalSum(1, &size);
 
   this->com->printf(2, "Memory required for matvec with H1 (dim=%d): %3.2f MB\n", neq, size);
 
+}
+
+template<int dim, class Scalar,  int neq>
+void MatVecProdH1<dim,Scalar, neq>::attachHH(DistEmbeddedVec<double,dim>& v) {
+
+  areHHTermsActive = true;
+
+#pragma omp parallel for reduction (+: size)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+
+    A[iSub]->enableHHTerms(v.hh()(iSub).size());
+  }
+
+  hhVal = new DistVec<double>(v.hhInfo());
 }
 
 //------------------------------------------------------------------------------
@@ -695,6 +814,13 @@ void MatVecProdH1<dim,Scalar,neq>::exportMemory(MemoryPool *mp)
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::evaluateHH(DistVec<double> &hhterm,
+					      DistVec<double> &bcVal ) {
+
+  *hhVal = hhterm;
+}
+
+template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
 					    DistSVec<double,dim> &Q, DistSVec<double,dim> &F)
 {
@@ -710,6 +836,21 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
     timeState->addToJacobian(ctrlVol, *this, Q);
 
   spaceOp->applyBCsToJacobian(Q, *this);
+
+  if (areHHTermsActive) {
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+
+      this->subDomain[iSub]->computeJacobianFiniteVolumeTermHH(spaceOp->getFluxFcn(),
+							       (*spaceOp->getDistBcData())(iSub) ,
+							       (*spaceOp->getGeoState())(iSub),
+							       ctrlVol, Q, *A[iSub],spaceOp->getVarFcn());
+							      
+    }
+    
+    this->timeState->addToHHJacobian(ctrlVol, *this, *hhVal);
+  }
 
 }
 
@@ -728,6 +869,20 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(DistExactRiemannSolver<dim> &riemann
 
   spaceOp->applyBCsToJacobian(Q, *this);
 
+  if (areHHTermsActive) {
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+
+      this->subDomain[iSub]->computeJacobianFiniteVolumeTermHH(spaceOp->getFluxFcn(),
+							       (*spaceOp->getDistBcData())(iSub),
+							       (*spaceOp->getGeoState())(iSub),
+							       ctrlVol, Q, *A[iSub],spaceOp->getVarFcn());
+							      
+    }
+    this->timeState->addToHHJacobian(ctrlVol, *this, *hhVal);
+    
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -777,6 +932,19 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmb
     this->subDomain[iSub]->computeMatVecProdH1(p.real().getMasterFlag(iSub), *A[iSub],
 					       p.real()(iSub), prod.real()(iSub), 
                                                p.ghost()(iSub), prod.ghost()(iSub) );
+
+    if (p.hasHHBoundaryTerm()) {
+      if (!prod.hasHHBoundaryTerm()) {
+    
+        prod.setHH(p.hh());
+      }
+      prod.hh() = 0.0;
+      this->subDomain[iSub]->
+	computeMatVecProdH1FarFieldHH(p.real().getMasterFlag(iSub),
+				      *A[iSub],p.real()(iSub), prod.real()(iSub), 
+				      p.hh()(iSub), prod.hh()(iSub));
+    }
+
     this->subDomain[iSub]->sndData(*this->vecPat, prod.real().subData(iSub));
   }
 

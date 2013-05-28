@@ -18,6 +18,12 @@ class EmbeddedExpr {
 
     Scalar real(int iSub,int i,int k) const { return x.real(iSub,i,k); }
     Scalar ghost(int iSub,int i,int k) const { return x.ghost(iSub,i,k); }
+
+    bool hasHHBoundaryTerm() const { return x.hasHHBoundaryTerm(); }
+
+    const DistInfo& hhInfo() const { return x.hhInfo(); }
+
+    Scalar hh(int iSub, int i) const { return x.hh(iSub,i); }
 };
 
 template<class T1,class T2, class Scalar>
@@ -35,6 +41,11 @@ class EmbeddedSumExpr : public EmbeddedExpr< EmbeddedSumExpr<T1,T2,Scalar> , Sca
 
     Scalar real(int iSub,int i,int k) const { return x.real(iSub,i,k) + y.real(iSub,i,k) ; }
     Scalar ghost(int iSub,int i,int k) const { return x.ghost(iSub,i,k) + y.ghost(iSub,i,k); }
+
+    bool hasHHBoundaryTerm() const { return x.hasHHBoundaryTerm(); }
+    const DistInfo& hhInfo() const { return x.hhInfo(); }
+
+    Scalar hh(int iSub, int i) const { return x.hh(iSub,i)+y.hh(iSub,i); }
 };
 
 template<class T1,class T2, class Scalar>
@@ -52,6 +63,11 @@ class EmbeddedDiffExpr : public EmbeddedExpr< EmbeddedDiffExpr<T1,T2,Scalar> , S
 
     Scalar real(int iSub,int i,int k) const { return x.real(iSub,i,k) - y.real(iSub,i,k) ; }
     Scalar ghost(int iSub,int i,int k) const { return x.ghost(iSub,i,k) - y.ghost(iSub,i,k); }
+
+    bool hasHHBoundaryTerm() const { return x.hasHHBoundaryTerm(); }
+    const DistInfo& hhInfo() const { return x.hhInfo(); }
+
+    Scalar hh(int iSub, int i) const { return x.hh(iSub,i)-y.hh(iSub,i); }
 };
 
 template<class T, class Scalar>
@@ -70,6 +86,11 @@ class EmbeddedScaleExpr : public EmbeddedExpr< EmbeddedScaleExpr<T,Scalar> , Sca
 
     Scalar real(int iSub,int i,int k) const { return a*x.real(iSub,i,k); }
     Scalar ghost(int iSub,int i,int k) const { return a*x.ghost(iSub,i,k); }
+
+    bool hasHHBoundaryTerm() const { return x.hasHHBoundaryTerm(); }
+    const DistInfo& hhInfo() const { return x.hhInfo(); }
+
+    Scalar hh(int iSub, int i) const { return a*x.hh(iSub,i); }
 };
 
 template <class T1, class T2, class Scalar>
@@ -113,12 +134,16 @@ private:
   DistSVec<Scalar,dim> realVec,ghostVec;
   std::set<int>* ghostNodes;
 
+  DistVec<Scalar>* hhBoundaryTerm;
+
 public:
 
   DistEmbeddedVec(const DistInfo &);
   DistEmbeddedVec(const DistEmbeddedVec<Scalar,dim> &);
   //DistEmbeddedVec(const DistInfo &, Scalar (*)[dim]);
   ~DistEmbeddedVec();
+
+  void addHHBoundaryTerm(const DistInfo & I) { hhBoundaryTerm = new DistVec<Scalar>(I); }
 
   DistEmbeddedVec<Scalar,dim> &operator=(const Scalar);
   DistEmbeddedVec<Scalar,dim> &operator*=(const Scalar);
@@ -141,6 +166,10 @@ public:
 
   Scalar operator*(const DistEmbeddedVec<Scalar,dim> &);
 
+  bool hasHHBoundaryTerm() const { return hhBoundaryTerm; }
+
+  void setHH(DistVec<Scalar>& hh);
+
   void min(Scalar vmin[dim]) const;
   
   void max(Scalar vmax[dim]) const;
@@ -160,12 +189,19 @@ public:
   Scalar real(int iSub,int i,int k) const { return realVec.subData(iSub)[i][k]; }
   Scalar ghost(int iSub,int i,int k) const { return ghostVec.subData(iSub)[i][k]; }
   const std::set<int>& stencil(int iSub) const { return ghostNodes[iSub]; }
+
+  Scalar hh(int iSub, int i) const { return hhBoundaryTerm->subData(iSub)[i]; }
+
+  const DistInfo& hhInfo() const { return hhBoundaryTerm->info(); }
+
   void setGhostStencil(DistVec<GhostPoint<dim>*>& gp);
   void setGhost(DistVec<GhostPoint<dim>*>& gp,VarFcn* vf);
   void getGhost(DistVec<GhostPoint<dim>*>& gp,VarFcn* vf);
 
   DistSVec<Scalar,dim>& real() { return realVec; }
   DistSVec<Scalar,dim>& ghost() { return ghostVec; }
+
+  DistVec<Scalar>& hh() { return *hhBoundaryTerm; }
 
   template<int dim1, int dim2>
   void split(DistEmbeddedVec<Scalar,dim1> &, DistEmbeddedVec<Scalar,dim2> &);
@@ -217,6 +253,7 @@ DistEmbeddedVec<Scalar,dim>::DistEmbeddedVec(const DistInfo &dI) :
   realVec(dI), ghostVec(dI), EmbeddedExpr< DistEmbeddedVec<Scalar,dim>,Scalar>(*this)
 {
   ghostNodes = new std::set<int>[ dI.numLocSub ];
+  hhBoundaryTerm = NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -232,6 +269,18 @@ DistEmbeddedVec<Scalar,dim>::DistEmbeddedVec(const DistEmbeddedVec<Scalar,dim> &
   for (int i = 0; i < nls; ++i) {
     ghostNodes[i] = y.ghostNodes[i];
   }
+  
+  if (y.hhBoundaryTerm)
+    hhBoundaryTerm = new DistVec<Scalar>(*y.hhBoundaryTerm);
+}
+
+template<class Scalar, int dim>
+void DistEmbeddedVec<Scalar,dim>::setHH(DistVec<Scalar>& hh) {
+
+  if (!hhBoundaryTerm)
+    hhBoundaryTerm = new DistVec<Scalar>(hh);
+  else
+    *hhBoundaryTerm = hh;
 }
 
 //------------------------------------------------------------------------------
@@ -251,6 +300,8 @@ template<class Scalar, int dim>
 DistEmbeddedVec<Scalar,dim>::~DistEmbeddedVec() 
 { 
   delete [] ghostNodes;
+  if (hhBoundaryTerm)
+    delete hhBoundaryTerm;
 }
 
 //------------------------------------------------------------------------------
@@ -360,6 +411,9 @@ DistEmbeddedVec<Scalar,dim>::norm()
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) res += allres[iSub];
 #endif
 
+  if (hhBoundaryTerm)
+    res += (*hhBoundaryTerm)*(*hhBoundaryTerm);
+
   return sqrt(res);
 }
 
@@ -448,6 +502,8 @@ DistEmbeddedVec<Scalar,dim>::operator=(const Scalar y)
 {
   
   ghostVec = realVec = y;
+  if (hhBoundaryTerm)
+    *hhBoundaryTerm = y;
   return *this;
 }
 
@@ -472,6 +528,10 @@ DistEmbeddedVec<Scalar,dim>::operator*=(const Scalar y)
       ghostVec.v[locOffset+*itr]*=y;
     }
   }
+
+  if (hhBoundaryTerm)
+    *hhBoundaryTerm *= y;
+  
 
   return *this;
 
@@ -526,6 +586,13 @@ DistEmbeddedVec<Scalar,dim>::operator=(const DistEmbeddedVec<Scalar,dim> &y)
   for (int i = 0; i < nls; ++i) {
     ghostNodes[i] = y.ghostNodes[i];
   }
+
+  if (hhBoundaryTerm)
+    delete hhBoundaryTerm;
+
+  hhBoundaryTerm = NULL;
+  if (y.hhBoundaryTerm)
+    hhBoundaryTerm = new DistVec<double>(*y.hhBoundaryTerm);
 
   return *this;
 
@@ -615,6 +682,9 @@ DistEmbeddedVec<Scalar,dim>::operator+=(const DistEmbeddedVec<Scalar,dim> &y)
     }
   }
 
+  if (hhBoundaryTerm)
+    *hhBoundaryTerm += *y.hhBoundaryTerm;
+
   return *this;
 
 }
@@ -649,6 +719,9 @@ DistEmbeddedVec<Scalar,dim>::operator-=(const DistEmbeddedVec<Scalar,dim> &y)
       g_vv[locOffset+*itr] -= g_yy[locOffset+*itr];
     }
   }
+
+  if (hhBoundaryTerm)
+    *hhBoundaryTerm -= *y.hhBoundaryTerm;
 
   return *this;
 }
@@ -749,6 +822,9 @@ DistEmbeddedVec<Scalar,dim>::operator*(const DistEmbeddedVec<Scalar,dim> &x)
   res = 0;
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) res += allres[iSub];
 #endif
+
+  if (hhBoundaryTerm)
+    res += (*hhBoundaryTerm)*(*x.hhBoundaryTerm);
 
   return res;
 
@@ -880,6 +956,24 @@ DistEmbeddedVec<Scalar,dim>::operator=(const EmbeddedExpr<T, Scalar> &expr)
     }
   }
 
+  if (expr.hasHHBoundaryTerm()) {
+
+    if (!hhBoundaryTerm) {
+      hhBoundaryTerm = new DistVec<Scalar>(expr.hhInfo());
+    }
+
+    const DistInfo& distInfoHH = expr.hhInfo();
+    //#pragma omp parallel for
+    for (int iSub = 0; iSub < distInfoHH.numLocSub; ++iSub) {
+
+      int locLen = distInfoHH.subLen[iSub];
+      for (int i = 0; i < locLen; ++i) {
+	Scalar res =  expr.hh(iSub,i);
+	hhBoundaryTerm->subData(iSub)[i] = res;
+      }
+    }
+  }
+
   return *this;
 
 }
@@ -909,6 +1003,24 @@ DistEmbeddedVec<Scalar,dim>::operator+=(const EmbeddedExpr<T, Scalar> &expr)
       for (int j = 0; j < dim; ++j)
         ghostVec.subData(iSub)[*itr][j] += expr.ghost(iSub,*itr,j);
       
+    }
+  }
+
+  if (expr.hasHHBoundaryTerm()) {
+
+    if (!hhBoundaryTerm) {
+      std::cout << "Internal error: DistEmbeddedVector.h:" << __LINE__ << std::endl;
+      exit(-1);
+    }
+
+    const DistInfo& distInfoHH = expr.hhInfo();
+#pragma omp parallel for
+    for (int iSub = 0; iSub < distInfoHH.numLocSub; ++iSub) {
+
+      int locLen = distInfoHH.subLen[iSub];
+      for (int i = 0; i < locLen; ++i) {
+	hhBoundaryTerm->subData(iSub)[i] += expr.hh(iSub,i);
+      }
     }
   }
 
@@ -944,6 +1056,24 @@ DistEmbeddedVec<Scalar,dim>::operator-=(const EmbeddedExpr<T, Scalar> &expr)
     }
   }
 
+  if (expr.hasHHBoundaryTerm()) {
+
+    if (!hhBoundaryTerm) {
+      std::cout << "Internal error: DistEmbeddedVector.h:" << __LINE__ << std::endl;
+      exit(-1);
+    }
+
+    const DistInfo& distInfoHH = expr.hhInfo();
+#pragma omp parallel for
+    for (int iSub = 0; iSub < distInfoHH.numLocSub; ++iSub) {
+
+      int locLen = distInfoHH.subLen[iSub];
+      for (int i = 0; i < locLen; ++i) {
+	hhBoundaryTerm->subData(iSub)[i] -= expr.hh(iSub,i);
+      }
+    }
+  }
+
   return *this;
 
 
@@ -963,6 +1093,7 @@ DistEmbeddedVec<Scalar,dim>::operator*(const EmbeddedExpr<T, Scalar> &expr)
   Scalar res = 0;
 
   const DistInfo& distInfo = realVec.info();
+  const DistInfo& distInfoHH = expr.hhInfo();
 #ifndef MPI_OMP_REDUCTION
   Scalar *allres = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numGlobSub));
 
@@ -995,6 +1126,19 @@ DistEmbeddedVec<Scalar,dim>::operator*(const EmbeddedExpr<T, Scalar> &expr)
             locres += DotTerm(this->ghostVec.v[locOffset+k][j], expr.ghost(iSub,k,j));
       }
 
+      if (expr.hasHHBoundaryTerm()) {
+
+	if (!hhBoundaryTerm) {
+	  std::cout << "Internal error: DistEmbeddedVector.h:" << __LINE__ << std::endl;
+	  exit(-1);
+	}
+	locOffset = distInfoHH.subOffset[iSub];
+	locLen = distInfoHH.subLen[iSub];
+	for (int i = 0; i < locLen; ++i) {
+	  if (distInfoHH.masterFlag[locOffset+i])
+	    locres += DotTerm(hhBoundaryTerm->v[locOffset+i], expr.hh(iSub,i));
+	}
+      }
 #ifdef MPI_OMP_REDUCTION
       res += locres;
 #else
@@ -1028,6 +1172,19 @@ DistEmbeddedVec<Scalar,dim>::operator*(const EmbeddedExpr<T, Scalar> &expr)
           locres += DotTerm(this->ghostVec.v[locOffset+k][j], expr.ghost(iSub,k,j));
       }
       
+      if (expr.hasHHBoundaryTerm()) {
+
+	if (!hhBoundaryTerm) {
+	  std::cout << "Internal error: DistEmbeddedVector.h:" << __LINE__ << std::endl;
+	  exit(-1);
+	}
+	locOffset = distInfoHH.subOffset[iSub];
+	locLen = distInfoHH.subLen[iSub];
+	for (int i = 0; i < locLen; ++i) {
+	  locres += DotTerm(hhBoundaryTerm->v[locOffset+i], expr.hh(iSub,i));
+	}
+      }
+
 #ifdef MPI_OMP_REDUCTION
       res += locres;
 #else

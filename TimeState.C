@@ -25,6 +25,13 @@ TimeState<dim>::TimeState(TimeData &_data, Vec<double> &_dt, Vec<double> &_idti,
   }
 }
 
+template<int dim>
+void TimeState<dim>::attachHH(Vec<double> *hhn_,Vec<double> *hhnm1_) {
+
+  hhn = hhn_;
+  hhnm1 = hhnm1_;  
+}
+
 //------------------------------------------------------------------------------
 // Add Time Derivative Term, d(AW)/dt to the flux F
 // If running Non-Modal, adds invA*d(AW)/dt to the flux invA*F
@@ -53,6 +60,27 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
       else
         R[i][k] += dAWdt;
     }
+  }
+}
+
+template<int dim>
+void TimeState<dim>::add_dAW_dt_HH(bool *nodeFlag, GeoState &geoState, 
+				   Vec<double> &ctrlVol, Vec<double> &Q, 
+				   Vec<double> &R)
+{
+  for (int i=0; i<R.size(); ++i) {
+
+    TimeFDCoefs coefs;
+    computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
+
+    double invDt = 1.0 / dt[0];
+    double sum = coefs.c_np1*Q[i]+ coefs.c_n*(*hhn)[i] +
+      coefs.c_nm1*(*hhnm1)[i];// + coefs.c_nm2*Unm2[i][k];
+    double dAWdt = invDt * sum; 
+    //if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+    //  R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
+    //else
+    R[i] += dAWdt;
   }
 }
 
@@ -338,7 +366,7 @@ void TimeState<dim>::computeTimeFDCoefsSpecialBDF(GeoState &geoState, TimeFDCoef
 
   coefs.c_np1 = 2.0;
   coefs.c_n   = -2.0 * ctrlVol_n[i];
-  coefs.c_nm1 = -0.5 * ctrlVol_nm1[i];
+  coefs.c_nm1 = -1.0 * ctrlVol_nm1[i];
   coefs.c_nm2 = 0.0;
   switch (descriptorCase) {
     case DESCRIPTOR: {
@@ -618,6 +646,33 @@ void TimeState<dim>::addToJacobianLS(bool* nodeFlag,Vec<double> &ctrlVol, GenMat
       Aii[k + k*neq] += c_np1;
   }
 }
+
+template<int dim>
+template<class Scalar,int neq>
+void TimeState<dim>::addToJacobianHH(Vec<double>& ctrlVol,  GenMat<Scalar,neq> & A,
+				     Vec<double>& hhn) {
+
+  double c_np1;
+  for (int i = 0; i < hhn.size(); ++i) {
+  
+    Scalar *Aii = A.getElemHH(i);
+    //double vol = ctrlVol
+    switch (descriptorCase) {
+      /*case DESCRIPTOR: {
+      c_np1 = data.alpha_np1 * vol / dt[dt_i];
+      break; }
+    case HYBRID: {
+      c_np1 = data.alpha_np1 * sqrt(vol) / dt[dt_i];
+      break; }*/
+    case NONDESCRIPTOR : { 
+      c_np1 = data.alpha_np1 / dt[0];
+      break; }
+    }
+    *Aii += c_np1;
+  }
+
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 template<class Scalar, int neq>

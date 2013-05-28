@@ -275,6 +275,8 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
 
   this->checkSolution(U);
 
+  this->updateBoundaryExternalState();
+  
   return its;
 }
 //------------------------------------------------------------------------------

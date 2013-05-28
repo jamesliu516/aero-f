@@ -234,6 +234,18 @@ DistTimeState<dim>::~DistTimeState()
 //------------------------------------------------------------------------------
 
 template<int dim>
+void DistTimeState<dim>::attachHH(DistVec<double>& hh) {
+
+  hhn = new DistVec<double>(hh);
+  hhnm1 = new DistVec<double>(hh);
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    if (subTimeState[iSub]) 
+      subTimeState[iSub]->attachHH(&(*hhn)(iSub),&(*hhnm1)(iSub));
+  }
+}
+
+template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
                                DistSVec<double,dim> &Ufar,
                                DistSVec<double,dim> &U, IoData &iod,
@@ -842,7 +854,21 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
       subTimeState[iSub]->add_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), LSS);
     }
   }
-}                                                                                                                      
+}   
+
+template<int dim>
+void DistTimeState<dim>::add_dAW_dt_HH(int it, DistGeoState &geoState, 
+		   DistVec<double> &ctrlVol,
+		   DistVec<double> &Q, 
+		   DistVec<double> &R) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subTimeState[iSub]->add_dAW_dt_HH(Q.getMasterFlag(iSub), geoState(iSub), 
+				      ctrlVol(iSub), Q(iSub), R(iSub));
+  }
+  
+}                                                                                                                 
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -934,6 +960,16 @@ void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,
      addToJacobianNoPrec(ctrlVol, A, U);
   }
 
+}
+
+template<int dim>
+template<class Scalar, int neq>
+void DistTimeState<dim>::addToHHJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
+                                       DistVec<double> &hh)
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToJacobianHH(ctrlVol(iSub), A(iSub), hh(iSub));
 }
 
 //------------------------------------------------------------------------------
@@ -1151,6 +1187,19 @@ void DistTimeState<dim>::addToH2Minus(DistVec<double> &ctrlVol, DistSVec<double,
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::multiplyByTimeStep(DistVec<double>& dU)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    double *du = dU.subData(iSub);
+    double* _dt = dt->subData(iSub);
+    for (int i=0; i<dU.subSize(iSub); ++i)
+      du[i] *= _dt[i];
+  }
+
+}
 
 template<int dim>
 void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dim>& dU)
@@ -1346,6 +1395,14 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::updateHH(DistVec<double> & hh) {
+
+  *hhnm1 = *hhn;
+
+  *hhn = hh;
+}
 
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)

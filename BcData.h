@@ -14,6 +14,8 @@ class BcData {
   SVec<double,dim> &Ufarin;
   SVec<double,dim> &Ufarout;
 
+  Vec<double> *boundaryStateHH;
+
 // Included (MB)
   SVec<double,dim> *dUface;
   SVec<double,dim> *dUnode;
@@ -27,14 +29,16 @@ public:
 
 // Included (MB)
   BcData(SVec<double,dim> &uf, SVec<double,dim> &un, SVec<double,dim> &uin, SVec<double,dim> &ufarin, SVec<double,dim> &ufarout, SVec<double,dim> &duf, SVec<double,dim> &dun, SVec<double,dim> &duin, SVec<double,dim> &dufarin, SVec<double,dim> &dufarout, SVec<double,dim> &dufsa, SVec<double,dim> &dunsa)
-         : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout) { dUface = &duf; dUnode = &dun; dUinletnode = &duin; dUfarin = &dufarin; dUfarout = &dufarout; dUfaceSA = &dufsa; dUnodeSA = &dunsa;}
+         : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout), boundaryStateHH(0) { dUface = &duf; dUnode = &dun; dUinletnode = &duin; dUfarin = &dufarin; dUfarout = &dufarout; dUfaceSA = &dufsa; dUnodeSA = &dunsa;}
   BcData(SVec<double,dim> &uf, SVec<double,dim> &un, SVec<double,dim> &uin, SVec<double,dim> &ufarin, SVec<double,dim> &ufarout, SVec<double,dim> &duf, SVec<double,dim> &dun, SVec<double,dim> &duin, SVec<double,dim> &dufarin, SVec<double,dim> &dufarout)
-         : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout) { dUface = &duf; dUnode = &dun; dUinletnode = &duin; dUfarin = &dufarin; dUfarout = &dufarout; }
+         : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout), boundaryStateHH(0) { dUface = &duf; dUnode = &dun; dUinletnode = &duin; dUfarin = &dufarin; dUfarout = &dufarout; }
   BcData(SVec<double,dim> &uf, SVec<double,dim> &un, SVec<double,dim> &uin, SVec<double,dim> &ufarin, SVec<double,dim> &ufarout, SVec<double,dim> &dufsa, SVec<double,dim> &dunsa)
-         : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout) { dUfaceSA = &dufsa; dUnodeSA = &dunsa; }
+         : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout), boundaryStateHH(0) { dUfaceSA = &dufsa; dUnodeSA = &dunsa; }
 
-  BcData(SVec<double,dim> &uf, SVec<double,dim> &un, SVec<double,dim> &uin, SVec<double,dim> &ufarin, SVec<double,dim> &ufarout) : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout) {}
+ BcData(SVec<double,dim> &uf, SVec<double,dim> &un, SVec<double,dim> &uin, SVec<double,dim> &ufarin, SVec<double,dim> &ufarout) : Uface(uf), Unode(un), Uinletnode(uin), Ufarin(ufarin), Ufarout(ufarout), boundaryStateHH(0) {}
   ~BcData() {}
+
+  void setBoundaryStateVectorHH(Vec<double>* hh) { boundaryStateHH = hh; }
 
   SVec<double,dim> &getFaceStateVector() const { return Uface; }
   SVec<double,dim> &getNodeStateVector() const { return Unode; }
@@ -50,6 +54,8 @@ public:
   SVec<double,dim> &getdInletNodeStateVector() const { return *dUinletnode; }
   SVec<double,dim> &getdInletBoundaryVector() const { return *dUfarin; }
   SVec<double,dim> &getdInletOutletVector() const { return *dUfarout; }
+
+  Vec<double>* getBoundaryStateHH() { return boundaryStateHH; }
 
 };
 

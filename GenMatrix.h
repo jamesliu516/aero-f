@@ -26,6 +26,8 @@ public:
   virtual Scalar *getBcElem_ji(int l) {fprintf(stderr, "No Implementation\n"); return 0;}
   virtual void addContrib(int, int *, double *) = 0;
 
+  virtual void enableHHTerms(int) { }
+
   // -------------------------------------------------------------------------
   // Auxilliary terms (for ghost points)
  
@@ -61,6 +63,15 @@ public:
 
   virtual void clearGhost() { }
 
+  // -------------------------------------------------------------------------
+  // Auxilliary terms (for HH Boundary Conditions)
+ 
+  virtual Scalar* getElemUH(int) { return NULL; }
+  virtual Scalar* getElemHU(int) { return NULL; }
+  virtual Scalar* getElemHH(int) { return NULL; }
+
+  virtual SVec<Scalar,dim*3>* getHU() { return NULL; }
+  
 };
 
 //------------------------------------------------------------------------------

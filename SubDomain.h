@@ -699,7 +699,12 @@ public:
   template<class Scalar, int dim>
   void computeMatVecProdH1(bool *, GenMat<Scalar,dim> &, SVec<double,dim> &,
 			   SVec<double,dim> &,SVec<double,dim>&, SVec<double,dim>&);
+ 
+  template<class Scalar, int dim>
+  void computeMatVecProdH1FarFieldHH(bool *, GenMat<Scalar,dim> &, SVec<double,dim> &,
+			             SVec<double,dim> &,Vec<double>&, Vec<double>&);
   
+ 
   template<class Scalar1, class Scalar2, int dim>
   void computeMatVecProdH2(RecFcn *, SVec<double,3> &, Vec<double> &,
 			   GenMat<Scalar1,dim> &, SVec<double,dim> &, SVec<double,dim> &,
@@ -1366,9 +1371,19 @@ public:
 
   HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
 
-  void updateFarfieldCoeffs(double dt) {faces.updateHHCoeffs(dt);}
-  void updateBoundaryExternalState() {faces.updateHHState();}
-  void initializeFarfieldCoeffs(double cc) {faces.initializeHHCoeffs(cc);}
+  template <int dim>
+    void computeHHBoundaryTermResidual(BcData<dim> &bcData,SVec<double,dim> &U,Vec<double>& res,
+				       VarFcn* vf);
+
+  void maskHHVector(Vec<double>& hh);
+
+  template<int dim, class Scalar, int neq>
+    void computeJacobianFiniteVolumeTermHH(FluxFcn **fluxFcn, BcData<dim> &bcData,
+					   GeoState& geoState,
+					   Vec<double> &ctrlVol,
+					   SVec<double,dim> &U, 
+					   GenMat<Scalar,neq> &A,
+					   VarFcn* vf);
   
 };
 //------------------------------------------------------------------------------

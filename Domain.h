@@ -1042,8 +1042,12 @@ public:
 
   // Assign ErrorHandler to subdomains
   void assignErrorHandler();
-  
+
+  template <int dim>
+    void computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<double,dim> &U,DistVec<double>& res,
+				       VarFcn* vf);
  
+  void maskHHVector(DistVec<double>& hh);
  };
 
 //------------------------------------------------------------------------------

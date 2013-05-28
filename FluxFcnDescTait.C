@@ -450,7 +450,12 @@ void FluxFcnTaitGhidagliaEuler3D::compute(double length, double irey, double *no
   F77NAME(genbcfluxtait)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux);
 
 }
+/*
+void FluxFcnTaitGhidagliaEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel, 
+						  double *VL, double *Ub, double *jacL, bool useLimiter) {
 
+}
+*/
 void FluxFcnTaitModifiedGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel, 
                                                   double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -458,11 +463,35 @@ void FluxFcnTaitModifiedGhidagliaEuler3D::compute(double length, double irey, do
   int dim = 5;
  // fprintf(stderr,"faceCenter = %e %e %e;  s_ff = %e;  dt = %e.\n", flux[dim], flux[dim+1], flux[dim+2], flux[dim+3], flux[dim+4]);
   double snew;
-  F77NAME(genbcfluxtait_hh)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux, hhcoeffptr, snew, *(hhcoeffptr+3), *(hhcoeffptr+5));
-  hhcoeffptr[3] = snew;
+  F77NAME(genbcfluxtait_hh)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux, hhcoeffptr, snew, *(hhcoeffptr+4), *(hhcoeffptr+5));
+  //hhcoeffptr[3] = snew;
  
 }
 
+void FluxFcnTaitModifiedGhidagliaEuler3D::computeJacobianFarfield(double length, double irey, double *normal, double normalVel, 
+								  double *V, double *Ub, double *jac,
+								  bool useLimiter)
+{
+
+  const int dim = 5; 
+  
+  double ff[dim],ffp[dim];
+  
+  const double eps0 = 1.0e-6;
+
+  compute(length, irey, normal, normalVel, V, Ub, ff,useLimiter);
+
+  double olds = *(hhcoeffptr+4);
+  *(hhcoeffptr+4) *=(1.0+eps0);
+  double news = *(hhcoeffptr+4);
+  compute(length, irey, normal, normalVel, V, Ub, ffp,useLimiter);
+  
+  for (int k = 0; k < dim; ++k)
+    jac[k] = (ffp[k] - ff[k]) / (news-olds);
+  
+  *(hhcoeffptr+4) = olds;
+ 
+}
 
 //------------------------------------------------------------------------------
 

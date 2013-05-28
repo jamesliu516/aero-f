@@ -4714,3 +4714,11 @@ void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uex
 
   com->globalMax(dim, error);
 }
+
+template <int dim>
+void Domain::computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<double,dim> &U,DistVec<double>& res,
+					   VarFcn* vf) {
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeHHBoundaryTermResidual(bcData(iSub),U(iSub), res(iSub), vf);
+}

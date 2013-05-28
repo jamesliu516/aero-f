@@ -55,6 +55,16 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->mmh = this->createEmbeddedALEMeshMotionHandler(ioData, geoSource, this->distLSS);
   else
     this->mmh = 0;
+
+  if (this->modifiedGhidaglia) {
+    embeddedU.addHHBoundaryTerm(dom->getFaceDistInfo());
+    embeddeddQ.addHHBoundaryTerm(dom->getFaceDistInfo());
+    embeddedB.addHHBoundaryTerm(dom->getFaceDistInfo());
+    
+    hhResidual = new DistVec<double>(dom->getFaceDistInfo());
+  }
+
+    
 }
 
 //------------------------------------------------------------------------------
@@ -214,6 +224,9 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   
   }
 
+  if (this->modifiedGhidaglia)
+    embeddedU.hh() = *this->bcData->getBoundaryStateHH();
+
 //  // Ghost-Points Population
 //  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
 //    {
@@ -267,6 +280,11 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
                  TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION )
     doErrorEstimation(U);
 
+  if (this->modifiedGhidaglia) {
+    *this->bcData->getBoundaryStateHH() = embeddedU.hh();
+    this->timeState->updateHH(embeddedU.hh());
+  }
+  
   return its;
 }
 //------------------------------------------------------------------------------
@@ -292,6 +310,18 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 //  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
+
+  
+  if (this->modifiedGhidaglia) {
+
+    *hhResidual = 0.0;
+    this->domain->
+      computeHHBoundaryTermResidual(*this->bcData,Q,*hhResidual, this->varFcn);
+       
+    this->timeState->add_dAW_dt_HH(-1, *this->geoState, *this->A,*this->bcData->getBoundaryStateHH()
+    			     , *hhResidual);
+  }
+
 }
 
 //------------------------------------------------------------------------------

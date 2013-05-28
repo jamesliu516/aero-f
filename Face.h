@@ -384,7 +384,6 @@ protected:
 
   //for farfield flux
   Vec3D faceCenter;
-  HHCoeffs hhcoeffs;
 
   class HigherOrderMultiFluid* higherOrderMF;
 
@@ -400,9 +399,6 @@ public:
   virtual void setEdgeNum(int edge_id, int l) = 0;
 
   void attachHigherOrderMF(class HigherOrderMultiFluid* mf) { higherOrderMF = mf; }
-  void updateHHCoeffs(double dt) {hhcoeffs.currentDt = dt;}
-  void updateHHState() {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i];}
-  void initializeHHCoeffs(double cc) {for(int i=0; i<3; i++) hhcoeffs.s0[i] = hhcoeffs.s1[i] = cc;}
 
   // Number of nodes
   virtual int numNodes() = 0;
@@ -612,20 +608,20 @@ public:
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
 			       Vec<double> &normalVel, SVec<double,dim> &V, 
-			       double *Ub, SVec<double,dim> &fluxes);
+			       double *Ub, SVec<double,dim> &fluxes, double UbHH = 0);
 
   template<int dim>
   void computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                FluxFcn **fluxFcn, Vec<Vec3D> &normal,
                                Vec<double> &normalVel, SVec<double,dim> &V,
-                               double *Ub, SVec<double,dim> &fluxes);
+                               double *Ub, SVec<double,dim> &fluxes,double UbHH = 0);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, SVec<double,dim> &V,
 			       double *Ub, Vec<int> &fluidId, 
 			       SVec<double,dim> &fluxes,
-                               LevelSetStructure* = 0);
+                               LevelSetStructure* = 0,double UbHH = 0);
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
@@ -635,30 +631,31 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
 				       Vec<double> &normalVel, SVec<double,dim> &V, 
-				       double *Ub, GenMat<Scalar,neq> &A);
+				       double *Ub, GenMat<Scalar,neq> &A,double UbHH = 0
+                                    );
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim> &riemann,
                                        FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
 				       Vec<double> &normalVel, SVec<double,dim> &V, 
-				       double *Ub, GenMat<Scalar,neq> &A);
+				       double *Ub, GenMat<Scalar,neq> &A,double UbHH = 0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				       Vec<double> &normalVel, SVec<double,dim> &V,
-				       double *Ub, GenMat<Scalar,neq> &A, int* nodeType);
+				       double *Ub, GenMat<Scalar,neq> &A, int* nodeType,double UbHH = 0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
 				       Vec<double> &normalVel, SVec<double,dim> &V, 
 				       double *Ub, GenMat<Scalar,neq> &A, Vec<int> &fluidId,
-                                       LevelSetStructure* LSS);
+                                       LevelSetStructure* LSS,double UbHH = 0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				       Vec<double> &normalVel, SVec<double,dim> &V,
 				       double *Ub, GenMat<Scalar,neq> &A, 
-                                       Vec<int> &fluidId, int* nodeType);
+                                       Vec<int> &fluidId, int* nodeType,double UbHH = 0);
 
   template<int dim, class Scalar, int dimLS>
   void computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normal,
@@ -816,6 +813,19 @@ public:
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeBCsJacobianWallValues(elems, fet, X, d2wall, Vwall, dVwall, V);
   }
+
+  template<int dim>
+    void computeHHBoundaryTermResidual(SVec<double,dim> &U,double* Ub,double& UbHH,double& res, VarFcn* vf);
+
+  template<class Scalar,int dim,int neq>
+    inline
+    void computeHHBoundaryTermJacobian(int faceid,FluxFcn **fluxFcn, SVec<double,dim> &U,
+				       double* Ub, GenMat<Scalar,neq> &A, VarFcn* vf,
+				       Vec<Vec3D> &normals, Vec<double> &normalVel);
+
+  template <class Scalar,int dim>
+    void computeMatVecProdH1FarFieldHH(int, GenMat<Scalar,dim> &A, SVec<double,dim> &p_u,
+	                      SVec<double,dim> &prod_u,double& p_hh, double& prod_hh);
 
 };
 
@@ -1099,13 +1109,28 @@ public:
 
   void attachHigherOrderMF(class HigherOrderMultiFluid*);
 
-  void updateHHCoeffs(double dt) {
-    for(int i=0; i<numFaces; i++) 
-      faces[i]->updateHHCoeffs(dt);}
-  void updateHHState() {
-    for(int i=0; i<numFaces; i++) 
-      faces[i]->updateHHState();}
-  void initializeHHCoeffs(double cc) {for(int i=0; i<numFaces; i++) faces[i]->initializeHHCoeffs(cc);}
+  template <int dim>
+  void updateHHState(SVec<double,dim>& V, VarFcn* vf, double dt) {
+
+    for (int i = 0; i < numFaces; ++i)
+      faces[i]->updateHHBoundaryTerm(V, vf, dt);
+  }
+
+  template<int dim>
+    void computeHHBoundaryTermResidual(BcData<dim> &bcData,SVec<double,dim> &V,Vec<double>& res, VarFcn* vf);
+
+  template<class Scalar,int dim,int neq>
+  inline
+    void computeHHBoundaryTermJacobian(FluxFcn **fluxFcn, BcData<dim> &bcData,SVec<double,dim> &U,
+				       GeoState& geoState,
+				       GenMat<Scalar,neq> &A, VarFcn* vf);
+
+  
+  template<class Scalar, int dim>
+  void computeMatVecProdH1FarFieldHH(GenMat<Scalar,dim> &A, SVec<double,dim> &p_u,
+ 	                      SVec<double,dim> &prod_u,Vec<double>& p_hh, 
+                              Vec<double>& prod_hh);
+ //void initializeHHCoeffs(double cc) {for(int i=0; i<numFaces; i++) faces[i]->initializeHHCoeffs(cc);}
 };
 
 //------------------------------------------------------------------------------

@@ -186,6 +186,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
 
   this->checkSolution(U);
 
+  this->updateBoundaryExternalState();
   return its;
   
 }

@@ -31,6 +31,8 @@ class ExplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
   DistVec<double> p3;
   DistVec<double> p4;
 
+  DistVec<double>* hh1,*hh2,*hh3,*hh4,*hhorig;
+
   bool RK4;
   bool FE;
 
@@ -63,6 +65,8 @@ class ExplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
   void computeRKUpdate(DistSVec<double,dim>& Ulocal,
                        DistSVec<double,dim>& dU, int it);
 
+  void computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+			 DistVec<double>& dHH) ;
 };
 
 //------------------------------------------------------------------------------

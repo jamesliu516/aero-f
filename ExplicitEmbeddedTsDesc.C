@@ -57,6 +57,15 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   else
     this->mmh = 0;
 
+  if (this->modifiedGhidaglia) {
+
+    hh1 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh2 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh3 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh4 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hhorig = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -155,6 +164,15 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U, double t
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U0,this->distLSS); //(?)for Navier-Stokes only
 
+  if (this->modifiedGhidaglia) {
+
+    computeRKUpdateHH(U, *hh1);
+    this->domain->getCommunicator()->fprintf(stdout,"%lf",(*hh1)*(*hh1));
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+    //std::cout << "Updating mod. ghidaglia" << std::endl;
+  }
+
+
   U = U0;
   this->checkSolution(U);
 
@@ -172,6 +190,12 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
   // Ghost-Points Population
 //  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
 //    {
@@ -180,7 +204,15 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
 //    }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
+  
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
+  }
+
   U = U - 1.0/2.0 * (k1 + k2);
+
+
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
 
   this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
@@ -251,3 +283,13 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void ExplicitEmbeddedTsDesc<dim>::computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+						    DistVec<double>& dHH) {
+
+  //this->varFcn->conservativeToPrimitive(Ulocal,*(this->V),&this->nodeTag);
+  //*(this->bcData->getBoundaryStateHH()) = HHlocal;
+  this->domain->computeHHBoundaryTermResidual(*this->bcData,Ulocal,dHH, this->varFcn);
+  this->timeState->multiplyByTimeStep(dHH);
+
+}

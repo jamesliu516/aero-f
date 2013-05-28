@@ -638,11 +638,11 @@ void Domain::setInletNodes(IoData &ioData)
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->createSharedInletNodeConnectivity(iSub);
-
-//creation of the Communicator patterns needed.
+    
+    //creation of the Communicator patterns needed.
     inletVec3DPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
     inletCountPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend);
-
+    
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; iSub++){
       subDomain[iSub]->setComLenInletNodes(3, *inletVec3DPat);
@@ -650,6 +650,7 @@ void Domain::setInletNodes(IoData &ioData)
     }
     inletVec3DPat->finalize();
     inletCountPat->finalize();
+    
   }
 }
 
@@ -1784,4 +1785,14 @@ void Domain::assignErrorHandler(){
     subDomain[iSub]->assignErrorHandler(errorHandler);
   }
 
+}
+
+void Domain::maskHHVector(DistVec<double>& hh) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->maskHHVector(hh(iSub));
+  }
+  
 }

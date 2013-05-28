@@ -17,6 +17,9 @@ protected:
 
   SVec<Scalar,dim*dim> a;
 
+  SVec<Scalar, dim*3>* uh, *hu;
+  Vec<Scalar>* hh;
+
   typedef std::map< std::pair<int,int>, Scalar* > AuxilliaryRows;
   AuxilliaryRows realAuxilliaryRows;
   AuxilliaryRows ghostAuxilliaryRows;
@@ -25,10 +28,43 @@ protected:
 public:
 
   MvpMat(int nn, int ne, int nBC = 0) : a(nn + 2*(ne+nBC)) { n = nn; numEdges = ne; }
-  ~MvpMat() {}
+  ~MvpMat() {
 
-  MvpMat<Scalar,dim> &operator= (const Scalar x) { a = x; return *this; }
-  MvpMat<Scalar,dim> &operator*= (const Scalar x) { a *= x; return *this; }
+    if (uh)
+      delete uh;
+    if (hu)
+      delete hu;
+    if (hh)
+      delete hh;
+  }
+
+  MvpMat<Scalar,dim> &operator= (const Scalar x) { 
+    a = x; 
+    if (uh)
+      *uh = x;
+    if (hh)
+      *hh = x;
+    if (hu)
+      *hu = x;
+    return *this; 
+  }
+  MvpMat<Scalar,dim> &operator*= (const Scalar x)  { 
+    a *= x; 
+    if (uh)
+      *uh *= x;
+    if (hh)
+      *hh *= x;
+    if (hu)
+      *hu *= x;
+    return *this; 
+  }
+
+  void enableHHTerms(int subLen) {
+
+    uh = new SVec<Scalar,dim*3>(subLen);
+    hu = new SVec<Scalar,dim*3>(subLen);
+    hh = new Vec<Scalar>(subLen);
+  }
 
   double norm() {return a.norm();}
 
@@ -134,6 +170,32 @@ public:
     clearAuxilliary(realAuxilliaryRows);
     clearAuxilliary(ghostAuxilliaryRows);
     clearAuxilliary(ghostGhostAuxilliaryRows);
+  }
+
+  Scalar* getElemUH(int i) {
+    if (!uh)
+      return NULL;
+    
+    return *(uh->v + i);
+  }
+    
+  Scalar* getElemHU(int i) {
+    if (!hu)
+      return NULL;
+    
+    return *(hu->v + i);
+  }
+
+  Scalar* getElemHH(int i) {
+
+    if (!hh)
+      return NULL;
+    return (hh->v + i);
+  }
+
+  SVec<Scalar,dim*3>* getHU() {
+
+    return hu;
   }
 
  protected:

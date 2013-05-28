@@ -23,6 +23,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
   Uface(faceDistInfo), Unode(nodeDistInfo),
   Uinletnode(inletNodeDistInfo), rotInfo(ioData.rotations.rotationMap.dataMap)
 {
+  this->boundaryStateHH = 0;
 
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
@@ -58,6 +59,11 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
     this->dUnodeSA = 0;
   }
 
+  if (ioData.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA) {
+
+    this->boundaryStateHH = new DistVec<double>(faceDistInfo);
+  }
+
   //KW: "insensitive" Euler starts here.
   this->numLocSub = domain->getNumLocSub();
   this->subDomain = domain->getSubDomain();
@@ -67,7 +73,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 #pragma omp parallel for
   for (int iSub=0; iSub<this->numLocSub; ++iSub)
 // Included (MB)
-  	if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
           subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
@@ -94,6 +100,12 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
       }
     }
 
+  if (ioData.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->numLocSub; ++iSub)
+      subBcData[iSub]->setBoundaryStateVectorHH(&(*(this->boundaryStateHH))(iSub));
+  }
 
   // it is assumed that at only fluid can be found at the far-field boundary of an external flow
   // and it is always the fluid with id=0 (by default)
