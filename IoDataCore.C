@@ -2860,6 +2860,11 @@ TsData::TsData()
   timestepinitial = -1.0;
   maxTime = 1.e99;
 
+  checksol = 1;
+  checkvelocity = 1;
+  checkpressure = 1;
+  deltapressurethreshold = 40;
+
   residual = -1;
   // These variables stay here for back compatibility
   cfl0 = -1.0;
@@ -2899,6 +2904,12 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "CheckSolution", this,
                          reinterpret_cast<int TsData::*>(&TsData::checksol), 2,
                          "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckVelocity", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checkvelocity), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckPressure", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checkpressure), 2,
+                         "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
                          reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
                          "None", 0, "AbsoluteValue", 1, "Freestream", 2);
@@ -2916,6 +2927,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "TimeStepInitial", this, &TsData::timestepinitial);
   new ClassDouble<TsData>(ca, "MaxTime", this, &TsData::maxTime);
   new ClassInt<TsData>(ca, "Residual", this, &TsData::residual);
+  new ClassInt<TsData>(ca, "DeltaPressureThreshold", this, &TsData::deltapressurethreshold);
   new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
   new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
@@ -2934,7 +2946,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   implicit.setup("Implicit", ca);
   cfl.setup("CflLaw",ca);
   cfl.setup("CFLLaw",ca);
-  adaptivetime.setup("AdaptiveTime",ca);
+  //adaptivetime.setup("AdaptiveTime",ca);
 
 }
 
