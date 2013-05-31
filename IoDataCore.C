@@ -2741,7 +2741,7 @@ CFLData::CFLData()
   cfl0 = 5.0;
   cflCoef1 = 0.0;
   cflCoef2 = 0.0;
-  cflMax = 100000.0;
+  cflMax = 10000.0;
   cflMin = 1.0;
   dualtimecfl = 100.0;
 
@@ -2755,7 +2755,7 @@ CFLData::CFLData()
 
   dft_history = 8;
   dft_freqcutoff = 3;
-  dft_growth = 1.3;
+  dft_growth = 1.4;
 
   forbidreduce = 0;
 
@@ -2799,6 +2799,45 @@ void CFLData::setup(const char *name, ClassAssigner *father)
   new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
   new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
 
+}
+
+//------------------------------------------------------------------------------
+
+AdaptiveTimeData::AdaptiveTimeData()
+{
+
+  checksol = 1;
+  checklinsolve = 1;
+  checkriemann = 1;
+  checklargevelocity = 1;
+  rapidpchangecutoff = 40;
+  checkpclipping = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void AdaptiveTimeData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
+
+  new ClassToken<AdaptiveTimeData>(ca, "UnphysicalSolution", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checksol), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "LinearSolver", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklinsolve), 2,
+                          "Off", 0, "On", 1); 
+  new ClassToken<AdaptiveTimeData>(ca, "RiemannSolver", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkriemann), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "LargeVelocities", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklargevelocity), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "PressureClipping", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkpclipping), 2,
+                          "Off", 0, "On", 1);
+  new ClassInt<AdaptiveTimeData>(ca, "RapidPChangeCutoff", this, &AdaptiveTimeData::rapidpchangecutoff);
 }
 
 //------------------------------------------------------------------------------
@@ -2857,6 +2896,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "DualTimeStepping", this,
                          reinterpret_cast<int TsData::*>(&TsData::dualtimestepping), 2,
                          "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckSolution", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checksol), 2,
+                         "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
                          reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
                          "None", 0, "AbsoluteValue", 1, "Freestream", 2);
@@ -2890,7 +2932,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
+  cfl.setup("CflLaw",ca);
   cfl.setup("CFLLaw",ca);
+  adaptivetime.setup("AdaptiveTime",ca);
 
 }
 

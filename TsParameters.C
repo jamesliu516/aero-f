@@ -35,8 +35,13 @@ TsParameters::TsParameters(IoData &ioData)
   cflMin = ioData.ts.cfl.cflMin;
   dualtimecfl = ioData.ts.cfl.dualtimecfl;
 
-  checksol = ioData.ts.cfl.checksol;
-  checklinsolve = ioData.ts.cfl.checklinsolve;
+  checksol = !(!ioData.ts.adaptivetime.checksol || !ioData.ts.cfl.checksol || !ioData.ts.checksol);
+  checklinsolve = !(!ioData.ts.cfl.checklinsolve || !ioData.ts.adaptivetime.checksol);
+  checkriemann = ioData.ts.adaptivetime.checkriemann;
+  checklargevelocity = ioData.ts.adaptivetime.checklargevelocity;
+  checkpclipping = ioData.ts.adaptivetime.checkpclipping;
+  rapidpchangecutoff = max(0,ioData.ts.adaptivetime.rapidpchangecutoff);
+
   ser = ioData.ts.cfl.ser;
   angle_growth = ioData.ts.cfl.angle_growth;
   angle_zero = ioData.ts.cfl.angle_zero;
@@ -85,26 +90,36 @@ TsParameters::~TsParameters()
 void TsParameters::resolveErrors(){
 
   if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS])
+    errorHandler->com -> printf(1,"Detected saturated linear solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
 
   if (checksol && errorHandler->globalErrors[ErrorHandler::UNPHYSICAL]){
+    errorHandler->com -> printf(1,"Detected unphysical solution. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
   
-  if (errorHandler->globalErrors[ErrorHandler::BAD_RIEMANN]){
+  if (checkriemann && errorHandler->globalErrors[ErrorHandler::BAD_RIEMANN]){
+    errorHandler->com -> printf(1,"Detected error in Riemann solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
-/*
-  if (checksol && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
-    //errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+
+  if (checkpclipping && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
+
+  if (checklargevelocity && errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]){
+    errorHandler->com -> printf(1,"Detected abnormally large velocities. Reducing time step.\n");
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
+
+  if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE] >= rapidpchangecutoff){
+    errorHandler->com -> printf(1,"Detected multiple rapidly changing pressures. Reducing time step.\n");
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
-  }
-*/
-  if (errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]){
-    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
-    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
 }

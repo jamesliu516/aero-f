@@ -10,6 +10,8 @@
 #include <cmath>
 #include <fstream>
 #include <OneDimensionalSolver.h>
+#include <ErrorHandler.h>
+
 using namespace std;
 //------------------------------------------------------------------------------
 template<int dim>
@@ -145,6 +147,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
 
   checkForRapidlyChangingPressure = ioData.ts.rapidPressureThreshold;
   checkForRapidlyChangingDensity = ioData.ts.rapidDensityThreshold;
+
+  errorHandler = dom->getErrorHandler();
 }
 
 //------------------------------------------------------------------------------
@@ -1393,9 +1397,10 @@ struct SetFirstOrderNodes {
   VarFcn* varFcn;
 
   double threshold;
+  ErrorHandler* errorHandler;
 
-  SetFirstOrderNodes(VarFcn* varFcn,double t) : varFcn(varFcn),
-      threshold(t) { }
+  SetFirstOrderNodes(VarFcn* varFcn,double t, ErrorHandler* errorHandlerIn) : varFcn(varFcn),
+      threshold(t) { errorHandler = errorHandlerIn; }
 
   void Perform(double* uold, double* unew, int& status,int id) const {
 
@@ -1407,6 +1412,7 @@ struct SetFirstOrderNodes {
     double pnew = varFcn->getPressure(vnew,id);
     if (fabs(pnew-pold)/pold > threshold) {
       status = 1;
+      errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE]++;
     }
     else
       status = 0;
@@ -1443,7 +1449,7 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
 
       if (checkForRapidlyChangingPressure > 0.0)
         DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
-                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure)); 
+                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
 
       int numFirstOrderNodes = firstOrderNodes->sum(); 
       if (numFirstOrderNodes > 0)

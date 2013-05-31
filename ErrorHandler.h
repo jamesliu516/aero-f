@@ -6,7 +6,7 @@
 
 struct ErrorHandler{
 
-  enum Error {UNPHYSICAL = 0, SATURATED_LS = 1, BAD_RIEMANN = 2, REDUCE_TIMESTEP = 3, PRESSURE_CLIPPING = 4, REDO_TIMESTEP = 5, LARGE_VELOCITY = 6, SIZE = 7};
+  enum Error {UNPHYSICAL = 0, SATURATED_LS = 1, BAD_RIEMANN = 2, REDUCE_TIMESTEP = 3, PRESSURE_CLIPPING = 4, REDO_TIMESTEP = 5, LARGE_VELOCITY = 6, RAPIDLY_CHANGING_PRESSURE = 7, SIZE = 8};
   enum Type {ALL=0, SOLVER = 1};
   int localErrors[SIZE];
   int globalErrors[SIZE];
@@ -16,7 +16,7 @@ struct ErrorHandler{
 
   ErrorHandler(Communicator *comIn){
     com = comIn;
-    int solverErrorsArray[] = {UNPHYSICAL,SATURATED_LS,BAD_RIEMANN,PRESSURE_CLIPPING,LARGE_VELOCITY};
+    int solverErrorsArray[] = {UNPHYSICAL,SATURATED_LS,BAD_RIEMANN,PRESSURE_CLIPPING,LARGE_VELOCITY, RAPIDLY_CHANGING_PRESSURE};
     solverErrors = new std::vector<int>(solverErrorsArray,solverErrorsArray + sizeof(solverErrorsArray)/sizeof(int));
     for (int i=0; i<SIZE; i++) localErrors[i]=0;
   }

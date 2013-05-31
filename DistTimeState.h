@@ -6,6 +6,7 @@
 #include <DistMacroCell.h>
 #include <LowMachPrec.h>
 #include <LevelSet/LevelSetStructure.h>
+#include <ErrorHandler.h>
 
 struct FluidModelData;
 struct InitialConditions;
@@ -88,6 +89,8 @@ private:
 
   double checkForRapidlyChangingPressure;
   double checkForRapidlyChangingDensity;
+
+  ErrorHandler* errorHandler;
 
 public:
   bool unphysical;
