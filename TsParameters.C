@@ -37,10 +37,10 @@ TsParameters::TsParameters(IoData &ioData)
 
   checksol = !(!ioData.ts.adaptivetime.checksol || !ioData.ts.cfl.checksol || !ioData.ts.checksol);
   checklinsolve = !(!ioData.ts.cfl.checklinsolve || !ioData.ts.adaptivetime.checksol);
-  checkriemann = ioData.ts.adaptivetime.checkriemann;
-  checklargevelocity = ioData.ts.adaptivetime.checklargevelocity;
-  checkpclipping = ioData.ts.adaptivetime.checkpclipping;
-  rapidpchangecutoff = max(0,ioData.ts.adaptivetime.rapidpchangecutoff);
+  checkriemann = checksol;
+  checklargevelocity = ioData.ts.checkvelocity;
+  checkpclipping = ioData.ts.checkpressure;
+  rapidpchangecutoff = max(0,ioData.ts.deltapressurethreshold);
 
   ser = ioData.ts.cfl.ser;
   angle_growth = ioData.ts.cfl.angle_growth;
