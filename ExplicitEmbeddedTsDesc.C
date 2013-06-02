@@ -167,7 +167,6 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U, double t
   if (this->modifiedGhidaglia) {
 
     computeRKUpdateHH(U, *hh1);
-    this->domain->getCommunicator()->fprintf(stdout,"%lf",(*hh1)*(*hh1));
     *(this->bcData->getBoundaryStateHH()) -= *hh1;
     //std::cout << "Updating mod. ghidaglia" << std::endl;
   }
@@ -229,23 +228,52 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
 { //TODO: no Ghost-Points Population ???
   computeRKUpdate(U, k1, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
-  U0 = U - k1;
+  U0 = U - 0.5*k1;
+ 
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= 0.5*(*hh1);
+  }
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k2, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 0.5*(*hh2);
+  }
+
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
+ 
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh3);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - (*hh3);
+  }
+
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
+
   U0 = U - k3;
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh4);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 
+       1.0/6.0*(*hh1+2.0*(*hh2+*hh3)+*hh4);
+  }
+
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);

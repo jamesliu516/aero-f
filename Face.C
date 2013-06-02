@@ -549,6 +549,7 @@ void Face::computeHHBoundaryTermResidual(SVec<double,dim> &U,double* Ub,double& 
 
   double r[3] = {faceCenter[0]/radius, faceCenter[1]/radius, faceCenter[2]/radius};
 
+  double hh[6];
   double locgam = 0;
   switch (vf->getType()) {
 
@@ -595,6 +596,7 @@ template<class Scalar,int dim,int neq>
 inline
 void Face::computeHHBoundaryTermJacobian(int faceid,FluxFcn **fluxFcn, SVec<double,dim> &U,
 				       double* Ub, GenMat<Scalar,neq> &A, VarFcn* vf,
+                                       double& UbHH,
 				       Vec<Vec3D> &normals, Vec<double> &normalVel) {
 
   if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
@@ -611,6 +613,12 @@ void Face::computeHHBoundaryTermJacobian(int faceid,FluxFcn **fluxFcn, SVec<doub
                        faceCenter[2]*faceCenter[2]);
 
   double r[3] = {faceCenter[0]/radius, faceCenter[1]/radius, faceCenter[2]/radius};
+  double hh[6];
+  fluxFcn[code]->setHHCoeffPointer(hh);
+  for(int j=0; j<3; j++)
+    hh[j] = faceCenter[j];
+  hh[4] = UbHH;
+
 
   double locgam = 0;
   switch (vf->getType()) {
@@ -977,6 +985,10 @@ template <class Scalar,int dim>
 void Face::computeMatVecProdH1FarFieldHH(int faceid,GenMat<Scalar,dim> &A, SVec<double,dim> &p_u,
 	                                 SVec<double,dim> &prod_u,double& p_hh, double& prod_hh) {
 
+  bool farfield = (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED || code == BC_INLET_MOVING || code == BC_INLET_FIXED);
+  if (!farfield)
+    return;
+
   Scalar *Auh = A.getElemUH(faceid);
   Scalar *Ahu = A.getElemHU(faceid);
   Scalar *Ahh = A.getElemHH(faceid);
@@ -987,12 +999,12 @@ void Face::computeMatVecProdH1FarFieldHH(int faceid,GenMat<Scalar,dim> &A, SVec<
     double* produ = prod_u[nodeNum(l)];
     for (int k = 0; k < dim; ++k) {
    
-      prod_hh += mult_local_face_hh(Auh[l*dim+k],ppu[k]);
+      produ[k] += mult_local_face_hh(Auh[l*dim+k],ppu[k]);
     }
   
     for (int k = 0; k < dim; ++k) {
       
-      produ[k] += mult_local_face_hh(Ahu[l*dim+k],p_hh);
+      prod_hh += mult_local_face_hh(Ahu[l*dim+k],p_hh);
     }
   }
 
@@ -1407,7 +1419,8 @@ void FaceSet::computeHHBoundaryTermJacobian(FluxFcn **fluxFcn, BcData<dim> &bcDa
   Vec<double> &normalVel = geoState.getFaceNormalVel();
   
   for (int i=0; i<numFaces; ++i) 
-    faces[i]->computeHHBoundaryTermJacobian(i,fluxFcn,U, Ub[i], A,vf,normals, normalVel);
+    faces[i]->computeHHBoundaryTermJacobian(i,fluxFcn,U, Ub[i], A,vf,
+                                            UbHH[i],normals, normalVel);
 }
 
 template<class Scalar, int dim>

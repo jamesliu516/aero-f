@@ -264,6 +264,8 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
+  void computeJacobianFarfield(double, double, double *, double, double *, double *, double *,
+			       bool);
 };
 
 //------------------------------------------------------------------------------
