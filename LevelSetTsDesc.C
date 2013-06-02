@@ -117,6 +117,10 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   this->initializeFarfieldCoeffs();
 
   this->timer->setSetupTime();
+  
+  if (this->modifiedGhidaglia)
+    this->timeState->attachHH(*this->bcData->getBoundaryStateHH());
+
 }
 
 //------------------------------------------------------------------------------

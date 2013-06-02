@@ -27,7 +27,7 @@ protected:
 
 public:
 
-  MvpMat(int nn, int ne, int nBC = 0) : a(nn + 2*(ne+nBC)) { n = nn; numEdges = ne; }
+  MvpMat(int nn, int ne, int nBC = 0) : a(nn + 2*(ne+nBC)),uh(0), hu(0), hh(0) { n = nn; numEdges = ne; }
   ~MvpMat() {
 
     if (uh)

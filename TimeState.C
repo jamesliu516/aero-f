@@ -71,7 +71,9 @@ void TimeState<dim>::add_dAW_dt_HH(bool *nodeFlag, GeoState &geoState,
   for (int i=0; i<R.size(); ++i) {
 
     TimeFDCoefs coefs;
-    computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
+    // we require that non-descriptor be used
+    assert(descriptorCase == NONDESCRIPTOR);
+    computeTimeFDCoefs(geoState, coefs, ctrlVol, 0);
 
     double invDt = 1.0 / dt[0];
     double sum = coefs.c_np1*Q[i]+ coefs.c_n*(*hhn)[i] +
@@ -656,7 +658,6 @@ void TimeState<dim>::addToJacobianHH(Vec<double>& ctrlVol,  GenMat<Scalar,neq> &
   for (int i = 0; i < hhn.size(); ++i) {
   
     Scalar *Aii = A.getElemHH(i);
-    //double vol = ctrlVol
     switch (descriptorCase) {
       /*case DESCRIPTOR: {
       c_np1 = data.alpha_np1 * vol / dt[dt_i];

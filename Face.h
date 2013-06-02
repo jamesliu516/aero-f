@@ -821,6 +821,7 @@ public:
     inline
     void computeHHBoundaryTermJacobian(int faceid,FluxFcn **fluxFcn, SVec<double,dim> &U,
 				       double* Ub, GenMat<Scalar,neq> &A, VarFcn* vf,
+                                       double& UbHH,
 				       Vec<Vec3D> &normals, Vec<double> &normalVel);
 
   template <class Scalar,int dim>
@@ -1112,8 +1113,8 @@ public:
   template <int dim>
   void updateHHState(SVec<double,dim>& V, VarFcn* vf, double dt) {
 
-    for (int i = 0; i < numFaces; ++i)
-      faces[i]->updateHHBoundaryTerm(V, vf, dt);
+//    for (int i = 0; i < numFaces; ++i)
+//      faces[i]->updateHHBoundaryTerm(V, vf, dt);
   }
 
   template<int dim>
