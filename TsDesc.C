@@ -141,7 +141,6 @@ template<int dim>
 void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
 {
     if (strcmp(input->wallsurfacedisplac,"") != 0 && strcmp(input->positions,"") == 0) {
-      cout << input->wallsurfacedisplac << endl;
       PosVecType dXb(getVecInfo());
       mems = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);
 //      mems = new TetMeshMotionSolver(ioData.dmesh, 0, domain, 0);
@@ -156,6 +155,14 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
       com->fprintf(stderr," *** mesh has been moved.\n");
       char temp[1]; temp[0] = '\0';
       geoState->setup3(temp, X, A);
+      if(ioData.output.restart.positions[0] != 0) {
+        int sp = strlen(ioData.output.restart.prefix) + 1;
+        char *posFile = new char[sp + strlen(ioData.output.restart.positions)];
+        sprintf(posFile, "%s%s", ioData.output.restart.prefix, ioData.output.restart.positions);
+        com->fprintf(stderr, " ... Writing Fluid mesh positions to %s\n", posFile);
+        domain->writeVectorToFile(posFile, 0, 0.0, *X);
+        delete [] posFile;        
+      }
     } else {
       mems = 0;
     }
@@ -342,7 +349,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
-  printf(1,"cfl=%e\n",data->cfl);
+//  printf(1,"cfl=%e\n",data->cfl);
 
   double dt = 0.0;
   if(failSafeFlag == false){
@@ -508,8 +515,10 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   else
     ierr = domain->checkSolution(varFcn, U);
 
-  if (ierr != 0 && data->checksol) data->unphysical = true;
-  ierr = max(ierr,0);
+  //if (ierr != 0 && data->checksol) data->unphysical = true;
+  //ierr = max(ierr,0);
+
+  if (ierr) this->errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += 1;
 
   return ierr;
 

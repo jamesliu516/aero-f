@@ -6,6 +6,7 @@
 #include <DistMacroCell.h>
 #include <LowMachPrec.h>
 #include <LevelSet/LevelSetStructure.h>
+#include <ErrorHandler.h>
 
 struct FluidModelData;
 struct InitialConditions;
@@ -90,10 +91,13 @@ private:
   double checkForRapidlyChangingDensity;
 
   DistVec<double>* hhn,*hhnm1;
+  ErrorHandler* errorHandler;
+
 
 public:
   bool unphysical;
   bool allowcflstop;
+  bool allowdtstop;
 
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);

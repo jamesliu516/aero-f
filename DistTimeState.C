@@ -10,6 +10,8 @@
 #include <cmath>
 #include <fstream>
 #include <OneDimensionalSolver.h>
+#include <ErrorHandler.h>
+
 using namespace std;
 //------------------------------------------------------------------------------
 template<int dim>
@@ -139,11 +141,14 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   dt_coeff = 1.0;
   dt_coeff_count = 0;
   allowcflstop = true;
+  allowdtstop = true;
 
   *irey = 0.0;
 
   checkForRapidlyChangingPressure = ioData.ts.rapidPressureThreshold;
   checkForRapidlyChangingDensity = ioData.ts.rapidDensityThreshold;
+
+  errorHandler = dom->getErrorHandler();
 }
 
 //------------------------------------------------------------------------------
@@ -622,8 +627,10 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  } else 
+  } else{
     dt_glob = dt->min();
+    allowdtstop = false;
+  }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
@@ -692,8 +699,10 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     allowcflstop = false; 
     dt_glob *= dt_coeff;
   }
-  else 
+  else{ 
+    allowdtstop = false;
     dt_glob = max ( dtMin, (factor * data->dt_nm1));
+  }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
@@ -728,7 +737,7 @@ void DistTimeState<dim>::updateDtCoeff(){
     unphysical = false;
     dt_coeff_count=0;
     dt_coeff /= 2.0;
-    if(dt_coeff<0.0001){
+    if(dt_coeff<0.0001 && allowdtstop){
       printf("Could not resolve unphysicality by reducing timestep. Aborting.");
       exit(-1);
     }
@@ -778,8 +787,10 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  }else
+  }else{
     dt_glob = dt->min();
+    allowdtstop = false;
+  }
                                                                                                          
   if (umax && isGFMPAR) {
     double udt = umax->min();
@@ -1443,9 +1454,10 @@ struct SetFirstOrderNodes {
   VarFcn* varFcn;
 
   double threshold;
+  ErrorHandler* errorHandler;
 
-  SetFirstOrderNodes(VarFcn* varFcn,double t) : varFcn(varFcn),
-      threshold(t) { }
+  SetFirstOrderNodes(VarFcn* varFcn,double t, ErrorHandler* errorHandlerIn) : varFcn(varFcn),
+      threshold(t) { errorHandler = errorHandlerIn; }
 
   void Perform(double* uold, double* unew, int& status,int id) const {
 
@@ -1457,6 +1469,7 @@ struct SetFirstOrderNodes {
     double pnew = varFcn->getPressure(vnew,id);
     if (fabs(pnew-pold)/pold > threshold) {
       status = 1;
+      errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE]++;
     }
     else
       status = 0;
@@ -1493,7 +1506,7 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
 
       if (checkForRapidlyChangingPressure > 0.0)
         DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
-                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure)); 
+                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
 
       int numFirstOrderNodes = firstOrderNodes->sum(); 
       if (numFirstOrderNodes > 0)

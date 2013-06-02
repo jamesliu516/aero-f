@@ -332,6 +332,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   robProductFile = "";
+  rMatrixFile = "";  
   gendispFile = "";
   philevel = "";
   controlvolume = "";
@@ -379,7 +380,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 85, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 86, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -448,6 +449,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
+  new ClassStr<TransientData>(ca, "RMatrices", this, &TransientData::rMatrixFile);
   new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
@@ -2739,7 +2741,7 @@ CFLData::CFLData()
   cfl0 = 5.0;
   cflCoef1 = 0.0;
   cflCoef2 = 0.0;
-  cflMax = 100000.0;
+  cflMax = 10000.0;
   cflMin = 1.0;
   dualtimecfl = 100.0;
 
@@ -2753,7 +2755,7 @@ CFLData::CFLData()
 
   dft_history = 8;
   dft_freqcutoff = 3;
-  dft_growth = 1.3;
+  dft_growth = 1.4;
 
   forbidreduce = 0;
 
@@ -2797,6 +2799,45 @@ void CFLData::setup(const char *name, ClassAssigner *father)
   new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
   new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
 
+}
+
+//------------------------------------------------------------------------------
+
+AdaptiveTimeData::AdaptiveTimeData()
+{
+
+  checksol = 1;
+  checklinsolve = 1;
+  checkriemann = 1;
+  checklargevelocity = 1;
+  rapidpchangecutoff = 40;
+  checkpclipping = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void AdaptiveTimeData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
+
+  new ClassToken<AdaptiveTimeData>(ca, "UnphysicalSolution", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checksol), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "LinearSolver", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklinsolve), 2,
+                          "Off", 0, "On", 1); 
+  new ClassToken<AdaptiveTimeData>(ca, "RiemannSolver", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkriemann), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "LargeVelocities", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklargevelocity), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "PressureClipping", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkpclipping), 2,
+                          "Off", 0, "On", 1);
+  new ClassInt<AdaptiveTimeData>(ca, "RapidPChangeCutoff", this, &AdaptiveTimeData::rapidpchangecutoff);
 }
 
 //------------------------------------------------------------------------------
@@ -2855,6 +2896,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "DualTimeStepping", this,
                          reinterpret_cast<int TsData::*>(&TsData::dualtimestepping), 2,
                          "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckSolution", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checksol), 2,
+                         "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
                          reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
                          "None", 0, "AbsoluteValue", 1, "Freestream", 2);
@@ -2888,7 +2932,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
+  cfl.setup("CflLaw",ca);
   cfl.setup("CFLLaw",ca);
+  adaptivetime.setup("AdaptiveTime",ca);
 
 }
 
@@ -3549,6 +3595,7 @@ LinearizedData::LinearizedData()
 
   type = DEFAULT;
   padeReconst = FALSE;
+  doGramSchmidt = FALSE_GS;
   domain = TIME;
   initCond = DISPLACEMENT;
   amplification = 1.0;
@@ -3573,12 +3620,12 @@ LinearizedData::LinearizedData()
 void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 16, father);
+  ClassAssigner *ca = new ClassAssigner(name, 17, father);
 
   new ClassToken<LinearizedData> (ca, "Type", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::type), 3, "Default", 0, "Rom", 1, "Forced", 2);
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
   new ClassToken<LinearizedData> (ca, "InitialCondition", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::initCond), 2, "Displacement", 0, "Velocity", 1);
-
+  new ClassToken<LinearizedData> (ca, "GramSchmidt", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::doGramSchmidt), 2, "False", 0, "True", 1);
   new ClassDouble<LinearizedData>(ca, "Amplification", this, &LinearizedData::amplification);
   new ClassDouble<LinearizedData>(ca, "Frequency", this, &LinearizedData::frequency);
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
@@ -3590,7 +3637,6 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
-
   pade.setup("Pade", ca);
   dataCompression.setup("DataCompression", ca);
 

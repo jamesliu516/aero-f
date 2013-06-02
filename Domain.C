@@ -4035,7 +4035,7 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
 
 //-------------------------------------------------------------------------------
 template<int dim>
-void Domain::computeEmbSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
                                           double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS, double pInfty, 
                                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
                                           DistSVec<double,dim> &V, 
@@ -4058,7 +4058,7 @@ void Domain::computeEmbSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
-    subDomain[iSub]->computeEmbSurfBasedForceLoad(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs, numStructElems, stElem, Xstruct,
+    subDomain[iSub]->computeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs, numStructElems, stElem, Xstruct,
 						     (*distLSS)(iSub), pInfty, 
 						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn, (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0);
   }

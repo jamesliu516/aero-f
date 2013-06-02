@@ -6580,13 +6580,16 @@ class ElemForceCalcValid {
 };
 
 template<int dim>
-void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<double,3> &X,
+void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
                                              double (*Fs)[3], int sizeFs, int numStructElems, int (*stElem)[3], Vec<Vec3D>& Xstruct, LevelSetStructure &LSS, double pInfty, 
                                              SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
                                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim, double> &ngrad, VarFcn* vf, Vec<int>* fid)
 {
   if (forceApp!=2) 
     {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
+
+   if (iod.problem.framework == ProblemData::EMBEDDEDALE)
+     myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
 
   int qOrder = 3;
   Quadrature quadrature_formula(qOrder);
@@ -6644,26 +6647,6 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
       dbary[2] = Vec3D(bary[0],bary[1],1.0-bary[2]);
       dbary[3] = Vec3D(bary[0],bary[1],bary[2]);
 
-// For viscous simulation
-      double dp1dxj[4][3]; // Gradient of the P1 basis functions
-      for(int i=0;i<4;++i) for(int j=0;j<3;++j) dp1dxj[i][j] = 0.0;
-      double d2w[3]; // not used, but required by postFcn->computeViscousForce(...)
-      d2w[0] = d2w[1] = d2w[2] = 0.0;
-      double *Vwall = 0;
-      double *Vface[3] = {0,0,0};
-
-      double *vtet[4];
-      if(ghostPoints) {
-        E->computeGradientP1Function(X, dp1dxj);
-        for(int i=0; i<4; ++i) vtet[i] = V[T[i]];
-
-        GhostPoint<dim> *gp;
-        for(int i=0; i<4; ++i) {
-	  gp = (*ghostPoints)[T[i]];
-          if (gp) vtet[i] = gp->getPrimitiveState();
-        }
-      }
-
 // Determine the side of the nodes of the tet
       double norm[4];
       for (int e=0; e<6; ++e) {
@@ -6697,6 +6680,32 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
 	}
       }
 
+// For viscous simulation
+      double dp1dxj[4][3]; // Gradient of the P1 basis functions
+      for(int i=0;i<4;++i) for(int j=0;j<3;++j) dp1dxj[i][j] = 0.0;
+      double d2w[3]; // not used, but required by postFcn->computeViscousForce(...)
+      d2w[0] = d2w[1] = d2w[2] = 0.0;
+      double *Vwall = 0;
+      double *Vface[3] = {0,0,0};
+
+      double *vtet[2][4];
+      if(ghostPoints) {
+        E->computeGradientP1Function(X, dp1dxj);
+        for(int i=0; i<4; ++i) {
+	  vtet[0][i] = V[T[i]];
+	  vtet[1][i] = V[T[i]];
+	}
+
+        GhostPoint<dim> *gp;
+        for(int i=0; i<4; ++i) {
+	  gp = (*ghostPoints)[T[i]];
+	  if (gp) {
+            if (norm[i] <= 0.) vtet[1][i] = gp->getPrimitiveState();
+            else               vtet[0][i] = gp->getPrimitiveState();
+	  }
+        }
+      }
+
       flocal = 0.0;
       for (int n = 0; n < 2; ++n) {
 	int i = node[n];
@@ -6717,7 +6726,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(int forceApp, int order, SVec<doubl
         double pp = vf->getPressure(Vext, fid?(*fid)[i]:0);
         flocal += (pp - pInfty)*nf[n];
         if(ghostPoints) {// Viscous Simulation
-          flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet);
+          flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet[n]);
 	}
       }	
 

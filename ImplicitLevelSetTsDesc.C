@@ -198,7 +198,11 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     embeddedU.hh() = *this->bcData->getBoundaryStateHH();
   
   its = this->ns->solve(U);
-  if(its == -10) return its;
+
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
+
   this->timer->addFluidSolutionTime(t0);
   this->Utilde = U;
 

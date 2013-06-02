@@ -216,6 +216,7 @@ struct TransientData {
   const char *conservation;
   const char *podFile;
   const char *robProductFile;
+  const char *rMatrixFile;
   const char *romFile;
   const char *gendispFile;
   const char *philevel;
@@ -1573,6 +1574,24 @@ struct CFLData {
 
 //------------------------------------------------------------------------------
 
+struct AdaptiveTimeData {
+
+  int checksol;
+  int checklinsolve;
+  int checkriemann;
+  int checklargevelocity;
+  int rapidpchangecutoff;
+  int checkpclipping; 
+
+  AdaptiveTimeData();
+  ~AdaptiveTimeData() {}
+  
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct TsData {
 
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
@@ -1603,6 +1622,8 @@ struct TsData {
   double ser;
   double dualtimecfl;
 
+  double checksol;
+
   double programmedBurnShockSensor;
   double rapidPressureThreshold;
   double rapidDensityThreshold;
@@ -1612,6 +1633,7 @@ struct TsData {
   ExplicitData expl;
   ImplicitData implicit;
   CFLData cfl;
+  AdaptiveTimeData adaptivetime;
 
   TsData();
   ~TsData() {}
@@ -2069,7 +2091,7 @@ struct LinearizedData {
 
   enum Domain {TIME = 0, FREQUENCY = 1} domain;
   enum InitialCondition {DISPLACEMENT = 0, VELOCITY = 1} initCond;
-
+  enum GramSchmidt {TRUE_GS = 1, FALSE_GS = 0} doGramSchmidt;
   double amplification;
   double frequency;
   double stepsize;

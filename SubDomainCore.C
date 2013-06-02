@@ -142,6 +142,9 @@ SubDomain::~SubDomain()
   delete[] rotOwn;
   delete mmsBCs;
 //  if (triaSurf) delete triaSurf;
+//
+  myTree->destruct();
+  delete myTree;
 
 }
 

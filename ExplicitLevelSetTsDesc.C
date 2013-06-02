@@ -114,6 +114,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
+
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
@@ -122,6 +127,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
     t0 = this->timer->getTime();
 
     computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
+
     this->Phi = this->Phi - p1;
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
     (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
@@ -165,6 +171,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
   U0 = ratioTimesU - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
+
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
@@ -197,6 +208,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
   U = ratioTimesU - 0.5 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
 
   this->timer->addFluidSolutionTime(t0);
 
@@ -238,6 +254,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
+
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
@@ -268,6 +289,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
   U -= 0.5 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
 
   this->timer->addFluidSolutionTime(t0);
 
@@ -318,10 +344,6 @@ int ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,di
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
-  if(this->checkSolution(U) != 0){
-    return -10;
-  }
-
   return 0;
 }
 
@@ -334,7 +356,12 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEuler(DistSVec<double,dim> &U)
 
   if (timeType == ExplicitData::RUNGE_KUTTA_4) solveNLEulerRK4(U);
   else                                         solveNLEulerRK2(U);
-  
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
+ 
   this->timer->addFluidSolutionTime(t0);
 
 }

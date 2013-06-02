@@ -379,6 +379,7 @@ void Communicator::globalOp(int len, Scalar *x, MPI_Op op)
     if (offset+segSize > len)
       segSize = len-offset;
     MPI_Allreduce(x+offset, work, CommTrace<Scalar>::multiplicity*segSize, CommTrace<Scalar>::MPIType, op, comm);
+    // Should there be a barrier here? MPI_Allreduce does not guarantee synchronization!
     for (int j = 0; j < segSize; ++j)
       x[offset+j] = work[j];
   }
