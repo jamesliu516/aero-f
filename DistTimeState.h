@@ -90,7 +90,9 @@ private:
   double checkForRapidlyChangingPressure;
   double checkForRapidlyChangingDensity;
 
+  DistVec<double>* hhn,*hhnm1;
   ErrorHandler* errorHandler;
+
 
 public:
   bool unphysical;
@@ -109,6 +111,8 @@ public:
                 DistInfo& dI, DistSVec<double,dim> * = 0);
   DistTimeState(const DistTimeState<dim> &, bool, IoData &);
   ~DistTimeState();
+
+  void attachHH(DistVec<double>&);
 
   void copyTimeData(DistTimeState<dim>* oth);
 
@@ -135,6 +139,8 @@ public:
   void update(DistSVec<double,dim> &Q,  DistSVec<double,dim> &Qtilde,DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
               DistExactRiemannSolver<dim> *riemann,class DistLevelSetStructure* = 0, bool increasingPressure = false);
 
+  void updateHH(DistVec<double> & hh);
+
   void writeToDisk(char *);
 
   double computeTimeStep(double, double, double*, int*, DistGeoState &, 
@@ -159,6 +165,10 @@ public:
 
   void add_dAW_dt(int, DistGeoState &, DistVec<double> &, 
 		  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
+
+  void add_dAW_dt_HH(int, DistGeoState &, DistVec<double> &, 
+		     DistVec<double> &, DistVec<double> &);
+
   void add_dAW_dtRestrict(int, DistGeoState &, DistVec<double> &, 
 			  DistSVec<double,dim> &, DistSVec<double,dim> &, const std::vector<std::vector<int> > &);
   template<int dimLS>
@@ -170,6 +180,9 @@ public:
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
+
+  template<class Scalar, int neq>
+  void addToHHJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistVec<double> &);
 
   template<class Scalar, int neq>
   void addToJacobianNoPrec(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
@@ -208,7 +221,8 @@ public:
                  DistMacroCellSet *, DistSVec<double,1> **, int);
 
   DistVec<double>* getInvReynolds(){ return irey; }
-                                                                                                                          
+  
+  void multiplyByTimeStep(DistVec<double>&);                                                                        
   void multiplyByTimeStep(DistSVec<double,dim>&);
   template<int dimLS>
   void multiplyByTimeStep(DistSVec<double,dimLS>&);

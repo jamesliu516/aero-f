@@ -2121,7 +2121,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
-                                 "Real",0,"Mesh",1);
+                                 "LevelSet",0,"Fluid",1);
 
 
   multiInitialConditions.setup("InitialConditions", ca);

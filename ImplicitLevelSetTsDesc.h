@@ -31,13 +31,15 @@ public:
 
   DistSVec<double,dim> U0,Fold;
   
+  DistEmbeddedVec<double,dim> embeddedU,embeddedB,embeddeddQ;
   int numBlur;
   
   DistSVec<bool,2> *tag;
 
   MatVecProdMultiPhase<dim,dimLS> *mvp;
   KspPrec<dim> *pc;
-  KspSolver<DistSVec<double,dim>, MatVecProdMultiPhase<dim,dimLS>, KspPrec<dim>, Communicator> *ksp;
+  KspSolver<DistEmbeddedVec<double,dim>, MatVecProdMultiPhase<dim,dimLS>, 
+            KspPrec<dim>, Communicator> *ksp;
 	
   MatVecProdLS<dim,dimLS> *mvpLS;
   KspPrec<dimLS> *pcLS;
@@ -50,6 +52,7 @@ public:
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
 
+  DistVec<double>* hhResidual;
  public:
   ImplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitLevelSetTsDesc();
@@ -85,10 +88,14 @@ public:
   KspPrec<neq> *createPreconditioner(PcData &, Domain *);
 
   template<int neq, class MatVecProdOp>
-  KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>,
+  KspSolver<DistEmbeddedVec<double,neq>, MatVecProdOp, KspPrec<neq>,
   Communicator> *createKrylovSolver(const DistInfo &, KspData &, 
                                     MatVecProdOp *, KspPrec<neq> *, Communicator *);
 
+  template<int neq, class MatVecProdOp>
+  KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>,
+  Communicator> *createKrylovSolverLS(const DistInfo &, KspData &, 
+                                      MatVecProdOp *, KspPrec<neq> *, Communicator *);
 };
 
 //------------------------------------------------------------------------------

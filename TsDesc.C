@@ -975,9 +975,6 @@ void TsDesc<dim>::updateFarfieldCoeffs(double dt)
   int nSub = domain->getNumLocSub();
   SubDomain **sub = domain->getSubDomain();
   int iSub;
-#pragma omp parallel for
-  for(iSub=0; iSub<nSub; iSub++)
-    sub[iSub]->updateFarfieldCoeffs(dt);
 }
 
 //----------------------------------------------------------------------------
@@ -989,9 +986,6 @@ void TsDesc<dim>::updateBoundaryExternalState()
   int nSub = domain->getNumLocSub();
   SubDomain **sub = domain->getSubDomain();
   int iSub;
-#pragma omp parallel for
-  for(iSub=0; iSub<nSub; iSub++)
-    sub[iSub]->updateBoundaryExternalState();
 }
 
 //----------------------------------------------------------------------------
@@ -1010,13 +1004,9 @@ void TsDesc<dim>::initializeFarfieldCoeffs()
     gamma = varFcn->getBetaWater();
 
   double HH_init = -2.0*soundspeed/(gamma - 1.0);
-  //fprintf(stderr,"HH_init is set to %e.\n", HH_init);
 
-  int nSub = domain->getNumLocSub();
-  SubDomain **sub = domain->getSubDomain();
-  int iSub;
-#pragma omp parallel for
-  for(iSub=0; iSub<nSub; iSub++)
-    sub[iSub]->initializeFarfieldCoeffs(HH_init);
+  *(bcData->getBoundaryStateHH()) = HH_init;
+
+  this->domain->maskHHVector(*(bcData->getBoundaryStateHH()));
 }
 

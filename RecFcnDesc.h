@@ -797,8 +797,8 @@ void RecFcnExtendedVanAlbada<dim>::computeExtended(double* Vi, double* ddVij, do
   double phi_rhoi = std::max<double>((Vi[0]-rhoc)/xi_rho,0);
   double phi_rhoj = std::max<double>((Vj[0]-rhoc)/xi_rho,0);
 
-  double phi_vi = 1.0/std::max<double>(0.01,Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3]);
-  double phi_vj = 1.0/std::max<double>(0.01,Vj[1]*Vj[1]+Vj[2]*Vj[2]+Vj[3]*Vj[3]);
+  double phi_vi = 5.0/std::max<double>(0.01,Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3]);
+  double phi_vj = 5.0/std::max<double>(0.01,Vj[1]*Vj[1]+Vj[2]*Vj[2]+Vj[3]*Vj[3]);
 
   double phi_i = std::min<double>(phi_pi,phi_rhoi);
   double phi_j = std::min<double>(phi_pj,phi_rhoj);

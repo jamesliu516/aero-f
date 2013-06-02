@@ -4977,4 +4977,20 @@ void SubDomain::constructLines(std::vector<std::vector<int>*>& pLines, int& numL
   }
   
 }
+void SubDomain::maskHHVector(Vec<double>& hh) {
 
+  for (int i = 0; i < faces.size(); ++i) {
+
+    switch (faces[i].getCode()) {
+
+    case BC_OUTLET_MOVING:
+    case BC_OUTLET_FIXED:
+    case BC_INLET_MOVING:
+    case BC_INLET_FIXED:
+      break;
+    default:
+      hh[i] = 0;
+      break;
+    }
+  }
+}

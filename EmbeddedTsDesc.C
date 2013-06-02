@@ -428,6 +428,10 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
   }
+
+  //std::cout << this->bcData->getBoundaryStateHH()->norm() << std::endl;
+  if (this->modifiedGhidaglia)
+    this->timeState->attachHH(*this->bcData->getBoundaryStateHH());
 }
 
 //------------------------------------------------------------------------------

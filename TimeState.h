@@ -27,14 +27,25 @@ class TimeState {
   SVec<double,dim> &Unm2;
   SVec<double,dim> &Rn;
 
+  Vec<double> *hhn;
+  Vec<double> *hhnm1;
+  //Vec<double> &Unm2;
+  //Vec<double> &Rn;
+
+
 public:
 
   TimeState(TimeData &, Vec<double> &, Vec<double> &, Vec<double> &, Vec<double> &, SVec<double,dim> &, 
 	    SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
   ~TimeState() {}
 
+  void attachHH(Vec<double> *hhn,Vec<double> *hhnm1);
+
   void add_dAW_dt(bool *, GeoState &, Vec<double> &, 
 		  SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
+
+  void add_dAW_dt_HH(bool *, GeoState &, Vec<double> &, 
+		     Vec<double> &, Vec<double> &);
 
   void add_GASPrec_dAW_dt(bool *, GeoState &, Vec<double> &, 
 		          SVec<double,dim> &, SVec<double,dim> &, 
@@ -67,6 +78,10 @@ public:
   template<class Scalar, int neq>
   void addToJacobianNoPrec(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,
                      VarFcn *, int*);
+
+  template<class Scalar,int neq>
+    void addToJacobianHH(Vec<double>&,  GenMat<Scalar,neq> &, Vec<double>&);
+
   template<class Scalar, int neq>
   void addToJacobianLS(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,bool);
   

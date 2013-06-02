@@ -79,7 +79,8 @@ public:
   ~FluxFcnTaitGhidagliaEuler3D() { vf = 0; }
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
-
+  //void computeJacobian(double length, double irey, double *normal, double normalVel, 
+  //		       double *VL, double *Ub, double *jacL, bool useLimiter);
 };
 
 class FluxFcnTaitModifiedGhidagliaEuler3D : public FluxFcnModifiedGhidagliaEuler3D {
@@ -92,6 +93,8 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
+  void computeJacobianFarfield(double, double, double *, double, double *, double *, double *,
+			       bool);
 };
 
 

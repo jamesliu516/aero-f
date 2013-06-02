@@ -746,8 +746,8 @@ void OneDimensional::singleTimeIntegration(double dt){
 		  (X[i][0]-X[l][0])/(X[j][0]-X[l][0])*V[j][k]) + 
                           (1.0-alpha)*V[j][k];
               } else {
-	        V[i][k] = (X[i][0]-X[j][0])/(interfaceLocation-X[j][0])*Wr[j][k]-
-		  (X[i][0]-interfaceLocation)/(interfaceLocation-X[j][0])*V[j][k];
+	        V[i][k] = alpha*((X[i][0]-X[j][0])/(interfaceLocation-X[j][0])*Wr[j][k]-
+		  (X[i][0]-interfaceLocation)/(interfaceLocation-X[j][0])*V[j][k]) + (1.0-alpha)*Wr[j][k];
               }
 	      //std::cout << V[i][k] << " ";
               //std::cout << std::endl;

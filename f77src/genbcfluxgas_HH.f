@@ -112,16 +112,18 @@ c Compute Riemann Invariants and use them to infer truncated boundary conditions
       !Tuning is not required, so these lines can be ignored
       !kt       = 1.0
       !ku       = 1.0
-      dSdt1    = cinf*(Rplus-Rinf)/(2.*radius)
-      dSdt2    = (U(2)*rnx   +U(3)*rny+   U(4)*rnz)*cinf/radius
+!      dSdt1    = cinf*(Rplus-Rinf)/(2.*radius)
+!      dSdt2    = (U(2)*rnx   +U(3)*rny+   U(4)*rnz)*cinf/radius
       dSdt3    = 2*(c-cinf)*cinf/(radius*gam1)
 
 !COMMENTED OUT BY KW
 !     if(abs(sold).le.1.e-7) sold=-2.*cinf/gam1
 
-      Snew     = Sold + dt*dSdt3
-      vbar = 0.5*(Rplus+Snew)
-      cbar = 0.25*gam1*(Rplus-Snew)
+c      Snew     = Sold + dt*dSdt3
+c      vbar = 0.5*(Rplus+Snew)
+c      cbar = 0.25*gam1*(Rplus-Snew)
+      vbar = 0.5*(Rplus+Sold)
+      cbar = 0.25*gam1*(Rplus-Sold)
 
       !if(xface(2).gt.20.and.abs(c-cinf).gt.1.e-6) then
 !       if(abs(xface(1)-1.20335056676986).le.1.e-6.and.

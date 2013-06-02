@@ -37,6 +37,17 @@ ExplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, 0);
 
   timeType = ioData.ts.expl.type;
+
+  if (this->modifiedGhidaglia) {
+
+    hh1 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh2 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh3 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh4 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hhorig = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+  }
+
+
 }
 
 //------------------------------------------------------------------------------
@@ -92,6 +103,13 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
   }
 
   computeRKUpdate(U, k1,1);
+
+  if (this->modifiedGhidaglia) {
+
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
@@ -142,6 +160,13 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
   }
   // *** prediction step ***
   computeRKUpdate(U, k1,1);
+
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = ratioTimesU - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
@@ -173,6 +198,12 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
 
   // *** corrector step ***
   computeRKUpdate(U0, k2,2);
+  
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = ratioTimesU - 0.5 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
@@ -346,6 +377,13 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   }
 
   computeRKUpdate(U, k1,1);
+
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = ratioTimesU - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
@@ -357,6 +395,13 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   }*/
 
   computeRKUpdate(U0, k2,2);
+  
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = ratioTimesU - 1.0/2.0 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
@@ -377,24 +422,55 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK4(DistSVec<double,dim> &U)
   }
 
   computeRKUpdate(U, k1, 1);
+ 
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= 0.5*(*hh1);
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - 0.5 * k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(this->U0);
 
   computeRKUpdate(U0, k2, 2);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 0.5*(*hh2);
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 3);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh3);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - (*hh3);
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 4);
+
+  computeRKUpdate(U0, k4, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh4);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 
+       1.0/6.0*(*hh1+2.0*(*hh2+*hh3)+*hh4);
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U -= 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
@@ -506,3 +582,15 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdateLS(DistSVec<double,dimLS>
   this->LS->checkTrueLevelSetUpdate(dPhi);
 
 }
+
+template<int dim,int dimLS>
+void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+				 		          DistVec<double>& dHH) {
+
+  //this->varFcn->conservativeToPrimitive(Ulocal,*(this->V),&this->nodeTag);
+  //*(this->bcData->getBoundaryStateHH()) = HHlocal;
+  this->domain->computeHHBoundaryTermResidual(*this->bcData,Ulocal,dHH, this->varFcn);
+  this->timeState->multiplyByTimeStep(dHH);
+
+}
+

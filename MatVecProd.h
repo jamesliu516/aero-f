@@ -40,6 +40,9 @@ public:
   virtual void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &, 
 			DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
 
+  virtual void evaluateHH(DistVec<double> &hhterm,
+			  DistVec<double> &bcVal ) { }
+
   virtual void apply(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
   virtual void apply(DistVec<double> &, DistVec<double> &) { };
@@ -60,6 +63,8 @@ public:
     std::cout<<"*** Error: function applyViscous not implemented"<<std::endl;}
   virtual void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0){
     std::cout<<"*** Error: function rstSpaceOp not implemented"<<std::endl;}
+
+  virtual void attachHH(DistEmbeddedVec<double,dim>& v) { }
 
   // Structure to enable fluid-structure interaction computations
   struct _fsi {
@@ -115,6 +120,8 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
   int fdOrder;
   double fdeps;
 
+  DistVec<double>* hhRes,*hhEps,*hhVal;
+
  
 public:
 
@@ -130,10 +137,16 @@ public:
   
   ~MatVecProdFD();
 
+  void attachHH(DistEmbeddedVec<double,dim>& v);
+
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void evaluateHH(DistVec<double> &hhterm,
+		  DistVec<double> &bcVal );
+
   void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
@@ -179,6 +192,10 @@ class MatVecProdH1 : public MatVecProd<dim,neq>, public DistMat<Scalar,neq> {
   DistTimeState<dim> *timeState;
   SpaceOperator<dim> *spaceOp;
 
+  bool areHHTermsActive;
+
+  DistVec<double>* hhVal;
+
 public:
 
   /// Constructor.
@@ -194,6 +211,10 @@ public:
   DistMat<Scalar,neq> &operator= (const Scalar);
 
   GenMat<Scalar,neq> &operator() (int i) { return *A[i]; }
+
+  void attachHH(DistEmbeddedVec<double,dim>& v);
+  void evaluateHH(DistVec<double> &hhterm,
+		  DistVec<double> &bcVal );
 
   void exportMemory(MemoryPool *);
 
@@ -427,6 +448,13 @@ public:
 
   virtual void apply(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
 
+  virtual void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &) { }
+  
+  virtual void evaluateHH(DistVec<double> &hhterm,
+			  DistVec<double> &bcVal ) { }
+
+  virtual void attachHH(DistEmbeddedVec<double,dim>& v) { }
+  
   // Structure to enable fluid-structure interaction computations
   struct _fsi {
 
@@ -475,6 +503,8 @@ class MatVecProdFDMultiPhase : public MatVecProdMultiPhase<dim,dimLS> {
   IoData *iod;
   int fdOrder;
 
+  DistVec<double>* hhRes,*hhEps,*hhVal;
+
 public:
 
 // Included (MB)
@@ -484,11 +514,17 @@ public:
 
   ~MatVecProdFDMultiPhase();
 
+  void attachHH(DistEmbeddedVec<double,dim>& v);
+  
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                      DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                      DistSVec<double,dim> &);
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
+  
+  void evaluateHH(DistVec<double> &hhterm,
+		  DistVec<double> &bcVal );
 };
 
 //------------------------------------------------------------------------------
@@ -498,6 +534,10 @@ class MatVecProdH1MultiPhase : public MatVecProdMultiPhase<dim,dimLS>,
                                public DistMat<double,dim> {
 
   MvpMat<double,dim> **A;
+
+  bool areHHTermsActive;
+
+  DistVec<double>* hhVal;
 
 public:
 
@@ -509,6 +549,10 @@ public:
 
   GenMat<double,dim> &operator() (int i) { return *A[i]; }
 
+  void attachHH(DistEmbeddedVec<double,dim>& v);
+  void evaluateHH(DistVec<double> &hhterm,
+		  DistVec<double> &bcVal );
+  
   void exportMemory(MemoryPool *);
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
@@ -516,6 +560,8 @@ public:
                 DistSVec<double,dim> &);
 
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
 };
 
 //----------------------------------------------------------------------------//

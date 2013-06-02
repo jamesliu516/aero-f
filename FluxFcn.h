@@ -87,6 +87,13 @@ public:
     ff_[tag]->computeJacobians(length, irey, normal, normalVel, VL, VR, jacL, jacR, useLimiter);
   }
 
+  void computeJacobianFarfield(double length, double irey, double *normal, double normalVel, double * VL, double * Ub, double * jac,
+			       int tag = 0,bool useLimiter = true) {
+
+    check(tag);
+    ff_[tag]->computeJacobianFarfield(length,irey,normal,normalVel,VL,Ub,jac,useLimiter);
+  }
+
   //----- Sensitivity Analysis Functions -----//
   void computeDerivative
   (

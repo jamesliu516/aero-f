@@ -83,7 +83,8 @@ protected:
 
   double dtrefdMach;
   double dvrefdMach;
-
+ 
+  DistVec<double> *boundaryStateHH; 
 
 protected:
 
@@ -113,6 +114,8 @@ public:
   DistSVec<double,dim> &getNodeStateVector() { return Unode; }
   DistSVec<double,dim> &getUfarin() { return Ufarin; }
   DistSVec<double,dim> &getUfarout() { return Ufarout; }
+
+  DistVec<double>* getBoundaryStateHH() { return boundaryStateHH; }
 
   double *getInletAngles() { return angles; }
   double *getInletConservativeState() { return Uin; }

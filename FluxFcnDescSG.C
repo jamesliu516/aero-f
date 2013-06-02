@@ -793,6 +793,32 @@ void FluxFcnSGModifiedGhidagliaEuler3D::compute(double length, double irey, doub
 
 }
 
+void FluxFcnSGModifiedGhidagliaEuler3D::computeJacobianFarfield(double length, double irey, double *normal, double normalVel, 
+	 						        double *V, double *Ub, double *jac,
+								bool useLimiter)
+{
+
+  const int dim = 5; 
+  
+  double ff[dim],ffp[dim];
+  
+  const double eps0 = 1.0e-6;
+
+  compute(length, irey, normal, normalVel, V, Ub, ff,useLimiter);
+
+  double olds = *(hhcoeffptr+4);
+  *(hhcoeffptr+4) *=(1.0+eps0);
+  double news = *(hhcoeffptr+4);
+  compute(length, irey, normal, normalVel, V, Ub, ffp,useLimiter);
+  
+  for (int k = 0; k < dim; ++k)
+    jac[k] = (ffp[k] - ff[k]) / (news-olds);
+  
+  *(hhcoeffptr+4) = olds;
+ 
+}
+
+
 //------------------------------------------------------------------------------
 
 void FluxFcnSGInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,

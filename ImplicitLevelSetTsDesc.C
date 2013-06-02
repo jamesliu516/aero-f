@@ -23,7 +23,8 @@
 template<int dim, int dimLS>
 ImplicitLevelSetTsDesc<dim,dimLS>::
 ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom),U0(this->getVecInfo()),Fold(this->getVecInfo())
+  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom),U0(this->getVecInfo()),Fold(this->getVecInfo()), embeddedU(dom->getNodeDistInfo()), embeddedB(dom->getNodeDistInfo()),embeddeddQ(dom->getNodeDistInfo())
+
 {
   tag = 0;
   ImplicitData &implicitData = ioData.ts.implicit;
@@ -58,7 +59,7 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   mvpLS  = new MatVecProdLS<dim,dimLS>(this->timeState, this->geoState, this->multiPhaseSpaceOp, this->domain, this->LS);
 
   pcLS = createPreconditioner<PrecScalar,dimLS>(implicitData.newton.ksp.lsi.pc, this->domain);
-  kspLS = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.lsi, mvpLS, pcLS, this->com);
+  kspLS = createKrylovSolverLS(this->getVecInfo(), implicitData.newton.ksp.lsi, mvpLS, pcLS, this->com);
 
 
   // meshmotion
@@ -68,6 +69,17 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   pc->exportMemory(&mp);
   
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
+
+  if (this->modifiedGhidaglia) {
+    embeddedU.addHHBoundaryTerm(dom->getFaceDistInfo());
+    embeddeddQ.addHHBoundaryTerm(dom->getFaceDistInfo());
+    embeddedB.addHHBoundaryTerm(dom->getFaceDistInfo());
+    
+    hhResidual = new DistVec<double>(dom->getFaceDistInfo());
+  }
+ 
+  if (this->modifiedGhidaglia)
+    mvp->attachHH(this->embeddedU);
 
 }
 
@@ -116,8 +128,33 @@ KspPrec<neq> *ImplicitLevelSetTsDesc<dim,dimLS>::createPreconditioner(PcData &pc
 
 template<int dim, int dimLS>
 template<int neq, class MatVecProdOp>
-KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
+KspSolver<DistEmbeddedVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
 ImplicitLevelSetTsDesc<dim,dimLS>::createKrylovSolver(
+                               const DistInfo &info, KspData &kspdata,
+                               MatVecProdOp *_mvp, KspPrec<neq> *_pc,
+                               Communicator *_com)
+{
+  
+  KspSolver<DistEmbeddedVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *_ksp = 0;
+  
+  if (kspdata.type == KspData::RICHARDSON)
+    _ksp = new RichardsonSolver<DistEmbeddedVec<double,neq>, MatVecProdOp,
+                 KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
+  else if (kspdata.type == KspData::CG)
+    _ksp = new CgSolver<DistEmbeddedVec<double,neq>, MatVecProdOp,
+                 KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
+  else if (kspdata.type == KspData::GMRES)
+    _ksp = new GmresSolver<DistEmbeddedVec<double,neq>, MatVecProdOp,
+                 KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
+  
+  return _ksp;
+  
+}
+
+template<int dim, int dimLS>
+template<int neq, class MatVecProdOp>
+KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
+ImplicitLevelSetTsDesc<dim,dimLS>::createKrylovSolverLS(
                                const DistInfo &info, KspData &kspdata,
                                MatVecProdOp *_mvp, KspPrec<neq> *_pc,
                                Communicator *_com)
@@ -157,6 +194,9 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     int itsLS = this->ns->solveLS(this->Phi, U);
 */
 
+  if (this->modifiedGhidaglia)
+    embeddedU.hh() = *this->bcData->getBoundaryStateHH();
+  
   its = this->ns->solve(U);
 
   this->errorHandler->reduceError();
@@ -190,6 +230,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
 
   this->checkSolution(U);
 
+  this->updateBoundaryExternalState();
   return its;
   
 }
@@ -255,6 +296,17 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
+ 
+  if (this->modifiedGhidaglia) {
+
+    *hhResidual = 0.0;
+    this->domain->
+      computeHHBoundaryTermResidual(*this->bcData,Q,*hhResidual, this->varFcn);
+       
+    this->timeState->add_dAW_dt_HH(-1, *this->geoState, *this->A,*this->bcData->getBoundaryStateHH()
+    			     , *hhResidual);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -299,10 +351,15 @@ template<int dim, int dimLS>
 void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<double,dim> &Q,
 							DistSVec<double,dim> &F)
 {
+
+  if (this->modifiedGhidaglia)
+    mvp->evaluateHH(*this->hhResidual, *this->bcData->getBoundaryStateHH());
+  
   if (this->lsMethod == 0) {
     mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, F);
   } else
     mvp->evaluate(it, *this->X, *this->A, Q, this->Phi, F);
+  
 }
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>
@@ -351,18 +408,38 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<double
 {
   
   double t0 = this->timer->getTime();
-  dQ = 0.0;
-  
-  ksp->setup(it, this->maxItsNewton, b);
-  
-  int lits = ksp->solve(b, dQ);
 
-  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
+  dQ = 0.0;
+
+  this->embeddeddQ = 0.0;
+  this->embeddedB.ghost() = 0.0;
+  this->embeddedB.real() = b;
+   
+  if (this->modifiedGhidaglia)
+    this->embeddedB.hh() = -1.0*(*this->hhResidual); 
+
+  ksp->setup(it, this->maxItsNewton, this->embeddedB);
+
+  int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
+
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
+ 
+  dQ = this->embeddeddQ.real();
+//  this->embeddedU.ghost() += this->embeddeddQ.ghost();
+  if (this->modifiedGhidaglia) {
+    this->embeddedU.hh() += this->embeddeddQ.hh();
+
+    *this->bcData->getBoundaryStateHH() = this->embeddedU.hh();
+  }
+ 
+  //mvpLS->apply(dQ, fnew);
+ 
+//  this->domain->getCommunicator()->fprintf(stdout,"%e\n",dQ.norm());
   
-  this->timer->addKspTime(t0);
-  
+  this->timer->addLSKspTime(t0);
+
   return lits;
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -426,7 +503,6 @@ template<int dim, int dimLS>
 int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<double,dimLS> &b,
                                                   DistSVec<double,dimLS> &dQ)
 {
-
   double t0 = this->timer->getTime();
 
   dQ = 0.0;
@@ -435,16 +511,13 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<doub
 
   int lits = kspLS->solve(b, dQ);
 
-  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
-
   //mvpLS->apply(dQ, fnew);
- 
-//  this->domain->getCommunicator()->fprintf(stdout,"%e\n",dQ.norm());
+  
+  //  this->domain->getCommunicator()->fprintf(stdout,"%e\n",dQ.norm());
   
   this->timer->addLSKspTime(t0);
-
+  
   return lits;
-
 }
 
 //------------------------------------------------------------------------------
