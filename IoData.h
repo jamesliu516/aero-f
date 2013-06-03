@@ -1622,7 +1622,10 @@ struct TsData {
   double ser;
   double dualtimecfl;
 
-  double checksol;
+  int checksol;
+  int checkvelocity;
+  int checkpressure;
+  int deltapressurethreshold;
 
   double programmedBurnShockSensor;
   double rapidPressureThreshold;

@@ -37,10 +37,10 @@ TsParameters::TsParameters(IoData &ioData)
 
   checksol = !(!ioData.ts.adaptivetime.checksol || !ioData.ts.cfl.checksol || !ioData.ts.checksol);
   checklinsolve = !(!ioData.ts.cfl.checklinsolve || !ioData.ts.adaptivetime.checksol);
-  checkriemann = ioData.ts.adaptivetime.checkriemann;
-  checklargevelocity = ioData.ts.adaptivetime.checklargevelocity;
-  checkpclipping = ioData.ts.adaptivetime.checkpclipping;
-  rapidpchangecutoff = max(0,ioData.ts.adaptivetime.rapidpchangecutoff);
+  checkriemann = checksol;
+  checklargevelocity = ioData.ts.checkvelocity;
+  checkpclipping = ioData.ts.checkpressure;
+  rapidpchangecutoff = max(0,ioData.ts.deltapressurethreshold);
 
   ser = ioData.ts.cfl.ser;
   angle_growth = ioData.ts.cfl.angle_growth;
@@ -89,9 +89,10 @@ TsParameters::~TsParameters()
 //Figure out what to do with errors (related to time step)
 void TsParameters::resolveErrors(){
 
-  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS])
+  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]){
     errorHandler->com -> printf(1,"Detected saturated linear solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+  }
 
   if (checksol && errorHandler->globalErrors[ErrorHandler::UNPHYSICAL]){
     errorHandler->com -> printf(1,"Detected unphysical solution. Reducing time step.\n");
@@ -106,6 +107,7 @@ void TsParameters::resolveErrors(){
   }
 
   if (checkpclipping && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
+    errorHandler->com -> printf(1,"Detected pressure clipping. Reducing error. If the problem is expected to produce cavitation, set CheckSolution to Off.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
@@ -121,6 +123,8 @@ void TsParameters::resolveErrors(){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
+
+  errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME] = errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP];
 
 }
 
