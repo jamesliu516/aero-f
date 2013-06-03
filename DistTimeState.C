@@ -732,9 +732,9 @@ template<int dim>
 void DistTimeState<dim>::updateDtCoeff(){
 
   //std::printf("DT Coefficient: %f \n", dt_coeff);
-  if(unphysical){
-
-    unphysical = false;
+  if(errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME] = 0;
+    //unphysical = false;
     dt_coeff_count=0;
     dt_coeff /= 2.0;
     if(dt_coeff<0.0001 && allowdtstop){
