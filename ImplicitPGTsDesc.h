@@ -32,8 +32,8 @@ protected:
   Vec<double>* PhiT_A_U;
   VecSet< Vec<double> >* PhiT_A_Phi;
   VecSet<DistSVec<double, dim> >* A_Phi;
-  double regThresh; 
-  double regWeight;
+  double regWeightConstant;
+  double Kc;
   double regWeightProportional;
   double Kp;
   double regWeightIntegral;
@@ -51,6 +51,8 @@ protected:
   double rhsNormInit;
 
   void setProblemSize(DistSVec<double, dim> &);
+
+  void applyWeightingToLeastSquaresSystem();
 
   int controlNodeGlobalID;
   int controlNodeLocalID;

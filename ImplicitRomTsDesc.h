@@ -49,6 +49,12 @@ protected:
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
+  DistSVec<double, dim>* weightURef;	  // reference state used for weighting least squares system
+  DistSVec<double, dim>* weightFRef;	  // reference residual used for weighting least squares syste,
+
+  double regThresh;
+  double regWeight;
+
   Vec<double> dUromNewtonIt;    // set to zero before each newton iteration
   Vec<double> dUromTimeIt;      // set to zero before each time iteration
   Vec<double> dUromCurrentROB;  // set to zero after each cluster switch
@@ -68,8 +74,8 @@ protected:
 	// each ROM has a different way of solving the Newton system
   virtual void updateGlobalTimeSteps(const int _it) {};	// broyden needs to know global time steps
   int solveLinearSystem(int, Vec<double> &, Vec<double> &);
-  double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double); 
-  double meritFunctionDeriv(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &);
+  virtual double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double); 
+  double meritFunctionDeriv(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double);
   double lineSearch(DistSVec<double, dim> &, Vec<double> &, int, VecSet<DistSVec<double, dim> > &,double, bool &);
   double zoom(double, double, double, double, double, double, double, double, double, DistSVec<double,dim>,DistSVec<double,dim>, DistSVec<double,dim>, int);
   int checkFailSafe(DistSVec<double,dim>&);
@@ -77,6 +83,7 @@ protected:
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
   virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int);
+  virtual void applyWeightingToLeastSquaresSystem() {};
 	//void savedUnormAccum();
 	//virtual void writeStateRomToDisk(int it, double cpu);
 	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing

@@ -2004,14 +2004,21 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
     com->fprintf(outInitialCondition,"%d\n", nReducedNodes);
     
     // read in initial condition
+
+
+    char *icFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.solutions) + 1];
+    sprintf(icFile, "%s%s", ioData->input.prefix, ioData->input.solutions);
+    
     DistSVec<double,dim> *initialCondition = new DistSVec<double,dim>( domain.getNodeDistInfo() );
     double tmp;
-    bool status = domain.readVectorFromFile(ioData->input.solutions, 0, &tmp, *initialCondition);
+    bool status = domain.readVectorFromFile(icFile, 0, &tmp, *initialCondition);
 
     if (!status) {
-      com->fprintf(stderr, "*** Error: unable to read file %s\n", ioData->input.solutions);
+      com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", icFile);
       exit(-1);
     }
+
+    delete [] icFile;
 
     // output
     outputReducedSVec(*initialCondition,outInitialCondition,0);
@@ -2053,8 +2060,13 @@ void GnatPreprocessing<dim>::outputLocalStateBasesReduced(int iCluster) {
   com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
   com->fprintf(outPodState,"%d\n", nReducedNodes);
 
+  int percentComplete = 0;
   for (int iPod = 0; iPod < this->basis->numVectors(); ++iPod) {  // # rows in A and B
     outputReducedSVec((*(this->basis))[iPod],outPodState,iPod);
+    if ((iPod+1)%((this->basis->numVectors()/4)+1)==0) {
+        percentComplete += 25;
+        com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
+    }
   }
 
   if (this->basis) {

@@ -1194,7 +1194,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
         results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],(SVec<double,1>*)0);
       status[i] = 1;
     } else {
-#pragma omp parallel for reduction(+: status[i])
+#pragma omp parallel for reduction(+: (status[i]))
       for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
         if (distLSS) { // Then we are in the case of an Embedded simulation
           if (ghostPoints) { // Embedded Navier-Stokes
@@ -1501,7 +1501,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
         status[i] = 1;
       } else {
         int fid,nid;
-#pragma omp parallel for reduction(+: status[i])
+#pragma omp parallel for reduction(+: (status[i]))
         for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
           if (distLSS) { // Then we are in the case of an Embedded simulation
             if (ghostPoints) { // Embedded Navier-Stokes

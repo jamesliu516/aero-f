@@ -1384,28 +1384,36 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
   }*/
 
   int subdXing = 0;
+  //bool abortOmp = false;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-    intersector[iSub]->reset(retry); 
-    intersector[iSub]->rebuildPhysBAMInterface(Xs, numStNodes, stElem, numStElems);
-    intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), (*tId)(iSub), (*distance)(iSub), true);
-    intersector[iSub]->computeFirstLayerNodeStatus((*tId)(iSub), (*distance)(iSub));
-    subdXing += !(intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub])));
-    if(twoPhase) {
+    //#pragma omp flush (abortOmp)
+    //if (!abortOmp) {
+      intersector[iSub]->reset(retry); 
+      intersector[iSub]->rebuildPhysBAMInterface(Xs, numStNodes, stElem, numStElems);
+      intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), (*tId)(iSub), (*distance)(iSub), true);
+      intersector[iSub]->computeFirstLayerNodeStatus((*tId)(iSub), (*distance)(iSub));
+      subdXing += !(intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub])));
+      if(twoPhase) {
 //      intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), (*X)(iSub), 1);
-      int error = intersector[iSub]->findIntersections((*X)(iSub), true);
-      int nCalls = 0;
-      while(error && nCalls<100) {
-        nCalls++;
-        com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
-        intersector[iSub]->CrossingEdgeRes.clear();
-        intersector[iSub]->ReverseCrossingEdgeRes.clear();
-        error = intersector[iSub]->findIntersections((*X)(iSub), true);
+        int error = intersector[iSub]->findIntersections((*X)(iSub), true);
+        int nCalls = 0;
+        while(error && nCalls<100) {
+          nCalls++;
+          com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
+          intersector[iSub]->CrossingEdgeRes.clear();
+          intersector[iSub]->ReverseCrossingEdgeRes.clear();
+          error = intersector[iSub]->findIntersections((*X)(iSub), true);
+        }
+        if(error)
+          return -1;
+          //abortOmp = true;
+          //#pragma omp flush (abortOmp)
       }
-      if(error)
-        return -1;
-    }
+   // }
   }
+
+  //if (abortOmp) return -1;
 
   if(!twoPhase) {
     com->globalMax(1,&subdXing);

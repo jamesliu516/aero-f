@@ -44,7 +44,8 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   }
   else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
            (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
-           (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ) {
+           (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ||
+           (ioData.problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)) {
     if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 0) { 
         ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);

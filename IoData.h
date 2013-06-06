@@ -380,7 +380,7 @@ struct ProblemData {
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
                 _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34,  _ACC_UNSTEADY_NONLINEAR_ROM_ = 35,
-                _STEADY_NONLINEAR_ROM_ = 36} alltype;
+                _STEADY_NONLINEAR_ROM_ = 36, _FORCED_NONLINEAR_ROM_ = 37} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -2118,7 +2118,11 @@ struct NonlinearRomOnlineData {
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_TRUE = 1} lineSearch;
 	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2} lsSolver;
 
+  enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3} weightedLeastSquares;
+  double weightingExponent;
+
   double regThresh;
+  double constantGain;
   double proportionalGain;
   double integralGain;
   double integralLeakGain;

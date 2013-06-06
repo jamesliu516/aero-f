@@ -967,7 +967,8 @@ void Timer::print(Timer *str, FILE *fp)
 
   if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ) || 
       (ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_ ) ||
-      (ioData->problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ) )  {
+      (ioData->problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ) ||
+      (ioData->problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ))  {
     com->fprintf(fp, "  Residual evaluation         : %10.2f %10.2f %10.2f %9d\n",
               tmin[residual], tmax[residual], tavg[residual],
 							counter[residual]);
