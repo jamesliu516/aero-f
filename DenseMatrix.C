@@ -25,6 +25,10 @@ GenFullM<Scalar>::GenFullM()
  ncolumn = 0;
  //v = new double[1];
  v = 0;
+
+ iprow = NULL;
+ ipcol = NULL;
+
 }
 
 template<class Scalar>
@@ -33,6 +37,10 @@ GenFullM<Scalar>::GenFullM(int nr)
  nrow    = nr;
  ncolumn = nr;
  v = new Scalar[nrow*ncolumn];
+
+ iprow = NULL;
+ ipcol = NULL;
+
 }
 
 template<class Scalar>
@@ -44,6 +52,10 @@ GenFullM<Scalar>::GenFullM(int nr, int nc)
    v = new Scalar[1];
  else
    v = new Scalar[nrow*ncolumn];
+
+ iprow = NULL;
+ ipcol = NULL;
+
 }
 
 template<class Scalar>
@@ -55,6 +67,10 @@ GenFullM<Scalar>::GenFullM(const GenFullM &m)
  int i;
  for(i=0; i < nrow*ncolumn; ++i)
    v[i] = m.v[i];
+
+ iprow = NULL;
+ ipcol = NULL;
+
 }
 
 template<class Scalar>
@@ -68,12 +84,18 @@ GenFullM<Scalar>::GenFullM(const GenFullM &m, int nr, int sr, int nc, int sc)
  for(i=0; i < nrow; ++i)
   for(j=0; j < ncolumn; ++j)
     (*this)[i][j] = m[i+sr][j+sc] ;
+
+ iprow = NULL;
+ ipcol = NULL;
+
 }
 
 template<class Scalar>
 GenFullM<Scalar>::~GenFullM()
 {
  if(v) delete [] v;
+ if(iprow) delete [] iprow;
+ if(ipcol) delete [] ipcol;
 }
 
 template<class Scalar>

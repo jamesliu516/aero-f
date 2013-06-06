@@ -177,6 +177,54 @@ bool ImplicitGnatTsDesc<dim>::breakloop2(const bool breakloop) {
 //------------------------------------------------------------------------------
 
 template<int dim>
+double ImplicitGnatTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dQ, DistSVec<double, dim> &F, double stepLength)  {
+	// merit function: norm of the residual (want to minimize residual)
+
+  DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
+  newQ = Q + stepLength*dQ;
+  computeFullResidual(it,newQ,&F);
+
+  double merit = 0.0;
+  merit += ResRestrict->norm();	// merit function = 1/2 * (norm of full-order residual)^2
+  merit *= merit;
+//  merit *= 0.5;
+
+  //if (this->ioData->romOnline.lsSolver == 2) {
+  //  DistSVec<double, dim>* A_Uerr = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+  //  *A_Uerr = 0.0;
+  //  int numLocSub = A_Uerr->numLocSub();
+//#pragma omp parallel for
+  //  for (int iSub=0; iSub<numLocSub; ++iSub) {
+  //    double *cv = this->A->subData(iSub); // vector of control volumes
+  //    double (*auerr)[dim] = A_Uerr->subData(iSub);
+  //    double (*u)[dim] = newQ.subData(iSub);
+  //    for (int i=0; i<this->A->subSize(iSub); ++i) {
+  //      if (cv[i]>regThresh) {
+  //        for (int j=0; j<dim; ++j)
+  //          auerr[i][j] = cv[i] * pow(u[i][j] - (this->bcData->getInletConservativeState())[j],2);
+  //      }
+  //    }
+  //  }
+
+  //  DistSVec<double, dim>* ones = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+  //  *ones = 1.0;
+
+  //  double regTerm = (*A_Uerr)*(*ones);
+  //  regTerm *= regWeight;
+  //  merit += regTerm;
+
+  //  delete ones;
+  //  delete A_Uerr;
+  //}
+
+  return merit;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void ImplicitGnatTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
  
   nPodJac = this->rom->getJacMat()->numVectors();

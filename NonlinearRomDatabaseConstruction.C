@@ -71,7 +71,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
   // clustering
   if (this->ioData->romOffline.rob.clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
-    this->readSnapshotFile("state", false);
+    readSnapshotFile("state", false);
     kmeans();
     this->outputClusteredSnapshots("state");
 
@@ -81,7 +81,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
     if (strcmp(this->ioData->input.sensitivitySnapFile,"")!=0 && 
          strcmp(this->sensitivityClusterName,"")!=0) {
-       this->readSnapshotFile("sensitivity", false);
+       readSnapshotFile("sensitivity", false);
        this->outputClusteredSnapshots("sensitivity");
     } 
   }
@@ -194,6 +194,12 @@ void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, boo
   double dummyTag = 0.0;
   for (int iData = 0; iData < nData; ++iData) {
     bool status = this->domain.template readTagFromFile<double, dim>(snapFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
+
+    if (!status) {
+      this->com->fprintf(stderr, "*** Error: could not read snapshotsfrom %s \n", snapFile[iData]);
+      exit(-1);
+    }
+
     if ((endSnaps[iData]==0) || (endSnaps[iData]>numSnaps[iData]))
       endSnaps[iData]=numSnaps[iData];
     for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
@@ -1331,13 +1337,19 @@ void NonlinearRomDatabaseConstruction<dim>::readInitialCondition() {
 
     // read user-specified initial condition that will be used for the online ROM simulation
     initialCondition = new DistSVec<double,dim>( this->domain.getNodeDistInfo() );
+
+    char* icFile = new char[strlen(this->ioData->input.prefix) + strlen(this->ioData->input.solutions) + 1];
+    sprintf(icFile, "%s%s", this->ioData->input.prefix, this->ioData->input.solutions);
+
     double tmp;
-    bool status = this->domain.readVectorFromFile(this->ioData->input.solutions, 0, &tmp, *initialCondition);
+    bool status = this->domain.readVectorFromFile(icFile, 0, &tmp, *initialCondition);
 
     if (!status) {
-      this->com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", this->ioData->input.solutions);
+      this->com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", icFile);
       exit(-1);
     }
+
+    delete [] icFile;
 
   } else {
 

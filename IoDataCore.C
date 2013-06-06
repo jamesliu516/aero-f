@@ -651,7 +651,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 37,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 38,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -665,7 +665,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
 		 "Aeroacoustic", 33, "ShapeOptimization", 34, "AcceleratedUnsteadyNonlinearROM", 35,
-		 "SteadyNonlinearROM", 36);
+		 "SteadyNonlinearROM", 36, "ForcedNonlinearROM", 37);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3632,6 +3632,11 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   maxDimension = -1; 
 	minDimension = 0;
   energy = 1.0;
+
+  weightedLeastSquares = WEIGHTED_LS_FALSE;
+  weightingExponent = 1.0;
+
+  constantGain = 0.0;
   proportionalGain = 0.0;
   integralGain = 0.0;
   integralLeakGain = 0.0;
@@ -3665,6 +3670,12 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassInt<NonlinearRomOnlineData>(ca, "MaximumDimension", this, &NonlinearRomOnlineData::maxDimension);
   new ClassInt<NonlinearRomOnlineData>(ca, "MinimumDimension", this, &NonlinearRomOnlineData::minDimension); 
   new ClassDouble<NonlinearRomOnlineData>(ca, "Energy", this, &NonlinearRomOnlineData::energy);
+
+  new ClassToken<NonlinearRomOnlineData> (ca, "WeightedLeastSquares", this, reinterpret_cast<int
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 4, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "WeightingExponent", this, &NonlinearRomOnlineData::weightingExponent);
+
+  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationConstantGain", this, &NonlinearRomOnlineData::constantGain);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationProportionalGain", this, &NonlinearRomOnlineData::proportionalGain);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationIntegralGain", this, &NonlinearRomOnlineData::integralGain);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationIntegralLeakGain", this, &NonlinearRomOnlineData::integralLeakGain);
@@ -4902,6 +4913,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROTHERMOELASTIC_ ||
       problem.alltype == ProblemData::_FORCED_ ||
+      problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_ACC_FORCED_ ||
       problem.alltype == ProblemData::_ROLL_)
     problem.type[ProblemData::UNSTEADY] = true;
@@ -4926,6 +4938,7 @@ void IoData::resetInputValues()
     problem.type[ProblemData::THERMO] = true;
 
   if (problem.alltype == ProblemData::_FORCED_ ||
+      problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_ACC_FORCED_)
     problem.type[ProblemData::FORCED] = true;
 
@@ -4954,7 +4967,8 @@ void IoData::resetInputValues()
 
   if (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_ ||
-      problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_)
+      problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ||
+      problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)
     problem.type[ProblemData::NLROMONLINE] = true;
 
 
