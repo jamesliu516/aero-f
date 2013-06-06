@@ -49,7 +49,6 @@ protected:
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
   DistSVec<double,dim> *V;
-  DistVec<double> *T;
 
 // Included (MB)
   DistSVec<double,dim> *dU;
