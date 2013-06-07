@@ -5638,64 +5638,74 @@ void SubDomain::reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints)
     } 
 }
 
-template<int dim,int neq>
-void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,
-                                      GenMat<double,neq>& A)
+template<int dim, class Scalar, int neq>
+void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,
+                  FluxFcn** fluxFcn,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<Scalar,neq>& A)
 {
-//
-//  int i, j, k;
-//
-//  bool* edgeFlag = edges.getMasterFlag();
-//  int (*edgePtr)[2] = edges.getPtr();
-//
-//  double B[neq*neq],tmp[neq*neq];
-//  double dUdV[neq*neq],dVdU[neq*neq];
-//  memset(tmp,0,sizeof(double)*neq*neq);
-//  memset(dUdV,0,sizeof(double)*neq*neq);
-//  memset(dVdU,0,sizeof(double)*neq*neq);
-//  memset(B,0,sizeof(double)*neq*neq);
-//  B[0] = B[5*neq-1] = 1.0;
-//  for (k = 1; k < 4; ++k) {
-//    B[k*neq+k] = -1.0;
-//  }
-//  for (int l=0; l<edges.size(); l++) {
-//    i = edgePtr[l][0];
-//    j = edgePtr[l][1];
-//    if(LSS.edgeIntersectsStructure(0.0,l)) { //at interface
-//	  int tagI = tag[i];
-//	  int tagJ = tag[j];
-//      bool iIsActive = LSS.isActive(0.0,i);
-//      bool jIsActive = LSS.isActive(0.0,j);
-//	  
-//	  if(iIsActive) {
-//        double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
-//        Vec<double> Vi(dim);
-//        varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
-//        varFcn->getVarFcnBase()->computedVdU(Vi.v,dVdU);
-//        varFcn->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
-//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
-//      }
-//      if(jIsActive) {
-//        double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
-//        Vec<double> Vj(dim);
-//        varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
-//        varFcn->getVarFcnBase()->computedVdU(Vj.v,dVdU);
-//        varFcn->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
-//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-//        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
-//	  }
-//	}
-//  }
-//
-//  for (int l = 0; l < ghostPoints.size(); ++l) {
-//    if (ghostPoints[l]) {
-//      double *Aii = A.getGhostGhostElem_ij(i,i);
-//      memset(Aii,0,sizeof(double)*neq*neq);
-//      for (k = 0; k < neq; ++k)
-//        Aii[k*neq+k] = ghostPoints[l]->lastCount();
-//    }
-//  }
+
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  double B[neq*neq],tmp[neq*neq];
+  double dUdV[neq*neq],dVdU[neq*neq];
+  memset(tmp,0,sizeof(double)*neq*neq);
+  memset(dUdV,0,sizeof(double)*neq*neq);
+  memset(dVdU,0,sizeof(double)*neq*neq);
+  memset(B,0,sizeof(double)*neq*neq);
+  for (k = 0; k < neq; ++k) B[k*neq+k] = -1.0;
+  if (neq > 2)  B[0] = B[4*neq+4] = 1.0;
+
+  for (int l=0; l<edges.size(); l++) {
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+    if(LSS.edgeIntersectsStructure(0.0,l)) { //at interface
+      int tagI = tag[i];
+      int tagJ = tag[j];
+      bool iIsActive = LSS.isActive(0.0,i);
+      bool jIsActive = LSS.isActive(0.0,j);
+	  
+	if(iIsActive) {
+        double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
+        if (neq > 2) {
+          Vec<double> Vi(dim);
+          varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedVdU(Vi.v,dVdU);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
+          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
+        }
+        else {
+          for (k = 0; k < neq; ++k) tmp[k*neq+k] = 1.0;
+          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &B, 0, Aji, 0);
+        }
+
+        double (*Ajj) = reinterpret_cast< double (*)>(A.getGhostGhostElem_ij(j,j));
+        memset(Ajj,0,sizeof(double)*neq*neq);
+        for (k = 0; k < neq; ++k) Ajj[k*neq+k] = ghostPoints[j]->ng;
+      }
+      if(jIsActive) {
+        double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
+        if (neq > 2) {
+          Vec<double> Vj(dim);
+          varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedVdU(Vj.v,dVdU);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
+          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
+	  }
+        else {
+          for (k = 0; k < neq; ++k) tmp[k*neq+k] = 1.0;
+          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &B, 0, Aij, 0);
+        }
+
+        double (*Aii) = reinterpret_cast< double (*)>(A.getGhostGhostElem_ij(i,i));
+        memset(Aii,0,sizeof(double)*neq*neq);
+        for (k = 0; k < neq; ++k) Aii[k*neq+k] = ghostPoints[i]->ng;
+      }
+    }
+  }
 }
 
 //--------------------------------------------------------------------------

@@ -1648,6 +1648,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 
   if (fet) {
     domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,ctrlVol, *V,A,ghostPoints,distLSS);
+    domain->populateGhostJacobian(ghostPoints,U,fluxFcn,varFcn,distLSS,fluidId,A);
   }
   //if (fet)
   //  domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);

@@ -3815,13 +3815,15 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
     }
 }
 
-template<int dim,int neq>
-void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> &ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure &LSS,DistVec<int> &tag, DistMat<double,neq>& A) {
+//------------------------------------------------------------------------------
+//
+template<int dim, class Scalar, int neq>
+void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,FluxFcn** fluxFcn, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag, DistMat<Scalar,neq>& A) {
 
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
-    subDomain[iSub]->populateGhostJacobian(ghostPoints(iSub), U(iSub), varFcn, LSS(iSub), tag(iSub), A(iSub));
+    subDomain[iSub]->populateGhostJacobian((*ghostPoints)(iSub), U(iSub), fluxFcn, varFcn, (*distLSS)(iSub), tag(iSub), A(iSub));
  
 }
 
