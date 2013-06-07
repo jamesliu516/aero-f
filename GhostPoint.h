@@ -125,7 +125,6 @@ class GhostPoint{
       Vg[i] /= Ws[i];
       Ws[i] = 1.0;
     }
-    ng = 0;
 
 // populate primitive state vector
     for (int i=0; i<dim; ++i) V[i] = Vg[i];
