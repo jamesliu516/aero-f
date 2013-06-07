@@ -61,6 +61,7 @@ private:
 
   VarFcnBase *createVarFcnBase(IoData &iod, FluidModelData& fluidModel);
 
+
 public:
   VarFcn(IoData &iod); 
   VarFcn() { meshVel = 0.0; fprintf(stderr, "MeshVel initialized: %e %e %e\n", meshVel[0], meshVel[1], meshVel[2]);}

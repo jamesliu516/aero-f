@@ -47,7 +47,8 @@ public:
   int checkriemann;
   int checklargevelocity;
   int rapidpchangecutoff;
-  int checkpclipping; 
+  int checkpclipping;
+  int checkrhoclipping;
 
   bool unphysical;
   bool badlinsolve;

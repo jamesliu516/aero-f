@@ -2863,6 +2863,7 @@ TsData::TsData()
   checksol = 1;
   checkvelocity = 1;
   checkpressure = 1;
+  checkdensity = 1;
   deltapressurethreshold = 40;
 
   residual = -1;
@@ -2909,6 +2910,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "CheckPressure", this,
                          reinterpret_cast<int TsData::*>(&TsData::checkpressure), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckDensity", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checkdensity), 2,
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
                          reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
