@@ -1415,11 +1415,52 @@ void DistTimeState<dim>::updateHH(DistVec<double> & hh) {
   *hhn = hh;
 }
 
+struct SetFirstOrderNodes {
+
+  VarFcn* varFcn;
+
+  double threshold;
+  ErrorHandler* errorHandler;
+
+  int isDensity;
+
+  SetFirstOrderNodes(VarFcn* varFcn,double t, ErrorHandler* errorHandlerIn,
+		     int isDensity=0) : varFcn(varFcn), isDensity(isDensity),
+      threshold(t) { errorHandler = errorHandlerIn; }
+
+  void Perform(double* uold, double* unew, int& status,int id = 0) const {
+
+    double vold[7], vnew[7];
+    
+    if (!isDensity) {
+      varFcn->conservativeToPrimitive(uold,vold, id);
+      varFcn->conservativeToPrimitive(unew,vnew, id);
+      
+      double pold = varFcn->getPressure(vold,id);
+      double pnew = varFcn->getPressure(vnew,id);
+      if (fabs(pnew-pold)/pold > threshold) {
+	status = 1;
+	errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE]++;
+      }
+    } else {
+      varFcn->conservativeToPrimitive(uold,vold, id);
+      varFcn->conservativeToPrimitive(unew,vnew, id);
+      
+      if (fabs(vnew[0]-vold[0])/vold[0] > threshold) {
+	status = 1;
+	//errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE]++;
+      }
+    }
+  }
+};
+
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
 {
 
   data->update();
+
+  *firstOrderNodes = 0;
 
   if (data->use_nm2 && data->exist_nm1) {
     *Unm2 = *Unm1;
@@ -1433,6 +1474,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
     *Unm1 = *Un;
     data->exist_nm1 = true;
   }
+
+  if (checkForRapidlyChangingPressure > 0.0)
+    DistVectorOp::Op(*Un, Q,*firstOrderNodes,  
+		     SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+  
+  if (checkForRapidlyChangingDensity > 0.0)
+    DistVectorOp::Op(*Un, Q,*firstOrderNodes,
+		     SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+  
   *Un = Q;
 }
 
@@ -1449,32 +1499,6 @@ struct MultiphaseRiemannCopy {
   }
 };
 
-struct SetFirstOrderNodes {
-
-  VarFcn* varFcn;
-
-  double threshold;
-  ErrorHandler* errorHandler;
-
-  SetFirstOrderNodes(VarFcn* varFcn,double t, ErrorHandler* errorHandlerIn) : varFcn(varFcn),
-      threshold(t) { errorHandler = errorHandlerIn; }
-
-  void Perform(double* uold, double* unew, int& status,int id) const {
-
-    double vold[7], vnew[7];
-    varFcn->conservativeToPrimitive(uold,vold, id);
-    varFcn->conservativeToPrimitive(unew,vnew, id);
-     
-    double pold = varFcn->getPressure(vold,id);
-    double pnew = varFcn->getPressure(vnew,id);
-    if (fabs(pnew-pold)/pold > threshold) {
-      status = 1;
-      errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE]++;
-    }
-    else
-      status = 0;
-  }
-};
 
 //------------------------------------------------------------------------------
 
@@ -1491,6 +1515,7 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
     fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
     exit(1);
   }
+  *firstOrderNodes = 0;
   if (data->use_nm1 && !increasingPressure) {
     if (fvmers_3pbdf == ImplicitData::BDF_SCHEME2) {
       DistVec<int> tempInt(fluidId);
@@ -1508,6 +1533,10 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
         DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
                          SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
 
+      if (checkForRapidlyChangingDensity > 0.0)
+        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+
       int numFirstOrderNodes = firstOrderNodes->sum(); 
       if (numFirstOrderNodes > 0)
         this->domain->getCommunicator()->fprintf(stdout,"%d nodes set to first order accuracy\n",numFirstOrderNodes);
@@ -1521,6 +1550,14 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
     } else {
       *Unm1 = *Vn;
       *Vn = Q;
+      if (checkForRapidlyChangingPressure > 0.0)
+        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+
+      if (checkForRapidlyChangingDensity > 0.0)
+        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+
       double tau = data->getTauN();
       double beta = (1.0+2.0*tau)/((1.0+tau)*(1.0+tau));
       *Un = beta*Q+(1.0-beta)*Qtilde;
