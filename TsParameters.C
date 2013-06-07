@@ -40,6 +40,7 @@ TsParameters::TsParameters(IoData &ioData)
   checkriemann = checksol;
   checklargevelocity = ioData.ts.checkvelocity;
   checkpclipping = ioData.ts.checkpressure;
+  checkrhoclipping = ioData.ts.checkdensity;
   rapidpchangecutoff = max(0,ioData.ts.deltapressurethreshold);
 
   ser = ioData.ts.cfl.ser;
@@ -107,7 +108,13 @@ void TsParameters::resolveErrors(){
   }
 
   if (checkpclipping && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
-    errorHandler->com -> printf(1,"Detected pressure clipping. Reducing error. If the problem is expected to produce cavitation, set CheckSolution to Off.\n");
+    errorHandler->com -> printf(1,"Detected pressure clipping. Reducing error. If the problem is expected to produce cavitation, set CheckPressure to Off.\n");
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
+
+  if (checkrhoclipping && errorHandler->globalErrors[ErrorHandler::DENSITY_CLIPPING]){
+    errorHandler->com -> printf(1,"Detected density clipping. Reducing error. If the problem is expected to produce cavitation, set CheckDensity to Off.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
