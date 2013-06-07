@@ -1103,10 +1103,17 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	      Vir[k] = (interfaceLocation-X[i-1][0])/(X[i][0]-X[i-1][0])*V[i][k] - (interfaceLocation-X[i][0])/(X[i][0]-X[i-1][0])*V[i-1][k];
 	      Vjr[k] = (interfaceLocation-X[j+2][0])/(X[j+1][0]-X[j+2][0])*V[j+1][k] - (interfaceLocation-X[j+1][0])/(X[j+1][0]-X[j+2][0])*V[j+2][k];
               if (k != 2 && k != 3 && limiterRight == 2) {
-                if (Vjr[1] > 0.0)
-                  betapr = std::min<double>(betapr, fabs(V[j+3][k]-V[j+2][k])/std::max<double>(1.0e-8,fabs(V[j+2][k]-V[j+1][k])));
-                if (Vir[1] < 0.0)
-                  betapl = std::min<double>(betapl, fabs(V[i-2][k]-V[i-1][k])/std::max<double>(1.0e-8,fabs(V[i][k]-V[i-1][k])));
+                if (Vjr[1] > 0.0) {
+		  double rr = (V[j+3][k]-V[j+2][k]) / std::max<double>(1.0e-8,V[j+2][k]-V[j+1][k]);
+		  rr = std::max<double>(rr,0.0);
+                  betapr = std::min<double>(betapr, rr);
+		}
+                if (Vir[1] < 0.0) {
+		  double rr = (V[i-2][k]-V[i-1][k])/std::max<double>(1.0e-8,V[i][k]-V[i-1][k]);
+		  rr = std::max<double>(rr,0.0);
+                  betapl = std::min<double>(betapl, rr);
+		}
+		  
               }
 	      //std::cout << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j+1][k] << " " << V[i-1][k] << " " << V[j+2][k] << std::endl;
 	    }
@@ -1134,10 +1141,16 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	      Vir[k] = (interfaceLocation-X[i-2][0])/(X[i-1][0]-X[i-2][0])*V[i-1][k] - (interfaceLocation-X[i-1][0])/(X[i-1][0]-X[i-2][0])*V[i-2][k];
 	      Vjr[k] = (interfaceLocation-X[j+1][0])/(X[j][0]-X[j+1][0])*V[j][k] - (interfaceLocation-X[j][0])/(X[j][0]-X[j+1][0])*V[j+1][k];
               if (k != 2 && k != 3 && limiterRight == 2) {
-                if (Vjr[1] > 0.0)
-                  betapr = std::min<double>(betapr, fabs(V[j+2][k]-V[j+1][k])/std::max<double>(1.0e-8,fabs(V[j+1][k]-V[j][k])));
-                if (Vir[1] < 0.0)
-                  betapl = std::min<double>(betapl, fabs(V[i-3][k]-V[i-2][k])/std::max<double>(1.0e-8,fabs(V[i-1][k]-V[i-2][k])));
+                if (Vjr[1] > 0.0) {
+		  double rr = (V[j+2][k]-V[j+1][k])/std::max<double>(1.0e-8,V[j+1][k]-V[j][k]);
+		  rr = std::max<double>(rr,0.0);
+                  betapr = std::min<double>(betapr, rr);
+		}
+                if (Vir[1] < 0.0) {
+		  double rr = (V[i-3][k]-V[i-2][k])/std::max<double>(1.0e-8,V[i-1][k]-V[i-2][k]);
+		  rr = std::max<double>(rr,0.0);
+                  betapl = std::min<double>(betapl, rr);
+		}
               }
 	      //std::cout << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
 	    }

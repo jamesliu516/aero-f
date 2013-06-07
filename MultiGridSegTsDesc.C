@@ -110,7 +110,8 @@ setupTimeStepping(DistSVec<double,dim> *U0, IoData &iod) {
   dx.init(pKernel);
   dx1.init(pKernel);
   dx2.init(pKernel);
-  
+
+  update_tmp.init(pKernel);  
 }
 
 template <int dim,int neq1,int neq2>
@@ -243,7 +244,12 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);
     
-    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), x(lvl), prolong_relax_factor);
+    update_tmp(lvl) = 0.0;
+    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), update_tmp(lvl), prolong_relax_factor);
+
+    pKernel->applyFixes(lvl,update_tmp(lvl));
+    x(lvl) += update_tmp(lvl);
+
   }
   
   if (lvl == 0) 

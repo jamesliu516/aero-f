@@ -49,7 +49,7 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
   
   MultiGridKernel<double>* pKernel;
 
-  MultiGridDistSVec<double,dim> V, res, R, F, U,Uold,dx,Forig;
+  MultiGridDistSVec<double,dim> V, res, R, F, U,Uold,dx,Forig,update_tmp;
   MultiGridDistSVec<double,neq1> R1,dx1;
   MultiGridDistSVec<double,neq2> R2,dx2;
 
