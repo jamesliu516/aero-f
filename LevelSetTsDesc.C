@@ -75,10 +75,15 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     interfaceOrder = 2;
 
 #pragma omp parallel for
-    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      V6NodeData (*v6data)[2];
+      v6data = 0;
+      dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
       dom->getSubDomain()[iSub]->getHigherOrderMF()->
-	initialize<dim>(dom->getNodeDistInfo().subSize(iSub));
-
+	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
+			dom->getSubDomain()[iSub]->getElems(),
+			v6data);
+    }
   }
 
   if (ioData.mf.interfaceOmitCells == 1) {

@@ -4,6 +4,12 @@
 
 #include <iostream>
 
+#include "V6NodeData.h"
+#include <Elem.h>
+
+//#include <EdgeGrad.h>
+
+
 inline
 HigherOrderMultiFluid::HigherOrderMultiFluid(Vec<CutCellState*>& vs) : cutCells(vs) {
   
@@ -294,12 +300,16 @@ void HigherOrderMultiFluid::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
 }
 
 template<int dim>
-void HigherOrderMultiFluid::initialize(int numNodes) {
+void HigherOrderMultiFluid::initialize(int numNodes,ElemSet& e, V6NodeData (*v)[2]) {
 
   SVec<double,dim>* V = new SVec<double,dim>(numNodes);
   *V = 0.0;
 
   lastPhaseChangeState = static_cast<void*>(V);
+
+  v6data = v;
+  
+  elems = &e;
   
 }
 
@@ -335,7 +345,7 @@ setLastPhaseChangeValue(int nodeId,const double* v) {
 
   memcpy((*V)[nodeId], v ,sizeof(double)*dim);
 }
-/*
+
 template <int dim>
 double HigherOrderMultiFluid::
 estimateR(int l, int vertex, 
@@ -348,25 +358,57 @@ estimateR(int l, int vertex,
   double face_r = v6data[l][vertex].r;
   double face_t = v6data[l][vertex].t;
 
-  if ((idxTet<0)||(idxTet>=elems.size()))
+  if ((idxTet<0)||(idxTet>=elems->size()))
     return 0.0;
 
   int myfid = fluidId[i];
 
-  Elem& elem = elems[idxTet];
+  Elem& elem = (*elems)[idxTet];
   for (int k = 0; k < 4; ++k) {
 
     if (fluidId[elem.nodeNum(k)] != myfid)
       return 0.0;
   }
 
-  int n0_loc = elems[idxTet].faceDef(idxFace, 0);
-  int n1_loc = elems[idxTet].faceDef(idxFace, 1);
-  int n2_loc = elems[idxTet].faceDef(idxFace, 2);
-  int n0 = elems[idxTet].nodeNum(n0_loc);
-  int n1 = elems[idxTet].nodeNum(n1_loc);
-  int n2 = elems[idxTet].nodeNum(n2_loc);
+  int n0_loc = (*elems)[idxTet].faceDef(idxFace, 0);
+  int n1_loc = (*elems)[idxTet].faceDef(idxFace, 1);
+  int n2_loc = (*elems)[idxTet].faceDef(idxFace, 2);
+  int n0 = (*elems)[idxTet].nodeNum(n0_loc);
+  int n1 = (*elems)[idxTet].nodeNum(n1_loc);
+  int n2 = (*elems)[idxTet].nodeNum(n2_loc);
   
+  double xf[3] = {0,0,0};
+  for (int k = 0; k < 3; ++k)
+    xf[k] = (X[n0_loc][k] + X[n1_loc][k] + X[n2_loc][k])/3.0;
+
+  double vec[3];
+  for (int k = 0; k < 3; ++k)
+    vec[k] = X[i][k] - xf[k];
+
+  double Vf[dim],Vfg[dim][3];
+  for (int k = 0; k < dim; ++k)
+    Vf[k] = V[n2][k] + face_r*(V[n0][k]-V[n2][k])+
+      face_t*(V[n1][k]-V[n2][k]);
+
+  for (int k = 0; k < dim; ++k) {
+    Vfg[k][0] = dVdx.getX()[n2][k] + face_r*(dVdx.getX()[n0][k]-dVdx.getX()[n2][k])+
+      face_t*(dVdx.getX()[n1][k]-dVdx.getX()[n2][k]);
+    Vfg[k][1] = dVdx.getY()[n2][k] + face_r*(dVdx.getY()[n0][k]-dVdx.getY()[n2][k])+
+      face_t*(dVdx.getY()[n1][k]-dVdx.getY()[n2][k]);
+    Vfg[k][2] = dVdx.getZ()[n2][k] + face_r*(dVdx.getZ()[n0][k]-dVdx.getZ()[n2][k])+
+      face_t*(dVdx.getZ()[n1][k]-dVdx.getZ()[n2][k]);
+  }
+
+  double r = 2.0;
+  for (int k = 0; k < dim; ++k) {
+
+    if (fabs(V[i][k]-Vf[k] ) > 1.0e-8)
+      r = std::min<double>(r, (Vfg[k][0]*vec[0]+
+			       Vfg[k][1]*vec[1]+
+			       Vfg[k][2]*vec[2])/(V[i][k]-Vf[k])-1.0);
+    else
+      r = 0.0;
+  }
   
+  return std::max<double>(r,0.0);
 }
-*/
