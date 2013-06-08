@@ -1108,14 +1108,23 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	if (!higherOrderMF->isCellCut(i) && 
 	    !higherOrderMF->isCellCut(j)) {
 	  
-	  //double ri = higherOrderMF->estimateR(l, 0, i, V, dVdx, X);
-	  //double rj = higherOrderMF->estimateR(l, 1, j, V, dVdx, X);
+	  double ri = higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId);
+	  double rj = higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId);
+
+	  double betai = 0.0,betaj = 0.0;
+	  if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
+	    betai = std::min<double>(betai,ri);
+	  if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0)
+	    betaj = std::min<double>(betaj,rj);
+	  
+
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
 	  if (s < 0.9) {
 	    for (int k = 0; k < dim; ++k) {
-	      Vi[k] = V[i][k]+dVdx[i][k]*(iloc[0]-X[i][0])+
-		dVdy[i][k]*(iloc[1]-X[i][1])+
-		dVdz[i][k]*(iloc[2]-X[i][2]);
+	      Vi[k] = V[i][k]+
+		(dVdx[i][k]*(iloc[0]-X[i][0])+
+		 dVdy[i][k]*(iloc[1]-X[i][1])+
+		 dVdz[i][k]*(iloc[2]-X[i][2]))*betai;
 	    }
 	  } else {
 	    for (int k = 0; k < dim; ++k) {
@@ -1125,9 +1134,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	  if (s > 0.1) {
 	    for (int k = 0; k < dim; ++k) {
-	      Vj[k] = V[j][k]+dVdx[j][k]*(iloc[0]-X[j][0])+
-		dVdy[j][k]*(iloc[1]-X[j][1])+
-		dVdz[j][k]*(iloc[2]-X[j][2]);
+	      Vj[k] = V[j][k]+
+		(dVdx[j][k]*(iloc[0]-X[j][0])+
+		 dVdy[j][k]*(iloc[1]-X[j][1])+
+		 dVdz[j][k]*(iloc[2]-X[j][2]))*betaj;
 	    }
 	  } else {
 	    for (int k = 0; k < dim; ++k) {
@@ -1180,10 +1190,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  
 	  for (int k = 0; k < dim; ++k) {
 	    if (s < 0.9)
-	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s);
+	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai + 
+		(1.0-betai)*Wi[k];
 
 	    if (s > 0.1)
-	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s;
+	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj + 
+		(1.0-betaj)*Wj[k];
 	  }
 
           // Check for negative pressures/densities.
@@ -1228,7 +1240,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
 	    Vec<double> &weight = riemann.getRiemannWeight();
             double updatei[dim],updatej[dim];
-	    double alphai = 1.0, alphaj = 1.0;
+	    double alphai = 0.0, alphaj = 0.0;
 	    if (higherOrderMF->hasLastPhaseChangeValue<dim>(i)) {
 
 	      const double* Vk = 
