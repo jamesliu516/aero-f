@@ -988,7 +988,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       if (fluidId[i] == fluidId[j] && !higherOrderMF->isCellCut(i) &&
 	  !higherOrderMF->isCellCut(j)) {
-	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+	recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
+                        varFcn->getPressure(V[i],fluidId[i]),
+                        varFcn->getPressure(V[j],fluidId[j]),
+                        locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+	//recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
       } else {
 	isAtInterface = true;
 	if (higherOrderMF->isCellCut(i) &&higherOrderMF->isCellCut(j))
@@ -1104,6 +1108,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	if (!higherOrderMF->isCellCut(i) && 
 	    !higherOrderMF->isCellCut(j)) {
 	  
+	  //double ri = higherOrderMF->estimateR(l, 0, i, V, dVdx, X);
+	  //double rj = higherOrderMF->estimateR(l, 1, j, V, dVdx, X);
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
 	  if (s < 0.9) {
 	    for (int k = 0; k < dim; ++k) {
@@ -1222,9 +1228,34 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
 	    Vec<double> &weight = riemann.getRiemannWeight();
             double updatei[dim],updatej[dim];
+	    double alphai = 1.0, alphaj = 1.0;
+	    if (higherOrderMF->hasLastPhaseChangeValue<dim>(i)) {
+
+	      const double* Vk = 
+		higherOrderMF->getLastPhaseChangeValue<dim>(i);
+	      
+	      for (int k = 0; k < dim; ++k) {
+
+		double t = 2.0*fabs(Vi[k]-V[i][k]);
+		if (t > 1.0e-8)
+		  alphai = std::min<double>(alphai, fabs(V[i][k]-Vk[i])/t);
+	      }
+	    }
+	    if (higherOrderMF->hasLastPhaseChangeValue<dim>(j)) {
+
+	      const double* Vk = 
+		higherOrderMF->getLastPhaseChangeValue<dim>(j);
+	      
+	      for (int k = 0; k < dim; ++k) {
+
+		double t = 2.0*fabs(Vj[k]-V[j][k]);
+		if (t > 1.0e-8)
+		  alphaj = std::min<double>(alphaj, fabs(V[j][k]-Vk[j])/t);
+	      }
+	    }   
 	    for (int k = 0; k < dim; ++k) {
-              updatei[k] = (2.0*Vj[k]-V[j][k]);
-              updatej[k] = (2.0*Vi[k]-V[i][k]);
+              updatei[k] = (1.0+alphaj)*Vj[k]-alphaj*V[j][k];
+              updatej[k] = (1.0+alphai)*Vi[k]-alphai*V[i][k];
             }
             if (updatei[0] <= 0.0 || updatei[4] <= 0.0 || hasFix) {
 	      for (int k = 0; k < dim; ++k)
@@ -2108,15 +2139,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn, ElemSet& elems, 
-									 GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V, 
-									 SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
-									 Vec<int>& countWstarij, Vec<int>& countWstarji, 
-									 LevelSetStructure &LSS, bool linRecAtInterface, 
-									 Vec<int> &fluidId, int Nriemann, SVec<double,3> *Nsbar, 
-									 double dt, double alpha, NodalGrad<dim>& ngrad, 
-									 EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, int it,
+				     GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V, 
+				     SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
+				     Vec<int>& countWstarij, Vec<int>& countWstarji, 
+				     LevelSetStructure &LSS, bool linRecAtInterface, 
+				     Vec<int> &fluidId, int Nriemann, SVec<double,3> *Nsbar, 
+				     double dt, double alpha, NodalGrad<dim>& ngrad, 
+				     EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift, 
-									 V6NodeData (*v6data)[2])
+				     V6NodeData (*v6data)[2])
 {
   int farfieldFluid = 0; 
 

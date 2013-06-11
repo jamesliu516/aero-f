@@ -73,6 +73,12 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
     dom->createHigherOrderMultiFluid(cutCellVec);
     interfaceOrder = 2;
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
+      dom->getSubDomain()[iSub]->getHigherOrderMF()->
+	initialize<dim>(dom->getNodeDistInfo().subSize(iSub));
+
   }
 
   if (ioData.mf.interfaceOmitCells == 1) {

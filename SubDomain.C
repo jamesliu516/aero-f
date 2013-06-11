@@ -4720,12 +4720,19 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 
   int ierr = 0;
   int numclipping = 0;
+  int pclipping = 0;
+  int rhoclipping = 0;
+  int temp= 0;
   double V[dim];
   double rho,p;
 
   if(varFcn->doVerification())
-    for(int i=0; i<U.size(); i++)
-      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1,U[i],V);
+    for(int i=0; i<U.size(); i++){
+      temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1,U[i],V);
+      rhoclipping += temp % 2;
+      pclipping += temp/2;
+      numclipping += temp%2 + temp/2;
+    }
   else {
     for (int i=0; i<U.size(); ++i) {
       varFcn->conservativeToPrimitive(U[i], V);
@@ -4744,7 +4751,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
     }
   }
 
-  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += pclipping;
+  errorHandler->localErrors[ErrorHandler::DENSITY_CLIPPING] += rhoclipping;
   errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
   return ierr;
 }
@@ -4756,13 +4764,20 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
 {
   int ierr = 0;
   int numclipping = 0;
+  int pclipping = 0;
+  int rhoclipping = 0;
+  int temp= 0;
   double V[dim];
   double rho,p;
 
 
   if(varFcn->doVerification())
-    for(int i=0; i<U.size(); i++)
-      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+    for(int i=0; i<U.size(); i++){
+       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+       rhoclipping += temp % 2;
+       pclipping += temp/2;
+       numclipping += temp%2 + temp/2;
+    }   
   else {
     for (int i=0; i<U.size(); ++i) {
       varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
@@ -4791,7 +4806,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
     }
   }
 
-  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += pclipping;
+  errorHandler->localErrors[ErrorHandler::DENSITY_CLIPPING] += rhoclipping;
   errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
 
   return ierr;
@@ -4805,6 +4821,9 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
 {
   int ierr = 0;
   int numclipping= 0;
+  int pclipping = 0;
+  int rhoclipping = 0;
+  int temp= 0;
   double V[dim];
   double rho, p;
 
@@ -4836,7 +4855,10 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   else{
     for (int i=0; i<U.size(); ++i) {
 
-      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+      temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+      rhoclipping += temp % 2;
+      pclipping += temp/2;
+      numclipping += temp%2 + temp/2;
 
       if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
@@ -4858,7 +4880,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     }
   }
 
-  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += numclipping;
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += pclipping;
+  errorHandler->localErrors[ErrorHandler::DENSITY_CLIPPING] += rhoclipping;
   errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
   return ierr;
 }

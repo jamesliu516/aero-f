@@ -8,6 +8,7 @@ inline
 HigherOrderMultiFluid::HigherOrderMultiFluid(Vec<CutCellState*>& vs) : cutCells(vs) {
   
   cutCells = static_cast<CutCellState*>(0);
+  lastPhaseChangeState = NULL;
 }
 
 inline
@@ -291,3 +292,81 @@ void HigherOrderMultiFluid::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
     }
   }     
 }
+
+template<int dim>
+void HigherOrderMultiFluid::initialize(int numNodes) {
+
+  SVec<double,dim>* V = new SVec<double,dim>(numNodes);
+  *V = 0.0;
+
+  lastPhaseChangeState = static_cast<void*>(V);
+  
+}
+
+template <int dim>
+bool HigherOrderMultiFluid::hasLastPhaseChangeValue(int nodeId) {
+
+  SVec<double,dim>* V = static_cast<SVec<double,dim>*>(lastPhaseChangeState);
+  for (int i = 0; i < dim; ++i) {
+
+    if ((*V)[nodeId][i] != 0.0)
+      return true;
+  }
+  
+  return false;
+}
+
+template <int dim>
+const double* HigherOrderMultiFluid::
+getLastPhaseChangeValue(int nodeId) {
+
+  SVec<double,dim>* V = 
+    static_cast<SVec<double,dim>*>(lastPhaseChangeState);
+  
+  return (*V)[nodeId];
+}
+
+template <int dim>
+void HigherOrderMultiFluid::
+setLastPhaseChangeValue(int nodeId,const double* v) {
+
+  SVec<double,dim>* V = 
+    static_cast<SVec<double,dim>*>(lastPhaseChangeState);
+
+  memcpy((*V)[nodeId], v ,sizeof(double)*dim);
+}
+/*
+template <int dim>
+double HigherOrderMultiFluid::
+estimateR(int l, int vertex, 
+	  int i, SVec<double,dim>& V, 
+	  NodalGrad<dim>& dVdx, SVec<double,3>& X,
+	  Vec<int>& fluidId) {
+
+  int idxTet = v6data[l][vertex].tet;
+  int idxFace = v6data[l][vertex].face;
+  double face_r = v6data[l][vertex].r;
+  double face_t = v6data[l][vertex].t;
+
+  if ((idxTet<0)||(idxTet>=elems.size()))
+    return 0.0;
+
+  int myfid = fluidId[i];
+
+  Elem& elem = elems[idxTet];
+  for (int k = 0; k < 4; ++k) {
+
+    if (fluidId[elem.nodeNum(k)] != myfid)
+      return 0.0;
+  }
+
+  int n0_loc = elems[idxTet].faceDef(idxFace, 0);
+  int n1_loc = elems[idxTet].faceDef(idxFace, 1);
+  int n2_loc = elems[idxTet].faceDef(idxFace, 2);
+  int n0 = elems[idxTet].nodeNum(n0_loc);
+  int n1 = elems[idxTet].nodeNum(n1_loc);
+  int n2 = elems[idxTet].nodeNum(n2_loc);
+  
+  
+}
+*/

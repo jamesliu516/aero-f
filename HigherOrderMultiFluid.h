@@ -77,7 +77,25 @@ class HigherOrderMultiFluid {
 
    template<int dim>
      void getCutCellData(int,int fid,double V[dim], double x[dim][3]);
-   
+
+   template<int dim>
+     void initialize(int numNodes);
+
+   template <int dim>
+     bool hasLastPhaseChangeValue(int nodeId);
+
+   template <int dim>
+     const double* getLastPhaseChangeValue(int nodeId);
+
+   template <int dim>
+     void setLastPhaseChangeValue(int nodeId,const double*);
+
+   template <int dim>
+     double estimateR(int l, int vertex, 
+		      int i, SVec<double,dim>& V, 
+		      NodalGrad<dim>& dVdx, SVec<double,3>& X,
+		      Vec<int>& fluidId);
+
   private:
    /*
     DistVec<int>* nodeStatus[dimLS];
@@ -108,6 +126,8 @@ class HigherOrderMultiFluid {
    Vec<CutCellState*>& cutCells;
 
    int numCutCells;
+
+   void* lastPhaseChangeState;
 };
 
 #include <HigherOrderMultiFluid.C>
