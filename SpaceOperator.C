@@ -109,10 +109,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   fet = createFemEquationTerm(ioData);
   volForce = createVolumicForceTerm(ioData);
 
-  T = 0;
-  if (fet && ioData.embed.viscousinterfaceorder == EmbeddedFramework::SECOND)
-    T = new DistVec<double>(domain->getNodeDistInfo());
-
   if (ioData.problem.type[ProblemData::LINEARIZED])  {
     use_modal = true;
     if (ioData.linearizedData.domain == LinearizedData::FREQUENCY)  {
@@ -159,7 +155,6 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   bcData = spo.bcData;
   geoState = spo.geoState;
   V = spo.V;
-  T = spo.T;
 
   bcFcn = spo.bcFcn;
   fluxFcn = spo.fluxFcn;
@@ -199,7 +194,6 @@ SpaceOperator<dim>::~SpaceOperator()
 
   if (locAlloc) {
     if (V) delete V;
-    if (T) delete T;
     if (bcFcn) delete bcFcn;
     if (fluxFcn) {
         fluxFcn += BC_MIN_CODE;
@@ -1172,14 +1166,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
   }
 
-  if (fet) {
-    if (viscSecOrder) {
-      varFcn->computeTemperature(*V,*T,&fluidId);
-      ngrad->computeTemperatureGradient(geoState->getConfig(), X, ctrlVol, 
-                     fluidId, *T, distLSS);
-    }
+  if (fet)
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -1267,14 +1255,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
   }
 
-  if (fet) {
-    if (viscSecOrder) {
-      varFcn->computeTemperature(*V,*T,&fluidId);
-      ngrad->computeTemperatureGradient(geoState->getConfig(), X, ctrlVol, 
-                     fluidId, *T, distLSS);
-    }
+  if (fet)
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -1666,6 +1648,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 
   if (fet) {
     domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,ctrlVol, *V,A,ghostPoints,distLSS);
+    domain->populateGhostJacobian(ghostPoints,U,fluxFcn,varFcn,distLSS,fluidId,A);
   }
   //if (fet)
   //  domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
@@ -2531,14 +2514,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   */  
   }
 
-  if (this->fet) {
-    if (viscSecOrder) {
-      this->varFcn->computeTemperature(*(this->V),*(this->T),fluidSelector.fluidId);
-      this->ngrad->computeTemperatureGradient(this->geoState->getConfig(), X, ctrlVol, 
-                     *fluidSelector.fluidId, *(this->T), distLSS);
-    }
+  if (this->fet)
     this->populateGhostPoints(ghostPoints,X,U,this->varFcn,distLSS,viscSecOrder,*fluidSelector.fluidId);
-  }
 
   if (this->egrad)
     this->egrad->compute(this->geoState->getConfig(), X);
