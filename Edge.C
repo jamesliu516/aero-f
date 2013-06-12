@@ -1111,13 +1111,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  double ri = higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId);
 	  double rj = higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId);
 
-	  double betai = 0.0,betaj = 0.0;
-	  if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
+	  double betai = 1.0,betaj = 1.0;
+	  /*if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
 	    betai = std::min<double>(betai,ri);
 	  if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0)
 	    betaj = std::min<double>(betaj,rj);
-	  
+	  */
 
+          std::cout << "s = " << s << std::endl;
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
 	  if (s < 0.9) {
 	    for (int k = 0; k < dim; ++k) {
@@ -1174,8 +1175,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             }
           }
  */
-	  errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+	  int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 					 Wi,Wj,i,j,l,dx,true);
+
+          if (err) {
+
+            std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+          }
+          errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 /*
           if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
 
@@ -1240,8 +1247,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
 	    Vec<double> &weight = riemann.getRiemannWeight();
             double updatei[dim],updatej[dim];
-	    double alphai = 0.0, alphaj = 0.0;
-	    if (higherOrderMF->hasLastPhaseChangeValue<dim>(i)) {
+	    double alphai = 1.0, alphaj = 1.0;
+	    /*if (higherOrderMF->hasLastPhaseChangeValue<dim>(i)) {
 
 	      const double* Vk = 
 		higherOrderMF->getLastPhaseChangeValue<dim>(i);
@@ -1264,7 +1271,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 		if (t > 1.0e-8)
 		  alphaj = std::min<double>(alphaj, fabs(V[j][k]-Vk[j])/t);
 	      }
-	    }   
+	      }   */
 	    for (int k = 0; k < dim; ++k) {
               updatei[k] = (1.0+alphaj)*Vj[k]-alphaj*V[j][k];
               updatej[k] = (1.0+alphai)*Vi[k]-alphai*V[i][k];
@@ -1326,8 +1333,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             }
           }
 */
-	    errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
+	  int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
 					   Wi,Wj,i,j,l,dx,true);
+          if (err) {
+
+            std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+          }
+          errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 /*	 
           if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
 

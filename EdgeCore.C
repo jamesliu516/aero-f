@@ -115,7 +115,6 @@ void EdgeSet::createPointers(Vec<int> &newNum)
   }
 
 }
-
 //------------------------------------------------------------------------------
 
 #ifdef EDGE_LENGTH //HB: compute the edges'length for given nodes'coordinates
