@@ -41,6 +41,7 @@ TsParameters::TsParameters(IoData &ioData)
   checklargevelocity = ioData.ts.checkvelocity;
   checkpclipping = ioData.ts.checkpressure;
   rapidpchangecutoff = max(0,ioData.ts.deltapressurethreshold);
+  rapiddchangecutoff = max(0,ioData.ts.deltadensitythreshold);
 
   ser = ioData.ts.cfl.ser;
   angle_growth = ioData.ts.cfl.angle_growth;
@@ -124,6 +125,11 @@ void TsParameters::resolveErrors(){
     //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
+  if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY] >= rapiddchangecutoff){
+    errorHandler->com -> printf(1,"Detected multiple rapidly changing density. Reducing time step.\n");
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+  }
   errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME] = errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP];
 
 }

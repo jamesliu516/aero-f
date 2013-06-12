@@ -78,8 +78,12 @@ class DistGeoState {
 public:
 
   DistGeoState(IoData &, Domain *);
+
+  // These two are used (only?) for multigrid
   DistGeoState(const GeoData &, Domain *, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo,
                DistInfo& faceNormDistInfo);
+  DistGeoState(const GeoData &, Domain *, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo);
+
   ~DistGeoState();
 
   GeoState &operator() (int i) const { return *subGeoState[i]; }
