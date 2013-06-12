@@ -1627,6 +1627,7 @@ struct TsData {
   int checkpressure;
   int checkdensity;
   int deltapressurethreshold;
+  int deltadensitythreshold;
 
   double programmedBurnShockSensor;
   double rapidPressureThreshold;

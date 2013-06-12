@@ -47,6 +47,7 @@ public:
   int checkriemann;
   int checklargevelocity;
   int rapidpchangecutoff;
+  int rapiddchangecutoff;
   int checkpclipping;
   int checkrhoclipping;
 

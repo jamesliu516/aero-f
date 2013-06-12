@@ -4,17 +4,17 @@
 
 #include "FemEquationTerm.h"
 
-AgglomeratedFace::AgglomeratedFace() : node(0), code(0), normal(0.0), area(0.0) {
+AgglomeratedFace::AgglomeratedFace() : node(0), code(0), normal(0.0), area(0.0),masterFlag(true) {
 
 }
 
 AgglomeratedFace::AgglomeratedFace(int node, int code) : node(node), code(code), normal(0.0),
-                                    area(0.0) {
+                                    area(0.0),masterFlag(true) {
 
 }
 
 AgglomeratedFace::AgglomeratedFace(const AgglomeratedFace& oth) :
-  node(oth.node), code(oth.code), normal(oth.normal) {
+  node(oth.node), code(oth.code), normal(oth.normal),masterFlag(oth.masterFlag) {
 
 }
 

@@ -161,7 +161,7 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 				   (higherOrderMF ? higherOrderMF->isCellCut(i) : false)) != 0) {
       return i;
     }
-    if (fluidId[i] != fluidIdn[i]) {
+    if (higherOrderMF && fluidId[i] != fluidIdn[i]) {
       higherOrderMF->setLastPhaseChangeValue<dim>(i, V[i]);
     }
     // lriemann[0] can be used for all interfaces, because  this routine does
