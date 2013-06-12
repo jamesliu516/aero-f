@@ -6,6 +6,8 @@
 
 #include <NodalGrad.h>
 
+struct V6NodeData;
+
 class HigherOrderMultiFluid {
 
   public:
@@ -79,7 +81,7 @@ class HigherOrderMultiFluid {
      void getCutCellData(int,int fid,double V[dim], double x[dim][3]);
 
    template<int dim>
-     void initialize(int numNodes);
+     void initialize(int numNodes,ElemSet&, V6NodeData (*)[2]);
 
    template <int dim>
      bool hasLastPhaseChangeValue(int nodeId);
@@ -128,6 +130,10 @@ class HigherOrderMultiFluid {
    int numCutCells;
 
    void* lastPhaseChangeState;
+
+   ElemSet* elems;
+
+   V6NodeData (*v6data)[2];
 };
 
 #include <HigherOrderMultiFluid.C>

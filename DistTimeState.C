@@ -1448,7 +1448,7 @@ struct SetFirstOrderNodes {
       
       if (fabs(vnew[0]-vold[0])/vold[0] > threshold) {
 	status = 1;
-	//errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE]++;
+	errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY]++;
       }
     }
   }

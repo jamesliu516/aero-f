@@ -20,6 +20,28 @@ template<class Scalar, int dim> class DistSVec;
 
 typedef Aerof_unordered_set<int>::type PriorityNodes;
 
+struct NeighborDomain {
+
+  int id;
+  // Vector pair of nodes (global, local)
+  std::vector<std::pair<int,int> > sharedNodes;
+};
+
+struct MultigridSubdomain {
+
+  std::vector<int> ownedNodes;
+  std::vector<int> sharedNodes;
+
+  int numNodes;
+
+  std::map<int, NeighborDomain*> neighbors;
+
+  int* localNodeMapping;
+
+  double* nodeVolumes;
+  Vec3D* X;
+};
+
 template<class Scalar>
 class MultiGridLevel {
   private:
@@ -38,6 +60,10 @@ class MultiGridLevel {
     CommPattern<double> * offDiagMatPattern;
     CommPattern<double> * edgeAreaPattern;
     CommPattern<double> * edgeVecPattern;
+
+    Connectivity * subToSub;
+    SubDTopo* levelSubDTopo;
+
     Connectivity ** sharedNodes;
     Connectivity** nodeToNodeMaskILU;
     int maxNodesPerSubD;
@@ -54,7 +80,9 @@ class MultiGridLevel {
     std::list<Vec3D>** nodeNormals;
 
     bool useVolumeWeightedAverage;
- 
+    
+    MultigridSubdomain* mgSubdomains;
+
   protected:
     DistInfo * nodeDistInfo;
     DistInfo * edgeDistInfo;
@@ -120,6 +148,11 @@ class MultiGridLevel {
 
   public:
     MultiGridLevel(MultiGridMethod,MultiGridLevel*,Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
+
+    MultiGridLevel(MultiGridLevel* parent,
+		   Domain& domain,const char* fn_base,
+		   int dim, int neq1, int neq2,
+		   GeoSource& geoSource);
 
     // level1 is finer than level2
     //MultiGridLevel(MultiGridLevel& level1, MultiGridLevel& level2);

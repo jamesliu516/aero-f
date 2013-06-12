@@ -7,6 +7,8 @@
 #include <set>
 #include <mpi.h>
 
+#include <GeoSource.h>
+
 template<class Scalar>
 MultiGridLevel<Scalar>::MultiGridLevel(MultiGridMethod mgm,MultiGridLevel* mg, Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo)
   : nodeIdPattern(0), nodeVolPattern(0), nodePosnPattern(0),nodeVecPattern(0), domain(domain),
@@ -59,6 +61,244 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
   nodeVecPatternEq1 = NULL;
   nodeVecPatternEq2 = NULL;
 }
+
+struct agg_face {
+
+  int node_id;
+  int code;
+  Vec3D normal;
+  double area;
+};
+
+struct loc_edge {
+
+  std::pair<int,int> ij;
+  double area;
+  Vec3D normal;
+  bool owned;
+};
+
+// Read the multigrid level from a file
+template<class Scalar>
+MultiGridLevel<Scalar>::MultiGridLevel(MultiGridLevel* parent,
+				       Domain& domain,const char* fn_base,
+				       int dim, int neq1, int neq2,
+				       GeoSource& geoSource): domain(domain) {
+
+
+  DistInfo& dI = domain.getNodeDistInfo();
+
+  int *neighCPUcount = new int[dI.numGlobSub];
+
+  subToSub = new Connectivity(dI.numGlobSub, neighCPUcount);
+  
+  FILE* fin_base = fopen(fn_base,"rb");
+  for (int i = 0 ; i < dI.numGlobSub; ++i)
+    fread((*subToSub)[i],sizeof(int), neighCPUcount[i],fin_base);
+
+  fclose(fin_base);
+
+  Communicator* com = domain.getCommunicator();
+  levelSubDTopo = new SubDTopo(com->cpuNum(), subToSub, geoSource.getCpuToSub());
+
+  //nodeIdPattern = new CommPattern<int>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<int>::CopyOnSend);
+  //nodeVolPattern = new CommPattern<double>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+  nodeVecPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+  
+  if (neq2 > 0) {
+    nodeVecPatternEq1 = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+    nodeVecPatternEq2 = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+  }
+  nodePosnPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+  matPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+
+  numLocSub = domain.getNumLocSub();
+  
+  nodeDistInfo = new DistInfo(dI.numLocThreads, dI.numLocSub, dI.numGlobSub,
+			      dI.locSubToGlobSub, dI.com);
+
+  DistInfo& edI = domain.getEdgeDistInfo();
+  edgeDistInfo = new DistInfo(dI.numLocThreads, dI.numLocSub, dI.numGlobSub,
+			      dI.locSubToGlobSub, dI.com);
+  int s;
+
+  agglomeratedFaces = new AgglomeratedFaceSet*[numLocSub];
+  edges = new EdgeSet*[numLocSub];
+
+  mgSubdomains = new MultigridSubdomain[numLocSub];
+  std::vector<loc_edge>* myEdgesArray = new std::vector<loc_edge>[numLocSub];
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    SubDomain * S = domain.getSubDomain()[iSub];
+    int glnum = S->getGlobSubNum();
+    MultigridSubdomain& SD = mgSubdomains[iSub];
+    
+    char fn[256];
+    sprintf(fn,"%s.%d",fn_base,glnum+1);
+        
+    FILE* fin = fopen(fn,"rb");
+    fread(&s, sizeof(int), 1, fin);
+    SD.ownedNodes.resize(s);
+    fread(&SD.ownedNodes[0], sizeof(int), s, fin);
+
+    fread(&s, sizeof(int), 1, fin);
+    SD.sharedNodes.resize(s);
+    fread(&SD.sharedNodes[0], sizeof(int), s, fin);
+
+    SD.numNodes = SD.ownedNodes.size() + SD.sharedNodes.size();
+
+    nodeDistInfo->setLen(iSub, SD.numNodes);
+    
+    double* tmp = new double[SD.numNodes*4];
+    fread(tmp, sizeof(double),SD.numNodes*4,fin);
+    
+    SD.nodeVolumes = new double[SD.numNodes];
+    SD.X = new Vec3D[SD.numNodes];
+    
+    for (int i = 0; i < SD.numNodes; ++i) {
+
+      SD.nodeVolumes[i] = tmp[i*4];
+      SD.X[i] = Vec3D(tmp[i*4+1],tmp[i*4+2],tmp[i*4+3]);
+    }
+
+    delete [] tmp;    
+    
+    // Read in the faces
+    std::vector<agg_face> myFacesOwned, myFacesShared;
+
+    fread(&s, sizeof(int), 1, fin);
+    myFacesOwned.resize(s);
+    for (int i = 0; i < s; ++i) {
+
+      fread(&myFacesOwned[i].node_id,sizeof(int),1, fin);
+      fread(&myFacesOwned[i].code,sizeof(int),1, fin);
+      fread(&myFacesOwned[i].normal,sizeof(Vec3D),1, fin);
+      fread(&myFacesOwned[i].area,sizeof(double),1, fin);
+    }
+  
+    fread(&s, sizeof(int), 1, fin);
+    myFacesShared.resize(s);
+    for (int i = 0; i < s; ++i) {
+
+      fread(&myFacesShared[i].node_id,sizeof(int),1, fin);
+      fread(&myFacesShared[i].code,sizeof(int),1, fin);
+      fread(&myFacesShared[i].normal,sizeof(Vec3D),1, fin);
+      fread(&myFacesShared[i].area,sizeof(double),1, fin);
+    }
+
+    agglomeratedFaces[iSub] = new AgglomeratedFaceSet(myFacesOwned.size() + 
+						      myFacesShared.size());
+    
+    
+    for (int i = 0; i < myFacesOwned.size(); ++i) {
+
+      AgglomeratedFace A(myFacesOwned[i].node_id, myFacesOwned[i].code);
+      A.getArea() = myFacesOwned[i].area;
+      A.getNormal() = myFacesOwned[i].normal;
+      (*agglomeratedFaces[iSub])[i] = A;
+    }
+    
+    for (int i = 0; i < myFacesShared.size(); ++i) {
+
+      AgglomeratedFace A(myFacesShared[i].node_id, myFacesShared[i].code);
+      A.getArea() = myFacesShared[i].area;
+      A.getNormal() = myFacesShared[i].normal;
+      A.getMasterFlag() = false;
+      (*agglomeratedFaces[iSub])[myFacesOwned.size()+i] = A;
+    }
+
+    edges[iSub] = new EdgeSet;
+    std::vector<loc_edge>& myEdges = myEdgesArray[iSub];
+    fread(&s, sizeof(int), 1, fin);
+    for (int i = 0; i < s; ++i) {
+
+      loc_edge E;
+      fread(&E.ij, sizeof(E.ij),1,fin);
+      fread(&E.area, sizeof(E.area),1,fin);
+      fread(&E.normal, sizeof(E.normal),1,fin);
+      E.owned = true;
+      myEdges.push_back(E);
+      edges[iSub]->find(E.ij.first,E.ij.second);
+    }
+      
+    fread(&s, sizeof(int), 1, fin);
+    for (int i = 0; i < s; ++i) {
+
+      loc_edge E;
+      fread(&E.ij, sizeof(E.ij),1,fin);
+      fread(&E.area, sizeof(E.area),1,fin);
+      fread(&E.normal, sizeof(E.normal),1,fin);
+      E.owned = false;
+      myEdges.push_back(E);
+      edges[iSub]->find(E.ij.first,E.ij.second);
+    }  
+    
+    edgeDistInfo->setLen(iSub, myEdges.size());
+
+    Vec<int> newNum(edges[iSub]->size());
+    edges[iSub]->createPointers(newNum);
+    edges[iSub]->setMasterFlag(new bool[edges[iSub]->size()]);
+
+    for (int i = 0; i < myEdges.size(); ++i) {
+
+      int l = newNum[i];
+      edges[iSub]->getMasterFlag()[l] = myEdges[i].owned;
+    }
+
+    fread(&s, sizeof(int), 1, fin);
+
+    int t,u;
+
+    for (int i = 0; i < s; ++i) {
+
+      fread(&t, sizeof(int), 1, fin);
+      NeighborDomain* N = new NeighborDomain;
+      
+      fread(&N->id,sizeof(int),1,fin);
+      
+      fread(&u, sizeof(int), 1, fin);
+      
+      N->sharedNodes.resize(u);
+      fread(&N->sharedNodes[0], sizeof(std::pair<int,int>),u, fin);
+      mgSubdomains[iSub].neighbors[t] = N;
+    }
+    
+  }
+  
+  nodeDistInfo->finalize(true);
+  edgeDistInfo->finalize(true);
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    memset(nodeDistInfo->getMasterFlag(iSub), 0, sizeof(bool)*nodeDistInfo->subSize(iSub));
+    for (int i = 0; i < mgSubdomains[iSub].ownedNodes.size(); ++i)
+      nodeDistInfo->getMasterFlag(iSub)[i] = true;
+  }
+  
+  
+  myGeoState = new DistGeoState(parent->myGeoState->getGeoData(),&domain,
+                                *nodeDistInfo,*edgeDistInfo);
+
+  edgeArea = new DistVec<double>(*edgeDistInfo);
+  *edgeArea = 0.0;
+
+  edgeNormals = &myGeoState->getEdgeNormal();//new DistVec<Vec3D>(*edgeDistInfo);  
+  *edgeNormals = Vec3D(0.0);
+
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    std::vector<loc_edge>& myEdges = myEdgesArray[iSub];
+    for (int i = 0; i < myEdges.size(); ++i) {
+
+      int l = edges[iSub]->find(myEdges[i].ij.first, myEdges[i].ij.second);
+      (*edgeNormals)(iSub)[l] = myEdges[i].normal;
+      (*edgeArea)(iSub)[l] = myEdges[i].area;
+    }
+  }
+  
+
+}
+
 /*
 template<class Scalar>
 void MultiGridLevel<Scalar>::MultiGridLevel(MultiGridLevel& level1, MultiGridLevel& level2) :

@@ -75,6 +75,8 @@ class AgglomeratedFace {
 
   double& getArea() { return area; }
 
+  bool& getMasterFlag() { return masterFlag; }
+
  private:
 
   int code;
@@ -84,6 +86,8 @@ class AgglomeratedFace {
   Vec3D normal;
  
   double area;
+
+  bool masterFlag;
 };
 
 class AgglomeratedFaceSet {

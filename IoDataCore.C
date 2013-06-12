@@ -2865,6 +2865,7 @@ TsData::TsData()
   checkpressure = 1;
   checkdensity = 1;
   deltapressurethreshold = 40;
+  deltadensitythreshold = 40;
 
   residual = -1;
   // These variables stay here for back compatibility
@@ -2882,8 +2883,8 @@ TsData::TsData()
 
   output = "";
 
-  rapidPressureThreshold = -1.0;
-  rapidDensityThreshold = -1.0;
+  rapidPressureThreshold = 0.2;
+  rapidDensityThreshold = 0.2;
 }
 
 //------------------------------------------------------------------------------
@@ -2931,7 +2932,8 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "TimeStepInitial", this, &TsData::timestepinitial);
   new ClassDouble<TsData>(ca, "MaxTime", this, &TsData::maxTime);
   new ClassInt<TsData>(ca, "Residual", this, &TsData::residual);
-  new ClassInt<TsData>(ca, "DeltaPressureThreshold", this, &TsData::deltapressurethreshold);
+  new ClassInt<TsData>(ca, "CardinalDeltaPressure", this, &TsData::deltapressurethreshold);
+  new ClassInt<TsData>(ca, "CardinalDeltaDensity", this, &TsData::deltadensitythreshold);
   new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
   new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
@@ -2940,8 +2942,8 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
-  new ClassDouble<TsData>(ca, "RapidPressureThreshold", this, &TsData::rapidPressureThreshold);
-  new ClassDouble<TsData>(ca, "RapidDensityThreshold", this, &TsData::rapidDensityThreshold);
+  new ClassDouble<TsData>(ca, "ThresholdDeltaPressure", this, &TsData::rapidPressureThreshold);
+  new ClassDouble<TsData>(ca, "ThresholdDeltaDensity", this, &TsData::rapidDensityThreshold);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
   new ClassDouble<TsData>(ca, "ProgrammedBurnShockSensor", this, &TsData::programmedBurnShockSensor); // Moved from ProgrammedBurn to TsData.
