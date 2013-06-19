@@ -29,6 +29,9 @@ MultiGridKernel<Scalar>::MultiGridKernel(Domain *dom, DistGeoState& distGeoState
 
   coarsen4to1 = (ioData.mg.coarseningRatio == MultiGridData::FOURTOONE);
 
+  agglomerationFile = ioData.mg.agglomerationFile;
+
+  ref_length = ioData.ref.length;
 }
 
 template<class Scalar>
@@ -58,54 +61,71 @@ void MultiGridKernel<Scalar>::initialize(int dim,int neq1,int neq2) {
   multiGridLevels[0] = new MultiGridLevel<Scalar>(mgm,NULL,*domain, domain->getNodeDistInfo(), domain->getEdgeDistInfo());
   multiGridLevels[0]->copyRefinedState(domain->getNodeDistInfo(), domain->getEdgeDistInfo(),domain->getInletNodeDistInfo(), domain->getFaceDistInfo(),geoState, *domain,dim,neq1,neq2);
 
-  int maxNumNodesPerAgglom = 6;
-  if (coarsen4to1)
-    maxNumNodesPerAgglom = 3;
+  if (strcmp(agglomerationFile,"") == 0) {
 
-  char top_file_name[256];
-  for(int level = 0; level < num_levels-1; ++level) {
-    multiGridLevels[level+1] = new MultiGridLevel<Scalar>(mgm,multiGridLevels[level],*domain, multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
-    multiGridLevels[level+1]->agglomerate(multiGridLevels[level]->getNodeDistInfo(),
-                                          multiGridLevels[level]->getEdgeDistInfo(),
-                                          multiGridLevels[level]->getIdPat(),
-                                          multiGridLevels[level]->getSharedNodes(),
-                                          multiGridLevels[level]->getConnectivity(),
-                                          multiGridLevels[level]->getEdges(),
-                                          multiGridLevels[level]->getSharedEdges(),
-                                          multiGridLevels[level]->getNumSharedEdges(),
-                                          *domain,dim,neq1,neq2,
-                                          multiGridLevels[level]->getEdgeNormals(),
-                                          multiGridLevels[level]->getEdgeAreaPointer(),
-                                          multiGridLevels[level]->getCtrlVol(),
-                                          NULL,beta, maxNumNodesPerAgglom);
+    int maxNumNodesPerAgglom = 6;
+    if (coarsen4to1)
+      maxNumNodesPerAgglom = 3;
 
-    if (coarsen4to1) {
+    char top_file_name[256];
+    for(int level = 0; level < num_levels-1; ++level) {
+      multiGridLevels[level+1] = new MultiGridLevel<Scalar>(mgm,multiGridLevels[level],*domain, multiGridLevels[level]->getNodeDistInfo(), multiGridLevels[level]->getEdgeDistInfo());
+      multiGridLevels[level+1]->agglomerate(multiGridLevels[level]->getNodeDistInfo(),
+                                            multiGridLevels[level]->getEdgeDistInfo(),
+                                            multiGridLevels[level]->getIdPat(),
+                                            multiGridLevels[level]->getSharedNodes(),
+                                            multiGridLevels[level]->getConnectivity(),
+                                            multiGridLevels[level]->getEdges(),
+                                            multiGridLevels[level]->getSharedEdges(),
+                                            multiGridLevels[level]->getNumSharedEdges(),
+                                            *domain,dim,neq1,neq2,
+                                            multiGridLevels[level]->getEdgeNormals(),
+                                            multiGridLevels[level]->getEdgeAreaPointer(),
+                                            multiGridLevels[level]->getCtrlVol(),
+                                            NULL,beta, maxNumNodesPerAgglom);
 
-      MultiGridLevel<Scalar>* mg2 = new MultiGridLevel<Scalar>(mgm,multiGridLevels[level+1],*domain, multiGridLevels[level+1]->getNodeDistInfo(), multiGridLevels[level+1]->getEdgeDistInfo());
-      mg2->agglomerate(multiGridLevels[level+1]->getNodeDistInfo(),
-                       multiGridLevels[level+1]->getEdgeDistInfo(),
-                       multiGridLevels[level+1]->getIdPat(),
-                       multiGridLevels[level+1]->getSharedNodes(),
-                       multiGridLevels[level+1]->getConnectivity(),
-                       multiGridLevels[level+1]->getEdges(),
-                       multiGridLevels[level+1]->getSharedEdges(),
-                       multiGridLevels[level+1]->getNumSharedEdges(),
-                       *domain,dim,neq1,neq2,
-                       multiGridLevels[level+1]->getEdgeNormals(),
-                       multiGridLevels[level+1]->getEdgeAreaPointer(),
-                       multiGridLevels[level+1]->getCtrlVol(),
-                       NULL,beta, maxNumNodesPerAgglom);
-      mg2->mergeFinerInto(*multiGridLevels[level+1]);
-      //delete multiGridLevels[level+1];
-      multiGridLevels[level+1] = mg2;
+      if (coarsen4to1) {
+
+        MultiGridLevel<Scalar>* mg2 = new MultiGridLevel<Scalar>(mgm,multiGridLevels[level+1],*domain, multiGridLevels[level+1]->getNodeDistInfo(), multiGridLevels[level+1]->getEdgeDistInfo());
+        mg2->agglomerate(multiGridLevels[level+1]->getNodeDistInfo(),
+                         multiGridLevels[level+1]->getEdgeDistInfo(),
+                         multiGridLevels[level+1]->getIdPat(),
+                         multiGridLevels[level+1]->getSharedNodes(),
+                         multiGridLevels[level+1]->getConnectivity(),
+                         multiGridLevels[level+1]->getEdges(),
+                         multiGridLevels[level+1]->getSharedEdges(),
+                         multiGridLevels[level+1]->getNumSharedEdges(),
+                         *domain,dim,neq1,neq2,
+                         multiGridLevels[level+1]->getEdgeNormals(),
+                         multiGridLevels[level+1]->getEdgeAreaPointer(),
+                         multiGridLevels[level+1]->getCtrlVol(),
+                         NULL,beta, maxNumNodesPerAgglom);
+        mg2->mergeFinerInto(*multiGridLevels[level+1]);
+        //delete multiGridLevels[level+1];
+        multiGridLevels[level+1] = mg2;
+      }
+
+      sprintf(top_file_name,"level%d",level+1);
+      multiGridLevels[level+1]->writePVTUFile(top_file_name);
+      sprintf(top_file_name,"agglevel%d",level+1);
+      multiGridLevels[level+1]->writePVTUAgglomerationFile(top_file_name);
+      domain->getCommunicator()->fprintf(stdout,"Agglomerated level %d\n", level+1);
+      fflush(stdout);
     }
+ 
+  } else {
 
-    sprintf(top_file_name,"level%d",level+1);
-    multiGridLevels[level+1]->writePVTUFile(top_file_name);
-    sprintf(top_file_name,"agglevel%d",level+1);
-    multiGridLevels[level+1]->writePVTUAgglomerationFile(top_file_name);
-    domain->getCommunicator()->fprintf(stdout,"Agglomerated level %d\n", level+1);
-    fflush(stdout);
+    for(int level = 0; level < num_levels-1; ++level) {
+
+      char base_name[256];
+      sprintf(base_name,"%s.%d",agglomerationFile,level+1);
+      multiGridLevels[level+1] = 
+        new MultiGridLevel<Scalar>(multiGridLevels[level],level+1,
+                                   ref_length,*domain,base_name,
+                                   dim,neq1,neq2,
+                                   domain->getGeoSource());
+
+    }
   }
 
   for(int level = 0; level < num_levels; ++level) {
@@ -197,12 +217,12 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
       if (vf->getPressure(Vl[i]) <= 0.0 ||
           vf->getDensity(Vl[i]) <= 0.0 /*|| (iSub == 0 && rnk == 17 && i == 1604 && lvl == 1)*/) {
 
-        fprintf(stderr,"lvl = %d iSub = %d, rank = %d\n", lvl,iSub, rnk);
-        fprintf(stderr,"Fixed negative value (p, rho) = (%lf, %lf) at"
-                       " node %d (x = [%lf, %lf, %lf])\n", vf->getPressure(Vl[i]), vf->getDensity(Vl[i]),
-                       i, X[i][0],X[i][1],X[i][2]);
+        //fprintf(stderr,"lvl = %d iSub = %d, rank = %d\n", lvl,iSub, rnk);
+        //fprintf(stderr,"Fixed negative value (p, rho) = (%lf, %lf) at"
+          //             " node %d (x = [%lf, %lf, %lf])\n", vf->getPressure(Vl[i]), vf->getDensity(Vl[i]),
+          //             i, X[i][0],X[i][1],X[i][2]);
 
-        Connectivity* con = multiGridLevels[lvl]->getConnectivity()[iSub];
+/*        Connectivity* con = multiGridLevels[lvl]->getConnectivity()[iSub];
         fprintf(stderr,"f[i] = [%e, %e, %e, %e, %e]\n",
                 fl[i][0], fl[i][1], fl[i][2], fl[i][3], fl[i][4]);
         fprintf(stderr,"U[i] = [%e, %e, %e, %e, %e]\n",
@@ -226,7 +246,8 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
 
 
         }
- 
+*/ 
+	std::cout << "Found negative value at node " << multiGridLevels[lvl]->getMgSubDomains()[0].locToGlobMap[i] << ", level " << lvl << std::endl;
         if (vf->getPressure(Vl[i]) > 0.0 && vf->getDensity(Vl[i]) > 0.0 ) continue;
 
         for (int k = 0; k < dim; ++k) {

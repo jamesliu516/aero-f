@@ -45,6 +45,8 @@ template<int dim>
 void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn, 
 	                                       SVec<double,dim> &V, 
 			                       double *Ub, SVec<double,dim> &fluxes) {
+  if (!masterFlag)
+    return;
 
   if(fluxFcn[code]){
     double flux[dim];
@@ -62,6 +64,9 @@ void AgglomeratedFace::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn,
 			   Vec<double> &idti, Vec<double> &idtv,
 			   TimeLowMachPrec &tprec)
 {
+  if (!masterFlag)
+    return;
+
   double S = sqrt(normal * normal);
   double invS = 1.0 / S;
 
@@ -104,6 +109,8 @@ template<int dim, class Scalar, int neq>
 void AgglomeratedFace::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, 
 			 	                       SVec<double,dim> &V, 
  				                       double *Ub, GenMat<Scalar,neq> &A) {
+  if (!masterFlag)
+    return;
 
   double jac[neq*neq];
 
@@ -127,6 +134,8 @@ computeThinLayerViscousFiniteVolumeTerm(class FemEquationTerm* fet,
                                         Vec<double>& d2wall,
                                         double* Vwall,
 			                SVec<double,dim> &fluxes) {
+  if (!masterFlag)
+    return;
 
   if (code == BC_SYMMETRY) return;
 
@@ -220,6 +229,8 @@ computeJacobianThinLayerViscousFiniteVolumeTerm(class FemEquationTerm* fet,
                                         Vec<double>& d2wall,
                                         double* Vwall,
                                         GenMat<Scalar,neq>& A) {
+  if (!masterFlag)
+    return;
 
   if (code == BC_SYMMETRY) return;
 

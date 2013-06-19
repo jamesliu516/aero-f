@@ -166,6 +166,8 @@ class Domain {
 
   Connectivity* mySubToSub;
 
+  GeoSource* pGeoSource;
+
 public:
 
   Domain();
@@ -223,6 +225,8 @@ public:
   DistInfo &getKirchhoffNodeDistInfo() const { return *kirchhoffNodeDistInfo; }
 
   ErrorHandler *getErrorHandler() const {return errorHandler;}
+
+  GeoSource& getGeoSource() { return *pGeoSource; }
 
   void getGeometry(GeoSource &, IoData&);
   void createRhsPat(int, IoData&);
@@ -402,11 +406,26 @@ public:
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistVec<int> &init, DistVec<int> &next_init,
                           DistLevelSetStructure *distLSS);
+
+  template<int dim>
+  void computeWeightsForFluidFluid(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+                          DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+                          DistVec<int> &init, DistVec<int> &next_init,
+				   DistLevelSetStructure *distLSS,DistVec<int>& fid);
+
   template<int dim>
   void computeWeightsLeastSquaresForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistVec<int> &init, DistVec<int> &next_init,
                           DistLevelSetStructure *distLSS);
+
+  template<int dim>
+  void computeWeightsLeastSquaresForFluidFluid(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+                          DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+                          DistVec<int> &init, DistVec<int> &next_init,
+					       DistLevelSetStructure *distLSS,DistVec<int>& fid,
+					       DistNodalGrad<dim>&, bool limit);
+
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 

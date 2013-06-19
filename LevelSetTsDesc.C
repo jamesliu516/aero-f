@@ -37,7 +37,8 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
   fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo()),
-  cutCellVec(this->getVecInfo()),cutCellStatus(this->getVecInfo())
+  cutCellVec(this->getVecInfo()),cutCellStatus(this->getVecInfo()),
+  VWeights(this->getVecInfo()), Weights(this->getVecInfo())
 
 {
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -68,7 +69,15 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
   }
 
+  phaseChangeType = 0;
+  
+  if (ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION) {
+
+    phaseChangeType = 1;
+  }
+
   interfaceOrder = 1;
+
   if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
 
     dom->createHigherOrderMultiFluid(cutCellVec);
@@ -95,6 +104,10 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     
     loadExactInterfaceFile(ioData, ioData.input.exactInterfaceLocation);
   }
+
+  limitHigherOrderExtrapolation = false;
+  if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+    limitHigherOrderExtrapolation = true;
 }
 
 //------------------------------------------------------------------------------
