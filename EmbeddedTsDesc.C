@@ -65,16 +65,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   }
 //  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
 
-  // Debug - To be deleted
-  std::ifstream forceCalculationType("forceCalculationType.txt");
-  if(forceCalculationType) {
-    int newVersion;
-    forceCalculationType>>newVersion;
-    if(newVersion) forceApp++;
-  }
-//  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
-
-
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
