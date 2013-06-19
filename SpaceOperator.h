@@ -448,6 +448,12 @@ public:
   void resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, 
                                  DistSVec<bool,2> &Tag);
 
+    void extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phaseChangeAlg,
+			   DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+			   DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+			   DistLevelSetStructure *distLSS, DistVec<int> &fluidId,
+				DistVec<int> &fluidIdn,bool limit = false);
+
   void findCutCells(DistSVec<double,dimLS>& phi,
 		    DistVec<int>& status,
 		    DistVec<int>& fluidId,

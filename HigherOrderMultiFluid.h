@@ -98,6 +98,10 @@ class HigherOrderMultiFluid {
 		      NodalGrad<dim>& dVdx, SVec<double,3>& X,
 		      Vec<int>& fluidId);
 
+   template <int dim>
+     double computeAlpha(int nodeId, const double* currentV,
+			 const double* neighborV);
+
   private:
    /*
     DistVec<int>* nodeStatus[dimLS];

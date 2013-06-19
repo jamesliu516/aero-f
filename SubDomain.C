@@ -5380,6 +5380,32 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
     }
 }
 
+template<int dim>
+void SubDomain::computeWeightsForFluidFluid(SVec<double,dim> &V, SVec<double,dim> &VWeights,
+					    Vec<double> &Weights, LevelSetStructure *LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init,
+					    Vec<int>& fluidId)
+{
+  const Connectivity &nToN = *getNodeToNode();
+  for(int currentNode=0;currentNode<numNodes();++currentNode)
+    if(init[currentNode]<1/* && LSS.isActive(0.0,currentNode)*/){
+      for(int j=0;j<nToN.num(currentNode);++j){
+        int neighborNode=nToN[currentNode][j];
+        if(currentNode == neighborNode || init[neighborNode]<1) continue;
+        int l = edges.findOnly(currentNode,neighborNode);
+        if(fluidId[currentNode] != fluidId[neighborNode]) continue;
+        else if(Weights[currentNode] < 1e-6){
+          Weights[currentNode]=1.0;
+          next_init[currentNode]=1;
+          for(int i=0;i<dim;++i)
+            VWeights[currentNode][i] = V[neighborNode][i];
+        } else {
+          Weights[currentNode] += 1.0;
+          for(int i=0;i<dim;++i)
+            VWeights[currentNode][i] += V[neighborNode][i];
+        }
+      }
+    }
+}
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
@@ -5427,6 +5453,85 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 	  }
     }
 }
+
+template<int dim>
+void SubDomain::computeWeightsLeastSquaresForFluidFluid(
+		SVec<double,3> &X, SVec<double,10> &R, SVec<double,dim> &V, Vec<double> &Weights, 
+		SVec<double,dim> &VWeights, LevelSetStructure *LSS, Vec<int> &init, Vec<int> &next_init,Vec<int>& fluidId,NodalGrad<dim>& DX,bool limit) 
+{
+  const Connectivity &nToN = *getNodeToNode();
+  bool *masterFlag = edges.getMasterFlag();
+  double lin_extrap[dim];
+  for (int currentNode=0; currentNode<numNodes(); ++currentNode)
+    if (init[currentNode]<1/* && LSS.isActive(0.0,currentNode)*/) {
+	  for (int j=0; j<nToN.num(currentNode); ++j) {
+		int neighborNode = nToN[currentNode][j];
+		if (currentNode==neighborNode || init[neighborNode]<1) continue;
+		int l = edges.findOnly(currentNode,neighborNode);
+	        if (!masterFlag[l]) continue;
+		if (fluidId[currentNode] != fluidId[neighborNode]) continue;
+		double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+				X[neighborNode][1]-X[currentNode][1],
+				X[neighborNode][2]-X[currentNode][2]};
+
+		next_init[currentNode] = 1;
+		/*else if (fabs(Weights[currentNode])<1e-6) {
+		  next_init[currentNode] = 1;
+		  if (R[currentNode][0]>0.0) {
+		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+		    				X[neighborNode][1]-X[currentNode][1],
+		    				X[neighborNode][2]-X[currentNode][2]};
+		    double W[4];
+		    Weights[currentNode] = -1.0;
+		    computeLocalWeightsLeastSquaresForEmbeddedStruct(dx,R[currentNode],W);
+		    //double alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
+								    
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] = W[3]*V[neighborNode][k];
+		  } else {
+			Weights[currentNode] = 1.0;
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] = V[neighborNode][k];
+		  }
+		} else {
+		  if (R[currentNode][0]>0.0) {
+		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+		    				X[neighborNode][1]-X[currentNode][1],
+		    				X[neighborNode][2]-X[currentNode][2]};
+		    double W[4];
+		    computeLocalWeightsLeastSquaresForEmbeddedStruct(dx,R[currentNode],W);
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += W[3]*V[neighborNode][k];
+		  }
+		  else {
+			Weights[currentNode] += 1.0;
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += V[neighborNode][k];
+		  }
+		  }*/
+
+		/*std::cout << "Computing weights using linear extrapolation, limit = " << limit << std::endl;
+		std::cout << "dx = [ " << DX.getX()[neighborNode][0]*dx[0] << " " << 
+		  DX.getY()[neighborNode][0]*dx[1] << " "  << DX.getZ()[neighborNode][0]*dx[2] << "]\n";
+		std::cout << "V[neighbor_node] = " << V[neighborNode][0] << std::endl;
+		std::cout << "curr_node = " << currentNode << std::endl;*/
+		Weights[currentNode] += 1.0;
+		for (int k=0; k<dim; ++k) {
+
+		  lin_extrap[k] = V[neighborNode][k]-DX.getX()[neighborNode][k]*dx[0]-
+		    DX.getY()[neighborNode][k]*dx[1]-
+		    DX.getZ()[neighborNode][k]*dx[2];
+		}
+
+		double alpha = 1.0;
+		if (limit)
+		  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
+							   lin_extrap);
+		
+		for (int k=0; k<dim; ++k)
+		  VWeights[currentNode][k] += lin_extrap[k]*(alpha)+
+		    V[neighborNode][k]*(1.0-alpha);
+		
+	  }
+    }
+}
+
 
 //------------------------------------------------------------------------------
 // who: active and "swept" nodes

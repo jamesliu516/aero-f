@@ -1118,7 +1118,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    betaj = std::min<double>(betaj,rj);
 	  */
 
-          std::cout << "s = " << s << std::endl;
+          //std::cout << "s = " << s << std::endl;
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
 	  if (s < 0.9) {
 	    for (int k = 0; k < dim; ++k) {

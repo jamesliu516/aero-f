@@ -222,6 +222,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   numLocSub = geoSource.getNumLocSub();
   subDomain = new SubDomain *[numLocSub];
 
+  pGeoSource = &geoSource;
+
 #ifdef _OPENMP
   numLocThreads = geoSource.getNumLocThreads();
   omp_set_num_threads(numLocThreads);

@@ -2531,6 +2531,8 @@ MultiGridData::MultiGridData()
   restrictMethod = VOLUME_WEIGHTED;
   addViscousTerms = 0;
   coarseningRatio = TWOTOONE;
+
+  agglomerationFile = "";
 }
 
 //------------------------------------------------------------------------------
@@ -2581,6 +2583,9 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
 &MultiGridData::restrict_relax_factor);
   
   fixes.setup("Fixes", ca);
+
+  new ClassStr<MultiGridData>
+    (ca, "AgglomerationFile", this, &MultiGridData::agglomerationFile);
 }
 
 //------------------------------------------------------------------------------

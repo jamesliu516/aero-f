@@ -68,6 +68,7 @@ class MultiGridKernel {
   void
   setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0);
 
+  double ref_length;
 
   bool isGeometric;
  
@@ -101,5 +102,7 @@ class MultiGridKernel {
   bool initialized;
 
   std::set<int>** fixLocations;
+
+  const char* agglomerationFile;
  
 };

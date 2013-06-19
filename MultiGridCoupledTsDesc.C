@@ -140,6 +140,35 @@ smooth0(DistSVec<double,dim>& x,int steps) {
     this->monitorConvergence(0, x);
     R(0) = -1.0*this->getCurrentResidual();
   }
+  double one = 1.0;
+  if (globalIt%10 == 1)  {
+    //this->domain->writeVectorToFile("myResidual", globalIt/10, globalIt, R(0), &one);
+
+    DistVec<double> rmag(R(0).info());
+    for (int iSub = 0; iSub < rmag.numLocSub(); ++iSub) {
+
+      for (int i = 0; i < rmag.subSize(iSub); ++i) {
+
+	rmag(iSub)[i] = 0.0;
+	for (int k = 0; k < dim; ++k)
+	  rmag(iSub)[i] += R(0)(iSub)[i][k]*R(0)(iSub)[i][k];
+      }
+    }
+    
+    double max_res = rmag.max();
+    
+    for (int iSub = 0; iSub < rmag.numLocSub(); ++iSub) {
+      
+      for (int i = 0; i < rmag.subSize(iSub); ++i) {
+
+	if (rmag(iSub)[i] == max_res) {
+
+	  std::cout << "Maximum residual = " << rmag(iSub)[i] << " at node " <<
+	    this->domain->getSubDomain()[iSub]->getNodeMap()[i]+1 << "; " << std::endl;
+	}
+      }
+    }
+  }
 }
 
 template <int dim>
@@ -200,7 +229,7 @@ void MultiGridCoupledTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
     //pKernel->fixNegativeValues(lvl+1,V(lvl+1), x(lvl+1), dx(lvl+1), F(lvl+1),Forig(lvl+1), this->varFcn);
     if (lvl == 0) {
 
-      pKernel->getLevel(lvl+1)->writePVTUSolutionFile("myR",R(lvl+1));
+    //  pKernel->getLevel(lvl+1)->writePVTUSolutionFile("myR",R(lvl+1));
     }
     pKernel->applyFixes(lvl+1, R(lvl+1));
     F(lvl+1) += R(lvl+1)*restrict_relax_factor;
