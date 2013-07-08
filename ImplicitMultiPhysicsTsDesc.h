@@ -22,13 +22,18 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
 
   MatVecProdMultiPhase<dim,dimLS> *mvp;
   KspPrec<dim> *pc;
-  KspSolver<DistSVec<double,dim>, MatVecProdMultiPhase<dim,dimLS>, KspPrec<dim>, Communicator> *ksp;
+  KspSolver<DistEmbeddedVec<double,dim>, MatVecProdMultiPhase<dim,dimLS>, 
+            KspPrec<dim>, Communicator> *ksp;
 
   MatVecProdLS<dim,dimLS> *mvpLS;
   KspPrec<dimLS> *pcLS;
   KspSolver<DistSVec<double,dimLS>, MatVecProdLS<dim,dimLS>, KspPrec<dimLS>, Communicator> *kspLS;
 
   NewtonSolver<ImplicitMultiPhysicsTsDesc<dim,dimLS> > *ns;
+
+  DistEmbeddedVec<double,dim> embeddedU,embeddedB,embeddeddQ;
+
+  DistVec<double>* hhResidual;
 
   int failSafeNewton;
   int maxItsNewton;
@@ -69,11 +74,15 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   KspPrec<neq> *createPreconditioner(PcData &, Domain *);
 
   template<int neq, class MatVecProdOp>
+  KspSolver<DistEmbeddedVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
+  createKrylovSolver(const DistInfo &info, KspData &kspdata,
+                     MatVecProdOp *_mvp, KspPrec<neq> *_pc,
+                     Communicator *_com);
+
+  template<int neq, class MatVecProdOp>
   KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>,
-  Communicator> *createKrylovSolver(const DistInfo &, KspData &,
-                                    MatVecProdOp *, KspPrec<neq> *, Communicator *);
-
-
+  Communicator> *createKrylovSolverLS(const DistInfo &, KspData &, 
+                                      MatVecProdOp *, KspPrec<neq> *, Communicator *);
 
  private:
 

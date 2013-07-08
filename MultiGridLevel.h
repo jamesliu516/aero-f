@@ -38,13 +38,25 @@ struct MultigridSubdomain {
 
   int* localNodeMapping;
 
+  int* ctrlVolCount;
+
+  int* locToGlobMap;
+
   double* nodeVolumes;
   Vec3D* X;
 };
 
 template<class Scalar>
 class MultiGridLevel {
-  private:
+
+ public:
+
+  enum AgglomerationType { AgglomerationLocal,
+			   AgglomerationGlobal };
+
+ private:
+
+  AgglomerationType agglomType;
 
     int my_dim, neq1,neq2;
 
@@ -82,6 +94,14 @@ class MultiGridLevel {
     bool useVolumeWeightedAverage;
     
     MultigridSubdomain* mgSubdomains;
+
+    inline int rcvChannel(int glSub,int neighb) const {
+      return levelSubDTopo->getChannelID(neighb,glSub);
+    }
+
+    inline int sndChannel(int glSub,int neighb) const {
+      return levelSubDTopo->getChannelID(glSub,neighb);
+    }
 
   protected:
     DistInfo * nodeDistInfo;
@@ -146,10 +166,20 @@ class MultiGridLevel {
 
     DistVec<double>* edgeArea;
 
+    template<class T,int dim>
+      void assembleInternal(DistMat<T,dim> & A) const;
+
+    template<class T,int dim>
+      void assembleInternal(DistSVec<T,dim> & A) const;
+
+    template<class T>
+      void assembleInternal(DistVec<T> & A) const;
+
   public:
     MultiGridLevel(MultiGridMethod,MultiGridLevel*,Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
 
-    MultiGridLevel(MultiGridLevel* parent,
+    MultiGridLevel(MultiGridLevel* parent,int level_num,
+                   double ref_length,
 		   Domain& domain,const char* fn_base,
 		   int dim, int neq1, int neq2,
 		   GeoSource& geoSource);
@@ -158,6 +188,8 @@ class MultiGridLevel {
     //MultiGridLevel(MultiGridLevel& level1, MultiGridLevel& level2);
 
     ~MultiGridLevel();
+
+    MultigridSubdomain* getMgSubDomains() { return mgSubdomains; }
 
     MultiGridLevel* getParent() { return parent; }
 

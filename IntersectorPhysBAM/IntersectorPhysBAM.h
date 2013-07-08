@@ -185,6 +185,10 @@ class IntersectorPhysBAM : public LevelSetStructure {
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
 
+    virtual CrackingSurface* getCrackingSurface() {
+      return distIntersector.cracking; 
+    }
+
     SubDomain &subD;
     EdgeSet &edges;
     DistIntersectorPhysBAM &distIntersector;

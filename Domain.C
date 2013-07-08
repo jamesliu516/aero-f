@@ -3720,7 +3720,9 @@ template<int dim>
 void Domain::computeWeightsLeastSquaresForEmbeddedStruct(
 			   DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
-               DistVec<int> &next_init, DistLevelSetStructure *distLSS)
+			   DistVec<int> &next_init, DistLevelSetStructure *distLSS,
+			   DistNodalGrad<dim>& DX, bool limit,
+			   DistVec<int>* fid)
 {
   int iSub;
   DistSVec<double,10> *R = new DistSVec<double,10>(getNodeDistInfo());
@@ -3745,8 +3747,10 @@ void Domain::computeWeightsLeastSquaresForEmbeddedStruct(
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    Vec<int>* subFid = (fid ? (&(*fid)(iSub)) : 0);
 	subDomain[iSub]->computeWeightsLeastSquaresForEmbeddedStruct(X(iSub),(*R)(iSub),V(iSub),
-			Weights(iSub),VWeights(iSub),(*distLSS)(iSub),init(iSub),next_init(iSub));
+								     Weights(iSub),VWeights(iSub),(*distLSS)(iSub),init(iSub),next_init(iSub),DX(iSub), limit, 
+						subFid);
   }
 
   assemble(vecPat, VWeights);
@@ -3757,6 +3761,75 @@ void Domain::computeWeightsLeastSquaresForEmbeddedStruct(
   if (count) delete count;
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeWeightsForFluidFluid(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+					 DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
+					 DistVec<int> &next_init, DistLevelSetStructure *distLSS,
+					 DistVec<int> &fluidId)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    subDomain[iSub]->computeWeightsForFluidFluid(V(iSub),VWeights(iSub),Weights(iSub),
+						 (distLSS ? &(*distLSS)(iSub) : NULL),
+						 X(iSub),
+						 init(iSub),next_init(iSub),
+						 fluidId(iSub));
+
+  assemble(vecPat, VWeights);
+  assemble(volPat, Weights);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeWeightsLeastSquaresForFluidFluid(
+			   DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+			   DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
+			   DistVec<int> &next_init, DistLevelSetStructure *distLSS,
+			   DistVec<int> &fluidId,DistNodalGrad<dim>& nodalgrad,
+			   bool limit)
+{
+  int iSub;
+  DistSVec<double,10> *R = new DistSVec<double,10>(getNodeDistInfo());
+  DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) { 
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePartForFF((distLSS ? &(*distLSS)(iSub): NULL),X(iSub),
+							     (*count)(iSub),(*R)(iSub),init(iSub),fluidId(iSub));
+	subDomain[iSub]->sndData(*weightPhaseChangePat,(*R).subData(iSub));
+	subDomain[iSub]->sndData(*levelPat,(*count).subData(iSub));
+  }
+  weightPhaseChangePat->exchange();
+  levelPat->exchange();
+ 
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+	  subDomain[iSub]->addRcvData(*(weightPhaseChangePat),(*R).subData(iSub));
+	  subDomain[iSub]->addRcvData(*levelPat,(*count).subData(iSub));
+	  subDomain[iSub]->computeWeightsLeastSquaresNodePartForFF((*count)(iSub),(*R)(iSub));
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+	subDomain[iSub]->computeWeightsLeastSquaresForFluidFluid(X(iSub),(*R)(iSub),V(iSub),
+			Weights(iSub),VWeights(iSub),(distLSS ? &(*distLSS)(iSub): NULL),
+								 init(iSub),next_init(iSub),
+								 fluidId(iSub),nodalgrad(iSub),
+								 limit);
+  }
+
+  assemble(vecPat, VWeights);
+  assemble(volPat, Weights);
+  operMax<int> opMax;
+  assemble(levelPat, next_init, opMax); // PJSA: added opMax here to fix integer overflow
+  if (R) delete R;
+  if (count) delete count;
+}
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>

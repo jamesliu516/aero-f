@@ -1439,6 +1439,8 @@ struct MultiGridData {
   int addViscousTerms;
 
   SchemeFixData fixes;
+
+  const char* agglomerationFile;
  
   MultiGridData();
   ~MultiGridData() {}

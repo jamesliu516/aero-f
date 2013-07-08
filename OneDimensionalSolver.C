@@ -1118,6 +1118,9 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	      //std::cout << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j+1][k] << " " << V[i-1][k] << " " << V[j+2][k] << std::endl;
 	    }
             double beta = std::min<double>(betapl,betapr);
+            beta = sqrt(beta);
+            //betapl = sqrt(betapl);
+            //betapr = sqrt(betapr);
             betapl = betapr = beta;
 	    for (int k = 0; k < dim; ++k) {
               Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i][k];
@@ -1155,6 +1158,9 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	      //std::cout << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
 	    }
             double beta = std::min<double>(betapl,betapr);
+            //betapl = sqrt(betapl);
+            //betapr = sqrt(betapr);
+	    beta = sqrt(beta);
             betapl = betapr = beta;
 	    for (int k = 0; k < dim; ++k) {
               Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i-1][k];

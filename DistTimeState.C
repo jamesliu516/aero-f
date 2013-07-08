@@ -36,6 +36,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
 {
   locAlloc = true;
 
+  checkForRapidlyChangingValues = true;
+
   if (v) V = v->alias();
   else V = new DistSVec<double,dim>(dI);
 
@@ -1475,14 +1477,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
     data->exist_nm1 = true;
   }
 
-  if (checkForRapidlyChangingPressure > 0.0)
-    DistVectorOp::Op(*Un, Q,*firstOrderNodes,  
-		     SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+  if (checkForRapidlyChangingValues) {
+    if (checkForRapidlyChangingPressure > 0.0)
+      DistVectorOp::Op(*Un, Q,*firstOrderNodes,  
+  		     SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
   
-  if (checkForRapidlyChangingDensity > 0.0)
-    DistVectorOp::Op(*Un, Q,*firstOrderNodes,
-		     SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
-  
+    if (checkForRapidlyChangingDensity > 0.0)
+      DistVectorOp::Op(*Un, Q,*firstOrderNodes,
+  		       SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+  }
   *Un = Q;
 }
 
@@ -1529,13 +1532,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
       
       varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
 
-      if (checkForRapidlyChangingPressure > 0.0)
-        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
-                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+      if (checkForRapidlyChangingValues) {
+        if (checkForRapidlyChangingPressure > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
 
-      if (checkForRapidlyChangingDensity > 0.0)
-        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
-                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+        if (checkForRapidlyChangingDensity > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+      }
 
       int numFirstOrderNodes = firstOrderNodes->sum(); 
       if (numFirstOrderNodes > 0)
@@ -1550,14 +1555,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
     } else {
       *Unm1 = *Vn;
       *Vn = Q;
-      if (checkForRapidlyChangingPressure > 0.0)
-        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
-                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+      if (checkForRapidlyChangingValues) {
+        if (checkForRapidlyChangingPressure > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
 
-      if (checkForRapidlyChangingDensity > 0.0)
-        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
-                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
-
+        if (checkForRapidlyChangingDensity > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+      }
       double tau = data->getTauN();
       double beta = (1.0+2.0*tau)/((1.0+tau)*(1.0+tau));
       *Un = beta*Q+(1.0-beta)*Qtilde;

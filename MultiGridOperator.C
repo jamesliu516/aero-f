@@ -35,6 +35,8 @@ MultiGridOperator<Scalar,dim>::MultiGridOperator(MultiGridLevel<Scalar>* mg_lvl,
   myVarFcn = varFcn;
 
   addViscousTerms = ioData.mg.addViscousTerms;
+
+  timeState->disableRapidlyChangingValueCheck();
 }
 
 template <class Scalar,int dim>
