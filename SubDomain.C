@@ -48,6 +48,8 @@ using std::max;
 #include <RTree.h>
 
 
+#include "FSI/CrackingSurface.h"
+
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
 		      double (*)[25], double (*)[5], double (*)[5]);
@@ -5380,14 +5382,41 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
     }
 }
 
+template<int dim>
+void SubDomain::computeWeightsForFluidFluid(SVec<double,dim> &V, SVec<double,dim> &VWeights,
+					    Vec<double> &Weights, LevelSetStructure *LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init,
+					    Vec<int>& fluidId)
+{
+  const Connectivity &nToN = *getNodeToNode();
+  for(int currentNode=0;currentNode<numNodes();++currentNode)
+    if(init[currentNode]<1/* && LSS.isActive(0.0,currentNode)*/){
+      for(int j=0;j<nToN.num(currentNode);++j){
+        int neighborNode=nToN[currentNode][j];
+        if(currentNode == neighborNode || init[neighborNode]<1) continue;
+        int l = edges.findOnly(currentNode,neighborNode);
+        if(fluidId[currentNode] != fluidId[neighborNode]) continue;
+        else if(Weights[currentNode] < 1e-6){
+          Weights[currentNode]=1.0;
+          next_init[currentNode]=1;
+          for(int i=0;i<dim;++i)
+            VWeights[currentNode][i] = V[neighborNode][i];
+        } else {
+          Weights[currentNode] += 1.0;
+          for(int i=0;i<dim;++i)
+            VWeights[currentNode][i] += V[neighborNode][i];
+        }
+      }
+    }
+}
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		SVec<double,3> &X, SVec<double,10> &R, SVec<double,dim> &V, Vec<double> &Weights, 
-		SVec<double,dim> &VWeights, LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init) 
+		SVec<double,dim> &VWeights, LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init,NodalGrad<dim>& DX,bool limit,Vec<int>* fluidId) 
 {
   const Connectivity &nToN = *getNodeToNode();
   bool *masterFlag = edges.getMasterFlag();
+  double lin_extrap[dim];
   for (int currentNode=0; currentNode<numNodes(); ++currentNode)
     if (init[currentNode]<1 && LSS.isActive(0.0,currentNode)) {
 	  for (int j=0; j<nToN.num(currentNode); ++j) {
@@ -5396,7 +5425,10 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		int l = edges.findOnly(currentNode,neighborNode);
 		if (!masterFlag[l]) continue;
 		if (LSS.edgeIntersectsStructure(0.0,l)) continue;
-		else if (fabs(Weights[currentNode])<1e-6) {
+		double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+				X[neighborNode][1]-X[currentNode][1],
+				X[neighborNode][2]-X[currentNode][2]};
+		/*else if (fabs(Weights[currentNode])<1e-6) {
 		  next_init[currentNode] = 1;
 		  if (R[currentNode][0]>0.0) {
 		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
@@ -5423,10 +5455,109 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 			Weights[currentNode] += 1.0;
 		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += V[neighborNode][k];
 		  }
+		  }*/
+
+		//if (fluidId && fluidId[currentNode] != fluidId[neighborNode]) continue;
+		next_init[currentNode] = 1;
+		Weights[currentNode] += 1.0;
+		for (int k=0; k<dim; ++k) {
+
+		  lin_extrap[k] = V[neighborNode][k]-DX.getX()[neighborNode][k]*dx[0]-
+		    DX.getY()[neighborNode][k]*dx[1]-
+		    DX.getZ()[neighborNode][k]*dx[2];
 		}
+
+		double alpha = 1.0;
+		//if (limit)
+		//  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
+		//					   lin_extrap);
+		
+		for (int k=0; k<dim; ++k)
+		  VWeights[currentNode][k] += lin_extrap[k]*(alpha)+
+		    V[neighborNode][k]*(1.0-alpha);
 	  }
     }
 }
+
+template<int dim>
+void SubDomain::computeWeightsLeastSquaresForFluidFluid(
+		SVec<double,3> &X, SVec<double,10> &R, SVec<double,dim> &V, Vec<double> &Weights, 
+		SVec<double,dim> &VWeights, LevelSetStructure *LSS, Vec<int> &init, Vec<int> &next_init,Vec<int>& fluidId,NodalGrad<dim>& DX,bool limit) 
+{
+  const Connectivity &nToN = *getNodeToNode();
+  bool *masterFlag = edges.getMasterFlag();
+  double lin_extrap[dim];
+  for (int currentNode=0; currentNode<numNodes(); ++currentNode)
+    if (init[currentNode]<1/* && LSS.isActive(0.0,currentNode)*/) {
+	  for (int j=0; j<nToN.num(currentNode); ++j) {
+		int neighborNode = nToN[currentNode][j];
+		if (currentNode==neighborNode || init[neighborNode]<1) continue;
+		int l = edges.findOnly(currentNode,neighborNode);
+	        if (!masterFlag[l]) continue;
+		if (fluidId[currentNode] != fluidId[neighborNode]) continue;
+		double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+				X[neighborNode][1]-X[currentNode][1],
+				X[neighborNode][2]-X[currentNode][2]};
+
+		next_init[currentNode] = 1;
+		/*else if (fabs(Weights[currentNode])<1e-6) {
+		  next_init[currentNode] = 1;
+		  if (R[currentNode][0]>0.0) {
+		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+		    				X[neighborNode][1]-X[currentNode][1],
+		    				X[neighborNode][2]-X[currentNode][2]};
+		    double W[4];
+		    Weights[currentNode] = -1.0;
+		    computeLocalWeightsLeastSquaresForEmbeddedStruct(dx,R[currentNode],W);
+		    //double alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
+								    
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] = W[3]*V[neighborNode][k];
+		  } else {
+			Weights[currentNode] = 1.0;
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] = V[neighborNode][k];
+		  }
+		} else {
+		  if (R[currentNode][0]>0.0) {
+		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
+		    				X[neighborNode][1]-X[currentNode][1],
+		    				X[neighborNode][2]-X[currentNode][2]};
+		    double W[4];
+		    computeLocalWeightsLeastSquaresForEmbeddedStruct(dx,R[currentNode],W);
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += W[3]*V[neighborNode][k];
+		  }
+		  else {
+			Weights[currentNode] += 1.0;
+		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += V[neighborNode][k];
+		  }
+		  }*/
+
+		/*std::cout << "Computing weights using linear extrapolation, limit = " << limit << std::endl;
+		std::cout << "dx = [ " << DX.getX()[neighborNode][0]*dx[0] << " " << 
+		  DX.getY()[neighborNode][0]*dx[1] << " "  << DX.getZ()[neighborNode][0]*dx[2] << "]\n";
+		std::cout << "V[neighbor_node] = " << V[neighborNode][0] << std::endl;
+		std::cout << "curr_node = " << currentNode << std::endl;*/
+		Weights[currentNode] += 1.0;
+		for (int k=0; k<dim; ++k) {
+
+		  lin_extrap[k] = V[neighborNode][k]-DX.getX()[neighborNode][k]*dx[0]-
+		    DX.getY()[neighborNode][k]*dx[1]-
+		    DX.getZ()[neighborNode][k]*dx[2];
+		}
+
+		double alpha = 1.0;
+		if (limit)
+		  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
+							   lin_extrap);
+		
+		//std::cout << "alpha = " << alpha << std::endl;
+		for (int k=0; k<dim; ++k)
+		  VWeights[currentNode][k] += lin_extrap[k]*(alpha)+
+		    V[neighborNode][k]*(1.0-alpha);
+		
+	  }
+    }
+}
+
 
 //------------------------------------------------------------------------------
 // who: active and "swept" nodes
@@ -6637,6 +6768,8 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
   SVec<double,dim> gradX = ngrad.getX();
   SVec<double,dim> gradY = ngrad.getY();
   SVec<double,dim> gradZ = ngrad.getZ();
+
+  CrackingSurface* cs = LSS.getCrackingSurface();
  
   double Vext[dim]; 
   int stNode[3];
@@ -6660,6 +6793,12 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 	             &ElemForceCalcValid::Valid>(&myObj, X, Xp);
 
       if (!E) continue;      
+
+      // Check to see if the structure has cracked, and this quadrature point
+      // falls on a portion of the structure that is phantom (i.e., no longer
+      // exists)
+      if (cs && cs->getPhi(nSt, qloc[nq][0], qloc[nq][1]) < 0.0)
+	continue;
 
       for (int i=0; i<4; i++) T[i] = (*E)[i];
       Vec3D Xf[4]; 
@@ -7188,10 +7327,7 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
 */
 
     if(!swept) {//nothing to be done
-      if((fluidId[i] == 0 && !poll[i][0]) ||
-         (fluidId[i] == dimLS && !poll[i][1]) ||
-         (fluidId[i] == dimLS+1 && !poll[i][2])) fprintf(stderr,"TOO BAD!\n");
-      if(occluded || fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+      if(!occluded && fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
         continue;
     }
 

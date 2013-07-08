@@ -93,6 +93,7 @@ private:
   DistVec<double>* hhn,*hhnm1;
   ErrorHandler* errorHandler;
 
+  bool checkForRapidlyChangingValues;
 
 public:
   bool unphysical;
@@ -115,6 +116,8 @@ public:
   void attachHH(DistVec<double>&);
 
   void copyTimeData(DistTimeState<dim>* oth);
+
+  void disableRapidlyChangingValueCheck() { checkForRapidlyChangingValues = false; }
 
   DistVec<double>& getDt() const { return *dt; }
 

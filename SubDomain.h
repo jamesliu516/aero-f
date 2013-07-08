@@ -212,7 +212,7 @@ public:
   EdgeDef** getSharedEdges() { return sharedEdges; }
   const int* getNumSharedEdges() const { return numSharedEdges; }
 
-	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
+  void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
 
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();
@@ -1029,14 +1029,34 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init);
+
+  template<int dim>
+  void computeWeightsForFluidFluid(SVec<double,dim> &V, SVec<double,dim> &VWeights,
+				       Vec<double> &Weights, LevelSetStructure *LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init,
+				   Vec<int>& fluidId);
+
   void computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
 					  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init);
   void computeWeightsLeastSquaresNodePartForEmbeddedStruct(
 		  SVec<int,1> &count, SVec<double,10> &R);
+
+  void computeWeightsLeastSquaresEdgePartForFF(LevelSetStructure *LSS, 
+					       SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init,
+					       Vec<int>& fluidId);
+
+  void computeWeightsLeastSquaresNodePartForFF(SVec<int,1> &count, SVec<double,10> &R);
+
   template<int dim>
   void computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, SVec<double,10> &R, 
 		  SVec<double,dim> &V, Vec<double> &Weights, SVec<double,dim> &VWeights, 
-		  LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init);
+						   LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init,
+						   NodalGrad<dim>& DX,bool limit,Vec<int>* fluidId);
+
+  template<int dim>
+  void computeWeightsLeastSquaresForFluidFluid(SVec<double,3> &X, SVec<double,10> &R, 
+						   SVec<double,dim> &V, Vec<double> &Weights, SVec<double,dim> &VWeights, 
+						   LevelSetStructure *LSS, Vec<int> &init, Vec<int> &next_init,
+					       Vec<int>& fluidId,NodalGrad<dim>& DX, bool limit);
 
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights, 

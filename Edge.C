@@ -1112,13 +1112,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  double rj = higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId);
 
 	  double betai = 1.0,betaj = 1.0;
-	  /*if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
-	    betai = std::min<double>(betai,ri);
-	  if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0)
-	    betaj = std::min<double>(betaj,rj);
-	  */
 
-          std::cout << "s = " << s << std::endl;
+          if (higherOrderMF->limitExtrapolation()) {
+  	    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
+	      betai = std::min<double>(betai,ri);
+	    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0)
+	      betaj = std::min<double>(betaj,rj);
+	  
+            betai = std::min<double>(betai,betaj);
+            betaj = std::min<double>(betai,betaj);
+          }
+          //std::cout << "s = " << s << std::endl;
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
 	  if (s < 0.9) {
 	    for (int k = 0; k < dim; ++k) {

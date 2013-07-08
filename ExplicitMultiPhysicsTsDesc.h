@@ -31,6 +31,8 @@ class ExplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   DistSVec<double,dimLS> p3;
   DistSVec<double,dimLS> p4;
 
+  DistVec<double>* hh1,*hh2,*hh3,*hh4,*hhorig;
+
  public:
   ExplicitMultiPhysicsTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitMultiPhysicsTsDesc();
@@ -60,6 +62,8 @@ class ExplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   void computeRKUpdateLS(DistSVec<double,dimLS>& Philocal, DistVec<int> &localFluidId, 
                          DistSVec<double,dimLS>& dPhi, DistSVec<double,dim>& U);
 
+  void computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+			 DistVec<double>& dHH) ;
 };
 
 //------------------------------------------------------------------------------

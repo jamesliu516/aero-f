@@ -2531,6 +2531,8 @@ MultiGridData::MultiGridData()
   restrictMethod = VOLUME_WEIGHTED;
   addViscousTerms = 0;
   coarseningRatio = TWOTOONE;
+
+  agglomerationFile = "";
 }
 
 //------------------------------------------------------------------------------
@@ -2581,6 +2583,9 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
 &MultiGridData::restrict_relax_factor);
   
   fixes.setup("Fixes", ca);
+
+  new ClassStr<MultiGridData>
+    (ca, "AgglomerationFile", this, &MultiGridData::agglomerationFile);
 }
 
 //------------------------------------------------------------------------------
@@ -5842,12 +5847,6 @@ int IoData::checkInputValuesEssentialBC()
   if (bc.inlet.beta > 360.0) {
     com->fprintf(stderr, "*** Error: no valid yaw angle (%e) given\n", bc.inlet.beta);
     ++error;
-  }
-
-  if(schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA && ts.type!=TsData::EXPLICIT) {
-    com->fprintf(stderr, "*** Warning: The Modified Ghidaglia scheme is only supported by explicit time-integrators.\n");
-    //com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
-    //schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
   }
 
 // Included (MB)

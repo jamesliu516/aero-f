@@ -15,11 +15,18 @@ HigherOrderMultiFluid::HigherOrderMultiFluid(Vec<CutCellState*>& vs) : cutCells(
   
   cutCells = static_cast<CutCellState*>(0);
   lastPhaseChangeState = NULL;
+  limitExtrap = false;
 }
 
 inline
 HigherOrderMultiFluid::~HigherOrderMultiFluid() {
 
+}
+
+inline 
+void HigherOrderMultiFluid::setLimitedExtrapolation() {
+
+  limitExtrap = true;
 }
 
 /*template<class Scalar, int dim,int dimLS>
@@ -411,4 +418,26 @@ estimateR(int l, int vertex,
   }
   
   return std::max<double>(r,0.0);
+}
+
+template <int dim>
+double HigherOrderMultiFluid::
+computeAlpha(int nodeId,const double* currentV, 
+	     const double* neighborV) {
+
+  if (!hasLastPhaseChangeValue<dim>(nodeId))
+    return 0.0;
+
+  const double* vlast = getLastPhaseChangeValue<dim>(nodeId);
+
+  double alpha = 1.0;
+  for (int k = 0; k < dim; ++k) {
+
+    //std::cout << currentV[k] << " " << vlast[k]<< " " << 
+    //  neighborV[k] << std::endl;
+    alpha = std::min<double>(alpha, fabs(currentV[k]-vlast[k])/
+			     std::max<double>(1e-8,fabs(neighborV[k]-currentV[k])));
+  }
+
+  return alpha;
 }

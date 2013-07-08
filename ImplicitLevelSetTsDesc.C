@@ -190,6 +190,20 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
 
   double t0 = this->timer->getTime();
 
+  if (this->timeState->useNm1() && this->timeState->existsNm1() &&
+      this->phaseChangeType == 1) {
+    DistSVec<double,dim>& Unm1 = this->timeState->getUnm1();
+  
+    this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
+    this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X, *this->A, this->interfaceOrder-1,
+ 					            Unm1, this->V0,
+						    this->Weights,this->VWeights,
+						    NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdnm1,
+						    false);
+    this->varFcn->primitiveToConservative(this->V0,Unm1,this->fluidSelector.fluidId);
+  }
+    
+ 
 /*  if (this->interfaceOrder == 2)
     int itsLS = this->ns->solveLS(this->Phi, U);
 */
@@ -224,7 +238,15 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     // Riemann overwrite using the value of Phi_{n+1}
     this->setPhiExact();
 
-    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    if (this->phaseChangeType == 0)
+      this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    else
+      this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X, *this->A,this->interfaceOrder-1,
+						      U, this->V0,
+						      this->Weights,this->VWeights,
+						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
+                                                      this->limitHigherOrderExtrapolation);
+
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
