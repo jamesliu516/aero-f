@@ -91,7 +91,10 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       dom->getSubDomain()[iSub]->getHigherOrderMF()->
 	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
 			dom->getSubDomain()[iSub]->getElems(),
-			v6data);
+			v6data); 
+
+      if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+        dom->getSubDomain()[iSub]->getHigherOrderMF()->setLimitedExtrapolation();
     }
   }
 

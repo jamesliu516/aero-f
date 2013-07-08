@@ -44,6 +44,8 @@ class HigherOrderMultiFluid {
                      Scalar Ui[dim]);
     */
 
+   void setLimitedExtrapolation();
+
    int isCellCut(int i) const { return cutCells[i] != 0; }
 
    int getOtherFluidId(int cell, int fid) {
@@ -102,6 +104,8 @@ class HigherOrderMultiFluid {
      double computeAlpha(int nodeId, const double* currentV,
 			 const double* neighborV);
 
+   bool limitExtrapolation() const { return limitExtrap; }
+
   private:
    /*
     DistVec<int>* nodeStatus[dimLS];
@@ -138,6 +142,8 @@ class HigherOrderMultiFluid {
    ElemSet* elems;
 
    V6NodeData (*v6data)[2];
+
+   bool limitExtrap;
 };
 
 #include <HigherOrderMultiFluid.C>

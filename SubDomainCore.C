@@ -4946,11 +4946,10 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
     bool occluded = LSS.isOccluded(0.0,i);
 
     if(!swept){ //fluidId should not change.
-      if(occluded || fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+      if(!occluded && fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
         //poll[i][fluidId[i]] = true;
         if (fluidId[i] == 0) poll[i][0] = true;
         else if (fluidId[i] == dimLS) poll[i][1] = true;
-        else if (fluidId[i] == dimLS+1) poll[i][2] = true;
         continue;
       }
     }

@@ -3720,7 +3720,9 @@ template<int dim>
 void Domain::computeWeightsLeastSquaresForEmbeddedStruct(
 			   DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
-               DistVec<int> &next_init, DistLevelSetStructure *distLSS)
+			   DistVec<int> &next_init, DistLevelSetStructure *distLSS,
+			   DistNodalGrad<dim>& DX, bool limit,
+			   DistVec<int>* fid)
 {
   int iSub;
   DistSVec<double,10> *R = new DistSVec<double,10>(getNodeDistInfo());
@@ -3745,8 +3747,10 @@ void Domain::computeWeightsLeastSquaresForEmbeddedStruct(
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    Vec<int>* subFid = (fid ? (&(*fid)(iSub)) : 0);
 	subDomain[iSub]->computeWeightsLeastSquaresForEmbeddedStruct(X(iSub),(*R)(iSub),V(iSub),
-			Weights(iSub),VWeights(iSub),(*distLSS)(iSub),init(iSub),next_init(iSub));
+								     Weights(iSub),VWeights(iSub),(*distLSS)(iSub),init(iSub),next_init(iSub),DX(iSub), limit, 
+						subFid);
   }
 
   assemble(vecPat, VWeights);

@@ -90,11 +90,16 @@ MultiGridLevel<Scalar>::MultiGridLevel(MultiGridLevel* mg,int level_num,
 neq1(neq1), neq2(neq2) {
 
 
+  connectivity = NULL;
+  lineids = NULL;
+  numLines = NULL;
+  sharedNodes = NULL;
   agglomType = AgglomerationGlobal;
   DistInfo& dI = domain.getNodeDistInfo();
 
   parent = mg;
   
+  faceMapping = NULL;
   pNodeMapping = new DistVec<int>(*parent->nodeDistInfo);
 
   int *neighCPUcount = new int[dI.numGlobSub];
@@ -113,6 +118,11 @@ neq1(neq1), neq2(neq2) {
   Communicator* com = domain.getCommunicator();
   levelSubDTopo = new SubDTopo(com->cpuNum(), subToSub, geoSource.getCpuToSub());
 
+  nodeIdPattern = NULL;
+  nodePosnPattern = NULL;
+  offDiagMatPattern = NULL;
+  edgeAreaPattern = NULL;
+  edgeVecPattern = NULL;
   //nodeIdPattern = new CommPattern<int>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<int>::CopyOnSend);
   nodeVolPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   nodeVecPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
@@ -153,6 +163,7 @@ neq1(neq1), neq2(neq2) {
   useVolumeWeightedAverage = true;
   mgSubdomains = new MultigridSubdomain[numLocSub];
   std::vector<loc_edge>* myEdgesArray = new std::vector<loc_edge>[numLocSub];
+  nodeType = new int*[numLocSub];
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
 
@@ -235,8 +246,11 @@ neq1(neq1), neq2(neq2) {
     SD.ctrlVolCount = new int[SD.numNodes];
     SD.locToGlobMap = new int[SD.numNodes];
 
+    nodeType[iSub] = new int[SD.numNodes];
+
     fread(SD.ctrlVolCount , sizeof(int),SD.numNodes,fin);
     fread(SD.locToGlobMap , sizeof(int),SD.numNodes,fin);
+    fread(nodeType[iSub], sizeof(int),SD.numNodes,fin);
 
     for (int i = 0; i < parent_nn; ++i) {
 
@@ -476,7 +490,7 @@ neq1(neq1), neq2(neq2) {
 	nodeVecPatternEq2->setLen(rcvChannel(glSub,neighb),neq2*itr->second->sharedNodes.size());
       }
       matPattern->setLen(sndChannel(glSub,neighb),neq1*neq1*itr->second->sharedNodes.size());
-      matPattern->setLen(rcvChannel(glSub,neighb),neq2*neq2*itr->second->sharedNodes.size());
+      matPattern->setLen(rcvChannel(glSub,neighb),neq1*neq1*itr->second->sharedNodes.size());
     }
   }
 
@@ -634,18 +648,23 @@ template<class Scalar>
 MultiGridLevel<Scalar>::~MultiGridLevel()
 {
   if(ownsData){
-    delete nodeIdPattern;
+    if (nodeIdPattern)
+      delete nodeIdPattern;
     delete nodeVolPattern;
     delete nodeVecPattern;
-    delete nodePosnPattern;
+    if (nodeVecPattern)
+      delete nodePosnPattern;
     if (nodeVecPatternEq1) {
       delete nodeVecPatternEq1;
       delete nodeVecPatternEq2;
     }
     delete matPattern;
-    delete offDiagMatPattern;
-    delete edgeAreaPattern;
-    delete edgeVecPattern;
+    if (offDiagMatPattern)
+      delete offDiagMatPattern;
+    if (edgeAreaPattern)
+      delete edgeAreaPattern;
+    if (edgeVecPattern)
+      delete edgeVecPattern;
 
   }
 
@@ -657,18 +676,23 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub){
     if(ownsData) {
-      delete connectivity[iSub];
+      if (connectivity)
+        delete connectivity[iSub];
       delete edges[iSub];
     }
     if (nodeToNodeMaskILU[iSub])
       delete  nodeToNodeMaskILU[iSub];
   }
-  delete []sharedNodes;
-  delete []connectivity;
+  if (sharedNodes)
+    delete []sharedNodes;
+  if (connectivity)
+    delete []connectivity;
   delete []edges;
-  
-  delete [] lineids;
-  delete [] numLines;
+ 
+  if (lineids) { 
+    delete [] lineids;
+    delete [] numLines;
+  }
 
   delete [] numNodes;
   if (nodeToNodeMaskILU)

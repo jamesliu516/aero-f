@@ -1049,7 +1049,8 @@ public:
   template<int dim>
   void computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, SVec<double,10> &R, 
 		  SVec<double,dim> &V, Vec<double> &Weights, SVec<double,dim> &VWeights, 
-		  LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init);
+						   LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init,
+						   NodalGrad<dim>& DX,bool limit,Vec<int>* fluidId);
 
   template<int dim>
   void computeWeightsLeastSquaresForFluidFluid(SVec<double,3> &X, SVec<double,10> &R, 

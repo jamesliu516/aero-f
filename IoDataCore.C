@@ -5849,12 +5849,6 @@ int IoData::checkInputValuesEssentialBC()
     ++error;
   }
 
-  if(schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA && ts.type!=TsData::EXPLICIT) {
-    com->fprintf(stderr, "*** Warning: The Modified Ghidaglia scheme is only supported by explicit time-integrators.\n");
-    //com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
-    //schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
-  }
-
 // Included (MB)
   if (sa.machref < 0.0)
     sa.machref = bc.inlet.mach;
