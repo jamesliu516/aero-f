@@ -417,7 +417,9 @@ public:
   void computeWeightsLeastSquaresForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistVec<int> &init, DistVec<int> &next_init,
-                          DistLevelSetStructure *distLSS);
+                          DistLevelSetStructure *distLSS,
+			   DistNodalGrad<dim>& dX, bool limit,
+			   DistVec<int>* fid);
 
   template<int dim>
   void computeWeightsLeastSquaresForFluidFluid(DistSVec<double,3> &X, DistSVec<double,dim> &V, 

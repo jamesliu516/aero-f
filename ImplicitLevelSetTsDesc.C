@@ -198,7 +198,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X, *this->A, this->interfaceOrder-1,
  					            Unm1, this->V0,
 						    this->Weights,this->VWeights,
-						    NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdnm1);
+						    NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdnm1,
+						    false);
     this->varFcn->primitiveToConservative(this->V0,Unm1,this->fluidSelector.fluidId);
   }
     
@@ -243,7 +244,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
       this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X, *this->A,this->interfaceOrder-1,
 						      U, this->V0,
 						      this->Weights,this->VWeights,
-						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
+                                                      this->limitHigherOrderExtrapolation);
 
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }

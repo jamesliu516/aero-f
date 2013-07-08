@@ -99,6 +99,9 @@ class LevelSetStructure {
             swept[i] = is_swept[i] ? 1 : 0;
     }
 
+    virtual class CrackingSurface* 
+      getCrackingSurface() { return NULL; }
+
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
     virtual int numOfFluids() = 0; 

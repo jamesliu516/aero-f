@@ -1379,7 +1379,8 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 // TODO(jontg): Fix computeRiemannWeightsForEmbeddedStruct
 template<int dim>
 void SpaceOperator<dim>::
-updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChangeAlg, 
+updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
+		 int phaseChangeChoice, int phaseChangeAlg, 
                  DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                  DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
@@ -1391,6 +1392,13 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
 
   varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0; VWeights = 0.0;
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
+    bool linFSI = true;//linRecAtInterface || viscSecOrder;
+    double t0 = this->timer->getTime();
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidId, V, linFSI, distLSS);
+    this->timer->addNodalGradTime(t0);
+  }
 
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
@@ -1408,7 +1416,7 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		    domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, false, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }
@@ -2745,7 +2753,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
     for(int i=0;i<init(iSub).size();++i)
-      init(iSub)[i] = (*distLSS)(iSub).isSwept(0.0,i) || (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()  ? 0 : 1;
+      init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) ||
+                       (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() ||
+                       (*fluidId0)(iSub)[i]==(*distLSS)(iSub).numOfFluids())   ? 0 : 1;
 
   next_init = init;
 
@@ -2792,9 +2802,12 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
         int* locToGlobNodeMap = subD[iSub]->getNodeMap();
 
         for(int i=0;i<init(iSub).size();++i) {
-          if(!((*distLSS)(iSub).isSwept(0.0,i)))
+          if(!((*distLSS)(iSub).isSwept(0.0,i)) && (((*fluidId0)(iSub)[i]!=(*distLSS)(iSub).numOfFluids()) || 
+                                                    ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())))
             continue;
-          if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
+          if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || 
+             (init(iSub)[i]<1.0 && ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() 
+                                    || (*fluidId0)(iSub)[i]==(*distLSS)(iSub).numOfFluids()))) {
             if((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()) {
               if(!(*distLSS)(iSub).isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
               if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
@@ -2904,6 +2917,12 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub) {
 	  int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+	  if (locToGlobNodeMap[9045]+1==1589845)  {
+	    int i = 9045;
+	    std::cout << 
+		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
+	      V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << fluidId(iSub)[i] << std::endl;
+	  }
       for(int i=0;i<init(iSub).size();++i) {
 //		if ((*distLSS)(iSub).isSwept(0.0,i)&&(*distLSS)(iSub).isActive(0.0,i))
 //		  fprintf(stdout,"XY: Node %d needs phase change update:\n",locToGlobNodeMap[i]+1);
@@ -2927,7 +2946,10 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
 			  break;
 		  }
-                  if (this->domain->getSubDomain()[iSub]->getHigherOrderMF()) {
+		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" << iSub <<"): " <<
+		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
+		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
+                  if (this->domain->getSubDomain()[iSub]->getHigherOrderMF() && limit) {
 
                     this->domain->getSubDomain()[iSub]->getHigherOrderMF()->
                       template setLastPhaseChangeValue<dim>(i, V0(iSub)[i]);
