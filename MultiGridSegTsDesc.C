@@ -224,14 +224,48 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
 
   if (lvl < pKernel->numLevels()-1) {
 
+    for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+
+      double Vloc[dim];
+      for (int l = 0; l < x(lvl)(iSub).size(); ++l) {
+        if (this->domain->getSubDomain()[iSub]->getNodeMap()[l] == 220559) {   
+
+          this->varFcn->conservativeToPrimitive(x(lvl)(iSub)[l],Vloc);
+          std::cout << "V[220559] = ";
+          for (int k = 0; k < dim; ++k)
+            std::cout << Vloc[k] << " ";
+          std::cout << std::endl;
+        }
+     }
+   }
+
     pKernel->Restrict(lvl+1, x(lvl), U(lvl+1));
     //this->domain->getCommunicator()->fprintf(stderr,"Restricting residual...\n");
     //fflush(stderr);
     //MPI_Barrier(MPI_COMM_WORLD);
-    pKernel->Restrict(lvl+1, R(lvl), R(lvl+1));
+    pKernel->Restrict(lvl+1, R(lvl), R(lvl+1),true);
     Uold(lvl+1) = U(lvl+1);
     
     this->varFcn->conservativeToPrimitive(U(lvl+1), V(lvl+1));
+
+    int nodes[] = {7713 ,7718,7924, 7925 ,7927 , 8029,8032, 8034, 310130 };
+    for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+
+      for (int i = 0; i < pKernel->getLevel(lvl+1)->getNodeDistInfo().subSize(iSub); ++i) {
+
+        for (int k = 0; k < 9; ++k) {
+          if (pKernel->getLevel(lvl+1)->getMgSubDomains()[iSub].locToGlobMap[i] == 
+              nodes[k]) {
+            
+            std::cout << "V[" <<nodes[k] <<  "] = ";
+            for (int l = 0; l < dim; ++l)
+              std::cout << V(lvl+1)(iSub)[i][l] << " ";
+            std::cout << std::endl;
+          }
+        }
+      }
+    }
+
     mgSpaceOp->computeResidual(lvl+1, U, V, F, false);
     pKernel->applyFixes(lvl+1, R(lvl+1));
     //pKernel->fixNegativeValues(lvl+1,V(lvl+1), U(lvl+1), dx(lvl+1), F(lvl+1), this->varFcn);
@@ -251,7 +285,22 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
     x(lvl) += update_tmp(lvl);
 
   }
-  
+ 
+  if (lvl == 0) 
+    for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+
+      double Vloc[dim];
+      for (int l = 0; l < x(lvl)(iSub).size(); ++l) {
+        if (this->domain->getSubDomain()[iSub]->getNodeMap()[l] == 220559) {   
+
+          this->varFcn->conservativeToPrimitive(x(lvl)(iSub)[l],Vloc);
+          std::cout << "V[220559] = ";
+          for (int k = 0; k < dim; ++k)
+            std::cout << Vloc[k] << " ";
+          std::cout << std::endl;
+        }
+     }
+  }
   if (lvl == 0) 
     smooth0(x(lvl), numSmooths_post[0]);
   else

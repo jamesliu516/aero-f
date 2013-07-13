@@ -246,11 +246,14 @@ neq1(neq1), neq2(neq2) {
     SD.ctrlVolCount = new int[SD.numNodes];
     SD.locToGlobMap = new int[SD.numNodes];
 
+    SD.nodeTopology = new MultigridSubdomain::Topology[SD.numNodes];
+
     nodeType[iSub] = new int[SD.numNodes];
 
     fread(SD.ctrlVolCount , sizeof(int),SD.numNodes,fin);
     fread(SD.locToGlobMap , sizeof(int),SD.numNodes,fin);
     fread(nodeType[iSub], sizeof(int),SD.numNodes,fin);
+    fread(SD.nodeTopology, sizeof(MultigridSubdomain::Topology),SD.numNodes,fin);
 
     for (int i = 0; i < parent_nn; ++i) {
 
@@ -3299,7 +3302,8 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistGeoState& ref
 //------------------------------------------------------------------------------
 
 template<class Scalar> template<class Scalar2, int dim>
-void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData) const
+void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData,
+                                      bool apply_relaxation) const
 {
   coarseData = 0.0;
 
@@ -3333,8 +3337,14 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
             std::cout << "V[" << j << "] = " << fineData.v[i][j] << std::endl;
         
         }*/
+
+        double loc_relax_factor = 1.0;
+        if (mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] != 
+          MultigridSubdomain::TopoInterior && apply_relaxation)
+          loc_relax_factor *= 0.5;
+
         for(int j = 0; j < dim; ++j)
-          coarseData(iSub)[nodeMapping(iSub)[i]][j] += fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i][j];
+          coarseData(iSub)[nodeMapping(iSub)[i]][j] += loc_relax_factor*fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i][j];
       }
 
       for(int i = 0; i < coarseData(iSub).size(); ++i) {
@@ -3547,8 +3557,12 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
           std::cout << std::endl;
         }
           */
+        double loc_relax_factor = relax_factor;
+        if (mgSubdomains[iSub].nodeTopology[coarseIndex] != 
+            MultigridSubdomain::TopoInterior)
+          loc_relax_factor *= 0.5;
         for(int j = 0; j < dim; ++j) {
-          fineData(iSub)[i][j] += relax_factor*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
+          fineData(iSub)[i][j] += loc_relax_factor*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
         }
       }
     }
@@ -4217,7 +4231,7 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
 //------------------------------------------------------------------------------
 
 #define INSTANTIATION_HELPER(T,dim) \
-  template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
+  template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &,bool) const; \
   template void MultiGridLevel<T>::RestrictFaceVector(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::Prolong(  MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &,double) const; \
   template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &); \

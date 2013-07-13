@@ -131,7 +131,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     tw = this->timer->getTime();
     this->spaceOp->updateSweptNodes(*this->X, *this->A,this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
+            this->distLSS, (double*)this->vfar,  &this->nodeTag);
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 

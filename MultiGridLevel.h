@@ -29,6 +29,8 @@ struct NeighborDomain {
 
 struct MultigridSubdomain {
 
+  enum Topology { TopoVertex = 0, TopoLine = 1, TopoFace = 2, TopoInterior = 3, TopoUnknown = 4 };
+  
   std::vector<int> ownedNodes;
   std::vector<int> sharedNodes;
 
@@ -44,6 +46,8 @@ struct MultigridSubdomain {
 
   double* nodeVolumes;
   Vec3D* X;
+
+  Topology* nodeTopology;
 };
 
 template<class Scalar>
@@ -291,7 +295,7 @@ class MultiGridLevel {
 
     template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
-                                                   DistSVec<Scalar2, dim>& coarseData) const;
+                                                   DistSVec<Scalar2, dim>& coarseData, bool apply_relaxation = false) const;
     template<class Scalar2, int dim> void RestrictFaceVector(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
                                                    DistSVec<Scalar2, dim>& coarseData) const;

@@ -166,10 +166,10 @@ MultiGridKernel<Scalar>::~MultiGridKernel()
 template <class Scalar>
 template<class Scalar2, int dim>
 void MultiGridKernel<Scalar>::Restrict(int coarseLvl, DistSVec<Scalar2,dim>& fine,
-                                       DistSVec<Scalar2,dim>& coarse) {
+                                       DistSVec<Scalar2,dim>& coarse, bool apply_relaxation) {
 
   multiGridLevels[coarseLvl]->Restrict(*multiGridLevels[coarseLvl-1],
-                                       fine,coarse);
+                                       fine,coarse,apply_relaxation);
 }
 
 template <class Scalar>
@@ -247,7 +247,7 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
 
         }
 */ 
-	std::cout << "Found negative value at node " << multiGridLevels[lvl]->getMgSubDomains()[0].locToGlobMap[i] << ", level " << lvl << std::endl;
+	std::cout << "Found negative value at node " << multiGridLevels[lvl]->getMgSubDomains()[iSub].locToGlobMap[i] << ", level " << lvl << std::endl;
         if (vf->getPressure(Vl[i]) > 0.0 && vf->getDensity(Vl[i]) > 0.0 ) continue;
 
         for (int k = 0; k < dim; ++k) {
@@ -455,7 +455,7 @@ setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0) {
 
 #define INSTANTIATION_HELPER2(T,T2,D) \
  template void MultiGridKernel<T>::Restrict(int coarseLvl, DistSVec<T2,D>&, \
-                                   DistSVec<T2,D>&); \
+                                   DistSVec<T2,D>&, bool); \
  template void MultiGridKernel<T>::Prolong(int coarseLvl, DistSVec<T2,D>&, \
                                    DistSVec<T2,D>&,DistSVec<T2,D>&, \
                                    double); \

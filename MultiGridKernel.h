@@ -38,7 +38,7 @@ class MultiGridKernel {
 
   template<class Scalar2, int dim>
   void Restrict(int coarseLvl, DistSVec<Scalar2,dim>& fine, 
-                DistSVec<Scalar2,dim>& coarse);
+                DistSVec<Scalar2,dim>& coarse, bool = false);
 
   template<class Scalar2, int dim>
   void Prolong(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
