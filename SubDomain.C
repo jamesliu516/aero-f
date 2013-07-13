@@ -5822,41 +5822,51 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 	  
 	if(iIsActive) {
         double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
-        if (neq > 2) {
-          Vec<double> Vi(dim);
-          varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedVdU(Vi.v,dVdU);
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
-          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
-        }
-        else {
-          for (k = 0; k < neq; ++k) tmp[k*neq+k] = 1.0;
-          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &B, 0, Aji, 0);
-        }
+	if (Aji) {
+          if (neq > 2) {
+            Vec<double> Vi(dim);
+            varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+            fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedVdU(Vi.v,dVdU);
+            fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
+            DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+            DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
+          }
+          else {
+            for (k = 0; k < neq; ++k) tmp[k*neq+k] = 1.0;
+            DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &B, 0, Aji, 0);
+          }
+	}
 
         double (*Ajj) = reinterpret_cast< double (*)>(A.getGhostGhostElem_ij(j,j));
-        memset(Ajj,0,sizeof(double)*neq*neq);
-        for (k = 0; k < neq; ++k) Ajj[k*neq+k] = ghostPoints[j]->ng;
+
+	if (Ajj) {
+          memset(Ajj,0,sizeof(double)*neq*neq);
+          for (k = 0; k < neq; ++k) Ajj[k*neq+k] = ghostPoints[j]->ng;
+	}
       }
       if(jIsActive) {
         double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
-        if (neq > 2) {
-          Vec<double> Vj(dim);
-          varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedVdU(Vj.v,dVdU);
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
-          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
-          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
-	  }
-        else {
-          for (k = 0; k < neq; ++k) tmp[k*neq+k] = 1.0;
-          DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &B, 0, Aij, 0);
-        }
+	if (Aij) {
+          if (neq > 2) {
+            Vec<double> Vj(dim);
+            varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+            fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedVdU(Vj.v,dVdU);
+            fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
+            DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+            DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
+	    }
+          else {
+            for (k = 0; k < neq; ++k) tmp[k*neq+k] = 1.0;
+            DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &B, 0, Aij, 0);
+          }
+	}
 
         double (*Aii) = reinterpret_cast< double (*)>(A.getGhostGhostElem_ij(i,i));
-        memset(Aii,0,sizeof(double)*neq*neq);
-        for (k = 0; k < neq; ++k) Aii[k*neq+k] = ghostPoints[i]->ng;
+
+	if (Aii) {
+          memset(Aii,0,sizeof(double)*neq*neq);
+          for (k = 0; k < neq; ++k) Aii[k*neq+k] = ghostPoints[i]->ng;
+	}
       }
     }
   }
