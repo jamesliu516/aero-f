@@ -1396,7 +1396,8 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
     bool linFSI = true;//linRecAtInterface || viscSecOrder;
     double t0 = this->timer->getTime();
-    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidId, V, linFSI, distLSS);
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidId, V, linFSI, distLSS,
+                         false);
     this->timer->addNodalGradTime(t0);
   }
 

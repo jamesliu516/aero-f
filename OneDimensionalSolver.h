@@ -63,6 +63,10 @@ class OneDimensional {
   OneDimensionalInfo::CoordinateType coordType;
   OneDimensionalInfo::VolumeType volumeType;
 
+  enum ProblemMode { MultiFluid, FSI};
+
+  ProblemMode problemMode;
+
   int numPoints;
   double maxDistance;
   SVec<double,1> ctrlVol;

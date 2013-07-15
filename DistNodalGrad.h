@@ -103,7 +103,8 @@ public:
 
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
-               DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true, DistLevelSetStructure* =0);
+               DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true, DistLevelSetStructure* =0,
+               bool includeSweptNodes = true);
 
   template<class Scalar2>
   void computeTemperatureGradient(int, DistSVec<double,3> &, DistVec<double> &,

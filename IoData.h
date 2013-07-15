@@ -2224,6 +2224,8 @@ struct OneDimensionalInfo {
   
   enum Mode { NORMAL=0, CONVTEST1 = 1 } mode;
 
+  enum ProblemMode { MULTIFLUID=0, FSI=1} problemMode;
+
   OneDimensionalInfo();
   ~OneDimensionalInfo() {}
 

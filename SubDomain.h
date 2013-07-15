@@ -375,7 +375,8 @@ public:
                                     SVec<double,6> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
-                                    bool linRecFSI = true, LevelSetStructure* =0);
+                                    bool linRecFSI = true, LevelSetStructure* =0,
+                                    bool includeSweptNodes = true);
 
   template<class Scalar>
   void computeGradientLeastSquares(SVec<double,3> &, const Vec<int> &,
@@ -1384,10 +1385,10 @@ public:
 
   // Functions to compute the error (that is, the difference between two state vectors)
   template <int dim>
-    void computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]);
+    void computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* = NULL);
 
   template <int dim>
-    void computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]);
+    void computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* = NULL);
 
   HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
 
