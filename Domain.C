@@ -236,19 +236,21 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistSVec<Scalar,dim> &ddx,
                                           DistSVec<Scalar,dim> &ddy,
                                           DistSVec<Scalar,dim> &ddz,
-                                          bool linFSI, DistLevelSetStructure *distLSS)
+                                          bool linFSI, DistLevelSetStructure *distLSS,
+                                          bool includeSweptNodes)
 {
 
   if(distLSS) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeGradientsLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
-                                                    ddx(iSub), ddy(iSub), ddz(iSub), linFSI, &((*distLSS)(iSub)));
+                                                    ddx(iSub), ddy(iSub), ddz(iSub), linFSI, &((*distLSS)(iSub)),includeSweptNodes);
   } else {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeGradientsLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
-                                                    ddx(iSub), ddy(iSub), ddz(iSub), linFSI, 0);
+                                                    ddx(iSub), ddy(iSub), ddz(iSub), linFSI, 0,
+                                                    includeSweptNodes);
   }
 
   CommPattern<Scalar> *vPat = getCommPat(var);
@@ -4770,22 +4772,29 @@ void Domain::setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid) {
 
 // Functions to compute the error (that is, the difference between two state vectors)
 template <int dim>
-void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],
+                            DistLevelSetStructure* distLSS) {
 
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    LevelSetStructure*  LSS = (distLSS ? &(*distLSS)(iSub) : NULL);
+    subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error,
+                                    LSS);
+  }
 
   com->globalSum(dim, error);
 }
 
 
 template <int dim>
-void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]) {
+void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],DistLevelSetStructure* distLSS) {
   
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->computeLInfError(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error);
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    LevelSetStructure*  LSS = (distLSS ? &(*distLSS)(iSub) : NULL);
+    subDomain[iSub]->computeLInfError(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error,
+                                      LSS);
+  }
 
   com->globalMax(dim, error);
 }

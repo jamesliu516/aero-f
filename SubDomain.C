@@ -298,7 +298,8 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
                 const Vec<int> &fluidId, SVec<double,6> &R,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                 SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
-                bool linRecFSI, LevelSetStructure *LSS)  {
+                bool linRecFSI, LevelSetStructure *LSS,
+                bool includeSweptNodes)  {
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -315,6 +316,9 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     int j = edgePtr[l][1];
 
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+
+    if (!includeSweptNodes && LSS && 
+        (LSS->isSwept(0.0,i) || LSS->isSwept(0.0,j)) ) continue;
 
     if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
                           higherOrderMF->isCellCut(j)))
@@ -5428,7 +5432,7 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		double dx[3] = {X[neighborNode][0]-X[currentNode][0],
 				X[neighborNode][1]-X[currentNode][1],
 				X[neighborNode][2]-X[currentNode][2]};
-		/*else if (fabs(Weights[currentNode])<1e-6) {
+/*		if (fabs(Weights[currentNode])<1e-6) {
 		  next_init[currentNode] = 1;
 		  if (R[currentNode][0]>0.0) {
 		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
@@ -5455,8 +5459,8 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 			Weights[currentNode] += 1.0;
 		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += V[neighborNode][k];
 		  }
-		  }*/
-
+		}
+*/
 		//if (fluidId && fluidId[currentNode] != fluidId[neighborNode]) continue;
 		next_init[currentNode] = 1;
 		Weights[currentNode] += 1.0;
@@ -5475,6 +5479,7 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		for (int k=0; k<dim; ++k)
 		  VWeights[currentNode][k] += lin_extrap[k]*(alpha)+
 		    V[neighborNode][k]*(1.0-alpha);
+
 	  }
     }
 }
@@ -7785,14 +7790,14 @@ void SubDomain::setCutCellData(SVec<double,dim>& V, Vec<int>& fid) {
 
 // Functions to compute the error (that is, the difference between two state vectors)
 template <int dim>
-void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* LSS) {
 
   for (int k = 0; k < dim; ++k)
     error[k] = 0.0;
 
   for(int i=0; i<nodes.size(); i++) {
 
-    if (nodeFlag[i]) {
+    if (nodeFlag[i] && (!LSS || LSS->isActive(0.0,i))) {
       
       for (int k = 0; k < dim; ++k) {
 	
@@ -7803,17 +7808,22 @@ void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,d
 }
 
 template <int dim>
-void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim]) {
+void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* LSS) {
 
   for (int k = 0; k < dim; ++k)
     error[k] = 0.0;
 
   for(int i=0; i<nodes.size(); i++) {
 
-    if (nodeFlag[i]) {
+    if (nodeFlag[i] && (!LSS || LSS->isActive(0.0,i))) {
       
       for (int k = 0; k < dim; ++k) {
-	
+
+        if (fabs(U[i][k]-Uexact[i][k]) > 0.05) {
+
+          std::cout << locToGlobNodeMap[i] << " " <<  U[i][k] << " " << Uexact[i][k] << std::endl;
+        }
+          
 	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));
       }
     }

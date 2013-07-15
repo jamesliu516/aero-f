@@ -648,6 +648,13 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
     if (this->com->getMaxVerbose() >= 2)
       this->timer->print(this->domain->getStrTimer());
     this->output->closeAsciiFiles();
+
+    if (strcmp(ioData.input.convergence_file,"") != 0) {
+      
+      this->varFcn->conservativeToPrimitive(U, *this->V, &nodeTag);
+      computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
+    }
+
   }
 
 }
@@ -966,6 +973,44 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
 
   return _mmh;
 
+}
+
+
+template<int dim>
+void EmbeddedTsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U) {
+
+  DistSVec<double,dim> Uexact(U);
+  FluidSelector F2(2, ioData, this->domain);
+  OneDimensional::read1DSolution(ioData,file, Uexact, 
+				 (DistSVec<double,1>*)0,
+				 &F2,
+				 this->spaceOp->getVarFcn(),
+				 *this->X,
+				 *this->domain,
+				 OneDimensional::ModeU,
+				 true) ;
+
+  double error[dim];
+  double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
+		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+		      ioData.ref.rv.pressure};
+  double tot_error = 0.0;
+  this->domain->computeL1Error(U,Uexact,error, this->distLSS);
+  for (int k = 0; k < dim; ++k) {
+    tot_error += error[k];
+    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %lf\n", tot_error);
+
+  tot_error = 0.0;
+  this->domain->computeLInfError(U,Uexact,error, this->distLSS);
+  for (int k = 0; k < dim; ++k) {
+    tot_error = max(error[k],tot_error);
+    this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %lf\n", tot_error);
+
+  
 }
 
 //------------------------------------------------------------------------------

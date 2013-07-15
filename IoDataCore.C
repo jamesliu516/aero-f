@@ -4054,6 +4054,8 @@ OneDimensionalInfo::OneDimensionalInfo(){
 
   mode = NORMAL;
 
+  problemMode = MULTIFLUID;
+
   maxDistance = 0.0;
   numPoints = 101;
   interfacePosition = 0.5;
@@ -4084,6 +4086,8 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassDouble<OneDimensionalInfo>(ca, "Pressure0", this, &OneDimensionalInfo::pressure2);
   new ClassToken<OneDimensionalInfo>(ca, "Mode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::mode), 2, "Normal", 0, "ConvergenceTest1", 1);
 
+  new ClassToken<OneDimensionalInfo>(ca, "ProblemMode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::problemMode), 2, "MultiFluid", 0, "FSI", 1);
+  
   programmedBurn.setup("ProgrammedBurn",ca);
   
 }

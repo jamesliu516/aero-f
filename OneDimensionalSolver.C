@@ -46,7 +46,12 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   delete [] mesh;
 
   bubbleRadiusFile = new char[256];
-  
+ 
+  if (ioData.oneDimensionalInfo.problemMode == OneDimensionalInfo::MULTIFLUID)
+    problemMode = MultiFluid;
+  else
+    problemMode = FSI; 
+
 
   // output
   frequency = ioData.output.transient.frequency;
@@ -768,11 +773,7 @@ void OneDimensional::singleTimeIntegration(double dt){
 
   Vintegrator->integrate(this,&OneDimensional::EulerF,
 			 U,time,dt);
-  //R = 0.0;
-  //computeEulerFluxes();
-
-  //std::cout << "U1 = " << U*U << std::endl;
-
+ 
   if (levelSetMethod == 1 || levelSetMethod == 0) {
     Phin = Phi;
     Phiintegrator->integrate(this,&OneDimensional::PhiF,
@@ -796,13 +797,20 @@ void OneDimensional::singleTimeIntegration(double dt){
   } else {
 
     fluidIdn = fluidId;
-    Vec<double> phi(1);
-    phi[0] = interfaceLocation;
-    varFcn->conservativeToPrimitive(U,V,&fluidId);
-    RKIntegrator<Vec<double> > phiI( RKIntegrator< Vec<double> >::RK4, 1);
-    phiI.integrate(this, &OneDimensional::levelSetDerivative,
-		   phi,time,dt);
-    interfaceLocation = phi[0];
+
+    if (problemMode == MultiFluid) {
+      Vec<double> phi(1);
+      phi[0] = interfaceLocation;
+      varFcn->conservativeToPrimitive(U,V,&fluidId);
+      RKIntegrator<Vec<double> > phiI( RKIntegrator< Vec<double> >::RK4, 1);
+      phiI.integrate(this, &OneDimensional::levelSetDerivative,
+  		     phi,time,dt);
+      interfaceLocation = phi[0];
+    } else {
+
+      varFcn->conservativeToPrimitive(U,V,&fluidId);
+      interfaceLocation = 1.0-pow(time*refVal.time,4.0)/8.0;
+    }
     
     for(int i=0; i<numPoints; i++){
       Phi[i][0] = -X[i][0] + interfaceLocation;
@@ -813,7 +821,14 @@ void OneDimensional::singleTimeIntegration(double dt){
   }
 
   for(int i=0; i<numPoints; i++){
+  
+    if (problemMode == FSI) {
+      if (fluidId[i] != fluidIdn[i]) {
 
+	memcpy(V[i],V[i+1],sizeof(double)*5);
+      }
+      continue;
+    }
     if (fluidId[i] != fluidIdn[i]&& !varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1))) { // Phase change
       
       if (!riemannStatus[i])
@@ -871,7 +886,6 @@ void OneDimensional::singleTimeIntegration(double dt){
 
     programmedBurn->setFluidIds(time, fluidId,U);
   }
-
 }   
 
 void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
@@ -883,6 +897,7 @@ void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
     for(int idim=0; idim<dim; idim++)
       kp[idim] = -Rp[idim] * icv ;
   }
+
 }
 
 class EulerSource {
@@ -931,7 +946,10 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   } 
 
   varFcn->conservativeToPrimitive(y,V,&fluidId);
-  computeSlopes(V,Vslope,fluidId,!varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1)));
+  if (problemMode == MultiFluid)
+    computeSlopes(V,Vslope,fluidId,!varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1)));
+  else
+    computeSlopes(V,Vslope,fluidId,false);
   
   for(int iEdge=0; iEdge<numPoints-1; iEdge++){
     i = iEdge;
@@ -940,7 +958,10 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   
     double Xi = X[i][0],Xj = X[j][0]; 
     double* Vi_ptr = V[i], *Vj_ptr = V[j];
-  
+
+    if (problemMode == FSI && Xi < interfaceLocation && Xj < interfaceLocation)
+      continue; 
+ 
     double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
     if (!isSixthOrder || !(i > 0 && i < numPoints-3 && (fidi == fluidId[i+1] && 
 				     fidi == fluidId[i+2] && fidi == fluidId[i-1] || isSinglePhase))) {
@@ -1004,23 +1025,39 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
     //std::cout << "Hello" << std::endl;
     varFcn->getVarFcnBase(fidi)->verification(0,Udummy,Vi);
     varFcn->getVarFcnBase(fidj)->verification(0,Udummy,Vj);
-    /*for (k = 0; k < dim; ++k) {
-      Vi[k+dim] = Vi_ptr[k];
-      Vj[k+dim] = Vj_ptr[k];
-    }*/
 
     if (interfaceTreatment == 0) {
       
       double* Ri_ptr = R[i],*Rj_ptr = R[j];
       double Cs = ctrlSurf[iEdge+1][0];
-      if(fidi == fidj|| isSinglePhase){
+       
+      if (problemMode == FSI &&
+          Xi < interfaceLocation && 
+          Xj > interfaceLocation) {
+        
+        double gradphi[3] = {1.0, 0.0, 0.0};
+        double Wi[2*dim], Wj[2*dim];
+        Vec3D normalDir(1.0,0.0,0.0);
+        double iv[3] = {-0.5*pow(time*refVal.time,3.0)*refVal.time,0.0,0.0};
+        for (k = 0; k < dim; ++k) {
+          Vi[k+dim] = Vi_ptr[k];
+          Vj[k+dim] = Vj_ptr[k];
+        }
+        riemann->computeFSIRiemannSolution(Vj,iv,normalDir,varFcn,Wi,j,fidi);
+  
+        fluxFcn[0]->compute(length, 0.0, normal, normalVel, Wi, Vj, flux, fidi);
+        for(int k=0; k<dim; ++k) {
+          Rj_ptr[k] -= Cs*flux[k];
+        }
+      }
+      else if(fidi == fidj|| isSinglePhase){
   
         fluxFcn[0]->compute(length, 0.0, normal, normalVel, Vi, Vj, flux, fidi);
         for(int k=0; k<dim; ++k) {
           Ri_ptr[k] += Cs*flux[k];
           Rj_ptr[k] -= Cs*flux[k];
         }
-      }else{
+      } else{
         double gradphi[3] = {1.0, 0.0, 0.0};
         double Wi[2*dim], Wj[2*dim];
         double Wir[2*dim], Wjr[2*dim];

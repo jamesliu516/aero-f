@@ -158,6 +158,9 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void computeDistanceToWall(IoData &ioData);
 
   MeshMotionHandler *createEmbeddedALEMeshMotionHandler(IoData &, GeoSource &, DistLevelSetStructure *);
+
+  void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U);
+
 };
 
 

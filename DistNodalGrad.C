@@ -721,12 +721,14 @@ template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
                                  DistVec<double> &ctrlVol, DistVec<int> &fluidId,
                                  DistSVec<Scalar2, dim> &V, bool linFSI,
-                                 DistLevelSetStructure *distLSS)
+                                 DistLevelSetStructure *distLSS,
+                                 bool includeSweptNodes)
 {
   assert(typeGradient == SchemeData::LEAST_SQUARES);
 
   domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS);
-  domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, distLSS);
+  domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, distLSS,
+                                       includeSweptNodes);
 
 }
 
