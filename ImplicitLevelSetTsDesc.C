@@ -252,6 +252,12 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
 
   this->checkSolution(U);
 
+ if (this->modifiedGhidaglia) {
+    *this->bcData->getBoundaryStateHH() = embeddedU.hh();
+    this->timeState->updateHH(embeddedU.hh());
+  }
+
+
   this->updateBoundaryExternalState();
   return its;
   

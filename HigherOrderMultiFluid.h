@@ -106,6 +106,14 @@ class HigherOrderMultiFluid {
 
    bool limitExtrapolation() const { return limitExtrap; }
 
+   template <int dim>
+     void
+     extrapolateV6(int l, int vertex, 
+		   int i, SVec<double,dim>& V, 
+		   double* Vsurrogate,const double* W, SVec<double,3>& X,
+		   double alpha,double length,
+		   Vec<int>& fluidId) ;
+
   private:
    /*
     DistVec<int>* nodeStatus[dimLS];

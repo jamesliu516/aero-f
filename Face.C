@@ -999,12 +999,12 @@ void Face::computeMatVecProdH1FarFieldHH(int faceid,GenMat<Scalar,dim> &A, SVec<
     double* produ = prod_u[nodeNum(l)];
     for (int k = 0; k < dim; ++k) {
    
-      produ[k] += mult_local_face_hh(Auh[l*dim+k],ppu[k]);
+      produ[k] += mult_local_face_hh(Auh[l*dim+k],p_hh);
     }
   
     for (int k = 0; k < dim; ++k) {
       
-      prod_hh += mult_local_face_hh(Ahu[l*dim+k],p_hh);
+      prod_hh += mult_local_face_hh(Ahu[l*dim+k],ppu[k]);
     }
   }
 

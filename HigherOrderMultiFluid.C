@@ -410,7 +410,7 @@ estimateR(int l, int vertex,
   for (int k = 0; k < dim; ++k) {
 
     if (fabs(V[i][k]-Vf[k] ) > 1.0e-8)
-      r = std::min<double>(r, (Vfg[k][0]*vec[0]+
+      r = std::min<double>(r, 2.0*(Vfg[k][0]*vec[0]+
 			       Vfg[k][1]*vec[1]+
 			       Vfg[k][2]*vec[2])/(V[i][k]-Vf[k])-1.0);
     else
@@ -440,4 +440,64 @@ computeAlpha(int nodeId,const double* currentV,
   }
 
   return alpha;
+}
+
+template <int dim>
+void HigherOrderMultiFluid::
+extrapolateV6(int l, int vertex, 
+	      int i, SVec<double,dim>& V, 
+	      double* Vsurrogate,const double* W, SVec<double,3>& X,
+	      double alpha,double length,
+	      Vec<int>& fluidId) {
+
+  int idxTet = v6data[l][vertex].tet;
+  int idxFace = v6data[l][vertex].face;
+  double face_r = v6data[l][vertex].r;
+  double face_t = v6data[l][vertex].t;
+
+  if ((idxTet<0)||(idxTet>=elems->size())){
+    memcpy(Vsurrogate,W, sizeof(double)*dim);
+    return;
+  }
+
+  int myfid = fluidId[i];
+
+  Elem& elem = (*elems)[idxTet];
+  for (int k = 0; k < 4; ++k) {
+
+    if (fluidId[elem.nodeNum(k)] != myfid) {
+      memcpy(Vsurrogate,W, sizeof(double)*dim);
+      return;
+    }
+  }
+
+  int n0_loc = (*elems)[idxTet].faceDef(idxFace, 0);
+  int n1_loc = (*elems)[idxTet].faceDef(idxFace, 1);
+  int n2_loc = (*elems)[idxTet].faceDef(idxFace, 2);
+  int n0 = (*elems)[idxTet].nodeNum(n0_loc);
+  int n1 = (*elems)[idxTet].nodeNum(n1_loc);
+  int n2 = (*elems)[idxTet].nodeNum(n2_loc);
+  
+  double xf[3] = {0,0,0};
+  for (int k = 0; k < 3; ++k)
+    xf[k] = (X[n0_loc][k] + X[n1_loc][k] + X[n2_loc][k])/3.0;
+
+  double vec[3];
+  for (int k = 0; k < 3; ++k)
+    vec[k] = X[i][k] - xf[k];
+
+  double Vf[dim],Vfg[dim][3];
+  for (int k = 0; k < dim; ++k)
+    Vf[k] = V[n2][k] + face_r*(V[n0][k]-V[n2][k])+
+      face_t*(V[n1][k]-V[n2][k]);
+
+  double alpha_f = sqrt((xf[0]-X[i][0])*(xf[0]-X[i][0])+
+			(xf[1]-X[i][1])*(xf[1]-X[i][1])+
+			(xf[2]-X[i][2])*(xf[2]-X[i][2]))/length;
+
+  double frac = 0.5/(1.0+alpha_f+alpha);
+  for (int k = 0; k < dim; ++k) {
+
+    Vsurrogate[k] = (1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k];
+  }
 }

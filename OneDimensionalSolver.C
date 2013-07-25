@@ -177,6 +177,8 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   typePhaseChange = ioData.mf.typePhaseChange;
 
   myTimer = domain->getTimer();
+
+  std::cout << "Hello" << std::endl;
 }
 //------------------------------------------------------------------------------
 OneDimensional::~OneDimensional(){
@@ -745,7 +747,7 @@ void OneDimensional::singleTimeIntegration(double dt){
 	      //std::cout << fabs(V[j][k]-lastPhaseChangeValue[j][k]) << " " <<
               //  std::max<double>(1e-8,fabs(V[j][k]-V[l][k])) << std::endl;
               //alpha = std::min<double>(alpha,fabs(2.0*V[j][1]-V[l][1])/lastPhaseChangeValue[j][1]);
-              //std::cout << "alpha = " << alpha << std::endl;
+              std::cout << "alpha = " << alpha << std::endl;
               if (typePhaseChange == MultiFluidData::EXTRAPOLATION) {
   	        V[i][k] = alpha*((X[i][0]-X[j][0])/(X[l][0]-X[j][0])*V[l][k]+
 		  (X[i][0]-X[l][0])/(X[j][0]-X[l][0])*V[j][k]) + 
@@ -1127,6 +1129,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         int I,J;
         double betapr = 1.0;
         double betapl = 1.0;
+
+        double betam[5] = {0,0,0,0,0};
         if (limiterRight == 0) {
           betapr = 0.0;
           betapl = 0.0;
@@ -1139,29 +1143,63 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 
 	      Vir[k] = (interfaceLocation-X[i-1][0])/(X[i][0]-X[i-1][0])*V[i][k] - (interfaceLocation-X[i][0])/(X[i][0]-X[i-1][0])*V[i-1][k];
 	      Vjr[k] = (interfaceLocation-X[j+2][0])/(X[j+1][0]-X[j+2][0])*V[j+1][k] - (interfaceLocation-X[j+1][0])/(X[j+1][0]-X[j+2][0])*V[j+2][k];
+/*              betapr = 1.0;
+              betapl = 1.0;
+              if (limiterRight == 0) {
+                betapr = 0.0;
+                betapl = 0.0;
+              }
+ */
               if (k != 2 && k != 3 && limiterRight == 2) {
                 if (Vjr[1] > 0.0) {
-		  double rr = (V[j+3][k]-V[j+2][k]) / std::max<double>(1.0e-8,V[j+2][k]-V[j+1][k]);
+		  double rr = (V[j+3][k]-V[j+2][k]);
+                  if (fabs(V[j+2][k]-V[j+1][k]) > 1.0e-8)
+                    rr /= (V[j+2][k]-V[j+1][k]);
 		  rr = std::max<double>(rr,0.0);
                   betapr = std::min<double>(betapr, rr);
 		}
                 if (Vir[1] < 0.0) {
-		  double rr = (V[i-2][k]-V[i-1][k])/std::max<double>(1.0e-8,V[i][k]-V[i-1][k]);
+		  double rr = (V[i-1][k]-V[i-2][k]);
+                  if (fabs(V[i][k]-V[i-1][k]) > 1.0e-8)
+                    rr /= (V[i][k]-V[i-1][k]);
+                  else
+                    rr = 1.0;
 		  rr = std::max<double>(rr,0.0);
                   betapl = std::min<double>(betapl, rr);
 		}
-		  
-              }
+		betam[k] = std::min<double>(betapl,betapr);
+              } else
+                betam[k] = 1.0;
 	      //std::cout << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j+1][k] << " " << V[i-1][k] << " " << V[j+2][k] << std::endl;
 	    }
-            double beta = std::min<double>(betapl,betapr);
-            beta = sqrt(beta);
+            //double beta = std::min<double>(betapl,betapr);
+            //beta = sqrt(beta);
+            /*std::cout << "beta = " << beta << " " << betapl << " " << betapr << std::endl;
+            std::cout << "V[i-2]  = [" << V[i-2][0] << " " << V[i-2][1] << " " << V[i-2][4] << std::endl;
+            std::cout << "V[i-1]  = [" << V[i-1][0] << " " << V[i-1][1] << " " << V[i-1][4] << std::endl;
+            std::cout << "V[i]  = [" << V[i][0] << " " << V[i][1] << " " << V[i][4] << std::endl;
+            std::cout << "V[j+1]  = [" << V[j+1][0] << " " << V[j+1][1] << " " << V[j+1][4] << std::endl;
+            std::cout << "V[j+2]  = [" << V[j+2][0] << " " << V[j+2][1] << " " << V[j+2][4] << std::endl;
+            std::cout << "V[j+3]  = [" << V[j+3][0] << " " << V[j+3][1] << " " << V[j+3][4] << std::endl;
+*/
+            double beta = betam[0];
+/*            for (int k = 0; k < dim; ++k)
+              beta = std::min<double>(beta,betam[k]);
+            for (int k = 0; k < dim; ++k)
+              betam[k] = beta;
+	    for (int k = 0; k < dim; ++k) {
+
+              std::cout << "beta[" << k << "] = " << betam[k] << std::endl;
+            }
+*/
             //betapl = sqrt(betapl);
             //betapr = sqrt(betapr);
-            betapl = betapr = beta;
+            //betapl = betapr = beta;
 	    for (int k = 0; k < dim; ++k) {
               Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i][k];
               Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j+1][k];
+              //Vir[k] = betam[k]*Vir[k]+(1.0-betam[k])*V[i][k];
+              //Vjr[k] = betam[k]*Vjr[k]+(1.0-betam[k])*V[j+1][k];
             }
 	    //memcpy(Vir, V[i], sizeof(double)*dim);
 	    //memcpy(Vjr, V[j+1], sizeof(double)*dim);
@@ -1180,28 +1218,51 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	      
 	      Vir[k] = (interfaceLocation-X[i-2][0])/(X[i-1][0]-X[i-2][0])*V[i-1][k] - (interfaceLocation-X[i-1][0])/(X[i-1][0]-X[i-2][0])*V[i-2][k];
 	      Vjr[k] = (interfaceLocation-X[j+1][0])/(X[j][0]-X[j+1][0])*V[j][k] - (interfaceLocation-X[j][0])/(X[j][0]-X[j+1][0])*V[j+1][k];
+           /* 
+              betapr = 1.0;
+              betapl = 1.0;
+              if (limiterRight == 0) {
+                betapr = 0.0;
+                betapl = 0.0;
+              }
+*/
               if (k != 2 && k != 3 && limiterRight == 2) {
                 if (Vjr[1] > 0.0) {
-		  double rr = (V[j+2][k]-V[j+1][k])/std::max<double>(1.0e-8,V[j+1][k]-V[j][k]);
+		  double rr = (V[j+2][k]-V[j+1][k]);
+                  if (fabs(V[j+1][k]-V[j][k]) > 1.0e-8)
+                    rr /= (V[j+1][k]-V[j][k]);
+                  else
+                    rr = 1.0;
 		  rr = std::max<double>(rr,0.0);
                   betapr = std::min<double>(betapr, rr);
 		}
                 if (Vir[1] < 0.0) {
-		  double rr = (V[i-3][k]-V[i-2][k])/std::max<double>(1.0e-8,V[i-1][k]-V[i-2][k]);
+		  double rr = (V[i-2][k]-V[i-3][k]);
+                  if (fabs(V[i-1][k]-V[i-2][k]) > 1.0e-8)
+                    rr /= (V[i-1][k]-V[i-2][k]);
+                  else
+                    rr = 1.0;
 		  rr = std::max<double>(rr,0.0);
                   betapl = std::min<double>(betapl, rr);
 		}
               }
+              betam[k] = std::min<double>(betapl,betapr);
 	      //std::cout << " " << Vir[k] << " " << Vjr[k] << " " << V[i][k] << " " << V[j][k] << " " << V[i-1][k] << " " << V[j+1][k] << std::endl;
 	    }
-            double beta = std::min<double>(betapl,betapr);
+            double beta = betam[0];
+            for (int k = 0; k < dim; ++k)
+              beta = std::min<double>(beta,betam[k]);
+            for (int k = 0; k < dim; ++k)
+              betam[k] = beta;
             //betapl = sqrt(betapl);
             //betapr = sqrt(betapr);
 	    beta = sqrt(beta);
-            betapl = betapr = beta;
+            //betapl = betapr = beta;
 	    for (int k = 0; k < dim; ++k) {
               Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i-1][k];
               Vjr[k] = betapr*Vjr[k]+(1.0-betapr)*V[j][k];
+//              Vir[k] = betam[k]*Vir[k]+(1.0-betam[k])*V[i-1][k];
+//              Vjr[k] = betam[k]*Vjr[k]+(1.0-betam[k])*V[j][k];
             }
 	    //memcpy(Vir, V[i-1], sizeof(double)*dim);
 	    //memcpy(Vjr, V[j], sizeof(double)*dim);
@@ -1241,11 +1302,13 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	    for (int k = 0; k < dim; ++k) {
 	      Wi[k] = (Y[i+1][0]-X[i][0])/(interfaceLocation-X[i][0])*Wir[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[i][0])*V[i][k];
               Wi[k] = betapl*Wi[k]+(1.0-betapl)*Wir[k];
+              //Wi[k] = betam[k]*Wi[k]+(1.0-betam[k])*Wir[k];
 	    }
           } else {
 	    for (int k = 0; k < dim; ++k) {
 	      Wj[k] = (Y[i+1][0]-X[j][0])/(interfaceLocation-X[j][0])*Wjr[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[j][0])*V[j][k];
               Wj[k] = betapr*Wj[k]+(1.0-betapr)*Wjr[k];
+              //Wj[k] = betam[k]*Wj[k]+(1.0-betam[k])*Wjr[k];
             }
           }
           //memcpy(Wi, Wir, sizeof(double)*dim);
