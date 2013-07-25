@@ -1673,7 +1673,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
     this->timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Q, F);
     this->spaceOp->applyBCsToResidual(Q, F);
   }
-
+  
 }
 
 //------------------------------------------------------------------------------
@@ -1745,6 +1745,11 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
   Qeps = Q + eps * p.real();
 
   //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);  
+  if (p.hasHHBoundaryTerm()) {
+    *hhEps = *hhVal + eps*p.hh();
+    *this->spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
+  }
+
   if (!this->isFSI)
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann,this->timeState, -1);
   else
@@ -1753,6 +1758,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
                                    this->riemann, this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
                                    *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
 
+  //std::cout << iod->ts.dualtimestepping << std::endl;
   if (this->timeState)
     this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
     if (iod->ts.dualtimestepping == TsData::ON)
@@ -1761,9 +1767,6 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
   this->spaceOp->applyBCsToResidual(Qeps, Feps);
 
   if (p.hasHHBoundaryTerm()) {
-    *hhEps = *hhVal + eps*p.hh();
-    *this->spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
-
     *hhEps = 0.0;
     this->spaceOp->getDomain()->
       computeHHBoundaryTermResidual(*this->spaceOp->getDistBcData(),Qeps,*hhEps, this->spaceOp->getVarFcn());
@@ -1833,7 +1836,7 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
   int iSub, size = 0;
   double eps0 = 1.e-8;
 
-/*  const DistInfo &distInfo = U.info();
+  const DistInfo &distInfo = U.info();
 
   //double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
  
@@ -1877,8 +1880,10 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
   else eps = eps0;
 
   delete [] alleps;
- */
 
+  return eps;
+ 
+/*
   DistSVec<double,dim> Up(U);
   Up *= eps0;
 
@@ -1892,7 +1897,7 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
     totsum = eps0;
 
   return totsum;
-
+*/
 }
 
 //------------------------------------------------------------------------------

@@ -1180,7 +1180,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 {
   V6NodeData (*v6data)[2];
   v6data = 0;
-  findEdgeTetrahedra(X, v6data);
+//  findEdgeTetrahedra(X, v6data);
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, 
 										   countWstarij, countWstarji, LSS, linRecAtInterface, 
@@ -7818,12 +7818,12 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
     if (nodeFlag[i] && (!LSS || LSS->isActive(0.0,i))) {
       
       for (int k = 0; k < dim; ++k) {
-
+/*
         if (fabs(U[i][k]-Uexact[i][k]) > 0.05) {
 
           std::cout << locToGlobNodeMap[i] << " " <<  U[i][k] << " " << Uexact[i][k] << std::endl;
         }
-          
+  */        
 	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));
       }
     }

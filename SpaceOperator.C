@@ -2947,9 +2947,10 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
 			  break;
 		  }
-		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" << iSub <<"): " <<
+/*		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" << iSub <<"): " <<
 		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
 		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
+*/
                   if (this->domain->getSubDomain()[iSub]->getHigherOrderMF() && limit) {
 
                     this->domain->getSubDomain()[iSub]->getHigherOrderMF()->
