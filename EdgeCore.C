@@ -34,6 +34,8 @@ EdgeSet::EdgeSet()
 #endif
 
   mfRiemannNormal = MF_RIEMANN_NORMAL_REAL;
+
+  triangulatedLSS = NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -274,3 +276,7 @@ void EdgeSet::setMultiFluidRiemannNormal(MultifluidRiemannNormal m) {
   mfRiemannNormal = m;
 }
 
+void EdgeSet::attachTriangulatedInterfaceLSS(LevelSetStructure* LSS) {
+
+  triangulatedLSS = LSS;
+}

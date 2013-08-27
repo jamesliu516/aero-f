@@ -11,6 +11,8 @@
 #include <BCApplier.h>
 #include <MatchNode.h>
 
+#include <TriangulatedInterface.h>
+
 #ifdef OLD_STL
 #include <algo.h>
 #else
@@ -119,7 +121,8 @@ Domain::Domain()
   numGlobNode = 0;	// only compute if needed
   
   output_newton_step = 0;
- 
+
+  multiFluidInterface = NULL; 
 }
 
 //------------------------------------------------------------------------------
@@ -132,6 +135,7 @@ Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType
     weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), output_newton_step(0)
 {
   timer = new Timer(com);
+  multiFluidInterface = NULL; 
 }
 
 //------------------------------------------------------------------------------
@@ -1210,7 +1214,8 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
-                                        DistSVec<double,6> &R, DistLevelSetStructure *distLSS)
+                                        DistSVec<double,6> &R, DistLevelSetStructure *distLSS,
+					bool includeSweptNodes)
 {
 
   int iSub;
@@ -1219,7 +1224,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) { 
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0, includeSweptNodes);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
@@ -1797,4 +1802,15 @@ void Domain::maskHHVector(DistVec<double>& hh) {
     subDomain[iSub]->maskHHVector(hh(iSub));
   }
   
+}
+
+void Domain::attachTriangulatedInterface(TriangulatedInterface* T) {
+
+  multiFluidInterface = T;
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->attachTriangulatedInterfaceLSS(T->getSubLSS(iSub));
+  }
+
 }

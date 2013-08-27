@@ -9,6 +9,8 @@
 
 #include <OneDimensionalSolver.h>
 
+#include <TriangulatedInterface.h>
+
 class IoData;
 class GeoSource;
 class Domain;
@@ -28,6 +30,9 @@ class LevelSetTsDesc : public TsDesc<dim> {
   MultiPhaseSpaceOperator<dim,dimLS> *multiPhaseSpaceOp;
   FluidSelector fluidSelector;
   LevelSet<dimLS> *LS;
+
+  TriangulatedInterface* myTriangulatedInterface;
+
   DistExactRiemannSolver<dim> *riemann;
   DistSVec<double,dimLS> Phi;           //conservative variables
   DistSVec<double,dimLS> PhiV;          //primitive variables
@@ -115,6 +120,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   ProgrammedBurn* programmedBurn;
 
+  double currentTimeStep;
 };
 
 //------------------------------------------------------------------------------

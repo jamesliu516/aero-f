@@ -644,6 +644,10 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   this->output->updatePrtout(t);
   this->restart->updatePrtout(t);
   if (*lastIt) {
+
+    this->output->template writeLinePlotsToDisk<1>(true, it, t, *this->X,
+						   *this->A, U, 
+						   this->timeState, nodeTag);
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)
       this->timer->print(this->domain->getStrTimer());

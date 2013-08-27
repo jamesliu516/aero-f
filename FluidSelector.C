@@ -2,6 +2,8 @@
 //#include <Domain.h>
 #include <cassert>
 
+#include <TriangulatedInterface.h>
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -59,7 +61,6 @@ void FluidSelector::getFluidId(DistSVec<double,dim> &Phi){
     }
   }
 }
-
 //------------------------------------------------------------------------------
 
 template<int dim>

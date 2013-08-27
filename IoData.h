@@ -157,6 +157,24 @@ struct Probes {
   void setup(const char *, ClassAssigner * = 0);
 };
 
+struct LinePlot {
+
+  LinePlot();
+  ~LinePlot() {} 
+
+  Assigner *getAssigner();
+  double x0,y0,z0;
+  double x1,y1,z1;
+  
+  int numPoints;
+  
+  const char *density;
+  const char *pressure;
+  const char *temperature;
+  const char *velocity;
+  //const char *displacement;
+};
+
 //------------------------------------------------------------------------------
 
 struct TransientData {
@@ -258,6 +276,8 @@ struct TransientData {
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
   Probes probes;
+
+  ObjectMap<LinePlot> linePlots;
 
   TransientData();
   ~TransientData() {}
@@ -1111,7 +1131,8 @@ struct MultiFluidData {
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
-  enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
+  enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3,
+                        TRIANGULATED = 4} levelSetMethod;
 
   enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
 
@@ -2222,7 +2243,7 @@ struct OneDimensionalInfo {
 
   ProgrammedBurnData programmedBurn;
   
-  enum Mode { NORMAL=0, CONVTEST1 = 1 } mode;
+  enum Mode { NORMAL=0, CONVTEST1 = 1, CONVTEST2=2 } mode;
 
   enum ProblemMode { MULTIFLUID=0, FSI=1} problemMode;
 

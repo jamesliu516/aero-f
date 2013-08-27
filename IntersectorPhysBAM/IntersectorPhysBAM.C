@@ -740,6 +740,12 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   else if (iod.embed.embedIC.dummyPointMap.dataMap.empty())
     com->fprintf(stderr, "Point-based initial conditions could not be found.  Assuming single-phase flow\n");
 
+  if (iod.mf.levelSetMethod == MultiFluidData::TRIANGULATED) {
+
+    points.push_back(pair<Vec3D,int>(Vec3D(0.0,0.0,0.0),0));
+    points.push_back(pair<Vec3D,int>(Vec3D(1.0,0.0,0.0),1));
+  }
+
   findActiveNodesUsingFloodFill(tId,points);
 
   if(point_based_id) {

@@ -222,6 +222,8 @@ void OutputData::setup(const char *name, ClassAssigner *father)
   transient.setup("Postpro", ca);
   restart.setup("Restart", ca);
   transient.probes.setup("Probes", ca);
+  transient.linePlots.setup("LinePlots", ca);
+  
   rom.setup("NonlinearROM", ca);
 }
 
@@ -271,6 +273,42 @@ void Probes::setup(const char *name, ClassAssigner *father)
     myNodes[i].setup(nodename, ca);
   }
 
+}
+LinePlot::LinePlot() {
+
+  density = "";
+  pressure = "";
+  temperature = "";
+  velocity = "";
+  //displacement = "";
+
+  numPoints = -1;
+  x0 = y0 = z0 = 0.0;
+  x1 = y1 = z1 = 0.0;
+  
+}
+
+Assigner* LinePlot::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
+  new ClassStr<LinePlot>(ca, "Density", this, &LinePlot::density);
+  new ClassStr<LinePlot>(ca, "Pressure", this, &LinePlot::pressure);
+  new ClassStr<LinePlot>(ca, "Temperature", this, &LinePlot::temperature);
+  new ClassStr<LinePlot>(ca, "Velocity", this, &LinePlot::velocity);
+  //new ClassStr<LinePlot>(ca, "Displacement", this, &Probes::displacement);
+
+  new ClassInt<LinePlot>(ca, "NumPoints", this, &LinePlot::numPoints);
+  
+  new ClassDouble<LinePlot>(ca, "X0", this, &LinePlot::x0);
+  new ClassDouble<LinePlot>(ca, "Y0", this, &LinePlot::y0);
+  new ClassDouble<LinePlot>(ca, "Z0", this, &LinePlot::z0);
+  new ClassDouble<LinePlot>(ca, "X1", this, &LinePlot::x1);
+  new ClassDouble<LinePlot>(ca, "Y1", this, &LinePlot::y1);
+  new ClassDouble<LinePlot>(ca, "Z1", this, &LinePlot::z1);
+
+  return ca;
+  
 }
 
 TransientData::TransientData()
@@ -2107,8 +2145,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
                                  "None", 0, "Alex1", 1);
 
   new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),4,
-                                 "Conservative", 0, "HJWENO", 1,"Scalar", 2, "Primitive",3);
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),5,
+                                 "Conservative", 0, "HJWENO", 1,"Scalar", 2, "Primitive",3,
+                                 "Triangulated", 4);
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
                                   &MultiFluidData::jwlRelaxationFactor);
@@ -4084,7 +4123,8 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassDouble<OneDimensionalInfo>(ca, "Density0", this, &OneDimensionalInfo::density2);
   new ClassDouble<OneDimensionalInfo>(ca, "Velocity0", this, &OneDimensionalInfo::velocity2);
   new ClassDouble<OneDimensionalInfo>(ca, "Pressure0", this, &OneDimensionalInfo::pressure2);
-  new ClassToken<OneDimensionalInfo>(ca, "Mode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::mode), 2, "Normal", 0, "ConvergenceTest1", 1);
+  new ClassToken<OneDimensionalInfo>(ca, "Mode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::mode), 3, "Normal", 0, "ConvergenceTest1", 1,
+                                     "ConvergenceTest2",2);
 
   new ClassToken<OneDimensionalInfo>(ca, "ProblemMode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::problemMode), 2, "MultiFluid", 0, "FSI", 1);
   

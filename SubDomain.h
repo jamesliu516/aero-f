@@ -189,6 +189,8 @@ class SubDomain {
 
   ErrorHandler* errorHandler;
 
+  LevelSetStructure* triangulatedInterfaceLSS;
+
 public:
   
   HigherOrderMultiFluid* higherOrderMF;
@@ -270,7 +272,8 @@ public:
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,6> &);
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
-					  SVec<int,1> &, SVec<double,6> &, LevelSetStructure* =0);
+					  SVec<int,1> &, SVec<double,6> &, LevelSetStructure* =0,
+					  bool includeSweptNodes = true);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
 					  SVec<int,1> &, SVec<double,6> &, Vec<int> &, Vec<int> &, 
 					  LevelSetStructure* =0);
@@ -472,7 +475,7 @@ public:
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,Vec<int>& fluidId,
                                NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*, SVec<double,dimLS>&,
-                               SVec<double,dimLS>&, LevelSetStructure* =0);
+                               SVec<double,dimLS>&, LevelSetStructure* =0, int ls_order = 1);
   template<int dim>
   int computeFiniteVolumeBar_Step1(Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&, SVec<double,3>& ,
                                     SVec<double,dim>&, NodalGrad<dim> &, EdgeGrad<dim>* , SVec<double,dim>&,
@@ -1405,7 +1408,10 @@ public:
 					   SVec<double,dim> &U, 
 					   GenMat<Scalar,neq> &A,
 					   VarFcn* vf);
+
+  void attachTriangulatedInterfaceLSS(LevelSetStructure*);
   
+  Elem* searchPoint(Vec3D Xp, SVec<double,3>& X);
 };
 //------------------------------------------------------------------------------
 

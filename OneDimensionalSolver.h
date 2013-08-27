@@ -329,6 +329,7 @@ class OneDimensional {
 
 	  if (!spherical)
 	    fid_new = 1-fid_new;
+          fid_new = std::min<int>(fid_new, varFcn->size()-1);
 
 	if ( (localRadius > rad && xrad > rad) || (localRadius <= rad && xrad <= rad)) {
 	  //if (xrad < 1.0)
@@ -460,6 +461,8 @@ class OneDimensional {
       double rad = 0;
       for(int i=0; i<numPoints; i++){
 	input >> x_1D[i] >> v_1D[i*5] >> v_1D[i*5+1] >> v_1D[i*5+2] >> v_1D[i*5+3]>> fids[i] >> v_1D[i*5+4];
+
+        fids[i] = std::min<int>(fids[i], varFcn->size()-1);
 	x_1D[i]    /= iod.ref.rv.length;
 	v_1D[i*5] /= iod.ref.rv.density;
 	v_1D[i*5+1] /= iod.ref.rv.velocity;
@@ -607,6 +610,7 @@ template <int dimp,int dimLS>
       double rad = 0;
       for(int i=0; i<numPoints; i++){
 	input >> x_1D[i] >> v_1D[i*5] >> v_1D[i*5+1] >> v_1D[i*5+2] >> v_1D[i*5+3]>> fids[i] >> v_1D[i*5+4];
+        fids[i] = std::min<int>(fids[i], varFcn->size()-1);
 	x_1D[i]    /= iod.ref.rv.length;
 	v_1D[i*5] /= iod.ref.rv.density;
 	v_1D[i*5+1] /= iod.ref.rv.velocity;

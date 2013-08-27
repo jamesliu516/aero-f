@@ -168,6 +168,9 @@ class Domain {
 
   GeoSource* pGeoSource;
 
+  // For Multifluid interface tracking
+  class TriangulatedInterface* multiFluidInterface;
+
 public:
 
   Domain();
@@ -228,6 +231,8 @@ public:
 
   GeoSource& getGeoSource() { return *pGeoSource; }
 
+  void attachTriangulatedInterface(TriangulatedInterface*);
+
   void getGeometry(GeoSource &, IoData&);
   void createRhsPat(int, IoData&);
   void createVecPat(int, IoData * = 0);
@@ -261,7 +266,7 @@ public:
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &,
 			 DistSVec<double,3> &);
   void computeWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &);
-  void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &, DistLevelSetStructure* =0);
+  void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &, DistLevelSetStructure* =0, bool includeSweptNodes = true);
   void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &,
 		  DistVec<int> &, DistVec<int> &, DistLevelSetStructure* =0);
   void computeWeightsGalerkin(DistSVec<double,3> &, DistSVec<double,3> &,
@@ -540,7 +545,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,DistVec<int>& fluidId,
                                DistNodalGrad<dim>&, DistNodalGrad<dimLS>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,
-                               DistLevelSetStructure * = 0);
+                               DistLevelSetStructure * = 0, int lsorder = 1);
 
   template<int dim>
   void computeFiniteVolumeBarTerm(DistVec<double> &, DistVec<double> &, FluxFcn**,

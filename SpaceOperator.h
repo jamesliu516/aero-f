@@ -5,6 +5,9 @@
 #include <GhostPoint.h>
 #include <RestrictionMapping.h>
 #include <complex>
+
+#include <TriangulatedInterface.h>
+
 typedef std::complex<double> bcomp;
 
 class VarFcn;
@@ -417,7 +420,7 @@ public:
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                          DistSVec<double,dimLS> &, DistVec<int> &, 
                          DistSVec<double,dim> &,DistSVec<double,dimLS> &, DistLevelSetStructure* =0, bool = true,
-			 int method = 0);
+			 int method = 0, int ls_order = 1);
 
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
@@ -460,6 +463,8 @@ public:
 		    DistVec<int>& fluidId,
 		    DistSVec<double,dim> &V,
 		    DistSVec<double,3> &X);
+
+  void attachTriangulatedInterface(TriangulatedInterface*);
 
 };
 //------------------------------------------------------------------------------

@@ -726,7 +726,8 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 {
   assert(typeGradient == SchemeData::LEAST_SQUARES);
 
-  domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS);
+  domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS,
+				     includeSweptNodes);
   domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, distLSS,
                                        includeSweptNodes);
 

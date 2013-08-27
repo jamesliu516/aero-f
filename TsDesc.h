@@ -192,6 +192,8 @@ public:
  
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
+  void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
+
 };
 
 //------------------------------------------------------------------------------

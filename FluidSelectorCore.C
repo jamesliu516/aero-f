@@ -352,6 +352,45 @@ void FluidSelector::printFluidId(){
 
 //------------------------------------------------------------------------------
 
+//template<int dim>
+void FluidSelector::getFluidId(TriangulatedInterface* T){
+//  assert(dim<=numPhases-1);
+  int numLocSub = fluidId->numLocSub();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<numLocSub; ++iSub) {
+    LevelSetStructure* LSS = T->getSubLSS(iSub);
+    int     *tag       = fluidId->subData(iSub);
+    int burnTag;
+    for(int iNode=0; iNode<fluidId->subSize(iSub); iNode++){
+      //if (programmedBurn && programmedBurn->isBurnedEOS(tag[iNode],burnTag))
+      //	continue;
+      tag[iNode] = 0;
+/*      for(int i=0; i<dim; i++) {
+        if(phi[iNode][i]>0.0) {
+	  if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
+				 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
+	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) || 
+                programmedBurn->isFinished(burnTag))
+	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
+	    else
+	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
+	    break;
+	  }
+	  else 
+	    {  tag[iNode] = i+1; break; }
+
+          
+	}
+      }
+*/
+      if (!LSS->isOccluded(0.0,iNode))
+        tag[iNode] = LSS->fluidModel(0.0,iNode);
+    }
+  }
+}
+
+
 
 
 

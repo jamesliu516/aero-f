@@ -608,6 +608,14 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
   this->output->updatePrtout(t);
   if (*lastIt) {
+
+    if (strcmp(ioData.input.convergence_file,"") != 0) {
+      
+      this->varFcn->conservativeToPrimitive(U, *this->V);
+      computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
+    }
+
+
     timer->setRunTime();
     if (com->getMaxVerbose() >= 2)
       timer->print(domain->getStrTimer());
@@ -1009,4 +1017,47 @@ void TsDesc<dim>::initializeFarfieldCoeffs()
 
   this->domain->maskHHVector(*(bcData->getBoundaryStateHH()));
 }
+
+template<int dim>
+void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U) {
+
+  DistSVec<double,dim> Uexact(U);
+  OneDimensional::read1DSolution(ioData,file, Uexact, 
+				 (DistSVec<double,1>*)0,
+				 NULL,//&fluidSelector,
+				 spaceOp->getVarFcn(),
+				 *this->X,
+				 *this->domain,
+				 OneDimensional::ModeU,
+				 false) ;
+
+  double error[dim];
+  double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
+		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+		      ioData.ref.rv.pressure};
+
+  std::cout << "ref pressure = " <<  ioData.ref.rv.pressure << " ref length =  " <<  ioData.ref.rv.length << std::endl;
+  double tot_error = 0.0;
+  DistVec<int> nnv(U.info());
+  nnv = 1;
+  int nNodes = nnv.sum();
+
+  this->domain->computeL1Error(U,Uexact,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error += error[k] / nNodes;
+    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k] / nNodes);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %lf\n", tot_error);
+
+  tot_error = 0.0;
+  this->domain->computeLInfError(U,Uexact,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error = max(error[k],tot_error);
+    this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %lf\n", tot_error);
+
+  
+}
+
 
