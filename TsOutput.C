@@ -741,6 +741,48 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.probes.prefix, iod.output.transient.probes.displacement);
   }
 
+  map<int, LinePlot *>::iterator it;
+  for (it = iod.output.transient.linePlots.dataMap.begin(); 
+       it !=  iod.output.transient.linePlots.dataMap.end();
+       ++it) {
+
+    LinePlot& L = *it->second;
+    line_output* Lp = new line_output;
+
+    memset(Lp, 0, sizeof(line_output));
+
+    Lp->numPoints = L.numPoints;
+    Lp->x0 = L.x0;
+    Lp->y0 = L.y0;
+    Lp->z0 = L.z0;
+    Lp->x1 = L.x1;
+    Lp->y1 = L.y1;
+    Lp->z1 = L.z1;
+
+    if (L.density[0] != 0) {
+      Lp->scalars[PostFcn::DENSITY] = new char[sp + strlen(L.density)];
+      sprintf(Lp->scalars[PostFcn::DENSITY], "%s%s", 
+	      iod.output.transient.prefix, L.density);
+    }
+    if (L.pressure[0] != 0) {
+      Lp->scalars[PostFcn::PRESSURE] = new char[sp + strlen(L.pressure)];
+      sprintf(Lp->scalars[PostFcn::PRESSURE], "%s%s", 
+	      iod.output.transient.prefix, L.pressure);
+    }
+    if (L.temperature[0] != 0) {
+      Lp->scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(L.temperature)];
+      sprintf(Lp->scalars[PostFcn::TEMPERATURE], "%s%s", 
+	      iod.output.transient.prefix, L.temperature);
+    }
+    if (L.velocity[0] != 0) {
+      Lp->vectors[PostFcn::VELOCITY] = new char[sp + strlen(L.velocity)];
+      sprintf(Lp->vectors[PostFcn::VELOCITY], "%s%s", 
+	      iod.output.transient.prefix, L.velocity);
+    } 
+    line_outputs.push_back(Lp);
+  }
+
+
   tscale = iod.ref.rv.time;
   xscale = iod.ref.rv.length;
 }
@@ -2638,6 +2680,131 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
     }
     // }
     ++nodal_output.step;
+}
+
+template<int dim>
+template<int dimLS>
+void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+					DistVec<double> &A, DistSVec<double,dim> &U, 
+					DistTimeState<dim> *timeState, DistVec<int> &fluidId,
+					DistSVec<double,dimLS>* Phi, DistLevelSetStructure *distLSS,
+					DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+  //if (toWrite(it,lastIt,t)) {
+  if (line_outputs.size() == 0)
+    return;
+
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+    
+    // if (solutions)
+    // domain->writeVectorToFile(solutions, step, tag, U);
+    
+    int i;
+    const char* mode = "w";//nodal_output.step ? "a" : "w";
+    //if (it0 > 0)
+    //  mode = "a";
+
+
+    for (int j = 0; j < line_outputs.size(); ++j) {
+
+      FILE* scalar_files[PostFcn::SSIZE],*vector_files[PostFcn::VSIZE];
+      line_output* lout = line_outputs[j];
+
+      memset(scalar_files,0, sizeof(scalar_files));
+      memset(vector_files,0, sizeof(vector_files));
+      
+		    
+      for (i=0; i<PostFcn::SSIZE; ++i) {
+	
+	if (lout->scalars[i]) {	
+	  if (com->cpuNum() == 0) {
+	    scalar_files[i] = fopen(lout->scalars[i],mode);
+	    if (scalar_files[i] != 0) {
+	    } else {
+	      
+	      this->com->fprintf(stderr,"Warning: Cannot open line output file %s",lout->scalars[i]);
+	    }
+	  }
+	}
+      }
+		    
+      for (i=0; i<PostFcn::VSIZE; ++i) {
+	
+	if (lout->vectors[i]) {
+	  if (com->cpuNum() == 0) {
+	    vector_files[i] = fopen(lout->vectors[i],mode);
+	    if (vector_files[i] != 0) {
+	    } else {
+	      
+	      this->com->fprintf(stderr,"Warning: Cannot open line output file %s",lout->vectors[i]);
+	    }
+	  }
+	}
+      }
+
+      int last = 0;
+      int subId = -1, locNodeId = -1;
+      double result[3];
+      std::vector<Vec3D> location(1);
+      for (int k = 0; k < lout->numPoints; ++k) {
+	location[0] = Vec3D(((lout->x1-lout->x0)/(lout->numPoints-1)*k+lout->x0)/xscale,
+			    ((lout->y1-lout->y0)/(lout->numPoints-1)*k+lout->y0)/xscale,
+			    ((lout->z1-lout->z0)/(lout->numPoints-1)*k+lout->z0)/xscale);
+			    
+	for (i=0; i<PostFcn::SSIZE; ++i) {
+	  
+	  if (lout->scalars[i]) {
+	    
+	    postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A,
+					  timeState,fluidId,
+					  &subId, &locNodeId,
+					  &last,1,result,
+					  location,
+					  Phi, distLSS, ghostPoints);
+	    
+	    if (com->cpuNum() == 0) {
+	      fprintf(scalar_files[i],"%e %e %e %e %e\n",(double)k/(lout->numPoints-1),
+		      location[0][0]*xscale,location[0][1]*xscale,
+		      location[0][2]*xscale,result[0]*sscale[i]);
+	    }
+
+	  }
+	}
+	
+	for (i=0; i<PostFcn::VSIZE; ++i) {
+	  if (lout->vectors[i]) {
+	    
+	    postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U,
+					  &subId, &locNodeId,
+					  &last,1,result,
+					  location,
+					  fluidId, distLSS, ghostPoints);
+
+	    if (com->cpuNum() == 0) {
+	      fprintf(vector_files[i],"%e %e %e %e %e %e %e\n",(double)k/(lout->numPoints-1),
+		      location[0][0]*xscale,location[0][1]*xscale,
+		      location[0][2]*xscale,result[0]*vscale[i], result[1]*vscale[i],result[2]*vscale[i]);
+	    }
+	  }
+	}
+      }
+
+      for (i=0; i<PostFcn::SSIZE; ++i) {
+
+	if (scalar_files[i])
+	  fclose(scalar_files[i]);
+      }
+	
+      for (i=0; i<PostFcn::VSIZE; ++i) {
+
+	if (vector_files[i])
+	  fclose(vector_files[i]);
+      }
+    }
 }
 
 //----------------------------------------------------------------------------------------

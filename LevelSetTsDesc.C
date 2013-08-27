@@ -45,7 +45,9 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
 
-  if (ioData.mf.levelSetMethod == MultiFluidData::PRIMITIVE)
+  if (ioData.mf.levelSetMethod == MultiFluidData::TRIANGULATED) 
+    lsMethod = 2;
+  else if (ioData.mf.levelSetMethod == MultiFluidData::PRIMITIVE)
     lsMethod = 1;
   else
     lsMethod = 0;
@@ -108,6 +110,14 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     loadExactInterfaceFile(ioData, ioData.input.exactInterfaceLocation);
   }
 
+  myTriangulatedInterface = NULL;
+  if (ioData.mf.testCase == 1 && lsMethod == 2) {
+
+    myTriangulatedInterface = new TriangulatedInterface();
+    myTriangulatedInterface->initializeAsSquare(11);
+
+  }
+
   limitHigherOrderExtrapolation = false;
   if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
     limitHigherOrderExtrapolation = true;
@@ -148,6 +158,13 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   if (this->modifiedGhidaglia)
     this->timeState->attachHH(*this->bcData->getBoundaryStateHH());
 
+  if (lsMethod == 2) {
+
+    myTriangulatedInterface->initializeIntersector(ioData,this->domain->getCommunicator(),
+                                                   this->domain, *this->X);
+    this->multiPhaseSpaceOp->attachTriangulatedInterface(myTriangulatedInterface);
+  }
+  
 }
 
 //------------------------------------------------------------------------------
@@ -193,6 +210,8 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 
   if (dt + this->currentTime > this->data->maxTime)
     dt = this->data->maxTime - this->currentTime; 
+
+  currentTimeStep = dt;
 
   return dt;
 
@@ -322,6 +341,10 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
       this->timer->print(this->domain->getStrTimer());
     this->output->closeAsciiFiles();
 
+    this->output->template writeLinePlotsToDisk<1>(true, it, t, *this->X,
+						   *this->A, U, 
+						   this->timeState, *fluidSelector.fluidId);
+
     if (strcmp(ioData.input.convergence_file,"") != 0) {
       
       this->varFcn->conservativeToPrimitive(U, *this->V, fluidSelector.fluidId);
@@ -440,11 +463,17 @@ void LevelSetTsDesc<dim,dimLS>::computeConvergenceInformation(IoData &ioData, co
   double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
 		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
 		      ioData.ref.rv.pressure};
+
+  std::cout << "ref pressure = " <<  ioData.ref.rv.pressure << " ref length =  " <<  ioData.ref.rv.length << std::endl;
   double tot_error = 0.0;
+  DistVec<int> nnv(U.info());
+  nnv = 1;
+  int nNodes = nnv.sum();
+
   this->domain->computeL1Error(U,Uexact,error);
   for (int k = 0; k < dim; ++k) {
-    tot_error += error[k];
-    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k]);
+    tot_error += error[k] / nNodes;
+    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k] / nNodes);
   }
   this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %lf\n", tot_error);
 
@@ -486,17 +515,21 @@ void LevelSetTsDesc<dim,dimLS>::setPhiExact() {
 
   if (this->myExactInterface.size() > 0) {
     
-    double il = 0.0;
+    double il = 0.0, vl;
     for (int i = 0; i < this->myExactInterface.size(); ++i) {
       
       if (this->myExactInterface[i].time > this->currentTime) {
 	
 	il = -(this->myExactInterface[i-1].time-this->currentTime) * this->myExactInterface[i].loc / (this->myExactInterface[i].time-this->myExactInterface[i-1].time) + 
 	  (this->myExactInterface[i].time-this->currentTime) * this->myExactInterface[i-1].loc / (this->myExactInterface[i].time-this->myExactInterface[i-1].time);
+        vl = (this->myExactInterface[i].loc-this->myExactInterface[i-1].loc)/(this->myExactInterface[i].time-this->myExactInterface[i-1].time) ;
 	break;
       }
     }
-    
+
+    if (myTriangulatedInterface)
+      myTriangulatedInterface->setExactSquare(il,  vl);   
+ 
 #pragma omp parallel for
     for (int iSub = 0; iSub < this->Phi.numLocSub(); ++iSub) {
       
@@ -509,3 +542,4 @@ void LevelSetTsDesc<dim,dimLS>::setPhiExact() {
   }
 
 }
+

@@ -165,6 +165,8 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
     levelSetMethod = 1;
   else if (ioData.mf.levelSetMethod == MultiFluidData::SCALAR/* || ioData.mf.levelSetMethod == MultiFluidData::CONSERVATIVE*/)
     levelSetMethod = 2;
+  else if (ioData.mf.levelSetMethod == MultiFluidData::PRIMITIVE)
+    levelSetMethod = 3;
  
   int sto = ioData.oneDimensionalInfo.sourceTermOrder; 
   if(volumeType == OneDimensionalInfo::CONSTANT_VOLUME){
@@ -541,11 +543,18 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
       V[i][0] = data.density2;
       if (fabs(X[i][0]-data.interfacePosition) < 0.2)
 	V[i][4] = //data.pressure2+100.0*pow(cos(3.14159265358979323846/2.0*(X[i][0]-data.interfacePosition)/0.2),2.0);
-	  (10000000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+1.0)*data.pressure2;
+	  (1000000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+1.0)*data.pressure2;
       else
 	V[i][4] = data.pressure2;
       V[i][1] = 0.0;
     }
+
+    if (data.mode == OneDimensionalInfo::CONVTEST2) {
+      V[i][0] = data.density2;
+      V[i][4] = (atan(-(X[i][0]-data.interfacePosition)*20.0)+3.14159265358979323846*0.5+1.0)*data.pressure2;
+      V[i][1] = 0.0;
+    }
+
   }
 
   isSinglePhase = varFcn->getVarFcnBase(0)->equal(varFcn->getVarFcnBase(1));
@@ -776,7 +785,7 @@ void OneDimensional::singleTimeIntegration(double dt){
   Vintegrator->integrate(this,&OneDimensional::EulerF,
 			 U,time,dt);
  
-  if (levelSetMethod == 1 || levelSetMethod == 0) {
+  if (levelSetMethod == 1 || levelSetMethod == 0 || levelSetMethod == 3) {
     Phin = Phi;
     Phiintegrator->integrate(this,&OneDimensional::PhiF,
 			     Phi,time,dt);
@@ -860,7 +869,7 @@ void OneDimensional::singleTimeIntegration(double dt){
     if (Phi[i+1][0] < 0.0) {
       if (levelSetMethod == 0)
 	interfaceLocation = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
-      else if (levelSetMethod == 1)
+      else if (levelSetMethod == 1 || levelSetMethod == 3)
 	interfaceLocation = (X[i+1][0]*Phi[i][0]-X[i][0]*Phi[i+1][0])/(Phi[i][0]-Phi[i+1][0]);
       break;
     }
@@ -868,7 +877,7 @@ void OneDimensional::singleTimeIntegration(double dt){
 
     
   if (levelSetMethod == 0) {
-  } else if (levelSetMethod == 1) {
+  } else if (levelSetMethod == 1 || levelSetMethod == 3) {
     for(int i=0; i<numPoints-1; i++) {
       Phi[i][0] = (interfaceLocation-X[i][0]);
     }
@@ -1581,7 +1590,103 @@ void OneDimensional::computeLevelSetFluxes(SVec<double,1>& y){
 	
 	source->compute(E,y, Rphi, X, Y,fluidId);
 	}*/
-    }  
+    } else if (levelSetMethod == 3) {
+
+      double Phii[1],Phij[1],Phisi[1],Phisj[1];
+      for(int iEdge=0; iEdge<numPoints-1; iEdge++){
+        int i = iEdge;
+        int j = iEdge+1;
+      
+        if (!isSixthOrder || !(i > 0)) {
+	
+  	  Phisi[0] = Phislope[i][0]*(X[j][0]-X[i][0]);
+	  Phisj[0] = Phislope[j][0]*(X[j][0]-X[i][0]);
+        } else {
+	
+	  Phisi[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0])+
+	    (-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
+ 	    (-2.0/15.0)*(Phislope[i-1][0]-2.0*Phislope[i][0]+Phislope[j][0])/beta;
+	
+	  Phisj[0] = (y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])+
+	    (-1.0/30.0)*((y[j+1][0]-y[j][0])/(X[j+1][0]-X[j][0])-2.0*(y[j][0]-y[i][0])/(X[j][0]-X[i][0])+(y[i][0]-y[i-1][0])/(X[i][0]-X[i-1][0]))/beta+
+	    (-2.0/15.0)*(Phislope[j+1][0]-2.0*Phislope[j][0]+Phislope[i][0])/beta;
+	
+	  Phisi[0] *= 0.5*(X[j][0]-X[i][0]);
+	  Phisj[0] *= 0.5*(X[j][0]-X[i][0]);
+	
+        }  
+      
+        recFcnLS->compute(y[i], Phisi,y[j], Phisj, Phii, Phij);
+      
+        double uav = 0.5*(V[i][1]+V[j][1]);
+      
+        if(uav > 0.0){
+	  flux = Phii[0]*uav;
+        }
+        else{
+	  flux = Phij[0]*uav;
+        }
+        Rphi[i][0] += flux*ctrlSurf[iEdge+1][0];
+        Rphi[j][0] -= flux*ctrlSurf[iEdge+1][0];
+      }
+    
+      // flux at maxDistance
+      flux = (V[numPoints-1][1] > 0) ? Phi[numPoints-1][0]*V[numPoints-1][1] : V[numPoints-1][0]*BCphi[1]*V[numPoints-1][1];
+      Rphi[numPoints-1][0] += flux*ctrlSurf[numPoints][0];
+    
+      // flux at center is zero since u=0 for radial and spherical
+      // but for cartesian, flux needs to be computed
+      if(coordType == OneDimensionalInfo::CARTESIAN){
+        flux = (V[0][1] < 0) ? Phi[0][0]*V[0][1] : V[0][0]*BCphi[0]*V[0][1];
+        Rphi[0][0] -= flux*ctrlSurf[0][0];
+      }
+    
+      // source term
+    
+      if (source) {
+        for (int i = 0; i < numPoints; ++i)
+          Rphi[i][0] += 2.0*U[i][1]/U[i][0]*Phi[i][0]*ctrlVol[i][0]/(X[i][0] > 0 ? X[i][0] : 1e8);
+          //LevelSetSource E(varFcn,U);
+      
+          //source->compute(E,y, Rphi, X, Y,fluidId);
+      }
+
+
+      double integrand;      
+      for (int i = 1; i < numPoints-1; ++i) {
+
+        for (int q = 0; q < 10; ++q) {
+
+          double s = ((double)q + 0.5) / 10.0;
+          double phi;
+          if (s < 0.5) {
+            phi = Phi[i-1][0] * (0.5-s) + Phi[i][0]*(s+0.5);
+            if (Phi[i][0]*Phi[i-1][0] > 0.0) {
+              integrand = phi*(Vslope[i][1]);
+            }  else {
+              double isect = -Phi[i-1][0] /(Phi[i][0]-Phi[i-1][0]);
+              if (isect - 0.5 > s)
+                integrand = phi*Vslope[i-1][1];
+              else
+                integrand = phi*(Vslope[i][1]);
+            }
+          } else  {
+            phi = Phi[i+1][0] * (s-0.5) + Phi[i][0]*(1.5-s);
+            if (Phi[i][0]*Phi[i+1][0] > 0.0) {
+              integrand = phi*(Vslope[i][1]);
+            }  else {
+              double isect = -Phi[i+1][0] /(Phi[i][0]-Phi[i+1][0]);
+              if (1.5-isect < s)
+                integrand = phi*Vslope[i+1][1];
+              else
+                integrand = phi*(Vslope[i][1]);
+            }
+          }
+          Rphi[i][0] -= integrand*1.0/10.0*(Y[i+1][0]-Y[i][0]);
+        }
+      }
+    }
+   
 }
 //------------------------------------------------------------------------------
 void OneDimensional::resultsOutput(double time, int iteration){
@@ -1659,7 +1764,7 @@ void OneDimensional::resultsOutput(double time, int iteration){
       if (fluidId[i+1] == 0) {
 	if (levelSetMethod == 0)
 	  rad = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
-	else if (levelSetMethod == 1)
+	else if (levelSetMethod == 1 || levelSetMethod == 3)
 	  rad = (X[i+1][0]*Phi[i][0]-X[i][0]*Phi[i+1][0])/(Phi[i][0]-Phi[i+1][0]);
 	else
 	  rad = interfaceLocation;
@@ -1692,7 +1797,7 @@ void OneDimensional::restartOutput(double time, int iteration){
     if (fluidId[i+1] == 0) {
       if (levelSetMethod == 0)
 	rad = (X[i+1][0]*Phi[i][0]/V[i][0]-X[i][0]*Phi[i+1][0]/V[i+1][0])/(Phi[i][0]/V[i][0]-Phi[i+1][0]/V[i+1][0]);
-      else if (levelSetMethod == 1)
+      else if (levelSetMethod == 1 || levelSetMethod == 3)
 	rad = (X[i+1][0]*Phi[i][0]-X[i][0]*Phi[i+1][0])/(Phi[i][0]-Phi[i+1][0]);
       else
 	rad = interfaceLocation;
@@ -1708,7 +1813,7 @@ void OneDimensional::restartOutput(double time, int iteration){
       varFcn->getPressure(V[i],fluidId[i])*refVal.pressure <<" ";
     if (levelSetMethod == 0)
       output << Phi[i][0]/V[i][0];
-    else if (levelSetMethod == 1)
+    else if (levelSetMethod == 1 || levelSetMethod == 3)
       output << Phi[i][0];
     else if (levelSetMethod == 2)
       output << -(X[i][0]-rad)*refVal.length;

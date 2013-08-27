@@ -541,7 +541,7 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
   // p = 1+10^8(x-0.2)^4*(x-0.6)^4, [x = (0.2,0.6)]
   if (iod.mf.testCase == 1) {
 
-    int oth = 1;//(iod.eqs.fluidModelMap.dataMap.size() > 1 ? 1 : 0);   
+    int oth = (iod.eqs.fluidModelMap.dataMap.size() > 1 ? 1 : 0);   
  
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -549,12 +549,12 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       SVec<double, 3> &x(X(iSub));
       for(int i=0; i<X.subSize(iSub); i++) {
 	double press = 1.0;
-	if (x[i][0] > 0.2 && x[i][0] < 0.6)
-	  press += 1.0e7*pow(x[i][0]-0.2,4.0)*pow(x[i][0]-0.6,4.0);
-	double v[dim];
+	if (x[i][0] > 0.499-0.2 && x[i][0] < 0.499+0.2)
+	  press += 1.0e6*pow(x[i][0]-(0.499-0.2),4.0)*pow(x[i][0]-(0.499+0.2),4.0);
+	double v[dim] = {0,0,0,0,0};
 	v[0] = u[i][0];
 	v[4] = press / iod.ref.rv.pressure;
-	varFcn->primitiveToConservative(v, u[i], (x[i][0] < 0.4 ? 0 : oth) );
+	varFcn->primitiveToConservative(v, u[i], (x[i][0] < 0.499 ? 0 : oth) );
       }
     }
   }
@@ -820,7 +820,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   }
                                                                                                          
   data->computeCoefficients(*dt, dt_glob);
-                                                                                                         
+  
   return dt_glob;
                                                                                                          
 }

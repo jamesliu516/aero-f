@@ -1446,6 +1446,9 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 				for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d];
 			  else
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
+			  std::cout << "Phase change value: " << std::endl;
+			  for (int d=0;d<dim;++d) 
+			    std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
         }
@@ -2379,7 +2382,8 @@ template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 							   DistSVec<double,dimLS> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
 							   DistSVec<double,dimLS> &PhiF, DistLevelSetStructure *distLSS,
-							   bool linRecAtFSInterface,int method)
+							   bool linRecAtFSInterface,int method,
+                                                           int ls_order)
 {
   PhiF = 0.0;
 
@@ -2408,7 +2412,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
     ngradLS->limit(recFcnLS, X, ctrlVol, Phi);
 
   this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),fluidId,
-                                    *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
+                                    *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS,
+                                   ls_order);
 //  this->domain->getCommunicator()->fprintf(stderr,"PhiF res: %lf\n", PhiF.norm());
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
@@ -2892,9 +2897,14 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
   }
 
 #pragma omp parallel for
-  for(iSub=0;iSub<numLocSub;++iSub)
-    for(int i=0;i<init(iSub).size();++i)
+  for(iSub=0;iSub<numLocSub;++iSub) {
+    HigherOrderMultiFluid* mf = subD[iSub]->getHigherOrderMF();
+    for(int i=0;i<init(iSub).size();++i) {
       init(iSub)[i] = (fluidId(iSub)[i] != fluidIdn(iSub)[i] ? 0 : 1);
+      if (mf && mf->isCellCut(i))
+        init(iSub)[i] = 0;
+    }
+  }
 	  //((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1);
   next_init = init;
 
@@ -2947,10 +2957,10 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
 			  break;
 		  }
-/*		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" << iSub <<"): " <<
+		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" << iSub <<"): " <<
 		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
 		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
-*/
+
                   if (this->domain->getSubDomain()[iSub]->getHigherOrderMF() && limit) {
 
                     this->domain->getSubDomain()[iSub]->getHigherOrderMF()->
@@ -3234,5 +3244,12 @@ void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& ph
 				 /*(*(this->V))(iSub)*/);
   } 
 
+}
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::
+attachTriangulatedInterface(TriangulatedInterface* T) {
+
+  this->domain->attachTriangulatedInterface(T);
 }
 

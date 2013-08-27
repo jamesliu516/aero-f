@@ -1180,7 +1180,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 {
   V6NodeData (*v6data)[2];
   v6data = 0;
-//  findEdgeTetrahedra(X, v6data);
+  findEdgeTetrahedra(X, v6data);
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, 
 										   countWstarij, countWstarji, LSS, linRecAtInterface, 
@@ -1204,11 +1204,11 @@ void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, Rec
                                         NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
                                         EdgeGrad<dim>* egrad,
                                         SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF,
-                                        LevelSetStructure* LSS)
+                                        LevelSetStructure* LSS, int ls_order)
 {
   edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V,
                                   fluidId, ngrad, ngradLS,
-                                  egrad, Phi, PhiF, LSS);
+                                  egrad, Phi, PhiF, LSS, ls_order);
 
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
     //Note: LSS is not needed because we assume that farfield nodes cannot be covered by structure.
@@ -5432,7 +5432,7 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		double dx[3] = {X[neighborNode][0]-X[currentNode][0],
 				X[neighborNode][1]-X[currentNode][1],
 				X[neighborNode][2]-X[currentNode][2]};
-/*		if (fabs(Weights[currentNode])<1e-6) {
+		/*if (fabs(Weights[currentNode])<1e-6) {
 		  next_init[currentNode] = 1;
 		  if (R[currentNode][0]>0.0) {
 		    double dx[3] = {X[neighborNode][0]-X[currentNode][0],
@@ -5459,11 +5459,14 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 			Weights[currentNode] += 1.0;
 		    for (int k=0; k<dim; ++k) VWeights[currentNode][k] += V[neighborNode][k];
 		  }
-		}
-*/
+		  }
+		*/
 		//if (fluidId && fluidId[currentNode] != fluidId[neighborNode]) continue;
-		next_init[currentNode] = 1;
-		Weights[currentNode] += 1.0;
+				next_init[currentNode] = 1;
+				double weight = 1.0;/*std::max<double>(1e-8,-V[neighborNode][1]*dx[0]-
+								 V[neighborNode][2]*dx[1]-
+								 V[neighborNode][3]*dx[2]);*/
+		Weights[currentNode] += weight;
 		for (int k=0; k<dim; ++k) {
 
 		  lin_extrap[k] = V[neighborNode][k]-DX.getX()[neighborNode][k]*dx[0]-
@@ -5476,9 +5479,12 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		//  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
 		//					   lin_extrap);
 		
-		for (int k=0; k<dim; ++k)
-		  VWeights[currentNode][k] += lin_extrap[k]*(alpha)+
+		for (int k=0; k<dim; ++k) {
+		  VWeights[currentNode][k] += weight*lin_extrap[k]*(alpha)+
 		    V[neighborNode][k]*(1.0-alpha);
+		  // std::cout << currentNode << " " << lin_extrap[k] << " " <<  V[neighborNode][k] << std::endl;
+		}
+		
 
 	  }
     }

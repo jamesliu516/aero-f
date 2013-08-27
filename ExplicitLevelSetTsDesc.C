@@ -130,13 +130,22 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
 
     this->Phi = this->Phi - p1;
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-    (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    
+    // Riemann overwrite using the value of Phi_{n+1} 
+    //
+    this->setPhiExact();
+     
+    if (this->myTriangulatedInterface)
+      this->myTriangulatedInterface->update(this->currentTimeStep);
+
+    if (this->lsMethod == 0 ||
+        this->lsMethod == 1)
+      (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    else 
+      (this->fluidSelector).getFluidId(this->myTriangulatedInterface);
 
     this->timer->addLevelSetSolutionTime(t0);
 
-    // Riemann overwrite using the value of Phi_{n+1}
-    this->setPhiExact();
-      
     if (this->phaseChangeType == 0)
       this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     else
@@ -231,12 +240,20 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
     computeRKUpdateLS(Phi0, fluidId0, p2, U0);
     this->Phi = ratioTimesPhi - 0.5 * (p1 + p2);
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-    (this->fluidSelector).getFluidId(this->Phi);
+    // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
+    this->setPhiExact();
+    if (this->myTriangulatedInterface)
+      this->myTriangulatedInterface->update(this->currentTimeStep);
+
+    if (this->lsMethod == 0 ||
+        this->lsMethod == 1)
+      (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    else 
+      (this->fluidSelector).getFluidId(this->myTriangulatedInterface);
+
 
     this->timer->addLevelSetSolutionTime(t0);
 
-    // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
-    this->setPhiExact();
     if (this->phaseChangeType == 0)
       this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     else
@@ -362,9 +379,28 @@ int ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,di
       solveNLLevelSet(U);
     else {
       this->setPhiExact();
-      (this->fluidSelector).getFluidId(this->Phi);
     }
-      
+   
+    if (this->myTriangulatedInterface) {
+      this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
+      if (this->myExactInterface.size() == 0) {
+        DistNodalGrad<dim, double> * G = this->multiPhaseSpaceOp->getDistNodalGrad(U);
+        G->compute(this->geoState->getConfig(), *(this->X), 
+                   *this->A, *this->fluidSelector.fluidId, (this->V0));
+        this->myTriangulatedInterface->integraterk2(this->domain, *this->X,
+                                                    this->V0,*G,
+                                                    *this->fluidSelector.fluidId,
+                                                    this->currentTimeStep);
+      }
+      this->myTriangulatedInterface->update(this->currentTimeStep);
+    }
+
+    if (this->lsMethod == 0 ||
+      this->lsMethod == 1)
+      (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    else 
+      (this->fluidSelector).getFluidId(this->myTriangulatedInterface);
+   
     if (this->phaseChangeType == 0)
       this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     else
@@ -540,7 +576,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
   this->Phi = ratioTimesPhi - 1.0/2.0 * (p1+p2);
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-  (this->fluidSelector).getFluidId(this->Phi);
+  // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
+  this->setPhiExact();
 }
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>
@@ -564,7 +601,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,dim> 
   computeRKUpdateLS(Phi0, fluidId0, p4, U);
   this->Phi -= 1.0/6.0 * (p1 + 2.0 * (p2 + p3) + p4);
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-  (this->fluidSelector).getFluidId(this->Phi);
+  // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
+  this->setPhiExact();
 }
 //------------------------------------------------------------------------------
 
@@ -587,7 +625,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
 					  Ulocal,
 					  *this->X);
   }
-  
+
   if (this->interfaceOrder == 2) {
     this->varFcn->conservativeToPrimitive(Ulocal,this->V0,this->fluidSelector.fluidId);
     this->domain->setCutCellData(this->V0, *this->fluidSelector.fluidId);
@@ -609,7 +647,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdateLS(DistSVec<double,dimLS>
                                   DistSVec<double,dimLS> &dPhi, DistSVec<double,dim> &U)
 {
 
-  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Philocal, localFluidId, U, dPhi,0,0,this->lsMethod);
+  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Philocal, localFluidId, U, dPhi,0,0,this->lsMethod, this->interfaceOrder);
   // for RK2 on moving grids
   this->timeState->multiplyByTimeStep(dPhi);
   this->LS->checkTrueLevelSetUpdate(dPhi);

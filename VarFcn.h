@@ -54,7 +54,6 @@ private:
   double gravity_norm;
   double depth;
 
-  int size()                {return numPhases;}
   int structPhase()          {return ghostPhase;}
   int structId()             {return ghostId;}
   void check(int tag) const {assert(0<=tag && tag<numPhases);} 
@@ -71,6 +70,7 @@ public:
     delete [] varFcn;
   }
 
+  int size()                {return numPhases;}
 
   //----- Transformation Operators -----//
   /* Distributed Operators */

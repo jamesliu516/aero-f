@@ -262,6 +262,7 @@ ADD_LIBRARY(FluidBase
 	     Multigrid.C
              PolygonReconstructionData.C
              KirchhoffIntegrator.C
+             TriangulatedInterface.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)

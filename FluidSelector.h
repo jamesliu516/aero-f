@@ -5,6 +5,7 @@
 #include "Vector.h"
 #include "IoData.h"
 #include "ProgrammedBurn.h"
+
 //#include "Domain.h"
 //#include "LevelSet/LevelSetStructure.h"
 #include <map>
@@ -103,6 +104,9 @@ public:
   template<int dim>
   void getFluidId(DistSVec<double,dim> &Phi);
 
+  //template<int dim>
+  void getFluidId(class TriangulatedInterface*);
+  
   template<int dim>
   void getFluidId(int &tag, double *phi);
 

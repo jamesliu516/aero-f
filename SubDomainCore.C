@@ -30,6 +30,8 @@ using std::stable_sort;
 
 #include <RTree.h>
 
+#include <TriangulatedInterface.h>
+
 extern "C" {
   void F77NAME(psplotmask)(const int &, int *, int *, const int &, const int &);
 };
@@ -944,7 +946,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 // least square gradient involving only nodes of same fluid (multiphase flow)
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
-												   LevelSetStructure *LSS)
+						   LevelSetStructure *LSS, bool includeSweptNodes)
 {
   R = 0.0;
   count = 0;
@@ -961,6 +963,9 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 
     //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+
+    if (!includeSweptNodes && LSS && 
+        (LSS->isSwept(0.0,i) || LSS->isSwept(0.0,j)) ) continue;
 
     if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
                           higherOrderMF->isCellCut(j)))
@@ -5108,3 +5113,26 @@ void SubDomain::maskHHVector(Vec<double>& hh) {
     }
   }
 }
+
+void SubDomain::attachTriangulatedInterfaceLSS(LevelSetStructure* LSS) {
+
+  edges.attachTriangulatedInterfaceLSS(LSS);
+}
+
+class ElemSearchValid {
+
+  public:
+
+    bool Valid(Elem*) { return true; }
+};
+
+
+Elem* SubDomain::searchPoint(Vec3D Xp, SVec<double,3>& X) {
+
+  ElemSearchValid myObj;
+  Elem* E = myTree->search<&Elem::isPointInside, ElemSearchValid,
+ 	                   &ElemSearchValid::Valid>(&myObj, X, Xp);
+
+  return E;
+}
+

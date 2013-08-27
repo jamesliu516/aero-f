@@ -386,7 +386,8 @@ estimateR(int l, int vertex,
   
   double xf[3] = {0,0,0};
   for (int k = 0; k < 3; ++k)
-    xf[k] = (X[n0_loc][k] + X[n1_loc][k] + X[n2_loc][k])/3.0;
+    xf[k] = X[n2][k] + face_r*(X[n0][k] -X[n2][k])+
+             face_t*( X[n1][k] - X[n2][k]);
 
   double vec[3];
   for (int k = 0; k < 3; ++k)
@@ -480,7 +481,8 @@ extrapolateV6(int l, int vertex,
   
   double xf[3] = {0,0,0};
   for (int k = 0; k < 3; ++k)
-    xf[k] = (X[n0_loc][k] + X[n1_loc][k] + X[n2_loc][k])/3.0;
+    xf[k] = X[n2][k] + face_r*(X[n0][k] -X[n2][k])+
+             face_t*( X[n1][k] - X[n2][k]);
 
   double vec[3];
   for (int k = 0; k < 3; ++k)
@@ -495,7 +497,7 @@ extrapolateV6(int l, int vertex,
 			(xf[1]-X[i][1])*(xf[1]-X[i][1])+
 			(xf[2]-X[i][2])*(xf[2]-X[i][2]))/length;
 
-  double frac = 0.5/(1.0+alpha_f+alpha);
+  double frac = 0.5/(1.0+alpha_f-alpha);
   for (int k = 0; k < dim; ++k) {
 
     Vsurrogate[k] = (1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k];
