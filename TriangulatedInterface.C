@@ -114,7 +114,7 @@ void TriangulatedInterface::initializeIntersector(IoData& iod,  Communicator* co
   pIntersector = new DistIntersectorPhysBAM(iod, com, numNodes,
                                             xyz, numElems, abc, NULL);
 
-  pIntersector->initialize(dom, X, iod, NULL);
+  pIntersector->initialize(dom, X, X, iod, NULL);
 }
 
 void TriangulatedInterface::update(double dt) {
