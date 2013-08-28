@@ -399,8 +399,7 @@ void SubDomain::computeGradientLeastSquares(SVec<double,3> &X,
 
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
 
-    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
-                          higherOrderMF->isCellCut(j)))
+    if (higherOrderMF)
       continue;
 
     double Wi[3], Wj[3];
