@@ -1775,12 +1775,12 @@ void Domain::computeConnectedNodes(const std::vector<std::vector<int> > &locSamp
 }
 
 
-void Domain::createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec) {
+void Domain::createHigherOrderMultiFluid() {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
-    subDomain[iSub]->createHigherOrderMultiFluid(cutCellVec(iSub));
+    subDomain[iSub]->createHigherOrderMultiFluid();
   }
   
 }

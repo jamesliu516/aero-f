@@ -172,7 +172,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
     mgSpaceOp->updateStateVectors(lvl,x);
 
-    mgSpaceOp->computeTimeStep(lvl,this->data->cfl*pow(0.75,lvl),
+    mgSpaceOp->computeTimeStep(lvl,this->data->cfl,//*pow(0.75,lvl),
                                V);
  
     mgSpaceOp->computeResidual(lvl, x, V, res);
