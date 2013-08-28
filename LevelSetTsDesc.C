@@ -81,6 +81,8 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
 
+    dom->createHigherOrderMultiFluid();
+
     interfaceOrder = 2;
 
 #pragma omp parallel for
