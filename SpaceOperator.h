@@ -458,12 +458,6 @@ public:
 			   DistLevelSetStructure *distLSS, DistVec<int> &fluidId,
 				DistVec<int> &fluidIdn,bool limit = false);
 
-  void findCutCells(DistSVec<double,dimLS>& phi,
-		    DistVec<int>& status,
-		    DistVec<int>& fluidId,
-		    DistSVec<double,dim> &V,
-		    DistSVec<double,3> &X);
-
   void attachTriangulatedInterface(TriangulatedInterface*);
 
 };
