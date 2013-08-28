@@ -986,8 +986,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     } else {
 
-      if (fluidId[i] == fluidId[j] && !higherOrderMF->isCellCut(i) &&
-	  !higherOrderMF->isCellCut(j)) {
+      if (fluidId[i] == fluidId[j]) {
 	recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
                         varFcn->getPressure(V[i],fluidId[i]),
                         varFcn->getPressure(V[j],fluidId[j]),
@@ -995,8 +994,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	//recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
       } else {
 	isAtInterface = true;
-	if (higherOrderMF->isCellCut(i) &&higherOrderMF->isCellCut(j))
-	  continue;
       }
     }
 
@@ -1037,16 +1034,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       int lsdim, burnTag;
 
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
-	if (!higherOrderMF ||
-	    (!higherOrderMF->isCellCut(i) && !higherOrderMF->isCellCut(j)))
 	  lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
-	else if (higherOrderMF->isCellCut(j))
-	  lsdim = fluidSelector.getLevelSetDim(fluidId[i],
-					       higherOrderMF->getOtherFluidId(j,fluidId[i]),locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);	  
-	else
-	  lsdim = fluidSelector.getLevelSetDim(higherOrderMF->getOtherFluidId(i,fluidId[j]),
-					       fluidId[j],
-					       locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);	  
         
         if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
           if (!triangulatedLSS ||
@@ -1106,8 +1094,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
       if (higherOrderMF) {
 	
-	assert(fluidId[i] != fluidId[j] || !higherOrderMF->isCellCut(i) ||
-	       !higherOrderMF->isCellCut(j));
+	assert(fluidId[i] != fluidId[j]);
 
 //        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
 //                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
@@ -1144,51 +1131,36 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	for (int k=0; k<3; k++)
 	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
-	if (!higherOrderMF->isCellCut(i) && 
-	    !higherOrderMF->isCellCut(j)) {
 	  
-	  double ri = higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId);
-	  double rj = higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId);
+	double ri = higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId);
+	double rj = higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId);
 
-	  double betai = 1.0,betaj = 1.0;
+	double betai = 1.0,betaj = 1.0;
 
-          if (higherOrderMF->limitExtrapolation()) {
-  	    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
-	      betai = std::min<double>(betai,ri);
-	    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0)
-	      betaj = std::min<double>(betaj,rj);
+        if (higherOrderMF->limitExtrapolation()) {
+	  if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
+	    betai = std::min<double>(betai,ri);
+	  if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0)
+	    betaj = std::min<double>(betaj,rj);
 	  
             //betai = std::min<double>(betai,betaj);
             //betaj = std::min<double>(betai,betaj);
-          }
+        }
           //std::cout << "s = " << s << std::endl;
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
-	  //if (s < 0.9) {
-	    for (int k = 0; k < dim; ++k) {
-	      Vi[k] = V[i][k]+
-		(dVdx[i][k]*(iloc[0]-X[i][0])+
-		 dVdy[i][k]*(iloc[1]-X[i][1])+
-		 dVdz[i][k]*(iloc[2]-X[i][2]))*betai;
-	    }
-	    /*} else {
-	    for (int k = 0; k < dim; ++k) {
-	      Vi[k] = V[i][k];
-	    }
-	    }*/
+	  for (int k = 0; k < dim; ++k) {
+	    Vi[k] = V[i][k]+
+	      (dVdx[i][k]*(iloc[0]-X[i][0])+
+	       dVdy[i][k]*(iloc[1]-X[i][1])+
+	       dVdz[i][k]*(iloc[2]-X[i][2]))*betai;
+	  }
 
-	    //if (s > 0.1) {
-	    for (int k = 0; k < dim; ++k) {
-	      Vj[k] = V[j][k]+
-		(dVdx[j][k]*(iloc[0]-X[j][0])+
-		 dVdy[j][k]*(iloc[1]-X[j][1])+
-		 dVdz[j][k]*(iloc[2]-X[j][2]))*betaj;
-	    }
-	    /*} else {
-	    for (int k = 0; k < dim; ++k) {
-	      Vj[k] = V[j][k];
-	    }
-	    }*/
-	
+	  for (int k = 0; k < dim; ++k) {
+	    Vj[k] = V[j][k]+
+	      (dVdx[j][k]*(iloc[0]-X[j][0])+
+	       dVdy[j][k]*(iloc[1]-X[j][1])+
+	       dVdz[j][k]*(iloc[2]-X[j][2]))*betaj;
+	  }
           // Check for negative pressures/densities.
           // If a negative value is detected, drop back to first order extrapolation 
           // (i.e., the Riemann solution)
@@ -1285,125 +1257,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    weight[i] += 1.0;
 	    weight[j] += 1.0;	  
 	  }
-
-	} else if (higherOrderMF->isCellCut(j)) {
-	  //std::cout << "Cut cell " << locToGlobNodeMap[j]+1 << std::endl;
-
-	  // In this case, the cell j is cut be the interface, so its value does not exist
-	  if (fabs(s-0.5) < 1.5) {
-	    int fidj = higherOrderMF->getOtherFluidId(j, fluidId[i]);
-	    higherOrderMF->template computeCutCellExtrapolations<dim>(j,fluidId[i],fidj, iloc, Vi,Vj,X);
-	    /*if (locToGlobNodeMap[j]+1 == 6583) {
-	      std::cout << "--------------------------" << std::endl;
-	      std::cout << "Phi: " << phi[i][lsdim] << " " << phi[j][lsdim] << " " << s << std::endl;
-	      std::cout << locToGlobNodeMap[i]+1 << "-" << locToGlobNodeMap[j]+1 << " (" <<  fluidId[i] << " , " << fidj << ") " << std::endl;
-	      std::cout << "[" << iloc[0] << " " << iloc[1] << " " << iloc[2] << "] ";
-	      std::cout << "[" << X[i][0] << " " << X[i][1] << " " << X[i][2] << "] " << std::endl;
-	      std::cout << "[" << X[j][0] << " " << X[j][1] << " " << X[j][2] << "] " << std::endl;
-	      for (int k = 0; k < dim; ++k) {
-		std::cout << V[i][k] << " " << Vi[k] << "\t" << Vj[k] << std::endl;
-	      }
-	      higherOrderMF->template printCutCellData<dim>(j);
-	      }*/
-          
-	    riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fidj,gradphi,varFcn,
-					   Wi,Wj,i,j,l,dx,true);
-	    
-	    for (int k = 0; k < dim; ++k) {
-	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s);
-	    }
-	    
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vi, Vi, fluxi, fluidId[i]);
-	    
-	    // Now extrapolate back to compute the riemann update for cells i/j
-	    if (it == 1 /*&& fluidId[j] != fluidId[i]*/) {
-	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	      Vec<double> &weight = riemann.getRiemannWeight();
-	      for (int k = 0; k < dim; ++k) {
-		rupdate[j][k] += (2.0*Vi[k]-V[i][k]);
-	      }
-	      weight[j] += 1.0;
-	    }
-	  } else {
-
-	    double Vxt[dim][3],Vjl[dim];
-	    higherOrderMF->template getCutCellData<dim>(j, fluidId[i], Vjl, Vxt);
-	    for (int k=0; k<dim; ++k) {
-	      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-	      ddVji[k] = dx[0]*Vxt[k][0] + dx[1]*Vxt[k][1] + dx[2]*Vxt[k][2];
-	    }
-	    recFcn->compute(V[i], ddVij, Vjl, ddVji, Vi, Vj);
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
-	    /*if (it == 1 && fluidId[j] != fluidId[i]) {
-	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	      Vec<double> &weight = riemann.getRiemannWeight();
-	      for (int k = 0; k < dim; ++k) {
-		rupdate[j][k] += (2.0*Vi[k]-V[i][k]);
-	      }
-	      weight[j] += 1.0;
-	    }*/
-	  }
-
-	} else if (higherOrderMF->isCellCut(i)) {
-	  //std::cout << "Cut cell " << locToGlobNodeMap[i]+1 << std::endl;
-
-	  // In this case, the cell j is cut be the interface, so its value does not exist
-	  if (fabs(s-0.5) < 1.5) {
-	    int fidi = higherOrderMF->getOtherFluidId(i, fluidId[j]);
-	    higherOrderMF->template computeCutCellExtrapolations<dim>(i, fidi,fluidId[j],iloc, Vi,Vj,X); 
-	    /*if (locToGlobNodeMap[i]+1 == 6583) {
-	      std::cout << "--------------------------" << std::endl;
-	      std::cout << "Phi: " << phi[i][lsdim] << " " << phi[j][lsdim] << " " << s << std::endl;
-	      std::cout << locToGlobNodeMap[j]+1 << "-" << locToGlobNodeMap[i]+1 << " (" <<  fluidId[j] << " , " << fidi << ") " << std::endl;
-	      std::cout << "[" << iloc[0] << " " << iloc[1] << " " << iloc[2] << "] ";
-	      std::cout << "[" << X[i][0] << " " << X[i][1] << " " << X[i][2] << "] " << std::endl;
-	      std::cout << "[" << X[j][0] << " " << X[j][1] << " " << X[j][2] << "] " << std::endl;	    
-	      for (int k = 0; k < dim; ++k) {
-		std::cout << V[j][k] << " " << Vj[k] << "\t" << Vi[k] << std::endl;
-	      }
-	      higherOrderMF->template printCutCellData<dim>(i);
-	      }*/
-	    
-	    riemann.computeRiemannSolution(Vi,Vj,fidi,fluidId[j],gradphi,varFcn,
-					   Wi,Wj,i,j,l,dx,true);
-	    
-	    for (int k = 0; k < dim; ++k) {
-	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s;
-	    }
-	    
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vj, Vj, fluxj, fluidId[j]);
-	    
-	    // Now extrapolate back to compute the riemann update for cells i/j
-	    if (it == 1) {
-	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	      Vec<double> &weight = riemann.getRiemannWeight();
-	      for (int k = 0; k < dim; ++k) {
-		rupdate[i][k] += (2.0*Vj[k]-V[j][k]);
-	      }
-	      weight[i] += 1.0;
-	    }
-	  } else { 
-
-	    double Vxt[dim][3],Vjl[dim];
-	    higherOrderMF->template getCutCellData<dim>(i, fluidId[j], Vjl, Vxt);
-	    for (int k=0; k<dim; ++k) {
-	      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-	      ddVij[k] = dx[0]*Vxt[k][0] + dx[1]*Vxt[k][1] + dx[2]*Vxt[k][2];
-	    }
-	    recFcn->compute(Vjl, ddVij, V[j], ddVji, Vi, Vj);
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[i]);	  
-	    /*if (it == 1) {
-	      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	      Vec<double> &weight = riemann.getRiemannWeight();
-	      for (int k = 0; k < dim; ++k) {
-		rupdate[i][k] += (2.0*Vj[k]-V[j][k]);
-	      }
-	      weight[i] += 1.0;
-	    }*/
-	  }
-	}
 
       }	else {
 

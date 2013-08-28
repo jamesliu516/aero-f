@@ -158,8 +158,7 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 {
 
   for(int i=0; i<V.size(); i++){ 
-    if (lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],
-				   (higherOrderMF ? higherOrderMF->isCellCut(i) : false)) != 0) {
+    if (lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],false) != 0) {
       return i;
     }
     if (higherOrderMF && fluidId[i] != fluidIdn[i]) {

@@ -481,13 +481,13 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
       else {
         if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;}
 
-      if (!higherOrderMF || !higherOrderMF->isCellCut(nodeNum(l))) {
+//      if (!higherOrderMF) {
 
 	fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			       V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
 	for (int k=0; k<dim; ++k)
 	  fluxes[ nodeNum(l) ][k] += flux[k];
-      }
+//      }
     }
   }
 

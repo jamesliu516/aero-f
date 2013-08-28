@@ -302,14 +302,6 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   //else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
   //  locphi = this->Phi0;
 
-  if (this->interfaceOrder == 2 && this->useCutCells) {
-    this->multiPhaseSpaceOp->findCutCells(*locphi,
-                                          this->cutCellStatus,
-                                          *this->fluidSelector.fluidId,
-                                          Q,
-                                          *this->X);
-  }
-
   if (this->lsMethod == 0) {
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 

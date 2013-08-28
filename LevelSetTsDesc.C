@@ -37,7 +37,6 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
   fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo()),
-  cutCellVec(this->getVecInfo()),cutCellStatus(this->getVecInfo()),
   VWeights(this->getVecInfo()), Weights(this->getVecInfo())
 
 {
@@ -82,7 +81,6 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
 
-    dom->createHigherOrderMultiFluid(cutCellVec);
     interfaceOrder = 2;
 
 #pragma omp parallel for
@@ -99,11 +97,6 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
         dom->getSubDomain()[iSub]->getHigherOrderMF()->setLimitedExtrapolation();
     }
   }
-
-  if (ioData.mf.interfaceOmitCells == 1) {
-    useCutCells = true;
-  } else
-    useCutCells = false;
 
   if (strcmp(ioData.input.exactInterfaceLocation,"") != 0) {
     
