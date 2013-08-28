@@ -2,8 +2,6 @@
 //#include <Domain.h>
 #include <cassert>
 
-#include <TriangulatedInterface.h>
-
 //------------------------------------------------------------------------------
 
 template<int dim>

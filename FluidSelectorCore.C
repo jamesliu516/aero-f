@@ -1,5 +1,6 @@
 #include "FluidSelector.h"
 #include "Domain.h"
+#include "TriangulatedInterface.h"
 #include <iostream>
 #include <fstream>
 using namespace std;
