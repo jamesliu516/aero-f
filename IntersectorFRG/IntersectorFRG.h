@@ -84,6 +84,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
 
     DistSVec<double,3> *X; //pointer to fluid node coords
+    DistSVec<double,3> *Xn; //pointer to fluid node coords at previous time
 
     // parameters from input
     bool interpolatedNormal;
@@ -117,7 +118,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0);
+    void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id = 0);
     void updateStructure(double* xs, double *Vs, int nNodes, int(*abc)[3]=0);
     void updatePhysBAMInterface();
     int recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry = false);
