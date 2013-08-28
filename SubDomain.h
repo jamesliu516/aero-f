@@ -1356,35 +1356,9 @@ public:
   void interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
                            int* status,int* last,int* nid); 
-
-  template<int dimLS>
-    void findCutCells(int lsdim,
-		      SVec<double,dimLS>& phi,Vec<int>& cutStatus,
-		      SVec<double,3>& X);
-
-  template<int dim>
-  void setCutCellFlags(int lsdim, Vec<int>& status);
-
-  int getNumCutCells();
-
-  template <int dim>
-    void collectCutCellData(SVec<double,dim>* cutCell[2],
-			    NodalGrad<dim,double>* cutGrad[2],
-			    Vec<int>* counts[2],
-			    NodalGrad<dim,double>& grad, Vec<int>& fluidId,
-			    SVec<double,dim>& V,SVec<double,3>& X);
-
-  template <int dim>
-    void storeCutCellData(SVec<double,dim>* cutCell[2],
-			  NodalGrad<dim,double>* cutGrad[2],
-			  Vec<int>* counts[2], Vec<int>& fluidId);
-
-  void createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>&);
+  void createHigherOrderMultiFluid();
 
   void assignErrorHandler(ErrorHandler* in);
-
-  template<int dim>
-    void setCutCellData(SVec<double,dim>& V, Vec<int>& fid);
 
   // Functions to compute the error (that is, the difference between two state vectors)
   template <int dim>

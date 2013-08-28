@@ -4760,16 +4760,6 @@ void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length) {
 	it = unique(nodeOrEle[0].begin(), nodeOrEle[0].end()); // remove duplicate consecutive elements (reason for sort)
 	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
 }
-
-template<int dim>
-void Domain::setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid) {
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->setCutCellData(V(iSub), fid(iSub));
-  }
-}
-
 // Functions to compute the error (that is, the difference between two state vectors)
 template <int dim>
 void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],

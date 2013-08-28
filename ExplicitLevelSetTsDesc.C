@@ -618,17 +618,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
   /*else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
     locphi = this->Phi0;
 */
-  if (this->interfaceOrder == 2 && this->useCutCells) {
-    this->multiPhaseSpaceOp->findCutCells(*locphi,
-					  this->cutCellStatus,
-					  *this->fluidSelector.fluidId,
-					  Ulocal,
-					  *this->X);
-  }
 
   if (this->interfaceOrder == 2) {
     this->varFcn->conservativeToPrimitive(Ulocal,this->V0,this->fluidSelector.fluidId);
-    this->domain->setCutCellData(this->V0, *this->fluidSelector.fluidId);
     this->varFcn->primitiveToConservative(this->V0,Ulocal,this->fluidSelector.fluidId);
   }
 

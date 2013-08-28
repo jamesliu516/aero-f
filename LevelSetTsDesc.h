@@ -61,10 +61,6 @@ class LevelSetTsDesc : public TsDesc<dim> {
   int interfaceOrder;
 
   int phaseChangeType;
-
-  DistVec<HigherOrderMultiFluid::CutCellState*> cutCellVec;
-
-  DistVec<int> cutCellStatus;
   
   DistVec<double> Weights;
   DistSVec<double,dim> VWeights;
@@ -75,8 +71,6 @@ class LevelSetTsDesc : public TsDesc<dim> {
   };
 
   std::vector< exactInterfacePoint > myExactInterface;
-
-  bool useCutCells;
 
   bool limitHigherOrderExtrapolation;
 

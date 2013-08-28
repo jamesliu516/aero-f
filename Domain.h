@@ -1052,12 +1052,10 @@ public:
   void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
                          int npt);
 
-  void createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec);
+  void createHigherOrderMultiFluid();
 
   // When a cell is omitted when doing higher order multi-fluid calculations, we can grab
   // a value of the state for the cut cell using an extrapolated state
-  template<int dim>
-  void setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid);
 
   // Functions to compute the error (that is, the difference between two state vectors)
   template <int dim>
