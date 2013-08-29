@@ -5470,9 +5470,9 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		}
 
 		double alpha = 1.0;
-		//if (limit)
-		//  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
-		//					   lin_extrap);
+		if (limit)
+		  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
+		  					   lin_extrap);
 		
 		for (int k=0; k<dim; ++k) {
 		  VWeights[currentNode][k] += weight*lin_extrap[k]*(alpha)+
