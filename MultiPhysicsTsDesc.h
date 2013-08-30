@@ -36,6 +36,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool requireSpecialBDF;
   bool increasingPressure;
 
+  int multiFluidInterfaceOrder;
+
   //------------------------------------------------------------------------
   // EulerFSI: basic parameters
   bool withCracking;
