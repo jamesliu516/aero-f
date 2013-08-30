@@ -450,6 +450,7 @@ public:
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure&, bool,
                               Vec<int> &, int, SVec<double,3>*, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 

@@ -93,7 +93,33 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   increasingPressure = false;
 
 //  ioData.printDebug();
+
+
+  multiFluidInterfaceOrder = 1;
+
+  if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
+
+    dom->createHigherOrderMultiFluid();
+
+    multiFluidInterfaceOrder = 2;
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      V6NodeData (*v6data)[2];
+      v6data = 0;
+      dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
+      dom->getSubDomain()[iSub]->getHigherOrderMF()->
+	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
+			dom->getSubDomain()[iSub]->getElems(),
+			v6data); 
+
+      if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+        dom->getSubDomain()[iSub]->getHigherOrderMF()->setLimitedExtrapolation();
+    }
+  }
+
 }
+
 
 //------------------------------------------------------------------------------
 

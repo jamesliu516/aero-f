@@ -2554,7 +2554,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   //Now compute the FV fluxes!
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector, 
-                                  Nriemann, Nsbar, *(this->ngrad), this->egrad,
+					Nriemann, Nsbar, *(this->ngrad), this->egrad,PhiV,
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
@@ -2955,7 +2955,7 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
 			  break;
 		  }
-		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" << iSub <<"): " <<
+		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" <<  fluidId(iSub)[i] <<"): " <<
 		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
 		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
 

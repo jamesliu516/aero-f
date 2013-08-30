@@ -519,6 +519,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistLevelSetStructure*, bool, FluidSelector&,
                                int, DistSVec<double,3>*, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+			       DistSVec<double,dimLS>&,
                                DistNodalGrad<dimLS>&, DistSVec<double,dim>&, int, int, int);
 
   template<int dim>

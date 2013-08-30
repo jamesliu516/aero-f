@@ -48,7 +48,7 @@ class HigherOrderMultiFluid {
 		   int i, SVec<double,dim>& V, 
 		   double* Vsurrogate,const double* W, SVec<double,3>& X,
 		   double alpha,double length,
-		   Vec<int>& fluidId) ;
+		   Vec<int>& fluidId, double beta) ;
 
   private:
 

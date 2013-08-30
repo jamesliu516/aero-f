@@ -1185,23 +1185,23 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
 
           //std::cout << "s = " << s << std::endl;
-	  if (s < 0.9) {
+	  if (0/*s < 0.9*/) {
 	    for (int k = 0; k < dim; ++k) {
 	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai + 
 		(1.0-betai)*Wi[k];
             }
           } else
 
-	    higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length,fluidId);
+	    higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length,fluidId, betai);
 
-	  if (s > 0.1) {
+	  if (0/*s > 0.1*/) {
 	    for (int k = 0; k < dim; ++k) {
 	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj + 
 		(1.0-betaj)*Wj[k];
             }
           } else
 
-	      higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId);
+	    higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId,betaj);
 
           // Check for negative pressures/densities.
           // If a negative value is detected, drop back to first order extrapolation 
@@ -1296,6 +1296,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      LevelSetStructure& LSS, bool linRecAtInterface, Vec<int> &fluidId,
                                      int Nriemann, SVec<double,3>* Nsbar, FluidSelector &fluidSelector,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+				     SVec<double,dimLS>& phi,
                                      NodalGrad<dimLS>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -1488,10 +1489,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }      
 
       //ngradLS returns nodal gradients of primitive phi
-      // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface   
+      // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface  
+      int lsdim;
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
 
-	int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+	lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
  
         if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
   	  gphii[0] = -dPdx[i][lsdim];
@@ -1533,21 +1535,191 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
       }
 
-      //if (myrank == 46 && (fluidId[i] == 3 ||fluidId[j] == 3) )
-      //	std::cout << "difffluid" << std::endl;
+      if (higherOrderMF) {
+	
+	assert(fluidId[i] != fluidId[j]);
 
-      errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-				     Wi,Wj,i,j,l,dx,false);
+//        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
+//                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
 
-      checkReconstructedValues(i, j, Wi, Wj, varFcn, locToGlobNodeMap,
-      			       failsafe, tag, Vi, Vj, fluidId[i], fluidId[j]);
 
-      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-				    Vi, Wi, fluxi, fluidId[i]);
-      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-				    Wj, Vj, fluxj, fluidId[j]);
+        bool hasFix = false;
+	
+	// There are two cases.  In the first case the surrogate interface is the
+	// same for both fluids.  This implies that the edge in question is cut by
+	// the material interface.
+	double iloc[3];
+	// Step 1: Compute the intersection location (where the 0-contour of the level
+	// set crosses this edge.
+	double s;
+        if (!triangulatedLSS)
+          s = phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]); 
+        else {
+          if (triangulatedLSS->isOccluded(0.0,i) &&
+              triangulatedLSS->isOccluded(0.0,j)) {
+            s = 0.5;
+          } else if (triangulatedLSS->isOccluded(0.0,i)) {
+
+            s = 1.0;
+          } else if (triangulatedLSS->isOccluded(0.0,j)) {
+            s = 0.0;
+          }
+          else {
+            LevelSetResult resij = triangulatedLSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+            s = resij.alpha;
+          }
+        }
+
+        //std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
+
+	for (int k=0; k<3; k++)
+	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
+	  
+	double ri = higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId);
+	double rj = higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId);
+
+	double betai = 1.0,betaj = 1.0;
+
+        if (higherOrderMF->limitExtrapolation()) {
+	  if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0)
+	    betai = std::min<double>(betai,ri);
+	  if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0)
+	    betaj = std::min<double>(betaj,rj);
+	  
+            //betai = std::min<double>(betai,betaj);
+            //betaj = std::min<double>(betai,betaj);
+        }
+          //std::cout << "s = " << s << std::endl;
+	  // Step 2: Extrapolate the values from cell i and cell j to the interface
+	  for (int k = 0; k < dim; ++k) {
+	    Vi[k] = V[i][k]+
+	      (dVdx[i][k]*(iloc[0]-X[i][0])+
+	       dVdy[i][k]*(iloc[1]-X[i][1])+
+	       dVdz[i][k]*(iloc[2]-X[i][2]))*betai;
+	  }
+
+	  for (int k = 0; k < dim; ++k) {
+	    Vj[k] = V[j][k]+
+	      (dVdx[j][k]*(iloc[0]-X[j][0])+
+	       dVdy[j][k]*(iloc[1]-X[j][1])+
+	       dVdz[j][k]*(iloc[2]-X[j][2]))*betaj;
+	  }
+          // Check for negative pressures/densities.
+          // If a negative value is detected, drop back to first order extrapolation 
+          // (i.e., the Riemann solution)
+          if (Vi[0] <= 0.0)
+            Vi[0] = V[i][0];
+          if (Vi[4] <= 0.0)
+            Vi[4] = V[i][4];
+          if (Vj[0] <= 0.0)
+            Vj[0] = V[j][0];
+          if (Vj[4] <= 0.0)
+            Vj[4] = V[j][4];
+     
+	  int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+					 Wi,Wj,i,j,l,dx,true);
+
+          if (err) {
+
+            std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+          }
+          errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
+
+	  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
+
+          //std::cout << "s = " << s << std::endl;
+	  if (0/*s < 0.9*/) {
+	    for (int k = 0; k < dim; ++k) {
+	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai + 
+		(1.0-betai)*Wi[k];
+            }
+          } else
+
+	    higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length,fluidId, betai);
+
+	  if (0/*s > 0.1*/) {
+	    for (int k = 0; k < dim; ++k) {
+	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj + 
+		(1.0-betaj)*Wj[k];
+            }
+          } else
+
+	    higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId,betaj);
+
+          // Check for negative pressures/densities.
+          // If a negative value is detected, drop back to first order extrapolation 
+          // (i.e., the Riemann solution)
+          if (Vi[0] <= 0.0)
+            Vi[0] = Wi[0];
+          if (Vi[4] <= 0.0)
+            Vi[4] = Wi[4];
+          if (Vj[0] <= 0.0)
+            Vj[0] = Wj[0];
+          if (Vj[4] <= 0.0)
+            Vj[4] = Wj[4];
+ 
+	  if (!hasFix)
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Vi, Vi, fluxi, fluidId[i]);
+	  else {
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  V[i], Wi, fluxi, fluidId[i]);
+	  }
+	  
+	  if (!hasFix)
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Vj, Vj, fluxj, fluidId[j]);
+	  else
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+					  Wj, V[j], fluxj, fluidId[j]);
+	  
+
+	  // Now extrapolate back to compute the riemann update for cells i/j
+	  if (it == 1) {
+	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
+	    Vec<double> &weight = riemann.getRiemannWeight();
+            double updatei[dim],updatej[dim];
+	    double alphai = 1.0, alphaj = 1.0;
+
+	    for (int k = 0; k < dim; ++k) {
+              updatei[k] = (1.0+alphaj)*Vj[k]-alphaj*V[j][k];
+              updatej[k] = (1.0+alphai)*Vi[k]-alphai*V[i][k];
+            }
+            if (updatei[0] <= 0.0 || updatei[4] <= 0.0 || hasFix) {
+	      for (int k = 0; k < dim; ++k)
+                updatei[k] = Wj[k];
+            }
+            if (updatej[0] <= 0.0 || updatej[4] <= 0.0 || hasFix) {
+	      for (int k = 0; k < dim; ++k) 
+                updatej[k] = Wi[k];
+            }
+ 	    for (int k = 0; k < dim; ++k) {
+	      rupdate[i][k] += updatei[k];
+	      rupdate[j][k] += updatej[k];
+	    }
+	    weight[i] += 1.0;
+	    weight[j] += 1.0;	  
+	  }
+
+      }	else {
+
+	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+		         		         Wi,Wj,i,j,l,dx,false);
+        errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
+	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+				      Vi, Wi, fluxi, fluidId[i]);
+	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+				      Wj, Vj, fluxj, fluidId[j]);
+        if (err) {
+
+          std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+        }
+      }
 
       for (int k=0; k<dim; k++){
+        /*if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
+          std::cout << "fluxi[" << k << "] = " << fluxi[k] << " fluxj[] = " << -fluxj[k] << std::endl;
+        }*/
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
       }

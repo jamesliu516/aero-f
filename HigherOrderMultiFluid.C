@@ -171,7 +171,7 @@ extrapolateV6(int l, int vertex,
 	      int i, SVec<double,dim>& V, 
 	      double* Vsurrogate,const double* W, SVec<double,3>& X,
 	      double alpha,double length,
-	      Vec<int>& fluidId) {
+	      Vec<int>& fluidId, double beta) {
 
   int idxTet = v6data[l][vertex].tet;
   int idxFace = v6data[l][vertex].face;
@@ -222,6 +222,7 @@ extrapolateV6(int l, int vertex,
   double frac = 0.5/(1.0+alpha_f-alpha);
   for (int k = 0; k < dim; ++k) {
 
-    Vsurrogate[k] = (1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k];
+    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k])*beta + 
+      (1.0-beta)*W[k];
   }
 }
