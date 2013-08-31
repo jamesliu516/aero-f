@@ -38,6 +38,10 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   int multiFluidInterfaceOrder;
 
+  int limitHigherOrderExtrapolation;
+
+  int phaseChangeType;
+
   //------------------------------------------------------------------------
   // EulerFSI: basic parameters
   bool withCracking;

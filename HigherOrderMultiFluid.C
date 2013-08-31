@@ -140,7 +140,8 @@ estimateR(int l, int vertex,
       r = 0.0;
   }
   
-  return std::max<double>(r,0.0);
+  return 0.0;
+  //  return std::max<double>(r,0.0);
 }
 
 template <int dim>

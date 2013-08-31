@@ -118,6 +118,17 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     }
   }
 
+  limitHigherOrderExtrapolation = false;
+  if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+    limitHigherOrderExtrapolation = true;
+
+  phaseChangeType = 0;
+  
+  if (ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION) {
+
+    phaseChangeType = 1;
+  }
+
 }
 
 
