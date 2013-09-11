@@ -41,83 +41,52 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
                    d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
   double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
-  // Embedded Case. Replace states in the structure by Ghost States
-/*  
-  if(ghostPoints && isAtTheInterface) // Then LSS is also a non null pointer. It has already been checked in Domain.C
-    {
-      GhostPoint<dim> *gp;
-      for(int i=0;i<4;++i)
-	{
-	  if(!(LSS->isActive(0,nodeNum(i))))
-	    {
-	      gp   = ghostPoints->operator[](nodeNum(i));
-	      v[i] = gp->getPrimitiveState();
-	    }
-	}
-      if(isAtTheInterface)
-	{
-	  cout<<"Node1: "<<nodeNum(0)<<" "<<LSS->isActive(0,nodeNum(0))<<" "<<v[0][0]<<" "<<v[0][1]<<" "<<v[0][2]<<" "<<v[0][3]<<endl;
-	  cout<<"Node2: "<<nodeNum(1)<<" "<<LSS->isActive(0,nodeNum(1))<<" "<<v[1][0]<<" "<<v[1][1]<<" "<<v[1][2]<<" "<<v[1][3]<<endl;
-	  cout<<"Node3: "<<nodeNum(2)<<" "<<LSS->isActive(0,nodeNum(2))<<" "<<v[2][0]<<" "<<v[2][1]<<" "<<v[2][2]<<" "<<v[2][3]<<endl;
-	  cout<<"Node4: "<<nodeNum(3)<<" "<<LSS->isActive(0,nodeNum(3))<<" "<<v[3][0]<<" "<<v[3][1]<<" "<<v[3][2]<<" "<<v[3][3]<<endl;
-	  std::cin.get();
-	} 
-    }
-*/
-
   double r[3][dim], s[dim], pr[12];
-  bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
-                                                  s, pr, vol, X, nodeNum(), volume_id);
 
   if(ghostPoints && isAtTheInterface) { // We don't want to update States associated to ghost points
     GhostPoint<dim> *gp;
     for (int j=0; j<4; ++j) {
+      for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)]; 
       int idx = nodeNum(j);
       if(LSS->isActive(0,idx)) { // We add a contribution for active nodes only
-        for (int e=0; e<6; e++)
+        for (int e=0; e<6; e++) {
           if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) {
             int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
             gp = (*ghostPoints)[nodeNum(l)];
             if (gp) v[l] = gp->getPrimitiveState();
           }
+	}
 
         fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                s, pr, vol, X, nodeNum(), volume_id);
+
         for (int k=0; k<dim; ++k) {
             R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                                   r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
         }
       }
     }
-    /*
-    if (porousTermExists) {
-	    for (int j=0; j<4; ++j) {
-	      int idx = nodeNum(j);
-	      if(LSS->isActive(0,idx)) {
-	        for (int k=1; k<4; ++k) {
-		        R[idx][k] += pr[3*j+k-1];
-		      }
-	      }
-	    } 
-    }
-    */
   }
-  else // All the states are updated
-    {
+  else { // All the states are updated
+    for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)]; 
+    bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
+                                                    s, pr, vol, X, nodeNum(), volume_id);
+
     for (int j=0; j<4; ++j) {
-	    int idx = nodeNum(j);
-	    for (int k=0; k<dim; ++k) {
-	      R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-				             r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-	    }
+      int idx = nodeNum(j);
+      for (int k=0; k<dim; ++k) {
+        R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+                              r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+      }
     }
+
     if (porousTermExists) {
-	    for (int j=0; j<4; ++j) {
-	      int idx = nodeNum(j);
-	      for (int k=1; k<4; ++k) {
-	        R[idx][k] += pr[3*j+k-1];
-	      }
-	    }
+      for (int j=0; j<4; ++j) {
+        int idx = nodeNum(j);
+        for (int k=1; k<4; ++k) {
+          R[idx][k] += pr[3*j+k-1];
+        }
+      }
     }
   }
 }
@@ -788,188 +757,151 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
                    d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
   double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
-  // Embedded Case. Replace states in the structure by Ghost States
-  /* Not correct in case of a thin shell.
-  if(ghostPoints)
-  {
-   GhostPoint<dim> *gp;
-   for(int i=0;i<4;++i)
-   {
-     gp = ghostPoints->operator[](nodeNum(i)); 
-     */
-     /*if (gpJacobians && isAtTheInterface) {
-       double* & ptr = (*gpJacobians)[ nodeNum(i) ];
-       if (!ptr) {
-         ptr = new double[neq*neq*2];
-         vf->computedVdU(v[i], ptr);
-         if (gp)
-           vf->computedUdV(gp->getPrimitiveState(), ptr+neq*neq);
-       }
-    }  */
-    /*    
-    if(gp) 
-      v[i] = gp->getPrimitiveState();
-   }
-  }
-  */
-
   double dRdU[4][3][neq*neq], dSdU[4][neq*neq], dPdU[4][4][neq*neq];
-  bool porousTermExists = fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
-                                                         reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
-                                                         vol, X, nodeNum(), volume_id);
-
   bool sourceTermExists = fet->doesSourceTermExist();
-
-/*
-  dp1dxj[0][0] *= vol;
-  dp1dxj[0][1] *= vol;
-  dp1dxj[0][2] *= vol;
-
-  dp1dxj[1][0] *= vol;
-  dp1dxj[1][1] *= vol;
-  dp1dxj[1][2] *= vol;
-
-  dp1dxj[2][0] *= vol;
-  dp1dxj[2][1] *= vol;
-  dp1dxj[2][2] *= vol;
-
-  dp1dxj[3][0] *= vol;
-  dp1dxj[3][1] *= vol;
-  dp1dxj[3][2] *= vol;
-*/
 
   double vol4 = vol * fourth;
 
-  // diagonal matrices
+  Scalar *Aii = 0, *Aij = 0, *Aji = 0;
 
-  for (int k=0; k<4; ++k) {
-    Scalar *Aii = A.getElem_ii(nodeNum(k));
-    int m;
-    if (ghostPoints && isAtTheInterface) {
-      GhostPoint<dim> *gp;
-      for (int e=0; e<6; e++)
-        if ((k == edgeEnd(e,0) || k == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) {
-          int l = (k == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
-          gp = (*ghostPoints)[nodeNum(l)];
-          if (gp) v[l] = gp->getPrimitiveState();
+  if (ghostPoints && isAtTheInterface) {
+    GhostPoint<dim> *gp;
+    for (int i=0; i<4; ++i) {
+      for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)]; 
+
+      if(LSS->isActive(0,nodeNum(i))) {
+        for (int e=0; e<6; e++) {
+          if ((i == edgeEnd(e,0) || i == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) {
+            int j = (i == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+            gp = (*ghostPoints)[nodeNum(j)];
+            if (gp) v[j] = gp->getPrimitiveState();
+          }
         }
-      fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
-                                     reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
-                                     vol, X, nodeNum(), volume_id);
-    }
-    for (m=0; m<neq*neq; ++m)
-      Aii[m] += (dRdU[k][0][m] * dp1dxj[k][0] + dRdU[k][1][m] * dp1dxj[k][1] +
-                 dRdU[k][2][m] * dp1dxj[k][2])*vol;
+        fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
+                                       reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
+                                       vol, X, nodeNum(), volume_id);
 
-    if (sourceTermExists)
-      for (m=0; m<neq*neq; ++m)
-        Aii[m] -= vol4 * dSdU[k][m];
 
-    if (porousTermExists)
-       for (m=0;m<neq*neq;++m)
-         Aii[m] += dPdU[k][k][m];
-  }
+// diagonal matrices
 
-  // off-diagonal matrices
+	Aii = 0;
+        Aii = A.getElem_ii(nodeNum(i));
 
-  for (int l=0; l<6; ++l) {
-    int i, j;
-    if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
-      i = edgeEnd(l,0);
-      j = edgeEnd(l,1);
-    }
-    else {
-      i = edgeEnd(l,1);
-      j = edgeEnd(l,0);
-    }
-    
-    bool iactive = true,jactive=true,isIntersected=false;
-    if (LSS) {
-      iactive = LSS->isActive(0,nodeNum(i));
-      jactive = LSS->isActive(0,nodeNum(j));
-      isIntersected = LSS->edgeIntersectsStructure(0,edgeNum(l));
-    }
+        for (int m=0; m<neq*neq; ++m)
+          Aii[m] += (dRdU[i][0][m] * dp1dxj[i][0] + dRdU[i][1][m] * dp1dxj[i][1] +
+                     dRdU[i][2][m] * dp1dxj[i][2])*vol;
 
-    if (iactive || jactive) { // If i and j are both inactive, we don't fill the corresponding blocs in the Jacobian matrix.
-      Scalar *Aij = 0;
-      Scalar *Aji = 0;
-      if (iactive && jactive) {
-        if (ghostPoints && isIntersected) { // For a thin shell...
-          Aij = A.getRealNodeElem_ij(i,j);
-          Aji = A.getRealNodeElem_ij(j,i);
-        } else {
-          Aij = A.getElem_ij(edgeNum(l));
-          Aji = A.getElem_ji(edgeNum(l));
-        }
-      } else if (iactive) { // The edge is intersected and node j is inside the structure
-        Aij = A.getRealNodeElem_ij(i,j);
-        //Aji = A.getGhostNodeElem_ij(i,j);
-      } else { // The edge is intersected and node i is inside the structure
-        //Aij = A.getGhostNodeElem_ij(i,j);
-        Aji = A.getRealNodeElem_ij(j,i);
-      }
+        if (sourceTermExists)
+          for (int m=0; m<neq*neq; ++m)
+            Aii[m] -= vol4 * dSdU[i][m];
 
-      if ((iactive && Aij) || (jactive && Aji)) {
-	    double cij = 1.0 / ctrlVol[ nodeNum(i) ];
-	    double cji = 1.0 / ctrlVol[ nodeNum(j) ];
-	    int m;
+// off-diagonal matrices
 
-      if (iactive) {
-        if (ghostPoints && isIntersected) {
-          GhostPoint<dim> *gp;
-          gp   = ghostPoints->operator[](nodeNum(j));
-          if (gp)
-            v[j] = gp->getPrimitiveState();
-          fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
-                                         reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
-                                         vol, X, nodeNum(), volume_id);
-        }
-	      for (m=0; m<neq*neq; ++m) {
-	        Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
-	  		         dRdU[j][2][m] * dp1dxj[i][2])*vol;
-        }
-      } 
-      if (jactive) {
-        if (ghostPoints && isIntersected) {
-          GhostPoint<dim> *gp;
-          gp   = ghostPoints->operator[](nodeNum(i));
-          if (gp)
-            v[i] = gp->getPrimitiveState();
-          fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
-                                         reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
-                                         vol, X, nodeNum(), volume_id);
-        }
-	      for (m=0; m<neq*neq; ++m) {
-	        Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
-	  		         dRdU[i][2][m] * dp1dxj[j][2])*vol;
+        for (int e=0; e<6; ++e) {
+          if ((i == edgeEnd(e,0) || i == edgeEnd(e,1))) {
+            int j = (i == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+
+	    Aij = 0;
+            if (LSS->edgeIntersectsStructure(0,edgeNum(e))) {
+              Aij = A.getRealNodeElem_ij(nodeNum(i),nodeNum(j));
+            } 
+	    else {
+	      if (nodeNum(i) < nodeNum(j)) {
+                Aij = A.getElem_ij(edgeNum(e));
 	      }
-      }
-	
-	if (sourceTermExists) {
-	  double cij4 = cij * vol4;
-	  double cji4 = cji * vol4;
-          if (iactive)
-	    for (m=0; m<neq*neq; ++m)
-	      Aij[m] -= cij4 * dSdU[j][m];
+	      else {
+                Aij = A.getElem_ji(edgeNum(e));
+	      }
+            }
 
-          if (jactive)
-	    for (m=0; m<neq*neq; ++m) 
-	      Aji[m] -= cji4 * dSdU[i][m];
-	 
+	    if (Aij) {
+              double cij = 1.0 / ctrlVol[ nodeNum(i) ];
+
+              for (int m=0; m<neq*neq; ++m) {
+                Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
+                          dRdU[j][2][m] * dp1dxj[i][2])*vol;
+              }
+
+              if (sourceTermExists) {
+                double cij4 = cij * vol4;
+                for (int m=0; m<neq*neq; ++m) {
+                  Aij[m] -= cij4 * dSdU[j][m];
+                }
+              }
+	    }
+          }
 	}
-	
-	if (porousTermExists) {
-          if (iactive)
-	    for (m=1;m<neq*neq;++m)
-	      Aij[m] += cij * dPdU[i][j][m];
-          if (jactive)
-	    for (m=1;m<neq*neq;++m) 
-	      Aji[m] += cji * dPdU[j][i][m];
-	}
+
       }
     }
   }
+  else { // Regular elements (one's not intersecting with structure)  
+    for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)]; 
+    bool porousTermExists = fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
+                                                           reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
+                                                           vol, X, nodeNum(), volume_id);
 
+// diagonal matrices
+
+    for (int i=0; i<4; ++i) {
+      Aii = A.getElem_ii(nodeNum(i));
+
+      for (int m=0; m<neq*neq; ++m)
+        Aii[m] += (dRdU[i][0][m] * dp1dxj[i][0] + dRdU[i][1][m] * dp1dxj[i][1] +
+                   dRdU[i][2][m] * dp1dxj[i][2])*vol;
+
+      if (sourceTermExists)
+        for (int m=0; m<neq*neq; ++m)
+          Aii[m] -= vol4 * dSdU[i][m];
+
+      if (porousTermExists)
+         for (int m=0;m<neq*neq;++m)
+           Aii[m] += dPdU[i][i][m];
+    }
+
+// off-diagonal matrices
+
+    for (int e=0; e<6; ++e) {
+      int i, j;
+      if (nodeNum( edgeEnd(e,0) ) < nodeNum( edgeEnd(e,1) )) {
+        i = edgeEnd(e,0);
+        j = edgeEnd(e,1);
+      }
+      else {
+        i = edgeEnd(e,1);
+        j = edgeEnd(e,0);
+      }
+      Aij = A.getElem_ij(edgeNum(e));
+      Aji = A.getElem_ji(edgeNum(e));
+
+      double cij = 1.0 / ctrlVol[ nodeNum(i) ];
+      double cji = 1.0 / ctrlVol[ nodeNum(j) ];
+
+      for (int m=0; m<neq*neq; ++m) {
+        Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
+                  dRdU[j][2][m] * dp1dxj[i][2])*vol;
+        Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
+                  dRdU[i][2][m] * dp1dxj[j][2])*vol;
+      }
+
+      if (sourceTermExists) {
+        double cij4 = cij * vol4;
+        double cji4 = cji * vol4;
+        for (int m=0; m<neq*neq; ++m) {
+          Aij[m] -= cij4 * dSdU[j][m];
+          Aji[m] -= cji4 * dSdU[i][m];
+        }
+      }
+      
+      if (porousTermExists) {
+        for (int m=1;m<neq*neq;++m) {
+          Aij[m] += cij * dPdU[i][j][m];
+          Aji[m] += cji * dPdU[j][i][m];
+        }
+      }
+
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
