@@ -1259,12 +1259,13 @@ void DistIntersectorFRG::expandScope()
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id) {
+DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: number of fluid = %d!\n", this->numFluid);
     exit(-1);
   }
   this->X = &X;
+  this->Xn = &Xn;
   domain = d;
   numLocSub = d->getNumLocSub();
   intersector = new IntersectorFRG*[numLocSub];

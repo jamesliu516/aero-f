@@ -99,6 +99,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
 
     DistSVec<double,3> *X; //pointer to fluid node coords
+    DistSVec<double,3> *Xn; //pointer to fluid node coords at previous time
 
     // parameters from input
     bool interpolatedNormal;
@@ -128,7 +129,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int>* point_based_id = 0);
+    void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int>* point_based_id = 0);
     void updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]=0);
     void updateCracking(int (*abc)[3]);
     void expandScope();
@@ -203,9 +204,10 @@ class IntersectorPhysBAM : public LevelSetStructure {
     int nFirstLayer;
     ARRAY<int> reverse_mapping,forward_mapping;
     ARRAY<VECTOR<double,3> > xyz;
+    ARRAY<VECTOR<double,3> > xyz_n;
 
     bool testIsActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
-    int hasCloseTriangle(SVec<double,3>& X,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId);
+    int hasCloseTriangle(SVec<double,3>& X,SVec<double,3>& Xn,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId);
     int findIntersections(SVec<double,3>& X,Vec<bool>& tId,Communicator&);
     int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&,const double dt);
 

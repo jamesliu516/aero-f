@@ -293,7 +293,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->geoState->setup2(this->timeState->getData());
   // Initialize intersector and compute intersections
   DistVec<int> point_based_id(this->domain->getNodeDistInfo());
-  distLSS->initialize(this->domain,*this->X, ioData, &point_based_id);
+  distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
   if(riemannNormal==2){
     this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
