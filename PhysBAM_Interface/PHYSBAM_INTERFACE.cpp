@@ -313,7 +313,7 @@ Intersect(const int subD,const ARRAY<TV>& node_positions,const ARRAY<bool>& occl
 // computeSweptNodes
 //#####################################################################
 template<class T> void PhysBAMInterface<T>::
-computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,ARRAY<bool>& swept_node,const T dt) const
+computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,const ARRAY<TV>& node_positions_initial,ARRAY<bool>& swept_node,const T dt) const
 { // TODO(jontg): Assuming a 'normalized' dt of 1 for now... verify that this is an OK assumption to make!
     const SubDInterface<T>& sub = SubD(subD);
     T relative_speed,collision_time;VECTOR<T,3> normal,weights; // Unused
@@ -326,7 +326,7 @@ computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,ARRAY<bool>& sw
             const TRIANGLE_3D<T> initial_simplex(saved_state.y->X.Subset(sub.scoped_triangle_mesh->elements(candidates(t))));
             const TRIANGLE_3D<T>& terminal_simplex(sub.triangle_list(candidates(t)));
             swept_node(i) = (POINT_SIMPLEX_NO_COLLISION != CONTINUOUS_COLLISION_DETECTION_COMPUTATIONS::Robust_Point_Triangle_Collision(initial_simplex,terminal_simplex,
-                                                           node_positions(i),node_positions(i),dt,thickness_over_two,collision_time,normal,weights,relative_speed));}}
+                                                           node_positions_initial(i),node_positions(i),dt,thickness_over_two,collision_time,normal,weights,relative_speed));}}
 }
 //#####################################################################
 template class PhysBAMInterface<float>;
