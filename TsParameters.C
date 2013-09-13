@@ -83,7 +83,8 @@ TsParameters::~TsParameters()
 {
 
   if (output) delete [] output;
-
+  if (reshistory) delete [] reshistory;
+  if (dft) delete [] dft;
 }
 
 //------------------------------------------------------------------------------

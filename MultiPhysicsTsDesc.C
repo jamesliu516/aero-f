@@ -274,7 +274,7 @@ MultiPhysicsTsDesc<dim,dimLS>::~MultiPhysicsTsDesc()
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
   if (dynNodalTransfer) delete dynNodalTransfer;
-  if (Fs) delete[] Fs;
+  if (Fs) operator delete[] (Fs, *this->com);
   if(ghostPoints) {
     ghostPoints->deletePointers();
     delete ghostPoints;

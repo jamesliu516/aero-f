@@ -4827,14 +4827,15 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   int temp= 0;
   double V[dim];
   double rho, p;
-
+/*
   double *conservation = new double[5];
   for(int k=0; k<5; k++) conservation[k]=0.0;
   for(int i=0; i<U.size(); i++)
     for(int k=0; k<5; k++)
       conservation[k] += ctrlVol[i]*U[i][k];
   //fprintf(stdout, "conservation = %e %e %e %e %e\n", conservation[0],conservation[1],conservation[2],conservation[3],conservation[4]);
-
+  delete [] conservation;
+*/
   if (!(varFcn->doVerification())){
     for (int i=0; i<U.size(); ++i) {
 
