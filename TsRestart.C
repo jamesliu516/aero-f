@@ -26,7 +26,6 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
 			    FluidSelector* fluidSelector
                             )
 {
-
   iteration = it;
   etime = t;
   double dt_nm1 = timeState.getData().dt_nm1;
@@ -46,13 +45,15 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
     
     if (fluidId[index][0] != 0 && fluidSelector)
       fluidSelector->writeToDisk(fluidId[index]);
+      
+/* PJSA moved to separate function writeCrackingDataToDisk
 
     if (cpuNum == 0 && dyn) {
 
       std::ofstream ofile(cracking[index],std::ios::binary);
       dyn->writeCrackingData(ofile);
     }
-  
+*/  
     if (cpuNum == 0 && data[index][0] != 0) {
       FILE *fp = fopen(data[index], "w");
       if (!fp) {
@@ -215,8 +216,3 @@ void TsRestart::writeKPtracesToDisk
   delete[] prefix;
 
 }
-
-
-//------------------------------------------------------------------------------
-
-

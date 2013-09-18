@@ -352,7 +352,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   this->geoState->setup2(this->timeState->getData());
   // Initialize intersector and compute intersections
   DistVec<int> point_based_id(this->domain->getNodeDistInfo());
-  distLSS->initialize(this->domain,*this->X, ioData, &point_based_id);
+  distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
   if(riemannNormal==2){
     this->spaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
@@ -482,7 +482,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   int numSubCycles = 1;
   double dt=0.0;
 
-  if(TsDesc<dim>::failSafeFlag == false){
+//  if(TsDesc<dim>::failSafeFlag == false){
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
       if(numFluid==1)
@@ -495,9 +495,9 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     }
     else  //time step size with error estimation
       dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
-  }
-  else    //if time step is repeated
-    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+//  }
+//  else    //if time step is repeated
+//    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
 
   if(TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
     this->timeState->setDtMin(dt * TsDesc<dim>::data->getCflMinOverCfl0());
@@ -637,7 +637,6 @@ template<int dim>
 void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                              double t, double dt, DistSVec<double,dim> &U)
 {
-
   this->com->globalSum(1, &interruptCode);
   if (interruptCode)
     *lastIt = true;

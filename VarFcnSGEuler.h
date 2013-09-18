@@ -148,7 +148,9 @@ public:
     return invgam1 * (V[4]+gam*Pstiff); 
   }
   double computeSoundSpeed(double *V) const {
-    //if (V[4]+Pstiff<0 || V[0]<=0) std::printf("V[4]=%e, Pstiff=%e, V[0]=%e\n",V[4],Pstiff,V[0]);
+#ifndef NDEBUG
+    if (V[4]+Pstiff<0 || V[0]<=0) std::printf("V[4]=%e, Pstiff=%e, V[0]=%e\n",V[4],Pstiff,V[0]); 
+#endif
     return sqrt(gam * (V[4]+Pstiff) / V[0]); 
   }
   double computeSoundSpeed(double density, double entropy) const {
