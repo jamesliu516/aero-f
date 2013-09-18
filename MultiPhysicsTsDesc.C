@@ -563,6 +563,9 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputForces(IoData &ioData, bool* lastIt, i
 {
   double cpu = this->timer->getRunTime();
   this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+
+  // PJSA this should written before getting the new cracking data
+  this->restart->writeCrackingDataToDisk(this->com->cpuNum(), *lastIt, it, t, dynNodalTransfer);
 }
 
 //------------------------------------------------------------------------------

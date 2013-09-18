@@ -176,3 +176,17 @@ void TsRestart::rstVar(IoData &ioData) {
 }
 
 //------------------------------------------------------------------------------
+
+void TsRestart::writeCrackingDataToDisk(int cpuNum, bool lastIt, int it, double t,
+                                        DynamicNodalTransfer* dyn // to output cracking information
+                                       )
+{
+  if (toWrite(it, lastIt, t)) {
+
+    if (cpuNum == 0 && dyn) {
+
+      std::ofstream ofile(cracking[index],std::ios::binary);
+      dyn->writeCrackingData(ofile);
+    }
+  }
+}

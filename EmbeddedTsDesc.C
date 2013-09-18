@@ -611,7 +611,6 @@ template<int dim>
 void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                              double t, double dt, DistSVec<double,dim> &U)
 {
-
   this->com->globalSum(1, &interruptCode);
   if (interruptCode)
     *lastIt = true;
