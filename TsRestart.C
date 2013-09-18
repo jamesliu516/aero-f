@@ -25,7 +25,6 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
                             DynamicNodalTransfer* dyn // to output cracking information
                             )
 {
-
   iteration = it;
   etime = t;
   double dt_nm1 = timeState.getData().dt_nm1;
@@ -42,13 +41,13 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
       geoState.writeToDisk(positions[index]);
     if (levelsets[index][0] != 0 && levelSet)
       levelSet->writeToDisk(levelsets[index]);
-
+/* PJSA moved to separate function writeCrackingDataToDisk
     if (cpuNum == 0 && dyn) {
 
       std::ofstream ofile(cracking[index],std::ios::binary);
       dyn->writeCrackingData(ofile);
     }
-  
+*/  
     if (cpuNum == 0 && data[index][0] != 0) {
       FILE *fp = fopen(data[index], "w");
       if (!fp) {
@@ -211,8 +210,3 @@ void TsRestart::writeKPtracesToDisk
   delete[] prefix;
 
 }
-
-
-//------------------------------------------------------------------------------
-
-
