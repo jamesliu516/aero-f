@@ -88,6 +88,7 @@ InputData::InputData()
   embeddedpositions = "";
   levelsets = "";
   cracking = "";
+  fluidId = "";
   rstdata = "";
   podFile = "";
   snapRefSolutionFile = "";
@@ -143,6 +144,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "EmbeddedPosition", this, &InputData::embeddedpositions);
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
   new ClassStr<InputData>(ca, "Cracking", this, &InputData::cracking);
+  new ClassStr<InputData>(ca, "FluidId", this, &InputData::fluidId);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "SnapshotData", this, &InputData::snapFile);
@@ -611,6 +613,7 @@ RestartData::RestartData()
   cracking = "DEFAULT.CRK";
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
+  fluidId = "DEFAULT.FID";
 
   frequency = 0;
   frequency_dt = -1.0;
@@ -635,6 +638,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "EmbeddedPosition", this, &RestartData::embeddedpositions);
   new ClassStr<RestartData>(ca, "Cracking", this, &RestartData::cracking);
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
+  new ClassStr<RestartData>(ca, "FluidId", this, &RestartData::fluidId);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
   new ClassDouble<RestartData>(ca, "TimeInterval", this, &RestartData::frequency_dt);

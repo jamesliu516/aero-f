@@ -808,6 +808,10 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
 //------------------------------------------------------------------------------
 
+
+//------------------------------------------------------------------------------
+
+
 int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &dCtrlVol)
 {
 
@@ -1781,6 +1785,16 @@ void Domain::createHigherOrderMultiFluid() {
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
     subDomain[iSub]->createHigherOrderMultiFluid();
+  }
+  
+}
+
+void Domain::createHigherOrderFSI() {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->createHigherOrderFSI();
   }
   
 }

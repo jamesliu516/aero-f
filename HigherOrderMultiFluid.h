@@ -31,10 +31,14 @@ class HigherOrderMultiFluid {
      void setLastPhaseChangeValue(int nodeId,const double*);
 
    template <int dim>
-     double estimateR(int l, int vertex, 
-		      int i, SVec<double,dim>& V, 
-		      NodalGrad<dim>& dVdx, SVec<double,3>& X,
-		      Vec<int>& fluidId);
+     void setLastPhaseChangeValues(SVec<double,dim>& update,
+				   Vec<double>& weight);
+
+   template <int dim>
+     void estimateR(int l, int vertex, 
+		    int i, SVec<double,dim>& V, 
+		    NodalGrad<dim>& dVdx, SVec<double,3>& X,
+		    Vec<int>& fluidId, double* r);
 
    template <int dim>
      double computeAlpha(int nodeId, const double* currentV,
@@ -48,7 +52,7 @@ class HigherOrderMultiFluid {
 		   int i, SVec<double,dim>& V, 
 		   double* Vsurrogate,const double* W, SVec<double,3>& X,
 		   double alpha,double length,
-		   Vec<int>& fluidId, double beta) ;
+		   Vec<int>& fluidId, double* beta) ;
 
   private:
 

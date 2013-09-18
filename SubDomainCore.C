@@ -82,6 +82,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   nodeToNodeMaskJacobian = 0;
   nodeToNodeMaskILU      = 0;
   higherOrderMF = 0;
+  higherOrderFSI = 0;
 
   int j;
   for(int i=0;i<3;i++)  {
@@ -4953,6 +4954,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
         continue;
       }
     }
+
     if(occluded){ //set Id to 2
       poll[i][2] = true;
       continue;
@@ -5007,6 +5009,14 @@ void SubDomain::createHigherOrderMultiFluid() {
 
   edges.attachHigherOrderMultiFluid(higherOrderMF);
   faces.attachHigherOrderMF(higherOrderMF);
+}
+
+void SubDomain::createHigherOrderFSI() {
+
+  higherOrderFSI = new HigherOrderFSI();
+
+  edges.attachHigherOrderFSI(higherOrderFSI);
+  //  faces.attachHigherOrderFSI(higherOrderFSI);
 }
 
 void SubDomain::assignErrorHandler(ErrorHandler* in){
@@ -5130,4 +5140,3 @@ Elem* SubDomain::searchPoint(Vec3D Xp, SVec<double,3>& X) {
 
   return E;
 }
-

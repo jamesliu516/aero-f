@@ -4,6 +4,8 @@
 #include<Vector.h>
 #include<Vector3D.h>
 
+#include <FluidSelector.h>
+
 class IoData;
 class RefVal;
 class DistGeoState;
@@ -38,6 +40,7 @@ public:
   char *positions[3];
   char *levelsets[3];
   char *cracking[3];
+  char *fluidId[3];
   char *data[3];
 
   char *structPos;
@@ -60,7 +63,8 @@ public:
   template<int dim, int dimLS>
   void writeToDisk(int, bool, int, double, double, 
 		   DistTimeState<dim> &, DistGeoState &, LevelSet<dimLS> *levelSet = 0,
-                   class DynamicNodalTransfer* = NULL);
+                   class DynamicNodalTransfer* = NULL,
+		   class FluidSelector* = NULL);
 
   /** Function to write the structure positions to disk. Used for the embedded-method only. */
   void writeStructPosToDisk(int, bool, Vec<Vec3D>&);

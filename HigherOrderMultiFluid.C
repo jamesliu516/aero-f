@@ -72,31 +72,57 @@ setLastPhaseChangeValue(int nodeId,const double* v) {
   SVec<double,dim>* V = 
     static_cast<SVec<double,dim>*>(lastPhaseChangeState);
 
+  if (v[0] != 0.0)
+    std::cout << "phase change value = " << v[0]  << std::endl;
   memcpy((*V)[nodeId], v ,sizeof(double)*dim);
 }
 
 template <int dim>
-double HigherOrderMultiFluid::
+void HigherOrderMultiFluid::
+setLastPhaseChangeValues(SVec<double,dim>& update,Vec<double>& weight) {
+
+  for (int i = 0; i < update.size(); ++i) {
+
+    if (hasLastPhaseChangeValue<dim>(i) || weight[i] <= 0.0)
+      continue;
+
+    double v[dim];
+    for (int k = 0; k < dim; ++k)
+      v[k] = update[i][k] / weight[i];
+
+    setLastPhaseChangeValue<dim>(i, v);
+  }
+}
+
+template <int dim>
+void HigherOrderMultiFluid::
 estimateR(int l, int vertex, 
 	  int i, SVec<double,dim>& V, 
 	  NodalGrad<dim>& dVdx, SVec<double,3>& X,
-	  Vec<int>& fluidId) {
+	  Vec<int>& fluidId, 
+	  double* r) {
 
   int idxTet = v6data[l][vertex].tet;
   int idxFace = v6data[l][vertex].face;
   double face_r = v6data[l][vertex].r;
   double face_t = v6data[l][vertex].t;
 
-  if ((idxTet<0)||(idxTet>=elems->size()))
-    return 0.0;
+  if ((idxTet<0)||(idxTet>=elems->size())) {
+    memset(r,0,sizeof(double)*dim);
+    return;
+
+  }
 
   int myfid = fluidId[i];
 
   Elem& elem = (*elems)[idxTet];
   for (int k = 0; k < 4; ++k) {
 
-    if (fluidId[elem.nodeNum(k)] != myfid)
-      return 0.0;
+    if (fluidId[elem.nodeNum(k)] != myfid) {
+      memset(r,0,sizeof(double)*dim);
+      return;
+
+    }
   }
 
   int n0_loc = (*elems)[idxTet].faceDef(idxFace, 0);
@@ -128,20 +154,30 @@ estimateR(int l, int vertex,
     Vfg[k][2] = dVdx.getZ()[n2][k] + face_r*(dVdx.getZ()[n0][k]-dVdx.getZ()[n2][k])+
       face_t*(dVdx.getZ()[n1][k]-dVdx.getZ()[n2][k]);
   }
+  
+  if (myfid == 0)
+    std::cout << Vfg[4][0]*vec[0]+
+      Vfg[4][1]*vec[1]+
+      Vfg[4][2]*vec[2] << " " << (V[i][4]-Vf[4]) << " " << 
+      V[i][4] << " " << Vf[4] << " " << X[i][0] << " " << X[i][1] << " " << X[i][2] <<   " " <<
+      vec[0] << " " << vec[1] << " " << vec[2] << std::endl;
+  
 
-  double r = 2.0;
   for (int k = 0; k < dim; ++k) {
 
     if (fabs(V[i][k]-Vf[k] ) > 1.0e-8)
-      r = std::min<double>(r, 2.0*(Vfg[k][0]*vec[0]+
-			       Vfg[k][1]*vec[1]+
-			       Vfg[k][2]*vec[2])/(V[i][k]-Vf[k])-1.0);
+      r[k] = std::min<double>(2.0, (Vfg[k][0]*vec[0]+
+					Vfg[k][1]*vec[1]+
+					Vfg[k][2]*vec[2])/(V[i][k]-Vf[k]));
     else
-      r = 0.0;
+      r[k] = 2.0;
+    //else
+    //  r = 0.0;
+    r[k] = std::max<double>(r[k],0.0);
   }
   
-  return 0.0;
-  //  return std::max<double>(r,0.0);
+  //r[4] =  1.0;
+  
 }
 
 template <int dim>
@@ -149,19 +185,24 @@ double HigherOrderMultiFluid::
 computeAlpha(int nodeId,const double* currentV, 
 	     const double* neighborV) {
 
-  if (!hasLastPhaseChangeValue<dim>(nodeId))
+  if (!hasLastPhaseChangeValue<dim>(nodeId)) {
+
+    std::cout << "alpha = 0!!" << std::endl;
     return 0.0;
+  }
 
   const double* vlast = getLastPhaseChangeValue<dim>(nodeId);
 
   double alpha = 1.0;
   for (int k = 0; k < dim; ++k) {
 
-    //std::cout << currentV[k] << " " << vlast[k]<< " " << 
-    //  neighborV[k] << std::endl;
+    std::cout << currentV[k] << " " << vlast[k]<< " " << 
+      neighborV[k] << std::endl;
     alpha = std::min<double>(alpha, fabs(currentV[k]-vlast[k])/
 			     std::max<double>(1e-8,fabs(neighborV[k]-currentV[k])));
   }
+
+  std::cout << "alpha = " << alpha << std::endl;
 
   return alpha;
 }
@@ -172,7 +213,7 @@ extrapolateV6(int l, int vertex,
 	      int i, SVec<double,dim>& V, 
 	      double* Vsurrogate,const double* W, SVec<double,3>& X,
 	      double alpha,double length,
-	      Vec<int>& fluidId, double beta) {
+	      Vec<int>& fluidId, double* beta) {
 
   int idxTet = v6data[l][vertex].tet;
   int idxFace = v6data[l][vertex].face;
@@ -223,7 +264,7 @@ extrapolateV6(int l, int vertex,
   double frac = 0.5/(1.0+alpha_f-alpha);
   for (int k = 0; k < dim; ++k) {
 
-    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k])*beta + 
-      (1.0-beta)*W[k];
+    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k]);//*beta[k] + 
+    //(1.0-beta[k])*W[k];
   }
 }

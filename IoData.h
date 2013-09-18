@@ -75,6 +75,7 @@ struct InputData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+  const char *fluidId;
   const char *rstdata;
   const char *podFile;
   const char *snapFile;
@@ -299,6 +300,7 @@ struct RestartData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+  const char *fluidId;
   const char *data;
 
   int frequency;

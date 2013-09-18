@@ -5472,7 +5472,7 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 
 		double alpha = 1.0;
 		if (limit)
-		  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
+		  alpha = higherOrderFSI->computeAlpha<dim>(neighborNode,V[neighborNode],
 		  					   lin_extrap);
 		
 		for (int k=0; k<dim; ++k) {
@@ -7325,14 +7325,18 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
   // Rule No.2: If its "visible && !occluded && !swept" neighbors have the same status, use this one. 
   // Rule No.3: Otherwise, consider the sign of "PhiV". (PhiV should have been "blurred".)
   
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+
   for(int i=0; i<PhiV.size(); i++) {
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
 
     //DEBUG
-    /*int myNode = 13558;
-    if(locToGlobNodeMap[i]+1==myNode){
-      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", myNode, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
+    /*
+    int myNode = 13558;
+    if(rnk == 113 && i == 339){
+      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
       for(int j=0; j<Node2Node.num(i); j++) { 
         if(Node2Node[i][j]==i) continue;
         fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
@@ -7341,7 +7345,7 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
       }
 
     }
-*/
+    */
 
     if(!swept) {//nothing to be done
       if(!occluded && fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
@@ -7367,8 +7371,22 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
         else if (poll[i][1]) fluidId[i] = dimLS;
         else if (poll[i][2]) fluidId[i] = dimLS+1;
         break;
-    } 
+    }
+    /*
+    if (count > 1) {
 
+      fprintf(stderr,"WARNING: cant decide for");
+      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
+      for(int j=0; j<Node2Node.num(i); j++) { 
+        if(Node2Node[i][j]==i) continue;
+        fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
+                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
+                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][dimLS-1]); 
+      }
+
+
+    } 
+    */
     if(count==1) //already applied Rule No.2
       continue;
 

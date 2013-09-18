@@ -74,6 +74,26 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     viscSecOrder = false; 
   }
 
+  if (interfaceAlg == 1) {
+
+    dom->createHigherOrderFSI();
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      V6NodeData (*v6data)[2];
+      v6data = 0;
+      dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
+      dom->getSubDomain()[iSub]->getHigherOrderFSI()->
+	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
+			dom->getSubDomain()[iSub]->getElems(),
+			v6data); 
+
+      //if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+      dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+    }
+    
+  }
+
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
@@ -339,8 +359,14 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
-  // Initialize fluid Ids
-  nodeTag0 = nodeTag = distLSS->getStatus();
+  // Initialize fluid Ids (not on restart)
+  if (ioData.input.fluidId[0] == 0)
+    nodeTag0 = nodeTag = distLSS->getStatus();
+  else {
+    FluidSelector f(2, ioData,this->domain);
+    nodeTag0 = nodeTag = *f.fluidId;
+  }
+
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _emmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->emmh);
   if(_emmh) {
@@ -635,7 +661,10 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 
   TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
                                        //      it does not seem to understand the template
-  restart2->template writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
+
+  // temporary fluid selector
+  FluidSelector fluidSelector(nodeTag);
+  restart2->template writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, NULL, NULL, &fluidSelector);
   if (*lastIt)
     this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition()); //KW: must be after writeToDisk
   else
