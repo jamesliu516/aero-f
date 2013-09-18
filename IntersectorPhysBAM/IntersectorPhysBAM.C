@@ -665,12 +665,13 @@ DistIntersectorPhysBAM::buildSolidNormals() {
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id) {
+DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
     exit(-1);
   }
   this->X = &X;
+  this->Xn = &Xn;
   domain = d;
   numLocSub = d->getNumLocSub();
   intersector = new IntersectorPhysBAM*[numLocSub];
@@ -712,7 +713,7 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   int numIntersectedEdges=0;
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i) {
-    intersector[i]->hasCloseTriangle(X(i), (*boxMin)(i), (*boxMax)(i), tId(i));
+    intersector[i]->hasCloseTriangle(X(i), Xn(i), (*boxMin)(i), (*boxMax)(i), tId(i));
     numIntersectedEdges += intersector[i]->findIntersections(X(i),tId(i),*com);}
 
   list< pair<Vec3D,int> > points; //pair points with fluid model ID (or point id if needed).
@@ -1048,8 +1049,8 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool f
     exit(-1);
   }
   //get current struct coordinates.
-  double alpha = 1.0;
-  //double alpha = (dts - dtfLeft + dtf)/dts;
+  //double alpha = 1.0;
+  double alpha = (dts - dtfLeft + dtf)/dts;
   for (int i=0; i<numStNodes; i++) 
     Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
 
@@ -1077,7 +1078,7 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool f
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub){
       intersector[iSub]->reset(findStatus,retry);
-      intersector[iSub]->hasCloseTriangle((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), tId(iSub));
+      intersector[iSub]->hasCloseTriangle((*X)(iSub), (*Xn)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), tId(iSub));
       intersector[iSub]->findIntersections((*X)(iSub),tId(iSub),*com);
       intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com,dtf);}
 
@@ -1174,6 +1175,7 @@ void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
   reverse_mapping.Remove_All();
   forward_mapping.Remove_All();
   xyz.Remove_All();
+  xyz_n.Remove_All();
 }
 
 //----------------------------------------------------------------------------
@@ -1181,7 +1183,7 @@ void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
 /** Find the closest structural triangle for each node. If no triangle intersect the bounding box of the node,
 * no closest triangle exists
 */
-int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId) 
+int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &Xn, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId) 
 {
   PhysBAMInterface<double>& physbam_interface=*distIntersector.physInterface;
 
@@ -1189,6 +1191,7 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
   forward_mapping.Resize(X.size()+1);  PhysBAM::ARRAYS_COMPUTATIONS::Fill(forward_mapping,-1);
   reverse_mapping.Resize(X.size()+1);  PhysBAM::ARRAYS_COMPUTATIONS::Fill(reverse_mapping,-1);
   xyz.Resize(X.size()+1);
+  xyz_n.Resize(Xn.size()+1);
   for(int i=0;i<boxMin.size();++i){
     ARRAY<int> candidates;
     VECTOR<double,3> min_corner(boxMin[i][0],boxMin[i][1],boxMin[i][2]), max_corner(boxMax[i][0],boxMax[i][1],boxMax[i][2]);
@@ -1199,6 +1202,7 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
       forward_mapping(i+1)=shrunk_index;
       is_occluded[i]=occluded;
       xyz(forward_mapping(i+1))=VECTOR<double,3>(X[i][0],X[i][1],X[i][2]);
+      xyz_n(forward_mapping(i+1))=VECTOR<double,3>(Xn[i][0],Xn[i][1],Xn[i][2]);
       reverse_mapping(forward_mapping(i+1))=i;
       ++numCloseNodes;
       for(int j=1;j<=candidates.Size();++j) addToPackage(i,candidates(j));
@@ -1214,6 +1218,7 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
 
   nFirstLayer += numCloseNodes;
   reverse_mapping.Resize(nFirstLayer); xyz.Resize(nFirstLayer); // Trim the fat.
+  xyz_n.Resize(nFirstLayer);
 
   return numCloseNodes;
 }
@@ -1315,7 +1320,7 @@ int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Comm
   ARRAY<bool> swept;
 
   swept.Resize(nFirstLayer); PhysBAM::ARRAYS_COMPUTATIONS::Fill(swept,false);
-  distIntersector.getInterface().computeSweptNodes(locIndex+1,xyz,swept,(double)1.0);
+  distIntersector.getInterface().computeSweptNodes(locIndex+1,xyz,xyz_n,swept,(double)1.0);
 
   int numSweptNodes=0;
   for(int i=1;i<=nFirstLayer;++i){is_swept[reverse_mapping(i)] = swept(i);
