@@ -68,6 +68,9 @@ public:
 
   /** Function to write the structure positions to disk. Used for the embedded-method only. */
   void writeStructPosToDisk(int, bool, Vec<Vec3D>&);
+
+  /** Function to write the cracking data to disk. */
+  void writeCrackingDataToDisk(int, bool, int, double, class DynamicNodalTransfer* = NULL);
  
 // Included (MB)
   void rstVar(IoData &);
