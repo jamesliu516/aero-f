@@ -1417,7 +1417,7 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, false, fluidId);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, true, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }
@@ -1451,6 +1451,11 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 			    std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
+                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && true) {
+
+                    this->domain->getSubDomain()[iSub]->getHigherOrderFSI()->
+                      template setLastPhaseChangeValue<dim>(i, V(iSub)[i]);
+                  }
         }
 	  }
     }
@@ -3063,3 +3068,18 @@ attachTriangulatedInterface(TriangulatedInterface* T) {
   this->domain->attachTriangulatedInterface(T);
 }
 
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::
+setLastPhaseChangeValues(DistExactRiemannSolver<dim>* riemann) {
+
+  SubDomain **subD = this->domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+    // Set any unset phase change values
+    subD[iSub]->getHigherOrderMF()->setLastPhaseChangeValues((*riemann->getRiemannUpdate())(iSub),
+							     (*riemann->getRiemannWeight())(iSub) );
+  }
+
+}

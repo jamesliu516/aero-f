@@ -31,6 +31,13 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   else
     sprintf(levelsets[0], "");
 
+  fluidId[0] = new char[sp + strlen(iod.output.restart.fluidId)];
+  if (iod.output.restart.fluidId[0] != 0)
+    sprintf(fluidId[0], "%s%s", iod.output.restart.prefix, iod.output.restart.fluidId);
+  else
+    sprintf(fluidId[0], "");
+
+
   cracking[0] = new char[sp + strlen(iod.output.restart.cracking)];
   if (iod.output.restart.cracking[0] != 0)
     sprintf(cracking[0], "%s%s", iod.output.restart.prefix, iod.output.restart.cracking);
@@ -57,6 +64,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
       positions[i] = positions[0];
       levelsets[i] = levelsets[0];
       cracking[i] = cracking[0];
+      fluidId[i] = fluidId[0];
       data[i] = data[0];
 
     }
@@ -89,6 +97,12 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
 	sprintf(cracking[i], "%s.%drst", cracking[0], i);
       else
 	sprintf(cracking[i], "");
+
+      fluidId[i] = new char[strlen(fluidId[0]) + 5 + 1];
+      if (fluidId[0][0] != 0)
+	sprintf(fluidId[i], "%s.%drst", fluidId[0], i);
+      else
+	sprintf(fluidId[i], "");
 
 
       data[i] = new char[strlen(data[0]) + 5 + 1];

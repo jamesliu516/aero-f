@@ -5,6 +5,8 @@
 #include <fstream>
 using namespace std;
 
+#include <TsInput.h>
+
 //------------------------------------------------------------------------------
 
 FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : iodp(&ioData)
@@ -12,6 +14,9 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
   numPhases = nPhases;
   domain = dom ? dom : 0;
 
+  const std::string prefix(ioData.input.prefix); 
+  char* fidpath = TsInput::absolutePath(ioData.input.fluidId, prefix);
+  
   fluidId  = 0;
   fluidIdn = 0;
   if(domain){
@@ -20,6 +25,7 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
     *fluidId  = 0;
     *fluidIdn = 0;
   }
+
   fluidIdnm1 = 0;
   fluidIdnm2 = 0;
   if(ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF){
@@ -33,17 +39,55 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
     *fluidIdnm2 = 0;
   }
 
+  if (ioData.input.fluidId[0] != 0) {
+
+
+    double scl;
+    DistSVec<int,1> i1(fluidId->info(), reinterpret_cast<int(*)[1]>(fluidId->data()));
+    domain->readVectorFromFile(fidpath, 0, &scl, i1);
+
+    if (fluidIdnm1){
+      DistSVec<int,1> i2(fluidIdnm1->info(), reinterpret_cast<int(*)[1]>(fluidIdnm1->data()));
+      domain->readVectorFromFile(fidpath, 1,  &scl, i2);
+    }
+
+    if (fluidIdnm2){
+      DistSVec<int,1> i3(fluidIdnm2->info(), reinterpret_cast<int(*)[1]>(fluidIdnm2->data()));
+      domain->readVectorFromFile(fidpath, 2,  &scl,i3);
+    }
+
+  }
+
+
   programmedBurn = 0;
+
+  ownsData = true;
+}
+
+FluidSelector::FluidSelector(DistVec<int>& nodeTag) {
+
+  fluidId  = 0;
+  fluidIdn = 0;
+
+  fluidIdnm1 = 0;
+  fluidIdnm2 = 0;
+
+  ownsData = false;
+
+  fluidId = &nodeTag;
+
 }
 
 //------------------------------------------------------------------------------
 #define SAFE_DELETE(f) if (f) delete f;
 FluidSelector::~FluidSelector()
 {
-  SAFE_DELETE(fluidId);
-  SAFE_DELETE(fluidIdn);
-  SAFE_DELETE(fluidIdnm1);
-  SAFE_DELETE(fluidIdnm2);
+  if (ownsData) {
+    SAFE_DELETE(fluidId);
+    SAFE_DELETE(fluidIdn);
+    SAFE_DELETE(fluidIdnm1);
+    SAFE_DELETE(fluidIdnm2);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -391,21 +435,19 @@ void FluidSelector::getFluidId(TriangulatedInterface* T){
   }
 }
 
+void FluidSelector::writeToDisk(const char* name) {
 
+  DistSVec<int,1> i1(fluidId->info(), reinterpret_cast<int(*)[1]>(fluidId->data()));
+  domain->writeVectorToFile(name, 0, 0.0, i1);
 
+  if (fluidIdnm1){
+    DistSVec<int,1> i2(fluidIdnm1->info(), reinterpret_cast<int(*)[1]>(fluidIdnm1->data()));
+    domain->writeVectorToFile(name, 1, 0.0, i2);
+  }
 
+  if (fluidIdnm2){
+    DistSVec<int,1> i3(fluidIdnm2->info(), reinterpret_cast<int(*)[1]>(fluidIdnm2->data()));
+    domain->writeVectorToFile(name, 2, 0.0,i3);
+  }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+}

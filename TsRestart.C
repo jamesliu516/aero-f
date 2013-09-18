@@ -22,7 +22,8 @@ template<int dim, int dimLS>
 void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt,
 			    DistTimeState<dim> &timeState, DistGeoState &geoState,
 			    LevelSet<dimLS> *levelSet, 
-                            DynamicNodalTransfer* dyn // to output cracking information
+                            DynamicNodalTransfer* dyn, // to output cracking information
+			    FluidSelector* fluidSelector
                             )
 {
 
@@ -42,6 +43,9 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
       geoState.writeToDisk(positions[index]);
     if (levelsets[index][0] != 0 && levelSet)
       levelSet->writeToDisk(levelsets[index]);
+    
+    if (fluidId[index][0] != 0 && fluidSelector)
+      fluidSelector->writeToDisk(fluidId[index]);
 
     if (cpuNum == 0 && dyn) {
 

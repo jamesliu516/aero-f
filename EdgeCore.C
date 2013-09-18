@@ -28,6 +28,7 @@ EdgeSet::EdgeSet()
 
   programmedBurn = 0;
   higherOrderMF = 0;
+  higherOrderFSI = 0;
 
 #ifdef EDGE_LENGTH  //HB
   edgeLength= 0;
@@ -224,6 +225,11 @@ void EdgeSet::attachProgrammedBurn(ProgrammedBurn* p) {
 void EdgeSet::attachHigherOrderMultiFluid(HigherOrderMultiFluid* mf) {
 
   higherOrderMF = mf;
+}
+
+void EdgeSet::attachHigherOrderFSI(HigherOrderFSI* fsi) {
+
+  higherOrderFSI = fsi;
 }
 
 //------------------------------------------------------------------------------

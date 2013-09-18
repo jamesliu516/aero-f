@@ -21,6 +21,7 @@ using std::pair;
 
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
+#include <HigherOrderFSI.h>
 #include <ErrorHandler.h>
 #include <LevelSet/LevelSetStructure.h>
 
@@ -80,6 +81,7 @@ private:
   ProgrammedBurn* programmedBurn;
 
   HigherOrderMultiFluid* higherOrderMF;
+  HigherOrderFSI* higherOrderFSI;
 
   MultifluidRiemannNormal mfRiemannNormal;
   ErrorHandler* errorHandler;
@@ -286,6 +288,7 @@ public:
 
   void attachProgrammedBurn(ProgrammedBurn*);
   void attachHigherOrderMultiFluid(HigherOrderMultiFluid*);
+  void attachHigherOrderFSI(HigherOrderFSI*);
 
   void assignErrorHandler(ErrorHandler* in){errorHandler = in;}
 
