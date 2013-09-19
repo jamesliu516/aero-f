@@ -71,22 +71,23 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
   // Initialization of Phi is done through the use of volumeID and
   // through the knowledge of a geometric shape (with its position).
 
-  Phi0 = -1.0;
-  setupPhiVolumesInitialConditions(iod, Phi0);
-  setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
-  setupPhiMultiFluidInitialConditions(iod,X, Phi0);
-  if(closest && fsId)
-    setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
-  if (lsMethod == 0)
-    primitiveToConservative(Phi0, Phi, U);
-  else
-    Phi = Phi0;
+  if (name[0] == 0) {
+    Phi0 = -1.0;
+    setupPhiVolumesInitialConditions(iod, Phi0);
+    setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
+    setupPhiMultiFluidInitialConditions(iod,X, Phi0);
+    if(closest && fsId)
+      setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
+    if (lsMethod == 0)
+      primitiveToConservative(Phi0, Phi, U);
+    else
+      Phi = Phi0;
 
-  Phin   = Phi;
-  Phinm1 = Phin;
-  Phinm2 = Phinm1;
-
-  if (name[0] != 0) {
+    Phin   = Phi;
+    Phinm1 = Phin;
+    Phinm2 = Phinm1;
+  }
+  else { 
     DistSVec<double,dimLS> ReadPhi(domain->getNodeDistInfo());
     domain->readVectorFromFile(name, 0, 0, ReadPhi);
     Phi  = ReadPhi;
@@ -94,26 +95,22 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
     if (data->use_nm1){
       DistSVec<double,dimLS> ReadPhi1(domain->getNodeDistInfo());
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1);
-      Phinm1 = ReadPhi1;
+      if (data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1))
+        Phinm1 = ReadPhi1;
+      else
+        Phinm1 = Phin;
     }
 
     if (data->use_nm2){
       DistSVec<double,dimLS> ReadPhi2(domain->getNodeDistInfo());
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2);
-      Phinm2 = ReadPhi2;
+      if (data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2))
+        Phinm2 = ReadPhi2;
+      else
+        Phinm2 = Phinm1;
     }
   }
 
-  if (data->use_nm1 && !data->exist_nm1){
-    Phinm1 = Phin;
-  }
-  if (data->use_nm2 && !data->exist_nm2){
-    Phinm2 = Phinm1;
-  }
-
   // determine which level-sets must be updated and reinitialized
-  //exit(-1);
   if (lsMethod == 0)
     conservativeToPrimitive(Phi,Phi0,U);
   else
@@ -130,7 +127,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     //com->fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
   }
 
-  if(closest && fsId) {//cracking...
+  if(closest && fsId) { //cracking...
     //if(dimLS!=1){fprintf(stderr,"ERROR: Multi-Phase FSI w/ Cracking supports only one level-set! dimLS = %d.\n", dimLS);exit(-1);}
     trueLevelSet[dimLS-1] = true;
   }
