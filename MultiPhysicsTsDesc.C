@@ -506,8 +506,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
       PhiV = Phi;
     if(withCracking && withMixedLS) {
       //this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
-      //for (int k = 0; k < dimLS; ++k)
-      //	LS->reinitializeLevelSet(*this->X, PhiV, false,k);
+      for (int k = 0; k < dimLS; ++k)
+      	LS->reinitializeLevelSet(*this->X, PhiV, false,k);
     } else {
       for (int k = 0; k < dimLS; ++k)
 	LS->reinitializeLevelSet(*this->X, PhiV,true, k);

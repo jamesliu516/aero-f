@@ -662,7 +662,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
                                        //      it does not seem to understand the template
 
   // temporary fluid selector
-  FluidSelector fluidSelector(nodeTag);
+  FluidSelector fluidSelector(nodeTag,this->domain);
   restart2->template writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, NULL, NULL, &fluidSelector);
   if (*lastIt)
     this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition()); //KW: must be after writeToDisk

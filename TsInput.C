@@ -5,14 +5,36 @@
 #include <string>
 #include <cstring>
 
+#include <TsRestart.h>
+
 //------------------------------------------------------------------------------
 
 TsInput::TsInput(IoData &iod) {
   const std::string prefix(iod.input.prefix); 
 
-  solutions = absolutePath(iod.input.solutions, prefix);
-  positions = absolutePath(iod.input.positions, prefix);
-  levelsets = absolutePath(iod.input.levelsets, prefix);
+
+  // Check to see if our restart file names have 
+  // been packaged nicely into a file.  If so, 
+  // use that
+  if (iod.input.restart_file_package[0] != 0) {
+    
+    char dummy[256];
+    char* fn = absolutePath(iod.input.restart_file_package, prefix);
+    solutions = new char[256];
+    positions = new char[256];
+    levelsets = new char[256];
+    TsRestart::readRestartFileNames(fn, solutions,positions,
+				    levelsets, dummy, dummy, dummy,
+				    dummy, NULL);
+    delete [] fn;
+
+  } else {
+
+    solutions = absolutePath(iod.input.solutions, prefix);
+    positions = absolutePath(iod.input.positions, prefix);
+    levelsets = absolutePath(iod.input.levelsets, prefix);
+  }
+
   podFile   = absolutePath(iod.input.podFile,   prefix);
   snapFile  = absolutePath(iod.input.snapFile,  prefix);
   snapRefSolutionFile = absolutePath(iod.input.snapRefSolutionFile, prefix);

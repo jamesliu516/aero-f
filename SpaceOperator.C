@@ -3078,8 +3078,9 @@ setLastPhaseChangeValues(DistExactRiemannSolver<dim>* riemann) {
   for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
 
     // Set any unset phase change values
-    subD[iSub]->getHigherOrderMF()->setLastPhaseChangeValues((*riemann->getRiemannUpdate())(iSub),
-							     (*riemann->getRiemannWeight())(iSub) );
+    if (subD[iSub]->getHigherOrderMF())
+      subD[iSub]->getHigherOrderMF()->setLastPhaseChangeValues((*riemann->getRiemannUpdate())(iSub),
+							       (*riemann->getRiemannWeight())(iSub) );
   }
 
 }
