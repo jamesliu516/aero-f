@@ -13,6 +13,8 @@
 #include <Connectivity.h>
 #include <queue>
 
+#include "TsRestart.h"
+
 using std::pair;
 using std::map;
 using std::list;
@@ -596,11 +598,29 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
 
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
-  struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
-  if(iod.input.embeddedpositions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
-  else //no restart position file provided
-    struct_restart_pos[0] = '\0'; 
+
+  if (iod.input.restart_file_package[0] == 0) {
+    struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
+    if(iod.input.embeddedpositions[0] != 0)
+      sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
+    else //no restart position file provided
+      strcpy(struct_restart_pos,""); 
+
+  } else {
+    struct_restart_pos = new char[256];
+    char dummy[256], tmp[256];
+    sprintf(tmp,"%s%s", iod.input.prefix, iod.input.restart_file_package);
+    TsRestart::readRestartFileNames(tmp,
+				    dummy,
+				    dummy,
+				    dummy,
+				    dummy,
+				    dummy,
+				    dummy,
+				    struct_restart_pos, comm);
+				    
+				    
+  }
   
   //nodal or facet normal?
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 

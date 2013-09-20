@@ -12,6 +12,8 @@
 #include <dlfcn.h>
 #include <set>
 #include <ProgrammedBurn.h>
+#include "TsRestart.h"
+
 using std::set;
 
 #ifdef COUGAR
@@ -90,6 +92,7 @@ InputData::InputData()
   cracking = "";
   fluidId = "";
   rstdata = "";
+  restart_file_package = "";
   podFile = "";
   snapRefSolutionFile = "";
   staterom = "";
@@ -146,6 +149,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Cracking", this, &InputData::cracking);
   new ClassStr<InputData>(ca, "FluidId", this, &InputData::fluidId);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
+  new ClassStr<InputData>(ca, "RestartFilePackage", this, &InputData::restart_file_package);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "SnapshotData", this, &InputData::snapFile);
   new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolutionFile);
@@ -614,6 +618,7 @@ RestartData::RestartData()
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
   fluidId = "DEFAULT.FID";
+  filepackage = "DEFAULT.PCK";
 
   frequency = 0;
   frequency_dt = -1.0;
@@ -640,6 +645,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "FluidId", this, &RestartData::fluidId);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
+  new ClassStr<RestartData>(ca, "FilePackage", this, &RestartData::filepackage);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
   new ClassDouble<RestartData>(ca, "TimeInterval", this, &RestartData::frequency_dt);
   new ClassStr<RestartData>(ca, "PressureKirchhoff", this, &RestartData::strKPtraces);
@@ -4313,13 +4319,29 @@ void IoData::readCmdFile()
   }
   fclose(cmdFilePtr);
 
-  if (input.rstdata[0] != 0) {
-    char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
-    if (strncmp(input.rstdata, "/", 1) == 0)
-      sprintf(name, "%s", input.rstdata);
-    else
-      sprintf(name, "%s%s", input.prefix, input.rstdata);
-//    FILE *fp = freopen(name, "r", stdin);
+  if (input.rstdata[0] != 0 || input.restart_file_package[0] != 0) {
+    
+    char* name;
+    if (input.restart_file_package[0] == 0) {
+      name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
+      if (strncmp(input.rstdata, "/", 1) == 0)
+	sprintf(name, "%s", input.rstdata);
+      else
+	sprintf(name, "%s%s", input.prefix, input.rstdata);
+    } else {
+
+      name = new char[256];
+      char dummy[256];
+      char *fn = new char[strlen(input.prefix) + strlen(input.restart_file_package) + 1];
+      if (strncmp(input.restart_file_package, "/", 1) == 0)
+	sprintf(fn, "%s", input.restart_file_package);
+      else
+	sprintf(fn, "%s%s", input.prefix, input.restart_file_package);
+      TsRestart::readRestartFileNames(fn, dummy, dummy, dummy,
+				      dummy, dummy, name, dummy,NULL);      
+    }
+
+    //    FILE *fp = freopen(name, "r", stdin);
     FILE *fp = yyCmdfin = fopen(name, "r");
     if (!fp) {
       com->fprintf(stderr, "*** Error: could not open \'%s\'\n", name);
@@ -4331,6 +4353,7 @@ void IoData::readCmdFile()
       exit(error);
     }
     fclose(fp);
+    delete [] name;
   }
 
   resetInputValues();

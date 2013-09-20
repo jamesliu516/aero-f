@@ -1,3 +1,8 @@
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
+
 #include <cstring>
 
 #include <TsRestart.h>
@@ -56,6 +61,13 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.embeddedpositions);
   else
     sprintf(structPos, "");
+
+  char restart_file_package[256];
+  if (iod.output.restart.filepackage[0] != 0) {
+    sprintf(restart_file_package, "%s%s", iod.output.restart.prefix, iod.output.restart.filepackage);
+ 
+    writeRestartFileNames(restart_file_package);
+  }
 
   if (iod.output.restart.type == RestartData::SINGLE) {
     deleteCharStar = false;
@@ -135,6 +147,83 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   }
 
 }
+
+void TsRestart::writeRestartFileNames(const char* fn) {
+
+  FILE* file = fopen(fn, "w");
+  
+  fprintf(file,"%s\n",solutions[0]);
+  fprintf(file,"%s\n",positions[0]);
+  fprintf(file,"%s\n",levelsets[0]);
+  fprintf(file,"%s\n",cracking[0]);
+  fprintf(file,"%s\n",fluidId[0]);
+  fprintf(file,"%s\n",data[0]);
+
+  fprintf(file,"%s\n",structPos); 
+
+  fclose(file); 
+  
+}
+
+void TsRestart::readRestartFileNames(const char* fn,
+				     char* sols,
+				     char* posit,
+				     char* ls,
+				     char* crk,
+				     char* fid,
+				     char* dat,
+				     char* spos,
+                                     Communicator* com) {
+
+  /*std::ifstream infile(fn);
+
+  if (!infile.good()) {
+
+    std::cout << "Error: Cannot read package file  " << fn << std::endl;
+    exit(-1);
+  }
+
+  infile.getline(sols,256);
+  infile.getline(posit,256);
+  infile.getline(ls,256);
+  infile.getline(crk,256);
+  infile.getline(fid,256);
+  infile.getline(dat,256);
+  infile.getline(spos,256);
+ */
+
+  char tmp[7][256];
+  FILE* fin;
+
+  if (com == NULL || com->cpuNum() == 0) {
+    fin = fopen(fn,"r");
+  }
+   
+  for (int i = 0; i < 7; ++i) {
+
+    if (com == NULL || com->cpuNum() == 0)
+      fscanf(fin,"%s",tmp[i]); 
+
+    if (com)
+      com->broadcast(256, tmp[i]);
+  }
+    
+
+
+  if (com == NULL || com->cpuNum() == 0) {
+    fclose(fin); 
+  }
+
+  strcpy(sols, tmp[0]);
+  strcpy(posit, tmp[1]);
+  strcpy(ls, tmp[2]);
+  strcpy(crk, tmp[3]);
+  strcpy(fid, tmp[4]);
+  strcpy(dat, tmp[5]);
+  strcpy(spos, tmp[6]);
+
+}
+
 
 //------------------------------------------------------------------------------
 

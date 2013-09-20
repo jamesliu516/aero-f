@@ -1023,9 +1023,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     if (fluidId[i]==fluidId[j] && !isAtInterface) { 	// same fluid
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
       for (int k=0; k<dim; ++k) {
+	/*	if (locToGlobNodeMap[i]+1 == 178888) {
+	  std::cout << "flux[" << k << "] = " << flux[k] << " " << Vi[k] << " " << Vj[k] << std::endl;
+	} else if (locToGlobNodeMap[j]+1 == 178888)  {
+	  std::cout << "flux[" << k << "] = " << -flux[k] << " " << Vj[k] << " " << Vi[k] << std::endl;
+	}
+	*/
         fluxes[i][k] += flux[k];
         fluxes[j][k] -= flux[k];
       }
+
+
       riemann.resetInterfacialW(l);
     }
     else{			// interface
@@ -1034,7 +1042,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       int lsdim, burnTag;
 
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
-	  lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+	lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
         
         if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
           if (!triangulatedLSS ||
@@ -1192,7 +1200,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             Vj[4] = V[j][4];
      
 	  int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-					 Wi,Wj,i,j,l,dx,true);
+						  Wi,Wj,i,j,l,dx,lsdim,true);
 
           if (err) {
 
@@ -1294,7 +1302,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }	else {
 
 	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-		         		         Wi,Wj,i,j,l,dx,false);
+		         		         Wi,Wj,i,j,l,dx,lsdim,false);
         errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Vi, Wi, fluxi, fluidId[i]);
@@ -1307,9 +1315,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       for (int k=0; k<dim; k++){
-        /*if (locToGlobNodeMap[i]+1 == 22004 || locToGlobNodeMap[j]+1 == 22004) {
-          std::cout << "fluxi[" << k << "] = " << fluxi[k] << " fluxj[] = " << -fluxj[k] << std::endl;
-        }*/
+	/*	if (locToGlobNodeMap[i]+1 == 178888) {
+	  std::cout << "interface flux[" << k << "] = " << fluxi[k] << " " << Vi[k] << " " << Vj[k] <<  " " << Wi[k] << " " << Wj[k] << std::endl;
+	} else if (locToGlobNodeMap[j]+1 == 178888)  {
+	  std::cout << "interface flux[" << k << "] = " << -fluxj[k] << " " << Vj[k] << " " << Vi[k] << " " << Wj[k] << " " << Wi[k] << std::endl;
+	}
+	*/
+	
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
       }
@@ -1753,7 +1765,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             Vj[4] = V[j][4];
      
 	  int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-					 Wi,Wj,i,j,l,dx,true);
+						  Wi,Wj,i,j,l,dx,lsdim,true);
 
           if (err) {
 
@@ -1840,7 +1852,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }	else {
 
 	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-		         		         Wi,Wj,i,j,l,dx,false);
+		         		         Wi,Wj,i,j,l,dx,lsdim,false);
         errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 				      Vi, Wi, fluxi, fluidId[i]);
@@ -2144,7 +2156,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	if (higherOrderFSI) {
 
-	  for (int k=0; k<dim; k++) Vi[k] = V[i][k];//+(1.0-resij.alpha)*ddVij[k];
+	  for (int k=0; k<dim; k++) Vi[k] = V[i][k]+(1.0-resij.alpha)*ddVij[k];
 	  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
 	}
 
@@ -2224,7 +2236,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   
 	if (higherOrderFSI) {
 
-	  for (int k=0; k<dim; k++) Vj[k] = V[j][k];//-(1.0-resji.alpha)*ddVji[k];
+	  for (int k=0; k<dim; k++) Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k];
 	  varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 	}
 
@@ -3064,7 +3076,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Vj[k+5] = Vj[k];
       }
       errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                     Wi,Wj,i,j,l,dx,false);
+											    Wi,Wj,i,j,l,dx,lsdim,false);
       riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                      Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );
       varFcn->postMultiplyBydVdU(Vi, dWidWi, dWidUi,fluidId[i]);
@@ -3247,7 +3259,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       }
       varFcn  = fluxFcn[BC_INTERNAL]->getVarFcn();
       errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                     Wi,Wj,i,j,l,dx,false);
+											    Wi,Wj,i,j,l,dx,lsdim,false);
 
       riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                      Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );
@@ -3794,7 +3806,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
           gradphi[k] /= normgradphi;
 
         errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                       Wi,Wj,i,j,l,dx,false);
+											      Wi,Wj,i,j,l,dx,lsdim,false);
         riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                        Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );
         varFcn->postMultiplyBydVdU(Vi, dWidWi, dWidUi,fluidId[i]);

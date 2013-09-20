@@ -58,7 +58,7 @@ public:
   FluidSelector(const int nPhases, IoData &ioData, Domain *domain = 0);
 
   // Create a temporary fluid selector from the pointer to the node tag.
-  FluidSelector(DistVec<int>& nodeTag);
+  FluidSelector(DistVec<int>& nodeTag,Domain* dom);
 
   ~FluidSelector();
 

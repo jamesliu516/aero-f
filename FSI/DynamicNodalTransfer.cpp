@@ -17,6 +17,8 @@
 #include <map>
 #include <fstream>
 
+#include "TsRestart.h"
+
 //------------------------------------------------------------------------------
 
 DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc, Timer *tim): com(c) , F(1),
@@ -28,11 +30,26 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 
   if (cracking()) {
 
-    if (strcmp(iod.input.cracking,"") != 0) {
+    if (strcmp(iod.input.cracking,"") != 0 || 
+	iod.input.restart_file_package[0] != 0) {
 
-      int lns = strlen(iod.input.prefix)+strlen(iod.input.cracking)+1;
-      char* fn = new char[lns];
-      sprintf(fn,"%s%s",iod.input.prefix, iod.input.cracking);
+      char* fn;
+      if (iod.input.restart_file_package[0] == 0) {
+	int lns = strlen(iod.input.prefix)+strlen(iod.input.cracking)+1;
+	fn = new char[lns];
+	sprintf(fn,"%s%s",iod.input.prefix, iod.input.cracking);
+      } else {
+
+	fn = new char[256];
+	char dummy[256];
+	int lns = strlen(iod.input.prefix)+strlen(iod.input.restart_file_package)+1;
+	char* fn2 = new char[lns];
+	sprintf(fn2,"%s%s",iod.input.prefix, iod.input.restart_file_package);
+	
+	TsRestart::readRestartFileNames(fn2, dummy, dummy, dummy,
+					fn, dummy, dummy, dummy,&c);
+	delete [] fn2;
+      }
       std::ifstream infile(fn, std::ios::binary);
       readCrackingData(infile);
       delete [] fn;

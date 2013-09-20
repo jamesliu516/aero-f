@@ -58,6 +58,17 @@ public:
   TsRestart(IoData &, RefVal *);
   TsRestart();
 
+  void writeRestartFileNames(const char* fn);
+
+  static void readRestartFileNames(const char* fn,
+				   char* sols,
+				   char* posit,
+				   char* ls,
+				   char* crk,
+				   char* fid,
+				   char* dat,
+				   char* spos, Communicator* com);
+
   void updatePrtout(double t);
 
   template<int dim, int dimLS>

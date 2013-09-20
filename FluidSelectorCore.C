@@ -7,6 +7,8 @@ using namespace std;
 
 #include <TsInput.h>
 
+#include "TsRestart.h"
+
 //------------------------------------------------------------------------------
 
 FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : iodp(&ioData)
@@ -14,8 +16,29 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
   numPhases = nPhases;
   domain = dom ? dom : 0;
 
-  const std::string prefix(ioData.input.prefix); 
-  char* fidpath = TsInput::absolutePath(ioData.input.fluidId, prefix);
+  char* fidpath;
+  if (ioData.input.restart_file_package[0] == 0) {
+    const std::string prefix(ioData.input.prefix); 
+    fidpath = TsInput::absolutePath(ioData.input.fluidId, prefix);
+  } else {
+
+    char dummy[6][256];
+    fidpath = new char[256];
+    const std::string prefix(ioData.input.prefix); 
+    char* tmp = TsInput::absolutePath(ioData.input.restart_file_package, prefix);
+
+    TsRestart::readRestartFileNames(tmp,
+				    dummy[0],
+				    dummy[1],
+				    dummy[2],
+				    dummy[3],
+				    fidpath,
+				    dummy[4],
+				    dummy[5], dom->getCommunicator());
+
+//   std::cout << std::string(tmp) << std::endl;
+//    std::cout << std::string(fidpath) << std::endl;
+  }
   
   fluidId  = 0;
   fluidIdn = 0;
@@ -39,8 +62,8 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
     *fluidIdnm2 = 0;
   }
 
-  if (ioData.input.fluidId[0] != 0) {
-
+  if (ioData.input.fluidId[0] != 0 ||
+      ioData.input.restart_file_package[0] != 0) {
 
     double scl;
     DistSVec<int,1> i1(fluidId->info(), reinterpret_cast<int(*)[1]>(fluidId->data()));
@@ -64,7 +87,7 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
   ownsData = true;
 }
 
-FluidSelector::FluidSelector(DistVec<int>& nodeTag) {
+FluidSelector::FluidSelector(DistVec<int>& nodeTag, Domain* dom) : domain(dom) {
 
   fluidId  = 0;
   fluidIdn = 0;
