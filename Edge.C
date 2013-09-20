@@ -28,6 +28,57 @@ using std::min;
 //------------------------------------------------------------------------------
 
 template<int dim>
+inline
+void extendedLinearExtrapolationToIntersection(ElemSet& elems, int idxTet, int idxFace, 
+		double face_r, double face_t, SVec<double,3>& X, SVec<double,dim>& V, double* Wstar, 
+		double alpha, double length, int i) {
+  int n0_loc = elems[idxTet].faceDef(idxFace, 0);
+  int n1_loc = elems[idxTet].faceDef(idxFace, 1);
+  int n2_loc = elems[idxTet].faceDef(idxFace, 2);
+  int n0 = elems[idxTet].nodeNum(n0_loc);
+  int n1 = elems[idxTet].nodeNum(n1_loc);
+  int n2 = elems[idxTet].nodeNum(n2_loc);
+
+  double Vface[dim];
+  double Xface[3];
+
+  for (int k=0; k<dim; ++k)
+    Vface[k] = V[n2][k]+face_r*(V[n0][k]-V[n2][k])+face_t*(V[n1][k]-V[n2][k]);
+  for (int k=0; k<3; ++k)
+    Xface[k] = X[n2][k]+face_r*(X[n0][k]-X[n2][k])+face_t*(X[n1][k]-X[n2][k]);
+  double alpha_f = sqrt((Xface[0]-X[i][0])*(Xface[0]-X[i][0])+
+				   		(Xface[1]-X[i][1])*(Xface[1]-X[i][1])+
+				   		(Xface[2]-X[i][2])*(Xface[2]-X[i][2]))/length;
+  for (int k=0; k<dim; ++k)
+    Wstar[k] = Wstar[k]+((0.5-alpha)/(1.0+alpha_f-alpha))*(Vface[k]-Wstar[k]);
+  return;
+}
+
+
+inline
+bool notAllActive(Elem& elem, int idxFace, LevelSetStructure& LSS) {
+  int n0_loc = elem.faceDef(idxFace, 0);
+  int n1_loc = elem.faceDef(idxFace, 1);
+  int n2_loc = elem.faceDef(idxFace, 2);
+  int n0 = elem.nodeNum(n0_loc);
+  int n1 = elem.nodeNum(n1_loc);
+  int n2 = elem.nodeNum(n2_loc);
+  return ((!LSS.isActive(0.0,n0))||(!LSS.isActive(0.0,n1))||(!LSS.isActive(0.0,n2)));
+}
+
+inline bool
+hasIntersection(Elem& elem, LevelSetStructure& LSS) { 
+
+  int nE = elem.numEdges();
+  for (int i = 0; i < nE; ++i) {
+
+    if (LSS.edgeIntersectsStructure(0.0,elem.edgeNum(i)))
+      return true;
+  }
+  return false;
+}
+
+template<int dim>
 void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                               SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti, Vec<double> &idtv,
                               TimeLowMachPrec &tprec)
@@ -1511,17 +1562,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      int idxFace = v6data[l][0].face;
 	      double face_r = v6data[l][0].r;
 	      double face_t = v6data[l][0].t;
-	      /*if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) { 
+	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) { 
 		if (1.0-resij.alpha > alpha) {
-	        //if (1.0-resij.alpha > alpha)
-		for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+		  //if (1.0-resij.alpha > alpha)
+		  for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
 		}
-		//	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-		}
-		else
+		//for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+	      }
+	      else
 		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-		X,V,Wstar,resij.alpha,length,i);
-	      */
+							       X,V,Wstar,resij.alpha,length,i);
+	      
 	    }
 	    
 	    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
@@ -1581,19 +1632,19 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      int idxFace = v6data[l][1].face;
 	      double face_r = v6data[l][1].r;
 	      double face_t = v6data[l][1].t;
-	      /*	    if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) {
-	      //
-	      //	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	      // 
-	      if ( 1.0-resji.alpha > alpha) {
+	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) {
 	      
-	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	      }
+		//for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+	      // 
+		if ( 1.0-resji.alpha > alpha) {
+		  
+		  for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+		}
 	      }
 	      else
-	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-	      X,V,Wstar,resji.alpha,length,j);
-	      */
+		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+							       X,V,Wstar,resji.alpha,length,j);
+	      
 	    }
 	    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 	    //if (  1.0-resji.alpha > alpha)
@@ -1889,57 +1940,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-inline
-void extendedLinearExtrapolationToIntersection(ElemSet& elems, int idxTet, int idxFace, 
-		double face_r, double face_t, SVec<double,3>& X, SVec<double,dim>& V, double* Wstar, 
-		double alpha, double length, int i) {
-  int n0_loc = elems[idxTet].faceDef(idxFace, 0);
-  int n1_loc = elems[idxTet].faceDef(idxFace, 1);
-  int n2_loc = elems[idxTet].faceDef(idxFace, 2);
-  int n0 = elems[idxTet].nodeNum(n0_loc);
-  int n1 = elems[idxTet].nodeNum(n1_loc);
-  int n2 = elems[idxTet].nodeNum(n2_loc);
-
-  double Vface[dim];
-  double Xface[3];
-
-  for (int k=0; k<dim; ++k)
-    Vface[k] = V[n2][k]+face_r*(V[n0][k]-V[n2][k])+face_t*(V[n1][k]-V[n2][k]);
-  for (int k=0; k<3; ++k)
-    Xface[k] = X[n2][k]+face_r*(X[n0][k]-X[n2][k])+face_t*(X[n1][k]-X[n2][k]);
-  double alpha_f = sqrt((Xface[0]-X[i][0])*(Xface[0]-X[i][0])+
-				   		(Xface[1]-X[i][1])*(Xface[1]-X[i][1])+
-				   		(Xface[2]-X[i][2])*(Xface[2]-X[i][2]))/length;
-  for (int k=0; k<dim; ++k)
-    Wstar[k] = Wstar[k]+((0.5-alpha)/(1.0+alpha_f-alpha))*(Vface[k]-Wstar[k]);
-  return;
-}
-
 //------------------------------------------------------------------------------
 
-inline
-bool notAllActive(Elem& elem, int idxFace, LevelSetStructure& LSS) {
-  int n0_loc = elem.faceDef(idxFace, 0);
-  int n1_loc = elem.faceDef(idxFace, 1);
-  int n2_loc = elem.faceDef(idxFace, 2);
-  int n0 = elem.nodeNum(n0_loc);
-  int n1 = elem.nodeNum(n1_loc);
-  int n2 = elem.nodeNum(n2_loc);
-  return ((!LSS.isActive(0.0,n0))||(!LSS.isActive(0.0,n1))||(!LSS.isActive(0.0,n2)));
-}
-
-inline bool
-hasIntersection(Elem& elem, LevelSetStructure& LSS) { 
-
-  int nE = elem.numEdges();
-  for (int i = 0; i < nE; ++i) {
-
-    if (LSS.edgeIntersectsStructure(0.0,elem.edgeNum(i)))
-      return true;
-  }
-  return false;
-}
 
 //------------------------------------------------------------------------------
 
