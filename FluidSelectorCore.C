@@ -37,7 +37,7 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
 				    dummy[5], dom->getCommunicator());
 
 //   std::cout << std::string(tmp) << std::endl;
-//    std::cout << std::string(fidpath) << std::endl;
+    std::cout << std::string(fidpath) << std::endl;
   }
   
   fluidId  = 0;
@@ -64,7 +64,8 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
 
   if (ioData.input.fluidId[0] != 0 ||
       ioData.input.restart_file_package[0] != 0) {
-
+    
+    std::cout << "Reading solution " << std::string(fidpath) << std::endl;
     double scl;
     DistSVec<int,1> i1(fluidId->info(), reinterpret_cast<int(*)[1]>(fluidId->data()));
     domain->readVectorFromFile(fidpath, 0, &scl, i1);
