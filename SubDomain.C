@@ -7362,7 +7362,7 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     int count = (int)poll[i][0] + (int)poll[i][1] + (int)poll[i][2];
     switch (count) {
       case 0: //no info
-        fprintf(stderr,"WARNING: More than one layer of nodes are swept in one step (near Node %d).\n", locToGlobNodeMap[i]+1);
+        fprintf(stderr,"More than one layer of nodes are swept in one step (near Node %d).\n", locToGlobNodeMap[i]+1);
         DebugTools::SpitRank();
         break;
       case 1: // Rule No.2
