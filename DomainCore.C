@@ -31,6 +31,8 @@ using std::max;
 #define HEAT_ID  2
 #define EMBED_ID 3
 
+extern const char *THE_VERSION;
+
 //------------------------------------------------------------------------------
 
 Domain::Domain()
@@ -96,7 +98,11 @@ Domain::Domain()
   com->fprintf(stdout,"  __  /| |_  _ \\__  ___/_  __ \\__________  /_  \n");
   com->fprintf(stdout,"  _  ___ |/  __/_  /    / /_/ /_/_____/_  __/    \n");
   com->fprintf(stdout,"  /_/  |_|\\___/ /_/     \\____/         /_/     \n");
+#ifdef PRINT_CHANGESETID
+  com->fprintf(stdout,"  Changeset ID:%13s\n",THE_VERSION);
+#else
   com->fprintf(stdout,"\n");
+#endif
 
   strCom = allCom[STRUC_ID];
   if (strCom) {
