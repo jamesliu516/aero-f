@@ -129,7 +129,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int>* point_based_id = 0);
+    void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int>* point_based_id = 0,
+                    DistVec<int>* oldStatus = 0);
     void updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]=0);
     void updateCracking(int (*abc)[3]);
     void expandScope();
