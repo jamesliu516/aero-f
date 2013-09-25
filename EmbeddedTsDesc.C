@@ -352,7 +352,15 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   this->geoState->setup2(this->timeState->getData());
   // Initialize intersector and compute intersections
   DistVec<int> point_based_id(this->domain->getNodeDistInfo());
-  distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
+
+  if (ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) {
+    FluidSelector f(2, ioData,this->domain);
+    nodeTag0 = nodeTag = *f.fluidId;
+    std::cout << "Read fid " << std::endl;
+    distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id, &nodeTag);
+  } else
+    distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
+
   if(riemannNormal==2){
     this->spaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
@@ -362,11 +370,6 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Initialize fluid Ids (not on restart)
   if (ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0)
     nodeTag0 = nodeTag = distLSS->getStatus();
-  else {
-    FluidSelector f(2, ioData,this->domain);
-    nodeTag0 = nodeTag = *f.fluidId;
-  }
-
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _emmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->emmh);
   if(_emmh) {

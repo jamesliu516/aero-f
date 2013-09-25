@@ -130,7 +130,7 @@ class DistLevelSetStructure {
 
     int numOfFluids() {return numFluid;}
     void setNumOfFluids(int nf) {numFluid = nf;}
-    virtual void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id = 0) = 0;
+    virtual void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id = 0, DistVec<int>* oldStatus = 0) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
 
     void getSwept(DistVec<int>& swept){
