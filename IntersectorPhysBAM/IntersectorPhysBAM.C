@@ -684,7 +684,9 @@ DistIntersectorPhysBAM::buildSolidNormals() {
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id) {
+DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, 
+                                   DistVec<int> *point_based_id, DistVec<int>* oldStatus // for restart
+                                   ) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
     exit(-1);
@@ -766,7 +768,10 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<do
     points.push_back(pair<Vec3D,int>(Vec3D(1.0,0.0,0.0),1));
   }
 
-  findActiveNodesUsingFloodFill(tId,points);
+  if (!oldStatus)
+    findActiveNodesUsingFloodFill(tId,points);
+  else
+    *status = *oldStatus;
 
   if(point_based_id) {
     *point_based_id = -999;

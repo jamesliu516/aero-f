@@ -942,7 +942,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
     std::list<std::pair<int,Vec3D> > nodeList2;
     std::list<std::pair<int,Vec3D> >::iterator it2;
 
-    int ndMax;
+    int ndMax = 0;
     while(1) {
       int nInputs, num1;
       double x1, x2, x3;
@@ -957,8 +957,10 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
+
     if (ndMax!=numStNodes) {
       com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+      com->fprintf(stderr,"ndMax = %d; numStNodes = %d\n", ndMax, numStNodes);
       exit(1);
     }
 
@@ -1279,7 +1281,7 @@ void DistIntersectorFRG::expandScope()
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id) {
+DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id, DistVec<int>* oldStatus) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: number of fluid = %d!\n", this->numFluid);
     exit(-1);
@@ -1314,6 +1316,9 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
   }
   findInAndOut();
   finishStatusByPoints(iod, point_based_id);   
+
+  if (oldStatus)
+    *status = *oldStatus;
  
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
