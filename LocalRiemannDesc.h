@@ -3013,11 +3013,12 @@ template<int dim>
 class LocalRiemannFluidStructure : public LocalRiemann {
 
 public:
-  LocalRiemannFluidStructure() : LocalRiemann(), stabil_alpha(0.0) {fluid1 = fluid2 = 0;}
-  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf,0,0), stabil_alpha(0.0) {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure() : LocalRiemann(), stabil_alpha(0.0), viscous_switch(0.0) {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf,0,0), stabil_alpha(0.0), viscous_switch(0.0) {fluid1 = fluid2 = 0;}
   virtual ~LocalRiemannFluidStructure() { vf_ = 0; }
 
   void setStabilAlpha(double a) { stabil_alpha = a; }
+  void setViscousSwitch(double v) { viscous_switch = v; }
 
   int computeRiemannSolution(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
@@ -3073,6 +3074,7 @@ private:
   friend class FSJac;
 
   double stabil_alpha;
+  double viscous_switch;
 };
 
 //------------------------------------------------------------------------------
@@ -3100,6 +3102,7 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   U_1 = vni;
   P_1  = vf->getPressure(Vi,Id);
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
+  double U_ti[3] = {Vstar[0] - U_i*nphi[0], Vstar[1] - U_i*nphi[1], Vstar[2] - U_i*nphi[2]};
 /*
   double normv = Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3];
 
@@ -3124,9 +3127,9 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
     return err;
 
   Wstar[0]  = R_i;
-  Wstar[1]  = (1.0-stabil_alpha)*vti[0]+U_i*nphi[0];
-  Wstar[2]  = (1.0-stabil_alpha)*vti[1]+U_i*nphi[1];
-  Wstar[3]  = (1.0-stabil_alpha)*vti[2]+U_i*nphi[2];
+  Wstar[1]  = U_i*nphi[0] + viscous_switch*U_ti[0] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[0];
+  Wstar[2]  = U_i*nphi[1] + viscous_switch*U_ti[1] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[1];
+  Wstar[3]  = U_i*nphi[2] + viscous_switch*U_ti[2] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[2];
   if (vf->getType(Id) == VarFcnBase::TAIT)
     Wstar[4] = vf->computeTemperature(Vi, Id);
   else
@@ -3169,9 +3172,9 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   }
 
   Wstar[dim]    = R_i;
-  Wstar[dim+1]  = (1.0-stabil_alpha)*vti[0]+U_i*nphi[0];
-  Wstar[dim+2]  = (1.0-stabil_alpha)*vti[1]+U_i*nphi[1];
-  Wstar[dim+3]  = (1.0-stabil_alpha)*vti[2]+U_i*nphi[2];
+  Wstar[dim+1]  = U_i*nphi[0] + viscous_switch*U_ti[0] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[0];
+  Wstar[dim+2]  = U_i*nphi[1] + viscous_switch*U_ti[1] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[1];
+  Wstar[dim+3]  = U_i*nphi[2] + viscous_switch*U_ti[2] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[2];
   if (vf->getType(Id) == VarFcnBase::TAIT) 
     Wstar[dim+4] = vf->computeTemperature(Vi, Id);
   else
@@ -3277,15 +3280,15 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
     dWstardU[(i+1)] = nphi[i]*dWdW[1];
     dWstardU[(i+1)+4*dim] = nphi[i]*dWdW[7];
   }
-/*
+
   for (int i = 0; i < 3; ++i) {
  
     for (int j = 0; j < 3; ++j) {
 
-      dWstardU[(i+1)*dim+(j+1)] = ((i==j?1.0:0.0) - nphi[i]*nphi[j])*(1.0-stabil_alpha);
+      dWstardU[(i+1)*dim+(j+1)] = ((i==j?1.0:0.0) - nphi[i]*nphi[j])*(1.0-viscous_switch)*(1.0-stabil_alpha);
     }
   }
-*/
+
   dWstardU[4] = dWdW[2];
   dWstardU[dim*4] = dWdW[6]; 
 }
