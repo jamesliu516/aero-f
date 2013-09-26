@@ -3368,11 +3368,11 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,power)-pref;
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma); */
 
-    double power = gamma/(gamma-1.0);
+    double power = 2.0*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
-    double dee = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
-    pi = pbar*pow(dee*dee,power)-pref;
+    double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
+    pi = pbar*pow(s,power)-pref;
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
   }
   else{ // shock
@@ -3403,16 +3403,15 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double gamma = vf->getGamma(Id);
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
-/*
-    if(u==ui){ // contact
+
+  if(u==ui){ // contact
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;
   }
-*/
 
   double q = (gamma-1.0)/(gamma+1.0);
-  if(ui<=u){ // rarefaction
+  if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
@@ -3421,7 +3420,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
 //    if (s < 0.0) {
 //      fprintf(stderr,"Warning: s (%lf) in fs_grad is < 0!\n",s);
 //    }
-    double eta = pbar*power*pow(s*s,q*0.5);
+    double eta = pbar*power*pow(s,power-1.0);
     double xi = eta*(-0.5/(a*a)*(gamma-1.0)*(ui-u));
  
     double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a/rho;
@@ -3445,19 +3444,19 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     double pbar = p + pref;
  
     double dtdrho = t/rho, dtdu = -(gamma+1.0)*rho*(ui-u);
-//    double xi = sqrt(0.5*t*t+power*t*pbar);
+    double xi = sqrt(0.25*t*t+power*t*pbar);
   
-//    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
-//    dWidWi[8] = 1.0+0.5/xi*power*t;
-//    dWidWi[7] = eta*dtdu;
-//    dWidWi[6] = eta*dtdrho;
+    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
+    dWidWi[8] = 1.0+0.5/xi*power*t;
+    dWidWi[7] = eta*dtdu;
+    dWidWi[6] = eta*dtdrho;
     
-    dWidWi[8] = 1.0+power*sqrt(t/(t/2.0+power*pbar))/2.0;
-    
-    double tmp = gamma*pbar*rho;
-    dWidWi[7] = dtdu/2.0-(dtdu*dtdu+8.0*tmp)/sqrt(8.0*dtdu*dtdu+64.0*tmp);
-
-    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
+//    dWidWi[8] = 1.0+power*sqrt(t/(t/2.0+power*pbar))/2.0;
+//    
+//    double tmp = gamma*pbar*rho;
+//    dWidWi[7] = dtdu/2.0-(dtdu*dtdu+8.0*tmp)/sqrt(8.0*dtdu*dtdu+64.0*tmp);
+//
+//    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
 
     double s = q*pstarbar/pbar+1.0;
     double deriv = 1.0/(pbar*s)-(pstarbar/pbar+q)/(s*s)*(q/pbar);
