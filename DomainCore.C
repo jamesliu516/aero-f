@@ -31,6 +31,8 @@ using std::max;
 #define HEAT_ID  2
 #define EMBED_ID 3
 
+extern const char *THE_VERSION;
+
 //------------------------------------------------------------------------------
 
 Domain::Domain()
@@ -96,7 +98,11 @@ Domain::Domain()
   com->fprintf(stdout,"  __  /| |_  _ \\__  ___/_  __ \\__________  /_  \n");
   com->fprintf(stdout,"  _  ___ |/  __/_  /    / /_/ /_/_____/_  __/    \n");
   com->fprintf(stdout,"  /_/  |_|\\___/ /_/     \\____/         /_/     \n");
+#ifdef PRINT_CHANGESETID
+  com->fprintf(stdout,"  Changeset ID:%13s\n",THE_VERSION);
+#else
   com->fprintf(stdout,"\n");
+#endif
 
   strCom = allCom[STRUC_ID];
   if (strCom) {
@@ -807,6 +813,10 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 }
 
 //------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
+
 
 int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &dCtrlVol)
 {
@@ -1781,6 +1791,16 @@ void Domain::createHigherOrderMultiFluid() {
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
     subDomain[iSub]->createHigherOrderMultiFluid();
+  }
+  
+}
+
+void Domain::createHigherOrderFSI() {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->createHigherOrderFSI();
   }
   
 }

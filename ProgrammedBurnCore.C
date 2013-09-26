@@ -148,12 +148,13 @@ int ProgrammedBurn::countBurnableFluids(IoData& ioData) {
 
 bool ProgrammedBurn::isDetonationInterface(int i,int j,int& tag) const {
 
-  for (int j = 0; j < myBurns.size(); ++j) {
-    const Burn& B = myBurns[j];
+  for (int k = 0; k < myBurns.size(); ++k) {
+    const Burn& B = myBurns[k];
     if ((B.pgData->unburnedEOS == i && B.pgData->burnedEOS == j) ||
-	(B.pgData->unburnedEOS == j && B.pgData->burnedEOS == i))
-      tag = j;
+	(B.pgData->unburnedEOS == j && B.pgData->burnedEOS == i)) {
+      tag = k;
       return true;
+    }
   }
 
   return false;
@@ -244,15 +245,20 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
 		 (x[i][1]-B.x0[1])*(x[i][1]-B.x0[1])+
 		 (x[i][2]-B.x0[2])*(x[i][2]-B.x0[2]));
 	
-	if (r <= B.pgData->cjDetonationVelocity*(t-B.pgData->ignitionTime) &&
+	if ((r <= B.pgData->cjDetonationVelocity*(t-B.pgData->ignitionTime) ||
+	     (iSub == B.x0subdom && i == B.x0id)) &&
 	    fid[i] == B.pgData->unburnedEOS && B.ignited) {
 	  //bBurned->subData(iSub)[i] = true;
-	  U.subData(iSub)[i][0] = min(U.subData(iSub)[i][0],  B.pgData->cjDensity);
+	  /*U.subData(iSub)[i][0] = min(U.subData(iSub)[i][0],  B.pgData->cjDensity);
 	  double* v = &(U.subData(iSub)[i][1]);
 	  if (B.pgData->limitPeak)
 	    U.subData(iSub)[i][4] = min(U.subData(iSub)[i][4],  
 					B.pgData->cjDensity*B.pgData->cjEnergy+ 
 					0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
+	  */
+
+	  std::cout << "[ " << x[i][0] << " " << x[i][1] << " " << x[i][2] << " ]: ( " << U.subData(iSub)[i][0] <<
+	    " , " << U.subData(iSub)[i][4] << " )" << std::endl;
 	  
 	  fid[i] = B.pgData->burnedEOS;
 	}

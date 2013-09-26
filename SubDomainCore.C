@@ -82,6 +82,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   nodeToNodeMaskJacobian = 0;
   nodeToNodeMaskILU      = 0;
   higherOrderMF = 0;
+  higherOrderFSI = 0;
 
   int j;
   for(int i=0;i<3;i++)  {
@@ -1380,8 +1381,7 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
 {
 
   for (int i=0; i<R.size(); ++i) {
-     if(count[i][0]>2 && 
-        (!higherOrderMF)) { //enough neighbours to get a least square problem
+     if(count[i][0]>2) { //enough neighbours to get a least square problem
       double r11, or11, r12, r13, r22, r23, r33;
       if(!(R[i][0]>0.0)){
         r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
@@ -4954,6 +4954,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
         continue;
       }
     }
+
     if(occluded){ //set Id to 2
       poll[i][2] = true;
       continue;
@@ -5008,6 +5009,14 @@ void SubDomain::createHigherOrderMultiFluid() {
 
   edges.attachHigherOrderMultiFluid(higherOrderMF);
   faces.attachHigherOrderMF(higherOrderMF);
+}
+
+void SubDomain::createHigherOrderFSI() {
+
+  higherOrderFSI = new HigherOrderFSI();
+
+  edges.attachHigherOrderFSI(higherOrderFSI);
+  //  faces.attachHigherOrderFSI(higherOrderFSI);
 }
 
 void SubDomain::assignErrorHandler(ErrorHandler* in){
@@ -5131,4 +5140,3 @@ Elem* SubDomain::searchPoint(Vec3D Xp, SVec<double,3>& X) {
 
   return E;
 }
-

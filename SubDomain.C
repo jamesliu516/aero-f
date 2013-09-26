@@ -1117,6 +1117,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
                                        FluidSelector &fluidSelector,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+				       SVec<double,dimLS>& phi,
                                        NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
@@ -1124,7 +1125,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, linRecAtInterface,
                                            fluidId, Nriemann, Nsbar, fluidSelector,
-                                           ngrad, egrad, ngradLS, fluxes, it,
+                                           ngrad, egrad,phi, ngradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
@@ -4827,14 +4828,15 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   int temp= 0;
   double V[dim];
   double rho, p;
-
+/*
   double *conservation = new double[5];
   for(int k=0; k<5; k++) conservation[k]=0.0;
   for(int i=0; i<U.size(); i++)
     for(int k=0; k<5; k++)
       conservation[k] += ctrlVol[i]*U[i][k];
   //fprintf(stdout, "conservation = %e %e %e %e %e\n", conservation[0],conservation[1],conservation[2],conservation[3],conservation[4]);
-
+  delete [] conservation;
+*/
   if (!(varFcn->doVerification())){
     for (int i=0; i<U.size(); ++i) {
 
@@ -5470,9 +5472,9 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		}
 
 		double alpha = 1.0;
-		//if (limit)
-		//  alpha = higherOrderMF->computeAlpha<dim>(neighborNode,V[neighborNode],
-		//					   lin_extrap);
+		if (limit)
+		  alpha = higherOrderFSI->computeAlpha<dim>(neighborNode,V[neighborNode],
+		  					   lin_extrap);
 		
 		for (int k=0; k<dim; ++k) {
 		  VWeights[currentNode][k] += weight*lin_extrap[k]*(alpha)+
@@ -7324,14 +7326,18 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
   // Rule No.2: If its "visible && !occluded && !swept" neighbors have the same status, use this one. 
   // Rule No.3: Otherwise, consider the sign of "PhiV". (PhiV should have been "blurred".)
   
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+
   for(int i=0; i<PhiV.size(); i++) {
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
 
     //DEBUG
-    /*int myNode = 13558;
-    if(locToGlobNodeMap[i]+1==myNode){
-      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", myNode, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
+    /*
+    int myNode = 13558;
+    if(rnk == 113 && i == 339){
+      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
       for(int j=0; j<Node2Node.num(i); j++) { 
         if(Node2Node[i][j]==i) continue;
         fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
@@ -7340,7 +7346,7 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
       }
 
     }
-*/
+    */
 
     if(!swept) {//nothing to be done
       if(!occluded && fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
@@ -7356,7 +7362,7 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     int count = (int)poll[i][0] + (int)poll[i][1] + (int)poll[i][2];
     switch (count) {
       case 0: //no info
-        fprintf(stderr,"WARNING: More than one layer of nodes are swept in one step (near Node %d).\n", locToGlobNodeMap[i]+1);
+        fprintf(stderr,"More than one layer of nodes are swept in one step (near Node %d).\n", locToGlobNodeMap[i]+1);
         DebugTools::SpitRank();
         break;
       case 1: // Rule No.2
@@ -7366,8 +7372,22 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
         else if (poll[i][1]) fluidId[i] = dimLS;
         else if (poll[i][2]) fluidId[i] = dimLS+1;
         break;
-    } 
+    }
+    /*
+    if (count > 1) {
 
+      fprintf(stderr,"WARNING: cant decide for");
+      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
+      for(int j=0; j<Node2Node.num(i); j++) { 
+        if(Node2Node[i][j]==i) continue;
+        fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
+                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
+                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][dimLS-1]); 
+      }
+
+
+    } 
+    */
     if(count==1) //already applied Rule No.2
       continue;
 

@@ -36,6 +36,12 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool requireSpecialBDF;
   bool increasingPressure;
 
+  int multiFluidInterfaceOrder;
+
+  int limitHigherOrderExtrapolation;
+
+  int phaseChangeType;
+
   //------------------------------------------------------------------------
   // EulerFSI: basic parameters
   bool withCracking;
@@ -74,6 +80,12 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
 
   DistVec<double> umax;
+
+  int phaseChangeAlg;	 // = 0. use averaged value, given phaseChangeChocie==0
+  						 // = 1. use least-squares, given phaseChangeChoice==0
+  int interfaceAlg;		 // = 0. do not use information of intersection at surrogate interface
+  						 // = 1. use information of intersection at surrogate interface
+  double intersectAlpha; //	relevant only if interfaceAlg==1
 
   // EulerFSI: FS communication
   DistSVec<double,dim> Wtemp;

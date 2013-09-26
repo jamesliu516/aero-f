@@ -460,6 +460,8 @@ public:
 
   void attachTriangulatedInterface(TriangulatedInterface*);
 
+  void setLastPhaseChangeValues(DistExactRiemannSolver<dim>*);
+
 };
 //------------------------------------------------------------------------------
 

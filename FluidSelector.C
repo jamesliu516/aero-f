@@ -25,6 +25,18 @@ void FluidSelector::reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim
   if(fluidIdnm2) *fluidIdnm2 = *fluidId;
 }
 
+template<int dim>
+void FluidSelector::reinitializeFluidIdsWithCracking(DistVec<int> &fsId, DistSVec<double,dim> &Phin)
+{
+  getFluidId(*fluidId, Phin, NULL);
+  //if (fluidIdnm1) getFluidId(*fluidIdm1, Phinm1, &fsId);
+  //if(fluidIdnm2) getFluidId(*fluidIdm2, Phinm1, &fsId);
+  *fluidIdn = *fluidId;
+  if(fluidIdnm1) *fluidIdnm1 = *fluidId;
+  if(fluidIdnm2) *fluidIdnm2 = *fluidId;
+}
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>

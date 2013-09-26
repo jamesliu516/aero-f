@@ -18,6 +18,7 @@
 #include <PolygonReconstructionData.h>
 
 #include <HigherOrderMultiFluid.h>
+#include <HigherOrderFSI.h>
 
 #include <ErrorHandler.h>
 
@@ -194,6 +195,7 @@ class SubDomain {
 public:
   
   HigherOrderMultiFluid* higherOrderMF;
+  HigherOrderFSI* higherOrderFSI;
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
 	    int, int *, Connectivity *, int *, int *, int *, int, int (*)[3]);
@@ -450,6 +452,7 @@ public:
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure&, bool,
                               Vec<int> &, int, SVec<double,3>*, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
@@ -1357,6 +1360,7 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
                            int* status,int* last,int* nid); 
   void createHigherOrderMultiFluid();
+  void createHigherOrderFSI();
 
   void assignErrorHandler(ErrorHandler* in);
 
@@ -1368,6 +1372,7 @@ public:
     void computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* = NULL);
 
   HigherOrderMultiFluid* getHigherOrderMF() { return higherOrderMF; }
+  HigherOrderFSI* getHigherOrderFSI() { return higherOrderFSI; }
 
   template <int dim>
     void computeHHBoundaryTermResidual(BcData<dim> &bcData,SVec<double,dim> &U,Vec<double>& res,

@@ -37,6 +37,11 @@ CommPattern<T>::CommPattern(SubDTopo *topo, Communicator *_com,
        cpuForChannel[(*rcvConnect)[i][j] ] = neighbCPUs[i];
    }
  }
+ crossSendLen = 0;
+ crossRcvLen = 0;
+ crossSendBuffer = 0;
+ crossRcvBuffer = 0;
+ localDBuffer = 0;
 }
 
 template <class T>
@@ -106,7 +111,13 @@ CommPattern<T>::finalize()
           totLen += rcvMsg[offset]*rcvMsg[offset+1];
           offset += 2;
         }
-     //fprintf(stderr, "Tot=len is %d  for %d\n", totLen, communicator->cpuNum());
+      //fprintf(stderr, "Tot=len is %d  for %d\n", totLen, communicator->cpuNum());
+      delete [] sndMsg;
+      delete [] rcvMsg;
+      delete [] sndPtr;
+      delete [] rcvPtr;
+      delete [] sndLen;
+      delete [] rcvLen;
    }
  }
  // in the case of single CPU communication, Share mode does not require any

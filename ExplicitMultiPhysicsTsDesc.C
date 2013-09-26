@@ -447,7 +447,15 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdateLS(DistSVec<double,di
 template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFF(DistSVec<double,dim> &U)
 {
-  this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
+  if (this->phaseChangeType == 0)
+    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
+  else
+    this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->multiFluidInterfaceOrder-1,
+						    U, this->V0,
+						    *this->Weights,*this->VWeights,
+						    NULL, *this->fluidSelector.fluidId,fluidId0,
+						    this->limitHigherOrderExtrapolation);
+  
   this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   this->checkSolution(U);
 }
