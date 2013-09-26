@@ -993,6 +993,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistExactRiemannS
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V, DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
                                      DistLevelSetStructure *distLSS, bool linRecAtInterface, FluidSelector &fluidSelector, int Nriemann,
                                      DistSVec<double,3> *Nsbar, DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+				     DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS, DistSVec<double,dim>& R, int it, int failsafe, int rshift)
 {
  double t0 = timer->getTime();
@@ -1018,7 +1019,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistExactRiemannS
                                              X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*distLSS)(iSub), 
                                              linRecAtInterface, fluidId, Nriemann, nsbar,
                                              fluidSelector, ngrad(iSub),
-                                             legrad,  ngradLS(iSub), (*RR)(iSub), it,
+						    legrad, phi(iSub), ngradLS(iSub), (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
@@ -1063,7 +1064,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistExactRiemannS
                                              X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*distLSS)(iSub), 
                                              linRecAtInterface, fluidId, Nriemann, nsbar,
                                              fluidSelector, ngrad(iSub),
-                                             legrad,  ngradLS(iSub), (*RR)(iSub), it,
+                                             legrad,  phi(iSub), ngradLS(iSub), (*RR)(iSub), it,
                                              (*tag)(iSub), 0, rshift);
       }
 

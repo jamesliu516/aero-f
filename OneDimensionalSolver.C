@@ -1090,7 +1090,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         }
 */
         riemann->computeRiemannSolution(Vir,Vjr,fidi,fidj,gradphi,varFcn,
-					Wir,Wjr,i,j,i,dx,false);
+					Wir,Wjr,i,j,i,dx,0,false);
 /*
         if (fidi == 2) {
 
@@ -1290,7 +1290,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
 	varFcn->getVarFcnBase(fluidId[j+1])->verification(0,Udummy,Vjr);
 
         riemann->computeRiemannSolution(Vir,Vjr,fluidId[i-1],fluidId[j+1],gradphi,varFcn,
-	  			        Wir,Wjr,i,j,i,dx,false);
+	  			        Wir,Wjr,i,j,i,dx,0,false);
 
         if (lastPhaseChangeValue[i][0] < 0.0) {
 

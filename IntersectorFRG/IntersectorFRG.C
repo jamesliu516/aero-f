@@ -13,6 +13,8 @@
 #include <Connectivity.h>
 #include <queue>
 
+#include "TsRestart.h"
+
 using std::pair;
 using std::map;
 using std::list;
@@ -596,11 +598,29 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
 
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
-  struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
-  if(iod.input.embeddedpositions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
-  else //no restart position file provided
-    struct_restart_pos[0] = '\0'; 
+
+  if (iod.input.restart_file_package[0] == 0) {
+    struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
+    if(iod.input.embeddedpositions[0] != 0)
+      sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
+    else //no restart position file provided
+      strcpy(struct_restart_pos,""); 
+
+  } else {
+    struct_restart_pos = new char[256];
+    char dummy[256], tmp[256];
+    sprintf(tmp,"%s%s", iod.input.prefix, iod.input.restart_file_package);
+    TsRestart::readRestartFileNames(tmp,
+				    dummy,
+				    dummy,
+				    dummy,
+				    dummy,
+				    dummy,
+				    dummy,
+				    struct_restart_pos, comm);
+				    
+				    
+  }
   
   //nodal or facet normal?
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
@@ -922,7 +942,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
     std::list<std::pair<int,Vec3D> > nodeList2;
     std::list<std::pair<int,Vec3D> >::iterator it2;
 
-    int ndMax;
+    int ndMax = 0;
     while(1) {
       int nInputs, num1;
       double x1, x2, x3;
@@ -937,8 +957,10 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
+
     if (ndMax!=numStNodes) {
       com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+      com->fprintf(stderr,"ndMax = %d; numStNodes = %d\n", ndMax, numStNodes);
       exit(1);
     }
 
@@ -1259,7 +1281,7 @@ void DistIntersectorFRG::expandScope()
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id) {
+DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id, DistVec<int>* oldStatus) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: number of fluid = %d!\n", this->numFluid);
     exit(-1);
@@ -1294,6 +1316,9 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
   }
   findInAndOut();
   finishStatusByPoints(iod, point_based_id);   
+
+  if (oldStatus)
+    *status = *oldStatus;
  
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {

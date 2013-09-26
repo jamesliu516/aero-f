@@ -1417,7 +1417,7 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, false, fluidId);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, true, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }
@@ -1451,6 +1451,11 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 			    std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
+                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && true) {
+
+                    this->domain->getSubDomain()[iSub]->getHigherOrderFSI()->
+                      template setLastPhaseChangeValue<dim>(i, V(iSub)[i]);
+                  }
         }
 	  }
     }
@@ -2554,7 +2559,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   //Now compute the FV fluxes!
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector, 
-                                  Nriemann, Nsbar, *(this->ngrad), this->egrad,
+					Nriemann, Nsbar, *(this->ngrad), this->egrad,PhiV,
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
@@ -2955,7 +2960,7 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
 			  break;
 		  }
-		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" << iSub <<"): " <<
+		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" <<  fluidId(iSub)[i] <<"): " <<
 		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
 		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
 
@@ -3063,3 +3068,19 @@ attachTriangulatedInterface(TriangulatedInterface* T) {
   this->domain->attachTriangulatedInterface(T);
 }
 
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::
+setLastPhaseChangeValues(DistExactRiemannSolver<dim>* riemann) {
+
+  SubDomain **subD = this->domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+    // Set any unset phase change values
+    if (subD[iSub]->getHigherOrderMF())
+      subD[iSub]->getHigherOrderMF()->setLastPhaseChangeValues((*riemann->getRiemannUpdate())(iSub),
+							       (*riemann->getRiemannWeight())(iSub) );
+  }
+
+}

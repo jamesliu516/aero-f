@@ -11,25 +11,25 @@
 
 
 inline
-HigherOrderMultiFluid::HigherOrderMultiFluid() {
+HigherOrderFSI::HigherOrderFSI() {
   
   lastPhaseChangeState = NULL;
   limitExtrap = false;
 }
 
 inline
-HigherOrderMultiFluid::~HigherOrderMultiFluid() {
+HigherOrderFSI::~HigherOrderFSI() {
 
 }
 
 inline 
-void HigherOrderMultiFluid::setLimitedExtrapolation() {
+void HigherOrderFSI::setLimitedExtrapolation() {
 
   limitExtrap = true;
 }
 
 template<int dim>
-void HigherOrderMultiFluid::initialize(int numNodes,ElemSet& e, V6NodeData (*v)[2]) {
+void HigherOrderFSI::initialize(int numNodes,ElemSet& e, V6NodeData (*v)[2]) {
 
   SVec<double,dim>* V = new SVec<double,dim>(numNodes);
   *V = 0.0;
@@ -43,7 +43,7 @@ void HigherOrderMultiFluid::initialize(int numNodes,ElemSet& e, V6NodeData (*v)[
 }
 
 template <int dim>
-bool HigherOrderMultiFluid::hasLastPhaseChangeValue(int nodeId) {
+bool HigherOrderFSI::hasLastPhaseChangeValue(int nodeId) {
 
   SVec<double,dim>* V = static_cast<SVec<double,dim>*>(lastPhaseChangeState);
   for (int i = 0; i < dim; ++i) {
@@ -56,7 +56,7 @@ bool HigherOrderMultiFluid::hasLastPhaseChangeValue(int nodeId) {
 }
 
 template <int dim>
-const double* HigherOrderMultiFluid::
+const double* HigherOrderFSI::
 getLastPhaseChangeValue(int nodeId) {
 
   SVec<double,dim>* V = 
@@ -66,7 +66,7 @@ getLastPhaseChangeValue(int nodeId) {
 }
 
 template <int dim>
-void HigherOrderMultiFluid::
+void HigherOrderFSI::
 setLastPhaseChangeValue(int nodeId,const double* v) {
 
   SVec<double,dim>* V = 
@@ -78,7 +78,7 @@ setLastPhaseChangeValue(int nodeId,const double* v) {
 }
 
 template <int dim>
-void HigherOrderMultiFluid::
+void HigherOrderFSI::
 setLastPhaseChangeValues(SVec<double,dim>& update,Vec<double>& weight) {
 
   for (int i = 0; i < update.size(); ++i) {
@@ -95,7 +95,7 @@ setLastPhaseChangeValues(SVec<double,dim>& update,Vec<double>& weight) {
 }
 
 template <int dim>
-void HigherOrderMultiFluid::
+void HigherOrderFSI::
 estimateR(int l, int vertex, 
 	  int i, SVec<double,dim>& V, 
 	  NodalGrad<dim>& dVdx, SVec<double,3>& X,
@@ -181,9 +181,11 @@ estimateR(int l, int vertex,
 }
 
 template <int dim>
-double HigherOrderMultiFluid::
+double HigherOrderFSI::
 computeAlpha(int nodeId,const double* currentV, 
 	     const double* neighborV) {
+
+  return 0.0;
 
   if (!hasLastPhaseChangeValue<dim>(nodeId)) {
 
@@ -208,7 +210,7 @@ computeAlpha(int nodeId,const double* currentV,
 }
 
 template <int dim>
-void HigherOrderMultiFluid::
+void HigherOrderFSI::
 extrapolateV6(int l, int vertex, 
 	      int i, SVec<double,dim>& V, 
 	      double* Vsurrogate,const double* W, SVec<double,3>& X,

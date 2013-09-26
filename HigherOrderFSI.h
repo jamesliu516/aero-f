@@ -1,4 +1,4 @@
-/* HigherOrderMultiFluid.h
+/* HigherOrderFSI.h
 
  */
 
@@ -8,13 +8,13 @@
 
 struct V6NodeData;
 
-class HigherOrderMultiFluid {
+class HigherOrderFSI {
 
   public:
 
-    HigherOrderMultiFluid();
+    HigherOrderFSI();
 
-    ~HigherOrderMultiFluid();
+    ~HigherOrderFSI();
 
    void setLimitedExtrapolation();
 
@@ -54,6 +54,8 @@ class HigherOrderMultiFluid {
 		   double alpha,double length,
 		   Vec<int>& fluidId, double* beta) ;
 
+   V6NodeData (*getV6Data() const) [2] { return v6data; }
+
   private:
 
    void* lastPhaseChangeState;
@@ -65,4 +67,4 @@ class HigherOrderMultiFluid {
    bool limitExtrap;
 };
 
-#include <HigherOrderMultiFluid.C>
+#include <HigherOrderFSI.C>

@@ -51,10 +51,11 @@ class ExactRiemannSolver{
 
   // for multiphase Riemann problem
   int computeRiemannSolution(double *Vi, double *Vj,
-                              int IDi, int IDj, double *nphi, VarFcn *vf,
-                              double *Wi, double *Wj,
-                              int i, int j, int edgeNum, double dx[3],
-			      bool isHigherOrder);
+			     int IDi, int IDj, double *nphi, VarFcn *vf,
+			     double *Wi, double *Wj,
+			     int i, int j, int edgeNum, double dx[3],
+			     int lsdim,
+			     bool isHigherOrder);
 
   void computeRiemannJacobian(double *Vi, double *Vj,
 			      int IDi, int IDj, double *nphi, VarFcn *vf,

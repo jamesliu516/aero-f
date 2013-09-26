@@ -42,6 +42,7 @@ private:
       fprintf(stdout, "*** Error: An unknown fluid model with FluidID = %d is detected. Could be a software bug!\n", tag);
       DebugTools::PrintBacktrace();
       fflush(stdout);
+      MPI_Barrier(MPI_COMM_WORLD);
       exit(1);
     }
     assert(tag<numPhases_);

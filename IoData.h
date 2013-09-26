@@ -75,7 +75,9 @@ struct InputData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+  const char *fluidId;
   const char *rstdata;
+  const char *restart_file_package;
   const char *podFile;
   const char *snapFile;
   const char *snapRefSolutionFile;
@@ -299,7 +301,9 @@ struct RestartData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+  const char *fluidId;
   const char *data;
+  const char* filepackage;
 
   int frequency;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 

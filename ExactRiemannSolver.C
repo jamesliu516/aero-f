@@ -176,9 +176,10 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 //------------------------------------------------------------------------------
 template<int dim>
 int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
-						     int IDi, int IDj, double *nphi, VarFcn *vf,
-						     double *Wi, double *Wj, int i, int j, int edgeNum,
-						     double dx[3], bool isHigherOrder)
+						    int IDi, int IDj, double *nphi, VarFcn *vf,
+						    double *Wi, double *Wj, int i, int j, int edgeNum,
+						    double dx[3], int lsdim,
+						    bool isHigherOrder)
 {
 
   //fprintf(stdout, "Debug: calling computeRiemannSolution with IDi = %d - IDj = %d for LocalRiemann[%d]\n", IDi, IDj, IDi+IDj-1);
@@ -187,7 +188,7 @@ int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
   for (int k=0; k < 3; ++k) {
     nphi[k]*=lssign;
   }
-  fluidIdToSet[i] = fluidIdToSet[j] = (IDi+IDj-1);
+  fluidIdToSet[i] = fluidIdToSet[j] = lsdim;
   return lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
 					      Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
 					      dx,iteration,isHigherOrder);
