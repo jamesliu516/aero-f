@@ -252,7 +252,9 @@ inline
 void VarFcnSGEuler::conservativeToPrimitive(double *U, double *V)
 {
 
+#ifndef NDEBUG 
   if(U[0] == 0) fprintf(stderr,"U[0] is %e\n",U[0]);
+#endif
   V[0] = U[0];
 
   double invRho = 1.0 / U[0];
