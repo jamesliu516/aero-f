@@ -2189,17 +2189,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      int idxFace = v6data[l][0].face;
 	      double face_r = v6data[l][0].r;
 	      double face_t = v6data[l][0].t;
-	      /*if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) { 
+	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) { 
 		if (1.0-resij.alpha > alpha) {
-	        //if (1.0-resij.alpha > alpha)
-		for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+		  //if (1.0-resij.alpha > alpha)
+		  for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
 		}
 		//	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-		}
-		else
+	      }
+	      else
 		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-		X,V,Wstar,resij.alpha,length,i);
-	      */
+							       X,V,Wstar,resij.alpha,length,i);
+	      
 	    }
 	    
 	    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
@@ -2268,19 +2268,19 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      int idxFace = v6data[l][1].face;
 	      double face_r = v6data[l][1].r;
 	      double face_t = v6data[l][1].t;
-	      /*	    if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) {
+	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) {
 	      //
 	      //	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
 	      // 
-	      if ( 1.0-resji.alpha > alpha) {
-	      
-	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	      }
+		if ( 1.0-resji.alpha > alpha) {
+		  
+		  for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+		}
 	      }
 	      else
-	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-	      X,V,Wstar,resji.alpha,length,j);
-	      */
+		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+							       X,V,Wstar,resji.alpha,length,j);
+	      
 	    }
 	    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 	    //if (  1.0-resji.alpha > alpha)
