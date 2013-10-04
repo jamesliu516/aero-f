@@ -57,7 +57,12 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  if (ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) {
+  if ((ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) &&
+      (ioData.problem.type[ProblemData::AERO] ||
+       ioData.problem.type[ProblemData::ACCELERATED] ||
+       ioData.problem.type[ProblemData::FORCED] ||
+       ioData.problem.type[ProblemData::ROLL] ||
+       ioData.problem.type[ProblemData::RBM] )) {
     geoState->setup1(input->positions, X, A);
     moveMesh(ioData, geoSource);
   } else {
