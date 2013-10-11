@@ -162,6 +162,13 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U, double t
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
   this->spaceOp->applyBCsToSolutionVector(U0,this->distLSS); //(?)for Navier-Stokes only
 
   if (this->modifiedGhidaglia) {
@@ -186,6 +193,13 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   computeRKUpdate(U, k1, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
@@ -204,12 +218,19 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   
+
   if (this->modifiedGhidaglia) {
     computeRKUpdateHH(U0, *hh2);
     *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
   }
 
   U = U - 1.0/2.0 * (k1 + k2);
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
 
 
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
@@ -230,6 +251,12 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - 0.5*k1;
  
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep*0.5,
+				       this->spaceOp->getVarFcn());
+
   if (this->modifiedGhidaglia) {
     *hhorig = *(this->bcData->getBoundaryStateHH());
     computeRKUpdateHH(U, *hh1);
@@ -249,6 +276,12 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
  
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep*0.5,
+				       this->spaceOp->getVarFcn());
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
@@ -262,6 +295,12 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
 
   U0 = U - k3;
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
 
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
@@ -277,6 +316,12 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
 
   this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
 
@@ -300,6 +345,27 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
   //else
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
+
+  for (int iSub = 0; iSub <  this->domain->getNumLocSub(); ++iSub) {
+
+    SubDomain* S = this->domain->getSubDomain()[iSub];
+    for (int i = 0; i < dU.subSize(iSub); ++i) {
+
+      if (S->getNodeMap()[i]+1 == 31861 ||
+          S->getNodeMap()[i]+1 == 39701 ||
+          S->getNodeMap()[i]+1 == 32181) {
+
+        std::cout <<  S->getNodeMap()[i]+1 << " " <<
+          dU(iSub)[i][0] << " " << dU(iSub)[i][1] << " " <<
+          dU(iSub)[i][2] << " " << dU(iSub)[i][3] << " " <<
+          dU(iSub)[i][4] << " " <<
+          Ulocal(iSub)[i][0] << " " << Ulocal(iSub)[i][1] << " " <<
+          Ulocal(iSub)[i][2] << " " << Ulocal(iSub)[i][3] << " " <<
+          Ulocal(iSub)[i][4] << " " << (*this->A)(iSub)[i] << std::endl;
+          
+      }
+    } 
+  }
 
   this->timeState->multiplyByTimeStep(dU);
   

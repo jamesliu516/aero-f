@@ -174,6 +174,8 @@ public:
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
+  virtual void setCurrentTimeStep(double dt) { }
+
   virtual void setFluidSubcycling(bool inSub) { }
 
   virtual void writeBinaryVectorsToDiskRom(bool, int, double, 

@@ -191,6 +191,8 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       
       t += dt;
 
+      probDesc->setCurrentTimeStep(dt);
+
       // update coefficients for enforcing the Farfield BC.
       probDesc->updateFarfieldCoeffs(dt);
       // estimate mesh position in subcycle

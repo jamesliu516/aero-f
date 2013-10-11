@@ -4056,6 +4056,8 @@ EmbeddedFramework::EmbeddedFramework() {
   stabil_alpha = 0.0;
 
   interfaceThickness = 1e-8;
+
+  testCase = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -4093,6 +4095,10 @@ void EmbeddedFramework::setup(const char *name) {
                                       "Constant", 0, "Linear", 1);
   new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
                                       "First", 0, "Second", 1);
+
+  new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
+                                  &EmbeddedFramework::testCase);
+
 }
 
 //------------------------------------------------------------------------------

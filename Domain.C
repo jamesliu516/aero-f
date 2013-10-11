@@ -4797,3 +4797,52 @@ void Domain::computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<doub
   for (int iSub=0; iSub<numLocSub; iSub++)
     subDomain[iSub]->computeHHBoundaryTermResidual(bcData(iSub),U(iSub), res(iSub), vf);
 }
+
+template <int dim>
+void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				    IoData& iod,double t, VarFcn* varFcn) {
+
+  if (iod.embed.testCase == 1) {
+
+    double alpha = 6.28267340353564;
+    double omega0 = 26.975634814780758;
+    double omegatilde = 0.9519666394290971;
+    double H = 1.0;
+    double omega = omega0*omegatilde;
+    double what = 1.0e-2;
+    double k = 2.0*3.14159265358979323846;
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = X(iSub)[i];
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12 || x[1] > 0.98) {
+	  
+	  double u = omega*k*what* 
+	    (cosh(alpha*x[1]) /(alpha*sinh(alpha*H)))*(cos(k*x[0]-omega*t*iod.ref.rv.time)+
+				   cos(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.velocity;
+	  double v = omega*what*(sinh(alpha*x[1])/sinh(alpha*H))*
+	    (sin(k*x[0]-omega*t*iod.ref.rv.time)-
+	     sin(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.velocity;
+	  double p = omega*omega*cosh(alpha*x[1])*what/(alpha*sinh(alpha*H))*
+	    (cos(k*x[0]-omega*t*iod.ref.rv.time)-
+	     cos(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.pressure + iod.bc.inlet.pressure;
+	  double V[5] = {1.3 / iod.ref.rv.density,
+			 u,v,0.0,p};
+	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
+	  
+	} else {
+	  double V[5];
+	  varFcn->conservativeToPrimitive(U(iSub)[i], V, 0);
+	  V[3] = 0.0;
+	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
+	  
+	  
+	}
+      }
+    }
+  }
+}

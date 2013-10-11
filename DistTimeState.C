@@ -273,6 +273,8 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   if(point_based_id)
     setupUFluidIdInitialConditions(iod, *point_based_id);
 
+  setupUExactSolutionInitialConditions(iod,X);
+
   if (name[0] != 0) {
     domain->readVectorFromFile(name, 0, 0, *Un);
     if (data->use_nm1) {
@@ -433,6 +435,39 @@ void DistTimeState<dim>::setupUOneDimensionalSolution(IoData &iod, DistSVec<doub
 				 OneDimensional::ModeU);
 }
 //------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::setupUExactSolutionInitialConditions(IoData &iod, DistSVec<double,3> &X)
+{
+  // Test case one:
+  if (iod.embed.testCase == 1) {
+
+    double alpha = 4.0;//6.28267340353564;
+    double omega0 = 1590.108;//26.975634814780758;
+    double omegatilde = 1.0;//0.9519666394290971;
+    double H = 1.0;
+    double omega = omega0*omegatilde;
+    double what = 1.0e-2;
+    double k = 2.0*3.14159265358979323846;
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      SVec<double,dim> &u((*Un)(iSub));
+      SVec<double, 3> &x(X(iSub));
+      for(int i=0; i<X.subSize(iSub); i++) {
+	double v[dim] = {0,0,0,0,0};
+	v[0] = 1.3 / iod.ref.rv.density;
+	v[1] = omega*k*what*(cosh(alpha*x[i][1]) / sinh(alpha*H))/ 
+	  (alpha)*(2.0*cos(k*x[i][0])) / iod.ref.rv.velocity;
+        v[2] = omega*what* (sinh(alpha*x[i][1])/sinh(alpha*H))* (2.0*sin(k*x[i][0])) / iod.ref.rv.velocity;
+	v[4] = 1.0e5 / iod.ref.rv.pressure;
+	varFcn->primitiveToConservative(v, u[i], 0);
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X)
 {

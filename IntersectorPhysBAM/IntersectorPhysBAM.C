@@ -551,8 +551,18 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   for (int i=0; i<numStNodes; i++) physbam_solids_particle->X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],Xs[i][1], Xs[i][2]);
   
   // Initialize the Triangle list.
-  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > physbam_stElem(numStElems);
-  for (int i=0; i<numStElems; i++) physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
+  int np = (cracking?cracking->numberRealTriangles():numStElems);
+  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > physbam_stElem(np);
+  if (cracking) {
+    for (int i=0; i<np; i++)  {
+      int id = cracking->mapTriangleID(i);
+      physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[id][0]+1,stElem[id][1]+1,stElem[id][2]+1);
+    }
+  } else {
+    for (int i=0; i<np; i++)  {
+      physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
+    }
+  }
 
   // Initialize the mesh.
   PhysBAM::TRIANGLE_MESH *mesh = new PhysBAM::TRIANGLE_MESH(numStNodes,physbam_stElem);
@@ -1056,7 +1066,13 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
     physInterface->Update(numLocSub,true);
     for(int iSub=0;iSub<numLocSub;++iSub){
       std::set<int>& scope=physInterface->getScope(iSub+1);
-      for(int i=1;i<=numStElems;++i) scope.insert(i);}}
+      if (!cracking)
+	for(int i=1;i<=numStElems;++i) scope.insert(i);
+      else
+	for(int i=1;i<=cracking->numberRealTriangles();++i) scope.insert(i);	
+
+    }
+  }
   else expandScope();
 
   for(int iSub=0;iSub<numLocSub;++iSub)
@@ -1295,6 +1311,16 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
+
+	  if (distIntersector.cracking) {
+
+	    CrossingEdgeRes[l].triangleID  = 
+	      distIntersector.cracking->mapTriangleID(CrossingEdgeRes[l].triangleID-1) + 1;
+	    
+	    ReverseCrossingEdgeRes[l].triangleID = 
+	      distIntersector.cracking->mapTriangleID(ReverseCrossingEdgeRes[l].triangleID-1) + 1;
+
+	  }
 /*          ++intersectedEdgeCount;}
       else if(edgeRes(i).y.triangleID > 0){
           int l=edgeRes(i).x.z;
@@ -1437,7 +1463,12 @@ void IntersectorPhysBAM::findNodeClosestPoint(const int nodeId, Vec3D& x0, ARRAY
   const double eps = 0;
 
   for(int iArray=1; iArray<=cand.Size(); iArray++) {
-    trId = cand(iArray)-1;
+
+    if (!distIntersector.cracking)
+      trId = cand(iArray)-1;
+    else
+      trId = distIntersector.cracking->mapTriangleID(cand(iArray)-1);
+      
 
     dist = std::abs(project(x0, trId, xi[0], xi[1])); // project on plane
     xi[2] = 1.0-xi[0]-xi[1];

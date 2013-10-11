@@ -111,6 +111,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::recomputeIntersections()
   // just to get structural time-step (dts).
   this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
+  this->com->barrier();
   double tw = this->timer->getTime();
   if(this->withCracking && this->withMixedLS) // no need for the intersector to determine fluidId.
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, false, TsDesc<dim>::failSafeFlag); 

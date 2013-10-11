@@ -37,8 +37,11 @@ template<int dim>
 EmbeddedTsDesc<dim>::
 EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase), Wtemp(this->getVecInfo())
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase), Wtemp(this->getVecInfo()),
+  ioData(ioData)
 {
+
+  currentTime = 0.0;
 
   simType         = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -1049,3 +1052,15 @@ void EmbeddedTsDesc<dim>::computeConvergenceInformation(IoData &ioData, const ch
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::setCurrentTime(double t,DistSVec<double,dim>& U) { 
+
+  currentTime = t;
+}
+
+template<int dim>
+void EmbeddedTsDesc<dim>::setCurrentTimeStep(double dt) { 
+
+  currentTimeStep = dt;
+}

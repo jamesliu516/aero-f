@@ -1077,6 +1077,12 @@ public:
 				       VarFcn* vf);
  
   void maskHHVector(DistVec<double>& hh);
+
+
+  template <int dim>
+    void setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				IoData& iod,double t,VarFcn* vf);
+
  };
 
 //------------------------------------------------------------------------------
