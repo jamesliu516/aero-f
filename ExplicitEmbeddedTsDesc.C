@@ -346,27 +346,6 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
 
-  for (int iSub = 0; iSub <  this->domain->getNumLocSub(); ++iSub) {
-
-    SubDomain* S = this->domain->getSubDomain()[iSub];
-    for (int i = 0; i < dU.subSize(iSub); ++i) {
-
-      if (S->getNodeMap()[i]+1 == 31861 ||
-          S->getNodeMap()[i]+1 == 39701 ||
-          S->getNodeMap()[i]+1 == 32181) {
-
-        std::cout <<  S->getNodeMap()[i]+1 << " " <<
-          dU(iSub)[i][0] << " " << dU(iSub)[i][1] << " " <<
-          dU(iSub)[i][2] << " " << dU(iSub)[i][3] << " " <<
-          dU(iSub)[i][4] << " " <<
-          Ulocal(iSub)[i][0] << " " << Ulocal(iSub)[i][1] << " " <<
-          Ulocal(iSub)[i][2] << " " << Ulocal(iSub)[i][3] << " " <<
-          Ulocal(iSub)[i][4] << " " << (*this->A)(iSub)[i] << std::endl;
-          
-      }
-    } 
-  }
-
   this->timeState->multiplyByTimeStep(dU);
   
   if(this->numFluid==1&&!this->emmh)

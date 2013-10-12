@@ -441,12 +441,12 @@ void DistTimeState<dim>::setupUExactSolutionInitialConditions(IoData &iod, DistS
   // Test case one:
   if (iod.embed.testCase == 1) {
 
-    double alpha = 4.0;//6.28267340353564;
-    double omega0 = 1590.108;//26.975634814780758;
-    double omegatilde = 1.0;//0.9519666394290971;
+    double alpha = 3.810627283;//6.28267340353564;
+    double omega0 = 2697.56348148;//26.975634814780758;
+    double omegatilde = 0.60774519311;//0.9519666394290971;
     double H = 1.0;
     double omega = omega0*omegatilde;
-    double what = 1.0e-2;
+    double what = 1.0e-3;
     double k = 2.0*3.14159265358979323846;
 
 #pragma omp parallel for
