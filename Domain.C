@@ -4804,13 +4804,14 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 
   if (iod.embed.testCase == 1) {
 
-    double alpha = 6.28267340353564;
-    double omega0 = 26.975634814780758;
-    double omegatilde = 0.9519666394290971;
+    double alpha = 3.810627283;//6.28267340353564;
+    double omega0 = 2697.56348148;//26.975634814780758;
+    double omegatilde = 0.60774519311;//0.9519666394290971;
     double H = 1.0;
     double omega = omega0*omegatilde;
-    double what = 1.0e-2;
+    double what = 1.0e-3;
     double k = 2.0*3.14159265358979323846;
+    double rhof = 1.3;
 
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -4827,7 +4828,7 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 	  double v = omega*what*(sinh(alpha*x[1])/sinh(alpha*H))*
 	    (sin(k*x[0]-omega*t*iod.ref.rv.time)-
 	     sin(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.velocity;
-	  double p = omega*omega*cosh(alpha*x[1])*what/(alpha*sinh(alpha*H))*
+	  double p = omega*omega*rhof*cosh(alpha*x[1])*what/(alpha*sinh(alpha*H))*
 	    (cos(k*x[0]-omega*t*iod.ref.rv.time)-
 	     cos(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.pressure + iod.bc.inlet.pressure;
 	  double V[5] = {1.3 / iod.ref.rv.density,
