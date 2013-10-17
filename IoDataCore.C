@@ -620,7 +620,7 @@ RestartData::RestartData()
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
   fluidId = "DEFAULT.FID";
-  filepackage = "DEFAULT.PCK";
+  filepackage = "DEFAULT.PKG";
 
   frequency = 0;
   frequency_dt = -1.0;

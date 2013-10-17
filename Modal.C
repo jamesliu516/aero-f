@@ -814,12 +814,13 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
       delWRom[i] = podVecs[i] * delWFull;
   }
 
+#ifndef NDEBUG
   com->fprintf(stderr, " ... Initial Condition for Fluid ROM:\n");
   com->fprintf(stderr," q0 = [");
   for (i=0; i < nPodVecs; i++)
     com->fprintf(stderr,"%e ",delWRom[i]); 
   com->fprintf(stderr,"];\n");
-
+#endif
 
  // Compute Reference Modal Force
  DistSVec<double,3> refNodalForce(domain.getNodeDistInfo());
