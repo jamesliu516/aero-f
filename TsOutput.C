@@ -296,6 +296,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
   }
+  if (iod.output.transient.philevel2[0] != 0) {
+    sscale[PostFcn::PHILEVEL2] = 1.0;
+    scalars[PostFcn::PHILEVEL2] = new char[sp + strlen(iod.output.transient.philevel2)];
+    sprintf(scalars[PostFcn::PHILEVEL2], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.philevel2);
+  }
   if (iod.output.transient.fluidid[0] != 0) {
     sscale[PostFcn::FLUIDID] = 1.0;
     scalars[PostFcn::FLUIDID] = new char[sp + strlen(iod.output.transient.fluidid)];
@@ -3172,6 +3178,12 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     scalars[PostFcn::PHILEVEL] = new char[sp + strlen(iod.output.transient.philevel)];
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
+  }
+  if (iod.output.transient.philevel2[0] != 0) {
+    sscale[PostFcn::PHILEVEL2] = 1.0;
+    scalars[PostFcn::PHILEVEL2] = new char[sp + strlen(iod.output.transient.philevel2)];
+    sprintf(scalars[PostFcn::PHILEVEL2], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.philevel2);
   }
   if (iod.output.transient.fluidid[0] != 0) {
     sscale[PostFcn::FLUIDID] = 1.0;

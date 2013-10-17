@@ -7610,7 +7610,7 @@ void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
 
 // Functions to compute the error (that is, the difference between two state vectors)
 template <int dim>
-void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* LSS) {
+void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, Vec<double>& vol,double error[dim], LevelSetStructure* LSS) {
 
   for (int k = 0; k < dim; ++k)
     error[k] = 0.0;
@@ -7621,7 +7621,7 @@ void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,d
       
       for (int k = 0; k < dim; ++k) {
 	
-	error[k] += fabs(U[i][k]-Uexact[i][k]);
+	error[k] += fabs(U[i][k]-Uexact[i][k])*vol[i];
       }
     }
   }

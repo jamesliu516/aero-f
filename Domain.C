@@ -23,6 +23,8 @@
 #include <cmath>
 #include <unistd.h>
 
+#include <ExactSolution.h>
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -4763,14 +4765,15 @@ void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length) {
 }
 // Functions to compute the error (that is, the difference between two state vectors)
 template <int dim>
-void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],
+void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
+			    DistVec<double>& vol, double error[dim],
                             DistLevelSetStructure* distLSS) {
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     LevelSetStructure*  LSS = (distLSS ? &(*distLSS)(iSub) : NULL);
-    subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), error,
-                                    LSS);
+    subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), 
+				    vol(iSub),error, LSS);
   }
 
   com->globalSum(dim, error);
@@ -4804,15 +4807,6 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 
   if (iod.embed.testCase == 1) {
 
-    double alpha = 3.810627283;//6.28267340353564;
-    double omega0 = 2697.56348148;//26.975634814780758;
-    double omegatilde = 0.60774519311;//0.9519666394290971;
-    double H = 1.0;
-    double omega = omega0*omegatilde;
-    double what = 1.0e-3;
-    double k = 2.0*3.14159265358979323846;
-    double rhof = 1.3;
-
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; iSub++) {
 
@@ -4822,25 +4816,10 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 	double* x = X(iSub)[i];
 	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12 || x[1] > 0.98) {
 	  
-	  double u = omega*k*what* 
-	    (cosh(alpha*x[1]) /(alpha*sinh(alpha*H)))*(cos(k*x[0]-omega*t*iod.ref.rv.time)+
-				   cos(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.velocity;
-	  double v = omega*what*(sinh(alpha*x[1])/sinh(alpha*H))*
-	    (sin(k*x[0]-omega*t*iod.ref.rv.time)-
-	     sin(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.velocity;
-	  double p = omega*omega*rhof*cosh(alpha*x[1])*what/(alpha*sinh(alpha*H))*
-	    (cos(k*x[0]-omega*t*iod.ref.rv.time)-
-	     cos(-k*x[0]-omega*t*iod.ref.rv.time)) / iod.ref.rv.pressure + iod.bc.inlet.pressure;
-	  double V[5] = {1.3 / iod.ref.rv.density,
-			 u,v,0.0,p};
-	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
-	  
-	} else {
 	  double V[5];
-	  varFcn->conservativeToPrimitive(U(iSub)[i], V, 0);
-	  V[3] = 0.0;
+	  ExactSolution::AcousticBeam(iod,x[0],x[1],x[2],t, V);
+
 	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
-	  
 	  
 	}
       }

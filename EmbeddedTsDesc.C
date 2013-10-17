@@ -693,6 +693,41 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
       computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
     }
 
+    if (ioData.embed.testCase == 1) {
+
+      DistSVec<double,dim> Uexact(U);
+      
+      if (ioData.embed.testCase == 1) {
+
+	ExactSolution::Fill<&ExactSolution::AcousticBeam, dim>(Uexact, *this->X,
+							     ioData, t, 
+							     this->spaceOp->getVarFcn());
+
+      }
+
+      double error[dim];
+      double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
+			  ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+			  ioData.ref.rv.pressure};
+      double tot_error = 0.0;
+      this->domain->computeL1Error(U,Uexact,*this->A,error, this->distLSS);
+      for (int k = 0; k < dim; ++k) {
+	tot_error += error[k];
+	this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %e\n", k, error[k]*refs[k]);
+      }
+      this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %e\n", tot_error);
+      
+      tot_error = 0.0;
+      this->domain->computeLInfError(U,Uexact,error, this->distLSS);
+      for (int k = 0; k < dim; ++k) {
+	tot_error = max(error[k],tot_error);
+	this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %e\n", k, error[k]*refs[k]);
+      }
+      this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %e\n", tot_error);
+
+  
+    }
+
   }
 
 }
@@ -1033,7 +1068,7 @@ void EmbeddedTsDesc<dim>::computeConvergenceInformation(IoData &ioData, const ch
 		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
 		      ioData.ref.rv.pressure};
   double tot_error = 0.0;
-  this->domain->computeL1Error(U,Uexact,error, this->distLSS);
+  this->domain->computeL1Error(U,Uexact,*this->A,error, this->distLSS);
   for (int k = 0; k < dim; ++k) {
     tot_error += error[k];
     this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k]);

@@ -240,6 +240,7 @@ struct TransientData {
   const char *romFile;
   const char *gendispFile;
   const char *philevel;
+  const char *philevel2;
   const char *controlvolume;
   const char* fluidid;
   const char* d2wall;

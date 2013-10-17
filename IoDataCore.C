@@ -379,6 +379,7 @@ TransientData::TransientData()
   rMatrixFile = "";  
   gendispFile = "";
   philevel = "";
+  philevel2 = "";
   controlvolume = "";
   fluidid="";
   d2wall="";
@@ -496,6 +497,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "RMatrices", this, &TransientData::rMatrixFile);
   new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
+  new ClassStr<TransientData>(ca, "Philevel2", this, &TransientData::philevel2);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
