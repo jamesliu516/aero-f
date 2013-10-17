@@ -1041,13 +1041,12 @@ void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file
 		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
 		      ioData.ref.rv.pressure};
 
-  std::cout << "ref pressure = " <<  ioData.ref.rv.pressure << " ref length =  " <<  ioData.ref.rv.length << std::endl;
   double tot_error = 0.0;
   DistVec<int> nnv(U.info());
   nnv = 1;
   int nNodes = nnv.sum();
 
-  this->domain->computeL1Error(U,Uexact,error);
+  this->domain->computeL1Error(U,Uexact,*this->A,error);
   for (int k = 0; k < dim; ++k) {
     tot_error += error[k] / nNodes;
     this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k] / nNodes);

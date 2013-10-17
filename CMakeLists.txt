@@ -198,6 +198,7 @@ ADD_LIBRARY(FluidBase
 	     Dunavant.C
              EdgeCore.C 
 	     EmbeddedCorotSolver.C
+	     ExactSolution.C
              FaceCore.C 
              FaceTriaCore.C 
              ElemCore.C 

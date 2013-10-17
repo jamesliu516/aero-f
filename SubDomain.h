@@ -1366,7 +1366,7 @@ public:
 
   // Functions to compute the error (that is, the difference between two state vectors)
   template <int dim>
-    void computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* = NULL);
+    void computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, Vec<double>& vol, double error[dim], LevelSetStructure* = NULL);
 
   template <int dim>
     void computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* = NULL);
