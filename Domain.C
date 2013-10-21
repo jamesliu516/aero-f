@@ -4814,7 +4814,7 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
       for (int i = 0; i < lsize; ++i) {
 
 	double* x = X(iSub)[i];
-	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12 || x[1] > 0.98) {
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
 	  
 	  double V[5];
 	  ExactSolution::AcousticBeam(iod,x[0],x[1],x[2],t, V);
