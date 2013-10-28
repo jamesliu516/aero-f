@@ -7561,9 +7561,10 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
                                     const std::vector<Vec3D>& locs, double (*sol)[dim],
                                     int* status,int* last,int* nid,
                                     LevelSetStructure* LSS, Vec<GhostPoint<dim>*>* ghostPoints,
-                                    VarFcn *varFcn) {
+                                    VarFcn *varFcn, bool assumeCache) {
 
-  elems.interpolateSolution(X,U,locs,sol,status,last,LSS,ghostPoints,varFcn);
+  elems.interpolateSolution(X,U,locs,sol,status,last,LSS,ghostPoints,varFcn,
+			    assumeCache);
   for (int i = 0; i < locs.size(); ++i) {
     int eid = last[i],nn;
     Elem& E = elems[eid];
@@ -7583,11 +7584,14 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
 
 template<int dim>
 void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
-                                    const std::vector<Vec3D>& locs, double (*sol)[dim],
-                                    int* status,int* last,int* nid) {
+				       const std::vector<Vec3D>& locs, double (*sol)[dim],
+				       int* status,int* last,int* nid,
+				       bool assumeCache) {
 
 
-  elems.interpolateSolution(X,U,locs,sol,status,last);
+  elems.interpolateSolution(X,U,locs,sol,status,last,NULL,
+			    (Vec<GhostPoint<dim>*>*)0, NULL,
+			    assumeCache);
   for (int i = 0; i < locs.size(); ++i) {
     int eid = last[i],nn;
     Elem& E = elems[eid];

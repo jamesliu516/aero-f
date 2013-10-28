@@ -125,6 +125,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   double currentTime;
 
+  int lastLSUpdateIteration;
+
  protected:
   void setupEmbeddedFSISolver(IoData &ioData);
   void setupMultiPhaseFlowSolver(IoData &ioData);

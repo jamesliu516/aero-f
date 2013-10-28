@@ -331,7 +331,8 @@ public:
   }
 
   // X is the deformed nodal location vector
-  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc,
+			  double sol[dim], LevelSetStructure* LSS,
                           Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
     return t->interpolateSolution(X,U,loc,sol,LSS,ghostPoints,varFcn);
   }
@@ -1029,7 +1030,8 @@ public:
   template<int dim> 
   void interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const std::vector<Vec3D>& locs,
                            double (*sol)[dim], int* status,int* last, LevelSetStructure* LSS = 0,
-                           Vec<GhostPoint<dim>*>* ghostPoints = 0, VarFcn* varFcn = 0);
+                           Vec<GhostPoint<dim>*>* ghostPoints = 0, VarFcn* varFcn = 0,
+			   bool assumeCache = false);
 };
 
 #ifdef TEMPLATE_FIX

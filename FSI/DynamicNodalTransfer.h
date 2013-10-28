@@ -90,6 +90,8 @@ class EmbeddedStructure {
   void clearForceVector(); 
   pair<double*, int> getTargetData();
 
+  IoData& iod;
+
 public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc, Timer *tim);
   ~EmbeddedStructure();
@@ -139,6 +141,9 @@ class DynamicNodalTransfer {
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
         double tMax;
+
+        IoData& iod;
+
 public:
 	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &, Timer *);
 	~DynamicNodalTransfer();

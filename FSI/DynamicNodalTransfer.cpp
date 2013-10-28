@@ -23,7 +23,7 @@
 
 DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc, Timer *tim): com(c) , F(1),
                            fScale(iod.ref.rv.tforce), XScale(iod.ref.rv.tlength), UScale(iod.ref.rv.tvelocity),
-                           tScale(iod.ref.rv.time), structure(iod,c,sc,tim)
+                           tScale(iod.ref.rv.time), structure(iod,c,sc,tim), iod(iod)
 
 {
   timer = tim;
@@ -234,7 +234,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
                                              UScale(iod.ref.rv.tvelocity), nNodes(0), nElems(0), elemType(3),
                                              cracking(0), X(0), X0(0), Tria(0), U(0), Udot(0), XandUdot(0), F(0), it(0), 
-                                             structExc(0), mns(0), algNum(6) //A6
+                                             structExc(0), mns(0), algNum(6), iod(iod) //A6
 {
   timer = tim;
 
@@ -284,6 +284,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 3;
     else if (iod.forced.type==ForcedData::DEFORMING)
       mode = 4;
+    else if (iod.forced.type==ForcedData::ACOUSTICBEAM)
+      mode = 98;
     else if (iod.forced.type==ForcedData::DEBUGDEFORMING)
       mode = 99;
     else {
@@ -1072,6 +1074,19 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 
       }
     }
+    else if (mode==98) //deforming data
+    {
+      for(int i=0; i<nNodes; ++i) {
+        U[i][0] = U[i][2] = 0.0;
+        Udot[i][0] = Udot[i][2] = 0.0;
+
+        ExactSolution::AcousticBeamStructure(iod,X0[i][0],X0[i][1],
+                                             X0[i][2], time/tScale,
+                                             U[i][1], Udot[i][1]);
+        Udot[i][1] /= tScale;
+      }
+    }
+
     else if (mode==99) { // for debugging use.
 	  bool shrinking_sphere = true;	
 	  if (shrinking_sphere) {
