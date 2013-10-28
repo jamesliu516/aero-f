@@ -279,6 +279,10 @@ class MultiGridLevel {
                                              Vec<int>& nodeMapping,int iSub);
     void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, const DistInfo& refinedFaceDistInfo,const DistInfo& refinedInletNodeDistInfo,DistGeoState& refinedGeoState, Domain& domain, int dim, int lneq1,int lneq2);
 
+    int getNumNeighborSubdomains(int mySub);
+
+    int* getNeighboringSubdomains(int mySub);
+
     void agglomerate(const DistInfo& refinedNodeDistInfo,
                      const DistInfo& refinedEdgeDistInfo,
                      CommPattern<int>& refinedNodeIdPattern,

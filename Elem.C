@@ -284,7 +284,8 @@ template<int dim>
 void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
                                   const std::vector<Vec3D>& locs, double (*sol)[dim],
                                   int* status, int* last, LevelSetStructure* LSS,
-                                  Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn) {
+                                  Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn,
+				  bool assumeCache) {
   
   int nn;
   Vec3D bbox[2];
@@ -297,7 +298,7 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
     if (!status[j]) found_all = 0;
   }
 
-  if (found_all) 
+  if (found_all || assumeCache) 
     return;
 
   for (int i = 0; i < numElems; ++i)  {

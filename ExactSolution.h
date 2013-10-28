@@ -12,6 +12,9 @@ class ExactSolution {
   static void AcousticBeam(IoData&, double x, double y, double z,
 			   double t, double* V);
 
+  static void 
+  AcousticBeamStructure(IoData& iod,double x, double y, double z,
+  	              double t, double& uy, double& vy);
   
   template <void (*F)(IoData&, double,double,double,
 				     double,double*), int dim >

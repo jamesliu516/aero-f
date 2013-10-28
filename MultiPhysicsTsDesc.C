@@ -102,6 +102,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   multiFluidInterfaceOrder = 1;
 
+  lastLSUpdateIteration = -1;
+
   if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
 
     dom->createHigherOrderMultiFluid();
@@ -505,7 +507,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 //  if(withCracking && withMixedLS)
 //    fluidSelector.checkLSConsistency(Phi);
 
-  if(frequencyLS > 0 && it%frequencyLS == 0){
+  if(frequencyLS > 0 && it%frequencyLS == 0  && lastLSUpdateIteration != it){
+    lastLSUpdateIteration = it;
     if (this->lsMethod == 0)
       LS->conservativeToPrimitive(Phi,PhiV,U);
     else

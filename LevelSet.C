@@ -461,9 +461,13 @@ void LevelSet<dimLS>::primitiveToConservative(DistSVec<double,dimLS> &Prim, Dist
 template<int dimLS>
 void LevelSet<dimLS>::reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2,int lsdim)
 {
+
+  double t0 = domain->getTimer()->getTime();
+
   // XXX reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
   reinitializeLevelSetFM(X,Phi,copylv2,lsdim);
 
+  domain->getTimer()->addLSReinitializationTime(t0);
 }
 //-------------------------------------------------------------------------
 template<int dimLS>

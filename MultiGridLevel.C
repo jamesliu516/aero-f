@@ -3698,6 +3698,31 @@ void MultiGridLevel<Scalar>::assembleMax(DistSVec<Scalar2,dim>& V)
     ::assemble(domain, *nodeVecPattern, sharedNodes, V, maxOp);
 }
 
+template<class Scalar> 
+int MultiGridLevel<Scalar>::getNumNeighborSubdomains(int mySub) {
+
+  MultigridSubdomain* D = &mgSubdomains[mySub];
+
+  return D->neighbors.size();
+}
+
+template<class Scalar> 
+int* MultiGridLevel<Scalar>::getNeighboringSubdomains(int mySub) {
+
+  MultigridSubdomain* D = &mgSubdomains[mySub];
+
+  int* res = new int[D->neighbors.size()];
+  
+  int i = 0;
+  for (std::map<int,NeighborDomain*>::iterator it = D->neighbors.begin();
+       it != D->neighbors.end(); ++it, ++i) {
+
+    res[i] = it->first;
+  }
+  
+  return res;
+}
+
 template<class Scalar>
 template <class Scalar2,int dim>
 void MultiGridLevel<Scalar>::computeMatVecProd(DistMat<Scalar2,dim>& mat,

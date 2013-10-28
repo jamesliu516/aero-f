@@ -1973,7 +1973,8 @@ struct Velocity  {
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
+             ACOUSTICBEAM=5} type;
 
   double frequency;
   double timestep;

@@ -781,6 +781,18 @@ double Timer::addLSFiniteVolumeJacTime(double t0)
 
 }
 
+double Timer::addLSReinitializationTime(double t0) 
+{ 
+
+  double t = getTime() - t0;
+
+  counter[lsreinitialization]++;
+  data[lsreinitialization] += t; 
+
+  return t;
+
+}
+
 //------------------------------------------------------------------------------
 
 double Timer::addWaitAndReceiveDisp(double t0)
@@ -1014,6 +1026,10 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "  FV Jacobian                 : %10.2f %10.2f %10.2f %9d\n", 
 		 tmin[lsJac], tmax[lsJac], tavg[lsJac], 
 		 counter[lsJac]);
+    com->fprintf(fp, "  Reinitialization            : %10.2f %10.2f %10.2f %9d\n", 
+		 tmin[lsreinitialization], tmax[lsreinitialization],
+                 tavg[lsreinitialization], 
+		 counter[lsreinitialization]);
     com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
 		 tmin[lsPrecSetup], tmax[lsPrecSetup], tavg[lsPrecSetup], 
 		 counter[lsPrecSetup]);

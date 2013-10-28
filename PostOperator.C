@@ -1182,6 +1182,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   double locV[dim],locU[dim],phi[dimLS];
   memset(status,0,sizeof(int)*count);
   Vec<GhostPoint<dim>*> *gp=0;
+  int glStat = 0;
   for (int i = 0; i < count; ++i) {
     if (locations[i][0] < -1.0e19) {
       if (subId[i] < 0) continue; 
@@ -1194,24 +1195,34 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
         results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],(SVec<double,1>*)0);
       status[i] = 1;
     } else {
+      glStat = 0;
 #pragma omp parallel for reduction(+: status[i])
       for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
+
+	// This loop looks for cached elements first.
         if (distLSS) { // Then we are in the case of an Embedded simulation
           if (ghostPoints) { // Embedded Navier-Stokes
             gp = ghostPoints->operator[](iSub);
             subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn);
+                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn,
+						 true);
           } else { // Embedded Euler
             subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)));
+                                                 &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)),(Vec<GhostPoint<dim>*>*)0,NULL,
+						 true);
           }
         } else {
           subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
-                                               &locU, &stat, &last[i], &nid);
+                                               &locU, &stat, &last[i], &nid,NULL,(Vec<GhostPoint<dim>*>*)0, NULL,
+					       true);
         }
         if (Phi)
           subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
-                                                  &phi, &stat,&last[i],&nid); 
+                                                  &phi, &stat,&last[i],&nid,
+						  true);
+
+	glStat += stat;
+ 
 	if (stat) {
 	  fid = fluidId(iSub)[nid];
 	  varFcn->conservativeToPrimitive(locU, locV, fid);
@@ -1219,6 +1230,45 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 	  results[i] += postFcn->computeNodeScalarQuantity(type, locV,locations[i] ,fid,phi);
 	}
       }
+
+      com->globalSum(1, &glStat);
+
+      if (!glStat) {
+
+#pragma omp parallel for reduction(+: status[i])
+	for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
+	  
+	  // This loop looks for cached elements first.
+	  if (distLSS) { // Then we are in the case of an Embedded simulation
+	    if (ghostPoints) { // Embedded Navier-Stokes
+	      gp = ghostPoints->operator[](iSub);
+	      subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+						   &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)), gp, varFcn,
+						   false);
+	    } else { // Embedded Euler
+	      subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+						   &locU, &stat, &last[i], &nid, &((*distLSS)(iSub)),(Vec<GhostPoint<dim>*>*)0,NULL,
+						   false);
+	    }
+	  } else {
+	    subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+						 &locU, &stat, &last[i], &nid,0, (Vec<GhostPoint<dim>*>*)0,0,
+						 false);
+	  }
+	  if (Phi)
+	    subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
+						    &phi, &stat,&last[i],&nid,
+						    false);
+	  
+	  if (stat) {
+	    fid = fluidId(iSub)[nid];
+	    varFcn->conservativeToPrimitive(locU, locV, fid);
+	    status[i] += stat;
+	    results[i] += postFcn->computeNodeScalarQuantity(type, locV,locations[i] ,fid,phi);
+	  }
+	}
+      }
+      
     }
   }
 

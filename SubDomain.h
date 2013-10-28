@@ -1353,12 +1353,12 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
 			   int* status,int* last,int* nid,
 			   LevelSetStructure* LSS = 0, Vec<GhostPoint<dim>*>* ghostPoints = 0,
-                           VarFcn *varFcn = 0);
+                           VarFcn *varFcn = 0, bool assumeCache = false);
   
   template<int dim>
   void interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
-                           int* status,int* last,int* nid); 
+                           int* status,int* last,int* nid, bool assumeCache = false); 
   void createHigherOrderMultiFluid();
   void createHigherOrderFSI();
 
