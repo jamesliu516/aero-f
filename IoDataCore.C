@@ -651,7 +651,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 38,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 39,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -665,7 +665,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
 		 "Aeroacoustic", 33, "ShapeOptimization", 34, "AcceleratedUnsteadyNonlinearROM", 35,
-		 "SteadyNonlinearROM", 36, "ForcedNonlinearROM", 37);
+		 "SteadyNonlinearROM", 36, "ForcedNonlinearROM", 37, "RomShapeOptimization", 38);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -4126,6 +4126,7 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
   maxDimension = -1; 
 	minDimension = 0;
   energy = 1.0;
+  postProProjectedStates = POST_PRO_OFF;
 
 }
 
@@ -4146,6 +4147,8 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
   new ClassInt<RelativeProjectionErrorData>(ca, "MaximumDimension", this, &RelativeProjectionErrorData::maxDimension);
   new ClassInt<RelativeProjectionErrorData>(ca, "MinimumDimension", this, &RelativeProjectionErrorData::minDimension); 
   new ClassDouble<RelativeProjectionErrorData>(ca, "Energy", this, &RelativeProjectionErrorData::energy);
+  new ClassToken<RelativeProjectionErrorData> (ca, "PostProcessForProjectedStates", this, reinterpret_cast<int
+      RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::postProProjectedStates), 2, "Off", 0, "On", 1);
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
@@ -4975,7 +4978,7 @@ void IoData::resetInputValues()
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) 
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) 
   {
 
     //
@@ -5081,7 +5084,7 @@ void IoData::resetInputValues()
     }
 
 
-  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_)
+  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_)
 
   //
   // Check parameters for the matrix-vector product in implicit simulations.

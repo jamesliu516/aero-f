@@ -44,6 +44,9 @@ public:
   virtual void monitorInitialState(int, DistSVec<double,dim> &);
 
   Timer *timer;
+
+  void performPostProForState(DistSVec<double,dim> &);
+
 protected:
   DistExactRiemannSolver<dim> *riemann1;
 

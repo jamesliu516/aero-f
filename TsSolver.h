@@ -104,7 +104,8 @@ int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
   probDesc->fsoPrintTextOnScreen("******************************************\n");
 
   probDesc->fsoInitialize(ioData, U);
-  resolve(U, ioData);
+  probDesc->fsoPrintTextOnScreen("DEBUG STATEMENT IN TSSOLVER.H\n");
+  //resolve(U, ioData);
   probDesc->fsoHandler(ioData, U);
 
   return 0;

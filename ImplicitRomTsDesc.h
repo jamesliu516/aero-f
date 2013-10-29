@@ -66,6 +66,7 @@ protected:
 	double target, res0;	// for Newton convergence
 
   virtual void computeAJ(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time
+  virtual void computeRedHessianSums(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time
   virtual void computeFullResidual(int, DistSVec<double, dim> &, DistSVec<double, dim> *R = NULL);  
 
   virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
@@ -109,6 +110,7 @@ public:
   ~ImplicitRomTsDesc();
 
   int solveNonLinearSystem(DistSVec<double, dim> &, const int _it);
+  void rstVarImplicitRomTsDesc(IoData &);
 };
 
 //------------------------------------------------------------------------------

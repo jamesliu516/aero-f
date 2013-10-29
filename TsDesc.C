@@ -603,7 +603,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
     if (com->getMaxVerbose() >= 2)
       timer->print(domain->getStrTimer());
 
-    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       output->closeAsciiFiles();
     }
   }
@@ -1000,3 +1000,13 @@ void TsDesc<dim>::initializeFarfieldCoeffs()
     sub[iSub]->initializeFarfieldCoeffs(HH_init);
 }
 
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::performPostProForState(DistSVec<double,dim> &outVec)
+{ // public function that performs post processing on a state vector. Used during Nonlinear ROM preprocessing
+  bool tmpLastIt = false;
+  int tmpIt = 0;
+  double tempT = 0.0;
+  output->writeBinaryVectorsToDisk(tmpLastIt, tmpIt, tempT, *X, *A, outVec, timeState);
+}
