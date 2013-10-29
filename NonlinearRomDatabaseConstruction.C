@@ -26,6 +26,8 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
   initialCondition = NULL; 
 
   arbitraryUniformIC = false;
+
+  ioDataProjError = &(this->ioData->romOffline.rob.relativeProjectionError);
 }
 
 //----------------------------------------------------------------------------------
@@ -103,7 +105,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   // approx
 
   // projection error
-  if (this->ioData->romOffline.rob.relativeProjectionError.relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
+  if (ioDataProjError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
 
 }
 
@@ -213,10 +215,10 @@ void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, boo
   bool incrementalSnaps = false;
   bool subtractRefSol = false;
   if (preprocess) {
-    if (this->ioData->romOffline.rob.relativeProjectionError.projectIncrementalSnaps) {
+    if (ioDataProjError->projectIncrementalSnaps) {
       incrementalSnaps = true;
       nTotSnaps -= nData;
-    } else if (this->ioData->romOffline.rob.relativeProjectionError.subtractRefSol) {
+    } else if (ioDataProjError->subtractRefSol) {
       subtractRefSol = true;
       if (!(this->ioData->input.stateSnapRefSolution)) {
         this->com->fprintf(stderr, "*** Error: Reference solution not found \n");
@@ -1376,19 +1378,19 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
   projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);
 
   // if computing residuals
-  //  if (this->ioData->romOffline.rob.relativeProjectionError.basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
+  //  if (ioDataProjError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
   //  ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
 
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
 
-    switch (this->ioData->romOffline.rob.relativeProjectionError.relProjError) {
+    switch (ioDataProjError->relProjError) {
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
         this->readClusteredBasis(iCluster, "state", true);
-        if (this->ioData->romOffline.rob.relativeProjectionError.basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
+        if (ioDataProjError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
             this->snapRefState!=NULL) 
           this->updateBasis(iCluster, *(this->snapRefState));
-        if (this->ioData->romOffline.rob.relativeProjectionError.krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
-        if (this->ioData->romOffline.rob.relativeProjectionError.sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
+        if (ioDataProjError->krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
+        if (ioDataProjError->sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
         break;
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
         this->readClusteredBasis(iCluster, "residual", true);
@@ -1426,11 +1428,34 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
     delete tmpVecSet;
     tmpVecSet = NULL;
 
-    //OUTPUT projectedSnaps + snapRefState
+    // option to output postprocesed projected states (projectedSnaps + snapRefState if snapRefState is defined)
     
+    if (ioDataProjError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON ) { //||
+       // ioDataProjError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+  
+      TsDesc<dim>* tsDesc = new TsDesc<dim>(*(this->ioData), geoSource, &(this->domain));    
 
-    // Form R(projectedSnaps + snapRefState)?
+      if (ioDataProjError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON) {
 
+        DistSVec<double,dim> outVec(this->domain.getNodeDistInfo());
+
+        for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+          if (this->snapRefState) {
+             outVec = *(this->snapRefState);
+             outVec += (*projectedSnaps)[iSnap];
+          } else {
+             outVec = (*projectedSnaps)[iSnap];
+          }
+          tsDesc->performPostProForState(outVec);
+        }
+      }
+
+      // option to output spatial residual of projected states (projectedSnaps + snapRefState if snapRefState is defined)
+      //if (ioDataProjError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+       // this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
+      //}
+      if (tsDesc) delete tsDesc;
+    }
 
     // snaps - projSnaps
     this->com->fprintf(stdout, " ... difference = originalSnaps - projectedSnaps\n");

@@ -8,6 +8,8 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
 
   protected:
 
+  RelativeProjectionErrorData* ioDataProjError;
+
   GeoSource &geoSource;
 
   VecSet<Vec<double> >* projErrorLog;

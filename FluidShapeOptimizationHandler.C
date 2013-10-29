@@ -1112,7 +1112,6 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
-
 }
 
 //------------------------------------------------------------------------------
@@ -1549,7 +1548,8 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData,
   // - Derivative of Vector Quantities: VelocityVector, Displacement
   //
   //
-  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
+  this->com->fprintf(stderr,"Warning: Debug statement in FluidShapeOptimization.C");
+  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dFdS, this->timeState);
 
 }
 

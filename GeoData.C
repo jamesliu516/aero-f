@@ -6,12 +6,12 @@ GeoData::GeoData(IoData &ioData)
 {
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     
     if (ioData.ts.type != TsData::IMPLICIT)
       ioData.ts.type = TsData::IMPLICIT;
 
-    if (ioData.ts.implicit.type != ImplicitData::BACKWARD_EULER)
+    if (ioData.ts.implicit.type != ImplicitData::SPATIAL_ONLY)
       ioData.ts.implicit.type = ImplicitData::BACKWARD_EULER;
 
     if (ioData.dgcl.normals != DGCLData::IMPLICIT_FIRST_ORDER_GCL)
