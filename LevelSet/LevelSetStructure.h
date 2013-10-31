@@ -99,6 +99,8 @@ class LevelSetStructure {
             swept[i] = is_swept[i] ? 1 : 0;
     }
 
+    Vec<int> & getStatus() { return status; }
+
     virtual class CrackingSurface* 
       getCrackingSurface() { return NULL; }
 

@@ -1376,6 +1376,62 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
 
   
 }
+
+template<class Scalar>
+template<class T>
+void MultiGridLevel<Scalar>::
+assembleInternalMax(DistVec<T> & A) const {
+
+  
+#pragma omp parallel for
+  for (int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+
+    MultigridSubdomain* D = &mgSubdomains[iSub];
+    int glSub = domain.getSubDomain()[iSub]->getGlobSubNum();
+
+    for (std::map<int,NeighborDomain*>::iterator it = D->neighbors.begin();
+	 it != D->neighbors.end(); ++it) {
+      
+      NeighborDomain* N = it->second;
+      int snd = sndChannel(glSub, it->first);
+      SubRecInfo<T> sInfo = nodeVolPattern->getSendBuffer(snd);
+      T *buffer = reinterpret_cast<T *>(sInfo.data);
+    
+      for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
+        T * a = &A(iSub)[N->sharedNodes[iNode].second];
+        buffer[iNode] =  std::max<T>(*a,buffer[iNode]);
+      }
+    }
+    
+  }
+
+  nodeVolPattern->exchange();
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
+
+    MultigridSubdomain* D = &mgSubdomains[iSub];
+    int glSub = domain.getSubDomain()[iSub]->getGlobSubNum();
+
+    for (std::map<int,NeighborDomain*>::iterator it = D->neighbors.begin();
+	 it != D->neighbors.end(); ++it) {
+      
+      NeighborDomain* N = it->second;
+
+      int rcv = rcvChannel(glSub, it->first);
+      SubRecInfo<T> sInfo = nodeVolPattern->recData(rcv);
+      T *buffer = reinterpret_cast<T *>(sInfo.data);
+
+      for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
+        T * a = &A(iSub)[N->sharedNodes[iNode].second];
+        *a = std::max<T>(buffer[iNode],*a);
+      }
+    }
+  }
+
+ 
+}
+
 template <class Scalar>
 void MultiGridLevel<Scalar>::mapNodeList(int iSub,Aerof_unordered_set<int>::type&  l) {
 
@@ -3698,6 +3754,17 @@ void MultiGridLevel<Scalar>::assembleMax(DistSVec<Scalar2,dim>& V)
     ::assemble(domain, *nodeVecPattern, sharedNodes, V, maxOp);
 }
 
+template<class Scalar>   
+template <class Scalar2> 
+void MultiGridLevel<Scalar>::assembleMax(DistVec<Scalar2>& V) {
+
+  operMax<double> maxOp;
+  if (agglomType == AgglomerationLocal)
+    ::assemble(domain, *nodeVecPattern, sharedNodes, V, maxOp);
+  else
+    assembleInternalMax(V);
+}
+
 template<class Scalar> 
 int MultiGridLevel<Scalar>::getNumNeighborSubdomains(int mySub) {
 
@@ -4288,6 +4355,8 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
 #define INSTANTIATION_HELPER2(T) \
   template void MultiGridLevel<T>::assemble(DistVec<double> &); \
   template void MultiGridLevel<T>::assembleInternal(DistVec<double> &) const; \
+  template void MultiGridLevel<T>::assembleMax(DistVec<double> &); \
+  template void MultiGridLevel<T>::assembleInternalMax(DistVec<double> &) const; \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistVec<double> &, DistVec<double> &) const; 
 
 template class MultiGridLevel<double>;

@@ -179,6 +179,9 @@ class MultiGridLevel {
     template<class T>
       void assembleInternal(DistVec<T> & A) const;
 
+    template<class T>
+      void assembleInternalMax(DistVec<T> & A) const;
+
   public:
     MultiGridLevel(MultiGridMethod,MultiGridLevel*,Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
 
@@ -332,6 +335,8 @@ class MultiGridLevel {
     void assemble(DistMat<Scalar2,dim>& V);
     template <class Scalar2,int dim>
     void assembleMax(DistSVec<Scalar2,dim>& V);
+    template <class Scalar2>
+    void assembleMax(DistVec<Scalar2>& V);
 
     template <class Scalar2,int dim>
     void computeMatVecProd(DistMat<Scalar2,dim>& mat,

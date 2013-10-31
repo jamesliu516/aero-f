@@ -4142,10 +4142,12 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
 						     (*distLSS)(iSub), pInfty, 
 						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn, (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0);
   }
+  double res = 0.0;
   for (int is=0; is<sizeFs; is++) {
     Fs[is][0] = subFs[0][is][0];
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
+    res += Fs[is][0]*Fs[is][0] +  Fs[is][1]*Fs[is][1] +  Fs[is][2]*Fs[is][2];
   }
 #pragma omp parallel for
   for (int iSub=1; iSub<numLocSub; iSub++)

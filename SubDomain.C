@@ -6816,7 +6816,8 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
       // falls on a portion of the structure that is phantom (i.e., no longer
       // exists)
       if (cs && cs->getPhi(nSt, qloc[nq][0], qloc[nq][1]) < 0.0)
-	continue;
+      	continue;
+ 
 
       for (int i=0; i<4; i++) T[i] = (*E)[i];
       Vec3D Xf[4]; 
@@ -6857,13 +6858,13 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
       for (int i=0; i<4; i++) {
 	double dist = dbary[i].norm();
         if (norm[i] <= 0.) {
-	  if( LSS.isActive(0,T[i]) && dist < mindist[0] ) {
+	  if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] ) {
 	    mindist[0] = dist;
 	    node[0] = T[i];
 	  }
 	}
 	else {
-	  if( LSS.isActive(0,T[i]) && dist < mindist[1] ) {
+	  if( (LSS.isActive(0,T[i])|| (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[1] ) {
 	    mindist[1] = dist;
 	    node[1] = T[i];
 	  }
@@ -6895,6 +6896,8 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 	  }
         }
       }
+
+  
 
       flocal = 0.0;
       for (int n = 0; n < 2; ++n) {
