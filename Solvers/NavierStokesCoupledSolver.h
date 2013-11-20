@@ -14,6 +14,7 @@
 #include <MultiGridSolver.h>
 #include <MultiGridCoupledTsDesc.h>
 #include <FluidShapeOptimizationHandler.h>  // YC
+#include <FluidRomShapeOptimizationHandler.h>  // MZ
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
 
@@ -40,6 +41,11 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   else if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
       FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
+  }
+  else if (ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) { // MZ
+      FluidRomShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidRomShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
   }
   else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 

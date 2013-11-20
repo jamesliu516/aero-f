@@ -536,7 +536,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.velocitynorm);
   }
 
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -636,7 +636,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   switchOpt = true;
   }
-  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ || iod.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     switchOpt = false;
   }
 

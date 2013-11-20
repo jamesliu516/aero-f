@@ -673,6 +673,19 @@ void ImplicitRomTsDesc<dim>::resetFixesTag()
 //------------------------------------------------------------------------------
 
 template<int dim>
+void ImplicitRomTsDesc<dim>::computeRedHessianSums(int it, DistSVec<double, dim> &Q)  {
+
+  //mvpfd->evaluate(it, *this->X, *this->A, Q, F);
+  
+  //for (int iPod = 0; iPod < nPod; iPod++)
+  //  mvpfd->apply(pod[iPod], AJ[iPod]);
+
+}
+
+//------------------------------------------------------------------------------
+
+
+template<int dim>
 void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool applyWeighting, DistSVec<double, dim> *R)  {
 
 //  DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
@@ -749,6 +762,16 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
 //	}
 
 //}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::rstVarImplicitRomTsDesc(IoData &ioData)
+{
+
+  mvpfd->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+
+}
 
 //------------------------------------------------------------------------------
 

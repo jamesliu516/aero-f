@@ -380,7 +380,7 @@ struct ProblemData {
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
                 _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34,  _ACC_UNSTEADY_NONLINEAR_ROM_ = 35,
-                _STEADY_NONLINEAR_ROM_ = 36, _FORCED_NONLINEAR_ROM_ = 37} alltype;
+                _STEADY_NONLINEAR_ROM_ = 36, _FORCED_NONLINEAR_ROM_ = 37, _ROM_SHAPE_OPTIMIZATION_ = 38} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1638,6 +1638,8 @@ struct SensitivityAnalysis {
 
   enum Method {DIRECT = 0, ADJOINT = 1} method;
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
+  enum LsSolver {QR=0, NORMAL_EQUATIONS=1} lsSolver;
+  enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
 
