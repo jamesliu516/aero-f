@@ -1064,7 +1064,9 @@ public:
 
   // Assign ErrorHandler to subdomains
   void assignErrorHandler();
-  
+ 
+  void setFarFieldMask(DistVec<double> &ffMask); // ffMask is nonzero for farfield nodes
+ 
  
  };
 

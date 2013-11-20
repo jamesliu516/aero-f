@@ -19,8 +19,6 @@ ImplicitGnatTsDesc<dim>::ImplicitGnatTsDesc(IoData &ioData, GeoSource &geoSource
   jactmp = NULL;
   column = NULL;
   
-  Uinit = NULL;
-  
 }
 
 //------------------------------------------------------------------------------
@@ -30,7 +28,6 @@ ImplicitGnatTsDesc<dim>::~ImplicitGnatTsDesc()
 {
 	if (jactmp) delete [] jactmp;
 	if (column) delete [] column;
-  if (Uinit) delete Uinit;
   
   ResRestrict.reset();
   AJRestrict.reset();
@@ -253,8 +250,8 @@ void ImplicitGnatTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &
     this->com->printf(2, "      and is relative to the residual of the initial condition calculated on the same sample mesh.\n");
     this->com->printf(2, "      (This reference residual is re-restricted after every cluster switch for consistency).\n");
  
-    Uinit = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-    *Uinit = U;  // needed for computing the restricted residual after each cluster switch
+    this->Uinit = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+    *(this->Uinit) = U;  // needed for computing the restricted residual after each cluster switch
   }
 
   this->com->printf(2, "\n");
@@ -301,13 +298,13 @@ template<int dim>
 double ImplicitGnatTsDesc<dim>::computeGnatResidualNorm(DistSVec<double,dim>& Q)
 { // spatial only
 
-  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *this->R, this->timeState, *(this->rom->restrictMapping()));
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, this->F, this->timeState, *(this->rom->restrictMapping()));
 
-  this->spaceOp->applyBCsToResidual(Q, *this->R);
+  this->spaceOp->applyBCsToResidual(Q, this->F);
 
   double t0 = this->timer->getTime();
 
-  (this->rom->restrictMapping())->restriction(*this->R, *ResRestrict); 
+  (this->rom->restrictMapping())->restriction(this->F, *ResRestrict); 
 
   this->timer->addRestrictionTime(t0);
 
@@ -324,7 +321,7 @@ double ImplicitGnatTsDesc<dim>::computeGnatResidualNorm(DistSVec<double,dim>& Q)
 template<int dim>
 void ImplicitGnatTsDesc<dim>::setReferenceResidual()
 {
-  if (Uinit) this->restart->residual = computeGnatResidualNorm(*Uinit);
+  if (this->Uinit) this->restart->residual = computeGnatResidualNorm(*(this->Uinit));
 
   this->com->printf(2, "Norm of restricted reference residual = %.12e\n", this->restart->residual);
 

@@ -661,6 +661,18 @@ void Domain::setInletNodes(IoData &ioData)
     inletVec3DPat->finalize();
     inletCountPat->finalize();
   }
+
+  if (ioData.romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
+    // If weighting the boundary conditions, create node lists for far field nodes and wall nodes.
+    // Note that the far field node list is identical to the inletNodes information, but it was 
+    // necessary to duplicate this because when the inletNodes object is defined it triggers the
+    // code to use extrapolation at the boundary.  
+#pragma omp parallel for
+    for (iSub = 0; iSub<numLocSub; ++iSub) {
+      subDomain[iSub]->setFarFieldNodes();
+      //subDomain[iSub]->setWallNodes();
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1773,3 +1785,15 @@ void Domain::assignErrorHandler(){
   }
 
 }
+
+
+void Domain::setFarFieldMask(DistVec<double>& ffMask) {
+
+  ffMask = 0.0;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->setFarFieldMask(ffMask(iSub)); // sets ffMask to 1.0 at far field nodes
+
+}
+

@@ -27,6 +27,7 @@ using std::swap;
 Face::Face()
 {
   higherOrderMF = NULL;
+  //ffWeight = 1.0;  //for nonlinear ROM simulations requiring additional weighting for far field BCs
 }
 
 //------------------------------------------------------------------------------

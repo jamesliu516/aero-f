@@ -8,6 +8,8 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
 
   protected:
 
+  RelativeProjectionErrorData* ioDataProjError;
+
   GeoSource &geoSource;
 
   VecSet<Vec<double> >* projErrorLog;
@@ -24,6 +26,7 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   double calcResidual(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &);
   void localPod(char *);
   void kmeans();
+  void computeClassicalMultiDimensionalScaling();
   void localRelProjError(); 
 
   // fast distance calculation preprocessing

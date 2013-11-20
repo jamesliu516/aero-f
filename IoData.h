@@ -1996,6 +1996,7 @@ struct NonlinearRomFilesData {
   const char *centersName;
   const char *nearestName;
   const char *centerNormsName;
+  const char *distanceMatrixName;
 
   // State bases
   const char *stateBasisPrefix;
@@ -2118,8 +2119,9 @@ struct NonlinearRomOnlineData {
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_TRUE = 1} lineSearch;
 	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2} lsSolver;
 
-  enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3} weightedLeastSquares;
+  enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
   double weightingExponent;
+  double ffWeight;
 
   double regThresh;
   double constantGain;
@@ -2162,6 +2164,8 @@ struct RelativeProjectionErrorData {
   double energy;
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1} basisUpdates;
+
+  enum PostProProjectedStates {POST_PRO_OFF = 0, POST_PRO_ON = 1} postProProjectedStates;
 
   NonlinearRomOnlineNonStateData krylov;
   NonlinearRomOnlineNonStateData sensitivity;
@@ -2310,6 +2314,7 @@ struct ClusteringData {
   double kMeansTol;
   int kMeansRandSeed;
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
+  enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
 
   ClusteringData();
   ~ClusteringData() {}
@@ -2320,15 +2325,15 @@ struct ClusteringData {
 
 //------------------------------------------------------------------------------
 
-struct DistanceComparisonsData {
+struct BasisUpdatesData {
 
   enum PreprocessForNoUpdates {NO_UPDATES_FALSE = 0, NO_UPDATES_TRUE = 1} preprocessForNoUpdates;
   enum PreprocessForSimpleUpdates {SIMPLE_UPDATES_FALSE = 0, SIMPLE_UPDATES_TRUE = 1} preprocessForSimpleUpdates;
   enum PreprocessForExactUpdates {EXACT_UPDATES_FALSE = 0, EXACT_UPDATES_TRUE = 1} preprocessForExactUpdates;
   enum PreprocessForApproxUpdates {APPROX_UPDATES_FALSE = 0, APPROX_UPDATES_TRUE = 1} preprocessForApproxUpdates;
 
-  DistanceComparisonsData();
-  ~DistanceComparisonsData() {}
+  BasisUpdatesData();
+  ~BasisUpdatesData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -2345,7 +2350,7 @@ struct ROBConstructionData {
   KrylovData krylov;
 
 	ClusteringData clustering;
-  DistanceComparisonsData distanceComparisons;
+  BasisUpdatesData basisUpdates;
   RelativeProjectionErrorData relativeProjectionError;
 
   ROBConstructionData();

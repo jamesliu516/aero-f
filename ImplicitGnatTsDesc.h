@@ -23,9 +23,6 @@ protected:
 	std::auto_ptr< VecSet < DistSVec<double, dim> > > AJRestrict;
 	std::auto_ptr< DistSVec<double, dim> > ResRestrict;
 
-  DistSVec<double, dim>* Uinit;  // initial condition of the steady state GNAT simulation, 
-                                 // stored to recalculate reference residual after cluster switch (new sampled mesh)
-
 	DistLeastSquareSolver leastSquaresSolver;
 
   void setProblemSize(DistSVec<double, dim> &);

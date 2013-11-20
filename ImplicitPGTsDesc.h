@@ -52,7 +52,10 @@ protected:
 
   void setProblemSize(DistSVec<double, dim> &);
 
-  void applyWeightingToLeastSquaresSystem();
+  void updateLeastSquaresWeightingVector();
+
+  double computePGResidualNorm(DistSVec<double,dim> &);
+  void setReferenceResidual();
 
   int controlNodeGlobalID;
   int controlNodeLocalID;
@@ -60,6 +63,9 @@ protected:
   int controlNodeCpuNum;
 
 public:
+  bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
+  void monitorInitialState(int, DistSVec<double,dim> &);
+  bool monitorConvergence(int, DistSVec<double,dim> &);
   
   ImplicitPGTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitPGTsDesc();

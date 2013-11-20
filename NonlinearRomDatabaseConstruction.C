@@ -10,6 +10,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef DO_MODAL
+#include <arpack++/include/ardsmat.h>
+#include <arpack++/include/ardssym.h>
+#endif
+
 using std::stable_sort;
 
 template<int dim> 
@@ -26,6 +31,8 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
   initialCondition = NULL; 
 
   arbitraryUniformIC = false;
+
+  ioDataProjError = &(this->ioData->romOffline.rob.relativeProjectionError);
 }
 
 //----------------------------------------------------------------------------------
@@ -73,6 +80,10 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   if (this->ioData->romOffline.rob.clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
     readSnapshotFile("state", false);
     kmeans();
+    // option to form 2D representation of state data using multi-dimensional scaling (for visualization)
+    if (this->ioData->romOffline.rob.clustering.computeMDS == ClusteringData::COMPUTE_MDS_TRUE) {
+      computeClassicalMultiDimensionalScaling();
+    }
     this->outputClusteredSnapshots("state");
 
     // for snapshot collection method 0 (all snapshots from FOM)
@@ -93,17 +104,17 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   if (this->ioData->romOffline.rob.residual.dataCompression.computePOD) localPod("residual");
   if (this->ioData->romOffline.rob.jacAction.dataCompression.computePOD) localPod("jacAction");
 
-  // preprocessing for fast distance calculations
-  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForNoUpdates || 
-      this->ioData->romOffline.rob.distanceComparisons.preprocessForExactUpdates || 
-      this->ioData->romOffline.rob.distanceComparisons.preprocessForApproxUpdates) preprocessForDistanceComparisons();
+  // preprocessing for fast distance calculations (not currently supported for simple updates)
+  if (this->ioData->romOffline.rob.basisUpdates.preprocessForNoUpdates || 
+      this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates || 
+      this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) preprocessForDistanceComparisons();
 
-  // preprocessing for basis updates
-  // exact
-  // approx
+  // preprocessing for basis updates (data for simple updates is ouput automatically)
+//  if (this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates ||
+//      this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) preprocessForBasisUpdates();
 
   // projection error
-  if (this->ioData->romOffline.rob.relativeProjectionError.relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
+  if (ioDataProjError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
 
 }
 
@@ -213,10 +224,10 @@ void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, boo
   bool incrementalSnaps = false;
   bool subtractRefSol = false;
   if (preprocess) {
-    if (this->ioData->romOffline.rob.relativeProjectionError.projectIncrementalSnaps) {
+    if (ioDataProjError->projectIncrementalSnaps) {
       incrementalSnaps = true;
       nTotSnaps -= nData;
-    } else if (this->ioData->romOffline.rob.relativeProjectionError.subtractRefSol) {
+    } else if (ioDataProjError->subtractRefSol) {
       subtractRefSol = true;
       if (!(this->ioData->input.stateSnapRefSolution)) {
         this->com->fprintf(stderr, "*** Error: Reference solution not found \n");
@@ -867,7 +878,6 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   }
 
   // create data structure needed for clustering non-state FOM information (explained in header file)
-
   stateSnapshotClustersAfterOverlap = new bool**[nSnapshotFiles];
   for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
     stateSnapshotClustersAfterOverlap[iFile] = new bool*[stateSnapsFromFile[iFile]];
@@ -1201,8 +1211,8 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   //--------- End (noUpdates || exactUpdates || approxUpdates) ---------------//
 
 
-  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForNoUpdates || 
-      this->ioData->romOffline.rob.distanceComparisons.preprocessForExactUpdates) {
+  if (this->ioData->romOffline.rob.basisUpdates.preprocessForNoUpdates || 
+      this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates) {
 
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
       productOfBasisAndCenterDifferences(iCluster, "state");
@@ -1216,7 +1226,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   //--------- End (noUpdates || exactUpdates) ---------------//
 
 
-  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForExactUpdates) {
+  if (this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates) {
       this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For exact online ROB updates)\n");
 
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
@@ -1230,7 +1240,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   //--------- End (exactUpdates) ---------------//
 
 
-  if (this->ioData->romOffline.rob.distanceComparisons.preprocessForApproxUpdates) {
+  if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
     this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For approximate online ROB updates)\n");
 
     //
@@ -1249,7 +1259,7 @@ void NonlinearRomDatabaseConstruction<dim>::productOfBasisAndCenterDifferences(i
   // computes w_(m,p) = 2 * basis^T *(center_p - center_m) for 0<=p<m<nClusters
   // note that w_(m,p) = -w_(p,m)
 
-  // note that in this case 0 <= p < m < nClusters, which differes from Amsallem et al., INJME 2012
+  // note that in this case 0 <= p < m < nClusters, which differs from Amsallem et al., INJME 2012
   // (this allows for easy indexing [m][p] without any unnecessary storage)
 
   this->readClusteredBasis(iCluster, basisType);
@@ -1285,7 +1295,7 @@ void NonlinearRomDatabaseConstruction<dim>::productOfVectorAndCenterDifferences(
   // computes w_(m,p) = 2 * vector^T *(center_p - center_m) for 0<=p<m<nClusters
   // note that w_(m,p) = -w_(p,m)
 
-  // note that in this case 0 <= p < m < nClusters, which differes from Amsallem et al., INJME 2012
+  // note that in this case 0 <= p < m < nClusters, which differs from Amsallem et al., INJME 2012
   // (this allows for easy indexing [m][p] without any unnecessary storage)
 
   DistSVec<double,dim>* vec;
@@ -1376,19 +1386,19 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
   projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);
 
   // if computing residuals
-  //  if (this->ioData->romOffline.rob.relativeProjectionError.basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
+  //  if (ioDataProjError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
   //  ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
 
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
 
-    switch (this->ioData->romOffline.rob.relativeProjectionError.relProjError) {
+    switch (ioDataProjError->relProjError) {
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
         this->readClusteredBasis(iCluster, "state", true);
-        if (this->ioData->romOffline.rob.relativeProjectionError.basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
+        if (ioDataProjError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
             this->snapRefState!=NULL) 
           this->updateBasis(iCluster, *(this->snapRefState));
-        if (this->ioData->romOffline.rob.relativeProjectionError.krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
-        if (this->ioData->romOffline.rob.relativeProjectionError.sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
+        if (ioDataProjError->krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
+        if (ioDataProjError->sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
         break;
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
         this->readClusteredBasis(iCluster, "residual", true);
@@ -1426,11 +1436,37 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
     delete tmpVecSet;
     tmpVecSet = NULL;
 
-    //OUTPUT projectedSnaps + snapRefState
+    // option to output postprocesed projected states (projectedSnaps + snapRefState if snapRefState is defined)
     
+    if (ioDataProjError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON ) { //||
+       // ioDataProjError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+  
+      TsDesc<dim>* tsDesc = new TsDesc<dim>(*(this->ioData), geoSource, &(this->domain));    
 
-    // Form R(projectedSnaps + snapRefState)?
+      if (ioDataProjError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON) {
 
+        DistSVec<double,dim> outVec(this->domain.getNodeDistInfo());
+
+        for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+          if (ioDataProjError->subtractRefSol) {
+             this->readReferenceState(); 
+             outVec = *(this->snapRefState);
+             outVec += (*projectedSnaps)[iSnap];
+             delete (this->snapRefState);
+             (this->snapRefState) = NULL;
+          } else {
+             outVec = (*projectedSnaps)[iSnap];
+          }
+          tsDesc->performPostProForState(outVec);
+        }
+      }
+
+      // option to output spatial residual of projected states (projectedSnaps + snapRefState if snapRefState is defined)
+      //if (ioDataProjError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+       // this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
+      //}
+      if (tsDesc) delete tsDesc;
+    }
 
     // snaps - projSnaps
     this->com->fprintf(stdout, " ... difference = originalSnaps - projectedSnaps\n");
@@ -1517,5 +1553,146 @@ void NonlinearRomDatabaseConstruction<dim>::writeProjErrorToDisk()  {
   this->com->barrier();
 
 }
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::computeClassicalMultiDimensionalScaling()  {
+#ifdef DO_MODAL
+
+  this->com->fprintf(stdout, "\nEntering classical multi-dimensional scaling routine\n");
+
+  //form distance matrix (squared distances)
+  std::vector<std::vector<double> > distanceMat;
+  std::vector<std::vector<double> > tmpMat;
+
+  //DEBUGGING
+ // int nSnaps = 10;
+ // distanceMat.resize(nSnaps);
+ // tmpMat.resize(nSnaps);
+ // for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+ //     distanceMat[iSnap].resize(iSnap+1);
+ //     tmpMat[iSnap].resize(iSnap+1);
+ // }
+
+ // for (int i=0;i<nSnaps;++i) {
+ //  for (int j=0;j<nSnaps;++j) {
+ //      if (abs(i-j)<((nSnaps/2)+1)) {
+ //         distanceMat[i][j] = double(abs(j-i));
+ //      } else {
+  //         distanceMat[i][j] = double(nSnaps-abs(j-i));
+ //      }
+ //  }
+ // }
+
+  int nSnaps = this->snap->numVectors();
+  this->com->fprintf(stdout, "... calculating symmetric %dx%d distance matrix\n", nSnaps,nSnaps);
+  this->com->fprintf(stdout, "... (this might take a few minutes)\n");
+  distanceMat.resize(nSnaps);
+  tmpMat.resize(nSnaps);
+  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+      distanceMat[iSnap].resize(iSnap+1);
+      tmpMat[iSnap].resize(iSnap+1);
+  }
+
+  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+    for (int jSnap=0;jSnap<iSnap;++jSnap) {
+      distanceMat[iSnap][jSnap] = this->distanceFull((*(this->snap))[iSnap], (*(this->snap))[jSnap]);
+      distanceMat[iSnap][jSnap] *= distanceMat[iSnap][jSnap];
+    }
+    distanceMat[iSnap][iSnap] = 0.0; //diagonals are all zero 
+  }
+
+  //output distance matrix (matlab is useful for visualizing in 3D)
+  this->outputClusteredInfoASCII(-1, "distanceMatrix", NULL, &distanceMat);
+
+  //apply "double centering" to distance matrix (-.5*H*D*H)
+  this->com->fprintf(stdout, "... applying double centering transformation to distance matrix\n", nSnaps,nSnaps);
+  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+    for (int jSnap=0;jSnap<=iSnap;++jSnap) {
+      tmpMat[iSnap][jSnap] = 0.0;
+      for (int pSnap=0;pSnap<iSnap;++pSnap) {
+        tmpMat[iSnap][jSnap] += distanceMat[iSnap][pSnap];
+      }
+      for (int qSnap=iSnap;qSnap<nSnaps;++qSnap) {
+        tmpMat[iSnap][jSnap] += distanceMat[qSnap][iSnap];
+      }
+      tmpMat[iSnap][jSnap] /= double(nSnaps);
+      tmpMat[iSnap][jSnap] = distanceMat[iSnap][jSnap] - tmpMat[iSnap][jSnap];
+    }
+  }
+  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+    for (int jSnap=0;jSnap<=iSnap;++jSnap) {
+      distanceMat[iSnap][jSnap] = 0.0;
+      for (int pSnap=0;pSnap<jSnap;++pSnap) {
+        distanceMat[iSnap][jSnap] += tmpMat[iSnap][pSnap];
+      }
+      for (int qSnap=jSnap;qSnap<nSnaps;++qSnap) {
+        distanceMat[iSnap][jSnap] += tmpMat[qSnap][jSnap];
+      }
+      distanceMat[iSnap][jSnap] /= double(nSnaps);
+      distanceMat[iSnap][jSnap] = tmpMat[iSnap][jSnap] - distanceMat[iSnap][jSnap];
+      distanceMat[iSnap][jSnap] *= -.5;
+    }
+  }
+
+  double* symMat = new double[((nSnaps*nSnaps)+nSnaps)/2]; //symmetric matrix
+  int count=0;
+  for (int jSnap=0;jSnap<nSnaps;++jSnap) {
+    for (int iSnap=jSnap;iSnap<nSnaps;++iSnap) {
+      symMat[count] = distanceMat[iSnap][jSnap];
+      count++;
+    }
+  }
+
+  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+    tmpMat[iSnap].clear();
+    distanceMat[iSnap].clear();
+  }
+  tmpMat.clear();
+  distanceMat.clear();
+ 
+  //extract eigenpairs corresponding to 2 largest positive eigenvalues (using ARPACK++)
+  this->com->fprintf(stdout, "... computing eigendecomposition of distance matrix using ARPACK\n");
+  int numEigVals = 10;
+  double* eVals = new double[numEigVals];
+  double* eVecs = new double[numEigVals*nSnaps];
+  ARdsSymMatrix<double> arpackMat(nSnaps, symMat, 'L'); // real dense symmetric matrix
+  ARluSymStdEig<double> eigProb(numEigVals, arpackMat, "LM");
+  int nconv = eigProb.EigenValVectors(eVecs, eVals);
+
+  int eig1 = 0;
+  int eig2 = 0;
+
+  this->com->fprintf(stdout, "\n... eigenvalues\n");
+  for (int iEig=0;iEig<numEigVals;++iEig) {
+    this->com->fprintf(stdout, "%e\n", eVals[iEig]);
+    if (eVals[iEig] > eVals[eig1]) {
+      eig2=eig1;
+      eig1=iEig;
+    } else if (eVals[iEig] > eVals[eig2]) {
+      eig2=iEig;
+    }
+  }
+
+  sleep(1);
+
+  this->com->fprintf(stdout, "\n2D visualization information: coord1 coord2 primaryCluster\n");
+  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+    this->com->fprintf(stdout, "%e %e %d\n", sqrt(eVals[eig1])*eVecs[nSnaps*eig1+iSnap], sqrt(eVals[eig2])*eVecs[nSnaps*eig2+iSnap], this->clusterIndex[iSnap]);
+  }
+
+  delete [] eVals;
+  delete [] eVecs;
+
+  delete [] symMat;
+  
+#else
+  this->com->fprintf(stderr, "*** Error: code must be compiled with ARPACK and DO_MODAL flag to compute MDS\n");
+  return;
+#endif
+
+}
+
 
 

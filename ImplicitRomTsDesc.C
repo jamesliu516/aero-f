@@ -65,7 +65,13 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   updateFreq = false;
   clusterSwitch = false;
 
-  if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_STATE) {
+  if (ioData->romOnline.weightedLeastSquares!=NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
+    weightVec = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+  } else {
+    weightVec = NULL;
+  }
+
+/*  if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_STATE) {
     weightURef = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
   } else {
     weightURef = NULL;
@@ -75,10 +81,20 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
     weightFRef = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
   } else {
     weightFRef = NULL;
+  }*/
+
+  if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
+    farFieldMask = new DistVec<double>(this->domain->getNodeDistInfo());
+    this->domain->setFarFieldMask(*farFieldMask);
+  } else {
+    farFieldMask = NULL;
   }
+  ffWeight = this->ioData->romOnline.ffWeight;
 
   regThresh = this->ioData->romOnline.regThresh;
   regWeight = 0.0;
+
+  Uinit = NULL;
 
 }
 
@@ -110,9 +126,11 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 	//delete [] dUnormAccum;
 
   if (tag) delete tag;
-  if (weightURef) delete weightURef;
-  if (weightFRef) delete weightFRef;
-
+  if (weightVec) delete weightVec;
+  //if (weightURef) delete weightURef;
+  //if (weightFRef) delete weightFRef;
+  if (farFieldMask) delete farFieldMask;
+  if (Uinit) delete Uinit;
 }
 
 //------------------------------------------------------------------------------
@@ -186,11 +204,10 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
       dUromCurrentROB.resize(nPod);
       dUromCurrentROB = 0.0;
       setProblemSize(U);  // defined in derived classes
+      // TODO also set new reference residual if the weighting changes
       if (clusterSwitch) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
-
     }
   }
-
   dUromTimeIt = 0.0;
 
 }
@@ -213,6 +230,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   DistSVec<double, dim> dUfull(this->domain->getNodeDistInfo());	// solution increment at EACH NEWTON ITERATION in full coordinates
   dUfull = 0.0;	// initial zero increment
 
+  DistSVec<double, dim> unweightedF(this->domain->getNodeDistInfo());  
+
   double res;
   bool breakloop = false;
   bool breakloopNow = false;
@@ -223,22 +242,22 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
 	postProStep(U,totalTimeSteps);
 
-  
   for (it = 0; it < maxItsNewton; it++)  {
 
+   // if (it==0) {
+   //   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_STATE)
+   //     *weightURef = U;
+   //
+   //   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL)
+   //     *weightFRef = this->F;
+   // }
+
 		double tRes = this->timer->getTime();
-    computeFullResidual(it, U);
-		computeAJ(it, U);	// skipped some times for Broyden
-
-    if (it==0) {
-      if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_STATE)
-        *weightURef = U;
-
-      if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL)
-        *weightFRef = this->F;
-    }
-
-    applyWeightingToLeastSquaresSystem();
+    updateLeastSquaresWeightingVector(); //only updated at the start of Newton
+    computeFullResidual(it, U, false, &unweightedF);
+		computeAJ(it, U, true, &unweightedF);	// skipped some times for Broyden
+    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)
+      computeFullResidual(it, U, true);
 		this->timer->addResidualTime(tRes);
 
 		solveNewtonSystem(it, res, breakloop, U, totalTimeSteps);	// 1) check if residual small enough, 2) solve 
@@ -321,7 +340,7 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
 //------------------------------------------------------------------------------
 // this function evaluates (Aw),t + F(w,x,v)
 template<int dim>
-void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> *R)
+void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R)
 {
   if (R==NULL) R = &F;
 
@@ -329,20 +348,40 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
 
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, *R);
 
-  this->spaceOp->applyBCsToResidual(Q, *R);
+  this->spaceOp->applyBCsToResidual(Q, *R);  // wall BCs only
+
+  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
+    // weight residual
+    double weightExp = this->ioData->romOnline.weightingExponent;
+    double weightNorm = weightVec->norm();
+    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
+    int numLocSub = R->numLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      double (*weight)[dim] = weightVec->subData(iSub);
+      double (*r)[dim] = R->subData(iSub);
+      for (int i=0; i<weightVec->subSize(iSub); ++i) {
+        for (int j=0; j<dim; ++j) {
+          weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
+          r[i][j] = r[i][j] * weight[i][j];
+        }
+      }
+    }
+  }
+
 }
 
 //------------------------------------------------------------------------------
 template<int dim>
-double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dQ, DistSVec<double, dim> &F, double stepLength)  {
+double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dQ, DistSVec<double, dim> &R, double stepLength)  {
 	// merit function: norm of the residual (want to minimize residual)
 
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + stepLength*dQ;
-  computeFullResidual(it,newQ,&F);
+  computeFullResidual(it,newQ,true,&R);
 
   double merit = 0.0;
-  merit += F.norm();	// merit function = 1/2 * (norm of full-order residual)^2
+  merit += R.norm();	// merit function = 1/2 * (norm of full-order residual)^2
   merit *= merit;
 //  merit *= 0.5;
 
@@ -380,12 +419,12 @@ double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, D
 
 //------------------------------------------------------------------------------
 template<int dim>
-double ImplicitRomTsDesc<dim>::meritFunctionDeriv(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &p, DistSVec<double, dim> &F, double currentMerit)  { 
+double ImplicitRomTsDesc<dim>::meritFunctionDeriv(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &p, DistSVec<double, dim> &R, double currentMerit)  { 
 
   double eps = mvpfd->computeEpsilon(Q,p);
-  DistSVec<double, dim> newF(this->domain->getNodeDistInfo());
+  DistSVec<double, dim> newR(this->domain->getNodeDistInfo());
 
-  double newMerit = meritFunction(it, Q, p, newF, eps);
+  double newMerit = meritFunction(it, Q, p, newR, eps);
 
   double meritDeriv = (newMerit - currentMerit) / eps;
 
@@ -429,7 +468,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
   int maxIter = 100;  // max iterations for finding a bracket
   DistSVec<double, dim> Qnew(this->domain->getNodeDistInfo()); // new state vector initialization
   double beta = 1.2;  // amount to increment alpha each time
-  double alpha_max = 50.0;    // bound on step size alpha
+  double alpha_max = 100000000.0;    // bound on step size alpha
   int maxedFlag = 0;  // flag to determine whether or not alpha_max has been reached
   int count = 0;  // counter for number of iterations
   double alpha = 1.0; // initial alpha is just the Newton step
@@ -437,15 +476,15 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
   double meritDeriv, meritDerivZero,targetMeritDerivZero, meritDerivOld;
 
   DistSVec<double,dim> dQ(this->domain->getNodeDistInfo());
-  DistSVec<double,dim> F(this->domain->getNodeDistInfo());
+  DistSVec<double,dim> R(this->domain->getNodeDistInfo());
   Vec<double> From(nPod);
   expandVector(prom, dQ);
 
   //----- Obtain an initial bracket -----//
 
-  meritZero = meritFunction(it, Q, dQ, F, 0.0);
+  meritZero = meritFunction(it, Q, dQ, R, 0.0);
   meritOld = meritZero;
-  meritDerivZero = meritFunctionDeriv(it, Q, dQ, F, meritZero);
+  meritDerivZero = meritFunctionDeriv(it, Q, dQ, R, meritZero);
 
   // Reverse the search direction if it is not a descent direction
 
@@ -468,15 +507,15 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
   double alphaOld = 0.0;  //Left endpoint is zero
   
   while (count<maxIter){
-    merit = meritFunction(it, Q, dQ, F, alpha); // evaluate merit function at current alpha
+    merit = meritFunction(it, Q, dQ, R, alpha); // evaluate merit function at current alpha
     if (merit>meritZero+c1*alpha*meritDerivZero || (merit>=meritOld && count>0)){
         // alphaLo=alphaOld, alphaHi=alpha
         this->com->fprintf(stderr,"Entering zoom from location 1, alpha = %e \n",alpha);
-        alpha = zoom(alphaOld, alpha, meritOld, merit, meritDerivOld, meritDerivZero, meritZero, c1, c2, Q, dQ, F, it);
+        alpha = zoom(alphaOld, alpha, meritOld, merit, meritDerivOld, meritDerivZero, meritZero, c1, c2, Q, dQ, R, it);
         return alpha;
     }
     Qnew = Q+alpha*dQ;  // Q at current alpha
-    meritDeriv = meritFunctionDeriv(it, Qnew, dQ, F, merit);
+    meritDeriv = meritFunctionDeriv(it, Qnew, dQ, R, merit);
 
     if (fabs(meritDeriv)<=-c2*meritDerivZero){
        this->com->fprintf(stderr,"Condition one is satisfied: %d. Condition two is satisfied: %d.\n",fabs(meritDeriv)<=-c2*meritDerivZero,merit<meritZero+c1*alpha*meritDerivZero);
@@ -486,7 +525,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
     if (meritDeriv>=0){
        // alphaLo=alpha, alphaHi=alphaOld
        this->com->fprintf(stderr,"Entering zoom from location 2.  The alphas are: alpha = %e, alphaOld = %e \n",alpha,alphaOld);
-       alpha = zoom(alpha, alphaOld, merit, meritOld, meritDeriv, meritDerivZero, meritZero, c1, c2, Q, dQ, F, it);
+       alpha = zoom(alpha, alphaOld, merit, meritOld, meritDeriv, meritDerivZero, meritZero, c1, c2, Q, dQ, R, it);
        return alpha;
     }
 
@@ -517,7 +556,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
 }
 //-----------------------------------------------------------------------------
 template<int dim>
-double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double meritLo, double meritHi, double meritDerivLo, double meritDerivZero, double meritZero, double c1, double c2, DistSVec<double, dim> Q, DistSVec<double, dim> dQ, DistSVec<double, dim> F, int it){
+double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double meritLo, double meritHi, double meritDerivLo, double meritDerivZero, double meritZero, double c1, double c2, DistSVec<double, dim> Q, DistSVec<double, dim> dQ, DistSVec<double, dim> R, int it){
 
     // Given a valid bracket, this function finds an alpha within the bracket satisfying the Strong Wolfe conditions
     // See p. 61 of Numerical Optimization, 2nd ed by Nocedal and Wright for details
@@ -534,7 +573,7 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
 
       // Perform a quadratic interpolation using slope of the low point IF matrix will be well-conditioned using a heuristic
 
-      if (fabs(alphaHi-alphaLo)>tolInterp){
+      if (false) { //(fabs(alphaHi-alphaLo)>tolInterp){
       
             FullM Vdm(3); // Vandermonde matrix
    
@@ -557,7 +596,7 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
 
       // Evaluate merit function
 
-      merit = meritFunction(it, Q, dQ, F, alpha);
+      merit = meritFunction(it, Q, dQ, R, alpha);
 
       if (merit>meritZero+c1*alpha*meritDerivZero || merit>=meritLo){
            alphaHi = alpha;
@@ -565,7 +604,7 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
       }
       else{
            Qnew = Q+alpha*dQ;
-           meritDeriv = meritFunctionDeriv(it, Qnew, dQ, F, merit);
+           meritDeriv = meritFunctionDeriv(it, Qnew, dQ, R, merit);
            if (fabs(meritDeriv)<=-c2*meritDerivZero){
                 this->com->fprintf(stderr,"Condition one is satisfied: %d. Condition two is satisfied: %d.\n",fabs(meritDeriv)<=-c2*meritDerivZero,merit<meritZero+c1*alpha*meritDerivZero);
                 this->com->fprintf(stderr,"alpha = %e, # zoom iter = %d\n",alpha, count);
@@ -634,7 +673,7 @@ void ImplicitRomTsDesc<dim>::resetFixesTag()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
+void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool applyWeighting, DistSVec<double, dim> *R)  {
 
 //  DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
 
@@ -648,11 +687,31 @@ void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 //      _pc->setup();
 
 //  } else {
-  
-  mvpfd->evaluate(it, *this->X, *this->A, Q, F);
+  if (R==NULL) R = &F;
+ 
+  mvpfd->evaluate(it, *this->X, *this->A, Q, *R);
   
   for (int iPod = 0; iPod < nPod; iPod++)
     mvpfd->apply(pod[iPod], AJ[iPod]);
+ 
+  // weight AJ
+  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
+    double weightExp = this->ioData->romOnline.weightingExponent;
+    double weightNorm = weightVec->norm();
+    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
+    for (int iVec=0; iVec<nPod; ++iVec) {
+      int numLocSub = ((AJ)[iVec]).numLocSub();
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double (*weight)[dim] = weightVec->subData(iSub);
+        double (*aj)[dim] = ((AJ)[iVec]).subData(iSub);
+        for (int i=0; i<weightVec->subSize(iSub); ++i) {
+          for (int j=0; j<dim; ++j)
+            aj[i][j] = aj[i][j] * weight[i][j];
+        }
+      }
+    }
+  }
 
 //  }
 

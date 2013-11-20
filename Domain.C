@@ -4741,3 +4741,5 @@ void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uex
 
   com->globalMax(dim, error);
 }
+
+

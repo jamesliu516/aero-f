@@ -49,8 +49,11 @@ protected:
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
-  DistSVec<double, dim>* weightURef;	  // reference state used for weighting least squares system
-  DistSVec<double, dim>* weightFRef;	  // reference residual used for weighting least squares syste,
+  DistSVec<double, dim>* weightVec;     // weighting vector for least squares system
+  //DistSVec<double, dim>* weightURef;	  // reference state used for weighting least squares system
+  //DistSVec<double, dim>* weightFRef;	  // reference residual used for weighting least squares system
+  DistVec<double>* farFieldMask;        // nonzero for far field nodes
+  double ffWeight;
 
   double regThresh;
   double regWeight;
@@ -65,8 +68,8 @@ protected:
 
 	double target, res0;	// for Newton convergence
 
-  virtual void computeAJ(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time
-  virtual void computeFullResidual(int, DistSVec<double, dim> &, DistSVec<double, dim> *R = NULL);  
+  virtual void computeAJ(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
+  virtual void computeFullResidual(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);  
 
   virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
@@ -83,7 +86,7 @@ protected:
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
   virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int);
-  virtual void applyWeightingToLeastSquaresSystem() {};
+  virtual void updateLeastSquaresWeightingVector() {};
 	//void savedUnormAccum();
 	//virtual void writeStateRomToDisk(int it, double cpu);
 	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
@@ -98,6 +101,11 @@ protected:
 
   bool updateFreq;
   bool clusterSwitch;
+
+  DistSVec<double, dim>* Uinit;  // initial condition of the steady state simulation, 
+                                 // stored to recalculate reference residual after 
+                                 // cluster switch (new sampled mesh for GNAT) or after
+                                 // changing the residual weighting 
 
 protected:
   template<class Scalar, int neq>

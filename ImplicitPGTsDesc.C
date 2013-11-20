@@ -21,7 +21,9 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 	if ((lsSolver == 1) || (lsSolver == 2)){  // normal equations
 		jactmp = new double [this->nPod * this->nPod];
 		this->jac.setNewSize(this->nPod,this->nPod);
-	}
+	} else {
+    jactmp = NULL;
+  }
 
   minRes = -1;
   rhsNormInit = -1;
@@ -122,7 +124,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 	}
 
 	if (res == 0.0 || res <= this->target) {
-		this->com->fprintf(stdout, "breakloop=true: res=%e\n", res);
+		//this->com->fprintf(stdout, "breakloop=true: res=%e\n", res);
 		breakloop = true;
 		return;	// do not solve the system
 	}
@@ -133,6 +135,18 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
 		for (int iPod=0; iPod<this->nPod; ++iPod)
 			this->dUromNewtonIt[iPod] = -lsCoeff[0][iPod];
+
+  
+ //   this->com->fprintf(stdout, "(||W*R_interior||)^2 = %e\n", );
+ //   this->com->fprintf(stdout, "(||R_interior||)^2   = %e\n", );
+ //   this->com->fprintf(stdout, "(||R_interior||)^2 / numInteriorNodes = %e\n", );
+
+ //   this->com->fprintf(stdout, "(||W*R_ff||)^2 = %e\n", );
+ //   this->com->fprintf(stdout, "(||R_ff||)^2 = %e\n", );
+ //   this->com->fprintf(stdout, "(||R_ff||)^2 / numFarFieldNodes = %e\n", );
+
+    this->com->fprintf(stdout, "||(W*J*Phi)' * W*R|| = %e\n", res);
+
 	}
 	else if (lsSolver == 1)	{		// normal equations
 		transMatMatProd(this->AJ,this->AJ,jactmp);	// TODO: make symmetric product
@@ -245,39 +259,54 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 //-----------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitPGTsDesc<dim>::applyWeightingToLeastSquaresSystem() {
+void ImplicitPGTsDesc<dim>::updateLeastSquaresWeightingVector() {
 
-  // weight the least-squares system
+  // form the weighting vector for the least-squares system
 
-  DistSVec<double, dim> weightVec(this->domain->getNodeDistInfo());
   int numLocSub = this->domain->getNumLocSub();
  
   switch (this->ioData->romOnline.weightedLeastSquares) {
     case (NonlinearRomOnlineData::WEIGHTED_LS_FALSE):
       return;
       break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL):
-      weightVec = *(this->weightFRef);
+/*    case (NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL):
+      *(this->weightVec) = *(this->weightFRef);
       break;
     case (NonlinearRomOnlineData::WEIGHTED_LS_STATE):
-      weightVec = *(this->weightURef);  
+      *(this->weightVec) = *(this->weightURef);  
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double (*weight)[dim] = weightVec.subData(iSub);
-        for (int i=0; i<weightVec.subSize(iSub); ++i) {
+        double (*weight)[dim] = this->weightVec->subData(iSub);
+        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
           for (int j=0; j<dim; ++j)
             weight[i][j] = weight[i][j] - (this->bcData->getInletConservativeState())[j];
         }
       }
-      break;
+      break;*/
     case (NonlinearRomOnlineData::WEIGHTED_LS_CV):
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = this->A->subData(iSub); // vector of control volumes
-        double (*weight)[dim] = weightVec.subData(iSub);
+        double (*weight)[dim] = this->weightVec->subData(iSub);
         for (int i=0; i<this->A->subSize(iSub); ++i) {
           for (int j=0; j<dim; ++j)
             weight[i][j] = cv[i];
+        }
+      }
+      break;
+    case (NonlinearRomOnlineData::WEIGHTED_LS_BOCOS):
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *ffMask = this->farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
+        double (*weight)[dim] = this->weightVec->subData(iSub);
+        for (int i=0; i<this->farFieldMask->subSize(iSub); ++i) {
+          if (ffMask[i]>0) {
+            for (int j=0; j<dim; ++j)
+              weight[i][j] = this->ffWeight;
+          } else {
+            for (int j=0; j<dim; ++j)
+               weight[i][j] = 1.0;
+          }
         }
       }
       break;
@@ -286,7 +315,7 @@ void ImplicitPGTsDesc<dim>::applyWeightingToLeastSquaresSystem() {
         exit(-1);
       break;
   } 
-
+/*
   double weightExp = this->ioData->romOnline.weightingExponent;
   double weightNorm = weightVec.norm();
   weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
@@ -316,7 +345,7 @@ void ImplicitPGTsDesc<dim>::applyWeightingToLeastSquaresSystem() {
       }
     }
   }
-
+*/
 
 
 }
@@ -416,6 +445,108 @@ void ImplicitPGTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
     }
 
   }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitPGTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
+{
+
+  this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
+
+  if (!this->problemType[ProblemData::UNSTEADY]) {
+    this->com->printf(2, "\nNOTE: For weighted ROM simulations the reported residual is calculated using a weighted norm,\n");
+    this->com->printf(2, "      and is relative to the residual of the initial condition calculated using the same norm.\n");
+
+    this->Uinit = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+    *(this->Uinit) = U;  // needed for computing the restricted residual after each cluster switch
+  }
+
+  this->com->printf(2, "\n");
+  
+}   
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+bool ImplicitPGTsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double dt, DistSVec<double,dim> &U)
+{
+
+  if (!this->problemType[ProblemData::UNSTEADY] && monitorConvergence(it, U))
+    return true;
+
+  if (!this->problemType[ProblemData::AERO] && !this->problemType[ProblemData::THERMO] && it >= this->data->maxIts) return true;
+
+  if (this->problemType[ProblemData::UNSTEADY] )
+    if(t >= this->data->maxTime - 0.01 * dt)
+      return true;
+
+  return false;
+
+}
+
+
+//------------------------------------------------------------------------------
+ 
+template<int dim>
+bool ImplicitPGTsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
+{// only called for steady simulations
+
+  this->data->residual = computePGResidualNorm(U);
+
+  if (this->data->residual == 0.0 || this->data->residual < this->data->eps * this->restart->residual)
+    return true;
+  else
+    return false;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+double ImplicitPGTsDesc<dim>::computePGResidualNorm(DistSVec<double,dim>& Q)
+{ // spatial only
+
+  this->spaceOp->computeResidual(*this->X, *this->A, Q, this->F, this->timeState);
+
+  this->spaceOp->applyBCsToResidual(Q, this->F);
+
+  // weight residual
+  if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
+    this->updateLeastSquaresWeightingVector();
+    double weightExp = this->ioData->romOnline.weightingExponent;
+    double weightNorm = this->weightVec->norm();
+    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
+    int numLocSub = Q.numLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      double (*weight)[dim] = this->weightVec->subData(iSub);
+      double (*f)[dim] = this->F.subData(iSub);
+      for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
+        for (int j=0; j<dim; ++j) {
+          weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
+          f[i][j] = f[i][j] * weight[i][j];
+        }
+      }
+    }
+  }
+
+  double res = 0.0;
+  res = (this->F) * (this->F);
+  return sqrt(res);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitPGTsDesc<dim>::setReferenceResidual()
+{
+  if (this->Uinit) this->restart->residual = computePGResidualNorm(*(this->Uinit));
+
+  this->com->printf(2, "Norm of reference residual = %.12e\n", this->restart->residual);
 
 }
 

@@ -21,7 +21,6 @@ template<int dim>
 NonlinearRom<dim>::NonlinearRom(Communicator *_com, IoData &_ioData, Domain &_domain)  : 
 com(_com), ioData(&_ioData), domain(_domain)
 { 
-
   //NOTE: ioData->example, com->example, domain.example
 
   nClusters = ioData->romDatabase.nClusters;  // overwritten later if there are actually fewer clusters
@@ -33,79 +32,82 @@ com(_com), ioData(&_ioData), domain(_domain)
   clusterName = ioData->romDatabase.directories.clusterName;
   sensitivityClusterName  = ioData->romDatabase.directories.sensitivityClusterName;
 
+  romFiles = &(ioData->romDatabase.files); 
+
   // State snapshot clusters
-  determineFileName(ioData->romDatabase.files.stateSnapsName, "snaps", ioData->romDatabase.files.statePrefix, stateSnapsName);
-  determineFileName(ioData->romDatabase.files.mapName, "map", ioData->romDatabase.files.statePrefix, mapName);
-  determineFileName(ioData->romDatabase.files.indexName, "index", ioData->romDatabase.files.statePrefix, indexName);
-  determineFileName(ioData->romDatabase.files.connName, "conn", ioData->romDatabase.files.statePrefix, connName);
-  determineFileName(ioData->romDatabase.files.centersName, "centers", ioData->romDatabase.files.statePrefix, centersName);
-  determineFileName(ioData->romDatabase.files.nearestName, "nearest", ioData->romDatabase.files.statePrefix, nearestName);
-  determineFileName(ioData->romDatabase.files.centerNormsName, "centerNorms", ioData->romDatabase.files.statePrefix, centerNormsName);
+  determineFileName(romFiles->stateSnapsName, "snaps", romFiles->statePrefix, stateSnapsName);
+  determineFileName(romFiles->mapName, "map", romFiles->statePrefix, mapName);
+  determineFileName(romFiles->indexName, "index", romFiles->statePrefix, indexName);
+  determineFileName(romFiles->connName, "conn", romFiles->statePrefix, connName);
+  determineFileName(romFiles->centersName, "centers", romFiles->statePrefix, centersName);
+  determineFileName(romFiles->nearestName, "nearest", romFiles->statePrefix, nearestName);
+  determineFileName(romFiles->centerNormsName, "centerNorms", romFiles->statePrefix, centerNormsName);
+  determineFileName(romFiles->distanceMatrixName, "distanceMatrix", romFiles->statePrefix, distanceMatrixName);
 
   // State bases
-  determinePrefixName(ioData->romDatabase.files.stateBasisPrefix, ioData->romDatabase.files.statePrefix, stateBasisPrefix);
-  determineFileName(ioData->romDatabase.files.stateBasisName, "rob", stateBasisPrefix, stateBasisName);
-  determineFileName(ioData->romDatabase.files.stateSingValsName, "svals", stateBasisPrefix, stateSingValsName);
-  determineFileName(ioData->romDatabase.files.updateInfoName, "update", stateBasisPrefix, updateInfoName);
-  determineFileName(ioData->romDatabase.files.stateDistanceComparisonInfoName, "dist", stateBasisPrefix, stateDistanceComparisonInfoName);
-  determineFileName(ioData->romDatabase.files.stateDistanceComparisonInfoExactUpdatesName, "distExactUpdates", stateBasisPrefix, stateDistanceComparisonInfoExactUpdatesName);
-  determineFileName(ioData->romDatabase.files.projErrorName, "proj", stateBasisPrefix, projErrorName);
-  determineFileName(ioData->romDatabase.files.refStateName, "refState", stateBasisPrefix, refStateName); 
+  determinePrefixName(romFiles->stateBasisPrefix, romFiles->statePrefix, stateBasisPrefix);
+  determineFileName(romFiles->stateBasisName, "rob", stateBasisPrefix, stateBasisName);
+  determineFileName(romFiles->stateSingValsName, "svals", stateBasisPrefix, stateSingValsName);
+  determineFileName(romFiles->updateInfoName, "update", stateBasisPrefix, updateInfoName);
+  determineFileName(romFiles->stateDistanceComparisonInfoName, "dist", stateBasisPrefix, stateDistanceComparisonInfoName);
+  determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesName, "distExactUpdates", stateBasisPrefix, stateDistanceComparisonInfoExactUpdatesName);
+  determineFileName(romFiles->projErrorName, "proj", stateBasisPrefix, projErrorName);
+  determineFileName(romFiles->refStateName, "refState", stateBasisPrefix, refStateName); 
 
   // Krylov snaps
-  determineFileName(ioData->romDatabase.files.krylovSnapsName, "snaps", ioData->romDatabase.files.krylovPrefix, krylovSnapsName);
+  determineFileName(romFiles->krylovSnapsName, "snaps", romFiles->krylovPrefix, krylovSnapsName);
 
   // Krylov bases
-  determinePrefixName(ioData->romDatabase.files.krylovBasisPrefix, ioData->romDatabase.files.krylovPrefix, krylovBasisPrefix);
-  determineFileName(ioData->romDatabase.files.krylovBasisName, "rob", krylovBasisPrefix, krylovBasisName);
-  determineFileName(ioData->romDatabase.files.krylovSingValsName, "svals", krylovBasisPrefix, krylovSingValsName);
-  determineFileName(ioData->romDatabase.files.krylovDistanceComparisonInfoName, "dist", krylovBasisPrefix, krylovDistanceComparisonInfoName);
+  determinePrefixName(romFiles->krylovBasisPrefix, romFiles->krylovPrefix, krylovBasisPrefix);
+  determineFileName(romFiles->krylovBasisName, "rob", krylovBasisPrefix, krylovBasisName);
+  determineFileName(romFiles->krylovSingValsName, "svals", krylovBasisPrefix, krylovSingValsName);
+  determineFileName(romFiles->krylovDistanceComparisonInfoName, "dist", krylovBasisPrefix, krylovDistanceComparisonInfoName);
 
   // Sensitivity snaps
-  determineFileName(ioData->romDatabase.files.sensitivitySnapsName, "snaps", ioData->romDatabase.files.sensitivityPrefix, sensitivitySnapsName);
+  determineFileName(romFiles->sensitivitySnapsName, "snaps", romFiles->sensitivityPrefix, sensitivitySnapsName);
 
   // Sensitivity basis
-  determinePrefixName(ioData->romDatabase.files.sensitivityBasisPrefix, ioData->romDatabase.files.sensitivityPrefix, sensitivityBasisPrefix);
-  determineFileName(ioData->romDatabase.files.sensitivityBasisName, "rob", sensitivityBasisPrefix, sensitivityBasisName);
-  determineFileName(ioData->romDatabase.files.sensitivitySingValsName, "svals", sensitivityBasisPrefix, sensitivitySingValsName);
-  determineFileName(ioData->romDatabase.files.sensitivityDistanceComparisonInfoName, "dist", sensitivityBasisPrefix, sensitivityDistanceComparisonInfoName);
+  determinePrefixName(romFiles->sensitivityBasisPrefix, romFiles->sensitivityPrefix, sensitivityBasisPrefix);
+  determineFileName(romFiles->sensitivityBasisName, "rob", sensitivityBasisPrefix, sensitivityBasisName);
+  determineFileName(romFiles->sensitivitySingValsName, "svals", sensitivityBasisPrefix, sensitivitySingValsName);
+  determineFileName(romFiles->sensitivityDistanceComparisonInfoName, "dist", sensitivityBasisPrefix, sensitivityDistanceComparisonInfoName);
 
   // Residual snaps
-  determineFileName(ioData->romDatabase.files.residualSnapsName, "snaps", ioData->romDatabase.files.residualPrefix, residualSnapsName);
+  determineFileName(romFiles->residualSnapsName, "snaps", romFiles->residualPrefix, residualSnapsName);
 
   // Residual bases
-  determinePrefixName(ioData->romDatabase.files.residualBasisPrefix, ioData->romDatabase.files.residualPrefix, residualBasisPrefix);
-  determineFileName(ioData->romDatabase.files.residualBasisName, "rob", residualBasisPrefix, residualBasisName);
-  determineFileName(ioData->romDatabase.files.residualSingValsName, "svals", residualBasisPrefix, residualSingValsName);
+  determinePrefixName(romFiles->residualBasisPrefix, romFiles->residualPrefix, residualBasisPrefix);
+  determineFileName(romFiles->residualBasisName, "rob", residualBasisPrefix, residualBasisName);
+  determineFileName(romFiles->residualSingValsName, "svals", residualBasisPrefix, residualSingValsName);
 
   // Action-of-Jacobian snaps
-  determineFileName(ioData->romDatabase.files.jacActionSnapsName, "snaps", ioData->romDatabase.files.jacActionPrefix, jacActionSnapsName);
+  determineFileName(romFiles->jacActionSnapsName, "snaps", romFiles->jacActionPrefix, jacActionSnapsName);
 
   // Action-of-Jacobian bases
-  determinePrefixName(ioData->romDatabase.files.jacActionBasisPrefix, ioData->romDatabase.files.jacActionPrefix, jacActionBasisPrefix);
-  determineFileName(ioData->romDatabase.files.jacActionBasisName, "rob", jacActionBasisPrefix, jacActionBasisName);
-  determineFileName(ioData->romDatabase.files.jacActionSingValsName, "svals", jacActionBasisPrefix, jacActionSingValsName);
+  determinePrefixName(romFiles->jacActionBasisPrefix, romFiles->jacActionPrefix, jacActionBasisPrefix);
+  determineFileName(romFiles->jacActionBasisName, "rob", jacActionBasisPrefix, jacActionBasisName);
+  determineFileName(romFiles->jacActionSingValsName, "svals", jacActionBasisPrefix, jacActionSingValsName);
 
   // GNAT quantities
-  determineFileName(ioData->romDatabase.files.sampledNodesName, "sampledNodes", ioData->romDatabase.files.gnatPrefix, sampledNodesName);
-  determineFileName(ioData->romDatabase.files.sampledNodesFullCoordsName, "sampledNodesFullCoords", ioData->romDatabase.files.gnatPrefix, sampledNodesFullCoordsName);
-  determineFileName(ioData->romDatabase.files.sampledStateBasisName, "sampledStateROB", ioData->romDatabase.files.gnatPrefix, sampledStateBasisName);
-  determineFileName(ioData->romDatabase.files.sampledSensitivityBasisName, "sampledSensitivityROB", ioData->romDatabase.files.gnatPrefix, sampledSensitivityBasisName);
-  determineFileName(ioData->romDatabase.files.sampledKrylovBasisName, "sampledKrylovROB", ioData->romDatabase.files.gnatPrefix, sampledKrylovBasisName);
-  determineFileName(ioData->romDatabase.files.sampledResidualBasisName, "sampledResROB", ioData->romDatabase.files.gnatPrefix, sampledResidualBasisName);
-  determineFileName(ioData->romDatabase.files.sampledJacActionBasisName, "sampledJacROB", ioData->romDatabase.files.gnatPrefix, sampledJacActionBasisName);
-  determineFileName(ioData->romDatabase.files.sampledMeshName, "top", ioData->romDatabase.files.gnatPrefix, sampledMeshName);
-  determineFileName(ioData->romDatabase.files.sampledSolutionName, "sol", ioData->romDatabase.files.gnatPrefix, sampledSolutionName);
-  determineFileName(ioData->romDatabase.files.sampledRefStateName, "sampledRefState", ioData->romDatabase.files.gnatPrefix, sampledRefStateName);
-  determineFileName(ioData->romDatabase.files.sampledWallDistName, "dwall", ioData->romDatabase.files.gnatPrefix, sampledWallDistName);
-  determineFileName(ioData->romDatabase.files.gappyJacActionName, "gappyJac", ioData->romDatabase.files.gnatPrefix, gappyJacActionName);
-  determineFileName(ioData->romDatabase.files.gappyResidualName, "gappyRes", ioData->romDatabase.files.gnatPrefix, gappyResidualName);
+  determineFileName(romFiles->sampledNodesName, "sampledNodes", romFiles->gnatPrefix, sampledNodesName);
+  determineFileName(romFiles->sampledNodesFullCoordsName, "sampledNodesFullCoords", romFiles->gnatPrefix, sampledNodesFullCoordsName);
+  determineFileName(romFiles->sampledStateBasisName, "sampledStateROB", romFiles->gnatPrefix, sampledStateBasisName);
+  determineFileName(romFiles->sampledSensitivityBasisName, "sampledSensitivityROB", romFiles->gnatPrefix, sampledSensitivityBasisName);
+  determineFileName(romFiles->sampledKrylovBasisName, "sampledKrylovROB", romFiles->gnatPrefix, sampledKrylovBasisName);
+  determineFileName(romFiles->sampledResidualBasisName, "sampledResROB", romFiles->gnatPrefix, sampledResidualBasisName);
+  determineFileName(romFiles->sampledJacActionBasisName, "sampledJacROB", romFiles->gnatPrefix, sampledJacActionBasisName);
+  determineFileName(romFiles->sampledMeshName, "top", romFiles->gnatPrefix, sampledMeshName);
+  determineFileName(romFiles->sampledSolutionName, "sol", romFiles->gnatPrefix, sampledSolutionName);
+  determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gnatPrefix, sampledRefStateName);
+  determineFileName(romFiles->sampledWallDistName, "dwall", romFiles->gnatPrefix, sampledWallDistName);
+  determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gnatPrefix, gappyJacActionName);
+  determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
 
   // Surface quantities
-  determineFileName(ioData->romDatabase.files.gappyResidualName, "sampledStateROB", ioData->romDatabase.files.surfacePrefix, surfaceStateBasisName);
-  determineFileName(ioData->romDatabase.files.gappyResidualName, "sol", ioData->romDatabase.files.surfacePrefix, surfaceSolutionName);
-  determineFileName(ioData->romDatabase.files.gappyResidualName, "dwall", ioData->romDatabase.files.surfacePrefix, surfaceWallDistName);
-  determineFileName(ioData->romDatabase.files.gappyResidualName, "top", ioData->romDatabase.files.surfacePrefix, surfaceMeshName);
+  determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
+  determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
+  determineFileName(romFiles->gappyResidualName, "dwall", romFiles->surfacePrefix, surfaceWallDistName);
+  determineFileName(romFiles->gappyResidualName, "top", romFiles->surfacePrefix, surfaceMeshName);
 
 
   basis = NULL;
@@ -527,8 +529,13 @@ void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  {
       com->fprintf(stdout, "\nWriting cluster index to disk\n");
   
       clustIndexFile = fopen(clustIndexPath, "wt");
-      com->fprintf(clustIndexFile,"Snapshot# OriginalCluster\n");
-  
+      if (clustIndexFile) {
+         com->fprintf(clustIndexFile,"Snapshot# OriginalCluster\n");
+      } else {  
+         com->fprintf(stdout,"***Error: Cannot open %s\n",clustIndexPath);
+         exit(-1);
+      }
+
       for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
         com->fprintf(clustIndexFile,"%d %d\n", iSnap, clusterIndex[iSnap]);
       }
@@ -2109,7 +2116,7 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, char* type, std::
                                              std::vector<std::vector<std::vector<double> > >* vec3,
                                              std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
                                                            
- // general IO function for small ASCII precomputed quantities
+  // general IO function for small ASCII precomputed quantities
  
   // sanity check inputs
   if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
@@ -2119,7 +2126,6 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, char* type, std::
     com->fprintf(stderr, "*** Error: no precomputed distance comparison quantity specified\n");
     exit(-1); 
   }
-
 
   int vecDim1, vecDim2;
   char *infoPath = NULL;
@@ -2148,6 +2154,11 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, char* type, std::
     determinePath(sensitivityDistanceComparisonInfoName, -2, infoPath);
     assert(vec3);
     vecDim1 = vec3->size();
+    vecDim2 = -1;
+  } else if (strcmp(type, "distanceMatrix") == 0) { // A_ij = ||U_i - U_j||_2 
+    determinePath(distanceMatrixName, -1, infoPath);
+    assert(vec2);
+    vecDim1 = vec2->size();
     vecDim2 = -1;
   } else {
     exit(-1);
@@ -2320,14 +2331,13 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(char* updateType) {
     }
 
     if (ioData->romOnline.sensitivity.include==NonlinearRomOnlineNonStateData::INCLUDE_ON)
-      readClusteredInfoASCII(-2, "sensitivity", NULL, NULL, &sensitivityBasisCentersProduct);
-      
+      readClusteredInfoASCII(-2, "sensitivity", NULL, NULL, &sensitivityBasisCentersProduct);      
 
     if (strcmp(updateType, "exactUpdates") == 0) {
       if (specifiedIC) {
         readClusteredInfoASCII(-1, "initialConditon", NULL, &initialConditionCentersProduct);
       } else {
-        // this will need to be constructed during initializeDistanceCalculations 
+        // this will be constructed during initializeDistanceComparisons 
       }
 
       refStateCentersProduct.resize(nClusters);
@@ -2336,6 +2346,8 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(char* updateType) {
       }
     }
   } else if (strcmp(updateType, "approxUpdates") == 0) {   
+
+
   } else {
     com->fprintf(stderr, "*** Error: unexpected update method\n");
     exit(-1);

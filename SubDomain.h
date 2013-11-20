@@ -138,6 +138,10 @@ class SubDomain {
 
   InletNodeSet inletNodes;
 
+  // for weighting the residual in Nonlinear ROM simulations
+  std::vector<int> farFieldNodes;
+  std::vector<int> wallNodes;
+
   int *locToGlobNodeMap;
   int *locToGlobFaceMap;
   int *locToGlobElemMap;
@@ -293,6 +297,8 @@ public:
   void checkNormalTetrahedra(ExtrapolationNodeData (*&)[2]);
   void setInletNodes(IoData& );
   void setInletNodes2(IoData& );
+  void setFarFieldNodes();
+  void setWallNodes();
   int findOppositeTet(int* , int );
   bool findNodeInTet(int, int);
   void checkInletNodes();
@@ -1371,6 +1377,8 @@ public:
   void updateFarfieldCoeffs(double dt) {faces.updateHHCoeffs(dt);}
   void updateBoundaryExternalState() {faces.updateHHState();}
   void initializeFarfieldCoeffs(double cc) {faces.initializeHHCoeffs(cc);}
+
+  void setFarFieldMask(Vec<double>& ffMask);
   
 };
 //------------------------------------------------------------------------------

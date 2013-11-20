@@ -25,6 +25,8 @@ class NonlinearRom {
   const char* clusterName;
   const char* sensitivityClusterName;
 
+  NonlinearRomFilesData* romFiles;
+
   // State snapshot clusters
   char* stateSnapsName;
   char* mapName;  
@@ -33,6 +35,7 @@ class NonlinearRom {
   char* centersName;
   char* nearestName;
   char* centerNormsName;
+  char* distanceMatrixName;
 
   // State bases
   char* stateBasisPrefix;
@@ -117,13 +120,15 @@ class NonlinearRom {
   std::vector<double>* columnSumsV;
   std::vector<double>* sVals;
   DistSVec<double, dim>* Uref; 
-  // 2: unique to exact
-    //basisbasisproduct
-    //refstatenorm
-    //icnorm
-    //refICproduct
+  // 2: unique to exact updates
+    //basisBasisProduct  // [iCluster][pCluster][:][:]
+    //basisUrefProduct   // [iCluster]
+    //basisUicProduct
+    //normUref
+    //normUic
+    //UrefUicproduct
     //
-  // 3: unique to approximate 
+  // 3: unique to approximate updates
 
 
   // fast distance calculation quantities

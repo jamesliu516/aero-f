@@ -7636,4 +7636,3 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
   }
 }
  
- 

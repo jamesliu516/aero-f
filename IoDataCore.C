@@ -3453,6 +3453,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   centersName = "";
   nearestName = "";
   centerNormsName = "";
+  distanceMatrixName = "";
 
   // State bases
   stateBasisPrefix = "";
@@ -3542,6 +3543,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "ClusterCenters", this, &NonlinearRomFilesData::centersName);
   new ClassStr<NonlinearRomFilesData>(ca, "NearestSnapsToCenters", this, &NonlinearRomFilesData::nearestName);
   new ClassStr<NonlinearRomFilesData>(ca, "NormsOfClusterCenters", this, &NonlinearRomFilesData::centerNormsName);
+  new ClassStr<NonlinearRomFilesData>(ca, "DistanceMatrixName", this, &NonlinearRomFilesData::distanceMatrixName);
 
   // State bases
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisPrefix", this, &NonlinearRomFilesData::stateBasisPrefix);
@@ -3641,6 +3643,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   integralGain = 0.0;
   integralLeakGain = 0.0;
   regThresh = 0.0;
+  ffWeight = 1.0;
   ffErrorTol = 0.0;
   controlNodeID = -1;
 }
@@ -3672,7 +3675,9 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<NonlinearRomOnlineData>(ca, "Energy", this, &NonlinearRomOnlineData::energy);
 
   new ClassToken<NonlinearRomOnlineData> (ca, "WeightedLeastSquares", this, reinterpret_cast<int
-      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 4, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3);
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 5, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3, "BoundaryConditions", 4);
+
+  new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldWeighting", this, &NonlinearRomOnlineData::ffWeight);
   new ClassDouble<NonlinearRomOnlineData>(ca, "WeightingExponent", this, &NonlinearRomOnlineData::weightingExponent);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationConstantGain", this, &NonlinearRomOnlineData::constantGain);
@@ -3858,7 +3863,7 @@ void ROBConstructionData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
 	clustering.setup("Clustering",ca);
-  distanceComparisons.setup("FastOnlineClusterSelection",ca);
+  basisUpdates.setup("OnlineBasisUpdates",ca);
 
   state.setup("State",ca);
   residual.setup("Residual",ca);
@@ -3883,6 +3888,7 @@ ClusteringData::ClusteringData()
   kMeansTol = 1.0e-6;
   kMeansRandSeed = -1;  // default: generate randomly
   useExistingClusters = USE_EXISTING_CLUSTERS_FALSE;
+  computeMDS = COMPUTE_MDS_FALSE;
 }
 
 //------------------------------------------------------------------------------
@@ -3901,12 +3907,13 @@ void ClusteringData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<ClusteringData>(ca, "KMeansRandomSeed", this, &ClusteringData::kMeansRandSeed);
   new ClassToken<ClusteringData> (ca, "UseExistingClusters", this, reinterpret_cast<int
       ClusteringData::*>(&ClusteringData::useExistingClusters), 2, "False", 0, "True", 1);
- 
+  new ClassToken<ClusteringData> (ca, "Compute2DRepresentationOfClusteringData", this, reinterpret_cast<int
+      ClusteringData::*>(&ClusteringData::computeMDS), 2, "False", 0, "True", 1);
 }
 
 //------------------------------------------------------------------------------
 
-DistanceComparisonsData::DistanceComparisonsData()
+BasisUpdatesData::BasisUpdatesData()
 {
   preprocessForNoUpdates = NO_UPDATES_FALSE;
   preprocessForSimpleUpdates = SIMPLE_UPDATES_FALSE;
@@ -3917,17 +3924,17 @@ DistanceComparisonsData::DistanceComparisonsData()
 
 //------------------------------------------------------------------------------
 
-void DistanceComparisonsData::setup(const char *name, ClassAssigner *father) {
+void BasisUpdatesData::setup(const char *name, ClassAssigner *father) {
 
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
-  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForNoUpdates", this, reinterpret_cast<int 
-			DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
-  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForSimpleUpdates", this, reinterpret_cast<int
-      DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
-  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForFastExactUpdates", this, reinterpret_cast<int 
-			DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForExactUpdates), 2, "Off", 0, "On", 1);
-  new ClassToken<DistanceComparisonsData> (ca, "PreprocessForFastApproxUpdates", this, reinterpret_cast<int 
-			DistanceComparisonsData::*>(&DistanceComparisonsData::preprocessForApproxUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<BasisUpdatesData> (ca, "PreprocessForNoUpdates", this, reinterpret_cast<int 
+			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<BasisUpdatesData> (ca, "PreprocessForSimpleUpdates", this, reinterpret_cast<int
+      BasisUpdatesData::*>(&BasisUpdatesData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<BasisUpdatesData> (ca, "PreprocessForFastExactUpdates", this, reinterpret_cast<int 
+			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForExactUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<BasisUpdatesData> (ca, "PreprocessForFastApproxUpdates", this, reinterpret_cast<int 
+			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForApproxUpdates), 2, "Off", 0, "On", 1);
 
   // add object to specify parameters for approx updates
 
@@ -4126,6 +4133,7 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
   maxDimension = -1; 
 	minDimension = 0;
   energy = 1.0;
+  postProProjectedStates = POST_PRO_OFF;
 
 }
 
@@ -4146,6 +4154,8 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
   new ClassInt<RelativeProjectionErrorData>(ca, "MaximumDimension", this, &RelativeProjectionErrorData::maxDimension);
   new ClassInt<RelativeProjectionErrorData>(ca, "MinimumDimension", this, &RelativeProjectionErrorData::minDimension); 
   new ClassDouble<RelativeProjectionErrorData>(ca, "Energy", this, &RelativeProjectionErrorData::energy);
+  new ClassToken<RelativeProjectionErrorData> (ca, "PostProcessForProjectedStates", this, reinterpret_cast<int
+      RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::postProProjectedStates), 2, "Off", 0, "On", 1);
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
