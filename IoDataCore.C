@@ -12,6 +12,8 @@
 #include <dlfcn.h>
 #include <set>
 #include <ProgrammedBurn.h>
+#include "TsRestart.h"
+
 using std::set;
 
 #ifdef COUGAR
@@ -88,7 +90,9 @@ InputData::InputData()
   embeddedpositions = "";
   levelsets = "";
   cracking = "";
+  fluidId = "";
   rstdata = "";
+  restart_file_package = "";
   podFile = "";
   stateSnapRefSolution = "";
   stateSnapFile = "";
@@ -134,7 +138,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "EmbeddedPosition", this, &InputData::embeddedpositions);
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
   new ClassStr<InputData>(ca, "Cracking", this, &InputData::cracking);
+  new ClassStr<InputData>(ca, "FluidID", this, &InputData::fluidId);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
+  new ClassStr<InputData>(ca, "FilePackage", this, &InputData::restart_file_package);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "StateSnapshotData", this, &InputData::stateSnapFile);
   new ClassStr<InputData>(ca, "StateSnapshotReferenceSolution", this, &InputData::stateSnapRefSolution);
@@ -202,6 +208,7 @@ void OutputData::setup(const char *name, ClassAssigner *father)
   transient.setup("Postpro", ca);
   restart.setup("Restart", ca);
   transient.probes.setup("Probes", ca);
+  transient.linePlots.setup("LinePlots", ca);
   rom.setup("NonlinearROM", ca);
 
 }
@@ -252,6 +259,42 @@ void Probes::setup(const char *name, ClassAssigner *father)
     myNodes[i].setup(nodename, ca);
   }
 
+}
+LinePlot::LinePlot() {
+
+  density = "";
+  pressure = "";
+  temperature = "";
+  velocity = "";
+  //displacement = "";
+
+  numPoints = -1;
+  x0 = y0 = z0 = 0.0;
+  x1 = y1 = z1 = 0.0;
+  
+}
+
+Assigner* LinePlot::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
+  new ClassStr<LinePlot>(ca, "Density", this, &LinePlot::density);
+  new ClassStr<LinePlot>(ca, "Pressure", this, &LinePlot::pressure);
+  new ClassStr<LinePlot>(ca, "Temperature", this, &LinePlot::temperature);
+  new ClassStr<LinePlot>(ca, "Velocity", this, &LinePlot::velocity);
+  //new ClassStr<LinePlot>(ca, "Displacement", this, &Probes::displacement);
+
+  new ClassInt<LinePlot>(ca, "NumPoints", this, &LinePlot::numPoints);
+  
+  new ClassDouble<LinePlot>(ca, "X0", this, &LinePlot::x0);
+  new ClassDouble<LinePlot>(ca, "Y0", this, &LinePlot::y0);
+  new ClassDouble<LinePlot>(ca, "Z0", this, &LinePlot::z0);
+  new ClassDouble<LinePlot>(ca, "X1", this, &LinePlot::x1);
+  new ClassDouble<LinePlot>(ca, "Y1", this, &LinePlot::y1);
+  new ClassDouble<LinePlot>(ca, "Z1", this, &LinePlot::z1);
+
+  return ca;
+  
 }
 
 TransientData::TransientData()
@@ -312,8 +355,10 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   robProductFile = "";
+  rMatrixFile = "";  
   gendispFile = "";
   philevel = "";
+  philevel2 = "";
   controlvolume = "";
   fluidid="";
   d2wall="";
@@ -359,7 +404,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 85, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 86, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
 
@@ -428,8 +473,10 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
+  new ClassStr<TransientData>(ca, "RMatrices", this, &TransientData::rMatrixFile);
   new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
+  new ClassStr<TransientData>(ca, "Philevel2", this, &TransientData::philevel2);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
@@ -546,6 +593,8 @@ RestartData::RestartData()
   cracking = "DEFAULT.CRK";
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
+  fluidId = "DEFAULT.FID";
+  filepackage = "DEFAULT.PKG";
 
   frequency = 0;
   frequency_dt = -1.0;
@@ -570,7 +619,9 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "EmbeddedPosition", this, &RestartData::embeddedpositions);
   new ClassStr<RestartData>(ca, "Cracking", this, &RestartData::cracking);
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
+  new ClassStr<RestartData>(ca, "FluidID", this, &RestartData::fluidId);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
+  new ClassStr<RestartData>(ca, "FilePackage", this, &RestartData::filepackage);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
   new ClassDouble<RestartData>(ca, "TimeInterval", this, &RestartData::frequency_dt);
   new ClassStr<RestartData>(ca, "PressureKirchhoff", this, &RestartData::strKPtraces);
@@ -2086,8 +2137,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
                                  "None", 0, "Alex1", 1);
 
   new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),4,
-                                 "Conservative", 0, "HJWENO", 1,"Scalar", 2, "Primitive",3);
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),5,
+                                 "Conservative", 0, "HJWENO", 1,"Scalar", 2, "Primitive",3,
+                                 "Triangulated", 4);
 
   new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
                                   &MultiFluidData::jwlRelaxationFactor);
@@ -2100,7 +2152,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
-                                 "Real",0,"Mesh",1);
+                                 "LevelSet",0,"Fluid",1);
 
 
   multiInitialConditions.setup("InitialConditions", ca);
@@ -2510,6 +2562,8 @@ MultiGridData::MultiGridData()
   restrictMethod = VOLUME_WEIGHTED;
   addViscousTerms = 0;
   coarseningRatio = TWOTOONE;
+
+  agglomerationFile = "";
 }
 
 //------------------------------------------------------------------------------
@@ -2560,6 +2614,9 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
 &MultiGridData::restrict_relax_factor);
   
   fixes.setup("Fixes", ca);
+
+  new ClassStr<MultiGridData>
+    (ca, "AgglomerationFile", this, &MultiGridData::agglomerationFile);
 }
 
 //------------------------------------------------------------------------------
@@ -2719,8 +2776,6 @@ CFLData::CFLData()
 
   cfl0 = 5.0;
   cflCoef1 = 0.0;
-  cflCoef2 = 0.0;  // for backwards compatibility with old CFL law
-  cflCoef3 = 0.0;  // for backwards compatibility with old CFL law
   cflMax = 100000.0;
   cflMin = 1.0;
   dualtimecfl = 100.0;
@@ -2735,7 +2790,7 @@ CFLData::CFLData()
 
   dft_history = 8;
   dft_freqcutoff = 3;
-  dft_growth = 1.3;
+  dft_growth = 1.4;
 
   forbidreduce = 0;
 
@@ -2768,8 +2823,6 @@ void CFLData::setup(const char *name, ClassAssigner *father)
     
   new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
   new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
- // new ClassDouble<CFLData>(ca, "Cfl2", this, &CFLData::cflCoef2);  
- // new ClassDouble<CFLData>(ca, "Cfl3", this, &CFLData::cflCoef3);
   new ClassDouble<CFLData>(ca, "CflMax", this, &CFLData::cflMax);
   new ClassDouble<CFLData>(ca, "CflMin", this, &CFLData::cflMin);
   new ClassDouble<CFLData>(ca, "DualTimeCfl", this, &CFLData::dualtimecfl);
@@ -2781,6 +2834,45 @@ void CFLData::setup(const char *name, ClassAssigner *father)
   new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
   new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
 
+}
+
+//------------------------------------------------------------------------------
+
+AdaptiveTimeData::AdaptiveTimeData()
+{
+
+  checksol = 1;
+  checklinsolve = 1;
+  checkriemann = 1;
+  checklargevelocity = 1;
+  rapidpchangecutoff = 40;
+  checkpclipping = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void AdaptiveTimeData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
+
+  new ClassToken<AdaptiveTimeData>(ca, "UnphysicalSolution", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checksol), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "LinearSolver", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklinsolve), 2,
+                          "Off", 0, "On", 1); 
+  new ClassToken<AdaptiveTimeData>(ca, "RiemannSolver", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkriemann), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "LargeVelocities", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklargevelocity), 2,
+                          "Off", 0, "On", 1);
+  new ClassToken<AdaptiveTimeData>(ca, "PressureClipping", this,
+                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkpclipping), 2,
+                          "Off", 0, "On", 1);
+  new ClassInt<AdaptiveTimeData>(ca, "RapidPChangeCutoff", this, &AdaptiveTimeData::rapidpchangecutoff);
 }
 
 //------------------------------------------------------------------------------
@@ -2803,6 +2895,13 @@ TsData::TsData()
   timestepinitial = -1.0;
   maxTime = 1.e99;
 
+  checksol = 1;
+  checkvelocity = 1;
+  checkpressure = 1;
+  checkdensity = 1;
+  deltapressurethreshold = 40;
+  deltadensitythreshold = 40;
+
   residual = -1;
   // These variables stay here for back compatibility
   cfl0 = -1.0;
@@ -2820,8 +2919,8 @@ TsData::TsData()
 
   output = "";
 
-  rapidPressureThreshold = -1.0;
-  rapidDensityThreshold = -1.0;
+  rapidPressureThreshold = 0.2;
+  rapidDensityThreshold = 0.2;
 }
 
 //------------------------------------------------------------------------------
@@ -2840,6 +2939,18 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "DualTimeStepping", this,
                          reinterpret_cast<int TsData::*>(&TsData::dualtimestepping), 2,
                          "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckSolution", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checksol), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckVelocity", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checkvelocity), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckPressure", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checkpressure), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckDensity", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checkdensity), 2,
+                         "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
                          reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
                          "None", 0, "AbsoluteValue", 1, "Freestream", 2);
@@ -2857,6 +2968,8 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "TimeStepInitial", this, &TsData::timestepinitial);
   new ClassDouble<TsData>(ca, "MaxTime", this, &TsData::maxTime);
   new ClassInt<TsData>(ca, "Residual", this, &TsData::residual);
+  new ClassInt<TsData>(ca, "CardinalDeltaPressure", this, &TsData::deltapressurethreshold);
+  new ClassInt<TsData>(ca, "CardinalDeltaDensity", this, &TsData::deltadensitythreshold);
   new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
   new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
@@ -2866,15 +2979,17 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
   new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassDouble<TsData>(ca, "DualTimeCfl", this, &TsData::dualtimecfl);
-  new ClassDouble<TsData>(ca, "RapidPressureThreshold", this, &TsData::rapidPressureThreshold);
-  new ClassDouble<TsData>(ca, "RapidDensityThreshold", this, &TsData::rapidDensityThreshold);
+  new ClassDouble<TsData>(ca, "ThresholdDeltaPressure", this, &TsData::rapidPressureThreshold);
+  new ClassDouble<TsData>(ca, "ThresholdDeltaDensity", this, &TsData::rapidDensityThreshold);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
   new ClassToken<TsData> (ca, "Form", this, reinterpret_cast<int TsData::*>(&TsData::form), 3, "NonDescriptor", 0, "Descriptor", 1, "Hybrid", 2);  
   new ClassDouble<TsData>(ca, "ProgrammedBurnShockSensor", this, &TsData::programmedBurnShockSensor); // Moved from ProgrammedBurn to TsData.
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
+  cfl.setup("CflLaw",ca);
   cfl.setup("CFLLaw",ca);
+  //adaptivetime.setup("AdaptiveTime",ca);
 
 }
 
@@ -3259,8 +3374,9 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 5,
-     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4);
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 6,
+     "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4,
+     "AcousticBeam", 5);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
@@ -4173,6 +4289,7 @@ LinearizedData::LinearizedData()
 
   type = DEFAULT;
   padeReconst = FALSE;
+  doGramSchmidt = FALSE_GS;
   domain = TIME;
   initCond = DISPLACEMENT;
   amplification = 1.0;
@@ -4197,12 +4314,12 @@ LinearizedData::LinearizedData()
 void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 16, father);
+  ClassAssigner *ca = new ClassAssigner(name, 17, father);
 
   new ClassToken<LinearizedData> (ca, "Type", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::type), 3, "Default", 0, "Rom", 1, "Forced", 2);
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
   new ClassToken<LinearizedData> (ca, "InitialCondition", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::initCond), 2, "Displacement", 0, "Velocity", 1);
-
+  new ClassToken<LinearizedData> (ca, "GramSchmidt", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::doGramSchmidt), 2, "False", 0, "True", 1);
   new ClassDouble<LinearizedData>(ca, "Amplification", this, &LinearizedData::amplification);
   new ClassDouble<LinearizedData>(ca, "Frequency", this, &LinearizedData::frequency);
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
@@ -4214,7 +4331,6 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
-
   pade.setup("Pade", ca);
 
 }
@@ -4561,6 +4677,8 @@ EmbeddedFramework::EmbeddedFramework() {
   stabil_alpha = 0.0;
 
   interfaceThickness = 1e-8;
+
+  testCase = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -4598,6 +4716,10 @@ void EmbeddedFramework::setup(const char *name) {
                                       "Constant", 0, "Linear", 1);
   new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
                                       "First", 0, "Second", 1);
+
+  new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
+                                  &EmbeddedFramework::testCase);
+
 }
 
 //------------------------------------------------------------------------------
@@ -4607,6 +4729,8 @@ OneDimensionalInfo::OneDimensionalInfo(){
   volumeType = CONSTANT_VOLUME;//REAL_VOLUME;
 
   mode = NORMAL;
+
+  problemMode = MULTIFLUID;
 
   maxDistance = 0.0;
   numPoints = 101;
@@ -4636,8 +4760,11 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassDouble<OneDimensionalInfo>(ca, "Density0", this, &OneDimensionalInfo::density2);
   new ClassDouble<OneDimensionalInfo>(ca, "Velocity0", this, &OneDimensionalInfo::velocity2);
   new ClassDouble<OneDimensionalInfo>(ca, "Pressure0", this, &OneDimensionalInfo::pressure2);
-  new ClassToken<OneDimensionalInfo>(ca, "Mode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::mode), 2, "Normal", 0, "ConvergenceTest1", 1);
+  new ClassToken<OneDimensionalInfo>(ca, "Mode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::mode), 3, "Normal", 0, "ConvergenceTest1", 1,
+                                     "ConvergenceTest2",2);
 
+  new ClassToken<OneDimensionalInfo>(ca, "ProblemMode", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::problemMode), 2, "MultiFluid", 0, "FSI", 1);
+  
   programmedBurn.setup("ProgrammedBurn",ca);
   
 }
@@ -4820,14 +4947,29 @@ void IoData::readCmdFile()
   }
   fclose(cmdFilePtr);
 
-  if (input.rstdata[0] != 0) {
-    char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
-    com->fprintf(stderr, "input.\n");
-    if (strncmp(input.rstdata, "/", 1) == 0)
-      sprintf(name, "%s", input.rstdata);
-    else
-      sprintf(name, "%s%s", input.prefix, input.rstdata);
-//    FILE *fp = freopen(name, "r", stdin);
+  if (input.rstdata[0] != 0 || input.restart_file_package[0] != 0) {
+    
+    char* name;
+    if (input.restart_file_package[0] == 0) {
+      name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
+      if (strncmp(input.rstdata, "/", 1) == 0)
+	sprintf(name, "%s", input.rstdata);
+      else
+	sprintf(name, "%s%s", input.prefix, input.rstdata);
+    } else {
+
+      name = new char[256];
+      char dummy[256];
+      char *fn = new char[strlen(input.prefix) + strlen(input.restart_file_package) + 1];
+      if (strncmp(input.restart_file_package, "/", 1) == 0)
+	sprintf(fn, "%s", input.restart_file_package);
+      else
+	sprintf(fn, "%s%s", input.prefix, input.restart_file_package);
+      TsRestart::readRestartFileNames(fn, dummy, dummy, dummy,
+				      dummy, dummy, name, dummy,NULL);      
+    }
+
+    //    FILE *fp = freopen(name, "r", stdin);
     FILE *fp = yyCmdfin = fopen(name, "r");
     if (!fp) {
       com->fprintf(stderr, "*** Error: could not open \'%s\'\n", name);
@@ -4839,6 +4981,7 @@ void IoData::readCmdFile()
       exit(error);
     }
     fclose(fp);
+    delete [] name;
   }
 
   resetInputValues();
@@ -5548,7 +5691,7 @@ int IoData::checkInputValuesAllEquationsOfState(){
 
 int IoData::checkCFLBackwardsCompatibility(){
 
-  if(ts.cfl0 != -1.0 || ts.cflCoef1 != -1.0 || ts.cflCoef2 != -1.0 || ts.cflMax != -1.0 || ts.cflMin != -1.0 || ts.ser != -1.0 || ts.dualtimecfl != -1.0 ){
+  if(ts.cfl0 != -1.0 || ts.cflCoef1 != -1.0 || ts.cflCoef2 != -1.0 || ts.cflMax != -1.0 || ts.cflMin != -1.0 || ts.ser != -1.0){
     com->fprintf(stderr, "*** Warning: Using CFL values under Time and old CFL law for backwards compatibility. The program will run, but correct execution requires all CFL parameters to be under CFLLaw.\n");
     ts.cfl.strategy = CFLData::OLD;
     //com->fprintf(stderr, "cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",ts.cfl0,ts.cflCoef1,ts.cflCoef2,ts.cflMax,ts.cflMin,ts.ser,ts.dualtimecfl);
@@ -6419,12 +6562,6 @@ int IoData::checkInputValuesEssentialBC()
   if (bc.inlet.beta > 360.0) {
     com->fprintf(stderr, "*** Error: no valid yaw angle (%e) given\n", bc.inlet.beta);
     ++error;
-  }
-
-  if(schemes.bc.type==BoundarySchemeData::MODIFIED_GHIDAGLIA && ts.type!=TsData::EXPLICIT) {
-    com->fprintf(stderr, "*** Warning: The Modified Ghidaglia scheme is only supported by explicit time-integrators.\n");
-    //com->fprintf(stderr, "             Reset to the standard Ghidaglia scheme.\n");
-    //schemes.bc.type = BoundarySchemeData::GHIDAGLIA;
   }
 
 // Included (MB)

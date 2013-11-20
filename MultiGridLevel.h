@@ -20,9 +20,47 @@ template<class Scalar, int dim> class DistSVec;
 
 typedef Aerof_unordered_set<int>::type PriorityNodes;
 
+struct NeighborDomain {
+
+  int id;
+  // Vector pair of nodes (global, local)
+  std::vector<std::pair<int,int> > sharedNodes;
+};
+
+struct MultigridSubdomain {
+
+  enum Topology { TopoVertex = 0, TopoLine = 1, TopoFace = 2, TopoInterior = 3, TopoUnknown = 4 };
+  
+  std::vector<int> ownedNodes;
+  std::vector<int> sharedNodes;
+
+  int numNodes;
+
+  std::map<int, NeighborDomain*> neighbors;
+
+  int* localNodeMapping;
+
+  int* ctrlVolCount;
+
+  int* locToGlobMap;
+
+  double* nodeVolumes;
+  Vec3D* X;
+
+  Topology* nodeTopology;
+};
+
 template<class Scalar>
 class MultiGridLevel {
-  private:
+
+ public:
+
+  enum AgglomerationType { AgglomerationLocal,
+			   AgglomerationGlobal };
+
+ private:
+
+  AgglomerationType agglomType;
 
     int my_dim, neq1,neq2;
 
@@ -38,6 +76,10 @@ class MultiGridLevel {
     CommPattern<double> * offDiagMatPattern;
     CommPattern<double> * edgeAreaPattern;
     CommPattern<double> * edgeVecPattern;
+
+    Connectivity * subToSub;
+    SubDTopo* levelSubDTopo;
+
     Connectivity ** sharedNodes;
     Connectivity** nodeToNodeMaskILU;
     int maxNodesPerSubD;
@@ -54,7 +96,17 @@ class MultiGridLevel {
     std::list<Vec3D>** nodeNormals;
 
     bool useVolumeWeightedAverage;
- 
+    
+    MultigridSubdomain* mgSubdomains;
+
+    inline int rcvChannel(int glSub,int neighb) const {
+      return levelSubDTopo->getChannelID(neighb,glSub);
+    }
+
+    inline int sndChannel(int glSub,int neighb) const {
+      return levelSubDTopo->getChannelID(glSub,neighb);
+    }
+
   protected:
     DistInfo * nodeDistInfo;
     DistInfo * edgeDistInfo;
@@ -118,13 +170,33 @@ class MultiGridLevel {
 
     DistVec<double>* edgeArea;
 
+    template<class T,int dim>
+      void assembleInternal(DistMat<T,dim> & A) const;
+
+    template<class T,int dim>
+      void assembleInternal(DistSVec<T,dim> & A) const;
+
+    template<class T>
+      void assembleInternal(DistVec<T> & A) const;
+
+    template<class T>
+      void assembleInternalMax(DistVec<T> & A) const;
+
   public:
     MultiGridLevel(MultiGridMethod,MultiGridLevel*,Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo);
+
+    MultiGridLevel(MultiGridLevel* parent,int level_num,
+                   double ref_length,
+		   Domain& domain,const char* fn_base,
+		   int dim, int neq1, int neq2,
+		   GeoSource& geoSource);
 
     // level1 is finer than level2
     //MultiGridLevel(MultiGridLevel& level1, MultiGridLevel& level2);
 
     ~MultiGridLevel();
+
+    MultigridSubdomain* getMgSubDomains() { return mgSubdomains; }
 
     MultiGridLevel* getParent() { return parent; }
 
@@ -210,6 +282,10 @@ class MultiGridLevel {
                                              Vec<int>& nodeMapping,int iSub);
     void copyRefinedState(const DistInfo& refinedNodeDistInfo, const DistInfo& refinedEdgeDistInfo, const DistInfo& refinedFaceDistInfo,const DistInfo& refinedInletNodeDistInfo,DistGeoState& refinedGeoState, Domain& domain, int dim, int lneq1,int lneq2);
 
+    int getNumNeighborSubdomains(int mySub);
+
+    int* getNeighboringSubdomains(int mySub);
+
     void agglomerate(const DistInfo& refinedNodeDistInfo,
                      const DistInfo& refinedEdgeDistInfo,
                      CommPattern<int>& refinedNodeIdPattern,
@@ -226,7 +302,7 @@ class MultiGridLevel {
 
     template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
-                                                   DistSVec<Scalar2, dim>& coarseData) const;
+                                                   DistSVec<Scalar2, dim>& coarseData, bool apply_relaxation = false) const;
     template<class Scalar2, int dim> void RestrictFaceVector(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
                                                    DistSVec<Scalar2, dim>& coarseData) const;
@@ -259,6 +335,8 @@ class MultiGridLevel {
     void assemble(DistMat<Scalar2,dim>& V);
     template <class Scalar2,int dim>
     void assembleMax(DistSVec<Scalar2,dim>& V);
+    template <class Scalar2>
+    void assembleMax(DistVec<Scalar2>& V);
 
     template <class Scalar2,int dim>
     void computeMatVecProd(DistMat<Scalar2,dim>& mat,

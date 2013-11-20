@@ -41,6 +41,8 @@ protected:
  
   DistEmbeddedVec<double,dim> embeddedU,embeddedB,embeddeddQ;
 
+  DistVec<double>* hhResidual;
+
 public:
   
   ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom);

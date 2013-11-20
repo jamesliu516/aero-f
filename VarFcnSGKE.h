@@ -81,7 +81,7 @@ public:
     return error;
   }
   double computeTemperature(double *V) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
@@ -275,14 +275,14 @@ int VarFcnSGKE::verification(int glob, double *U, double *V)
     if(verif_clipping)
       fprintf(stderr,"clip density[%d] in gas(KE) from %e to %e\n", glob, V[0], rhomin);
     V[0] = rhomin;
-    count++;
+    count += (count+1) % 2;
   }
 
   if(V[4]<pmin){
     if (verif_clipping)
       fprintf(stdout, "clip pressure[%d] in gas(KE) from %e to %e\n", glob, V[4], pmin);
     V[4] = pmin;
-    count++;
+    count += 2;
   }
 
   if(count) //also modify U

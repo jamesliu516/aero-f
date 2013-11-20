@@ -27,9 +27,12 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(iod.problem.framework==ProblemData::EMBEDDED || iod.problem.framework==ProblemData::EMBEDDEDALE || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN) { 
+  if(iod.problem.framework==ProblemData::EMBEDDED || iod.problem.framework==ProblemData::EMBEDDEDALE || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN ||
+     iod.oneDimensionalInfo.problemMode == OneDimensionalInfo::FSI) { 
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
     dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setStabilAlpha(iod.embed.stabil_alpha);
+    if (iod.eqs.type == EquationsData::NAVIER_STOKES)
+      dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(1.0);
   }
 
   for (int i = 0; i < 10; ++i) {
@@ -157,9 +160,11 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 {
 
   for(int i=0; i<V.size(); i++){ 
-    if (lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],
-				   (higherOrderMF ? higherOrderMF->isCellCut(i) : false)) != 0) {
+    if (lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],false) != 0) {
       return i;
+    }
+    if (higherOrderMF && fluidId[i] != fluidIdn[i]) {
+      higherOrderMF->setLastPhaseChangeValue<dim>(i, V[i]);
     }
     // lriemann[0] can be used for all interfaces, because  this routine does
     // not need to consider which interface has traversed that node (this
@@ -171,9 +176,10 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 //------------------------------------------------------------------------------
 template<int dim>
 int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
-						     int IDi, int IDj, double *nphi, VarFcn *vf,
-						     double *Wi, double *Wj, int i, int j, int edgeNum,
-						     double dx[3], bool isHigherOrder)
+						    int IDi, int IDj, double *nphi, VarFcn *vf,
+						    double *Wi, double *Wj, int i, int j, int edgeNum,
+						    double dx[3], int lsdim,
+						    bool isHigherOrder)
 {
 
   //fprintf(stdout, "Debug: calling computeRiemannSolution with IDi = %d - IDj = %d for LocalRiemann[%d]\n", IDi, IDj, IDi+IDj-1);
@@ -182,7 +188,7 @@ int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
   for (int k=0; k < 3; ++k) {
     nphi[k]*=lssign;
   }
-  fluidIdToSet[i] = fluidIdToSet[j] = (IDi+IDj-1);
+  fluidIdToSet[i] = fluidIdToSet[j] = lsdim;
   return lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
 					      Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
 					      dx,iteration,isHigherOrder);

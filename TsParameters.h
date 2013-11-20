@@ -45,6 +45,13 @@ public:
 
   int checksol;
   int checklinsolve;
+  int checkriemann;
+  int checklargevelocity;
+  int rapidpchangecutoff;
+  int rapiddchangecutoff;
+  int checkpclipping;
+  int checkrhoclipping;
+
   bool unphysical;
   bool badlinsolve;
   bool allowstop;

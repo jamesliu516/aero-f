@@ -165,6 +165,12 @@ class Domain {
 
   Connectivity* mySubToSub;
   
+  GeoSource* pGeoSource;
+
+  // For Multifluid interface tracking
+  class TriangulatedInterface* multiFluidInterface;
+  
+  
   // for outputting ROM snapshots from FOM
   // TODO: move these to a more appropriate location (KMW)
   int outputTimeIt;
@@ -244,6 +250,10 @@ public:
 
   ErrorHandler *getErrorHandler() const {return errorHandler;}
 
+  GeoSource& getGeoSource() { return *pGeoSource; }
+
+  void attachTriangulatedInterface(TriangulatedInterface*);
+
   void getGeometry(GeoSource &, IoData&);
   void createRhsPat(int, IoData&);
   void createVecPat(int, IoData * = 0);
@@ -277,7 +287,7 @@ public:
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &,
 			 DistSVec<double,3> &);
   void computeWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &);
-  void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &, DistLevelSetStructure* =0);
+  void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &, DistLevelSetStructure* =0, bool includeSweptNodes = true);
   void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &,
 		  DistVec<int> &, DistVec<int> &, DistLevelSetStructure* =0);
   void computeWeightsGalerkin(DistSVec<double,3> &, DistSVec<double,3> &,
@@ -322,7 +332,7 @@ public:
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true,
-                                    DistLevelSetStructure* =0);
+                                    DistLevelSetStructure* =0,bool includeSweptNodes = true);
 
   template<class Scalar>
   void computeGradientLeastSquares(DistSVec<double,3> &, DistVec<int> &,
@@ -422,11 +432,28 @@ public:
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistVec<int> &init, DistVec<int> &next_init,
                           DistLevelSetStructure *distLSS);
+
+  template<int dim>
+  void computeWeightsForFluidFluid(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+                          DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+                          DistVec<int> &init, DistVec<int> &next_init,
+				   DistLevelSetStructure *distLSS,DistVec<int>& fid);
+
   template<int dim>
   void computeWeightsLeastSquaresForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistVec<int> &init, DistVec<int> &next_init,
-                          DistLevelSetStructure *distLSS);
+                          DistLevelSetStructure *distLSS,
+			   DistNodalGrad<dim>& dX, bool limit,
+			   DistVec<int>* fid);
+
+  template<int dim>
+  void computeWeightsLeastSquaresForFluidFluid(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+                          DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+                          DistVec<int> &init, DistVec<int> &next_init,
+					       DistLevelSetStructure *distLSS,DistVec<int>& fid,
+					       DistNodalGrad<dim>&, bool limit);
+
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
@@ -439,8 +466,8 @@ public:
   template<int dim>
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface, DistVec<int> &tag);
 
-  template<int dim,int neq>
-  void populateGhostJacobian(DistVec<GhostPoint<dim>*> &ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure &LSS,DistVec<int> &tag, DistMat<double,neq>& A);
+  template<int dim, class Scalar, int neq>
+  void populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,FluxFcn** fluxFcn, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag, DistMat<Scalar,neq>& A);
 
   template<int dim>
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
@@ -513,6 +540,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistLevelSetStructure*, bool, FluidSelector&,
                                int, DistSVec<double,3>*, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+			       DistSVec<double,dimLS>&,
                                DistNodalGrad<dimLS>&, DistSVec<double,dim>&, int, int, int);
 
   template<int dim>
@@ -539,7 +567,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,DistVec<int>& fluidId,
                                DistNodalGrad<dim>&, DistNodalGrad<dimLS>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,
-                               DistLevelSetStructure * = 0);
+                               DistLevelSetStructure * = 0, int lsorder = 1);
 
   template<int dim>
   void computeFiniteVolumeBarTerm(DistVec<double> &, DistVec<double> &, FluxFcn**,
@@ -1021,7 +1049,7 @@ public:
                                VarFcn* vf, DistVec<int>* fid);
 
   template<int dim>
-  void computeEmbSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
+  void computeEmbSurfBasedForceLoad(IoData &iod, int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
                                     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad, VarFcn* vf, DistVec<int>* fid);
 
@@ -1048,26 +1076,40 @@ public:
   void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
                          int npt);
 
-  void createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec);
+  void createHigherOrderMultiFluid();
+
+  void createHigherOrderFSI();
 
   // When a cell is omitted when doing higher order multi-fluid calculations, we can grab
   // a value of the state for the cut cell using an extrapolated state
-  template<int dim>
-  void setCutCellData(DistSVec<double,dim>& V, DistVec<int>& fid);
 
   // Functions to compute the error (that is, the difference between two state vectors)
   template <int dim>
-    void computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+    void computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
+			DistVec<double>& vol,double error[dim],
+                        DistLevelSetStructure* = NULL);
   template <int dim>
-    void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim]);
+    void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],
+                          DistLevelSetStructure* = NULL);
 
 
   // Assign ErrorHandler to subdomains
   void assignErrorHandler();
- 
+
   void setFarFieldMask(DistVec<double> &ffMask); // ffMask is nonzero for farfield nodes
+
+
+  template <int dim>
+    void computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<double,dim> &U,DistVec<double>& res,
+				       VarFcn* vf);
  
- 
+  void maskHHVector(DistVec<double>& hh);
+
+
+  template <int dim>
+    void setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				IoData& iod,double t,VarFcn* vf);
+
  };
 
 //------------------------------------------------------------------------------

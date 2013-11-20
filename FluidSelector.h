@@ -5,6 +5,7 @@
 #include "Vector.h"
 #include "IoData.h"
 #include "ProgrammedBurn.h"
+
 //#include "Domain.h"
 //#include "LevelSet/LevelSetStructure.h"
 #include <map>
@@ -38,6 +39,9 @@ class FluidSelector {
 
   ProgrammedBurn* programmedBurn;
 
+  // True if we own the fluid id variable.
+  bool ownsData;
+
 public:
   DistVec<int> *fluidId;
   DistVec<int> *fluidIdn;
@@ -52,6 +56,10 @@ protected:
 public:
 
   FluidSelector(const int nPhases, IoData &ioData, Domain *domain = 0);
+
+  // Create a temporary fluid selector from the pointer to the node tag.
+  FluidSelector(DistVec<int>& nodeTag,Domain* dom);
+
   ~FluidSelector();
 
   void attachProgrammedBurn(ProgrammedBurn* p) { programmedBurn = p; }
@@ -81,6 +89,9 @@ public:
 
   template<int dim>
   void reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim> &Phin);
+  
+  template<int dim>
+  void reinitializeFluidIdsWithCracking(DistVec<int> &fsId, DistSVec<double,dim> &Phin);
 
   template<int dim> /*this dim is actually dimLS*/
   void updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV);
@@ -103,11 +114,16 @@ public:
   template<int dim>
   void getFluidId(DistSVec<double,dim> &Phi);
 
+  //template<int dim>
+  void getFluidId(class TriangulatedInterface*);
+  
   template<int dim>
   void getFluidId(int &tag, double *phi);
 
   template<int dim>
   void checkLSConsistency(DistSVec<double,dim> &Phi);
+
+  void writeToDisk(const char* fn);
 };
 
 //------------------------------------------------------------------------------

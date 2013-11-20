@@ -253,7 +253,7 @@ int VarFcnTait::verification(int glob, double *U, double *V)
     U[3] = V[0]*V[3];
     double pb = (!burnable?getPressure(V[0]):0.0); 
     U[4] = V[0]*V[4]*C_+0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]) - pb;
-    return 1;
+    return 2;
   }
   return 0;
 

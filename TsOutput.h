@@ -152,6 +152,19 @@ private:
   char *nodal_scalars[PostFcn::SSIZE];
   char *nodal_vectors[PostFcn::VSIZE];
   
+  struct line_output {
+
+    int numPoints;
+
+    double x0,y0,z0;
+    double x1,y1,z1;
+
+    char *scalars[PostFcn::SSIZE];
+    char *vectors[PostFcn::VSIZE];
+
+  };
+
+  std::vector<line_output*> line_outputs;
   
 private:
   bool toWrite(int it, bool lastIt, double t);
@@ -227,7 +240,15 @@ public:
                          DistTimeState<dim> *timeState, DistVec<int> &fluidId,
                          DistLevelSetStructure *distLSS = 0,
                          DistVec<GhostPoint<dim>*> *ghostPoints = 0);
+
   
+  template<int dimLS>
+    void writeLinePlotsToDisk(bool, int, double, DistSVec<double,3> &,
+                           DistVec<double> &, DistSVec<double,dim> &,
+                           DistTimeState<dim> *, DistVec<int> &,DistSVec<double,dimLS>* = NULL,
+                           DistLevelSetStructure *distLSS = 0,
+                           DistVec<GhostPoint<dim>*> *ghostPoints = 0);
+
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

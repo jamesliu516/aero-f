@@ -2912,7 +2912,7 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
     pir   = vacuumValues[5];
     ui    = 0.5*(uil+uir);
     pi    = 0.5*(pil+pir);*/
-    err = 1;
+    //err = 1;
     if(verbose>-1) fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
   }
   
@@ -3013,11 +3013,12 @@ template<int dim>
 class LocalRiemannFluidStructure : public LocalRiemann {
 
 public:
-  LocalRiemannFluidStructure() : LocalRiemann(), stabil_alpha(0.0) {fluid1 = fluid2 = 0;}
-  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf,0,0), stabil_alpha(0.0) {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure() : LocalRiemann(), stabil_alpha(0.0), viscous_switch(0.0) {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf,0,0), stabil_alpha(0.0), viscous_switch(0.0) {fluid1 = fluid2 = 0;}
   virtual ~LocalRiemannFluidStructure() { vf_ = 0; }
 
   void setStabilAlpha(double a) { stabil_alpha = a; }
+  void setViscousSwitch(double v) { viscous_switch = v; }
 
   int computeRiemannSolution(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
@@ -3073,6 +3074,7 @@ private:
   friend class FSJac;
 
   double stabil_alpha;
+  double viscous_switch;
 };
 
 //------------------------------------------------------------------------------
@@ -3100,6 +3102,7 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   U_1 = vni;
   P_1  = vf->getPressure(Vi,Id);
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
+  double U_ti[3] = {Vstar[0] - U_i*nphi[0], Vstar[1] - U_i*nphi[1], Vstar[2] - U_i*nphi[2]};
 /*
   double normv = Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3];
 
@@ -3124,9 +3127,9 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
     return err;
 
   Wstar[0]  = R_i;
-  Wstar[1]  = (1.0-stabil_alpha)*vti[0]+U_i*nphi[0];
-  Wstar[2]  = (1.0-stabil_alpha)*vti[1]+U_i*nphi[1];
-  Wstar[3]  = (1.0-stabil_alpha)*vti[2]+U_i*nphi[2];
+  Wstar[1]  = U_i*nphi[0] + viscous_switch*U_ti[0] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[0];
+  Wstar[2]  = U_i*nphi[1] + viscous_switch*U_ti[1] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[1];
+  Wstar[3]  = U_i*nphi[2] + viscous_switch*U_ti[2] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[2];
   if (vf->getType(Id) == VarFcnBase::TAIT)
     Wstar[4] = vf->computeTemperature(Vi, Id);
   else
@@ -3169,9 +3172,9 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   }
 
   Wstar[dim]    = R_i;
-  Wstar[dim+1]  = (1.0-stabil_alpha)*vti[0]+U_i*nphi[0];
-  Wstar[dim+2]  = (1.0-stabil_alpha)*vti[1]+U_i*nphi[1];
-  Wstar[dim+3]  = (1.0-stabil_alpha)*vti[2]+U_i*nphi[2];
+  Wstar[dim+1]  = U_i*nphi[0] + viscous_switch*U_ti[0] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[0];
+  Wstar[dim+2]  = U_i*nphi[1] + viscous_switch*U_ti[1] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[1];
+  Wstar[dim+3]  = U_i*nphi[2] + viscous_switch*U_ti[2] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[2];
   if (vf->getType(Id) == VarFcnBase::TAIT) 
     Wstar[dim+4] = vf->computeTemperature(Vi, Id);
   else
@@ -3277,15 +3280,15 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
     dWstardU[(i+1)] = nphi[i]*dWdW[1];
     dWstardU[(i+1)+4*dim] = nphi[i]*dWdW[7];
   }
-/*
+
   for (int i = 0; i < 3; ++i) {
  
     for (int j = 0; j < 3; ++j) {
 
-      dWstardU[(i+1)*dim+(j+1)] = ((i==j?1.0:0.0) - nphi[i]*nphi[j])*(1.0-stabil_alpha);
+      dWstardU[(i+1)*dim+(j+1)] = ((i==j?1.0:0.0) - nphi[i]*nphi[j])*(1.0-viscous_switch)*(1.0-stabil_alpha);
     }
   }
-*/
+
   dWstardU[4] = dWdW[2];
   dWstardU[dim*4] = dWdW[6]; 
 }
@@ -3368,11 +3371,11 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,power)-pref;
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma); */
 
-    double power = gamma/(gamma-1.0);
+    double power = 2.0*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
-    double dee = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
-    pi = pbar*pow(dee*dee,power)-pref;
+    double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
+    pi = pbar*pow(s,power)-pref;
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
   }
   else{ // shock
@@ -3403,16 +3406,15 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double gamma = vf->getGamma(Id);
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
-/*
-    if(u==ui){ // contact
+
+  if(u==ui){ // contact
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;
   }
-*/
 
   double q = (gamma-1.0)/(gamma+1.0);
-  if(ui<=u){ // rarefaction
+  if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
@@ -3421,7 +3423,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
 //    if (s < 0.0) {
 //      fprintf(stderr,"Warning: s (%lf) in fs_grad is < 0!\n",s);
 //    }
-    double eta = pbar*power*pow(s*s,q*0.5);
+    double eta = pbar*power*pow(s,power-1.0);
     double xi = eta*(-0.5/(a*a)*(gamma-1.0)*(ui-u));
  
     double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a/rho;
@@ -3445,19 +3447,19 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     double pbar = p + pref;
  
     double dtdrho = t/rho, dtdu = -(gamma+1.0)*rho*(ui-u);
-//    double xi = sqrt(0.5*t*t+power*t*pbar);
+    double xi = sqrt(0.25*t*t+power*t*pbar);
   
-//    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
-//    dWidWi[8] = 1.0+0.5/xi*power*t;
-//    dWidWi[7] = eta*dtdu;
-//    dWidWi[6] = eta*dtdrho;
+    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
+    dWidWi[8] = 1.0+0.5/xi*power*t;
+    dWidWi[7] = eta*dtdu;
+    dWidWi[6] = eta*dtdrho;
     
-    dWidWi[8] = 1.0+power*sqrt(t/(t/2.0+power*pbar))/2.0;
-    
-    double tmp = gamma*pbar*rho;
-    dWidWi[7] = dtdu/2.0-(dtdu*dtdu+8.0*tmp)/sqrt(8.0*dtdu*dtdu+64.0*tmp);
-
-    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
+//    dWidWi[8] = 1.0+power*sqrt(t/(t/2.0+power*pbar))/2.0;
+//    
+//    double tmp = gamma*pbar*rho;
+//    dWidWi[7] = dtdu/2.0-(dtdu*dtdu+8.0*tmp)/sqrt(8.0*dtdu*dtdu+64.0*tmp);
+//
+//    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
 
     double s = q*pstarbar/pbar+1.0;
     double deriv = 1.0/(pbar*s)-(pstarbar/pbar+q)/(s*s)*(q/pbar);

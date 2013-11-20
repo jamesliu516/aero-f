@@ -57,6 +57,15 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   else
     this->mmh = 0;
 
+  if (this->modifiedGhidaglia) {
+
+    hh1 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh2 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh3 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh4 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hhorig = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -120,9 +129,9 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
+    this->spaceOp->updateSweptNodes(*this->X, *this->A,this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
+            this->distLSS, (double*)this->vfar,  &this->nodeTag);
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
@@ -153,7 +162,22 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U, double t
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
   this->spaceOp->applyBCsToSolutionVector(U0,this->distLSS); //(?)for Navier-Stokes only
+
+  if (this->modifiedGhidaglia) {
+
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+    //std::cout << "Updating mod. ghidaglia" << std::endl;
+  }
+
 
   U = U0;
   this->checkSolution(U);
@@ -169,8 +193,21 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   computeRKUpdate(U, k1, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
+
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
 
   // Ghost-Points Population
 //  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
@@ -180,7 +217,22 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
 //    }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
+  
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
+  }
+
   U = U - 1.0/2.0 * (k1 + k2);
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
+
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
 
   this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
@@ -197,26 +249,79 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
 { //TODO: no Ghost-Points Population ???
   computeRKUpdate(U, k1, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
-  U0 = U - k1;
+  U0 = U - 0.5*k1;
+ 
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep*0.5,
+				       this->spaceOp->getVarFcn());
+
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= 0.5*(*hh1);
+  }
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k2, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 0.5*(*hh2);
+  }
+
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
+ 
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep*0.5,
+				       this->spaceOp->getVarFcn());
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh3);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - (*hh3);
+  }
+
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
+
   U0 = U - k3;
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh4);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 
+       1.0/6.0*(*hh1+2.0*(*hh2+*hh3)+*hh4);
+  }
+
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(U, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
 
   this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
 
@@ -234,10 +339,10 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 //    Only its sign (+ or 0) is used. Wstar is used for two purposes. 1) linear reconstruction at interface; 2) phase-change update
 {
   this->spaceOp->applyBCsToSolutionVector(Ulocal,this->distLSS); //KW: (?)only for Navier-Stokes.
-  if (this->interfaceAlg)
-    this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, *this->countWstarij, *this->countWstarji, this->distLSS,
-                                   this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, this->timeState->getTime(), this->intersectAlpha, it, this->ghostPoints);
-  else
+  //if (this->interfaceAlg)
+  //  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, *this->countWstarij, *this->countWstarji, this->distLSS,
+  //                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, this->timeState->getTime(), this->intersectAlpha, it, this->ghostPoints);
+  //else
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
 
@@ -251,3 +356,13 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void ExplicitEmbeddedTsDesc<dim>::computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+						    DistVec<double>& dHH) {
+
+  //this->varFcn->conservativeToPrimitive(Ulocal,*(this->V),&this->nodeTag);
+  //*(this->bcData->getBoundaryStateHH()) = HHlocal;
+  this->domain->computeHHBoundaryTermResidual(*this->bcData,Ulocal,dHH, this->varFcn);
+  this->timeState->multiplyByTimeStep(dHH);
+
+}

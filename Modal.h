@@ -28,7 +28,7 @@ template<int dim> class PostOperator;
 #include <SurfMeshGen.h>
 #include <ReducedMeshShapeChanger.h>
 #include <ParallelRom.h> 
-#include <time.h> 
+#include <ctime> 
 
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>
@@ -148,6 +148,7 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void ROBInnerProductSchedule(int** , int, int, int);
     int ROBInnerProductSteps(int, int);
     void ROBInnerProducts();
+    void modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &, double *, int);
 };
 
 #include "Modal.C"

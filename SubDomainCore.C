@@ -30,6 +30,8 @@ using std::stable_sort;
 
 #include <RTree.h>
 
+#include <TriangulatedInterface.h>
+
 extern "C" {
   void F77NAME(psplotmask)(const int &, int *, int *, const int &, const int &);
 };
@@ -80,6 +82,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   nodeToNodeMaskJacobian = 0;
   nodeToNodeMaskILU      = 0;
   higherOrderMF = 0;
+  higherOrderFSI = 0;
 
   int j;
   for(int i=0;i<3;i++)  {
@@ -142,6 +145,9 @@ SubDomain::~SubDomain()
   delete[] rotOwn;
   delete mmsBCs;
 //  if (triaSurf) delete triaSurf;
+//
+  myTree->destruct();
+  delete myTree;
 
 }
 
@@ -941,7 +947,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 // least square gradient involving only nodes of same fluid (multiphase flow)
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
-												   LevelSetStructure *LSS)
+						   LevelSetStructure *LSS, bool includeSweptNodes)
 {
   R = 0.0;
   count = 0;
@@ -959,9 +965,8 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
     //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
 
-    if (higherOrderMF && (higherOrderMF->isCellCut(i) || 
-                          higherOrderMF->isCellCut(j)))
-      continue;
+    if (!includeSweptNodes && LSS && 
+        (LSS->isSwept(0.0,i) || LSS->isSwept(0.0,j)) ) continue;
 
     count[i][0]++;
     count[j][0]++;
@@ -1221,6 +1226,121 @@ void SubDomain::computeWeightsLeastSquaresNodePartForEmbeddedStruct(
   }
 }
 
+void SubDomain::computeWeightsLeastSquaresEdgePartForFF(LevelSetStructure *LSS, 
+							SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init,
+							Vec<int>& fluidId)
+{
+  R = 0.0;
+  count = 0;
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+  for (int l=0; l<edges.size(); ++l) {
+	if (!edgeFlag[l]) continue;
+	int i = edgePtr[l][0];
+	int j = edgePtr[l][1];
+	if ((i==j)||(fluidId[i] != fluidId[j])) continue;
+	double dx[3] = {X[j][0]-X[i][0],X[j][1]-X[i][1],X[j][2]-X[i][2]};
+	double dxdx = dx[0]*dx[0];
+	double dydy = dx[1]*dx[1];
+	double dzdz = dx[2]*dx[2];
+	double dxdy = dx[0]*dx[1];
+	double dxdz = dx[0]*dx[2];
+	double dydz = dx[1]*dx[2];
+	double dxcn = dx[0]*1.0;
+	double dycn = dx[1]*1.0;
+	double dzcn = dx[2]*1.0;
+	double cncn = 1.0*1.0;
+	if ((init[i]<1/*&&LSS.isActive(0.0,i)*/)&&init[j]==1) {
+//    bool toContinue;
+//	toContinue = (((!LSS.isSwept(0.0,j))&&(LSS.isActive(0.0,j)))&&
+//		((LSS.isSwept(0.0,i))&&(LSS.isActive(0.0,i))));
+//	if (toContinue) {
+	  count[i][0]++;
+	  R[i][0] += dxdx;  R[i][1] += dxdy;  R[i][2] += dxdz;  R[i][3] += dxcn;
+	  R[i][4] += dydy;  R[i][5] += dydz;  R[i][6] += dycn;
+	  R[i][7] += dzdz;  R[i][8] += dzcn;
+	  R[i][9] += cncn;
+	}
+	if ((init[j]<1/*&&LSS.isActive(0.0,j)*/)&&init[i]==1) {
+//	toContinue = (((!LSS.isSwept(0.0,i))&&(LSS.isActive(0.0,i)))&&
+//		((LSS.isSwept(0.0,j))&&(LSS.isActive(0.0,j))));
+//	if (toContinue) {
+	  count[j][0]++;
+	  R[j][0] += dxdx;  R[j][1] += dxdy;  R[j][2] += dxdz;  R[j][3] -= dxcn;
+	  R[j][4] += dydy;  R[j][5] += dydz;  R[j][6] -= dycn;
+	  R[j][7] += dzdz;  R[j][8] -= dzcn;
+	  R[j][9] += cncn;
+	} 
+  }
+}
+
+//------------------------------------------------------------------------------
+void SubDomain::computeWeightsLeastSquaresNodePartForFF(
+		SVec<int,1> &count, SVec<double,10> &R) {
+  for (int i=0; i<R.size(); ++i) {
+	if (count[i][0]<1) continue;
+	if (count[i][0]>3) {
+	  double r11, r12, r13, r14, r22, r23, r24, r33, r34, r44;
+	  double or11, or22, or33;
+      if (!(R[i][0]>0.0)) {
+        r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		r33 = 0.0;  r34 = 0.0;
+		r44 = 0.0;
+      }
+	  else {
+		r11  = sqrt(R[i][0]);
+		or11 = 1.0/r11;
+		r12  = R[i][1]*or11;
+		r13  = R[i][2]*or11;
+		r14  = R[i][3]*or11;
+        if(!(R[i][4]-r12*r12>0.0)) {
+          r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		  r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		  r33 = 0.0;  r34 = 0.0;
+		  r44 = 0.0;
+        }
+		else {
+		  r22  = sqrt(R[i][4]-r12*r12);
+		  or22 = 1.0/r22;
+		  r23  = (R[i][5]-r12*r13)*or22;
+		  r24  = (R[i][6]-r12*r14)*or22;
+		  if (!(R[i][7]-(r13*r13+r23*r23)>0.0)) {
+            r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		    r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		    r33 = 0.0;  r34 = 0.0;
+		    r44 = 0.0;
+		  }
+		  else {
+			r33  = sqrt(R[i][7]-(r13*r13+r23*r23));
+			or33 = 1.0/r33;
+			r34  = (R[i][8]-(r13*r14+r23*r24))*or33;
+			r44  = R[i][9]-(r14*r14+r24*r24+r34*r34);
+			if (!(r44>0.0)) {
+              r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
+		      r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
+		      r33 = 0.0;  r34 = 0.0;
+		      r44 = 0.0;
+			}
+			else
+			  r44 = sqrt(r44);
+		  }
+        }
+      }
+	  R[i][0] = r11;  R[i][1] = r12;  R[i][2] = r13;  R[i][3] = r14;
+		  			  R[i][4] = r22;  R[i][5] = r23;  R[i][6] = r24;
+	  								  R[i][7] = r33;  R[i][8] = r34;
+	  												  R[i][9] = r44;
+	}
+	else {
+	  R[i][0] = 0.0;  R[i][1] = 0.0;  R[i][2] = 0.0;  R[i][3] = 0.0;
+	 	 			  R[i][4] = 0.0;  R[i][5] = 0.0;  R[i][6] = 0.0;
+	  								  R[i][7] = 0.0;  R[i][8] = 0.0;
+	  												  R[i][9] = 0.0;
+	}
+  }
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -1261,8 +1381,7 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
 {
 
   for (int i=0; i<R.size(); ++i) {
-     if(count[i][0]>2 && 
-        (!higherOrderMF || !higherOrderMF->isCellCut(i))) { //enough neighbours to get a least square problem
+     if(count[i][0]>2) { //enough neighbours to get a least square problem
       double r11, or11, r12, r13, r22, r23, r33;
       if(!(R[i][0]>0.0)){
         r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
@@ -4828,14 +4947,14 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
     bool occluded = LSS.isOccluded(0.0,i);
 
     if(!swept){ //fluidId should not change.
-      if(occluded || fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+      if(!occluded && fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
         //poll[i][fluidId[i]] = true;
         if (fluidId[i] == 0) poll[i][0] = true;
         else if (fluidId[i] == dimLS) poll[i][1] = true;
-        else if (fluidId[i] == dimLS+1) poll[i][2] = true;
         continue;
       }
     }
+
     if(occluded){ //set Id to 2
       poll[i][2] = true;
       continue;
@@ -4884,12 +5003,20 @@ void SubDomain::computeConnectedTopology(const std::vector<int> &locSampleNodes_
 
 }
 
-void SubDomain::createHigherOrderMultiFluid(Vec<HigherOrderMultiFluid::CutCellState*>& vs) {
+void SubDomain::createHigherOrderMultiFluid() {
 
-  higherOrderMF = new HigherOrderMultiFluid(vs);
+  higherOrderMF = new HigherOrderMultiFluid();
 
   edges.attachHigherOrderMultiFluid(higherOrderMF);
   faces.attachHigherOrderMF(higherOrderMF);
+}
+
+void SubDomain::createHigherOrderFSI() {
+
+  higherOrderFSI = new HigherOrderFSI();
+
+  edges.attachHigherOrderFSI(higherOrderFSI);
+  //  faces.attachHigherOrderFSI(higherOrderFSI);
 }
 
 void SubDomain::assignErrorHandler(ErrorHandler* in){
@@ -5104,4 +5231,43 @@ void SubDomain::setFarFieldMask(Vec<double>& ffMask){
 
 }
 
+void SubDomain::maskHHVector(Vec<double>& hh) {
+
+  for (int i = 0; i < faces.size(); ++i) {
+
+    switch (faces[i].getCode()) {
+
+    case BC_OUTLET_MOVING:
+    case BC_OUTLET_FIXED:
+    case BC_INLET_MOVING:
+    case BC_INLET_FIXED:
+      break;
+    default:
+      hh[i] = 0;
+      break;
+    }
+  }
+}
+
+void SubDomain::attachTriangulatedInterfaceLSS(LevelSetStructure* LSS) {
+
+  edges.attachTriangulatedInterfaceLSS(LSS);
+}
+
+class ElemSearchValid {
+
+  public:
+
+    bool Valid(Elem*) { return true; }
+};
+
+
+Elem* SubDomain::searchPoint(Vec3D Xp, SVec<double,3>& X) {
+
+  ElemSearchValid myObj;
+  Elem* E = myTree->search<&Elem::isPointInside, ElemSearchValid,
+ 	                   &ElemSearchValid::Valid>(&myObj, X, Xp);
+
+  return E;
+}
 

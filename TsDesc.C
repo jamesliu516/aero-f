@@ -57,7 +57,12 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  if (ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) {
+  if ((ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) &&
+      (ioData.problem.type[ProblemData::AERO] ||
+       ioData.problem.type[ProblemData::ACCELERATED] ||
+       ioData.problem.type[ProblemData::FORCED] ||
+       ioData.problem.type[ProblemData::ROLL] ||
+       ioData.problem.type[ProblemData::RBM] )) {
     geoState->setup1(input->positions, X, A);
     moveMesh(ioData, geoSource);
   } else {
@@ -141,7 +146,6 @@ template<int dim>
 void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
 {
     if (strcmp(input->wallsurfacedisplac,"") != 0 && strcmp(input->positions,"") == 0) {
-      cout << input->wallsurfacedisplac << endl;
       PosVecType dXb(getVecInfo());
       mems = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);
 //      mems = new TetMeshMotionSolver(ioData.dmesh, 0, domain, 0);
@@ -156,6 +160,14 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
       com->fprintf(stderr," *** mesh has been moved.\n");
       char temp[1]; temp[0] = '\0';
       geoState->setup3(temp, X, A);
+      if(ioData.output.restart.positions[0] != 0) {
+        int sp = strlen(ioData.output.restart.prefix) + 1;
+        char *posFile = new char[sp + strlen(ioData.output.restart.positions)];
+        sprintf(posFile, "%s%s", ioData.output.restart.prefix, ioData.output.restart.positions);
+        com->fprintf(stderr, " ... Writing Fluid mesh positions to %s\n", posFile);
+        domain->writeVectorToFile(posFile, 0, 0.0, *X);
+        delete [] posFile;        
+      }
     } else {
       mems = 0;
     }
@@ -342,7 +354,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
-  //printf(1,"cfl=%e\n",data->cfl);
+//  printf(1,"cfl=%e\n",data->cfl);
 
   double dt = 0.0;
   if(failSafeFlag == false){
@@ -508,8 +520,10 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   else
     ierr = domain->checkSolution(varFcn, U);
 
-  if (ierr != 0 && data->checksol) data->unphysical = true;
-  ierr = max(ierr,0);
+  //if (ierr != 0 && data->checksol) data->unphysical = true;
+  //ierr = max(ierr,0);
+
+  if (ierr) this->errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += 1;
 
   return ierr;
 
@@ -599,6 +613,14 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
   this->output->updatePrtout(t);
   if (*lastIt) {
+
+    if (strcmp(ioData.input.convergence_file,"") != 0) {
+      
+      this->varFcn->conservativeToPrimitive(U, *this->V);
+      computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
+    }
+
+
     timer->setRunTime();
     if (com->getMaxVerbose() >= 2)
       timer->print(domain->getStrTimer());
@@ -955,9 +977,6 @@ void TsDesc<dim>::updateFarfieldCoeffs(double dt)
   int nSub = domain->getNumLocSub();
   SubDomain **sub = domain->getSubDomain();
   int iSub;
-#pragma omp parallel for
-  for(iSub=0; iSub<nSub; iSub++)
-    sub[iSub]->updateFarfieldCoeffs(dt);
 }
 
 //----------------------------------------------------------------------------
@@ -969,9 +988,6 @@ void TsDesc<dim>::updateBoundaryExternalState()
   int nSub = domain->getNumLocSub();
   SubDomain **sub = domain->getSubDomain();
   int iSub;
-#pragma omp parallel for
-  for(iSub=0; iSub<nSub; iSub++)
-    sub[iSub]->updateBoundaryExternalState();
 }
 
 //----------------------------------------------------------------------------
@@ -990,14 +1006,51 @@ void TsDesc<dim>::initializeFarfieldCoeffs()
     gamma = varFcn->getBetaWater();
 
   double HH_init = -2.0*soundspeed/(gamma - 1.0);
-  //fprintf(stderr,"HH_init is set to %e.\n", HH_init);
 
-  int nSub = domain->getNumLocSub();
-  SubDomain **sub = domain->getSubDomain();
-  int iSub;
-#pragma omp parallel for
-  for(iSub=0; iSub<nSub; iSub++)
-    sub[iSub]->initializeFarfieldCoeffs(HH_init);
+  *(bcData->getBoundaryStateHH()) = HH_init;
+
+  this->domain->maskHHVector(*(bcData->getBoundaryStateHH()));
+}
+
+template<int dim>
+void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U) {
+
+  DistSVec<double,dim> Uexact(U);
+  OneDimensional::read1DSolution(ioData,file, Uexact, 
+				 (DistSVec<double,1>*)0,
+				 NULL,//&fluidSelector,
+				 spaceOp->getVarFcn(),
+				 *this->X,
+				 *this->domain,
+				 OneDimensional::ModeU,
+				 false) ;
+
+  double error[dim];
+  double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
+		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+		      ioData.ref.rv.pressure};
+
+  double tot_error = 0.0;
+  DistVec<int> nnv(U.info());
+  nnv = 1;
+  int nNodes = nnv.sum();
+
+  this->domain->computeL1Error(U,Uexact,*this->A,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error += error[k] / nNodes;
+    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k] / nNodes);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %lf\n", tot_error);
+
+  tot_error = 0.0;
+  this->domain->computeLInfError(U,Uexact,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error = max(error[k],tot_error);
+    this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %lf\n", tot_error);
+
+  
 }
 
 //----------------------------------------------------------------------------

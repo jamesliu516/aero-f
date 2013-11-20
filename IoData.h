@@ -75,7 +75,9 @@ struct InputData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+  const char *fluidId;
   const char *rstdata;
+  const char *restart_file_package;
   const char *podFile;
   //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
   const char *stateSnapFile;
@@ -147,6 +149,24 @@ struct Probes {
   void setup(const char *, ClassAssigner * = 0);
 };
 
+struct LinePlot {
+
+  LinePlot();
+  ~LinePlot() {} 
+
+  Assigner *getAssigner();
+  double x0,y0,z0;
+  double x1,y1,z1;
+  
+  int numPoints;
+  
+  const char *density;
+  const char *pressure;
+  const char *temperature;
+  const char *velocity;
+  //const char *displacement;
+};
+
 //------------------------------------------------------------------------------
 
 struct TransientData {
@@ -205,9 +225,11 @@ struct TransientData {
   const char *conservation;
   const char *podFile;
   const char *robProductFile;
+  const char *rMatrixFile;
   const char *romFile;
   const char *gendispFile;
   const char *philevel;
+  const char *philevel2;
   const char *controlvolume;
   const char* fluidid;
   const char* d2wall;
@@ -248,6 +270,8 @@ struct TransientData {
 
   Probes probes;
 
+  ObjectMap<LinePlot> linePlots;
+
   TransientData();
   ~TransientData() {}
 
@@ -268,7 +292,9 @@ struct RestartData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+  const char *fluidId;
   const char *data;
+  const char* filepackage;
 
   int frequency;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
@@ -1101,7 +1127,8 @@ struct MultiFluidData {
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
-  enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3} levelSetMethod;
+  enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3,
+                        TRIANGULATED = 4} levelSetMethod;
 
   enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
 
@@ -1429,6 +1456,8 @@ struct MultiGridData {
   int addViscousTerms;
 
   SchemeFixData fixes;
+
+  const char* agglomerationFile;
  
   MultiGridData();
   ~MultiGridData() {}
@@ -1565,6 +1594,24 @@ struct CFLData {
 
 //------------------------------------------------------------------------------
 
+struct AdaptiveTimeData {
+
+  int checksol;
+  int checklinsolve;
+  int checkriemann;
+  int checklargevelocity;
+  int rapidpchangecutoff;
+  int checkpclipping; 
+
+  AdaptiveTimeData();
+  ~AdaptiveTimeData() {}
+  
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct TsData {
 
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
@@ -1596,6 +1643,13 @@ struct TsData {
   double ser;
   double dualtimecfl;
 
+  int checksol;
+  int checkvelocity;
+  int checkpressure;
+  int checkdensity;
+  int deltapressurethreshold;
+  int deltadensitythreshold;
+
   double programmedBurnShockSensor;
   double rapidPressureThreshold;
   double rapidDensityThreshold;
@@ -1605,6 +1659,7 @@ struct TsData {
   ExplicitData expl;
   ImplicitData implicit;
   CFLData cfl;
+  AdaptiveTimeData adaptivetime;
 
   TsData();
   ~TsData() {}
@@ -1915,7 +1970,8 @@ struct Velocity  {
 
 struct ForcedData {
 
-  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4} type;
+  enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
+             ACOUSTICBEAM=5} type;
 
   double frequency;
   double timestep;
@@ -2441,7 +2497,7 @@ struct LinearizedData {
 
   enum Domain {TIME = 0, FREQUENCY = 1} domain;
   enum InitialCondition {DISPLACEMENT = 0, VELOCITY = 1} initCond;
-
+  enum GramSchmidt {TRUE_GS = 1, FALSE_GS = 0} doGramSchmidt;
   double amplification;
   double frequency;
   double stepsize;
@@ -2538,7 +2594,9 @@ struct EmbeddedFramework {
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
-  
+
+  int testCase; 
+ 
   EmbeddedFramework();
   ~EmbeddedFramework() {}
 
@@ -2564,7 +2622,9 @@ struct OneDimensionalInfo {
 
   ProgrammedBurnData programmedBurn;
   
-  enum Mode { NORMAL=0, CONVTEST1 = 1 } mode;
+  enum Mode { NORMAL=0, CONVTEST1 = 1, CONVTEST2=2 } mode;
+
+  enum ProblemMode { MULTIFLUID=0, FSI=1} problemMode;
 
   OneDimensionalInfo();
   ~OneDimensionalInfo() {}

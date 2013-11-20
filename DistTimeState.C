@@ -10,6 +10,9 @@
 #include <cmath>
 #include <fstream>
 #include <OneDimensionalSolver.h>
+#include <ErrorHandler.h>
+#include <ExactSolution.h>
+
 using namespace std;
 //------------------------------------------------------------------------------
 template<int dim>
@@ -33,6 +36,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
 				  Domain *dom, DistSVec<double,dim> *v, DistInfo& dI) 
 {
   locAlloc = true;
+
+  checkForRapidlyChangingValues = true;
 
   if (v) V = v->alias();
   else V = new DistSVec<double,dim>(dI);
@@ -148,11 +153,14 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   dt_coeff = 1.0;
   dt_coeff_count = 0;
   allowcflstop = true;
+  allowdtstop = true;
 
   *irey = 0.0;
 
   checkForRapidlyChangingPressure = ioData.ts.rapidPressureThreshold;
   checkForRapidlyChangingDensity = ioData.ts.rapidDensityThreshold;
+
+  errorHandler = dom->getErrorHandler();
 }
 
 //------------------------------------------------------------------------------
@@ -243,6 +251,18 @@ DistTimeState<dim>::~DistTimeState()
 //------------------------------------------------------------------------------
 
 template<int dim>
+void DistTimeState<dim>::attachHH(DistVec<double>& hh) {
+
+  hhn = new DistVec<double>(hh);
+  hhnm1 = new DistVec<double>(hh);
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    if (subTimeState[iSub]) 
+      subTimeState[iSub]->attachHH(&(*hhn)(iSub),&(*hhnm1)(iSub));
+  }
+}
+
+template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
                                DistSVec<double,dim> &Ufar,
                                DistSVec<double,dim> &U, IoData &iod,
@@ -262,6 +282,8 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   setupUOneDimensionalSolution(iod,X);
   if(point_based_id)
     setupUFluidIdInitialConditions(iod, *point_based_id);
+
+  setupUExactSolutionInitialConditions(iod,X);
 
   if (name[0] != 0) {
     domain->readVectorFromFile(name, 0, 0, *Un);
@@ -424,6 +446,30 @@ void DistTimeState<dim>::setupUOneDimensionalSolution(IoData &iod, DistSVec<doub
 }
 //------------------------------------------------------------------------------
 template<int dim>
+void DistTimeState<dim>::setupUExactSolutionInitialConditions(IoData &iod, DistSVec<double,3> &X)
+{
+  // Test case one:
+  if (iod.embed.testCase == 1) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      SVec<double,dim> &u((*Un)(iSub));
+      SVec<double, 3> &x(X(iSub));
+      for(int i=0; i<X.subSize(iSub); i++) {
+
+	double v[dim];
+	
+	ExactSolution::AcousticBeam(iod,x[i][0],x[i][1],x[i][2], 0.0, v);
+
+	varFcn->primitiveToConservative(v, u[i], 0);
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X)
 {
   // Note that Un was already initialized either using the far-field
@@ -531,7 +577,7 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
   // p = 1+10^8(x-0.2)^4*(x-0.6)^4, [x = (0.2,0.6)]
   if (iod.mf.testCase == 1) {
 
-    int oth = 1;//(iod.eqs.fluidModelMap.dataMap.size() > 1 ? 1 : 0);   
+    int oth = (iod.eqs.fluidModelMap.dataMap.size() > 1 ? 1 : 0);   
  
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -539,12 +585,12 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       SVec<double, 3> &x(X(iSub));
       for(int i=0; i<X.subSize(iSub); i++) {
 	double press = 1.0;
-	if (x[i][0] > 0.2 && x[i][0] < 0.6)
-	  press += 1.0e7*pow(x[i][0]-0.2,4.0)*pow(x[i][0]-0.6,4.0);
-	double v[dim];
+	if (x[i][0] > 0.499-0.2 && x[i][0] < 0.499+0.2)
+	  press += 1.0e6*pow(x[i][0]-(0.499-0.2),4.0)*pow(x[i][0]-(0.499+0.2),4.0);
+	double v[dim] = {0,0,0,0,0};
 	v[0] = u[i][0];
 	v[4] = press / iod.ref.rv.pressure;
-	varFcn->primitiveToConservative(v, u[i], (x[i][0] < 0.4 ? 0 : oth) );
+	varFcn->primitiveToConservative(v, u[i], (x[i][0] < 0.499 ? 0 : oth) );
       }
     }
   }
@@ -619,8 +665,10 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  } else 
+  } else{
     dt_glob = dt->min();
+    allowdtstop = false;
+  }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
@@ -689,8 +737,10 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
     allowcflstop = false; 
     dt_glob *= dt_coeff;
   }
-  else 
+  else{ 
+    allowdtstop = false;
     dt_glob = max ( dtMin, (factor * data->dt_nm1));
+  }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
@@ -720,12 +770,12 @@ template<int dim>
 void DistTimeState<dim>::updateDtCoeff(){
 
   //std::printf("DT Coefficient: %f \n", dt_coeff);
-  if(unphysical){
-
-    unphysical = false;
+  if(errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME] = 0;
+    //unphysical = false;
     dt_coeff_count=0;
     dt_coeff /= 2.0;
-    if(dt_coeff<0.0001){
+    if(dt_coeff<0.0001 && allowdtstop){
       printf("Could not resolve unphysicality by reducing timestep. Aborting.");
       exit(-1);
     }
@@ -775,8 +825,10 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  }else
+  }else{
     dt_glob = dt->min();
+    allowdtstop = false;
+  }
                                                                                                          
   if (umax && isGFMPAR) {
     double udt = umax->min();
@@ -804,7 +856,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   }
                                                                                                          
   data->computeCoefficients(*dt, dt_glob);
-                                                                                                         
+  
   return dt_glob;
                                                                                                          
 }
@@ -852,7 +904,21 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
       subTimeState[iSub]->add_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), LSS);
     }
   }
-}                                                                                                                      
+}   
+
+template<int dim>
+void DistTimeState<dim>::add_dAW_dt_HH(int it, DistGeoState &geoState, 
+		   DistVec<double> &ctrlVol,
+		   DistVec<double> &Q, 
+		   DistVec<double> &R) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subTimeState[iSub]->add_dAW_dt_HH(Q.getMasterFlag(iSub), geoState(iSub), 
+				      ctrlVol(iSub), Q(iSub), R(iSub));
+  }
+  
+}                                                                                                                 
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -952,6 +1018,16 @@ void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,
      addToJacobianNoPrec(ctrlVol, A, U);
   }
 
+}
+
+template<int dim>
+template<class Scalar, int neq>
+void DistTimeState<dim>::addToHHJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
+                                       DistVec<double> &hh)
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToJacobianHH(ctrlVol(iSub), A(iSub), hh(iSub));
 }
 
 //------------------------------------------------------------------------------
@@ -1183,6 +1259,19 @@ void DistTimeState<dim>::addToH2Minus(DistVec<double> &ctrlVol, DistSVec<double,
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::multiplyByTimeStep(DistVec<double>& dU)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    double *du = dU.subData(iSub);
+    double* _dt = dt->subData(iSub);
+    for (int i=0; i<dU.subSize(iSub); ++i)
+      du[i] *= _dt[i];
+  }
+
+}
 
 template<int dim>
 void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dim>& dU)
@@ -1388,10 +1477,59 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void DistTimeState<dim>::updateHH(DistVec<double> & hh) {
+
+  *hhnm1 = *hhn;
+
+  *hhn = hh;
+}
+
+struct SetFirstOrderNodes {
+
+  VarFcn* varFcn;
+
+  double threshold;
+  ErrorHandler* errorHandler;
+
+  int isDensity;
+
+  SetFirstOrderNodes(VarFcn* varFcn,double t, ErrorHandler* errorHandlerIn,
+		     int isDensity=0) : varFcn(varFcn), isDensity(isDensity),
+      threshold(t) { errorHandler = errorHandlerIn; }
+
+  void Perform(double* uold, double* unew, int& status,int id = 0) const {
+
+    double vold[7], vnew[7];
+    
+    if (!isDensity) {
+      varFcn->conservativeToPrimitive(uold,vold, id);
+      varFcn->conservativeToPrimitive(unew,vnew, id);
+      
+      double pold = varFcn->getPressure(vold,id);
+      double pnew = varFcn->getPressure(vnew,id);
+      if (fabs(pnew-pold)/pold > threshold) {
+	status = 1;
+	errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE]++;
+      }
+    } else {
+      varFcn->conservativeToPrimitive(uold,vold, id);
+      varFcn->conservativeToPrimitive(unew,vnew, id);
+      
+      if (fabs(vnew[0]-vold[0])/vold[0] > threshold) {
+	status = 1;
+	errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY]++;
+      }
+    }
+  }
+};
+
+template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
 {
 
   data->update();
+
+  *firstOrderNodes = 0;
 
   if (data->use_nm2 && data->exist_nm1) {
     *Unm2 = *Unm1;
@@ -1404,6 +1542,16 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
   if (data->use_nm1 && !increasingPressure) {
     *Unm1 = *Un;
     data->exist_nm1 = true;
+  }
+
+  if (checkForRapidlyChangingValues) {
+    if (checkForRapidlyChangingPressure > 0.0)
+      DistVectorOp::Op(*Un, Q,*firstOrderNodes,  
+  		     SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+  
+    if (checkForRapidlyChangingDensity > 0.0)
+      DistVectorOp::Op(*Un, Q,*firstOrderNodes,
+  		       SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
   }
   *Un = Q;
 }
@@ -1421,30 +1569,6 @@ struct MultiphaseRiemannCopy {
   }
 };
 
-struct SetFirstOrderNodes {
-
-  VarFcn* varFcn;
-
-  double threshold;
-
-  SetFirstOrderNodes(VarFcn* varFcn,double t) : varFcn(varFcn),
-      threshold(t) { }
-
-  void Perform(double* uold, double* unew, int& status,int id) const {
-
-    double vold[7], vnew[7];
-    varFcn->conservativeToPrimitive(uold,vold, id);
-    varFcn->conservativeToPrimitive(unew,vnew, id);
-     
-    double pold = varFcn->getPressure(vold,id);
-    double pnew = varFcn->getPressure(vnew,id);
-    if (fabs(pnew-pold)/pold > threshold) {
-      status = 1;
-    }
-    else
-      status = 0;
-  }
-};
 
 //------------------------------------------------------------------------------
 
@@ -1461,6 +1585,7 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
     fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
     exit(1);
   }
+  *firstOrderNodes = 0;
   if (data->use_nm1 && !increasingPressure) {
     if (fvmers_3pbdf == ImplicitData::BDF_SCHEME2) {
       DistVec<int> tempInt(fluidId);
@@ -1474,9 +1599,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
       
       varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
 
-      if (checkForRapidlyChangingPressure > 0.0)
-        DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
-                         SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure)); 
+      if (checkForRapidlyChangingValues) {
+        if (checkForRapidlyChangingPressure > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+
+        if (checkForRapidlyChangingDensity > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+      }
 
       int numFirstOrderNodes = firstOrderNodes->sum(); 
       if (numFirstOrderNodes > 0)
@@ -1491,6 +1622,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q
     } else {
       *Unm1 = *Vn;
       *Vn = Q;
+      if (checkForRapidlyChangingValues) {
+        if (checkForRapidlyChangingPressure > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingPressure,errorHandler)); 
+
+        if (checkForRapidlyChangingDensity > 0.0)
+          DistVectorOp::Op(*Un, Qtilde,*firstOrderNodes, *fluidIdnm1, 
+                           SetFirstOrderNodes(varFcn,checkForRapidlyChangingDensity,errorHandler,1)); 
+      }
       double tau = data->getTauN();
       double beta = (1.0+2.0*tau)/((1.0+tau)*(1.0+tau));
       *Un = beta*Q+(1.0-beta)*Qtilde;

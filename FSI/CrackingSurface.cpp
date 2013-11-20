@@ -86,6 +86,9 @@ CrackingSurface::CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, 
   }
 
   gotNewCracking = false;
+
+  triangle_id_map = NULL;
+  numRealTriangles = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -98,6 +101,8 @@ CrackingSurface::~CrackingSurface()
   if(tria2quad) delete[] tria2quad; 
   if(cracked) delete[] cracked;
   if(deleted) delete[] deleted;
+  
+  if (triangle_id_map) delete [] triangle_id_map;
 }
 
 //------------------------------------------------------------------------------
@@ -243,6 +248,9 @@ int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* con
   nUsedTrias += nNew;
 
   nUsedNodes = nUsedNd;
+
+  constructTriangleMap();
+
   return nNew;
 }
 
@@ -415,4 +423,60 @@ void CrackingSurface::readCrackingData(std::ifstream& restart_file) {
   restart_file.read(reinterpret_cast<char*>(deleted), sizeof(bool)*nTotalQuads);
 
   //std::cout << "Read cracking surface, with " << nTotalNodes << " total nodes, " << nUsedNodes << " used nodes" << std::endl;
+
+  constructTriangleMap();
+}
+
+void CrackingSurface::constructTriangleMap() {
+
+
+  int real_tri_count = 0;
+  for(int i=0; i<nUsedTrias; i++) {
+
+    if (!purelyPhantom(i))
+      ++real_tri_count;
+  }
+  
+  if (triangle_id_map) 
+    delete [] triangle_id_map;
+
+  triangle_id_map = new int[real_tri_count];
+  int q = 0;
+  for(int i=0; i<nUsedTrias; i++) {
+
+    if (!purelyPhantom(i)) {
+      triangle_id_map[q] = i;
+      ++q;
+    }
+  }
+
+  numRealTriangles = real_tri_count;
+
+}
+
+// see triangle_id_map
+int CrackingSurface::mapTriangleID(int id) {
+
+  if (triangle_id_map)
+    return triangle_id_map[id];
+  else
+    return id;
+}
+
+//
+double CrackingSurface::
+getPhiPhysBAM(int trId, double xi1, double xi2, bool* hasCracked, bool debug) {
+
+  if (triangle_id_map)
+    return getPhi(triangle_id_map[trId], xi1,xi2,hasCracked, debug);
+  else
+    return getPhi(trId, xi1,xi2,hasCracked, debug);
+}
+
+bool CrackingSurface::purelyPhantomPhysBAM(int trId)
+{
+  if (triangle_id_map)
+    return purelyPhantom(triangle_id_map[trId]);
+  else
+    return purelyPhantom(trId);
 }

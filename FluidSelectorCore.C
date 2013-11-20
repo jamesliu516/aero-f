@@ -1,8 +1,13 @@
 #include "FluidSelector.h"
 #include "Domain.h"
+#include "TriangulatedInterface.h"
 #include <iostream>
 #include <fstream>
 using namespace std;
+
+#include <TsInput.h>
+
+#include "TsRestart.h"
 
 //------------------------------------------------------------------------------
 
@@ -11,6 +16,30 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
   numPhases = nPhases;
   domain = dom ? dom : 0;
 
+  char* fidpath;
+  if (ioData.input.restart_file_package[0] == 0) {
+    const std::string prefix(ioData.input.prefix); 
+    fidpath = TsInput::absolutePath(ioData.input.fluidId, prefix);
+  } else {
+
+    char dummy[6][256];
+    fidpath = new char[256];
+    const std::string prefix(ioData.input.prefix); 
+    char* tmp = TsInput::absolutePath(ioData.input.restart_file_package, prefix);
+
+    TsRestart::readRestartFileNames(tmp,
+				    dummy[0],
+				    dummy[1],
+				    dummy[2],
+				    dummy[3],
+				    fidpath,
+				    dummy[4],
+				    dummy[5], dom->getCommunicator());
+
+//   std::cout << std::string(tmp) << std::endl;
+    //std::cout << std::string(fidpath) << std::endl;
+  }
+  
   fluidId  = 0;
   fluidIdn = 0;
   if(domain){
@@ -19,6 +48,7 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
     *fluidId  = 0;
     *fluidIdn = 0;
   }
+
   fluidIdnm1 = 0;
   fluidIdnm2 = 0;
   if(ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF){
@@ -32,17 +62,56 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
     *fluidIdnm2 = 0;
   }
 
+  if (ioData.input.fluidId[0] != 0 ||
+      ioData.input.restart_file_package[0] != 0) {
+    
+    //std::cout << "Reading solution " << std::string(fidpath) << std::endl;
+    double scl;
+    DistSVec<int,1> i1(fluidId->info(), reinterpret_cast<int(*)[1]>(fluidId->data()));
+    domain->readVectorFromFile(fidpath, 0, &scl, i1);
+
+    if (fluidIdnm1){
+      DistSVec<int,1> i2(fluidIdnm1->info(), reinterpret_cast<int(*)[1]>(fluidIdnm1->data()));
+      domain->readVectorFromFile(fidpath, 1,  &scl, i2);
+    }
+
+    if (fluidIdnm2){
+      DistSVec<int,1> i3(fluidIdnm2->info(), reinterpret_cast<int(*)[1]>(fluidIdnm2->data()));
+      domain->readVectorFromFile(fidpath, 2,  &scl,i3);
+    }
+
+  }
+
+
   programmedBurn = 0;
+
+  ownsData = true;
+}
+
+FluidSelector::FluidSelector(DistVec<int>& nodeTag, Domain* dom) : domain(dom) {
+
+  fluidId  = 0;
+  fluidIdn = 0;
+
+  fluidIdnm1 = 0;
+  fluidIdnm2 = 0;
+
+  ownsData = false;
+
+  fluidId = &nodeTag;
+
 }
 
 //------------------------------------------------------------------------------
 #define SAFE_DELETE(f) if (f) delete f;
 FluidSelector::~FluidSelector()
 {
-  SAFE_DELETE(fluidId);
-  SAFE_DELETE(fluidIdn);
-  SAFE_DELETE(fluidIdnm1);
-  SAFE_DELETE(fluidIdnm2);
+  if (ownsData) {
+    SAFE_DELETE(fluidId);
+    SAFE_DELETE(fluidIdn);
+    SAFE_DELETE(fluidIdnm1);
+    SAFE_DELETE(fluidIdnm2);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -352,20 +421,57 @@ void FluidSelector::printFluidId(){
 
 //------------------------------------------------------------------------------
 
+//template<int dim>
+void FluidSelector::getFluidId(TriangulatedInterface* T){
+//  assert(dim<=numPhases-1);
+  int numLocSub = fluidId->numLocSub();
+  int iSub;
+#pragma omp parallel for
+  for(iSub=0; iSub<numLocSub; ++iSub) {
+    LevelSetStructure* LSS = T->getSubLSS(iSub);
+    int     *tag       = fluidId->subData(iSub);
+    int burnTag;
+    for(int iNode=0; iNode<fluidId->subSize(iSub); iNode++){
+      //if (programmedBurn && programmedBurn->isBurnedEOS(tag[iNode],burnTag))
+      //	continue;
+      tag[iNode] = 0;
+/*      for(int i=0; i<dim; i++) {
+        if(phi[iNode][i]>0.0) {
+	  if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
+				 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
+	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) || 
+                programmedBurn->isFinished(burnTag))
+	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
+	    else
+	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
+	    break;
+	  }
+	  else 
+	    {  tag[iNode] = i+1; break; }
 
+          
+	}
+      }
+*/
+      if (!LSS->isOccluded(0.0,iNode))
+        tag[iNode] = LSS->fluidModel(0.0,iNode);
+    }
+  }
+}
 
+void FluidSelector::writeToDisk(const char* name) {
 
+  DistSVec<int,1> i1(fluidId->info(), reinterpret_cast<int(*)[1]>(fluidId->data()));
+  domain->writeVectorToFile(name, 0, 0.0, i1);
 
+  if (fluidIdnm1){
+    DistSVec<int,1> i2(fluidIdnm1->info(), reinterpret_cast<int(*)[1]>(fluidIdnm1->data()));
+    domain->writeVectorToFile(name, 1, 0.0, i2);
+  }
 
+  if (fluidIdnm2){
+    DistSVec<int,1> i3(fluidIdnm2->info(), reinterpret_cast<int(*)[1]>(fluidIdnm2->data()));
+    domain->writeVectorToFile(name, 2, 0.0,i3);
+  }
 
-
-
-
-
-
-
-
-
-
-
-
+}

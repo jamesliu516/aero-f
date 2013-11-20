@@ -4,3 +4,6 @@ SET(LAPACK_LIBRARIES -Wl,--start-group /opt/intel/composer_xe_2013.0.079/mkl/lib
 SET(LAPACK_FOUND true)
 SET(SCALAPACK_FOUND true)
 SET(BLACS_FOUND true)
+SET(BLACSLIB "")
+SET(BLACSCLIB "")
+SET(SCALAPACKLIB "")

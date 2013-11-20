@@ -7,6 +7,8 @@
 #include "mpi.h"
 #endif
 
+#include <utils/Aerof_math.h>
+
 //--------------------------------------------------------------------------
 // This class is the VarFcn class for the Stiffened Gas EOS in Euler 
 // Equations. Only elementary functions are declared and/or defined here.
@@ -111,14 +113,14 @@ public:
     return error;
   }
   double computeTemperature(double *V) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
   }
   void computeTemperatureGradient(double *V,double* Tg) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
@@ -128,7 +130,7 @@ public:
   }
   void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
                                  double& Tpp) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
@@ -146,6 +148,9 @@ public:
     return invgam1 * (V[4]+gam*Pstiff); 
   }
   double computeSoundSpeed(double *V) const {
+#ifndef NDEBUG
+    if (V[4]+Pstiff<0 || V[0]<=0) std::printf("V[4]=%e, Pstiff=%e, V[0]=%e\n",V[4],Pstiff,V[0]); 
+#endif
     return sqrt(gam * (V[4]+Pstiff) / V[0]); 
   }
   double computeSoundSpeed(double density, double entropy) const {
@@ -247,6 +252,9 @@ inline
 void VarFcnSGEuler::conservativeToPrimitive(double *U, double *V)
 {
 
+#ifndef NDEBUG 
+  if(U[0] == 0) fprintf(stderr,"U[0] is %e\n",U[0]);
+#endif
   V[0] = U[0];
 
   double invRho = 1.0 / U[0];
@@ -464,14 +472,14 @@ int VarFcnSGEuler::verification(int glob, double *U, double *V)
     if(verif_clipping)
       fprintf(stderr,"clip density[%d] in gas(Euler) from %e to %e\n", glob, V[0], rhomin);
     V[0] = rhomin;
-    count++; 
+    count += (count+1) % 2; 
   }
 
   if(V[4]<pmin){
     if (verif_clipping)
       fprintf(stdout, "clip pressure[%d] in gas(Euler) from %e to %e\n", glob, V[4], pmin);
     V[4] = pmin;
-    count++;
+    count += 2;
   }
 
   if(count) //also modify U

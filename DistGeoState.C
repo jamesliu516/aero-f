@@ -195,6 +195,48 @@ DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistI
                                      (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
 }
 
+DistGeoState::DistGeoState(const GeoData& data, Domain *dom, DistInfo& nodeDistInfo, DistInfo& edgeDistInfo)
+: data(data), domain(dom), Xnm1(0), Xnm2(0), Xdot(0), Xsave(0), edgeNorm_nm1(0), edgeNormVel_nm1(0), edgeNorm_nm2(0), edgeNormVel_nm2(0),
+    faceNorm_nm1(0), faceNormVel_nm1(0), faceNorm_nm2(0), faceNormVel_nm2(0), ctrlVol_save(0), Xsa(0), dXsa(0), dEdgeNorm(0), dFaceNorm(0),
+    dEdgeNormVel(0), dFaceNormVel(0)
+{
+  numLocSub = domain->getNumLocSub();
+  com = domain->getCommunicator();
+  oolscale = 1.0;
+
+  Xn = new DistSVec<double,3>(nodeDistInfo);
+  ctrlVol_n = new DistVec<double>(nodeDistInfo);
+  ctrlVol_nm1 = new DistVec<double>(nodeDistInfo);
+  ctrlVol_nm2 = new DistVec<double>(nodeDistInfo);
+  // Initialize the values
+  *Xn = 0.0;
+  *ctrlVol_n = 0.0;
+  *ctrlVol_nm1 = 0.0;
+  *ctrlVol_nm2 = 0.0;
+
+  d2wall = new DistVec<double>(nodeDistInfo);
+
+  edgeNorm    = new DistVec<Vec3D>(edgeDistInfo);
+  edgeNormVel = new DistVec<double>(edgeDistInfo);
+
+  faceNorm    = new DistVec<Vec3D>(domain->getFaceDistInfo());
+  faceNormVel = new DistVec<double>(domain->getFaceDistInfo());
+  
+  inletNodeNorm = new DistVec<Vec3D>(domain->getInletNodeDistInfo());
+  numFaceNeighb = new DistVec<int>(domain->getInletNodeDistInfo());
+
+  subGeoState = new GeoState*[numLocSub];
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
+                                     (*ctrlVol_nm2)(iSub),
+                                     (*d2wall)(iSub),
+                                     (*edgeNorm)(iSub), (*faceNorm)(iSub),
+                                     (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
+                                     (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
+}
+
 //------------------------------------------------------------------------------
 
 DistGeoState::~DistGeoState()

@@ -27,6 +27,8 @@ template<>
 MPI_Datatype CommTrace<float>::MPIType = MPI_FLOAT;
 template<>
 MPI_Datatype CommTrace<double>::MPIType = MPI_DOUBLE;
+template<>
+MPI_Datatype CommTrace<char>::MPIType = MPI_CHAR;
 //template<>
 //MPI_Datatype CommTrace<std::complex<double> >::MPIType = MPI_DOUBLE_COMPLEX;
 template<>
@@ -42,6 +44,8 @@ template<>
 int CommTrace<double>::multiplicity = 1;
 template<>
 int CommTrace<std::complex<double> >::multiplicity = 2;
+template<>
+int CommTrace<char>::multiplicity = 1;
 
 static MPI_Request nullReq;
 static MPI_Status nullStat;

@@ -9,6 +9,8 @@
 
 #include <OneDimensionalSolver.h>
 
+#include <TriangulatedInterface.h>
+
 class IoData;
 class GeoSource;
 class Domain;
@@ -28,6 +30,9 @@ class LevelSetTsDesc : public TsDesc<dim> {
   MultiPhaseSpaceOperator<dim,dimLS> *multiPhaseSpaceOp;
   FluidSelector fluidSelector;
   LevelSet<dimLS> *LS;
+
+  TriangulatedInterface* myTriangulatedInterface;
+
   DistExactRiemannSolver<dim> *riemann;
   DistSVec<double,dimLS> Phi;           //conservative variables
   DistSVec<double,dimLS> PhiV;          //primitive variables
@@ -55,9 +60,10 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   int interfaceOrder;
 
-  DistVec<HigherOrderMultiFluid::CutCellState*> cutCellVec;
-
-  DistVec<int> cutCellStatus;
+  int phaseChangeType;
+  
+  DistVec<double> Weights;
+  DistSVec<double,dim> VWeights;
 
   struct exactInterfacePoint {
 
@@ -66,7 +72,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   std::vector< exactInterfacePoint > myExactInterface;
 
-  bool useCutCells;
+  bool limitHigherOrderExtrapolation;
 
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
@@ -108,6 +114,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   ProgrammedBurn* programmedBurn;
 
+  double currentTimeStep;
 };
 
 //------------------------------------------------------------------------------

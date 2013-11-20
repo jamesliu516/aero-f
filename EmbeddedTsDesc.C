@@ -37,8 +37,11 @@ template<int dim>
 EmbeddedTsDesc<dim>::
 EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase), Wtemp(this->getVecInfo())
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase), Wtemp(this->getVecInfo()),
+  ioData(ioData)
 {
+
+  currentTime = 0.0;
 
   simType         = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -65,16 +68,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   }
 //  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
 
-  // Debug - To be deleted
-  std::ifstream forceCalculationType("forceCalculationType.txt");
-  if(forceCalculationType) {
-    int newVersion;
-    forceCalculationType>>newVersion;
-    if(newVersion) forceApp++;
-  }
-//  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
-
-
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
@@ -82,6 +75,26 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if(orderOfAccuracy==1) { //first-order everywhere...
     linRecAtInterface = false; 
     viscSecOrder = false; 
+  }
+
+  if (interfaceAlg == 1) {
+
+    dom->createHigherOrderFSI();
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      V6NodeData (*v6data)[2];
+      v6data = 0;
+      dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
+      dom->getSubDomain()[iSub]->getHigherOrderFSI()->
+	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
+			dom->getSubDomain()[iSub]->getElems(),
+			v6data); 
+
+      //if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+      dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+    }
+    
   }
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
@@ -342,15 +355,24 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   this->geoState->setup2(this->timeState->getData());
   // Initialize intersector and compute intersections
   DistVec<int> point_based_id(this->domain->getNodeDistInfo());
-  distLSS->initialize(this->domain,*this->X, ioData, &point_based_id);
+
+  if (ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) {
+    FluidSelector f(2, ioData,this->domain);
+    nodeTag0 = nodeTag = *f.fluidId;
+    std::cout << "Read fid " << std::endl;
+    distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id, &nodeTag);
+  } else
+    distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
+
   if(riemannNormal==2){
     this->spaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
-  // Initialize fluid Ids
-  nodeTag0 = nodeTag = distLSS->getStatus();
+  // Initialize fluid Ids (not on restart)
+  if (ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0)
+    nodeTag0 = nodeTag = distLSS->getStatus();
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _emmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->emmh);
   if(_emmh) {
@@ -428,6 +450,10 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
   }
+
+  //std::cout << this->bcData->getBoundaryStateHH()->norm() << std::endl;
+  if (this->modifiedGhidaglia)
+    this->timeState->attachHH(*this->bcData->getBoundaryStateHH());
 }
 
 //------------------------------------------------------------------------------
@@ -462,7 +488,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   int numSubCycles = 1;
   double dt=0.0;
 
-  if(TsDesc<dim>::failSafeFlag == false){
+//  if(TsDesc<dim>::failSafeFlag == false){
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
       if(numFluid==1)
@@ -475,9 +501,9 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     }
     else  //time step size with error estimation
       dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
-  }
-  else    //if time step is repeated
-    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+//  }
+//  else    //if time step is repeated
+//    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
 
   if(TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
     this->timeState->setDtMin(dt * TsDesc<dim>::data->getCflMinOverCfl0());
@@ -617,7 +643,6 @@ template<int dim>
 void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                              double t, double dt, DistSVec<double,dim> &U)
 {
-
   this->com->globalSum(1, &interruptCode);
   if (interruptCode)
     *lastIt = true;
@@ -641,7 +666,10 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 
   TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
                                        //      it does not seem to understand the template
-  restart2->template writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
+
+  // temporary fluid selector
+  FluidSelector fluidSelector(nodeTag,this->domain);
+  restart2->template writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, NULL, NULL, &fluidSelector);
   if (*lastIt)
     this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition()); //KW: must be after writeToDisk
   else
@@ -650,10 +678,56 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   this->output->updatePrtout(t);
   this->restart->updatePrtout(t);
   if (*lastIt) {
+
+    this->output->template writeLinePlotsToDisk<1>(true, it, t, *this->X,
+						   *this->A, U, 
+						   this->timeState, nodeTag);
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)
       this->timer->print(this->domain->getStrTimer());
     this->output->closeAsciiFiles();
+
+    if (strcmp(ioData.input.convergence_file,"") != 0) {
+      
+      this->varFcn->conservativeToPrimitive(U, *this->V, &nodeTag);
+      computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
+    }
+
+    if (ioData.embed.testCase == 1) {
+
+      DistSVec<double,dim> Uexact(U);
+      
+      if (ioData.embed.testCase == 1) {
+
+	ExactSolution::Fill<&ExactSolution::AcousticBeam, dim>(Uexact, *this->X,
+							     ioData, t, 
+							     this->spaceOp->getVarFcn());
+
+      }
+
+      double error[dim];
+      double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
+			  ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+			  ioData.ref.rv.pressure};
+      double tot_error = 0.0;
+      this->domain->computeL1Error(U,Uexact,*this->A,error, this->distLSS);
+      for (int k = 0; k < dim; ++k) {
+	tot_error += error[k];
+	this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %e\n", k, error[k]*refs[k]);
+      }
+      this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %e\n", tot_error);
+      
+      tot_error = 0.0;
+      this->domain->computeLInfError(U,Uexact,error, this->distLSS);
+      for (int k = 0; k < dim; ++k) {
+	tot_error = max(error[k],tot_error);
+	this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %e\n", k, error[k]*refs[k]);
+      }
+      this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %e\n", tot_error);
+
+  
+    }
+
   }
 
 }
@@ -848,7 +922,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     //store previous states for phase-change update
     tw = this->timer->getTime();
     if(recomputeIntersections)
-      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
+      this->spaceOp->updateSweptNodes(*this->X,*this->A, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
             this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
@@ -974,4 +1048,54 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
 
 }
 
+
+template<int dim>
+void EmbeddedTsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U) {
+
+  DistSVec<double,dim> Uexact(U);
+  FluidSelector F2(2, ioData, this->domain);
+  OneDimensional::read1DSolution(ioData,file, Uexact, 
+				 (DistSVec<double,1>*)0,
+				 &F2,
+				 this->spaceOp->getVarFcn(),
+				 *this->X,
+				 *this->domain,
+				 OneDimensional::ModeU,
+				 true) ;
+
+  double error[dim];
+  double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
+		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+		      ioData.ref.rv.pressure};
+  double tot_error = 0.0;
+  this->domain->computeL1Error(U,Uexact,*this->A,error, this->distLSS);
+  for (int k = 0; k < dim; ++k) {
+    tot_error += error[k];
+    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %lf\n", tot_error);
+
+  tot_error = 0.0;
+  this->domain->computeLInfError(U,Uexact,error, this->distLSS);
+  for (int k = 0; k < dim; ++k) {
+    tot_error = max(error[k],tot_error);
+    this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %lf\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %lf\n", tot_error);
+
+  
+}
+
 //------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::setCurrentTime(double t,DistSVec<double,dim>& U) { 
+
+  currentTime = t;
+}
+
+template<int dim>
+void EmbeddedTsDesc<dim>::setCurrentTimeStep(double dt) { 
+
+  currentTimeStep = dt;
+}

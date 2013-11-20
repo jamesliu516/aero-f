@@ -177,6 +177,8 @@ public:
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
+  virtual void setCurrentTimeStep(double dt) { }
+
   virtual void setFluidSubcycling(bool inSub) { }
 
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
@@ -191,7 +193,8 @@ public:
  
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
-  
+  void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
+
   virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
   virtual void incrementNewtonOutputTag() {}
   int *getTimeIt() { return domain->getTimeIt(); }

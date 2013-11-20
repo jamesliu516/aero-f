@@ -55,6 +55,16 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->mmh = this->createEmbeddedALEMeshMotionHandler(ioData, geoSource, this->distLSS);
   else
     this->mmh = 0;
+
+  if (this->modifiedGhidaglia) {
+    embeddedU.addHHBoundaryTerm(dom->getFaceDistInfo());
+    embeddeddQ.addHHBoundaryTerm(dom->getFaceDistInfo());
+    embeddedB.addHHBoundaryTerm(dom->getFaceDistInfo());
+    
+    hhResidual = new DistVec<double>(dom->getFaceDistInfo());
+  }
+
+    
 }
 
 //------------------------------------------------------------------------------
@@ -174,9 +184,9 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
+    this->spaceOp->updateSweptNodes(*this->X, *this->A, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
+            this->distLSS, (double*)this->vfar, &this->nodeTag);
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
@@ -196,9 +206,9 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       }
 
       tw = this->timer->getTime();
-      this->spaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, this->phaseChangeAlg, Unm1, this->Vtemp,
+      this->spaceOp->updateSweptNodes(*this->X,*this->A, this->phaseChangeChoice, this->phaseChangeAlg, Unm1, this->Vtemp,
               *this->Weights, *this->VWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
-              this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
+              this->distLSS, (double*)this->vfar, &this->nodeTag);
       this->timer->addEmbedPhaseChangeTime(tw);
       this->timer->removeIntersAndPhaseChange(tw);
 
@@ -213,6 +223,9 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     }
   
   }
+
+  if (this->modifiedGhidaglia)
+    embeddedU.hh() = *this->bcData->getBoundaryStateHH();
 
 //  // Ghost-Points Population
 //  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
@@ -245,11 +258,18 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
   TsDesc<dim>::setFailSafe(false);
 
   its = this->ns->solve(U);
+
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
+
+/*
   if(its==-10){
     U=Ubc; // original failsafe uses UCopy, however, this vector is only initialized if there is a mesh motion handler, which was causing bugs. 
            //Therefore, I used Ubc which appears to be unused to store the initial value instead. 
     return its;
   }
+*/
   if(its<0){  //failSafe
     U = *EmbeddedTsDesc<dim>::UCopy;
     return its;
@@ -267,6 +287,11 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
                  TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION )
     doErrorEstimation(U);
 
+  if (this->modifiedGhidaglia) {
+    *this->bcData->getBoundaryStateHH() = embeddedU.hh();
+    this->timeState->updateHH(embeddedU.hh());
+  }
+  
   return its;
 }
 //------------------------------------------------------------------------------
@@ -292,6 +317,18 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 //  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
+
+  
+  if (this->modifiedGhidaglia) {
+
+    *hhResidual = 0.0;
+    this->domain->
+      computeHHBoundaryTermResidual(*this->bcData,Q,*hhResidual, this->varFcn);
+       
+    this->timeState->add_dAW_dt_HH(-1, *this->geoState, *this->A,*this->bcData->getBoundaryStateHH()
+    			     , *hhResidual);
+  }
+
 }
 
 //------------------------------------------------------------------------------

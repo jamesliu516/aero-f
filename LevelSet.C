@@ -71,22 +71,23 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
   // Initialization of Phi is done through the use of volumeID and
   // through the knowledge of a geometric shape (with its position).
 
-  Phi0 = -1.0;
-  setupPhiVolumesInitialConditions(iod, Phi0);
-  setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
-  setupPhiMultiFluidInitialConditions(iod,X, Phi0);
-  if(closest && fsId)
-    setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
-  if (lsMethod == 0)
-    primitiveToConservative(Phi0, Phi, U);
-  else
-    Phi = Phi0;
+  if (name[0] == 0) {
+    Phi0 = -1.0;
+    setupPhiVolumesInitialConditions(iod, Phi0);
+    setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
+    setupPhiMultiFluidInitialConditions(iod,X, Phi0);
+    if(closest && fsId)
+      setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
+    if (lsMethod == 0)
+      primitiveToConservative(Phi0, Phi, U);
+    else
+      Phi = Phi0;
 
-  Phin   = Phi;
-  Phinm1 = Phin;
-  Phinm2 = Phinm1;
-
-  if (name[0] != 0) {
+    Phin   = Phi;
+    Phinm1 = Phin;
+    Phinm2 = Phinm1;
+  }
+  else { 
     DistSVec<double,dimLS> ReadPhi(domain->getNodeDistInfo());
     domain->readVectorFromFile(name, 0, 0, ReadPhi);
     Phi  = ReadPhi;
@@ -94,26 +95,22 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
     if (data->use_nm1){
       DistSVec<double,dimLS> ReadPhi1(domain->getNodeDistInfo());
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1);
-      Phinm1 = ReadPhi1;
+      if (data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1))
+        Phinm1 = ReadPhi1;
+      else
+        Phinm1 = Phin;
     }
 
     if (data->use_nm2){
       DistSVec<double,dimLS> ReadPhi2(domain->getNodeDistInfo());
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2);
-      Phinm2 = ReadPhi2;
+      if (data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2))
+        Phinm2 = ReadPhi2;
+      else
+        Phinm2 = Phinm1;
     }
   }
 
-  if (data->use_nm1 && !data->exist_nm1){
-    Phinm1 = Phin;
-  }
-  if (data->use_nm2 && !data->exist_nm2){
-    Phinm2 = Phinm1;
-  }
-
   // determine which level-sets must be updated and reinitialized
-  //exit(-1);
   if (lsMethod == 0)
     conservativeToPrimitive(Phi,Phi0,U);
   else
@@ -130,7 +127,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     //com->fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
   }
 
-  if(closest && fsId) {//cracking...
+  if(closest && fsId) { //cracking...
     //if(dimLS!=1){fprintf(stderr,"ERROR: Multi-Phase FSI w/ Cracking supports only one level-set! dimLS = %d.\n", dimLS);exit(-1);}
     trueLevelSet[dimLS-1] = true;
   }
@@ -303,16 +300,17 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
         SVec<double,3>     &x  (X(iSub));
 
         for (int i=0; i<x.size(); i++){
-          double s[3] = {(x[i][0]-x0)/w_x*0.5,(x[i][1]-y0)/w_y*0.5,(x[i][2]-z0)/w_z*0.5};
-	  double scalar = maxp(fabs(s[0]),fabs(s[1]),fabs(s[2]),1.0,1.0,1.0);
+          double s[3] = {(x[i][0]-x0)/w_x*2.0,(x[i][1]-y0)/w_y*2.0,(x[i][2]-z0)/w_z*2.0};
+	  double scalar1 = maxp(fabs(s[0]),fabs(s[1]),fabs(s[2]),1.0,1.0,1.0)-1.0;
+	  double scalar2 = fabs(1.0-maxp(fabs(s[0]),fabs(s[1]),fabs(s[2]),1.0,1.0,1.0));
           if(prismIt->second->fluidModelID > 0){
             int fluidId = prismIt->second->fluidModelID-1;
             if(prismIt->second->inside(x[i][0],x[i][1],x[i][2])) 
 	      phi[i][fluidId] = 1.0;
 	    if(distance[i][fluidId]<0.0)
-	      distance[i][fluidId] = scalar;
+	      distance[i][fluidId] = scalar2;
 	    else
-	      distance[i][fluidId] = fmin( scalar, distance[i][fluidId]);
+	      distance[i][fluidId] = fmin( scalar2, distance[i][fluidId]);
           }
         }
       }
@@ -463,9 +461,13 @@ void LevelSet<dimLS>::primitiveToConservative(DistSVec<double,dimLS> &Prim, Dist
 template<int dimLS>
 void LevelSet<dimLS>::reinitializeLevelSet(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, bool copylv2,int lsdim)
 {
+
+  double t0 = domain->getTimer()->getTime();
+
   // XXX reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
   reinitializeLevelSetFM(X,Phi,copylv2,lsdim);
 
+  domain->getTimer()->addLSReinitializationTime(t0);
 }
 //-------------------------------------------------------------------------
 template<int dimLS>

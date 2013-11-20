@@ -36,8 +36,9 @@ struct TsInput {
   TsInput(IoData &);
   ~TsInput();
 
-private:
   static char * absolutePath(const std::string & rawPath, const std::string & prefix);
+
+private:
 
   // Disallow copy and assignment
   TsInput(const TsInput &);

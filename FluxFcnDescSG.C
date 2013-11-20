@@ -793,6 +793,32 @@ void FluxFcnSGModifiedGhidagliaEuler3D::compute(double length, double irey, doub
 
 }
 
+void FluxFcnSGModifiedGhidagliaEuler3D::computeJacobianFarfield(double length, double irey, double *normal, double normalVel, 
+	 						        double *V, double *Ub, double *jac,
+								bool useLimiter)
+{
+
+  const int dim = 5; 
+  
+  double ff[dim],ffp[dim];
+  
+  const double eps0 = 1.0e-6;
+
+  compute(length, irey, normal, normalVel, V, Ub, ff,useLimiter);
+
+  double olds = *(hhcoeffptr+4);
+  *(hhcoeffptr+4) *=(1.0+eps0);
+  double news = *(hhcoeffptr+4);
+  compute(length, irey, normal, normalVel, V, Ub, ffp,useLimiter);
+  
+  for (int k = 0; k < dim; ++k)
+    jac[k] = (ffp[k] - ff[k]) / (news-olds);
+  
+  *(hhcoeffptr+4) = olds;
+ 
+}
+
+
 //------------------------------------------------------------------------------
 
 void FluxFcnSGInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
@@ -869,6 +895,8 @@ void influx3D(int type, VarFcnBase *vf, double* normal,
 
   double Vb[dim];
   vf->conservativeToPrimitive(Ub, Vb);
+
+  double Vvel2 = V[1]*V[1]+V[2]*V[2]+V[3]*V[3];
  
   double rho, u, v, w, p, nut, eps, k;
   
@@ -885,7 +913,9 @@ void influx3D(int type, VarFcnBase *vf, double* normal,
     u = Vb[1];
     v = Vb[2];
     w = Vb[3];
-    p = V[4];
+    // If supersonic, all characteristics come from boundary
+    if(Vvel2<1) p = V[4];
+    else p = Vb[4];
     if (type == 1)
       nut = Vb[dimm1];
     else if (type == 2){
@@ -897,7 +927,9 @@ void influx3D(int type, VarFcnBase *vf, double* normal,
     u = V[1];
     v = V[2];
     w = V[3];
-    p = Vb[4];
+    // If supersonic, all characteristics come from interior
+    if (Vvel2<1) p = Vb[4];
+    else p = V[4];
     if (type == 1)
       nut = V[dimm1];
     else if (type == 2){
@@ -954,6 +986,7 @@ void influx3DDerivative(int type, VarFcnBase *vf, double* normal, double* dNorma
 
   double nVel = normalVel * ooS;
   double dnVel = dNormalVel * ooS + normalVel * dooS;
+  double Vvel2 = V[1]*V[1]+V[2]*V[2]+V[3]*V[3];
 
   double Vb[dim];
   vf->conservativeToPrimitive(Ub, Vb);
@@ -986,12 +1019,14 @@ void influx3DDerivative(int type, VarFcnBase *vf, double* normal, double* dNorma
     u = Vb[1];
     v = Vb[2];
     w = Vb[3];
-    p = V[4];
+    if(Vvel2 < 1) p = V[4];
+    else p = Vb[4];
     drho = dVb[0];
     du = dVb[1];
     dv = dVb[2];
     dw = dVb[3];
-    dp = dV[4];
+    if(Vvel2 < 1) dp = dV[4];
+    else dp = dVb[4];
     if (type == 1) {
       nut = Vb[dimm1];
       dnut = dVb[dimm1];
@@ -1007,12 +1042,14 @@ void influx3DDerivative(int type, VarFcnBase *vf, double* normal, double* dNorma
     u = V[1];
     v = V[2];
     w = V[3];
-    p = Vb[4];
+    if(Vvel2 < 1) p = Vb[4];
+    else p=V[4];
     drho = dV[0];
     du = dV[1];
     dv = dV[2];
     dw = dV[3];
-    dp = dVb[4];
+    if(Vvel2 < 1) dp = dVb[4];
+    else dp = dV[4];
     if (type == 1) {
       nut = V[dimm1];
       dnut = dV[dimm1];
@@ -1082,26 +1119,32 @@ void jacinflux3D(int type, VarFcnBase *vf, FluxFcnBase::Type localTypeJac,
   double ooS = 1.0 / S;
   double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
   double nVel = normalVel * ooS;
+  double Vvel2 = V[1]*V[1]+V[2]*V[2]+V[3]*V[3];
 
   double Vb[dim];
   vf->conservativeToPrimitive(Ub, Vb);
   double rho, u, v, w, p;
 
   if(V[1]*n[0]+V[2]*n[1]+V[3]*n[2]<= 0.0){
-    u = Vb[1];
-    v = Vb[2];
-    w = Vb[3];
+    if (Vvel2 > 1){ //supersonic
+      // nothing to do: jacobian is null
+    } else { // subsonic
+      u = Vb[1];
+      v = Vb[2];
+      w = Vb[3];
 
-    _dfdV[1][4] = S * n[0];
-    _dfdV[2][4] = S * n[1];
-    _dfdV[3][4] = S * n[2];
-    _dfdV[4][4] = S * (gam*invgam1 * (u*n[0] + v*n[1] + w*n[2] - nVel) + nVel);
+      _dfdV[1][4] = S * n[0];
+      _dfdV[2][4] = S * n[1];
+      _dfdV[3][4] = S * n[2];
+      _dfdV[4][4] = S * (gam*invgam1 * (u*n[0] + v*n[1] + w*n[2] - nVel) + nVel);
+    }
   }else{
     rho = V[0];
     u = V[1];
     v = V[2];
     w = V[3];
-    p = Vb[4];
+    if(Vvel2<1) p = Vb[4];
+    else p = V[4];
                                                                                                                                                           
     double un = u*n[0] + v*n[1] + w*n[2] - nVel;
     double q = u*u + v*v + w*w;

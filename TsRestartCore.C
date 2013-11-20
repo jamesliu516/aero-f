@@ -1,3 +1,8 @@
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
+
 #include <cstring>
 
 #include <TsRestart.h>
@@ -20,7 +25,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(solutions[0], "");
 
   positions[0] = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0 && (iod.problem.framework == ProblemData::BODYFITTED || iod.problem.framework == ProblemData::EMBEDDEDALE))
+  if (iod.output.restart.positions[0] != 0) // && (iod.problem.framework == ProblemData::BODYFITTED || iod.problem.framework == ProblemData::EMBEDDEDALE))
     sprintf(positions[0], "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(positions[0], "");
@@ -30,6 +35,13 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(levelsets[0], "%s%s", iod.output.restart.prefix, iod.output.restart.levelsets);
   else
     sprintf(levelsets[0], "");
+
+  fluidId[0] = new char[sp + strlen(iod.output.restart.fluidId)];
+  if (iod.output.restart.fluidId[0] != 0)
+    sprintf(fluidId[0], "%s%s", iod.output.restart.prefix, iod.output.restart.fluidId);
+  else
+    sprintf(fluidId[0], "");
+
 
   cracking[0] = new char[sp + strlen(iod.output.restart.cracking)];
   if (iod.output.restart.cracking[0] != 0)
@@ -50,6 +62,13 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   else
     sprintf(structPos, "");
 
+  char restart_file_package[256];
+  if (iod.output.restart.filepackage[0] != 0) {
+    sprintf(restart_file_package, "%s%s", iod.output.restart.prefix, iod.output.restart.filepackage);
+ 
+    writeRestartFileNames(restart_file_package);
+  }
+
   if (iod.output.restart.type == RestartData::SINGLE) {
     deleteCharStar = false;
     for (int i=1; i<3; ++i) {
@@ -57,6 +76,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
       positions[i] = positions[0];
       levelsets[i] = levelsets[0];
       cracking[i] = cracking[0];
+      fluidId[i] = fluidId[0];
       data[i] = data[0];
 
     }
@@ -73,7 +93,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
 	sprintf(solutions[i], "");
 
       positions[i] = new char[strlen(positions[0]) + 5 + 1];
-      if (positions[0][0] != 0)
+      if (positions[0][0] != 0) 
 	sprintf(positions[i], "%s.%drst", positions[0], i);
       else
 	sprintf(positions[i], "");
@@ -89,6 +109,12 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
 	sprintf(cracking[i], "%s.%drst", cracking[0], i);
       else
 	sprintf(cracking[i], "");
+
+      fluidId[i] = new char[strlen(fluidId[0]) + 5 + 1];
+      if (fluidId[0][0] != 0)
+	sprintf(fluidId[i], "%s.%drst", fluidId[0], i);
+      else
+	sprintf(fluidId[i], "");
 
 
       data[i] = new char[strlen(data[0]) + 5 + 1];
@@ -121,6 +147,83 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   }
 
 }
+
+void TsRestart::writeRestartFileNames(const char* fn) {
+
+  FILE* file = fopen(fn, "w");
+  
+  fprintf(file,"%s\n",solutions[0]);
+  fprintf(file,"%s\n",positions[0]);
+  fprintf(file,"%s\n",levelsets[0]);
+  fprintf(file,"%s\n",cracking[0]);
+  fprintf(file,"%s\n",fluidId[0]);
+  fprintf(file,"%s\n",data[0]);
+
+  fprintf(file,"%s\n",structPos); 
+
+  fclose(file); 
+  
+}
+
+void TsRestart::readRestartFileNames(const char* fn,
+				     char* sols,
+				     char* posit,
+				     char* ls,
+				     char* crk,
+				     char* fid,
+				     char* dat,
+				     char* spos,
+                                     Communicator* com) {
+
+  /*std::ifstream infile(fn);
+
+  if (!infile.good()) {
+
+    std::cout << "Error: Cannot read package file  " << fn << std::endl;
+    exit(-1);
+  }
+
+  infile.getline(sols,256);
+  infile.getline(posit,256);
+  infile.getline(ls,256);
+  infile.getline(crk,256);
+  infile.getline(fid,256);
+  infile.getline(dat,256);
+  infile.getline(spos,256);
+ */
+
+  char tmp[7][256];
+  FILE* fin;
+
+  if (com == NULL || com->cpuNum() == 0) {
+    fin = fopen(fn,"r");
+  }
+   
+  for (int i = 0; i < 7; ++i) {
+
+    if (com == NULL || com->cpuNum() == 0)
+      fscanf(fin,"%s",tmp[i]); 
+
+    if (com)
+      com->broadcast(256, tmp[i]);
+  }
+    
+
+
+  if (com == NULL || com->cpuNum() == 0) {
+    fclose(fin); 
+  }
+
+  strcpy(sols, tmp[0]);
+  strcpy(posit, tmp[1]);
+  strcpy(ls, tmp[2]);
+  strcpy(crk, tmp[3]);
+  strcpy(fid, tmp[4]);
+  strcpy(dat, tmp[5]);
+  strcpy(spos, tmp[6]);
+
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -176,3 +279,17 @@ void TsRestart::rstVar(IoData &ioData) {
 }
 
 //------------------------------------------------------------------------------
+
+void TsRestart::writeCrackingDataToDisk(int cpuNum, bool lastIt, int it, double t,
+                                        DynamicNodalTransfer* dyn // to output cracking information
+                                       )
+{
+  if (toWrite(it, lastIt, t)) {
+
+    if (cpuNum == 0 && dyn) {
+
+      std::ofstream ofile(cracking[index],std::ios::binary);
+      dyn->writeCrackingData(ofile);
+    }
+  }
+}
