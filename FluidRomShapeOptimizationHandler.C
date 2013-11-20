@@ -1,4 +1,4 @@
-#include <FluidShapeOptimizationHandler.h>
+#include <FluidRomShapeOptimizationHandler.h>
 
 #include <IoData.h>
 #include <Domain.h>
@@ -7,8 +7,8 @@
 #include <MeshMotionSolver.h>
 //#include <StructExc.h>
 #include <MatVecProd.h>
-#include <KspPrec.h>
-#include <KspSolver.h>
+//#include <KspPrec.h>
+//#include <KspSolver.h>
 #include <MemoryPool.h>
 
 #include <cmath>
@@ -19,13 +19,13 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-FluidShapeOptimizationHandler<dim>::FluidShapeOptimizationHandler
+FluidRomShapeOptimizationHandler<dim>::FluidRomShapeOptimizationHandler
 (
   IoData &ioData,
   GeoSource &geoSource,
   Domain *dom//,
 ) :
-ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
+ImplicitPGTsDesc<dim>(ioData, geoSource, dom),
 domain(dom),
 dXb(dom->getNodeDistInfo()),
 dXdS(dom->getNodeDistInfo()),
@@ -33,6 +33,10 @@ dXdSb(dom->getNodeDistInfo()),
 Xc(dom->getNodeDistInfo()),
 dAdS(dom->getNodeDistInfo()),
 dFdS(dom->getNodeDistInfo()),
+dFrdS(this->nPod),
+//Frp(this->nPod),
+//Frm(this->nPod),
+dYdS(this->nPod),
 dUdS(dom->getNodeDistInfo()),
 p(dom->getNodeDistInfo()),
 dPdS(dom->getNodeDistInfo()),
@@ -86,6 +90,10 @@ dX(dom->getNodeDistInfo())
 
   Z = new DistSVec<double,3>(domain->getNodeDistInfo());
 
+//  this->com->fprintf(stderr,"ioData.ts.implicit.mvp = %i\n",ioData.ts.implicit.mvp);
+//  this->com->fprintf(stderr,"ioData.sa.mvp = %i\n",ioData.sa.mvp);
+//  this->com->fprintf(stderr,"ioData.sa.lsSolver = %i\n",ioData.sa.lsSolver);
+
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)  
   {
     if (ioData.sa.mvp == SensitivityAnalysis::H2)
@@ -109,15 +117,9 @@ dX(dom->getNodeDistInfo())
     }
   }
 
-  pc = ImplicitTsDesc<dim>::template
-    createPreconditioner<PrecScalar,dim>(ioData.sa.ksp.pc, domain);
-
-  ksp = this->createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
-
   MemoryPool mp;
 
   mvp->exportMemory(&mp);
-  pc->exportMemory(&mp);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
     mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(),domain,0);
@@ -130,7 +132,9 @@ dX(dom->getNodeDistInfo())
 
   dXdS=0.0;
   dFdS=0.0;
+  dFrdS=0.0;
   dUdS=0.0;
+  dYdS=0.0;
   p=0.0;
   dPdS=0.0;
 
@@ -145,25 +149,19 @@ dX(dom->getNodeDistInfo())
 //------------------------------------------------------------------------------
 
 template<int dim>
-FluidShapeOptimizationHandler<dim>::~FluidShapeOptimizationHandler()
+FluidRomShapeOptimizationHandler<dim>::~FluidRomShapeOptimizationHandler()
 {
 
   if (mms) delete mms;
 
   if (mvp) delete mvp;
 
-  if (pc) delete pc;
-
-  if (ksp) delete ksp;
-
-//  if (tsSolver) delete tsSolver;
-
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
+void FluidRomShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
 {
 
   double gamma = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
@@ -225,7 +223,7 @@ void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
  
         mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
 
-        this->rstVarImplicitCoupledTsDesc(ioData);
+        this->rstVarImplicitRomTsDesc(ioData);
       }
     }
   }
@@ -400,7 +398,7 @@ void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
 
     mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
 
-    this->rstVarImplicitCoupledTsDesc(ioData);
+    this->rstVarImplicitRomTsDesc(ioData);
     
     this->bcData->rstVar(ioData);
 
@@ -428,7 +426,7 @@ void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoGetEfforts(IoData &ioData, 
+void FluidRomShapeOptimizationHandler<dim>::fsoGetEfforts(IoData &ioData, 
                                   DistSVec<double,3> &X, DistSVec<double,dim> &U, Vec3D &F, Vec3D &M, Vec3D &L)
 {
 
@@ -479,7 +477,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetEfforts(IoData &ioData,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifference(IoData &ioData,
+void FluidRomShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifference(IoData &ioData,
                                                           DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &A,
                                                           DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
                                                           Vec3D &dForces, Vec3D &dMoments)
@@ -681,7 +679,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifferen
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(IoData &ioData,
+void FluidRomShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(IoData &ioData,
                                                           DistSVec<double,3> &X, DistSVec<double,3> &dX,
                                                           DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
                                                           Vec3D &dForces, Vec3D &dMoments, Vec3D &dL)
@@ -762,7 +760,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(IoD
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadFiniteDifference(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &A,
+void FluidRomShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadFiniteDifference(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &A,
                                                                                                                             DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
 {
 
@@ -907,7 +905,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadFiniteDifference(
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, 
+void FluidRomShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, 
                                              DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
 {
 
@@ -940,13 +938,13 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(IoData
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
+void FluidRomShapeOptimizationHandler<dim>::fsoSemiAnalytical
 (
   IoData &ioData, 
   DistSVec<double,3> &X,
   DistVec<double> &A,
   DistSVec<double,dim> &U,
-  DistSVec<double,dim> &dF
+  Vec<double> &dF
 )
 {
 
@@ -1058,7 +1056,9 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
 
   dAdS=1.0/(2.0*eps)*((*Ap)-(*Am));
 
-  dF=1.0/(2.0*eps)*((*Fp)-(*Fm));
+  dFdS=1.0/(2.0*eps)*((*Fp)-(*Fm));
+
+  this->projectVector(this->AJ, dFdS, dF);
 
   //
   // Reset the steady state
@@ -1092,8 +1092,8 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoAnalytical
-(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
+void FluidRomShapeOptimizationHandler<dim>::fsoAnalytical
+(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U, Vec<double> &dFrds)
 {
  
   //
@@ -1112,94 +1112,62 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
+
+  // Compute sensitivity of ROM residual (from HDM residual)
+  this->projectVector(this->AJ, dFdS, dFrds);
+
+  //
+  // ROM contribution to dFdS
+  //
+  // TODO: dFrds_ij = d2Rdwds_kpj*Phi_pi*R_k + (dRdw)_kp*Phi_pi*(dRdS)_kj
+  // Start with second term ONLY!
+  
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, 
-                                                              DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
-{
+void FluidRomShapeOptimizationHandler<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
-// Preparing the linear solver
+  mvp->evaluate(it, *this->X, *this->A, Q, this->F);
+
+  for (int iPod = 0; iPod < this->nPod; iPod++)
+    mvp->apply(this->pod[iPod], this->AJ[iPod]);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidRomShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U)
+{
 
   fsoRestartBcFluxs(ioData);
-
   this->geoState->reset(X);
-
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
-
   this->bcData->update(X);
 
-  this->spaceOp->computeResidual(X, A, U, FluxFD, this->timeState);
+  this->computeFullResidual(0,U);
+  //this->computeAJ(0,U);
+  computeAJ(0,U);
 
-  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
-    this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD);
-
-  this->spaceOp->applyBCsToResidual(U, FluxFD);
-
-  mvp->evaluate(0, X, A, U, FluxFD);
-
-  DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
-
-  if (_pc) {
-
-    MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
-    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
-
-    if (mvpfd || mvph2) 
-    {
-      this->spaceOp->computeJacobian(X, A, U, *_pc, this->timeState);
-      if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
-        this->timeState->addToJacobian(A, *_pc, U);
-      this->spaceOp->applyBCsToJacobian(U, *_pc);
-    }
-
-  } // END if (_pc)
-
-  pc->setup();
-
-  // Computing flux for compatibility correction of the derivative of the flux   
-  this->spaceOp->computeResidual(X, A, U, Flux, this->timeState, false);
-
-}
-
-//------------------------------------------------------------------------------
-
-
-template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
-(
-  IoData &ioData, 
-  DistSVec<double,dim> &dFdS, DistSVec<double,dim> &dUdS
-)
-{
-
-  dUdS = 0.0;
-
-  dFdS *= (-1.0);
-  ksp->setup(0, 0, dFdS);
-
-  int numberIteration;
-  bool istop = false;
-  int iter = 0;
-
-  while ((istop == false) && (iter < 100))
-  {
-    numberIteration = ksp->solve(dFdS, dUdS);
-    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
-      istop = true; 
-    iter += 1;
-  }
-
-  dFdS *= (-1.0);
+  // Set up reduced linear system (for PG: Psi = dFdw*Phi)
+  // d(Psi^T*F)_i/dy_j = (Psi^T*(dFdw)*Phi)_ij + F_k*d(Psi_ki)/dy_j
+  // TODO: Add second term via finite differences
+  double* jactmp = new double [this->nPod * this->nPod];
+  transMatMatProd(this->AJ,this->AJ,jactmp);
+  this->jac.zero();
+  for (int iRow = 0; iRow < this->nPod; ++iRow)
+    for (int iCol = 0; iCol < this->nPod; ++iCol)
+      this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
+  delete[] jactmp;
 
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char *Text)
+void FluidRomShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char *Text)
 {
    this->com->fprintf(stderr, Text);
 }
@@ -1207,7 +1175,7 @@ void FluidShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char *Text)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoOutput1D(const char *fileName, DistVec<double> &V)
+void FluidRomShapeOptimizationHandler<dim>::fsoOutput1D(const char *fileName, DistVec<double> &V)
 {
 
 outFile = fopen(fileName,"w");
@@ -1227,7 +1195,7 @@ fclose(outFile);
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoOutput3D(const char *fileName, DistSVec<double,3> &V)
+void FluidRomShapeOptimizationHandler<dim>::fsoOutput3D(const char *fileName, DistSVec<double,3> &V)
 {
 
 outFile = fopen(fileName,"w");
@@ -1249,9 +1217,8 @@ fclose(outFile);
 
 //------------------------------------------------------------------------------
 
-
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoOutputDimD(const char *fileName, DistSVec<double,dim> &V)
+void FluidRomShapeOptimizationHandler<dim>::fsoOutputDimD(const char *fileName, DistSVec<double,dim> &V)
 {
 
 
@@ -1275,7 +1242,7 @@ fclose(outFile);
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, DistSVec<double,dim> &U)
+void FluidRomShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, DistSVec<double,dim> &U)
 {
   this->output->openAsciiFiles();
 
@@ -1298,14 +1265,17 @@ void FluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, DistSVec<
   this->computeMeshMetrics();
   this->updateStateVectors(U);  
 
-  // Setting up the linear solver
-  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+  this->checkLocalRomStatus(U,0);
+  this->jac.setNewSize(this->nPod,this->nPod);
+  dFrdS.resize(this->nPod);
+  dYdS.resize(this->nPod);
+  fsoSetUpLinearSolver(ioData,*this->X, *this->A, U);
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<double,dim> &U)
+int FluidRomShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<double,dim> &U)
 {
 
   // xmach      -  Mach number
@@ -1323,7 +1293,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
   this->computeMeshMetrics();
   this->updateStateVectors(U);
 
-  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+  fsoSetUpLinearSolver(ioData,*this->X, *this->A, U);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
 
@@ -1467,28 +1437,53 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U)
+void FluidRomShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U)
 {
 
   dFdS = 0.0;
+  dFrdS = 0.0;
 
   // Derivative of the Flux, either analytical or semi-analytical
   if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL )
-    fsoAnalytical(ioData, X, A, U, dFdS);
+    fsoAnalytical(ioData, X, A, U, dFrdS);
   else
-    fsoSemiAnalytical(ioData, X, A, U, dFdS);
+    fsoSemiAnalytical(ioData, X, A, U, dFrdS);
 
   // Computing the derivative of the fluid variables 
   // with respect to the fsoimization variables
-  fsoLinearSolver(ioData, dFdS, dUdS);
+  if (ioData.sa.lsSolver == SensitivityAnalysis::QR) {
+     double** lsCoefficients = new double*[1];
+     lsCoefficients[0] = new double[this->nPod];
+     RefVec<DistSVec<double,dim> > residualRef2(dFdS);
+     this->parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoefficients);
+     for (int i=0; i< this->nPod; ++i)
+        dYdS[i] = -lsCoefficients[0][i];
+     delete[] lsCoefficients[0];
+     delete[] lsCoefficients;
+  } else if (ioData.sa.lsSolver == SensitivityAnalysis::NORMAL_EQUATIONS) {
+     this->solveLinearSystem(0, dFrdS, dYdS);
+     dYdS*=(-1.0);
+  }
 
+//  dYdS*=0.0;
+//  dYdS[1]=1.0;
 
+  this->com->fprintf(stderr,"dYdS (before) = \n");
+  for (int i=0; i<dYdS.len; ++i)
+    this->com->fprintf(stderr,"%20.16f  \n",dYdS[i]);
+
+  DistSVec<double,dim> tmp(domain->getNodeDistInfo());
+  tmp = 0;
+  for (int i = 0; i < this->nPod; ++i)
+    tmp += (this->AJ[i])*dYdS[i];
+  tmp += dFdS;
+  this->com->fprintf(stderr,"||J*Phi*dYdS - dRdS|| = %20.16f\n",tmp.norm());
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData, const char *mesage, const char *fileName, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+void FluidRomShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData, const char *mesage, const char *fileName, DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
 
 // Computing efforts (F: force, M: moment, L:LiftAndDrag)
@@ -1498,6 +1493,7 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData,
 // Computing derivative of the efforts
   Vec3D dFds, dMds, dLds;
 
+  this->expandVector(dYdS,dUdS);
   if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE )
     fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, dFds, dMds);
   else

@@ -22,8 +22,8 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 		jactmp = new double [this->nPod * this->nPod];
 		this->jac.setNewSize(this->nPod,this->nPod);
 	} else {
-    jactmp = NULL;
-  }
+          jactmp = NULL;
+        }
 
   minRes = -1;
   rhsNormInit = -1;
