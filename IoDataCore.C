@@ -2919,6 +2919,8 @@ SensitivityAnalysis::SensitivityAnalysis()
 {
   method  = DIRECT;
   scFlag = ANALYTICAL;
+  mvp = H2;
+  lsSolver=QR;
   eps = 0.00001;
   sensMesh = OFF_SENSITIVITYMESH;
   sensMach = OFF_SENSITIVITYMACH;
@@ -2950,6 +2952,8 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 
   ClassAssigner *ca = new ClassAssigner(name, 21, father);
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "FiniteDifference", 0, "Approximate", 1, "Exact", 2, "ApproximateFiniteDifference", 3);
+  new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);

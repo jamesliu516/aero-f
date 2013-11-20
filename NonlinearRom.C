@@ -323,7 +323,6 @@ void NonlinearRom<dim>::closestCenterFull(DistSVec<double, dim> &vec, int *index
       d2 = tmp;
       i2 = iCluster;
     }
-    com->fprintf(stdout, "d1, i1, d2, i2, iCluster = %20.16f, %i, %20.16f, %i, %i\n",d1,i1,d2,i2, iCluster);
   }
  
   if (index1) *index1 = i1;

@@ -88,7 +88,7 @@ dX(dom->getNodeDistInfo())
 
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)  
   {
-    if (ioData.ts.implicit.mvp == ImplicitData::H2)
+    if (ioData.sa.mvp == SensitivityAnalysis::H2)
     {
       mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
     }
@@ -99,7 +99,7 @@ dX(dom->getNodeDistInfo())
   }
   else 
   {
-    if (ioData.ts.implicit.mvp == ImplicitData::H2)
+    if (ioData.sa.mvp == SensitivityAnalysis::H2)
     {
       mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
     }
@@ -1548,8 +1548,7 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData,
   // - Derivative of Vector Quantities: VelocityVector, Displacement
   //
   //
-  this->com->fprintf(stderr,"Warning: Debug statement in FluidShapeOptimization.C");
-  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dFdS, this->timeState);
+  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
 
 }
 

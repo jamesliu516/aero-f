@@ -86,8 +86,6 @@ private:
   DistSVec<double,3> Xminus;
   DistSVec<double,3> dX;
 
-  Vec<double> Frp;
-  Vec<double> Frm;
   Vec<double> dFrdS;
   Vec<double> dYdS;
 
@@ -121,6 +119,8 @@ public:
   void fsoOutputDimD(const char *, DistSVec<double,dim> &);
 
   void fsoPrintTextOnScreen(const char *);
+
+  void computeAJ(int, DistSVec<double, dim> &);
 
   void fsoRestartBcFluxs(IoData &);
 
