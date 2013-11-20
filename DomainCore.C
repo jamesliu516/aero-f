@@ -11,6 +11,8 @@
 #include <BCApplier.h>
 #include <MatchNode.h>
 
+#include <TriangulatedInterface.h>
+
 #ifdef OLD_STL
 #include <algo.h>
 #else
@@ -28,6 +30,8 @@ using std::max;
 #define STRUC_ID 1
 #define HEAT_ID  2
 #define EMBED_ID 3
+
+extern const char *THE_VERSION;
 
 //------------------------------------------------------------------------------
 
@@ -94,7 +98,11 @@ Domain::Domain()
   com->fprintf(stdout,"  __  /| |_  _ \\__  ___/_  __ \\__________  /_  \n");
   com->fprintf(stdout,"  _  ___ |/  __/_  /    / /_/ /_/_____/_  __/    \n");
   com->fprintf(stdout,"  /_/  |_|\\___/ /_/     \\____/         /_/     \n");
+#ifdef PRINT_CHANGESETID
+  com->fprintf(stdout,"  Changeset ID:%13s\n",THE_VERSION);
+#else
   com->fprintf(stdout,"\n");
+#endif
 
   strCom = allCom[STRUC_ID];
   if (strCom) {
@@ -128,6 +136,7 @@ Domain::Domain()
   numKrylovVecsOutputPrevNewtonIt = 0;
   numResidualsOutputCurrentNewtonIt = 0; 
 
+  multiFluidInterface = NULL; 
 }
 
 //------------------------------------------------------------------------------
@@ -142,6 +151,7 @@ Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType
     numKrylovVecsOutputPrevNewtonIt(0), numResidualsOutputCurrentNewtonIt(0)
 {
   timer = new Timer(com);
+  multiFluidInterface = NULL; 
 }
 
 //------------------------------------------------------------------------------
@@ -231,6 +241,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   int numLocThreads = 0;
   numLocSub = geoSource.getNumLocSub();
   subDomain = new SubDomain *[numLocSub];
+
+  pGeoSource = &geoSource;
 
 #ifdef _OPENMP
   numLocThreads = geoSource.getNumLocThreads();
@@ -648,11 +660,11 @@ void Domain::setInletNodes(IoData &ioData)
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->createSharedInletNodeConnectivity(iSub);
-
-//creation of the Communicator patterns needed.
+    
+    //creation of the Communicator patterns needed.
     inletVec3DPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
     inletCountPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend);
-
+    
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; iSub++){
       subDomain[iSub]->setComLenInletNodes(3, *inletVec3DPat);
@@ -822,6 +834,10 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 }
 
 //------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
+
 
 int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &dCtrlVol)
 {
@@ -1229,7 +1245,8 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
-                                        DistSVec<double,6> &R, DistLevelSetStructure *distLSS)
+                                        DistSVec<double,6> &R, DistLevelSetStructure *distLSS,
+					bool includeSweptNodes)
 {
 
   int iSub;
@@ -1238,7 +1255,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) { 
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0, includeSweptNodes);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
@@ -1767,12 +1784,22 @@ void Domain::computeConnectedNodes(const std::vector<std::vector<int> > &locSamp
 }
 
 
-void Domain::createHigherOrderMultiFluid(DistVec<HigherOrderMultiFluid::CutCellState*>& cutCellVec) {
+void Domain::createHigherOrderMultiFluid() {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
-    subDomain[iSub]->createHigherOrderMultiFluid(cutCellVec(iSub));
+    subDomain[iSub]->createHigherOrderMultiFluid();
+  }
+  
+}
+
+void Domain::createHigherOrderFSI() {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->createHigherOrderFSI();
   }
   
 }
@@ -1786,6 +1813,26 @@ void Domain::assignErrorHandler(){
 
 }
 
+void Domain::maskHHVector(DistVec<double>& hh) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->maskHHVector(hh(iSub));
+  }
+  
+}
+
+void Domain::attachTriangulatedInterface(TriangulatedInterface* T) {
+
+  multiFluidInterface = T;
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subDomain[iSub]->attachTriangulatedInterfaceLSS(T->getSubLSS(iSub));
+  }
+
+}
 
 void Domain::setFarFieldMask(DistVec<double>& ffMask) {
 
@@ -1796,4 +1843,5 @@ void Domain::setFarFieldMask(DistVec<double>& ffMask) {
     subDomain[iSub]->setFarFieldMask(ffMask(iSub)); // sets ffMask to 1.0 at far field nodes
 
 }
+
 

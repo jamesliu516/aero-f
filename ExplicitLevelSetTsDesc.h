@@ -47,11 +47,15 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim,dimLS> {
   DistSVec<double,dimLS> p3;
   DistSVec<double,dimLS> p4;
 
+  DistVec<double>* hh1,*hh2,*hh3,*hh4,*hhorig;
 // mesh motion modification for RK2
 // otherwise equal to U and Phi respectively
   DistSVec<double,dim> ratioTimesU;
   DistSVec<double,dimLS> ratioTimesPhi;
 
+  void computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+                         DistVec<double>& dHH);
+ 
  public:
   ExplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitLevelSetTsDesc();

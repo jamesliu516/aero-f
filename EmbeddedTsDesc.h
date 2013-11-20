@@ -21,6 +21,9 @@ template<int dim>
 class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
  protected:
+
+  IoData& ioData;
+
   DistExactRiemannSolver<dim> *riemann; //Riemann solver -- used at both FF and FS interfaces
   double vfar[dim]; //farfield state
 
@@ -91,6 +94,9 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double Pscale;
   int intersector_freq;
 
+  double currentTime;
+  double currentTimeStep;
+
   // Adam 04/06/2010
   enum Type {EULER = 0, NAVIER_STOKES = 1} eqsType;
 
@@ -158,6 +164,11 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void computeDistanceToWall(IoData &ioData);
 
   MeshMotionHandler *createEmbeddedALEMeshMotionHandler(IoData &, GeoSource &, DistLevelSetStructure *);
+
+  void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U);
+
+  void setCurrentTime(double t,DistSVec<double,dim>& U);
+  void setCurrentTimeStep(double dt);
 };
 
 

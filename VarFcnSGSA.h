@@ -81,14 +81,14 @@ public:
     return error;
   }
   double computeTemperature(double *V) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
     return invgam1 * (V[4]+Pstiff) / V[0];
   }
   void computeTemperatureGradient(double *V,double* Tg) const {
-    if (std::isnan(1.0/V[0])) {
+    if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
@@ -207,7 +207,6 @@ VarFcnSGSA::VarFcnSGSA(FluidModelData &data) : VarFcnBase(data) {
 inline
 void VarFcnSGSA::conservativeToPrimitive(double *U, double *V)
 {
-
   V[0] = U[0];
 
   double invRho = 1.0 / U[0];
@@ -285,14 +284,14 @@ int VarFcnSGSA::verification(int glob, double *U, double *V)
     if(verif_clipping)
       fprintf(stderr,"clip density[%d] in gas(SA) from %e to %e\n", glob, V[0], rhomin);
     V[0] = rhomin;
-    count++;
+    count+= (count+1) % 2;
   }
 
   if(V[4]<pmin){
     if (verif_clipping)
       fprintf(stdout, "clip pressure[%d] in gas(SA) from %e to %e\n", glob, V[4], pmin);
     V[4] = pmin;
-    count++;
+    count+=2;
   }
 
   if(count) //also modify U

@@ -80,7 +80,7 @@ public:
     IntersectionResult<T> Intersect(const TV& start,const TV& end,const T thickness) const; // Rather than traversing the hierarchy here, could do union of triangles in the two boxes of the start / end nodes?
     void Intersect(const int subD,const ARRAY<TV>& node_positions,const ARRAY<bool>& occluded_node,ARRAY<TRIPLE<VECTOR<int,3>,IntersectionResult<T>,IntersectionResult<T> > >& edges_and_results) const;
 
-    void computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,ARRAY<bool>& swept_node,const T dt) const;
+    void computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,const ARRAY<TV>& node_positions_initial,ARRAY<bool>& swept_node,const T dt) const;
 };
 
 }

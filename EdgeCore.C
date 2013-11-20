@@ -27,12 +27,15 @@ EdgeSet::EdgeSet()
 
   programmedBurn = 0;
   higherOrderMF = 0;
+  higherOrderFSI = 0;
 
 #ifdef EDGE_LENGTH  //HB
   edgeLength= 0;
 #endif
 
   mfRiemannNormal = MF_RIEMANN_NORMAL_REAL;
+
+  triangulatedLSS = NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -114,7 +117,6 @@ void EdgeSet::createPointers(Vec<int> &newNum)
   }
 
 }
-
 //------------------------------------------------------------------------------
 
 #ifdef EDGE_LENGTH //HB: compute the edges'length for given nodes'coordinates
@@ -224,6 +226,11 @@ void EdgeSet::attachHigherOrderMultiFluid(HigherOrderMultiFluid* mf) {
   higherOrderMF = mf;
 }
 
+void EdgeSet::attachHigherOrderFSI(HigherOrderFSI* fsi) {
+
+  higherOrderFSI = fsi;
+}
+
 //------------------------------------------------------------------------------
 
 void EdgeSet::computeConnectedEdges(const std::vector<int> &locSampleNodes) 
@@ -274,3 +281,7 @@ void EdgeSet::setMultiFluidRiemannNormal(MultifluidRiemannNormal m) {
   mfRiemannNormal = m;
 }
 
+void EdgeSet::attachTriangulatedInterfaceLSS(LevelSetStructure* LSS) {
+
+  triangulatedLSS = LSS;
+}

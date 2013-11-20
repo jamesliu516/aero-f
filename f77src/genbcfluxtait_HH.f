@@ -112,10 +112,12 @@ conditions
 
       if(abs(sold).le.1.e-7) sold=-2.*cinf/bm1
 
-      Snew     = Sold + dt*dSdt3
-      vbar = 0.5*(Rplus+Snew)
-      cbar = 0.25*bm1*(Rplus-Snew)
+c      Snew     = Sold + dt*dSdt3
+c      vbar = 0.5*(Rplus+Snew)
+c      cbar = 0.25*bm1*(Rplus-Snew)
 
+      vbar = 0.5*(Rplus+Sold)
+      cbar = 0.25*bm1*(Rplus-Sold)
 
       Vinf(1) = (cbar*cbar/(a*b))**(1./bm1)
       Vinf(5) = ps+a*Vinf(1)**b

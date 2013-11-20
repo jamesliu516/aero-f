@@ -37,6 +37,17 @@ ExplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, 0);
 
   timeType = ioData.ts.expl.type;
+
+  if (this->modifiedGhidaglia) {
+
+    hh1 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh2 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh3 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh4 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hhorig = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+  }
+
+
 }
 
 //------------------------------------------------------------------------------
@@ -92,9 +103,21 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
   }
 
   computeRKUpdate(U, k1,1);
+
+  if (this->modifiedGhidaglia) {
+
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
 
   this->timer->addFluidSolutionTime(t0);
 
@@ -104,16 +127,34 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
     t0 = this->timer->getTime();
 
     computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
+
     this->Phi = this->Phi - p1;
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-    (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    
+    // Riemann overwrite using the value of Phi_{n+1} 
+    //
+    this->setPhiExact();
+     
+    if (this->myTriangulatedInterface)
+      this->myTriangulatedInterface->update(this->currentTimeStep);
+
+    if (this->lsMethod == 0 ||
+        this->lsMethod == 1)
+      (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    else 
+      (this->fluidSelector).getFluidId(this->myTriangulatedInterface);
 
     this->timer->addLevelSetSolutionTime(t0);
 
-    // Riemann overwrite using the value of Phi_{n+1}
-    this->setPhiExact();
+    if (this->phaseChangeType == 0)
+      this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    else
+      this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->interfaceOrder-1,
+						      U, this->V0,
+						      this->Weights,this->VWeights,
+						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
+                                                      this->limitHigherOrderExtrapolation);
 
-    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }else U = U0;
 
@@ -136,9 +177,21 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
   }
   // *** prediction step ***
   computeRKUpdate(U, k1,1);
+
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = ratioTimesU - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
 
   this->timer->addFluidSolutionTime(t0);
 
@@ -162,10 +215,21 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
 
   // *** corrector step ***
   computeRKUpdate(U0, k2,2);
+  
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = ratioTimesU - 0.5 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
 
   this->timer->addFluidSolutionTime(t0);
 
@@ -176,13 +240,30 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
     computeRKUpdateLS(Phi0, fluidId0, p2, U0);
     this->Phi = ratioTimesPhi - 0.5 * (p1 + p2);
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-    (this->fluidSelector).getFluidId(this->Phi);
+    // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
+    this->setPhiExact();
+    if (this->myTriangulatedInterface)
+      this->myTriangulatedInterface->update(this->currentTimeStep);
+
+    if (this->lsMethod == 0 ||
+        this->lsMethod == 1)
+      (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    else 
+      (this->fluidSelector).getFluidId(this->myTriangulatedInterface);
+
 
     this->timer->addLevelSetSolutionTime(t0);
 
-    // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
-    this->setPhiExact();
-    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    if (this->phaseChangeType == 0)
+      this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    else
+      this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->interfaceOrder-1,
+						      U, this->V0,
+						      this->Weights,this->VWeights,
+						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
+                                                      this->limitHigherOrderExtrapolation);
+
+ 
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
   this->checkSolution(U);
@@ -206,6 +287,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
 
   this->timer->addFluidSolutionTime(t0);
 
@@ -238,6 +324,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
 
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
+
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
@@ -256,7 +347,15 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
 
     // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
     this->setPhiExact();
-    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    if (this->phaseChangeType == 0)
+      this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    else
+      this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->interfaceOrder-1,
+						      U, this->V0,
+						      this->Weights,this->VWeights,
+						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
+                                                      this->limitHigherOrderExtrapolation);
+
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
   this->checkSolution(U);
@@ -280,15 +379,40 @@ int ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,di
       solveNLLevelSet(U);
     else {
       this->setPhiExact();
-      (this->fluidSelector).getFluidId(this->Phi);
     }
-      
-    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
-    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
-  }
+   
+    if (this->myTriangulatedInterface) {
+      this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
+      if (this->myExactInterface.size() == 0) {
+        DistNodalGrad<dim, double> * G = this->multiPhaseSpaceOp->getDistNodalGrad(U);
+        G->compute(this->geoState->getConfig(), *(this->X), 
+                   *this->A, *this->fluidSelector.fluidId, (this->V0));
+        this->myTriangulatedInterface->integraterk2(this->domain, *this->X,
+                                                    this->V0,*G,
+                                                    *this->fluidSelector.fluidId,
+                                                    this->currentTimeStep);
+      }
+      this->myTriangulatedInterface->update(this->currentTimeStep);
+    }
 
-  if(this->checkSolution(U) != 0){
-    return -10;
+    if (this->lsMethod == 0 ||
+      this->lsMethod == 1)
+      (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
+    else 
+      (this->fluidSelector).getFluidId(this->myTriangulatedInterface);
+   
+    if (this->phaseChangeType == 0)
+      this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    else {
+      this->multiPhaseSpaceOp->setLastPhaseChangeValues(this->riemann);
+      this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X, *this->A,this->interfaceOrder-1,
+						      U, this->V0,
+						      this->Weights,this->VWeights,
+						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
+                                                      this->limitHigherOrderExtrapolation);
+    }
+
+    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
   return 0;
@@ -303,7 +427,12 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEuler(DistSVec<double,dim> &U)
 
   if (timeType == ExplicitData::RUNGE_KUTTA_4) solveNLEulerRK4(U);
   else                                         solveNLEulerRK2(U);
-  
+
+  this->checkSolution(U);
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return;
+ 
   this->timer->addFluidSolutionTime(t0);
 
 }
@@ -319,6 +448,13 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   }
 
   computeRKUpdate(U, k1,1);
+
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = ratioTimesU - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
@@ -330,6 +466,13 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
   }*/
 
   computeRKUpdate(U0, k2,2);
+  
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = ratioTimesU - 1.0/2.0 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
@@ -350,24 +493,55 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK4(DistSVec<double,dim> &U)
   }
 
   computeRKUpdate(U, k1, 1);
+ 
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= 0.5*(*hh1);
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - 0.5 * k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(this->U0);
 
   computeRKUpdate(U0, k2, 2);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 0.5*(*hh2);
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 3);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh3);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - (*hh3);
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 4);
+
+  computeRKUpdate(U0, k4, 1);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh4);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 
+       1.0/6.0*(*hh1+2.0*(*hh2+*hh3)+*hh4);
+  }
+
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U -= 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
@@ -404,7 +578,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
   this->Phi = ratioTimesPhi - 1.0/2.0 * (p1+p2);
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-  (this->fluidSelector).getFluidId(this->Phi);
+  // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
+  this->setPhiExact();
 }
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>
@@ -428,7 +603,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,dim> 
   computeRKUpdateLS(Phi0, fluidId0, p4, U);
   this->Phi -= 1.0/6.0 * (p1 + 2.0 * (p2 + p3) + p4);
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-  (this->fluidSelector).getFluidId(this->Phi);
+  // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
+  this->setPhiExact();
 }
 //------------------------------------------------------------------------------
 
@@ -444,17 +620,9 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
   /*else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
     locphi = this->Phi0;
 */
-  if (this->interfaceOrder == 2 && this->useCutCells) {
-    this->multiPhaseSpaceOp->findCutCells(*locphi,
-					  this->cutCellStatus,
-					  *this->fluidSelector.fluidId,
-					  Ulocal,
-					  *this->X);
-  }
-  
+
   if (this->interfaceOrder == 2) {
     this->varFcn->conservativeToPrimitive(Ulocal,this->V0,this->fluidSelector.fluidId);
-    this->domain->setCutCellData(this->V0, *this->fluidSelector.fluidId);
     this->varFcn->primitiveToConservative(this->V0,Ulocal,this->fluidSelector.fluidId);
   }
 
@@ -473,9 +641,21 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdateLS(DistSVec<double,dimLS>
                                   DistSVec<double,dimLS> &dPhi, DistSVec<double,dim> &U)
 {
 
-  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Philocal, localFluidId, U, dPhi,0,0,this->lsMethod);
+  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Philocal, localFluidId, U, dPhi,0,0,this->lsMethod, this->interfaceOrder);
   // for RK2 on moving grids
   this->timeState->multiplyByTimeStep(dPhi);
   this->LS->checkTrueLevelSetUpdate(dPhi);
 
 }
+
+template<int dim,int dimLS>
+void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+				 		          DistVec<double>& dHH) {
+
+  //this->varFcn->conservativeToPrimitive(Ulocal,*(this->V),&this->nodeTag);
+  //*(this->bcData->getBoundaryStateHH()) = HHlocal;
+  this->domain->computeHHBoundaryTermResidual(*this->bcData,Ulocal,dHH, this->varFcn);
+  this->timeState->multiplyByTimeStep(dHH);
+
+}
+

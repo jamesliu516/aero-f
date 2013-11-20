@@ -21,6 +21,7 @@ using std::pair;
 
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
+#include <HigherOrderFSI.h>
 #include <ErrorHandler.h>
 #include <LevelSet/LevelSetStructure.h>
 
@@ -80,10 +81,12 @@ private:
   ProgrammedBurn* programmedBurn;
 
   HigherOrderMultiFluid* higherOrderMF;
+  HigherOrderFSI* higherOrderFSI;
 
   MultifluidRiemannNormal mfRiemannNormal;
   ErrorHandler* errorHandler;
 
+  LevelSetStructure* triangulatedLSS;
 
 public:
 
@@ -160,6 +163,7 @@ public:
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
                               LevelSetStructure&, bool, Vec<int> &, int, SVec<double,3>*, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
@@ -185,7 +189,7 @@ public:
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                                SVec<double,dim>&,Vec<int>& fluidId, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
-                               SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0);
+                               SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0, int order = 1);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,
@@ -284,6 +288,7 @@ public:
 
   void attachProgrammedBurn(ProgrammedBurn*);
   void attachHigherOrderMultiFluid(HigherOrderMultiFluid*);
+  void attachHigherOrderFSI(HigherOrderFSI*);
 
   void assignErrorHandler(ErrorHandler* in){errorHandler = in;}
 
@@ -294,6 +299,8 @@ public:
   int getNumTwoLayersEdges() {return numTwoLayerEdges;}
   void computeGlobalConnectedEdges(const std::vector<int> &globalNeighborNodes,
 				   const int *locToGlobNodeMap) ;
+
+  void attachTriangulatedInterfaceLSS(LevelSetStructure*);
 };
 
 //------------------------------------------------------------------------------

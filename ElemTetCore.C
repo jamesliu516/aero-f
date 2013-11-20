@@ -1980,9 +1980,13 @@ void ElemTet::computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, 
 bool ElemTet::isPointInside(SVec<double,3> & X,const Vec3D& V) {
 
   double bary[3];
+  const double eps = 1e-10;
   computeBarycentricCoordinates(X,V,bary);
-  if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 ||
-      bary[0]+bary[1]+bary[2] > 1.0)
+//  std::cout << V[0] << " " << V[1] << " " << V[2] << " " << 
+//      bary[0] << " " << bary[1] << " " << bary[2] << std::endl;
+
+  if (bary[0] < -eps || bary[1] < -eps || bary[2] < -eps ||
+      bary[0]+bary[1]+bary[2] > 1.0+eps)
     return false;
   else
     return true;

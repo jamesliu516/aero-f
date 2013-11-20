@@ -36,6 +36,8 @@ public:
   void apply(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { 
     apply(x.real(), Px.real());
     Px.ghost() = x.ghost();
+    if (x.hasHHBoundaryTerm())
+      Px.hh() = x.hh();
   }
 };
 

@@ -33,6 +33,7 @@ void FaceTria::computeNormal(SVec<double,3> &X, Vec<Vec3D> &faceNorm)
   Vec3D x[3] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ]};
 
   faceNorm[normNum] = 0.5 * ((x[2] - x[0]) ^ (x[1] - x[0]));
+
 }
 
 //------------------------------------------------------------------------------
@@ -58,6 +59,7 @@ void FaceTria::computeNormalConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot
   Vec3D configFaceNorm = 0.5 * ((x[2] - x[0]) ^ (x[1] - x[0]));
   faceNorm[normNum] += configFaceNorm;
   faceNormVel[normNum] += third * (xdot[0] + xdot[1] + xdot[2]) * configFaceNorm;
+  
 }
 
 //------------------------------------------------------------------------------

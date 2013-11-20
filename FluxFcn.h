@@ -42,6 +42,7 @@ private:
       fprintf(stdout, "*** Error: An unknown fluid model with FluidID = %d is detected. Could be a software bug!\n", tag);
       DebugTools::PrintBacktrace();
       fflush(stdout);
+      MPI_Barrier(MPI_COMM_WORLD);
       exit(1);
     }
     assert(tag<numPhases_);
@@ -85,6 +86,13 @@ public:
   void computeJacobians(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, double *jacR, int tag=0, bool useLimiter = true){
     check(tag);
     ff_[tag]->computeJacobians(length, irey, normal, normalVel, VL, VR, jacL, jacR, useLimiter);
+  }
+
+  void computeJacobianFarfield(double length, double irey, double *normal, double normalVel, double * VL, double * Ub, double * jac,
+			       int tag = 0,bool useLimiter = true) {
+
+    check(tag);
+    ff_[tag]->computeJacobianFarfield(length,irey,normal,normalVel,VL,Ub,jac,useLimiter);
   }
 
   //----- Sensitivity Analysis Functions -----//

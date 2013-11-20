@@ -120,7 +120,7 @@ HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV m
                         *is_occluded=true;
                     else {  //check if occluded in the active part of inactive part.
                         weights = sub.triangle_list(candidates(t)).Barycentric_Coordinates(position);
-                        if(surface_levelset->getPhi(sub.scope(candidates(t))-1,weights.x,weights.y) > (T)0)
+                        if(surface_levelset->getPhiPhysBAM(sub.scope(candidates(t))-1,weights.x,weights.y) > (T)0)
                             *is_occluded=true;
                     }
         }
@@ -183,7 +183,7 @@ Ray_Intersection(const ARRAY<int> &scope, const ARRAY<TRIANGLE_3D<T> >& triangle
             if(cs){
                 VECTOR<T,3> local_weights;
                 triangle_list(ray.aggregate_id).Closest_Point(ray.Point(ray.t_max),local_weights);
-		if(cs->getPhi(scope(ray.aggregate_id)-1,local_weights.x,local_weights.y) <= (T)0){
+		if(cs->getPhiPhysBAM(scope(ray.aggregate_id)-1,local_weights.x,local_weights.y) <= (T)0){
 		    ray.Restore_Intersection_Information(ray_temp);
 		    intersected=intersected_temp;}}}}
     if(intersected) 
@@ -199,7 +199,7 @@ Point_Inside_Triangle(const ARRAY<int> &scope, const ARRAY<TRIANGLE_3D<T> >& tri
             int triangleID_temp=triangleID;
             triangleID=(*candidates)(i);
             weights=triangle_list((*candidates)(i)).Barycentric_Coordinates(point);
-            if(cs && cs->getPhi(scope(triangleID)-1,weights.x,weights.y) <= (T)0){
+            if(cs && cs->getPhiPhysBAM(scope(triangleID)-1,weights.x,weights.y) <= (T)0){
               triangleID=triangleID_temp;}
 	    else return true;}}
     else {
@@ -207,7 +207,7 @@ Point_Inside_Triangle(const ARRAY<int> &scope, const ARRAY<TRIANGLE_3D<T> >& tri
             int triangleID_temp=triangleID;
             triangleID=i;
             weights=triangle_list(i).Barycentric_Coordinates(point);
-            if(cs && cs->getPhi(scope(triangleID)-1,weights.x,weights.y) <= (T)0){
+            if(cs && cs->getPhiPhysBAM(scope(triangleID)-1,weights.x,weights.y) <= (T)0){
               triangleID=triangleID_temp;}
 	    else return true;}}
     return false;
@@ -247,7 +247,7 @@ Intersection_Helper(const ARRAY<TRIANGLE_3D<T> >& triangle_list,const ARRAY<int>
                 if(Inside) {
                     weights=triangle_list(candidates(i)).Barycentric_Coordinates(start);
                     LOG::cerr<<"      coords = " << weights.x << ", " << weights.y << ", Phi = " <<  
-                         cs->getPhi(scope(candidates(i))-1,weights.x,weights.y,NULL,true) << std::endl;
+                         cs->getPhiPhysBAM(scope(candidates(i))-1,weights.x,weights.y,NULL,true) << std::endl;
                 }
             }
         }
@@ -313,7 +313,7 @@ Intersect(const int subD,const ARRAY<TV>& node_positions,const ARRAY<bool>& occl
 // computeSweptNodes
 //#####################################################################
 template<class T> void PhysBAMInterface<T>::
-computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,ARRAY<bool>& swept_node,const T dt) const
+computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,const ARRAY<TV>& node_positions_initial,ARRAY<bool>& swept_node,const T dt) const
 { // TODO(jontg): Assuming a 'normalized' dt of 1 for now... verify that this is an OK assumption to make!
     const SubDInterface<T>& sub = SubD(subD);
     T relative_speed,collision_time;VECTOR<T,3> normal,weights; // Unused
@@ -321,12 +321,12 @@ computeSweptNodes(const int subD,const ARRAY<TV>& node_positions,ARRAY<bool>& sw
     for(int i=1;i<=node_positions.Size();++i){
         const ARRAY<int>& candidates(sub.candidates(i));
         for(int t=1;t<=candidates.Size() && !swept_node(i);++t){
-            if(surface_levelset && surface_levelset->purelyPhantom(sub.scope(candidates(t))-1)) //this element is deleted/purely Phantom
+            if(surface_levelset && surface_levelset->purelyPhantomPhysBAM(sub.scope(candidates(t))-1)) //this element is deleted/purely Phantom
               continue;
             const TRIANGLE_3D<T> initial_simplex(saved_state.y->X.Subset(sub.scoped_triangle_mesh->elements(candidates(t))));
             const TRIANGLE_3D<T>& terminal_simplex(sub.triangle_list(candidates(t)));
             swept_node(i) = (POINT_SIMPLEX_NO_COLLISION != CONTINUOUS_COLLISION_DETECTION_COMPUTATIONS::Robust_Point_Triangle_Collision(initial_simplex,terminal_simplex,
-                                                           node_positions(i),node_positions(i),dt,thickness_over_two,collision_time,normal,weights,relative_speed));}}
+                                                           node_positions_initial(i),node_positions(i),dt,thickness_over_two,collision_time,normal,weights,relative_speed));}}
 }
 //#####################################################################
 template class PhysBAMInterface<float>;

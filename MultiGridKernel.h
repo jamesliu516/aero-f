@@ -38,7 +38,7 @@ class MultiGridKernel {
 
   template<class Scalar2, int dim>
   void Restrict(int coarseLvl, DistSVec<Scalar2,dim>& fine, 
-                DistSVec<Scalar2,dim>& coarse);
+                DistSVec<Scalar2,dim>& coarse, bool = false);
 
   template<class Scalar2, int dim>
   void Prolong(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
@@ -68,6 +68,7 @@ class MultiGridKernel {
   void
   setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0);
 
+  double ref_length;
 
   bool isGeometric;
  
@@ -101,5 +102,7 @@ class MultiGridKernel {
   bool initialized;
 
   std::set<int>** fixLocations;
+
+  const char* agglomerationFile;
  
 };

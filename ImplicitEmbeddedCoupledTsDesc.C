@@ -56,6 +56,9 @@ ImplicitEmbeddedCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom)
 
   mvp->AttachStructure(fsi);
   
+  if (this->modifiedGhidaglia)
+    mvp->attachHH(this->embeddedU);
+  
 }
 
 //------------------------------------------------------------------------------
@@ -80,11 +83,12 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double
     mvph1->clearGhost(); 
   }
 
+  if (this->modifiedGhidaglia)
+    mvp->evaluateHH(*this->hhResidual, *this->bcData->getBoundaryStateHH());
+
   mvp->evaluate(it,*(this->X) ,*(this->A), Q, F);
 
   mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
-//  if (mvph1 && this->ghostPoints) 
-//    this->domain->populateGhostJacobian(*this->ghostPoints,Q, this->varFcn, *this->distLSS, this->nodeTag,*mvph1);
 
 }
 //------------------------------------------------------------------------------
@@ -140,6 +144,9 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
   this->embeddedB.ghost() = 0.0;
   this->embeddedB.real() = b;
   
+  if (this->modifiedGhidaglia)
+    this->embeddedB.hh() = -1.0*(*this->hhResidual);
+  
   ksp->setup(it, this->maxItsNewton, this->embeddedB);
   
   int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
@@ -148,7 +155,12 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
  
   dQ = this->embeddeddQ.real();
   this->embeddedU.ghost() += this->embeddeddQ.ghost();
-  
+  if (this->modifiedGhidaglia) {
+    this->embeddedU.hh() += this->embeddeddQ.hh();
+
+    *this->bcData->getBoundaryStateHH() = this->embeddedU.hh();
+  }
+
   this->timer->addKspTime(t0);
   
   return lits;

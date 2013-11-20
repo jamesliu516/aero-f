@@ -166,6 +166,9 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   else if(type == PHILEVEL)
     //q = static_cast<double>(fluidId);
     q = phi[0];///varFcn->getDensity(V, fluidId);
+  else if(type == PHILEVEL2)
+    //q = static_cast<double>(fluidId);
+    q = phi[1];///varFcn->getDensity(V, fluidId);
   else if (type == FLUIDID)
     q = static_cast<double>(fluidId);
  // Included (MB)

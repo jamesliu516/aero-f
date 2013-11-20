@@ -282,7 +282,14 @@ public:
       delete[] reverseChannel;
       delete[] isSend;
       delete[] sRecInfo;
-      delete[] localDBuffer;
+      if(crossSendBuffer) {
+        if(crossSendBuffer[0]) delete[] crossSendBuffer[0];
+        delete[] crossSendBuffer;
+      }
+      if(crossRcvBuffer) delete[] crossRcvBuffer;
+      if(crossSendLen) delete[] crossSendLen;
+      if(crossRcvLen) delete[] crossRcvLen;
+      if(localDBuffer) delete[] localDBuffer;
     }
 
 #ifdef MEM_TMPL_FUNC

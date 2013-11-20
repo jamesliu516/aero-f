@@ -38,6 +38,11 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   else
     lsMethod = 0;
 
+  phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
+  phaseChangeAlg	 = (ioData.embed.phaseChangeAlg==EmbeddedFramework::LEAST_SQUARES) ? 1 : 0;
+  interfaceAlg		 = (ioData.embed.interfaceAlg==EmbeddedFramework::INTERSECTION) ? 1 : 0;
+  intersectAlpha	 = ioData.embed.alpha;
+
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
@@ -93,7 +98,68 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   increasingPressure = false;
 
 //  ioData.printDebug();
+
+
+  multiFluidInterfaceOrder = 1;
+
+  lastLSUpdateIteration = -1;
+
+  if (ioData.mf.interfaceTreatment == MultiFluidData::SECONDORDER) {
+
+    dom->createHigherOrderMultiFluid();
+
+    multiFluidInterfaceOrder = 2;
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      V6NodeData (*v6data)[2];
+      v6data = 0;
+      dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
+      dom->getSubDomain()[iSub]->getHigherOrderMF()->
+	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
+			dom->getSubDomain()[iSub]->getElems(),
+			v6data); 
+
+      if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+        dom->getSubDomain()[iSub]->getHigherOrderMF()->setLimitedExtrapolation();
+    }
+  }
+
+
+  if (interfaceAlg == 1) {
+
+    dom->createHigherOrderFSI();
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      V6NodeData (*v6data)[2];
+      v6data = 0;
+      dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
+      dom->getSubDomain()[iSub]->getHigherOrderFSI()->
+	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
+			dom->getSubDomain()[iSub]->getElems(),
+			v6data); 
+
+      //if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+      dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+    }
+    
+  }
+
+
+  limitHigherOrderExtrapolation = false;
+  if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
+    limitHigherOrderExtrapolation = true;
+
+  phaseChangeType = 0;
+  
+  if (ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION) {
+
+    phaseChangeType = 1;
+  }
+
 }
+
 
 //------------------------------------------------------------------------------
 
@@ -274,7 +340,7 @@ MultiPhysicsTsDesc<dim,dimLS>::~MultiPhysicsTsDesc()
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
   if (dynNodalTransfer) delete dynNodalTransfer;
-  if (Fs) delete[] Fs;
+  if (Fs) operator delete[] (Fs, *this->com);
   if(ghostPoints) {
     ghostPoints->deletePointers();
     delete ghostPoints;
@@ -293,7 +359,13 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->geoState->setup2(this->timeState->getData());
   // Initialize intersector and compute intersections
   DistVec<int> point_based_id(this->domain->getNodeDistInfo());
-  distLSS->initialize(this->domain,*this->X, ioData, &point_based_id);
+
+  if (ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) {
+    distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id,
+                        fluidSelector.fluidId);
+  } else
+    distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
+
   if(riemannNormal==2){
     this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
@@ -317,7 +389,13 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   //if(this->input->levelsets[0] == 0) // init
   //  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
   //else //restart
-  fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
+  /*if(withCracking && withMixedLS) 
+    fluidSelector.reinitializeFluidIdsWithCracking(distLSS->getStatus(), Phi); 
+  else 
+    fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
+  */
+  if(ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0) // init
+    fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
   
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
@@ -376,6 +454,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -428,16 +507,19 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 //  if(withCracking && withMixedLS)
 //    fluidSelector.checkLSConsistency(Phi);
 
-  if(frequencyLS > 0 && it%frequencyLS == 0){
+  if(frequencyLS > 0 && it%frequencyLS == 0  && lastLSUpdateIteration != it){
+    lastLSUpdateIteration = it;
     if (this->lsMethod == 0)
       LS->conservativeToPrimitive(Phi,PhiV,U);
     else
       PhiV = Phi;
     if(withCracking && withMixedLS) {
       this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
-      LS->reinitializeLevelSet(*this->X, PhiV, false);
+      for (int k = 0; k < dimLS; ++k)
+      	LS->reinitializeLevelSet(*this->X, PhiV, false,k);
     } else {
-      LS->reinitializeLevelSet(*this->X, PhiV);
+      for (int k = 0; k < dimLS; ++k)
+	LS->reinitializeLevelSet(*this->X, PhiV,true, k);
     }
     if (this->lsMethod == 0)
       LS->primitiveToConservative(PhiV,Phi,U);
@@ -476,7 +558,7 @@ int MultiPhysicsTsDesc<dim,dimLS>::checkSolution(DistSVec<double,dim> &U)
   int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, *fluidSelector.fluidId, *fluidSelector.fluidIdn);
                              // fluidIdn is only used for screen output when an error is found
 
-  if (ierr != 0 && this->data->checksol) this->data->unphysical = true;
+  //if (ierr != 0 && this->data->checksol) this->data->unphysical = true;
   ierr = max(ierr,0);
 
   return ierr;
@@ -542,7 +624,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
-  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS, dynNodalTransfer);
+  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS, dynNodalTransfer,&fluidSelector);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
   this->output->updatePrtout(t);
@@ -563,6 +645,9 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputForces(IoData &ioData, bool* lastIt, i
 {
   double cpu = this->timer->getRunTime();
   this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+
+  // PJSA this should written before getting the new cracking data
+  this->restart->writeCrackingDataToDisk(this->com->cpuNum(), *lastIt, it, t, dynNodalTransfer);
 }
 
 //------------------------------------------------------------------------------

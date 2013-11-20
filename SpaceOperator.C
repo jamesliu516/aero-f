@@ -109,10 +109,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   fet = createFemEquationTerm(ioData);
   volForce = createVolumicForceTerm(ioData);
 
-  T = 0;
-  if (fet && ioData.embed.viscousinterfaceorder == EmbeddedFramework::SECOND)
-    T = new DistVec<double>(domain->getNodeDistInfo());
-
   if (ioData.problem.type[ProblemData::LINEARIZED])  {
     use_modal = true;
     if (ioData.linearizedData.domain == LinearizedData::FREQUENCY)  {
@@ -198,7 +194,6 @@ SpaceOperator<dim>::~SpaceOperator()
 
   if (locAlloc) {
     if (V) delete V;
-    if (T) delete T;
     if (bcFcn) delete bcFcn;
     if (fluxFcn) {
         fluxFcn += BC_MIN_CODE;
@@ -1174,14 +1169,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
   }
 
-  if (fet) {
-    if (viscSecOrder) {
-      varFcn->computeTemperature(*V,*T,&fluidId);
-      ngrad->computeTemperatureGradient(geoState->getConfig(), X, ctrlVol, 
-                     fluidId, *T, distLSS);
-    }
+  if (fet)
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -1269,14 +1258,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
   }
 
-  if (fet) {
-    if (viscSecOrder) {
-      varFcn->computeTemperature(*V,*T,&fluidId);
-      ngrad->computeTemperatureGradient(geoState->getConfig(), X, ctrlVol, 
-                     fluidId, *T, distLSS);
-    }
+  if (fet)
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -1399,7 +1382,8 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 // TODO(jontg): Fix computeRiemannWeightsForEmbeddedStruct
 template<int dim>
 void SpaceOperator<dim>::
-updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChangeAlg, 
+updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
+		 int phaseChangeChoice, int phaseChangeAlg, 
                  DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                  DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
@@ -1411,6 +1395,14 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
 
   varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0; VWeights = 0.0;
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
+    bool linFSI = true;//linRecAtInterface || viscSecOrder;
+    double t0 = this->timer->getTime();
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidId, V, linFSI, distLSS,
+                         false);
+    this->timer->addNodalGradTime(t0);
+  }
 
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
@@ -1428,7 +1420,7 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		    domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, true, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }
@@ -1457,8 +1449,16 @@ updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChange
 				for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d];
 			  else
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
+			  std::cout << "Phase change value: " << std::endl;
+			  for (int d=0;d<dim;++d) 
+			    std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
+                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && true) {
+
+                    this->domain->getSubDomain()[iSub]->getHigherOrderFSI()->
+                      template setLastPhaseChangeValue<dim>(i, V(iSub)[i]);
+                  }
         }
 	  }
     }
@@ -1668,6 +1668,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 
   if (fet) {
     domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,ctrlVol, *V,A,ghostPoints,distLSS);
+    domain->populateGhostJacobian(ghostPoints,U,fluxFcn,varFcn,distLSS,fluidId,A);
   }
   //if (fet)
   //  domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
@@ -2158,7 +2159,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       break;
 
     case 2: // Embedded Surface
-      domain->computeEmbSurfBasedForceLoad(forceApp,orderOfAccuracy,X,Fs,sizeFs,
+      domain->computeEmbSurfBasedForceLoad(*iod,forceApp,orderOfAccuracy,X,Fs,sizeFs,
 					   distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,ngrad,varFcn,fid);
       break;
 
@@ -2389,7 +2390,8 @@ template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 							   DistSVec<double,dimLS> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
 							   DistSVec<double,dimLS> &PhiF, DistLevelSetStructure *distLSS,
-							   bool linRecAtFSInterface,int method)
+							   bool linRecAtFSInterface,int method,
+                                                           int ls_order)
 {
   PhiF = 0.0;
 
@@ -2418,7 +2420,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
     ngradLS->limit(recFcnLS, X, ctrlVol, Phi);
 
   this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),fluidId,
-                                    *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
+                                    *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS,
+                                   ls_order);
 //  this->domain->getCommunicator()->fprintf(stderr,"PhiF res: %lf\n", PhiF.norm());
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
@@ -2533,14 +2536,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   */  
   }
 
-  if (this->fet) {
-    if (viscSecOrder) {
-      this->varFcn->computeTemperature(*(this->V),*(this->T),fluidSelector.fluidId);
-      this->ngrad->computeTemperatureGradient(this->geoState->getConfig(), X, ctrlVol, 
-                     *fluidSelector.fluidId, *(this->T), distLSS);
-    }
+  if (this->fet)
     this->populateGhostPoints(ghostPoints,X,U,this->varFcn,distLSS,viscSecOrder,*fluidSelector.fluidId);
-  }
 
   if (this->egrad)
     this->egrad->compute(this->geoState->getConfig(), X);
@@ -2565,7 +2562,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   //Now compute the FV fluxes!
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector, 
-                                  Nriemann, Nsbar, *(this->ngrad), this->egrad,
+					Nriemann, Nsbar, *(this->ngrad), this->egrad,PhiV,
                                   *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
@@ -2770,7 +2767,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
     for(int i=0;i<init(iSub).size();++i)
-      init(iSub)[i] = (*distLSS)(iSub).isSwept(0.0,i) || (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()  ? 0 : 1;
+      init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) ||
+                       (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() ||
+                       (*fluidId0)(iSub)[i]==(*distLSS)(iSub).numOfFluids())   ? 0 : 1;
 
   next_init = init;
 
@@ -2817,9 +2816,12 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
         int* locToGlobNodeMap = subD[iSub]->getNodeMap();
 
         for(int i=0;i<init(iSub).size();++i) {
-          if(!((*distLSS)(iSub).isSwept(0.0,i)))
+          if(!((*distLSS)(iSub).isSwept(0.0,i)) && (((*fluidId0)(iSub)[i]!=(*distLSS)(iSub).numOfFluids()) || 
+                                                    ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())))
             continue;
-          if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
+          if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || 
+             (init(iSub)[i]<1.0 && ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() 
+                                    || (*fluidId0)(iSub)[i]==(*distLSS)(iSub).numOfFluids()))) {
             if((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()) {
               if(!(*distLSS)(iSub).isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
               if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
@@ -2873,6 +2875,131 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
   }
 
   this->varFcn->primitiveToConservative(V, U, fluidId);
+}
+
+// TODO(jontg): Remove X
+// TODO(jontg): Fix computeRiemannWeightsForEmbeddedStruct
+template<int dim,int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::
+extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phaseChangeAlg,
+		       DistSVec<double,dim> &U, DistSVec<double,dim> &V0,
+		       DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+		       DistLevelSetStructure *distLSS, DistVec<int> &fluidId,
+		       DistVec<int> &fluidIdn,bool limit)
+{
+  int iSub, numLocSub = this->domain->getNumLocSub();
+  DistVec<int> init(this->domain->getNodeDistInfo()),
+    next_init(this->domain->getNodeDistInfo());
+  SubDomain **subD = this->domain->getSubDomain();
+
+  Communicator* com = this->domain->getCommunicator();
+
+  this->varFcn->conservativeToPrimitive(U, V0, &fluidIdn);
+  Weights = 0.0; VWeights = 0.0;
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
+    bool linFSI = true;//linRecAtInterface || viscSecOrder;
+    double t0 = this->timer->getTime();
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, fluidIdn, V0, linFSI, distLSS);
+    this->timer->addNodalGradTime(t0);
+  }
+
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub) {
+    HigherOrderMultiFluid* mf = subD[iSub]->getHigherOrderMF();
+    for(int i=0;i<init(iSub).size();++i) {
+      init(iSub)[i] = (fluidId(iSub)[i] != fluidIdn(iSub)[i] ? 0 : 1);
+    }
+  }
+	  //((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1);
+  next_init = init;
+
+  int iter=0, maxIter=1000000;
+  int finished = 0;
+  while(finished == 0 && iter < maxIter){
+    ++iter;
+    finished = 1;
+    switch (phaseChangeAlg) {
+    case 0:
+      this->domain->computeWeightsForFluidFluid(X, V0, Weights, VWeights, init, next_init, distLSS,
+					  fluidId);
+      break;
+    case 1:
+      this->domain->computeWeightsLeastSquaresForFluidFluid(X, V0, Weights, VWeights, init, next_init, distLSS,
+							    fluidId,*this->ngrad,limit);
+      //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+      break;
+    }
+
+#pragma omp parallel for
+    for(iSub=0;iSub<numLocSub;++iSub) {
+	  int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+	  if (locToGlobNodeMap[9045]+1==1589845)  {
+	    int i = 9045;
+	    std::cout << 
+		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
+	      V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << fluidId(iSub)[i] << std::endl;
+	  }
+      for(int i=0;i<init(iSub).size();++i) {
+//		if ((*distLSS)(iSub).isSwept(0.0,i)&&(*distLSS)(iSub).isActive(0.0,i))
+//		  fprintf(stdout,"XY: Node %d needs phase change update:\n",locToGlobNodeMap[i]+1);
+        if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
+          const double one_over_weight=(double)1.0/Weights(iSub)[i];
+		  switch (phaseChangeAlg) {
+			case 0:
+          	  for (int d=0;d<dim;++d)  { 
+          //          if (locToGlobNodeMap[i]+1 == 193776) 
+          //            std::cout << VWeights(iSub)[i][d] << " " <<one_over_weight <<  " " <<
+          //              fluidId(iSub)[i] << std::endl;
+                    V0(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+                  }
+			  break;
+			case 1:
+			  if (Weights(iSub)[i]>0.0)
+          	    for (int d=0;d<dim;++d) V0(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
+			  else if (Weights(iSub)[i]<0.0)
+				for (int d=0;d<dim;++d) V0(iSub)[i][d] = VWeights(iSub)[i][d];
+			  else
+				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
+			  break;
+		  }
+		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" <<  fluidId(iSub)[i] <<"): " <<
+		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
+		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
+
+                  if (this->domain->getSubDomain()[iSub]->getHigherOrderMF() && limit) {
+
+                    this->domain->getSubDomain()[iSub]->getHigherOrderMF()->
+                      template setLastPhaseChangeValue<dim>(i, V0(iSub)[i]);
+                  }
+        }
+	  }
+    }
+
+#pragma omp parallel for
+    for(iSub=0;iSub<numLocSub;++iSub)
+      for(int i=0;i<init(iSub).size();++i) {
+        if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
+	  finished = 0;
+	  //std::cout << "Node not finished: " << iSub << " "  << i << std::endl;
+	}
+      }
+    Weights = 0.0; VWeights = 0.0;
+    init = next_init;
+    com->globalOp(1,&finished,MPI_PROD);
+  }
+  if(iter == maxIter) {
+    fprintf(stderr,"ERROR: abnormal termination in SpaceOperator::updateSweptNodes. Abort...\n");
+    exit(-1);
+  }
+  /*
+#pragma omp parallel for
+  for(iSub=0;iSub<numLocSub;++iSub){
+    for(int i=0;i<init(iSub).size();++i)
+      if(init(iSub)[i] < 1 || !(*distLSS)(iSub).isActive(0.0,i))
+        for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
+	}*/
+  this->varFcn->primitiveToConservative(V0, U, &fluidId);
 }
 
 //------------------------------------------------------------------------------
@@ -2936,192 +3063,27 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
   }
 }
 
-//-----------------------------------------------------------------------------
 
 template<int dim, int dimLS>
-void MultiPhaseSpaceOperator<dim,dimLS>::findCutCells(DistSVec<double,dimLS>& phi,
-						      DistVec<int>& status,
-						      DistVec<int>& fluidId,
-						      DistSVec<double,dim> &U,
-						      DistSVec<double,3> &X) {
+void MultiPhaseSpaceOperator<dim,dimLS>::
+attachTriangulatedInterface(TriangulatedInterface* T) {
+
+  this->domain->attachTriangulatedInterface(T);
+}
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::
+setLastPhaseChangeValues(DistExactRiemannSolver<dim>* riemann) {
 
   SubDomain **subD = this->domain->getSubDomain();
-
   int iSub;
-
-  this->varFcn->conservativeToPrimitive(U, *(this->V), &fluidId);
-   
-  for (int k = 0; k < dimLS; ++k) {
-      
-    status = 0;
-
-#pragma omp parallel for
-    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      
-      subD[iSub]->findCutCells(k, phi(iSub), status,X(iSub));
-      subD[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
-    }
-
-    this->domain->getLevelPat()->exchange();
-
-#pragma omp parallel for
-    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
-      subD[iSub]->maxRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(status.subData(iSub)));
-      subD[iSub]->template setCutCellFlags<dim>(k,status(iSub));
-    }
-  }
-
-  /*int numCutCells = 0, cutCellsLoc,tmp;
-  int* locoffset = new int[numLocSub];
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    
-    locoffset[iSub] = numCutCells;
-    numCutCells += subD[iSub]->getNumCutCells();
-  }
-
-  MPI_Allreduce(&numCutCells,&tmp, 1, MPI_INT,
-                MPI_SUM, this->domain->com->comm);
-
-  numCutCells = tmp;
-
-  fprintf(stdout,"# of cut cells = %i\n",numCutCells);
-  
-  MPI_Scan(&numCutCells,&cutCellsLoc,1, MPI_INT, 
-           MPI_SUM, this->domain->com->comm);
-  
-  double* grads = new double[numCutCells*3*dim*2];
-  double* vals = new double[numCutCells*2*dim];
-  int* gl_nodes = new int[numCutCells];
-  
-  memset(grads,0,sizeof(double)*numCutCells*3*dim*2);
-  memset(vals,0,sizeof(double)*numCutCells*2*dim);
-  memset(gl_nodes,0,sizeof(int)*numCutCells);
-  */
-
-  //std::cout << "Hello!!" << std::endl;
-  //exit(-1);
-#pragma omp parallel for
-  for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
-  
-    SVec<double,dim>* v[2] = { &higherOrderData.vals[0]->operator()(iSub),
-			       &higherOrderData.vals[1]->operator()(iSub)};
-    
-    NodalGrad<dim,double>* g[2] = { &higherOrderData.cutgrads[0]->operator()(iSub),
-				    &higherOrderData.cutgrads[1]->operator()(iSub)};
-    
-    Vec<int>* c[2] = { &higherOrderData.counts[0]->operator()(iSub),
-		       &higherOrderData.counts[1]->operator()(iSub)};
-
-    for (int i = 0; i < 2; ++i) {
-      *v[i] = 0.0;
-      g[i]->getX() = 0.0;
-      g[i]->getY() = 0.0;
-      g[i]->getZ() = 0.0;
-      *c[i] = 0;
-    }
-    
-    /*subD[iSub]->collectCutCellData(grads + (locOffset[iSub]+cutCellsLoc)*3*2*dim,
-					vals + (locOffset[iSub]+cutCellsLoc)*2*dim,
-					gl_nodes + (locOffset[iSub]+cutCellsLoc));
-    */
-    
-    subD[iSub]->collectCutCellData(v,g,c,
-					(*(this->ngrad))(iSub), fluidId(iSub),
-					(*(this->V))(iSub),X(iSub)) ;
-
-  }
-
-  for (int i = 0; i < 2; ++i) {
-
-#pragma omp parallel for
-    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      
-      subD[iSub]->sndData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(higherOrderData.counts[i]->subData(iSub)));
-    }
-    
-    this->domain->getLevelPat()->exchange();
-    
-#pragma omp parallel for
-    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
-      subD[iSub]->addRcvData(*this->domain->getLevelPat(), reinterpret_cast<int (*)[1]>(higherOrderData.counts[i]->subData(iSub)));
-    }
-  }
-
-  for (int i = 0; i < 2; ++i) {
-
-#pragma omp parallel for
-    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      
-      subD[iSub]->sndData(*this->domain->getVecPat(), reinterpret_cast<double (*)[dim]>(higherOrderData.vals[i]->subData(iSub)));
-    }
-    
-    this->domain->getVecPat()->exchange();
-    
-#pragma omp parallel for
-    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
-      subD[iSub]->addRcvData(*this->domain->getVecPat(), reinterpret_cast<double (*)[dim]>(higherOrderData.vals[i]->subData(iSub)));
-    }
-  }
-
-  for (int i = 0; i < 2; ++i) {
-
-#pragma omp parallel for
-    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      
-      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getX().v);
-    }
-    
-    this->domain->getVecPat()->exchange();
-    
-#pragma omp parallel for
-    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
-      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getX().v);
-    }
-
- #pragma omp parallel for
-    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      
-      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getY().v);
-    }
-    
-    this->domain->getVecPat()->exchange();
-    
-#pragma omp parallel for
-    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
-      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getY().v);
-    }
-
-   #pragma omp parallel for
-    for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      
-      subD[iSub]->sndData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getZ().v);
-    }
-    
-    this->domain->getVecPat()->exchange();
-    
-#pragma omp parallel for
-    for (iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
-      subD[iSub]->addRcvData(*this->domain->getVecPat(), higherOrderData.cutgrads[i]->operator()(iSub).getZ().v);
-    }
-  }
-
 #pragma omp parallel for
   for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
 
-    SVec<double,dim>* v[2] = { &higherOrderData.vals[0]->operator()(iSub),
-			       &higherOrderData.vals[1]->operator()(iSub)};
-    
-    NodalGrad<dim,double>* g[2] = { &higherOrderData.cutgrads[0]->operator()(iSub),
-				    &higherOrderData.cutgrads[1]->operator()(iSub)};
-    
-    Vec<int>* c[2] = { &higherOrderData.counts[0]->operator()(iSub),
-		       &higherOrderData.counts[1]->operator()(iSub)};
-    
-    subD[iSub]->storeCutCellData(v,g,c,
-				 fluidId(iSub)
-				 /*(*(this->V))(iSub)*/);
-  } 
+    // Set any unset phase change values
+    if (subD[iSub]->getHigherOrderMF())
+      subD[iSub]->getHigherOrderMF()->setLastPhaseChangeValues((*riemann->getRiemannUpdate())(iSub),
+							       (*riemann->getRiemannWeight())(iSub) );
+  }
 
 }
-

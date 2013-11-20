@@ -5,6 +5,9 @@
 #include <GhostPoint.h>
 #include <RestrictionMapping.h>
 #include <complex>
+
+#include <TriangulatedInterface.h>
+
 typedef std::complex<double> bcomp;
 
 class VarFcn;
@@ -49,7 +52,6 @@ protected:
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
   DistSVec<double,dim> *V;
-  DistVec<double> *T;
 
 // Included (MB)
   DistSVec<double,dim> *dU;
@@ -125,6 +127,8 @@ public:
   FluxFcn** getFluxFcn() { return fluxFcn; }
   DistBcData<dim>* getDistBcData() { return bcData; }
 
+  DistGeoState* getGeoState() { return geoState; }
+
   BcFcn *createBcFcn(IoData &);
   FluxFcn **createFluxFcn(IoData &);
   RecFcn *createRecFcn(IoData &);
@@ -138,6 +142,8 @@ public:
   void setFemEquationTerm(FemEquationTerm *);
   void fix(DistSVec<bool,2>&);
   void resetTag();
+
+  Domain* getDomain() { return domain; }
 
   BcFcn* getBcFcn() { return bcFcn; }
 
@@ -173,7 +179,8 @@ public:
                        DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, 
 					   double, double, int it = 0, DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
-  void updateSweptNodes(DistSVec<double,3> &X, int &phaseChangeChoice, int &phaseChangeAlg,
+  void updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
+			int phaseChangeChoice, int phaseChangeAlg,
                         DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                         DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
@@ -413,7 +420,7 @@ public:
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                          DistSVec<double,dimLS> &, DistVec<int> &, 
                          DistSVec<double,dim> &,DistSVec<double,dimLS> &, DistLevelSetStructure* =0, bool = true,
-			 int method = 0);
+			 int method = 0, int ls_order = 1);
 
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
@@ -445,11 +452,15 @@ public:
   void resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, 
                                  DistSVec<bool,2> &Tag);
 
-  void findCutCells(DistSVec<double,dimLS>& phi,
-		    DistVec<int>& status,
-		    DistVec<int>& fluidId,
-		    DistSVec<double,dim> &V,
-		    DistSVec<double,3> &X);
+    void extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phaseChangeAlg,
+			   DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+			   DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+			   DistLevelSetStructure *distLSS, DistVec<int> &fluidId,
+				DistVec<int> &fluidIdn,bool limit = false);
+
+  void attachTriangulatedInterface(TriangulatedInterface*);
+
+  void setLastPhaseChangeValues(DistExactRiemannSolver<dim>*);
 
 };
 //------------------------------------------------------------------------------

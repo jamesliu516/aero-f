@@ -57,7 +57,15 @@ class CrackingSurface : public LocalLevelSet {
   int (*quad2tria)[2]; //size: nTotalQuads
   bool *cracked; //size: nTotalQuads
   bool *deleted; //size: nTotalQuads, in the case of Element Deletion, a "cracked" element is "deleted".
-   
+
+  /// For cracking simulations, this contains a map from a set of purely undeleted
+  /// triangles to the full list of triangles.
+  /// 
+  int* triangle_id_map;
+  int numRealTriangles;
+
+  void constructTriangleMap();
+
 public:
   CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, int nTotNodes);
   ~CrackingSurface();
@@ -70,7 +78,13 @@ public:
   int numCrackedElements() {return phantoms.size();}
   bool hasCracked(int trId);
   double getPhi(int trId, double xi1, double xi2, bool* hasCracked=0, bool debug=false);
+  
+  //
+  double getPhiPhysBAM(int trId, double xi1, double xi2, bool* hasCracked=0, bool debug=false);
+
   bool purelyPhantom(int trId);
+  bool purelyPhantomPhysBAM(int trId);
+
   bool getNewCrackingFlag() const {return gotNewCracking;}
   void setNewCrackingFlag(bool flag) {gotNewCracking = flag;}
 
@@ -87,6 +101,16 @@ public:
 
   void writeCrackingData(std::ofstream& restart_file) const;
   void readCrackingData(std::ifstream& restart_file);
+
+  // see triangle_id_map
+  int mapTriangleID(int);
+
+  int numberRealTriangles() { 
+    if (triangle_id_map)
+      return numRealTriangles;
+    else
+      return nUsedTrias;
+  }
 };
 
 //------------------------------------------------------------------------------

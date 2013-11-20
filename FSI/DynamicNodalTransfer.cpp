@@ -17,22 +17,39 @@
 #include <map>
 #include <fstream>
 
+#include "TsRestart.h"
+
 //------------------------------------------------------------------------------
 
 DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc, Timer *tim): com(c) , F(1),
                            fScale(iod.ref.rv.tforce), XScale(iod.ref.rv.tlength), UScale(iod.ref.rv.tvelocity),
-                           tScale(iod.ref.rv.time), structure(iod,c,sc,tim)
+                           tScale(iod.ref.rv.time), structure(iod,c,sc,tim), iod(iod)
 
 {
   timer = tim;
 
   if (cracking()) {
 
-    if (strcmp(iod.input.cracking,"") != 0) {
+    if (strcmp(iod.input.cracking,"") != 0 || 
+	iod.input.restart_file_package[0] != 0) {
 
-      int lns = strlen(iod.input.prefix)+strlen(iod.input.cracking)+1;
-      char* fn = new char[lns];
-      sprintf(fn,"%s%s",iod.input.prefix, iod.input.cracking);
+      char* fn;
+      if (iod.input.restart_file_package[0] == 0) {
+	int lns = strlen(iod.input.prefix)+strlen(iod.input.cracking)+1;
+	fn = new char[lns];
+	sprintf(fn,"%s%s",iod.input.prefix, iod.input.cracking);
+      } else {
+
+	fn = new char[256];
+	char dummy[256];
+	int lns = strlen(iod.input.prefix)+strlen(iod.input.restart_file_package)+1;
+	char* fn2 = new char[lns];
+	sprintf(fn2,"%s%s",iod.input.prefix, iod.input.restart_file_package);
+	
+	TsRestart::readRestartFileNames(fn2, dummy, dummy, dummy,
+					fn, dummy, dummy, dummy,&c);
+	delete [] fn2;
+      }
       std::ifstream infile(fn, std::ios::binary);
       readCrackingData(infile);
       delete [] fn;
@@ -217,7 +234,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
                                              UScale(iod.ref.rv.tvelocity), nNodes(0), nElems(0), elemType(3),
                                              cracking(0), X(0), X0(0), Tria(0), U(0), Udot(0), XandUdot(0), F(0), it(0), 
-                                             structExc(0), mns(0), algNum(6) //A6
+                                             structExc(0), mns(0), algNum(6), iod(iod) //A6
 {
   timer = tim;
 
@@ -251,6 +268,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   if(getSurfFromFEM)
     com.fprintf(stderr,"- Using the embedded surface provided by structure code.\n");
 
+  surfaceID = NULL;
+
   // ---- for debug ----
   dim2Treatment = (iod.embed.dim2Treatment == EmbeddedFramework::YES) ? true : false; //by default it's false
   oneWayCoupling = (iod.embed.coupling == EmbeddedFramework::ONEWAY) ? true : false; //by default it's false
@@ -265,6 +284,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 3;
     else if (iod.forced.type==ForcedData::DEFORMING)
       mode = 4;
+    else if (iod.forced.type==ForcedData::ACOUSTICBEAM)
+      mode = 98;
     else if (iod.forced.type==ForcedData::DEBUGDEFORMING)
       mode = 99;
     else {
@@ -1053,6 +1074,19 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 
       }
     }
+    else if (mode==98) //deforming data
+    {
+      for(int i=0; i<nNodes; ++i) {
+        U[i][0] = U[i][2] = 0.0;
+        Udot[i][0] = Udot[i][2] = 0.0;
+
+        ExactSolution::AcousticBeamStructure(iod,X0[i][0],X0[i][1],
+                                             X0[i][2], time/tScale,
+                                             U[i][1], Udot[i][1]);
+        Udot[i][1] /= tScale;
+      }
+    }
+
     else if (mode==99) { // for debugging use.
 	  bool shrinking_sphere = true;	
 	  if (shrinking_sphere) {

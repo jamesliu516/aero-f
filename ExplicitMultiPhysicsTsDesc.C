@@ -39,6 +39,17 @@ ExplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
     this->mmh = _mmh;
   } else this->mmh = 0;
+
+
+  if (this->modifiedGhidaglia) {
+
+    hh1 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh2 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh3 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hh4 = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+    hhorig = new DistVec<double>(*this->bcData->getBoundaryStateHH());
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -100,6 +111,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::recomputeIntersections()
   // just to get structural time-step (dts).
   this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
+  this->com->barrier();
   double tw = this->timer->getTime();
   if(this->withCracking && this->withMixedLS) // no need for the intersector to determine fluidId.
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, false, TsDesc<dim>::failSafeFlag); 
@@ -202,6 +214,13 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesFE(DistSVec<doubl
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U0); //(?)for Navier-Stokes only
 
+  if (this->modifiedGhidaglia) {
+
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+    //std::cout << "Updating mod. ghidaglia" << std::endl;
+  }
+
   U = U0;
   this->checkSolution(U);
 }
@@ -223,6 +242,12 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= *hh1;
+  }
+
 //  // Ghost-Points Population
 //  if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
 //    {
@@ -232,6 +257,12 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
 
   computeRKUpdate(U0, k2, 2);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
+  
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = (*hhorig)- 0.5*((*hh1)+(*hh2));
+  }
+
   U = U - 1.0/2.0 * (k1 + k2);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
@@ -250,22 +281,45 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK4(DistSVec<doub
   computeRKUpdate(U, k1, 1);
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
+
+  if (this->modifiedGhidaglia) {
+    *hhorig = *(this->bcData->getBoundaryStateHH());
+    computeRKUpdateHH(U, *hh1);
+    *(this->bcData->getBoundaryStateHH()) -= 0.5*(*hh1);
+  }
+
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k2, 2);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh2);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 0.5*(*hh2);
+  }
+
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k3, 3);
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh3);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - (*hh3);
+  }
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
 
   computeRKUpdate(U0, k4, 4);
+
+  if (this->modifiedGhidaglia) {
+    computeRKUpdateHH(U0, *hh4);
+    *(this->bcData->getBoundaryStateHH()) = *hhorig - 
+       1.0/6.0*(*hh1+2.0*(*hh2+*hh3)+*hh4);
+  }
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
@@ -394,17 +448,29 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdateLS(DistSVec<double,di
 template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFF(DistSVec<double,dim> &U)
 {
-  this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
+  if (this->phaseChangeType == 0)
+    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
+  else
+    this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->multiFluidInterfaceOrder-1,
+						    U, this->V0,
+						    *this->Weights,*this->VWeights,
+						    NULL, *this->fluidSelector.fluidId,fluidId0,
+						    this->limitHigherOrderExtrapolation);
+  
   this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   this->checkSolution(U);
 }
 
 //------------------------------------------------------------------------------
 
+template<int dim, int dimLS>
+void ExplicitMultiPhysicsTsDesc<dim,dimLS>::
+computeRKUpdateHH(DistSVec<double,dim>& Ulocal,
+		  DistVec<double>& dHH) {
 
+  //this->varFcn->conservativeToPrimitive(Ulocal,*(this->V),&this->nodeTag);
+  //*(this->bcData->getBoundaryStateHH()) = HHlocal;
+  this->domain->computeHHBoundaryTermResidual(*this->bcData,Ulocal,dHH, this->varFcn);
+  this->timeState->multiplyByTimeStep(dHH);
 
-
-
-
-
-
+}

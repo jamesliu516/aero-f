@@ -6,7 +6,7 @@
 
 #include <map>
 
-#include <stdio.h>
+#include <cstdio>
 
 #include <KDTree.h>
 

@@ -23,6 +23,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
   Uface(faceDistInfo), Unode(nodeDistInfo),
   Uinletnode(inletNodeDistInfo), rotInfo(ioData.rotations.rotationMap.dataMap)
 {
+  this->boundaryStateHH = 0;
 
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
@@ -56,6 +57,11 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
   else {
     this->dUfaceSA = 0;
     this->dUnodeSA = 0;
+  }
+
+  if (ioData.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA) {
+
+    this->boundaryStateHH = new DistVec<double>(faceDistInfo);
   }
 
   //KW: "insensitive" Euler starts here.
@@ -94,6 +100,12 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
       }
     }
 
+  if (ioData.schemes.bc.type == BoundarySchemeData::MODIFIED_GHIDAGLIA) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->numLocSub; ++iSub)
+      subBcData[iSub]->setBoundaryStateVectorHH(&(*(this->boundaryStateHH))(iSub));
+  }
 
   // it is assumed that at only fluid can be found at the far-field boundary of an external flow
   // and it is always the fluid with id=0 (by default)

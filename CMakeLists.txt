@@ -53,6 +53,14 @@ ENDIF(AEROACOUSTIC)
 
 #message("${GSL_LIBRARIES} ${FFTW_LIBRARIES}")
 
+IF(NOT WITH_IPOPT EQUAL 0)
+  FIND_PACKAGE(IPOPT)
+  if(IPOPT_FOUND)
+    include_directories(${IPOPT_INCLUDE_DIRS})
+    SET(EXTRALIBRARIES ${IPOPT_LIBRARIES} ${EXTRALIBRARIES})
+  endif(IPOPT_FOUND)
+ENDIF(NOT WITH_IPOPT EQUAL 0)
+
 SET(EXTRALIB ${EXTRALIB} CACHE STRING "Extra link parameters")
 
 SET(CMAKE_DEBUG_POSTFIX "_debug")
@@ -190,6 +198,7 @@ ADD_LIBRARY(FluidBase
 	     Dunavant.C
              EdgeCore.C 
 	     EmbeddedCorotSolver.C
+	     ExactSolution.C
              FaceCore.C 
              FaceTriaCore.C 
              ElemCore.C 
@@ -255,6 +264,8 @@ ADD_LIBRARY(FluidBase
 	     Multigrid.C
              PolygonReconstructionData.C
              KirchhoffIntegrator.C
+             TriangulatedInterface.C
+	     LevelSet/MultiGridLevelSetStructure.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
@@ -359,6 +370,7 @@ IF(MERCURIAL_EXECUTABLE)
                    `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
                  DEPENDS Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_definitions(-DPRINT_CHANGESETID)
 ELSE (MERCURIAL_EXECUTABLE)
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C 
                    COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
@@ -454,7 +466,7 @@ if (NOT WITH_PHYSBAM EQUAL 0)
   )
   
   SET_TARGET_PROPERTIES(physbam
-                PROPERTIES COMPILE_FLAGS "-fPIC -DCOMPILE_WITHOUT_READ_WRITE_SUPPORT -IPublic_Library")
+                PROPERTIES COMPILE_FLAGS "-fPIC -DCOMPILE_WITHOUT_READ_WRITE_SUPPORT")
 
   SET(INC_DIR_TMP . IntersectorFRG IntersectorPhysBAM LevelSet ${PHYSBAM_BASE} ${PHYSBAM_BASE}/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR_TMP})
@@ -565,6 +577,16 @@ ELSE(MPI_FOUND)
   MESSAGE("-- Only a non-MPI based executable will be compiled.")
   SET(MPI_LIBRARIES "")
 ENDIF(MPI_FOUND)
+
+IF(NOT WITH_EIGEN3 EQUAL 0)
+  find_package(Eigen3 3.1)
+  IF(EIGEN3_FOUND)
+    MESSAGE("-- A library with EIGEN3 API found.")
+    include_directories(${EIGEN3_INCLUDE_DIR})
+    add_definitions(-DUSE_EIGEN3)
+    set(CMAKE_MODULE_PATH ${EIGEN3_INCLUDE_DIR}/cmake ${CMAKE_MODULE_PATH})
+  ENDIF(EIGEN3_FOUND)
+ENDIF(NOT WITH_EIGEN3 EQUAL 0)
 
 # SET(CMAKE_VERBOSE_MAKEFILE true)
 
