@@ -21,7 +21,8 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 	if ((lsSolver == 1) || (lsSolver == 2)){  // normal equations
 		jactmp = new double [this->nPod * this->nPod];
 		this->jac.setNewSize(this->nPod,this->nPod);
-	}
+	} else
+          jactmp = NULL;
 
   minRes = -1;
   rhsNormInit = -1;

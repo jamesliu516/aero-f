@@ -1638,6 +1638,8 @@ struct SensitivityAnalysis {
 
   enum Method {DIRECT = 0, ADJOINT = 1} method;
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
+  enum LsSolver {QR=0, NORMAL_EQUATIONS=1} lsSolver;
+  enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
 
