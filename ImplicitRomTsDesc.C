@@ -96,6 +96,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   Uinit = NULL;
 
+  unsteady = this->problemType[ProblemData::UNSTEADY];
+
 }
 
 //------------------------------------------------------------------------------
@@ -205,7 +207,7 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
       dUromCurrentROB = 0.0;
       setProblemSize(U);  // defined in derived classes
       // TODO also set new reference residual if the weighting changes
-      if (clusterSwitch) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
+      if (clusterSwitch && !unsteady) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
     }
   }
   dUromTimeIt = 0.0;

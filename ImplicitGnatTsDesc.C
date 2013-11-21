@@ -245,7 +245,7 @@ void ImplicitGnatTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &
 
   this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));  
 
-  if (!this->problemType[ProblemData::UNSTEADY]) {
+  if (!this->unsteady) {
     this->com->printf(2, "\nNOTE: For steady GNAT simulations the reported residual is calculated using only the sample mesh,\n");
     this->com->printf(2, "      and is relative to the residual of the initial condition calculated on the same sample mesh.\n");
     this->com->printf(2, "      (This reference residual is re-restricted after every cluster switch for consistency).\n");
@@ -264,12 +264,12 @@ template<int dim>
 bool ImplicitGnatTsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double dt, DistSVec<double,dim> &U)
 {
 
-  if (!this->problemType[ProblemData::UNSTEADY] && monitorConvergence(it, U))
+  if (!this->unsteady && monitorConvergence(it, U))
     return true;
 
   if (!this->problemType[ProblemData::AERO] && !this->problemType[ProblemData::THERMO] && it >= this->data->maxIts) return true;
 
-  if (this->problemType[ProblemData::UNSTEADY] )
+  if (this->unsteady)
     if(t >= this->data->maxTime - 0.01 * dt)
       return true;
 
