@@ -4263,14 +4263,14 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
 
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
 	new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
-			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 2, "Off", 0, "State", 1, "Residual", 2, "JacAction", 3);
+			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 4, "Off", 0, "State", 1, "Residual", 2, "JacAction", 3);
 	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::projectIncrementalSnaps), 2, "False", 0, "True", 1);
 	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectSnapshotsMinusRefSol", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::subtractRefSol), 2, "False", 0, "True", 1);
 
  	new ClassToken<RelativeProjectionErrorData> (ca, "BasisUpdates", this, reinterpret_cast<int
-			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::basisUpdates), 4, "Off", 0, "Simple", 1);
+			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::basisUpdates), 2, "Off", 0, "Simple", 1);
   new ClassInt<RelativeProjectionErrorData>(ca, "MaximumDimension", this, &RelativeProjectionErrorData::maxDimension);
   new ClassInt<RelativeProjectionErrorData>(ca, "MinimumDimension", this, &RelativeProjectionErrorData::minDimension); 
   new ClassDouble<RelativeProjectionErrorData>(ca, "Energy", this, &RelativeProjectionErrorData::energy);

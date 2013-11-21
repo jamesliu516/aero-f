@@ -45,6 +45,8 @@ protected:
   FullM jac;
   
   int nPod;
+  
+  bool unsteady;
 
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
