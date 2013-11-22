@@ -49,7 +49,7 @@ void ImplicitGnatTsDesc<dim>::deleteRestrictedQuantities() {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> *R) {
+void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R) {
 
 	// Evaluate residual on full mesh
 
@@ -74,11 +74,12 @@ void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
+void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool applyWeighting, DistSVec<double, dim> *R)  {
 
 	// Evaluate action of Jacobian on full mesh
+  if (R==NULL) R = &this->F;
 
-	this->mvpfd->evaluateRestrict(it, *this->X, *this->A, Q, this->F,
+	this->mvpfd->evaluateRestrict(it, *this->X, *this->A, Q, *R,
 			*(this->rom->restrictMapping()));	// very cheap
   
   for (int iPod = 0; iPod < this->nPod; iPod++) {

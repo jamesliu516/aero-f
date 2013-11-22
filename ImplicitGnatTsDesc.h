@@ -29,8 +29,8 @@ protected:
 
 	void solveNewtonSystem(const int &, double &, bool &, DistSVec<double, dim> &, const int & totalTimeSteps = 0);
 
-	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> *R=NULL);
-	virtual void computeAJ(int, DistSVec<double, dim> &);
+	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
+	virtual void computeAJ(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
 	virtual bool breakloop1(const bool);
 	virtual bool breakloop2(const bool);
 
