@@ -8,7 +8,8 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
 
   protected:
 
-  RelativeProjectionErrorData* ioDataProjError;
+  ROBConstructionData* robConstruction;
+  RelativeProjectionErrorData* projError;
 
   GeoSource &geoSource;
 
@@ -33,10 +34,12 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   bool arbitraryUniformIC;
   DistSVec<double, dim>* initialCondition;
   void readInitialCondition();
-
   void preprocessForDistanceComparisons();
   void productOfBasisAndCenterDifferences(int, char*);
   void productOfVectorAndCenterDifferences(int, char*);
+
+  // gnat basis updates preprocessing
+  void preprocessForBasisUpdates();
 
   // IO functions that are independent of database structure
   void writeProjErrorToDisk();

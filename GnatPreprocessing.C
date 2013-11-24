@@ -219,6 +219,9 @@ void GnatPreprocessing<dim>::buildReducedModel() {
  
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
 
+    com->fprintf(stdout,"\n-----------------------------------------------------\n");
+    com->fprintf(stdout," ... Computing online GNAT quantities for cluster %d\n\n", iCluster);
+
     initialize();                  // deallocate for everything but the sampled nodes (local and union)
 
     int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
@@ -248,7 +251,8 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     if (thisCPU == 0)
       outputSampleNodes(iCluster);
  
-    outputLocalStateBasesReduced(iCluster);  // distributed info (parallel)
+    outputLocalStateBasisReduced(iCluster);  // distributed info (parallel)
+    outputLocalReferenceStateReduced(iCluster);
   }
 
   com->fprintf(stdout," \n... finished with GNAT preprocessing - Exiting...\n");
@@ -1984,6 +1988,52 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
 //----------------------------------------------
 
 template<int dim>
+void GnatPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
+
+  com->fprintf(stdout,"\n ... Writing reference state for local state basis %d in sample mesh coordinates ...\n", iCluster);
+
+  char *sampledRefStatePath = NULL;
+  this->determinePath(this->sampledRefStateName, iCluster, sampledRefStatePath);
+
+  FILE *sampledRefStateFile;
+  if (thisCPU ==0) sampledRefStateFile = fopen(sampledRefStatePath, "wt");
+
+  com->fprintf(sampledRefStateFile,"Vector ReferenceState under load for FluidNodesRed\n");
+  com->fprintf(sampledRefStateFile,"%d\n", nReducedNodes);
+  
+  // read in full reference state
+  char *refStatePath = NULL;
+  this->determinePath(this->refStateName, iCluster, refStatePath);
+  DistSVec<double,dim> *refState = new DistSVec<double,dim>( domain.getNodeDistInfo() );
+  double tmp;
+  bool status = domain.readVectorFromFile(refStatePath, 0, &tmp, *refState);
+
+  if (!status) {
+    com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", refStatePath);
+    exit(-1);
+  }
+
+  delete [] refStatePath;
+
+  // output
+  outputReducedSVec(*refState,sampledRefStateFile,0);
+
+  if (refState) {
+    delete refState;
+    refState = NULL;
+  }
+
+  if (sampledRefStatePath) {
+    delete [] sampledRefStatePath;
+    sampledRefStatePath = NULL;
+  }
+  if (thisCPU == 0) fclose(sampledRefStateFile);
+
+}
+
+//----------------------------------------------
+
+template<int dim>
 void GnatPreprocessing<dim>::outputInitialConditionReduced() {
   //INPUTS
   // ioData, nReducedNodes, domain
@@ -2040,7 +2090,7 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputLocalStateBasesReduced(int iCluster) {
+void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
   //INPUTS
   // ioData, nReducedNodes, domain
   // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,

@@ -48,11 +48,18 @@ com(_com), ioData(&_ioData), domain(_domain)
   determinePrefixName(romFiles->stateBasisPrefix, romFiles->statePrefix, stateBasisPrefix);
   determineFileName(romFiles->stateBasisName, "rob", stateBasisPrefix, stateBasisName);
   determineFileName(romFiles->stateSingValsName, "svals", stateBasisPrefix, stateSingValsName);
-  determineFileName(romFiles->updateInfoName, "update", stateBasisPrefix, updateInfoName);
-  determineFileName(romFiles->stateDistanceComparisonInfoName, "dist", stateBasisPrefix, stateDistanceComparisonInfoName);
-  determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesName, "distExactUpdates", stateBasisPrefix, stateDistanceComparisonInfoExactUpdatesName);
   determineFileName(romFiles->projErrorName, "proj", stateBasisPrefix, projErrorName);
   determineFileName(romFiles->refStateName, "refState", stateBasisPrefix, refStateName); 
+
+  // Update info for state bases (this is a bit tricky)
+  determineFileName(romFiles->simpleUpdateInfoName, "simpleUpdates", stateBasisPrefix, simpleUpdateInfoName);
+  determineFileName(romFiles->exactUpdateInfoName, "exactUpdates", stateBasisPrefix, exactUpdateInfoName);
+  determineFileName(romFiles->approxUpdateInfoName, "approxUpdates", stateBasisPrefix, approxUpdateInfoName);
+  // TODO: define file names for each individual exact update precomputed quantity (_a, _b, _c, _d, _e, _F, _g)
+  determineFileName(romFiles->stateDistanceComparisonInfoName, "dist", stateBasisPrefix, stateDistanceComparisonInfoName);
+  determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesName, "distExactUpdates", stateBasisPrefix, stateDistanceComparisonInfoExactUpdatesName);
+ 
+
 
   // Krylov snaps
   determineFileName(romFiles->krylovSnapsName, "snaps", romFiles->krylovPrefix, krylovSnapsName);
@@ -104,10 +111,10 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
 
   // Surface quantities
-  determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
-  determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
-  determineFileName(romFiles->gappyResidualName, "dwall", romFiles->surfacePrefix, surfaceWallDistName);
-  determineFileName(romFiles->gappyResidualName, "top", romFiles->surfacePrefix, surfaceMeshName);
+  //determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
+  //determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
+  //determineFileName(romFiles->gappyResidualName, "dwall", romFiles->surfacePrefix, surfaceWallDistName);
+  //determineFileName(romFiles->gappyResidualName, "top", romFiles->surfacePrefix, surfaceMeshName);
 
 
   basis = NULL;
@@ -190,7 +197,9 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] nearestName;
   delete [] stateBasisName;
   delete [] stateSingValsName;
-  delete [] updateInfoName;
+  delete [] simpleUpdateInfoName;
+  delete [] exactUpdateInfoName;
+  delete [] approxUpdateInfoName;
   delete [] stateDistanceComparisonInfoName;
   delete [] stateDistanceComparisonInfoExactUpdatesName;
   delete [] refStateName;
@@ -217,10 +226,10 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledWallDistName;
   delete [] gappyJacActionName;
   delete [] gappyResidualName;
-  delete [] surfaceStateBasisName;
-  delete [] surfaceSolutionName;
-  delete [] surfaceWallDistName;
-  delete [] surfaceMeshName;
+  //delete [] surfaceStateBasisName;
+  //delete [] surfaceSolutionName;
+  //delete [] surfaceWallDistName;
+  //delete [] surfaceMeshName;
 
   delete [] stateBasisPrefix;
   delete [] krylovBasisPrefix;
@@ -506,7 +515,7 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> 
 template<int dim>
 void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double> &dUTimeIt, int currentCluster) {
 
-
+  return;
 }
 
 //----------------------------------------------------------------------------------
@@ -1288,7 +1297,7 @@ void NonlinearRom<dim>::readClusteredColumnSumsV(int iCluster, char* basisType) 
     }
 
     char *basisUpdatePath = NULL;
-    determinePath(updateInfoName, iCluster, basisUpdatePath);
+    determinePath(simpleUpdateInfoName, iCluster, basisUpdatePath);
 
     com->fprintf(stdout, "\nReading update info for basis %d \n", iCluster);
 
@@ -1399,7 +1408,7 @@ void NonlinearRom<dim>::outputClusteredBasis(int iCluster, int nTotSnaps, char* 
     com->fprintf(stdout, "\nWriting sums of right singular vectors to disk (for basis updates)\n");
 
     char *basisUpdatePath = 0;
-    determinePath(updateInfoName, iCluster, basisUpdatePath);
+    determinePath(simpleUpdateInfoName, iCluster, basisUpdatePath);
 
     if (com->cpuNum() == 0) {
       FILE *basisUpdateFile = fopen(basisUpdatePath, "wt");
@@ -2116,8 +2125,8 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, char* type, std::
                                              std::vector<std::vector<std::vector<double> > >* vec3,
                                              std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
                                                            
-  // general IO function for small ASCII precomputed quantities
- 
+  // interface for outputting small ASCII quantities
+
   // sanity check inputs
   if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
     com->fprintf(stderr, "*** Error: only one precomputed distance comparison quantity can be output at a time\n");
@@ -2127,80 +2136,55 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, char* type, std::
     exit(-1); 
   }
 
-  int vecDim1, vecDim2;
   char *infoPath = NULL;
-
   if (strcmp(type, "refState") == 0) { // 2*(U_center_p - U_center_m)^T U_ref
     determinePath(stateDistanceComparisonInfoExactUpdatesName, iCluster, infoPath);
     assert(vec2);
-    vecDim1 = vec2->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "initialCondition") == 0) { // 2*(U_center_p - U_center_m)^T U_ic
     determinePath(stateDistanceComparisonInfoExactUpdatesName, -1, infoPath);
     assert(vec2);
-    vecDim1 = vec2->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "state") == 0) { // 2*(U_center_p - U_center_m)^T V_state_k
     determinePath(stateDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
-    vecDim1 = vec3->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "krylov") == 0) { // 2*(U_center_p - U_center_m)^T V_krylov_k
     determinePath(krylovDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
-    vecDim1 = vec3->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "sensitivity") == 0) { // 2*(U_center_p - U_center_m)^T V_sens
     determinePath(sensitivityDistanceComparisonInfoName, -2, infoPath);
     assert(vec3);
-    vecDim1 = vec3->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "distanceMatrix") == 0) { // A_ij = ||U_i - U_j||_2 
     determinePath(distanceMatrixName, -1, infoPath);
     assert(vec2);
-    vecDim1 = vec2->size();
-    vecDim2 = -1;
+  /*} else if (strcmp(type, "basisBasisProducts") == 0) {               
+    determinePath(basisBasisProductsName, -1, infoPath);
+    assert(vec4);
+  } else if (strcmp(type, "basisUrefProducts") == 0) {               
+    determinePath(basisUrefProductsName, -1, infoPath);
+    assert(vec3);
+  } else if (strcmp(type, "normUic") == 0) {               
+    determinePath(normUicName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "normUref") == 0) {               
+    determinePath(normUrefName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "productUrefUic") == 0) {               
+    determinePath(productUrefUicName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "basisUicProducts") == 0) {               
+    determinePath(basisUicProductsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "urefComponentwiseSums") == 0) {               
+    determinePath(urefComponentwiseSumsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "basisComponentwiseSums") == 0) {               
+    determinePath(basisComponentwiseSumsName, -1, infoPath);
+    assert(vec3);*/
   } else {
     exit(-1);
   }
-
-  assert(nClusters > 1);
-
-  if (com->cpuNum() == 0) {
-
-    FILE *outputFile = fopen(infoPath, "wt");
-
-    com->fprintf(outputFile, "%d %d %d\n", nClusters, vecDim1, vecDim2); //negative vecDim2 indicates a lower triangular matrix
   
-    for (int mCenter=0; mCenter<vecDim1; ++mCenter){
-      if (vec1) {
-        com->fprintf(outputFile,"%23.15e\n", (*vec1)[mCenter]);
-      } else {
-        int dim2 = (vecDim2<0) ? mCenter : vecDim2;
-        for (int pCenter=0; pCenter<dim2; ++pCenter) {
-          if (vec2) {
-            com->fprintf(outputFile,"%23.15e\n", (*vec2)[mCenter][pCenter]);
-          } else {
-            int rowDim = (vec3) ? (*vec3)[mCenter][pCenter].size() : (*vec4)[mCenter][pCenter].size();
-            int colDim = (vec3) ? 0 : (*vec4)[mCenter][pCenter][0].size();
-            com->fprintf(outputFile,"%d %d\n", rowDim, colDim);
-            for (int iPodVec=0; iPodVec<rowDim; ++iPodVec) {
-              if (vec3) {
-                com->fprintf(outputFile,"%23.15e\n", (*vec3)[mCenter][pCenter][iPodVec]);
-              } else {
-                for (int jPodVec=0; jPodVec<colDim; ++jPodVec) {
-                  com->fprintf(outputFile,"%23.15e\n", (*vec4)[mCenter][pCenter][iPodVec][jPodVec]);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  
-    fclose (outputFile);
+  writeMultiVecASCII(infoPath, vec1, vec2, vec3, vec4);
 
-  }
   delete [] infoPath;
   infoPath = NULL;
 
@@ -2214,7 +2198,7 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
                                              std::vector<std::vector<std::vector<double> > >* vec3,
                                              std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
 
-  // general IO function for small ASCII precomputed quantities
+  // interface for reading small ASCII quantities
                                     
   // sanity check inputs
   if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
@@ -2224,11 +2208,6 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
     com->fprintf(stderr, "*** Error: no precomputed distance comparison quantity specified\n");
     exit(-1); 
   }
-
-  if (vec1) vec1->clear();
-  if (vec2) vec2->clear();
-  if (vec3) vec3->clear();
-  if (vec4) vec4->clear();
 
   char *infoPath = NULL;
 
@@ -2247,53 +2226,196 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
   } else if (strcmp(type, "sensitivity") == 0) {// 2*(U_center_p - U_center_m)^T V_sens
     determinePath(sensitivityDistanceComparisonInfoName, -2, infoPath);
     assert(vec3);
+  /*} else if (strcmp(type, "basisBasisProducts") == 0) {
+    determinePath(basisBasisProductsName, -1, infoPath);
+    assert(vec4);
+  } else if (strcmp(type, "basisUrefProducts") == 0) {
+    determinePath(basisUrefProductsName, -1, infoPath);
+    assert(vec3);
+  } else if (strcmp(type, "normUic") == 0) {
+    determinePath(normUicName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "normUref") == 0) {               
+    determinePath(normUrefName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "productUrefUic") == 0) {               
+    determinePath(productUrefUicName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "basisUicProducts") == 0) {               
+    determinePath(basisUicProductsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "urefComponentwiseSums") == 0) {               
+    determinePath(urefComponentwiseSumsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "basisComponentwiseSums") == 0) {               
+    determinePath(basisComponentwiseSumsName, -1, infoPath);
+    assert(vec3);*/
   } else {
     exit(-1);
   }
 
-  FILE *inputFile = fopen(infoPath, "r");
-  int _n;
+  readMultiVecASCII(infoPath, vec1, vec2, vec3, vec4);
 
-  int expectedNClusters;
-  int vecDim1, vecDim2;
+  delete [] infoPath;
+  infoPath = NULL;
 
-  _n = fscanf(inputFile, "%d %d %d\n", &expectedNClusters, &vecDim1, &vecDim2);
-  assert(expectedNClusters == nClusters);
+} 
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::writeMultiVecASCII(char* path, std::vector<double>* vec1,
+                                           std::vector<std::vector<double> >* vec2,
+                                           std::vector<std::vector<std::vector<double> > >* vec3,
+                                           std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
+                                                           
+  // general IO function for multi-vector quantities with arbitrary dimensions
+ 
+  // sanity check inputs
+  if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
+    com->fprintf(stderr, "*** Error: only one multivec can be output at a time\n");
+    exit(-1);
+  } else if ((!vec1)&&(!vec2)&&(!vec3)&&(!vec4)) {
+    com->fprintf(stderr, "*** Error: no multivec specified\n");
+    exit(-1); 
+  }
+
+  if (com->cpuNum() == 0) {
+
+    int dim1, dim2, dim3, dim4, multiVecType;  
+
+    FILE *outputFile = fopen(path, "wt");
+
+    if (vec1) {
+      dim1 = vec1->size();
+      multiVecType = 1;
+    } else if (vec2) {
+      dim1 = vec2->size();
+      multiVecType = 2;
+    } else if (vec3) {
+      dim1 = vec3->size();
+      multiVecType = 3;
+    } else {
+      dim1 = vec4->size();
+      multiVecType = 4;
+    }
+
+    com->fprintf(outputFile, "MultiVecType: %d\n", multiVecType);
+    com->fprintf(outputFile, "Dimension#1: %d\n", dim1);
+    for (int i=0; i<dim1; ++i){
+      if (vec1) {
+        com->fprintf(outputFile,"%23.15e\n", (*vec1)[i]);
+      } else {
+        if (vec2) dim2 = (*vec2)[i].size();
+        if (vec3) dim2 = (*vec3)[i].size();
+        if (vec4) dim2 = (*vec4)[i].size();
+        com->fprintf(outputFile, "Dimension#2: %d\n", dim2);
+        for (int j=0; j<dim2; ++j) {
+          if (vec2) {
+            com->fprintf(outputFile,"%23.15e\n", (*vec2)[i][j]);
+          } else {
+            if (vec3) dim3 = (*vec3)[i][j].size();
+            if (vec4) dim3 = (*vec4)[i][j].size();
+            com->fprintf(outputFile, "Dimension#3: %d\n", dim3);
+            for (int k=0; k<dim3; ++k) {
+              if (vec3) {
+                com->fprintf(outputFile,"%23.15e\n", (*vec3)[i][j][k]);
+              } else {
+                dim4 = (*vec4)[i][j][k].size();
+                com->fprintf(outputFile, "Dimension#4: %d\n", dim4);
+                for (int l=0; l<dim4; ++l) {
+                  com->fprintf(outputFile,"%23.15e\n", (*vec4)[i][j][k][l]);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  
+    fclose (outputFile);
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::readMultiVecASCII(char* path, std::vector<double>* vec1,
+                                          std::vector<std::vector<double> >* vec2,
+                                          std::vector<std::vector<std::vector<double> > >* vec3,
+                                          std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
+                                                           
+  // general IO function for multi-vector quantities with arbitrary dimensions
+                                    
+  // sanity check inputs
+  if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
+    com->fprintf(stderr, "*** Error: only one multivec can be read at a time\n");
+    exit(-1);
+  } else if ((!vec1)&&(!vec2)&&(!vec3)&&(!vec4)) {
+    com->fprintf(stderr, "*** Error: no multivec specified\n");
+    exit(-1); 
+  }
+
+  FILE *inputFile = fopen(path, "r");
+
+  int expectedMultiVecType;
+
+  if (vec1) { 
+    vec1->clear();
+    expectedMultiVecType = 1;
+  } else if (vec2) {
+    vec2->clear();
+    expectedMultiVecType = 2;
+  } else if (vec3) {
+    vec3->clear();
+    expectedMultiVecType = 3;
+  } else {
+    vec4->clear();
+    expectedMultiVecType = 4;
+  }
+
+  int _n, dim1, dim2, dim3, dim4, multiVecType;
   double tmpVal;
 
-  if (vec1) vec1->reserve(vecDim1);
-  if (vec2) vec2->resize(vecDim1);
-  if (vec3) vec3->resize(vecDim1);
-  if (vec4) vec4->resize(vecDim1);
+  fscanf(inputFile, "MultiVecType: %d\n", &multiVecType);
+  assert(expectedMultiVecType == multiVecType);
+  fscanf(inputFile, "Dimension#1: %d\n", &dim1);
 
-  for (int mCenter=0; mCenter<vecDim1; ++mCenter){
+  if (vec1) vec1->reserve(dim1);
+  if (vec2) vec2->resize(dim1);
+  if (vec3) vec3->resize(dim1);
+  if (vec4) vec4->resize(dim1);
+
+  for (int i=0; i<dim1; ++i){
     if (vec1) {
-      _n = fscanf(inputFile,"%le", &tmpVal);
+      _n = fscanf(inputFile,"%le\n", &tmpVal);
       vec1->push_back(tmpVal);
     } else {
-      int dim2 = (vecDim2<0) ? mCenter : vecDim2;
-      if (vec2) (*vec2)[mCenter].reserve(dim2);
-      if (vec3) (*vec3)[mCenter].resize(dim2);
-      if (vec4) (*vec4)[mCenter].resize(dim2);
-      for (int pCenter=0; pCenter<dim2; ++pCenter) {
+      _n = fscanf(inputFile, "Dimension#2: %d\n", &dim2);
+      if (vec2) (*vec2)[i].reserve(dim2);
+      if (vec3) (*vec3)[i].resize(dim2);
+      if (vec4) (*vec4)[i].resize(dim2);
+      for (int j=0; j<dim2; ++j) {
         if (vec2) {
-          _n = fscanf(inputFile,"%le", &tmpVal);
-          (*vec2)[mCenter].push_back(tmpVal);
+          _n = fscanf(inputFile,"%le\n", &tmpVal);
+          (*vec2)[i].push_back(tmpVal);
         } else {
-          int rowDim, colDim;
-          _n = fscanf(inputFile,"%d %d", &rowDim, &colDim);
-          if (vec3) (*vec3)[mCenter][pCenter].reserve(rowDim);
-          if (vec4) (*vec4)[mCenter][pCenter].resize(rowDim);
-          for (int iPodVec=0; iPodVec<rowDim; ++iPodVec) {
+          _n = fscanf(inputFile, "Dimension#3: %d\n", &dim3);
+          if (vec3) (*vec3)[i][j].reserve(dim3);
+          if (vec4) (*vec4)[i][j].resize(dim3);
+          for (int k=0; k<dim3; ++k) {
             if (vec3) {
-              _n = fscanf(inputFile,"%le", &tmpVal);
-              (*vec3)[mCenter][pCenter].push_back(tmpVal);
+              _n = fscanf(inputFile,"%le\n", &tmpVal);
+              (*vec3)[i][j].push_back(tmpVal);
             } else {
-              (*vec4)[mCenter][pCenter][iPodVec].reserve(colDim);
-              for (int jPodVec=0; jPodVec<colDim; ++jPodVec) {
-                _n = fscanf(inputFile,"%le", &tmpVal);
-                (*vec4)[mCenter][pCenter][iPodVec].push_back(tmpVal);
+              _n = fscanf(inputFile, "Dimension#4: %d\n", &dim4);
+              (*vec4)[i][j][k].reserve(dim4);
+              for (int l=0; l<dim4; ++l) {
+                com->fprintf(inputFile,"%23.15e\n", (*vec4)[i][j][k][l]);
+                _n = fscanf(inputFile,"%le\n", &tmpVal);
+                (*vec4)[i][j][k].push_back(tmpVal);
               }
             }
           }
@@ -2303,9 +2425,6 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
   }
 
   fclose (inputFile);
-
-  delete [] infoPath;
-  infoPath = NULL;
 
 }
 
