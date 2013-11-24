@@ -248,7 +248,8 @@ protected:
 	virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
   virtual void outputInitialConditionReduced();
-  virtual void outputLocalStateBasesReduced(int);
+  virtual void outputLocalStateBasisReduced(int);
+  virtual void outputLocalReferenceStateReduced(int);
 	virtual void outputWallDistanceReduced();
 	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
 	void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);

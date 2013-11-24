@@ -41,7 +41,9 @@ class NonlinearRom {
   char* stateBasisPrefix;
   char* stateBasisName;
   char* stateSingValsName;
-  char* updateInfoName;
+  char* simpleUpdateInfoName;
+  char* exactUpdateInfoName;
+  char* approxUpdateInfoName;
   char* stateDistanceComparisonInfoName;
   char* stateDistanceComparisonInfoExactUpdatesName;
   char* projErrorName;
@@ -97,10 +99,10 @@ class NonlinearRom {
   char* gappyResidualName;
 
   // Surface quantities
-  char* surfaceStateBasisName;
-  char* surfaceSolutionName;
-  char* surfaceWallDistName;
-  char* surfaceMeshName;
+  //char* surfaceStateBasisName;
+  //char* surfaceSolutionName;
+  //char* surfaceWallDistName;
+  //char* surfaceMeshName;
 
   // ROM database data
   VecSet< DistSVec<double, dim> >* snap; // snap(nTotSnaps, domain.getNodeDistInfo())
@@ -121,13 +123,14 @@ class NonlinearRom {
   std::vector<double>* sVals;
   DistSVec<double, dim>* Uref; 
   // 2: unique to exact updates
-    //basisBasisProduct  // [iCluster][pCluster][:][:]
-    //basisUrefProduct   // [iCluster]
-    //basisUicProduct
-    //normUref
-    //normUic
-    //UrefUicproduct
-    //
+  std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
+  std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
+  std::vector<double> normUic;  // just a scalar
+  std::vector<double> normUref; // [:]
+  std::vector<double> productUrefUic; // [:] only defined if Uic specified
+  std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod]
+  std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
+  std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
   // 3: unique to approximate updates
 
 
@@ -170,6 +173,15 @@ class NonlinearRom {
                               std::vector<std::vector<double> >* vec2 = NULL,
                               std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
                               std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
+  void writeMultiVecASCII(char*, std::vector<double>* vec1 = NULL, 
+                          std::vector<std::vector<double> >* vec2 = NULL,
+                          std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
+                          std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
+  void readMultiVecASCII(char*, std::vector<double>* vec1 = NULL,
+                         std::vector<std::vector<double> >* vec2 = NULL,
+                         std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
+                         std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
+
 
   // for local GNAT preprocessing
 
@@ -213,14 +225,14 @@ class NonlinearRom {
   VecSet< DistSVec<double, dim> >* basis;
 
   // online selection of closest cluster center (calls either closestCenterFull or closestCenterFast)
-  void closestCenter(DistSVec<double, dim> &, int* index1 = NULL);
+  void closestCenter(DistSVec<double, dim> &, int* index1=NULL);
 
   // calculate closest center to current state using full vectors
+  void closestCenterFull(DistSVec<double, dim> &, int* index1=NULL, int* index2=NULL, double* dist1=NULL, double* dist2=NULL);
   double distanceFull(DistSVec<double, dim> &, DistSVec<double, dim> &);
-  void closestCenterFull(DistSVec<double, dim> &, int* index1 = NULL, int* index2 = NULL, double* dist1 = NULL, double* dist2 = NULL);
 
   // calculate closest center to current state without using full vectors (approach depends on ROB update method)
-  void closestCenterFast(int* index1 = NULL);
+  void closestCenterFast(int* index1=NULL);
   void initializeDistanceComparisons(DistSVec<double, dim> &);
   void incrementDistanceComparisons(Vec<double> &, int);  // calls one of the following three functions
   void incrementDistanceComparisonsForNoUpdates(Vec<double> &, int);

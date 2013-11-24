@@ -2060,7 +2060,9 @@ struct NonlinearRomFilesData {
   const char *stateBasisPrefix;
   const char *stateBasisName;
   const char *stateSingValsName;
-  const char *updateInfoName;
+  const char *simpleUpdateInfoName;
+  const char *exactUpdateInfoName;
+  const char *approxUpdateInfoName;
   const char *stateDistanceComparisonInfoName;
   const char *stateDistanceComparisonInfoExactUpdatesName;
   const char *projErrorName;

@@ -3579,7 +3579,9 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   stateBasisPrefix = "";
   stateBasisName = "";
   stateSingValsName = "";
-  updateInfoName = "";
+  simpleUpdateInfoName = "";
+  exactUpdateInfoName = "";
+  approxUpdateInfoName = "";
   stateDistanceComparisonInfoName = "";
   stateDistanceComparisonInfoExactUpdatesName = "";
   projErrorName = "";
@@ -3669,7 +3671,9 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisPrefix", this, &NonlinearRomFilesData::stateBasisPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasis", this, &NonlinearRomFilesData::stateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisSingularValues", this, &NonlinearRomFilesData::stateSingValsName);
-  new ClassStr<NonlinearRomFilesData>(ca, "StateBasisUpdateInfo", this, &NonlinearRomFilesData::updateInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateBasisSimpleUpdateInfo", this, &NonlinearRomFilesData::simpleUpdateInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateBasisExactUpdateInfo", this, &NonlinearRomFilesData::exactUpdateInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateBasisApproxUpdateInfo", this, &NonlinearRomFilesData::approxUpdateInfoName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfo", this, &NonlinearRomFilesData::stateDistanceComparisonInfoName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdates", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesName);
   new ClassStr<NonlinearRomFilesData>(ca, "ProjectionError", this, &NonlinearRomFilesData::projErrorName);

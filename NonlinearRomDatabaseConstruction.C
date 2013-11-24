@@ -32,7 +32,8 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
 
   arbitraryUniformIC = false;
 
-  ioDataProjError = &(this->ioData->romOffline.rob.relativeProjectionError);
+  robConstruction = &(this->ioData->romOffline.rob);
+  projError = &(robConstruction->relativeProjectionError);
 }
 
 //----------------------------------------------------------------------------------
@@ -77,11 +78,11 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 // The functions kmeans(), localPod(), and localRelProjError() are called here, depending on inputs.
 
   // clustering
-  if (this->ioData->romOffline.rob.clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
+  if (robConstruction->clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
     readSnapshotFile("state", false);
     kmeans();
     // option to form 2D representation of state data using multi-dimensional scaling (for visualization)
-    if (this->ioData->romOffline.rob.clustering.computeMDS == ClusteringData::COMPUTE_MDS_TRUE) {
+    if (robConstruction->clustering.computeMDS == ClusteringData::COMPUTE_MDS_TRUE) {
       computeClassicalMultiDimensionalScaling();
     }
     this->outputClusteredSnapshots("state");
@@ -98,23 +99,23 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   }
 
   // local POD
-  if (this->ioData->romOffline.rob.state.dataCompression.computePOD) localPod("state");
-  if (this->ioData->romOffline.rob.krylov.dataCompression.computePOD) localPod("krylov");
-  if (this->ioData->romOffline.rob.sensitivity.dataCompression.computePOD) localPod("sensitivity");
-  if (this->ioData->romOffline.rob.residual.dataCompression.computePOD) localPod("residual");
-  if (this->ioData->romOffline.rob.jacAction.dataCompression.computePOD) localPod("jacAction");
+  if (robConstruction->state.dataCompression.computePOD) localPod("state");
+  if (robConstruction->krylov.dataCompression.computePOD) localPod("krylov");
+  if (robConstruction->sensitivity.dataCompression.computePOD) localPod("sensitivity");
+  if (robConstruction->residual.dataCompression.computePOD) localPod("residual");
+  if (robConstruction->jacAction.dataCompression.computePOD) localPod("jacAction");
 
   // preprocessing for fast distance calculations (not currently supported for simple updates)
-  if (this->ioData->romOffline.rob.basisUpdates.preprocessForNoUpdates || 
-      this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates || 
-      this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) preprocessForDistanceComparisons();
+  if (robConstruction->basisUpdates.preprocessForNoUpdates || 
+      robConstruction->basisUpdates.preprocessForExactUpdates || 
+      robConstruction->basisUpdates.preprocessForApproxUpdates) preprocessForDistanceComparisons();
 
   // preprocessing for basis updates (data for simple updates is ouput automatically)
-//  if (this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates ||
-//      this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) preprocessForBasisUpdates();
+  if (robConstruction->basisUpdates.preprocessForExactUpdates ||
+      robConstruction->basisUpdates.preprocessForApproxUpdates) preprocessForBasisUpdates();
 
   // projection error
-  if (ioDataProjError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
+  if (projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
 
 }
 
@@ -178,10 +179,10 @@ void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, boo
   int nSnap, iStart, iEnd, iFreq;
   double weight;
 
-  if (typeIsState && this->ioData->romOffline.rob.state.snapshots.incrementalSnaps)
+  if (typeIsState && robConstruction->state.snapshots.incrementalSnaps)
     this->com->fprintf(stderr, "*** Warning: Incremental snapshots is not supported for multiple bases (yet) \n");
 
-  if (typeIsState && (this->ioData->romOffline.rob.state.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE))
+  if (typeIsState && (robConstruction->state.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE))
     this->com->fprintf(stderr, "*** Warning: EnergyOnly is not supported for multiple bases\n");
 
   // read snapshot command file
@@ -224,10 +225,10 @@ void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, boo
   bool incrementalSnaps = false;
   bool subtractRefSol = false;
   if (preprocess) {
-    if (ioDataProjError->projectIncrementalSnaps) {
+    if (projError->projectIncrementalSnaps) {
       incrementalSnaps = true;
       nTotSnaps -= nData;
-    } else if (ioDataProjError->subtractRefSol) {
+    } else if (projError->subtractRefSol) {
       subtractRefSol = true;
       if (!(this->ioData->input.stateSnapRefSolution)) {
         this->com->fprintf(stderr, "*** Error: Reference solution not found \n");
@@ -524,10 +525,10 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   this->com->fprintf(stdout, "\nUsing K-Means algorithm to cluster snapshots\n");
 
   // parameters that control the kmeans clustering
-  int kMeansRandSeed = this->ioData->romOffline.rob.clustering.kMeansRandSeed;
-  int minClusterSize = this->ioData->romOffline.rob.clustering.minClusterSize;
-  double percentOverlap = this->ioData->romOffline.rob.clustering.percentOverlap;
-  double kMeansTol = this->ioData->romOffline.rob.clustering.kMeansTol;
+  int kMeansRandSeed = robConstruction->clustering.kMeansRandSeed;
+  int minClusterSize = robConstruction->clustering.minClusterSize;
+  double percentOverlap = robConstruction->clustering.percentOverlap;
+  double kMeansTol = robConstruction->clustering.kMeansTol;
 
   int nTotSnaps = this->snap->numVectors();
 
@@ -564,8 +565,8 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
     (*(this->clusterCenters))[iCluster]=(*(this->snap))[shuffle[iCluster]];
   }
 
-  int iterMax = this->ioData->romOffline.rob.clustering.maxIter;  // max number of kmeans iterations
-  int iterSingle = this->ioData->romOffline.rob.clustering.maxIterSingle;  // number of aggressive kmeans iterations to use before switching to a more robust single update scheme
+  int iterMax = robConstruction->clustering.maxIter;  // max number of kmeans iterations
+  int iterSingle = robConstruction->clustering.maxIterSingle;  // number of aggressive kmeans iterations to use before switching to a more robust single update scheme
 
   int index1 = 0;
   int index2 = 0;
@@ -934,40 +935,40 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
   
   if (strcmp(basisType, "state")==0) {
     if (strcmp(this->stateBasisName,"")==0) return;
-    if (this->ioData->romOffline.rob.state.snapshots.subtractNearestSnapsToCenters) this->readNearestSnapsToCenters();
-    maxVecStorage = this->ioData->romOffline.rob.state.dataCompression.maxVecStorage; 
-    singValTolerance = this->ioData->romOffline.rob.state.dataCompression.singValTolerance;
-    maxEnergyRetained = this->ioData->romOffline.rob.state.dataCompression.maxEnergyRetained;
-    maxBasisSize = this->ioData->romOffline.rob.state.dataCompression.maxBasisSize;
-    minBasisSize = this->ioData->romOffline.rob.state.dataCompression.minBasisSize;
+    if (robConstruction->state.snapshots.subtractNearestSnapsToCenters) this->readNearestSnapsToCenters();
+    maxVecStorage = robConstruction->state.dataCompression.maxVecStorage; 
+    singValTolerance = robConstruction->state.dataCompression.singValTolerance;
+    maxEnergyRetained = robConstruction->state.dataCompression.maxEnergyRetained;
+    maxBasisSize = robConstruction->state.dataCompression.maxBasisSize;
+    minBasisSize = robConstruction->state.dataCompression.minBasisSize;
   } else if (strcmp(basisType,"residual")==0) {
     if (strcmp(this->residualBasisName,"")==0) return;
-    maxVecStorage = this->ioData->romOffline.rob.residual.dataCompression.maxVecStorage;
-    singValTolerance = this->ioData->romOffline.rob.residual.dataCompression.singValTolerance;
-    maxEnergyRetained = this->ioData->romOffline.rob.residual.dataCompression.maxEnergyRetained;
-    maxBasisSize = this->ioData->romOffline.rob.residual.dataCompression.maxBasisSize;
-    minBasisSize = this->ioData->romOffline.rob.residual.dataCompression.minBasisSize;
+    maxVecStorage = robConstruction->residual.dataCompression.maxVecStorage;
+    singValTolerance = robConstruction->residual.dataCompression.singValTolerance;
+    maxEnergyRetained = robConstruction->residual.dataCompression.maxEnergyRetained;
+    maxBasisSize = robConstruction->residual.dataCompression.maxBasisSize;
+    minBasisSize = robConstruction->residual.dataCompression.minBasisSize;
   } else if (strcmp(basisType,"jacAction")==0) {
     if (strcmp(this->jacActionBasisName,"")==0) return;
-    maxVecStorage = this->ioData->romOffline.rob.jacAction.dataCompression.maxVecStorage;
-    singValTolerance = this->ioData->romOffline.rob.jacAction.dataCompression.singValTolerance;
-    maxEnergyRetained = this->ioData->romOffline.rob.jacAction.dataCompression.maxEnergyRetained;
-    maxBasisSize = this->ioData->romOffline.rob.jacAction.dataCompression.maxBasisSize;
-    minBasisSize = this->ioData->romOffline.rob.jacAction.dataCompression.minBasisSize;
+    maxVecStorage = robConstruction->jacAction.dataCompression.maxVecStorage;
+    singValTolerance = robConstruction->jacAction.dataCompression.singValTolerance;
+    maxEnergyRetained = robConstruction->jacAction.dataCompression.maxEnergyRetained;
+    maxBasisSize = robConstruction->jacAction.dataCompression.maxBasisSize;
+    minBasisSize = robConstruction->jacAction.dataCompression.minBasisSize;
   } else if (strcmp(basisType,"krylov")==0) {
     if (strcmp(this->krylovBasisName,"")==0) return;
-    maxVecStorage = this->ioData->romOffline.rob.krylov.dataCompression.maxVecStorage;
-    singValTolerance = this->ioData->romOffline.rob.krylov.dataCompression.singValTolerance;
-    maxEnergyRetained = this->ioData->romOffline.rob.krylov.dataCompression.maxEnergyRetained;
-    maxBasisSize = this->ioData->romOffline.rob.krylov.dataCompression.maxBasisSize;
-    minBasisSize = this->ioData->romOffline.rob.krylov.dataCompression.minBasisSize;
+    maxVecStorage = robConstruction->krylov.dataCompression.maxVecStorage;
+    singValTolerance = robConstruction->krylov.dataCompression.singValTolerance;
+    maxEnergyRetained = robConstruction->krylov.dataCompression.maxEnergyRetained;
+    maxBasisSize = robConstruction->krylov.dataCompression.maxBasisSize;
+    minBasisSize = robConstruction->krylov.dataCompression.minBasisSize;
   } else if (strcmp(basisType,"sensitivity")==0) {
     if (strcmp(this->sensitivityBasisName,"")==0) return;
-    maxVecStorage = this->ioData->romOffline.rob.sensitivity.dataCompression.maxVecStorage;
-    singValTolerance = this->ioData->romOffline.rob.sensitivity.dataCompression.singValTolerance;
-    maxEnergyRetained = this->ioData->romOffline.rob.sensitivity.dataCompression.maxEnergyRetained;
-    maxBasisSize = this->ioData->romOffline.rob.sensitivity.dataCompression.maxBasisSize;
-    minBasisSize = this->ioData->romOffline.rob.sensitivity.dataCompression.minBasisSize;
+    maxVecStorage = robConstruction->sensitivity.dataCompression.maxVecStorage;
+    singValTolerance = robConstruction->sensitivity.dataCompression.singValTolerance;
+    maxEnergyRetained = robConstruction->sensitivity.dataCompression.maxEnergyRetained;
+    maxBasisSize = robConstruction->sensitivity.dataCompression.maxBasisSize;
+    minBasisSize = robConstruction->sensitivity.dataCompression.minBasisSize;
   } else {
     this->com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", basisType);
     exit (-1);
@@ -1163,6 +1164,38 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
 
 }
 
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::preprocessForBasisUpdates() {
+
+  // common to both Exact and Approx updates
+  if (robConstruction->basisUpdates.preprocessForExactUpdates ||
+      robConstruction->basisUpdates.preprocessForApproxUpdates) {
+    // nothing in common?
+  }
+
+  // unique to Exact updates
+  if (robConstruction->basisUpdates.preprocessForExactUpdates) {
+    // norm of initial condition
+
+ // basisBasisProducts;  // [iCluster][pCluster][:][:]
+ // basisUrefProducts  // [Cluster_Basis][Cluster_Uref][:]
+ // double normUic;
+ // normUref; // [:]
+ // productUrefUic; // [:] only defined if Uic specified
+ // basisUicProducts  // [iCluster][1:nPod]
+ // urefComponentwiseSums; //[iCluster][1:dim]
+ // basisComponentwiseSums;  // [iCluster][iVec][1:dim]
+
+  }
+
+  // unique to Approx updates
+  if (robConstruction->basisUpdates.preprocessForApproxUpdates) {
+
+  }
+
+}
 
 //----------------------------------------------------------------------------------
 
@@ -1211,8 +1244,8 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   //--------- End (noUpdates || exactUpdates || approxUpdates) ---------------//
 
 
-  if (this->ioData->romOffline.rob.basisUpdates.preprocessForNoUpdates || 
-      this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates) {
+  if (robConstruction->basisUpdates.preprocessForNoUpdates || 
+      robConstruction->basisUpdates.preprocessForExactUpdates) {
 
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
       productOfBasisAndCenterDifferences(iCluster, "state");
@@ -1226,7 +1259,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   //--------- End (noUpdates || exactUpdates) ---------------//
 
 
-  if (this->ioData->romOffline.rob.basisUpdates.preprocessForExactUpdates) {
+  if (robConstruction->basisUpdates.preprocessForExactUpdates) {
       this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For exact online ROB updates)\n");
 
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
@@ -1240,7 +1273,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   //--------- End (exactUpdates) ---------------//
 
 
-  if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
+  if (robConstruction->basisUpdates.preprocessForApproxUpdates) {
     this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For approximate online ROB updates)\n");
 
     //
@@ -1386,19 +1419,19 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
   projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);
 
   // if computing residuals
-  //  if (ioDataProjError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
+  //  if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
   //  ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
 
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
 
-    switch (ioDataProjError->relProjError) {
+    switch (projError->relProjError) {
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
         this->readClusteredBasis(iCluster, "state", true);
-        if (ioDataProjError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
+        if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
             this->snapRefState!=NULL) 
           this->updateBasis(iCluster, *(this->snapRefState));
-        if (ioDataProjError->krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
-        if (ioDataProjError->sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
+        if (projError->krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
+        if (projError->sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
         break;
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
         this->readClusteredBasis(iCluster, "residual", true);
@@ -1438,17 +1471,17 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
 
     // option to output postprocesed projected states (projectedSnaps + snapRefState if snapRefState is defined)
     
-    if (ioDataProjError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON ) { //||
-       // ioDataProjError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+    if (projError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON ) { //||
+       // projError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
   
       TsDesc<dim>* tsDesc = new TsDesc<dim>(*(this->ioData), geoSource, &(this->domain));    
 
-      if (ioDataProjError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON) {
+      if (projError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON) {
 
         DistSVec<double,dim> outVec(this->domain.getNodeDistInfo());
 
         for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
-          if (ioDataProjError->subtractRefSol) {
+          if (projError->subtractRefSol) {
              this->readReferenceState(); 
              outVec = *(this->snapRefState);
              outVec += (*projectedSnaps)[iSnap];
@@ -1462,7 +1495,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
       }
 
       // option to output spatial residual of projected states (projectedSnaps + snapRefState if snapRefState is defined)
-      //if (ioDataProjError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+      //if (projError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
        // this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
       //}
       if (tsDesc) delete tsDesc;
