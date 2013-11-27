@@ -5120,6 +5120,7 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
     }
   }
 
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
   return ierr;
 
 }

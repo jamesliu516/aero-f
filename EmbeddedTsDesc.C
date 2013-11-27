@@ -634,10 +634,19 @@ template<int dim>
 int EmbeddedTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = 0;
-  if(numFluid==1)
-    ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
-  else
+  if(numFluid==1) {
+    if (dim == 6)
+      ierr = this->domain->template 
+        clipSolution<dim,1>(this->clippingType, this->wallType, this->varFcn, this->bcData->getInletConservativeState(), U);
+    else if (dim == 7)
+      ierr = this->domain->template 
+        clipSolution<dim,2>(this->clippingType, this->wallType, this->varFcn, this->bcData->getInletConservativeState(), U);
+    else
+      ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
+  }
+  else {
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
+  }
 
   if (ierr != 0 && this->data->checksol) {
     this->data->unphysical = true;
