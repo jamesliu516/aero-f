@@ -1518,6 +1518,25 @@ struct KspFluidData {
 
 //------------------------------------------------------------------------------
 
+struct LineSearchData {
+
+  enum Type {NONE = 0, BACKTRACKING = 1} type;
+  int maxIts;
+  double rho;
+  double c1;
+
+  LineSearchData();
+  ~LineSearchData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+
+
+
+//------------------------------------------------------------------------------
+
 template<class GenericKrylov>
 struct NewtonData {
 
@@ -1527,6 +1546,7 @@ struct NewtonData {
   int JacSkip;
   double epsAbsRes, epsAbsInc;
   GenericKrylov ksp;
+  LineSearchData lineSearch;
 
   NewtonData();
   ~NewtonData() {}

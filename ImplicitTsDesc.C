@@ -23,6 +23,10 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   epsNewton = ioData.ts.implicit.newton.eps;  
   epsAbsResNewton = ioData.ts.implicit.newton.epsAbsRes;
   epsAbsIncNewton = ioData.ts.implicit.newton.epsAbsInc;
+  lineSearch = ioData.ts.implicit.newton.lineSearch.type;
+  maxItsLS = ioData.ts.implicit.newton.lineSearch.maxIts;
+  contractionLS = ioData.ts.implicit.newton.lineSearch.rho;
+  sufficDecreaseLS = ioData.ts.implicit.newton.lineSearch.c1;
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);

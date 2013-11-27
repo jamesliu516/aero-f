@@ -2712,6 +2712,32 @@ void KspFluidData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+LineSearchData::LineSearchData()
+{
+
+  type = NONE;
+  maxIts = 1;
+  rho = 0.5;
+  c1 = 0.25;
+
+}
+
+//------------------------------------------------------------------------------
+
+void LineSearchData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassToken<LineSearchData>(ca, "Type", this,
+                          reinterpret_cast<int LineSearchData::*>(&LineSearchData::type), 2, "None", 0, "Backtracking", 1);
+
+  new ClassInt<LineSearchData>(ca, "MaxIts", this, &LineSearchData::maxIts);
+  new ClassDouble<LineSearchData>(ca, "SufficientDecrease", this, &LineSearchData::c1);
+  new ClassDouble<LineSearchData>(ca, "ContractionFactor", this, &LineSearchData::rho);
+}
+//------------------------------------------------------------------------------
+
 ImplicitData::ImplicitData()
 {
 
@@ -4723,6 +4749,19 @@ void IoData::resetInputValues()
   // to avoid having inlet nodes when computing Internal BCs
   if(bc.inlet.type == BcsFreeStreamData::INTERNAL)
     schemes.bc.type = BoundarySchemeData::STEGER_WARMING;
+
+
+  if (ts.implicit.newton.lineSearch.type == LineSearchData::BACKTRACKING) {
+    if (ts.implicit.newton.lineSearch.rho <= 0 || ts.implicit.newton.lineSearch.rho >= 1){
+      com->fprintf(stderr, "*** Warning: incorrect value for contraction factor in line-search: setting it to 0.5 \n");
+      ts.implicit.newton.lineSearch.rho = 0.5;
+    }
+    if (ts.implicit.newton.lineSearch.c1 <= 0 || ts.implicit.newton.lineSearch.c1 >= 0.5){
+      com->fprintf(stderr, "*** Warning: incorrect value for sufficient decrease coefficient in line-search: setting it to 0.25 \n");
+      ts.implicit.newton.lineSearch.c1 = 0.25;
+    }
+  }
+
 
   int nCoarseFreq = 0;
   if (problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
