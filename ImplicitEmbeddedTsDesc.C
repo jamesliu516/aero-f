@@ -33,6 +33,10 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   epsNewton = implicitData.newton.eps;
   epsAbsResNewton = implicitData.newton.epsAbsRes;
   epsAbsIncNewton = implicitData.newton.epsAbsInc;
+  lineSearch = implicitData.newton.lineSearch.type;
+  maxItsLS = implicitData.newton.lineSearch.maxIts;
+  contractionLS = implicitData.newton.lineSearch.rho;
+  sufficDecreaseLS = implicitData.newton.lineSearch.c1;
 
   //initialize emmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) 

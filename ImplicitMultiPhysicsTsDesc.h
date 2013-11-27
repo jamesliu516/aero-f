@@ -39,6 +39,9 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
+  int lineSearch;
+  int maxItsLS;
+  double contractionLS, sufficDecreaseLS;
 
  public:
   ImplicitMultiPhysicsTsDesc(IoData &, GeoSource &, Domain *);
@@ -50,6 +53,10 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
+  int getLineSearch() const { return lineSearch; }
+  int getMaxItsLineSearch() const { return maxItsLS; }
+  double getContractionLineSearch() const { return contractionLS; }
+  double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
 
   void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
