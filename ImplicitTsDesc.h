@@ -31,6 +31,9 @@ protected:
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
+  int lineSearch;
+  int maxItsLS;
+  double contractionLS, sufficDecreaseLS;
 
   DistSVec<bool,2> *tag;
 
@@ -68,6 +71,10 @@ public:
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
+  int getLineSearch() const { return lineSearch; }
+  int getMaxItsLineSearch() const { return maxItsLS; }
+  double getContractionLineSearch() const { return contractionLS; }
+  double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
 
 };
 
