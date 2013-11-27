@@ -43,6 +43,10 @@ TetMeshMotionSolver::TetMeshMotionSolver
   epsNewton = data.newton.eps;
   epsAbsResNewton = data.newton.epsAbsRes;
   epsAbsIncNewton = data.newton.epsAbsInc;
+  lineSearch = data.newton.lineSearch.type;
+  maxItsLS = data.newton.lineSearch.maxIts;
+  contractionLS = data.newton.lineSearch.rho;
+  sufficDecreaseLS = data.newton.lineSearch.c1;
 
   timer = domain->getTimer();
 
