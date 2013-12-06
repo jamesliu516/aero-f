@@ -1810,6 +1810,17 @@ void SpaceOperator<dim>::applyBCsToSolutionVector(DistSVec<double,dim> &U, DistL
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SpaceOperator<dim>::applyBCsToTurbSolutionVector(DistSVec<double,dim> &U, DistLevelSetStructure *distLSS)
+{
+
+  if (bcFcn)
+    domain->applyBCsToTurbSolutionVector(bcFcn, *bcData, U, distLSS);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
 
@@ -1842,11 +1853,11 @@ void SpaceOperator<dim>::applyBCsToDerivativeOfResidual(DistSVec<double,dim> &U,
 
 template<int dim>
 template<class Scalar, int neq>
-void SpaceOperator<dim>::applyBCsToJacobian(DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
+void SpaceOperator<dim>::applyBCsToJacobian(DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, DistLevelSetStructure *distLSS)
 {
 
   if (bcFcn)
-    domain->applyBCsToJacobian(bcFcn, *bcData, U, A);
+    domain->applyBCsToJacobian(bcFcn, *bcData, U, A, distLSS);
 
 // Included (MB*)
   if (bcFcn)

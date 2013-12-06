@@ -277,7 +277,10 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
       timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
   }
 
-  spaceOp->applyBCsToResidual(Qeps, Feps);
+  if (this->isFSI)
+    spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+  else
+    spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
 
@@ -311,7 +314,10 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
         timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
     }
 
-    spaceOp->applyBCsToResidual(Qeps, Feps);
+    if (this->isFSI)
+      spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+    else
+      spaceOp->applyBCsToResidual(Qeps, Feps);
 
     Feps.strip(Ftmp);
 
@@ -456,7 +462,10 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
       timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
   }
 
-  spaceOp->applyBCsToResidual(Qeps, Feps);
+  if (this->isFSI)
+    spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+  else
+    spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
 
@@ -509,7 +518,10 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
     }
 
 
-    spaceOp->applyBCsToResidual(Qeps, Feps);
+    if (this->isFSI)
+      spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+    else
+      spaceOp->applyBCsToResidual(Qeps, Feps);
 
     Feps.strip(Ftmp);
 
@@ -850,7 +862,10 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
 
-  spaceOp->applyBCsToJacobian(Q, *this);
+  if (this->isFSI)
+    spaceOp->applyBCsToJacobian(Q, *this, this->fsi.LSS);
+  else
+    spaceOp->applyBCsToJacobian(Q, *this);
 
   if (areHHTermsActive) {
 

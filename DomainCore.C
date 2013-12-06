@@ -41,6 +41,7 @@ Domain::Domain()
   subTopo = 0;
   nodeType = 0;
   nodeFaceType = 0;
+  offWallNode = 0;
 
   nodeDistInfo = 0;
   edgeDistInfo = 0;
@@ -134,7 +135,7 @@ Domain::Domain()
 
 //------------------------------------------------------------------------------
 
-Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType(0), nodeFaceType(0),
+Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType(0), nodeFaceType(0), offWallNode(0),
     nodeDistInfo(0), edgeDistInfo(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0), kirchhoffNodeDistInfo(0),
     vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0), bool4Pat(0),
     weightPat(0), weightPhaseChangePat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
@@ -161,6 +162,7 @@ Domain::~Domain()
   if (subTopo) delete subTopo;
   if (nodeType) delete [] nodeType;
   if (nodeFaceType) delete [] nodeFaceType;
+  if (offWallNode) delete [] offWallNode;
 
   if (vecPat) delete vecPat;
   if (phiVecPat) delete phiVecPat;
@@ -678,6 +680,38 @@ void Domain::setInletNodes(IoData &ioData)
     inletVec3DPat->finalize();
     inletCountPat->finalize();
     
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::computeOffWallNode(DistLevelSetStructure *distLSS)
+{
+
+  if (distLSS) {
+    if (!offWallNode) offWallNode = new int*[numLocSub];
+  
+    CommPattern<int> ndC(subTopo, com, CommPattern<int>::CopyOnSend);
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->setComLenNodes(1, ndC);
+
+    ndC.finalize();
+  
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+    {
+      LevelSetStructure *LSS =  &((*distLSS)(iSub));
+      subDomain[iSub]->computeOffWallNode(LSS, ndC);
+    }
+
+    ndC.exchange();
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub<numLocSub; ++iSub)
+      offWallNode[iSub] = subDomain[iSub]->completeOffWallNode(ndC);
+
   }
 }
 

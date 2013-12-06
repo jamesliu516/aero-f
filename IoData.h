@@ -1713,7 +1713,7 @@ struct TsData {
 
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
   enum TypeTimeStep {AUTO = 0, LOCAL = 1, GLOBAL = 2} typeTimeStep;
-  enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2} typeClipping;
+  enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2, CUTOFF = 3} typeClipping;
   enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
   enum DualTimeStepping {OFF = 0, ON = 1} dualtimestepping;
 

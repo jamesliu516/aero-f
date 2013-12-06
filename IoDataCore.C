@@ -3142,8 +3142,8 @@ void TsData::setup(const char *name, ClassAssigner *father)
                          reinterpret_cast<int TsData::*>(&TsData::checkdensity), 2,
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
-                         reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
-                         "None", 0, "AbsoluteValue", 1, "Freestream", 2);
+                         reinterpret_cast<int TsData::*>(&TsData::typeClipping), 4,
+                         "None", 0, "AbsoluteValue", 1, "Freestream", 2, "CutOff", 3);
   new ClassToken<TsData>(ca, "TimeStepAdaptation", this,
                          reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
                          "Cfl", 0, "ErrorEstimation", 1);
