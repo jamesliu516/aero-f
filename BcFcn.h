@@ -15,13 +15,22 @@ public:
   virtual ~BcFcn() {}
 
   virtual void applyToSolutionVector(int, double *, double *);
+  virtual void applyToTurbSolutionVector(int, double *, double *);
   virtual void applyToResidualTerm(int, double *, double *, double *);
+  virtual void applyToTurbResidualTerm(int, double *, double *, double *);
   virtual void applyToDiagonalTerm(int, double *, double *, float *);
   virtual void applyToDiagonalTerm(int, double *, double *, double *);
   virtual void applyToDiagonalTerm(int, double *, double *, bcomp *);
   virtual void applyToOffDiagonalTerm(int, float *);
   virtual void applyToOffDiagonalTerm(int, double *);
   virtual void applyToOffDiagonalTerm(int, bcomp *);
+
+  virtual void applyToTurbDiagonalTerm(int, double *, double *, float *);
+  virtual void applyToTurbDiagonalTerm(int, double *, double *, double *);
+  virtual void applyToTurbDiagonalTerm(int, double *, double *, bcomp *);
+  virtual void applyToTurbOffDiagonalTerm(int, float *);
+  virtual void applyToTurbOffDiagonalTerm(int, double *);
+  virtual void applyToTurbOffDiagonalTerm(int, bcomp *);
 
   virtual void zeroDiagonalTerm(int, float *);
   virtual void zeroDiagonalTerm(int, double *);
@@ -104,6 +113,12 @@ class BcFcnSA : public BcFcn {
   template<class Scalar>
   void template_applyToOffDiagonalTerm(int, Scalar *);
 
+  template<class Scalar>
+  void template_applyToTurbDiagonalTerm(int, double *, double *, Scalar *);
+
+  template<class Scalar>
+  void template_applyToTurbOffDiagonalTerm(int, Scalar *);
+
 // Included (MB)
   template<class Scalar>
   void template_applyToDiagonalTerm(int, double *, double *, double *, Scalar *);
@@ -117,13 +132,22 @@ public:
   ~BcFcnSA() {}
 
   void applyToSolutionVector(int, double *, double *);
+  void applyToTurbSolutionVector(int, double *, double *);
   void applyToResidualTerm(int, double *, double *, double *);
+  void applyToTurbResidualTerm(int, double *, double *, double *);
   void applyToDiagonalTerm(int, double *, double *, float *);
   void applyToDiagonalTerm(int, double *, double *, double *);
   void applyToDiagonalTerm(int, double *, double *, bcomp *);
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+  void applyToTurbDiagonalTerm(int, double *, double *, float *);
+  void applyToTurbDiagonalTerm(int, double *, double *, double *);
+  void applyToTurbDiagonalTerm(int, double *, double *, bcomp *);
+  void applyToTurbOffDiagonalTerm(int, float *);
+  void applyToTurbOffDiagonalTerm(int, double *);
+  void applyToTurbOffDiagonalTerm(int, bcomp *);
 
 // Included (MB)
   void applyToDerivativeOfResidualTerm(int, double *, double *, double *, double *, double *);
@@ -146,12 +170,20 @@ class BcFcnSAturb : public BcFcn {
   template<class Scalar>
   void template_applyToOffDiagonalTerm(int, Scalar *);
 
+  template<class Scalar>
+  void template_applyToTurbDiagonalTerm(int, double *, double *, Scalar *);
+ 
+  template<class Scalar>
+  void template_applyToTurbOffDiagonalTerm(int, Scalar *);
+
+
 public:
 
   BcFcnSAturb() {}
   ~BcFcnSAturb() {}
 
   void applyToSolutionVector(int, double *, double *);
+  void applyToTurbSolutionVector(int, double *, double *);
   //void applyToResidualTerm(int, double *, double *, double *);
   void applyToDiagonalTerm(int, double *, double *, float *);
   void applyToDiagonalTerm(int, double *, double *, double *);
@@ -159,6 +191,13 @@ public:
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+  void applyToTurbDiagonalTerm(int, double *, double *, float *);
+  void applyToTurbDiagonalTerm(int, double *, double *, double *);
+  void applyToTurbDiagonalTerm(int, double *, double *, bcomp *);
+  void applyToTurbOffDiagonalTerm(int, float *);
+  void applyToTurbOffDiagonalTerm(int, double *);
+  void applyToTurbOffDiagonalTerm(int, bcomp *);
 
 // Included (MB)
   void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, float *a) {}
@@ -192,19 +231,34 @@ class BcFcnKE : public BcFcn {
   template<class Scalar>
   void template_applyToOffDiagonalTerm(int, Scalar *);
 
+  template<class Scalar>
+  void template_applyToTurbDiagonalTerm(int, double *, double *, Scalar *);
+ 
+  template<class Scalar>
+  void template_applyToTurbOffDiagonalTerm(int, Scalar *);
+
 public:
 
   BcFcnKE(IoData&);
   ~BcFcnKE() {}
 
   void applyToSolutionVector(int, double *, double *);
+  void applyToTurbSolutionVector(int, double *, double *);
   void applyToResidualTerm(int, double *, double *, double *);
+  void applyToTurbResidualTerm(int, double *, double *, double *);
   void applyToDiagonalTerm(int, double *, double *, float *);
   void applyToDiagonalTerm(int, double *, double *, double *);
   void applyToDiagonalTerm(int, double *, double *, bcomp *);
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+  void applyToTurbDiagonalTerm(int, double *, double *, float *);
+  void applyToTurbDiagonalTerm(int, double *, double *, double *);
+  void applyToTurbDiagonalTerm(int, double *, double *, bcomp *);
+  void applyToTurbOffDiagonalTerm(int, float *);
+  void applyToTurbOffDiagonalTerm(int, double *);
+  void applyToTurbOffDiagonalTerm(int, bcomp *);
 
 // Included (MB)
   void applyToDerivativeOfResidualTerm(int, double *, double *, double *, double *, double *);
@@ -227,6 +281,12 @@ class BcFcnKEturb : public BcFcn {
   template<class Scalar>
   void template_applyToOffDiagonalTerm(int, Scalar *);
 
+  template<class Scalar>
+  void template_applyToTurbDiagonalTerm(int, double *, double *, Scalar *);
+ 
+  template<class Scalar>
+  void template_applyToTurbOffDiagonalTerm(int, Scalar *);
+
 public:
 
   BcFcnKEturb() {}
@@ -239,6 +299,13 @@ public:
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+  void applyToTurbDiagonalTerm(int, double *, double *, float *);
+  void applyToTurbDiagonalTerm(int, double *, double *, double *);
+  void applyToTurbDiagonalTerm(int, double *, double *, bcomp *);
+  void applyToTurbOffDiagonalTerm(int, float *);
+  void applyToTurbOffDiagonalTerm(int, double *);
+  void applyToTurbOffDiagonalTerm(int, bcomp *);
 
 // Included (MB)
   void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, float *a) {}

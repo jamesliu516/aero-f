@@ -156,6 +156,7 @@ class SubDomain {
   int (*nodeRanges)[3];
   int *nodeType;
   int *nodeFaceType;
+  int *offWallNode;
 
   map<int, int> bcMap;
   int *numBcNodes;
@@ -256,6 +257,8 @@ public:
   void setNodeFaceType(CommPattern<int> &);
   int* completeNodeType(int*, CommPattern<int> &);
   int* completeNodeFaceType(CommPattern<int> &);
+  void computeOffWallNode(LevelSetStructure *, CommPattern<int> &);
+  int* completeOffWallNode(CommPattern<int> &);
   int setFaceToElementConnectivity();
   void getElementStatistics(int &, int &, int &, int &);
   int computeControlVolumes(int, double, SVec<double,3> &, Vec<double> &);
@@ -666,10 +669,13 @@ public:
     void applyBCsToSolutionVector(BcFcn *, BcData<dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
 
   template<int dim>
+    void applyBCsToTurbSolutionVector(BcFcn *, BcData<dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
+
+  template<int dim>
   void applyBCsToResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
-  void applyBCsToJacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
+  void applyBCsToJacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &, LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToH2Jacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);

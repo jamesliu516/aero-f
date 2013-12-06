@@ -71,6 +71,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   sharedEdges = 0;
   nodeType = 0;
   nodeFaceType = 0;
+  offWallNode = 0;
   mmsBCs = 0; //HB
   rotOwn = 0;
   nodesToMCNodes = 0;
@@ -126,6 +127,7 @@ SubDomain::~SubDomain()
   if (nodeRanges) delete [] nodeRanges;
   if (nodeType) delete [] nodeType;
   if (nodeFaceType) delete [] nodeFaceType;
+  if (offWallNode) delete [] offWallNode;
   if (nodesToMCNodes) delete [] nodesToMCNodes;
   if (sharedInletNodes) delete sharedInletNodes;
   if (NodeToNode) delete NodeToNode;
@@ -3360,6 +3362,49 @@ int* SubDomain::completeNodeFaceType(CommPattern<int> &ntP)
   return nodeFaceType;
 
 }
+
+//------------------------------------------------------------------------------
+//
+void SubDomain::computeOffWallNode(LevelSetStructure *LSS, CommPattern<int> &ntP)
+{
+  int (*edgePtr)[2] = edges.getPtr();
+
+  if(!offWallNode) offWallNode = new int[nodes.size()];
+
+  for (int i=0; i<nodes.size(); ++i) offWallNode[i] = 0;
+  for (int l=0; l<edges.size(); ++l) {
+    if(LSS->edgeIntersectsStructure(0.0,l)) { //at interface
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+      bool iIsActive = LSS->isActive(0.0,i);
+      bool jIsActive = LSS->isActive(0.0,j);
+      if(iIsActive) offWallNode[i] = 1;
+      if(jIsActive) offWallNode[j] = 1;
+    }
+  }
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<int> nInfo = ntP.getSendBuffer(sndChannel[iSub]);
+    for (int i = 0; i < sharedNodes->num(iSub); ++i)
+      nInfo.data[i] = offWallNode[ (*sharedNodes)[iSub][i] ];
+  }
+}
+
+//------------------------------------------------------------------------------
+
+int* SubDomain::completeOffWallNode(CommPattern<int> &ntP)
+{
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<int> nInfo = ntP.recData(rcvChannel[iSub]);
+    for (int i = 0; i < sharedNodes->num(iSub); ++i)
+      if ( nInfo.data[i] > offWallNode[ (*sharedNodes)[iSub][i] ] )
+        offWallNode[ (*sharedNodes)[iSub][i] ] = nInfo.data[i];
+  }
+
+  return offWallNode;
+}
+
+//------------------------------------------------------------------------------
 // -----------------------------------------------------------
 // HB: create the dofType array using the matchNodeSet, the sliding faces & the nodeType array
 // Note that the order in which the dofType is filled is crucial: its is fisrt to BC_FREE (i.e. all
