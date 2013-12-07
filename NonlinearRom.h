@@ -149,9 +149,13 @@ class NonlinearRom {
   std::vector<std::vector<std::vector<double> > > refStateCentersProduct;
   // 3: unique to approximate updates
   
+  // non-database IO function
+  int readSnapshotFiles(char *, bool);
+  std::vector<int> stateSnapsFromFile;   // stateSnapsFromFile[iFile] = number of snapshots taken from file iFile
+  std::vector<std::vector<double> > stateSnapshotTags; // stateSnapshotInfo[iFile][iSnap] = tag associated with snapshot
+                                                       // iSnap from file iFile
 
-
-  // protected database IO functions
+  // database IO functions
   void createDirectories();
   void outputClusteredSnapshots(char*);
   void readClusteredSnapshots(int, bool, char*, int first = 0, int last = 0);

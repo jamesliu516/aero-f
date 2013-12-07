@@ -521,6 +521,198 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double>
 //----------------------------------------------------------------------------------
 
 template<int dim>
+int NonlinearRom<dim>::readSnapshotFiles(char* snapType, bool preprocess) {
+
+  // Check for snapshot command file
+  char *vecFile;
+  bool typeIsState = false;
+
+  if (strcmp(snapType, "state")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.stateSnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.stateSnapFile);
+    typeIsState = true;
+  } else if (strcmp(snapType,"sensitivity")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.sensitivitySnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.sensitivitySnapFile);
+//  } else if (strcmp(snapType,"residual")==0) {
+//    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.residualSnapFile) + 1];
+//    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.residualSnapFile);
+  } else {
+    this->com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", snapType);
+    exit (-1);
+  }
+
+  FILE *inFP = fopen(vecFile, "r");
+  if (!inFP)  {
+    this->com->fprintf(stderr, "*** Error: No snapshots FILES in %s\n", vecFile);
+    exit (-1);
+  }
+
+  delete [] vecFile;
+  vecFile = NULL;
+
+  int nData, _n;
+  _n = fscanf(inFP, "%d",&nData);
+  this->com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
+
+  if (typeIsState) stateSnapsFromFile.resize(nData, 0);
+
+  char** snapFile = new char*[nData];
+  for (int iData = 0; iData < nData; ++iData)
+    snapFile[iData] = new char[500];
+  char snapFile1[500];
+  int* numSnaps = new int[nData];
+  int* startSnaps = new int[nData];
+  int* endSnaps = new int[nData];
+  int* sampleFreq = new int[nData];
+  double* snapWeight = new double[nData];
+  int nSnap, iStart, iEnd, iFreq;
+  double weight;
+
+  if (typeIsState && ioData->romOffline.rob.state.snapshots.incrementalSnaps)
+    this->com->fprintf(stderr, "*** Warning: Incremental snapshots is not supported for multiple bases (yet) \n");
+
+  if (typeIsState && (ioData->romOffline.rob.state.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE))
+    this->com->fprintf(stderr, "*** Warning: EnergyOnly is not supported for multiple bases\n");
+
+  // read snapshot command file
+  for (int iData = 0; iData < nData; ++iData){
+    _n = fscanf(inFP, "%s %d %d %d %lf", snapFile1,&iStart,&iEnd,&iFreq,&weight);
+    if (iStart < 1) iStart = 1;
+    if (iEnd < 0) iEnd = 0;
+    if (iFreq < 1) iFreq = 1;
+    //numSnaps[iData] = nSnap;
+    strcpy(snapFile[iData],snapFile1);
+    startSnaps[iData] = iStart - 1;
+    endSnaps[iData] = iEnd;
+    sampleFreq[iData] = iFreq;
+    snapWeight[iData] = weight;
+    this->com->fprintf(stdout, " ... Reading snapshots from %s \n", snapFile[iData]);
+  }
+
+  // compute the total number of snapshots
+  int nTotSnaps = 0;
+  int dummyStep = 0;
+  double dummyTag = 0.0;
+  for (int iData = 0; iData < nData; ++iData) {
+    bool status = this->domain.template readTagFromFile<double, dim>(snapFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
+
+    if (!status) {
+      this->com->fprintf(stderr, "*** Error: could not read snapshots from %s \n", snapFile[iData]);
+      exit(-1);
+    }
+
+    if ((endSnaps[iData]==0) || (endSnaps[iData]>numSnaps[iData]))
+      endSnaps[iData]=numSnaps[iData];
+    for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
+      if (iSnap % sampleFreq[iData] == 0) {
+        ++nTotSnaps;
+        if (typeIsState) ++stateSnapsFromFile[iData]; 
+      }
+    }
+  }
+
+  bool incrementalSnaps = false;
+  bool subtractRefSol = false;
+  if (preprocess) {
+    if (ioData->romOffline.rob.relativeProjectionError.projectIncrementalSnaps) {
+      incrementalSnaps = true;
+      nTotSnaps -= nData;
+    } else if (ioData->romOffline.rob.relativeProjectionError.subtractRefSol) {
+      subtractRefSol = true;
+      if (!(ioData->input.stateSnapRefSolution)) {
+        this->com->fprintf(stderr, "*** Error: Reference solution not found \n");
+        exit (-1);
+      }
+      this->readReferenceState();
+    }
+  }
+
+  if (snap) delete snap;
+  snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+  DistSVec<double, dim>* snapBufOld = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+  DistSVec<double, dim>* snapBufNew = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+
+  if (typeIsState) {
+    stateSnapshotTags.resize(nData);
+    for (int iFile=0;iFile<nData;++iFile)
+      stateSnapshotTags[iFile].resize(stateSnapsFromFile[iFile], -1.0);
+  }
+
+  *snapBufOld = 0.0;
+  *snapBufNew = 0.0;
+
+  double* tags = new double [nTotSnaps];
+  double tagOld;
+  double tagNew;
+
+  int numCurrentSnapshots = 0;
+  bool status;
+
+  if (subtractRefSol) {
+    *snapBufOld = *(this->snapRefState);
+    delete (this->snapRefState);
+    (this->snapRefState) = NULL;
+  }
+
+  for (int iData=0; iData < nData; ++iData){
+    // read in Snapshot Vectors
+    for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
+      if (iSnap % sampleFreq[iData] == 0) { //TODO ignore 
+        // snapshot must be between startSnaps and endSnaps, and a multiple of sampleFreq. 
+        if ((iSnap == startSnaps[iData]) && incrementalSnaps) {
+          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagOld, *snapBufOld);
+        } else {
+          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
+          tags[numCurrentSnapshots] = tagNew;
+          (*snap)[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
+          if (incrementalSnaps) *snapBufOld = *snapBufNew;
+          if (snapWeight[iData]) (*snap)[numCurrentSnapshots] *= snapWeight[iData]; //CBM--check
+          ++numCurrentSnapshots;
+        }
+      }
+    }
+  }
+
+  if (typeIsState) {
+    int snapCount=0;
+    for (int iFile=0;iFile<nData;++iFile) {
+      for (int iSnap=0;iSnap<stateSnapsFromFile[iFile];++iSnap) {
+        stateSnapshotTags[iFile][iSnap] = tags[snapCount];
+        ++snapCount;
+      }
+    }
+  }
+
+  delete snapBufOld;
+  snapBufOld = NULL;
+  delete snapBufNew;
+  snapBufNew = NULL;
+
+  for (int iData=0; iData < nData; ++iData) {
+    delete [] snapFile[iData];
+  }
+  delete [] snapFile;
+  snapFile = NULL;
+  delete [] numSnaps;
+  numSnaps = NULL;
+  delete [] startSnaps;
+  startSnaps = NULL;
+  delete [] endSnaps;
+  endSnaps = NULL;
+  delete [] sampleFreq;
+  sampleFreq = NULL;
+  delete [] snapWeight;
+  snapWeight = NULL;
+  delete [] tags;
+  tags = NULL;
+
+  return nData;
+
+}
+//----------------------------------------------------------------------------------
+
+template<int dim>
 void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  { 
  
   int nTotSnaps = snap->numVectors();

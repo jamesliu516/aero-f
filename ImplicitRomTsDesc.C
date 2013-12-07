@@ -232,8 +232,6 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   DistSVec<double, dim> dUfull(this->domain->getNodeDistInfo());	// solution increment at EACH NEWTON ITERATION in full coordinates
   dUfull = 0.0;	// initial zero increment
 
-  DistSVec<double, dim> unweightedF(this->domain->getNodeDistInfo());  
-
   double res;
   bool breakloop = false;
   bool breakloopNow = false;
@@ -256,8 +254,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
 		double tRes = this->timer->getTime();
     updateLeastSquaresWeightingVector(); //only updated at the start of Newton
-    computeFullResidual(it, U, false, &unweightedF);
-		computeAJ(it, U, true, &unweightedF);	// skipped some times for Broyden
+    computeFullResidual(it, U, false);
+		computeAJ(it, U, true);	// skipped some times for Broyden
     if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)
       computeFullResidual(it, U, true);
 		this->timer->addResidualTime(tRes);
@@ -305,7 +303,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 	if (fsIt > 0 && checkFailSafe(U) == 1)
 		resetFixesTag();
 
-  if (it == maxItsNewton && maxItsNewton != 1 && maxItsNewton !=0) {
+  if (it == maxItsNewton && maxItsNewton!=1 && maxItsNewton!=0) {
     this->com->fprintf(stderr, "*** Warning: ROM Newton solver reached %d its", maxItsNewton);
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }

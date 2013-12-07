@@ -23,9 +23,6 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
 { 
   // ioData->example, com->example, this->domain.example
   nSnapshotFiles = 0;
-  stateSnapshotTags = NULL;
-  stateSnapsFromFile = NULL;   
-  stateSnapshotClustersAfterOverlap = NULL;
 
   projErrorLog = NULL;
   initialCondition = NULL; 
@@ -41,30 +38,6 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
 template<int dim> 
 NonlinearRomDatabaseConstruction<dim>::~NonlinearRomDatabaseConstruction() 
 {
-  if (stateSnapshotClustersAfterOverlap) {
-    for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
-      for (int iSnap=0;iSnap<stateSnapsFromFile[iFile];++iSnap) {
-        delete [] stateSnapshotClustersAfterOverlap[iFile][iSnap];
-      }
-    }
-    for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
-      delete [] stateSnapshotClustersAfterOverlap[iFile];
-    }
-    delete [] stateSnapshotClustersAfterOverlap;
-  }
-  stateSnapshotClustersAfterOverlap = NULL;
-
-  if (stateSnapshotTags) {
-    for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
-      delete [] stateSnapshotTags[iFile];
-    }
-    delete [] stateSnapshotTags;
-  }
-  stateSnapshotTags = NULL;
-
-  if (stateSnapsFromFile)  delete [] stateSnapsFromFile;
-  stateSnapsFromFile = NULL;
-
   if (initialCondition) delete initialCondition;
   initialCondition = NULL;
 }
@@ -79,7 +52,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
   // clustering
   if (robConstruction->clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
-    readSnapshotFile("state", false);
+    nSnapshotFiles = this->readSnapshotFiles("state", false);
     kmeans();
     // option to form 2D representation of state data using multi-dimensional scaling (for visualization)
     if (robConstruction->clustering.computeMDS == ClusteringData::COMPUTE_MDS_TRUE) {
@@ -93,7 +66,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
     if (strcmp(this->ioData->input.sensitivitySnapFile,"")!=0 && 
          strcmp(this->sensitivityClusterName,"")!=0) {
-       readSnapshotFile("sensitivity", false);
+       int nSensitivityFiles = this->readSnapshotFiles("sensitivity", false);
        this->outputClusteredSnapshots("sensitivity");
     } 
   }
@@ -116,209 +89,6 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
   // projection error
   if (projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
-
-}
-
-//----------------------------------------------------------------------------------
-
-template<int dim>
-void NonlinearRomDatabaseConstruction<dim>::readSnapshotFile(char* snapType, bool preprocess) {
-
-  // Check for snapshot command file
-
-  char *vecFile;
-  bool typeIsState = false;
-
-  if (strcmp(snapType, "state")==0) {
-    vecFile = new char[strlen(this->ioData->input.prefix) + strlen(this->ioData->input.stateSnapFile) + 1];
-    sprintf(vecFile, "%s%s", this->ioData->input.prefix, this->ioData->input.stateSnapFile);
-    typeIsState = true;
-  } else if (strcmp(snapType,"sensitivity")==0) {
-    vecFile = new char[strlen(this->ioData->input.prefix) + strlen(this->ioData->input.sensitivitySnapFile) + 1];
-    sprintf(vecFile, "%s%s", this->ioData->input.prefix, this->ioData->input.sensitivitySnapFile);
-//  } else if (strcmp(snapType,"residual")==0) {
-//    vecFile = new char[strlen(this->ioData->input.prefix) + strlen(this->ioData->input.residualSnapFile) + 1];
-//    sprintf(vecFile, "%s%s", this->ioData->input.prefix, this->ioData->input.residualSnapFile);
-//  } else if (strcmp(snapType,"krylov")==0) {
-//    vecFile = new char[strlen(this->ioData->input.prefix) + strlen(this->ioData->input.krylovSnapFile) + 1];
-//    sprintf(vecFile, "%s%s", this->ioData->input.prefix, this->ioData->input.krylovSnapFile);
-  } else {
-    this->com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", snapType);
-    exit (-1);
-  }
-
-  FILE *inFP = fopen(vecFile, "r");
-  if (!inFP)  {
-    this->com->fprintf(stderr, "*** Error: No snapshots FILES in %s\n", vecFile);
-    exit (-1);
-  }
-
-  delete [] vecFile;
-  vecFile = NULL;
-
-  int nData, _n;
-  _n = fscanf(inFP, "%d",&nData);
-  this->com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
-
-  if (typeIsState) {
-    nSnapshotFiles=nData;
-    stateSnapsFromFile = new int[nSnapshotFiles];
-    for (int iFile=0;iFile<nSnapshotFiles;++iFile) 
-      stateSnapsFromFile[iFile] = 0;
-  }
-
-  char** snapFile = new char*[nData];
-  for (int iData = 0; iData < nData; ++iData)
-    snapFile[iData] = new char[500];
-  char snapFile1[500];
-  int* numSnaps = new int[nData];
-  int* startSnaps = new int[nData];
-  int* endSnaps = new int[nData];
-  int* sampleFreq = new int[nData];
-  double* snapWeight = new double[nData];
-  int nSnap, iStart, iEnd, iFreq;
-  double weight;
-
-  if (typeIsState && robConstruction->state.snapshots.incrementalSnaps)
-    this->com->fprintf(stderr, "*** Warning: Incremental snapshots is not supported for multiple bases (yet) \n");
-
-  if (typeIsState && (robConstruction->state.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE))
-    this->com->fprintf(stderr, "*** Warning: EnergyOnly is not supported for multiple bases\n");
-
-  // read snapshot command file
-  for (int iData = 0; iData < nData; ++iData){
-    _n = fscanf(inFP, "%s %d %d %d %lf", snapFile1,&iStart,&iEnd,&iFreq,&weight);
-    if (iStart < 1) iStart = 1;
-    if (iEnd < 0) iEnd = 0;
-    if (iFreq < 1) iFreq = 1;
-    //numSnaps[iData] = nSnap;
-    strcpy(snapFile[iData],snapFile1);
-    startSnaps[iData] = iStart - 1;
-    endSnaps[iData] = iEnd;
-    sampleFreq[iData] = iFreq;
-    snapWeight[iData] = weight;
-    this->com->fprintf(stdout, " ... Reading snapshots from %s \n", snapFile[iData]);
-  }
-
-  // compute the total number of snapshots
-  int nTotSnaps = 0;
-  int dummyStep = 0;
-  double dummyTag = 0.0;
-  for (int iData = 0; iData < nData; ++iData) {
-    bool status = this->domain.template readTagFromFile<double, dim>(snapFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
-
-    if (!status) {
-      this->com->fprintf(stderr, "*** Error: could not read snapshotsfrom %s \n", snapFile[iData]);
-      exit(-1);
-    }
-
-    if ((endSnaps[iData]==0) || (endSnaps[iData]>numSnaps[iData]))
-      endSnaps[iData]=numSnaps[iData];
-    for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
-      if (iSnap % sampleFreq[iData] == 0) {
-        ++nTotSnaps;
-        if (typeIsState) ++stateSnapsFromFile[iData]; 
-      }
-    }
-  }
-
-  bool incrementalSnaps = false;
-  bool subtractRefSol = false;
-  if (preprocess) {
-    if (projError->projectIncrementalSnaps) {
-      incrementalSnaps = true;
-      nTotSnaps -= nData;
-    } else if (projError->subtractRefSol) {
-      subtractRefSol = true;
-      if (!(this->ioData->input.stateSnapRefSolution)) {
-        this->com->fprintf(stderr, "*** Error: Reference solution not found \n");
-        exit (-1);
-      }
-      this->readReferenceState();
-    }
-  }
-
-  this->snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
-  DistSVec<double, dim>* snapBufOld = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
-  DistSVec<double, dim>* snapBufNew = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
-
-  if (typeIsState) {
-    stateSnapshotTags = new double*[nSnapshotFiles];
-    for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
-      stateSnapshotTags[iFile] = new double[stateSnapsFromFile[iFile]];
-      for (int iSnap=0;iSnap<stateSnapsFromFile[iFile];++iSnap)
-        stateSnapshotTags[iFile][iSnap] = -1.0;
-    }
-  }
-
-  *snapBufOld = 0.0;
-  *snapBufNew = 0.0;
-
-  double* tags = new double [nTotSnaps];
-  double tagOld;
-  double tagNew;
-
-  int numCurrentSnapshots = 0;
-  bool status;
-
-  if (subtractRefSol) {
-    *snapBufOld = *(this->snapRefState);
-    delete (this->snapRefState);
-    (this->snapRefState) = NULL;
-  }
-
-  for (int iData=0; iData < nData; ++iData){
-    // read in Snapshot Vectors
-    for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
-      if (iSnap % sampleFreq[iData] == 0) { //TODO ignore 
-        // snapshot must be between startSnaps and endSnaps, and a multiple of sampleFreq. 
-        if ((iSnap == startSnaps[iData]) && incrementalSnaps) {
-          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagOld, *snapBufOld);
-        } else {
-          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
-          tags[numCurrentSnapshots] = tagNew;
-          (*(this->snap))[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
-          if (incrementalSnaps) *snapBufOld = *snapBufNew;
-          if (snapWeight[iData]) (*(this->snap))[numCurrentSnapshots] *= snapWeight[iData]; //CBM--check
-          ++numCurrentSnapshots;
-        }
-      }
-    }
-  }
-
-  if (typeIsState) {
-    int snapCount=0;
-    for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
-      for (int iSnap=0;iSnap<stateSnapsFromFile[iFile];++iSnap) {
-        stateSnapshotTags[iFile][iSnap] = tags[snapCount];
-        ++snapCount;
-      }
-    }
-  }
-
-  delete snapBufOld;
-  snapBufOld = NULL;
-  delete snapBufNew;
-  snapBufNew = NULL;
-
-  for (int iData=0; iData < nData; ++iData) {
-    delete [] snapFile[iData];
-  }
-  
-  delete [] snapFile;
-  snapFile = NULL;
-  delete [] numSnaps;
-  numSnaps = NULL;
-  delete [] startSnaps;
-  startSnaps = NULL;
-  delete [] endSnaps;
-  endSnaps = NULL;
-  delete [] sampleFreq;
-  sampleFreq = NULL;
-  delete [] snapWeight;
-  snapWeight = NULL;
-  delete [] tags;
-  tags = NULL;
 
 }
 
@@ -420,12 +190,12 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(cha
         if (snapWeight[iData]) *snapBuf *= snapWeight[iData]; //CBM--check
         // find associated state
         int stateSnap = -1;
-        for (int iStateSnap=0; iStateSnap<stateSnapsFromFile[iData]; ++iStateSnap) {
-          if (iStateSnap==(stateSnapsFromFile[iData]-1)) {
+        for (int iStateSnap=0; iStateSnap<this->stateSnapsFromFile[iData]; ++iStateSnap) {
+          if (iStateSnap==(this->stateSnapsFromFile[iData]-1)) {
             stateSnap = iStateSnap;
-          } else if (tag<stateSnapshotTags[iData][iStateSnap]) {
+          } else if (tag<this->stateSnapshotTags[iData][iStateSnap]) {
             // do nothing
-          } else if ((tag>=stateSnapshotTags[iData][iStateSnap]) && (tag<stateSnapshotTags[iData][iStateSnap+1])) {
+          } else if ((tag>=this->stateSnapshotTags[iData][iStateSnap]) && (tag<this->stateSnapshotTags[iData][iStateSnap+1])) {
             stateSnap = iStateSnap;
             break;
           }
@@ -879,14 +649,11 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   }
 
   // create data structure needed for clustering non-state FOM information (explained in header file)
-  stateSnapshotClustersAfterOverlap = new bool**[nSnapshotFiles];
+  stateSnapshotClustersAfterOverlap.resize(nSnapshotFiles);
   for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
-    stateSnapshotClustersAfterOverlap[iFile] = new bool*[stateSnapsFromFile[iFile]];
-    for (int iSnap=0; iSnap<stateSnapsFromFile[iFile]; ++iSnap) {
-      stateSnapshotClustersAfterOverlap[iFile][iSnap] = new bool[this->nClusters];
-      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-        stateSnapshotClustersAfterOverlap[iFile][iSnap][iCluster] = false;
-      }
+    stateSnapshotClustersAfterOverlap[iFile].resize(this->stateSnapsFromFile[iFile]);
+    for (int iSnap=0; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
+      stateSnapshotClustersAfterOverlap[iFile][iSnap].resize(this->nClusters,false);
     }
   }
 
@@ -897,7 +664,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
 
   int snapCount = 0;
   for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
-    for (int iSnap=0; iSnap<stateSnapsFromFile[iFile]; ++iSnap) {
+    for (int iSnap=0; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
       snapInfo[snapCount][0] = iFile;// file
       snapInfo[snapCount][1] = iSnap;// snapshot number from file
       ++snapCount;
@@ -1413,7 +1180,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
   delete (this->clusterCenters);
   (this->clusterCenters) = NULL;
  
-  this->readSnapshotFile("state", true);
+  nSnapshotFiles = this->readSnapshotFiles("state", true);
   int nTotSnaps = this->snap->numVectors();
  
   projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);
