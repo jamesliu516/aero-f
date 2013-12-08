@@ -1,6 +1,9 @@
 #include <GnatPreprocessing.h>
 #include <TsDesc.h>
-
+#ifdef DO_MODAL
+#include <arpack++/include/ardsmat.h>
+#include <arpack++/include/ardssym.h>
+#endif
 template<int dim>
 GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, Domain
     &dom, DistGeoState *_geoState) :
@@ -15,6 +18,8 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   errorRes(0, dom.getNodeDistInfo() ),
   errorJac(0, dom.getNodeDistInfo() ),
   pseudoInvRhs(0, dom.getNodeDistInfo() ),
+  lowRankFactor(0, dom.getNodeDistInfo() ),
+  pseudoInverseMaskedSnaps(0, dom.getNodeDistInfo() ),
   handledNodes(0), nPodBasis(0),
   // distribution info
   numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
@@ -78,6 +83,8 @@ void GnatPreprocessing<dim>::initialize()
   errorRes.resize(0);
   errorJac.resize(0);
   pseudoInvRhs.resize(0);
+  lowRankFactor.resize(0);
+  pseudoInverseMaskedSnaps.resize(0);
   nPodBasis = 0;
   initializeLeastSquaresDone = false;
   onlyInletOutletBC = true;  // first node should be on inlet/outlet
@@ -255,9 +262,176 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     outputLocalReferenceStateReduced(iCluster);
   }
 
+
+  constructApproximatedMetric();
   com->fprintf(stdout," \n... finished with GNAT preprocessing - Exiting...\n");
 
 } 
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::constructApproximatedMetric() {
+  // the notations follow the paper "Fast Local Reduced Bais Updates Based on Approximated Metric"
+
+  /* TODO: 
+   
+   1: add "approxMetricState" snapType case in readSnapshotFile
+use a txt file for snapshot selection: done currently for residual
+      Clean up input -> new text file for input of approx metric
+   2: iterate through the local reduced meshes and take from each (take nodes)
+      define a reduced mesh:loop over all the local masks and select nodes: For Kyle: look where that happens
+   3: For Kyle Move readSnapshotFile to NonlinearROM and call from here
+   DONE 4: Clean up output
+   5: copy pseudo-inverse code 
+  */
+
+  // Step 1: compute an EVD of the correlation matrix X'*X and truncate the EVD based on the decay of EV
+  computeCorrelationMatrixEVD();
+
+  // Step 2: compute the pseudo-inverse of the masked snapshots Y
+  computePseudoInverseMaskedSnapshots();
+
+  // Step 3: compute the low rank factor G of the approximated metric
+  computeApproximatedMetricLowRankFactor();
+
+  // Step 4: output low rank factor
+  outputApproximatedMetricLowRankFactor();
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
+
+#ifdef DO_MODAL
+  //TODO: readSnapshotFile("approxMetricState", 0);
+  numSnapsForApproxMetric = this->snap->numVectors();
+  com->fprintf(stderr, " ... Forming Correlation Matrix Usind %d Snapshots\n",numSnapsForApproxMetric);
+  // allocate for upper half of sym. eigprob
+  double *rVals = new double[numSnapsForApproxMetric*(numSnapsForApproxMetric+1)/2];
+  for (int i = 0; i < numSnapsForApproxMetric; i++)
+    for (int j = 0; j <= i; j++)
+      rVals[(i+1)*i/2 + j] = ((*this->snap)[j]) * ((*this->snap)[i]);
+
+  double tolerance = ioData->romOffline.rob.basisUpdates.approximatedMetric.tolerance;
+
+  ARdsSymMatrix<double> corr(numSnapsForApproxMetric, rVals, 'U');
+
+  com->fprintf(stderr, " ... Factoring Correlation Matrix\n");
+
+  corr.FactorA();
+  int ncv = numSnapsForApproxMetric-1;
+  ARluSymStdEig<double> corrEigProb(ncv, corr, "LM", ncv, tolerance, 300*ncv);
+
+  com->fprintf(stderr, " ... Solving EigenProblem\n");
+  int nconv = corrEigProb.FindEigenvectors();
+
+  com->fprintf(stderr, " ... Got %d converged eigenvectors out of %d snaps\n", nconv, numSnapsForApproxMetric);
+  //Retain a low rank approximation
+  double totalEnergy = 0.0;
+  for (int i = 0; i < ncv; ++i) {
+    com->fprintf(stderr, "Eig[%d] = %f\n",i,corrEigProb.Eigenvalue(ncv-i-1));
+    totalEnergy += corrEigProb.Eigenvalue(ncv-i-1);  
+  }
+  double energyRetained = totalEnergy*ioData->romOffline.rob.basisUpdates.approximatedMetric.lowRankEnergy;
+  totalEnergy = 0.0;
+  numEigen = 0;
+  while (totalEnergy < energyRetained) {
+   totalEnergy += corrEigProb.Eigenvalue(ncv-numEigen-1);
+   numEigen++;  
+  }
+  // retain first numEigen eigenmodes
+  double *eigenvalues = new double[numEigen];
+  for (int j = 0; j < numEigen; ++j)
+    eigenvalues[j] = corrEigProb.Eigenvalue(ncv-j-1);
+  lowRankModes = new double*[numEigen];
+  for (int j = 0; j < numEigen; ++j)
+    lowRankModes[j] = new double[numSnapsForApproxMetric];
+  for (int j = 0; j < numEigen; ++j)
+    for (int k = 0; k < numSnapsForApproxMetric; ++k)
+      lowRankModes[j][k] = corrEigProb.Eigenvector(ncv-j-1, k)*pow(eigenvalues[j],0.5);//scale by the square root of the eigenvalues
+  delete [] eigenvalues;
+#else
+  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
+  exit(-1);
+#endif
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computePseudoInverseMaskedSnapshots() {
+
+// compute the SetOfVec pseudoInverseMaskedSnaps
+
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
+
+
+ // compute the SetOfVec lowRankFactor
+  lowRankFactor.resize(numEigen); 
+  for (int iEigen = 0; iEigen < numEigen; ++iEigen) {
+    lowRankFactor[iEigen] = 0.0;
+    for (int iSnap = 0; iSnap < numSnapsForApproxMetric; ++iSnap)
+      lowRankFactor[iEigen] += (pseudoInverseMaskedSnaps[iSnap]*lowRankModes[iEigen][iSnap]);
+  }
+
+  pseudoInverseMaskedSnaps.resize(0);
+
+  for (int i = 0; i < numEigen; ++i) {
+    if (lowRankModes[i]) {
+      delete [] lowRankModes[i];
+      lowRankModes[i] = NULL;
+    }
+  }
+  if (lowRankModes) {
+    delete [] lowRankModes;
+    lowRankModes = NULL;
+  }
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::outputApproximatedMetricLowRankFactor() {
+
+ // output the SetOfVec lowRankFactor
+   com->fprintf(stdout,"\n ... Writing Low Rank Factor of Approximated Metric ...\n");
+
+  char *filePath = NULL;
+  this->determinePath(this->approxMetricLowRankName, -1, filePath);
+
+  FILE *outApproxMetric;
+  if (thisCPU == 0) outApproxMetric = fopen(filePath, "wt");
+
+  com->fprintf(outApproxMetric,"Vector ApproxMetric under load for FluidNodesRed\n");
+  com->fprintf(outApproxMetric,"%d\n", nReducedNodes);
+
+
+  int percentComplete = 0;
+  for (int iVec = 0; iVec < lowRankFactor.numVectors(); ++iVec) {  // # rows in A and B
+    outputReducedSVec(lowRankFactor[iVec],outApproxMetric,iVec);
+    if ((iVec+1)%((lowRankFactor.numVectors()/4)+1)==0) {
+        percentComplete += 25;
+        com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
+    }
+  }
+
+  if (filePath) {
+    delete [] filePath;
+    filePath = NULL;
+  }
+  lowRankFactor.resize(0);
+  if (thisCPU == 0) fclose(outApproxMetric);
+
+}
 
 //----------------------------------------------
 

@@ -109,7 +109,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledWallDistName, "dwall", romFiles->gnatPrefix, sampledWallDistName);
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gnatPrefix, gappyJacActionName);
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
-
+  determineFileName(romFiles->approxMetricLowRankName, "approxMetric", romFiles->gnatPrefix, approxMetricLowRankName);
   // Surface quantities
   //determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
   //determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
@@ -226,6 +226,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledWallDistName;
   delete [] gappyJacActionName;
   delete [] gappyResidualName;
+  delete [] approxMetricLowRankName;
   //delete [] surfaceStateBasisName;
   //delete [] surfaceSolutionName;
   //delete [] surfaceWallDistName;
