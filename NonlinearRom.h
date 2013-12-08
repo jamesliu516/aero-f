@@ -97,6 +97,7 @@ class NonlinearRom {
   char* sampledWallDistName;
   char* gappyJacActionName;
   char* gappyResidualName;
+  char* approxMetricLowRankName;
 
   // Surface quantities
   //char* surfaceStateBasisName;

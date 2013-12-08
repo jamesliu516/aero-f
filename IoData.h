@@ -85,6 +85,7 @@ struct InputData {
   const char *residualSnapFile;
   const char *krylovSnapFile;
   const char *sensitivitySnapFile;
+  const char *approxMetricStateSnapFile;
   const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -2121,6 +2122,7 @@ struct NonlinearRomFilesData {
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
   const char *gappyResidualName;             //resMatrix in sampled coords;
+  const char *approxMetricLowRankName; // approximated metric
 
   // Surface quantities
   const char *surfacePrefix;
@@ -2128,6 +2130,7 @@ struct NonlinearRomFilesData {
   const char *surfaceSolutionName;
   const char *surfaceWallDistName;
   const char *surfaceMeshName;
+
 
   NonlinearRomFilesData();
   ~NonlinearRomFilesData() {}
@@ -2383,6 +2386,21 @@ struct ClusteringData {
 
 };
 
+
+//------------------------------------------------------------------------------
+
+struct ApproximatedMetricData {
+
+  double snapshotsFraction;
+  double reducedMeshFraction;
+  double lowRankEnergy;
+  double tolerance;
+  ApproximatedMetricData();
+  ~ApproximatedMetricData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
 //------------------------------------------------------------------------------
 
 struct BasisUpdatesData {
@@ -2391,6 +2409,8 @@ struct BasisUpdatesData {
   enum PreprocessForSimpleUpdates {SIMPLE_UPDATES_FALSE = 0, SIMPLE_UPDATES_TRUE = 1} preprocessForSimpleUpdates;
   enum PreprocessForExactUpdates {EXACT_UPDATES_FALSE = 0, EXACT_UPDATES_TRUE = 1} preprocessForExactUpdates;
   enum PreprocessForApproxUpdates {APPROX_UPDATES_FALSE = 0, APPROX_UPDATES_TRUE = 1} preprocessForApproxUpdates;
+  ApproximatedMetricData approximatedMetric;
+
 
   BasisUpdatesData();
   ~BasisUpdatesData() {}
