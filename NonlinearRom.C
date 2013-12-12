@@ -535,6 +535,9 @@ int NonlinearRom<dim>::readSnapshotFiles(char* snapType, bool preprocess) {
   } else if (strcmp(snapType,"sensitivity")==0) {
     vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.sensitivitySnapFile) + 1];
     sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.sensitivitySnapFile);
+  } else if (strcmp(snapType,"approxMetricState")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.approxMetricStateSnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.approxMetricStateSnapFile);
 //  } else if (strcmp(snapType,"residual")==0) {
 //    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.residualSnapFile) + 1];
 //    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.residualSnapFile);

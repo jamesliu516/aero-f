@@ -19,7 +19,8 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   errorJac(0, dom.getNodeDistInfo() ),
   pseudoInvRhs(0, dom.getNodeDistInfo() ),
   lowRankFactor(0, dom.getNodeDistInfo() ),
-  pseudoInverseMaskedSnaps(0, dom.getNodeDistInfo() ),
+  pseudoInverseMaskedSnapsTrans(0, dom.getNodeDistInfo() ),
+  snapHatApproxMetric(0, dom.getNodeDistInfo() ),
   handledNodes(0), nPodBasis(0),
   // distribution info
   numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
@@ -48,8 +49,9 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   unionOfSampleNodes = -1;  // for readability
   globalSampleNodesForCluster.resize(0);
   globalSampleNodesUnion.resize(0);
+  globalSampleNodesUnionForApproxMetric.resize(0);
   globalSampleNodesUnionSet.clear();
-
+  globalSampleNodesUnionSetForApproxMetric.clear();
 }
 
 //----------------------------------------------
@@ -84,7 +86,8 @@ void GnatPreprocessing<dim>::initialize()
   errorJac.resize(0);
   pseudoInvRhs.resize(0);
   lowRankFactor.resize(0);
-  pseudoInverseMaskedSnaps.resize(0);
+  pseudoInverseMaskedSnapsTrans.resize(0);
+  snapHatApproxMetric.resize(0);
   nPodBasis = 0;
   initializeLeastSquaresDone = false;
   onlyInletOutletBC = true;  // first node should be on inlet/outlet
@@ -143,7 +146,6 @@ void GnatPreprocessing<dim>::initialize()
   globalSampleNodeRankMap.clear();   // defined for a set of sample nodes in findMaxAndFillPodHat (in greedyIteration) 
                                      // used in defineMaps, outputTopFile, outputOnlineMats, (setSampleNodes)
   reducedSampleNodeRankMap.clear();  // defined for a set of sample nodes in outputTopFile
-
 //  no need to delete following objects; defined for entire sample mesh and map only adds unique objects
 //    globalNodeToCpuMap
 //    globalNodeToLocSubDomainsMap
@@ -189,6 +191,9 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     // compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
     //======================================
 
+  int nTargetSampleNodesForApproxMetric;
+  int nAddedSamplesLoc = 0;
+  int nAddedSamplesGlob = 0;
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
     com->fprintf(stdout,"\n ... selecting sample nodes for cluster %d ...\n", iCluster);
 
@@ -201,15 +206,26 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     determineSampleNodes();  // use greedy algorithm to determine sample nodes
 
     globalSampleNodesForCluster[iCluster] = globalSampleNodes;     // store local sample nodes (the local mask)
+  
+    nTargetSampleNodesForApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*globalSampleNodes.size());
+    nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
     for (int iNode=0; iNode<globalSampleNodes.size(); iNode++) { 
       globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
+      nAddedSamplesLoc = globalSampleNodesUnionSet.size()-nAddedSamplesGlob;
+      if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetric)
+        globalSampleNodesUnionSetForApproxMetric.insert(globalSampleNodes[iNode]);
     }
-
+  
   } 
 
   // place the union of the sample nodes into a vector
   for (std::set<int>::iterator it=globalSampleNodesUnionSet.begin(); it!=globalSampleNodesUnionSet.end(); ++it) {
     globalSampleNodesUnion.push_back(*it);
+  }
+  globalSampleNodesUnionSet.clear();
+
+  for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetric.begin(); it!=globalSampleNodesUnionSetForApproxMetric.end(); ++it) {
+    globalSampleNodesUnionForApproxMetric.push_back(*it);
   }
   globalSampleNodesUnionSet.clear();
 
@@ -276,14 +292,16 @@ void GnatPreprocessing<dim>::constructApproximatedMetric() {
 
   /* TODO: 
    
-   1: add "approxMetricState" snapType case in readSnapshotFile
+   DONE 1: add "approxMetricState" snapType case in readSnapshotFile
 use a txt file for snapshot selection: done currently for residual
       Clean up input -> new text file for input of approx metric
    2: iterate through the local reduced meshes and take from each (take nodes)
       define a reduced mesh:loop over all the local masks and select nodes: For Kyle: look where that happens
-   3: For Kyle Move readSnapshotFile to NonlinearROM and call from here
+   DONE 3: For Kyle Move readSnapshotFile to NonlinearROM and call from here
    DONE 4: Clean up output
-   5: copy pseudo-inverse code 
+   DONE 5: pseudo-inverse code 
+   6:  build something similar as std::set<int> globalSampleNodesUnionSet
+   DONE 7: look at truncating SVD prior to pseudo-inverse
   */
 
   // Step 1: compute an EVD of the correlation matrix X'*X and truncate the EVD based on the decay of EV
@@ -305,7 +323,7 @@ template<int dim>
 void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
 
 #ifdef DO_MODAL
-  //TODO: readSnapshotFile("approxMetricState", 0);
+  this->readSnapshotFiles("approxMetricState", 0);
   numSnapsForApproxMetric = this->snap->numVectors();
   com->fprintf(stderr, " ... Forming Correlation Matrix Usind %d Snapshots\n",numSnapsForApproxMetric);
   // allocate for upper half of sym. eigprob
@@ -337,7 +355,7 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
   double energyRetained = totalEnergy*ioData->romOffline.rob.basisUpdates.approximatedMetric.lowRankEnergy;
   totalEnergy = 0.0;
   numEigen = 0;
-  while (totalEnergy < energyRetained) {
+  while (totalEnergy < energyRetained && numEigen< ncv-1) {
    totalEnergy += corrEigProb.Eigenvalue(ncv-numEigen-1);
    numEigen++;  
   }
@@ -364,8 +382,112 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
 template<int dim>
 void GnatPreprocessing<dim>::computePseudoInverseMaskedSnapshots() {
 
-// compute the SetOfVec pseudoInverseMaskedSnaps
+  //computeApproximatedMetricMask();
 
+  computeMaskedSnapshots();
+
+  computePseudoInverseTranspose();
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computeApproximatedMetricMask() {
+
+  // TODO: remove
+
+  // Loop over all the clusters
+
+  // Select sampledMeshFraction of the sampled nodes
+/*  int nNodesApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*nSampleNodes);
+  nNodesApproxMetric = min(nNodesApproxMetric,nSampleNodes);
+  // TODO change to select from each cluster
+  // Select nNodesApproxMetric random numbers among nsampleNodes
+  std::vector<int> index;
+  // set some values:
+  for (int i=1; i<nSampleNodes; ++i)
+    index.push_back(i);  
+  std::random_shuffle(index.begin(),index.end());
+
+  for (int i=0; i<nNodesApproxMetric; ++i)    
+    approxMetricGlobalSampleNodes[i] = globalSampleNodes[index[i]];
+*/
+  
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computeMaskedSnapshots() {
+
+  //initialize
+  int nCols = this->snap->numVectors();
+  snapHatApproxMetric.resize(nCols);
+  for (int iCol = 0; iCol < nCols; ++iCol) 
+    snapHatApproxMetric[iCol] = 0.0;
+  
+  // fill
+  int nNodesApproxMetric = globalSampleNodesUnionForApproxMetric.size();
+  for (int iNode=0; iNode < nNodesApproxMetric; ++iNode) {
+    int currentNode = globalSampleNodesUnionForApproxMetric[iNode];
+    int locSub = globalNodeToLocSubDomainsMap.find(currentNode)->second;
+    int locNode = globalNodeToLocalNodesMap.find(currentNode)->second;
+    int currentCpu = globalNodeToCpuMap.find(currentNode)->second;
+    if (thisCPU == currentCpu) {
+      // fill out sampled matrices (all columns for the current rows)
+      SubDomainData<dim> locSnap, locSnapHat;
+      for (int iCol = 0; iCol < nCols; ++iCol) {
+        locSnap = (*this->snap)[iCol].subData(locSub);  // cannot access iDim entry
+        locSnapHat = snapHatApproxMetric[iCol].subData(locSub);
+        for (int iDim = 0; iDim < dim ; ++iDim) {
+          locSnapHat[locNode][iDim] = locSnap[locNode][iDim];
+          // zeros everywhere except at sample nodes
+        }
+      }
+    }
+    com->barrier();
+  }
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
+
+  // svd of the masked snapHatApproxMetricshots USV'
+  int nSnaps = snapHatApproxMetric.numVectors();
+  SetOfVec UTrueTmp(nSnaps, this->domain.getNodeDistInfo());
+  Vec<double> singValsTmp(nSnaps);
+  FullM VtrueTmp(nSnaps);
+  int nKeep = nSnaps;
+
+  ParallelRom<dim> parallelRom( this->domain, this->com);
+  parallelRom.parallelSVD(snapHatApproxMetric, UTrueTmp, singValsTmp.data(), VtrueTmp, nSnaps, true);
+  double totalEnergy = 0.0;
+  for (int i=0; i <nSnaps; ++i)
+    totalEnergy += singValsTmp[i];
+
+  double truncatedEnergy = totalEnergy*ioData->romOffline.rob.basisUpdates.approximatedMetric.lowRankEnergy;
+  double energy = singValsTmp[0];
+  int nSnapsRetained = 0;
+  while (energy < truncatedEnergy && nSnapsRetained < nSnaps-1) {
+    nSnapsRetained++;
+    energy += singValsTmp[nSnapsRetained];
+  }
+
+  // compute transpose of the pseudo-inverse: US^\dagger V'
+  for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
+    for (int jSnap = 0; jSnap < nSnapsRetained; ++jSnap) 
+        VtrueTmp[iSnap][jSnap] *= 1.0/singValsTmp[jSnap];
+  }
+
+  pseudoInverseMaskedSnapsTrans.resize(nSnaps);
+  for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
+    pseudoInverseMaskedSnapsTrans[iSnap] = 0.0;
+    for (int jSnap = 0; jSnap < nSnapsRetained; ++jSnap)
+      pseudoInverseMaskedSnapsTrans[iSnap] += UTrueTmp[jSnap] * VtrueTmp[iSnap][jSnap];
+  }
 
 }
 
@@ -380,10 +502,10 @@ void GnatPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
   for (int iEigen = 0; iEigen < numEigen; ++iEigen) {
     lowRankFactor[iEigen] = 0.0;
     for (int iSnap = 0; iSnap < numSnapsForApproxMetric; ++iSnap)
-      lowRankFactor[iEigen] += (pseudoInverseMaskedSnaps[iSnap]*lowRankModes[iEigen][iSnap]);
+      lowRankFactor[iEigen] += (pseudoInverseMaskedSnapsTrans[iSnap]*lowRankModes[iEigen][iSnap]);
   }
 
-  pseudoInverseMaskedSnaps.resize(0);
+  pseudoInverseMaskedSnapsTrans.resize(0);
 
   for (int i = 0; i < numEigen; ++i) {
     if (lowRankModes[i]) {

@@ -4073,9 +4073,8 @@ void BasisUpdatesData::setup(const char *name, ClassAssigner *father) {
 ApproximatedMetricData::ApproximatedMetricData()
 {
 
-  snapshotsFraction = 0.5;
-  reducedMeshFraction = 0.5;
-  lowRankEnergy = 0.999;
+  sampledMeshFraction = 1.0;
+  lowRankEnergy = 0.9999;
   tolerance = 1e-8;
 }
 
@@ -4084,8 +4083,7 @@ ApproximatedMetricData::ApproximatedMetricData()
 void ApproximatedMetricData::setup(const char *name, ClassAssigner *father) {
 
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
-  new ClassDouble<ApproximatedMetricData>(ca, "SnapshotsFraction", this, &ApproximatedMetricData::snapshotsFraction);
-  new ClassDouble<ApproximatedMetricData>(ca, "ReducedMeshFraction", this, &ApproximatedMetricData::reducedMeshFraction);
+  new ClassDouble<ApproximatedMetricData>(ca, "SampledMeshFraction", this, &ApproximatedMetricData::sampledMeshFraction);
   new ClassDouble<ApproximatedMetricData>(ca, "LowRankEnergy", this, &ApproximatedMetricData::lowRankEnergy);
   new ClassDouble<ApproximatedMetricData>(ca, "Tolerance", this, &ApproximatedMetricData::tolerance);
 }

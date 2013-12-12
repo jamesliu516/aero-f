@@ -120,6 +120,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
 
 */
 
+  // Approximate updates case
 /*
   this->readClusteredReferenceState(iCluster); // reads Uinit
 
@@ -133,7 +134,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
 
     double m[robSize];
     for (int iVec=0; iVec<robSize; ++iVec) {
-      m[iVec] = (*(this->basis))[iVec] * a;
+      m[iVec] = (*(this->basis))[iVec] * a; // use approximate metric here
     }
 
     DistSVec<double, dim> p(this->domain.getNodeDistInfo());
@@ -143,7 +144,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
       p -= (*(this->basis))[iVec] * m[iVec];
     }
 
-    double Ra = p.norm();
+    double Ra = p.norm(); // use approximate metric here
     double RaInv = 1/Ra; 
     p *= RaInv;
 
@@ -200,7 +201,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     }
   }
   delete (this->Uinit);
-  */
+*/
 }
 
 //----------------------------------------------------------------------------------
