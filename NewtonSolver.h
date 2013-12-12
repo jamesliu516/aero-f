@@ -158,7 +158,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
            break;
        }
        if (itLS == maxItsLS-1 && maxItsLS != 1) 
-         probDesc->printf(1, "*** Warning: Line Search reached %d its", maxItsLS);
+         probDesc->printf(1, "*** Warning: Line Search reached %d its ***\n", maxItsLS);
      }
    }
    else { 
