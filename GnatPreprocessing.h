@@ -271,12 +271,11 @@ std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes
   void computeMaskedSnapshots();
   void computePseudoInverseTranspose();
   void computeApproximatedMetricLowRankFactor();
-  void outputApproximatedMetricLowRankFactor();
+  void outputApproxMetricLowRankFactor();
   double** lowRankModes;
   int numEigen;
   int numSnapsForApproxMetric;
   int nApproxMetricSampleNodes;
-  SetOfVec lowRankFactor;
   SetOfVec pseudoInverseMaskedSnapsTrans;
   SetOfVec snapHatApproxMetric;
   void setSampleNodes(int);

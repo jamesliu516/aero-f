@@ -197,7 +197,7 @@ class NonlinearRom {
   VecSet<DistSVec<double, dim> >* resMat;
   VecSet<DistSVec<double, dim> >* jacMat;
   RestrictionMapping<dim>* restrictionMapping;
-
+  VecSet<DistSVec<double, dim> >* lowRankFactor; // low rank factor for approx metric
   // for storing all online quantities in memory (optional)
   bool storedAllOnlineQuantities;
   std::vector<int>** allSampleNodes;
@@ -256,6 +256,7 @@ class NonlinearRom {
   void readClusteredApproxUpdateInfo(int, char*);
   void readClusteredCenters();
   void readAllOnlineQuantities();
+  void readApproxMetricLowRankFactor();
   void readDistanceComparisonInfo(char*); 
   void writeClusteredBinaryVectors(int, DistSVec<double,dim> *, DistSVec<double,dim> *, DistSVec<double,dim> *);
   void initializeClusteredOutputs(); 

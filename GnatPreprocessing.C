@@ -18,7 +18,6 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   errorRes(0, dom.getNodeDistInfo() ),
   errorJac(0, dom.getNodeDistInfo() ),
   pseudoInvRhs(0, dom.getNodeDistInfo() ),
-  lowRankFactor(0, dom.getNodeDistInfo() ),
   pseudoInverseMaskedSnapsTrans(0, dom.getNodeDistInfo() ),
   snapHatApproxMetric(0, dom.getNodeDistInfo() ),
   handledNodes(0), nPodBasis(0),
@@ -85,7 +84,6 @@ void GnatPreprocessing<dim>::initialize()
   errorRes.resize(0);
   errorJac.resize(0);
   pseudoInvRhs.resize(0);
-  lowRankFactor.resize(0);
   pseudoInverseMaskedSnapsTrans.resize(0);
   snapHatApproxMetric.resize(0);
   nPodBasis = 0;
@@ -314,7 +312,7 @@ use a txt file for snapshot selection: done currently for residual
   computeApproximatedMetricLowRankFactor();
 
   // Step 4: output low rank factor
-  outputApproximatedMetricLowRankFactor();
+  outputApproxMetricLowRankFactor();
 }
 
 //----------------------------------------------
@@ -498,11 +496,12 @@ void GnatPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
 
 
  // compute the SetOfVec lowRankFactor
-  lowRankFactor.resize(numEigen); 
+  if (this->lowRankFactor) delete (this->lowRankFactor); 
+  this->lowRankFactor = new VecSet< DistSVec<double, dim> >(numEigen, this->domain.getNodeDistInfo());
   for (int iEigen = 0; iEigen < numEigen; ++iEigen) {
-    lowRankFactor[iEigen] = 0.0;
+    (*this->lowRankFactor)[iEigen] = 0.0;
     for (int iSnap = 0; iSnap < numSnapsForApproxMetric; ++iSnap)
-      lowRankFactor[iEigen] += (pseudoInverseMaskedSnapsTrans[iSnap]*lowRankModes[iEigen][iSnap]);
+      (*this->lowRankFactor)[iEigen] += (pseudoInverseMaskedSnapsTrans[iSnap]*lowRankModes[iEigen][iSnap]);
   }
 
   pseudoInverseMaskedSnapsTrans.resize(0);
@@ -522,7 +521,7 @@ void GnatPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputApproximatedMetricLowRankFactor() {
+void GnatPreprocessing<dim>::outputApproxMetricLowRankFactor() {
 
  // output the SetOfVec lowRankFactor
    com->fprintf(stdout,"\n ... Writing Low Rank Factor of Approximated Metric ...\n");
@@ -538,9 +537,9 @@ void GnatPreprocessing<dim>::outputApproximatedMetricLowRankFactor() {
 
 
   int percentComplete = 0;
-  for (int iVec = 0; iVec < lowRankFactor.numVectors(); ++iVec) {  // # rows in A and B
-    outputReducedSVec(lowRankFactor[iVec],outApproxMetric,iVec);
-    if ((iVec+1)%((lowRankFactor.numVectors()/4)+1)==0) {
+  for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) {  // # rows in A and B
+    outputReducedSVec((*this->lowRankFactor)[iVec],outApproxMetric,iVec);
+    if ((iVec+1)%((this->lowRankFactor->numVectors()/4)+1)==0) {
         percentComplete += 25;
         com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
     }
@@ -550,7 +549,8 @@ void GnatPreprocessing<dim>::outputApproximatedMetricLowRankFactor() {
     delete [] filePath;
     filePath = NULL;
   }
-  lowRankFactor.resize(0);
+  delete this->lowRankFactor;
+  this->lowRankFactor = NULL;
   if (thisCPU == 0) fclose(outApproxMetric);
 
 }

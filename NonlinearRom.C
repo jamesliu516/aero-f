@@ -132,7 +132,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   Uref = NULL;
   clusterNewtonCount = NULL;
   clusterKrylovCount = NULL;
- 
+  lowRankFactor = NULL;  
   nSampleNodes = 0;
   sampleNodes.clear();
   numResJacMat = 0;
@@ -251,7 +251,7 @@ NonlinearRom<dim>::~NonlinearRom()
   if (columnSumsV) delete columnSumsV; 
   if (sVals) delete sVals;
   if (Uref) delete Uref;
-  
+  if (lowRankFactor) delete lowRankFactor; 
   //TODO
   //clusterSnapshotMap
   //clusterNeighbors
@@ -2006,6 +2006,41 @@ void NonlinearRom<dim>::readClusteredGappyMatrix(int iCluster, char* matrixType)
 //------------------------------------------------------------------------------
 
 template<int dim>
+void NonlinearRom<dim>::readApproxMetricLowRankFactor() {
+
+  if (lowRankFactor) delete lowRankFactor;
+  char *approxMetricPath;
+  determinePath(approxMetricLowRankName,-1,approxMetricPath);
+
+  
+  int nRank = 0; 
+  int dummyStep = 0;
+  double dummyTag = 0.0;
+  bool status = domain.readTagFromFile<double, dim>(approxMetricPath,dummyStep,&dummyTag,&nRank); 
+
+  if (!status) {
+    com->fprintf(stderr, "\nCould not open file %s\n", approxMetricPath);
+    exit(-1);
+  }
+
+  lowRankFactor = new VecSet< DistSVec<double, dim> >(nRank, domain.getNodeDistInfo());
+
+  com->fprintf(stdout, "\nReading approximated metric low rank factor\n");
+  double tmp;
+
+  for (int iRank = 0; iRank < nRank; ++iRank) { 
+    status = domain.readVectorFromFile(approxMetricPath, nRank, &tmp, (*lowRankFactor)[nRank]);
+  }
+  
+  com->barrier();
+  delete [] approxMetricPath;
+  approxMetricPath = NULL;  
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void NonlinearRom<dim>::readAllOnlineQuantities() {
 
 // stores all online quantities at the beginning of the simulation
@@ -2150,6 +2185,8 @@ void NonlinearRom<dim>::readAllOnlineQuantities() {
           *(allColumnSumsV[iCluster]) = *columnSumsV;
           delete columnSumsV;
           columnSumsV = NULL;
+          if (ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_APPROX)
+            readApproxMetricLowRankFactor();
           if (false) {
             // read additional update information
           }

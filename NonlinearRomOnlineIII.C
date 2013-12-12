@@ -29,7 +29,6 @@ NonlinearRomOnlineIII<dim>::NonlinearRomOnlineIII(Communicator* _com, IoData& _i
 
   if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
     this->readAllOnlineQuantities(); // all ROBs, sVals, and update info
-  
 }
 
 //----------------------------------------------------------------------------------
@@ -121,30 +120,45 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
 */
 
   // Approximate updates case
-/*
-  this->readClusteredReferenceState(iCluster); // reads Uinit
+
+  this->readClusteredReferenceState(iCluster,"state"); // reads Uref
 
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
 
   DistSVec<double, dim> a(this->domain.getNodeDistInfo());
-  a = *(this->Uinit) - U;
+  a = *(this->Uref) - U;
   
-  if (a.norm() >= 1e-6) {  // only update if Uinit is different than U (this handles the case of time=0) 
+  if (a.norm() >= 1e-6) {  // only update if Uref is different than U (this handles the case of time=0) 
 
     double m[robSize];
+    int lowRankApproxMetricSize = this->lowRankFactor->numVectors(); 
+    double temp1[lowRankApproxMetricSize];
+    double temp2[lowRankApproxMetricSize];
+    for (int iRank = 0; iRank<lowRankApproxMetricSize; ++iRank) 
+      temp1[iRank] = (*this->lowRankFactor)[iRank] * a;
+
     for (int iVec=0; iVec<robSize; ++iVec) {
-      m[iVec] = (*(this->basis))[iVec] * a; // use approximate metric here
+      m[iVec]  = 0.0;
+      for (int iRank = 0; iRank<lowRankApproxMetricSize; ++iRank) {
+        temp2[iRank] = (*this->lowRankFactor)[iRank] * (*(this->basis))[iVec];
+        m[iVec] += (temp2[iRank]*temp1[iRank]);
+      }
     }
 
     DistSVec<double, dim> p(this->domain.getNodeDistInfo());
     p = a;
 
-    for (int iVec=0; iVec<robSize; ++iVec) {
+    for (int iVec=0; iVec<robSize; ++iVec) 
       p -= (*(this->basis))[iVec] * m[iVec];
-    }
+    
 
-    double Ra = p.norm(); // use approximate metric here
+    double Ra = 0.0;
+    for (int iRank = 0; iRank<lowRankApproxMetricSize; ++iRank) {
+      temp1[iRank] = (*this->lowRankFactor)[iRank] * p;
+      Ra += pow(temp1[iRank],2);
+    }
+    Ra = pow(Ra,0.5);
     double RaInv = 1/Ra; 
     p *= RaInv;
 
@@ -153,7 +167,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     for (int iCol = 0; iCol < (kSize); ++iCol){
       for (int iRow = 0; iRow < (kSize); ++iRow) {
         if ((iCol == iRow) && (iCol < kSize-1)) {
-          K[iCol*(kSize) + iRow] = this->sVals[iCol];
+          K[iCol*(kSize) + iRow] = (*this->sVals)[iCol];
         } else {
           K[iCol*(kSize) + iRow] = 0.0;
         }
@@ -161,20 +175,20 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     }
 
     double q = 0;
-    for (int iVec=robSize; iVec<(this->snapsInCluster[iCluster]); ++iVec) {
-      q += pow(this->columnSumsV[iVec], 2);
+    for (int iVec=robSize; iVec<(this->columnSumsV->size()); ++iVec) {
+      q += pow((*(this->columnSumsV))[iVec], 2);
     }
     q = pow(q, 0.5);
 
     for (int iRow = 0; iRow < (kSize-1); ++iRow) {
       for (int iCol = 0; iCol < (kSize-1); ++iCol){
-        K[iCol*(kSize) + iRow] += m[iRow] * (this->columnSumsV[iCol]);
+        K[iCol*(kSize) + iRow] += m[iRow] * ((*(this->columnSumsV))[iCol]);
       }
       K[(kSize-1)*(kSize) + iRow] = m[iRow] * q;
     }
 
     for (int iCol = 0; iCol < kSize-1; ++iCol){
-      K[iCol*(kSize) + (kSize-1)] += Ra * (this->columnSumsV[iCol]);
+      K[iCol*(kSize) + (kSize-1)] += Ra * ((*(this->columnSumsV))[iCol]);
     }
     K[(kSize-1)*(kSize) + kSize-1] += Ra * q;
 
@@ -200,8 +214,9 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
       }
     }
   }
-  delete (this->Uinit);
-*/
+
+  delete (this->Uref);
+  this->Uref = NULL;
 }
 
 //----------------------------------------------------------------------------------
