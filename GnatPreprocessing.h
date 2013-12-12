@@ -259,19 +259,26 @@ protected:
 	//		*(&fileNameExtension));
 
   int unionOfSampleNodes; // = -1 (makes the code a bit easier to read)
-	std::set<int> globalSampleNodesUnionSet; // union of sample nodes from each cluster
+  std::set<int> globalSampleNodesUnionSet; // union of sample nodes from each cluster
+  std::set<int> globalSampleNodesUnionSetForApproxMetric; // union of sample nodes from each cluster for approximated metric
   std::vector<int> globalSampleNodesUnion; // union of sample nodes from each cluster (as a vector)
+std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes from each cluster for approx metric (as a vector)
   std::vector<std::vector<int> > globalSampleNodesForCluster; // stores sampled nodes for each of the clusters   
   void constructApproximatedMetric();
   void computeCorrelationMatrixEVD();
   void computePseudoInverseMaskedSnapshots();
+  void computeApproximatedMetricMask();
+  void computeMaskedSnapshots();
+  void computePseudoInverseTranspose();
   void computeApproximatedMetricLowRankFactor();
   void outputApproximatedMetricLowRankFactor();
   double** lowRankModes;
   int numEigen;
   int numSnapsForApproxMetric;
+  int nApproxMetricSampleNodes;
   SetOfVec lowRankFactor;
-  SetOfVec pseudoInverseMaskedSnaps;
+  SetOfVec pseudoInverseMaskedSnapsTrans;
+  SetOfVec snapHatApproxMetric;
   void setSampleNodes(int);
   void formMaskedNonlinearROBs();
   //void outputMaskedNonlinearROBs(int, const std::map<int,int> &, const std::vector<int> &);

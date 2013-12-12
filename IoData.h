@@ -2391,8 +2391,7 @@ struct ClusteringData {
 
 struct ApproximatedMetricData {
 
-  double snapshotsFraction;
-  double reducedMeshFraction;
+  double sampledMeshFraction;
   double lowRankEnergy;
   double tolerance;
   ApproximatedMetricData();

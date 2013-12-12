@@ -229,6 +229,7 @@ class NonlinearRom {
 
   VecSet< DistSVec<double, dim> >* basis;
 
+
   // online selection of closest cluster center (calls either closestCenterFull or closestCenterFast)
   void closestCenter(DistSVec<double, dim> &, int* index1=NULL);
 
