@@ -129,18 +129,17 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
   DistSVec<double, dim> a(this->domain.getNodeDistInfo());
   a = *(this->Uref) - U;
   
-  if (a.norm() >= 1e-6) {  // only update if Uref is different than U (this handles the case of time=0) 
+  if (a.norm() >= 1e-6*U.norm()) {  // only update if Uref is different than U (this handles the case of time=0) 
 
     double m[robSize];
-    int lowRankApproxMetricSize = this->lowRankFactor->numVectors(); 
-    double temp1[lowRankApproxMetricSize];
-    double temp2[lowRankApproxMetricSize];
-    for (int iRank = 0; iRank<lowRankApproxMetricSize; ++iRank) 
+    double temp1[this->nLowRankFactors];
+    double temp2[this->nLowRankFactors];
+    for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) 
       temp1[iRank] = (*this->lowRankFactor)[iRank] * a;
 
     for (int iVec=0; iVec<robSize; ++iVec) {
       m[iVec]  = 0.0;
-      for (int iRank = 0; iRank<lowRankApproxMetricSize; ++iRank) {
+      for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) {
         temp2[iRank] = (*this->lowRankFactor)[iRank] * (*(this->basis))[iVec];
         m[iVec] += (temp2[iRank]*temp1[iRank]);
       }
@@ -154,7 +153,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     
 
     double Ra = 0.0;
-    for (int iRank = 0; iRank<lowRankApproxMetricSize; ++iRank) {
+    for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) {
       temp1[iRank] = (*this->lowRankFactor)[iRank] * p;
       Ra += pow(temp1[iRank],2);
     }
@@ -215,6 +214,28 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     }
   }
 
+// TODO: update H
+  for (int iCluster = 0; iCluster < this->nClusters; ++iCluster) {
+    for (int jCluster = 0; jCluster < this->nClusters; ++jCluster) {
+      delete [] (this->hForFastDistComp)[iCluster][jCluster];
+      (this->hForFastDistComp)[iCluster][jCluster] = new double[robSize];
+    }
+  }
+  
+  double *temp = new double[this->nLowRankFactors];
+  for (int iVec = 0; iVec < robSize; ++iVec) {
+    for (int iRank = 0; iRank < this->nLowRankFactors; ++iRank)
+      temp[iRank] = (*this->lowRankFactor)[iRank] * (*(this->basis))[iVec];
+    for (int iCluster = 0; iCluster < this->nClusters; ++iCluster) {
+      for (int jCluster = 0; jCluster < this->nClusters; ++jCluster) {
+        (this->hForFastDistComp)[iCluster][jCluster][iVec] = 0.0;
+        for (int iRank = 0; iRank < this->nLowRankFactors; ++iRank)
+          (this->hForFastDistComp)[iCluster][jCluster][iVec] += ( (this->cForFastDistComp[iCluster][jCluster][iRank]) * temp[iRank]);    
+      }
+    }
+  }
+  delete [] temp;
+  temp = NULL;
   delete (this->Uref);
   this->Uref = NULL;
 }
