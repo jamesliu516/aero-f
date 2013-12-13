@@ -25,7 +25,7 @@ com(_com), ioData(&_ioData), domain(_domain)
 
   nClusters = ioData->romDatabase.nClusters;  // overwritten later if there are actually fewer clusters
   nFullMeshNodes = 0;  // read from centerNorms file if necessary
-
+  nLowRankFactors = 0;
   // Directory information
   databasePrefix = ioData->romDatabase.directories.prefix;
   databaseName = ioData->romDatabase.directories.databaseName;
@@ -237,6 +237,18 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sensitivityBasisPrefix;
   delete [] residualBasisPrefix;
   delete [] jacActionBasisPrefix;
+  if (lowRankFactor) {
+    for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+      for (int jCluster = 0; jCluster < nClusters; ++jCluster) { 
+        delete [] hForFastDistComp[iCluster][jCluster];
+        delete [] cForFastDistComp[iCluster][jCluster];
+      }
+      delete [] hForFastDistComp[iCluster];
+      delete [] cForFastDistComp[iCluster];
+    } 
+    delete [] hForFastDistComp;
+    delete [] cForFastDistComp;
+  }
 
   if (basis) delete basis;
   if (snap) delete snap; 
@@ -515,8 +527,23 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> 
 
 template<int dim>
 void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double> &dUTimeIt, int currentCluster) {
+// TODO: DJA
 
-  return;
+  for (int mCenter=1; mCenter<nClusters; ++mCenter) {
+    for (int pCenter=0; pCenter<mCenter; ++pCenter) {
+      for (int iState=0; iState<nState; ++iState) {
+        distanceComparisons[mCenter][pCenter] += hForFastDistComp[mCenter][pCenter][iState] * dUTimeIt[iState];
+      }
+      for (int iKrylov=0; iKrylov<nKrylov; ++iKrylov) {
+        // account for Krylov bases
+      }
+      for (int iSens=0; iSens<nSens; ++iSens) {
+        // account for sensitivity bases
+      }
+    }
+  }
+
+
 }
 
 //----------------------------------------------------------------------------------
@@ -2022,16 +2049,46 @@ void NonlinearRom<dim>::readApproxMetricLowRankFactor() {
     com->fprintf(stderr, "\nCould not open file %s\n", approxMetricPath);
     exit(-1);
   }
+  nLowRankFactors = nRank;
 
-  lowRankFactor = new VecSet< DistSVec<double, dim> >(nRank, domain.getNodeDistInfo());
-
+  lowRankFactor = new VecSet< DistSVec<double, dim> >(nLowRankFactors, domain.getNodeDistInfo());
+  cForFastDistComp = new double**[nClusters];
+  hForFastDistComp = new double**[nClusters];
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    hForFastDistComp[iCluster] = new double*[nClusters];
+    cForFastDistComp[iCluster] = new double*[nClusters];
+    for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+      hForFastDistComp[iCluster][jCluster] = new double[1];
+      cForFastDistComp[iCluster][jCluster] = new double[nLowRankFactors];
+    }
+  } 
   com->fprintf(stdout, "\nReading approximated metric low rank factor\n");
   double tmp;
 
-  for (int iRank = 0; iRank < nRank; ++iRank) { 
-    status = domain.readVectorFromFile(approxMetricPath, nRank, &tmp, (*lowRankFactor)[nRank]);
+  for (int iRank = 0; iRank < nLowRankFactors; ++iRank) { 
+    status = domain.readVectorFromFile(approxMetricPath, nLowRankFactors, &tmp, (*lowRankFactor)[nLowRankFactors]);
   }
-  
+ 
+
+  // build c
+  double **approxMetricMaskCenters = new double*[nClusters];
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster)
+    approxMetricMaskCenters[iCluster] = new double[nLowRankFactors];
+
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    for (int iRank = 0; iRank < nLowRankFactors; ++iRank) {
+      approxMetricMaskCenters[iCluster][iRank] = (*this->lowRankFactor)[iRank] * (*clusterCenters)[iCluster];    
+    }
+  }
+
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+      for (int iRank = 0; iRank < nLowRankFactors; ++iRank) {
+        cForFastDistComp[iCluster][jCluster][iRank] = 2.0*(approxMetricMaskCenters[jCluster][iRank]-approxMetricMaskCenters[iCluster][iRank]);
+      }
+    }
+  }
+ 
   com->barrier();
   delete [] approxMetricPath;
   approxMetricPath = NULL;  

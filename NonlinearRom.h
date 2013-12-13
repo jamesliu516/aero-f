@@ -198,6 +198,8 @@ class NonlinearRom {
   VecSet<DistSVec<double, dim> >* jacMat;
   RestrictionMapping<dim>* restrictionMapping;
   VecSet<DistSVec<double, dim> >* lowRankFactor; // low rank factor for approx metric
+  double ***hForFastDistComp;
+  double ***cForFastDistComp;
   // for storing all online quantities in memory (optional)
   bool storedAllOnlineQuantities;
   std::vector<int>** allSampleNodes;
@@ -226,7 +228,7 @@ class NonlinearRom {
 
   int nClusters;
   int nFullMeshNodes;
-
+  int nLowRankFactors;
   VecSet< DistSVec<double, dim> >* basis;
 
 
