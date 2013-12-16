@@ -301,7 +301,7 @@ use a txt file for snapshot selection: done currently for residual
    6:  build something similar as std::set<int> globalSampleNodesUnionSet
    DONE 7: look at truncating SVD prior to pseudo-inverse
   */
-
+   com->fprintf(stderr,"\nComputing Approximated Metric for Fast Reduced Basis Updates\n");
   // Step 1: compute an EVD of the correlation matrix X'*X and truncate the EVD based on the decay of EV
   computeCorrelationMatrixEVD();
 
@@ -338,7 +338,7 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
 
   corr.FactorA();
   int ncv = numSnapsForApproxMetric-1;
-  ARluSymStdEig<double> corrEigProb(ncv, corr, "LM", ncv, tolerance, 300*ncv);
+  ARluSymStdEig<double> corrEigProb(ncv, corr, "LM", ncv+1, tolerance, 300*ncv);
 
   com->fprintf(stderr, " ... Solving EigenProblem\n");
   int nconv = corrEigProb.FindEigenvectors();
@@ -346,27 +346,27 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
   com->fprintf(stderr, " ... Got %d converged eigenvectors out of %d snaps\n", nconv, numSnapsForApproxMetric);
   //Retain a low rank approximation
   double totalEnergy = 0.0;
-  for (int i = 0; i < ncv; ++i) {
-    com->fprintf(stderr, "Eig[%d] = %f\n",i,corrEigProb.Eigenvalue(ncv-i-1));
-    totalEnergy += corrEigProb.Eigenvalue(ncv-i-1);  
+  for (int i = 0; i < nconv; ++i) {
+    com->fprintf(stderr, "Eig[%d] = %f\n",i,corrEigProb.Eigenvalue(nconv-i-1));
+    totalEnergy += corrEigProb.Eigenvalue(nconv-i-1);  
   }
   double energyRetained = totalEnergy*ioData->romOffline.rob.basisUpdates.approximatedMetric.lowRankEnergy;
   totalEnergy = 0.0;
   numEigen = 0;
-  while (totalEnergy < energyRetained && numEigen< ncv-1) {
-   totalEnergy += corrEigProb.Eigenvalue(ncv-numEigen-1);
+  while (totalEnergy < energyRetained && numEigen< nconv-1) {
+   totalEnergy += corrEigProb.Eigenvalue(nconv-numEigen-1);
    numEigen++;  
   }
   // retain first numEigen eigenmodes
   double *eigenvalues = new double[numEigen];
   for (int j = 0; j < numEigen; ++j)
-    eigenvalues[j] = corrEigProb.Eigenvalue(ncv-j-1);
+    eigenvalues[j] = corrEigProb.Eigenvalue(nconv-j-1);
   lowRankModes = new double*[numEigen];
   for (int j = 0; j < numEigen; ++j)
     lowRankModes[j] = new double[numSnapsForApproxMetric];
   for (int j = 0; j < numEigen; ++j)
     for (int k = 0; k < numSnapsForApproxMetric; ++k)
-      lowRankModes[j][k] = corrEigProb.Eigenvector(ncv-j-1, k)*pow(eigenvalues[j],0.5);//scale by the square root of the eigenvalues
+      lowRankModes[j][k] = corrEigProb.Eigenvector(nconv-j-1, k)*pow(eigenvalues[j],0.5);//scale by the square root of the eigenvalues
   delete [] eigenvalues;
 #else
   com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");

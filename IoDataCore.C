@@ -4064,7 +4064,7 @@ void BasisUpdatesData::setup(const char *name, ClassAssigner *father) {
 			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForApproxUpdates), 2, "Off", 0, "On", 1);
 
   // add object to specify parameters for approx updates
-  approximatedMetric.setup("ApproximatedMetrix",ca);
+  approximatedMetric.setup("ApproximatedMetric",ca);
 }
 
 
