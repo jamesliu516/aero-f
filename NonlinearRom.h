@@ -18,6 +18,7 @@ class NonlinearRom {
   Domain& domain;
   Communicator* com; 
   IoData* ioData;
+  Timer *timer;
 
   // IO directory information
   const char* databasePrefix;
@@ -233,6 +234,7 @@ class NonlinearRom {
 
   // calculate closest center to current state using full vectors
   void closestCenterFull(DistSVec<double, dim> &, int* index1=NULL, int* index2=NULL, double* dist1=NULL, double* dist2=NULL);
+  void distancesToCentersFull(DistSVec<double, dim> &, std::vector<double> &, int* closest=NULL);
   double distanceFull(DistSVec<double, dim> &, DistSVec<double, dim> &);
 
   // calculate closest center to current state without using full vectors (approach depends on ROB update method)
@@ -273,7 +275,7 @@ class NonlinearRom {
   const DistInfo& getRestrictedDistInfo () const {return restrictionMapping->restrictedDistInfo();}
   RestrictionMapping<dim>* restrictMapping() { return restrictionMapping; } 
 
- // virtual void appendVectorToBasis(DistSVec<double, dim>*, int numVec = 0) {};
+  virtual void appendVectorToBasis(DistSVec<double, dim>&, int numVec = 0) {};
 
 };
 

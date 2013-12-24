@@ -20,7 +20,7 @@ class NonlinearRomOnlineII : public NonlinearRom<dim> {
 
   void readClosestCenterInfoModelII();
 
-  //void appendVectorToBasis(DistSVec<double, dim>*, int numVec = 0);
+  void appendVectorToBasis(DistSVec<double, dim>&, int numVec = 0);
  
 };
 

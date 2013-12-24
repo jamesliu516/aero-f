@@ -25,6 +25,7 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   double calcResidual(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &);
   void localPod(char *);
   void kmeans();
+  void kmeansWithBounds();
   void computeClassicalMultiDimensionalScaling();
   void localRelProjError(); 
 

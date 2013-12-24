@@ -56,9 +56,15 @@ protected:
   //DistSVec<double, dim>* weightFRef;	  // reference residual used for weighting least squares system
   DistVec<double>* farFieldMask;        // nonzero for far field nodes
   double ffWeight;
+  double levenbergMarquardtWeight;
 
   double regThresh;
   double regWeight;
+
+  // backtracking line search
+  double rho;
+  double c1;
+  int maxItsLS; 
 
   Vec<double> dUromNewtonIt;    // set to zero before each newton iteration
   Vec<double> dUromTimeIt;      // set to zero before each time iteration
@@ -84,6 +90,7 @@ protected:
   double lineSearch(DistSVec<double, dim> &, Vec<double> &, int, VecSet<DistSVec<double, dim> > &,double, bool &);
   double zoom(double, double, double, double, double, double, double, double, double, DistSVec<double,dim>,DistSVec<double,dim>, DistSVec<double,dim>, int);
   int checkFailSafe(DistSVec<double,dim>&);
+  void printFFWeightingInfo();
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);

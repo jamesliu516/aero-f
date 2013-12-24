@@ -873,6 +873,50 @@ double Timer::addWallDistanceTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addReadSnapshotFileTime(double t0) {
+
+  double t = getTime() - t0;
+  data[readSnapshotFile] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addClusteringTime(double t0) {
+
+  double t = getTime() - t0;
+  data[clustering] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addMDSTime(double t0) {
+  
+  double t = getTime() - t0;
+  data[mds] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addTotalOfflineTime(double t0) {
+
+  double t = getTime() - t0;
+  data[romOffline] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
 // note: the timings of both fluid and mesh parts contain their communication
 void Timer::print(Timer *str, FILE *fp)
 {
@@ -894,7 +938,7 @@ void Timer::print(Timer *str, FILE *fp)
   data[comm] = data[localCom] + data[globalCom] + data[rmaCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
   
-  if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_)
+  if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
     data[podConstr] -= data[io];
 
   int i;
@@ -1043,6 +1087,17 @@ void Timer::print(Timer *str, FILE *fp)
 
   // Output POD Timers
   if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_) {
+    com->fprintf(fp, "Offline ROM Precomputations   : %10.2f %10.2f %10.2f         -\n",
+               tmin[romOffline], tmax[romOffline], tavg[romOffline]);
+    com->fprintf(fp, "  Read state snapshot files   : %10.2f %10.2f %10.2f         -\n",
+               tmin[readSnapshotFile], tmax[readSnapshotFile], tavg[readSnapshotFile]);
+    com->fprintf(fp, "  K-Means Clustering          : %10.2f %10.2f %10.2f         -\n",
+               tmin[clustering], tmax[clustering], tavg[clustering]);
+    com->fprintf(fp, "  Multi-Dimensional Scaling   : %10.2f %10.2f %10.2f         -\n",
+               tmin[mds], tmax[mds], tavg[mds]);
+    com->fprintf(fp, "\n");
+  }
+  else if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
     com->fprintf(fp, "POD Basis Construction        : %10.2f %10.2f %10.2f         -\n",
                tmin[podConstr], tmax[podConstr], tavg[podConstr]);
     com->fprintf(fp, "  Snapshot Linear Solver      : %10.2f %10.2f %10.2f %9d\n",

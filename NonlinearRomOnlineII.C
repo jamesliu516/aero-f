@@ -260,11 +260,11 @@ void NonlinearRomOnlineII<dim>::appendNonStateDataToBasis(int cluster, char* bas
 
 
 //----------------------------------------------------------------------------------
-/*
-template<int dim>
-void NonlinearRomOnlineII<dim>::appendVectorToBasis(DistSVec<double,dim> *U, int numKeep) {
 
-  this->com->fprintf(stdout, " ... appending Residual to ROB\n");
+template<int dim>
+void NonlinearRomOnlineII<dim>::appendVectorToBasis(DistSVec<double,dim> &vec, int numKeep) {
+
+  this->com->fprintf(stdout, " ... appending Residual to ROB (absolute norm = %e)\n", vec.norm());
   
   int robSize = (numKeep == 0) ? this->basis->numVectors() : numKeep;
 
@@ -280,16 +280,15 @@ void NonlinearRomOnlineII<dim>::appendVectorToBasis(DistSVec<double,dim> *U, int
   for (int iVec=0; iVec<robSize; ++iVec)
     (*(this->basis))[iVec] = basisOld[iVec];
 
-  (*(this->basis))[robSize] = *U;
+  (*(this->basis))[robSize] = vec;
 
-
-  if (true) { //this->ioData->romOnline.sensitivity.gramSchmidt) { 
+  if (this->ioData->romOnline.onlineResiduals.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) {
     for (int iVec = 0; iVec<robSize; iVec++) {
       (*(this->basis))[robSize] -= (*(this->basis))[iVec] * ((*(this->basis))[iVec] * (*(this->basis))[robSize]);
     }  
     double norm = (*(this->basis))[robSize].norm();
     if (norm>=1e-10) {
-       this->com->fprintf(stdout, " ... norm = %e\n", norm);
+      //this->com->fprintf(stdout, " ... norm = %e\n", norm);
       (*(this->basis))[robSize] *= 1/norm;
     } else {
       this->com->fprintf(stderr, "*** Warning: vector is already contained in basis (norm=%e)\n",norm);
@@ -303,6 +302,5 @@ void NonlinearRomOnlineII<dim>::appendVectorToBasis(DistSVec<double,dim> *U, int
   this->com->fprintf(stdout, " ... using ROB with %d vectors\n", newRobSize);
 
 }
-*/
 
 

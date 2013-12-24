@@ -22,8 +22,8 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 		jactmp = new double [this->nPod * this->nPod];
 		this->jac.setNewSize(this->nPod,this->nPod);
 	} else {
-          jactmp = NULL;
-        }
+    jactmp = NULL;
+  }
 
   minRes = -1;
   rhsNormInit = -1;
@@ -98,16 +98,22 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
     if (A_Phi) delete A_Phi;
 }
 
+
 //-----------------------------------------------------------------------------
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
-
 
 	this->projectVector(this->AJ, this->F, From);
 	Vec<double> rhs(this->nPod);
 	rhs = -1.0 * From;
 
 	res = rhs*rhs;
+
+  this->com->fprintf(stdout, "||W*R(U)|| = %e\n", this->F.norm());
+  this->com->fprintf(stdout, "|| U || = %e\n", U.norm());
+
+  this->com->fprintf(stdout, "||(W*J*Phi)' * W*R|| = %e\n", res);
+
   double resReg = 0;
 
 	if (res < 0.0){
@@ -133,22 +139,88 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 
 		RefVec<DistSVec<double, dim> > residualRef2(this->F);
 		parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
-		for (int iPod=0; iPod<this->nPod; ++iPod)
+    double dUromNewtonItNormSquared = 0;
+    for (int iPod=0; iPod<this->nPod; ++iPod) {
 			this->dUromNewtonIt[iPod] = -lsCoeff[0][iPod];
+      //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
+      dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
+    }
+    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
 
+	} else if (lsSolver == 3){	// Solve Levenberg-Marquardt regularized LS via ScaLAPACK SVD
+
+    // SVD quantities
+    VecSet< DistSVec<double, dim> >* U_AJ = new VecSet< DistSVec<double, dim> >(this->nPod, this->domain->getNodeDistInfo());
+    Vec<double>* sVals_AJ = new Vec<double>(this->nPod);
+    FullM* V_AJ = new FullM(this->nPod);
+
+    parallelRom->parallelSVD(this->AJ, *U_AJ, sVals_AJ->data(), *V_AJ, this->nPod, true);
+    // Note: V, not V_transpose
+
+   /* double maxErr = 0.0;
+    double avgErr = 0.0;
+    for (int iPod = 0; iPod < this->nPod; ++iPod) {
+      DistSVec<double, dim> error(this->domain->getNodeDistInfo());
+      error  = this->AJ[iPod];
+      for (int jPod = 0; jPod < this->nPod; ++jPod)
+        error = error - (((*singVals)[jPod]*(*Vtrue)[iPod][jPod])*(*Utrue)[jPod]);
+      double errorNorm = error.norm()/((this->AJ[iPod]).norm());
+      avgErr += errorNorm;
+      if (errorNorm > maxErr)
+        maxErr = errorNorm;   
+    }
+    avgErr /= this->nPod;
   
- //   this->com->fprintf(stdout, "(||W*R_interior||)^2 = %e\n", );
- //   this->com->fprintf(stdout, "(||R_interior||)^2   = %e\n", );
- //   this->com->fprintf(stdout, "(||R_interior||)^2 / numInteriorNodes = %e\n", );
+    this->com->fprintf(stderr, " ... Average error on AJ after SVD = %e\n", avgErr);  
+    this->com->fprintf(stderr, " ... Maximum error on AJ after SVD = %e\n", maxErr); */
+    
+    Vec<double> tmpVec(this->nPod);
+    for (int iVec=0; iVec<U_AJ->numVectors(); ++iVec)
+      tmpVec[iVec] = (*U_AJ)[iVec] * (-1.0*this->F);
 
- //   this->com->fprintf(stdout, "(||W*R_ff||)^2 = %e\n", );
- //   this->com->fprintf(stdout, "(||R_ff||)^2 = %e\n", );
- //   this->com->fprintf(stdout, "(||R_ff||)^2 / numFarFieldNodes = %e\n", );
+    delete U_AJ;
 
-    this->com->fprintf(stdout, "||(W*J*Phi)' * W*R|| = %e\n", res);
+    if ((*sVals_AJ)[this->nPod-1]>0) {
+      this->com->fprintf(stdout, " ... Singular value ratio for AJ = %e \n", (*sVals_AJ)[0]/(*sVals_AJ)[this->nPod-1]);
+    } else {
+      this->com->fprintf(stdout, " ... AJ is rank deficient! \n");
+    }
 
-	}
-	else if (lsSolver == 1)	{		// normal equations
+    double lambdaSquared = pow(this->levenbergMarquardtWeight,2);
+
+    double firstTermNormSquared = 0.0;
+    for (int iVec=0; iVec<this->nPod; ++iVec) {
+      if ((*sVals_AJ)[iVec]>0) {
+        firstTermNormSquared += pow(tmpVec[iVec],2)*pow(lambdaSquared/(pow((*sVals_AJ)[iVec],2) + lambdaSquared),2);
+      } else {
+        firstTermNormSquared += pow(tmpVec[iVec],2);
+      }
+    }
+
+    double secondTermNormSquared = 0.0;
+    for (int iVec=0; iVec<this->nPod; ++iVec) {
+      tmpVec[iVec] = ((*sVals_AJ)[iVec]>0) ? tmpVec[iVec]*(*sVals_AJ)[iVec]/(pow((*sVals_AJ)[iVec],2) + lambdaSquared) : 0.0;
+      secondTermNormSquared += pow(tmpVec[iVec],2);
+    }
+
+    delete sVals_AJ;
+
+    double dUromNewtonItNormSquared = 0;
+    for (int iPod=0; iPod<this->nPod; ++iPod) {
+      this->dUromNewtonIt[iPod] = 0.0;
+      for (int jPod=0; jPod<this->nPod; ++jPod) {
+        this->dUromNewtonIt[iPod] += (*V_AJ)[iPod][jPod] * tmpVec[jPod];
+      }
+      dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
+      //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
+    }
+    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
+    this->com->fprintf(stdout, " ... || Ax - b ||^2 = %e \n", firstTermNormSquared);
+    this->com->fprintf(stdout, " ... || x ||^2 = %e \n", secondTermNormSquared);
+ 
+    delete V_AJ;
+
+  } else if (lsSolver == 1)	{		// normal equations
 		transMatMatProd(this->AJ,this->AJ,jactmp);	// TODO: make symmetric product
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
 			for (int iCol = 0; iCol < this->nPod; ++iCol) {
@@ -156,8 +228,15 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 			}
 		} 
 		this->solveLinearSystem(it, rhs, this->dUromNewtonIt);
-	} 
-  else if (lsSolver == 2) {  // regularized normal equations
+
+    double dUromNewtonItNormSquared = 0;
+    for (int iPod=0; iPod<this->nPod; ++iPod) {
+      //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
+      dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
+    }
+    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
+
+	} else if (lsSolver == 2) {  // regularized normal equations
 
     //if (it==0) minRes = ((res/this->restart->residual)<minRes) ? res/this->restart->residual : minRes;
  
@@ -526,7 +605,7 @@ double ImplicitPGTsDesc<dim>::computePGResidualNorm(DistSVec<double,dim>& Q)
       double (*f)[dim] = this->F.subData(iSub);
       for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
         for (int j=0; j<dim; ++j) {
-          weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
+          //weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
           f[i][j] = f[i][j] * weight[i][j];
         }
       }

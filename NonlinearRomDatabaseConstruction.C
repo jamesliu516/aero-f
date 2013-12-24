@@ -9,6 +9,8 @@
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <map>
+#include <set>
 
 #ifdef DO_MODAL
 #include <arpack++/include/ardsmat.h>
@@ -49,15 +51,29 @@ template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
 // The functions kmeans(), localPod(), and localRelProjError() are called here, depending on inputs.
+  double tOffline = this->timer->getTime();
 
   // clustering
   if (robConstruction->clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
+    double tRead = this->timer->getTime();
     nSnapshotFiles = this->readSnapshotFiles("state", false);
-    kmeans();
+    this->timer->addReadSnapshotFileTime(tRead);
+
+    double tCluster = this->timer->getTime();
+    if (robConstruction->clustering.clusteringAlgorithm == ClusteringData::K_MEANS_WITH_BOUNDS) {
+      kmeansWithBounds();
+    } else {
+      kmeans();
+    }
+    this->timer->addClusteringTime(tCluster);
+
     // option to form 2D representation of state data using multi-dimensional scaling (for visualization)
     if (robConstruction->clustering.computeMDS == ClusteringData::COMPUTE_MDS_TRUE) {
+      double tMDS = this->timer->getTime();
       computeClassicalMultiDimensionalScaling();
+      this->timer->addMDSTime(tMDS);
     }
+
     this->outputClusteredSnapshots("state");
 
     // for snapshot collection method 0 (all snapshots from FOM)
@@ -69,6 +85,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
        int nSensitivityFiles = this->readSnapshotFiles("sensitivity", false);
        this->outputClusteredSnapshots("sensitivity");
     } 
+    
   }
 
   // local POD
@@ -89,6 +106,9 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
   // projection error
   if (projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
+
+  this->timer->addTotalOfflineTime(tOffline);
+  this->timer->print(this->domain.getStrTimer());
 
 }
 
@@ -204,7 +224,7 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(cha
         if (strcmp(snapType,"residual")==0) {
           for (int iCluster=0;iCluster<(this->nClusters);++iCluster) {
             if (stateSnapshotClustersAfterOverlap[iData][stateSnap][iCluster]) { 
-              this->com->fprintf(stdout, "... matched with state snapshot #%d from file #%d; writing to cluster %d\n",stateSnap,iData,iCluster); 
+              this->com->fprintf(stdout, " ... matched with state snapshot #%d from file #%d; writing to cluster %d\n",stateSnap,iData,iCluster); 
               this->writeClusteredBinaryVectors(iCluster, snapBuf, NULL, NULL);
               ++(this->snapsInCluster[iCluster]);
             }
@@ -212,7 +232,7 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(cha
         } else if (strcmp(snapType,"krylov")==0) {
           for (int iCluster=0;iCluster<(this->nClusters);++iCluster) {
             if (stateSnapshotClustersAfterOverlap[iData][stateSnap][iCluster]) {
-              this->com->fprintf(stdout, "... matched with state snapshot #%d from file #%d; writing to cluster %d\n",stateSnap,iData,iCluster);
+              this->com->fprintf(stdout, " ... matched with state snapshot #%d from file #%d; writing to cluster %d\n",stateSnap,iData,iCluster);
               this->writeClusteredBinaryVectors(iCluster, NULL, NULL, snapBuf);
               ++(this->snapsInCluster[iCluster]);
             }
@@ -224,7 +244,7 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(cha
 
   this->com->fprintf(stdout, "\n"); 
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-    this->com->fprintf(stdout, "... %d %s vectors placed in cluster %d\n",this->snapsInCluster[iCluster], snapType, iCluster);
+    this->com->fprintf(stdout, " ... %d %s vectors placed in cluster %d\n",this->snapsInCluster[iCluster], snapType, iCluster);
   }
   this->com->fprintf(stdout, "\n");
 
@@ -336,12 +356,14 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   }
 
   int iterMax = robConstruction->clustering.maxIter;  // max number of kmeans iterations
-  int iterSingle = robConstruction->clustering.maxIterSingle;  // number of aggressive kmeans iterations to use before switching to a more robust single update scheme
+  int iterMaxAggressive = robConstruction->clustering.maxIterAggressive;  // number of aggressive kmeans iterations to use before switching to a more robust single update scheme
 
   int index1 = 0;
   int index2 = 0;
 
   (this->snapsInCluster) = new int[(this->nClusters)];
+  for (int iCluster=0; iCluster<this->nClusters; iCluster++)
+    (this->snapsInCluster)[iCluster] = 0;
 
   // k-means algorithm
   int iter=0;
@@ -352,7 +374,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
 
     double prevResidual = residual;
   
-    if (iter<iterSingle) {
+    if ((iter<iterMaxAggressive) || (iter==0)) {
       this->com->fprintf(stdout, " ... updating all snapshots simultaneously\n");
       for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
         this->closestCenterFull( (*(this->snap))[iSnap], &index1, &index2);
@@ -486,7 +508,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
     (this->clusterCenters) = clusterCentersNew;
     clusterCentersNew = NULL;
 
-    delete (this->snapsInCluster);
+    delete [] (this->snapsInCluster);
     (this->snapsInCluster) = snapsInClusterNew; 
     snapsInClusterNew = NULL;  
 
@@ -643,8 +665,21 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
         snapDist = NULL;
       }
 
-      this->com->fprintf(stdout, "... cluster %d has %d snaps \n", iCluster, (this->snapsInCluster)[iCluster]);
+      this->com->fprintf(stdout, " ... cluster %d has %d snaps \n", iCluster, (this->snapsInCluster)[iCluster]);
 
+    }
+  } else { // no overlap
+    (this->clusterSnapshotMap) = new int*[(this->nClusters)];
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {  
+      (this->clusterSnapshotMap)[iCluster] = new int[(this->snapsInCluster)[iCluster]];
+
+      int mappedCount = 0;
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+        if ((this->clusterIndex)[iSnap]==iCluster) {
+          (this->clusterSnapshotMap)[iCluster][mappedCount] = iSnap;
+          ++mappedCount;
+        }
+      }
     }
   }
 
@@ -684,6 +719,814 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   delete [] snapInfo;
 
 }
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
+// Utilizes triangle inequality bounds to skip distance calculations for states that
+// couldn't have changed clusters between kmeans iterations.  This can be done with
+// either tight bounds (which requires storing the cluster centers at every iteration) 
+// or with loose bounds (bounds become more conservative at each iteration).
+ 
+  bool tightBounds = false;
+  bool looseBounds = false;
+
+  this->com->fprintf(stdout, "\nUsing K-Means algorithm to cluster snapshots\n");
+
+  switch (robConstruction->clustering.kmeansBoundType) {
+    case (ClusteringData::TIGHT_BOUNDS):
+      this->com->fprintf(stdout, " ... using triangle inequality bounds (computed exactly) to improve K-Means efficiency\n");
+      tightBounds = true;
+      break;
+    case (ClusteringData::LOOSE_BOUNDS):
+      this->com->fprintf(stdout, " ... using triangle inequality bounds (conservative/approx) to improve K-Means efficiency\n");
+      looseBounds = true;
+      break;
+    default:
+      this->com->fprintf(stderr, "*** ERROR: unexpected inputs in kmeansWithBounds()\n");
+      exit(-1);
+  }
+
+  // parameters that control the kmeans clustering
+  int kMeansRandSeed = robConstruction->clustering.kMeansRandSeed;
+  int minClusterSize = robConstruction->clustering.minClusterSize;
+  double percentOverlap = robConstruction->clustering.percentOverlap;
+  double kMeansTol = robConstruction->clustering.kMeansTol;
+  int iterMax = robConstruction->clustering.maxIter;  // max number of kmeans iterations
+  int iterMaxAggressive = robConstruction->clustering.maxIterAggressive;  // number of aggressive kmeans iterations to use before switching to a more robust single update scheme
+
+  // for clustering each file separately
+  VecSet< DistSVec<double, dim> >** clusterCentersAll;
+  std::vector<std::vector<int> > clusterIndexAll;
+  std::vector<std::vector<int> > snapsInClusterAll;
+
+  int nFiles;
+  if (robConstruction->clustering.clusterFilesSeparately) {
+    nFiles = nSnapshotFiles;
+    clusterCentersAll = new VecSet< DistSVec<double, dim> >*[nFiles];
+    clusterIndexAll.resize(nFiles);
+    snapsInClusterAll.resize(nFiles);
+  } else {
+    nFiles = 1;
+  } 
+
+  VecSet< DistSVec<double, dim> >* clusterCentersOld = NULL;
+  VecSet< DistSVec<double, dim> >** clusterCentersLog = NULL;
+  std::vector<std::vector<double> > distToCenters; // [iSnap][iCluster] distance from iSnap to iCluster (Loose and Tight)
+  std::vector<std::vector<double> > uncertainty;   // [iSnap][iCluster] uncertainty of distToCenters entries (Loose and Tight) 
+  std::vector<std::vector<double> > distToCentersIteration;  // [iSnap][iCluster] = kmeans iteration corresponding to distToCenters entries (Tight only)
+
+  int nDistSkipped = 0;
+  int nDistComputed = 0;
+  int nTotSnaps = 0;
+
+  VecSet< DistSVec<double, dim> >* snapshots = NULL;
+  int snapCount = 0;
+
+  for (int iFile=0; iFile<nFiles; ++iFile) {
+ 
+    if (robConstruction->clustering.clusterFilesSeparately) {
+      this->com->fprintf(stdout, "\nClustering data from snapshot file #%d \n", iFile);
+      nTotSnaps = this->stateSnapsFromFile[iFile]; //set in readSnapshotFiles
+      if (snapshots) delete snapshots;
+      snapshots = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+        (*snapshots)[iSnap] = (*(this->snap))[snapCount];
+        ++snapCount;
+      }
+    } else {
+      nTotSnaps = this->snap->numVectors();
+      snapshots = this->snap;
+    }
+
+    this->clusterIndex = new int[nTotSnaps];
+    this->clusterCenters = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
+    this->snapsInCluster = new int[(this->nClusters)];
+
+    distToCenters.resize(nTotSnaps);
+    uncertainty.resize(nTotSnaps);
+    for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+      distToCenters[iSnap].resize(this->nClusters,0.0);
+      uncertainty[iSnap].resize(this->nClusters,0.0);
+      (this->clusterIndex)[iSnap] = -1;
+    }
+
+
+    if (tightBounds) { // need to store all cluster centers
+      clusterCentersLog = new VecSet< DistSVec<double, dim> >*[iterMax];
+      for (int iCluster=0;iCluster<this->nClusters;++iCluster) 
+        clusterCentersLog[iCluster] = NULL;
+
+      distToCentersIteration.resize(nTotSnaps);
+      for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+        distToCentersIteration[iSnap].resize(this->nClusters,0.0);
+      }
+    } else if (looseBounds) { // only need centers from previous iteration
+      clusterCentersOld = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
+    }
+
+
+    // pick random initial centers (use shuffle algorithm to ensure no duplicates)
+    int randSeed;
+    if (kMeansRandSeed == -1) {
+      randSeed = time(NULL);
+    } else {
+      randSeed = kMeansRandSeed;
+    }
+    srand(randSeed);
+
+    std::vector<int> shuffle;
+    shuffle.resize(nTotSnaps);     
+
+    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+      shuffle[iSnap] = iSnap; 
+    }
+
+    for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
+      int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
+      int temp = shuffle[iSnap];
+      shuffle[iSnap] = shuffle[randPosition];
+      shuffle[randPosition] = temp;
+    }
+
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster)
+      (*(this->clusterCenters))[iCluster]=(*snapshots)[shuffle[iCluster]];
+
+    // start k-means algorithm
+    for (int iCluster=0; iCluster<this->nClusters; iCluster++)
+      (this->snapsInCluster)[iCluster] = 0;
+
+    int iter=0;
+    double residual=1.0;
+    int index1 = 0;
+    int index2 = 0;
+
+    while (((residual > kMeansTol) || (iter == 0)) && (iter<iterMax)) {
+      
+      this->com->fprintf(stdout, "Clustering iteration #%d \n", iter+1);
+  
+      // set centersOld = centers
+      if (tightBounds) {
+        clusterCentersLog[iter] = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          (*(clusterCentersLog[iter]))[iCluster] = (*(this->clusterCenters))[iCluster];
+        }
+        clusterCentersOld = clusterCentersLog[iter];
+      } else {
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          (*clusterCentersOld)[iCluster] = (*(this->clusterCenters))[iCluster];
+         }
+      }
+  
+      std::vector<int> clusterIndexOld;
+      clusterIndexOld.resize(nTotSnaps);
+      for (int iSnap=0;iSnap<nTotSnaps;++iSnap)
+        clusterIndexOld[iSnap] = (this->clusterIndex)[iSnap];
+  
+      double prevResidual = residual;
+  
+      if (iter==0) {
+        this->com->fprintf(stdout, " ... initializing the clusters\n");
+  
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          this->distancesToCentersFull((*snapshots)[iSnap], distToCenters[iSnap], &((this->clusterIndex)[iSnap]));
+          clusterIndexOld[iSnap] = (this->clusterIndex)[iSnap];
+        }
+  
+        nDistComputed = nTotSnaps*(this->nClusters); 
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          (*(this->clusterCenters))[iCluster] = 0.0;
+        }
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += (*snapshots)[iSnap];
+          ++((this->snapsInCluster)[(this->clusterIndex)[iSnap]]);  
+        }
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          double normalize = 0;
+          if ((this->snapsInCluster)[iCluster] != 0) normalize = 1.0/double((this->snapsInCluster)[iCluster]);
+          (*(this->clusterCenters))[iCluster] *= normalize;
+        }
+      } else {
+  
+        if (iter<iterMaxAggressive) {
+          this->com->fprintf(stdout, " ... updating all snapshots simultaneously\n");
+        } else {
+          this->com->fprintf(stdout, " ... updating one snapshot at a time\n");
+        }
+  
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+            if (iCluster != (this->clusterIndex)[iSnap]) {
+              // test bounds to see if iSnap could possibly belong to iCluster
+              if (tightBounds && (iter<iterMaxAggressive) && 
+                  (0 > distToCenters[iSnap][(this->clusterIndex)[iSnap]] + distToCenters[iSnap][iCluster]
+                       + uncertainty[iSnap][(this->clusterIndex)[iSnap]] - uncertainty[iSnap][iCluster])) {
+                // unlikely, but in this case iSnap cannot belong to iCluster -- no need to calculate distances
+                ++nDistSkipped;
+                this->com->fprintf(stdout, " ... case 1 is unlikely, but apparently not impossible!\n");
+              } if (0 > distToCenters[iSnap][(this->clusterIndex)[iSnap]] - distToCenters[iSnap][iCluster]
+                        + uncertainty[iSnap][(this->clusterIndex)[iSnap]] + uncertainty[iSnap][iCluster]) {
+                // iSnap cannot belong to iCluster -- no need to calculate distances
+                ++nDistSkipped;
+              } else {
+                // can't rule out that iSnap belongs to iCluster; eliminate uncertainty one at a time
+                if (uncertainty[iSnap][(this->clusterIndex)[iSnap]]>0) {
+                  distToCenters[iSnap][(this->clusterIndex)[iSnap]] = // ...
+                    this->distanceFull((*snapshots)[iSnap], (*(this->clusterCenters))[(this->clusterIndex)[iSnap]]);
+                  uncertainty[iSnap][(this->clusterIndex)[iSnap]] = 0.0; 
+                  ++nDistComputed;
+                  if (tightBounds) distToCentersIteration[iSnap][(this->clusterIndex)[iSnap]] = iter;
+                }
+                if ( 0 > distToCenters[iSnap][(this->clusterIndex)[iSnap]] - distToCenters[iSnap][iCluster] 
+                         + uncertainty[iSnap][iCluster]) {
+                  // iSnap cannot belong to iCluster -- no further distance calculations required
+                  ++nDistSkipped;
+                } else {
+                  if (uncertainty[iSnap][iCluster]>0) {
+                    // remove remaining uncertainty by computing distToCenters[iSnap][iCluster] exactly
+                    distToCenters[iSnap][iCluster] = this->distanceFull((*snapshots)[iSnap], (*(this->clusterCenters))[iCluster]);
+                    uncertainty[iSnap][iCluster] = 0.0;
+                    ++nDistComputed;
+                    if (tightBounds) distToCentersIteration[iSnap][iCluster] = iter;
+                  }
+                  if ( 0 <= distToCenters[iSnap][(this->clusterIndex)[iSnap]] - distToCenters[iSnap][iCluster]) {
+                    // iSnap is closer to iCluster than current cluster
+                    int oldIndex = (this->clusterIndex)[iSnap];
+                    int newIndex = iCluster;
+                    (this->clusterIndex)[iSnap] = newIndex;
+  
+                    if (iter<iterMaxAggressive) {
+                      // don't update centers or uncertainties until after looping through all snapshots
+                    } else {
+                      // this case is tricky for the tight bound.  I've decided to take a hybrid approach here where 
+                      // all bounds are updated with the (worst case scenario) loose bounds when updating a single datum
+                      // at a time, but in the tight bounds case the bounds are evaluated exactly after iterating through
+                      // all snapshots.  In this case "tight bounds" is a bit of a misnomer because the bounds are only tight
+                      // at the beginning of each kmeans iteration (this is still tighter than the "loose bounds" case though)
+  
+                      // update centers
+                      DistSVec<double, dim> originalOldCenter(this->domain.getNodeDistInfo());
+                      DistSVec<double, dim> originalNewCenter(this->domain.getNodeDistInfo());
+                      originalOldCenter = (*(this->clusterCenters))[oldIndex];
+                      originalNewCenter = (*(this->clusterCenters))[newIndex];
+                      (*(this->clusterCenters))[oldIndex] *= (double((this->snapsInCluster)[oldIndex])/(double((this->snapsInCluster)[oldIndex])-1.0));
+                      (*(this->clusterCenters))[oldIndex] -= (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
+                      (*(this->clusterCenters))[newIndex] *= (double((this->snapsInCluster)[newIndex])/(double((this->snapsInCluster)[newIndex])+1.0));
+                      (*(this->clusterCenters))[newIndex] += (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
+                      --((this->snapsInCluster)[oldIndex]);
+                      ++((this->snapsInCluster)[newIndex]);
+                      
+                      // update uncertainties
+                      DistSVec<double, dim> deltaOld(this->domain.getNodeDistInfo());
+                      DistSVec<double, dim> deltaNew(this->domain.getNodeDistInfo());
+                      deltaOld = originalOldCenter - (*(this->clusterCenters))[oldIndex];
+                      deltaNew = originalNewCenter - (*(this->clusterCenters))[newIndex];
+                      double normDeltaOld = deltaOld.norm();
+                      double normDeltaNew = deltaNew.norm();
+                      for (int jSnap=0;jSnap<nTotSnaps;++jSnap) {
+                          uncertainty[jSnap][newIndex] += normDeltaNew;
+                          uncertainty[jSnap][oldIndex] += normDeltaOld;  
+                      }
+                      nDistComputed = nDistComputed+2;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } // end distance comparison loop
+      if (iter<iterMaxAggressive) {
+        // update cluster centers now if doing aggressive iterations (otherwise this was done inside the distance comparison loop)
+        int nSwitches = 0;
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          if ((this->clusterIndex)[iSnap]!=clusterIndexOld[iSnap]) ++nSwitches;
+        }
+        // if (4*nSwitches > nTotSnaps + nClusters) it's cheaper to just recalculate
+        if (4*nSwitches > nTotSnaps + this->nClusters) {
+          for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+            (this->snapsInCluster)[iCluster]=0;
+            (*(this->clusterCenters))[iCluster] = 0.0;
+           }
+          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+            (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += (*snapshots)[iSnap];
+            ++((this->snapsInCluster)[(this->clusterIndex)[iSnap]]);  
+          }
+          for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+            double normalize = 0;
+            if ((this->snapsInCluster)[iCluster] != 0) normalize = 1.0/double((this->snapsInCluster)[iCluster]);
+            (*(this->clusterCenters))[iCluster] *= normalize;
+          }
+        } else { // otherwise it's cheaper to update incrementally
+          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+            int oldIndex = clusterIndexOld[iSnap];
+            int newIndex = (this->clusterIndex)[iSnap];
+            if (oldIndex != newIndex) {
+                (this->clusterIndex)[iSnap] = newIndex;
+                (*(this->clusterCenters))[oldIndex] *= (double((this->snapsInCluster)[oldIndex])/(double((this->snapsInCluster)[oldIndex])-1.0));
+                (*(this->clusterCenters))[oldIndex] -= (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
+                (*(this->clusterCenters))[newIndex] *= (double((this->snapsInCluster)[newIndex])/(double((this->snapsInCluster)[newIndex])+1.0));
+                (*(this->clusterCenters))[newIndex] += (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
+                --((this->snapsInCluster)[oldIndex]);
+                ++((this->snapsInCluster)[newIndex]);
+            } 
+          }
+  
+        }
+      } 
+  
+      if (looseBounds && ((iter<iterMaxAggressive) || (iter==0))) {
+        // increment loose bounds (unnecessary if iter>=iterMaxAggressive)
+        std::vector<double> deltaCenters;
+        deltaCenters.resize(this->nClusters,0.0);
+        for (int iCluster=0;iCluster<this->nClusters;++iCluster) {
+          deltaCenters[iCluster] = this->distanceFull((*(this->clusterCenters))[iCluster],(*clusterCentersOld)[iCluster]);
+        }
+        for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+          for (int iCluster=0;iCluster<this->nClusters;++iCluster) {
+            uncertainty[iSnap][iCluster] = uncertainty[iSnap][iCluster] + deltaCenters[iCluster];
+          }
+        }
+        nDistComputed = nDistComputed+this->nClusters;
+      }
+  
+      clusterIndexOld.resize(0);
+  
+      if (tightBounds) {
+        // recalculate tight bounds (regardless of whether iter<iterMaxAggressive)
+        // calculate uncertainties (this gets a bit complicated for the Tight bounds case to avoid unnecessary work)
+  
+        // determine which distances need to be calculated for triangle inequalties
+        std::vector<std::set<int> > deltaCentersToCalc; // [iCluster][(iteration set)] (need distance of these centers from current)
+        deltaCentersToCalc.resize(this->nClusters);
+        for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+          for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+            deltaCentersToCalc[iCluster].insert(distToCentersIteration[iSnap][iCluster]);
+          }
+        }
+        // now that we've determined the set of distances that need to be calculated for the uncertainties, calculate them 
+        std::vector<double> deltaCenters; // use vector instead of map to make random access faster (shouldn't be large)
+        deltaCenters.resize((this->nClusters)*(iter+1),0.0);
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          for (std::set<int>::iterator it=deltaCentersToCalc[iCluster].begin(); it!=deltaCentersToCalc[iCluster].end(); ++it) {
+            int index = (this->nClusters)*(*it)+iCluster;
+            double dist = this->distanceFull((*(this->clusterCenters))[iCluster],(*(clusterCentersLog[*it]))[iCluster]);
+            deltaCenters[index] = dist;
+            ++nDistComputed;
+          }
+        }
+        // finally, store these distances in the uncertainty matrix (there should be many repeated values)
+        for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+          for (int iCluster=0;iCluster<this->nClusters;++iCluster) {
+            int index = (this->nClusters)*distToCentersIteration[iSnap][iCluster]+iCluster;
+            uncertainty[iSnap][iCluster] = deltaCenters[index];
+          }
+        }
+      }
+  
+      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+        this->com->fprintf(stdout, " ... cluster %d has %d snaps \n", iCluster, (this->snapsInCluster)[iCluster]);
+      }
+      this->com->fprintf(stdout, " ... number of distances computed so far = %d, number skipped = %d\n", nDistComputed, nDistSkipped);
+  
+      residual = calcResidual(*(this->clusterCenters), *clusterCentersOld);
+  
+      this->com->fprintf(stdout, " ... absolute residual = %e (tolerance is set to %e)\n", residual, kMeansTol);
+      ++iter;
+    }  // end of kmeans clustering loop
+
+    // delete any old cluster centers that were stored
+    if (tightBounds) {
+      for (int i=0; i<iter; ++i) {
+         if (clusterCentersLog[i]) delete clusterCentersLog[i];
+      }
+      if (clusterCentersLog) delete [] clusterCentersLog;
+      clusterCentersLog = NULL;
+
+      for (int iSnap=0;iSnap<nTotSnaps;++iSnap)
+        distToCentersIteration[iSnap].resize(0);
+      distToCentersIteration.resize(0);
+
+      clusterCentersOld = NULL;
+    } else if (looseBounds) {
+      if (clusterCentersOld) delete clusterCentersOld;
+      clusterCentersOld = NULL;
+    }
+
+    for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+      distToCenters[iSnap].resize(0);
+      uncertainty[iSnap].resize(0);
+    }
+    distToCenters.resize(0);
+    uncertainty.resize(0);
+
+
+    if (robConstruction->clustering.clusterFilesSeparately)  {
+      // store results
+      snapsInClusterAll[iFile].resize(this->nClusters);
+      clusterCentersAll[iFile] = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
+      for (int iCluster=0;iCluster<this->nClusters;++iCluster) {
+        snapsInClusterAll[iFile][iCluster] = (this->snapsInCluster)[iCluster];
+        (*clusterCentersAll[iFile])[iCluster] = (*this->clusterCenters)[iCluster];
+      }
+      clusterIndexAll[iFile].resize(nTotSnaps, 0);
+      for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+        clusterIndexAll[iFile][iSnap] = (this->clusterIndex)[iSnap];
+      }
+    
+      // delete
+      delete [] (this->clusterIndex);
+      this->clusterIndex = NULL;
+      delete [] (this->snapsInCluster);
+      this->snapsInCluster = NULL;
+      delete (this->clusterCenters);
+      this->clusterCenters = NULL;
+      delete snapshots;
+      snapshots = NULL;
+    }   
+ 
+  }
+
+  if (robConstruction->clustering.clusterFilesSeparately)  {
+    this->com->fprintf(stdout, "\nCombining clusters from each data set\n");
+
+    // form the final data structures
+    nTotSnaps = this->snap->numVectors();
+    this->clusterIndex = new int[nTotSnaps];
+    this->clusterCenters = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
+    this->snapsInCluster = new int[(this->nClusters)];
+
+    // initialize to the values found for the first file
+    for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+      (this->snapsInCluster)[iCluster] = snapsInClusterAll[0][iCluster];
+      (*this->clusterCenters)[iCluster] = (*(clusterCentersAll[0]))[iCluster];
+    }
+    for (int iSnap=0; iSnap<clusterIndexAll[0].size(); ++iSnap) {
+      (this->clusterIndex)[iSnap] = clusterIndexAll[0][iSnap];
+    }
+
+    // associate clusters to ensure that each cluster has snapshots from every file
+ 
+    std::vector<std::vector<double> > distMat;
+    distMat.resize(this->nClusters);
+
+    snapCount = this->stateSnapsFromFile[0];
+    for (int iFile=1; iFile<nSnapshotFiles; ++iFile) {
+      
+      // calc all distances
+      for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+        distMat[iCluster].resize(this->nClusters, 0.0);
+        for (int jCluster=0; jCluster<this->nClusters; ++jCluster) {
+          distMat[iCluster][jCluster] = distanceFull((*this->clusterCenters)[iCluster], (*clusterCentersAll[iFile])[jCluster]);
+        }
+      }
+
+      // perform small combinatorial search to determine best way to combine clusters from 
+      // next file with clusterIndex, clusterCenters, snapsInCluster
+
+      int* best = new int[this->nClusters];
+      int* test = new int[this->nClusters];
+      for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+        test[iCluster] = iCluster;
+      }
+
+      std::sort(test,test+this->nClusters);
+      double testObjective = 0;
+      double bestObjective = 0;
+      for (int iCluster=0; iCluster<this->nClusters; ++iCluster)
+        bestObjective+=pow(distMat[iCluster][test[iCluster]],2);
+
+      for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+          best[iCluster] = test[iCluster];
+      }
+
+      while ( std::next_permutation(test,test+this->nClusters) ) {
+        testObjective = 0;
+        for (int iCluster=0; iCluster<this->nClusters; ++iCluster)
+          testObjective+=pow(distMat[iCluster][test[iCluster]],2);
+
+        if (testObjective<bestObjective) {
+          for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+            best[iCluster] = test[iCluster];
+          }
+          bestObjective = testObjective;
+        }
+      }
+
+      for (int iSnap=0; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap){
+        (this->clusterIndex)[snapCount+iSnap] = best[clusterIndexAll[iFile][iSnap]];
+      }
+      snapCount += this->stateSnapsFromFile[iFile];
+ 
+      for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+        int snapsInNewCluster = (this->snapsInCluster)[iCluster] + snapsInClusterAll[iFile][best[iCluster]];
+        (*this->clusterCenters)[iCluster] = (((double) (this->snapsInCluster)[iCluster])/((double)snapsInNewCluster)) * (*this->clusterCenters)[iCluster]
+                                            + (((double)snapsInClusterAll[iFile][best[iCluster]])/((double)snapsInNewCluster)) * (*clusterCentersAll[iFile])[best[iCluster]];
+        (this->snapsInCluster)[iCluster] = snapsInNewCluster;
+      }  
+
+      delete [] best;
+      delete [] test;
+    }
+ 
+    // clean up
+    for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
+      clusterIndexAll[iFile].resize(0);
+      snapsInClusterAll[iFile].resize(0);
+      delete clusterCentersAll[iFile];
+    }
+
+    clusterIndexAll.resize(0);
+    snapsInClusterAll.resize(0);
+    delete [] clusterCentersAll;
+    clusterCentersAll = NULL;
+
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+        this->com->fprintf(stdout, " ... cluster %d has %d snaps \n", iCluster, (this->snapsInCluster)[iCluster]);
+    }
+
+  }
+
+  // after clustering assimilate small clusters
+  int emptyClusterCount = 0;
+  if (minClusterSize>nTotSnaps) minClusterSize = nTotSnaps;
+
+  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+    if ((this->snapsInCluster)[iCluster]==0) {
+      // if no snapshots in this cluster, skip
+      ++emptyClusterCount;
+    } else {
+    // if smaller than tolerance, add to nearest cluster
+      if ((this->snapsInCluster)[iCluster]<minClusterSize) {
+        this->com->fprintf(stderr, "*** Warning: combining small cluster with nearest neighbor\n");
+        int index1 = 0; // closest center (should be itself)
+        int index2 = 0; // second closest center (the one we want)
+
+        this->closestCenterFull((*(this->clusterCenters))[iCluster], &index1, &index2);
+        (*(this->clusterCenters))[index2] =   (*(this->clusterCenters))[index2]*(double((this->snapsInCluster)[index2])/
+                                                double((this->snapsInCluster)[index2]+(this->snapsInCluster)[iCluster]))
+                                            + (*(this->clusterCenters))[iCluster]*(double((this->snapsInCluster)[iCluster])/
+                                                double((this->snapsInCluster)[index2]+(this->snapsInCluster)[iCluster]));
+ 
+        (*(this->clusterCenters))[iCluster] = 0.0;
+ 
+        (this->snapsInCluster)[index2] = (this->snapsInCluster)[index2] + (this->snapsInCluster)[iCluster];
+        (this->snapsInCluster)[iCluster] = 0;  
+
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          if ((this->clusterIndex)[iSnap]==iCluster)  (this->clusterIndex)[iSnap]=index2;
+        }
+        
+        ++emptyClusterCount;
+      }
+    }
+  }
+
+
+  // remove any empty clusters, renumber existing clusters
+  if (emptyClusterCount>0) {
+
+    this->com->fprintf(stderr, "*** Warning: Deleting %d empty clusters\n", emptyClusterCount);
+
+    VecSet< DistSVec<double, dim> >* clusterCentersNew =  new VecSet< DistSVec<double, dim> >(((this->nClusters)-emptyClusterCount), this->domain.getNodeDistInfo()); 
+    int* snapsInClusterNew = new int[((this->nClusters)-emptyClusterCount)];
+
+    int renumberedIndices[(this->nClusters)];
+    int clusterCount = 0;
+
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      if ((this->snapsInCluster)[iCluster]==0) {
+        renumberedIndices[iCluster] = -1;
+      } else {
+        renumberedIndices[iCluster] = clusterCount; 
+        (*clusterCentersNew)[clusterCount]=(*(this->clusterCenters))[iCluster];
+        snapsInClusterNew[clusterCount]=(this->snapsInCluster)[iCluster];
+        ++clusterCount;
+      }
+    }
+
+    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+      (this->clusterIndex)[iSnap] = renumberedIndices[(this->clusterIndex)[iSnap]];
+    }
+
+    delete (this->clusterCenters);
+    (this->clusterCenters) = clusterCentersNew;
+    clusterCentersNew = NULL;
+
+    delete [] (this->snapsInCluster);
+    (this->snapsInCluster) = snapsInClusterNew; 
+    snapsInClusterNew = NULL;  
+
+    (this->nClusters) = (this->nClusters) - emptyClusterCount;
+  }
+  
+
+  // find snapshot closest to each center
+  (this->nearestSnapsToCenters) = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
+  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      
+    int sortSize = (this->snapsInCluster)[iCluster]; 
+    sortStruct* snapDist = new sortStruct[sortSize]; // this struct was defined earlier in this file 
+
+    snapCount = 0;
+    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+      if ((this->clusterIndex)[iSnap]==iCluster) { // only need to sort snapshots that are inside the current cluster
+        snapDist[snapCount].snapIndex = iSnap;
+        snapDist[snapCount].dist = this->distanceFull((*(this->snap))[iSnap],(*(this->clusterCenters))[iCluster]);
+        ++snapCount;
+      }
+    }
+
+    sort(snapDist, snapDist+sortSize);
+
+    (*(this->nearestSnapsToCenters))[iCluster] = (*(this->snap))[snapDist[0].snapIndex];
+
+    delete [] snapDist;
+    snapDist = NULL;
+  }
+
+ 
+  // add overlap if required
+  if (percentOverlap>0) {
+
+    this->com->fprintf(stdout, "Adding additional vectors to clusters (PercentOverlap = %2.1f%%)\n", percentOverlap);
+
+    int index1 = 0;
+    int index2 = 0;
+    double dist1 = 0;
+    double dist2 = 0;
+
+    //determine which clusters are neighbors
+    //approach: if a cluster is second closest to a snapshot in another cluster, then those two clusters are neighbors
+    (this->clusterNeighbors) = new int*[(this->nClusters)];
+    (this->clusterNeighborsCount) = new int[(this->nClusters)];
+
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      (this->clusterNeighborsCount)[iCluster] = 0;
+      (this->clusterNeighbors)[iCluster] = new int[1];
+    }
+
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+        if ((this->clusterIndex)[iSnap]==iCluster) { // only consider snapshots that are inside of the current cluster
+          this->closestCenterFull( (*(this->snap))[iSnap], &index1, &index2, &dist1, &dist2);
+          //add the second closest cluster as a neighbor of current cluster (if this is the first time we've found it)
+          bool unique = true;
+          for (int iNeighbor=0; iNeighbor<(this->clusterNeighborsCount)[iCluster]; ++iNeighbor) {
+            if (index2 == (this->clusterNeighbors)[iCluster][iNeighbor]) unique = false;
+          }
+          if (unique) {
+            int* clusterNeighborsNew = new int[((this->clusterNeighborsCount)[iCluster])+1];
+            for (int iNeighbor=0; iNeighbor<(this->clusterNeighborsCount)[iCluster]; ++iNeighbor) {
+              clusterNeighborsNew[iNeighbor] = (this->clusterNeighbors)[iCluster][iNeighbor];
+            }
+ 
+           clusterNeighborsNew[((this->clusterNeighborsCount)[iCluster])] = index2;
+            delete (this->clusterNeighbors)[iCluster];
+            (this->clusterNeighbors)[iCluster] = clusterNeighborsNew;
+            clusterNeighborsNew = NULL;
+            ++(this->clusterNeighborsCount)[iCluster];
+         }
+          //also add the current cluster as a neighbor of second closest cluster
+          unique = true;
+          for (int iNeighbor=0; iNeighbor<(this->clusterNeighborsCount)[index2]; ++iNeighbor) {
+            if (iCluster == (this->clusterNeighbors)[index2][iNeighbor]) unique = false;
+          }
+          if (unique) {
+            int* clusterNeighborsNew = new int[((this->clusterNeighborsCount)[index2])+1];
+            for (int iNeighbor=0; iNeighbor<(this->clusterNeighborsCount)[index2]; ++iNeighbor) {
+              clusterNeighborsNew[iNeighbor] = (this->clusterNeighbors)[index2][iNeighbor];
+            }
+ 
+            clusterNeighborsNew[((this->clusterNeighborsCount)[index2])] = iCluster;
+            delete (this->clusterNeighbors)[index2];
+            (this->clusterNeighbors)[index2] = clusterNeighborsNew;
+            clusterNeighborsNew = NULL;
+            ++(this->clusterNeighborsCount)[index2];
+         }
+        }
+      }
+    } 
+
+    index1 = 0;
+    index2 = 0;
+    dist1 = 0;
+    dist2 = 0;
+
+    int origSnapsInCluster[(this->nClusters)];
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) origSnapsInCluster[iCluster] = (this->snapsInCluster)[iCluster];
+
+    //share shapshots between neighboring clusters
+    (this->clusterSnapshotMap) = new int*[(this->nClusters)];
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {  
+
+      int numToAdd = int(ceil(double((this->snapsInCluster)[iCluster])*percentOverlap*.01/double((this->clusterNeighborsCount)[iCluster])));
+      if (((this->snapsInCluster)[iCluster]+(numToAdd*(this->clusterNeighborsCount)[iCluster]))>nTotSnaps) 
+        numToAdd=int(floor(double((nTotSnaps-(this->snapsInCluster)[iCluster]))/double((this->clusterNeighborsCount)[iCluster])));
+      (this->clusterSnapshotMap)[iCluster] = new int[((this->snapsInCluster)[iCluster]+(numToAdd*(this->clusterNeighborsCount)[iCluster]))];
+
+      // first add all snapshots that were originally in the cluster
+      int mappedCount = 0;
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+        if ((this->clusterIndex)[iSnap]==iCluster) {
+          (this->clusterSnapshotMap)[iCluster][mappedCount] = iSnap;
+          ++mappedCount;
+        }
+      }
+
+      for (int iNeighbor=0; iNeighbor<(this->clusterNeighborsCount)[iCluster]; ++iNeighbor) {
+
+        int sortSize = origSnapsInCluster[(this->clusterNeighbors)[iCluster][iNeighbor]]; 
+        sortStruct* snapDist = new sortStruct[sortSize]; // this struct was defined earlier
+
+        snapCount = 0;
+        DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+        *tmpDistVec = (*(this->clusterCenters))[iCluster] - (*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]];
+        double offset = (pow(((*(this->clusterCenters))[iCluster]).norm(),2) - pow(((*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]]).norm(),2))*(-0.5);
+
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          if ((this->clusterIndex)[iSnap]==(this->clusterNeighbors)[iCluster][iNeighbor]) { // don't need to sort snapshots belonging to the current cluster
+            snapDist[snapCount].snapIndex = iSnap;
+            snapDist[snapCount].dist = abs( (*tmpDistVec) * (*(this->snap))[iSnap] + offset );
+           // (doesn't work well) snapDist[snapCount].dist = this->distance((*snap)[iSnap],(*(this->clusterCenters))[iCluster]);
+            ++snapCount;
+          }
+        }
+        delete tmpDistVec;
+        tmpDistVec = NULL;
+        sort(snapDist, snapDist+sortSize);
+
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          for (int jSnap=0; jSnap<numToAdd; ++jSnap) {
+            if (snapDist[jSnap].snapIndex==iSnap) {
+              (this->clusterSnapshotMap)[iCluster][mappedCount] = iSnap;
+              ++mappedCount;
+              ++((this->snapsInCluster)[iCluster]);
+            }
+          }
+        }
+
+        delete [] snapDist;
+        snapDist = NULL;
+      }
+
+      this->com->fprintf(stdout, " ... cluster %d has %d snaps \n", iCluster, (this->snapsInCluster)[iCluster]);
+
+    }
+  } else { // no overlap
+    (this->clusterSnapshotMap) = new int*[(this->nClusters)];
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {  
+      (this->clusterSnapshotMap)[iCluster] = new int[(this->snapsInCluster)[iCluster]];
+
+      int mappedCount = 0;
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+        if ((this->clusterIndex)[iSnap]==iCluster) {
+          (this->clusterSnapshotMap)[iCluster][mappedCount] = iSnap;
+          ++mappedCount;
+        }
+      }
+    }
+  }
+
+  // create data structure needed for clustering non-state FOM information (explained in header file)
+  stateSnapshotClustersAfterOverlap.resize(nSnapshotFiles);
+  for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
+    stateSnapshotClustersAfterOverlap[iFile].resize(this->stateSnapsFromFile[iFile]);
+    for (int iSnap=0; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
+      stateSnapshotClustersAfterOverlap[iFile][iSnap].resize(this->nClusters,false);
+    }
+  }
+
+  int** snapInfo = new int*[nTotSnaps];  // temporary - for constructing stateSnapshotClustersAfterOverlap
+  for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+    snapInfo[iSnap] = new int[2];
+  }
+
+  snapCount = 0;
+  for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
+    for (int iSnap=0; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
+      snapInfo[snapCount][0] = iFile;// file
+      snapInfo[snapCount][1] = iSnap;// snapshot number from file
+      ++snapCount;
+    }
+  }
+
+  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+    for (int iSnap=0; iSnap<(this->snapsInCluster[iCluster]); ++iSnap) {
+      int currentSnap = this->clusterSnapshotMap[iCluster][iSnap];
+      stateSnapshotClustersAfterOverlap[snapInfo[currentSnap][0]][snapInfo[currentSnap][1]][iCluster] = true;
+    }
+  }
+
+  for (int iSnap=0; iSnap<nTotSnaps; ++iSnap)
+    delete [] snapInfo[iSnap];
+
+  delete [] snapInfo;
+
+}
+
+
 
 
 //----------------------------------------------------------------------------------
@@ -821,7 +1664,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
           (*fullSnapsNew)[iVec] = (*fullSnaps)[iVec];
         }
         for (int iVec=nStoredSnaps;iVec<(nStoredSnaps+nSnaps);++iVec) {
-          (*fullSnapsNew)[iVec] = (*this->snap)[iVec-nStoredSnaps];
+          (*fullSnapsNew)[iVec] = ((*this->snap))[iVec-nStoredSnaps];
         }
         nStoredSnaps += nSnaps;
         if (fullSnaps) delete fullSnaps;
@@ -897,7 +1740,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
     this->columnSumsV->resize(nTotSnaps, 0.0);
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
       for (int jSnap=0; jSnap<nTotSnaps; ++jSnap) {
-        (*(this->columnSumsV))[iSnap] += (*Vtrue)[iSnap][jSnap];
+        (*(this->columnSumsV))[iSnap] += (*Vtrue)[jSnap][iSnap];
       }
     }  
     delete Vtrue;
@@ -1386,8 +2229,8 @@ void NonlinearRomDatabaseConstruction<dim>::computeClassicalMultiDimensionalScal
  // }
 
   int nSnaps = this->snap->numVectors();
-  this->com->fprintf(stdout, "... calculating symmetric %dx%d distance matrix\n", nSnaps,nSnaps);
-  this->com->fprintf(stdout, "... (this might take a few minutes)\n");
+  this->com->fprintf(stdout, " ... calculating symmetric %dx%d distance matrix\n", nSnaps,nSnaps);
+  this->com->fprintf(stdout, " ... (this might take a few minutes)\n");
   distanceMat.resize(nSnaps);
   tmpMat.resize(nSnaps);
   for (int iSnap=0;iSnap<nSnaps;++iSnap) {
@@ -1407,7 +2250,7 @@ void NonlinearRomDatabaseConstruction<dim>::computeClassicalMultiDimensionalScal
   this->outputClusteredInfoASCII(-1, "distanceMatrix", NULL, &distanceMat);
 
   //apply "double centering" to distance matrix (-.5*H*D*H)
-  this->com->fprintf(stdout, "... applying double centering transformation to distance matrix\n", nSnaps,nSnaps);
+  this->com->fprintf(stdout, " ... applying double centering transformation to distance matrix\n", nSnaps,nSnaps);
   for (int iSnap=0;iSnap<nSnaps;++iSnap) {
     for (int jSnap=0;jSnap<=iSnap;++jSnap) {
       tmpMat[iSnap][jSnap] = 0.0;
@@ -1436,57 +2279,58 @@ void NonlinearRomDatabaseConstruction<dim>::computeClassicalMultiDimensionalScal
     }
   }
 
-  double* symMat = new double[((nSnaps*nSnaps)+nSnaps)/2]; //symmetric matrix
-  int count=0;
-  for (int jSnap=0;jSnap<nSnaps;++jSnap) {
-    for (int iSnap=jSnap;iSnap<nSnaps;++iSnap) {
-      symMat[count] = distanceMat[iSnap][jSnap];
-      count++;
-    }
-  }
-
-  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
-    tmpMat[iSnap].clear();
-    distanceMat[iSnap].clear();
-  }
-  tmpMat.clear();
-  distanceMat.clear();
- 
-  //extract eigenpairs corresponding to 2 largest positive eigenvalues (using ARPACK++)
-  this->com->fprintf(stdout, "... computing eigendecomposition of distance matrix using ARPACK\n");
-  int numEigVals = 10;
-  double* eVals = new double[numEigVals];
-  double* eVecs = new double[numEigVals*nSnaps];
-  ARdsSymMatrix<double> arpackMat(nSnaps, symMat, 'L'); // real dense symmetric matrix
-  ARluSymStdEig<double> eigProb(numEigVals, arpackMat, "LM");
-  int nconv = eigProb.EigenValVectors(eVecs, eVals);
-
-  int eig1 = 0;
-  int eig2 = 0;
-
-  this->com->fprintf(stdout, "\n... eigenvalues\n");
-  for (int iEig=0;iEig<numEigVals;++iEig) {
-    this->com->fprintf(stdout, "%e\n", eVals[iEig]);
-    if (eVals[iEig] > eVals[eig1]) {
-      eig2=eig1;
-      eig1=iEig;
-    } else if (eVals[iEig] > eVals[eig2]) {
-      eig2=iEig;
-    }
-  }
-
-  sleep(1);
-
-  this->com->fprintf(stdout, "\n2D visualization information: coord1 coord2 primaryCluster\n");
-  for (int iSnap=0;iSnap<nSnaps;++iSnap) {
-    this->com->fprintf(stdout, "%e %e %d\n", sqrt(eVals[eig1])*eVecs[nSnaps*eig1+iSnap], sqrt(eVals[eig2])*eVecs[nSnaps*eig2+iSnap], this->clusterIndex[iSnap]);
-  }
-
-  delete [] eVals;
-  delete [] eVecs;
-
-  delete [] symMat;
+  if (this->com->cpuNum() == 0) {
   
+    double* symMat = new double[((nSnaps*nSnaps)+nSnaps)/2]; //symmetric matrix
+    int count=0;
+    for (int jSnap=0;jSnap<nSnaps;++jSnap) {
+      for (int iSnap=jSnap;iSnap<nSnaps;++iSnap) {
+        symMat[count] = distanceMat[iSnap][jSnap];
+        count++;
+      }
+    }
+  
+    for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+      tmpMat[iSnap].clear();
+      distanceMat[iSnap].clear();
+    }
+    tmpMat.clear();
+    distanceMat.clear();
+   
+    //extract eigenpairs corresponding to 2 largest positive eigenvalues (using ARPACK++)
+    this->com->fprintf(stdout, " ... computing eigendecomposition of distance matrix using ARPACK\n");
+    int numEigVals = nSnaps-1;
+    double* eVals = new double[numEigVals];
+    double* eVecs = new double[numEigVals*nSnaps];
+    ARdsSymMatrix<double> arpackMat(nSnaps, symMat, 'L'); // real dense symmetric matrix
+    arpackMat.FactorA();
+    ARluSymStdEig<double> eigProb(numEigVals, arpackMat, "LM");
+    int nconv = eigProb.EigenValVectors(eVecs, eVals);
+  
+    int eig1 = 0;
+    int eig2 = 0;
+  
+    this->com->fprintf(stdout, "\n... eigenvalues\n");
+    for (int iEig=0;iEig<numEigVals;++iEig) {
+      this->com->fprintf(stdout, "%e\n", eVals[iEig]);
+      if (eVals[iEig] > eVals[eig1]) {
+        eig2=eig1;
+        eig1=iEig;
+      } else if (eVals[iEig] > eVals[eig2]) {
+        eig2=iEig;
+      }
+    }
+  
+    this->com->fprintf(stdout, "\n2D visualization information: coord1 coord2 primaryCluster\n");
+    for (int iSnap=0;iSnap<nSnaps;++iSnap) {
+      this->com->fprintf(stdout, "%e %e %d\n", sqrt(eVals[eig1])*eVecs[nSnaps*eig1+iSnap], sqrt(eVals[eig2])*eVecs[nSnaps*eig2+iSnap], this->clusterIndex[iSnap]);
+    }
+  
+    delete [] eVals;
+    delete [] eVecs;
+    delete [] symMat;
+  }
+
 #else
   this->com->fprintf(stderr, "*** Error: code must be compiled with ARPACK and DO_MODAL flag to compute MDS\n");
   return;

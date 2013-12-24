@@ -2163,6 +2163,9 @@ struct NonlinearRomOnlineNonStateData {
   int maxDimension;
   double energy;
 
+  int timeFreq;
+  int newtonFreq;
+
   NonlinearRomOnlineNonStateData();
   ~NonlinearRomOnlineNonStateData() {}
 
@@ -2176,12 +2179,13 @@ struct NonlinearRomOnlineData {
 
 	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
 	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
-  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_TRUE = 1} lineSearch;
-	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2} lsSolver;
+  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
+	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3} lsSolver;
 
   enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
   double weightingExponent;
   double ffWeight;
+  double levenbergMarquardtWeight;
 
   double regThresh;
   double constantGain;
@@ -2203,6 +2207,7 @@ struct NonlinearRomOnlineData {
 
   NonlinearRomOnlineNonStateData krylov;
   NonlinearRomOnlineNonStateData sensitivity;
+  NonlinearRomOnlineNonStateData onlineResiduals;
 
   NonlinearRomOnlineData();
   ~NonlinearRomOnlineData() {}
@@ -2365,16 +2370,18 @@ struct KrylovData {
 
 struct ClusteringData {
 
-  enum ClusteringAlgorithm {K_MEANS = 0} clusteringAlgorithm;
-  int numClusters;
+  enum ClusteringAlgorithm {K_MEANS_WITHOUT_BOUNDS = 0, K_MEANS_WITH_BOUNDS = 1} clusteringAlgorithm;
+  enum KmeansBoundType {TIGHT_BOUNDS = 0, LOOSE_BOUNDS = 1} kmeansBoundType;
   double percentOverlap;
   int maxIter;
-  int maxIterSingle;
+  int maxIterAggressive;
   int minClusterSize;
   double kMeansTol;
   int kMeansRandSeed;
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
   enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
+  enum OutputSnapshots {OUTPUT_SNAPSHOTS_FALSE = 0, OUTPUT_SNAPSHOTS_TRUE = 1} outputSnapshots;
+  enum ClusterFilesSeparately {CLUSTER_FILES_SEPARATELY_FALSE = 0, CLUSTER_FILES_SEPARATELY_TRUE = 1} clusterFilesSeparately;
 
   ClusteringData();
   ~ClusteringData() {}
