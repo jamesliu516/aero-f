@@ -1585,7 +1585,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
   }
 
   // read cluster centers
-  this->readClusteredCenters();
+  this->readClusterCenters("centers");
 
   bool limitedMemorySVD = (maxVecStorage <= 0 ) ? false : true;
 
@@ -1693,6 +1693,26 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
       ParallelRom<dim> parallelRom( this->domain, this->com);
       parallelRom.parallelSVD(*(this->snap), *Utrue, singVals->data(), *Vtrue, nTotSnaps, true);
   
+      // check svd
+      double errorNorm,maxErr,avgErr;
+      DistSVec<double,dim> error( this->domain.getNodeDistInfo() );
+      maxErr = 0.0;
+      avgErr = 0.0;
+      for (int iSnap = 0; iSnap < nTotSnaps; ++iSnap) {
+        error = (*this->snap)[iSnap];
+        for (int jSnap = 0; jSnap < nTotSnaps; ++jSnap)
+          error = error - (((*singVals)[jSnap]*(*Vtrue)[iSnap][jSnap])*(*Utrue)[jSnap]);
+        errorNorm = error.norm()/(((*this->snap)[iSnap]).norm());
+        avgErr += errorNorm;
+        if (errorNorm > maxErr)
+          maxErr = errorNorm;   
+      }
+      avgErr /= nTotSnaps;
+     
+      this->com->fprintf(stderr, " ... Average error on Snapshots after SVD = %e\n", avgErr);  
+      this->com->fprintf(stderr, " ... Maximum error on Snapshots after SVD = %e\n", maxErr);
+      // end check svd
+ 
       delete (this->snap);
       (this->snap) = NULL;
 
@@ -1728,7 +1748,8 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
         break; 
       } 
     } 
-   
+
+
     (this->basis) = new VecSet< DistSVec<double, dim> >(podSize, this->domain.getNodeDistInfo());
     for (int iSnap=0; iSnap<podSize; ++iSnap) { 
       (*(this->basis))[iSnap] = (*Utrue)[iSnap]; 
@@ -1802,7 +1823,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForBasisUpdates() {
 
   // unique to Approx updates
   if (robConstruction->basisUpdates.preprocessForApproxUpdates) {
-
+//TODO for DJA
   }
 
 }
@@ -1816,7 +1837,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
 
   readInitialCondition();
   
-  this->readClusteredCenters();
+  this->readClusterCenters("centers");
   std::vector<std::vector<double> > clusterCenterNorms; // nClusters-by-1, or nClusters-by-dim
   clusterCenterNorms.resize(this->nClusters);
   
@@ -2019,7 +2040,7 @@ void NonlinearRomDatabaseConstruction<dim>::readInitialCondition() {
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
 
-  this->readClusteredCenters();
+  this->readClusterCenters("centers");
   delete (this->clusterCenters);
   (this->clusterCenters) = NULL;
  

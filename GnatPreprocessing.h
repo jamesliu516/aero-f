@@ -166,101 +166,122 @@ protected:
 	
 	// mesh construction
 	// each of these arrays has nSampleNodes elements
-	std::vector <int> *globalNodes;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
-	std::vector <int> *cpus;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
-	std::vector <int> *locSubDomains;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
-	std::vector <int> *localNodes;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
-	std::vector <double> *(nodesXYZ [3]);	// nodesXYZ[iXYZ][iSampleNode][iNode] is the iXYZ coordinate of the iNode in the iSampleNode island
-	std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
-	std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
-	int *nodeOffset;
-	int *totalNodesCommunicated;
-	int *totalEleCommunicated;
-	std::vector< int > *(bcFaces [2][3]);	// boundary faces. bcfaces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
-	std::vector< int > *(bcFaceSurfID [2]);	// codes for the above boundary faces. bcFaceSurfID[iSign][BCtype][iFace] returns the surfaceID of the iFace face corresponding to iSign/BCtype
-	std::set<StaticArray <int, 3> > bcFacesInfo;	// {iCPU,iSub,iFace}
+  std::vector <int> *globalNodes;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+  std::vector <int> *cpus;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+  std::vector <int> *locSubDomains;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+  std::vector <int> *localNodes;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+  std::vector <double> *(nodesXYZ [3]);	// nodesXYZ[iXYZ][iSampleNode][iNode] is the iXYZ coordinate of the iNode in the iSampleNode island
+  std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
+  std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
+  int *nodeOffset;
+  int *totalNodesCommunicated;
+  int *totalEleCommunicated;
+  std::vector< int > *(bcFaces [2][3]);	// boundary faces. bcfaces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
+  std::vector< int > *(bcFaceSurfID [2]);	// codes for the above boundary faces. bcFaceSurfID[iSign][BCtype][iFace] returns the surfaceID of the iFace face corresponding to iSign/BCtype
+  std::set<StaticArray <int, 3> > bcFacesInfo;	// {iCPU,iSub,iFace}
 
-	std::map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
-	std::map<int, int > globalNodeToCpuMap;	// key: global node #, values: x, y, z
-	std::map<int, int > globalNodeToLocSubDomainsMap;	// key: global node #, values: x, y, z
-	std::map<int, int > globalNodeToLocalNodesMap;	// key: global node #, values: x, y, z
-	std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
-	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
-		//above maps have been defined for vector entries [iSampleNode][0:j]
-	int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
-	bool outputOnlineMatricesFull, outputOnlineMatricesSample;
-	bool initializeLeastSquaresDone; 
+  std::map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
+  std::map<int, int > globalNodeToCpuMap;	// key: global node #, values: x, y, z
+  std::map<int, int > globalNodeToLocSubDomainsMap;	// key: global node #, values: x, y, z
+  std::map<int, int > globalNodeToLocalNodesMap;	// key: global node #, values: x, y, z
+  std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
+  std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
+  //above maps have been defined for vector entries [iSampleNode][0:j]
+  int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
+  bool outputOnlineMatricesFull, outputOnlineMatricesSample;
+  bool initializeLeastSquaresDone; 
 
-		// KTC!!! then, when outputting the TOP file, need another key that maps global
-		// node # to reduced mesh node #... this mapping will be different for
-		// each island!
+  // KTC!!! then, when outputting the TOP file, need another key that maps global
+  // node # to reduced mesh node #... this mapping will be different for
+  // each island!
 
-		// also create a pointer of vectors to handle the faces that might be
-		// boundary conditions
+  // also create a pointer of vectors to handle the faces that might be
+  // boundary conditions
 
-	void computeXYZ(int iSub, int iLocNode, double *xyz);
-	virtual void buildRemainingMesh();
-	void computeBCFaces(bool);
-	bool checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap);
-	bool checkFaceAlreadyAdded(const int cpuNum, const int
-		iSub, const int iFace);
-	bool checkFaceContributesToLift(FaceSet& currentFaces, const int iFace,
-			const int iSub, const int *locToGlobNodeMap);
-	void addFaceNodesElements(FaceSet& currentFaces, const int iFace,
-			const int iSub, const int *locToGlobNodeMap);
-	void addNodesOnFace(FaceSet& currentFaces, const int iFace,
-			const int iSub, const int *locToGlobNodeMap, int *locNodeNums);
-	void addElementOfFace(FaceSet& currentFaces, const int iFace,
-			const int iSub, const int *locToGlobNodeMap, const int *globalNodeNums);
-	virtual void addSampleNodesAndNeighbors();
-	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh = 0);
-	void communicateAll();
+  void computeXYZ(int iSub, int iLocNode, double *xyz);
+  virtual void buildRemainingMesh();
+  void computeBCFaces(bool);
+  bool checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap);
+  bool checkFaceAlreadyAdded(const int cpuNum, const int
+        iSub, const int iFace);
+  bool checkFaceContributesToLift(FaceSet& currentFaces, const int iFace,
+	const int iSub, const int *locToGlobNodeMap);
+  void addFaceNodesElements(FaceSet& currentFaces, const int iFace,
+	const int iSub, const int *locToGlobNodeMap);
+  void addNodesOnFace(FaceSet& currentFaces, const int iFace,
+	const int iSub, const int *locToGlobNodeMap, int *locNodeNums);
+  void addElementOfFace(FaceSet& currentFaces, const int iFace,
+	const int iSub, const int *locToGlobNodeMap, const int *globalNodeNums);
+  virtual void addSampleNodesAndNeighbors();
+  void addNeighbors(int iSampleNodes, int startingNodeWithNeigh = 0);
+  void communicateAll();
   void initialize();
   void defineMaps();
-	void communicateBCFaces();
-	virtual void outputTopFile(int);
-	virtual void outputSampleNodes(int);
-	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile);
+  void communicateBCFaces();
+  virtual void outputTopFile(int);
+  virtual void outputSampleNodes(int);
+  void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile);
 
-	// A and B matrices functions
+  // A and B matrices functions
 
-	// pseudo-inverse functions
-	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
-	virtual void computePseudoInverse();
-	void computePseudoInverse(int iPodBasis);
-	//void computePseudoInverseRHS();
-	void checkConsistency();
-	SetOfVec pseudoInvRhs;
+  // pseudo-inverse functions
+  double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
+  virtual void computePseudoInverse();
+  void computePseudoInverse(int iPodBasis);
+  //void computePseudoInverseRHS();
+  void checkConsistency();
+  SetOfVec pseudoInvRhs;
 
-	// podTpod
-	double **podTpod;	// stores phiJ^TphiR
-	virtual void computePodTPod();
-	double **(onlineMatrices [2]);	// dimension: (nSampleNode*dim) x nPod[1]
+  // podTpod
+  double **podTpod;	// stores phiJ^TphiR
+  virtual void computePodTPod();
+  double **(onlineMatrices [2]);	// dimension: (nSampleNode*dim) x nPod[1]
 		// onlineMatrices[0] is related to the residual: 
 		// 		pod[1]^Tpod[0] * podHatPseudoInv[0]^T
 		// onlineMatrices[1] is related to the jacobian: 
 		// 		podHatPseudoInv[1]^T
-	virtual void assembleOnlineMatrices();
-	void outputOnlineMatrices(int);
-	virtual void outputOnlineMatricesGeneral( int iCluster, 
-			int numNodes, const std::map<int,int> &sampleNodeMap, const
-			std::vector<int> &sampleNodeVec);
-	virtual void outputReducedToFullNodes();
+
+  virtual void assembleOnlineMatrices();
+  void outputOnlineMatrices(int);
+  virtual void outputOnlineMatricesGeneral( int iCluster, 
+	int numNodes, const std::map<int,int> &sampleNodeMap, const
+	std::vector<int> &sampleNodeVec);
+  virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
   virtual void outputInitialConditionReduced();
+  virtual void outputClusterCentersReduced();
   virtual void outputLocalStateBasisReduced(int);
   virtual void outputLocalReferenceStateReduced(int);
-	virtual void outputWallDistanceReduced();
-	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
-	void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
+  virtual void outputWallDistanceReduced();
+  void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
+  void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 	//void determineFileName(const char *fileNameInput, const char
 	//		*currentExtension, const char *(&fileNameBase), const char
 	//		*(&fileNameExtension));
 
   int unionOfSampleNodes; // = -1 (makes the code a bit easier to read)
-	std::set<int> globalSampleNodesUnionSet; // union of sample nodes from each cluster
+  std::set<int> globalSampleNodesUnionSet; // union of sample nodes from each cluster
+  std::set<int> globalSampleNodesUnionSetForApproxMetric; // union of sample nodes from each cluster for approximated metric
   std::vector<int> globalSampleNodesUnion; // union of sample nodes from each cluster (as a vector)
+std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes from each cluster for approx metric (as a vector)
   std::vector<std::vector<int> > globalSampleNodesForCluster; // stores sampled nodes for each of the clusters   
+  void constructApproximatedMetric();
+  void computeCorrelationMatrixEVD();
+  void computePseudoInverseMaskedSnapshots();
+  void computeApproximatedMetricMask();
+  void computeMaskedSnapshots();
+  void computePseudoInverseTranspose();
+  void computeApproximatedMetricLowRankFactor();
+  void outputApproxMetricLowRankFactorFullCoords();
+  void outputApproxMetricLowRankFactorReducedCoords();
+  void testInnerProduct(char *);
+  double** lowRankModes;
+  double* lowRankApproxMetricEigenvalues;
+  int numEigen;
+  int numSnapsForApproxMetric;
+  int nApproxMetricSampleNodes;
+  SetOfVec pseudoInverseMaskedSnapsTrans;
+  SetOfVec snapHatApproxMetric;
   void setSampleNodes(int);
   void formMaskedNonlinearROBs();
   //void outputMaskedNonlinearROBs(int, const std::map<int,int> &, const std::vector<int> &);

@@ -27,9 +27,12 @@ NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioD
     if (this->nClusters>1) readClosestCenterInfoModelII();
    
     if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
-      this->readAllOnlineQuantities();
+      this->readAllClusteredOnlineQuantities();
   }
- 
+
+
+  if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_APPROX)
+    this->readApproxMetricLowRankFactor("full"); 
 }
 
 //----------------------------------------------------------------------------------
@@ -65,7 +68,7 @@ void NonlinearRomOnlineII<dim>::readClosestCenterInfoModelII() {
         exit(-1);
     }
   } else {
-    this->readClusteredCenters();
+    this->readClusterCenters("centers");
   }
 
 }
@@ -80,10 +83,40 @@ void NonlinearRomOnlineII<dim>::readClusteredOnlineQuantities(int iCluster) {
 
 }
 
+
 //----------------------------------------------------------------------------------
 
 template<int dim>
 void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> &U) {
+
+ switch (this->ioData->romOnline.basisUpdates) {
+      case (NonlinearRomOnlineData::UPDATES_OFF):
+        break;
+      case (NonlinearRomOnlineData::UPDATES_SIMPLE):
+        this->com->fprintf(stdout, " ... Applying simple rank one basis update\n");
+        updateBasisSimple(iCluster, U);
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
+        this->com->fprintf(stderr, "*** Warning: Fast exact updates not yet implemented for Model II (using simple, which is also exact)\n");
+        updateBasisSimple(iCluster, U);
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
+        this->com->fprintf(stdout, " ... Applying rank one basis update using approximate metric\n");
+        updateBasisFastApprox(iCluster, U);
+        break;
+      default:
+        this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+        exit(-1);
+   }
+
+
+}
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomOnlineII<dim>::updateBasisSimple(int iCluster, DistSVec<double, dim> &U) {
 
 /* 
   When updateBasis is called the following quantities are available:
@@ -177,6 +210,113 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
   }
   delete (this->Uref);
   this->Uref = NULL;
+
+}
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomOnlineII<dim>::updateBasisFastApprox(int iCluster, DistSVec<double, dim> &U) {
+
+  this->readClusteredUpdateInfo(iCluster, "state");
+
+  this->readClusteredReferenceState(iCluster,"state"); // reads Uref
+
+  int robSize = this->basis->numVectors();
+  int kSize = robSize+1;
+
+  DistSVec<double, dim> a(this->domain.getNodeDistInfo());
+  a = *(this->Uref) - U;
+
+  if (a.norm() >= 1e-6*U.norm()) {  // only update if Uref is different than U (this handles the case of time=0) 
+
+    double m[robSize];
+    double temp1[this->nLowRankFactors];
+    double temp2[this->nLowRankFactors];
+    for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank)
+      temp1[iRank] = (*this->lowRankFactor)[iRank] * a;
+
+    for (int iVec=0; iVec<robSize; ++iVec) {
+      m[iVec]  = 0.0;
+      for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) {
+        temp2[iRank] = (*this->lowRankFactor)[iRank] * (*(this->basis))[iVec];
+        m[iVec] += (temp2[iRank]*temp1[iRank]);
+      }
+    }
+
+    DistSVec<double, dim> p(this->domain.getNodeDistInfo());
+    p = a;
+
+    for (int iVec=0; iVec<robSize; ++iVec)
+      p -= (*(this->basis))[iVec] * m[iVec];
+
+
+    double Ra = 0.0;
+    for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) {
+      temp1[iRank] = (*this->lowRankFactor)[iRank] * p;
+      Ra += pow(temp1[iRank],2);
+    }
+    Ra = pow(Ra,0.5);
+    double RaInv = 1/Ra;
+    p *= RaInv;
+
+    double *K = new double[(kSize)*(kSize)];
+    for (int iCol = 0; iCol < (kSize); ++iCol){
+      for (int iRow = 0; iRow < (kSize); ++iRow) {
+        if ((iCol == iRow) && (iCol < kSize-1)) {
+          K[iCol*(kSize) + iRow] = (*this->sVals)[iCol];
+        } else {
+          K[iCol*(kSize) + iRow] = 0.0;
+        }
+      }
+    }
+
+    double q = 0;
+    for (int iVec=robSize; iVec<(this->columnSumsV->size()); ++iVec) {
+      q += pow((*(this->columnSumsV))[iVec], 2);
+    }
+    q = pow(q, 0.5);
+
+    for (int iRow = 0; iRow < (kSize-1); ++iRow) {
+      for (int iCol = 0; iCol < (kSize-1); ++iCol){
+        K[iCol*(kSize) + iRow] += m[iRow] * ((*(this->columnSumsV))[iCol]);
+      }
+      K[(kSize-1)*(kSize) + iRow] = m[iRow] * q;
+    }
+
+    for (int iCol = 0; iCol < kSize-1; ++iCol){
+      K[iCol*(kSize) + (kSize-1)] += Ra * ((*(this->columnSumsV))[iCol]);
+    }
+    K[(kSize-1)*(kSize) + kSize-1] += Ra * q;
+
+    double *sigma = new double[kSize];
+    double *error = new double[kSize];
+    double *work = new double[kSize];
+    int info;
+    double *zVec = new double[kSize*kSize]; // right singular vectors
+    double *yVec = new double[kSize*kSize]; // left singular vectors
+
+    this->com->fprintf(stdout, " ... computing rank one update to basis using current state\n");
+    F77NAME(dsvdc)(K, kSize, kSize, kSize, sigma, error, yVec, kSize, zVec, kSize, work, 11, info);
+
+    VecSet< DistSVec<double, dim> > basisOld(robSize, this->domain.getNodeDistInfo());
+
+    for (int iVec=0; iVec<robSize; ++iVec)
+        basisOld[iVec] = (*(this->basis))[iVec];
+
+    for (int iVec=0; iVec<robSize; ++iVec) {
+      (*(this->basis))[iVec] = p * yVec[(iVec*kSize) + kSize-1];
+      for (int jVec=0; jVec<robSize; ++jVec) {
+        (*(this->basis))[iVec] += yVec[(iVec*kSize) + jVec] * basisOld[jVec];
+      }
+    }
+  }
+
+  delete (this->Uref);
+  this->Uref = NULL;
+
+
+  if (this->ioData->romOnline.distanceComparisons)
+    this->resetDistanceComparisonQuantitiesApproxUpdates();   
 
 }
 
