@@ -85,6 +85,7 @@ struct InputData {
   const char *residualSnapFile;
   const char *krylovSnapFile;
   const char *sensitivitySnapFile;
+  const char *approxMetricStateSnapFile;
   const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -2110,6 +2111,7 @@ struct NonlinearRomFilesData {
   const char *gnatPrefix;
   const char *sampledNodesName;         //sampleNodes;
   const char *sampledNodesFullCoordsName; // sampled nodes in full mesh coordinates
+  const char *sampledCentersName;
   const char *sampledStateBasisName;    //podStateRed;
   const char *sampledKrylovBasisName;
   const char *sampledSensitivityBasisName;
@@ -2121,6 +2123,8 @@ struct NonlinearRomFilesData {
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
   const char *gappyResidualName;             //resMatrix in sampled coords;
+  const char *approxMetricLowRankName; // approximated metric in reduced mesh coordinates
+  const char *approxMetricLowRankFullCoordsName; // approximated metric in full mesh coordinates
 
   // Surface quantities
   const char *surfacePrefix;
@@ -2128,6 +2132,7 @@ struct NonlinearRomFilesData {
   const char *surfaceSolutionName;
   const char *surfaceWallDistName;
   const char *surfaceMeshName;
+
 
   NonlinearRomFilesData();
   ~NonlinearRomFilesData() {}
@@ -2390,6 +2395,20 @@ struct ClusteringData {
 
 };
 
+
+//------------------------------------------------------------------------------
+
+struct ApproximatedMetricData {
+
+  double sampledMeshFraction;
+  double lowRankEnergy;
+  double tolerance;
+  ApproximatedMetricData();
+  ~ApproximatedMetricData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
 //------------------------------------------------------------------------------
 
 struct BasisUpdatesData {
@@ -2398,6 +2417,8 @@ struct BasisUpdatesData {
   enum PreprocessForSimpleUpdates {SIMPLE_UPDATES_FALSE = 0, SIMPLE_UPDATES_TRUE = 1} preprocessForSimpleUpdates;
   enum PreprocessForExactUpdates {EXACT_UPDATES_FALSE = 0, EXACT_UPDATES_TRUE = 1} preprocessForExactUpdates;
   enum PreprocessForApproxUpdates {APPROX_UPDATES_FALSE = 0, APPROX_UPDATES_TRUE = 1} preprocessForApproxUpdates;
+  ApproximatedMetricData approximatedMetric;
+
 
   BasisUpdatesData();
   ~BasisUpdatesData() {}
@@ -2474,6 +2495,8 @@ struct GNATConstructionData {
 
 	enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
   int pseudoInverseNodes;
+  enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
+  enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
 
   GNATConstructionData();
   ~GNATConstructionData() {}
@@ -2763,6 +2786,11 @@ public:
   void printDebug();
 
   void setupOneDimensional();
+
+  int checkInputValuesNonlinearRomPreprocessing();
+  int checkInputValuesNonlinearRomOnline();
+  int checkInputValuesNonlinearRomPostprocessing();
+
 };
 
 //------------------------------------------------------------------------------

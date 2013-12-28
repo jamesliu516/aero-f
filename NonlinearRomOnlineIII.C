@@ -28,8 +28,11 @@ NonlinearRomOnlineIII<dim>::NonlinearRomOnlineIII(Communicator* _com, IoData& _i
   this->determineNumResJacMat();
 
   if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
-    this->readAllOnlineQuantities(); // all ROBs, sVals, and update info
-  
+    this->readAllClusteredOnlineQuantities(); // all ROBs, sVals, and update info
+
+  if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_APPROX) 
+    this->readApproxMetricLowRankFactor("sampled");
+
 }
 
 //----------------------------------------------------------------------------------
@@ -93,10 +96,6 @@ void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
     // read in sampled state ROB
     this->readClusteredBasis(iCluster, "sampledState");
 
-    // read in fast update quantities
-    //if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::BASIS_UPDATES_OFF)
-    //  this->readClusteredUpdateInfo(iCluster, "sampledState"); 
-
     // read in sampled krylov ROB
 
     // read in sampled sensitivity ROB
@@ -109,6 +108,35 @@ void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
 template<int dim>
 void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim> &U) {
 
+ switch (this->ioData->romOnline.basisUpdates) {
+      case (NonlinearRomOnlineData::UPDATES_OFF):
+        break;
+      case (NonlinearRomOnlineData::UPDATES_SIMPLE):
+        this->com->fprintf(stderr,"*** Error: simple basis updates are incompatible with hyper-reduction\n");
+        exit(-1); 
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
+        this->com->fprintf(stderr,"*** Error: fast exact basis updates are not yet implemented\n");                               
+        exit(-1);
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
+        this->com->fprintf(stdout, " ... Applying rank one basis update using approximate metric\n");
+        updateBasisFastApprox(iCluster, U);
+        break;
+      default:
+        this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+        exit(-1);
+   }
+
+
+}
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomOnlineIII<dim>::updateBasisFastApprox(int iCluster, DistSVec<double, dim> &U) {
+
 /* 
   When updateBasis is called the following quantities are available:
     - nClusters: number of clusters
@@ -120,30 +148,46 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
 
 */
 
-/*
-  this->readClusteredReferenceState(iCluster); // reads Uinit
+  // Approximate updates case
+
+  this->readClusteredUpdateInfo(iCluster, "sampledState"); 
+  this->readClusteredReferenceState(iCluster,"sampledState"); // reads Uref
 
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
 
   DistSVec<double, dim> a(this->domain.getNodeDistInfo());
-  a = *(this->Uinit) - U;
+  a = *(this->Uref) - U;
   
-  if (a.norm() >= 1e-6) {  // only update if Uinit is different than U (this handles the case of time=0) 
+  if (a.norm() >= 1e-6*U.norm()) {  // only update if Uref is different than U (this handles the case of time=0) 
 
     double m[robSize];
+    double temp1[this->nLowRankFactors];
+    double temp2[this->nLowRankFactors];
+    for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) 
+      temp1[iRank] = (*this->lowRankFactor)[iRank] * a;
+
     for (int iVec=0; iVec<robSize; ++iVec) {
-      m[iVec] = (*(this->basis))[iVec] * a;
+      m[iVec]  = 0.0;
+      for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) {
+        temp2[iRank] = (*this->lowRankFactor)[iRank] * (*(this->basis))[iVec];
+        m[iVec] += (temp2[iRank]*temp1[iRank]);
+      }
     }
 
     DistSVec<double, dim> p(this->domain.getNodeDistInfo());
     p = a;
 
-    for (int iVec=0; iVec<robSize; ++iVec) {
+    for (int iVec=0; iVec<robSize; ++iVec) 
       p -= (*(this->basis))[iVec] * m[iVec];
-    }
+    
 
-    double Ra = p.norm();
+    double Ra = 0.0;
+    for (int iRank = 0; iRank<this->nLowRankFactors; ++iRank) {
+      temp1[iRank] = (*this->lowRankFactor)[iRank] * p;
+      Ra += pow(temp1[iRank],2);
+    }
+    Ra = pow(Ra,0.5);
     double RaInv = 1/Ra; 
     p *= RaInv;
 
@@ -152,7 +196,7 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     for (int iCol = 0; iCol < (kSize); ++iCol){
       for (int iRow = 0; iRow < (kSize); ++iRow) {
         if ((iCol == iRow) && (iCol < kSize-1)) {
-          K[iCol*(kSize) + iRow] = this->sVals[iCol];
+          K[iCol*(kSize) + iRow] = (*this->sVals)[iCol];
         } else {
           K[iCol*(kSize) + iRow] = 0.0;
         }
@@ -160,20 +204,20 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     }
 
     double q = 0;
-    for (int iVec=robSize; iVec<(this->snapsInCluster[iCluster]); ++iVec) {
-      q += pow(this->columnSumsV[iVec], 2);
+    for (int iVec=robSize; iVec<(this->columnSumsV->size()); ++iVec) {
+      q += pow((*(this->columnSumsV))[iVec], 2);
     }
     q = pow(q, 0.5);
 
     for (int iRow = 0; iRow < (kSize-1); ++iRow) {
       for (int iCol = 0; iCol < (kSize-1); ++iCol){
-        K[iCol*(kSize) + iRow] += m[iRow] * (this->columnSumsV[iCol]);
+        K[iCol*(kSize) + iRow] += m[iRow] * ((*(this->columnSumsV))[iCol]);
       }
       K[(kSize-1)*(kSize) + iRow] = m[iRow] * q;
     }
 
     for (int iCol = 0; iCol < kSize-1; ++iCol){
-      K[iCol*(kSize) + (kSize-1)] += Ra * (this->columnSumsV[iCol]);
+      K[iCol*(kSize) + (kSize-1)] += Ra * ((*(this->columnSumsV))[iCol]);
     }
     K[(kSize-1)*(kSize) + kSize-1] += Ra * q;
 
@@ -199,8 +243,13 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
       }
     }
   }
-  delete (this->Uinit);
-  */
+
+  delete (this->Uref);
+  this->Uref = NULL;
+
+  if (this->ioData->romOnline.distanceComparisons) 
+    this->resetDistanceComparisonQuantitiesApproxUpdates();
+
 }
 
 //----------------------------------------------------------------------------------
