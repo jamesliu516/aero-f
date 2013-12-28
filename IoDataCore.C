@@ -3631,6 +3631,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   gnatPrefix = "";
   sampledNodesName = "";
   sampledNodesFullCoordsName = "";
+  sampledCentersName = "";
   sampledStateBasisName = "";
   sampledKrylovBasisName = "";
   sampledSensitivityBasisName = "";
@@ -3643,7 +3644,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   gappyJacActionName = "";
   gappyResidualName = "";
   approxMetricLowRankName = "";
-
+  approxMetricLowRankFullCoordsName = "";
   // Surface quantities
   surfacePrefix = "";
   surfaceStateBasisName = "";
@@ -3724,6 +3725,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "GNATPrefix", this, &NonlinearRomFilesData::gnatPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledNodes", this, &NonlinearRomFilesData::sampledNodesName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledNodesFullCoords", this, &NonlinearRomFilesData::sampledNodesFullCoordsName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledClusterCenters", this, &NonlinearRomFilesData::sampledCentersName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledStateBasis", this, &NonlinearRomFilesData::sampledStateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledKrylovBasis", this, &NonlinearRomFilesData::sampledKrylovBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledSensitivityBasis", this, &NonlinearRomFilesData::sampledSensitivityBasisName);
@@ -3736,6 +3738,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineResidualMatrix", this, &NonlinearRomFilesData::gappyResidualName);
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineJacActionMatrix", this, &NonlinearRomFilesData::gappyJacActionName);
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricLowRankMatrix", this, &NonlinearRomFilesData::approxMetricLowRankName);
+  new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricLowRankMatrixFullCoords", this, &NonlinearRomFilesData::approxMetricLowRankFullCoordsName);
 
   // Surface quantities
   new ClassStr<NonlinearRomFilesData>(ca, "SurfacePrefix", this, &NonlinearRomFilesData::surfacePrefix);
@@ -3918,13 +3921,15 @@ GNATConstructionData::GNATConstructionData()
 
   sampledMeshUsed = SAMPLED_MESH_USED;
   pseudoInverseNodes = 20;
+  outputReducedBases = OUTPUT_REDUCED_BASES_TRUE;
+  testApproxMetric = TEST_APPROX_METRIC_FALSE;
 }
 
 //------------------------------------------------------------------------------
 
 void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+  ClassAssigner *ca = new ClassAssigner(name, 15, father);
   
 	// optional: document
   new ClassInt<GNATConstructionData>(ca, "MaxDimensionStateROB", this, &GNATConstructionData::maxDimensionState);	// default: full size
@@ -3972,6 +3977,13 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
 			GNATConstructionData::*>(&GNATConstructionData::sampledMeshUsed), 2, "False", 0, "True", 1);	
 
   new ClassInt<GNATConstructionData>(ca, "NumPseudoInvNodesAtATime", this, &GNATConstructionData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
+
+  new ClassToken<GNATConstructionData> (ca, "OutputReducedBases", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::outputReducedBases), 2, "False", 0, "True", 1);
+
+  new ClassToken<GNATConstructionData> (ca, "TestLowRankApproxMetric", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::testApproxMetric), 2, "False", 0, "True", 1);
+
 
 }
 //------------------------------------------------------------------------------
@@ -5626,6 +5638,21 @@ int IoData::checkInputValues()
   eqs.tc.tr.bfix.z0 /= ref.rv.tlength;
   eqs.tc.tr.bfix.z1 /= ref.rv.tlength;
 
+
+  // input values for NonlinearROMs
+  if (   (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_)
+      || (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_)
+      || (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_) ) {
+    error += checkInputValuesNonlinearRomPreprocessing();
+  } else if (   (problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) ) {
+    error += checkInputValuesNonlinearRomOnline();
+  } else if (problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+    error += checkInputValuesNonlinearRomPostprocessing();
+  }
 
   return error;
 
@@ -7306,3 +7333,35 @@ void IoData::printDebug(){
     }
   }
 }
+
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesNonlinearRomPreprocessing() {
+  int error = 0;
+
+  // TODO KMW
+
+  return error;
+}
+
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesNonlinearRomOnline() {
+  int error = 0;
+
+  // TODO KMW
+
+  return error;
+}
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesNonlinearRomPostprocessing() {
+  int error = 0;
+
+  // TODO KMW
+  romOnline.distanceComparisons = NonlinearRomOnlineData::DISTANCE_COMPARISONS_OFF;
+
+  return error;
+}
+
+

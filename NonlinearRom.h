@@ -86,6 +86,7 @@ class NonlinearRom {
   // GNAT quantities
   char* sampledNodesName;
   char* sampledNodesFullCoordsName;
+  char* sampledCentersName;
   char* sampledStateBasisName;
   char* sampledKrylovBasisName;
   char* sampledSensitivityBasisName;
@@ -98,7 +99,7 @@ class NonlinearRom {
   char* gappyJacActionName;
   char* gappyResidualName;
   char* approxMetricLowRankName;
-
+  char* approxMetricLowRankFullCoordsName;
   // Surface quantities
   //char* surfaceStateBasisName;
   //char* surfaceSolutionName;
@@ -242,6 +243,7 @@ class NonlinearRom {
   // calculate closest center to current state without using full vectors (approach depends on ROB update method)
   void closestCenterFast(int* index1=NULL);
   void initializeDistanceComparisons(DistSVec<double, dim> &);
+  void resetDistanceComparisonQuantitiesApproxUpdates();
   void incrementDistanceComparisons(Vec<double> &, int);  // calls one of the following three functions
   void incrementDistanceComparisonsForNoUpdates(Vec<double> &, int);
   void incrementDistanceComparisonsForExactUpdates(Vec<double> &, int);
@@ -255,10 +257,9 @@ class NonlinearRom {
   void readClusteredColumnSumsV(int, char*);
   void readClusteredUpdateInfo(int, char*);
   void readClusteredExactUpdateInfo(int, char*);
-  void readClusteredApproxUpdateInfo(int, char*);
-  void readClusteredCenters();
-  void readAllOnlineQuantities();
-  void readApproxMetricLowRankFactor();
+  void readClusterCenters(char*);
+  void readAllClusteredOnlineQuantities();
+  void readApproxMetricLowRankFactor(char *);
   void readDistanceComparisonInfo(char*); 
   void writeClusteredBinaryVectors(int, DistSVec<double,dim> *, DistSVec<double,dim> *, DistSVec<double,dim> *);
   void initializeClusteredOutputs(); 

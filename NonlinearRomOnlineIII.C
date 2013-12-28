@@ -28,7 +28,11 @@ NonlinearRomOnlineIII<dim>::NonlinearRomOnlineIII(Communicator* _com, IoData& _i
   this->determineNumResJacMat();
 
   if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
-    this->readAllOnlineQuantities(); // all ROBs, sVals, and update info
+    this->readAllClusteredOnlineQuantities(); // all ROBs, sVals, and update info
+
+  if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_APPROX) 
+    this->readApproxMetricLowRankFactor("sampled");
+
 }
 
 //----------------------------------------------------------------------------------
@@ -92,10 +96,6 @@ void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
     // read in sampled state ROB
     this->readClusteredBasis(iCluster, "sampledState");
 
-    // read in fast update quantities
-    //if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::BASIS_UPDATES_OFF)
-    //  this->readClusteredUpdateInfo(iCluster, "sampledState"); 
-
     // read in sampled krylov ROB
 
     // read in sampled sensitivity ROB
@@ -107,6 +107,35 @@ void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
 
 template<int dim>
 void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim> &U) {
+
+ switch (this->ioData->romOnline.basisUpdates) {
+      case (NonlinearRomOnlineData::UPDATES_OFF):
+        break;
+      case (NonlinearRomOnlineData::UPDATES_SIMPLE):
+        this->com->fprintf(stderr,"*** Error: simple basis updates are incompatible with hyper-reduction\n");
+        exit(-1); 
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
+        this->com->fprintf(stderr,"*** Error: fast exact basis updates are not yet implemented\n");                               
+        exit(-1);
+        break;
+      case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
+        this->com->fprintf(stdout, " ... Applying rank one basis update using approximate metric\n");
+        updateBasisFastApprox(iCluster, U);
+        break;
+      default:
+        this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+        exit(-1);
+   }
+
+
+}
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomOnlineIII<dim>::updateBasisFastApprox(int iCluster, DistSVec<double, dim> &U) {
 
 /* 
   When updateBasis is called the following quantities are available:
@@ -121,7 +150,8 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
 
   // Approximate updates case
 
-  this->readClusteredReferenceState(iCluster,"state"); // reads Uref
+  this->readClusteredUpdateInfo(iCluster, "sampledState"); 
+  this->readClusteredReferenceState(iCluster,"sampledState"); // reads Uref
 
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
@@ -214,30 +244,12 @@ void NonlinearRomOnlineIII<dim>::updateBasis(int iCluster, DistSVec<double, dim>
     }
   }
 
-// TODO: update H
-  for (int iCluster = 0; iCluster < this->nClusters; ++iCluster) {
-    for (int jCluster = 0; jCluster < this->nClusters; ++jCluster) {
-      delete [] (this->hForFastDistComp)[iCluster][jCluster];
-      (this->hForFastDistComp)[iCluster][jCluster] = new double[robSize];
-    }
-  }
-  
-  double *temp = new double[this->nLowRankFactors];
-  for (int iVec = 0; iVec < robSize; ++iVec) {
-    for (int iRank = 0; iRank < this->nLowRankFactors; ++iRank)
-      temp[iRank] = (*this->lowRankFactor)[iRank] * (*(this->basis))[iVec];
-    for (int iCluster = 0; iCluster < this->nClusters; ++iCluster) {
-      for (int jCluster = 0; jCluster < this->nClusters; ++jCluster) {
-        (this->hForFastDistComp)[iCluster][jCluster][iVec] = 0.0;
-        for (int iRank = 0; iRank < this->nLowRankFactors; ++iRank)
-          (this->hForFastDistComp)[iCluster][jCluster][iVec] += ( (this->cForFastDistComp[iCluster][jCluster][iRank]) * temp[iRank]);    
-      }
-    }
-  }
-  delete [] temp;
-  temp = NULL;
   delete (this->Uref);
   this->Uref = NULL;
+
+  if (this->ioData->romOnline.distanceComparisons) 
+    this->resetDistanceComparisonQuantitiesApproxUpdates();
+
 }
 
 //----------------------------------------------------------------------------------

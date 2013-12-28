@@ -159,7 +159,7 @@ void GnatPreprocessing<dim>::initialize()
 template<int dim>
 void GnatPreprocessing<dim>::buildReducedModel() {
 
-  this->readClusteredCenters(); // double checks the value of nClusters that was given in the input file
+  this->readClusterCenters("centers"); // double checks the value of nClusters that was given in the input file
   globalSampleNodesForCluster.resize(this->nClusters);
  
     //======================================
@@ -193,7 +193,7 @@ void GnatPreprocessing<dim>::buildReducedModel() {
   int nAddedSamplesLoc = 0;
   int nAddedSamplesGlob = 0;
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-    com->fprintf(stdout,"\n ... selecting sample nodes for cluster %d ...\n", iCluster);
+    com->fprintf(stdout,"\n ... Selecting sample nodes for cluster %d ...\n", iCluster);
 
     initialize();
 
@@ -237,7 +237,6 @@ void GnatPreprocessing<dim>::buildReducedModel() {
 
   outputWallDistanceReduced();  // distributed info (parallel)
 
- 
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
 
     com->fprintf(stdout,"\n-----------------------------------------------------\n");
@@ -276,9 +275,24 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     outputLocalReferenceStateReduced(iCluster);
   }
 
+  if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
 
-  constructApproximatedMetric();
-  com->fprintf(stdout," \n... finished with GNAT preprocessing - Exiting...\n");
+    com->fprintf(stdout,"\nPreprocessing for approximate basis updates\n");
+ 
+    outputClusterCentersReduced();
+
+    constructApproximatedMetric();
+
+    if (ioData->romOffline.gnat.testApproxMetric) {
+      com->fprintf(stdout," \n Computing approximated metric errors on training data\n");
+      testInnerProduct("approxMetricState");
+      com->fprintf(stdout," \n Computing approximated metric errors on training+validation data\n");
+      testInnerProduct("state");
+    }
+
+  }
+
+  com->fprintf(stdout," \n... Finished with GNAT preprocessing - Exiting...\n");
 
 } 
 
@@ -288,20 +302,7 @@ template<int dim>
 void GnatPreprocessing<dim>::constructApproximatedMetric() {
   // the notations follow the paper "Fast Local Reduced Bais Updates Based on Approximated Metric"
 
-  /* TODO: 
-   
-   DONE 1: add "approxMetricState" snapType case in readSnapshotFile
-use a txt file for snapshot selection: done currently for residual
-      Clean up input -> new text file for input of approx metric
-   2: iterate through the local reduced meshes and take from each (take nodes)
-      define a reduced mesh:loop over all the local masks and select nodes: For Kyle: look where that happens
-   DONE 3: For Kyle Move readSnapshotFile to NonlinearROM and call from here
-   DONE 4: Clean up output
-   DONE 5: pseudo-inverse code 
-   6:  build something similar as std::set<int> globalSampleNodesUnionSet
-   DONE 7: look at truncating SVD prior to pseudo-inverse
-  */
-   com->fprintf(stderr,"\nComputing Approximated Metric for Fast Reduced Basis Updates\n");
+  com->fprintf(stdout,"\nComputing approximated metric for fast reduced basis updates\n");
   // Step 1: compute an EVD of the correlation matrix X'*X and truncate the EVD based on the decay of EV
   computeCorrelationMatrixEVD();
 
@@ -312,7 +313,8 @@ use a txt file for snapshot selection: done currently for residual
   computeApproximatedMetricLowRankFactor();
 
   // Step 4: output low rank factor
-  outputApproxMetricLowRankFactor();
+  outputApproxMetricLowRankFactorReducedCoords();
+  outputApproxMetricLowRankFactorFullCoords();
 }
 
 //----------------------------------------------
@@ -323,7 +325,7 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
 #ifdef DO_MODAL
   this->readSnapshotFiles("approxMetricState", 0);
   numSnapsForApproxMetric = this->snap->numVectors();
-  com->fprintf(stderr, " ... Forming Correlation Matrix Usind %d Snapshots\n",numSnapsForApproxMetric);
+  com->fprintf(stderr, " ... Forming correlation matrix using %d snapshots\n",numSnapsForApproxMetric);
   // allocate for upper half of sym. eigprob
   double *rVals = new double[numSnapsForApproxMetric*(numSnapsForApproxMetric+1)/2];
   for (int i = 0; i < numSnapsForApproxMetric; i++)
@@ -334,22 +336,43 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
 
   ARdsSymMatrix<double> corr(numSnapsForApproxMetric, rVals, 'U');
 
-  com->fprintf(stderr, " ... Factoring Correlation Matrix\n");
+  com->fprintf(stderr, " ... Factoring correlation matrix\n");
 
   corr.FactorA();
   int ncv = numSnapsForApproxMetric-1;
   ARluSymStdEig<double> corrEigProb(ncv, corr, "LM", ncv+1, tolerance, 300*ncv);
 
-  com->fprintf(stderr, " ... Solving EigenProblem\n");
+  com->fprintf(stderr, " ... Solving eigenproblem\n");
   int nconv = corrEigProb.FindEigenvectors();
 
-  com->fprintf(stderr, " ... Got %d converged eigenvectors out of %d snaps\n", nconv, numSnapsForApproxMetric);
+  com->fprintf(stderr, " ... Found %d converged eigenvectors out of %d snaps\n", nconv, numSnapsForApproxMetric);
+
+  //Test eigenvalue decomposition
+  double errrValsEV, maxErr, avgErr;
+/*  maxErr = 0.0;
+  avgErr = 0.0;
+  for (int i = 0; i < numSnapsForApproxMetric; i++) {
+    for (int j = 0; j <= i; j++) {
+      errrValsEV = 0.0;
+      for (int k = 0; k < nconv; ++k)      
+        errrValsEV += (corrEigProb.Eigenvalue(nconv-k-1)*corrEigProb.Eigenvector(nconv-k-1, i)*corrEigProb.Eigenvector(nconv-k-1, j));
+      errrValsEV = abs(rVals[(i+1)*i/2 + j] - errrValsEV) / abs(rVals[(i+1)*i/2 + j]);
+      avgErr += errrValsEV;
+      if (errrValsEV > maxErr)
+        maxErr = errrValsEV;
+    }
+  }
+  avgErr /= (numSnapsForApproxMetric*(numSnapsForApproxMetric+1)/2);
+  com->fprintf(stderr, " ... Average error on EVD = %e\n", avgErr);
+  com->fprintf(stderr, " ... Maximum error on EVD = %e\n", maxErr); */
+
   //Retain a low rank approximation
   double totalEnergy = 0.0;
   for (int i = 0; i < nconv; ++i) {
-    com->fprintf(stderr, "Eig[%d] = %f\n",i,corrEigProb.Eigenvalue(nconv-i-1));
+    //com->fprintf(stderr, "Eig[%d] = %f\n",i,corrEigProb.Eigenvalue(nconv-i-1));
     totalEnergy += corrEigProb.Eigenvalue(nconv-i-1);  
   }
+
   double energyRetained = totalEnergy*ioData->romOffline.rob.basisUpdates.approximatedMetric.lowRankEnergy;
   totalEnergy = 0.0;
   numEigen = 0;
@@ -358,16 +381,41 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
    numEigen++;  
   }
   // retain first numEigen eigenmodes
-  double *eigenvalues = new double[numEigen];
+  com->fprintf(stderr, " ... Retaining the first %d eigenvectors out of %d\n", numEigen, nconv);
+  lowRankApproxMetricEigenvalues  = new double[numEigen];
   for (int j = 0; j < numEigen; ++j)
-    eigenvalues[j] = corrEigProb.Eigenvalue(nconv-j-1);
+    lowRankApproxMetricEigenvalues[j] = corrEigProb.Eigenvalue(nconv-j-1);
   lowRankModes = new double*[numEigen];
   for (int j = 0; j < numEigen; ++j)
     lowRankModes[j] = new double[numSnapsForApproxMetric];
   for (int j = 0; j < numEigen; ++j)
     for (int k = 0; k < numSnapsForApproxMetric; ++k)
-      lowRankModes[j][k] = corrEigProb.Eigenvector(nconv-j-1, k)*pow(eigenvalues[j],0.5);//scale by the square root of the eigenvalues
-  delete [] eigenvalues;
+      lowRankModes[j][k] = corrEigProb.Eigenvector(nconv-j-1, k)*pow(lowRankApproxMetricEigenvalues[j],0.5);//scale by the square root of the eigenvalues
+
+  //Test eigenvalue decomposition
+  if (ioData->romOffline.gnat.testApproxMetric) {
+    maxErr = 0.0;
+    avgErr = 0.0;
+    for (int i = 0; i < numSnapsForApproxMetric; i++) {
+      for (int j = 0; j <= i; j++) {
+        errrValsEV = 0.0;
+        for (int k = 0; k < numEigen; ++k)
+          errrValsEV += (corrEigProb.Eigenvalue(nconv-k-1)*corrEigProb.Eigenvector(nconv-k-1, i)*corrEigProb.Eigenvector(nconv-k-1, j));
+        errrValsEV = abs(rVals[(i+1)*i/2 + j] - errrValsEV) / abs(rVals[(i+1)*i/2 + j]);
+        avgErr += errrValsEV;
+        if (errrValsEV > maxErr)
+          maxErr = errrValsEV;
+      }
+    }
+    avgErr /= (numSnapsForApproxMetric*(numSnapsForApproxMetric+1)/2);
+    com->fprintf(stderr, " ... Average error on EVD after truncation= %e\n", avgErr);
+    com->fprintf(stderr, " ... Maximum error on EVD after truncation= %e\n", maxErr);
+  }
+
+
+
+
+
 #else
   com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
   exit(-1);
@@ -380,38 +428,10 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
 template<int dim>
 void GnatPreprocessing<dim>::computePseudoInverseMaskedSnapshots() {
 
-  //computeApproximatedMetricMask();
-
   computeMaskedSnapshots();
 
   computePseudoInverseTranspose();
 
-}
-
-//----------------------------------------------
-
-template<int dim>
-void GnatPreprocessing<dim>::computeApproximatedMetricMask() {
-
-  // TODO: remove
-
-  // Loop over all the clusters
-
-  // Select sampledMeshFraction of the sampled nodes
-/*  int nNodesApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*nSampleNodes);
-  nNodesApproxMetric = min(nNodesApproxMetric,nSampleNodes);
-  // TODO change to select from each cluster
-  // Select nNodesApproxMetric random numbers among nsampleNodes
-  std::vector<int> index;
-  // set some values:
-  for (int i=1; i<nSampleNodes; ++i)
-    index.push_back(i);  
-  std::random_shuffle(index.begin(),index.end());
-
-  for (int i=0; i<nNodesApproxMetric; ++i)    
-    approxMetricGlobalSampleNodes[i] = globalSampleNodes[index[i]];
-*/
-  
 }
 
 //----------------------------------------------
@@ -462,6 +482,27 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
 
   ParallelRom<dim> parallelRom( this->domain, this->com);
   parallelRom.parallelSVD(snapHatApproxMetric, UTrueTmp, singValsTmp.data(), VtrueTmp, nSnaps, true);
+
+  // check the svd
+  // (looks good: errors less than 1e-15)  Note that Vtrue is not Vtranspose
+  double errorNorm,maxErr,avgErr;
+  DistSVec<double,dim> error( domain.getNodeDistInfo() );
+  /*maxErr = 0.0;
+  avgErr = 0.0;
+  for (int iSnap = 0; iSnap <nSnaps; ++iSnap) {
+    error = snapHatApproxMetric[iSnap];
+    for (int jSnap = 0; jSnap < nSnaps; ++jSnap)
+      error = error - ((singValsTmp[jSnap]*VtrueTmp[iSnap][jSnap])*UTrueTmp[jSnap]);
+    errorNorm = error.norm()/((snapHatApproxMetric[iSnap]).norm());
+    avgErr += errorNorm;
+    if (errorNorm > maxErr)
+      maxErr = errorNorm;   
+  }
+  avgErr /= nSnaps;
+ 
+  com->fprintf(stderr, " ... Average error on Snapshots after SVD = %e\n", avgErr);  
+  com->fprintf(stderr, " ... Maximum error on Snapshots after SVD = %e\n", maxErr);*/
+  
   double totalEnergy = 0.0;
   for (int i=0; i <nSnaps; ++i)
     totalEnergy += singValsTmp[i];
@@ -477,7 +518,7 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
   // compute transpose of the pseudo-inverse: US^\dagger V'
   for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
     for (int jSnap = 0; jSnap < nSnapsRetained; ++jSnap) 
-        VtrueTmp[iSnap][jSnap] *= 1.0/singValsTmp[jSnap];
+        VtrueTmp[iSnap][jSnap] /= singValsTmp[jSnap];
   }
 
   pseudoInverseMaskedSnapsTrans.resize(nSnaps);
@@ -485,6 +526,40 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
     pseudoInverseMaskedSnapsTrans[iSnap] = 0.0;
     for (int jSnap = 0; jSnap < nSnapsRetained; ++jSnap)
       pseudoInverseMaskedSnapsTrans[iSnap] += UTrueTmp[jSnap] * VtrueTmp[iSnap][jSnap];
+  }
+
+  // check the pseudo inverse
+
+  if (ioData->romOffline.gnat.testApproxMetric) {
+    double *rVals = new double[nSnaps*(nSnaps+1)/2];
+    for (int i = 0; i < nSnaps; i++)
+      for (int j = 0; j <= i; j++)
+        rVals[(i+1)*i/2 + j] = (snapHatApproxMetric[j]) * (snapHatApproxMetric[i]);
+
+    double temp;
+
+    maxErr = 0.0;
+    avgErr = 0.0;
+    for (int iSnap = 0; iSnap <nSnaps; ++iSnap) {
+      error = snapHatApproxMetric[iSnap];
+      for (int jSnap = 0; jSnap < nSnaps; ++jSnap) {
+        if (jSnap <= iSnap)
+          temp = rVals[(iSnap+1)*iSnap/2 + jSnap];
+        else
+           temp = rVals[(jSnap+1)*jSnap/2 + iSnap];
+        error = error - (temp*pseudoInverseMaskedSnapsTrans[jSnap]);
+      }
+      errorNorm = error.norm()/((snapHatApproxMetric[iSnap]).norm());
+      avgErr += errorNorm;
+      if (errorNorm > maxErr)
+        maxErr = errorNorm;
+    }
+    avgErr /= nSnaps;
+  
+    com->fprintf(stderr, " ... Average error on Snapshots after pseudo-inverse of transpose = %e\n", avgErr);
+    com->fprintf(stderr, " ... Maximum error on Snapshots after pseudo-inverse of transpose = %e\n", maxErr);
+
+    delete [] rVals;
   }
 
 }
@@ -517,14 +592,47 @@ void GnatPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
     lowRankModes = NULL;
   }
 }
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords() {
+
+ // output the SetOfVec lowRankFactor
+   com->fprintf(stdout,"\n ... Writing Low Rank Factor of Approximated Metric in Full Mesh Coordinates...\n");
+
+  char *filePath = NULL;
+  this->determinePath(this->approxMetricLowRankFullCoordsName, -1, filePath);
+  
+  FILE *outApproxMetric;
+  if (thisCPU == 0) outApproxMetric = fopen(filePath, "wt");
+
+  com->fprintf(outApproxMetric,"Vector ApproxMetric under load for FluidNodesRed\n");
+  com->fprintf(outApproxMetric,"%d\n", nReducedNodes);
+  
+  for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) {  
+     domain.writeVectorToFile(filePath,iVec,lowRankApproxMetricEigenvalues[iVec],(*this->lowRankFactor)[iVec]);
+  } 
+    
+  if (filePath) {
+    delete [] filePath;
+    filePath = NULL;
+  }
+  delete this->lowRankFactor;
+  this->lowRankFactor = NULL;
+  if (thisCPU == 0) fclose(outApproxMetric);
+  delete [] lowRankApproxMetricEigenvalues;
+
+
+
+}
 
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputApproxMetricLowRankFactor() {
+void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords() {
 
  // output the SetOfVec lowRankFactor
-   com->fprintf(stdout,"\n ... Writing Low Rank Factor of Approximated Metric ...\n");
+   com->fprintf(stdout,"\n ... Writing low rank factor of approximated metric ...\n");
 
   char *filePath = NULL;
   this->determinePath(this->approxMetricLowRankName, -1, filePath);
@@ -549,9 +657,50 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactor() {
     delete [] filePath;
     filePath = NULL;
   }
-  delete this->lowRankFactor;
-  this->lowRankFactor = NULL;
   if (thisCPU == 0) fclose(outApproxMetric);
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::testInnerProduct(char *snapshotType) {
+
+  this->readSnapshotFiles(snapshotType, 0);
+
+  this->readApproxMetricLowRankFactor("full");
+
+  std::vector<std::vector<double> > lowRankTimesSnaps;
+  lowRankTimesSnaps.resize(numSnapsForApproxMetric);
+  for (int i = 0; i < numSnapsForApproxMetric; i++)
+    lowRankTimesSnaps[i].resize(this->lowRankFactor->numVectors(), 0.0);
+
+  for (int iSnap = 0; iSnap < numSnapsForApproxMetric; iSnap++) {
+    for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) { 
+      lowRankTimesSnaps[iSnap][iVec] = ((*this->lowRankFactor)[iVec]) * ((*this->snap)[iSnap]);
+    }
+  }
+ 
+  double maxRelativeError = 0.0;
+  double averageRelativeError = 0.0;
+  double errVals = 0.0;
+  double approxProd, trueProd;
+  for (int i = 0; i < numSnapsForApproxMetric; i++) {
+    for (int j = 0; j <= i; j++) {
+      approxProd = 0.0;
+      for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec)
+        approxProd += (lowRankTimesSnaps[i][iVec]) *  (lowRankTimesSnaps[j][iVec]);
+      trueProd = ((*this->snap)[j]) * ((*this->snap)[i]);
+      errVals = abs(trueProd - approxProd) / abs(trueProd);
+      averageRelativeError += errVals;
+      if (errVals  > maxRelativeError)
+        maxRelativeError = errVals;
+    }
+  }
+  averageRelativeError /= (numSnapsForApproxMetric*(numSnapsForApproxMetric+1)/2);
+  
+  com->fprintf(stdout, "Average relative error for metric = %e\n",averageRelativeError);
+  com->fprintf(stdout, "Maximum relative error for metric = %e\n",maxRelativeError);
 
 }
 
@@ -859,7 +1008,7 @@ template<int dim>
 void GnatPreprocessing<dim>::determineSampleNodes() {
 
   for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt)  {
-    com->fprintf(stdout,"... greedy iteration %d ...\n", greedyIt);
+    com->fprintf(stdout," ... Greedy iteration %d ...\n", greedyIt);
     greedyIteration(greedyIt);
   }
 
@@ -1202,10 +1351,10 @@ void GnatPreprocessing<dim>::buildRemainingMesh() {
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
     nodeOffset[iSampleNodes] = 0;
 
-  com->fprintf(stdout," ... adding sample nodes and neighbors ...\n");
+  com->fprintf(stdout," ... Adding sample nodes and neighbors ...\n");
   addSampleNodesAndNeighbors();  
 
-  com->fprintf(stdout," ... computing BC faces ...\n");
+  com->fprintf(stdout," ... Computing BC faces ...\n");
   computeBCFaces(true);  // compute BC faces and add nodes/elements for lift surfaces
 
   // add all neighbor globalNodes and elements of the sample node's neighbors
@@ -1214,15 +1363,15 @@ void GnatPreprocessing<dim>::buildRemainingMesh() {
   communicateAll();  // all cpus need all nodes/elements for adding neighbors
 
   if (twoLayers) {
-    com->fprintf(stdout," ... adding second layer of neighbors ...\n");
+    com->fprintf(stdout," ... Adding second layer of neighbors ...\n");
     for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-      com->fprintf(stdout," ... adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
+      com->fprintf(stdout," ... Adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
       addNeighbors(iSampleNodes, nodeOffset[iSampleNodes]);
     }
     communicateAll();  // all cpus need all nodes/elements to define maps
   }
 
-  com->fprintf(stdout," ... defining maps ...\n");
+  com->fprintf(stdout," ... Defining maps ...\n");
   defineMaps();  // define element and node maps
     // deletes cpus, locSubDomains, locNodes, totalNodesCommunicated,
     // totalEleCommunicated, nodesXYZ, elemToNode
@@ -1258,7 +1407,7 @@ template<int dim>
 void GnatPreprocessing<dim>::addSampleNodesAndNeighbors() {
 
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-    com->fprintf(stdout," ... adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
+    com->fprintf(stdout," ... Adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
 
     // add the sample node itself to all processors
 
@@ -1938,13 +2087,13 @@ void GnatPreprocessing<dim>::outputSampleNodes(int iCluster) {
   // output sample nodes (local mask) in sample mesh node numbering system
   char *sampledNodesPath = NULL;
   this->determinePath(this->sampledNodesName, iCluster, sampledNodesPath);   // memory for name is deallocated in outputSampleNodesGeneral
-  com->fprintf(stdout," ... writing sample node file with respect to sample mesh...\n");
+  com->fprintf(stdout," ... Writing sample node file with respect to sample mesh...\n");
   outputSampleNodesGeneral(reducedSampleNodes, sampledNodesPath);
 
   // output sample nodes (local mask) in full mesh node numbering system
   char *sampledNodesFullCoordsPath = NULL;
   this->determinePath(this->sampledNodesFullCoordsName, iCluster, sampledNodesFullCoordsPath);  // memory for name is deallocated in outputSampleNodesGeneral
-  com->fprintf(stdout," ... writing sample node file with respect to full mesh...\n");
+  com->fprintf(stdout," ... Writing sample node file with respect to full mesh...\n");
   outputSampleNodesGeneral(globalSampleNodes, sampledNodesFullCoordsPath);
 
   reducedSampleNodes.clear();
@@ -2106,7 +2255,7 @@ void GnatPreprocessing<dim>::computePodTPod() {
 
   double podTpodTmp;
   for (int i = 0; i < nPod[1]; ++i) {
-    com->fprintf(stdout," ... computing podJac^TpodRes row %d of %d ...\n",i,nPod[1]);
+    com->fprintf(stdout," ... Computing podJac^TpodRes row %d of %d ...\n",i,nPod[1]);
     for (int j = 0; j < nPod[0]; ++j) { 
       podTpodTmp = pod[1][i]*pod[0][j];
       if (thisCPU == 0)
@@ -2386,33 +2535,83 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
 //----------------------------------------------
 
 template<int dim>
+void GnatPreprocessing<dim>::outputClusterCentersReduced() {
+  //INPUTS
+  // nReducedNodes
+  // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
+  // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
+
+  com->fprintf(stdout," ... Writing cluster centers in sample mesh coordinates ...\n");
+
+  if (!(this->clusterCenters)) this->readClusterCenters("centers");
+
+  char *sampledCentersPath = NULL;
+  this->determinePath(this->sampledCentersName, -1, sampledCentersPath);
+
+  FILE *outSampledCenters;
+  if (thisCPU ==0) outSampledCenters = fopen(sampledCentersPath, "wt");
+
+  com->fprintf(outSampledCenters,"Vector ClusterCenters under load for FluidNodesRed\n");
+  com->fprintf(outSampledCenters,"%d\n", nReducedNodes);
+  
+  // output
+  for (int iCluster=0; iCluster < this->nClusters; ++iCluster) {  // # rows in A and B
+    outputReducedSVec((*this->clusterCenters)[iCluster],outSampledCenters,iCluster);
+  }
+
+  if (sampledCentersPath) {
+    delete [] sampledCentersPath;
+    sampledCentersPath = NULL;
+  }
+
+  if (thisCPU == 0) fclose(outSampledCenters);
+
+}
+
+
+//----------------------------------------------
+
+template<int dim>
 void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
   //INPUTS
   // ioData, nReducedNodes, domain
   // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
   // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
 
-  com->fprintf(stdout, " ... Reading local state ROB ...\n");
-  this->readClusteredBasis(iCluster, "state");
-
-  com->fprintf(stdout," ... Writing local state ROB in sample mesh coordinates ...\n");
-
-  char *filePath = NULL;
-  this->determinePath(this->sampledStateBasisName, iCluster, filePath);
-
-  FILE *outPodState;
-  if (thisCPU == 0) outPodState = fopen(filePath, "wt");
-
-  com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
-  com->fprintf(outPodState,"%d\n", nReducedNodes);
-
-  int percentComplete = 0;
-  for (int iPod = 0; iPod < this->basis->numVectors(); ++iPod) {  // # rows in A and B
-    outputReducedSVec((*(this->basis))[iPod],outPodState,iPod);
-    if ((iPod+1)%((this->basis->numVectors()/4)+1)==0) {
-        percentComplete += 25;
-        com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
+  if (ioData->romOffline.gnat.outputReducedBases) {
+  
+    com->fprintf(stdout, " ... Reading local state ROB ...\n");
+    this->readClusteredBasis(iCluster, "state");
+  
+    com->fprintf(stdout," ... Writing local state ROB in sample mesh coordinates ...\n");
+  
+    char *filePath = NULL;
+    this->determinePath(this->sampledStateBasisName, iCluster, filePath);
+  
+    FILE *outPodState;
+    if (thisCPU == 0) outPodState = fopen(filePath, "wt");
+  
+    com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
+    com->fprintf(outPodState,"%d\n", nReducedNodes);
+  
+    int percentComplete = 0;
+    for (int iPod = 0; iPod < this->basis->numVectors(); ++iPod) {  // # rows in A and B
+      outputReducedSVec((*(this->basis))[iPod],outPodState,iPod);
+      if ((iPod+1)%((this->basis->numVectors()/4)+1)==0) {
+          percentComplete += 25;
+          com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
+      }
     }
+  
+    if (filePath) {
+      delete [] filePath;
+      filePath = NULL;
+    }
+  
+    if (thisCPU == 0) fclose(outPodState);
+
+  } else {
+    com->fprintf(stdout," ... Skipping output of reduced bases...\n");
   }
 
   if (this->basis) {
@@ -2424,14 +2623,6 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
     delete (this->sVals);
     (this->sVals) = NULL;
   }
-
-  if (filePath) {
-    delete [] filePath;
-    filePath = NULL;
-  }
-
-  if (thisCPU == 0) fclose(outPodState);
-
 
 }
 
