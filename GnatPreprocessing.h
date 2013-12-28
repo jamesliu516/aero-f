@@ -249,6 +249,7 @@ protected:
   virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
   virtual void outputInitialConditionReduced();
+  virtual void outputClusterCentersReduced();
   virtual void outputLocalStateBasisReduced(int);
   virtual void outputLocalReferenceStateReduced(int);
   virtual void outputWallDistanceReduced();
@@ -271,8 +272,11 @@ std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes
   void computeMaskedSnapshots();
   void computePseudoInverseTranspose();
   void computeApproximatedMetricLowRankFactor();
-  void outputApproxMetricLowRankFactor();
+  void outputApproxMetricLowRankFactorFullCoords();
+  void outputApproxMetricLowRankFactorReducedCoords();
+  void testInnerProduct(char *);
   double** lowRankModes;
+  double* lowRankApproxMetricEigenvalues;
   int numEigen;
   int numSnapsForApproxMetric;
   int nApproxMetricSampleNodes;

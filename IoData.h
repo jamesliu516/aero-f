@@ -2111,6 +2111,7 @@ struct NonlinearRomFilesData {
   const char *gnatPrefix;
   const char *sampledNodesName;         //sampleNodes;
   const char *sampledNodesFullCoordsName; // sampled nodes in full mesh coordinates
+  const char *sampledCentersName;
   const char *sampledStateBasisName;    //podStateRed;
   const char *sampledKrylovBasisName;
   const char *sampledSensitivityBasisName;
@@ -2122,7 +2123,8 @@ struct NonlinearRomFilesData {
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
   const char *gappyResidualName;             //resMatrix in sampled coords;
-  const char *approxMetricLowRankName; // approximated metric
+  const char *approxMetricLowRankName; // approximated metric in reduced mesh coordinates
+  const char *approxMetricLowRankFullCoordsName; // approximated metric in full mesh coordinates
 
   // Surface quantities
   const char *surfacePrefix;
@@ -2486,6 +2488,8 @@ struct GNATConstructionData {
 
 	enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
   int pseudoInverseNodes;
+  enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
+  enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
 
   GNATConstructionData();
   ~GNATConstructionData() {}
@@ -2775,6 +2779,11 @@ public:
   void printDebug();
 
   void setupOneDimensional();
+
+  int checkInputValuesNonlinearRomPreprocessing();
+  int checkInputValuesNonlinearRomOnline();
+  int checkInputValuesNonlinearRomPostprocessing();
+
 };
 
 //------------------------------------------------------------------------------

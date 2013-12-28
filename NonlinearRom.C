@@ -98,6 +98,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   // GNAT quantities
   determineFileName(romFiles->sampledNodesName, "sampledNodes", romFiles->gnatPrefix, sampledNodesName);
   determineFileName(romFiles->sampledNodesFullCoordsName, "sampledNodesFullCoords", romFiles->gnatPrefix, sampledNodesFullCoordsName);
+  determineFileName(romFiles->sampledCentersName, "sampledCenters", romFiles->gnatPrefix, sampledCentersName);
   determineFileName(romFiles->sampledStateBasisName, "sampledStateROB", romFiles->gnatPrefix, sampledStateBasisName);
   determineFileName(romFiles->sampledSensitivityBasisName, "sampledSensitivityROB", romFiles->gnatPrefix, sampledSensitivityBasisName);
   determineFileName(romFiles->sampledKrylovBasisName, "sampledKrylovROB", romFiles->gnatPrefix, sampledKrylovBasisName);
@@ -110,6 +111,8 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gnatPrefix, gappyJacActionName);
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
   determineFileName(romFiles->approxMetricLowRankName, "approxMetric", romFiles->gnatPrefix, approxMetricLowRankName);
+  determineFileName(romFiles->approxMetricLowRankFullCoordsName, "approxMetricFull", romFiles->gnatPrefix, approxMetricLowRankFullCoordsName);
+
   // Surface quantities
   //determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
   //determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
@@ -215,6 +218,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] jacActionBasisName;
   delete [] jacActionSingValsName;
   delete [] sampledNodesName;
+  delete [] sampledCentersName;
   delete [] sampledStateBasisName;
   delete [] sampledKrylovBasisName;
   delete [] sampledSensitivityBasisName;
@@ -227,6 +231,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] gappyJacActionName;
   delete [] gappyResidualName;
   delete [] approxMetricLowRankName;
+  delete [] approxMetricLowRankFullCoordsName;
   //delete [] surfaceStateBasisName;
   //delete [] surfaceSolutionName;
   //delete [] surfaceWallDistName;
@@ -411,6 +416,38 @@ void NonlinearRom<dim>::checkUniformInitialCondition(DistSVec<double, dim> &ic) 
 //----------------------------------------------------------------------------------
 
 template<int dim>
+void NonlinearRom<dim>::resetDistanceComparisonQuantitiesApproxUpdates() {
+// resets some fast distance comparison quantities that are unique to approximate updates
+
+  int robSize = basis->numVectors();
+
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+      delete [] (hForFastDistComp)[iCluster][jCluster];
+      (hForFastDistComp)[iCluster][jCluster] = new double[robSize];
+    }
+  } 
+      
+  double *temp = new double[nLowRankFactors];
+  for (int iVec = 0; iVec < robSize; ++iVec) {
+    for (int iRank = 0; iRank < nLowRankFactors; ++iRank)
+      temp[iRank] = (*lowRankFactor)[iRank] * (*(basis))[iVec];
+    for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+      for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+        (this->hForFastDistComp)[iCluster][jCluster][iVec] = 0.0;
+        for (int iRank = 0; iRank < nLowRankFactors; ++iRank)
+          (hForFastDistComp)[iCluster][jCluster][iVec] += ( (cForFastDistComp[iCluster][jCluster][iRank]) * temp[iRank]);
+      } 
+    } 
+  }
+  delete [] temp;
+  temp = NULL;
+
+}
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
 void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic) {
 
   std::vector<double> centerMinusICNorms;
@@ -527,7 +564,6 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> 
 
 template<int dim>
 void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double> &dUTimeIt, int currentCluster) {
-// TODO: DJA
 
   for (int mCenter=1; mCenter<nClusters; ++mCenter) {
     for (int pCenter=0; pCenter<mCenter; ++pCenter) {
@@ -1137,12 +1173,16 @@ void NonlinearRom<dim>::readClusteredReferenceState(int iCluster, char* refType)
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readClusteredCenters() {
-
-  // never called by GNAT so there's no need to support reading sampled cluster centers
+void NonlinearRom<dim>::readClusterCenters(char* centersType) {
 
   char *clustCentersPath = 0;
-  determinePath(centersName, -1, clustCentersPath);
+  if (strcmp(centersType,"centers")==0) {
+      determinePath(centersName, -1, clustCentersPath);
+  } else if (strcmp(centersType,"sampledCenters")==0) {
+      determinePath(sampledCentersName, -1, clustCentersPath);
+  } else {
+      exit (-1);
+  }
 
   if (nClusters <= 0) {
     com->fprintf(stderr, "\n*** Error: invalid value for NumClusters (%d)\n", nClusters);
@@ -1211,7 +1251,7 @@ void NonlinearRom<dim>::readClusteredCenters() {
 
 template<int dim>
 void NonlinearRom<dim>::readNearestSnapsToCenters() {
-  // NOTE: this function must only be run after readClusteredCenters (this is because the
+  // NOTE: this function must only be run after readClusterCenters (this is because the
   // cluster centers file defines snapsInCluster and nClusters)
 
   char *nearestSnapsPath = 0;
@@ -1474,13 +1514,26 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, char* basisType, bool r
 template<int dim>
 void NonlinearRom<dim>::readClusteredUpdateInfo(int iCluster, char* basisType) {
 
-  // always need Uref and ColumnSumsV regardless of update algorithm
-  readClusteredReferenceState(iCluster, basisType);
-  readClusteredColumnSumsV(iCluster, basisType);
-
-  if (false) readClusteredExactUpdateInfo(iCluster, basisType);
-  if (false) readClusteredApproxUpdateInfo(iCluster, basisType);
-
+  switch (ioData->romOnline.basisUpdates) {
+    case (NonlinearRomOnlineData::UPDATES_OFF):
+      break;
+    case (NonlinearRomOnlineData::UPDATES_SIMPLE):
+      readClusteredReferenceState(iCluster, basisType);
+      readClusteredColumnSumsV(iCluster, basisType);
+      break;
+    case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
+      readClusteredReferenceState(iCluster, basisType);
+      readClusteredColumnSumsV(iCluster, basisType);
+      readClusteredExactUpdateInfo(iCluster, basisType);
+      break;
+    case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
+      readClusteredReferenceState(iCluster, basisType);
+      readClusteredColumnSumsV(iCluster, basisType);
+      break;
+    default:
+      this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+      exit(-1);
+  }
 }
 
 //----------------------------------------------------------------------------------
@@ -1491,15 +1544,6 @@ void NonlinearRom<dim>::readClusteredExactUpdateInfo(int iCluster, char* basisTy
 
 
 }
-
-//----------------------------------------------------------------------------------
-
-template<int dim>
-void NonlinearRom<dim>::readClusteredApproxUpdateInfo(int iCluster, char* basisType) {
-
-
-}
-
 //----------------------------------------------------------------------------------
 
 template<int dim>
@@ -2033,12 +2077,20 @@ void NonlinearRom<dim>::readClusteredGappyMatrix(int iCluster, char* matrixType)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readApproxMetricLowRankFactor() {
+void NonlinearRom<dim>::readApproxMetricLowRankFactor(char* sampledOrFull) {
+
+  char *approxMetricPath;
 
   if (lowRankFactor) delete lowRankFactor;
-  char *approxMetricPath;
-  determinePath(approxMetricLowRankName,-1,approxMetricPath);
 
+  if (strcmp(sampledOrFull,"sampled")==0) {
+    determinePath(approxMetricLowRankName,-1,approxMetricPath);
+  } else if (strcmp(sampledOrFull,"full")==0) {
+    determinePath(approxMetricLowRankFullCoordsName,-1,approxMetricPath);
+  } else {
+    this->com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricLowRankFactor\n");
+    exit (-1);
+  }
   
   int nRank = 0; 
   int dummyStep = 0;
@@ -2066,9 +2118,12 @@ void NonlinearRom<dim>::readApproxMetricLowRankFactor() {
   double tmp;
 
   for (int iRank = 0; iRank < nLowRankFactors; ++iRank) { 
-    status = domain.readVectorFromFile(approxMetricPath, nLowRankFactors, &tmp, (*lowRankFactor)[nLowRankFactors]);
+    status = domain.readVectorFromFile(approxMetricPath, iRank, &tmp, (*lowRankFactor)[iRank]);
+    if (!status) {
+      com->fprintf(stderr, "\nError reading the low rank vector #%d in %s\n", iRank,approxMetricPath);
+      exit(-1);
+    }
   }
- 
 
   // build c
   double **approxMetricMaskCenters = new double*[nClusters];
@@ -2077,7 +2132,7 @@ void NonlinearRom<dim>::readApproxMetricLowRankFactor() {
 
   for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
     for (int iRank = 0; iRank < nLowRankFactors; ++iRank) {
-      approxMetricMaskCenters[iCluster][iRank] = (*this->lowRankFactor)[iRank] * (*clusterCenters)[iCluster];    
+      approxMetricMaskCenters[iCluster][iRank] = (*lowRankFactor)[iRank] * (*clusterCenters)[iCluster];    
     }
   }
 
@@ -2098,7 +2153,7 @@ void NonlinearRom<dim>::readApproxMetricLowRankFactor() {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readAllOnlineQuantities() {
+void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
 
 // stores all online quantities at the beginning of the simulation
 // (as opposed to reading information at each cluster switch)
@@ -2242,8 +2297,6 @@ void NonlinearRom<dim>::readAllOnlineQuantities() {
           *(allColumnSumsV[iCluster]) = *columnSumsV;
           delete columnSumsV;
           columnSumsV = NULL;
-          if (ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_APPROX)
-            readApproxMetricLowRankFactor();
           if (false) {
             // read additional update information
           }
@@ -2756,6 +2809,11 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(char* updateType) {
     }
   } else if (strcmp(updateType, "approxUpdates") == 0) {   
 
+    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
+      this->readClusterCenters("sampledCenters");
+    } else {
+      this->readClusterCenters("centers");
+    }
 
   } else {
     com->fprintf(stderr, "*** Error: unexpected update method\n");
