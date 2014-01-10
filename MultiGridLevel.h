@@ -62,6 +62,7 @@ class MultiGridLevel {
 
   AgglomerationType agglomType;
 
+
     int my_dim, neq1,neq2;
 
     Domain& domain;
@@ -141,6 +142,8 @@ class MultiGridLevel {
 
     DistVec<double>* ctrlVol; 
     DistVec<double>* ctrlVolCount;
+    
+    DistVec<int>* mgLevelStatus;
 
     int* numLines;
 
@@ -302,7 +305,10 @@ class MultiGridLevel {
 
     template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
-                                                   DistSVec<Scalar2, dim>& coarseData, bool apply_relaxation = false) const;
+                                                   DistSVec<Scalar2, dim>& coarseData,
+						   bool average = true,
+						   bool apply_relaxation = false) const;
+
     template<class Scalar2, int dim> void RestrictFaceVector(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
                                                    DistSVec<Scalar2, dim>& coarseData) const;
@@ -310,7 +316,7 @@ class MultiGridLevel {
                                          const DistVec<Scalar2>& fineData,
                                          DistVec<Scalar2>& coarseData) const;
     template<class Scalar2, int dim> void Prolong(MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
-                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,double relax_factor=1.0) const;
+                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,double relax_factor=1.0, class DistLevelSetStructure* coarse = NULL,class DistLevelSetStructure* fine = NULL) const;
 
     template<class Scalar2, int dim>
     void ProjectResidual(DistSVec<Scalar2,dim>& r) const;

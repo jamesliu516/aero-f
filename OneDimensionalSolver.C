@@ -160,6 +160,9 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
     limiterLeft = limiterRight = 1; 
   }
+
+  //limiterLeft = 0;
+  
   
   if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
     levelSetMethod = 1;

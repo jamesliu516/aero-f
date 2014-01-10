@@ -20,13 +20,23 @@ recompute() {
   Vec<int>& stat = parent->getStatus();
 
   int N = stat.size();
+
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
   
   Vec<int>& nodeMapping =  myLevel->getNodeMapping()(mySub);
   for (int i = 0; i < N; ++i) {
 
     status[nodeMapping[i] ] = std::max<int>(status[nodeMapping[i] ] ,
 					    stat[i]);
+    
+    //if (nodeMapping[i] == 1636 && rnk == 1)
+    //  std::cout << i << " " << status[nodeMapping[i]] << " " << stat[i] << std::endl;
+    if (stat[i] > 1)
+      std::cout << "Error! status = " << stat[i] << std::endl;
   }
+
+//  status = 0;
 }
 
 void MultiGridLevelSetStructure::
@@ -39,7 +49,7 @@ computeEdgeCrossing() {
 
     edge_intersects[i] = (status[ptr[i][0]] != status[ptr[i][1]]);
     
-  }
+  } 
 
   
 }
@@ -85,13 +95,18 @@ int
 DistMultiGridLevelSetStructure::
 recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry) {
 
+  
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
-    subLSS[iSub]->recompute();
+    subLSS[iSub]->recompute(); 
   }
+  
+  //std::cout << status->size() << " " << status->v[1636] << std::endl;
 
   myLevel->assembleMax(*status);
+
+  //std::cout << status->size() << " " << status->v[1636] << std::endl;
   
   int nOfF = numOfFluids();
 
@@ -100,7 +115,7 @@ recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry) {
 
     int N = (*is_active)(iSub).size();
     for (int i = 0; i < N; ++i) 
-      (*is_active)(iSub)[i] = (*status)(iSub)[i];
+      (*is_active)(iSub)[i] = !(*status)(iSub)[i];
   }
 
   *is_occluded = false;
@@ -150,8 +165,8 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
   for(int i = 0; i < numLocSub; ++i)
     subLSS[i] = new MultiGridLevelSetStructure(*this,*domain->getSubDomain()[i],
 					       (*status)(i), (*distance)(i),
-					       (*is_active)(i),
 					       (*is_swept)(i),
+					       (*is_active)(i),
 					       (*is_occluded)(i),
 					       (*edge_intersects)(i),
 					       &(*parent)(i), i, 

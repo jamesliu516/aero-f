@@ -31,6 +31,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
      iod.oneDimensionalInfo.problemMode == OneDimensionalInfo::FSI) { 
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
     dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setStabilAlpha(iod.embed.stabil_alpha);
+   
+    if (iod.embed.prec == EmbeddedFramework::PRECONDITIONED)
+      dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setPreconditioner(iod.prec.mach);
+    
     if (iod.eqs.type == EquationsData::NAVIER_STOKES)
       dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(1.0);
   }

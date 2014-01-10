@@ -6,6 +6,13 @@
 
 #include <math.h>
 
+#ifdef AEROACOUSTIC
+
+#include "gsl/gsl_sf.h"
+
+#endif // AEROACOUSTIC
+
+
 void ExactSolution::
 AcousticBeam(IoData& iod,double x, double y, double z,
 	     double t, double* V) {
@@ -70,4 +77,80 @@ AcousticBeamStructure(IoData& iod,double x, double y, double z,
 	             sin(-k*x-omega*t*iod.ref.rv.time)) / iod.ref.rv.velocity;
 }
 
+#ifdef AEROACOUSTIC
+double j0prime(double r) {
 
+  return -gsl_sf_bessel_J1(r);
+}
+
+double y0prime(double r) {
+
+  return -gsl_sf_bessel_Y1(r);
+}
+
+#endif
+
+void ExactSolution::
+CylindricalBubble(IoData& iod,double x, double y, double z,
+		  double t, double* V, double* phi, int& fid) {
+
+#ifdef AEROACOUSTIC
+  double omega = 733.2541686104948;
+  double Bn = 1.0e-1;
+  double r = sqrt(x*x+y*y);
+  double rhoo = 10.0;
+  double co = sqrt(4.4*1e5/rhoo);
+  double rhoi = 1.0;
+  double ci = sqrt(1.4*1e5/rhoi);
+  double a = 0.5;
+  double R = 1.0;
+  double pinf = 1e5;
+  
+  t *= iod.ref.rv.time;
+
+  double theta = atan2(y,x);
+
+  double Cn = -Bn*j0prime(omega*R / co) / y0prime(omega*R / co);
+
+  double An = (Bn*gsl_sf_bessel_J0(omega*a / co) + Cn*gsl_sf_bessel_Y0(omega*a / co))/gsl_sf_bessel_J0(omega*a / ci);
+
+  double ur, utheta = 0;
+  double p;
+
+
+  if (r < a) {
+    
+    ur = -An/(rhoi*ci)*j0prime(omega*r/ci)*cos(omega*t);
+    p = -An*gsl_sf_bessel_J0(omega*r / ci) *sin(omega*t);
+  } else {
+    ur = -1.0/(rhoo*co)*(Bn*j0prime(omega*r/co)+Cn*y0prime(omega*r/co))*cos(omega*t);
+    p = -(Bn*gsl_sf_bessel_J0(omega*r / co) + Cn*gsl_sf_bessel_Y0(omega*r / co))*sin(omega*t);
+  }
+
+  double ux = ur*cos(theta), uy = ur*sin(theta);
+
+  p += pinf;
+
+  p /= iod.ref.rv.pressure;
+
+  if (r < a)
+    V[0] = pow(p/(1.0e5/iod.ref.rv.pressure),(1.0/1.4))*(1.0 / iod.ref.rv.density);
+  else
+    V[0] = pow(p/(1.0e5/iod.ref.rv.pressure),(1.0/4.4))*(10.0 / iod.ref.rv.density);
+
+  V[1] = ux/ iod.ref.rv.velocity;
+  V[2] = uy/ iod.ref.rv.velocity;
+  
+  V[3] = 0.0;
+  
+  V[4] = p;  
+
+  fid = (r <= a);
+
+  *phi = a-r;
+  
+#else
+  std::cout << "Error: Cylindrical bubble exact solution requires the code to be compiled with the AEROACOUSTIC option" << std::endl;
+  exit(-1);
+#endif
+}

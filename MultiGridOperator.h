@@ -9,6 +9,8 @@
 #include <DistMvpMatrix.h>
 #include <DistTimeState.h>
 
+#include <LevelSet/MultiGridLevelSetStructure.h>
+
 template <class Scalar> class MultiGridLevel;
 
 template<class Scalar,int dim>
@@ -29,6 +31,16 @@ class MultiGridOperator {
                        FemEquationTerm*, 
                        DistMvpMatrix<Scalar2,neq> &A); 
 
+  template <class Scalar2,int neq>
+  void computeJacobianEmbedded(DistExactRiemannSolver<dim>&,
+			       DistSVec<Scalar2,dim>& U, 
+			       DistSVec<Scalar2,dim>& V,
+			       //                       DistVec<Scalar2>& irey,
+			       FluxFcn **fluxFcn,
+			       FemEquationTerm*, 
+			       DistMvpMatrix<Scalar2,neq> &A,
+			       DistMultiGridLevelSetStructure*); 
+  
   template <class Scalar2>
   void computeResidual(DistSVec<Scalar2,dim>& V,
                        DistSVec<Scalar2,dim>& U,
@@ -38,6 +50,18 @@ class MultiGridOperator {
                        FemEquationTerm*, 
                        DistSVec<Scalar2,dim>& res,
                        bool addDWdt = true);
+
+  template <class Scalar2>
+    void computeResidualEmbedded(DistExactRiemannSolver<dim>&,
+				 DistSVec<Scalar2,dim>& V,
+			       DistSVec<Scalar2,dim>& U,
+			       //                     DistVec<Scalar2>& irey,
+			       FluxFcn** fluxFcn,
+			       RecFcn* recFcn,
+			       FemEquationTerm*, 
+			       DistSVec<Scalar2,dim>& res,
+			       DistMultiGridLevelSetStructure*,
+			       bool addDWdt = true);
 
   template <class Scalar2>
   void applyBCsToResidual(DistSVec<Scalar2,dim>& U,
@@ -76,6 +100,8 @@ class MultiGridOperator {
   DistVec<Scalar>* scalar_zero;
   DistVec<Scalar>* idti;
   DistVec<Scalar>* idtv;
+
+  DistSVec<Scalar,dim>* Wstarij,*Wstarji;
 
   DistNodalGrad<dim,Scalar>* myNodalGrad;
 

@@ -233,6 +233,7 @@ ADD_LIBRARY(FluidBase
              MultiGridSmoothingMatrices.C
              MultiGridCoupledTsDesc.C
              MultiGridSegTsDesc.C
+             MultiGridEmbeddedTsDesc.C
              ModalSolver.C 
              Node.C 
              PostFcn.C 

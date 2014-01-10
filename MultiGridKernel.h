@@ -38,12 +38,15 @@ class MultiGridKernel {
 
   template<class Scalar2, int dim>
   void Restrict(int coarseLvl, DistSVec<Scalar2,dim>& fine, 
-                DistSVec<Scalar2,dim>& coarse, bool = false);
+                DistSVec<Scalar2,dim>& coarse, bool average = true, 
+		bool = false);
 
   template<class Scalar2, int dim>
   void Prolong(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
                DistSVec<Scalar2,dim>& coarse, DistSVec<Scalar2,dim>& fine,
-               double relax);
+               double relax, 
+	       class DistLevelSetStructure* coarselss = NULL,
+	       class DistLevelSetStructure* finelss = NULL);
 
   int numLevels() const { return num_levels; }
  

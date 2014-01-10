@@ -6916,6 +6916,13 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
                  gradY[i][k]*vectorIJ[1]+
                  gradZ[i][k]*vectorIJ[2];
         }
+	// check for neg pressures/densities
+	if (vf->doVerification()) {
+	  double Udummy[dim];
+	  Vext[0] = std::max(Vext[0], 1e-10);
+	  vf->getVarFcnBase(fid?(*fid)[i]:0)->
+	    verification(0,Udummy, Vext);
+	}
         double pp = vf->getPressure(Vext, fid?(*fid)[i]:0);
         flocal += (pp - pInfty)*nf[n];
         if(ghostPoints) {// Viscous Simulation
@@ -7645,12 +7652,12 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
     if (nodeFlag[i] && (!LSS || LSS->isActive(0.0,i))) {
       
       for (int k = 0; k < dim; ++k) {
-/*
+	
         if (fabs(U[i][k]-Uexact[i][k]) > 0.05) {
 
           std::cout << locToGlobNodeMap[i] << " " <<  U[i][k] << " " << Uexact[i][k] << std::endl;
         }
-  */        
+	
 	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));
       }
     }

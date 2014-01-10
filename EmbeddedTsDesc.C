@@ -359,7 +359,6 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   if (ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) {
     FluidSelector f(2, ioData,this->domain);
     nodeTag0 = nodeTag = *f.fluidId;
-    std::cout << "Read fid " << std::endl;
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id, &nodeTag);
   } else
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);

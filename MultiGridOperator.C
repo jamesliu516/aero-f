@@ -31,6 +31,9 @@ MultiGridOperator<Scalar,dim>::MultiGridOperator(MultiGridLevel<Scalar>* mg_lvl,
   DX[0] = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
   DX[1] = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
   DX[2] = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
+
+  Wstarij = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
+  Wstarji = new DistSVec<Scalar,dim>(mg_lvl->getNodeDistInfo());
   
   myVarFcn = varFcn;
 
@@ -52,6 +55,9 @@ MultiGridOperator<Scalar,dim>::~MultiGridOperator() {
   delete DX[0];
   delete DX[1];
   delete DX[2];
+
+  delete Wstarij;
+  delete Wstarji;
 }
 
 template<class Scalar,int dim>
@@ -114,6 +120,81 @@ void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, Di
   }
 
   applyBCsToJacobian(U, matrices); 
+}
+
+template<class Scalar,int dim>
+template <class Scalar2,int neq>
+void MultiGridOperator<Scalar,dim>::
+computeJacobianEmbedded(DistExactRiemannSolver<dim>& riemann,
+			DistSVec<Scalar2,dim>& U, 
+			DistSVec<Scalar2,dim>& V,
+			//                                         DistVec<Scalar2>& irey,
+			FluxFcn **fluxFcn,
+			FemEquationTerm* fet,
+			DistMvpMatrix<Scalar2,neq>& matrices,	
+			DistMultiGridLevelSetStructure* mgLSS) {
+  
+  DistVec<Scalar2>& irey = *scalar_zero; 
+#pragma omp parallel for
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+    matrices(iSub) = 0.0;
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+    mgLevel->getEdges()[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub),
+							       fluxFcn,
+							       (mgLevel->getGeoState())(iSub),
+							       mgLevel->getXn()(iSub),
+							       V(iSub),
+							       mgLevel->getCtrlVol()(iSub),
+							       (*mgLSS)(iSub),
+							       (*mgLSS).getStatus()(iSub) ,
+							       1, NULL,
+							       matrices(iSub),
+							       irey(iSub));
+    //mgLevel->getFaces()[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn,(*myBcData)(iSub), (mgLevel->getGeoState())(iSub),
+    //                                             V(iSub), matrices(iSub));
+    mgLevel->getAgglomeratedFaces()[iSub]->
+      computeJacobianFiniteVolumeTerm(fluxFcn,V(iSub), 
+				      getBoundaryState()(iSub),
+				      matrices(iSub), (*mgLSS)(iSub));
+    /*
+    if (fet && addViscousTerms) {
+     
+      mgLevel->getEdges()[iSub]->computeJacobianThinLayerViscousFiniteVolumeTerm(
+        NULL, myVarFcn, fet, mgLevel->getGeoState()(iSub), 
+        mgLevel->getXn()(iSub),  V(iSub), mgLevel->getCtrlVol()(iSub), matrices(iSub));
+
+      mgLevel->getAgglomeratedFaces()[iSub]->computeJacobianThinLayerViscousFiniteVolumeTerm(
+         fet,myVarFcn, V(iSub), (*DX[0])(iSub), 
+         (*DX[1])(iSub), (*DX[2])(iSub), mgLevel->getCtrlVol()(iSub),
+         mgLevel->getGeoState()(iSub).getDistanceToWall(),
+         (*myBcData)(iSub).getFaceStateVector(),matrices(iSub));
+          
+	 }*/
+ 
+    Vec<double>& ctrlVol = mgLevel->getCtrlVol()(iSub); 
+    for (int i=0; i<ctrlVol.size(); ++i) {
+      Scalar voli = 1.0 / ctrlVol[i];
+      Scalar2 *Aii = matrices(iSub).getElem_ii(i);
+      for (int k=0; k<neq*neq; ++k)
+        Aii[k] *= voli;
+    }
+
+  }
+
+  mgLevel->assemble(matrices);
+
+  if (timeState) {
+
+    timeState->addToJacobian(mgLevel->getCtrlVol(), matrices, U);
+  }
+
+  applyBCsToJacobian(U, matrices); 
+
 }
 
 template<class Scalar,int dim>
@@ -205,6 +286,113 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
   } 
   
   applyBCsToResidual(U, res);
+
+} 
+
+template<class Scalar,int dim>
+template <class Scalar2>
+void MultiGridOperator<Scalar,dim>::
+computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
+			DistSVec<Scalar2,dim>& V,
+			DistSVec<Scalar2,dim>& U,
+			//                                           DistVec<Scalar2>& irey,
+			FluxFcn** fluxFcn,
+			RecFcn* recFcn,
+			FemEquationTerm* fet,
+			DistSVec<Scalar2,dim>& res,	
+			DistMultiGridLevelSetStructure* mgLSS,
+			bool addDWdt) {
+  
+
+  ElemSet dummy;
+  res = 0.0;
+  DistVec<Scalar2>& irey = *scalar_zero; 
+  
+  NavierStokesTerm* nsterm = NULL;
+  if (fet) {
+
+    FemEquationTermNS* nst = dynamic_cast<FemEquationTermNS*>(fet);
+    if (nst)
+      nsterm = static_cast<NavierStokesTerm*>(nst);
+ /*   else {
+
+      fprintf(stderr, "Cannot create a NavierStokesTerm from FemEquationTerm!");
+      exit(-1);
+    }
+*/
+  }
+
+//   if (nsterm)
+//     mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+    int* locToGlobNodeMap = mgLevel->getMgSubDomains()[iSub].locToGlobMap;
+
+    NodalGrad<dim,Scalar2> ngrad((*zero)(iSub), (*zero)(iSub), (*zero)(iSub),
+	                         (*scalar_zero)(iSub), (*scalar_zero)(iSub), (*scalar_zero)(iSub));
+
+    mgLevel->getEdges()[iSub]->
+      template computeFiniteVolumeTerm<dim>(riemann(iSub),
+ 					    locToGlobNodeMap , fluxFcn,
+					    recFcn, dummy, (mgLevel->getGeoState())(iSub),
+					    (mgLevel->getGeoState().getXn())(iSub), V(iSub), 
+					    (*Wstarij)(iSub), (*Wstarji)(iSub),
+					    (*mgLSS)(iSub), false,
+					    (*mgLSS).getStatus()(iSub) ,1, NULL,
+					    ngrad, NULL, res(iSub),0,
+					    (mgLevel->getFVCompTag())(iSub), 0,0); 
+    
+
+    //mgLevel->getFaces()[iSub]->computeFiniteVolumeTerm(fluxFcn, (*myBcData)(iSub), 
+    //                                     (mgLevel->getGeoState())(iSub), V(iSub),
+    //                                     res(iSub));
+        mgLevel->getAgglomeratedFaces()[iSub]->computeFiniteVolumeTerm(fluxFcn, 
+								   V(iSub),getBoundaryState()(iSub),
+								   res(iSub), (*mgLSS)(iSub));
+    
+
+    /*
+    if (fet && addViscousTerms) {
+ 
+      mgLevel->getEdges()[iSub]->template 
+        computeThinLayerViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
+                                                     fet, (mgLevel->getGeoState())(iSub),
+                                                     (mgLevel->getGeoState().getXn())(iSub),
+                                                     V(iSub),res(iSub));
+
+      mgLevel->getAgglomeratedFaces()[iSub]->computeThinLayerViscousFiniteVolumeTerm(
+                                      fet, myVarFcn,V(iSub), (*DX[0])(iSub), 
+                                      (*DX[1])(iSub), (*DX[2])(iSub) ,
+                                      mgLevel->getGeoState()(iSub).getDistanceToWall(),
+                                      (*myBcData)(iSub).getFaceStateVector(),
+                                      res(iSub)); 
+                                                    
+    }    
+    */
+  }
+  
+  mgLevel->assemble(res);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+    for (int i = 0; i < V.subSize(iSub); ++i) {
+
+      for (int j = 0; j < dim; ++j)
+        res(iSub)[i][j] /= (mgLevel->getCtrlVol())(iSub)[i];
+    }
+  }
+  /*  
+  if (timeState && addDWdt) {
+
+    timeState->add_dAW_dt(0, mgLevel->getGeoState(),
+                          mgLevel->getCtrlVol(), U, res);
+  } 
+  
+  applyBCsToResidual(U, res);
+  */
 } 
 
 template<class Scalar,int dim>
@@ -389,6 +577,9 @@ template \
 void MultiGridOperator<S,D>::computeJacobian(DistSVec<double,D>& U, DistSVec<double,D>& V,\
                                              FluxFcn **fluxFcn, \
                                              FemEquationTerm*,DistMvpMatrix<double,D>& matrices); \
+ template void MultiGridOperator<S,D>::computeJacobianEmbedded(DistExactRiemannSolver<D>&,DistSVec<double,D>& U, DistSVec<double,D>& V, \
+FluxFcn **fluxFcn, \
+							       FemEquationTerm*,DistMvpMatrix<double,D>& matrices, DistMultiGridLevelSetStructure*); \
 template void MultiGridOperator<S,D>::applyBCsToJacobian(DistSVec<double,D>& U, \
                                                        DistMvpMatrix<double,D>& A); \
 template void MultiGridOperator<S,D>::computeResidual(DistSVec<double,D>& V, \
@@ -397,14 +588,23 @@ template void MultiGridOperator<S,D>::computeResidual(DistSVec<double,D>& V, \
                                              RecFcn* recFcn,\
                                              FemEquationTerm*, \
                                              DistSVec<double,D>& res,bool); \
+template void MultiGridOperator<S,D>::computeResidualEmbedded(DistExactRiemannSolver<D>&,DistSVec<double,D>& V, \
+                                                DistSVec<double,D>& U, \
+                                             FluxFcn** fluxFcn,\
+                                             RecFcn* recFcn,\
+                                             FemEquationTerm*, \
+                                             DistSVec<double,D>& res, DistMultiGridLevelSetStructure*,bool); \
 template void MultiGridOperator<S,D>::applyBCsToResidual(DistSVec<double,D>& U, \
                                                        DistSVec<double,D>& R);
 #define INST_HELPER2(S,D,E) \
 template void MultiGridOperator<S,D>::computeJacobian(DistSVec<double,D>& U, DistSVec<double,D>& V,\
 FluxFcn **fluxFcn, \
 FemEquationTerm*,DistMvpMatrix<double,E>& matrices); \
+ template void MultiGridOperator<S,D>::computeJacobianEmbedded(DistExactRiemannSolver<D>&,DistSVec<double,D>& U, DistSVec<double,D>& V, \
+FluxFcn **fluxFcn, \
+							       FemEquationTerm*,DistMvpMatrix<double,E>& matrices, DistMultiGridLevelSetStructure*); \
 template void MultiGridOperator<S,D>::applyBCsToJacobian(DistSVec<double,D>& U, \
-                                                       DistMvpMatrix<double,E>& A); 
+							 DistMvpMatrix<double,E>& A); 
 
 template class MultiGridOperator<double,1>;
 template class MultiGridOperator<double,2>;

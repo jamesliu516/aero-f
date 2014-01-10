@@ -45,6 +45,10 @@ protected:
 
 public:
   
+  virtual DistMat<double,dim>* GetJacobian() { 
+    return NULL;
+  }
+
   ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom);
 
   ~ImplicitEmbeddedTsDesc();

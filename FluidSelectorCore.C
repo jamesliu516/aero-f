@@ -373,6 +373,44 @@ void FluidSelector::setupFluidIdMultiFluidInitialConditions(IoData &iod, DistSVe
     }
   }
 
+  if(!iod.mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator cylinderIt;
+    for(cylinderIt  = iod.mf.multiInitialConditions.cylinderMap.dataMap.begin();
+        cylinderIt != iod.mf.multiInitialConditions.cylinderMap.dataMap.end();
+        cylinderIt++){
+     if(cylinderIt->second->idModelID <= 0)
+	continue;
+
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double, 3> &x(X(iSub));
+
+        Vec<int> &fId((*fluidId)(iSub));
+
+        double scalar = 0.0;
+        for(int i=0; i<fId.size(); i++) {
+          scalar = cylinderIt->second->nx*(x[i][0] - cylinderIt->second->cen_x)+cylinderIt->second->ny*(x[i][1] - cylinderIt->second->cen_y)+cylinderIt->second->nz*(x[i][2] - cylinderIt->second->cen_z);
+	  if (scalar < 0.0 || scalar > cylinderIt->second->L)
+	    continue;
+	  
+	  double q[3] = {(x[i][0] - planeIt->second->cen_x) - scalar*cylinderIt->second->nx,
+			 (x[i][1] - planeIt->second->cen_y) - scalar*cylinderIt->second->ny
+			 (x[i][2] - planeIt->second->cen_z) - scalar*cylinderIt->second->nz};
+	  
+          if(sqrt(q[0]*q[0]+q[1]*q[1]+q[2]*q[2]) < 
+	     cylinderIt->second->r) { //node is on the same side indicated by vector
+
+	    int myId = cylinderIt->second->fluidModelID;
+	    if(fId[i]>0 && fId[i]!=myId)
+	      continue; //avoid overwriting.
+
+	    fId[i] = myId;
+	  }	    
+        }
+      }
+    }
+  }
+
   if(!iod.mf.multiInitialConditions.prismMap.dataMap.empty()){
     map<int, PrismData *>::iterator prismIt;
     for(prismIt  = iod.mf.multiInitialConditions.prismMap.dataMap.begin();

@@ -248,6 +248,48 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     }
   }
 
+  if(!iod.mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator cylinderIt;
+    for(cylinderIt  = iod.mf.multiInitialConditions.cylinderMap.dataMap.begin();
+        cylinderIt != iod.mf.multiInitialConditions.cylinderMap.dataMap.end();
+        cylinderIt++){
+      
+     if(cylinderIt->second->fluidModelID <= 0)
+	continue;
+
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double, 3> &x(X(iSub));
+
+        SVec<double,dimLS> &phi(Phi(iSub));
+        SVec<double,dimLS> &distance(Distance(iSub));
+
+        double scalar = 0.0;
+        for(int i=0; i<phi.size(); i++) {
+          scalar = cylinderIt->second->nx*(x[i][0] - cylinderIt->second->cen_x)+cylinderIt->second->ny*(x[i][1] - cylinderIt->second->cen_y)+cylinderIt->second->nz*(x[i][2] - cylinderIt->second->cen_z);
+	  //if (scalar < 0.0 || scalar > cylinderIt->L)
+	  //  continue;
+	  
+	  double q[3] = {(x[i][0] - cylinderIt->second->cen_x) - scalar*cylinderIt->second->nx,
+			 (x[i][1] - cylinderIt->second->cen_y) - scalar*cylinderIt->second->ny,
+			 (x[i][2] - cylinderIt->second->cen_z) - scalar*cylinderIt->second->nz};
+	  
+	  double R = sqrt(q[0]*q[0]+q[1]*q[1]+q[2]*q[2]);
+
+	  int fluidId = cylinderIt->second->fluidModelID-1;
+
+	  double dist = std::min((-R + cylinderIt->second->r), (scalar)*(cylinderIt->second->L-scalar));
+	  
+	  if(dist>0.0) phi[i][fluidId] = 1.0;
+	  if(distance[i][fluidId]<0.0) distance[i][fluidId] = fabs(dist);
+	  else                         distance[i][fluidId] = fmin(fabs(dist),distance[i][fluidId]);
+	  
+
+        }
+      }
+    }
+  }
+
   if(!iod.mf.multiInitialConditions.sphereMap.dataMap.empty()){
     map<int, SphereData *>::iterator sphereIt;
     for(sphereIt  = iod.mf.multiInitialConditions.sphereMap.dataMap.begin();
@@ -338,6 +380,18 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     }
   }
 
+  // Test case two:
+  /*  if (iod.mf.testCase == 2) {
+
+    DistSVec<double,5> dummy1(X.info());
+    DistVec<int> dummy2(X.info());
+    
+    ExactSolution::Fill<&ExactSolution::CylindricalBubble,
+      5, 1>(*Un,dummy2,
+	      dummy1, X, iod,0.0,
+	      varFcn);
+  }
+  */
 }
 
 //---------------------------------------------------------------------------------------

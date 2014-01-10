@@ -1826,6 +1826,46 @@ Assigner *PlaneData::getAssigner()
 
 //------------------------------------------------------------------------------
 
+CylinderData::CylinderData() {
+
+  fluidModelID = -1;
+  cen_x  = 0.0;
+  cen_y  = 0.0;
+  cen_z  = 0.0;
+  nx     = 0.0;
+  ny     = 0.0;
+  nz     = 1.0;
+
+  r = 0.5;
+  L = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+Assigner *CylinderData::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
+
+  new ClassInt<CylinderData> (ca, "FluidID", this, &CylinderData::fluidModelID);
+
+  new ClassDouble<CylinderData> (ca, "Point_x", this, &CylinderData::cen_x);
+  new ClassDouble<CylinderData> (ca, "Point_y", this, &CylinderData::cen_y);
+  new ClassDouble<CylinderData> (ca, "Point_z", this, &CylinderData::cen_z);
+  new ClassDouble<CylinderData> (ca, "Normal_x", this, &CylinderData::nx);
+  new ClassDouble<CylinderData> (ca, "Normal_y", this, &CylinderData::ny);
+  new ClassDouble<CylinderData> (ca, "Normal_z", this, &CylinderData::nz);
+  new ClassDouble<CylinderData> (ca, "Radius", this, &CylinderData::r);
+  new ClassDouble<CylinderData> (ca, "Length", this, &CylinderData::L);
+
+  initialConditions.setup("InitialState", ca);
+
+  return ca;
+}
+
+//------------------------------------------------------------------------------
+
 PointData::PointData()
 {
   fluidModelID = -1;
@@ -1882,6 +1922,7 @@ void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
   sphereMap.setup("Sphere", ca);
   prismMap.setup("Box", ca);
   planeMap.setup("Plane", ca);
+  cylinderMap.setup("Cylinder", ca);
   pointMap.setup("Point", ca);
   dummyPointMap.setup("DummyPoint", ca);
 
@@ -4045,6 +4086,8 @@ EmbeddedFramework::EmbeddedFramework() {
   riemannNormal = STRUCTURE;
   phaseChangeAlg = AVERAGE;
   interfaceAlg = MID_EDGE;
+
+  prec = NON_PRECONDITIONED;
   alpha = 0.1;
 
   nLevelset = 0;
@@ -4101,6 +4144,12 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
+
+  new ClassToken<EmbeddedFramework>
+    (ca, "Prec", this,
+     reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::prec), 2,
+     "NonPreconditioned", 0, "LowMach", 1);
+
 
 }
 
@@ -5045,6 +5094,7 @@ int IoData::checkInputValuesAllEquationsOfState(){
   if(eqs.numPhase > 1 && 
      (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
       !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
+      !mf.multiInitialConditions.cylinderMap.dataMap.empty()  ||
       !mf.multiInitialConditions.prismMap.dataMap.empty() || 
       !input.oneDimensionalInput.dataMap.empty()))
     mf.interfaceType = MultiFluidData::FF;
@@ -5141,6 +5191,20 @@ int IoData::checkInputValuesAllInitialConditions(){
     }
   }
 
+  if(!mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator it;
+    for (it=mf.multiInitialConditions.cylinderMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.cylinderMap.dataMap.end();
+         it++){
+      error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+      
+      if(it->second->r <= 0.0){
+        error++;
+        com->fprintf(stderr, "*** Error: a positive radius must be specified for the cylinder[%d] initial conditions\n", it->first);
+      }
+    }
+  }
+
   // check input values of initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator it;
@@ -5159,6 +5223,13 @@ int IoData::checkInputValuesAllInitialConditions(){
   set<int> usedModels; 
   for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
        it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+       it++) {
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
+
+  for (map<int, CylinderData *>::iterator it=mf.multiInitialConditions.cylinderMap.dataMap.begin();
+       it!=mf.multiInitialConditions.cylinderMap.dataMap.end();
        it++) {
     if (it->second->fluidModelID > 0)
       usedModels.insert(it->second->fluidModelID);
@@ -5303,6 +5374,20 @@ void IoData::nonDimensionalizeAllInitialConditions(){
       it->second->cen_x /= ref.rv.length;
       it->second->cen_y  /= ref.rv.length;
       it->second->cen_z  /= ref.rv.length;
+    }
+  }
+
+  if(!mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator it;
+    for (it=mf.multiInitialConditions.cylinderMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.cylinderMap.dataMap.end();
+         it++){
+      nonDimensionalizeInitialConditions(it->second->initialConditions);
+      it->second->cen_x /= ref.rv.length;
+      it->second->cen_y  /= ref.rv.length;
+      it->second->cen_z  /= ref.rv.length;
+      it->second->r  /= ref.rv.length;
+      it->second->L  /= ref.rv.length;
     }
   }
 

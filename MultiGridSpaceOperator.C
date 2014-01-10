@@ -85,6 +85,21 @@ computeResidual(int level, MultiGridDistSVec<Scalar,dim>& U,
 
 template <class Scalar,int dim> 
 void MultiGridSpaceOperator<Scalar,dim>::
+computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
+			int level, MultiGridDistSVec<Scalar,dim>& U,
+			MultiGridDistSVec<Scalar,dim>& V,
+			MultiGridDistSVec<Scalar,dim>& res,
+			DistMultiGridLevelSetStructure* mgLSS,			
+			bool addDWdt) {
+
+  myOperators[level]->computeResidualEmbedded(riemann,V(level), U(level),
+					      fluxFcn, &recConstant,
+					      fet,res(level), mgLSS, addDWdt);
+  myOperators[level]->applyBCsToResidual(U(level),res(level));
+}
+
+template <class Scalar,int dim> 
+void MultiGridSpaceOperator<Scalar,dim>::
 updateStateVectors(int level, MultiGridDistSVec<Scalar,dim>& U) {
 
   myOperators[level]->updateStateVectors(U(level));
@@ -103,6 +118,22 @@ computeJacobian(int lvl, MultiGridDistSVec<Scalar,dim>& U,
   myOperators[lvl]->applyBCsToJacobian(U(lvl),mvp(lvl));
 }
 
+template <class Scalar,int dim> 
+template <int neq>
+void MultiGridSpaceOperator<Scalar,dim>::
+computeJacobianEmbedded(DistExactRiemannSolver<dim>& riemann,
+			int lvl, MultiGridDistSVec<Scalar,dim>& U,
+			MultiGridDistSVec<Scalar,dim>& V,
+			MultiGridMvpMatrix<Scalar,neq>& mvp,
+			DistMultiGridLevelSetStructure* mgLSS) {
+
+  myOperators[lvl]->computeJacobianEmbedded(riemann,U(lvl), V(lvl),
+					    fluxFcn1, fet1,mvp(lvl),
+					    mgLSS);
+
+  myOperators[lvl]->applyBCsToJacobian(U(lvl),mvp(lvl));
+}
+
 template class MultiGridSpaceOperator<double,1>;
 template class MultiGridSpaceOperator<double,2>;
 template class MultiGridSpaceOperator<double,5>;
@@ -112,7 +143,12 @@ template class MultiGridSpaceOperator<double,7>;
 #define INST_HELPER(dim,neq) \
 template void MultiGridSpaceOperator<double,dim>:: \
 computeJacobian(int level, MultiGridDistSVec<double,dim>&,\
-MultiGridDistSVec<double,dim>&, MultiGridMvpMatrix<double,neq>&);
+MultiGridDistSVec<double,dim>&, MultiGridMvpMatrix<double,neq>&);\
+template void MultiGridSpaceOperator<double,dim>:: \
+ computeJacobianEmbedded(DistExactRiemannSolver<dim>&, \
+			 int level, MultiGridDistSVec<double,dim>&,	\
+			 MultiGridDistSVec<double,dim>&, MultiGridMvpMatrix<double,neq>&, \
+			 DistMultiGridLevelSetStructure*);
 
 INST_HELPER(5,5);
 INST_HELPER(6,6);

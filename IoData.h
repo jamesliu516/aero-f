@@ -1042,6 +1042,20 @@ struct PlaneData {
 
 //------------------------------------------------------------------------------
 
+struct CylinderData {
+
+  double cen_x, cen_y, cen_z, nx, ny, nz, r, L;
+  int fluidModelID;
+  InitialConditions initialConditions;
+
+  CylinderData();
+  ~CylinderData() {}
+  Assigner *getAssigner();
+
+};
+
+//------------------------------------------------------------------------------
+
 struct PointData {
 
   int fluidModelID;
@@ -1070,6 +1084,7 @@ struct MultiInitialConditionsData {
   ObjectMap<SphereData> sphereMap;
   ObjectMap<PrismData>  prismMap;
   ObjectMap<PlaneData>  planeMap;
+  ObjectMap<CylinderData>  cylinderMap;
   ObjectMap<PointData>  pointMap;
   ObjectMap<DummyPointData>  dummyPointMap;
 
@@ -2204,6 +2219,10 @@ struct EmbeddedFramework {
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
+
+  // Low mach preconditioning of the exact Riemann problem.
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+
   double alpha;   // In the case of solve Riemann problem at intersection, this parameter
                   // controls whether to switch to a first order method to avoid divided-by-zero
 

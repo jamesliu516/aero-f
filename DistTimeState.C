@@ -456,6 +456,18 @@ void DistTimeState<dim>::setupUExactSolutionInitialConditions(IoData &iod, DistS
       }
     }
   }
+
+  // Test case two:
+  if (iod.mf.testCase == 2) {
+
+    DistSVec<double,1> dummy1(X.info());
+    DistVec<int> dummy2(X.info());
+    
+    ExactSolution::Fill<&ExactSolution::CylindricalBubble,
+      dim, 1>(*Un,dummy2,
+	      dummy1, X, iod,0.0,
+	      varFcn);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -493,6 +505,45 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
         for(int i=0; i<u.size(); i++) {
           scalar = planeIt->second->nx*(x[i][0] - planeIt->second->cen_x)+planeIt->second->ny*(x[i][1] - planeIt->second->cen_y)+planeIt->second->nz*(x[i][2] - planeIt->second->cen_z);
           if(scalar > 0.0) //node is on the same side indicated by vector
+            for (int idim=0; idim<dim; idim++)
+              u[i][idim] = UU[idim];
+        }
+      }
+    }
+  }
+
+  if(!iod.mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator cylinderIt;
+    for(cylinderIt  = iod.mf.multiInitialConditions.cylinderMap.dataMap.begin();
+        cylinderIt != iod.mf.multiInitialConditions.cylinderMap.dataMap.end();
+        cylinderIt++){
+      fluidIt = iod.eqs.fluidModelMap.dataMap.find(cylinderIt->second->fluidModelID);
+      if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+        fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", cylinderIt->second->fluidModelID);
+        exit(1);
+      }
+      double UU[dim];
+      computeInitialState(cylinderIt->second->initialConditions, *fluidIt->second, UU);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
+      domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);
+*/
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dim> &u((*Un)(iSub));
+        SVec<double, 3> &x(X(iSub));
+
+        double scalar = 0.0;
+        for(int i=0; i<u.size(); i++) {
+          scalar = cylinderIt->second->nx*(x[i][0] - cylinderIt->second->cen_x)+cylinderIt->second->ny*(x[i][1] - cylinderIt->second->cen_y)+cylinderIt->second->nz*(x[i][2] - cylinderIt->second->cen_z);
+	  if (scalar < 0.0 || scalar > cylinderIt->second->L)
+	    continue;
+	  
+	  double q[3] = {(x[i][0] - cylinderIt->second->cen_x) - scalar*cylinderIt->second->nx,
+			 (x[i][1] - cylinderIt->second->cen_y) - scalar*cylinderIt->second->ny,
+			 (x[i][2] - cylinderIt->second->cen_z) - scalar*cylinderIt->second->nz};
+	  
+          if(sqrt(q[0]*q[0]+q[1]*q[1]+q[2]*q[2]) < 
+	     cylinderIt->second->r) //node is on the same side indicated by vector
             for (int idim=0; idim<dim; idim++)
               u[i][idim] = UU[idim];
         }

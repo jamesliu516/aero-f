@@ -1220,9 +1220,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	
 	//betai[4] = betaj[4] = 1.0;
 	
-	std::cout << V[i][1] << " " << V[i][2] << " " << V[i][3] << " " << V[j][1] << " " << V[j][2] << " " << V[j][3] << "\n";
-	std::cout << dx[0] << " " << dx[1] << " " << dx[2] << "\n";
-	std::cout << "betai[4] = " << betai[4] << "(" << fluidId[i] << ") betaj[4] = " << betaj[4] << " (" << fluidId[j] << ")\n";
+	//std::cout << V[i][1] << " " << V[i][2] << " " << V[i][3] << " " << V[j][1] << " " << V[j][2] << " " << V[j][3] << "\n";
+	//std::cout << dx[0] << " " << dx[1] << " " << dx[2] << "\n";
+	//std::cout << "betai[4] = " << betai[4] << "(" << fluidId[i] << ") betaj[4] = " << betaj[4] << " (" << fluidId[j] << ")\n";
           //std::cout << "s = " << s << std::endl;
 	  // Step 2: Extrapolate the values from cell i and cell j to the interface
 	  for (int k = 0; k < dim; ++k) {
@@ -1262,7 +1262,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
 
           //std::cout << "s = " << s << std::endl;
-	  if (0/*s < 0.9*/) {
+	  if (0) {//s < 0.9) {
 	    for (int k = 0; k < dim; ++k) {
 	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai[k] + 
 		(1.0-betai[k])*Wi[k];
@@ -1271,7 +1271,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	    higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length,fluidId, betai);
 
-	  if (0/*s > 0.1*/) {
+	  if (0) {//s > 0.1) {
 	    for (int k = 0; k < dim; ++k) {
 	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj[k] + 
 		(1.0-betaj[k])*Wj[k];
@@ -1279,6 +1279,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           } else
 
 	    higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId,betaj);
+
+	  
+	  //memcpy(Vi, Wi, sizeof(double)*5);
+	  //memcpy(Vj, Wj, sizeof(double)*5);
 
           // Check for negative pressures/densities.
           // If a negative value is detected, drop back to first order extrapolation 
@@ -1296,10 +1300,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 					  Vi, Vi, fluxi, fluidId[i]);
 	    
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  V[i], Wi, fluxtmp, fluidId[i]);
-	    for (int k = 0; k < dim; ++k)
-	      fluxi[k] = betai[k]*fluxi[k]+(1.0-betai[k])*fluxtmp[k];
+	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+	    //				  V[i], Wi, fluxtmp, fluidId[i]);
+	    //for (int k = 0; k < dim; ++k)
+	    //  fluxi[k] = betai[k]*fluxi[k]+(1.0-betai[k])*fluxtmp[k];
 
 	  }
 	  else {
@@ -1311,10 +1315,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
 					  Vj, Vj, fluxj, fluidId[j]);
 
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Wj, V[j], fluxtmp, fluidId[j]);
-	    for (int k = 0; k < dim; ++k)
-	      fluxj[k] = betaj[k]*fluxj[k]+(1.0-betaj[k])*fluxtmp[k];
+	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+	    //				  Wj, V[j], fluxtmp, fluidId[j]);
+	    //for (int k = 0; k < dim; ++k)
+	    //  fluxj[k] = betaj[k]*fluxj[k]+(1.0-betaj[k])*fluxtmp[k];
 	    
 	  }
 	  else
@@ -2083,7 +2087,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
       }
     } 
-      
+
     varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
     varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 
@@ -2122,9 +2126,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-      for (int k=0; k<dim; ++k) {
-        fluxes[i][k] += flux[k];
-        fluxes[j][k] -= flux[k];
+      if (dynamic_cast<class MultiGridLevelSetStructure*>(&LSS) == 0) {
+	for (int k=0; k<dim; ++k) {
+	  fluxes[i][k] += flux[k];
+	  fluxes[j][k] -= flux[k];
+	}
+      } else {
+	for (int k=0; k<dim; ++k) {
+	  fluxes[i][k] += flux[k];// normal[l][0]+normal[l][1]+normal[l][2];
+	  fluxes[j][k] -= flux[k];// normal[l][0]+normal[l][1]+normal[l][2];
+	}
+
       }
 //      if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode)
 //        fprintf(stderr,"--- A flux(%d,%d) = %e %e %e %e %e\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, flux[0], flux[1], flux[2], flux[3], flux[4]);
