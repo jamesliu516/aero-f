@@ -37,7 +37,7 @@ void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
   new ClassDouble<NewtonData>(ca, "EpsAbsInc", this, &NewtonData::epsAbsInc);
 
   ksp.setup("LinearSolver", ca);
-
+  lineSearch.setup("LineSearch",ca);
 }
 
 
