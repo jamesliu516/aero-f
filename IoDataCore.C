@@ -102,6 +102,7 @@ InputData::InputData()
   stateSnapFile = "";
   residualSnapFile = "";
   krylovSnapFile = "";
+  approxMetricStateSnapFile = "";
   sensitivitySnapFile = "";
 
   reducedCoords = "";
@@ -154,6 +155,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "ResidualSnapshotData", this, &InputData::residualSnapFile);
   new ClassStr<InputData>(ca, "KrylovSnapshotData", this, &InputData::krylovSnapFile);
   new ClassStr<InputData>(ca, "SensitivitySnapshotData", this, &InputData::sensitivitySnapFile);
+  new ClassStr<InputData>(ca, "ApproximatedMetricStateSnapshotData", this, &InputData::approxMetricStateSnapFile);
   new ClassStr<InputData>(ca, "ReducedCoordinates", this, &InputData::reducedCoords);
 
   new ClassStr<InputData>(ca, "InitialWallDisplacement", this, &InputData::wallsurfacedisplac); // YC
@@ -564,7 +566,7 @@ ROMOutputData::ROMOutputData()
 
 void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 18, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 19, father); 
   new ClassStr<ROMOutputData>(ca, "Prefix", this, &ROMOutputData::prefix);
 
   new ClassStr<ROMOutputData>(ca, "FluxNormSensitivity", this, &ROMOutputData::dFluxNorm);
@@ -3538,7 +3540,7 @@ NonlinearRomFileSystemData::NonlinearRomFileSystemData()
 void NonlinearRomFileSystemData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   new ClassInt<NonlinearRomFileSystemData>(ca, "NumClusters", this, &NonlinearRomFileSystemData::nClusters);
 
@@ -3563,7 +3565,7 @@ NonlinearRomDirectoriesData::NonlinearRomDirectoriesData()
 void NonlinearRomDirectoriesData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
 
   new ClassStr<NonlinearRomDirectoriesData>(ca, "Prefix", this, &NonlinearRomDirectoriesData::prefix);
   new ClassStr<NonlinearRomDirectoriesData>(ca, "TopLevelDirectoryName", this, &NonlinearRomDirectoriesData::databaseName);
@@ -3598,7 +3600,8 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   stateBasisPrefix = "";
   stateBasisName = "";
   stateSingValsName = "";
-  updateInfoName = "";
+  simpleUpdateInfoName = "";
+  exactUpdateInfoPrefix = "";
   stateDistanceComparisonInfoName = "";
   stateDistanceComparisonInfoExactUpdatesName = "";
   projErrorName = "";
@@ -3646,6 +3649,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   gnatPrefix = "";
   sampledNodesName = "";
   sampledNodesFullCoordsName = "";
+  sampledCentersName = "";
   sampledStateBasisName = "";
   sampledKrylovBasisName = "";
   sampledSensitivityBasisName = "";
@@ -3657,7 +3661,8 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   sampledWallDistName = "";
   gappyJacActionName = "";
   gappyResidualName = "";
-
+  approxMetricLowRankName = "";
+  approxMetricLowRankFullCoordsName = "";
   // Surface quantities
   surfacePrefix = "";
   surfaceStateBasisName = "";
@@ -3671,7 +3676,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
 void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 60, father);
 
   // State snaps (and associated clustering info)
   new ClassStr<NonlinearRomFilesData>(ca, "StatePrefix", this, &NonlinearRomFilesData::statePrefix);
@@ -3688,7 +3693,8 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisPrefix", this, &NonlinearRomFilesData::stateBasisPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasis", this, &NonlinearRomFilesData::stateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisSingularValues", this, &NonlinearRomFilesData::stateSingValsName);
-  new ClassStr<NonlinearRomFilesData>(ca, "StateBasisUpdateInfo", this, &NonlinearRomFilesData::updateInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateBasisSimpleUpdateInfo", this, &NonlinearRomFilesData::simpleUpdateInfoName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateBasisExactUpdateInfo", this, &NonlinearRomFilesData::exactUpdateInfoPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfo", this, &NonlinearRomFilesData::stateDistanceComparisonInfoName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdates", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesName);
   new ClassStr<NonlinearRomFilesData>(ca, "ProjectionError", this, &NonlinearRomFilesData::projErrorName);
@@ -3736,6 +3742,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "GNATPrefix", this, &NonlinearRomFilesData::gnatPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledNodes", this, &NonlinearRomFilesData::sampledNodesName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledNodesFullCoords", this, &NonlinearRomFilesData::sampledNodesFullCoordsName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledClusterCenters", this, &NonlinearRomFilesData::sampledCentersName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledStateBasis", this, &NonlinearRomFilesData::sampledStateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledKrylovBasis", this, &NonlinearRomFilesData::sampledKrylovBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledSensitivityBasis", this, &NonlinearRomFilesData::sampledSensitivityBasisName);
@@ -3747,6 +3754,8 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SampledMesh", this, &NonlinearRomFilesData::sampledMeshName);
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineResidualMatrix", this, &NonlinearRomFilesData::gappyResidualName);
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineJacActionMatrix", this, &NonlinearRomFilesData::gappyJacActionName);
+  new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricLowRankMatrix", this, &NonlinearRomFilesData::approxMetricLowRankName);
+  new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricLowRankMatrixFullCoords", this, &NonlinearRomFilesData::approxMetricLowRankFullCoordsName);
 
   // Surface quantities
   new ClassStr<NonlinearRomFilesData>(ca, "SurfacePrefix", this, &NonlinearRomFilesData::surfacePrefix);
@@ -3783,6 +3792,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   integralLeakGain = 0.0;
   regThresh = 0.0;
   ffWeight = 1.0;
+  levenbergMarquardtWeight = 1.0;
   ffErrorTol = 0.0;
   controlNodeID = -1;
 }
@@ -3792,16 +3802,16 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
 void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 26, father);
 
 	new ClassToken<NonlinearRomOnlineData> (ca, "Projection", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projection), 2, "PetrovGalerkin", 0, "Galerkin", 1);
 	new ClassToken<NonlinearRomOnlineData> (ca, "SystemApproximation", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::systemApproximation), 2, "None", 0, "GNAT", 1);
   new ClassToken<NonlinearRomOnlineData> (ca, "PerformLineSearch", this, reinterpret_cast<int
-      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 2, "False", 0, "True", 1);
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 3, "False", 0, "Backtracking", 1, "Wolf", 2);
 	new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
-			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 3, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2);
+			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 4, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3);
  	new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
   new ClassInt<NonlinearRomOnlineData>(ca, "BasisUpdateFrequency", this, &NonlinearRomOnlineData::basisUpdateFreq);
@@ -3817,6 +3827,8 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 5, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3, "BoundaryConditions", 4);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldWeighting", this, &NonlinearRomOnlineData::ffWeight);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "LevenbergMarquardtWeighting", this, &NonlinearRomOnlineData::levenbergMarquardtWeight);
+
   new ClassDouble<NonlinearRomOnlineData>(ca, "WeightingExponent", this, &NonlinearRomOnlineData::weightingExponent);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationConstantGain", this, &NonlinearRomOnlineData::constantGain);
@@ -3830,7 +3842,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
-
+  onlineResiduals.setup("OnlineResiduals",ca);
 }
 
 //------------------------------------------------------------------------------
@@ -3844,6 +3856,9 @@ NonlinearRomOnlineNonStateData::NonlinearRomOnlineNonStateData()
 	minDimension = 0;
   energy = 1.0;
 
+  timeFreq = 1;
+  newtonFreq = 1;
+  
 }
 
 //------------------------------------------------------------------------------
@@ -3851,7 +3866,7 @@ NonlinearRomOnlineNonStateData::NonlinearRomOnlineNonStateData()
 void NonlinearRomOnlineNonStateData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
   new ClassToken<NonlinearRomOnlineNonStateData>(ca, "Include", this, reinterpret_cast<int
       NonlinearRomOnlineNonStateData::*>(&NonlinearRomOnlineNonStateData::include), 2, "Off", 0, "On", 1);
   new ClassToken<NonlinearRomOnlineNonStateData>(ca, "GramSchmidt", this, reinterpret_cast<int
@@ -3859,6 +3874,10 @@ void NonlinearRomOnlineNonStateData::setup(const char *name, ClassAssigner *fath
   new ClassInt<NonlinearRomOnlineNonStateData>(ca, "MaximumDimension", this, &NonlinearRomOnlineNonStateData::maxDimension);
   new ClassInt<NonlinearRomOnlineNonStateData>(ca, "MinimumDimension", this, &NonlinearRomOnlineNonStateData::minDimension); 
   new ClassDouble<NonlinearRomOnlineNonStateData>(ca, "Energy", this, &NonlinearRomOnlineNonStateData::energy);
+
+  // only applicable for OnlineResiduals
+  new ClassInt<NonlinearRomOnlineNonStateData>(ca, "TimeFrequency", this, &NonlinearRomOnlineNonStateData::timeFreq);
+  new ClassInt<NonlinearRomOnlineNonStateData>(ca, "NewtonFrequency", this, &NonlinearRomOnlineNonStateData::newtonFreq);
 
 }
 
@@ -3877,7 +3896,7 @@ NonlinearRomOfflineData::NonlinearRomOfflineData()
 void NonlinearRomOfflineData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
 
 	rob.setup("ConstructROB",ca);
 	gnat.setup("ConstructGNAT",ca);
@@ -3929,13 +3948,15 @@ GNATConstructionData::GNATConstructionData()
 
   sampledMeshUsed = SAMPLED_MESH_USED;
   pseudoInverseNodes = 20;
+  outputReducedBases = OUTPUT_REDUCED_BASES_TRUE;
+  testApproxMetric = TEST_APPROX_METRIC_FALSE;
 }
 
 //------------------------------------------------------------------------------
 
 void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+  ClassAssigner *ca = new ClassAssigner(name, 29, father);
   
 	// optional: document
   new ClassInt<GNATConstructionData>(ca, "MaxDimensionStateROB", this, &GNATConstructionData::maxDimensionState);	// default: full size
@@ -3984,6 +4005,13 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
 
   new ClassInt<GNATConstructionData>(ca, "NumPseudoInvNodesAtATime", this, &GNATConstructionData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
 
+  new ClassToken<GNATConstructionData> (ca, "OutputReducedBases", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::outputReducedBases), 2, "False", 0, "True", 1);
+
+  new ClassToken<GNATConstructionData> (ca, "TestLowRankApproxMetric", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::testApproxMetric), 2, "False", 0, "True", 1);
+
+
 }
 //------------------------------------------------------------------------------
 
@@ -3999,7 +4027,7 @@ ROBConstructionData::ROBConstructionData()
 void ROBConstructionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
 	clustering.setup("Clustering",ca);
   basisUpdates.setup("OnlineBasisUpdates",ca);
@@ -4018,30 +4046,33 @@ void ROBConstructionData::setup(const char *name, ClassAssigner *father)
 
 ClusteringData::ClusteringData()
 {
-	clusteringAlgorithm = K_MEANS;
-	numClusters = 1;
+	clusteringAlgorithm = K_MEANS_WITH_BOUNDS;
+  kmeansBoundType = TIGHT_BOUNDS;
+  
   percentOverlap = 10.0;
   maxIter = 150;
-  maxIterSingle = 100;
+  maxIterAggressive = 100;
   minClusterSize = 10;
   kMeansTol = 1.0e-6;
   kMeansRandSeed = -1;  // default: generate randomly
   useExistingClusters = USE_EXISTING_CLUSTERS_FALSE;
   computeMDS = COMPUTE_MDS_FALSE;
   outputSnapshots = OUTPUT_SNAPSHOTS_TRUE;
+  clusterFilesSeparately = CLUSTER_FILES_SEPARATELY_FALSE;
 }
 
 //------------------------------------------------------------------------------
 
 void ClusteringData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 12, father);
   new ClassToken<ClusteringData> (ca, "ClusteringAlgorithm", this, reinterpret_cast<int 
-			ClusteringData::*>(&ClusteringData::clusteringAlgorithm), 1, "KMeans", 0); //Include additional clustering algorithms in the future?
-  new ClassInt<ClusteringData>(ca, "NumClusters", this, &ClusteringData::numClusters);
+			ClusteringData::*>(&ClusteringData::clusteringAlgorithm), 2, "KMeans", 0, "KMeansWithBounds", 1);
+  new ClassToken<ClusteringData> (ca, "KMeansBoundType", this, reinterpret_cast<int 
+			ClusteringData::*>(&ClusteringData::kmeansBoundType), 2, "Tight", 0, "Loose", 1);
   new ClassDouble<ClusteringData>(ca, "PercentOverlap", this, &ClusteringData::percentOverlap);
   new ClassInt<ClusteringData>(ca, "KMeansMaxIterations", this, &ClusteringData::maxIter);
-  new ClassInt<ClusteringData>(ca, "KMeansMaxAggressiveIterations", this, &ClusteringData::maxIterSingle);
+  new ClassInt<ClusteringData>(ca, "KMeansMaxAggressiveIterations", this, &ClusteringData::maxIterAggressive);
   new ClassDouble<ClusteringData>(ca, "KMeansTolerance", this, &ClusteringData::kMeansTol);
   new ClassInt<ClusteringData>(ca, "MinClusterSize", this, &ClusteringData::minClusterSize);
   new ClassInt<ClusteringData>(ca, "KMeansRandomSeed", this, &ClusteringData::kMeansRandSeed);
@@ -4051,6 +4082,8 @@ void ClusteringData::setup(const char *name, ClassAssigner *father) {
       ClusteringData::*>(&ClusteringData::computeMDS), 2, "False", 0, "True", 1);
   new ClassToken<ClusteringData> (ca, "OutputClusteredSnapshots", this, reinterpret_cast<int
       ClusteringData::*>(&ClusteringData::outputSnapshots), 2, "False", 0, "True", 1);
+  new ClassToken<ClusteringData> (ca, "ClusterSnapshotFilesSeparately", this, reinterpret_cast<int
+      ClusteringData::*>(&ClusteringData::clusterFilesSeparately), 2, "False", 0, "True", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -4061,14 +4094,13 @@ BasisUpdatesData::BasisUpdatesData()
   preprocessForSimpleUpdates = SIMPLE_UPDATES_FALSE;
   preprocessForExactUpdates = EXACT_UPDATES_FALSE;
   preprocessForApproxUpdates = APPROX_UPDATES_FALSE;
-
 }
 
 //------------------------------------------------------------------------------
 
 void BasisUpdatesData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForNoUpdates", this, reinterpret_cast<int 
 			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForSimpleUpdates", this, reinterpret_cast<int
@@ -4079,7 +4111,28 @@ void BasisUpdatesData::setup(const char *name, ClassAssigner *father) {
 			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForApproxUpdates), 2, "Off", 0, "On", 1);
 
   // add object to specify parameters for approx updates
+  approximatedMetric.setup("ApproximatedMetric",ca);
+}
 
+
+//------------------------------------------------------------------------------
+
+ApproximatedMetricData::ApproximatedMetricData()
+{
+
+  sampledMeshFraction = 1.0;
+  lowRankEnergy = 0.9999;
+  tolerance = 1e-8;
+}
+
+//------------------------------------------------------------------------------
+
+void ApproximatedMetricData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  new ClassDouble<ApproximatedMetricData>(ca, "SampledMeshFraction", this, &ApproximatedMetricData::sampledMeshFraction);
+  new ClassDouble<ApproximatedMetricData>(ca, "LowRankEnergy", this, &ApproximatedMetricData::lowRankEnergy);
+  new ClassDouble<ApproximatedMetricData>(ca, "Tolerance", this, &ApproximatedMetricData::tolerance);
 }
 
 
@@ -4096,7 +4149,7 @@ StateData::StateData()
 
 void StateData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
   snapshots.setup("Snapshots",ca);  //"StateSnapshotsData" struct (all others are "SnapshotData" structs)
   dataCompression.setup("DataCompression",ca);
 
@@ -4115,7 +4168,7 @@ ResidualData::ResidualData()
 
 void ResidualData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
   snapshots.setup("Snapshots",ca);
   dataCompression.setup("DataCompression",ca);
 
@@ -4134,7 +4187,7 @@ JacobianActionData::JacobianActionData()
 
 void JacobianActionData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
   snapshots.setup("Snapshots",ca);
   dataCompression.setup("DataCompression",ca);
 
@@ -4153,7 +4206,7 @@ SensitivityData::SensitivityData()
 
 void SensitivityData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
   snapshots.setup("Snapshots",ca);
   dataCompression.setup("DataCompression",ca);
 
@@ -4172,7 +4225,7 @@ KrylovData::KrylovData()
 
 void KrylovData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
   snapshots.setup("Snapshots",ca);
   dataCompression.setup("DataCompression",ca);
 
@@ -4220,7 +4273,7 @@ SnapshotsData::SnapshotsData()
 void SnapshotsData::setup(const char *name, ClassAssigner *father)
 {
 
-	ClassAssigner *ca = new ClassAssigner(name, 5, father);
+	ClassAssigner *ca = new ClassAssigner(name, 1, father);
 	new ClassToken<SnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
 			SnapshotsData::*>(&SnapshotsData::normalizeSnaps), 2, "False", 0, "True", 1);
 
@@ -4246,7 +4299,7 @@ DataCompressionData::DataCompressionData()
 
 void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 10, father);
   new ClassToken<DataCompressionData> (ca, "ComputePOD", this, reinterpret_cast<int
       DataCompressionData::*>(&DataCompressionData::computePOD), 2, "False", 0, "True", 1); 
 	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int 
@@ -4283,7 +4336,7 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
 
 void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 10, father);
 	new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 4, "Off", 0, "State", 1, "Residual", 2, "JacAction", 3);
 	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
@@ -5620,6 +5673,21 @@ int IoData::checkInputValues()
   eqs.tc.tr.bfix.z0 /= ref.rv.tlength;
   eqs.tc.tr.bfix.z1 /= ref.rv.tlength;
 
+
+  // input values for NonlinearROMs
+  if (   (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_)
+      || (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_)
+      || (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_) ) {
+    error += checkInputValuesNonlinearRomPreprocessing();
+  } else if (   (problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_)
+             || (problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) ) {
+    error += checkInputValuesNonlinearRomOnline();
+  } else if (problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+    error += checkInputValuesNonlinearRomPostprocessing();
+  }
 
   return error;
 
@@ -7300,3 +7368,35 @@ void IoData::printDebug(){
     }
   }
 }
+
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesNonlinearRomPreprocessing() {
+  int error = 0;
+
+  // TODO KMW
+
+  return error;
+}
+
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesNonlinearRomOnline() {
+  int error = 0;
+
+  // TODO KMW
+
+  return error;
+}
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesNonlinearRomPostprocessing() {
+  int error = 0;
+
+  // TODO KMW
+  romOnline.distanceComparisons = NonlinearRomOnlineData::DISTANCE_COMPARISONS_OFF;
+
+  return error;
+}
+
+

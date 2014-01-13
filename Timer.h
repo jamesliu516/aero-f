@@ -18,7 +18,8 @@ class Timer {
 		romConstr, romTimeInteg, comm, localCom, globalCom, interCom, rmaCom, io,
 		binread, binwrite, levelSet, lsNodalWeightsAndGrad, lsFvTerm,
 		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
-		eulerFSI, embedforce, walldistance, lsreinitialization, NUMTIMINGS
+		eulerFSI, embedforce, walldistance, lsreinitialization, readSnapshotFile,
+    clustering, mds, romOffline, NUMTIMINGS
   };
 
   int numTimings;
@@ -105,6 +106,12 @@ public:
   double removeIntersAndPhaseChange(double);
   double addWallDistanceTime(double);
 
+  // Nonlinear ROM Offline Timer Functions
+  double addReadSnapshotFileTime(double);
+  double addClusteringTime(double);
+  double addMDSTime(double);
+  double addTotalOfflineTime(double);
+  
   void print(Timer *, FILE * = stdout);
 
 };

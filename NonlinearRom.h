@@ -18,6 +18,7 @@ class NonlinearRom {
   Domain& domain;
   Communicator* com; 
   IoData* ioData;
+  Timer *timer;
 
   // IO directory information
   const char* databasePrefix;
@@ -41,8 +42,18 @@ class NonlinearRom {
   char* stateBasisPrefix;
   char* stateBasisName;
   char* stateSingValsName;
-  char* updateInfoName;
+  char* simpleUpdateInfoName;
+  char* exactUpdateInfoPrefix;      // only user-specified value for exact update file names
+  char* basisBasisProductsName;     // for exact updates (exactUpdateInfoPrefix.exactUpdates_F)
+  char* basisUrefProductsName;      // for exact updates (exactUpdateInfoPrefix.exactUpdates_e)
+  char* basisUicProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_d)
+  char* urefUicProductsName;        // for exact updates (exactUpdateInfoPrefix.exactUpdates_c)
+  char* urefUrefProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_g)   
+  char* urefComponentwiseSumsName;  // for exact updates with uniform IC (exactUpdateInfoPrefix.exactUpdates_UrefComponentwiseSums)
+  char* basisComponentwiseSumsName; // for exact updates with uniform IC (exactUpdateInfoPrefix.exactUpdates_StateBasisComponentwiseSums)
+  //char* approxUpdateInfoName; // treating this as a GNAT quantity
   char* stateDistanceComparisonInfoName;
+  char* centerComponentWiseSumsName; // for fast distance calcs when using either no updates or exact updates ()
   char* stateDistanceComparisonInfoExactUpdatesName;
   char* projErrorName;
   char* refStateName;
@@ -84,6 +95,7 @@ class NonlinearRom {
   // GNAT quantities
   char* sampledNodesName;
   char* sampledNodesFullCoordsName;
+  char* sampledCentersName;
   char* sampledStateBasisName;
   char* sampledKrylovBasisName;
   char* sampledSensitivityBasisName;
@@ -95,12 +107,13 @@ class NonlinearRom {
   char* sampledWallDistName;
   char* gappyJacActionName;
   char* gappyResidualName;
-
+  char* approxMetricLowRankName;
+  char* approxMetricLowRankFullCoordsName;
   // Surface quantities
-  char* surfaceStateBasisName;
-  char* surfaceSolutionName;
-  char* surfaceWallDistName;
-  char* surfaceMeshName;
+  //char* surfaceStateBasisName;
+  //char* surfaceSolutionName;
+  //char* surfaceWallDistName;
+  //char* surfaceMeshName;
 
   // ROM database data
   VecSet< DistSVec<double, dim> >* snap; // snap(nTotSnaps, domain.getNodeDistInfo())
@@ -121,15 +134,23 @@ class NonlinearRom {
   std::vector<double>* sVals;
   DistSVec<double, dim>* Uref; 
   // 2: unique to exact updates
-    //basisBasisProduct  // [iCluster][pCluster][:][:]
-    //basisUrefProduct   // [iCluster]
-    //basisUicProduct
-    //normUref
-    //normUic
-    //UrefUicproduct
-    //
+  double uicNorm;
+  std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
+  std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
+  std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
+  std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
+  std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
+  std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
+  std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
+  std::vector<double> exactUpdatesAlpha;  // [jVec]
+  std::vector<std::vector<double> > exactUpdatesBeta; //[iCluster][jVec]  
+  std::vector<std::vector<std::vector<double> > > exactUpdatesN;  // [iCluster][iVec][jVec]
+  double exactUpdatesAlphaSwitch;  // scalar
+  std::vector<double> exactUpdatesBetaSwitch; //[iCluster]
+  std::vector<std::vector<double> > exactUpdatesNSwitch;  // [iCluster][iVec]
+  DistSVec<double, dim>* Uic;
   // 3: unique to approximate updates
-
+  VecSet<DistSVec<double, dim> >* lowRankFactor; // low rank factor for approx metric
 
   // fast distance calculation quantities
   // 1: common to all GNAT update methods (no updates, exact updates, approx updates)
@@ -141,14 +162,21 @@ class NonlinearRom {
   std::vector<std::vector<std::vector<double> > > sensitivityBasisCentersProduct;          //[mCenter][pCenter][:]
   std::vector<std::vector<double> > distanceComparisons;  // this is "z_(m,p)" from Amsallem et al., INJME 2012, but with p<m
   void checkUniformInitialCondition(DistSVec<double, dim> &);
+  void checkForSpecifiedInitialCondition();
   // 2: unique to exact updates
   std::vector<std::vector<double> > initialConditionCentersProduct; 
   std::vector<std::vector<std::vector<double> > > refStateCentersProduct;
   // 3: unique to approximate updates
+  double ***hForFastDistComp;
+  double ***cForFastDistComp;
   
+  // non-database IO function
+  int readSnapshotFiles(char *, bool);
+  std::vector<int> stateSnapsFromFile;   // stateSnapsFromFile[iFile] = number of snapshots taken from file iFile
+  std::vector<std::vector<double> > stateSnapshotTags; // stateSnapshotInfo[iFile][iSnap] = tag associated with snapshot
+                                                       // iSnap from file iFile
 
-
-  // protected database IO functions
+  // database IO functions
   void createDirectories();
   void outputClusteredSnapshots(char*);
   void readClusteredSnapshots(int, bool, char*, int first = 0, int last = 0);
@@ -170,6 +198,15 @@ class NonlinearRom {
                               std::vector<std::vector<double> >* vec2 = NULL,
                               std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
                               std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
+  void writeMultiVecASCII(char*, std::vector<double>* vec1 = NULL, 
+                          std::vector<std::vector<double> >* vec2 = NULL,
+                          std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
+                          std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
+  void readMultiVecASCII(char*, std::vector<double>* vec1 = NULL,
+                         std::vector<std::vector<double> >* vec2 = NULL,
+                         std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
+                         std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
+
 
   // for local GNAT preprocessing
 
@@ -180,7 +217,6 @@ class NonlinearRom {
   VecSet<DistSVec<double, dim> >* resMat;
   VecSet<DistSVec<double, dim> >* jacMat;
   RestrictionMapping<dim>* restrictionMapping;
-
   // for storing all online quantities in memory (optional)
   bool storedAllOnlineQuantities;
   std::vector<int>** allSampleNodes;
@@ -209,19 +245,22 @@ class NonlinearRom {
 
   int nClusters;
   int nFullMeshNodes;
-
+  int nLowRankFactors;
   VecSet< DistSVec<double, dim> >* basis;
 
+
   // online selection of closest cluster center (calls either closestCenterFull or closestCenterFast)
-  void closestCenter(DistSVec<double, dim> &, int* index1 = NULL);
+  void closestCenter(DistSVec<double, dim> &, int* index1=NULL);
 
   // calculate closest center to current state using full vectors
+  void closestCenterFull(DistSVec<double, dim> &, int* index1=NULL, int* index2=NULL, double* dist1=NULL, double* dist2=NULL);
+  void distancesToCentersFull(DistSVec<double, dim> &, std::vector<double> &, int* closest=NULL);
   double distanceFull(DistSVec<double, dim> &, DistSVec<double, dim> &);
-  void closestCenterFull(DistSVec<double, dim> &, int* index1 = NULL, int* index2 = NULL, double* dist1 = NULL, double* dist2 = NULL);
 
   // calculate closest center to current state without using full vectors (approach depends on ROB update method)
-  void closestCenterFast(int* index1 = NULL);
+  void closestCenterFast(int* index1=NULL);
   void initializeDistanceComparisons(DistSVec<double, dim> &);
+  void resetDistanceComparisonQuantitiesApproxUpdates();
   void incrementDistanceComparisons(Vec<double> &, int);  // calls one of the following three functions
   void incrementDistanceComparisonsForNoUpdates(Vec<double> &, int);
   void incrementDistanceComparisonsForExactUpdates(Vec<double> &, int);
@@ -234,19 +273,21 @@ class NonlinearRom {
   void readClusteredBasis(int, char*, bool relProjError = false);
   void readClusteredColumnSumsV(int, char*);
   void readClusteredUpdateInfo(int, char*);
-  void readClusteredExactUpdateInfo(int, char*);
-  void readClusteredApproxUpdateInfo(int, char*);
-  void readClusteredCenters();
-  void readAllOnlineQuantities();
+  void readNonClusteredUpdateInfo(char*);
+  void readExactUpdateInfo();
+  void readClusterCenters(char*);
+  void readAllClusteredOnlineQuantities();
+  void readApproxMetricLowRankFactor(char *);
   void readDistanceComparisonInfo(char*); 
   void writeClusteredBinaryVectors(int, DistSVec<double,dim> *, DistSVec<double,dim> *, DistSVec<double,dim> *);
   void initializeClusteredOutputs(); 
 
   // for online ROMs (both with and without hyper-reduction)
-  virtual void updateBasis(int, DistSVec<double, dim> &) {};
+  virtual void updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {};
   virtual void appendNonStateDataToBasis(int, char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};
   void writeReducedCoords(const int, bool, bool, int, Vec<double>); 
+  void initializeFastExactUpdatesQuantities(DistSVec<double, dim> &);
 
   // for online ROMs with hyper-reduction
   void determineNumResJacMat(); 
@@ -257,7 +298,7 @@ class NonlinearRom {
   const DistInfo& getRestrictedDistInfo () const {return restrictionMapping->restrictedDistInfo();}
   RestrictionMapping<dim>* restrictMapping() { return restrictionMapping; } 
 
- // virtual void appendVectorToBasis(DistSVec<double, dim>*, int numVec = 0) {};
+  virtual void appendVectorToBasis(DistSVec<double, dim>&, int numVec = 0) {};
 
 };
 

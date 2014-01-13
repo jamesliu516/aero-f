@@ -50,7 +50,10 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   dUromNewtonIt.resize(nPod);
   dUromTimeIt.resize(nPod);
   dUromCurrentROB.resize(nPod);
-  
+  dUromNewtonIt = 0.0;
+  dUromTimeIt = 0.0;
+  dUromCurrentROB = 0.0;
+ 
   //dUnormAccum = new Vec<double> [2];
   //for (int i = 0 ; i < 2; ++i) { 
   //  dUnormAccum[i].resize(nPod);	// before any time step, it is zero
@@ -64,6 +67,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   updateFreq = false;
   clusterSwitch = false;
+
+
 
   if (ioData->romOnline.weightedLeastSquares!=NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
     weightVec = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
@@ -90,6 +95,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
     farFieldMask = NULL;
   }
   ffWeight = this->ioData->romOnline.ffWeight;
+  levenbergMarquardtWeight = this->ioData->romOnline.levenbergMarquardtWeight;
 
   regThresh = this->ioData->romOnline.regThresh;
   regWeight = 0.0;
@@ -97,6 +103,10 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   Uinit = NULL;
 
   unsteady = this->problemType[ProblemData::UNSTEADY];
+
+  rho = 0.5;
+  c1 = 0.25;
+  maxItsLS = 1;
 
 }
 
@@ -169,8 +179,11 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
 
   if ((rom->nClusters > 1) || (basisUpdateFreq>0) || (currentCluster == -1)) {
 
-    if (ioData->romOnline.distanceComparisons && (currentCluster == -1)) { 
-      rom->initializeDistanceComparisons(U);
+    if (currentCluster == -1) { // first iteration
+      if (ioData->romOnline.distanceComparisons)
+        rom->initializeDistanceComparisons(U);
+      if (ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT)
+        rom->initializeFastExactUpdatesQuantities(U);
     }
 
     int closestCluster;
@@ -191,14 +204,14 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
         currentCluster = closestCluster;
         rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
       }
-      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) rom->updateBasis(currentCluster, U);
+      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) rom->updateBasis(currentCluster, U, &dUromCurrentROB);
       if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 
       nPod = rom->basis->numVectors();
-      this->pod.resize(nPod);
+      pod.resize(nPod);
       for (int iVec=0; iVec<nPod; ++iVec) {
-        this->pod[iVec] = (*(rom->basis))[iVec];
+        pod[iVec] = (*(rom->basis))[iVec];
       }
       AJ.resize(nPod);
       dUromNewtonIt.resize(nPod);
@@ -214,6 +227,51 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
 
 }
 
+//-----------------------------------------------------------------------
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::printFFWeightingInfo() {
+
+  int NumInteriorNodes = 0;
+  double RinteriorNormSquared = 0.0;
+
+  int NumFFNodes = 0;
+  double RffNormSquared = 0.0;
+
+  // weight residual
+  int numLocSub = this->F.numLocSub();
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double *ffMask = farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
+    double (*unweightedResidual)[dim] = this->F.subData(iSub);
+    for (int i=0; i<farFieldMask->subSize(iSub); ++i) {
+      if (ffMask[i]>0) {
+        ++NumFFNodes;
+        for (int j=0; j<dim; ++j)
+          RffNormSquared += pow(unweightedResidual[i][j],2);
+      } else {
+        ++NumInteriorNodes;
+        for (int j=0; j<dim; ++j)
+           RinteriorNormSquared += pow(unweightedResidual[i][j],2);
+      }
+    }
+  }
+
+  this->com->globalSum(1, &NumFFNodes);
+  this->com->globalSum(1, &NumInteriorNodes);
+  this->com->globalSum(1, &RffNormSquared);
+  this->com->globalSum(1, &RinteriorNormSquared);
+
+  this->com->fprintf(stdout, "(||R_interior||)^2   = %e\n", RinteriorNormSquared);
+  this->com->fprintf(stdout, "(||W*R_interior||)^2 = %e\n", RinteriorNormSquared);
+  this->com->fprintf(stdout, "(||R_interior||)^2 / numInteriorNodes = %e\n", RinteriorNormSquared/((double) NumInteriorNodes));
+
+  this->com->fprintf(stdout, "(||R_ff||)^2 = %e\n", RffNormSquared);
+  this->com->fprintf(stdout, "(||W*R_ff||)^2 = %e\n", RffNormSquared*ffWeight);
+  this->com->fprintf(stdout, "(||R_ff||)^2 / numFarFieldNodes = %e\n", RffNormSquared/ ((double) NumFFNodes));
+  this->com->fprintf(stdout, "(||R_ff||)^2 * numInteriorNodes / numFarFieldNodes = %e\n", RffNormSquared*((double) NumInteriorNodes)/((double) NumFFNodes));
+
+}
 
 //------------------------------------------------------------------------------
 template<int dim>
@@ -231,8 +289,6 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   DistSVec<double, dim> dUfull(this->domain->getNodeDistInfo());	// solution increment at EACH NEWTON ITERATION in full coordinates
   dUfull = 0.0;	// initial zero increment
-
-  DistSVec<double, dim> unweightedF(this->domain->getNodeDistInfo());  
 
   double res;
   bool breakloop = false;
@@ -254,13 +310,34 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
    //     *weightFRef = this->F;
    // }
 
-		double tRes = this->timer->getTime();
     updateLeastSquaresWeightingVector(); //only updated at the start of Newton
-    computeFullResidual(it, U, false, &unweightedF);
-		computeAJ(it, U, true, &unweightedF);	// skipped some times for Broyden
-    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)
-      computeFullResidual(it, U, true);
+
+		double tRes = this->timer->getTime();
+    computeFullResidual(it, U, false);
 		this->timer->addResidualTime(tRes);
+
+    if (this->ioData->romOnline.onlineResiduals.include 
+        && (it%(this->ioData->romOnline.onlineResiduals.newtonFreq)==0)
+        && (totalTimeSteps%(this->ioData->romOnline.onlineResiduals.timeFreq)==0)) {
+      //TODO: spatial only!
+      // we want the actual flux, so inv(control volumes) * spatial residual
+
+      if (it==0) {
+        rom->appendVectorToBasis(this->F, nPod);
+      } else {
+        rom->appendVectorToBasis(this->F);
+      }
+      setProblemSize(U);
+    }
+
+		computeAJ(it, U, true);	// skipped some times for Broyden
+
+    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
+      if (this->ioData->romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) printFFWeightingInfo();
+		  tRes = this->timer->getTime();
+      computeFullResidual(it, U, true);
+		  this->timer->addResidualTime(tRes);
+    }
 
 		solveNewtonSystem(it, res, breakloop, U, totalTimeSteps);	// 1) check if residual small enough, 2) solve 
 			// INPUTS: AJ, F
@@ -268,17 +345,46 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 		breakloopNow = breakloop1(breakloop);
 		if (breakloopNow) break;
 
-    if (this->ioData->romOnline.lineSearch) { 
-    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
+    if (this->ioData->romOnline.lineSearch==NonlinearRomOnlineData::LINE_SEARCH_WOLF) { 
+      // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
       alpha = lineSearch(U,dUromNewtonIt,it,AJ,epsNewton, convergeFlag);
       if (it > 0 && convergeFlag == 1) break;
       dUromNewtonIt *= alpha;
+    } else if (this->ioData->romOnline.lineSearch==NonlinearRomOnlineData::LINE_SEARCH_BACKTRACKING) {
+      expandVector(dUromNewtonIt, dUfull);
+      for (int itLS=0; itLS<maxItsLS; ++itLS) {
+        if (itLS>0){
+          alpha *= rho;
+          if (itLS==1) {
+            dUfull *= (rho-1);
+            dUromNewtonIt *= (rho-1);
+          } else {
+            dUfull *= rho;
+            dUromNewtonIt *= rho;
+          }
+        } else {
+          alpha = 1.0;
+        }
+
+        // increment or backtrack from previous trial 
+        U += dUfull;          
+        computeFullResidual(it, U, true);
+        double restrial = (this->F)*(this->F);
+        if (restrial>=0.0) {
+          if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res)// || dQ.norm() <= epsAbsInc)
+            break;
+        }
+        if (itLS == maxItsLS-1 && maxItsLS != 1)
+          this->com->printf(1, "*** Warning: Line Search reached %d its ***\n", maxItsLS);
+      }
     }
 
-		double tSol = this->timer->getTime();
-    expandVector(dUromNewtonIt, dUfull); // solution increment in full coordinates
+		double tSol = this->timer->getTime();    
     dUromTimeIt += dUromNewtonIt; // solution increment in reduced coordinates (initialized to zero in checkLocalRomStatus)
-    U += dUfull;
+    if (this->ioData->romOnline.lineSearch!=NonlinearRomOnlineData::LINE_SEARCH_BACKTRACKING) {
+      expandVector(dUromNewtonIt, dUfull); // solution increment in full coordinates
+      U += dUfull;
+    }
 		this->timer->addSolutionIncrementTime(tSol);
 
 		saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
@@ -305,7 +411,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 	if (fsIt > 0 && checkFailSafe(U) == 1)
 		resetFixesTag();
 
-  if (it == maxItsNewton && maxItsNewton != 1 && maxItsNewton !=0) {
+  if (it == maxItsNewton && maxItsNewton!=1 && maxItsNewton!=0) {
     this->com->fprintf(stderr, "*** Warning: ROM Newton solver reached %d its", maxItsNewton);
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }
@@ -318,6 +424,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   if (ioData->romOnline.distanceComparisons)
     rom->incrementDistanceComparisons(dUromTimeIt, currentCluster);
+
+  this->com->fprintf(stdout, "\n");
 
   return (maxItsNewton == 0) ? 1 : it;
 
@@ -365,7 +473,7 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
       double (*r)[dim] = R->subData(iSub);
       for (int i=0; i<weightVec->subSize(iSub); ++i) {
         for (int j=0; j<dim; ++j) {
-          weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
+          //weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
           r[i][j] = r[i][j] * weight[i][j];
         }
       }
@@ -471,7 +579,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
   int maxIter = 100;  // max iterations for finding a bracket
   DistSVec<double, dim> Qnew(this->domain->getNodeDistInfo()); // new state vector initialization
   double beta = 1.2;  // amount to increment alpha each time
-  double alpha_max = 100000000.0;    // bound on step size alpha
+  double alpha_max = 100000000.0;    // bound on step size alpha  (this was about 50)
   int maxedFlag = 0;  // flag to determine whether or not alpha_max has been reached
   int count = 0;  // counter for number of iterations
   double alpha = 1.0; // initial alpha is just the Newton step
@@ -709,6 +817,8 @@ void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool ap
   
   for (int iPod = 0; iPod < nPod; iPod++)
     mvpfd->apply(pod[iPod], AJ[iPod]);
+
+  //saveNewtonSystemVectors(totalTimeSteps);
  
   // weight AJ
   if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
