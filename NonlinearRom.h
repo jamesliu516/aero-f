@@ -43,9 +43,17 @@ class NonlinearRom {
   char* stateBasisName;
   char* stateSingValsName;
   char* simpleUpdateInfoName;
-  char* exactUpdateInfoName;
-  char* approxUpdateInfoName;
+  char* exactUpdateInfoPrefix;      // only user-specified value for exact update file names
+  char* basisBasisProductsName;     // for exact updates (exactUpdateInfoPrefix.exactUpdates_F)
+  char* basisUrefProductsName;      // for exact updates (exactUpdateInfoPrefix.exactUpdates_e)
+  char* basisUicProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_d)
+  char* urefUicProductsName;        // for exact updates (exactUpdateInfoPrefix.exactUpdates_c)
+  char* urefUrefProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_g)   
+  char* urefComponentwiseSumsName;  // for exact updates with uniform IC (exactUpdateInfoPrefix.exactUpdates_UrefComponentwiseSums)
+  char* basisComponentwiseSumsName; // for exact updates with uniform IC (exactUpdateInfoPrefix.exactUpdates_StateBasisComponentwiseSums)
+  //char* approxUpdateInfoName; // treating this as a GNAT quantity
   char* stateDistanceComparisonInfoName;
+  char* centerComponentWiseSumsName; // for fast distance calcs when using either no updates or exact updates ()
   char* stateDistanceComparisonInfoExactUpdatesName;
   char* projErrorName;
   char* refStateName;
@@ -126,16 +134,23 @@ class NonlinearRom {
   std::vector<double>* sVals;
   DistSVec<double, dim>* Uref; 
   // 2: unique to exact updates
+  double uicNorm;
   std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
   std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
-  std::vector<double> normUic;  // just a scalar
-  std::vector<double> normUref; // [:]
-  std::vector<double> productUrefUic; // [:] only defined if Uic specified
-  std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod]
+  std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
+  std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
+  std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
   std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
   std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
+  std::vector<double> exactUpdatesAlpha;  // [jVec]
+  std::vector<std::vector<double> > exactUpdatesBeta; //[iCluster][jVec]  
+  std::vector<std::vector<std::vector<double> > > exactUpdatesN;  // [iCluster][iVec][jVec]
+  double exactUpdatesAlphaSwitch;  // scalar
+  std::vector<double> exactUpdatesBetaSwitch; //[iCluster]
+  std::vector<std::vector<double> > exactUpdatesNSwitch;  // [iCluster][iVec]
+  DistSVec<double, dim>* Uic;
   // 3: unique to approximate updates
-
+  VecSet<DistSVec<double, dim> >* lowRankFactor; // low rank factor for approx metric
 
   // fast distance calculation quantities
   // 1: common to all GNAT update methods (no updates, exact updates, approx updates)
@@ -147,10 +162,13 @@ class NonlinearRom {
   std::vector<std::vector<std::vector<double> > > sensitivityBasisCentersProduct;          //[mCenter][pCenter][:]
   std::vector<std::vector<double> > distanceComparisons;  // this is "z_(m,p)" from Amsallem et al., INJME 2012, but with p<m
   void checkUniformInitialCondition(DistSVec<double, dim> &);
+  void checkForSpecifiedInitialCondition();
   // 2: unique to exact updates
   std::vector<std::vector<double> > initialConditionCentersProduct; 
   std::vector<std::vector<std::vector<double> > > refStateCentersProduct;
   // 3: unique to approximate updates
+  double ***hForFastDistComp;
+  double ***cForFastDistComp;
   
   // non-database IO function
   int readSnapshotFiles(char *, bool);
@@ -199,9 +217,6 @@ class NonlinearRom {
   VecSet<DistSVec<double, dim> >* resMat;
   VecSet<DistSVec<double, dim> >* jacMat;
   RestrictionMapping<dim>* restrictionMapping;
-  VecSet<DistSVec<double, dim> >* lowRankFactor; // low rank factor for approx metric
-  double ***hForFastDistComp;
-  double ***cForFastDistComp;
   // for storing all online quantities in memory (optional)
   bool storedAllOnlineQuantities;
   std::vector<int>** allSampleNodes;
@@ -258,7 +273,8 @@ class NonlinearRom {
   void readClusteredBasis(int, char*, bool relProjError = false);
   void readClusteredColumnSumsV(int, char*);
   void readClusteredUpdateInfo(int, char*);
-  void readClusteredExactUpdateInfo(int, char*);
+  void readNonClusteredUpdateInfo(char*);
+  void readExactUpdateInfo();
   void readClusterCenters(char*);
   void readAllClusteredOnlineQuantities();
   void readApproxMetricLowRankFactor(char *);
@@ -267,10 +283,11 @@ class NonlinearRom {
   void initializeClusteredOutputs(); 
 
   // for online ROMs (both with and without hyper-reduction)
-  virtual void updateBasis(int, DistSVec<double, dim> &) {};
+  virtual void updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {};
   virtual void appendNonStateDataToBasis(int, char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};
   void writeReducedCoords(const int, bool, bool, int, Vec<double>); 
+  void initializeFastExactUpdatesQuantities(DistSVec<double, dim> &);
 
   // for online ROMs with hyper-reduction
   void determineNumResJacMat(); 

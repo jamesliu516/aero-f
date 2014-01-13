@@ -109,10 +109,15 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 
 	res = rhs*rhs;
 
-  this->com->fprintf(stdout, "||W*R(U)|| = %e\n", this->F.norm());
-  this->com->fprintf(stdout, "|| U || = %e\n", U.norm());
+  this->com->fprintf(stdout, "||W*R(U)|| = %1.12e\n", this->F.norm());
+  this->com->fprintf(stdout, "|| U || = %1.12e\n", U.norm());
+  DistSVec<double, dim> romContribution(this->domain->getNodeDistInfo());
+  if (this->Uinit) {
+    romContribution = U - *(this->Uinit); 
+    this->com->fprintf(stdout, "|| U - Uic || = %1.12e\n", romContribution.norm());
+  }
 
-  this->com->fprintf(stdout, "||(W*J*Phi)' * W*R|| = %e\n", res);
+  this->com->fprintf(stdout, "||(W*J*Phi)' * W*R|| = %1.12e\n", res);
 
   double resReg = 0;
 
@@ -145,7 +150,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
       //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
       dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
     }
-    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
+    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %1.12e \n", dUromNewtonItNormSquared);
 
 	} else if (lsSolver == 3){	// Solve Levenberg-Marquardt regularized LS via ScaLAPACK SVD
 
@@ -215,8 +220,8 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
       //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
     }
     this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
-    this->com->fprintf(stdout, " ... || Ax - b ||^2 = %e \n", firstTermNormSquared);
-    this->com->fprintf(stdout, " ... || x ||^2 = %e \n", secondTermNormSquared);
+    this->com->fprintf(stdout, " ... || Ax - b ||^2 = %1.12e \n", firstTermNormSquared);
+    this->com->fprintf(stdout, " ... || x ||^2 = %1.12e \n", secondTermNormSquared);
  
     delete V_AJ;
 
@@ -442,7 +447,7 @@ void ImplicitPGTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
     if (lsCoeff) delete [] lsCoeff[0];
     lsCoeff[0] = new double[this->nPod];
 
-    if (this->projVectorTmp) delete (this->projVectorTmp);
+    if (this->projVectorTmp) delete [] (this->projVectorTmp);
     this->projVectorTmp = new double [this->nPod];
 
     if ((lsSolver == 1) || (lsSolver == 2)) {
