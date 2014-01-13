@@ -1,11 +1,12 @@
 #ifndef _DIST_MVP_MATRIX_H_
 #define _DIST_MVP_MATRIX_H_
 
-#include <Domain.h>
-#include <SubDomain.h>
+#include <DistMatrix.h>
 #include <GenMatrix.h>
 #include <Communicator.h>
 #include <MvpMatrix.h>
+
+class Domain;
 
 template <class Scalar,int dim>
 class DistMvpMatrix : public DistMat<Scalar,dim> {

@@ -1,4 +1,5 @@
 #include "MultiGridLevelSetStructure.h"
+#include "MultiGridLevel.h"
 
 MultiGridLevelSetStructure::
 MultiGridLevelSetStructure(DistMultiGridLevelSetStructure& lss,
