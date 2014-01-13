@@ -100,9 +100,9 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
       robConstruction->basisUpdates.preprocessForExactUpdates || 
       robConstruction->basisUpdates.preprocessForApproxUpdates) preprocessForDistanceComparisons();
 
-  // preprocessing for basis updates (data for simple updates is ouput automatically)
-  if (robConstruction->basisUpdates.preprocessForExactUpdates ||
-      robConstruction->basisUpdates.preprocessForApproxUpdates) preprocessForBasisUpdates();
+  // preprocessing for exact basis updates 
+  // (data for simple updates is ouput automatically; data for approx updates is output in Gnat preprocessing)
+  if (robConstruction->basisUpdates.preprocessForExactUpdates) preprocessForExactBasisUpdates();
 
   // projection error
   if (projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
@@ -688,6 +688,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
     stateSnapshotClustersAfterOverlap[iFile].resize(this->stateSnapsFromFile[iFile]);
     for (int iSnap=0; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
+      stateSnapshotClustersAfterOverlap[iFile][iSnap].clear();
       stateSnapshotClustersAfterOverlap[iFile][iSnap].resize(this->nClusters,false);
     }
   }
@@ -807,11 +808,12 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
     distToCenters.resize(nTotSnaps);
     uncertainty.resize(nTotSnaps);
     for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+      distToCenters[iSnap].clear();
+      uncertainty[iSnap].clear();
       distToCenters[iSnap].resize(this->nClusters,0.0);
       uncertainty[iSnap].resize(this->nClusters,0.0);
       (this->clusterIndex)[iSnap] = -1;
     }
-
 
     if (tightBounds) { // need to store all cluster centers
       clusterCentersLog = new VecSet< DistSVec<double, dim> >*[iterMax];
@@ -820,6 +822,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
 
       distToCentersIteration.resize(nTotSnaps);
       for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+        distToCentersIteration[iSnap].clear();
         distToCentersIteration[iSnap].resize(this->nClusters,0.0);
       }
     } else if (looseBounds) { // only need centers from previous iteration
@@ -1051,7 +1054,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
         nDistComputed = nDistComputed+this->nClusters;
       }
   
-      clusterIndexOld.resize(0);
+      clusterIndexOld.clear();
   
       if (tightBounds) {
         // recalculate tight bounds (regardless of whether iter<iterMaxAggressive)
@@ -1105,8 +1108,8 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
       clusterCentersLog = NULL;
 
       for (int iSnap=0;iSnap<nTotSnaps;++iSnap)
-        distToCentersIteration[iSnap].resize(0);
-      distToCentersIteration.resize(0);
+        distToCentersIteration[iSnap].clear();
+      distToCentersIteration.clear();
 
       clusterCentersOld = NULL;
     } else if (looseBounds) {
@@ -1115,11 +1118,11 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
     }
 
     for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
-      distToCenters[iSnap].resize(0);
-      uncertainty[iSnap].resize(0);
+      distToCenters[iSnap].clear();
+      uncertainty[iSnap].clear();
     }
-    distToCenters.resize(0);
-    uncertainty.resize(0);
+    distToCenters.clear();
+    uncertainty.clear();
 
 
     if (robConstruction->clustering.clusterFilesSeparately)  {
@@ -1130,7 +1133,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
         snapsInClusterAll[iFile][iCluster] = (this->snapsInCluster)[iCluster];
         (*clusterCentersAll[iFile])[iCluster] = (*this->clusterCenters)[iCluster];
       }
-      clusterIndexAll[iFile].resize(nTotSnaps, 0);
+      clusterIndexAll[iFile].resize(nTotSnaps);
       for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
         clusterIndexAll[iFile][iSnap] = (this->clusterIndex)[iSnap];
       }
@@ -1232,13 +1235,13 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
  
     // clean up
     for (int iFile=0;iFile<nSnapshotFiles;++iFile) {
-      clusterIndexAll[iFile].resize(0);
-      snapsInClusterAll[iFile].resize(0);
+      clusterIndexAll[iFile].clear();
+      snapsInClusterAll[iFile].clear();
       delete clusterCentersAll[iFile];
     }
 
-    clusterIndexAll.resize(0);
-    snapsInClusterAll.resize(0);
+    clusterIndexAll.clear();
+    snapsInClusterAll.clear();
     delete [] clusterCentersAll;
     clusterCentersAll = NULL;
 
@@ -1494,6 +1497,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
   for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
     stateSnapshotClustersAfterOverlap[iFile].resize(this->stateSnapsFromFile[iFile]);
     for (int iSnap=0; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
+      stateSnapshotClustersAfterOverlap[iFile][iSnap].clear();
       stateSnapshotClustersAfterOverlap[iFile][iSnap].resize(this->nClusters,false);
     }
   }
@@ -1693,7 +1697,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
       ParallelRom<dim> parallelRom( this->domain, this->com);
       parallelRom.parallelSVD(*(this->snap), *Utrue, singVals->data(), *Vtrue, nTotSnaps, true);
   
-      // check svd
+      /*// check svd
       double errorNorm,maxErr,avgErr;
       DistSVec<double,dim> error( this->domain.getNodeDistInfo() );
       maxErr = 0.0;
@@ -1711,7 +1715,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
      
       this->com->fprintf(stderr, " ... Average error on Snapshots after SVD = %e\n", avgErr);  
       this->com->fprintf(stderr, " ... Maximum error on Snapshots after SVD = %e\n", maxErr);
-      // end check svd
+      // end check svd */
  
       delete (this->snap);
       (this->snap) = NULL;
@@ -1758,6 +1762,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
     Utrue = NULL;
   
     (this->columnSumsV) = new std::vector<double>;
+    this->columnSumsV->clear();
     this->columnSumsV->resize(nTotSnaps, 0.0);
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
       for (int jSnap=0; jSnap<nTotSnaps; ++jSnap) {
@@ -1798,32 +1803,135 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomDatabaseConstruction<dim>::preprocessForBasisUpdates() {
+void NonlinearRomDatabaseConstruction<dim>::preprocessForExactBasisUpdates() {
 
-  // common to both Exact and Approx updates
-  if (robConstruction->basisUpdates.preprocessForExactUpdates ||
-      robConstruction->basisUpdates.preprocessForApproxUpdates) {
-    // nothing in common?
+this->com->fprintf(stdout, "\nPreprocessing for fast exact basis updates (GNAT compatible)\n");
+this->com->fprintf(stdout, " ... Note: This preprocessing step currently assumes that V^T * V = I\n");
+
+  VecSet<DistSVec<double, dim> >* rob_i = NULL;
+  VecSet<DistSVec<double, dim> >* rob_p = NULL;
+
+  this->basisBasisProducts.resize(this->nClusters);
+  this->basisUrefProducts.resize(this->nClusters);
+  this->urefUrefProducts.resize(this->nClusters);
+
+  if (arbitraryUniformIC) {
+    this->urefComponentwiseSums.resize(this->nClusters);
+    this->basisComponentwiseSums.resize(this->nClusters);
+  } else {
+    this->urefUicProducts.clear();
+    this->urefUicProducts.resize(this->nClusters, 0.0);
+    this->basisUicProducts.resize(this->nClusters);
   }
 
-  // unique to Exact updates
-  if (robConstruction->basisUpdates.preprocessForExactUpdates) {
-    // norm of initial condition
+  for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+    //load rob_i
+    this->readClusteredBasis(iCluster, "state");
+    rob_i = new VecSet<DistSVec<double, dim> >(this->basis->numVectors(), this->domain.getNodeDistInfo());
+    for (int iVec=0; iVec<this->basis->numVectors(); ++iVec)
+      (*rob_i)[iVec] = (*this->basis)[iVec];
+    this->basisBasisProducts[iCluster].resize(iCluster);
+    for (int pCluster=0; pCluster<iCluster; ++pCluster) {  // assume each basis is orthogonal, no need to compute diagonal
+      //load rob_p
+      if (iCluster == pCluster) {
+        rob_p = rob_i;
+      } else {
+        this->readClusteredBasis(pCluster, "state");
+        rob_p = new VecSet<DistSVec<double, dim> >(this->basis->numVectors(), this->domain.getNodeDistInfo());
+        for (int pVec=0; pVec<this->basis->numVectors(); ++pVec)
+          (*rob_p)[pVec] = (*this->basis)[pVec];
+      }
+      this->basisBasisProducts[iCluster][pCluster].resize(rob_i->numVectors());
+      for (int iVec=0; iVec<rob_i->numVectors(); ++iVec) {
+        this->basisBasisProducts[iCluster][pCluster][iVec].clear();
+        this->basisBasisProducts[iCluster][pCluster][iVec].resize(rob_p->numVectors(), 0.0);
+        for (int pVec=0; pVec<rob_p->numVectors(); ++pVec) {
+          this->basisBasisProducts[iCluster][pCluster][iVec][pVec] = (*rob_i)[iVec] * (*rob_p)[pVec];
+        }
+      }
+      if (iCluster == pCluster) {
+        rob_p = NULL;
+      } else {
+        delete rob_p;
+        rob_p = NULL;
+      }
+    } // end pCluster loop (#1)
+    this->basisUrefProducts[iCluster].resize(this->nClusters);
+    this->urefUrefProducts[iCluster].clear();
+    this->urefUrefProducts[iCluster].resize(iCluster+1, 0.0);
+    // read Uref_i
+    DistSVec<double, dim> Uref_i(this->domain.getNodeDistInfo());
+    DistSVec<double, dim> Uref_p(this->domain.getNodeDistInfo());   
+    this->readClusteredReferenceState(iCluster, "state");
+    Uref_i = *(this->Uref);
+    if (arbitraryUniformIC) {
+      this->urefComponentwiseSums[iCluster].clear();
+      this->urefComponentwiseSums[iCluster].resize(dim, 0.0);
+      double componentSums[dim];
+      Uref_i.sum(componentSums);
+      for (int iDim=0; iDim<dim; ++iDim) {
+        this->urefComponentwiseSums[iCluster][iDim] = componentSums[iDim];
+      }
+      this->basisComponentwiseSums[iCluster].resize(rob_i->numVectors());
+      for (int iVec=0; iVec<rob_i->numVectors(); ++iVec) {
+        this->basisComponentwiseSums[iCluster][iVec].clear();
+        this->basisComponentwiseSums[iCluster][iVec].resize(dim, 0.0);
+        (*rob_i)[iVec].sum(componentSums);
+        for (int iDim=0; iDim<dim; ++iDim) {
+          this->basisComponentwiseSums[iCluster][iVec][iDim] = componentSums[iDim];
+        }
+      }
+    } else {
+      this->urefUicProducts[iCluster]= (*initialCondition) * Uref_i;
+      this->basisUicProducts[iCluster].resize(rob_i->numVectors()); 
+      for (int iVec=0; iVec<rob_i->numVectors(); ++iVec) {
+        this->basisUicProducts[iCluster][iVec] = (*rob_i)[iVec] * (*initialCondition);
+      }
+    }
+    for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
+      if (pCluster == iCluster) {
+        Uref_p = Uref_i;
+      } else {
+        this->readClusteredReferenceState(pCluster, "state");
+        Uref_p = *(this->Uref);
+      }
+      this->basisUrefProducts[iCluster][pCluster].clear();
+      this->basisUrefProducts[iCluster][pCluster].resize(rob_i->numVectors(), 0.0);
+      for (int iVec=0; iVec<rob_i->numVectors(); ++iVec)
+        this->basisUrefProducts[iCluster][pCluster][iVec] = (*rob_i)[iVec] * Uref_p;
+      if (pCluster <= iCluster)
+        this->urefUrefProducts[iCluster][pCluster] = Uref_i * Uref_p;
+    } // end pCluster loop (#2)
+  } // end iCluster loop
 
- // basisBasisProducts;  // [iCluster][pCluster][:][:]
- // basisUrefProducts  // [Cluster_Basis][Cluster_Uref][:]
- // double normUic;
- // normUref; // [:]
- // productUrefUic; // [:] only defined if Uic specified
- // basisUicProducts  // [iCluster][1:nPod]
- // urefComponentwiseSums; //[iCluster][1:dim]
- // basisComponentwiseSums;  // [iCluster][iVec][1:dim]
+  // Basis Basis Products (rob_i^T * rob_p)
+  // std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
+  outputClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &this->basisBasisProducts);
 
-  }
+  // Basis Uref Products (rob_i^T * Uref_p)
+  // std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
+  outputClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
 
-  // unique to Approx updates
-  if (robConstruction->basisUpdates.preprocessForApproxUpdates) {
-//TODO for DJA
+  // Uref Uref Products
+  // std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
+  outputClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
+
+  if (arbitraryUniformIC) {
+    // Uref Componentwise Sums
+    // std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
+    outputClusteredInfoASCII(-1, "urefComponentwiseSums", NULL, &this->urefComponentwiseSums);
+
+    // Basis Componentwise Sums
+    // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
+    outputClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &this->basisComponentwiseSums);
+  } else {
+    // Basis Uic Products
+    // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
+    outputClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
+
+    // Uref Uic Products
+    // std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
+    outputClusteredInfoASCII(-1, "urefUicProducts", &this->urefUicProducts);
   }
 
 }
@@ -1894,7 +2002,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
       this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For exact online ROB updates)\n");
 
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-      productOfVectorAndCenterDifferences(iCluster, "refState");
+      productOfVectorAndCenterDifferences(iCluster, "referenceState");
     }
  
     productOfVectorAndCenterDifferences(-1, "initialCondition");
@@ -1907,7 +2015,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   if (robConstruction->basisUpdates.preprocessForApproxUpdates) {
     this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For approximate online ROB updates)\n");
 
-    //
+    // this is performed in Gnat preprocessing
 
   }
 
@@ -1968,7 +2076,7 @@ void NonlinearRomDatabaseConstruction<dim>::productOfVectorAndCenterDifferences(
   if (strcmp(vecType,"referenceState")==0) {
     this->readClusteredReferenceState(iCluster, "state");
     vec = this->Uref;
-  } else if (strcmp(vecType, "initialCondition")) {
+  } else if (strcmp(vecType, "initialCondition")==0) {
     if (initialCondition) {
       vec = initialCondition;
     } else { //need to precompute component-wise sums of (center_m - center_p)
@@ -1979,6 +2087,8 @@ void NonlinearRomDatabaseConstruction<dim>::productOfVectorAndCenterDifferences(
     this->com->fprintf(stderr, "*** Error: unanticipated vector type '%s' encountered", vecType);
     exit(-1);
   }
+
+  if (this->clusterCenters==NULL) this->readClusterCenters("state");
 
   std::vector<std::vector<double> > result;  // collection of vectors: [m][p]
   result.resize(this->nClusters);

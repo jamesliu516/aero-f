@@ -646,7 +646,7 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords() {
 
   int percentComplete = 0;
   for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) {  // # rows in A and B
-    outputReducedSVec((*this->lowRankFactor)[iVec],outApproxMetric,iVec);
+    outputReducedSVec((*this->lowRankFactor)[iVec],outApproxMetric,double(iVec));
     if ((iVec+1)%((this->lowRankFactor->numVectors()/4)+1)==0) {
         percentComplete += 25;
         com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
@@ -2461,7 +2461,7 @@ void GnatPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
   delete [] refStatePath;
 
   // output
-  outputReducedSVec(*refState,sampledRefStateFile,0);
+  outputReducedSVec(*refState,sampledRefStateFile,refState->norm());
 
   if (refState) {
     delete refState;
@@ -2516,7 +2516,7 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
     delete [] icFile;
 
     // output
-    outputReducedSVec(*initialCondition,outInitialCondition,0);
+    outputReducedSVec(*initialCondition,outInitialCondition,initialCondition->norm());
 
     if (initialCondition) {
       delete initialCondition;
@@ -2556,7 +2556,7 @@ void GnatPreprocessing<dim>::outputClusterCentersReduced() {
   
   // output
   for (int iCluster=0; iCluster < this->nClusters; ++iCluster) {  // # rows in A and B
-    outputReducedSVec((*this->clusterCenters)[iCluster],outSampledCenters,iCluster);
+    outputReducedSVec((*this->clusterCenters)[iCluster],outSampledCenters,(*this->clusterCenters)[iCluster].norm());
   }
 
   if (sampledCentersPath) {
@@ -2596,7 +2596,7 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
   
     int percentComplete = 0;
     for (int iPod = 0; iPod < this->basis->numVectors(); ++iPod) {  // # rows in A and B
-      outputReducedSVec((*(this->basis))[iPod],outPodState,iPod);
+      outputReducedSVec((*(this->basis))[iPod],outPodState,double(iPod));
       if ((iPod+1)%((this->basis->numVectors()/4)+1)==0) {
           percentComplete += 25;
           com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
@@ -2630,13 +2630,13 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
 
 template<int dim>
 void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
-    &distSVec, FILE* outFile , int iVector) {
+    &distSVec, FILE* outFile , double tag) {
 
   // INPUTS: vector, output file name, vector index
   // globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
   com->barrier();
-  com->fprintf(outFile,"%d\n", iVector);
+  com->fprintf(outFile,"%e\n", tag);
 
   // save the reduced node number for the sample node
   for (int j = 0; j < nReducedNodes; ++j) {

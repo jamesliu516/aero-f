@@ -14,9 +14,9 @@ class NonlinearRomOnlineII : public NonlinearRom<dim> {
   NonlinearRomOnlineII(Communicator *, IoData &, Domain &);
   ~NonlinearRomOnlineII();
 
-  void updateBasis(int, DistSVec<double, dim> &);
+  void updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL);
   void updateBasisSimple(int, DistSVec<double, dim> &);
-  void updateBasisFastExact(int, DistSVec<double, dim> &) {};
+  void updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>*);
   void updateBasisFastApprox(int, DistSVec<double, dim> &);
 
   void appendNonStateDataToBasis(int, char *, bool relProjError = false); 

@@ -253,7 +253,7 @@ protected:
   virtual void outputLocalStateBasisReduced(int);
   virtual void outputLocalReferenceStateReduced(int);
   virtual void outputWallDistanceReduced();
-  void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
+  void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , double tag);
   void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 	//void determineFileName(const char *fileNameInput, const char
 	//		*currentExtension, const char *(&fileNameBase), const char

@@ -50,7 +50,10 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   dUromNewtonIt.resize(nPod);
   dUromTimeIt.resize(nPod);
   dUromCurrentROB.resize(nPod);
-  
+  dUromNewtonIt = 0.0;
+  dUromTimeIt = 0.0;
+  dUromCurrentROB = 0.0;
+ 
   //dUnormAccum = new Vec<double> [2];
   //for (int i = 0 ; i < 2; ++i) { 
   //  dUnormAccum[i].resize(nPod);	// before any time step, it is zero
@@ -64,6 +67,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   updateFreq = false;
   clusterSwitch = false;
+
+
 
   if (ioData->romOnline.weightedLeastSquares!=NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
     weightVec = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
@@ -174,8 +179,11 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
 
   if ((rom->nClusters > 1) || (basisUpdateFreq>0) || (currentCluster == -1)) {
 
-    if (ioData->romOnline.distanceComparisons && (currentCluster == -1)) { 
-      rom->initializeDistanceComparisons(U);
+    if (currentCluster == -1) { // first iteration
+      if (ioData->romOnline.distanceComparisons)
+        rom->initializeDistanceComparisons(U);
+      if (ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT)
+        rom->initializeFastExactUpdatesQuantities(U);
     }
 
     int closestCluster;
@@ -196,14 +204,14 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
         currentCluster = closestCluster;
         rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
       }
-      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) rom->updateBasis(currentCluster, U);
+      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) rom->updateBasis(currentCluster, U, &dUromCurrentROB);
       if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 
       nPod = rom->basis->numVectors();
-      this->pod.resize(nPod);
+      pod.resize(nPod);
       for (int iVec=0; iVec<nPod; ++iVec) {
-        this->pod[iVec] = (*(rom->basis))[iVec];
+        pod[iVec] = (*(rom->basis))[iVec];
       }
       AJ.resize(nPod);
       dUromNewtonIt.resize(nPod);
