@@ -22,10 +22,11 @@ NonlinearRom<dim>::NonlinearRom(Communicator *_com, IoData &_ioData, Domain &_do
 com(_com), ioData(&_ioData), domain(_domain)
 { 
   //NOTE: ioData->example, com->example, domain.example
+  timer = domain.getTimer();
 
   nClusters = ioData->romDatabase.nClusters;  // overwritten later if there are actually fewer clusters
   nFullMeshNodes = 0;  // read from centerNorms file if necessary
-
+  nLowRankFactors = 0;
   // Directory information
   databasePrefix = ioData->romDatabase.directories.prefix;
   databaseName = ioData->romDatabase.directories.databaseName;
@@ -48,11 +49,21 @@ com(_com), ioData(&_ioData), domain(_domain)
   determinePrefixName(romFiles->stateBasisPrefix, romFiles->statePrefix, stateBasisPrefix);
   determineFileName(romFiles->stateBasisName, "rob", stateBasisPrefix, stateBasisName);
   determineFileName(romFiles->stateSingValsName, "svals", stateBasisPrefix, stateSingValsName);
-  determineFileName(romFiles->updateInfoName, "update", stateBasisPrefix, updateInfoName);
-  determineFileName(romFiles->stateDistanceComparisonInfoName, "dist", stateBasisPrefix, stateDistanceComparisonInfoName);
-  determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesName, "distExactUpdates", stateBasisPrefix, stateDistanceComparisonInfoExactUpdatesName);
   determineFileName(romFiles->projErrorName, "proj", stateBasisPrefix, projErrorName);
   determineFileName(romFiles->refStateName, "refState", stateBasisPrefix, refStateName); 
+ 
+  // Update info for state bases (this is a bit tricky)
+  determineFileName(romFiles->simpleUpdateInfoName, "allUpdates", stateBasisPrefix, simpleUpdateInfoName);
+  determineFileName(romFiles->stateDistanceComparisonInfoName, "distanceInfo", stateBasisPrefix, stateDistanceComparisonInfoName);
+  determinePrefixName(romFiles->exactUpdateInfoPrefix, stateBasisPrefix, exactUpdateInfoPrefix);
+  determineFileName("", "exactUpdates_F", exactUpdateInfoPrefix, basisBasisProductsName);
+  determineFileName("", "exactUpdates_e", exactUpdateInfoPrefix, basisUrefProductsName);
+  determineFileName("", "exactUpdates_d", exactUpdateInfoPrefix, basisUicProductsName);
+  determineFileName("", "exactUpdates_c", exactUpdateInfoPrefix, urefUicProductsName);
+  determineFileName("", "exactUpdates_g", exactUpdateInfoPrefix, urefUrefProductsName);
+  determineFileName("", "exactUpdates_UrefComponentwiseSums", exactUpdateInfoPrefix, urefComponentwiseSumsName);
+  determineFileName("", "exactUpdates_StateBasisComponentwiseSums", exactUpdateInfoPrefix, basisComponentwiseSumsName);
+  determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesName, "exactUpdatesDistanceInfo", exactUpdateInfoPrefix, stateDistanceComparisonInfoExactUpdatesName); 
 
   // Krylov snaps
   determineFileName(romFiles->krylovSnapsName, "snaps", romFiles->krylovPrefix, krylovSnapsName);
@@ -61,7 +72,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determinePrefixName(romFiles->krylovBasisPrefix, romFiles->krylovPrefix, krylovBasisPrefix);
   determineFileName(romFiles->krylovBasisName, "rob", krylovBasisPrefix, krylovBasisName);
   determineFileName(romFiles->krylovSingValsName, "svals", krylovBasisPrefix, krylovSingValsName);
-  determineFileName(romFiles->krylovDistanceComparisonInfoName, "dist", krylovBasisPrefix, krylovDistanceComparisonInfoName);
+  determineFileName(romFiles->krylovDistanceComparisonInfoName, "distanceInfo", krylovBasisPrefix, krylovDistanceComparisonInfoName);
 
   // Sensitivity snaps
   determineFileName(romFiles->sensitivitySnapsName, "snaps", romFiles->sensitivityPrefix, sensitivitySnapsName);
@@ -70,7 +81,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determinePrefixName(romFiles->sensitivityBasisPrefix, romFiles->sensitivityPrefix, sensitivityBasisPrefix);
   determineFileName(romFiles->sensitivityBasisName, "rob", sensitivityBasisPrefix, sensitivityBasisName);
   determineFileName(romFiles->sensitivitySingValsName, "svals", sensitivityBasisPrefix, sensitivitySingValsName);
-  determineFileName(romFiles->sensitivityDistanceComparisonInfoName, "dist", sensitivityBasisPrefix, sensitivityDistanceComparisonInfoName);
+  determineFileName(romFiles->sensitivityDistanceComparisonInfoName, "distanceInfo", sensitivityBasisPrefix, sensitivityDistanceComparisonInfoName);
 
   // Residual snaps
   determineFileName(romFiles->residualSnapsName, "snaps", romFiles->residualPrefix, residualSnapsName);
@@ -91,6 +102,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   // GNAT quantities
   determineFileName(romFiles->sampledNodesName, "sampledNodes", romFiles->gnatPrefix, sampledNodesName);
   determineFileName(romFiles->sampledNodesFullCoordsName, "sampledNodesFullCoords", romFiles->gnatPrefix, sampledNodesFullCoordsName);
+  determineFileName(romFiles->sampledCentersName, "sampledCenters", romFiles->gnatPrefix, sampledCentersName);
   determineFileName(romFiles->sampledStateBasisName, "sampledStateROB", romFiles->gnatPrefix, sampledStateBasisName);
   determineFileName(romFiles->sampledSensitivityBasisName, "sampledSensitivityROB", romFiles->gnatPrefix, sampledSensitivityBasisName);
   determineFileName(romFiles->sampledKrylovBasisName, "sampledKrylovROB", romFiles->gnatPrefix, sampledKrylovBasisName);
@@ -102,12 +114,14 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledWallDistName, "dwall", romFiles->gnatPrefix, sampledWallDistName);
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gnatPrefix, gappyJacActionName);
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
+  determineFileName(romFiles->approxMetricLowRankName, "approxMetric", romFiles->gnatPrefix, approxMetricLowRankName);
+  determineFileName(romFiles->approxMetricLowRankFullCoordsName, "approxMetricFull", romFiles->gnatPrefix, approxMetricLowRankFullCoordsName);
 
   // Surface quantities
-  determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
-  determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
-  determineFileName(romFiles->gappyResidualName, "dwall", romFiles->surfacePrefix, surfaceWallDistName);
-  determineFileName(romFiles->gappyResidualName, "top", romFiles->surfacePrefix, surfaceMeshName);
+  //determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
+  //determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
+  //determineFileName(romFiles->gappyResidualName, "dwall", romFiles->surfacePrefix, surfaceWallDistName);
+  //determineFileName(romFiles->gappyResidualName, "top", romFiles->surfacePrefix, surfaceMeshName);
 
 
   basis = NULL;
@@ -125,7 +139,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   Uref = NULL;
   clusterNewtonCount = NULL;
   clusterKrylovCount = NULL;
- 
+  lowRankFactor = NULL;  
   nSampleNodes = 0;
   sampleNodes.clear();
   numResJacMat = 0;
@@ -171,8 +185,8 @@ com(_com), ioData(&_ioData), domain(_domain)
   allColumnSumsV = NULL; 
   allRestrictionMappings = NULL;
 
-  // for fast distance calculations
-  specifiedIC = true;
+  // for fast distance calculation quantities / exact update quantitiess
+  specifiedIC = false;
   uniformIC = NULL;
 
 }
@@ -188,9 +202,18 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] connName;
   delete [] centersName;
   delete [] nearestName;
+  delete [] centerNormsName;
   delete [] stateBasisName;
   delete [] stateSingValsName;
-  delete [] updateInfoName;
+  delete [] simpleUpdateInfoName;
+  delete [] exactUpdateInfoPrefix;
+  delete [] basisBasisProductsName;
+  delete [] basisUrefProductsName;
+  delete [] basisUicProductsName;  
+  delete [] urefUicProductsName;    
+  delete [] urefUrefProductsName;    
+  delete [] urefComponentwiseSumsName;
+  delete [] basisComponentwiseSumsName;
   delete [] stateDistanceComparisonInfoName;
   delete [] stateDistanceComparisonInfoExactUpdatesName;
   delete [] refStateName;
@@ -206,6 +229,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] jacActionBasisName;
   delete [] jacActionSingValsName;
   delete [] sampledNodesName;
+  delete [] sampledCentersName;
   delete [] sampledStateBasisName;
   delete [] sampledKrylovBasisName;
   delete [] sampledSensitivityBasisName;
@@ -217,16 +241,30 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledWallDistName;
   delete [] gappyJacActionName;
   delete [] gappyResidualName;
-  delete [] surfaceStateBasisName;
-  delete [] surfaceSolutionName;
-  delete [] surfaceWallDistName;
-  delete [] surfaceMeshName;
+  delete [] approxMetricLowRankName;
+  delete [] approxMetricLowRankFullCoordsName;
+  //delete [] surfaceStateBasisName;
+  //delete [] surfaceSolutionName;
+  //delete [] surfaceWallDistName;
+  //delete [] surfaceMeshName;
 
   delete [] stateBasisPrefix;
   delete [] krylovBasisPrefix;
   delete [] sensitivityBasisPrefix;
   delete [] residualBasisPrefix;
   delete [] jacActionBasisPrefix;
+  if (lowRankFactor) {
+    for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+      for (int jCluster = 0; jCluster < nClusters; ++jCluster) { 
+        delete [] hForFastDistComp[iCluster][jCluster];
+        delete [] cForFastDistComp[iCluster][jCluster];
+      }
+      delete [] hForFastDistComp[iCluster];
+      delete [] cForFastDistComp[iCluster];
+    } 
+    delete [] hForFastDistComp;
+    delete [] cForFastDistComp;
+  }
 
   if (basis) delete basis;
   if (snap) delete snap; 
@@ -241,7 +279,7 @@ NonlinearRom<dim>::~NonlinearRom()
   if (columnSumsV) delete columnSumsV; 
   if (sVals) delete sVals;
   if (Uref) delete Uref;
-  
+  if (lowRankFactor) delete lowRankFactor; 
   //TODO
   //clusterSnapshotMap
   //clusterNeighbors
@@ -300,6 +338,27 @@ void NonlinearRom<dim>::closestCenter(DistSVec<double, dim> &vec, int *index1) {
   }
 
 }
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::distancesToCentersFull(DistSVec<double, dim> &vec, std::vector<double> &distances, int* closest) {
+// Computes the distance from vec to every cluster center.
+
+  distances.resize(nClusters);  
+
+  for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+    distances[iCluster] = distanceFull( vec, (*clusterCenters)[iCluster]);
+  }
+
+  if (closest) {
+    *closest = 0;
+    for (int iCluster=1; iCluster<nClusters; ++iCluster)
+      *closest = (distances[*closest]<distances[iCluster]) ? *closest : iCluster;
+  }
+
+}
+
 
 //----------------------------------------------------------------------------------
 
@@ -366,9 +425,26 @@ void NonlinearRom<dim>::closestCenterFast(int *index1) {
 //----------------------------------------------------------------------------------
 
 template<int dim>
+void NonlinearRom<dim>::checkForSpecifiedInitialCondition() {
+
+  if (specifiedIC || uniformIC) return;
+
+  if (strcmp(ioData->input.solutions,"")!=0) {
+    this->com->fprintf(stderr, " ... Initial condition file is specified \n");
+    specifiedIC = true;
+  } 
+
+}
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
 void NonlinearRom<dim>::checkUniformInitialCondition(DistSVec<double, dim> &ic) {
 
-    if (uniformIC) return;
+    checkForSpecifiedInitialCondition();
+
+    if (specifiedIC || uniformIC) return;
     
     // double check that the IC is indeed uniform
     double minIC[dim], maxIC[dim];
@@ -377,7 +453,7 @@ void NonlinearRom<dim>::checkUniformInitialCondition(DistSVec<double, dim> &ic) 
 
     for (int iDim=0; iDim<dim; ++iDim) {
       if (minIC[iDim]!=maxIC[iDim]) { // should be exact, no tolerance needed
-       com->fprintf(stderr, " *** Error: a uniform initial condition was assumed during preprocessing");
+       com->fprintf(stderr, " *** Error: expected a uniform initial condition (uniformIC test failed)!");
        exit(-1);
       }
     }
@@ -389,10 +465,132 @@ void NonlinearRom<dim>::checkUniformInitialCondition(DistSVec<double, dim> &ic) 
 //----------------------------------------------------------------------------------
 
 template<int dim>
+void NonlinearRom<dim>::resetDistanceComparisonQuantitiesApproxUpdates() {
+// resets some fast distance comparison quantities that are unique to approximate updates
+
+  int robSize = basis->numVectors();
+
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+      delete [] (hForFastDistComp)[iCluster][jCluster];
+      (hForFastDistComp)[iCluster][jCluster] = new double[robSize];
+    }
+  } 
+      
+  double *temp = new double[nLowRankFactors];
+  for (int iVec = 0; iVec < robSize; ++iVec) {
+    for (int iRank = 0; iRank < nLowRankFactors; ++iRank)
+      temp[iRank] = (*lowRankFactor)[iRank] * (*(basis))[iVec];
+    for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+      for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+        (this->hForFastDistComp)[iCluster][jCluster][iVec] = 0.0;
+        for (int iRank = 0; iRank < nLowRankFactors; ++iRank)
+          (hForFastDistComp)[iCluster][jCluster][iVec] += ( (cForFastDistComp[iCluster][jCluster][iRank]) * temp[iRank]);
+      } 
+    } 
+  }
+  delete [] temp;
+  temp = NULL;
+
+}
+
+
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, dim> &ic) {
+
+  // we always have basisBasisProducts, basisUrefProducts, and basisUrefProducts precomputed (regardless of IC)
+
+  checkForSpecifiedInitialCondition();
+
+  if (specifiedIC) {
+    // do nothing; basisUicProducts and urefUicProducts should already be stored
+  } else {
+    // we have urefComponentwiseSums and basisComponentwiseSums, but we need urefUicProducts and basisUicProducts 
+    checkUniformInitialCondition(ic); // checks if IC is uniform, sets variable uniformIC
+    this->urefUicProducts.clear();
+    this->urefUicProducts.resize(nClusters, 0.0);
+    this->basisUicProducts.resize(nClusters);
+
+    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+      for (int iDim=0; iDim<dim; ++iDim) {
+        this->urefUicProducts[iCluster] += (*uniformIC)[0][iDim] * this->urefComponentwiseSums[iCluster][iDim];
+      }
+ 
+      int nVecs = this->basisComponentwiseSums[iCluster].size();
+      this->basisUicProducts[iCluster].clear();
+      this->basisUicProducts[iCluster].resize(nVecs, 0.0);
+      for (int iVec=0; iVec<nVecs; ++iVec) {
+        for (int iDim=0; iDim<dim; ++iDim) {
+          this->basisUicProducts[iCluster][iVec] += (*uniformIC)[0][iDim] * this->basisComponentwiseSums[iCluster][iVec][iDim];  
+        }
+      }
+    }
+  }
+
+  Uic = new DistSVec<double, dim>(domain.getNodeDistInfo());
+  *Uic = ic;  // TODO: this is stored in two places for steady GNAT simulations with exact updates
+
+  switch (ioData->romOnline.systemApproximation) {
+    case (NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE):
+      this->uicNorm = Uic->norm();
+      break;
+    case (NonlinearRomOnlineData::GNAT):
+      if (specifiedIC) {
+        double tag = 0.0;
+        int numVecs = 0;
+        int step = 0;
+        char *solutionPath = new char[strlen(ioData->input.prefix) + strlen(ioData->input.stateSnapFile) + 1];
+        sprintf(solutionPath, "%s%s", ioData->input.prefix, ioData->input.solutions);
+        bool status = domain.readTagFromFile<double, dim>(solutionPath, step, &tag, &numVecs);  // if file DNE, returns false, tag=0, and numSteps=0
+        delete [] solutionPath;
+        if (!status) {
+          com->fprintf(stderr, "\nCould not open file %s\n", solutionPath);
+          exit(-1);
+        }
+        this->uicNorm = tag;
+      } else {
+        if (nFullMeshNodes==0) {
+           readCenterNorms();
+           if (nFullMeshNodes==0) {
+             com->fprintf(stderr, "\n*** Error: Number of full mesh nodes = 0?  (Remember to preprocess for exact updates!)\n");
+             exit(-1);
+           }
+        }
+        this->uicNorm = 0.0;
+        for (int iDim = 0; iDim<dim; ++iDim)
+          this->uicNorm += pow((*uniformIC)[0][iDim],2);
+        this->uicNorm *= double(nFullMeshNodes); 
+        this->uicNorm = pow(this->uicNorm,0.5);
+      }
+      break;
+    default:
+      this->com->fprintf(stderr, "*** Error: Unexpected system approximation method\n");
+      exit(-1);
+  }
+
+  exactUpdatesAlpha.clear();          // [jVec]
+  exactUpdatesBeta.resize(nClusters);   // [iCluster][jVec]  
+  exactUpdatesN.resize(nClusters);      // [iCluster][iVec][jVec]
+  exactUpdatesAlphaSwitch = 1.0;        // scalar
+  exactUpdatesBetaSwitch.clear();
+  exactUpdatesBetaSwitch.resize(nClusters, 0.0); //[iCluster]
+  exactUpdatesNSwitch.resize(nClusters);// [iCluster][iVec]
+ 
+}
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
 void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic) {
 
   std::vector<double> centerMinusICNorms;
   centerMinusICNorms.resize(nClusters);
+
+  checkForSpecifiedInitialCondition();
 
   if (specifiedIC) { // preprocessing was performed for a specified IC 
 
@@ -506,14 +704,228 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> 
 template<int dim>
 void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double> &dUTimeIt, int currentCluster) {
 
+  for (int mCenter=1; mCenter<nClusters; ++mCenter) {
+    for (int pCenter=0; pCenter<mCenter; ++pCenter) {
+      for (int iState=0; iState<nState; ++iState) {
+        distanceComparisons[mCenter][pCenter] += hForFastDistComp[mCenter][pCenter][iState] * dUTimeIt[iState];
+      }
+      for (int iKrylov=0; iKrylov<nKrylov; ++iKrylov) {
+        // account for Krylov bases
+      }
+      for (int iSens=0; iSens<nSens; ++iSens) {
+        // account for sensitivity bases
+      }
+    }
+  }
+
 
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
+int NonlinearRom<dim>::readSnapshotFiles(char* snapType, bool preprocess) {
+
+  // Check for snapshot command file
+  char *vecFile;
+  bool typeIsState = false;
+
+  if (strcmp(snapType, "state")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.stateSnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.stateSnapFile);
+    typeIsState = true;
+  } else if (strcmp(snapType,"sensitivity")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.sensitivitySnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.sensitivitySnapFile);
+  } else if (strcmp(snapType,"approxMetricState")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.approxMetricStateSnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.approxMetricStateSnapFile);
+//  } else if (strcmp(snapType,"residual")==0) {
+//    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.residualSnapFile) + 1];
+//    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.residualSnapFile);
+  } else {
+    this->com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", snapType);
+    exit (-1);
+  }
+
+  FILE *inFP = fopen(vecFile, "r");
+  if (!inFP)  {
+    this->com->fprintf(stderr, "*** Error: No snapshots FILES in %s\n", vecFile);
+    exit (-1);
+  }
+
+  delete [] vecFile;
+  vecFile = NULL;
+
+  int nData, _n;
+  _n = fscanf(inFP, "%d",&nData);
+  this->com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
+
+  if (typeIsState) {
+    stateSnapsFromFile.clear();
+    stateSnapsFromFile.resize(nData, 0);
+  }
+
+  char** snapFile = new char*[nData];
+  for (int iData = 0; iData < nData; ++iData)
+    snapFile[iData] = new char[500];
+  char snapFile1[500];
+  int* numSnaps = new int[nData];
+  int* startSnaps = new int[nData];
+  int* endSnaps = new int[nData];
+  int* sampleFreq = new int[nData];
+  double* snapWeight = new double[nData];
+  int nSnap, iStart, iEnd, iFreq;
+  double weight;
+
+  if (typeIsState && ioData->romOffline.rob.state.snapshots.incrementalSnaps)
+    this->com->fprintf(stderr, "*** Warning: Incremental snapshots is not supported for multiple bases (yet) \n");
+
+  if (typeIsState && (ioData->romOffline.rob.state.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE))
+    this->com->fprintf(stderr, "*** Warning: EnergyOnly is not supported for multiple bases\n");
+
+  // read snapshot command file
+  for (int iData = 0; iData < nData; ++iData){
+    _n = fscanf(inFP, "%s %d %d %d %lf", snapFile1,&iStart,&iEnd,&iFreq,&weight);
+    if (iStart < 1) iStart = 1;
+    if (iEnd < 0) iEnd = 0;
+    if (iFreq < 1) iFreq = 1;
+    //numSnaps[iData] = nSnap;
+    strcpy(snapFile[iData],snapFile1);
+    startSnaps[iData] = iStart - 1;
+    endSnaps[iData] = iEnd;
+    sampleFreq[iData] = iFreq;
+    snapWeight[iData] = weight;
+    this->com->fprintf(stdout, " ... Reading snapshots from %s \n", snapFile[iData]);
+  }
+
+  // compute the total number of snapshots
+  int nTotSnaps = 0;
+  int dummyStep = 0;
+  double dummyTag = 0.0;
+  for (int iData = 0; iData < nData; ++iData) {
+    bool status = this->domain.template readTagFromFile<double, dim>(snapFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
+
+    if (!status) {
+      this->com->fprintf(stderr, "*** Error: could not read snapshots from %s \n", snapFile[iData]);
+      exit(-1);
+    }
+
+    if ((endSnaps[iData]==0) || (endSnaps[iData]>numSnaps[iData]))
+      endSnaps[iData]=numSnaps[iData];
+    for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
+      if (iSnap % sampleFreq[iData] == 0) {
+        ++nTotSnaps;
+        if (typeIsState) ++stateSnapsFromFile[iData]; 
+      }
+    }
+  }
+
+  bool incrementalSnaps = false;
+  bool subtractRefSol = false;
+  if (preprocess) {
+    if (ioData->romOffline.rob.relativeProjectionError.projectIncrementalSnaps) {
+      incrementalSnaps = true;
+      nTotSnaps -= nData;
+    } else if (ioData->romOffline.rob.relativeProjectionError.subtractRefSol) {
+      subtractRefSol = true;
+      if (!(ioData->input.stateSnapRefSolution)) {
+        this->com->fprintf(stderr, "*** Error: Reference solution not found \n");
+        exit (-1);
+      }
+      this->readReferenceState();
+    }
+  }
+
+  if (snap) delete snap;
+  snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+  DistSVec<double, dim>* snapBufOld = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+  DistSVec<double, dim>* snapBufNew = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+
+  if (typeIsState) {
+    stateSnapshotTags.resize(nData);
+    for (int iFile=0;iFile<nData;++iFile) {
+      stateSnapshotTags[iFile].clear();
+      stateSnapshotTags[iFile].resize(stateSnapsFromFile[iFile], -1.0);
+    }
+  }
+
+  *snapBufOld = 0.0;
+  *snapBufNew = 0.0;
+
+  double* tags = new double [nTotSnaps];
+  double tagOld;
+  double tagNew;
+
+  int numCurrentSnapshots = 0;
+  bool status;
+
+  if (subtractRefSol) {
+    *snapBufOld = *(this->snapRefState);
+    delete (this->snapRefState);
+    (this->snapRefState) = NULL;
+  }
+
+  for (int iData=0; iData < nData; ++iData){
+    // read in Snapshot Vectors
+    for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
+      if (iSnap % sampleFreq[iData] == 0) { //TODO ignore 
+        // snapshot must be between startSnaps and endSnaps, and a multiple of sampleFreq. 
+        if ((iSnap == startSnaps[iData]) && incrementalSnaps) {
+          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagOld, *snapBufOld);
+        } else {
+          status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
+          tags[numCurrentSnapshots] = tagNew;
+          (*snap)[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
+          if (incrementalSnaps) *snapBufOld = *snapBufNew;
+          if (snapWeight[iData]) (*snap)[numCurrentSnapshots] *= snapWeight[iData]; //CBM--check
+          ++numCurrentSnapshots;
+        }
+      }
+    }
+  }
+
+  if (typeIsState) {
+    int snapCount=0;
+    for (int iFile=0;iFile<nData;++iFile) {
+      for (int iSnap=0;iSnap<stateSnapsFromFile[iFile];++iSnap) {
+        stateSnapshotTags[iFile][iSnap] = tags[snapCount];
+        ++snapCount;
+      }
+    }
+  }
+
+  delete snapBufOld;
+  snapBufOld = NULL;
+  delete snapBufNew;
+  snapBufNew = NULL;
+
+  for (int iData=0; iData < nData; ++iData) {
+    delete [] snapFile[iData];
+  }
+  delete [] snapFile;
+  snapFile = NULL;
+  delete [] numSnaps;
+  numSnaps = NULL;
+  delete [] startSnaps;
+  startSnaps = NULL;
+  delete [] endSnaps;
+  endSnaps = NULL;
+  delete [] sampleFreq;
+  sampleFreq = NULL;
+  delete [] snapWeight;
+  snapWeight = NULL;
+  delete [] tags;
+  tags = NULL;
+
+  return nData;
+
+}
+//----------------------------------------------------------------------------------
+
+template<int dim>
 void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  { 
- 
+
   bool outputSnaps = (this->ioData->romOffline.rob.clustering.outputSnapshots==ClusteringData::OUTPUT_SNAPSHOTS_TRUE) ? true : false;
 
   int nTotSnaps = snap->numVectors();
@@ -588,7 +1000,7 @@ void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  {
     }
 
     com->barrier();
-    if (outputSnaps) {  
+    if (outputSnaps) { 
       // output cluster centers
       char *clustCentersPath = 0;
       determinePath(centersName, -1, clustCentersPath);
@@ -632,29 +1044,32 @@ void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  {
         delete [] snapshotsPath;
         snapshotsPath = NULL;
       }
+  
     }
 
     com->fprintf(stdout, "\nFreeing memory for parallel SVD; read in snapshots as needed\n");
   
-    delete snap;
+    if (snap) delete snap;
     snap = NULL;
-    delete clusterCenters;
+    if (clusterCenters) delete clusterCenters;
     clusterCenters = NULL;
-    delete nearestSnapsToCenters;
+    if (nearestSnapsToCenters) delete nearestSnapsToCenters;
     nearestSnapsToCenters = NULL;
-    delete [] clusterIndex;
+    if (clusterIndex) delete [] clusterIndex;
     clusterIndex = NULL;
   
-    for (int iCluster=0; iCluster<nClusters; ++iCluster) delete [] clusterSnapshotMap[iCluster];
-    delete [] clusterSnapshotMap;
+    for (int iCluster=0; iCluster<nClusters; ++iCluster) 
+      if (clusterSnapshotMap) delete [] clusterSnapshotMap[iCluster];
+    if (clusterSnapshotMap) delete [] clusterSnapshotMap;
     clusterSnapshotMap = NULL;
-    delete [] snapsInCluster;
+    if (snapsInCluster) delete [] snapsInCluster;
     snapsInCluster = NULL;
   
-    for (int iCluster=0; iCluster<nClusters; ++iCluster) delete [] clusterNeighbors[iCluster];
-    delete [] clusterNeighbors;
+    for (int iCluster=0; iCluster<nClusters; ++iCluster) 
+      if (clusterNeighbors) delete [] clusterNeighbors[iCluster];
+    if (clusterNeighbors) delete [] clusterNeighbors;
     clusterNeighbors = NULL;
-    delete [] clusterNeighborsCount;
+    if (clusterNeighborsCount) delete [] clusterNeighborsCount;
     clusterNeighborsCount = NULL;
 
   } else if (strcmp(snapType, "sensitivity")==0) {
@@ -673,7 +1088,7 @@ void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  {
 
     com->fprintf(stdout, "\nFreeing memory for parallel SVD; read in snapshots as needed\n");
 
-    delete snap;
+    if (snap) delete snap;
     snap = NULL;
   }
 }
@@ -908,12 +1323,16 @@ void NonlinearRom<dim>::readClusteredReferenceState(int iCluster, char* refType)
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readClusteredCenters() {
-
-  // never called by GNAT so there's no need to support reading sampled cluster centers
+void NonlinearRom<dim>::readClusterCenters(char* centersType) {
 
   char *clustCentersPath = 0;
-  determinePath(centersName, -1, clustCentersPath);
+  if (strcmp(centersType,"centers")==0) {
+      determinePath(centersName, -1, clustCentersPath);
+  } else if (strcmp(centersType,"sampledCenters")==0) {
+      determinePath(sampledCentersName, -1, clustCentersPath);
+  } else {
+      exit (-1);
+  }
 
   if (nClusters <= 0) {
     com->fprintf(stderr, "\n*** Error: invalid value for NumClusters (%d)\n", nClusters);
@@ -982,7 +1401,7 @@ void NonlinearRom<dim>::readClusteredCenters() {
 
 template<int dim>
 void NonlinearRom<dim>::readNearestSnapsToCenters() {
-  // NOTE: this function must only be run after readClusteredCenters (this is because the
+  // NOTE: this function must only be run after readClusterCenters (this is because the
   // cluster centers file defines snapsInCluster and nClusters)
 
   char *nearestSnapsPath = 0;
@@ -1245,28 +1664,75 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, char* basisType, bool r
 template<int dim>
 void NonlinearRom<dim>::readClusteredUpdateInfo(int iCluster, char* basisType) {
 
-  // always need Uref and ColumnSumsV regardless of update algorithm
-  readClusteredReferenceState(iCluster, basisType);
-  readClusteredColumnSumsV(iCluster, basisType);
-
-  if (false) readClusteredExactUpdateInfo(iCluster, basisType);
-  if (false) readClusteredApproxUpdateInfo(iCluster, basisType);
-
+  if (ioData->romOnline.basisUpdates == NonlinearRomOnlineData::UPDATES_OFF) {
+    // do nothing
+  } else {
+    readClusteredReferenceState(iCluster, basisType);
+    readClusteredColumnSumsV(iCluster, basisType);
+  }
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readClusteredExactUpdateInfo(int iCluster, char* basisType) {
+void NonlinearRom<dim>::readNonClusteredUpdateInfo(char* sampledOrFull) {
 
-
-
+  switch (ioData->romOnline.basisUpdates) {
+    case (NonlinearRomOnlineData::UPDATES_OFF):
+      break;
+    case (NonlinearRomOnlineData::UPDATES_SIMPLE):
+      break;
+    case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
+      readExactUpdateInfo();
+      break;
+    case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
+      readApproxMetricLowRankFactor(sampledOrFull); 
+      break;
+    default:
+      this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+      exit(-1);
+  }
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readClusteredApproxUpdateInfo(int iCluster, char* basisType) {
+void NonlinearRom<dim>::readExactUpdateInfo() {
+
+
+  // Basis Basis Products (rob_i^T * rob_p)
+  // std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
+  readClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &this->basisBasisProducts);
+
+  // Basis Uref Products (rob_i^T * Uref_p)
+  // std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
+  readClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
+
+  // Uref Uref Products
+  // std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
+  readClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
+
+  checkForSpecifiedInitialCondition();
+
+  if (specifiedIC) {
+
+    // Basis Uic Products
+    // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
+    readClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
+
+    // Uref Uic Products
+    // std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
+    readClusteredInfoASCII(-1, "urefUicProducts", &this->urefUicProducts);
+ 
+  } else {
+    // Uref Componentwise Sums
+    // std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
+    readClusteredInfoASCII(-1, "urefComponentwiseSums", NULL, &this->urefComponentwiseSums);
+
+    // Basis Componentwise Sums
+    // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
+    readClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &this->basisComponentwiseSums);
+  }
 
 
 }
@@ -1291,7 +1757,7 @@ void NonlinearRom<dim>::readClusteredColumnSumsV(int iCluster, char* basisType) 
     }
 
     char *basisUpdatePath = NULL;
-    determinePath(updateInfoName, iCluster, basisUpdatePath);
+    determinePath(simpleUpdateInfoName, iCluster, basisUpdatePath);
 
     com->fprintf(stdout, "\nReading update info for basis %d \n", iCluster);
 
@@ -1402,7 +1868,7 @@ void NonlinearRom<dim>::outputClusteredBasis(int iCluster, int nTotSnaps, char* 
     com->fprintf(stdout, "\nWriting sums of right singular vectors to disk (for basis updates)\n");
 
     char *basisUpdatePath = 0;
-    determinePath(updateInfoName, iCluster, basisUpdatePath);
+    determinePath(simpleUpdateInfoName, iCluster, basisUpdatePath);
 
     if (com->cpuNum() == 0) {
       FILE *basisUpdateFile = fopen(basisUpdatePath, "wt");
@@ -1804,7 +2270,83 @@ void NonlinearRom<dim>::readClusteredGappyMatrix(int iCluster, char* matrixType)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readAllOnlineQuantities() {
+void NonlinearRom<dim>::readApproxMetricLowRankFactor(char* sampledOrFull) {
+
+  char *approxMetricPath;
+
+  if (lowRankFactor) delete lowRankFactor;
+
+  if (strcmp(sampledOrFull,"sampled")==0) {
+    determinePath(approxMetricLowRankName,-1,approxMetricPath);
+  } else if (strcmp(sampledOrFull,"full")==0) {
+    determinePath(approxMetricLowRankFullCoordsName,-1,approxMetricPath);
+  } else {
+    this->com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricLowRankFactor\n");
+    exit (-1);
+  }
+  
+  int nRank = 0; 
+  int dummyStep = 0;
+  double dummyTag = 0.0;
+  bool status = domain.readTagFromFile<double, dim>(approxMetricPath,dummyStep,&dummyTag,&nRank); 
+
+  if (!status) {
+    com->fprintf(stderr, "\nCould not open file %s\n", approxMetricPath);
+    exit(-1);
+  }
+  nLowRankFactors = nRank;
+
+  lowRankFactor = new VecSet< DistSVec<double, dim> >(nLowRankFactors, domain.getNodeDistInfo());
+  cForFastDistComp = new double**[nClusters];
+  hForFastDistComp = new double**[nClusters];
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    hForFastDistComp[iCluster] = new double*[nClusters];
+    cForFastDistComp[iCluster] = new double*[nClusters];
+    for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+      hForFastDistComp[iCluster][jCluster] = new double[1];
+      cForFastDistComp[iCluster][jCluster] = new double[nLowRankFactors];
+    }
+  } 
+  com->fprintf(stdout, "\nReading approximated metric low rank factor\n");
+  double tmp;
+
+  for (int iRank = 0; iRank < nLowRankFactors; ++iRank) { 
+    status = domain.readVectorFromFile(approxMetricPath, iRank, &tmp, (*lowRankFactor)[iRank]);
+    if (!status) {
+      com->fprintf(stderr, "\nError reading the low rank vector #%d in %s\n", iRank,approxMetricPath);
+      exit(-1);
+    }
+  }
+
+  // build c
+  double **approxMetricMaskCenters = new double*[nClusters];
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster)
+    approxMetricMaskCenters[iCluster] = new double[nLowRankFactors];
+
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    for (int iRank = 0; iRank < nLowRankFactors; ++iRank) {
+      approxMetricMaskCenters[iCluster][iRank] = (*lowRankFactor)[iRank] * (*clusterCenters)[iCluster];    
+    }
+  }
+
+  for (int iCluster = 0; iCluster < nClusters; ++iCluster) {
+    for (int jCluster = 0; jCluster < nClusters; ++jCluster) {
+      for (int iRank = 0; iRank < nLowRankFactors; ++iRank) {
+        cForFastDistComp[iCluster][jCluster][iRank] = 2.0*(approxMetricMaskCenters[jCluster][iRank]-approxMetricMaskCenters[iCluster][iRank]);
+      }
+    }
+  }
+ 
+  com->barrier();
+  delete [] approxMetricPath;
+  approxMetricPath = NULL;  
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
 
 // stores all online quantities at the beginning of the simulation
 // (as opposed to reading information at each cluster switch)
@@ -2079,8 +2621,8 @@ void NonlinearRom<dim>::readCenterNorms() {
 
   assert(expectedNClusters == nClusters);
 
-  if (vecSize>1) {
-    specifiedIC=false; 
+  checkForSpecifiedInitialCondition();
+  if (!specifiedIC) {
     assert(vecSize==(dim+1));
   }
 
@@ -2098,7 +2640,7 @@ void NonlinearRom<dim>::readCenterNorms() {
       } else if (feof(inputFile)) {
         break;
       } else {
-        com->fprintf(stderr, "*** Error: fscanf interrupted by non-EOF error\n");
+        com->fprintf(stderr, "*** Error: fscanf of centerNorms file interrupted by non-EOF error\n");
         exit(-1);
       }
     }
@@ -2119,8 +2661,8 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, char* type, std::
                                              std::vector<std::vector<std::vector<double> > >* vec3,
                                              std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
                                                            
-  // general IO function for small ASCII precomputed quantities
- 
+  // interface for outputting small ASCII quantities
+
   // sanity check inputs
   if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
     com->fprintf(stderr, "*** Error: only one precomputed distance comparison quantity can be output at a time\n");
@@ -2130,80 +2672,52 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, char* type, std::
     exit(-1); 
   }
 
-  int vecDim1, vecDim2;
   char *infoPath = NULL;
-
-  if (strcmp(type, "refState") == 0) { // 2*(U_center_p - U_center_m)^T U_ref
+  if (strcmp(type, "referenceState") == 0) { // 2*(U_center_p - U_center_m)^T U_ref
     determinePath(stateDistanceComparisonInfoExactUpdatesName, iCluster, infoPath);
     assert(vec2);
-    vecDim1 = vec2->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "initialCondition") == 0) { // 2*(U_center_p - U_center_m)^T U_ic
     determinePath(stateDistanceComparisonInfoExactUpdatesName, -1, infoPath);
     assert(vec2);
-    vecDim1 = vec2->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "state") == 0) { // 2*(U_center_p - U_center_m)^T V_state_k
     determinePath(stateDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
-    vecDim1 = vec3->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "krylov") == 0) { // 2*(U_center_p - U_center_m)^T V_krylov_k
     determinePath(krylovDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
-    vecDim1 = vec3->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "sensitivity") == 0) { // 2*(U_center_p - U_center_m)^T V_sens
     determinePath(sensitivityDistanceComparisonInfoName, -2, infoPath);
     assert(vec3);
-    vecDim1 = vec3->size();
-    vecDim2 = -1;
   } else if (strcmp(type, "distanceMatrix") == 0) { // A_ij = ||U_i - U_j||_2 
     determinePath(distanceMatrixName, -1, infoPath);
     assert(vec2);
-    vecDim1 = vec2->size();
-    vecDim2 = -1;
+  } else if (strcmp(type, "basisBasisProducts") == 0) {               
+    determinePath(basisBasisProductsName, -1, infoPath);
+    assert(vec4);
+  } else if (strcmp(type, "basisUrefProducts") == 0) {               
+    determinePath(basisUrefProductsName, -1, infoPath);
+    assert(vec3);
+  } else if (strcmp(type, "urefUrefProducts") == 0) {                
+    determinePath(urefUrefProductsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "urefUicProducts") == 0) {               
+    determinePath(urefUicProductsName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "basisUicProducts") == 0) {               
+    determinePath(basisUicProductsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "urefComponentwiseSums") == 0) {               
+    determinePath(urefComponentwiseSumsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "basisComponentwiseSums") == 0) {               
+    determinePath(basisComponentwiseSumsName, -1, infoPath);
+    assert(vec3);
   } else {
     exit(-1);
   }
-
-  assert(nClusters > 1);
-
-  if (com->cpuNum() == 0) {
-
-    FILE *outputFile = fopen(infoPath, "wt");
-
-    com->fprintf(outputFile, "%d %d %d\n", nClusters, vecDim1, vecDim2); //negative vecDim2 indicates a lower triangular matrix
   
-    for (int mCenter=0; mCenter<vecDim1; ++mCenter){
-      if (vec1) {
-        com->fprintf(outputFile,"%23.15e\n", (*vec1)[mCenter]);
-      } else {
-        int dim2 = (vecDim2<0) ? mCenter : vecDim2;
-        for (int pCenter=0; pCenter<dim2; ++pCenter) {
-          if (vec2) {
-            com->fprintf(outputFile,"%23.15e\n", (*vec2)[mCenter][pCenter]);
-          } else {
-            int rowDim = (vec3) ? (*vec3)[mCenter][pCenter].size() : (*vec4)[mCenter][pCenter].size();
-            int colDim = (vec3) ? 0 : (*vec4)[mCenter][pCenter][0].size();
-            com->fprintf(outputFile,"%d %d\n", rowDim, colDim);
-            for (int iPodVec=0; iPodVec<rowDim; ++iPodVec) {
-              if (vec3) {
-                com->fprintf(outputFile,"%23.15e\n", (*vec3)[mCenter][pCenter][iPodVec]);
-              } else {
-                for (int jPodVec=0; jPodVec<colDim; ++jPodVec) {
-                  com->fprintf(outputFile,"%23.15e\n", (*vec4)[mCenter][pCenter][iPodVec][jPodVec]);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  
-    fclose (outputFile);
+  writeMultiVecASCII(infoPath, vec1, vec2, vec3, vec4);
 
-  }
   delete [] infoPath;
   infoPath = NULL;
 
@@ -2217,7 +2731,7 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
                                              std::vector<std::vector<std::vector<double> > >* vec3,
                                              std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
 
-  // general IO function for small ASCII precomputed quantities
+  // interface for reading small ASCII quantities
                                     
   // sanity check inputs
   if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
@@ -2227,11 +2741,6 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
     com->fprintf(stderr, "*** Error: no precomputed distance comparison quantity specified\n");
     exit(-1); 
   }
-
-  if (vec1) vec1->clear();
-  if (vec2) vec2->clear();
-  if (vec3) vec3->clear();
-  if (vec4) vec4->clear();
 
   char *infoPath = NULL;
 
@@ -2250,53 +2759,193 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
   } else if (strcmp(type, "sensitivity") == 0) {// 2*(U_center_p - U_center_m)^T V_sens
     determinePath(sensitivityDistanceComparisonInfoName, -2, infoPath);
     assert(vec3);
+  } else if (strcmp(type, "basisBasisProducts") == 0) {
+    determinePath(basisBasisProductsName, -1, infoPath);
+    assert(vec4);
+  } else if (strcmp(type, "basisUrefProducts") == 0) {
+    determinePath(basisUrefProductsName, -1, infoPath);
+    assert(vec3);
+  } else if (strcmp(type, "urefUrefProducts") == 0) {
+    determinePath(urefUrefProductsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "urefUicProducts") == 0) {
+    determinePath(urefUicProductsName, -1, infoPath);
+    assert(vec1);
+  } else if (strcmp(type, "basisUicProducts") == 0) {
+    determinePath(basisUicProductsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "urefComponentwiseSums") == 0) {
+    determinePath(urefComponentwiseSumsName, -1, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "basisComponentwiseSums") == 0) {
+    determinePath(basisComponentwiseSumsName, -1, infoPath);
+    assert(vec3);
   } else {
     exit(-1);
   }
 
-  FILE *inputFile = fopen(infoPath, "r");
-  int _n;
+  readMultiVecASCII(infoPath, vec1, vec2, vec3, vec4);
 
-  int expectedNClusters;
-  int vecDim1, vecDim2;
+  delete [] infoPath;
+  infoPath = NULL;
 
-  _n = fscanf(inputFile, "%d %d %d\n", &expectedNClusters, &vecDim1, &vecDim2);
-  assert(expectedNClusters == nClusters);
+} 
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::writeMultiVecASCII(char* path, std::vector<double>* vec1,
+                                           std::vector<std::vector<double> >* vec2,
+                                           std::vector<std::vector<std::vector<double> > >* vec3,
+                                           std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
+                                                           
+  // general IO function for multi-vector quantities with arbitrary dimensions
+ 
+  // sanity check inputs
+  if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
+    com->fprintf(stderr, "*** Error: only one multivec can be output at a time\n");
+    exit(-1);
+  } else if ((!vec1)&&(!vec2)&&(!vec3)&&(!vec4)) {
+    com->fprintf(stderr, "*** Error: no multivec specified\n");
+    exit(-1); 
+  }
+
+  if (com->cpuNum() == 0) {
+
+    int dim1, dim2, dim3, dim4, multiVecType;  
+
+    FILE *outputFile = fopen(path, "wt");
+
+    if (vec1) {
+      dim1 = vec1->size();
+      multiVecType = 1;
+    } else if (vec2) {
+      dim1 = vec2->size();
+      multiVecType = 2;
+    } else if (vec3) {
+      dim1 = vec3->size();
+      multiVecType = 3;
+    } else {
+      dim1 = vec4->size();
+      multiVecType = 4;
+    }
+
+    com->fprintf(outputFile, "MultiVecType: %d\n", multiVecType);
+    com->fprintf(outputFile, "Dimension#1: %d\n", dim1);
+    for (int i=0; i<dim1; ++i){
+      if (vec1) {
+        com->fprintf(outputFile,"%23.15e\n", (*vec1)[i]);
+      } else {
+        if (vec2) dim2 = (*vec2)[i].size();
+        if (vec3) dim2 = (*vec3)[i].size();
+        if (vec4) dim2 = (*vec4)[i].size();
+        com->fprintf(outputFile, "Dimension#2: %d\n", dim2);
+        for (int j=0; j<dim2; ++j) {
+          if (vec2) {
+            com->fprintf(outputFile,"%23.15e\n", (*vec2)[i][j]);
+          } else {
+            if (vec3) dim3 = (*vec3)[i][j].size();
+            if (vec4) dim3 = (*vec4)[i][j].size();
+            com->fprintf(outputFile, "Dimension#3: %d\n", dim3);
+            for (int k=0; k<dim3; ++k) {
+              if (vec3) {
+                com->fprintf(outputFile,"%23.15e\n", (*vec3)[i][j][k]);
+              } else {
+                dim4 = (*vec4)[i][j][k].size();
+                com->fprintf(outputFile, "Dimension#4: %d\n", dim4);
+                for (int l=0; l<dim4; ++l) {
+                  com->fprintf(outputFile,"%23.15e\n", (*vec4)[i][j][k][l]);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  
+    fclose (outputFile);
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::readMultiVecASCII(char* path, std::vector<double>* vec1,
+                                          std::vector<std::vector<double> >* vec2,
+                                          std::vector<std::vector<std::vector<double> > >* vec3,
+                                          std::vector<std::vector<std::vector<std::vector<double> > > >* vec4) {
+                                                           
+  // general IO function for multi-vector quantities with arbitrary dimensions
+                                    
+  // sanity check inputs
+  if ( (vec1&&(vec2||vec3||vec4)) || (vec2&&(vec3||vec4)) || (vec3&&vec4)) {
+    com->fprintf(stderr, "*** Error: only one multivec can be read at a time\n");
+    exit(-1);
+  } else if ((!vec1)&&(!vec2)&&(!vec3)&&(!vec4)) {
+    com->fprintf(stderr, "*** Error: no multivec specified\n");
+    exit(-1); 
+  }
+
+  FILE *inputFile = fopen(path, "r");
+
+  int expectedMultiVecType;
+
+  if (vec1) { 
+    vec1->clear();
+    expectedMultiVecType = 1;
+  } else if (vec2) {
+    vec2->clear();
+    expectedMultiVecType = 2;
+  } else if (vec3) {
+    vec3->clear();
+    expectedMultiVecType = 3;
+  } else {
+    vec4->clear();
+    expectedMultiVecType = 4;
+  }
+
+  int _n, dim1, dim2, dim3, dim4, multiVecType;
   double tmpVal;
 
-  if (vec1) vec1->reserve(vecDim1);
-  if (vec2) vec2->resize(vecDim1);
-  if (vec3) vec3->resize(vecDim1);
-  if (vec4) vec4->resize(vecDim1);
+  fscanf(inputFile, "MultiVecType: %d\n", &multiVecType);
+  assert(expectedMultiVecType == multiVecType);
+  fscanf(inputFile, "Dimension#1: %d\n", &dim1);
 
-  for (int mCenter=0; mCenter<vecDim1; ++mCenter){
+  if (vec1) vec1->reserve(dim1);
+  if (vec2) vec2->resize(dim1);
+  if (vec3) vec3->resize(dim1);
+  if (vec4) vec4->resize(dim1);
+
+  for (int i=0; i<dim1; ++i){
     if (vec1) {
-      _n = fscanf(inputFile,"%le", &tmpVal);
+      _n = fscanf(inputFile,"%le\n", &tmpVal);
       vec1->push_back(tmpVal);
     } else {
-      int dim2 = (vecDim2<0) ? mCenter : vecDim2;
-      if (vec2) (*vec2)[mCenter].reserve(dim2);
-      if (vec3) (*vec3)[mCenter].resize(dim2);
-      if (vec4) (*vec4)[mCenter].resize(dim2);
-      for (int pCenter=0; pCenter<dim2; ++pCenter) {
+      _n = fscanf(inputFile, "Dimension#2: %d\n", &dim2);
+      if (vec2) (*vec2)[i].reserve(dim2);
+      if (vec3) (*vec3)[i].resize(dim2);
+      if (vec4) (*vec4)[i].resize(dim2);
+      for (int j=0; j<dim2; ++j) {
         if (vec2) {
-          _n = fscanf(inputFile,"%le", &tmpVal);
-          (*vec2)[mCenter].push_back(tmpVal);
+          _n = fscanf(inputFile,"%le\n", &tmpVal);
+          (*vec2)[i].push_back(tmpVal);
         } else {
-          int rowDim, colDim;
-          _n = fscanf(inputFile,"%d %d", &rowDim, &colDim);
-          if (vec3) (*vec3)[mCenter][pCenter].reserve(rowDim);
-          if (vec4) (*vec4)[mCenter][pCenter].resize(rowDim);
-          for (int iPodVec=0; iPodVec<rowDim; ++iPodVec) {
+          _n = fscanf(inputFile, "Dimension#3: %d\n", &dim3);
+          if (vec3) (*vec3)[i][j].reserve(dim3);
+          if (vec4) (*vec4)[i][j].resize(dim3);
+          for (int k=0; k<dim3; ++k) {
             if (vec3) {
-              _n = fscanf(inputFile,"%le", &tmpVal);
-              (*vec3)[mCenter][pCenter].push_back(tmpVal);
+              _n = fscanf(inputFile,"%le\n", &tmpVal);
+              (*vec3)[i][j].push_back(tmpVal);
             } else {
-              (*vec4)[mCenter][pCenter][iPodVec].reserve(colDim);
-              for (int jPodVec=0; jPodVec<colDim; ++jPodVec) {
-                _n = fscanf(inputFile,"%le", &tmpVal);
-                (*vec4)[mCenter][pCenter][iPodVec].push_back(tmpVal);
+              _n = fscanf(inputFile, "Dimension#4: %d\n", &dim4);
+              (*vec4)[i][j][k].reserve(dim4);
+              for (int l=0; l<dim4; ++l) {
+                com->fprintf(inputFile,"%23.15e\n", (*vec4)[i][j][k][l]);
+                _n = fscanf(inputFile,"%le\n", &tmpVal);
+                (*vec4)[i][j][k].push_back(tmpVal);
               }
             }
           }
@@ -2307,9 +2956,6 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
 
   fclose (inputFile);
 
-  delete [] infoPath;
-  infoPath = NULL;
-
 }
 
 //------------------------------------------------------------------------------
@@ -2317,9 +2963,11 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
 template<int dim>
 void NonlinearRom<dim>::readDistanceComparisonInfo(char* updateType) {
 
-  readCenterNorms();
-
+  checkForSpecifiedInitialCondition();
+  
   if ((strcmp(updateType, "noUpdates") == 0) || (strcmp(updateType, "exactUpdates") == 0)){
+
+    readCenterNorms();
 
     stateBasisCentersProduct.resize(nClusters);
 
@@ -2350,6 +2998,11 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(char* updateType) {
     }
   } else if (strcmp(updateType, "approxUpdates") == 0) {   
 
+    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
+      this->readClusterCenters("sampledCenters");
+    } else {
+      this->readClusterCenters("centers");
+    }
 
   } else {
     com->fprintf(stderr, "*** Error: unexpected update method\n");

@@ -87,7 +87,7 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
         this->rom->readClusteredOnlineQuantities(this->currentCluster);  // read state basis, update info, and (if applicable) gnat online matrices
       }
 
-      //if (this->ioData->romOnline.basisUpdates) rom->updateBasis(currentCluster, U);
+      if (this->ioData->romOnline.basisUpdates) this->rom->updateBasis(this->currentCluster, U);
       //if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       //if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 

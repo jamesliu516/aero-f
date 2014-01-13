@@ -90,6 +90,7 @@ struct InputData {
   const char *residualSnapFile;
   const char *krylovSnapFile;
   const char *sensitivitySnapFile;
+  const char *approxMetricStateSnapFile;
   const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -2072,7 +2073,8 @@ struct NonlinearRomFilesData {
   const char *stateBasisPrefix;
   const char *stateBasisName;
   const char *stateSingValsName;
-  const char *updateInfoName;
+  const char *simpleUpdateInfoName;
+  const char *exactUpdateInfoPrefix;
   const char *stateDistanceComparisonInfoName;
   const char *stateDistanceComparisonInfoExactUpdatesName;
   const char *projErrorName;
@@ -2120,6 +2122,7 @@ struct NonlinearRomFilesData {
   const char *gnatPrefix;
   const char *sampledNodesName;         //sampleNodes;
   const char *sampledNodesFullCoordsName; // sampled nodes in full mesh coordinates
+  const char *sampledCentersName;
   const char *sampledStateBasisName;    //podStateRed;
   const char *sampledKrylovBasisName;
   const char *sampledSensitivityBasisName;
@@ -2131,6 +2134,8 @@ struct NonlinearRomFilesData {
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
   const char *gappyResidualName;             //resMatrix in sampled coords;
+  const char *approxMetricLowRankName; // approximated metric in reduced mesh coordinates
+  const char *approxMetricLowRankFullCoordsName; // approximated metric in full mesh coordinates
 
   // Surface quantities
   const char *surfacePrefix;
@@ -2138,6 +2143,7 @@ struct NonlinearRomFilesData {
   const char *surfaceSolutionName;
   const char *surfaceWallDistName;
   const char *surfaceMeshName;
+
 
   NonlinearRomFilesData();
   ~NonlinearRomFilesData() {}
@@ -2173,6 +2179,9 @@ struct NonlinearRomOnlineNonStateData {
   int maxDimension;
   double energy;
 
+  int timeFreq;
+  int newtonFreq;
+
   NonlinearRomOnlineNonStateData();
   ~NonlinearRomOnlineNonStateData() {}
 
@@ -2186,12 +2195,13 @@ struct NonlinearRomOnlineData {
 
 	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
 	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
-  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_TRUE = 1} lineSearch;
-	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2} lsSolver;
+  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
+	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3} lsSolver;
 
   enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
   double weightingExponent;
   double ffWeight;
+  double levenbergMarquardtWeight;
 
   double regThresh;
   double constantGain;
@@ -2213,6 +2223,7 @@ struct NonlinearRomOnlineData {
 
   NonlinearRomOnlineNonStateData krylov;
   NonlinearRomOnlineNonStateData sensitivity;
+  NonlinearRomOnlineNonStateData onlineResiduals;
 
   NonlinearRomOnlineData();
   ~NonlinearRomOnlineData() {}
@@ -2375,17 +2386,18 @@ struct KrylovData {
 
 struct ClusteringData {
 
-  enum ClusteringAlgorithm {K_MEANS = 0} clusteringAlgorithm;
-  int numClusters;
+  enum ClusteringAlgorithm {K_MEANS_WITHOUT_BOUNDS = 0, K_MEANS_WITH_BOUNDS = 1} clusteringAlgorithm;
+  enum KmeansBoundType {TIGHT_BOUNDS = 0, LOOSE_BOUNDS = 1} kmeansBoundType;
   double percentOverlap;
   int maxIter;
-  int maxIterSingle;
+  int maxIterAggressive;
   int minClusterSize;
   double kMeansTol;
   int kMeansRandSeed;
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
   enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
   enum OutputSnapshots {OUTPUT_SNAPSHOTS_FALSE = 0, OUTPUT_SNAPSHOTS_TRUE = 1} outputSnapshots;
+  enum ClusterFilesSeparately {CLUSTER_FILES_SEPARATELY_FALSE = 0, CLUSTER_FILES_SEPARATELY_TRUE = 1} clusterFilesSeparately;
 
   ClusteringData();
   ~ClusteringData() {}
@@ -2394,6 +2406,20 @@ struct ClusteringData {
 
 };
 
+
+//------------------------------------------------------------------------------
+
+struct ApproximatedMetricData {
+
+  double sampledMeshFraction;
+  double lowRankEnergy;
+  double tolerance;
+  ApproximatedMetricData();
+  ~ApproximatedMetricData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
 //------------------------------------------------------------------------------
 
 struct BasisUpdatesData {
@@ -2402,6 +2428,8 @@ struct BasisUpdatesData {
   enum PreprocessForSimpleUpdates {SIMPLE_UPDATES_FALSE = 0, SIMPLE_UPDATES_TRUE = 1} preprocessForSimpleUpdates;
   enum PreprocessForExactUpdates {EXACT_UPDATES_FALSE = 0, EXACT_UPDATES_TRUE = 1} preprocessForExactUpdates;
   enum PreprocessForApproxUpdates {APPROX_UPDATES_FALSE = 0, APPROX_UPDATES_TRUE = 1} preprocessForApproxUpdates;
+  ApproximatedMetricData approximatedMetric;
+
 
   BasisUpdatesData();
   ~BasisUpdatesData() {}
@@ -2478,6 +2506,8 @@ struct GNATConstructionData {
 
 	enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
   int pseudoInverseNodes;
+  enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
+  enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
 
   GNATConstructionData();
   ~GNATConstructionData() {}
@@ -2767,6 +2797,11 @@ public:
   void printDebug();
 
   void setupOneDimensional();
+
+  int checkInputValuesNonlinearRomPreprocessing();
+  int checkInputValuesNonlinearRomOnline();
+  int checkInputValuesNonlinearRomPostprocessing();
+
 };
 
 //------------------------------------------------------------------------------
