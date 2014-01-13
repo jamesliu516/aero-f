@@ -66,7 +66,9 @@ protected:
   TsOutput<dim> *output;
   TsRestart *restart;
 
+  DistSVec<double,dim> *Uic;
   DistSVec<double,dim> *V;
+  DistSVec<double,dim> *F;
   DistSVec<double,dim> *R;
   DistSVec<double,dim> *Rinlet;
   DistSVec<double,dim> *Rreal;
@@ -131,6 +133,7 @@ public:
   virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
   virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }

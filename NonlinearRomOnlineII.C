@@ -107,7 +107,7 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
   
   if (a.norm() >= 1e-6) {  // only update if Uref is different than U (this handles the case of time=0) 
 
-    double m[robSize];
+    double* m = new double[robSize];
     for (int iVec=0; iVec<robSize; ++iVec) {
       m[iVec] = (*(this->basis))[iVec] * a;
     }
@@ -178,6 +178,7 @@ void NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
   delete (this->Uref);
   this->Uref = NULL;
 
+  delete[] m;
 }
 
 //----------------------------------------------------------------------------------

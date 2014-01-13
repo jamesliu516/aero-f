@@ -547,7 +547,8 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
  
   srand(randSeed);
 
-  int shuffle[nTotSnaps];     
+  std::vector<int> shuffle; 
+  shuffle.resize(nTotSnaps);
 
   for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
     shuffle[iSnap] = iSnap; 
@@ -1129,7 +1130,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(char* basisType) {
     this->columnSumsV->resize(nTotSnaps, 0.0);
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
       for (int jSnap=0; jSnap<nTotSnaps; ++jSnap) {
-        (*(this->columnSumsV))[iSnap] += (*Vtrue)[iSnap][jSnap];
+        (*(this->columnSumsV))[iSnap] += (*Vtrue)[jSnap][iSnap];
       }
     }  
     delete Vtrue;

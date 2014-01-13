@@ -9,6 +9,7 @@ class IoData;
 
 struct TsInput {
   char *solutions;
+  char *multisolutions;
   char *positions;
   char *levelsets;
   char *podFile;
@@ -30,7 +31,7 @@ struct TsInput {
 //  char *reducedfullnodemap;
 //  char *mesh;
 
-	char *wallsurfacedisplac;
+  char *wallsurfacedisplac;
   char *shapederivatives;
 
   TsInput(IoData &);

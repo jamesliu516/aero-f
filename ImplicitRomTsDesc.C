@@ -342,13 +342,14 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
 //------------------------------------------------------------------------------
 // this function evaluates (Aw),t + F(w,x,v)
 template<int dim>
-void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R)
+void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R, bool includeHomotopy)
 {
   if (R==NULL) R = &F;
 
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
 
-  this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, *R);
+  if (includeHomotopy)
+      this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, *R);
 
   this->spaceOp->applyBCsToResidual(Q, *R);  // wall BCs only
 

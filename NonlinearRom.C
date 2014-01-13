@@ -514,6 +514,8 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double>
 template<int dim>
 void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  { 
  
+  bool outputSnaps = (this->ioData->romOffline.rob.clustering.outputSnapshots==ClusteringData::OUTPUT_SNAPSHOTS_TRUE) ? true : false;
+
   int nTotSnaps = snap->numVectors();
 
   if (strcmp(snapType, "state")==0) { 
@@ -586,51 +588,52 @@ void NonlinearRom<dim>::outputClusteredSnapshots(char* snapType)  {
     }
 
     com->barrier();
+    if (outputSnaps) {  
+      // output cluster centers
+      char *clustCentersPath = 0;
+      determinePath(centersName, -1, clustCentersPath);
+      com->fprintf(stdout, "\nWriting cluster centers to disk\n");
+    
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+        com->barrier();
+        domain.writeVectorToFile(clustCentersPath, iCluster, double(snapsInCluster[iCluster]), (*clusterCenters)[iCluster]);
+      }
+      delete [] clustCentersPath;
+      clustCentersPath = NULL;  
   
-    // output cluster centers
-    char *clustCentersPath = 0;
-    determinePath(centersName, -1, clustCentersPath);
-    com->fprintf(stdout, "\nWriting cluster centers to disk\n");
+      // output nearest snap to each cluster
+      char *nearestSnapsPath = 0;
+      determinePath(nearestName, -1, nearestSnapsPath);
+      com->fprintf(stdout, "\nWriting nearest snapshot to each center to disk\n");
+    
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+        com->barrier();
+        domain.writeVectorToFile(nearestSnapsPath, iCluster, double(snapsInCluster[iCluster]), (*nearestSnapsToCenters)[iCluster]);
+      }
+      delete [] nearestSnapsPath;
+      nearestSnapsPath = NULL;  
   
-    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
-      com->barrier();
-      domain.writeVectorToFile(clustCentersPath, iCluster, double(snapsInCluster[iCluster]), (*clusterCenters)[iCluster]);
-    }
-    delete [] clustCentersPath;
-    clustCentersPath = NULL;  
-
-    // output nearest snap to each cluster
-    char *nearestSnapsPath = 0;
-    determinePath(nearestName, -1, nearestSnapsPath);
-    com->fprintf(stdout, "\nWriting nearest snapshot to each center to disk\n");
-  
-    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
-      com->barrier();
-      domain.writeVectorToFile(nearestSnapsPath, iCluster, double(snapsInCluster[iCluster]), (*nearestSnapsToCenters)[iCluster]);
-    }
-    delete [] nearestSnapsPath;
-    nearestSnapsPath = NULL;  
-
-    // output clustered snapshots
-    for (int iCluster=0; iCluster<nClusters; iCluster++) {
-  
-      char *snapshotsPath = 0;
-      determinePath(stateSnapsName, iCluster, snapshotsPath);
-      com->fprintf(stdout, "\nWriting %d snapshots to cluster %d\n", snapsInCluster[iCluster], iCluster);
-  
-      int numWritten = 0;
-      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-        for (int jSnap=0; jSnap<snapsInCluster[iCluster]; ++jSnap) {
-          if (iSnap == clusterSnapshotMap[iCluster][jSnap]) {
-            domain.writeVectorToFile(snapshotsPath, numWritten, double(numWritten), (*snap)[iSnap] );
-            ++numWritten;
+      // output clustered snapshots
+      for (int iCluster=0; iCluster<nClusters; iCluster++) {
+    
+        char *snapshotsPath = 0;
+        determinePath(stateSnapsName, iCluster, snapshotsPath);
+        com->fprintf(stdout, "\nWriting %d snapshots to cluster %d\n", snapsInCluster[iCluster], iCluster);
+    
+        int numWritten = 0;
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          for (int jSnap=0; jSnap<snapsInCluster[iCluster]; ++jSnap) {
+            if (iSnap == clusterSnapshotMap[iCluster][jSnap]) {
+              domain.writeVectorToFile(snapshotsPath, numWritten, double(numWritten), (*snap)[iSnap] );
+              ++numWritten;
+            }
           }
-        }
-      } 
-      delete [] snapshotsPath;
-      snapshotsPath = NULL;
+        } 
+        delete [] snapshotsPath;
+        snapshotsPath = NULL;
+      }
     }
-  
+
     com->fprintf(stdout, "\nFreeing memory for parallel SVD; read in snapshots as needed\n");
   
     delete snap;

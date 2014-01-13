@@ -29,6 +29,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   TavL = 0;
   Qs = 0;
   Qv = 0;
+  Qs_match     = 0;
+  Qs_match_opt = 0;
   
   for (i=0; i<PostFcn::AVSSIZE; ++i) AvQs[i] = 0;
   for (i=0; i<PostFcn::AVVSIZE; ++i) AvQv[i] = 0;
@@ -46,6 +48,17 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   int sp = strlen(iod.output.transient.prefix) + 1;
   int spn = strlen(iod.output.transient.probes.prefix) + 1;
   int sprom = strlen(iod.output.rom.prefix) + 1;
+
+  if (iod.input.optimalPressureFile[0]!=0) {
+    const char* optPressureName = iod.input.optimalPressureFile;
+    fullOptPressureName = new char[strlen(iod.input.prefix) + strlen(optPressureName) + 1];
+    sprintf(fullOptPressureName, "%s%s", iod.input.prefix, optPressureName);
+
+    if ((iod.input.optPressureDim == InputData::NON_DIMENSIONAL) || (iod.input.optPressureDim == InputData::NONE && iod.problem.mode==ProblemData::NON_DIMENSIONAL))
+      optPressureDimensional=false;
+    else
+      optPressureDimensional=true;
+  }
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
@@ -622,6 +635,16 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s", 
             iod.output.transient.prefix, iod.output.transient.dDisplacement);
   }
+  if (iod.output.transient.dMatchPressure[0] != 0 && iod.input.optimalPressureFile) {
+    dMatchPressure = new char[dsp + strlen(iod.output.transient.dMatchPressure)];
+    sprintf(dMatchPressure, "%s%s", iod.output.transient.prefix, iod.output.transient.dMatchPressure);
+  }
+  else
+    dMatchPressure = 0;
+
+  fpdMatchPressure = 0;
+
+
   if (iod.output.transient.dLiftDrag[0] != 0) {
     dLiftDrag = new char[dsp + strlen(iod.output.transient.dLiftDrag)];
     sprintf(dLiftDrag, "%s%s", iod.output.transient.prefix, iod.output.transient.dLiftDrag);
@@ -630,6 +653,15 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     dLiftDrag = 0;
 
   fpdLiftDrag = 0;
+
+  if (iod.output.rom.dFluxNorm[0] != 0) {
+    dFluxNorm = new char[sprom+ strlen(iod.output.rom.dFluxNorm)];
+    sprintf(dFluxNorm, "%s%s", iod.output.rom.prefix, iod.output.rom.dFluxNorm);
+  }
+  else
+    dFluxNorm = 0;
+
+  fpdFluxNorm = 0;
 
   if (iod.output.transient.dForces[0] != 0) {
     dForces = new char[dsp + strlen(iod.output.transient.dForces)];
@@ -793,6 +825,8 @@ TsOutput<dim>::~TsOutput()
   for (int i=0; i<PostFcn::AVVSIZE; ++i) {
     if(AvQv[i]) delete AvQv[i];
   }
+  if (Qs_match) delete Qs_match;
+  if (Qs_match_opt) delete Qs_match_opt;
   if (Qs) delete Qs;
   if (Qv) delete Qv;
   if(TavF) delete [] TavF;
@@ -803,8 +837,10 @@ TsOutput<dim>::~TsOutput()
 
   if (switchOpt) //STEADY_SENSITIVITY_ANALYSIS
     {
+      delete[] dMatchPressure;
       delete[] dForces;
       delete[] dLiftDrag;
+      delete[] dFluxNorm;
       
       int i;
       for (i=0; i<PostFcn::DSSIZE; ++i) {
@@ -1063,6 +1099,24 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(fpdForces, "Step Variable Fx Fy Fz Mx My Mz sboom dFx dFy dFz dMx dMy dMz dSboom \n");
 
       fflush(fpdForces);
+    }
+    if (dMatchPressure) {
+      fpdMatchPressure = fopen(dMatchPressure, "w");
+      if (!fpdMatchPressure) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dMatchPressure);
+        exit(1);
+      }
+      fprintf(fpdMatchPressure, "Step Variable 0.5*||P-P_opt||_2^2 d[0.5*||P-P_opt||_2^2]\n");
+      fflush(fpdMatchPressure);
+    }
+    if (dFluxNorm) {
+      fpdFluxNorm = fopen(dFluxNorm, "w");
+      if (!fpdFluxNorm) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dFluxNorm);
+        exit(1);
+      }
+      fprintf(fpdFluxNorm, "Step Variable normF dnormF\n");
+      fflush(fpdFluxNorm);
     }
     if (dLiftDrag) {
       fpdLiftDrag = fopen(dLiftDrag, "w");
@@ -1839,6 +1893,21 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
 //------------------------------------------------------------------------------
 
+// Included (MZ)
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfFluxNormToDisk(int it, int actvar, double normF, double dnormF)
+{
+
+  if (fpdFluxNorm) {
+    fprintf(fpdFluxNorm, "%d %d %16.13e %16.13e \n", it, actvar, normF, dnormF);
+    fflush(fpdFluxNorm);
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
 // Included (YC)
 template<int dim>
 void TsOutput<dim>::writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & L, Vec3D & dL)
@@ -1865,6 +1934,46 @@ void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F,
 
 }
 
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfMatchPressureToDisk(int it, int actvar, DistSVec<double,1> &dPds, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<double> &A, DistTimeState<dim> *timeState)
+{
+
+  if (!Qs_match)     Qs_match     = new DistVec<double>(domain->getNodeDistInfo());
+  if (!Qs_match_opt) Qs_match_opt = new DistSVec<double,1>(domain->getNodeDistInfo());
+
+  com->fprintf(stdout, "\nReading optimal pressure distribution from %s\n", fullOptPressureName);
+  //domain->readVectorFromFile(fullPressureName,0,0,*Qs_match);
+  domain->readVectorFromFile(fullOptPressureName,0,0,*Qs_match_opt);
+  postOp->computeScalarQuantity(PostFcn::PRESSURE, X, U, A, *Qs_match, timeState);
+  DistSVec<double,1> Qs1(Qs_match->info(), reinterpret_cast<double (*)[1]>(Qs_match->data()));
+  //DistSVec<double,1> Qs2(Qs_match_opt->info(), reinterpret_cast<double (*)[1]>(Qs_match_opt->data()));
+  if (optPressureDimensional)
+    Qs1-=((*Qs_match_opt)*(1/sscale[2]));
+  else
+    Qs1-=(*Qs_match_opt);
+  //Qs1-=*Qs_match_opt;
+
+  double normPdiff, dnormPdiff;
+  normPdiff  = 0.5*(Qs1*Qs1);
+  dnormPdiff = Qs1*dPds;
+
+  normPdiff*=(sscale[2]*sscale[2]);
+  dnormPdiff*=(sscale[2]*sscale[2]);
+  //normPdiff  = 0.5*((*Qs_match)*(*Qs_match));
+  //dnormPdiff = (*Qs_match)*dPds;
+
+  com->fprintf(stderr,"normPdiff = %20.16e\n",normPdiff);
+  com->fprintf(stderr,"dnormPdiff = %20.16e\n",dnormPdiff);
+
+  if (fpdMatchPressure) {
+    fprintf(fpdMatchPressure, "%d %d %16.13e %16.13e\n", it, actvar,normPdiff,dnormPdiff);
+    fflush(fpdMatchPressure);
+  }
+
+}
 
 //------------------------------------------------------------------------------
 
@@ -2754,7 +2863,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
 // Included (MB)
 template<int dim>
-void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistTimeState<dim> *timeState)
+void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU,  DistVec<double> &A, DistTimeState<dim> *timeState)
 {
   int    step = it-1;
   double tag  = (double)actvar;
@@ -2769,6 +2878,10 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, dou
       postOp->computeDerivativeOfScalarQuantity(static_cast<PostFcn::ScalarDerivativeType>(i), dS, X, dX, U, dU, *Qs, timeState);
       DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
       domain->writeVectorToFile(dScalars[i], step, tag, Qs1, &(dSscale[i]));
+
+      //Match Properties
+      if (static_cast<PostFcn::ScalarDerivativeType>(i) == PostFcn::DERIVATIVE_PRESSURE)
+        writeDerivativeOfMatchPressureToDisk(it,actvar,Qs1,X,U,A,timeState);
     }
   }
   for (i=0; i<PostFcn::DVSIZE; ++i) {

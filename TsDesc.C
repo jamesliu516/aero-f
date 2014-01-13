@@ -34,7 +34,9 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   fluidIdDummy = 0;
  
+  Uic = new DistSVec<double,dim>(getVecInfo());
   V = new DistSVec<double,dim>(getVecInfo());
+  F = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
   Rinlet = new DistSVec<double,dim>(getVecInfo());
   Rreal = new DistSVec<double,dim>(getVecInfo());
@@ -314,11 +316,81 @@ double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,d
 
 //------------------------------------------------------------------------------
 template<int dim>
+void TsDesc<dim>::evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln)
+{
+  com->fprintf(stderr," ... In TsDesc<dim>::evaluateFluxAtMultipleSolutions ...\n");
+
+  FILE *inFP = fopen(input->multisolutions,"r");
+  if (!inFP)  {
+    com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", input->multisolutions);
+    exit (-1);
+  }
+  int nData, _n;
+  _n = fscanf(inFP, "%d",&nData);
+  com->fprintf(stdout, "Reading %d Solutions for Flux Evaluation\n",nData);
+
+  char solnFile1[500];
+  char** solnFile = new char*[nData];
+  for (int iData=0; iData < nData; ++iData)
+    solnFile[iData] = new char[500];
+  double* normF = new double[nData];
+  double tmp, bestSoFar;
+
+  for (int i=0; i < nData; ++i) {
+    _n = fscanf(inFP, "%s", solnFile1);
+    com->fprintf(stderr,"     solnFile = %s\n",solnFile1);
+    strcpy(solnFile[i],solnFile1);
+    domain->readVectorFromFile(solnFile[i], 0, 0, *Uic);
+
+    spaceOp->computeResidual(*X, *A, *Uic, *F, timeState);
+    spaceOp->applyBCsToResidual(*Uic, *F);
+    tmp = (*F).norm();
+    normF[i] = 0.5*tmp*tmp;
+    if (i == 0 || tmp < bestSoFar){
+       bestSoFar = tmp;
+       strcpy(best_soln,solnFile[i]);
+    }
+  }
+  fclose(inFP);
+
+  if (com->cpuNum() == 0) {
+    if (iod.output.transient.multiSolnFluxNorm[0] != 0){
+      int dsp = strlen(iod.output.transient.prefix)+1;
+      char* MultiSolnFluxNorm = new char[dsp + strlen(iod.output.transient.multiSolnFluxNorm)];
+      sprintf(MultiSolnFluxNorm,"%s%s",iod.output.transient.prefix,iod.output.transient.multiSolnFluxNorm);
+
+      FILE *fpMultiSolnFluxNorm = fopen(MultiSolnFluxNorm,"w");
+      if (!fpMultiSolnFluxNorm) {
+        fprintf(stderr,"*** Error: could not open \'%s'\n",MultiSolnFluxNorm);
+      }
+      fprintf(fpMultiSolnFluxNorm,"Solution FluxNorm Name\n");
+      for (int iData=0; iData < nData; ++iData)
+         fprintf(fpMultiSolnFluxNorm,"%d %e %s\n",iData,normF[iData],solnFile[iData]);
+      delete[] MultiSolnFluxNorm;
+
+       if (fpMultiSolnFluxNorm) fclose(fpMultiSolnFluxNorm);
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
+  char * name;
 
   geoState->setup2(timeState->getData());
-  timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
+  com->fprintf(stderr," input->solutions = %s\n",input->solutions);
+  com->fprintf(stderr," input->multisolutions = %s\n",input->multisolutions);
+  if ( iod.input.solutions[0] == 0 && iod.input.multisolutions[0] != 0){
+     com->fprintf(stderr," INSIDE IF STATEMENT \n");
+     evaluateFluxAtMultipleSolutions(iod,name);
+  } else {
+     com->fprintf(stderr," INSIDE ELSE STATEMENT \n");
+     strcpy(name,input->solutions);
+  }
+  timeState->setup(name, *X, bcData->getInletBoundaryVector(), *U, iod);
+  //timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);

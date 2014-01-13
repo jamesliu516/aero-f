@@ -81,6 +81,7 @@ private:
   DistSVec<double,dim> *Um;
   DistSVec<double,dim> dUdS;
   DistSVec<double,dim> Uc;
+  DistSVec<double,dim> DFluxDs;
 
   DistSVec<double,3> Xplus;
   DistSVec<double,3> Xminus;

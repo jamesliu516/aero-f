@@ -61,6 +61,8 @@ struct OneDimensionalInputData {
 
 struct InputData {
 
+  enum OptimalPressureDimensionality {NON_DIMENSIONAL=0, DIMENSIONAL=1,NONE=2} optPressureDim;
+
   const char *prefix;
   const char *geometryprefix;
   const char *connectivity;
@@ -71,6 +73,7 @@ struct InputData {
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
+  const char *multisolutions;
   const char *positions;
   const char *embeddedpositions;
   const char *levelsets;
@@ -79,6 +82,8 @@ struct InputData {
   const char *rstdata;
   const char *restart_file_package;
   const char *podFile;
+  const char *optimalPressureFile;
+  const char *optimalPressureDim;
   //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
   const char *stateSnapFile;
   const char *stateSnapRefSolution;
@@ -239,10 +244,13 @@ struct TransientData {
 
 // Included (MB)
   const char *velocitynorm;
+  const char *dSpatialres;
+  const char *dSpatialresnorm;
   const char *dSolutions;
   const char *dDensity;
   const char *dMach;
   const char *dPressure;
+  const char *dMatchPressure;
   const char *dTemperature;
   const char *dTotalpressure;
   const char *dNutturb;
@@ -261,6 +269,8 @@ struct TransientData {
 
   // For 1D solver
   const char* bubbleRadius;
+
+  const char* multiSolnFluxNorm;
 
   int frequency;
   double x0, y0, z0;
@@ -316,6 +326,8 @@ struct RestartData {
 struct ROMOutputData {
 
   const char *prefix;
+
+  const char *dFluxNorm;
 
   const char *stateVector;
   int stateOutputFreqTime;
@@ -2373,6 +2385,7 @@ struct ClusteringData {
   int kMeansRandSeed;
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
   enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
+  enum OutputSnapshots {OUTPUT_SNAPSHOTS_FALSE = 0, OUTPUT_SNAPSHOTS_TRUE = 1} outputSnapshots;
 
   ClusteringData();
   ~ClusteringData() {}

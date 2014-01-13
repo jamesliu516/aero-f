@@ -72,7 +72,7 @@ protected:
 
   virtual void computeAJ(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
   virtual void computeRedHessianSums(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time 
-  virtual void computeFullResidual(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL); 
+  virtual void computeFullResidual(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL, bool includeHomotopy = true); 
   virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
 	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &, const int &totalTimeSteps = 0) = 0;

@@ -38,6 +38,7 @@ dFrdS(this->nPod),
 //Frm(this->nPod),
 dYdS(this->nPod),
 dUdS(dom->getNodeDistInfo()),
+DFluxDs(dom->getNodeDistInfo()),
 p(dom->getNodeDistInfo()),
 dPdS(dom->getNodeDistInfo()),
 Flux(dom->getNodeDistInfo()),
@@ -1147,7 +1148,10 @@ void FluidRomShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData,
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
   this->bcData->update(X);
 
-  this->computeFullResidual(0,U);
+  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
+    this->computeFullResidual(0,U,false,NULL,true);
+  else
+    this->computeFullResidual(0,U,false,NULL,false);
   //this->computeAJ(0,U);
   computeAJ(0,U);
 
@@ -1529,9 +1533,23 @@ void FluidRomShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioDa
   double sboom = 0.0;
   double dSboom = 0.0;
 
+  // Compute Flux norm and derivative
+  double normF = (this->F).norm();
+  double normF2 = 0.5*normF*normF;
+  double dnormF2;
+
+  this->com->fprintf(stderr,"normF = %20.16f\n",normF);
+  this->com->fprintf(stderr,"normF2 = %20.16f\n",normF2);
+
+  DFluxDs = 0;
+  for (int i = 0; i < this->nPod; ++i)
+    DFluxDs += (this->AJ[i])*dYdS[i];
+  dnormF2 = (this->F)*DFluxDs; 
+
   //
   // This function is simply writing to the disk.
   //
+  this->output->writeDerivativeOfFluxNormToDisk(step, actvar, normF2, dnormF2);
   this->output->writeDerivativeOfForcesToDisk(step, actvar, F, dFds, M, dMds, sboom, dSboom);
   this->output->writeDerivativeOfLiftDragToDisk(step, actvar, L, dLds); 
  
@@ -1544,7 +1562,7 @@ void FluidRomShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioDa
   // - Derivative of Vector Quantities: VelocityVector, Displacement
   //
   //
-  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
+  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, *this->A, this->timeState);
 
 }
 

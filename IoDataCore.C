@@ -76,6 +76,8 @@ Assigner* OneDimensionalInputData::getAssigner() {
 InputData::InputData()
 {
 
+  optPressureDim=NONE;
+
   prefix = "";
   geometryprefix = "";
   connectivity = "";
@@ -86,6 +88,7 @@ InputData::InputData()
   d2wall = "";
   perturbed = "";
   solutions = "";
+  multisolutions = "";
   positions = "";
   embeddedpositions = "";
   levelsets = "";
@@ -94,6 +97,7 @@ InputData::InputData()
   rstdata = "";
   restart_file_package = "";
   podFile = "";
+  optimalPressureFile = "";
   stateSnapRefSolution = "";
   stateSnapFile = "";
   residualSnapFile = "";
@@ -134,6 +138,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "WallDistance", this, &InputData::d2wall);
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
+  new ClassStr<InputData>(ca, "MultipleSolutions", this, &InputData::multisolutions);
   new ClassStr<InputData>(ca, "Position", this, &InputData::positions);
   new ClassStr<InputData>(ca, "EmbeddedPosition", this, &InputData::embeddedpositions);
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
@@ -142,6 +147,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "FilePackage", this, &InputData::restart_file_package);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
+  new ClassStr<InputData>(ca, "OptimalPressure", this, &InputData::optimalPressureFile);
+  new ClassToken<InputData>(ca, "OptimalPressureDimensionality", this, reinterpret_cast<int InputData::*>(&InputData::optPressureDim), 3, "NonDimensional", 0, "Dimensional", 1,"None",2);
   new ClassStr<InputData>(ca, "StateSnapshotData", this, &InputData::stateSnapFile);
   new ClassStr<InputData>(ca, "StateSnapshotReferenceSolution", this, &InputData::stateSnapRefSolution);
   new ClassStr<InputData>(ca, "ResidualSnapshotData", this, &InputData::residualSnapFile);
@@ -367,10 +374,13 @@ TransientData::TransientData()
 
 // Included (MB)
   velocitynorm = "";
+  dSpatialres = "";
+  dSpatialresnorm = "";
   dSolutions = "";
   dDensity = "";
   dMach = "";
   dPressure = "";
+  dMatchPressure = "";
   dTotalpressure = "";
   dTemperature = "";
   dNutturb = "";
@@ -387,6 +397,7 @@ TransientData::TransientData()
   sparseGrid = "SparseGrid";
 
   bubbleRadius = "";
+  multiSolnFluxNorm="";
 
   frequency = 0;
   frequency_dt = -1.0;
@@ -488,10 +499,13 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   // Gappy POD snapshots
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
+  new ClassStr<TransientData>(ca, "SpatialResidualSensitivity", this, &TransientData::dSpatialres);
+  new ClassStr<TransientData>(ca, "SpatialResidualNormSensitivity", this, &TransientData::dSpatialresnorm);
   new ClassStr<TransientData>(ca, "StateVectorSensitivity", this, &TransientData::dSolutions); //KW(Aug.17,2010): used to be SolutionSensitivity
   new ClassStr<TransientData>(ca, "DensitySensitivity", this, &TransientData::dDensity);
   new ClassStr<TransientData>(ca, "MachSensitivity", this, &TransientData::dMach);
   new ClassStr<TransientData>(ca, "PressureSensitivity", this, &TransientData::dPressure);
+  new ClassStr<TransientData>(ca, "MatchPressureSensitivity", this, &TransientData::dMatchPressure);
 
   new ClassStr<TransientData>(ca, "TemperatureSensitivity", this, &TransientData::dTemperature);
   new ClassStr<TransientData>(ca, "TotalPressureSensitivity", this, &TransientData::dTotalpressure);
@@ -510,6 +524,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<TransientData>(ca, "BubbleRadius", this, &TransientData::bubbleRadius);
 
+  new ClassStr<TransientData>(ca, "MultiSolutionFluxNorm", this, &TransientData::multiSolnFluxNorm);
+
   //do defaults
 
 }
@@ -517,6 +533,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 ROMOutputData::ROMOutputData()
 {
   prefix = "";
+
+  dFluxNorm="";
 
   stateVector = "";
   stateOutputFreqTime = 1;
@@ -549,7 +567,8 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   ClassAssigner *ca = new ClassAssigner(name, 18, father); 
   new ClassStr<ROMOutputData>(ca, "Prefix", this, &ROMOutputData::prefix);
 
-	new ClassStr<ROMOutputData>(ca, "StateVector", this, &ROMOutputData::stateVector);
+  new ClassStr<ROMOutputData>(ca, "FluxNormSensitivity", this, &ROMOutputData::dFluxNorm);
+  new ClassStr<ROMOutputData>(ca, "StateVector", this, &ROMOutputData::stateVector);
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyTime", this, &ROMOutputData::stateOutputFreqTime);
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyNewton", this, &ROMOutputData::stateOutputFreqNewton);
 
@@ -4009,6 +4028,7 @@ ClusteringData::ClusteringData()
   kMeansRandSeed = -1;  // default: generate randomly
   useExistingClusters = USE_EXISTING_CLUSTERS_FALSE;
   computeMDS = COMPUTE_MDS_FALSE;
+  outputSnapshots = OUTPUT_SNAPSHOTS_TRUE;
 }
 
 //------------------------------------------------------------------------------
@@ -4029,6 +4049,8 @@ void ClusteringData::setup(const char *name, ClassAssigner *father) {
       ClusteringData::*>(&ClusteringData::useExistingClusters), 2, "False", 0, "True", 1);
   new ClassToken<ClusteringData> (ca, "Compute2DRepresentationOfClusteringData", this, reinterpret_cast<int
       ClusteringData::*>(&ClusteringData::computeMDS), 2, "False", 0, "True", 1);
+  new ClassToken<ClusteringData> (ca, "OutputClusteredSnapshots", this, reinterpret_cast<int
+      ClusteringData::*>(&ClusteringData::outputSnapshots), 2, "False", 0, "True", 1);
 }
 
 //------------------------------------------------------------------------------
