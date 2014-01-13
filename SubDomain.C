@@ -46,7 +46,7 @@ using std::max;
 #include <PolygonReconstructionData.h> 
 #include <Quadrature.h>
 #include <RTree.h>
-
+#include "LevelSet/LevelSetStructure.h"
 
 #include "FSI/CrackingSurface.h"
 

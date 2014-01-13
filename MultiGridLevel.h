@@ -3,19 +3,21 @@
 
 #include <DistInfo.h>
 #include <DistVector.h>
-#include <Domain.h>
 #include <MultiGridSmoothingMatrix.h>
 #include <DistMvpMatrix.h>
 #include <DistTimeState.h>
 #include <SparseMatrix.h>
 #include <MultigridCommon.h>
 #include <AgglomeratedFace.h>
+#include <Aerof_unordered_set.h>
 #include <list>
 #include <set>
 
 
+class Domain;
 class Connectivity;
 class EdgeSet;
+class EdgeDef;
 template<class Scalar, int dim> class DistSVec;
 
 typedef Aerof_unordered_set<int>::type PriorityNodes;

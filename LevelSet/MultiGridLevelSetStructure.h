@@ -3,9 +3,9 @@
  
 #include "LevelSetStructure.h"
 
-#include "Domain.h"
-
-#include "MultiGridLevel.h"
+template <typename Scalar> class MultiGridLevel;
+class SubDomain;
+class EdgeSet;
 
 /** Abstract class for finding levelset information */
 class MultiGridLevelSetStructure : public LevelSetStructure {
