@@ -1374,6 +1374,8 @@ template<class T>
 void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
 
   
+  CommPattern<T>* compat = internal_select<T>(nodeIdPattern, nodeVolPattern);
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
 
@@ -1385,7 +1387,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
       
       NeighborDomain* N = it->second;
       int snd = sndChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->getSendBuffer(snd);
+      SubRecInfo<T> sInfo = compat->getSendBuffer(snd);
       T *buffer = reinterpret_cast<T *>(sInfo.data);
     
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -1396,7 +1398,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
     
   }
 
-  nodeVolPattern->exchange();
+  compat->exchange();
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
@@ -1410,7 +1412,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
       NeighborDomain* N = it->second;
 
       int rcv = rcvChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->recData(rcv);
+      SubRecInfo<T> sInfo = compat->recData(rcv);
       T *buffer = reinterpret_cast<T *>(sInfo.data);
 
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -3784,7 +3786,7 @@ void MultiGridLevel<Scalar>::assemble(DistVec<Scalar2>& V)
 
   operAdd<double> addOp;
   if (agglomType == AgglomerationLocal)
-    ::assemble(domain, *nodeVolPattern, sharedNodes, V, addOp);
+    ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVolPattern)), sharedNodes, V, addOp);
   else
     assembleInternal(V);
 }
@@ -3797,11 +3799,11 @@ void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V)
   operAdd<double> addOp;
   if (agglomType == AgglomerationLocal) {
     if (dim == my_dim) {
-      ::assemble(domain, *nodeVecPattern, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPattern)) , sharedNodes, V, addOp);
     } else if (neq1 == dim) {
-      ::assemble(domain, *nodeVecPatternEq1, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPatternEq1)), sharedNodes, V, addOp);
     } else if (neq2 == dim) {
-      ::assemble(domain, *nodeVecPatternEq2, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPatternEq2)), sharedNodes, V, addOp);
     } else {
       std::cout << "Assemble called for dim = " << dim << std::endl;
       DebugTools::PrintBacktrace();
@@ -4433,6 +4435,7 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
 
 #define INSTANTIATION_HELPER2(T) \
   template void MultiGridLevel<T>::assemble(DistVec<double> &); \
+  template void MultiGridLevel<T>::assemble(DistVec<int> &); \
   template void MultiGridLevel<T>::assembleInternal(DistVec<double> &) const; \
   template void MultiGridLevel<T>::assembleMax(DistVec<double> &); \
   template void MultiGridLevel<T>::assembleMax(DistVec<int> &); \
@@ -4443,6 +4446,7 @@ template class MultiGridLevel<double>;
 INSTANTIATION_HELPER2(double);
 INSTANTIATION_HELPER(double,1);
 INSTANTIATION_HELPER(double,2);
+INSTANTIATION_HELPER(double,3);
 INSTANTIATION_HELPER(double,5);
 INSTANTIATION_HELPER(double,6);
 INSTANTIATION_HELPER(double,7);

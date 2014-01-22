@@ -7,6 +7,8 @@
 #include <Timer.h>
 #include <Communicator.h>
 
+#include <DebugTools.h>
+
 //------------------------------------------------------------------------------
 
 Timer::Timer(Communicator *communicator) : com(communicator)
@@ -181,6 +183,9 @@ double Timer::addFiniteVolumeTermTime(double t0)
 { 
 
   double t = getTime() - t0;
+
+//  if (com->cpuNum() == 0)
+//    DebugTools::PrintBacktrace();
 
   counter[fvTerm]++;
   data[fvTerm] += t; 

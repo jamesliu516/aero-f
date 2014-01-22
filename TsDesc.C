@@ -108,6 +108,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   timeState = 0;
   mmh = 0; 
 
+  isMultigridTsDesc = false;
 }
 
 //------------------------------------------------------------------------------
@@ -797,7 +798,14 @@ void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 template<int dim>
 bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
 {
-  data->residual = computeResidualNorm(U);
+
+  // For multigrid, monitorConvergence() was already called in the 
+  // smoothing process.  It was called with it == 0
+  // in this case we do not need to recompute it
+  // 
+  if (!isMultigridTsDesc || it == 0)
+    data->residual = computeResidualNorm(U);
+
   if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2))
     restart->residual = data->residual;
 

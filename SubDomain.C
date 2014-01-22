@@ -6858,6 +6858,13 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
       for (int i=0; i<4; i++) {
 	double dist = dbary[i].norm();
         if (norm[i] <= 0.) {
+	  
+	  // Bug fix for cracking simulations (also below)
+	  // Note that when we are doing cracking, isActive() always
+	  // returns false.  In this case, the node is assumed to be active.
+	  // so we only need to check if the node is occluded.
+	  // Added by Alex Main (October 2013)
+	  //
 	  if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] ) {
 	    mindist[0] = dist;
 	    node[0] = T[i];

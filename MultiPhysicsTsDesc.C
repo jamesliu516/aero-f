@@ -360,6 +360,10 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Initialize intersector and compute intersections
   DistVec<int> point_based_id(this->domain->getNodeDistInfo());
 
+  // If we have the fluid ID from a restart file, use that.  Otherwise,
+  // it will be set in initialize()
+  // Added by Alex Main (September 2013)
+  //
   if (ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) {
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id,
                         fluidSelector.fluidId);
@@ -394,6 +398,10 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   else 
     fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
   */
+
+  // If we have the fluid ID from a restart file, use that.
+  // Added by Alex Main (September 2013)
+  //
   if(ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0) // init
     fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
   
@@ -507,6 +515,12 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 //  if(withCracking && withMixedLS)
 //    fluidSelector.checkLSConsistency(Phi);
 
+	  
+  // Speed improvement.  Reinitialization is relatively expensive.
+  // so only do it if we haven't already done it this iteration.
+  // This is effective when we are doing fluid subcycling.
+  // Added by Alex Main (October 2013)
+  //
   if(frequencyLS > 0 && it%frequencyLS == 0  && lastLSUpdateIteration != it){
     lastLSUpdateIteration = it;
     if (this->lsMethod == 0)

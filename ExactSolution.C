@@ -96,7 +96,7 @@ CylindricalBubble(IoData& iod,double x, double y, double z,
 
 #ifdef AEROACOUSTIC
   double omega = 733.2541686104948;
-  double Bn = 1.0e-1;
+  double Bn = 10.0;//1.0e-1;
   double r = sqrt(x*x+y*y);
   double rhoo = 10.0;
   double co = sqrt(4.4*1e5/rhoo);

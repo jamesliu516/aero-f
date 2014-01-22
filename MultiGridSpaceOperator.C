@@ -134,6 +134,16 @@ computeJacobianEmbedded(DistExactRiemannSolver<dim>& riemann,
   myOperators[lvl]->applyBCsToJacobian(U(lvl),mvp(lvl));
 }
 
+template <class Scalar,int dim> 
+void MultiGridSpaceOperator<Scalar,dim>::
+add_dAW_dtEmbedded(int lvl,MultiGridDistSVec<Scalar,dim>& U,
+		   MultiGridDistSVec<Scalar,dim>& res,
+		   DistMultiGridLevelSetStructure* lss) {
+  
+  myOperators[lvl]->add_dAW_dtEmbedded(U(lvl), res(lvl), lss);
+}
+
+
 template class MultiGridSpaceOperator<double,1>;
 template class MultiGridSpaceOperator<double,2>;
 template class MultiGridSpaceOperator<double,5>;

@@ -64,6 +64,12 @@ class MultiGridOperator {
 			       bool addDWdt = true);
 
   template <class Scalar2>
+    void 
+    add_dAW_dtEmbedded(DistSVec<Scalar2,dim>& U,
+		       DistSVec<Scalar2,dim>& res,	
+		       DistMultiGridLevelSetStructure* mgLSS);
+
+  template <class Scalar2>
   void applyBCsToResidual(DistSVec<Scalar2,dim>& U,
                           DistSVec<Scalar2,dim>& R);
 

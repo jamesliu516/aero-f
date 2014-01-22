@@ -1095,6 +1095,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
 	lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
         
+	// Added the option to use the "Fluid" normal for F-F interfaces
+	// This significantly improves stability.
+	// Added by Alex Main (May 2013)
+	//
         if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
           if (!triangulatedLSS ||
               triangulatedLSS->isOccluded(0.0,i) ||
@@ -1187,10 +1191,31 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         }
 
         //std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
+/*
+	double x0x0 = X[i][0]*X[i][0]+X[i][1]*X[i][1];
+	if (x0x0 < 0.5*0.5) {
+
+	  double xdx = X[i][0]*dx[0] + X[i][1]*dx[1];
+	  
+	  s = (-2.0*xdx+sqrt(4.0*xdx*xdx-4.0*length*length*(x0x0-0.5*0.5)))/(2.0*length*length);
+	  s = 1.0-s;
+	} else { 
+	  x0x0 = X[j][0]*X[j][0]+X[j][1]*X[j][1];
+
+	  double xdx =-( X[j][0]*dx[0] + X[j][1]*dx[1]);
+	  
+	  s = (-2.0*xdx+sqrt(4.0*xdx*xdx-4.0*length*length*(x0x0-0.5*0.5)))/(2.0*length*length);
+
+	}
 
 	for (int k=0; k<3; k++)
 	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
-	  
+
+	gradphi[0] = iloc[0]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
+	gradphi[1] = iloc[1]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
+	gradphi[2] = 0.0;//iloc[2]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1] +
+	//		  iloc[2]*iloc[2] );
+*/
 	double ri[dim],rj[dim];
 	higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId,ri);
 	higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId,rj);
@@ -1283,6 +1308,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  
 	  //memcpy(Vi, Wi, sizeof(double)*5);
 	  //memcpy(Vj, Wj, sizeof(double)*5);
+	  //Vi[3] = Vj[3] = 0.0;
 
           // Check for negative pressures/densities.
           // If a negative value is detected, drop back to first order extrapolation 

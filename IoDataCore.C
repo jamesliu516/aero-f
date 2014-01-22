@@ -2136,6 +2136,8 @@ MultiFluidData::MultiFluidData()
   levelSetMethod = CONSERVATIVE;
   interfaceOmitCells = 0;
 
+  prec = NON_PRECONDITIONED;
+
   riemannNormal = REAL;
 }
 
@@ -2214,6 +2216,14 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
                                  "LevelSet",0,"Fluid",1);
+
+  // Low mach preconditioning of the exact Riemann problem.
+  // Added by Alex Main (December 2013)
+  //
+  new ClassToken<MultiFluidData>
+    (ca, "Prec", this,
+     reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::prec), 2,
+     "NonPreconditioned", 0, "LowMach", 1);
 
 
   multiInitialConditions.setup("InitialConditions", ca);
@@ -4171,6 +4181,9 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
 
+  // Low mach preconditioning of the exact Riemann problem.
+  // Added by Alex Main (December 2013)
+  //
   new ClassToken<EmbeddedFramework>
     (ca, "Prec", this,
      reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::prec), 2,

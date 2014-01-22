@@ -114,14 +114,19 @@ int MultiGridSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolV
     t += 1.0;
 
     // compute the current aerodynamic force
-    probDesc->updateOutputToStructure(0.0, 0.0, U);
+    if (it % 10 == 0) {
+      probDesc->updateOutputToStructure(0.0, 0.0, U);
+    }
 
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, 0.00, U);
 
-    probDesc->outputForces(ioData, &lastIt, it, 1, 1, t, 0.0, U);
-    dts = probDesc->computePositionVector(&lastIt, it, t, U);
-    probDesc->outputToDisk(ioData, &lastIt, it, 1, 1, t, 0.0, U);
+    if (it % 10 == 0) {
+      probDesc->outputForces(ioData, &lastIt, it, 1, 1, t, 0.0, U);
+      dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+      probDesc->outputToDisk(ioData, &lastIt, it, 1, 1, t, 0.0, U);
+    }
   }
   return 0;
 

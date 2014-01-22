@@ -425,6 +425,11 @@ int LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
   double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
   double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
 
+  double vmid[3] = {0.5*(vti[0]+vtj[0]),
+		    0.5*(vti[1]+vtj[1]),
+		    0.5*(vti[2]+vtj[2])};
+		    
+
   int err;
   if (IDi==fluid1) {
 
@@ -461,12 +466,6 @@ int LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 
     F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1,err,
                         pmin2,pmin1,rhomin2,rhomin1);
-
-    Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
-    Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
-    Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
-    Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
-    Wi[4]  = P_i;                     Wi[dim+4]  = Wi[4];
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -3407,7 +3406,7 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     double X = 4.0*a*a*beta*beta + u*u*pow(beta*beta-1.0,2.0);
     double sqrtX = sqrt(X);
     double lambda = 0.5*(u*(1.0+beta*beta) - sqrtX);
-    double dp = rho*(beta*beta*u - lambda - rho*sqrtX)*(ui-u);
+    double dp = rho*(beta*beta*u - lambda - sqrtX)*(ui-u);
 
     pi = p + dp;
     double power = 2.0*gamma/(gamma-1.0);

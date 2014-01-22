@@ -4,11 +4,13 @@ MultiGridLevelSetStructure::
 MultiGridLevelSetStructure(DistMultiGridLevelSetStructure& lss,
 			   SubDomain& sub,
 			   Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,Vec<bool>& is_active,Vec<bool>& is_occluded,Vec<bool>& edge_intersects,
+			   Vec<Vec3D>& surfaceNormals,
 			   LevelSetStructure* parent, int mySub,MultiGridLevel<double>* myLevel)
   : LevelSetStructure(status, distance, is_swept, is_active, is_occluded, edge_intersects),
     distLSS(lss), parent(parent),
     subD(sub), mySub(mySub), myLevel(myLevel), edges(*myLevel->getEdges()[mySub]),
     status(status), distance(distance), is_swept(is_swept), is_active(is_active),
+    surfaceNormals(surfaceNormals),
     is_occluded(is_occluded), edge_intersects(edge_intersects)
     {}
 
@@ -40,14 +42,27 @@ recompute() {
 }
 
 void MultiGridLevelSetStructure::
-computeEdgeCrossing() {
+computeEdgeCrossing(SVec<double,3>& nodeNormals) {
 
   int N = edges.size();
   
   int (*ptr)[2] = edges.getPtr();
+
   for (int i = 0; i < N; ++i) {
 
     edge_intersects[i] = (status[ptr[i][0]] != status[ptr[i][1]]);
+    
+    double* v = nodeNormals[ptr[i][0]];
+    if (v[0]*v[0] + v[1]*v[1]+v[2]*v[2] > 0.0) {
+
+      surfaceNormals[i] = Vec3D(v[0],v[1],v[2]);
+    } else {
+      v = nodeNormals[ptr[i][1]];
+      assert(v[0]*v[0] + v[1]*v[1]+v[2]*v[2] > 0.0);
+      
+      surfaceNormals[i] = Vec3D(v[0],v[1],v[2]);
+     
+    }
     
   } 
 
@@ -80,7 +95,7 @@ getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) {
 
   lsRes.normVel = 0;
 
-  lsRes.gradPhi = 0; 
+  lsRes.gradPhi = surfaceNormals[l];
 
   return lsRes;
 }
@@ -107,25 +122,128 @@ recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry) {
   myLevel->assembleMax(*status);
 
   //std::cout << status->size() << " " << status->v[1636] << std::endl;
+
+  DistSVec<double,3>* nodeNormals = 
+    new DistSVec<double,3>(myLevel->getNodeDistInfo());
+
+  *nodeNormals = 0.0;
   
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    int (*ptr)[2] = myLevel->getParent()->getEdges()[iSub]->getPtr();
+    bool* masterFlag = myLevel->getParent()->getEdges()[iSub]->getMasterFlag();
+    int nE = myLevel->getParent()->getEdges()[iSub]->size();
+
+    for (int i = 0; i < nE; ++i) {
+
+      if (!masterFlag[i])
+	continue;
+
+      if (!(*parent)(iSub).edgeIntersectsStructure(0.0, i))
+	continue;
+      
+      LevelSetResult res = 
+	(*parent)(iSub).getLevelSetDataAtEdgeCenter(0.0,i, !(*parent)(iSub).isActive(0.0, ptr[i][0]));
+
+      int j = ( (*parent)(iSub).isActive(0.0, ptr[i][0]) ? ptr[i][1] : ptr[i][0] );
+
+      j = myLevel->getNodeMapping()(iSub)[j];
+
+      (*nodeNormals)(iSub)[j][0] += res.gradPhi[0];
+      (*nodeNormals)(iSub)[j][1] += res.gradPhi[1];
+      (*nodeNormals)(iSub)[j][2] += res.gradPhi[2];
+
+      j = ( (*parent)(iSub).isActive(0.0, ptr[i][0]) ? ptr[i][0] : ptr[i][1] );
+
+      j = myLevel->getNodeMapping()(iSub)[j];
+
+      (*nodeNormals)(iSub)[j][0] += res.gradPhi[0];
+      (*nodeNormals)(iSub)[j][1] += res.gradPhi[1];
+      (*nodeNormals)(iSub)[j][2] += res.gradPhi[2];
+
+    }    
+
+  }
+
+  myLevel->assemble(*nodeNormals);
+  
+
   int nOfF = numOfFluids();
+
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
     int N = (*is_active)(iSub).size();
-    for (int i = 0; i < N; ++i) 
+    for (int i = 0; i < N; ++i) {
       (*is_active)(iSub)[i] = !(*status)(iSub)[i];
+      
+      double* v = (*nodeNormals)(iSub)[i];
+      double mag = v[0]*v[0]+v[1]*v[1]+v[2]*v[2];
+      if (mag > 0.0) {
+	mag = 1.0/sqrt(mag);
+	v[0] *= mag;
+	v[1] *= mag;
+	v[2] *= mag;
+      }
+    }
+	
+	
   }
 
   *is_occluded = false;
-  
+/*
+  DistVec<int> numActiveNeighbors(myLevel->getNodeDistInfo());
+  numActiveNeighbors = 0;
   
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
-    subLSS[iSub]->computeEdgeCrossing();
+    int (*ptr)[2] = myLevel->getEdges()[iSub]->getPtr();
+    bool* masterFlag = myLevel->getEdges()[iSub]->getMasterFlag();
+    int nE = myLevel->getEdges()[iSub]->size();
+
+    for (int i = 0; i < nE; ++i) {
+
+      if (!masterFlag[i])
+	continue;
+      
+      if (!(*status)(iSub)[ptr[i][0]])
+	numActiveNeighbors(iSub)[ptr[i][1]]++;
+
+      if (!(*status)(iSub)[ptr[i][1]])
+	numActiveNeighbors(iSub)[ptr[i][0]]++;
+    }
+    
   }
+
+  myLevel->assemble(numActiveNeighbors);
+
+  
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    
+    for (int i = 0; i < numActiveNeighbors(iSub).size(); ++i) {
+      
+      if (numActiveNeighbors(iSub)[i] <= 2) {
+	(*status)(iSub)[i] = 1;
+	(*is_active)(iSub)[i] = 0;
+      }
+	
+    }
+  }
+    
+  */
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+
+    subLSS[iSub]->computeEdgeCrossing((*nodeNormals)(iSub));
+  }
+
+  delete nodeNormals;
 
   return 0;
 }
@@ -160,6 +278,8 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
   is_occluded = new DistVec<bool>(myLevel->getNodeDistInfo());
   edge_intersects = new DistVec<bool>(myLevel->getEdgeDistInfo());
 
+  surfaceNormals = new DistVec<Vec3D>(myLevel->getEdgeDistInfo());
+
 
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i)
@@ -169,6 +289,7 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
 					       (*is_active)(i),
 					       (*is_occluded)(i),
 					       (*edge_intersects)(i),
+					       (*surfaceNormals)(i),
 					       &(*parent)(i), i, 
 					       myLevel);
 
