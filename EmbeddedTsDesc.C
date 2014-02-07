@@ -746,9 +746,14 @@ void EmbeddedTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int
 
 //------------------------------------------------------------------------------
 
-//template<int dim>
-//void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
-//{}
+template<int dim>
+void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U) 
+{
+  TsDesc<dim>::outputPositionVectorToDisk(U);
+  
+  if(emmh && emmh->getAlgNum() == 1)
+    this->restart->writeStructPosToDisk(this->com->cpuNum(), true, this->distLSS->getStructPosition());
+}
 
 //------------------------------------------------------------------------------
 
