@@ -23,7 +23,6 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   epsNewton = ioData.ts.implicit.newton.eps;  
   epsAbsResNewton = ioData.ts.implicit.newton.epsAbsRes;
   epsAbsIncNewton = ioData.ts.implicit.newton.epsAbsInc;
-  lineSearch = ioData.ts.implicit.newton.lineSearch.type;
   maxItsLS = ioData.ts.implicit.newton.lineSearch.maxIts;
   contractionLS = ioData.ts.implicit.newton.lineSearch.rho;
   sufficDecreaseLS = ioData.ts.implicit.newton.lineSearch.c1;
