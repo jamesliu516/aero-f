@@ -36,6 +36,10 @@ class MultiGridSpaceOperator {
 			       DistMultiGridLevelSetStructure*,
 			       bool addDWdt = true);
 
+  void add_dAW_dtEmbedded(int level,MultiGridDistSVec<Scalar,dim>& U,
+			  MultiGridDistSVec<Scalar,dim>& res,
+			  DistMultiGridLevelSetStructure*);
+
   void updateStateVectors(int lvl, MultiGridDistSVec<Scalar,dim>& U) ;
 
   template <int neq>

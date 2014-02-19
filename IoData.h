@@ -75,8 +75,16 @@ struct InputData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+
+  // We can now read the fluid ID from a file.
+  // Added by Alex Main (September 2013)
+  //
   const char *fluidId;
   const char *rstdata;
+
+  // File Package for restart support.
+  // Added by Alex Main (September 2013)
+  //
   const char *restart_file_package;
   const char *podFile;
   const char *snapFile;
@@ -1155,6 +1163,8 @@ struct MultiFluidData {
                         TRIANGULATED = 4} levelSetMethod;
 
   enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
+
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
 
   MultiInitialConditionsData multiInitialConditions;
 
@@ -2241,6 +2251,8 @@ struct EmbeddedFramework {
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
 
   // Low mach preconditioning of the exact Riemann problem.
+  // Added by Alex Main (December 2013)
+  //
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
 
   double alpha;   // In the case of solve Riemann problem at intersection, this parameter

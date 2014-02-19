@@ -88,8 +88,10 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double
 
   mvp->evaluate(it,*(this->X) ,*(this->A), Q, F);
 
-  mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
-
+  if (mvph1) 
+    this->domain->setExactBoundaryJacobian(Q, *this->X, this->ioData, 
+					   this->currentTime + this->currentTimeStep,
+					   this->spaceOp->getVarFcn(), *mvph1);
 }
 //------------------------------------------------------------------------------
 template<int dim>

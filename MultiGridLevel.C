@@ -163,6 +163,7 @@ neq1(neq1), neq2(neq2) {
   offDiagMatPattern = NULL;
   edgeAreaPattern = NULL;
   edgeVecPattern = NULL;
+  nodeVecPatternEq1 = nodeVecPatternEq2 = NULL;
   nodeIdPattern = new CommPattern<int>(levelSubDTopo, domain.getCommunicator(), CommPattern<int>::CopyOnSend);
   nodeVolPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   nodeVecPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
@@ -495,20 +496,20 @@ neq1(neq1), neq2(neq2) {
 
       int l = edges[iSub]->find(myEdges[i].ij.first, myEdges[i].ij.second);
 
-      if (D->locToGlobMap[myEdges[i].ij.first] == 854 ||
+      /*if (D->locToGlobMap[myEdges[i].ij.first] == 854 ||
           D->locToGlobMap[myEdges[i].ij.second] == 854) {
 
         std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
 	  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
         myEdges[i].normal.print();
       }
-
+      */
       if (myEdges[i].normal.norm() < 1e-16) {
 
-	std::cout << "Error: normal = 0!, (" << level_num << ") " << std::endl;
-        std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
-	  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
-        myEdges[i].normal.print();
+	//std::cout << "Error: normal = 0!, (" << level_num << ") " << std::endl;
+        //std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
+	//  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
+        //myEdges[i].normal.print();
       }
       (*edgeNormals)(iSub)[l] = myEdges[i].normal;
       (*edgeArea)(iSub)[l] = myEdges[i].area;
@@ -700,8 +701,9 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
     if (nodeIdPattern)
       delete nodeIdPattern;
     delete nodeVolPattern;
-    delete nodeVecPattern;
     if (nodeVecPattern)
+      delete nodeVecPattern;
+    if (nodePosnPattern)
       delete nodePosnPattern;
     if (nodeVecPatternEq1) {
       delete nodeVecPatternEq1;
@@ -714,9 +716,9 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
       delete edgeAreaPattern;
     if (edgeVecPattern)
       delete edgeVecPattern;
-
+    
   }
-
+  
   if (faceMapping)
     delete faceMapping;
   delete nodeDistInfo;
@@ -746,7 +748,7 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
   delete [] numNodes;
   if (nodeToNodeMaskILU)
     delete [] nodeToNodeMaskILU;
- 
+  
 }
 
 //------------------------------------------------------------------------------
@@ -1374,6 +1376,8 @@ template<class T>
 void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
 
   
+  CommPattern<T>* compat = internal_select<T>(nodeIdPattern, nodeVolPattern);
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
 
@@ -1385,7 +1389,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
       
       NeighborDomain* N = it->second;
       int snd = sndChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->getSendBuffer(snd);
+      SubRecInfo<T> sInfo = compat->getSendBuffer(snd);
       T *buffer = reinterpret_cast<T *>(sInfo.data);
     
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -1396,7 +1400,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
     
   }
 
-  nodeVolPattern->exchange();
+  compat->exchange();
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
@@ -1410,7 +1414,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
       NeighborDomain* N = it->second;
 
       int rcv = rcvChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->recData(rcv);
+      SubRecInfo<T> sInfo = compat->recData(rcv);
       T *buffer = reinterpret_cast<T *>(sInfo.data);
 
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -2852,7 +2856,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
       if (fabs((*edgeNormals)(iSub)[i].norm()) < 1.0e-15) {
 
-        std::cout << "Error: normal = 0!" << std::endl;
+        //std::cout << "Error: normal = 0!" << std::endl;
       }
     }
   }
@@ -3784,7 +3788,7 @@ void MultiGridLevel<Scalar>::assemble(DistVec<Scalar2>& V)
 
   operAdd<double> addOp;
   if (agglomType == AgglomerationLocal)
-    ::assemble(domain, *nodeVolPattern, sharedNodes, V, addOp);
+    ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVolPattern)), sharedNodes, V, addOp);
   else
     assembleInternal(V);
 }
@@ -3797,11 +3801,11 @@ void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V)
   operAdd<double> addOp;
   if (agglomType == AgglomerationLocal) {
     if (dim == my_dim) {
-      ::assemble(domain, *nodeVecPattern, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPattern)) , sharedNodes, V, addOp);
     } else if (neq1 == dim) {
-      ::assemble(domain, *nodeVecPatternEq1, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPatternEq1)), sharedNodes, V, addOp);
     } else if (neq2 == dim) {
-      ::assemble(domain, *nodeVecPatternEq2, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPatternEq2)), sharedNodes, V, addOp);
     } else {
       std::cout << "Assemble called for dim = " << dim << std::endl;
       DebugTools::PrintBacktrace();
@@ -4433,6 +4437,7 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
 
 #define INSTANTIATION_HELPER2(T) \
   template void MultiGridLevel<T>::assemble(DistVec<double> &); \
+  template void MultiGridLevel<T>::assemble(DistVec<int> &); \
   template void MultiGridLevel<T>::assembleInternal(DistVec<double> &) const; \
   template void MultiGridLevel<T>::assembleMax(DistVec<double> &); \
   template void MultiGridLevel<T>::assembleMax(DistVec<int> &); \
@@ -4443,6 +4448,7 @@ template class MultiGridLevel<double>;
 INSTANTIATION_HELPER2(double);
 INSTANTIATION_HELPER(double,1);
 INSTANTIATION_HELPER(double,2);
+INSTANTIATION_HELPER(double,3);
 INSTANTIATION_HELPER(double,5);
 INSTANTIATION_HELPER(double,6);
 INSTANTIATION_HELPER(double,7);

@@ -313,6 +313,14 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 //  if (this->ghostPoints) {
 //    embeddedU.getGhost(*this->ghostPoints,this->varFcn); 
 //  }
+
+  // Included for test with twilight zone problems (AM)
+  // (Usually does nothing)
+  this->domain->setExactBoundaryValues(Q, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
+
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, this->nodeTag, F, this->riemann, 
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
@@ -321,6 +329,9 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
 
+  this->domain->setExactBoundaryResidual(F, *this->X, this->ioData, 
+					 this->currentTime + this->currentTimeStep,
+					 this->spaceOp->getVarFcn());
   
   if (this->modifiedGhidaglia) {
 

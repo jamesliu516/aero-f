@@ -11,6 +11,8 @@
 #include <cstdlib>
 #endif
 
+#include <DistVector.h>
+
 
 class DebugTools {
 

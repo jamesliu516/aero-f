@@ -384,16 +384,27 @@ computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
         res(iSub)[i][j] /= (mgLevel->getCtrlVol())(iSub)[i];
     }
   }
-  /*  
+  
   if (timeState && addDWdt) {
 
     timeState->add_dAW_dt(0, mgLevel->getGeoState(),
                           mgLevel->getCtrlVol(), U, res);
   } 
   
-  applyBCsToResidual(U, res);
-  */
+  //applyBCsToResidual(U, res);
+  
 } 
+
+template<class Scalar,int dim>
+template <class Scalar2>
+void MultiGridOperator<Scalar,dim>::
+add_dAW_dtEmbedded(DistSVec<Scalar2,dim>& U,
+                   DistSVec<Scalar2,dim>& res,	
+                   DistMultiGridLevelSetStructure* mgLSS) {
+
+  timeState->add_dAW_dt(0, mgLevel->getGeoState(),
+			mgLevel->getCtrlVol(), U, res);  
+}
 
 template<class Scalar,int dim>
 void MultiGridOperator<Scalar,dim>::computeGradientsLeastSquares(DistSVec<Scalar,dim>& V) {
@@ -595,7 +606,13 @@ template void MultiGridOperator<S,D>::computeResidualEmbedded(DistExactRiemannSo
                                              FemEquationTerm*, \
                                              DistSVec<double,D>& res, DistMultiGridLevelSetStructure*,bool); \
 template void MultiGridOperator<S,D>::applyBCsToResidual(DistSVec<double,D>& U, \
-                                                       DistSVec<double,D>& R);
+                                                       DistSVec<double,D>& R); \
+template \
+void MultiGridOperator<S,D>:: \
+add_dAW_dtEmbedded(DistSVec<S,D>& U, \
+                   DistSVec<S,D>& res, \	
+                   DistMultiGridLevelSetStructure* mgLSS);
+
 #define INST_HELPER2(S,D,E) \
 template void MultiGridOperator<S,D>::computeJacobian(DistSVec<double,D>& U, DistSVec<double,D>& V,\
 FluxFcn **fluxFcn, \

@@ -101,6 +101,8 @@ protected:
   //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
   bool modifiedGhidaglia;
 
+  bool isMultigridTsDesc;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);

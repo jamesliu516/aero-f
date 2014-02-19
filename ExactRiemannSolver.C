@@ -27,7 +27,9 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(iod.problem.framework==ProblemData::EMBEDDED || iod.problem.framework==ProblemData::EMBEDDEDALE || iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN ||
+  if(iod.problem.framework==ProblemData::EMBEDDED ||
+     iod.problem.framework==ProblemData::EMBEDDEDALE ||
+     iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN ||
      iod.oneDimensionalInfo.problemMode == OneDimensionalInfo::FSI) { 
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
     dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setStabilAlpha(iod.embed.stabil_alpha);
@@ -98,45 +100,54 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	      // fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
 	    }*/
 	  }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
-	    if(fluid1IsAGas && fluid2IsAGas){
-	      lriemann[iRiemann] = new LocalRiemannGfmparGasGas(vf,fluid1,fluid2, iod.mf.typePhaseChange);
-	    }
-	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
-		    fluid2IsAGas){
-	      levelSetSign[fluid1][fluid2] = levelSetSign[fluid2][fluid1] = -1.0;
-	      lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid2,fluid1, iod.mf.typePhaseChange);
-	    }
-	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
-		    it2->second->fluid == FluidModelData::LIQUID){
-	      lriemann[iRiemann] = new LocalRiemannGfmparTaitTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
-	    }
-	    else if(fluid1IsAGas && 
-		    it2->second->fluid == FluidModelData::LIQUID){
-	      lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
-	    }
-	    else if(fluid1IsAGas && 
-		    it2->second->fluid == FluidModelData::JWL){
-	      lriemann[iRiemann] = new LocalRiemannGfmparGasJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,
-								iod.mf.jwlRelaxationFactor,
-								iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
-	    }
-	    else if(it1->second->fluid  == FluidModelData::JWL &&
-		    it2->second->fluid == FluidModelData::JWL){
-	      lriemann[iRiemann] = new LocalRiemannGfmparJWLJWL(vf,fluid1,fluid2, iod.mf.typePhaseChange);
-	    }
-	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
-		    it2->second->fluid == FluidModelData::JWL){
-	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,
-								iod.mf.jwlRelaxationFactor, iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
-	    }/* else if(it1->second->fluid  == FluidModelData::JWL &&
-		    it2->second->fluid == FluidModelData::LIQUID){
-	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid2,fluid1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange,-1.0);
-	      }*//* else{
+
+	    
+	    if (iod.mf.prec == MultiFluidData::PRECONDITIONED) {
+
+	      lriemann[iRiemann] = new LocalRiemannLowMach(vf,fluid1,fluid2,
+							   iod.prec.mach, dim);
+	    } else {
+
+	      if(fluid1IsAGas && fluid2IsAGas){
+		lriemann[iRiemann] = new LocalRiemannGfmparGasGas(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	      }
+	      else if(it1->second->fluid  == FluidModelData::LIQUID &&
+		      fluid2IsAGas){
+		levelSetSign[fluid1][fluid2] = levelSetSign[fluid2][fluid1] = -1.0;
+		lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid2,fluid1, iod.mf.typePhaseChange);
+	      }
+	      else if(it1->second->fluid  == FluidModelData::LIQUID &&
+		      it2->second->fluid == FluidModelData::LIQUID){
+		lriemann[iRiemann] = new LocalRiemannGfmparTaitTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	      }
+	      else if(fluid1IsAGas && 
+		      it2->second->fluid == FluidModelData::LIQUID){
+		lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	      }
+	      else if(fluid1IsAGas && 
+		      it2->second->fluid == FluidModelData::JWL){
+		lriemann[iRiemann] = new LocalRiemannGfmparGasJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,
+								  iod.mf.jwlRelaxationFactor,
+								  iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
+	      }
+	      else if(it1->second->fluid  == FluidModelData::JWL &&
+		      it2->second->fluid == FluidModelData::JWL){
+		lriemann[iRiemann] = new LocalRiemannGfmparJWLJWL(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	      }
+	      else if(it1->second->fluid  == FluidModelData::LIQUID &&
+		      it2->second->fluid == FluidModelData::JWL){
+		lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,
+								   iod.mf.jwlRelaxationFactor, iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
+	      }/* else if(it1->second->fluid  == FluidModelData::JWL &&
+		  it2->second->fluid == FluidModelData::LIQUID){
+		  lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid2,fluid1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange,-1.0);
+		  }*//* else{
 	      
-	      // fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
-	    }*/
-	  }
-	} 
+		     // fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
+		     }*/
+	    }
+	  } 
+	}
       }
     }
   }
