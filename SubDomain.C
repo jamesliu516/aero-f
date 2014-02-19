@@ -7662,7 +7662,7 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
 	
         if (fabs(U[i][k]-Uexact[i][k]) > 0.05) {
 
-          std::cout << locToGlobNodeMap[i] << " " <<  U[i][k] << " " << Uexact[i][k] << std::endl;
+//          std::cout << locToGlobNodeMap[i] << " " <<  U[i][k] << " " << Uexact[i][k] << std::endl;
         }
 	
 	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));
