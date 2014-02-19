@@ -176,8 +176,14 @@ Median_Split(const int partition_index,const int first_index,const int last_inde
 {
     ARRAY_VIEW<int> permutation_subset(permutation_array.Subset(first_index-1+IDENTITY_ARRAY<>(last_index-first_index+1)));
     ARRAY<T> values(points.Subset(permutation_subset).Project(axis)); // copy so that nth_element doesn't mess up original values
-    std::nth_element(values.begin(),&values(partition_index-first_index+1),values.end());
-    T split_value=values(partition_index-first_index+1);
+    //std::nth_element(values.begin(),&values(partition_index-first_index+1),values.end());
+    //T split_value=values(partition_index-first_index+1);
+    T split_value;
+    if(values.begin() == values.end()) split_value = values(0);
+    else {
+      std::nth_element(values.begin(),&values(partition_index-first_index+1),values.end());
+      split_value=values(partition_index-first_index+1);
+    }
     Partition_Helper_Less_Equal partition_helper_less_equal(&points,axis,split_value);
     Partition_Helper_Less partition_helper_less(&points,axis,split_value);
     int* middle=std::stable_partition(permutation_subset.begin(),permutation_subset.end(),partition_helper_less);

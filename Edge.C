@@ -21,6 +21,7 @@ using std::min;
 #include <GenMatrix.h>
 #include <LowMachPrec.h>
 #include "LevelSet/LevelSetStructure.h"
+#include "LevelSet/MultiGridLevelSetStructure.h"
 #include "FluidSelector.h"
 #include "DenseMatrixOps.h"
 #include "FemEquationTermDesc.h"
@@ -2160,7 +2161,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-      if (dynamic_cast<class MultiGridLevelSetStructure*>(&LSS) == 0) {
+      if (dynamic_cast<MultiGridLevelSetStructure*>(&LSS) == 0) {
 	for (int k=0; k<dim; ++k) {
 	  fluxes[i][k] += flux[k];
 	  fluxes[j][k] -= flux[k];
