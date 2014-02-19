@@ -1084,7 +1084,16 @@ public:
     void setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>& X,
 				IoData& iod,double t,VarFcn* vf);
 
- };
+  template <int dim>
+    void setExactBoundaryResidual(DistSVec<double,dim>& F, DistSVec<double,3>& X,
+				  IoData& iod,double t,VarFcn* vf);
+
+  
+  template <int dim,int neq, class Scalar>
+    void setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				  IoData& iod,double t, VarFcn* varFcn,
+				  DistMat<Scalar,neq>& A);
+};
 
 //------------------------------------------------------------------------------
 

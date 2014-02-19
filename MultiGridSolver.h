@@ -128,6 +128,11 @@ int MultiGridSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolV
       probDesc->outputToDisk(ioData, &lastIt, it, 1, 1, t, 0.0, U);
     }
   }
+
+  probDesc->outputForces(ioData, &lastIt, it, 1, 1, t, 0.0, U);
+  dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+  probDesc->outputToDisk(ioData, &lastIt, it, 1, 1, t, 0.0, U);
   return 0;
 
 }
