@@ -41,6 +41,26 @@ class ExactSolution {
     
   }
 
+  template <void (*F)(IoData&, double,double,double,
+				     double,double*), int dim >
+    static void FillPrimitive(DistSVec<double,dim>& V, DistSVec<double,3>& X,
+			      IoData& iod, double t, VarFcn* vf) {
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+      double v[dim];
+      SVec<double,3>& x(X(iSub));
+      for (int i = 0; i < V(iSub).size(); ++i) {
+
+	F(iod, x[i][0], x[i][1], x[i][2],
+	  t, v);
+	memcpy(V(iSub)[i], v, sizeof(v));
+      }
+    }
+    
+  }
+
 
   template <void (*F)(IoData&, double,double,double,
 				     double,double*,double*, int&), int dim,int dimLS >

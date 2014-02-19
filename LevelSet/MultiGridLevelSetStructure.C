@@ -38,6 +38,17 @@ recompute() {
       std::cout << "Error! status = " << stat[i] << std::endl;
   }
 
+  EdgeSet& edges = *myLevel->getParent()->getEdges()[mySub];
+  int (*ptr)[2] = edges.getPtr();
+  for (int l = 0; l < edges.size(); ++l) {
+ 
+    int i = ptr[l][0],j = ptr[l][1];
+    if (nodeMapping[i] == nodeMapping[j] && 
+        parent->edgeIntersectsStructure(0.0,l)  ) {
+      status[nodeMapping[i]] = 1;
+    }
+  }
+
 //  status = 0;
 }
 
@@ -51,7 +62,7 @@ computeEdgeCrossing(SVec<double,3>& nodeNormals) {
   for (int i = 0; i < N; ++i) {
 
     edge_intersects[i] = (status[ptr[i][0]] != status[ptr[i][1]]);
-    
+   /* 
     double* v = nodeNormals[ptr[i][0]];
     if (v[0]*v[0] + v[1]*v[1]+v[2]*v[2] > 0.0) {
 
@@ -63,7 +74,7 @@ computeEdgeCrossing(SVec<double,3>& nodeNormals) {
       surfaceNormals[i] = Vec3D(v[0],v[1],v[2]);
      
     }
-    
+    */
   } 
 
   

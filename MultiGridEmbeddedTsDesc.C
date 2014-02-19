@@ -242,6 +242,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
   //  if (rnk == 0)
   //    std::cout << r << std::endl;
 
+    
 
     char fn[64];
 
@@ -277,14 +278,13 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
       }
     }
 */
-   /* 
-    sprintf(fn, "isActive%i", i);
-    pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
-						  V(lvl));
-
-*/
-
     
+//    sprintf(fn, "isActive%i", i);
+//    pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+//						  V(lvl));
+
+
+
     if (smoothWithGMRES)
       mgKspSolver->solve(lvl, *mgMvp, R, dx);  
     else {
