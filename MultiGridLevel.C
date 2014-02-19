@@ -163,6 +163,7 @@ neq1(neq1), neq2(neq2) {
   offDiagMatPattern = NULL;
   edgeAreaPattern = NULL;
   edgeVecPattern = NULL;
+  nodeVecPatternEq1 = nodeVecPatternEq2 = NULL;
   nodeIdPattern = new CommPattern<int>(levelSubDTopo, domain.getCommunicator(), CommPattern<int>::CopyOnSend);
   nodeVolPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   nodeVecPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
@@ -495,20 +496,20 @@ neq1(neq1), neq2(neq2) {
 
       int l = edges[iSub]->find(myEdges[i].ij.first, myEdges[i].ij.second);
 
-      if (D->locToGlobMap[myEdges[i].ij.first] == 854 ||
+      /*if (D->locToGlobMap[myEdges[i].ij.first] == 854 ||
           D->locToGlobMap[myEdges[i].ij.second] == 854) {
 
         std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
 	  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
         myEdges[i].normal.print();
       }
-
+      */
       if (myEdges[i].normal.norm() < 1e-16) {
 
-	std::cout << "Error: normal = 0!, (" << level_num << ") " << std::endl;
-        std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
-	  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
-        myEdges[i].normal.print();
+	//std::cout << "Error: normal = 0!, (" << level_num << ") " << std::endl;
+        //std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
+	//  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
+        //myEdges[i].normal.print();
       }
       (*edgeNormals)(iSub)[l] = myEdges[i].normal;
       (*edgeArea)(iSub)[l] = myEdges[i].area;
@@ -700,8 +701,9 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
     if (nodeIdPattern)
       delete nodeIdPattern;
     delete nodeVolPattern;
-    delete nodeVecPattern;
     if (nodeVecPattern)
+      delete nodeVecPattern;
+    if (nodePosnPattern)
       delete nodePosnPattern;
     if (nodeVecPatternEq1) {
       delete nodeVecPatternEq1;
@@ -714,9 +716,9 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
       delete edgeAreaPattern;
     if (edgeVecPattern)
       delete edgeVecPattern;
-
+    
   }
-
+  
   if (faceMapping)
     delete faceMapping;
   delete nodeDistInfo;
@@ -746,7 +748,7 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
   delete [] numNodes;
   if (nodeToNodeMaskILU)
     delete [] nodeToNodeMaskILU;
- 
+  
 }
 
 //------------------------------------------------------------------------------
@@ -2854,7 +2856,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
       if (fabs((*edgeNormals)(iSub)[i].norm()) < 1.0e-15) {
 
-        std::cout << "Error: normal = 0!" << std::endl;
+        //std::cout << "Error: normal = 0!" << std::endl;
       }
     }
   }

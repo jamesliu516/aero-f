@@ -77,7 +77,7 @@ void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn,
   if (!LSS.isActive(0.0, node))
     return;
   
-  Vec3D n2 = -normal;
+  Vec3D n2 = normal;
    
   if(fluxFcn[code]){
     double flux[dim];
@@ -171,7 +171,7 @@ void AgglomeratedFace::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn,
   double jac[neq*neq];
 
   double normVel= 0.0;
-  Vec3D n2 = -normal;
+  Vec3D n2 = normal;
   fluxFcn[code]->computeJacobian(1.0, 0.0, n2, normVel, V[node], Ub, jac);
   Scalar *Aii = A.getElem_ii(node);
   for (int k=0; k<neq*neq; ++k) 

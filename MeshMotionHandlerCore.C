@@ -1589,8 +1589,8 @@ void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
-  if (it==0) {
-//    dts *= 0.5;							/* XY */
+  if (it==0&& dynNodalTransfer->isCoupled()) {
+    dts *= 0.5;	
 
     int numStructNodes = dynNodalTransfer->numStNodes();
     if(numStructNodes != distLSS->getNumStructNodes()) {
@@ -1757,7 +1757,7 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
-  if(it==0)
+  if(it==0 && dynNodalTransfer->isCoupled() )
     dts *= 0.5;
 
   // get displacement

@@ -4828,3 +4828,62 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
     }
   }
 }
+
+template <int dim>
+void Domain::setExactBoundaryResidual(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				      IoData& iod,double t, VarFcn* varFcn) {
+
+  if (iod.embed.testCase == 1) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = X(iSub)[i];
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+	  
+	  memset(U(iSub)[i], 0, sizeof(double)*dim);
+	  
+	}
+      }
+    }
+  }
+}
+
+template <int dim,int neq,class Scalar>
+void Domain::setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				      IoData& iod,double t, VarFcn* varFcn,
+				      DistMat<Scalar,neq>& A) {
+
+  if (iod.embed.testCase == 1) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int (*edgePtr)[2] = subDomain[iSub]->getEdges().getPtr();
+      
+      GenMat<Scalar,neq> &Asub = A(iSub);
+      for (int l=0; l<subDomain[iSub]->getEdges().size(); ++l) {
+	int i = edgePtr[l][0];
+	int j = edgePtr[l][1];
+	
+	double* xi = X(iSub)[i];
+	double* xj = X(iSub)[j];
+	bool isi = (xi[0] == 0.0 || fabs(xi[0]-1.0) < 1.0e-12);
+	bool isj = (xj[0] == 0.0 || fabs(xj[0]-1.0) < 1.0e-12);
+	
+	if (isi)  {
+	  Scalar *Aij = Asub.getElem_ij(l);
+	  memset(Aij, 0, sizeof(double)*neq*neq);
+	}
+	
+	if (isj)  {
+	  Scalar *Aji = Asub.getElem_ji(l);
+	  memset(Aji, 0, sizeof(double)*neq*neq);
+	}
+      }
+    }
+  }
+}
