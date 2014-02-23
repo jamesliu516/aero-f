@@ -175,6 +175,8 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 {
 
   for(int i=0; i<V.size(); i++){ 
+    if(fluidId[i]==2) {fprintf(stderr,"OK. you are 2, you were %d.\n", fluidIdn[i]);}
+    if(fluidId[i]==2 && fluidIdn[i]==1) {fprintf(stderr,"I caught you! weight = %e.\n", weight[i]);}
     if (lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],false) != 0) {
       return i;
     }

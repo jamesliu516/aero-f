@@ -170,6 +170,7 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
     for(int i=0; i<subPhiV.size(); i++) {
       int Id = LSS.fluidModel(0.0,i);
       bool swept = LSS.isSwept(0.0,i);
+      if(subId[i]==2) fprintf(stderr,"my subId = %d, swept = %d, Id = %d.\n", subId[i], swept, Id);
 
       if(Id==0) { // not isolated by structure. need to consider level-set
         if(swept) {
@@ -179,8 +180,9 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
 	      if (programmedBurn && (programmedBurn->isUnburnedEOS(k+1,burnTag) ||
 				     programmedBurn->isBurnedEOS(k+1,burnTag)) ) {
 		if (programmedBurn->nodeInside(burnTag,iSub,i) ||
-                    programmedBurn->isFinished(burnTag))
-		  subId[i] = programmedBurn->getBurnedEOS(burnTag);
+                    programmedBurn->isFinished(burnTag)) {
+                  fprintf(stderr,"Inside updateFluidIdFS, I am here!\n");
+		  subId[i] = programmedBurn->getBurnedEOS(burnTag);}
 		else
 		  subId[i] = programmedBurn->getUnburnedEOS(burnTag);
 		break;
@@ -195,6 +197,10 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
       } else // isolated by structure. Id determined by intersector
         subId[i] = Id;
     }
+
+
+    for(int i=0; i<subPhiV.size(); i++) {
+      if(subId[i]==2) fprintf(stderr,"In FluidSelector::updateFluidIdFS(...), found Id = 2!\n");}
   }
 }
 
@@ -234,8 +240,10 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 	  if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
 				 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
 	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) ||
-                programmedBurn->isFinished(burnTag))
+                programmedBurn->isFinished(burnTag)) {
 	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
+              fprintf(stderr,"I am here... \n");
+            }
 	    else {
 	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
             }
@@ -247,20 +255,19 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 	}
       }
     }
+
+    for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
+      if(tag[iNode] == 2) fprintf(stderr," Caught Id = 2.\n");
   }
 }
 
 //------------------------------------------------------------------------------
-
+// This function allows fracture. It does not look at fsid.
 template<int dim> /*this dim is actually dimLS*/
 void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi)
 {
-  if(programmedBurn) {
-    fprintf(stderr,"ERROR: Currently AERO-F does not handle 'programmed burn' and 'cracking' at the same time!\n");
-    exit(-1);
-  }
-
   int numLocSub = Phi.numLocSub();
+  int burnTag;
   int iSub;
 #pragma omp parallel for
   for(iSub=0; iSub<numLocSub; ++iSub) {
@@ -275,10 +282,27 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
         continue;
       }
       tag[iNode] = 0;
-      for(int i=0; i<dim; i++)
+      for(int i=0; i<dim; i++) {
         if(phi[iNode][i]>0.0) {
-          tag[iNode] = i+1; break;}
+          if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
+                                 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
+            if (/*programmedBurn->isIgnited(burnTag) &&*/
+                (programmedBurn->nodeInside(burnTag,iSub,iNode) || programmedBurn->isFinished(burnTag)))
+              tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
+            else {
+              tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
+            }
+            break;
+          }
+          else{
+            tag[iNode] = i+1; break;
+          }
+        }
+      }
     }
+
+    for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
+      if(tag[iNode] == 2) fprintf(stderr," Caught Id = 2.\n");
   }
 }
 

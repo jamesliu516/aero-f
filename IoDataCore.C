@@ -1893,6 +1893,8 @@ Assigner *PointData::getAssigner()
 
   initialConditions.setup("InitialState", ca);
 
+  programmedBurn.setup("ProgrammedBurn", ca);
+
   return ca;
 }
 
@@ -5457,6 +5459,17 @@ void IoData::nonDimensionalizeAllInitialConditions(){
       it->second->x /= ref.rv.length;
       it->second->y /= ref.rv.length;
       it->second->z /= ref.rv.length;
+      
+      // Nondimensionalize  programmed burn
+      it->second->programmedBurn.ignitionX0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionY0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionZ0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionTime /= ref.rv.time;
+      it->second->programmedBurn.e0 /= ref.rv.energy;
+      it->second->programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+      it->second->programmedBurn.cjPressure /= ref.rv.pressure;
+      it->second->programmedBurn.cjDensity /= ref.rv.density;
+      it->second->programmedBurn.cjEnergy /= ref.rv.energy;
     }
   }
 }
@@ -6230,6 +6243,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
     }
   }
       
+#define SUPERMAN 1
 
   // then check that the initial conditions for that fluidModel are adequate.
   if(initialConditions.mach < 0 && initialConditions.velocity < 0 ){
@@ -6254,7 +6268,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
       error++;
       com->fprintf(stderr, "*** Error : either initial pressure or density must be specified\n");
     }
-    if(initialConditions.temperature < 0 && fluidModel->liquidModel.burnable == LiquidModelData::NO){
+    if(initialConditions.temperature < 0 && fluidModel->liquidModel.burnable == LiquidModelData::NO && !SUPERMAN){
       error++;
       com->fprintf(stderr, "*** Error : an initial temperature must be specified\n");
     }
@@ -6604,6 +6618,18 @@ int IoData::checkInputValuesProgrammedBurn() {
 
       ProgrammedBurnData& programmedBurn = itp->second->programmedBurn;
       InitialConditions& IC = itp->second->initialConditions;
+      error += checkProgrammedBurnLocal(programmedBurn, IC);
+    }
+  }
+
+  if(!embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator it;
+    for (it=embed.embedIC.pointMap.dataMap.begin();
+         it!=embed.embedIC.pointMap.dataMap.end();
+         it++) {
+
+      ProgrammedBurnData& programmedBurn = it->second->programmedBurn;
+      InitialConditions& IC = it->second->initialConditions;
       error += checkProgrammedBurnLocal(programmedBurn, IC);
     }
   }

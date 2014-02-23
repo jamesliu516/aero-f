@@ -72,30 +72,56 @@ int ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
 template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
 {
+  Vec3D p(0,0,0);
+  DebugTools::PrintFluidId("Printing Id 1: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+
   if(this->mmh && !this->inSubCycling) {
     // get structural time-step and recompute FS intersections.
     recomputeIntersections();
+
+    DebugTools::PrintFluidId("Printing Id 2: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+
     // update fluidId.
     updateFluidIdFS(U);
+
+    DebugTools::PrintFluidId("Printing Id 3: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+
     // update the phase-change (U & Phi) caused by the motion of FS interface
     updatePhaseChangeFS(U);
+
+    DebugTools::PrintFluidId("Printing Id 4: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
   }
 //  // populate ghost nodes (only for Navier-Stokes.)
 //  populateGhostPointsForNavierStokes(U);
   // evolve the fluid equation using FE, RK2, or RK4
   solveNLNavierStokes(U);
+
+  DebugTools::PrintFluidId("Printing Id 5: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+
   // evolve the level-set equation using FE, RK2, or RK4.
   solveNLLevelSet(U);
+
+  DebugTools::PrintFluidId("Printing Id 6: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+
   // update fluidId (fluidId0 = fluidId, fluidId = new).
   fluidId0 = *(this->fluidSelector.fluidId); // used in updatePhaseChangeFF
 //  DebugTools::PrintElement("Phi_post_update",this->Phi,63,0,503);
 
-  if(this->withCracking && this->withMixedLS)
+  DebugTools::PrintFluidId("Printing Id 7: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+
+  if(this->withCracking && this->withMixedLS) {
+    this->com->fprintf(stderr,"calling updateFluidIdFF2!\n");
     this->fluidSelector.updateFluidIdFF2(this->distLSS, this->Phi);
-  else
+  } else {
+    this->com->fprintf(stderr,"calling updateFluidIdFF!\n");
     this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
+  }
   // update the phase-change (only U) caused by the movement of FF interface
+
+  DebugTools::PrintFluidId("Printing Id 8: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+
   updatePhaseChangeFF(U);
+  this->com->fprintf(stderr,"DONE with updatePhaseChangeFF!\n");
   // check the consistency of Phi and FluidId. Can be removed for better efficiency! 
   if (this->lsMethod == 0)
     this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
@@ -153,9 +179,11 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updateFluidIdFS(DistSVec<double,dim>
   if(this->withCracking && this->withMixedLS) {
     //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
     //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
+    this->com->fprintf(stderr,"calling domain.updateFluidIdFS2!\n");
     this->domain->updateFluidIdFS2(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId));
   } else {
     //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    this->com->fprintf(stderr,"calling fluidSelector.updateFluidIdFS!\n");
     this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
   }
   this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
@@ -448,8 +476,9 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdateLS(DistSVec<double,di
 template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFF(DistSVec<double,dim> &U)
 {
-  if (this->phaseChangeType == 0)
+  if (this->phaseChangeType == 0) {
     this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
+  }
   else
     this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->multiFluidInterfaceOrder-1,
 						    U, this->V0,

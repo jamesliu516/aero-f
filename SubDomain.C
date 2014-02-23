@@ -46,6 +46,7 @@ using std::max;
 #include <PolygonReconstructionData.h> 
 #include <Quadrature.h>
 #include <RTree.h>
+#include <ProgrammedBurn.h>
 
 
 #include "FSI/CrackingSurface.h"
@@ -7350,24 +7351,15 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
 
-    //DEBUG
-    /*
-    int myNode = 13558;
-    if(rnk == 113 && i == 339){
-      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
-      for(int j=0; j<Node2Node.num(i); j++) { 
-        if(Node2Node[i][j]==i) continue;
-        fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
-                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
-                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][dimLS-1]); 
-      }
-
-    }
-    */
+    if(rnk==6 && i==30903)
+      fprintf(stderr,"Rank 6, i = %d, swept = %d, occluded = %d, dimLS = %d, poll = %d %d %d.\n", i, swept, occluded, dimLS, poll[i][0], poll[i][1], poll[i][2]);
 
     if(!swept) {//nothing to be done
-      if(!occluded && fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
-        continue;
+      continue;
+
+//KW: I DONT KNOW WHO ADDED THIS, NOR WHY
+//      if(!occluded && fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+//        continue;
     }
 
     if(occluded) { // Rule No.1
@@ -7383,28 +7375,14 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
         DebugTools::SpitRank();
         break;
       case 1: // Rule No.2
-        //for(int j=0; j<3; j++)
-        //  if(poll[i][j]) fluidId[i] = j;
         if (poll[i][0]) fluidId[i] = 0;
         else if (poll[i][1]) fluidId[i] = dimLS;
         else if (poll[i][2]) fluidId[i] = dimLS+1;
         break;
     }
-    /*
-    if (count > 1) {
+    
+    // consider programmed burn
 
-      fprintf(stderr,"WARNING: cant decide for");
-      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
-      for(int j=0; j<Node2Node.num(i); j++) { 
-        if(Node2Node[i][j]==i) continue;
-        fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
-                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
-                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][dimLS-1]); 
-      }
-
-
-    } 
-    */
     if(count==1) //already applied Rule No.2
       continue;
 

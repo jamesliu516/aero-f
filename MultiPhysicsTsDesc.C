@@ -49,6 +49,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
+  this->com->fprintf(stderr,"numBurnableFluids = %d.\n", numBurnableFluids);
   if (numBurnableFluids > 0) {
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);

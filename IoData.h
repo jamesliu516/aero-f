@@ -1070,6 +1070,8 @@ struct PointData {
   double x,y,z;
   InitialConditions initialConditions;
 
+  ProgrammedBurnData programmedBurn;
+
   PointData();
   ~PointData() {}
   Assigner *getAssigner();

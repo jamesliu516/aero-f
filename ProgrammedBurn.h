@@ -45,6 +45,7 @@ class ProgrammedBurn {
   bool nodeInside(int tag,int sub, int i);
   bool nodeInside(int tag,int i);
 
+  bool isIgnited(int tag) const { return myBurns[tag].ignited; }
   bool isFinished(int tag) const { return myBurns[tag].finished; }
 
   //bool isBurned(int iSub,int i) { return bBurned->subData(iSub)[i]; }

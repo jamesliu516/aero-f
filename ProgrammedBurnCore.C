@@ -60,6 +60,31 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
     myBurns.push_back(burn);
   }
 
+  std::map<int, PointData *>::iterator it;
+  for (it=ioData.embed.embedIC.pointMap.dataMap.begin();
+       it!=ioData.embed.embedIC.pointMap.dataMap.end();
+       it++) {
+
+    PointData& S = *(it->second);
+    ProgrammedBurnData& B = S.programmedBurn;
+    if (B.unburnedEOS < 0)
+      continue;
+
+    double x0n[3] = {B.ignitionX0,
+		     B.ignitionY0,
+		     B.ignitionZ0 };
+
+    Burn burn;
+    burn.pgData = &B;
+    burn.ignited = B.ignited;
+    burn.finished = false;
+    //burn.finished = B.finished;
+    computeNearestNode(x0n, burn.x0,burn.x0subdom,burn.x0id);
+    fprintf(stderr,"KW: ignited = %d, x0n = %e %e %e; x0subdom = %d, x0id = %d.\n", B.ignited, x0n[0], x0n[1], x0n[2], burn.x0subdom, burn.x0id);
+
+    myBurns.push_back(burn);
+  }
+
   lastTime = 0.0;
 }
 
@@ -141,6 +166,25 @@ int ProgrammedBurn::countBurnableFluids(IoData& ioData) {
     burnableFluids[ S.programmedBurn.unburnedEOS ] = S.programmedBurn.burnedEOS;
 
   }
+
+  
+  map<int, PointData *>::iterator it;
+  for (it=ioData.embed.embedIC.pointMap.dataMap.begin();
+       it!=ioData.embed.embedIC.pointMap.dataMap.end();
+       it++) {
+
+    PointData& S = *(it->second);
+    if (S.programmedBurn.unburnedEOS < 0)
+      continue;
+
+    if (S.programmedBurn.unburnedEOS != S.fluidModelID) {
+      fprintf(stderr,"Error: the programmedBurn EOS must match the point map EOS\n");
+    }
+
+    burnableFluids[ S.programmedBurn.unburnedEOS ] = S.programmedBurn.burnedEOS;
+
+  }
+
   //std::cout << "# burnable fluids = " << burnableFluids.size() << std::endl;
  
   return burnableFluids.size();
@@ -244,6 +288,8 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
 	r = sqrt((x[i][0]-B.x0[0])*(x[i][0]-B.x0[0])+
 		 (x[i][1]-B.x0[1])*(x[i][1]-B.x0[1])+
 		 (x[i][2]-B.x0[2])*(x[i][2]-B.x0[2]));
+
+        if(fid[i]==2) {fprintf(stderr,"Found fid = 2!\n");}
 	
 	if ((r <= B.pgData->cjDetonationVelocity*(t-B.pgData->ignitionTime) ||
 	     (iSub == B.x0subdom && i == B.x0id)) &&
@@ -269,6 +315,8 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
   }
   
   distInfo->com->globalSum(5,cnt);
+
+  distInfo->com->fprintf(stderr,"cnt[0] = %d.\n", cnt[0]);
 
   for (int j = 0; j < myBurns.size(); ++j) {
     if (cnt[j] == 0)
@@ -338,9 +386,9 @@ bool ProgrammedBurn::nodeInside(int tag,int iSub, int i) {
 	   (x[i][2]-B->x0[2])*(x[i][2]-B->x0[2]));
  
   if ((r <= B->pgData->cjDetonationVelocity*(lastTime-B->pgData->ignitionTime) ||
-      (iSub == B->x0subdom && i == B->x0id)) && B->ignited ) {
+      (iSub == B->x0subdom && i == B->x0id)) && B->ignited )
     return true;
-  } else {
+  else {
     return false;
   }
 }
