@@ -578,7 +578,7 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassToken<ROMOutputData>(ca, "OverwriteModelIISnapshots", this,
             reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::overwriteModelIISnaps), 2, "Off", 0, "On", 1);
 
-  new ClassInt<ROMOutputData>(ca, "ResJacOutputFrequencyModelII", this, &ROMOutputData::resjacfrequency);
+  new ClassInt<ROMOutputData>(ca, "ResJacOutputFrequencyTimeModelII", this, &ROMOutputData::resjacfrequency);
   
 }
 
@@ -3790,7 +3790,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 	new ClassToken<NonlinearRomOnlineData> (ca, "SystemApproximation", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::systemApproximation), 2, "None", 0, "GNAT", 1);
   new ClassToken<NonlinearRomOnlineData> (ca, "PerformLineSearch", this, reinterpret_cast<int
-      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 3, "False", 0, "Backtracking", 1, "Wolf", 2);
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 3, "False", 0, "Backtracking", 1, "StrongWolfe", 2);
 	new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 4, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3);
  	new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
@@ -3802,13 +3802,13 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::storeAllClusters), 2, "False", 0, "True", 1);
   new ClassInt<NonlinearRomOnlineData>(ca, "MaximumDimension", this, &NonlinearRomOnlineData::maxDimension);
   new ClassInt<NonlinearRomOnlineData>(ca, "MinimumDimension", this, &NonlinearRomOnlineData::minDimension); 
-  new ClassDouble<NonlinearRomOnlineData>(ca, "Energy", this, &NonlinearRomOnlineData::energy);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "MaximumEnergy", this, &NonlinearRomOnlineData::energy);
 
   new ClassToken<NonlinearRomOnlineData> (ca, "WeightedLeastSquares", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 5, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3, "BoundaryConditions", 4);
 
-  new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldWeighting", this, &NonlinearRomOnlineData::ffWeight);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "LevenbergMarquardtWeighting", this, &NonlinearRomOnlineData::levenbergMarquardtWeight);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldWeight", this, &NonlinearRomOnlineData::ffWeight);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "LevenbergMarquardtWeight", this, &NonlinearRomOnlineData::levenbergMarquardtWeight);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "WeightingExponent", this, &NonlinearRomOnlineData::weightingExponent);
 
@@ -3912,12 +3912,14 @@ GNATConstructionData::GNATConstructionData()
 
   maxDimensionROBGreedy = -1;
   minDimensionROBGreedy = 0;
-  robGreedyFactor = 1;
+  robGreedyFactor = 1.0;
 
   maxSampledNodes = -1;
   minSampledNodes = 0;
   sampledNodesFactor = -1;
   layers = 2;
+
+  farFieldWeight = 1.0;
 
   includeLiftFaces = NONE_LIFTFACE;
   computeGappyRes = YES_GAPPYRES;
@@ -3974,6 +3976,8 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassDouble<GNATConstructionData>(ca, "SampledNodesFactor", this, &GNATConstructionData::sampledNodesFactor); // default: 2
   new ClassInt<GNATConstructionData>(ca, "NumSampledMeshLayers", this, &GNATConstructionData::layers);	// default: 2
 
+  new ClassDouble<GNATConstructionData>(ca, "FarFieldWeight", this, &GNATConstructionData::farFieldWeight); // default: 2
+
 	// optional: undocumented
 	new ClassToken<GNATConstructionData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
 			GNATConstructionData::*>(&GNATConstructionData::computeGappyRes), 2, "False", 0, "True", 1);	
@@ -4013,11 +4017,11 @@ void ROBConstructionData::setup(const char *name, ClassAssigner *father)
 	clustering.setup("Clustering",ca);
   basisUpdates.setup("OnlineBasisUpdates",ca);
 
-  state.setup("State",ca);
-  residual.setup("Residual",ca);
-  jacAction.setup("JacobianAction",ca);
-  sensitivity.setup("Sensitivity",ca);
-  krylov.setup("Krylov",ca);
+  state.setup("StateROB",ca);
+  residual.setup("ResidualROB",ca);
+  jacAction.setup("JacobianActionROB",ca);
+  sensitivity.setup("SensitivityROB",ca);
+  krylov.setup("KrylovROB",ca);
 
   relativeProjectionError.setup("RelativeProjectionError",ca);
 
@@ -4085,7 +4089,7 @@ void BasisUpdatesData::setup(const char *name, ClassAssigner *father) {
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForNoUpdates", this, reinterpret_cast<int 
 			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForSimpleUpdates", this, reinterpret_cast<int
-      BasisUpdatesData::*>(&BasisUpdatesData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
+      BasisUpdatesData::*>(&BasisUpdatesData::preprocessForSimpleUpdates), 2, "Off", 0, "On", 1);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForFastExactUpdates", this, reinterpret_cast<int 
 			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForExactUpdates), 2, "Off", 0, "On", 1);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForFastApproxUpdates", this, reinterpret_cast<int 
@@ -4272,7 +4276,7 @@ DataCompressionData::DataCompressionData()
   tolerance = 1e-8;  // this only applies to EIG
   minBasisSize = 0;
   maxBasisSize = -1; // retain all vectors
-  singValTolerance = 1e-6;
+  singValTolerance = 1e-16;
   maxEnergyRetained = 1.0; // retain all energy
 }
 

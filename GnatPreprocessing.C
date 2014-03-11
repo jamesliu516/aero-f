@@ -51,6 +51,37 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   globalSampleNodesUnionForApproxMetric.resize(0);
   globalSampleNodesUnionSet.clear();
   globalSampleNodesUnionSetForApproxMetric.clear();
+
+  ffWeight = ioData->romOffline.gnat.farFieldWeight;
+  if (ffWeight != 1.0) {
+    farFieldMask = new DistVec<double>(domain.getNodeDistInfo());
+    weightVec = new DistSVec<double, dim>(domain.getNodeDistInfo());
+    domain.setFarFieldMask(*farFieldMask);
+    int numLocSubMask = domain.getNumLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSubMask; ++iSub) {
+      double *ffMask = farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
+      double (*weight)[dim] = weightVec->subData(iSub);
+      for (int i=0; i<farFieldMask->subSize(iSub); ++i) {
+        if (ffMask[i]>0) {
+          for (int j=0; j<dim; ++j)
+            weight[i][j] = ffWeight;
+        } else {
+          for (int j=0; j<dim; ++j)
+            weight[i][j] = 1.0;
+        }
+      }
+    }
+  } else {
+    farFieldMask = NULL;
+    weightVec = NULL;
+  }
+
+
+  podTpod = NULL;
+  RTranspose = NULL;
+  Qmat = NULL;
+
 }
 
 //----------------------------------------------
@@ -58,6 +89,8 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
 template<int dim>
 GnatPreprocessing<dim>::~GnatPreprocessing() 
 {
+  if (farFieldMask) delete farFieldMask;
+  if (weightVec) delete weightVec;
   if (input) delete input;
   if (postOp) delete postOp;
   if (varFcnTmp) delete varFcnTmp;
@@ -251,7 +284,9 @@ void GnatPreprocessing<dim>::buildReducedModel() {
 
     formMaskedNonlinearROBs();
  
-    setUpPseudoInverse();          // if using Res ROB and Jac ROB, compute ROB[1]T*ROB[0]
+    setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
+
+    initializeLeastSquares();
  
     computePseudoInverse();        // only requires sample nodes and masked nonlinear ROBs
 
@@ -273,6 +308,23 @@ void GnatPreprocessing<dim>::buildReducedModel() {
  
     outputLocalStateBasisReduced(iCluster);  // distributed info (parallel)
     outputLocalReferenceStateReduced(iCluster);
+
+    if (podTpod) {
+      for (int iVec=0; iVec<nPod[1]; ++iVec)
+        delete [] podTpod[iVec];
+      delete podTpod;
+      podTpod = NULL;
+    }
+
+    if (RTranspose) {
+      for (int iVec=0; iVec<nPod[1]; ++iVec)
+        delete [] RTranspose[iVec];
+      delete [] RTranspose;
+      RTranspose = NULL;
+      delete Qmat;
+      Qmat = NULL;
+    }
+
   }
 
   if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
@@ -789,13 +841,110 @@ void GnatPreprocessing<dim>::setUpPodResJac(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::setUpPseudoInverse() {
+void GnatPreprocessing<dim>::setUpBasisBasisProducts() {
 
-  // compute pod[0]^Tpod[1] (so you can delete these from memory sooner)
-  if (nPodBasis == 2)
-    computePodTPod();
+// compute pod[1]^Tpod[i] (so you can delete these from memory sooner)
 
-  initializeLeastSquares();  // no least squares the first greedy it
+  if (ffWeight!=1.0) { // (need R regardless of whether Phij = Phir)
+    computeQROfWeightedPhiJ();
+  }
+
+  if (nPodBasis == 2) {
+    if (ffWeight==1.0) {
+      // pod[1]^T * pod[0]
+      computePodTPod();
+    } else {
+      // compute Q^T * W * pod[0]  (stored as podTpod)
+      computeQTWeightedPod();
+    }
+  }
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computeQROfWeightedPhiJ() {
+
+  // compute tmpVecSet = W * PhiJi
+  VecSet< DistSVec<double, dim> > tmpVecSet (nPod[1], this->domain.getNodeDistInfo());
+  int numLocSubWeight = weightVec->numLocSub();
+  for (int iVec=0; iVec<nPod[1]; ++iVec) {
+    tmpVecSet[iVec] = pod[1][iVec];
+    if (ffWeight!=1.0) {
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSubWeight; ++iSub) {
+        double (*weight)[dim] = weightVec->subData(iSub);
+        double (*v)[dim] = tmpVecSet[iVec].subData(iSub);
+        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
+          for (int j=0; j<dim; ++j) {
+            v[i][j] = v[i][j] * weight[i][j];
+          }
+        }
+      }
+    }
+  }
+
+  // compute QR of tempVecSet via stabilized gram schmidt (without pivoting -- should be full rank)
+  Qmat = new VecSet< DistSVec<double, dim> >(nPod[1], this->domain.getNodeDistInfo());
+  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
+    (*Qmat)[iVec] = tmpVecSet[iVec];
+  }
+  if (thisCPU == 0) { 
+    RTranspose = new double*[nPod[1]];
+    for (int iVec = 0; iVec<nPod[1]; ++iVec)
+      RTranspose[iVec] = new double[iVec+1];
+  }
+
+  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
+
+    double tmp;
+    std::vector<double> rlog;
+    rlog.resize(iVec+1,0.0);  
+    for (int jVec = 0; jVec<iVec; ++jVec) {
+      tmp = (*Qmat)[jVec] * (*Qmat)[iVec];
+      (*Qmat)[iVec] -= (*Qmat)[jVec] * tmp; //*tmp
+      rlog[jVec]=(tmp);
+    }
+
+    double norm = (*Qmat)[iVec].norm();
+    rlog[iVec] = norm;
+
+    if (norm>=1e-10) {
+      (*Qmat)[iVec] *= 1/norm;
+      if (thisCPU == 0) {
+        for (int jVec = 0; jVec<=iVec; ++jVec) {  
+          RTranspose[iVec][jVec] = rlog[jVec];
+        }
+      }
+    } else {
+      this->com->fprintf(stderr, "*** Warning: QR encountered a rank defficient matrix in GNAT preprocessing (?)\n",norm);
+      exit(-1);
+    }
+  }
+
+  // test QR
+  /*
+  // Q orthogonal
+  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
+    for (int jVec = 0; jVec<=iVec; ++jVec) {
+       double product = (*Qmat)[iVec] * (*Qmat)[jVec];
+       this->com->fprintf(stdout, "Q orthogonal test: Q^T Q [%d][%d] = %e\n", iVec, jVec, product);
+    }
+  }
+
+  // QR = W*pod[1]
+  DistSVec<double, dim> testVec(this->domain.getNodeDistInfo());
+  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
+    testVec = tmpVecSet[iVec];
+    for (int jVec = 0; jVec<=iVec; ++jVec) {
+      double coef = 0.0;
+      if (thisCPU ==0) coef = RTranspose[iVec][jVec]; 
+      this->com->broadcast(1, &coef);
+      testVec -= (*Qmat)[jVec]*coef;
+    }
+    this->com->fprintf(stdout, "QR accuracy test: norm of difference for vector #%d = %e\n", iVec, testVec.norm());
+  }*/
 
 }
 
@@ -2029,6 +2178,11 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
       if (bcFaceSurfID[iSign][iBCtype].size() > 0) {
         std::vector<int>::iterator maxIDit = max_element(bcFaceSurfID[iSign][iBCtype].begin(),bcFaceSurfID[iSign][iBCtype].end());
         maxID = *maxIDit;
+        if (maxID == 0) {
+          this->com->fprintf(stderr,"*** Error: The GNAT preprocessing code apparently assumes that mesh surfaces are labeled with unique, non-zero numerical identifiers (for example: StickMoving_1, StickMoving_2)\n\n\n");
+          sleep(1);
+          exit(-1);
+        }
       }
       
       for (int iID = 0; iID < maxID; ++iID) {
@@ -2247,7 +2401,7 @@ void GnatPreprocessing<dim>::computePodTPod() {
   // since podTpod = I for nPodBasis = 1, only call this function for
   // nPodBasis = 2
 
-  if (thisCPU == 0) { 
+  if (thisCPU == 0) {
     podTpod = new double * [nPod[1]];
     for (int i = 0; i < nPod[1]; ++i)
       podTpod[i] = new double [nPod[0]];
@@ -2255,13 +2409,64 @@ void GnatPreprocessing<dim>::computePodTPod() {
 
   double podTpodTmp;
   for (int i = 0; i < nPod[1]; ++i) {
-    com->fprintf(stdout," ... Computing podJac^TpodRes row %d of %d ...\n",i,nPod[1]);
-    for (int j = 0; j < nPod[0]; ++j) { 
+    com->fprintf(stdout," ... computing podJac^TpodRes row %d of %d ...\n",i,nPod[1]);
+    for (int j = 0; j < nPod[0]; ++j) {
       podTpodTmp = pod[1][i]*pod[0][j];
       if (thisCPU == 0)
         podTpod[i][j] = podTpodTmp;
     }
   }
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::computeQTWeightedPod() {
+
+  // podTpod is nPod[1] x nPod[0] array
+
+  if (thisCPU == 0 && podTpod) {
+    for (int i = 0; i < nPod[1]; ++i)
+      delete [] podTpod[i];
+
+    delete [] podTpod;
+  }
+
+  if (thisCPU == 0) { 
+    podTpod = new double * [nPod[1]];
+    for (int i = 0; i < nPod[1]; ++i)
+      podTpod[i] = new double [nPod[0]];
+  }
+
+  VecSet< DistSVec<double, dim> > tmpVecSet (nPod[0], this->domain.getNodeDistInfo());
+  int numLocSubWeight = weightVec->numLocSub();
+  for (int iVec=0; iVec<nPod[0]; ++iVec) {
+    tmpVecSet[iVec] = pod[0][iVec];
+    if (ffWeight!=1.0) {
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSubWeight; ++iSub) {
+        double (*weight)[dim] = weightVec->subData(iSub);
+        double (*v)[dim] = tmpVecSet[iVec].subData(iSub);
+        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
+          for (int j=0; j<dim; ++j) {
+            v[i][j] = v[i][j] * weight[i][j];
+          }
+        }
+      }
+    }
+  }
+
+  double podTpodTmp;
+  for (int i = 0; i < nPod[1]; ++i) {
+    com->fprintf(stdout," ... Computing podJac^TpodRes row %d of %d ...\n",i,nPod[1]);
+    for (int j = 0; j < nPod[0]; ++j) { 
+      podTpodTmp = (*Qmat)[i]*tmpVecSet[j];
+      if (thisCPU == 0)
+        podTpod[i][j] = podTpodTmp;
+    }
+  }
+
+
 }
 
 //----------------------------------------------
@@ -2273,15 +2478,54 @@ void GnatPreprocessing<dim>::assembleOnlineMatrices() {
   // Inputs: podHatPseudoInv, podTpod
   // Outputs: onlineMatrices
 
-
   int numCols = nSampleNodes * dim;
 
-  if (nPodBasis == 1) {  // only need to use podTpod if there are two bases (otherwise, it is identity)
-    onlineMatrices[0] = podHatPseudoInv[0];  // related to the jacobian
+  if (nPodBasis == 1) { 
+    if (ffWeight!=1.0) {
+      onlineMatrices[0] = new double * [numCols] ;
+      for (int i = 0; i < numCols; ++i) {
+        onlineMatrices[0][i] = new double [nPod[0] ] ;
+        for (int iPod = 0; iPod < nPod[0]; ++iPod)
+          onlineMatrices[0][i][iPod] = 0.0;
+      }
+      if (thisCPU == 0) {
+        for (int iPod = 0; iPod < nPod[0]; ++iPod) {
+          for (int jPod = 0; jPod < nPod[0]; ++jPod) {
+            if (jPod>=iPod) {
+              for (int k = 0; k < numCols; ++k) {
+                onlineMatrices[0][k][iPod] += RTranspose[jPod][iPod] * podHatPseudoInv[0][k][jPod];
+              }
+            }
+          }
+        }
+      }
+    } else { 
+      onlineMatrices[0] = podHatPseudoInv[0];  // related to the jacobian
+    }
   }
   else {  // nPod[1] != 0 because nPodBasis == 2
     int nPodJac = (nPod[1] == 0) ? nPod[0] : nPod[1];
-    onlineMatrices[1] = podHatPseudoInv[1];  // related to the jacobian
+    if (ffWeight!=1.0) {
+      onlineMatrices[1] = new double * [numCols] ;
+      for (int i = 0; i < numCols; ++i) {
+        onlineMatrices[1][i] = new double [nPod[1] ] ;
+        for (int iPod = 0; iPod < nPod[1]; ++iPod)
+          onlineMatrices[1][i][iPod] = 0.0;
+      }
+      if (thisCPU == 0) {
+        for (int iPod = 0; iPod < nPod[1]; ++iPod) {
+          for (int jPod = 0; jPod < nPod[1]; ++jPod) {
+            if (jPod>=iPod) {
+              for (int k = 0; k < numCols; ++k) {
+                onlineMatrices[1][k][iPod] += RTranspose[jPod][iPod] * podHatPseudoInv[1][k][jPod];
+              }
+            }
+          }
+        }
+      }
+    } else {
+      onlineMatrices[1] = podHatPseudoInv[1];  // related to the jacobian
+    }
 
     onlineMatrices[0] = new double * [numCols] ;
     for (int i = 0; i < numCols; ++i) {
@@ -2289,26 +2533,19 @@ void GnatPreprocessing<dim>::assembleOnlineMatrices() {
       for (int iPod = 0; iPod < nPod[1]; ++iPod) 
         onlineMatrices[0][i][iPod] = 0.0;
     }
-    for (int iPod = 0; iPod < nPod[1]; ++iPod) {
-      for (int jPod = 0; jPod < nPod[0]; ++jPod) {
-        for (int k = 0; k < numCols; ++k) { 
-          onlineMatrices[0][k][iPod] += podTpod[iPod][jPod] * podHatPseudoInv[0][k][jPod];
+
+    if (thisCPU == 0) {
+      for (int iPod = 0; iPod < nPod[1]; ++iPod) {
+        for (int jPod = 0; jPod < nPod[0]; ++jPod) {
+          for (int k = 0; k < numCols; ++k) { 
+            onlineMatrices[0][k][iPod] += podTpod[iPod][jPod] * podHatPseudoInv[0][k][jPod];
+          }
         }
       }
     }
-    // no longer need podTpod
 
-    for (int i = 0; i < nPod[1]; ++i) {
-      if (podTpod[i]) {
-        delete [] podTpod[i];
-        podTpod[i] = NULL;
-      }
-    }
-    if (podTpod) {
-      delete [] podTpod;
-      podTpod = NULL;
-    }
   }
+
 }
 
 //----------------------------------------------

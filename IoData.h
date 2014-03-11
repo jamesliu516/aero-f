@@ -2497,6 +2497,8 @@ struct GNATConstructionData {
   enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
   enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
 
+  double farFieldWeight;
+
   GNATConstructionData();
   ~GNATConstructionData() {}
 

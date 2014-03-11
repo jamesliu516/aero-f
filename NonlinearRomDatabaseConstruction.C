@@ -101,14 +101,13 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
       robConstruction->basisUpdates.preprocessForApproxUpdates) preprocessForDistanceComparisons();
 
   // preprocessing for exact basis updates 
-  // (data for simple updates is ouput automatically; data for approx updates is output in Gnat preprocessing)
+  // (data for simple updates is ouput automatically; data for approx updates is output in GNAT preprocessing)
   if (robConstruction->basisUpdates.preprocessForExactUpdates) preprocessForExactBasisUpdates();
 
   // projection error
   if (projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
 
   this->timer->addTotalOfflineTime(tOffline);
-  this->timer->print(this->domain.getStrTimer());
 
 }
 
@@ -166,6 +165,7 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(cha
     if (iStart < 1) iStart = 1;
     if (iEnd < 0) iEnd = 0;
     if (iFreq < 1) iFreq = 1;
+    if (weight==0.0) weight = 1.0;
     //numSnaps[iData] = nSnap;
     strcpy(snapFile[iData],snapFile1);
     startSnaps[iData] = iStart - 1;

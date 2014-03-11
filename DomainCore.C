@@ -674,7 +674,8 @@ void Domain::setInletNodes(IoData &ioData)
     inletCountPat->finalize();
   }
 
-  if (ioData.romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
+  if ((ioData.romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) // model II online
+      || (ioData.romOffline.gnat.farFieldWeight != 1.0)) { // gnat prepro
     // If weighting the boundary conditions, create node lists for far field nodes and wall nodes.
     // Note that the far field node list is identical to the inletNodes information, but it was 
     // necessary to duplicate this because when the inletNodes object is defined it triggers the

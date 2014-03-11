@@ -14,9 +14,9 @@ class NonlinearRomOnlineIII : public NonlinearRom<dim> {
   NonlinearRomOnlineIII(Communicator *, IoData &, Domain &);
   ~NonlinearRomOnlineIII();
 
-  void updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL);
-  void updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>* coords);
-  void updateBasisFastApprox(int, DistSVec<double, dim> &);
+  bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL);
+  bool updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>* coords);
+  bool updateBasisFastApprox(int, DistSVec<double, dim> &);
 
   void appendNonStateDataToBasis(int, char *, bool relProjError = false); 
   void readClusteredOnlineQuantities(int);
