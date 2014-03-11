@@ -706,6 +706,8 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   double gam     = vf_->getGamma(fluid1);
   double Pinf    = vf_->getPressureConstant(fluid1);
 
+  double cp = vf_->specificHeatCstPressure(fluid2);
+
   double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_i, U_i, R_il, R_ir;
 
@@ -738,10 +740,10 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
     Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
     Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
-    Wi[4]  = P_i;                     Wi[dim+4]  = Wi[4];
-    T_w  = vf_->computeTemperature(Wi, IDj); //KW: need an explanation
-    //T_w  = vf_->computeTemperature(Vi, IDi);
-    Wi[4]  = T_w;                     Wi[dim+4]  = Wi[4];
+    if (vf_->isBurnable(IDi))
+      Wi[4]  = Vi[4] + 1.0/cp*(-0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w));
+    else
+      Wi[4]  = Vi[4] + 1.0/cp*(P_i/R_ir-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w));
 
     Wj[0]  = R_il;                      Wj[dim]    = Wj[0];
     Wj[1]  = vtj[0]+U_i*nphi[0];        Wj[dim+1]  = Wj[1];
@@ -780,10 +782,11 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
-    Wj[4]  = P_i;                     Wj[dim+4]  = Wj[4];
-    T_w  = vf_->computeTemperature(Wj, IDi);
-    //T_w  = vf_->computeTemperature(Vj, IDj);
-    Wj[4]  = T_w;                     Wj[dim+4]  = Wj[4];
+    if (vf_->isBurnable(IDj))
+      Wj[4]  = Vj[4] + 1.0/cp*(-0.5*(P_i+P_w)*(1.0/R_il-1.0/R_w));
+    else
+      Wj[4]  = Vj[4] + 1.0/cp*(P_i/R_il-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_il-1.0/R_w));
+    /*vf_->computeTemperature(Wj, IDi);*/      Wj[dim+4]  = Wj[4];
 
   }
   
@@ -2397,7 +2400,6 @@ int LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
   double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
   double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
  
-
   if (IDi==fluid1) {
 
     // cell i is fluid1

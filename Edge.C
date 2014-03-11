@@ -471,6 +471,7 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
   if (ns) ooreynolds_mu = ns->get_ooreynolds_mu(); 
   if (sa) ooreynolds_mu = sa->get_ooreynolds_mu(); 
   
+  int cnt = 0;
   for (int l=0; l<numSampledEdges; ++l) {    
 
     if (!masterFlag[l]) continue;
@@ -485,6 +486,9 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     //xhat /= area;
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+    if (length < 1.0e-18 || area < 1.0e-18)
+      continue;
 
     Vec3D xhat(dx[0]/length,dx[1]/length,dx[2]/length);
 
@@ -517,7 +521,7 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     mu     *= ooreynolds_mu;
     lambda *= ooreynolds_mu;
     kappa  *= ooreynolds_mu;
-
+    
 /*    Fuhat = (lambda+2.0*mu)*(Uj-Ui)/length;
     Fvhat = mu*(vj-vi)/length;
     
@@ -532,14 +536,24 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
       fluxes[j][k] -= flux[k];
     }
 */
+    bool write = false;//(length < 1.0e-3 && cnt < 4);
+    if (write)
+      ++cnt;
 
+    if (write)
+      std::cout << mu << " " << mut << " " << lambda << " " << lambdat << " " << length << " " << dx[0] << " " << dx[1] << " " << dx[2] << " ";
     double gradu[3][3];
     for (int k = 0; k < 3; ++k) {
-      for (int m = 0; m < 3; ++m)
+      for (int m = 0; m < 3; ++m) {
         gradu[m][k] = (Vj[m]-Vi[m])/length*xhat[k];
+        if (write) 
+          std::cout << gradu[m][k] << " ";
+      }
     }
     double divu = gradu[0][0]+gradu[1][1]+gradu[2][2];
-    
+    if (write)
+      std::cout << std::endl;
+   
     for (int k = 0; k < 3; ++k) {
       for (int m = 0; m < 3; ++m) {
 
@@ -551,9 +565,15 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     for (int k = 0; k < dim; ++k) {
 
       double ft = fluxl[k][0]*normal[l][0]+fluxl[k][1]*normal[l][1]+fluxl[k][2]*normal[l][2];
+      if (write) {
+	std::cout << k << " " << ft << " " << fluxes[i][k] << " ";
+      }
+      //ft *= 100.0;
       fluxes[i][k] -= ft;
       fluxes[j][k] += ft;
     }
+    if (write)
+      std::cout << std::endl;
   }
 
   return 0;

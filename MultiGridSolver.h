@@ -121,7 +121,7 @@ int MultiGridSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolV
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, 0.00, U);
 
-    if (it % 10 == 0) {
+    if (it % 1 == 0) {
       probDesc->outputForces(ioData, &lastIt, it, 1, 1, t, 0.0, U);
       dts = probDesc->computePositionVector(&lastIt, it, t, U);
 

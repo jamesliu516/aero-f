@@ -289,6 +289,7 @@ template class MultiGridSmoothingMatrix<type,dim>;
 
 INST_HELPER(double,1);
 INST_HELPER(double,2);
+INST_HELPER(double,3);
 INST_HELPER(double,5);
 INST_HELPER(double,6);
 INST_HELPER(double,7);

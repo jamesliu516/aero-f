@@ -318,7 +318,7 @@ class MultiGridLevel {
                                          const DistVec<Scalar2>& fineData,
                                          DistVec<Scalar2>& coarseData) const;
     template<class Scalar2, int dim> void Prolong(MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
-                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,double relax_factor=1.0, class DistLevelSetStructure* coarse = NULL,class DistLevelSetStructure* fine = NULL) const;
+                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,DistSVec<Scalar2,dim>& fine_ref,double relax_factor=1.0, class DistLevelSetStructure* coarse = NULL,class DistLevelSetStructure* fine = NULL) const;
 
     template<class Scalar2, int dim>
     void ProjectResidual(DistSVec<Scalar2,dim>& r) const;
