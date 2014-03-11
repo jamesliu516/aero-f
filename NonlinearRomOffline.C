@@ -88,7 +88,7 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
    ReducedMeshShapeChanger<dim> reducedMeshShapeChanger(com,*ioData,domain,geoState);
    reducedMeshShapeChanger.buildReducedModel();
  }
-
+   modalTimer->print(this->domain.getStrTimer());
 }
 
 //---------------------------------------------------------------------------------------

@@ -52,8 +52,6 @@ protected:
 
   void setProblemSize(DistSVec<double, dim> &);
 
-  void updateLeastSquaresWeightingVector();
-
   double computePGResidualNorm(DistSVec<double,dim> &);
   void setReferenceResidual();
 

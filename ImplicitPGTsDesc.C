@@ -341,7 +341,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 
 
 //-----------------------------------------------------------------------------
-
+/*
 template<int dim>
 void ImplicitPGTsDesc<dim>::updateLeastSquaresWeightingVector() {
 
@@ -353,7 +353,7 @@ void ImplicitPGTsDesc<dim>::updateLeastSquaresWeightingVector() {
     case (NonlinearRomOnlineData::WEIGHTED_LS_FALSE):
       return;
       break;
-/*    case (NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL):
+    case (NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL):
       *(this->weightVec) = *(this->weightFRef);
       break;
     case (NonlinearRomOnlineData::WEIGHTED_LS_STATE):
@@ -366,7 +366,7 @@ void ImplicitPGTsDesc<dim>::updateLeastSquaresWeightingVector() {
             weight[i][j] = weight[i][j] - (this->bcData->getInletConservativeState())[j];
         }
       }
-      break;*/
+      break;
     case (NonlinearRomOnlineData::WEIGHTED_LS_CV):
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -399,7 +399,7 @@ void ImplicitPGTsDesc<dim>::updateLeastSquaresWeightingVector() {
         exit(-1);
       break;
   } 
-/*
+
   double weightExp = this->ioData->romOnline.weightingExponent;
   double weightNorm = weightVec.norm();
   weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
@@ -429,10 +429,10 @@ void ImplicitPGTsDesc<dim>::updateLeastSquaresWeightingVector() {
       }
     }
   }
-*/
 
 
-}
+
+}*/
 
 //-----------------------------------------------------------------------------
 

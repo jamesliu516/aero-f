@@ -95,7 +95,7 @@ protected:
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
   virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int);
-  virtual void updateLeastSquaresWeightingVector() {};
+  virtual void updateLeastSquaresWeightingVector();
 	//void savedUnormAccum();
 	//virtual void writeStateRomToDisk(int it, double cpu);
 	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
@@ -110,6 +110,7 @@ protected:
 
   bool updateFreq;
   bool clusterSwitch;
+  bool updatePerformed;
 
   DistSVec<double, dim>* Uinit;  // initial condition of the steady state simulation, 
                                  // stored to recalculate reference residual after 

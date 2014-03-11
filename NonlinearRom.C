@@ -109,13 +109,13 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledResidualBasisName, "sampledResROB", romFiles->gnatPrefix, sampledResidualBasisName);
   determineFileName(romFiles->sampledJacActionBasisName, "sampledJacROB", romFiles->gnatPrefix, sampledJacActionBasisName);
   determineFileName(romFiles->sampledMeshName, "top", romFiles->gnatPrefix, sampledMeshName);
-  determineFileName(romFiles->sampledSolutionName, "sol", romFiles->gnatPrefix, sampledSolutionName);
+  determineFileName(romFiles->sampledSolutionName, "sampledSolution", romFiles->gnatPrefix, sampledSolutionName);
   determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gnatPrefix, sampledRefStateName);
-  determineFileName(romFiles->sampledWallDistName, "dwall", romFiles->gnatPrefix, sampledWallDistName);
+  determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gnatPrefix, sampledWallDistName);
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gnatPrefix, gappyJacActionName);
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
   determineFileName(romFiles->approxMetricLowRankName, "approxMetric", romFiles->gnatPrefix, approxMetricLowRankName);
-  determineFileName(romFiles->approxMetricLowRankFullCoordsName, "approxMetricFull", romFiles->gnatPrefix, approxMetricLowRankFullCoordsName);
+  determineFileName(romFiles->approxMetricLowRankFullCoordsName, "approxMetricFullCoords", romFiles->gnatPrefix, approxMetricLowRankFullCoordsName);
 
   // Surface quantities
   //determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
@@ -188,6 +188,8 @@ com(_com), ioData(&_ioData), domain(_domain)
   // for fast distance calculation quantities / exact update quantitiess
   specifiedIC = false;
   uniformIC = NULL;
+
+  rTol = 1e-3;
 
 }
 
@@ -543,7 +545,7 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
         double tag = 0.0;
         int numVecs = 0;
         int step = 0;
-        char *solutionPath = new char[strlen(ioData->input.prefix) + strlen(ioData->input.stateSnapFile) + 1];
+        char *solutionPath = new char[strlen(ioData->input.prefix) + strlen(ioData->input.solutions) + 1];
         sprintf(solutionPath, "%s%s", ioData->input.prefix, ioData->input.solutions);
         bool status = domain.readTagFromFile<double, dim>(solutionPath, step, &tag, &numVecs);  // if file DNE, returns false, tag=0, and numSteps=0
         delete [] solutionPath;
@@ -672,13 +674,13 @@ void NonlinearRom<dim>::incrementDistanceComparisons(Vec<double> &dUTimeIt, int 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::incrementDistanceComparisonsForNoUpdates(Vec<double> &dUTimeIt, int currentCluster) {
+void NonlinearRom<dim>::incrementDistanceComparisonsForNoUpdates(Vec<double> &dUromTimeIt, int currentCluster) {
  
   for (int mCenter=1; mCenter<nClusters; ++mCenter) {
     for (int pCenter=0; pCenter<mCenter; ++pCenter) {
-      for (int iState=0; iState<nState; ++iState) {
+      for (int iState=0; iState<dUromTimeIt.size(); ++iState) {
         distanceComparisons[mCenter][pCenter] += stateBasisCentersProduct[currentCluster][mCenter][pCenter][iState] 
-                                                 * dUTimeIt[iState];
+                                                 * dUromTimeIt[iState];
       }
       for (int iKrylov=0; iKrylov<nKrylov; ++iKrylov) {
         // account for Krylov bases
@@ -694,20 +696,66 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForNoUpdates(Vec<double> &dU
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> &dUTimeIt, int currentCluster) {
+void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> &dUromTimeIt, int currentCluster) {
 
-  return;
+  // e_(m,p) = 2 * Uic^T *(center_p - center_m) for 0<=p<m<nCluster
+
+  // f_(m,p) = 2 * Uref_i^T *(center_p - center_m) for 0<=p<m<nClusters
+  // note that f_(m,p) = -f_(p,m)
+  
+  // g_(m,p) = 2 * basis^T *(center_p - center_m) for 0<=p<m<nClusters
+  // note that g_(m,p) = -w_(p,m)
+
+  // d_(m,p) is computed during initializeDistanceComparisons and is not needed here
+  // e_(m,p) = initialConditionCentersProduct[mCenter][pCenter]
+  // f_(m,p) = refStateCentersProduct[iRefState][mCenter][pCenter]
+  // g_(m,p) = stateBasisCentersProduct[iCluster][mCenter][pCenter][iState]
+
+ 
+  std::vector<double> tmp;
+
+  for (int mCenter=1; mCenter<nClusters; ++mCenter) {
+    for (int pCenter=0; pCenter<mCenter; ++pCenter) {
+      tmp.clear();
+      tmp.resize(dUromTimeIt.size(),0.0);
+ 
+      for (int jState=0; jState<exactUpdatesAlpha.size(); ++jState) {
+        tmp[jState] += initialConditionCentersProduct[mCenter][pCenter] * exactUpdatesAlpha[jState];
+      }
+
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+        for (int jState=0; jState<exactUpdatesBeta[iCluster].size(); ++jState) {
+          tmp[jState] += refStateCentersProduct[iCluster][mCenter][pCenter] * exactUpdatesBeta[iCluster][jState];
+        }
+      }
+
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+        if (exactUpdatesN[iCluster].size()>0) {
+          for (int jState=0; jState<dUromTimeIt.size(); ++jState) {
+            for (int iState=0; iState<exactUpdatesN[iCluster].size(); ++iState) {
+              tmp[jState] += stateBasisCentersProduct[iCluster][mCenter][pCenter][iState]*exactUpdatesN[iCluster][iState][jState];
+            }
+          }
+        }
+      }
+
+      for (int iState=0; iState<dUromTimeIt.size(); ++iState) {        
+        distanceComparisons[mCenter][pCenter] += tmp[iState] * dUromTimeIt[iState];
+      }
+    }
+  }
+
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double> &dUTimeIt, int currentCluster) {
+void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double> &dUromTimeIt, int currentCluster) {
 
   for (int mCenter=1; mCenter<nClusters; ++mCenter) {
     for (int pCenter=0; pCenter<mCenter; ++pCenter) {
-      for (int iState=0; iState<nState; ++iState) {
-        distanceComparisons[mCenter][pCenter] += hForFastDistComp[mCenter][pCenter][iState] * dUTimeIt[iState];
+      for (int iState=0; iState<dUromTimeIt.size(); ++iState) {
+        distanceComparisons[mCenter][pCenter] += hForFastDistComp[mCenter][pCenter][iState] * dUromTimeIt[iState];
       }
       for (int iKrylov=0; iKrylov<nKrylov; ++iKrylov) {
         // account for Krylov bases
@@ -1362,7 +1410,7 @@ void NonlinearRom<dim>::readClusterCenters(char* centersType) {
     ++nClusters;
 
     if (nClusters > expectedClusters) {
-      com->fprintf(stderr, "\n*** Error: found more clusters than expected (NumClusters was specified as %d)\n", nClusters);
+      com->fprintf(stderr, "\n*** Error: found more clusters than expected (NumClusters was specified as %d)\n", expectedClusters);
       exit(-1);
     }   
 
@@ -2278,8 +2326,10 @@ void NonlinearRom<dim>::readApproxMetricLowRankFactor(char* sampledOrFull) {
 
   if (strcmp(sampledOrFull,"sampled")==0) {
     determinePath(approxMetricLowRankName,-1,approxMetricPath);
+    if (!clusterCenters) readClusterCenters("sampledCenters"); 
   } else if (strcmp(sampledOrFull,"full")==0) {
     determinePath(approxMetricLowRankFullCoordsName,-1,approxMetricPath);
+    if (!clusterCenters) readClusterCenters("centers");
   } else {
     this->com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricLowRankFactor\n");
     exit (-1);
@@ -2539,7 +2589,7 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::writeReducedCoords(const int totalTimeSteps, bool clusterSwitch, bool updateFreq, int iCluster, Vec<double> dUromTimeIt) {
+void NonlinearRom<dim>::writeReducedCoords(const int totalTimeSteps, bool clusterSwitch, bool update, int iCluster, Vec<double> dUromTimeIt) {
 
   int nPod = basis->numVectors();
 
@@ -2548,14 +2598,14 @@ void NonlinearRom<dim>::writeReducedCoords(const int totalTimeSteps, bool cluste
       this->com->fprintf(clustUsageFile,"%d %d %d %d %d %d\n", totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
     if (reducedCoordsFile) {
       if (clusterSwitch) {
-        if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+        if (update) {
           this->com->fprintf(reducedCoordsFile,"%d switch update %d %d %d %d %d\n",
             totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
         } else {
           this->com->fprintf(reducedCoordsFile,"%d switch noUpdate %d %d %d %d %d\n",
             totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
         }
-      } else if (updateFreq && (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF)) {
+      } else if (update) {
         this->com->fprintf(reducedCoordsFile,"%d noSwitch update %d %d %d %d %d\n",
           totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
       } else { 
@@ -2744,7 +2794,7 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, char* type, std::ve
 
   char *infoPath = NULL;
 
-  if (strcmp(type, "refState") == 0) {// 2*(U_center_p - U_center_m)^T U_ref
+  if (strcmp(type, "referenceState") == 0) {// 2*(U_center_p - U_center_m)^T U_ref
     determinePath(stateDistanceComparisonInfoExactUpdatesName, iCluster, infoPath);
     assert(vec2);
   } else if (strcmp(type, "initialCondition") == 0) {// 2*(U_center_p - U_center_m)^T U_ic
@@ -2943,7 +2993,6 @@ void NonlinearRom<dim>::readMultiVecASCII(char* path, std::vector<double>* vec1,
               _n = fscanf(inputFile, "Dimension#4: %d\n", &dim4);
               (*vec4)[i][j][k].reserve(dim4);
               for (int l=0; l<dim4; ++l) {
-                com->fprintf(inputFile,"%23.15e\n", (*vec4)[i][j][k][l]);
                 _n = fscanf(inputFile,"%le\n", &tmpVal);
                 (*vec4)[i][j][k].push_back(tmpVal);
               }
@@ -2986,17 +3035,19 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(char* updateType) {
 
     if (strcmp(updateType, "exactUpdates") == 0) {
       if (specifiedIC) {
-        readClusteredInfoASCII(-1, "initialConditon", NULL, &initialConditionCentersProduct);
+        readClusteredInfoASCII(-1, "initialCondition", NULL, &initialConditionCentersProduct);
       } else {
         // this will be constructed during initializeDistanceComparisons 
       }
 
       refStateCentersProduct.resize(nClusters);
       for (int iCluster=0; iCluster<nClusters; ++iCluster) {
-        readClusteredInfoASCII(iCluster, "refState", NULL, &refStateCentersProduct[iCluster]);
+        readClusteredInfoASCII(iCluster, "referenceState", NULL, &refStateCentersProduct[iCluster]);
       }
     }
   } else if (strcmp(updateType, "approxUpdates") == 0) {   
+
+    readCenterNorms();
 
     if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
       this->readClusterCenters("sampledCenters");

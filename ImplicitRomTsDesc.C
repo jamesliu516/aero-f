@@ -67,8 +67,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   updateFreq = false;
   clusterSwitch = false;
-
-
+  updatePerformed = false;
 
   if (ioData->romOnline.weightedLeastSquares!=NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
     weightVec = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
@@ -197,6 +196,7 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
 
     updateFreq = ((basisUpdateFreq > 0) && (totalTimeSteps%basisUpdateFreq == 0)) ? true : false;
     clusterSwitch = (currentCluster != closestCluster) ? true : false;
+    updatePerformed = false;
 
     if (updateFreq || clusterSwitch) {
       if (clusterSwitch) {
@@ -204,7 +204,8 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
         currentCluster = closestCluster;
         rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
       }
-      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) rom->updateBasis(currentCluster, U, &dUromCurrentROB);
+      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) 
+        updatePerformed = rom->updateBasis(currentCluster, U, &dUromCurrentROB);
       if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 
@@ -420,7 +421,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
 	// output POD coordinates
   dUromCurrentROB += dUromTimeIt;
-  rom->writeReducedCoords(totalTimeSteps, clusterSwitch, updateFreq, currentCluster, dUromTimeIt); 
+  rom->writeReducedCoords(totalTimeSteps, clusterSwitch, updatePerformed, currentCluster, dUromTimeIt); 
 
   if (ioData->romOnline.distanceComparisons)
     rom->incrementDistanceComparisons(dUromTimeIt, currentCluster);
@@ -903,3 +904,64 @@ bool ImplicitRomTsDesc<dim>::breakloop2(const bool breakloop) {
 
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::updateLeastSquaresWeightingVector() {
+
+  // form the weighting vector for the least-squares system
+
+  int numLocSub = this->domain->getNumLocSub();
+
+  switch (this->ioData->romOnline.weightedLeastSquares) {
+    case (NonlinearRomOnlineData::WEIGHTED_LS_FALSE):
+      return;
+      break;
+/*    case (NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL):
+      *(this->weightVec) = *(this->weightFRef);
+      break;
+    case (NonlinearRomOnlineData::WEIGHTED_LS_STATE):
+      *(this->weightVec) = *(this->weightURef);  
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double (*weight)[dim] = this->weightVec->subData(iSub);
+        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
+          for (int j=0; j<dim; ++j)
+            weight[i][j] = weight[i][j] - (this->bcData->getInletConservativeState())[j];
+        }
+      }
+      break;*/
+    case (NonlinearRomOnlineData::WEIGHTED_LS_CV):
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = this->A->subData(iSub); // vector of control volumes
+        double (*weight)[dim] = this->weightVec->subData(iSub);
+        for (int i=0; i<this->A->subSize(iSub); ++i) {
+          for (int j=0; j<dim; ++j)
+            weight[i][j] = cv[i];
+        }
+      }
+      break;
+    case (NonlinearRomOnlineData::WEIGHTED_LS_BOCOS):
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *ffMask = this->farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
+        double (*weight)[dim] = this->weightVec->subData(iSub);
+        for (int i=0; i<this->farFieldMask->subSize(iSub); ++i) {
+          if (ffMask[i]>0) {
+            for (int j=0; j<dim; ++j)
+              weight[i][j] = this->ffWeight;
+          } else {
+            for (int j=0; j<dim; ++j)
+               weight[i][j] = 1.0;
+          }
+        }
+      }
+      break;
+    default:
+        this->com->fprintf(stderr, "*** Error: Unexpected least-squares weighting method\n");
+        exit(-1);
+      break;
+  }
+
+}

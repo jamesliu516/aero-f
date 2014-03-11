@@ -130,6 +130,7 @@ class NonlinearRom {
 
   // thin svd update quantities
   // 1: common to all update methods (simple updates, exact updates, approx updates)
+  double rTol;
   std::vector<double>* columnSumsV;
   std::vector<double>* sVals;
   DistSVec<double, dim>* Uref; 
@@ -283,7 +284,7 @@ class NonlinearRom {
   void initializeClusteredOutputs(); 
 
   // for online ROMs (both with and without hyper-reduction)
-  virtual void updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {};
+  virtual bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {return false;};
   virtual void appendNonStateDataToBasis(int, char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};
   void writeReducedCoords(const int, bool, bool, int, Vec<double>); 
