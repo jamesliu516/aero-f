@@ -660,6 +660,98 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
 }
 
+void FemEquationTermSA::computeSourceTerm(double dudxj[3][3],double dnudx[3],
+					  double d2wall, 
+					  double *V,  double *S)
+{
+
+  bool porousmedia = false;
+
+  const double sixth = 1.0/6.0;
+
+  double Tcg = varFcn->computeTemperature(V);
+
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
+  double mutilde;
+  double mut, lambdat, kappat;
+
+  mutilde = V[0]*V[5];
+
+  double chi = mutilde / mul;
+  double chi3 = chi*chi*chi;
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+
+  mut = mutilde*fv1;
+
+  lambdat = computeSecondTurbulentViscosity(lambdal, mul, mut);
+  kappat  = turbThermalCondFcn.turbulentConductivity(mut);
+
+  double absmutilde = fabs(mutilde);
+  double maxmutilde = max(mutilde, 0.0);
+  double mu5 = oosigma * (mul + absmutilde);
+
+  double dnutildedx = dnudx[0];
+  double dnutildedy = dnudx[1];
+  double dnutildedz = dnudx[2];
+  
+  /*double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] + 
+    dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
+  double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] + 
+    dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5];
+  double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] + 
+    dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
+
+  R[0][5] = mu5 * dnutildedx;
+  R[1][5] = mu5 * dnutildedy;
+  R[2][5] = mu5 * dnutildedz;
+  */
+  S[0] = 0.0;
+  S[1] = 0.0;
+  S[2] = 0.0;
+  S[3] = 0.0;
+  S[4] = 0.0;
+
+
+  if  (d2wall >= 1.e-15) {
+    chi = max(mutilde/mul, 0.001);
+    chi3 = chi*chi*chi;
+    fv1 = chi3 / (chi3 + cv1_pow3);
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if (usefv3) {
+      fv2 = 1.0 + oocv2*chi;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+    }
+    double ood2wall2 = 1.0 / (d2wall * d2wall);
+    double rho = V[0];
+    double oorho = 1.0 / rho;
+    double zz = ooreynolds_mu * oovkcst2 * maxmutilde * oorho * ood2wall2;
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+    double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
+    double rr = min(zz/Stilde, 2.0);
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+    double AA = oosigma * cb2 * rho * 
+      (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    double BB = cb1 * Stilde * absmutilde;
+    double CC = - cw1 * fw * oorho   * maxmutilde*maxmutilde * ood2wall2;
+    //double CC = - cw1 * fw * oorho * oorho * maxmutilde*maxmutilde * ood2wall2;
+    S[5] = AA + BB + CC;
+  }
+  else {
+    S[5] = 0.0;
+  }
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)

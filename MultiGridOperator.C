@@ -62,12 +62,13 @@ MultiGridOperator<Scalar,dim>::~MultiGridOperator() {
 
 template<class Scalar,int dim>
 template <class Scalar2,int neq>
-void MultiGridOperator<Scalar,dim>::computeJacobian(DistSVec<Scalar2,dim>& U, DistSVec<Scalar2,dim>& V,
-    //                                         DistVec<Scalar2>& irey,
-                                             FluxFcn **fluxFcn,
-                                             FemEquationTerm* fet,
-                                             DistMvpMatrix<Scalar2,neq>& matrices) {
-
+void MultiGridOperator<Scalar,dim>::
+computeJacobian(DistSVec<Scalar2,dim>& U, DistSVec<Scalar2,dim>& V,
+		//                                         DistVec<Scalar2>& irey,
+		FluxFcn **fluxFcn,
+		FemEquationTerm* fet,
+		DistMvpMatrix<Scalar2,neq>& matrices) {
+  
   DistVec<Scalar2>& irey = *scalar_zero; 
 #pragma omp parallel for
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
@@ -214,6 +215,7 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
   DistVec<Scalar2>& irey = *scalar_zero; 
   
   NavierStokesTerm* nsterm = NULL;
+  FemEquationTermSA* saterm = dynamic_cast<FemEquationTermSA*>(fet);
   if (fet) {
 
     FemEquationTermNS* nst = dynamic_cast<FemEquationTermNS*>(fet);
@@ -227,8 +229,8 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
 */
   }
 
-//   if (nsterm)
-//     mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
+  //if (nsterm)
+  //mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
@@ -255,14 +257,15 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
                                                      fet, (mgLevel->getGeoState())(iSub),
                                                      (mgLevel->getGeoState().getXn())(iSub),
                                                      V(iSub),res(iSub));
-
+      
+      
       mgLevel->getAgglomeratedFaces()[iSub]->computeThinLayerViscousFiniteVolumeTerm(
                                       fet, myVarFcn,V(iSub), (*DX[0])(iSub), 
                                       (*DX[1])(iSub), (*DX[2])(iSub) ,
                                       mgLevel->getGeoState()(iSub).getDistanceToWall(),
                                       (*myBcData)(iSub).getFaceStateVector(),
                                       res(iSub)); 
-                                                    
+      
     }    
 
   }
@@ -278,15 +281,47 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
         res(iSub)[i][j] /= (mgLevel->getCtrlVol())(iSub)[i];
     }
   }
-  
+
+  // Add the S-A source term.
+  /*  if (saterm) {
+
+    double S[6];
+#pragma omp parallel for
+    for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+      
+      for (int i = 0; i < V.subSize(iSub); ++i) {
+
+	double d2wall = mgLevel->getGeoState()(iSub).getDistanceToWall()[i];
+	
+	double dudxj[3][3] = {(*DX[0])(iSub)[i][1], (*DX[1])(iSub)[i][1], (*DX[2])(iSub)[i][1],
+				      (*DX[0])(iSub)[i][2], (*DX[1])(iSub)[i][2], (*DX[2])(iSub)[i][2],
+			      (*DX[0])(iSub)[i][3], (*DX[1])(iSub)[i][3], (*DX[2])(iSub)[i][3]};
+	
+	double dnudx[3] = {(*DX[0])(iSub)[i][5], (*DX[1])(iSub)[i][5], (*DX[2])(iSub)[i][5]};
+
+	saterm->computeSourceTerm(dudxj, dnudx, d2wall, V(iSub)[i], S);
+	//if (i == 0)
+	//  std::cout << S[5] << std::endl;
+	for (int k = 0; k < dim; ++k) {
+
+	  res(iSub)[i][k] -= S[k];
+	}
+
+      }
+    }
+  }
+  */
+
+  /*
   if (timeState && addDWdt) {
 
     timeState->add_dAW_dt(0, mgLevel->getGeoState(),
                           mgLevel->getCtrlVol(), U, res);
   } 
-  
-  applyBCsToResidual(U, res);
+  */
 
+  applyBCsToResidual(U, res);
+  
 } 
 
 template<class Scalar,int dim>
@@ -634,6 +669,9 @@ INST_HELPER(double,2);
 INST_HELPER(double,5);
 INST_HELPER(double,6);
 INST_HELPER(double,7);
+
+INST_HELPER2(double,6,1);
+INST_HELPER2(double,7,2);
 
 INST_HELPER2(double,6,5);
 INST_HELPER2(double,7,5);

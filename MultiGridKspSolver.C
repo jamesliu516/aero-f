@@ -101,6 +101,10 @@ solve(int lvl, MultiGridMvpMatrix<Scalar,neq>& M,
   coarseSolvers[lvl]->solve(f(lvl),x(lvl));
 }
 
+template class MultiGridKspSolver<double,1,double>;
+template class MultiGridKspSolver<double,2,double>;
+template class MultiGridKspSolver<double,3,double>;
+
 template class MultiGridKspSolver<double,5,double>;
 template class MultiGridKspSolver<double,6,double>;
 template class MultiGridKspSolver<double,7,double>;

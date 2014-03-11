@@ -375,7 +375,7 @@ void MultiGridEmbeddedTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);
     
-    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), x(lvl), prolong_relax_factor,
+    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), x(lvl), x(lvl), prolong_relax_factor,
 		     mgLSS[lvl+1]);
   }
 

@@ -59,6 +59,8 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
   MultiGridSmoothingMatrices<double,neq2>* smoothingMatrices2;
 
   MultiGridMvpMatrix<double,neq1>* mgMvp1;
+  MultiGridMvpMatrix<double,neq2>* mgMvp2;
 
-  MultiGridKspSolver<double,neq1,double>* mgKspSolver;
+  MultiGridKspSolver<double,neq1,double>* mgKspSolver1;
+  MultiGridKspSolver<double,neq2,double>* mgKspSolver2;
 };

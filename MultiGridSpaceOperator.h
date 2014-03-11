@@ -15,6 +15,7 @@ class MultiGridSpaceOperator {
 
   MultiGridSpaceOperator(IoData&,Domain*, SpaceOperator<dim>*,
                          MultiGridKernel<Scalar>* pKernel,
+                         SpaceOperator<dim>* = NULL,
                          SpaceOperator<dim>* = NULL);
 
   ~MultiGridSpaceOperator();
@@ -48,6 +49,11 @@ class MultiGridSpaceOperator {
                        MultiGridMvpMatrix<Scalar,neq>& mvp);
 
   template <int neq>
+    void computeTurbulentJacobian(int level, MultiGridDistSVec<Scalar,dim>& U,
+				  MultiGridDistSVec<Scalar,dim>& V,
+				  MultiGridMvpMatrix<Scalar,neq>& mvp);
+
+  template <int neq>
     void computeJacobianEmbedded(DistExactRiemannSolver<dim>&,
 				 int level, MultiGridDistSVec<Scalar,dim>& U,
 				 MultiGridDistSVec<Scalar,dim>& V,
@@ -70,9 +76,9 @@ class MultiGridSpaceOperator {
 
   RecFcnConstant<dim> recConstant;
 
-  FemEquationTerm* fet,*fet1; 
+  FemEquationTerm* fet,*fet1, *fet2; 
 
-  FluxFcn** fluxFcn, **fluxFcn1;
+  FluxFcn** fluxFcn, **fluxFcn1, **fluxFcn2;
 
   VarFcn* varFcn;
 };

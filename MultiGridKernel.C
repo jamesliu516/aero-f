@@ -179,12 +179,13 @@ template<class Scalar2, int dim>
 void MultiGridKernel<Scalar>::Prolong(int coarseLvl,
                                       DistSVec<Scalar2,dim>& coarseOld,
                                       DistSVec<Scalar2,dim>& coarse,
-                                      DistSVec<Scalar2,dim>& fine,double relax,
+                                      DistSVec<Scalar2,dim>& fine,
+                                      DistSVec<Scalar2,dim>& fine_ref,double relax,
 				      class DistLevelSetStructure* coarselss,
 				      class DistLevelSetStructure* finelss) {
 
   multiGridLevels[coarseLvl]->Prolong(*multiGridLevels[coarseLvl-1],
-                                      coarseOld,coarse,fine,relax,
+                                      coarseOld,coarse,fine,fine_ref,relax,
 				      coarselss, finelss);
 
   
@@ -262,6 +263,9 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
         vf->conservativeToPrimitive(Ul[i],Vl[i]);
         fixLocations[lvl][iSub].insert(i);
       }
+
+      if (dim > 5 && Ul[i][5] < 1.0e-10)
+        Ul[i][5] = 1.0e-10;
     }
   }
 }
@@ -462,7 +466,7 @@ setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0) {
  template void MultiGridKernel<T>::Restrict(int coarseLvl, DistSVec<T2,D>&, \
 					    DistSVec<T2,D>&,bool , bool); \
  template void MultiGridKernel<T>::Prolong(int coarseLvl, DistSVec<T2,D>&, \
-                                   DistSVec<T2,D>&,DistSVec<T2,D>&, \
+                                   DistSVec<T2,D>&,DistSVec<T2,D>&,DistSVec<T2,D>&, \
                                    double,  \
 					   class DistLevelSetStructure* coarselss, \
 					   class DistLevelSetStructure* finelss); \
