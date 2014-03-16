@@ -383,6 +383,7 @@ int ImplicitSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec<double,
 
   int lits2 = ksp2->solve(b2, dQ2);
 
+  //if(this->data->checklinsolve && (lits1 == ksp1->maxits || lits2 == ksp2->maxits)) errorHandler->globalErrors[ErrorHandler::SATURATED_LS]++;
   if(this->data->checklinsolve && (lits1 == ksp1->maxits || lits2 == ksp2->maxits)) this->data->badlinsolve=true;
 
   this->timer->addKspTime(t0);

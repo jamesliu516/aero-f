@@ -98,6 +98,7 @@ InputData::InputData()
   restart_file_package = "";
   podFile = "";
   optimalPressureFile = "";
+  multiStateSnapRefSolution = "";
   stateSnapRefSolution = "";
   stateSnapFile = "";
   residualSnapFile = "";
@@ -152,6 +153,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassToken<InputData>(ca, "OptimalPressureDimensionality", this, reinterpret_cast<int InputData::*>(&InputData::optPressureDim), 3, "NonDimensional", 0, "Dimensional", 1,"None",2);
   new ClassStr<InputData>(ca, "StateSnapshotData", this, &InputData::stateSnapFile);
   new ClassStr<InputData>(ca, "StateSnapshotReferenceSolution", this, &InputData::stateSnapRefSolution);
+  new ClassStr<InputData>(ca, "MultipleStateSnapshotReferenceSolutions", this, &InputData::multiStateSnapRefSolution);
   new ClassStr<InputData>(ca, "ResidualSnapshotData", this, &InputData::residualSnapFile);
   new ClassStr<InputData>(ca, "KrylovSnapshotData", this, &InputData::krylovSnapFile);
   new ClassStr<InputData>(ca, "SensitivitySnapshotData", this, &InputData::sensitivitySnapFile);
@@ -359,6 +361,8 @@ TransientData::TransientData()
   hydrostaticlift = "";
   hydrodynamiclift = "";
   residuals = "";
+  matchpressure = "";
+  fluxnorm = "";
   materialVolumes = "";
   conservation = "";
   podFile = "";
@@ -470,6 +474,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<TransientData>(ca, "GeneralizedForce", this, &TransientData::generalizedforces);
   new ClassStr<TransientData>(ca, "LiftandDrag", this, &TransientData::lift);
+  new ClassStr<TransientData>(ca, "MatchPressure", this, &TransientData::matchpressure);
+  new ClassStr<TransientData>(ca, "FluxNorm", this, &TransientData::fluxnorm);
   new ClassStr<TransientData>(ca, "HydroStaticLiftandDrag", this, &TransientData::hydrostaticlift);
   new ClassStr<TransientData>(ca, "HydroDynamicLiftandDrag", this, &TransientData::hydrodynamiclift);
   new ClassStr<TransientData>(ca, "TavLiftandDrag", this, &TransientData::tavlift);
@@ -2912,6 +2918,7 @@ TsData::TsData()
 
   maxIts = 100;
   eps = 1.e-6;
+  epsabs = 1.e-6;
   timestep = -1.0;
   timestepinitial = -1.0;
   maxTime = 1.e99;
@@ -2985,6 +2992,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
 
   new ClassInt<TsData>(ca, "MaxIts", this, &TsData::maxIts);
   new ClassDouble<TsData>(ca, "Eps", this, &TsData::eps);
+  new ClassDouble<TsData>(ca, "EpsAbs", this, &TsData::epsabs);
   new ClassDouble<TsData>(ca, "TimeStep", this, &TsData::timestep);
   new ClassDouble<TsData>(ca, "TimeStepInitial", this, &TsData::timestepinitial);
   new ClassDouble<TsData>(ca, "MaxTime", this, &TsData::maxTime);
@@ -3048,7 +3056,6 @@ void DGCLData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
-
 
 // Included (MB)
 SensitivityAnalysis::SensitivityAnalysis()

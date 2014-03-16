@@ -377,7 +377,7 @@ void TsDesc<dim>::evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln)
 template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
-  char * name;
+  char * name = new char[500];
 
   geoState->setup2(timeState->getData());
   com->fprintf(stderr," input->solutions = %s\n",input->solutions);
@@ -638,7 +638,11 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     else //wallRecType == EXACT_RIEMANN
       output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
 
+    double fluxNorm = 0.5*(data->residual)*(data->residual);
+
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    output->writeMatchPressureToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, *A, U, timeState);
+    output->writeFluxNormToDisk(it, 0, 0, t, fluxNorm);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
@@ -666,8 +670,11 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
   double cpu = timer->getRunTime();
   double res = data->residual / restart->residual;
+  double fluxNorm = 0.5*(data->residual)*(data->residual);
 
   output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
+  output->writeMatchPressureToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, *A, U, timeState);
+  output->writeFluxNormToDisk(it, itSc, itNl, t, fluxNorm);
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
@@ -873,7 +880,7 @@ bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
   if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2))
     restart->residual = data->residual;
 
-  if (data->residual == 0.0 || data->residual < data->eps * restart->residual) 
+  if (data->residual == 0.0 || data->residual < data->eps * restart->residual || data->residual < data->epsabs) 
     return true;
   else
     return false;
