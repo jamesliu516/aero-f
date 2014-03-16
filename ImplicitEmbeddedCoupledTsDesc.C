@@ -151,6 +151,7 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
   
   int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
 
+  //if(this->data->checklinsolve && lits==ksp->maxits) this->data->errorHandler->globalErrors[ErrorHandler::SATURATED_LS]++;
   if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
  
   dQ = this->embeddeddQ.real();

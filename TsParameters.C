@@ -55,6 +55,7 @@ TsParameters::TsParameters(IoData &ioData)
 
   maxIts = ioData.ts.maxIts;
   eps = ioData.ts.eps;
+  epsabs = ioData.ts.epsabs;
   maxTime = ioData.ts.maxTime;
 
   forbidreduce = ioData.ts.cfl.forbidreduce;
@@ -93,7 +94,7 @@ TsParameters::~TsParameters()
 //Figure out what to do with errors (related to time step)
 void TsParameters::resolveErrors(){
 
-  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]){
+  if (checklinsolve && (errorHandler->globalErrors[ErrorHandler::SATURATED_LS] || badlinsolve)){
     errorHandler->com -> printf(1,"Detected saturated linear solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
   }
@@ -183,6 +184,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
 
   if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
+    badlinsolve=false;
     double cflold=cfl;
     cfl *= 0.5;
     fixedunsteady_counter = 1;

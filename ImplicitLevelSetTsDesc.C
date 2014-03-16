@@ -442,6 +442,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<double
 
   int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
 
+  //if(this->data->checklinsolve && lits==kspLS->maxits) this->data->errorHandler->globalErrors[ErrorHandler::SATURATED_LS]++;
   if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
  
   dQ = this->embeddeddQ.real();

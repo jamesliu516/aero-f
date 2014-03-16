@@ -58,6 +58,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       optPressureDimensional=false;
     else
       optPressureDimensional=true;
+
+    if (!Qs_match_opt) Qs_match_opt = new DistSVec<double,1>(domain->getNodeDistInfo());
+    com->fprintf(stdout, "\nReading optimal pressure distribution from %s\n", fullOptPressureName);
+    domain->readVectorFromFile(fullOptPressureName,0,0,*Qs_match_opt);
   }
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
@@ -417,6 +421,20 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     lift = 0;
 
+  if (iod.output.transient.matchpressure[0] != 0){
+    matchpressure = new char[sp + strlen(iod.output.transient.matchpressure)];
+    sprintf(matchpressure, "%s%s", iod.output.transient.prefix, iod.output.transient.matchpressure);
+  }
+  else
+    matchpressure = 0;
+
+  if (iod.output.transient.fluxnorm[0] != 0){
+    fluxnorm = new char[sp + strlen(iod.output.transient.fluxnorm)];
+    sprintf(fluxnorm, "%s%s", iod.output.transient.prefix, iod.output.transient.fluxnorm);
+  }
+  else
+    fluxnorm = 0;
+
   if (iod.output.transient.tavlift[0] != 0){
     tavlift = new char[sp + strlen(iod.output.transient.tavlift)];
     sprintf(tavlift, "%s%s", iod.output.transient.prefix, iod.output.transient.tavlift);
@@ -510,6 +528,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   fpCpuTiming = 0;
   fpResiduals = 0;
+  fpMatchPressure = 0;
+  fpFluxNorm      = 0;
   fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
@@ -864,6 +884,8 @@ TsOutput<dim>::~TsOutput()
 
   delete[] heatfluxes;
   delete[] residuals;
+  delete[] matchpressure;
+  delete[] fluxnorm;
   delete[] material_volumes;
   delete[] embeddedsurface;
   delete[] cputiming;
@@ -1526,7 +1548,35 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpResiduals);
   }
-  
+
+  if (matchpressure) {
+    if (it0 != 0) 
+      fpMatchPressure = backupAsciiFile(matchpressure);
+    if (it0 == 0 || fpMatchPressure == 0) {
+      fpMatchPressure = fopen(matchpressure, "w");
+      if (!fpMatchPressure) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", matchpressure);
+        exit(1);
+      }
+      fprintf(fpMatchPressure, "#TimeIteration Time SubCycles NewtonSteps 0.5||P-P^*||_2^2/||P^*||_2^2\n");
+    }
+    fflush(fpMatchPressure);
+  }
+
+   if (fluxnorm) {
+    if (it0 != 0) 
+      fpFluxNorm = backupAsciiFile(fluxnorm);
+    if (it0 == 0 || fpFluxNorm == 0) {
+      fpFluxNorm = fopen(fluxnorm, "w");
+      if (!fpFluxNorm) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", fluxnorm);
+        exit(1);
+      }
+      fprintf(fpFluxNorm, "#TimeIteration Time SubCycles NewtonSteps 0.5||R||_2^2\n");
+    }
+    fflush(fpFluxNorm);
+  }
+ 
   if (material_volumes) {
     if (it0 != 0)
       fpMatVolumes = backupAsciiFile(material_volumes);
@@ -1614,6 +1664,8 @@ void TsOutput<dim>::closeAsciiFiles()
   }
 
   if (fpResiduals) fclose(fpResiduals);
+  if (fpMatchPressure) fclose(fpMatchPressure);
+  if (fpFluxNorm) fclose(fpFluxNorm);
   if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
   if (fpCpuTiming) fclose(fpCpuTiming);
@@ -2168,7 +2220,8 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
 
 }
 //------------------------------------------------------------------------------
-                                                                                                                                                                                                     
+
+
 template<int dim>
 void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
@@ -2318,7 +2371,53 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
     com->printf(0, "It %5d: Res = %e, Cfl = %e, Elapsed Time = %.2e s\n", it, res, cfl, cpu);
 
 }
+//------------------------------------------------------------------------------
 
+template<int dim>
+void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+                                     double* e, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U,
+                                     DistTimeState<dim> * timeState, DistVec<int> *fluidId)
+{
+
+  double time = refVal->time * t;
+
+  if (!Qs_match)     Qs_match     = new DistVec<double>(domain->getNodeDistInfo());
+
+  postOp->computeScalarQuantity(PostFcn::PRESSURE, X, U, A, *Qs_match, timeState);
+  DistSVec<double,1> Qs1(Qs_match->info(), reinterpret_cast<double (*)[1]>(Qs_match->data()));
+
+  if (optPressureDimensional)
+    Qs1-=((*Qs_match_opt)*(1/sscale[2]));
+  else
+    Qs1-=(*Qs_match_opt);
+
+  double normPdiff;
+  normPdiff  = 0.5*(Qs1*Qs1);
+  normPdiff*=(sscale[2]*sscale[2]);
+
+  if (com->cpuNum() != 0) return;
+  if (fpMatchPressure) {
+    fprintf(fpMatchPressure, "%d %e %d %d %e \n",it, time, itSc, itNl, normPdiff);
+    fflush(fpMatchPressure);
+  }
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeFluxNormToDisk(int it, int itSc, int itNl, double t, double normFlux)
+{
+
+  double time = refVal->time * t;
+
+  if (com->cpuNum() != 0) return;
+
+  if (fpFluxNorm) {
+    fprintf(fpFluxNorm, "%d %e %d %d %e \n",it, time, itSc, itNl, normFlux);
+    fflush(fpFluxNorm);
+  }
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>

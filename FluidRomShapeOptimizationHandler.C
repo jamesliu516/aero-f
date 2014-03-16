@@ -1498,14 +1498,26 @@ void FluidRomShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioDa
   Vec3D dFds, dMds, dLds;
 
   this->expandVector(dYdS,dUdS);
-  if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE )
+  if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ){
     fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, dFds, dMds);
-  else
+    dLds[0] = dFds[0]*cos(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) +
+              dFds[1]*cos(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
+              dFds[2]*sin(ioData.bc.inlet.alpha);
+
+    dLds[1] = -dFds[0]*sin(ioData.bc.inlet.beta) + dFds[1]*cos(ioData.bc.inlet.beta);
+
+    dLds[2] = -dFds[0]*sin(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) -
+               dFds[1]*sin(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
+               dFds[2]*cos(ioData.bc.inlet.alpha);
+    this->com->fprintf(stderr,"dLds = %20.16f, %20.16f, %20.16f\n",dLds[0],dLds[1],dLds[2]);
+
+  } else
     fsoGetDerivativeOfEffortsAnalytical(ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
 
   if ((!ioData.sa.angleRad) && (DFSPAR[1] || DFSPAR[2])) {
     dFds *= acos(-1.0) / 180.0;
     dMds *= acos(-1.0) / 180.0;
+    dLds *= acos(-1.0) / 180.0;
   }  
 
   if (this->com->cpuNum() == 0) {

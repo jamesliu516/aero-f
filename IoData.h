@@ -87,6 +87,7 @@ struct InputData {
   //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
   const char *stateSnapFile;
   const char *stateSnapRefSolution;
+  const char *multiStateSnapRefSolution;
   const char *residualSnapFile;
   const char *krylovSnapFile;
   const char *sensitivitySnapFile;
@@ -223,6 +224,8 @@ struct TransientData {
   const char *hydrodynamicforces;
   const char *generalizedforces;
   const char *lift;
+  const char *matchpressure;
+  const char *fluxnorm;
   const char *tavlift;
   const char *hydrostaticlift;
   const char *hydrodynamiclift;
@@ -1639,6 +1642,7 @@ struct TsData {
 
   int maxIts;
   double eps;
+  double epsabs;
   double timestep;
   double timestepinitial;
   double maxTime;

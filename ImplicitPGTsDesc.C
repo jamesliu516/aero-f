@@ -580,7 +580,7 @@ bool ImplicitPGTsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
 
   this->data->residual = computePGResidualNorm(U);
 
-  if (this->data->residual == 0.0 || this->data->residual < this->data->eps * this->restart->residual)
+  if (this->data->residual == 0.0 || this->data->residual < this->data->eps * this->restart->residual || this->data->residual < this->data->epsabs)
     return true;
   else
     return false;

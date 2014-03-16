@@ -76,6 +76,8 @@ private:
   char *hydrostaticforces;
   char *hydrodynamicforces;
   char *lift;
+  char *matchpressure;
+  char *fluxnorm;
   char *tavlift;
   char *hydrostaticlift;
   char *hydrodynamiclift;
@@ -107,6 +109,8 @@ private:
   FILE **fpHydroStaticLift;
   FILE **fpHydroDynamicLift;
   FILE *fpResiduals;
+  FILE *fpMatchPressure;
+  FILE *fpFluxNorm;
   FILE *fpMatVolumes;
   FILE *fpConservationErr;
   FILE *fpGnForces;
@@ -202,6 +206,11 @@ public:
   void writeLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<int> * = 0);
+  void writeMatchPressureToDisk(IoData &, bool, int, int, int, double, double, double*,
+                                DistSVec<double,3> &, DistVec<double> &,
+                                DistSVec<double,dim> &, DistTimeState<dim> *,
+                                DistVec<int> * = 0);
+  void writeFluxNormToDisk(int, int, int, double, double);
   void writeHydroLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<int> * = 0);
