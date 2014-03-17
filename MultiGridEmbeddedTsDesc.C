@@ -12,11 +12,11 @@ MultiGridEmbeddedTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   memset(numSmooths_pre,0,sizeof(numSmooths_pre));
   memset(numSmooths_post,0,sizeof(numSmooths_post));
   numSmooths_pre[0] = 1;
-  numSmooths_pre[1] = 2;
-  numSmooths_pre[2] = 3;
-  numSmooths_pre[3] = 3;
-  numSmooths_pre[4] = 3;
-  numSmooths_pre[5] = 3;
+  numSmooths_pre[1] = 1;
+  numSmooths_pre[2] = 1;
+  numSmooths_pre[3] = 5;
+  numSmooths_pre[4] = 5;
+  numSmooths_pre[5] = 5;
   /*
   numSmooths_post[0] = 1;
   numSmooths_post[1] = 2;
@@ -374,9 +374,12 @@ void MultiGridEmbeddedTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
 
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);
-    
+
+    pKernel->ExtrapolateProlongation(lvl+1,Uold(lvl+1), U(lvl+1), 
+				     mgLSS[lvl+1], mgLSS[lvl]);
+
     pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), x(lvl), x(lvl), prolong_relax_factor,
-		     mgLSS[lvl+1]);
+		     mgLSS[lvl+1], mgLSS[lvl]);
   }
 
   if (lvl == 0) 

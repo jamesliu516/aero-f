@@ -10,19 +10,19 @@ MultiGridSegTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   memset(numSmooths_post,0,sizeof(numSmooths_post));
   memset(numSmooths_pre,0,sizeof(numSmooths_pre));
   numSmooths_pre[0] = 1;
-  numSmooths_pre[1] = 2;
-  numSmooths_pre[2] = 3;
-  numSmooths_pre[3] = 3;
-  numSmooths_pre[4] = 3;
-  numSmooths_pre[5] = 3;
+  numSmooths_pre[1] = 10;
+  numSmooths_pre[2] = 15;
+  numSmooths_pre[3] = 20;
+  numSmooths_pre[4] = 20;
+  numSmooths_pre[5] = 20;
   
-  /*numSmooths_post[0] = 1;
-  numSmooths_post[1] = 2;
-  numSmooths_post[2] = 3;
-  numSmooths_post[3] = 3;
-  numSmooths_post[4] = 3;
-  numSmooths_post[5] = 3;
-  */
+  numSmooths_post[0] = 0;
+  numSmooths_post[1] = 5;
+  numSmooths_post[2] = 10;
+  numSmooths_post[3] = 15;
+  numSmooths_post[4] = 20;
+  numSmooths_post[5] = 20;
+  
   prolong_relax_factor = iod.mg.prolong_relax_factor;
   restrict_relax_factor = iod.mg.restrict_relax_factor;
 
@@ -207,10 +207,10 @@ smooth0(DistSVec<double,dim>& x,int steps) {
 template <int dim,int neq1,int neq2>
 void MultiGridSegTsDesc<dim,neq1,neq2>::
 smooth(int lvl, MultiGridDistSVec<double,dim>& x,
-       DistSVec<double,dim>& f,int steps) {
+       DistSVec<double,dim>& f,int steps, bool postsmooth) {
 
   int i;
-  for (i = 0; i < steps; ++i) {
+  for (i = 0; i < /*100000000*/steps; ++i) {
 
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
 
@@ -219,13 +219,23 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     mgSpaceOp->computeTimeStep(lvl,this->data->cfl,//*pow(0.75,lvl),
                                V);
  
-    // mgSpaceOp->computeResidual(lvl, x, V, res);
+    if (i == 0 && postsmooth)
+      mgSpaceOp->computeResidual(lvl, x, V, res);
+
     if (i == 0) {
       mgSpaceOp->computeJacobian(lvl, x, V, *mgMvp1);
       mgSpaceOp->computeTurbulentJacobian(lvl, x, V, *mgMvp2);
     }
     R(lvl) = f-1.0*res(lvl);
+    //R(lvl) = -1.0*res(lvl);
     R(lvl).split(R1(lvl), R2(lvl));
+
+    int rnk;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+    
+    double norm = R(lvl).norm();
+    if (rnk == 0)
+      std::cout << "i = " << i << " norm = " << norm << std::endl;
     if (smoothWithGMRES) {
       mgKspSolver1->solve(lvl, *mgMvp1, R1, dx1);
       mgKspSolver2->solve(lvl, *mgMvp2, R2, dx2);
@@ -250,7 +260,12 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
     mgSpaceOp->computeResidual(lvl, x, V, res, false);
     R(lvl) = f-res(lvl);
-
+    /*
+    if (lvl == 1 && i%1000==0) {
+      pKernel->getLevel(lvl)->writePVTUSolutionFile("r.sol",x(lvl));
+      MPI_Barrier(MPI_COMM_WORLD);
+    }
+    */
   }
  
 /*
@@ -271,7 +286,7 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
     mgSpaceOp->setupBcs(this->getSpaceOperator()->getDistBcData());
   }
   else
-    smooth(lvl,x, f,  numSmooths_pre[lvl]);
+    smooth(lvl,x, f,  numSmooths_pre[lvl],false);
 
   if (lvl < pKernel->numLevels()-1) {
     /*
@@ -347,8 +362,11 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
       for (int l = 0; l < x(lvl)(iSub).size(); ++l) {
         if (this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 9 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 10 ||
+	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 216 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 4155 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 4160 ||
+	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 4629 ||
+	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 180368 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 281716 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 224854 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 270000 || 
@@ -356,7 +374,8 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 290000 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 1278215 ||
 	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 1617680 ||
-            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 2520747) {   
+            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 2520747 ||
+            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 11148134) {   
 
           this->varFcn->conservativeToPrimitive(x(lvl)(iSub)[l],Vloc);
           std::cout << "V[" << this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1  << "] = ";
@@ -369,7 +388,7 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
   if (lvl == 0) 
     smooth0(x(lvl), numSmooths_post[0]);
   else
-    smooth(lvl,x, f,  numSmooths_post[lvl]);
+    smooth(lvl,x, f,  numSmooths_post[lvl], true);
 }
 
 template <int dim,int neq1,int neq2>

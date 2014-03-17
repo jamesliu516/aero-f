@@ -197,6 +197,12 @@ void TsRestart::readRestartFileNames(const char* fn,
 
   if (com == NULL || com->cpuNum() == 0) {
     fin = fopen(fn,"r");
+
+    if (!fin) {
+
+      std::cout << "Could not read restart package file " << fn << std::endl;
+      exit(-1);
+    }
   }
    
   for (int i = 0; i < 7; ++i) {

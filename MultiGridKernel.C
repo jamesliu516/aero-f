@@ -176,6 +176,19 @@ void MultiGridKernel<Scalar>::Restrict(int coarseLvl, DistSVec<Scalar2,dim>& fin
 
 template <class Scalar>
 template<class Scalar2, int dim>
+void MultiGridKernel<Scalar>::ExtrapolateProlongation(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
+			     DistSVec<Scalar2,dim>& coarse,	      
+			     class DistLevelSetStructure* coarselss,
+			     class DistLevelSetStructure* finelss) {
+
+  multiGridLevels[coarseLvl]->
+    ExtrapolateProlongation(*multiGridLevels[coarseLvl-1],
+			    coarseOld,coarse,
+			    coarselss, finelss);
+}
+
+template <class Scalar>
+template<class Scalar2, int dim>
 void MultiGridKernel<Scalar>::Prolong(int coarseLvl,
                                       DistSVec<Scalar2,dim>& coarseOld,
                                       DistSVec<Scalar2,dim>& coarse,
@@ -465,6 +478,10 @@ setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0) {
 #define INSTANTIATION_HELPER2(T,T2,D) \
  template void MultiGridKernel<T>::Restrict(int coarseLvl, DistSVec<T2,D>&, \
 					    DistSVec<T2,D>&,bool , bool); \
+ template void MultiGridKernel<T>::ExtrapolateProlongation(int coarseLvl, DistSVec<T2,D>&, \
+                                   DistSVec<T2,D>&,\
+					   class DistLevelSetStructure* coarselss, \
+					   class DistLevelSetStructure* finelss); \
  template void MultiGridKernel<T>::Prolong(int coarseLvl, DistSVec<T2,D>&, \
                                    DistSVec<T2,D>&,DistSVec<T2,D>&,DistSVec<T2,D>&, \
                                    double,  \

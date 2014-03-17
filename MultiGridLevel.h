@@ -321,6 +321,13 @@ class MultiGridLevel {
                                                   const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,DistSVec<Scalar2,dim>& fine_ref,double relax_factor=1.0, class DistLevelSetStructure* coarse = NULL,class DistLevelSetStructure* fine = NULL) const;
 
     template<class Scalar2, int dim>
+      void ExtrapolateProlongation(MultiGridLevel<Scalar>& fineGrid, 
+				   const DistSVec<Scalar2,dim>& coarseInitialData,
+				   DistSVec<Scalar2,dim>& coarseData,
+				   DistLevelSetStructure* coarseLSS, 
+				   DistLevelSetStructure* fineLSS);
+
+    template<class Scalar2, int dim>
     void ProjectResidual(DistSVec<Scalar2,dim>& r) const;
 
     template<class Scalar2, int dim>
