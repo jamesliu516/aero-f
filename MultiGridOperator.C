@@ -90,7 +90,7 @@ computeJacobian(DistSVec<Scalar2,dim>& U, DistSVec<Scalar2,dim>& V,
                                                  matrices(iSub));
 
     if (fet && addViscousTerms) {
-     
+      /*
       mgLevel->getEdges()[iSub]->computeJacobianThinLayerViscousFiniteVolumeTerm(
         NULL, myVarFcn, fet, mgLevel->getGeoState()(iSub), 
         mgLevel->getXn()(iSub),  V(iSub), mgLevel->getCtrlVol()(iSub), matrices(iSub));
@@ -100,7 +100,7 @@ computeJacobian(DistSVec<Scalar2,dim>& U, DistSVec<Scalar2,dim>& V,
          (*DX[1])(iSub), (*DX[2])(iSub), mgLevel->getCtrlVol()(iSub),
          mgLevel->getGeoState()(iSub).getDistanceToWall(),
          (*myBcData)(iSub).getFaceStateVector(),matrices(iSub));
-          
+      */
     }
  
     Vec<double>& ctrlVol = mgLevel->getCtrlVol()(iSub); 
@@ -229,8 +229,8 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
 */
   }
 
-  //if (nsterm)
-  //mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
+  if (nsterm)
+  mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
@@ -252,13 +252,22 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
 
     if (fet && addViscousTerms) {
  
-      mgLevel->getEdges()[iSub]->template 
+      /* mgLevel->getEdges()[iSub]->template 
         computeThinLayerViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
                                                      fet, (mgLevel->getGeoState())(iSub),
                                                      (mgLevel->getGeoState().getXn())(iSub),
                                                      V(iSub),res(iSub));
       
-      
+      */
+      mgLevel->getEdges()[iSub]->template 
+        computeViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
+					    fet, (mgLevel->getGeoState())(iSub),
+					    (mgLevel->getGeoState().getXn())(iSub),
+					    V(iSub),
+					    (*DX[0])(iSub), 
+					    (*DX[1])(iSub), (*DX[2])(iSub) ,
+					    res(iSub));
+
       mgLevel->getAgglomeratedFaces()[iSub]->computeThinLayerViscousFiniteVolumeTerm(
                                       fet, myVarFcn,V(iSub), (*DX[0])(iSub), 
                                       (*DX[1])(iSub), (*DX[2])(iSub) ,
@@ -375,7 +384,7 @@ computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
 					    (mgLevel->getGeoState().getXn())(iSub), V(iSub), 
 					    (*Wstarij)(iSub), (*Wstarji)(iSub),
 					    (*mgLSS)(iSub), false,
-					    (*mgLSS).getStatus()(iSub) ,1, NULL,
+					    (*mgLSS).getStatus()(iSub) ,0, NULL,
 					    ngrad, NULL, res(iSub),0,
 					    (mgLevel->getFVCompTag())(iSub), 0,0); 
     

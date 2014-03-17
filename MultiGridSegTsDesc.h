@@ -25,7 +25,8 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
   void smooth0(DistSVec<double,dim>& x,int steps);
 
   void smooth(int lvl, MultiGridDistSVec<double,dim>& x,
-       DistSVec<double,dim>& f,int steps);
+	      DistSVec<double,dim>& f,int steps,
+	      bool postsmooth);
 
   void cycle(int lvl, DistSVec<double,dim>& f,
              MultiGridDistSVec<double,dim>& x);

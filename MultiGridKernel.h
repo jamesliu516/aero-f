@@ -42,6 +42,12 @@ class MultiGridKernel {
 		bool = false);
 
   template<class Scalar2, int dim>
+  void ExtrapolateProlongation(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
+			       DistSVec<Scalar2,dim>& coarse,	      
+			       class DistLevelSetStructure* coarselss = NULL,
+			       class DistLevelSetStructure* finelss = NULL);
+
+  template<class Scalar2, int dim>
   void Prolong(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
                DistSVec<Scalar2,dim>& coarse, DistSVec<Scalar2,dim>& fine,
 	       DistSVec<Scalar2,dim>& fine_ref,

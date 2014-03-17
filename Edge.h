@@ -128,6 +128,17 @@ public:
                                      SVec<double,dim>& V,
                                      SVec<double,dim>& fluxes);
   
+  template<int dim>
+    int computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+				   VarFcn* varFcn,
+				   FemEquationTerm *fet,
+				   GeoState& geoState, SVec<double,3>& X,
+				   SVec<double,dim>& V,
+				   SVec<double,dim> &dX,
+				   SVec<double,dim> &dY,
+				   SVec<double,dim> &dZ,
+				   SVec<double,dim>& fluxes);
+
   template<int dim,class Scalar,int neq>
   int computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
                                      VarFcn* varFcn,

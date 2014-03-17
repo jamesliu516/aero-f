@@ -3472,7 +3472,7 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 	  if (mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] != 
 	      MultigridSubdomain::TopoInterior && apply_relaxation)
 	    loc_relax_factor *= 0.5;
-	  
+
 	  for(int j = 0; j < dim; ++j) {
 	    //if (j < 5) {
 	      coarseData(iSub)[nodeMapping(iSub)[i]][j] += loc_relax_factor*fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i][j];
@@ -3689,8 +3689,8 @@ void MultiGridLevel<Scalar>::RestrictOperator(const MultiGridLevel<Scalar>& fine
 template<class Scalar> template<class Scalar2, int dim>
 void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
                                      const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,
-	       DistSVec<Scalar2,dim>& fine_ref,double relax_factor,
-																   DistLevelSetStructure* coarseLSS, DistLevelSetStructure* fineLSS) const
+				     DistSVec<Scalar2,dim>& fine_ref,double relax_factor,
+				     DistLevelSetStructure* coarseLSS, DistLevelSetStructure* fineLSS) const
 {
 
   int rnk;
@@ -3701,10 +3701,15 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     
     LevelSetStructure* coarseLSS_sub = (coarseLSS ? &(*coarseLSS)(iSub) : NULL);
+    LevelSetStructure* fineLSS_sub = (fineLSS ? &(*fineLSS)(iSub) : NULL);
     for(int i = 0; i < fineData(iSub).size(); ++i) {
       const int coarseIndex = nodeMapping(iSub)[i];
-      if (coarseLSS_sub && !(coarseLSS_sub->isActive(0.0, coarseIndex)))
-	  continue;
+      //if (coarseLSS_sub && !(coarseLSS_sub->isActive(0.0, coarseIndex)))
+      //	  continue;
+      if (fineLSS_sub && !(fineLSS_sub->isActive(0.0, i)))
+      	  continue;
+      //if (coarseLSS_sub && !(coarseLSS_sub->isActive(0.0, coarseIndex)))
+      //	std::cout << coarseData(iSub)[coarseIndex][0] << " " <<  coarseInitialData(iSub)[coarseIndex][0] << std::endl;
 
       if (mgMethod == MultiGridAlgebraic) {
         for(int j = 0; j < dim; ++j) {
@@ -3727,6 +3732,13 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
 	  loc_relax_factor *= 200.0/ fine_ref(iSub)[i][5];
 	  //std::cout << "loc_relax_factor  = " << loc_relax_factor << " " << fineData(iSub)[i][5] << std::endl;
 	}
+
+	/*if (mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] ==
+	    MultigridSubdomain::TopoLine ||
+	    mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] ==
+	    MultigridSubdomain::TopoVertex)
+	  loc_relax_factor = 0.0;
+	*/
         for(int j = 0; j < dim; ++j) {
           fineData(iSub)[i][j] += loc_relax_factor*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
         }
@@ -3739,6 +3751,93 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
     
   }*/
 }
+
+template<class Scalar> template<class Scalar2, int dim>
+void MultiGridLevel<Scalar>::ExtrapolateProlongation(MultiGridLevel<Scalar>& fineGrid, 
+						     const DistSVec<Scalar2,dim>& coarseInitialData,
+						     DistSVec<Scalar2,dim>& coarseData,
+						     DistLevelSetStructure* coarseLSS, 
+						     DistLevelSetStructure* fineLSS) {
+
+  DistVec<int> cnt(coarseData.info());
+  cnt = 0;
+  DistSVec<Scalar2,dim> extUpdate(coarseData);
+  extUpdate = 0.0;
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    LevelSetStructure* coarseLSS_sub = (coarseLSS ? &(*coarseLSS)(iSub) : NULL);
+
+    for (int i = 0; i < cnt.subSize(iSub); ++i) {
+
+      bool iActive = coarseLSS_sub->isActive(0.0, i);
+
+      if (!iActive) {
+	for (int k = 0; k < dim; ++k)
+	  coarseData(iSub)[i][k] = coarseInitialData(iSub)[i][k];
+      }
+    }
+  }
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    LevelSetStructure* coarseLSS_sub = (coarseLSS ? &(*coarseLSS)(iSub) : NULL);
+    bool* edgeFlag = edges[iSub]->getMasterFlag();
+    int (*edgePtr)[2] = edges[iSub]->getPtr();
+    for (int l = 0; l < edges[iSub]->size(); ++l) {
+
+      if (!edgeFlag[l])
+        continue;
+
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      bool iActive = coarseLSS_sub->isActive(0.0, i),
+	jActive = coarseLSS_sub->isActive(0.0, j);
+
+      if (iActive && jActive ||
+	  !iActive && !jActive)
+	continue;
+
+      if (iActive) {
+
+	++cnt(iSub)[j];
+	for (int k = 0; k < dim; ++k)
+	  extUpdate(iSub)[j][k] += (coarseData(iSub)[i][k]-coarseInitialData(iSub)[i][k]);
+      } else {
+
+	++cnt(iSub)[i];
+	for (int k = 0; k < dim; ++k)
+	  extUpdate(iSub)[i][k] += (coarseData(iSub)[j][k]-coarseInitialData(iSub)[j][k]);
+
+      }    
+      
+    }
+  }
+
+  assembleInternal(extUpdate);
+  assembleInternal(cnt);
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    for (int i = 0; i < cnt.subSize(iSub); ++i) {
+
+      int c = cnt(iSub)[i];
+      if (c == 0)
+	continue;
+
+      //std::cout << "c = " << c << extUpdate(iSub)[i][0] << std::endl;
+
+      for (int k = 0; k < dim; ++k)
+      	coarseData(iSub)[i][k] += extUpdate(iSub)[i][k] / c;
+    }
+  }
+  
+}
+
 
 template <class Scalar>
 template<class Scalar2, int dim>
@@ -4446,6 +4545,11 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
   template void MultiGridLevel<T>::RestrictFaceVector(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::Prolong(  MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &, \
 DistSVec<double,dim>&,double, DistLevelSetStructure*,DistLevelSetStructure*) const; \
+template void MultiGridLevel<T>::ExtrapolateProlongation(MultiGridLevel<T>& fineGrid,  \
+							 const DistSVec<double,dim>& coarseInitialData,\
+							 DistSVec<double,dim>& coarseData,\
+							 DistLevelSetStructure* coarseLSS, \
+							 DistLevelSetStructure* fineLSS); \
   template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &); \
   template void MultiGridLevel<T>::ProjectResidual(DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::setupBcs(DistBcData<dim>&,DistBcData<dim>&,DistSVec<T,dim>&); \
