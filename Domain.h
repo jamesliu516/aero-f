@@ -119,6 +119,7 @@ class Domain {
   CommPattern<int> *levelPat;
   CommPattern<bool> *bool2Pat;
   CommPattern<bool> *bool3Pat;
+  CommPattern<bool> *bool4Pat; //KW(02/2014): for FluidIdFS2
 
   CommPattern<double> *weightPat;
   CommPattern<double> *weightPhaseChangePat;
@@ -1044,7 +1045,7 @@ public:
   void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
 
   template<int dimLS>
-  void updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId);
+  void updateFluidIdFS2Prep(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<bool,4> &poll);
 
   template<int dim, int dimLS>
   void debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<double,dim> &U);

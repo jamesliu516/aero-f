@@ -80,7 +80,6 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
     burn.finished = false;
     //burn.finished = B.finished;
     computeNearestNode(x0n, burn.x0,burn.x0subdom,burn.x0id);
-    fprintf(stderr,"KW: ignited = %d, x0n = %e %e %e; x0subdom = %d, x0id = %d.\n", B.ignited, x0n[0], x0n[1], x0n[2], burn.x0subdom, burn.x0id);
 
     myBurns.push_back(burn);
   }
@@ -289,8 +288,6 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
 		 (x[i][1]-B.x0[1])*(x[i][1]-B.x0[1])+
 		 (x[i][2]-B.x0[2])*(x[i][2]-B.x0[2]));
 
-        if(fid[i]==2) {fprintf(stderr,"Found fid = 2!\n");}
-	
 	if ((r <= B.pgData->cjDetonationVelocity*(t-B.pgData->ignitionTime) ||
 	     (iSub == B.x0subdom && i == B.x0id)) &&
 	    fid[i] == B.pgData->unburnedEOS && B.ignited) {
@@ -316,7 +313,7 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
   
   distInfo->com->globalSum(5,cnt);
 
-  distInfo->com->fprintf(stderr,"cnt[0] = %d.\n", cnt[0]);
+//  distInfo->com->fprintf(stderr,"cnt[0] = %d.\n", cnt[0]);
 
   for (int j = 0; j < myBurns.size(); ++j) {
     if (cnt[j] == 0)

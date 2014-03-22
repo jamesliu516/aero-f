@@ -2156,6 +2156,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       break;
 
     case 2: // Embedded Surface
+      ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true,distLSS);
       domain->computeEmbSurfBasedForceLoad(*iod,forceApp,orderOfAccuracy,X,Fs,sizeFs,
 					   distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,ngrad,varFcn,fid);
       break;
@@ -2772,14 +2773,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 
   int iter=0, maxIter=1000000;
   int finished = 0;
-  while(finished == 0 && iter < maxIter){++iter;finished = 1;
+  while(finished == 0 && iter < maxIter){
+    ++iter;
+    finished = 1;
     switch(phaseChangeChoice){
-    case 0: this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,
-                                                          init, next_init, distLSS, fluidId);
+    case 0: 
+      this->domain->computeWeightsForEmbeddedStruct(X, V, Weights,VWeights,Phi,PhiWeights,init, next_init, distLSS, fluidId);
       break;
-    case 1: this->com->fprintf(stderr," *** computeReimannWeights temporarily broken / using regular extrapolation ***\n");
-      this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,
-                                                    init, next_init, distLSS, fluidId);
+    case 1: 
+      this->com->fprintf(stderr," *** computeReimannWeights temporarily broken / using regular extrapolation ***\n");
+      this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,init,next_init,distLSS,fluidId);
       break;
     }
 
@@ -2816,6 +2819,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
           if(!((*distLSS)(iSub).isSwept(0.0,i)) && (((*fluidId0)(iSub)[i]!=(*distLSS)(iSub).numOfFluids()) || 
                                                     ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())))
             continue;
+
+//          fprintf(stderr,"I AM HERE. Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
+
           if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || 
              (init(iSub)[i]<1.0 && ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() 
                                     || (*fluidId0)(iSub)[i]==(*distLSS)(iSub).numOfFluids()))) {
@@ -2828,12 +2834,17 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
                 for(int d=4; d<dim; d++) V(iSub)[i][d] = vfar[d];
                 for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
               } else { // might want to print a warning message. I don't see why this can happen
+                fprintf(stderr,"WARNING: Setting nodal state at Global Node Id %d to farfield state...\n", locToGlobNodeMap[i]+1);
                 for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
                 for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //set phi = 0 because this node is at interface
               }
             } else {
-              const double one_over_weight=(double)1.0/Weights(iSub)[i];
               double phiS = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
+              if(Weights(iSub)[i]<0.1) {
+                fprintf(stderr,"ERROR in updateSweptNodes: Weight = %e. (Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, phiS: %e, LSS.numOfFluids: %d.\n", Weights(iSub)[i], locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), phiS, (*distLSS)(iSub).numOfFluids());
+                exit(-1);
+              }
+              const double one_over_weight=(double)1.0/Weights(iSub)[i];
               if(phiS<0.0) {
                 Phi(iSub)[i][dimLS-1] = std::fabs(PhiWeights(iSub)[i][dimLS-1]*one_over_weight);
                 for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;

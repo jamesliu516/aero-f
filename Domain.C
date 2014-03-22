@@ -4509,46 +4509,25 @@ void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void Domain::updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId)
+void Domain::updateFluidIdFS2Prep(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<bool,4> &poll)
 {
-  //if(dimLS!=1) {fprintf(stderr,"ERROR: For Multi-Phase Cracking, dimLS must be 1. (Here it is %d).\n", dimLS);exit(-1);}
-  DistSVec<bool,3> poll(getNodeDistInfo());
-
   int iSub;
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub),dimLS);
-    subDomain[iSub]->sndData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub));
+    subDomain[iSub]->sndData(*bool4Pat, reinterpret_cast<bool (*)[4]>(poll.subData(iSub)));
+    //subDomain[iSub]->sndData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
   }
 
-  bool3Pat->exchange();
+  bool4Pat->exchange();
+  //bool3Pat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->maxRcvData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
-    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), poll(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
-//    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+    subDomain[iSub]->maxRcvData(*bool4Pat, reinterpret_cast<bool (*)[4]>(poll.subData(iSub)));
+    //subDomain[iSub]->maxRcvData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+//    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), poll(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
   }
-
-//  levelPat->exchange();
-
-//#pragma omp parallel for
-//  for (iSub = 0; iSub < numLocSub; ++iSub)
-//    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
-
-/*
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
-    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
-  }
-
-  levelPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
-*/
 }
 
 //------------------------------------------------------------------------------

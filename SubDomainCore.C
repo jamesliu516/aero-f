@@ -4927,38 +4927,41 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
     }
   }
 }
-void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,
-                                 int dimLS)
+
+void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,4> &poll)
 {
-  /* poll[0,1,2]  |   indication
+  /* poll[0,1,2,3]|   indication
      -------------+---------------
-     1  0  0      |     Id = 0
-     0  1  0      |     Id = 1
-     0  0  1      |     Id = 2(occluded)
-     0  0  0      |     no info available
-     1  1  1      |     can't decide */
+     1  0  0  0   |     Id = 0
+     0  1  0  0   |     Id = 1
+     0  0  1  0   |     Id = 2
+     0  0  0  1   |     Id = occluded
+     0  0  0  0   |     no info available
+     1  1  1  1   |     can't decide */
   
   //if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
   const Connectivity &Node2Node = *getNodeToNode();
   
   for(int i=0; i<nodes.size(); i++) {
-    poll[i][0] = poll[i][1] = poll[i][2] = false;
+    poll[i][0] = poll[i][1] = poll[i][2] = poll[i][3] = false;
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
 
     if(!swept){ //fluidId should not change.
-      if(!occluded && fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
-        //poll[i][fluidId[i]] = true;
-        if (fluidId[i] == 0) poll[i][0] = true;
-        else if (fluidId[i] == dimLS) poll[i][1] = true;
+      if(!occluded && fluidId[i]!=LSS.numOfFluids()) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+        poll[i][fluidId[i]] = true;
         continue;
       }
     }
 
     if(occluded){ //set Id to 2
-      poll[i][2] = true;
+      poll[i][3] = true;
       continue;
     }
+
+    int caught = 0;
+    if(locToGlobNodeMap[i]+1==416729)
+      caught = 1;
 
     int myId = -1;
     int iNei;
@@ -4967,24 +4970,40 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
       iNei = Node2Node[i][j];
       if(i==iNei)
         continue;
+
+      if(caught)
+        fprintf(stderr,"Sub %d, Nei of 416729 (myId = %d): %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
+                globSubNum, myId, locToGlobNodeMap[iNei]+1, fluidId[iNei], LSS.isOccluded(0.0,iNei), LSS.isSwept(0.0,iNei), (int)LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)));
+
       if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)))
         continue;
-      if(myId==-1) {
+
+
+//----------------------------------------
+/*      if(myId==-1) {
         myId = fluidId[iNei];
         consistent = true;
       } else if(myId!=fluidId[iNei]) {
         consistent = false;
         break;
       }
+*/
+      poll[i][fluidId[iNei]] = true;
+
+//------------------------------------------
     }
-
-    if (myId == dimLS) myId = 1;
-    else if (myId == dimLS+1) myId = 2;    
-
+/*
     if(consistent)
       poll[i][myId] = true; //its visible neighbors have the same id
     else
       poll[i][0] = poll[i][1] = poll[i][2] = (myId!=-1); //either 'no info' or 'can't decide'.
+*/
+
+
+    if(caught)
+      fprintf(stderr,"Sub %d, 416729, myId = %d, consistent = %d, poll = %d %d %d %d\n",
+              globSubNum, myId, consistent, poll[i][0], poll[i][1], poll[i][2], poll[i][3]);
+
   }
 }
 
