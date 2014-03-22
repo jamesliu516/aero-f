@@ -42,8 +42,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   }
 
   for (int i = 0; i < 10; ++i) {
-    for (int j = 0; j < 10; ++j)
+    for (int j = 0; j < 10; ++j) {
+      levelSetMap[i][j] = -1; //KW: for debugging
       levelSetSign[i][j]=1.0;
+    }
   }
 
 // Multiphase Riemann problem
@@ -175,8 +177,8 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 {
 
   for(int i=0; i<V.size(); i++){ 
-    if(fluidId[i]==2) {fprintf(stderr,"OK. you are 2, you were %d.\n", fluidIdn[i]);}
-    if(fluidId[i]==2 && fluidIdn[i]==1) {fprintf(stderr,"I caught you! weight = %e.\n", weight[i]);}
+//    if(fluidId[i]==2) {fprintf(stderr,"OK. you are 2, you were %d.\n", fluidIdn[i]);}
+//    if(fluidId[i]==2 && fluidIdn[i]==1) {fprintf(stderr,"I caught you! weight = %e.\n", weight[i]);}
     if (lriemann[0]->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i],false) != 0) {
       return i;
     }
@@ -201,6 +203,10 @@ int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 
   //fprintf(stdout, "Debug: calling computeRiemannSolution with IDi = %d - IDj = %d for LocalRiemann[%d]\n", IDi, IDj, IDi+IDj-1);
   int riemannId = levelSetMap[IDi][IDj];
+  if(riemannId<0) {
+    fprintf(stderr,"ERROR: There is no Riemann solver for IDi = %d and IDj = %d!\n", IDi, IDj);
+    exit(-1);
+  }
   double lssign = levelSetSign[IDi][IDj];
   for (int k=0; k < 3; ++k) {
     nphi[k]*=lssign;
@@ -221,6 +227,10 @@ void ExactRiemannSolver<dim>::computeRiemannJacobian(double *Vi, double *Vj,
 						     double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj) {
 
   int riemannId = levelSetMap[IDi][IDj];
+  if(riemannId<0) {
+    fprintf(stderr,"ERROR: There is no Riemann solver for IDi = %d and IDj = %d!\n", IDi, IDj);
+    exit(-1);
+  }
   double lssign = levelSetSign[IDi][IDj];
   for (int k=0; k < 3; ++k) {
     nphi[k]*=lssign;

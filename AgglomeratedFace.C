@@ -614,3 +614,6 @@ INST_HELPER2(6,double,6);
 INST_HELPER2(7,double,5);
 INST_HELPER2(6,double,5);
 INST_HELPER2(7,double,7);
+
+INST_HELPER2(6,double,1);
+INST_HELPER2(7,double,2);

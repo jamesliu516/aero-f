@@ -77,7 +77,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
     setupPhiMultiFluidInitialConditions(iod,X, Phi0);
     if(closest && fsId)
-      setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
+      setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId,fs);
     if (lsMethod == 0)
       primitiveToConservative(Phi0, Phi, U);
     else
@@ -397,33 +397,30 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
 //---------------------------------------------------------------------------------------
 
 template<int dimLS>
-void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, 
-                                                              DistVec<ClosestPoint> &closest, DistVec<int> &status)
+void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, 
+                      DistSVec<double,dimLS> &Phi, DistVec<ClosestPoint> &closest, DistVec<int> &status, FluidSelector* fs)
 {
+  int numPhases = fs->getNumOfPhases();
   trueLevelSet[dimLS-1] = true; //this is a 'true' level-set.
   //initialize the level-set near FS interface  
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      SVec<double,dimLS> &phi(Phi(iSub));
-      Vec<ClosestPoint> &clo(closest(iSub));
-      Vec<int> &stat(status(iSub));
-      for(int i=0; i<phi.size(); i++) {
-        switch (stat[i]) {
-          case 0 : //outside the structure
-            phi[i][dimLS-1] = clo[i].nearInterface() ? -1.0*clo[i].dist : -1.0;
-            break;
-          case dimLS : //inside the structure
-            phi[i][dimLS-1] = clo[i].nearInterface() ?  1.0*clo[i].dist :  1.0;
-            break;
-          case (dimLS+1)://2 : //occluded
-            phi[i][dimLS-1] = 0.0;
-            break;
-          default :
-            fprintf(stderr,"ERROR: Status cannot be %d.\n", stat[i]);
-            exit(-1);
-        }
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    SVec<double,dimLS> &phi(Phi(iSub));
+    Vec<ClosestPoint> &clo(closest(iSub));
+    Vec<int> &stat(status(iSub));
+    for(int i=0; i<phi.size(); i++) {
+      if(stat[i]==0)//outside the structure 
+        phi[i][dimLS-1] = clo[i].nearInterface() ? -1.0*clo[i].dist : -1.0;
+      else if(stat[i]==dimLS) //inside the structure
+        phi[i][dimLS-1] = clo[i].nearInterface() ?  1.0*clo[i].dist :  1.0;
+      else if(stat[i]==numPhases) //occluded 
+        phi[i][dimLS-1] = 0.0;
+      else {
+        fprintf(stderr,"ERROR: Status cannot be %d.\n", stat[i]);
+        exit(-1);
       }
     }
+  }
 
   //call "reinitialize"
   reinitializeLevelSet(X, Phi, false,dimLS-1);

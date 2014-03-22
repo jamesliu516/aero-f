@@ -5580,12 +5580,23 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
                                                 Vec<int> &init, Vec<int> &next_init, Vec<int> &fluidId)
 {
   const Connectivity &nToN = *getNodeToNode();
-  for(int currentNode=0;currentNode<numNodes();++currentNode)
+  for(int currentNode=0;currentNode<numNodes();++currentNode) {
+
+    int caught = 0;
+    if(locToGlobNodeMap[currentNode]+1 == 72844)
+      caught = 1;
+
     if(init[currentNode]<1.0 && !LSS.isOccluded(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         int yourId = fluidId[neighborNode];
+
+      if(caught && currentNode!=neighborNode)
+        fprintf(stderr,"SubDomain->computeWeights..., Nei of 72844: %d, init = %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
+            locToGlobNodeMap[neighborNode]+1, init[neighborNode], fluidId[neighborNode], LSS.isOccluded(0.0,neighborNode), 
+            LSS.isSwept(0.0,neighborNode), (int)LSS.edgeIntersectsStructure(0.0,edges.findOnly(currentNode,neighborNode)));
+
         if(currentNode==neighborNode || init[neighborNode]<1 || myId!=yourId) continue;
         int l = edges.findOnly(currentNode,neighborNode);
         if(LSS.edgeIntersectsStructure(0.0,l)) continue;
@@ -5627,6 +5638,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
         }
       }
     }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -7338,6 +7350,8 @@ template<int dimLS>
 void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, 
                                  Vec<int> &fluidId, bool *masterFlag)
 {
+  fprintf(stderr,"ERROR: This function should not be called anymore. Moved into FluidSelector.\n");
+
   const Connectivity &Node2Node = *getNodeToNode();
   // ------- Determine status for grid-points swept by FS interface -------
   // Rule No.1: If this grid point is "occluded", set its status to "numPhases".

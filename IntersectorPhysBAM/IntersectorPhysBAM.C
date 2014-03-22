@@ -576,6 +576,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
+  com->fprintf(stderr,"Setting interface thickness to %e.\n", interface_thickness);
   physInterface->SetThickness(interface_thickness);
 }
 

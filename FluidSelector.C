@@ -207,10 +207,112 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
 //------------------------------------------------------------------------------
 
 template<int dim> /*this dim is actually dimLS*/
-void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV)
+void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV, DistSVec<bool,4> &poll)
 {
-  if(programmedBurn) {fprintf(stderr,"ERROR: function 'updateFluidIdFS2' does not support Programmed Burn at the moment!\n");exit(-1);}
-  //domain->updateFluidIdFS2(*distLSS, PhiV, *fluidId);
+  // ------- Determine status for grid-points swept by FS interface -------
+  // Rule No.1: If this grid point is "occluded", set its status to "numPhases".
+  // Rule No.2: If its "visible && !occluded && !swept" neighbors have the same status, use this one. 
+  // Rule No.3: Otherwise, consider the sign of "PhiV". (PhiV should have been "blurred".)
+  //            KW(TODO)(03/06/2014): Really? Is it correct to use "PhiV" here?
+
+  int burnTag, rank;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<PhiV.numLocSub(); ++iSub) {
+    Vec<int> &subId((*fluidId)(iSub));
+    SVec<double,dim> &subPhiV(PhiV(iSub));
+    LevelSetStructure &LSS((*distLSS)(iSub));
+
+    for(int i=0; i<subPhiV.size(); i++) {
+      bool swept = LSS.isSwept(0.0,i);
+      bool occluded = LSS.isOccluded(0.0,i);
+/*
+      if(rank==120 && i==8470)
+        fprintf(stderr,"Rank 120, i = %d, swept = %d, occluded = %d, fluidId = %d, dimLS = %d, poll = %d %d %d %d. LSS.numOfFluids = %d\n", i, swept, occluded, subId[i], dim, poll[i][0], poll[i][1], poll[i][2], poll[i][3], LSS.numOfFluids());
+*/
+      if(!swept) {//nothing to be done
+        if(!occluded && subId[i]!=LSS.numOfFluids())
+          continue;
+      }
+
+      if(occluded) { // Rule No.1
+        subId[i] = LSS.numOfFluids();
+        if(!poll[i][3/*LSS.numOfFluids()*/]) fprintf(stderr,"TOO BAD TOO!\n");
+        continue;
+      }
+
+      int count = (int)poll[i][0] + (int)poll[i][1] + (int)poll[i][2] + (int)poll[i][3];
+      switch (count) {
+        case 0: //no info
+          fprintf(stderr,"More than one layer of nodes are swept in one step: Rank %d, i = %d.\n", rank, i);
+          DebugTools::SpitRank();
+          break;
+        case 1: // Rule No.2
+          for(int j=0; j<3; j++)
+            if(poll[i][j]) subId[i] = j;
+          if(poll[i][3]) fprintf(stderr,"WARNING: poll[occluded] = true. Could be a software bug.\n");
+          break;
+      }
+    
+      if(count==1) //already applied Rule No.2
+        continue;
+
+      // Rule No.3
+      if(dim!=1) {fprintf(stderr,"ASSUMING dimLS=1! Actually it is %d!\n", dim);exit(-1);}
+
+//-------------------------
+      //KW: I think this part is kind of arbitrary...
+/*    
+      if(subPhiV[i][0]>0.0) {
+        if(programmedBurn && (programmedBurn->isUnburnedEOS(1,burnTag) || programmedBurn->isBurnedEOS(1,burnTag)) ) {
+          if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag)) {
+            subId[i] = programmedBurn->getBurnedEOS(burnTag);
+          } else
+            subId[i] = programmedBurn->getUnburnedEOS(burnTag);
+        } else 
+          subId[i] = 1;
+      } else
+        subId[i] = 0;
+*/
+      bool settled = false;
+      int burnedEOS, unburnedEOS;
+      if(programmedBurn) {
+        for(int burnTag=0; burnTag<programmedBurn->numberOfBurns(); burnTag++) {
+          burnedEOS = programmedBurn->getBurnedEOS(burnTag); 
+          unburnedEOS = programmedBurn->getUnburnedEOS(burnTag);
+          if(poll[i][burnedEOS] && poll[i][unburnedEOS]) {
+            if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag))
+              subId[i] = burnedEOS;
+            else
+              subId[i] = unburnedEOS;
+            settled = true;
+            break;
+          } else if(poll[i][burnedEOS]) {
+            if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag)) {
+              subId[i] = burnedEOS;
+              settled = true;
+              break;
+            } 
+          }
+        }
+      } 
+      if(settled)
+        continue; 
+
+      if(subPhiV[i][0]>0.0) {
+        if(programmedBurn && (programmedBurn->isUnburnedEOS(1,burnTag) || programmedBurn->isBurnedEOS(1,burnTag)) ) {
+          if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag)) {
+            subId[i] = programmedBurn->getBurnedEOS(burnTag);
+          } else
+            subId[i] = programmedBurn->getUnburnedEOS(burnTag);
+        } else 
+          subId[i] = 1;
+      } else
+        subId[i] = 0;
+//--------------------------------
+    }
+  } 
 }
 
 //------------------------------------------------------------------------------
@@ -255,9 +357,6 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 	}
       }
     }
-
-    for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
-      if(tag[iNode] == 2) fprintf(stderr," Caught Id = 2.\n");
   }
 }
 
@@ -300,9 +399,6 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
         }
       }
     }
-
-    for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
-      if(tag[iNode] == 2) fprintf(stderr," Caught Id = 2.\n");
   }
 }
 
