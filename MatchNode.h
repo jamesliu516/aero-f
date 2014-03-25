@@ -30,6 +30,7 @@ public:
   void setBufferPosition(int, int);
   void getDisplacement(int, double, double, double, bool *, double (*)[2][3], double (*)[3], 
 		       double (*)[3], double (*)[3], double (*)[3], double *);
+  void getDisplacementSensitivity(bool *, double (*)[2][3], double (*)[3], double *);
   double getTemperature(int, double, double, bool*, double*, double*);
   template<int dim>
   void send(double, double (*)[dim], double (*)[dim]);

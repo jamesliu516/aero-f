@@ -308,7 +308,9 @@ template<int dim>
 double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Finlet)
 {
 
+  printf(5,"TsDesc<dim>::recomputeResidual 1\n");
   return spaceOp->recomputeResidual(F,Finlet);
+  printf(5,"TsDesc<dim>::recomputeResidual 2\n");
 
 }
 
@@ -358,16 +360,19 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 
   double dt = 0.0;
   if(failSafeFlag == false){
-    if(timeStepCalculation == TsData::CFL || it==1)
+    if(timeStepCalculation == TsData::CFL || it==1) {
       dt = timeState->computeTimeStep(data->cfl, data->dualtimecfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
-    else  //time step size with error estimation
+    } else { //time step size with error estimation
       dt = timeState->computeTimeStep(it, dtLeft, &numSubCycles);
+    }
   }
-  else //if time step is repeated
+  else { //if time step is repeated
     dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+  }
 
-  if(timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
+  if(timeStepCalculation == TsData::ERRORESTIMATION && it == 1) {
     this->timeState->setDtMin(dt * data->getCflMinOverCfl0());
+  } 
 
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
@@ -375,6 +380,14 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   timer->addTimeStepTime(t0);
 
   return dt;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::cmdCom(bool *lastIt)
+{
+  if (mmh) mmh->cmdCom(lastIt);
 }
 
 //------------------------------------------------------------------------------
@@ -419,6 +432,44 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t, DistSV
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsDesc<dim>::setMeshSensitivitySolverPositionVector()
+{
+  if(mmh) {
+    mmh->setPositionVector(*Xs);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &dXdSb)
+{
+  if (mmh) {
+    printf(5," ~~~~~~~~~~~~~~~~~~~ TsDesc<dim>::receiveBoundaryPositionSensitivityVector 1\n");
+    mmh->updateDStep2(dXdSb);
+    printf(5," ~~~~~~~~~~~~~~~~~~~ TsDesc<dim>::receiveBoundaryPositionSensitivityVector 2\n");
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::negotiate() 
+{
+  if (mmh)  mmh->negotiate();
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::sendForceSensitivity(DistSVec<double,3> *dFdS) 
+{
+  if (mmh)  mmh->sendForceSensitivity(dFdS);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 {
   if (!mmh) return;
@@ -445,9 +496,10 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if (mmh || hth) 
+  if (mmh || hth) { 
     bcData->update(*X);
-
+  }
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -547,36 +599,64 @@ template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
                                     DistSVec<double,dim> &U)
 {
-  if (it == data->maxIts)
+  printf(5," ------- setupOutputToDisk 0.\n"); 
+  printf(5," ------- it = %d\n", it);
+  printf(5," ------- data->maxIts = %d\n", data->maxIts);
+  if (it == data->maxIts) {
     *lastIt = true;
-  else
+    printf(5," ------- setupOutputToDisk 00.\n"); 
+  } else if (!ioData.sa.fsiFlag) {
+    printf(5," ------- setupOutputToDisk 000.\n"); 
     monitorInitialState(it, U);
-  
+    printf(5," ------- setupOutputToDisk 0000.\n"); 
+  }
+  printf(5," ------- setupOutputToDisk 1.\n"); 
+ 
   output->setMeshMotionHandler(ioData, mmh);
+  printf(5," ------- setupOutputToDisk 2.\n"); 
   output->openAsciiFiles();
+  printf(5," ------- setupOutputToDisk 3.\n"); 
   timer->setSetupTime();
+  printf(5," ------- setupOutputToDisk 4.\n"); 
   output->cleanProbesFile();
+  printf(5," ------- setupOutputToDisk 5.\n"); 
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
+    printf(5," ------- setupOutputToDisk 6.\n"); 
 
-    if (wallRecType==BcsWallData::CONSTANT)
+    if (wallRecType==BcsWallData::CONSTANT) {
+      printf(5," ------- setupOutputToDisk 7.\n"); 
       output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    else //wallRecType == EXACT_RIEMANN
+    } else { //wallRecType == EXACT_RIEMANN
       output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+      printf(5," ------- setupOutputToDisk 8.\n"); 
+    }
 
+    printf(5," ------- setupOutputToDisk 9.\n"); 
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    printf(5," ------- setupOutputToDisk 10.\n"); 
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    printf(5," ------- setupOutputToDisk 11.\n"); 
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    printf(5," ------- setupOutputToDisk 12.\n"); 
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
+    printf(5," ------- setupOutputToDisk 13.\n"); 
     output->writeMaterialVolumesToDisk(it, 0.0, *A);
+    printf(5," ------- setupOutputToDisk 14.\n"); 
     output->writeCPUTimingToDisk(*lastIt, it, t, timer);
+    printf(5," ------- setupOutputToDisk 15.\n"); 
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+    printf(5," ------- setupOutputToDisk 16.\n"); 
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+    printf(5," ------- setupOutputToDisk 17.\n"); 
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    printf(5," ------- setupOutputToDisk 18.\n"); 
     restart->writeKPtracesToDisk(ioData, *lastIt, it, t, *X, *A, U, timeState, domain, postOp);
+    printf(5," ------- setupOutputToDisk 19.\n"); 
     writeStateRomToDisk(it, 0.0);
+    printf(5," ------- setupOutputToDisk 20.\n"); 
     writeErrorToDisk(it, 0.0);
   }
 }
@@ -589,8 +669,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 {
 
   com->globalSum(1, &interruptCode);
-  if (interruptCode)
+  if (interruptCode) {
     *lastIt = true;
+  }
 
   double cpu = timer->getRunTime();
   double res = data->residual / restart->residual;
@@ -622,10 +703,11 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
 
     timer->setRunTime();
-    if (com->getMaxVerbose() >= 2)
+    if (com->getMaxVerbose() >= 2) {
       timer->print(domain->getStrTimer());
+    }
 
-    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && ioData.problem.alltype != ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
       output->closeAsciiFiles();
     }
   }
@@ -672,6 +754,25 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
 }
 
+//------------------------------------------------------------------------------
+/*
+template<int dim>
+void TsDesc<dim>::outputPositionSensitivityVectorToDisk(DistSVec<double,dim> &dUds)
+{
+
+  if (mmh)  {
+    int algNum = mmh->getAlgNum();
+    if (algNum == 8)  return;
+  }
+
+  output->writePositionSensitivityVectorToDisk(0, 0.0, *dXds);
+
+  timer->setRunTime();
+  if (com->getMaxVerbose() >= 2)
+    timer->print(domain->getStrTimer());
+
+}
+*/
 //------------------------------------------------------------------------------
 
 template<int dim>

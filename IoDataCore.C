@@ -712,7 +712,6 @@ ProblemData::ProblemData()
 
   test = REGULAR;
   verbose = 4;
-
 }
 
 //------------------------------------------------------------------------------
@@ -723,7 +722,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 35,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 36,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -736,7 +735,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34);
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3121,12 +3120,14 @@ SensitivityAnalysis::SensitivityAnalysis()
   method  = DIRECT;
   scFlag = ANALYTICAL;
   eps = 0.00001;
+  sensFSI  = OFF_SENSITIVITYFSI;
   sensMesh = OFF_SENSITIVITYMESH;
   sensMach = OFF_SENSITIVITYMACH;
   sensAlpha = OFF_SENSITIVITYALPHA;
   sensBeta = OFF_SENSITIVITYBETA;
   si = 0;
   sf = -1;
+  fsiFlag = false;
 
   // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
@@ -3153,6 +3154,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensFSI), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
@@ -4535,6 +4537,7 @@ void IoData::resetInputValues()
     problem.type[ProblemData::ACCELERATED] = true;
 
   if (problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
+      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_ ||
@@ -4575,12 +4578,20 @@ void IoData::resetInputValues()
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) 
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) 
   {
 
     //
     // Check that the code is running within the "correct" limits
     //
+
+    if(sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI && sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
+    {
+      sa.sensMesh = SensitivityAnalysis::OFF_SENSITIVITYMESH;
+      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.SensitivityMesh has been turned off -----\n");
+    } 
 
     if (sa.method == SensitivityAnalysis::ADJOINT)
     {

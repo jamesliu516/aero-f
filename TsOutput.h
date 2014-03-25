@@ -208,6 +208,7 @@ public:
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
+  void writePositionSensitivityVectorToDisk(int step, double tag, DistSVec<double,3> &X);
   void writeBinaryVectorsToDiskRom(bool, int, double,
                                    DistSVec<double,dim> *U1 = NULL,
                                    DistSVec<double,dim> *U2 = NULL,

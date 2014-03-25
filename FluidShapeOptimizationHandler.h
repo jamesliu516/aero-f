@@ -71,6 +71,8 @@ private:
   DistSVec<double,3> *Lp;
   DistSVec<double,3> *Lm;
   DistSVec<double,3> *Z;
+  DistSVec<double,3> *load;
+  DistSVec<double,3> *dLoad;
 
   DistSVec<double,dim> Flux;
   DistSVec<double,dim> FluxFD;
@@ -138,7 +140,13 @@ public:
   int fsoHandler(IoData &, DistSVec<double,dim> &);
   void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void fsoComputeAndSendForceSensitivities(IoData &, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityFSI(IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityMesh(IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityMach(IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityAlpha(IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityBeta(IoData &ioData, DistSVec<double,dim> &U);
 
 };
 

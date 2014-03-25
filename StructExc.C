@@ -29,6 +29,8 @@
 #define CRACK_TAG2 33
 #define CRACK_TAG3 44
 #define CRACK_TAG4 55
+
+#define FORCESENSITIVITY_TAG 15000
 //------------------------------------------------------------------------------
 
 StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, Communicator* fluidCom, int nSub)
@@ -365,9 +367,10 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
 
     for (int iCpu=0; iCpu<numStrCPU; ++iCpu) {
       if (numStrNodes[iCpu][0] > 0) {
-	int size = bufsize * numStrNodes[iCpu][0];
-	double *localBuffer = buffer + bufsize * numStrNodes[iCpu][1];
-	strCom->recFrom(iCpu, DISP_TAG + recParity, localBuffer, size);
+        int size = bufsize * numStrNodes[iCpu][0];
+        double *localBuffer = buffer + bufsize * numStrNodes[iCpu][1];
+        strCom->recFrom(iCpu, DISP_TAG + recParity, localBuffer, size);
+        com->printf(7, "[F] received displacement from structure\n"); 
 //        for(int i=0; i<size/3; i++)
 //          fprintf(stderr,"STEXC: %d %e %e %e\n", i+1, localBuffer[3*i], localBuffer[3*i+1], localBuffer[3*i+2]);
 
@@ -409,6 +412,69 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
   com->globalSum(2, norms);
 
   com->printf(7, "Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
+  //com->fprintf(stderr, "[StExc] Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
+}
+
+//------------------------------------------------------------------------------
+/* 
+   dX contains the displacement of the boundaries with respect to the CURRENT 
+   configuration of the structure
+*/
+
+void StructExc::getDisplacementSensitivity(DistSVec<double,3> &dX) 
+{  
+//  fprintf(stderr,"[StExc] going to get displacement.\n");
+  double norms[2] = {0.0, 0.0};
+
+  dX = 0.0;
+
+  if (algNum == 4 || algNum == 5) recParity = 1 - recParity;
+
+  if (numStrNodes) {
+
+    for (int iCpu=0; iCpu<numStrCPU; ++iCpu) {
+      if (numStrNodes[iCpu][0] > 0) {
+        int size = bufsize * numStrNodes[iCpu][0];
+        double *localBuffer = buffer + bufsize * numStrNodes[iCpu][1];
+        strCom->recFrom(iCpu, DISP_TAG + recParity, localBuffer, size);
+        com->printf(7, "[F] received displacement from structure\n"); 
+//        for(int i=0; i<size/3; i++)
+//          fprintf(stderr,"STEXC: %d %e %e %e\n", i+1, localBuffer[3*i], localBuffer[3*i+1], localBuffer[3*i+2]);
+
+      }
+    }
+/*
+    for(int i=0; i<800*2; i++)
+      fprintf(stderr,"buffer %d %e %e %e\n", i+1, buffer[3*i], buffer[3*i+1], buffer[3*i+2]);
+*/
+    double (*disp)[2][3] = reinterpret_cast<double (*)[2][3]>(buffer);
+/*
+    for(int i=0; i<800; i++)
+      fprintf(stderr, "disp0 %d %e %e %e\n", i+1, disp[i][0][0], disp[i][0][1], disp[i][0][2]);
+
+    for(int i=0; i<800; i++)
+      fprintf(stderr, "disp1 %d %e %e %e\n", i+1, disp[i][1][0], disp[i][1][1], disp[i][1][2]);
+*/
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      double (*dx)[3] = dX.subData(iSub);
+
+      double locNorms[2];
+      matchNodes[iSub]->getDisplacementSensitivity(dX.getMasterFlag(iSub), disp, dx, locNorms);
+
+#pragma omp critical
+      norms[0] += locNorms[0];
+#pragma omp critical
+      norms[1] += locNorms[1];
+    }
+
+  }
+  com->barrier(); //added for timing purposes (otherwise global comm timing can be very long
+                  //if waiting for another cpu.
+  com->globalSum(2, norms);
+
+  com->printf(7, "Received total dispSensitivity=%e and velSensitivity=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
   //com->fprintf(stderr, "[StExc] Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
 }
 
@@ -479,10 +545,10 @@ void StructExc::sendForce(DistSVec<double,3> &F)
 
     for (int iCpu=0; iCpu<numStrCPU; ++iCpu) {
       if (numStrNodes[iCpu][0] > 0) {
-	int size = 3 * numStrNodes[iCpu][0];
-	double *localBuffer = buffer + 3 * numStrNodes[iCpu][1];
+        int size = 3 * numStrNodes[iCpu][0];
+        double *localBuffer = buffer + 3 * numStrNodes[iCpu][1];
 //        fprintf(stderr,"<AERO-F> Sending the force. size = %d\n", size);
-	strCom->sendTo(iCpu, FORCE_TAG + sndParity, localBuffer, size);
+        strCom->sendTo(iCpu, FORCE_TAG + sndParity, localBuffer, size);
       }
     }
     strCom->waitForAllReq();
@@ -493,6 +559,45 @@ void StructExc::sendForce(DistSVec<double,3> &F)
   norm = sqrt(norm);
 
   com->printf(7, "Sent fluid force=%e to the structure\n", norm);
+  //com->fprintf(stderr, "Sent fluid force=%e to the structure\n", norm);
+}
+
+//------------------------------------------------------------------------------
+// note: the force sensitivity vector is *** NOT *** assembled
+
+void StructExc::sendForceSensitivity(DistSVec<double,3> &dFdS) 
+{
+  if (algNum == 4 || algNum == 5) sndParity = 1 - sndParity;
+
+  double norm = 0.0;
+
+  if (numStrNodes) {
+
+    double (*forces)[3] = reinterpret_cast<double (*)[3]>(buffer);
+
+#pragma omp parallel for reduction (+: norm)
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      SVec<double,3> &f = dFdS(iSub);
+      norm += f*f * fscale*fscale;
+      matchNodes[iSub]->send(fscale, f.data(), forces);
+    }
+
+    for (int iCpu=0; iCpu<numStrCPU; ++iCpu) {
+      if (numStrNodes[iCpu][0] > 0) {
+        int size = 3 * numStrNodes[iCpu][0];
+        double *localBuffer = buffer + 3 * numStrNodes[iCpu][1];
+//        fprintf(stderr,"<AERO-F> Sending the force. size = %d\n", size);
+        strCom->sendTo(iCpu, FORCESENSITIVITY_TAG + sndParity, localBuffer, size);
+      }
+    }
+    strCom->waitForAllReq();
+  }
+
+  com->barrier();
+  com->globalSum(1, &norm);
+  norm = sqrt(norm);
+
+  com->printf(7, "Sent fluid force sensitivity=%e to the structure\n", norm);
   //com->fprintf(stderr, "Sent fluid force=%e to the structure\n", norm);
 }
 

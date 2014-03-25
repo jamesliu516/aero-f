@@ -56,9 +56,11 @@ public:
 
   void getDisplacement(DistSVec<double,3> &, DistSVec<double,3> &, 
 		       DistSVec<double,3> &, DistSVec<double,3> &);
+  void getDisplacementSensitivity(DistSVec<double,3> &);
   int getSubcyclingInfo();
   void getTemperature(DistVec<double>&);
   void sendForce(DistSVec<double,3> &);
+  void sendForceSensitivity(DistSVec<double,3> &);
   void getMdFreq(int &, double *&);
   void getMdStrDisp(int, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
   void sendHeatPower(DistVec<double>&);

@@ -179,14 +179,14 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
         return -10; // signal re-compute CFL number
       }
       else if (probDesc->checkFailSafe(Q) && fsIt < 5) {
-	probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
-	Q = rhs;
-	--it;
-	++fsIt;
+        probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
+        Q = rhs;
+        --it;
+        ++fsIt;
       }
       else{
-	probDesc->printf(1, "Newton solver failed\n");
-	return -3;
+        probDesc->printf(1, "Newton solver failed\n");
+        return -3;
       }
     }
 
