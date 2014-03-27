@@ -269,6 +269,8 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
     else {
       if (ioData.forced.type == ForcedData::HEAVING)
         _mmh = new HeavingMeshMotionHandler(ioData, domain);
+      else if (ioData.forced.type == ForcedData::SPIRALING)
+        _mmh = new SpiralingMeshMotionHandler(ioData, domain);
       else if (ioData.forced.type  == ForcedData::PITCHING)
         _mmh = new PitchingMeshMotionHandler(ioData, domain);
       else if (ioData.forced.type  == ForcedData::DEFORMING)
@@ -323,6 +325,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
   HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(mmh);
+  SpiralingMeshMotionHandler* _smmh = dynamic_cast<SpiralingMeshMotionHandler*>(mmh);
   PitchingMeshMotionHandler* _pmmh = dynamic_cast<PitchingMeshMotionHandler*>(mmh);
 
   if (_mmh)
@@ -331,6 +334,8 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     _dmmh->setup(*X);
   else if (_hmmh)
     _hmmh->setup(*X);
+  else if (_smmh)
+    _smmh->setup(*X);
   else if (_pmmh)
     _pmmh->setup(*X);
 

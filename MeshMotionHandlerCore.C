@@ -1302,6 +1302,153 @@ double HeavingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 }
 
 //------------------------------------------------------------------------------
+//
+SpiralingMeshMotionHandler::SpiralingMeshMotionHandler(IoData &iod, Domain *dom) :
+                            MeshMotionHandler(iod, dom)
+{
+
+  dt = iod.forced.timestep;
+  omega = 2.0 * acos(-1.0) * iod.forced.frequency;
+  delta[0] = iod.forced.sp.xL;
+  delta[1] = iod.forced.sp.x0;
+
+  if (iod.forced.sp.domain == SpiralingData::VOLUME)
+    mms = 0;
+  else if (iod.forced.sp.domain == SpiralingData::SURFACE)
+    mms = new TetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+SpiralingMeshMotionHandler::~SpiralingMeshMotionHandler()
+{
+
+  if (mms) delete mms;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SpiralingMeshMotionHandler::setup(DistSVec<double,3> &X)
+{
+
+  if(mms) mms->setup(X);
+
+}
+
+//------------------------------------------------------------------------------
+
+DistSVec<double,3> SpiralingMeshMotionHandler::getModes()
+{
+// This is not doing the correct thing...Vinod
+
+  int numLocSub = domain->getNumLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*dx)[3] = dX.subData(iSub);
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = 0.0;
+      dx[i][1] = 0.0;
+      dx[i][2] = 0.0;
+
+    }
+  }
+
+ return(dX);
+
+}
+
+//------------------------------------------------------------------------------
+
+double SpiralingMeshMotionHandler::update(bool *lastIt, int it, double t,
+                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  
+ if (*lastIt) return dt;
+
+ int numLocSub = domain->getNumLocSub();
+
+ double Rcurv = delta[0]/( omega*(t+dt) );
+
+ #pragma omp parallel for
+   for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+      double (*dx)[3] = dX.subData(iSub);
+      double (*x0)[3] = X0.subData(iSub);
+
+      for (int i=0; i<dX.subSize(iSub); ++i) {
+        if ( x0[i][0] >= delta[1] ) {
+          double xloc = x0[i][0] - delta[1];
+          double theta = xloc/Rcurv;
+          dx[i][0] = (Rcurv + x0[i][1])*sin(theta) + delta[1];
+          dx[i][1] = (Rcurv + x0[i][1])*cos(theta) - Rcurv;
+          dx[i][2] = x0[i][2];
+        }
+        else {
+          dx[i][0] = x0[i][0];
+          dx[i][1] = x0[i][1];
+          dx[i][2] = x0[i][2];
+        }
+      }
+  }
+
+  dX -= X;
+
+  if (mms)
+  { //HB: changed to use dofType array instead of nodeType array
+    int numLocSub = domain->getNumLocSub();
+    BCApplier* meshMotionBCs = domain->getMeshMotionBCs();
+    int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0;
+
+    if(DofType)
+    {
+      #pragma omp parallel for
+      for(int iSub=0; iSub<numLocSub; ++iSub)
+      {
+        double (*dx)[3] = dX.subData(iSub);
+        int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
+        for(int i=0;i<dX.subSize(iSub); i++)
+          for(int l=0; l<3; l++)
+            if(dofType[i][l]!=BC_MATCHED) dx[i][l] = 0.0;
+      }
+    }
+
+
+    mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
+    mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+
+  }
+  else
+    X += dX;
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double SpiralingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+{
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double SpiralingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return update(lastIt, it, t, Xdot, X);
+
+}
+
+//------------------------------------------------------------------------------
 
 AccForcedMeshMotionHandler::
 AccForcedMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :

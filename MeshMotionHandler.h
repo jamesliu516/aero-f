@@ -278,6 +278,32 @@ public:
 
 //------------------------------------------------------------------------------
 
+class SpiralingMeshMotionHandler : public MeshMotionHandler {
+
+  double dt;
+  double omega;
+
+  double delta[3];
+
+  MeshMotionSolver *mms;
+
+public:
+
+  SpiralingMeshMotionHandler(IoData &, Domain *);
+  ~SpiralingMeshMotionHandler();
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  DistSVec<double,3> getModes();
+
+  void setup(DistSVec<double, 3> &X);
+
+};
+
+//------------------------------------------------------------------------------
+
 class AccForcedMeshMotionHandler : public DeformingMeshMotionHandler, 
 				   public RigidMeshMotionHandler {
 
