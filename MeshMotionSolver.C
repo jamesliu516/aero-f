@@ -397,7 +397,7 @@ TetMeshSensitivitySolver::TetMeshSensitivitySolver
   else if (kspData.type == KspData::GMRES)
     ksp = new GmresSolver<DistSVec<double,3>, StiffMat<double,3>, KspPrec<3>, Communicator>
       (domain->getNodeDistInfo(), kspData, mvp, pc, com);
-
+  ns = 0;
   nss = new NewtonSolver<TetMeshSensitivitySolver>(this);
 
   volStiff = data.volStiff;
