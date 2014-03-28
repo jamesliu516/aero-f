@@ -1350,11 +1350,11 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 //  this->outputPositionVectorToDisk(U);
 
   this->com->fprintf(stderr, "FluidShapeOptimizationHandler<dim>::fsoHandler 1 \n");
-//  this->output->closeAsciiFiles();
+  this->output->closeAsciiFiles();
   this->com->fprintf(stderr, "FluidShapeOptimizationHandler<dim>::fsoHandler 2 \n");
   
 
-  this->com->barrier();
+//  this->com->barrier();
   MyLocalTimer += this->timer->getTime();
   if (this->com->cpuNum() == 0)
   {
