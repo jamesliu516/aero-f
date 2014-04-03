@@ -1733,6 +1733,9 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   int algNum = dynNodalTransfer->getAlgorithmNumber();
 
   switch (algNum) {
+    case 1: //PP with FEM
+      step2ForPP(lastIt,it,t,Xdot,X);
+      break;
     case 6: //A6 with FEM
       step2ForA6(lastIt,it,t,Xdot,X);
       break;
@@ -1752,6 +1755,19 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
 //------------------------------------------------------------------------------
 
+void EmbeddedMeshMotionHandler::step2ForPP(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  // get displacement
+  if(it==it0) {
+    dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
+                             dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
+  }
+  *lastIt = true;
+}
+
+//------------------------------------------------------------------------------
 void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
