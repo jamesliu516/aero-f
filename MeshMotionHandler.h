@@ -352,12 +352,13 @@ public:
   void step1ForC0XFEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   void step1ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step2ForPP(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   int structureSubcycling() {return dynNodalTransfer->structSubcycling();}
 
-  int getAlgNum()  { return 0; }
+  int getAlgNum()  { return dynNodalTransfer->getAlgorithmNumber(); }
 
 };
 

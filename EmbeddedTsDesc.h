@@ -137,7 +137,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                         DistSVec<double,dim> &);
   void outputForces(IoData &, bool*, int, int, int, double, double,
                     DistSVec<double,dim> &);
-//  void outputPositionVectorToDisk(DistSVec<double,dim>&);
+  void outputPositionVectorToDisk(DistSVec<double,dim>&);
   void resetOutputToStructure(DistSVec<double,dim> &);
   /** Override the TsDesc routine because forces are sent to the structure
    * in a different way than the general case */
