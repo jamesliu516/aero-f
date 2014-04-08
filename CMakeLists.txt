@@ -24,6 +24,12 @@ IF(USE_OPENMP)
   endif(OpenMP_FLAG_DETECTED)
 ENDIF(USE_OPENMP)
 
+option(USE_STRONG_FARFIELD_BC "Enable strong farfield bc" OFF)
+
+IF(USE_STRONG_FARFIELD_BC)
+  add_definitions(-DSTRONG_FARFIELD_BC)
+ENDIF(USE_STRONG_FARFIELD_BC)
+
 # Code to determine if we should add some link libraries
 IF("${CMAKE_Fortran_COMPILER_ID}" MATCHES GNU)
   EXEC_PROGRAM(${CMAKE_Fortran_COMPILER}

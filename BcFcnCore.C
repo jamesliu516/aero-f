@@ -169,6 +169,17 @@ void BcFcnNS::template_applyToResidualTerm(int type, double *Vwall, double *U, d
   }
 #endif
 
+#if defined(STRONG_FARFIELD_BC)
+  if (type == BC_INLET_MOVING || type == BC_INLET_FIXED ||
+      type == BC_OUTLET_MOVING || type == BC_OUTLET_FIXED) {
+    F[0] = - Vwall[0] + U[0];
+    F[1] = - Vwall[1] + U[1];
+    F[2] = - Vwall[2] + U[2];
+    F[3] = - Vwall[3] + U[3];
+    F[4] = - Vwall[4] + U[4];
+  }
+#endif
+
 }
 
 //------------------------------------------------------------------------------
@@ -194,6 +205,17 @@ void BcFcnNS::template_applyToDerivativeOfResidualTerm(int type, double *Vwall, 
     dF[1] = - dVwall[0]*Vwall[1] - Vwall[0]*dVwall[1] + dU[1];
     dF[2] = - dVwall[0]*Vwall[2] - Vwall[0]*dVwall[2] + dU[2];
     dF[3] = - dVwall[0]*Vwall[3] - Vwall[0]*dVwall[3] + dU[3];
+  }
+#endif
+
+#if defined(STRONG_FARFIELD_BC)
+  if (type == BC_INLET_MOVING || type == BC_INLET_FIXED ||
+      type == BC_OUTLET_MOVING || type == BC_OUTLET_FIXED) {
+    dF[0] = - dVwall[0] + dU[0];
+    dF[1] = - dVwall[1] + dU[1];
+    dF[2] = - dVwall[2] + dU[2];
+    dF[3] = - dVwall[3] + dU[3];
+    dF[4] = - dVwall[4] + dU[4];
   }
 #endif
 
