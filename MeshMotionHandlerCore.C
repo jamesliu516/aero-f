@@ -598,7 +598,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 
-  if (algNum != 10 || it == it0)  {
+  if ((algNum != 10 && !*lastIt) || it == it0)  {
     //ARL: bug
     //     if second comment line, several cpu crashes with a floating point exception.
     //     if first comment  line, runs fine.
