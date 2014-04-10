@@ -83,6 +83,8 @@ InputData::InputData()
   decomposition = "";
   cpumap = "";
   match = "";
+  embmeshmatch = "";
+  embsurfmatch = "";
   d2wall = "";
   perturbed = "";
   solutions = "";
@@ -132,7 +134,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 36, father);
+  ClassAssigner *ca = new ClassAssigner(name, 38, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -140,6 +142,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Decomposition", this, &InputData::decomposition);
   new ClassStr<InputData>(ca, "CpuMap", this, &InputData::cpumap);
   new ClassStr<InputData>(ca, "Matcher", this, &InputData::match);
+  new ClassStr<InputData>(ca, "EmbeddedMeshMatcher", this, &InputData::embmeshmatch);
+  new ClassStr<InputData>(ca, "EmbeddedSurfaceMatcher", this, &InputData::embsurfmatch);
   new ClassStr<InputData>(ca, "WallDistance", this, &InputData::d2wall);
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);

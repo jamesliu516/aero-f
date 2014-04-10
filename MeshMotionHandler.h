@@ -380,7 +380,7 @@ protected:
 
 public:
 
-  EmbeddedALEMeshMotionHandler(IoData &, Domain *, DistLevelSetStructure *);
+  EmbeddedALEMeshMotionHandler(IoData &, Domain *, MatchNodeSet **, DistLevelSetStructure *);
   ~EmbeddedALEMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);

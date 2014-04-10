@@ -68,6 +68,8 @@ struct InputData {
   const char *decomposition;
   const char *cpumap;
   const char *match;
+  const char *embmeshmatch;
+  const char *embsurfmatch;
   const char *d2wall;
   const char *perturbed;
   const char *solutions;

@@ -1837,6 +1837,7 @@ void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *dom,
+                              MatchNodeSet **matchNodes,
                               DistLevelSetStructure *distlss) : MeshMotionHandler(iod, dom)
 {
   dt = iod.ts.timestep;
@@ -1849,10 +1850,10 @@ EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *
     for (int j=0; j<3; j++)
       Xs0[3*i + j] = Xstruct[i][j];
 
-  cs = new EmbeddedCorotSolver(iod.dmesh, domain, Xs0, distLSS->getNumStructNodes());
+  cs = new EmbeddedCorotSolver(iod, matchNodes, domain, Xs0, distLSS->getNumStructNodes(),distLSS->getStructElems());
 
   if (iod.dmesh.type == DefoMeshMotionData::COROTATIONAL)
-    mms = new EmbeddedALETetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+    mms = new EmbeddedALETetMeshMotionSolver(iod.dmesh, matchNodes, domain, 0);
   else
     mms = 0;
 
@@ -1924,7 +1925,7 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
         int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
         for(int i=0;i<dX.subSize(iSub); i++)
           for(int l=0; l<3; l++)
-            if(dofType[i][l]!=BC_MATCHED && dofType[i][l]!=BC_MATCHEDSLIDE) dx[i][l] = 0.0;
+            if(dofType[i][l]!=BC_FIXED && dofType[i][l]!=BC_MATCHED && dofType[i][l]!=BC_MATCHEDSLIDE) dx[i][l] = 0.0;
       }
     }
 //--------------------------------------------------------------

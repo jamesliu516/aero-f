@@ -11,6 +11,8 @@ class MatchNodeSet {
 
   int (*index)[3];
   double (*gap)[3];
+  double (*xi)[3];
+  double *normgap;
 
 public:
 
@@ -28,8 +30,10 @@ public:
 
   void exportInfo(int, int (*)[3]);
   void setBufferPosition(int, int);
+  void setBufferPosition(int, int, double[2], int (*)[3], double (*)[3]);
   void getDisplacement(int, double, double, double, bool *, double (*)[2][3], double (*)[3], 
 		       double (*)[3], double (*)[3], double (*)[3], double *);
+  void getDisplacement(double (*)[3], int (*)[3], double (*)[3], double (*)[3], double (*)[3], double);
   double getTemperature(int, double, double, bool*, double*, double*);
   template<int dim>
   void send(double, double (*)[dim], double (*)[dim]);

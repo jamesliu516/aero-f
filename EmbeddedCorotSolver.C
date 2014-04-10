@@ -12,8 +12,8 @@
 
 //------------------------------------------------------------------------------
 
-EmbeddedCorotSolver::EmbeddedCorotSolver(DefoMeshMotionData &data, Domain *dom, double *Xstruct, int nNodes)
-  : domain(dom), Xs0(Xstruct), X0(dom->getNodeDistInfo())
+EmbeddedCorotSolver::EmbeddedCorotSolver(IoData &iodata, MatchNodeSet **mns, Domain *dom, double *Xstruct, int nNodes, int (*structElem)[3])
+  : iod(iodata), matchNodes(mns), domain(dom), Xs0(Xstruct), stElem(structElem), X0(dom->getNodeDistInfo())
 {
 
   numStNodes = nNodes;
@@ -35,13 +35,13 @@ EmbeddedCorotSolver::EmbeddedCorotSolver(DefoMeshMotionData &data, Domain *dom, 
   computeRotMat(zeroRot, R);
 
   type = EmbeddedCorotSolver::BASIC;
-  if (data.type==DefoMeshMotionData::COROTATIONAL)
+  if (iod.dmesh.type==DefoMeshMotionData::COROTATIONAL)
     type = EmbeddedCorotSolver::COROTATIONAL;
 
   //HB: look if a symmetry plane was specified in the input file
-  n[0] = data.symmetry.nx;
-  n[1] = data.symmetry.ny;
-  n[2] = data.symmetry.nz;
+  n[0] = iod.dmesh.symmetry.nx;
+  n[1] = iod.dmesh.symmetry.ny;
+  n[2] = iod.dmesh.symmetry.nz;
   double nrm= sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
   SymAxis = EmbeddedCorotSolver::NONE;
   if (type == EmbeddedCorotSolver::BASIC) {
@@ -77,6 +77,81 @@ EmbeddedCorotSolver::EmbeddedCorotSolver(DefoMeshMotionData &data, Domain *dom, 
         break;
     }
   }
+
+  if (matchNodes) {
+    int (*ptr)[2] = new int[numLocSub][2];
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub)
+      ptr[iSub][0] = matchNodes[iSub]->size();
+
+    ptr[0][1] = 0;
+    for (int iSub=1; iSub<numLocSub; ++iSub)
+      ptr[iSub][1] = ptr[iSub - 1][1] + ptr[iSub - 1][0];
+
+    int numCPUMatchedNodes = ptr[numLocSub - 1][1] + ptr[numLocSub - 1][0];
+
+    // gather the global matched point nodes for this fluid CPU
+
+    int (*cpuMatchNodes)[3] = 0;
+
+    if (numCPUMatchedNodes > 0) {
+      cpuMatchNodes = new int[numCPUMatchedNodes][3];
+
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub)
+        matchNodes[iSub]->exportInfo(iSub, cpuMatchNodes + ptr[iSub][1]);
+    }
+
+//get embedded surface matcher
+    char *embsurfmatch;
+    int sp = strlen(iod.input.prefix) + 1;
+
+    embsurfmatch = new char[sp + strlen(iod.input.embsurfmatch)];
+    sprintf(embsurfmatch,"%s%s", iod.input.prefix, iod.input.embsurfmatch);
+
+    FILE *fp = fopen(embsurfmatch, "r");
+
+    if (!fp)  {
+      fprintf(stderr, "*** ERROR: Embedded surface match file \'%s\' file does not exist\n",embsurfmatch);
+      exit(-1);
+    }
+
+    int numNodes;
+    char line[MAXLINE];
+    char *toto = fgets(line, MAXLINE, fp);
+    toto = fgets(line, MAXLINE, fp);
+    toto = fgets(line, MAXLINE, fp);
+    toto = fgets(line, MAXLINE, fp);
+    sscanf(line, "%*s %d", &numNodes);
+
+    int *elempos = new int[numNodes];
+    double (*pos)[2] = new double[numNodes][2];
+  // read match points
+    for (int i = 0; i < numNodes; i++) {
+      toto = fgets(line, MAXLINE, fp);
+      sscanf(line, "%d %lf %lf", &(elempos[i]), &(pos[i][0]), &(pos[i][1]));
+      elempos[i]--;
+    }
+    fclose(fp);
+
+    double (*xs0)[3] = new double[nNodes][3];
+    for (int i=0; i<nNodes; i++)
+      for (int j=0; j<3; j++)
+        xs0[i][j] = Xs0[3*i + j];
+
+    for (int i=0; i<numCPUMatchedNodes; ++i) {
+      matchNodes[cpuMatchNodes[i][2]]->setBufferPosition(cpuMatchNodes[i][0], elempos[cpuMatchNodes[i][1]], pos[cpuMatchNodes[i][1]], stElem, xs0);
+    }
+
+    delete[] xs0;
+    delete[] elempos;
+    delete[] pos;
+    delete[] cpuMatchNodes;
+    delete[] ptr;
+    delete[] embsurfmatch;
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -410,16 +485,31 @@ void EmbeddedCorotSolver::applyProjector(DistSVec<double,3> &Xdot)
 }
 
 //------------------------------------------------------------------------------
-void EmbeddedCorotSolver::findProjection(DistSVec<double,3> &dX)
+void EmbeddedCorotSolver::fixNodes(double *Xs, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX)
 {
+  DistSVec<double,3> dXp(dX);
+  if (matchNodes) {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      double (*x)[3] = X.subData(iSub);
+      double (*dx)[3] = dX.subData(iSub);
+      double (*dxp)[3] = dXp.subData(iSub);
+      double (*xs)[3] = new double[nNodes][3];
+      for (int i=0; i<nNodes; i++)
+        for (int j=0; j<3; j++)
+          xs[i][j] = Xs[3*i + j];
+
+      matchNodes[iSub]->getDisplacement(xs, stElem, x, dx, dxp, iod.ref.rv.tlength);
+      delete[] xs;
+    }
+  }
   if(meshMotionBCs) {
-    DistSVec<double,3> dXp(dX);
     double meandX[3];
     computeMeanDXForSlidingPlane(dX,meandX);
     meshMotionBCs->applyD2(dX,meandX);
     meshMotionBCs->applyP(dX);
-    dX = dX - dXp;
   }
+  dX = dX - dXp;
 }
 
 //------------------------------------------------------------------------------
@@ -524,7 +614,7 @@ void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &
     computeNodeRot(R, X, cg0, cg1);
   else if (type==EmbeddedCorotSolver::COROTATIONAL) {
     computeDeltaNodeRot(deltaRot, X, dX, cgN, cg1);
-    findProjection(dX);
+    fixNodes(Xtilde,nNodes,X,dX);
   }
 
   cgN[0] = cg1[0];
