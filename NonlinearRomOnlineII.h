@@ -19,7 +19,7 @@ class NonlinearRomOnlineII : public NonlinearRom<dim> {
   bool updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>*);
   bool updateBasisFastApprox(int, DistSVec<double, dim> &);
 
-  void appendNonStateDataToBasis(int, char *, bool relProjError = false); 
+  void appendNonStateDataToBasis(int, const char *, bool relProjError = false); 
   void readClusteredOnlineQuantities(int);
 
   void readClosestCenterInfoModelII();

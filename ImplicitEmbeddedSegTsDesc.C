@@ -327,7 +327,7 @@ int ImplicitEmbeddedSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec
   
   int lits2 = ksp2->solve(embeddedB2, embeddeddQ2);
 
-  if(this->data->checklinsolve && (lits1 == ksp1->maxits || lits2 == ksp2->maxits)) this->data->badlinsolve=true;
+  if(this->data->checklinsolve && (lits1 == ksp1->maxits || lits2 == ksp2->maxits)) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1;
 
   this->embeddeddQ.merge(embeddeddQ1,embeddeddQ2);
  

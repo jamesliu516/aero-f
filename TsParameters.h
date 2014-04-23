@@ -53,7 +53,6 @@ public:
   int checkrhoclipping;
 
   bool unphysical;
-  bool badlinsolve;
   bool allowstop;
   int forbidreduce;
 

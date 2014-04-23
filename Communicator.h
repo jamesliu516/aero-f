@@ -109,6 +109,20 @@ public:
   template<class Scalar>
   void globalSum(int, Scalar *);
 
+#ifdef USE_MPI
+  template<class Scalar>
+  void globalOpRoot(int, Scalar *, MPI_Op); // (MPI_Reduce vs. MPI_Reduceall)
+#endif
+
+  template<class Scalar>
+  void globalMinRoot(int, Scalar *); // only cpu 0 gets result (MPI_Reduce vs. MPI_Reduceall)
+
+  template<class Scalar>
+  void globalMaxRoot(int, Scalar *); // only cpu 0 gets result (MPI_Reduce vs. MPI_Reduceall)
+
+  template<class Scalar>
+  void globalSumRoot(int, Scalar *); // only cpu 0 gets result (MPI_Reduce vs. MPI_Reduceall)
+
   int size() const { return numCPU; }
   int cpuNum() const { return thisCPU; }
   void setTimer(Timer *t) { timer = t; }

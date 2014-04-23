@@ -1395,8 +1395,9 @@ public:
 					   GenMat<Scalar,neq> &A,
 					   VarFcn* vf);
 
-  void setFarFieldMask(Vec<double>& ffMask);
-  
+  void setFarFieldMask(Vec<double>& ffMask, Vec<double>& neighborMask);
+  void setWallMask(Vec<double>& wallMask, Vec<double>& neighborMask); 
+ 
   void attachTriangulatedInterfaceLSS(LevelSetStructure*);
   
   Elem* searchPoint(Vec3D Xp, SVec<double,3>& X);

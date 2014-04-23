@@ -264,15 +264,24 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
     }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
-    if (ioData.problem.type[ProblemData::ACCELERATED])
-      _mmh = new AccForcedMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
-    else {
-      if (ioData.forced.type == ForcedData::HEAVING)
+    if (ioData.forced.type == ForcedData::HEAVING) {
+      if (ioData.problem.type[ProblemData::ACCELERATED]){
+        _mmh = new AccHeavingMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
+      } else {
         _mmh = new HeavingMeshMotionHandler(ioData, domain);
-      else if (ioData.forced.type  == ForcedData::PITCHING)
+      }
+    } else if (ioData.forced.type  == ForcedData::PITCHING){
+      if (ioData.problem.type[ProblemData::ACCELERATED]){
+        _mmh = new AccPitchingMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
+      } else {
         _mmh = new PitchingMeshMotionHandler(ioData, domain);
-      else if (ioData.forced.type  == ForcedData::DEFORMING)
+      }
+    } else if (ioData.forced.type  == ForcedData::DEFORMING){
+      if (ioData.problem.type[ProblemData::ACCELERATED]){
+        _mmh = new AccDeformingMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
+      } else {
         _mmh = new DeformingMeshMotionHandler(ioData, domain);
+      }
     }
   }
   else if (ioData.problem.type[ProblemData::ACCELERATED])
