@@ -210,7 +210,7 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
 
   int lits = ksp->solve(b, dQ);
 
-  if (lits == ksp->maxits && this->data->checklinsolve) this->data->badlinsolve=true;
+  if (lits == ksp->maxits && this->data->checklinsolve) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1;
 
   this->timer->addKspTime(t0);
 

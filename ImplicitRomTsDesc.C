@@ -89,11 +89,22 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
     farFieldMask = new DistVec<double>(this->domain->getNodeDistInfo());
-    this->domain->setFarFieldMask(*farFieldMask);
+    farFieldNeighborsMask = new DistVec<double>(this->domain->getNodeDistInfo());
+    this->domain->setFarFieldMask(*farFieldMask, *farFieldNeighborsMask);
+    wallMask = new DistVec<double>(this->domain->getNodeDistInfo());
+    wallNeighborsMask = new DistVec<double>(this->domain->getNodeDistInfo());
+    this->domain->setWallMask(*wallMask, *wallNeighborsMask);
   } else {
     farFieldMask = NULL;
+    farFieldNeighborsMask = NULL;
+    wallMask = NULL;
+    wallNeighborsMask = NULL;
   }
+
+  interiorWeight = 1.0;
   ffWeight = this->ioData->romOnline.ffWeight;
+  wallWeight = this->ioData->romOnline.wallWeight;
+  bcWeightGrowthFactor = this->ioData->romOnline.bcWeightGrowthFactor;
   levenbergMarquardtWeight = this->ioData->romOnline.levenbergMarquardtWeight;
 
   regThresh = this->ioData->romOnline.regThresh;
@@ -105,7 +116,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   rho = 0.5;
   c1 = 0.25;
-  maxItsLS = 1;
+  maxItsLS = 10;
 
 }
 
@@ -141,6 +152,9 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
   //if (weightURef) delete weightURef;
   //if (weightFRef) delete weightFRef;
   if (farFieldMask) delete farFieldMask;
+  if (farFieldNeighborsMask) delete farFieldNeighborsMask;
+  if (wallMask) delete wallMask;
+  if (wallNeighborsMask) delete wallNeighborsMask;
   if (Uinit) delete Uinit;
 }
 
@@ -231,46 +245,113 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
 //-----------------------------------------------------------------------
 
 template<int dim>
-void ImplicitRomTsDesc<dim>::printFFWeightingInfo() {
+void ImplicitRomTsDesc<dim>::printBCWeightingInfo(bool updateWeights) {
 
-  int NumInteriorNodes = 0.0;
-  double RinteriorNormSquared = 0.0;
+  int numFFNodes = 0.0;
+  double resNormSquaredFFNodes = 0.0;
 
-  int NumFFNodes = 0.0;
-  double RffNormSquared = 0.0;
+  int numFFNeighborNodes = 0.0;
+  double resNormSquaredFFNeighborNodes = 0.0;
+
+  int numWallNodes = 0.0;
+  double resNormSquaredWallNodes = 0.0;
+
+  int numWallNeighborNodes = 0.0;
+  double resNormSquaredWallNeighborNodes = 0.0;
+
+  int numInteriorNodes = 0.0;
+  double resNormSquaredInteriorNodes = 0.0;
 
   // weight residual
   int numLocSub = this->F.numLocSub();
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
+    bool *masterFlag = this->domain->getNodeDistInfo().getMasterFlag(iSub);
     double *ffMask = farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
+    double *ffNeighborsMask =  farFieldNeighborsMask->subData(iSub); // vector with nonzero entries at neighbors of farfield nodes
+    double *wMask = wallMask->subData(iSub);   // vector with nonzero entries at wall nodes
+    double *wNeighborsMask =  wallNeighborsMask->subData(iSub); // vector with nonzero entries at neighbors of wall nodes
     double (*unweightedResidual)[dim] = this->F.subData(iSub);
-    for (int i=0; i<farFieldMask->subSize(iSub); ++i) {
+    for (int i=0; i<F.subSize(iSub); ++i) {
+      if (!masterFlag[i]) continue;
       if (ffMask[i]>0) {
-        ++NumFFNodes;
+        ++numFFNodes;
         for (int j=0; j<dim; ++j)
-          RffNormSquared += pow(unweightedResidual[i][j],2);
+          resNormSquaredFFNodes += pow(unweightedResidual[i][j],2);
+      } else if (ffNeighborsMask[i]>0) {
+        ++numFFNeighborNodes;
+        for (int j=0; j<dim; ++j)
+          resNormSquaredFFNeighborNodes += pow(unweightedResidual[i][j],2);
+      } else if (wMask[i]>0) {
+        ++numWallNodes;
+        for (int j=0; j<dim; ++j)
+          resNormSquaredWallNodes += pow(unweightedResidual[i][j],2);
+      } else if (wNeighborsMask[i]>0) {
+        ++numWallNeighborNodes;
+        for (int j=0; j<dim; ++j)
+          resNormSquaredWallNeighborNodes += pow(unweightedResidual[i][j],2);
       } else {
-        ++NumInteriorNodes;
+        ++numInteriorNodes;
         for (int j=0; j<dim; ++j)
-           RinteriorNormSquared += pow(unweightedResidual[i][j],2);
+          resNormSquaredInteriorNodes += pow(unweightedResidual[i][j],2);
       }
     }
   }
 
-  this->com->globalSum(1, &NumFFNodes);
-  this->com->globalSum(1, &NumInteriorNodes);
-  this->com->globalSum(1, &RffNormSquared);
-  this->com->globalSum(1, &RinteriorNormSquared);
+  this->com->globalSum(1, &numFFNodes);
+  this->com->globalSum(1, &numFFNeighborNodes);
+  this->com->globalSum(1, &numWallNodes);
+  this->com->globalSum(1, &numWallNeighborNodes);
+  this->com->globalSum(1, &numInteriorNodes);
+  this->com->globalSum(1, &resNormSquaredFFNodes);
+  this->com->globalSum(1, &resNormSquaredFFNeighborNodes);
+  this->com->globalSum(1, &resNormSquaredWallNodes);
+  this->com->globalSum(1, &resNormSquaredWallNeighborNodes);
+  this->com->globalSum(1, &resNormSquaredInteriorNodes);
 
-  this->com->fprintf(stdout, "(||R_interior||)^2   = %e\n", RinteriorNormSquared);
-  this->com->fprintf(stdout, "(||W*R_interior||)^2 = %e\n", RinteriorNormSquared);
-  this->com->fprintf(stdout, "(||R_interior||)^2 / numInteriorNodes = %e\n", RinteriorNormSquared/((double) NumInteriorNodes));
+  if (numFFNodes==0) numFFNodes=1;
+  if (numFFNeighborNodes==0) numFFNeighborNodes=1;
+  if (numWallNodes==0) numWallNodes=1;
+  if (numWallNeighborNodes==0) numWallNeighborNodes=1; 
 
-  this->com->fprintf(stdout, "(||R_ff||)^2 = %e\n", RffNormSquared);
-  this->com->fprintf(stdout, "(||W*R_ff||)^2 = %e\n", RffNormSquared*ffWeight);
-  this->com->fprintf(stdout, "(||R_ff||)^2 / numFarFieldNodes = %e\n", RffNormSquared/ ((double) NumFFNodes));
-  this->com->fprintf(stdout, "(||R_ff||)^2 * numInteriorNodes / numFarFieldNodes = %e\n", RffNormSquared*((double) NumInteriorNodes)/((double) NumFFNodes));
+  this->com->fprintf(stdout, "-----------------------------------------------\n");
+  this->com->fprintf(stdout, "(||R_interior||)^2   = %e\n", resNormSquaredInteriorNodes);
+  this->com->fprintf(stdout, "epsilon_interior = %e\n", interiorWeight);
+  this->com->fprintf(stdout, "(||W_interior*R_interior||)^2 = %e\n", resNormSquaredInteriorNodes*interiorWeight);
+  this->com->fprintf(stdout, "(||R_interior||)^2 / numInteriorNodes = %e\n", resNormSquaredInteriorNodes/((double) numInteriorNodes));
+  this->com->fprintf(stdout, "(||W_interior*R_interior||)^2 / numInteriorNodes = %e\n",  resNormSquaredInteriorNodes*interiorWeight/ ((double) numInteriorNodes));
+  this->com->fprintf(stdout, "-----------------------------------------------\n");
+  this->com->fprintf(stdout, "(||R_ff||)^2 = %e\n", resNormSquaredFFNodes);
+  this->com->fprintf(stdout, "epsilon_ff = %e\n", ffWeight);
+  this->com->fprintf(stdout, "(||W_ff*R_ff||)^2 = %e\n", resNormSquaredFFNodes*ffWeight);
+  this->com->fprintf(stdout, "(||R_ff||)^2 / numFarFieldNodes = %e\n", resNormSquaredFFNodes / ((double) numFFNodes));
+  this->com->fprintf(stdout, "(||W_ff*R_ff||)^2 / numFarFieldNodes = %e\n",  resNormSquaredFFNodes*ffWeight/ ((double) numFFNodes));
+  this->com->fprintf(stdout, "-----------------------------------------------\n");
+  this->com->fprintf(stdout, "(||R_ff_neighbors||)^2 = %e\n", resNormSquaredFFNeighborNodes);
+  this->com->fprintf(stdout, "(||R_ff_neighbors||)^2 / numFarFieldNeighborNodes = %e\n", resNormSquaredFFNeighborNodes / ((double) numFFNeighborNodes));
+  this->com->fprintf(stdout, "-----------------------------------------------\n");
+  this->com->fprintf(stdout, "(||R_wall||)^2 = %e\n", resNormSquaredWallNodes);
+  this->com->fprintf(stdout, "epsilon_wall = %e\n", wallWeight);
+  this->com->fprintf(stdout, "(||W_wall*R_wall||)^2 = %e\n", resNormSquaredWallNodes*wallWeight);
+  this->com->fprintf(stdout, "(||R_wall||)^2 / numWallNodes = %e\n", resNormSquaredWallNodes / ((double) numWallNodes));
+  this->com->fprintf(stdout, "(||W_wall*R_wall||)^2 / numWallNodes = %e\n",  resNormSquaredWallNodes*wallWeight/ ((double) numWallNodes));
+  this->com->fprintf(stdout, "-----------------------------------------------\n");
+  this->com->fprintf(stdout, "(||R_wall_neighbors||)^2 = %e\n", resNormSquaredWallNeighborNodes);
+  this->com->fprintf(stdout, "(||R_wall_neighbors||)^2 / numWallNeighborNodes = %e\n", resNormSquaredWallNeighborNodes / ((double) numWallNeighborNodes));
+  this->com->fprintf(stdout, "-----------------------------------------------\n");
+  this->com->fprintf(stdout, "Ninterior=%d, Nff=%d, Nwall=%d, Ntot=%d\n", numInteriorNodes, numFFNodes, numWallNodes, numInteriorNodes+numFFNodes+numWallNodes);
+  this->com->fprintf(stdout, "TotWeight=%e\n", interiorWeight*(double)numInteriorNodes+(double)numWallNodes*wallWeight+(double)numFFNodes*ffWeight);
+
+  if (updateWeights) {
+    if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))/10.0>1.0 && interiorWeight>0.0) {
+      ffWeight *= bcWeightGrowthFactor;
+    }
+    if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))/10.0>1.0 && interiorWeight>0.0) {
+      wallWeight *= bcWeightGrowthFactor; 
+    }
+    interiorWeight = ((double)numInteriorNodes+(double)numWallNodes*(1.0-wallWeight)+(double)numFFNodes*(1.0-ffWeight))/((double)numInteriorNodes);
+    interiorWeight = (interiorWeight<0) ? 0.0 : interiorWeight;
+  }
 
 }
 
@@ -301,8 +382,11 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
 	postProStep(U,totalTimeSteps);
 
+  updateLeastSquaresWeightingVector(); //only updated at the start of Newton
+
   for (it = 0; it < maxItsNewton; it++)  {
 
+   // TODO remove all of the U / R weighting machinery
    // if (it==0) {
    //   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_STATE)
    //     *weightURef = U;
@@ -310,8 +394,6 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
    //   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL)
    //     *weightFRef = this->F;
    // }
-
-    updateLeastSquaresWeightingVector(); //only updated at the start of Newton
 
 		double tRes = this->timer->getTime();
     computeFullResidual(it, U, false);
@@ -334,7 +416,6 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 		computeAJ(it, U, true);	// skipped some times for Broyden
 
     if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
-      if (this->ioData->romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) printFFWeightingInfo();
 		  tRes = this->timer->getTime();
       computeFullResidual(it, U, true);
 		  this->timer->addResidualTime(tRes);
@@ -408,6 +489,12 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 		if (breakloopNow) break;
   }	// end Newton loop
 
+
+  if (this->ioData->romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
+    computeFullResidual(it, U, false);
+    printBCWeightingInfo(true);
+  }
+	
 	//savedUnormAccum();
 	if (fsIt > 0 && checkFailSafe(U) == 1)
 		resetFixesTag();
@@ -935,7 +1022,7 @@ void ImplicitRomTsDesc<dim>::updateLeastSquaresWeightingVector() {
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = this->A->subData(iSub); // vector of control volumes
-        double (*weight)[dim] = this->weightVec->subData(iSub);
+        double (*weight)[dim] = weightVec->subData(iSub);
         for (int i=0; i<this->A->subSize(iSub); ++i) {
           for (int j=0; j<dim; ++j)
             weight[i][j] = cv[i];
@@ -945,15 +1032,19 @@ void ImplicitRomTsDesc<dim>::updateLeastSquaresWeightingVector() {
     case (NonlinearRomOnlineData::WEIGHTED_LS_BOCOS):
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double *ffMask = this->farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
-        double (*weight)[dim] = this->weightVec->subData(iSub);
-        for (int i=0; i<this->farFieldMask->subSize(iSub); ++i) {
+        double *ffMask = farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
+        double *wMask = wallMask->subData(iSub); // vector with nonzero entries at wall nodes
+        double (*weight)[dim] = weightVec->subData(iSub);
+        for (int i=0; i<weightVec->subSize(iSub); ++i) {
           if (ffMask[i]>0) {
             for (int j=0; j<dim; ++j)
-              weight[i][j] = this->ffWeight;
+              weight[i][j] = ffWeight;
+          } else if (wMask[i]>0) {
+            for (int j=0; j<dim; ++j)
+              weight[i][j] = wallWeight;
           } else {
             for (int j=0; j<dim; ++j)
-               weight[i][j] = 1.0;
+               weight[i][j] = interiorWeight;
           }
         }
       }

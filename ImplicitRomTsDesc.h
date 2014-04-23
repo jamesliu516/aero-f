@@ -54,8 +54,16 @@ protected:
   DistSVec<double, dim>* weightVec;     // weighting vector for least squares system
   //DistSVec<double, dim>* weightURef;	  // reference state used for weighting least squares system
   //DistSVec<double, dim>* weightFRef;	  // reference residual used for weighting least squares system
-  DistVec<double>* farFieldMask;        // nonzero for far field nodes
+
+  DistVec<double>* farFieldMask;          // one for far field nodes, zero otherwise
+  DistVec<double>* farFieldNeighborsMask; // one for neighbors of ff nodes, zero otherwise
+  DistVec<double>* wallMask;              // one for wall nodes, zero otherwise
+  DistVec<double>* wallNeighborsMask;     // one for neighbors of wall nodes, zero otherwise
+  
+  double interiorWeight;
   double ffWeight;
+  double wallWeight;
+  double bcWeightGrowthFactor;
   double levenbergMarquardtWeight;
 
   double regThresh;
@@ -90,7 +98,7 @@ protected:
   double lineSearch(DistSVec<double, dim> &, Vec<double> &, int, VecSet<DistSVec<double, dim> > &,double, bool &);
   double zoom(double, double, double, double, double, double, double, double, double, DistSVec<double,dim>,DistSVec<double,dim>, DistSVec<double,dim>, int);
   int checkFailSafe(DistSVec<double,dim>&);
-  void printFFWeightingInfo();
+  void printBCWeightingInfo(bool);
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);

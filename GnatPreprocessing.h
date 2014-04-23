@@ -106,7 +106,11 @@ protected:
 	DistSVec<double,3> &X;
 
   double ffWeight;
+  double wallWeight;
   DistVec<double>* farFieldMask;
+  DistVec<double>* wallMask;
+  DistVec<double>* farFieldNeighborsMask;
+  DistVec<double>* wallNeighborsMask;
   DistSVec<double, dim>* weightVec;
 
 	GeoSource *geoSourceTmp;

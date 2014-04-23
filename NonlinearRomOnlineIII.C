@@ -608,7 +608,7 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastApprox(int iCluster, DistSVec<do
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, char* basisType, bool relProjError) {
+void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, const char* basisType, bool relProjError) {
 /*
   int robSize = this->basis->numVectors();
   VecSet< DistSVec<double, dim> > basisOld(robSize, this->domain.getNodeDistInfo());

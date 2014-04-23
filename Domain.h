@@ -1096,8 +1096,10 @@ public:
   // Assign ErrorHandler to subdomains
   void assignErrorHandler();
 
-  void setFarFieldMask(DistVec<double> &ffMask); // ffMask is nonzero for farfield nodes
-
+  void setFarFieldMask(DistVec<double> &ffMask, DistVec<double> &neighborMask); // ffMask is one for farfield nodes,
+                                                                                // neighborMask is one for nodes that are one layer removed from the farfield
+  void setWallMask(DistVec<double> &wallMask, DistVec<double> &neighborMask); // wallMask is one for wall nodes,
+                                                                              // neighbor mask is one for nodes that are one layer removed from the wall
 
   template <int dim>
     void computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<double,dim> &U,DistVec<double>& res,

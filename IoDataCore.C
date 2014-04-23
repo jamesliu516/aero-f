@@ -540,7 +540,7 @@ ROMOutputData::ROMOutputData()
   reducedCoords = "";
   dUnormAccum = "";
 
-  overwriteModelIISnaps = OVERWRITE_OFF;
+  overwriteNonlinearSnaps = OVERWRITE_ON;
 
   resjacfrequency = 0;  //TODO
 
@@ -575,8 +575,8 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "ReducedCoordinates", this, &ROMOutputData::reducedCoords);
   new ClassStr<ROMOutputData>(ca, "NetReducedCoordinates", this, &ROMOutputData::dUnormAccum);
 
-  new ClassToken<ROMOutputData>(ca, "OverwriteModelIISnapshots", this,
-            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::overwriteModelIISnaps), 2, "Off", 0, "On", 1);
+  new ClassToken<ROMOutputData>(ca, "OverwriteNonlinearSnapshots", this,
+            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::overwriteNonlinearSnaps), 2, "Off", 0, "On", 1);
 
   new ClassInt<ROMOutputData>(ca, "ResJacOutputFrequencyTimeModelII", this, &ROMOutputData::resjacfrequency);
   
@@ -3566,6 +3566,8 @@ NonlinearRomFilesData::NonlinearRomFilesData()
 
   // If a prefix and a name are both given, the name overrides the prefix. 
 
+  duplicateSnapshots = DUPLICATE_SNAPSHOTS_FALSE;
+
   // State snapshot clusters
   statePrefix = "";
   stateSnapsName = "";
@@ -3644,6 +3646,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   gappyResidualName = "";
   approxMetricLowRankName = "";
   approxMetricLowRankFullCoordsName = "";
+
   // Surface quantities
   surfacePrefix = "";
   surfaceStateBasisName = "";
@@ -3651,13 +3654,28 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   surfaceWallDistName = "";
   surfaceMeshName = "";
 
+//  surfacePrefix = "";
+//  surfaceNodesName = "";
+//  surfaceCentersName = "";
+//  surfaceStateBasisName = "";
+//  surfaceKrylovBasisName = "";
+//  surfaceSensitivityBasisName = "";
+//  surfaceMeshName = "";
+//  surfaceSolutionName = "";
+//  surfaceRefStateName = "";
+//  surfaceWallDistName = "";
+//  approxMetricLowRankSurfaceCoordsName = "";
+
 }
 //------------------------------------------------------------------------------
 
 void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 60, father);
+  ClassAssigner *ca = new ClassAssigner(name, 61, father);
+
+  new ClassToken<NonlinearRomFilesData> (ca, "DuplicateSnapshots", this, reinterpret_cast<int
+      NonlinearRomFilesData::*>(&NonlinearRomFilesData::duplicateSnapshots), 2, "False", 0, "True", 1);
 
   // State snaps (and associated clustering info)
   new ClassStr<NonlinearRomFilesData>(ca, "StatePrefix", this, &NonlinearRomFilesData::statePrefix);
@@ -3761,7 +3779,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   distanceComparisons = DISTANCE_COMPARISONS_OFF;
   storeAllClusters = STORE_ALL_CLUSTERS_TRUE;
   maxDimension = -1; 
-	minDimension = 0;
+  minDimension = 0;
   energy = 1.0;
 
   weightedLeastSquares = WEIGHTED_LS_FALSE;
@@ -3773,6 +3791,8 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   integralLeakGain = 0.0;
   regThresh = 0.0;
   ffWeight = 1.0;
+  wallWeight = 1.0;
+  bcWeightGrowthFactor = 1.0;
   levenbergMarquardtWeight = 1.0;
   ffErrorTol = 0.0;
   controlNodeID = -1;
@@ -3808,10 +3828,11 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 5, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3, "BoundaryConditions", 4);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldWeight", this, &NonlinearRomOnlineData::ffWeight);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "WallWeight", this, &NonlinearRomOnlineData::wallWeight);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "BCWeightGrowthFactor", this, &NonlinearRomOnlineData::bcWeightGrowthFactor);
+
   new ClassDouble<NonlinearRomOnlineData>(ca, "LevenbergMarquardtWeight", this, &NonlinearRomOnlineData::levenbergMarquardtWeight);
-
   new ClassDouble<NonlinearRomOnlineData>(ca, "WeightingExponent", this, &NonlinearRomOnlineData::weightingExponent);
-
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationConstantGain", this, &NonlinearRomOnlineData::constantGain);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationProportionalGain", this, &NonlinearRomOnlineData::proportionalGain);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationIntegralGain", this, &NonlinearRomOnlineData::integralGain);
@@ -3920,6 +3941,7 @@ GNATConstructionData::GNATConstructionData()
   layers = 2;
 
   farFieldWeight = 1.0;
+  wallWeight = 1.0;
 
   includeLiftFaces = NONE_LIFTFACE;
   computeGappyRes = YES_GAPPYRES;
@@ -3928,6 +3950,8 @@ GNATConstructionData::GNATConstructionData()
   // determining sample nodes
 
   useUnionOfSampledNodes = UNION_FALSE; // all clusters use same sampled nodes
+
+  useOldReducedSVecFunction = USE_OLD_FALSE;
 
   sampledMeshUsed = SAMPLED_MESH_USED;
   pseudoInverseNodes = 20;
@@ -3963,10 +3987,12 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassDouble<GNATConstructionData>(ca, "EnergyJacActionROB", this, &GNATConstructionData::energyJacAction);
 
 
-	new ClassToken<GNATConstructionData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int GNATConstructionData::*>(&GNATConstructionData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);
+  new ClassToken<GNATConstructionData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int 
+      GNATConstructionData::*>(&GNATConstructionData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);
 
 
-	new ClassToken<GNATConstructionData>(ca, "ROBGreedy", this, reinterpret_cast<int GNATConstructionData::*>(&GNATConstructionData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "JacAction", 1, "Both", 2);
+  new ClassToken<GNATConstructionData>(ca, "ROBGreedy", this, reinterpret_cast<int 
+      GNATConstructionData::*>(&GNATConstructionData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "JacAction", 1, "Both", 2);
   new ClassInt<GNATConstructionData>(ca, "MaxDimensionROBGreedy", this, &GNATConstructionData::maxDimensionROBGreedy); // default: full size
   new ClassInt<GNATConstructionData>(ca, "MinDimensionROBGreedy", this, &GNATConstructionData::minDimensionROBGreedy); // default: 0
   new ClassDouble<GNATConstructionData>(ca, "ROBGreedyFactor", this, &GNATConstructionData::robGreedyFactor);
@@ -3976,17 +4002,21 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassDouble<GNATConstructionData>(ca, "SampledNodesFactor", this, &GNATConstructionData::sampledNodesFactor); // default: 2
   new ClassInt<GNATConstructionData>(ca, "NumSampledMeshLayers", this, &GNATConstructionData::layers);	// default: 2
 
-  new ClassDouble<GNATConstructionData>(ca, "FarFieldWeight", this, &GNATConstructionData::farFieldWeight); // default: 2
+  new ClassDouble<GNATConstructionData>(ca, "FarFieldWeight", this, &GNATConstructionData::farFieldWeight); 
+  new ClassDouble<GNATConstructionData>(ca, "WallWeight", this, &GNATConstructionData::wallWeight);
 
 	// optional: undocumented
-	new ClassToken<GNATConstructionData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
-			GNATConstructionData::*>(&GNATConstructionData::computeGappyRes), 2, "False", 0, "True", 1);	
+  new ClassToken<GNATConstructionData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::computeGappyRes), 2, "False", 0, "True", 1);	
 
   new ClassToken<GNATConstructionData> (ca, "UseUnionOfSampledNodes", this, reinterpret_cast<int
       GNATConstructionData::*>(&GNATConstructionData::useUnionOfSampledNodes), 2, "False", 0, "True", 1);
 
-	new ClassToken<GNATConstructionData> (ca, "SampledMeshUsed", this, reinterpret_cast<int
-			GNATConstructionData::*>(&GNATConstructionData::sampledMeshUsed), 2, "False", 0, "True", 1);	
+  new ClassToken<GNATConstructionData> (ca, "UseOldReducedSVecOutputFunction", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::useOldReducedSVecFunction), 2, "False", 0, "True", 1);
+
+  new ClassToken<GNATConstructionData> (ca, "SampledMeshUsed", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::sampledMeshUsed), 2, "False", 0, "True", 1);	
 
   new ClassInt<GNATConstructionData>(ca, "NumPseudoInvNodesAtATime", this, &GNATConstructionData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
 
@@ -4003,7 +4033,8 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
 ROBConstructionData::ROBConstructionData()
 {
 
-// contains only sub-objects
+  storeAllClusters = STORE_ALL_CLUSTERS_TRUE;
+
 
 }
 
@@ -4012,9 +4043,12 @@ ROBConstructionData::ROBConstructionData()
 void ROBConstructionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
 
-	clustering.setup("Clustering",ca);
+  new ClassToken<ROBConstructionData> (ca, "StoreAllStateBasesInMemory", this, reinterpret_cast<int
+      ROBConstructionData::*>(&ROBConstructionData::storeAllClusters), 2, "False", 0, "True", 1);
+
+  clustering.setup("Clustering",ca);
   basisUpdates.setup("OnlineBasisUpdates",ca);
 
   state.setup("StateROB",ca);
@@ -4031,7 +4065,7 @@ void ROBConstructionData::setup(const char *name, ClassAssigner *father)
 
 ClusteringData::ClusteringData()
 {
-	clusteringAlgorithm = K_MEANS_WITH_BOUNDS;
+  clusteringAlgorithm = K_MEANS_WITH_BOUNDS;
   kmeansBoundType = TIGHT_BOUNDS;
   
   percentOverlap = 10.0;
@@ -4042,15 +4076,15 @@ ClusteringData::ClusteringData()
   kMeansRandSeed = -1;  // default: generate randomly
   useExistingClusters = USE_EXISTING_CLUSTERS_FALSE;
   computeMDS = COMPUTE_MDS_FALSE;
-  outputSnapshots = OUTPUT_SNAPSHOTS_TRUE;
   clusterFilesSeparately = CLUSTER_FILES_SEPARATELY_FALSE;
+  clusterIncrements = CLUSTER_INCREMENTS_FALSE;
 }
 
 //------------------------------------------------------------------------------
 
 void ClusteringData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 12, father);
+  ClassAssigner *ca = new ClassAssigner(name, 13, father);
   new ClassToken<ClusteringData> (ca, "ClusteringAlgorithm", this, reinterpret_cast<int 
 			ClusteringData::*>(&ClusteringData::clusteringAlgorithm), 2, "KMeans", 0, "KMeansWithBounds", 1);
   new ClassToken<ClusteringData> (ca, "KMeansBoundType", this, reinterpret_cast<int 
@@ -4065,10 +4099,10 @@ void ClusteringData::setup(const char *name, ClassAssigner *father) {
       ClusteringData::*>(&ClusteringData::useExistingClusters), 2, "False", 0, "True", 1);
   new ClassToken<ClusteringData> (ca, "Compute2DRepresentationOfClusteringData", this, reinterpret_cast<int
       ClusteringData::*>(&ClusteringData::computeMDS), 2, "False", 0, "True", 1);
-  new ClassToken<ClusteringData> (ca, "OutputClusteredSnapshots", this, reinterpret_cast<int
-      ClusteringData::*>(&ClusteringData::outputSnapshots), 2, "False", 0, "True", 1);
   new ClassToken<ClusteringData> (ca, "ClusterSnapshotFilesSeparately", this, reinterpret_cast<int
       ClusteringData::*>(&ClusteringData::clusterFilesSeparately), 2, "False", 0, "True", 1);
+  new ClassToken<ClusteringData> (ca, "ClusterSnapshotIncrements", this, reinterpret_cast<int
+      ClusteringData::*>(&ClusteringData::clusterIncrements), 2, "False", 0, "True", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -4270,7 +4304,7 @@ DataCompressionData::DataCompressionData()
 {
   computePOD = COMPUTE_POD_FALSE;  
 	type = POD;
-	podMethod = SVD;
+	podMethod = SCALAPACK_SVD;
 	maxVecStorage = 0;
 	energyOnly = ENERGY_ONLY_FALSE;	// if ROB computation should only compute total energy of snapshots
   tolerance = 1e-8;  // this only applies to EIG
@@ -4290,7 +4324,7 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int 
       DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
 	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
-			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "SVD", 0, "Eig", 1);
+			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "ScalapackSVD", 0, "ProbabilisticSVD", 1, "Eig", 2);
   new ClassInt<DataCompressionData>(ca, "MaxNumStoredVectors", this, &DataCompressionData::maxVecStorage);
 	new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
@@ -6737,6 +6771,13 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
     if (forced.frequency < 0.0 && forced.type != ForcedData::VELOCITY) {
       com->fprintf(stderr, "*** Error: no valid frequency (%d) given\n", forced.frequency);
       ++error;
+    }
+  }
+
+  if (problem.type[ProblemData::ACCELERATED] && problem.type[ProblemData::FORCED]) {
+    if (forced.timestep != rmesh.timestep) {
+      com->fprintf(stderr, "*** Warning: setting forced-accelerated timestep to minimum of %e and %e\n", rmesh.timestep, forced.timestep);
+      (forced.timestep < rmesh.timestep) ? rmesh.timestep=forced.timestep : forced.timestep=rmesh.timestep;
     }
   }
 
