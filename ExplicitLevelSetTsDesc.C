@@ -148,15 +148,20 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
 
     if (this->phaseChangeType == 0)
       this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
-    else
+    else {
+      this->multiPhaseSpaceOp->setLastPhaseChangeValues(this->riemann);
       this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->interfaceOrder-1,
-						      U, this->V0,
+						      U0, this->V0,
 						      this->Weights,this->VWeights,
 						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
                                                       this->limitHigherOrderExtrapolation);
 
-    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
-  }else U = U0;
+    }
+    this->varFcn->primitiveToConservative(this->V0,U0,this->fluidSelector.fluidId);
+   
+  }
+
+  U = U0;
 
   this->checkSolution(U);
 }

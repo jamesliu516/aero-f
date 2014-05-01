@@ -137,7 +137,8 @@ public:
 				   SVec<double,dim> &dX,
 				   SVec<double,dim> &dY,
 				   SVec<double,dim> &dZ,
-				   SVec<double,dim>& fluxes);
+				   SVec<double,dim>& fluxes,
+                                   LevelSetStructure* = NULL);
 
   template<int dim,class Scalar,int neq>
   int computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,

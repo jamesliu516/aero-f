@@ -32,6 +32,8 @@ MultiGridKernel<Scalar>::MultiGridKernel(Domain *dom, DistGeoState& distGeoState
   agglomerationFile = ioData.mg.agglomerationFile;
 
   ref_length = ioData.ref.length;
+
+  turbRelaxCutoff = ioData.mg.turbRelaxCutoff;
 }
 
 template<class Scalar>
@@ -132,6 +134,11 @@ void MultiGridKernel<Scalar>::initialize(int dim,int neq1,int neq2) {
 
     setupFixes(ioData, level, multiGridLevels[level]->getXn());
   }
+
+  for(int level = 0; level < num_levels; ++level) {
+
+    multiGridLevels[level]->setTurbRelaxCutoff(turbRelaxCutoff);
+  }
 }
 
 template<class Scalar>
@@ -194,11 +201,13 @@ void MultiGridKernel<Scalar>::Prolong(int coarseLvl,
                                       DistSVec<Scalar2,dim>& coarse,
                                       DistSVec<Scalar2,dim>& fine,
                                       DistSVec<Scalar2,dim>& fine_ref,double relax,
+                                      VarFcn* varFcn,
 				      class DistLevelSetStructure* coarselss,
 				      class DistLevelSetStructure* finelss) {
 
   multiGridLevels[coarseLvl]->Prolong(*multiGridLevels[coarseLvl-1],
                                       coarseOld,coarse,fine,fine_ref,relax,
+                                      varFcn,
 				      coarselss, finelss);
 
   
@@ -266,7 +275,7 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
 
         }
 */ 
-	std::cout << "Found negative value at node " << multiGridLevels[lvl]->getMgSubDomains()[iSub].locToGlobMap[i] << ", level " << lvl << std::endl;
+	//std::cout << "Found negative value at node " << multiGridLevels[lvl]->getMgSubDomains()[iSub].locToGlobMap[i] << ", level " << lvl << std::endl;
         if (vf->getPressure(Vl[i]) > 0.0 && vf->getDensity(Vl[i]) > 0.0 ) continue;
 
         for (int k = 0; k < dim; ++k) {
@@ -484,7 +493,7 @@ setupFixes(IoData& ioData,int lvl,DistSVec<Scalar,3>& X0) {
 					   class DistLevelSetStructure* finelss); \
  template void MultiGridKernel<T>::Prolong(int coarseLvl, DistSVec<T2,D>&, \
                                    DistSVec<T2,D>&,DistSVec<T2,D>&,DistSVec<T2,D>&, \
-                                   double,  \
+                                   double, VarFcn*, \
 					   class DistLevelSetStructure* coarselss, \
 					   class DistLevelSetStructure* finelss); \
 template void MultiGridKernel<T>:: \

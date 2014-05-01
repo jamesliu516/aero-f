@@ -102,7 +102,7 @@ void MultiGridPrec<Scalar,dim,Scalar2>::cycle(int lvl, MultiGridDistSVec<double,
     x(lvl+1) = 0.0;
     cycle(lvl+1, b,x);
 
-    mgKernel->Prolong(lvl+1, xold(lvl+1), x(lvl+1), x(lvl),x(lvl), 1.0);
+    mgKernel->Prolong(lvl+1, xold(lvl+1), x(lvl+1), x(lvl),x(lvl), 1.0, NULL);
   }
 
   double t = domain->getTimer()->getTime();

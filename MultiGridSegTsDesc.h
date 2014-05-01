@@ -46,6 +46,8 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
 
   int globalIt;
 
+  int addTurbulenceTerms;
+
   double prolong_relax_factor,restrict_relax_factor;
   
   MultiGridKernel<double>* pKernel;

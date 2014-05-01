@@ -2632,9 +2632,12 @@ MultiGridData::MultiGridData()
 
   restrictMethod = VOLUME_WEIGHTED;
   addViscousTerms = 0;
+  addTurbulenceTerms = 0;
   coarseningRatio = TWOTOONE;
 
   agglomerationFile = "";
+
+  turbRelaxCutoff = 1.0e10;
 }
 
 //------------------------------------------------------------------------------
@@ -2665,6 +2668,11 @@ MultiGridData::*>(&MultiGridData::restrictMethod), 2,
 MultiGridData::*>(&MultiGridData::addViscousTerms), 2,
        "No",0,"Yes", 1);
   
+  new ClassToken<MultiGridData>(ca, "AddTurbulenceTerms", this,
+       reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::addTurbulenceTerms), 2,
+       "No",0,"Yes", 1);
+
   new ClassToken<MultiGridData>(ca, "UseGMRESAcceleration", this,
        reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::useGMRESAcceleration), 2,
@@ -2684,6 +2692,9 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
   new ClassDouble<MultiGridData>(ca, "RestrictRelaxFactor",this,
 &MultiGridData::restrict_relax_factor);
   
+  new ClassDouble<MultiGridData>(ca, "TurbulenceRelaxationCutoff",this,
+&MultiGridData::turbRelaxCutoff);
+
   fixes.setup("Fixes", ca);
 
   new ClassStr<MultiGridData>

@@ -12,19 +12,25 @@ MultiGridEmbeddedTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   memset(numSmooths_pre,0,sizeof(numSmooths_pre));
   memset(numSmooths_post,0,sizeof(numSmooths_post));
   numSmooths_pre[0] = 1;
-  numSmooths_pre[1] = 1;
-  numSmooths_pre[2] = 1;
-  numSmooths_pre[3] = 5;
+  numSmooths_pre[1] = 2;
+  numSmooths_pre[2] = 3;
+  numSmooths_pre[3] = 4;
   numSmooths_pre[4] = 5;
-  numSmooths_pre[5] = 5;
-  /*
-  numSmooths_post[0] = 1;
-  numSmooths_post[1] = 2;
-  numSmooths_post[2] = 3;
-  numSmooths_post[3] = 3;
-  numSmooths_post[4] = 3;
-  numSmooths_post[5] = 3;
-  */
+  numSmooths_pre[5] = 6;
+  numSmooths_pre[6] = 100;
+  numSmooths_pre[7] = 8;
+  numSmooths_pre[8] = 9;
+  
+  numSmooths_post[0] = 0;
+  numSmooths_post[1] = 0;
+  numSmooths_post[2] = 0;
+  numSmooths_post[3] = 0;
+  numSmooths_post[4] = 0;
+  numSmooths_post[5] = 0;
+  numSmooths_post[6] = 0;
+  numSmooths_post[7] = 0;
+  numSmooths_post[8] = 0;
+  
   smoothWithGMRES = (iod.mg.mg_smoother == MultiGridData::MGGMRES);
 
   prolong_relax_factor = iod.mg.prolong_relax_factor;
@@ -147,6 +153,7 @@ smooth0(DistSVec<double,dim>& x,int steps) {
   int i;
   double dummy = 0.0;
   this->updateStateVectors(x, 0);
+
   for (i = 0; i < steps; ++i) {
 
     this->computeTimeStep(globalIt,&dummy, x);
@@ -209,18 +216,23 @@ smooth0(DistSVec<double,dim>& x,int steps) {
 template <int dim>
 void MultiGridEmbeddedTsDesc<dim>::
 smooth(int lvl, MultiGridDistSVec<double,dim>& x,
-       DistSVec<double,dim>& f,int steps) {
+       DistSVec<double,dim>& f,int steps, 
+       bool postsmooth) {
 
   int i;
+  //if (globalIt > 200 && lvl == 3 && !postsmooth)
+  //  steps += std::min((globalIt-200)/10,30);
+      
+
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rnk);
+
 //  for (i = 0; i < 100000/*steps*/; ++i) {
   for (i = 0; i < steps; ++i) {
 
-    int rnk;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rnk);
     
     //if (rnk == 0)
     //  std::cout << "i = " << i << std::endl;
-    
 
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
 
@@ -231,41 +243,64 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 //    mgSpaceOp->computeTimeStep(lvl,std::min<double>(5.0 + 0.5*(i+1),1000.0),
 //                               V);
  
-//    mgSpaceOp->computeResidualEmbedded(*this->riemann,lvl, x, V, res , mgLSS[lvl] );
+    if (i == 0 && postsmooth)
+      mgSpaceOp->computeResidualEmbedded(*this->riemann,lvl, x, V, res , mgLSS[lvl], false );
 
 //    mgSpaceOp->add_dAW_dtEmbedded(res, mgLSS[lvl]);
 
-    if (i == 0)
+    if (i %25 == 0)
       mgSpaceOp->computeJacobianEmbedded(*this->riemann,lvl, x, V, *mgMvp,  mgLSS[lvl] );
     
   //  double r = res(lvl).norm();
   //  if (rnk == 0)
   //    std::cout << r << std::endl;
-
     
 
     char fn[64];
 
-    
-    if ( i/*globalIt*/ % 100 == 0) {
-    /*sprintf(fn, "solutionresf%i_%i", globalIt,i);
-      pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
-						  f); 
+    R(lvl) = f-1.0*res(lvl);
 
-      sprintf(fn, "solutionres%i_%i", globalIt,i);
-      pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
-						  res(lvl)); 
-    */
- //     sprintf(fn, "solutionV_%i",i);
- //            pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
-   //     						  V(lvl));
+    for (int iSub = 0; iSub < R(lvl).numLocSub(); ++iSub) {
 
+      for (int i = 0; i < R(lvl).subSize(iSub); ++i) {
+
+	if (!(*mgLSS[lvl])(iSub).isActive(0.0,i)) {
+
+	  memset(R(lvl)(iSub)[i], 0, sizeof(double)*dim);
+	}
+      }
     }
 
 
-    R(lvl) = f-1.0*res(lvl);
+    double mag = R(lvl).norm();
+    if (rnk == 0)
+      std::cout << "i = " <<  i << " res = " << mag << std::endl;
+
+
+    
+    if ( globalIt % 25 == 0 && i == 0) {
+      //sprintf(fn, "solution_dz_%i_%i", globalIt,lvl);
+      //  pKernel->getLevel(lvl)->writePVTUSolutionFile(fn, 
+      //					    *mgSpaceOp->getOperator(lvl)->getDerivative(2)); 
+      
+      //sprintf(fn, "solutionres_%i_%i", lvl, globalIt);
+      //pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+      //						  R(lvl)); 
+   
+      //sprintf(fn, "solutionV_%i_%i",lvl,globalIt);
+      //        pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+      // 						  V(lvl));
+
+    }
+
+    //if (lvl == 3) {
+
+      // double mag = R(lvl).norm();
+      // if (rnk == 0)
+      // 	std::cout << "i = " << i << " res = " << mag << std::endl;
+      //}
     // R(lvl) = -1.0*res(lvl);
-/*
+      /*
     V(lvl) = 1;
     for (int iSub = 0; iSub < R(lvl).numLocSub(); ++iSub) {
 
@@ -277,7 +312,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 	}
       }
     }
-*/
+      */
     
 //    sprintf(fn, "isActive%i", i);
 //    pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
@@ -288,7 +323,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     if (smoothWithGMRES)
       mgKspSolver->solve(lvl, *mgMvp, R, dx);  
     else {
-      if (i == 0)
+      if (i % 25 == 0)
         smoothingMatrices->acquire(lvl, *mgMvp);
       smoothingMatrices->apply(lvl, dx, R); 
     }
@@ -315,21 +350,35 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     mgSpaceOp->computeResidualEmbedded(*this->riemann,lvl, x, V, res,mgLSS[lvl], false);
     R(lvl) = f-res(lvl);
   }
+
+  // double mag = R(lvl).norm();
+  // if (rnk == 0)
+  //   std::cout << " res = " << mag << std::endl;
 }
 
 template <int dim>
 void MultiGridEmbeddedTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
                                         MultiGridDistSVec<double,dim>& x) {
 
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rnk);
+
+  // double fnorm = f.norm();
+  // if (rnk == 0)
+  //   std::cout << fnorm << std::endl;
+
   if (lvl == 0) { 
     smooth0(x(lvl), numSmooths_pre[0]);
     mgSpaceOp->setupBcs(this->getSpaceOperator()->getDistBcData());
   }
   else
-    smooth(lvl,x, f,  numSmooths_pre[lvl]);
- 
+    smooth(lvl,x, f,  numSmooths_pre[lvl],false);
+
+  // fnorm = f.norm();
+  // if (rnk == 0)
+  //   std::cout << fnorm << std::endl;
   
-  if (lvl < pKernel->numLevels()-1) {
+  if ( lvl < pKernel->numLevels()-1) {
 
     pKernel->Restrict(lvl+1, x(lvl), U(lvl+1));
     pKernel->Restrict(lvl+1, R(lvl), R(lvl+1));
@@ -371,21 +420,43 @@ void MultiGridEmbeddedTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
     }
     */
     F(lvl+1) = res(lvl+1) + R(lvl+1)*restrict_relax_factor;
+    /*
+    for (int iSub = 0; iSub < R(lvl+1).numLocSub(); ++iSub) {
+      
+      for (int i = 0; i < R(lvl+1).subSize(iSub); ++i) {
 
+	if (!(*mgLSS[lvl+1])(iSub).isActive(0.0,i)) {
+	  for (int k = 0; k < dim; ++k) {
+	    F(lvl+1)(iSub)[i][k] = 0.0;
+	  }
+	}
+      }
+    }
+    */
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);
 
+    DistLevelSetStructure* parent = (lvl == 0 ? this->distLSS : mgLSS[lvl]);
     pKernel->ExtrapolateProlongation(lvl+1,Uold(lvl+1), U(lvl+1), 
-				     mgLSS[lvl+1], mgLSS[lvl]);
+    				     mgLSS[lvl+1], parent);
 
     pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), x(lvl), x(lvl), prolong_relax_factor,
-		     mgLSS[lvl+1], mgLSS[lvl]);
+                     this->varFcn,
+		     mgLSS[lvl+1], parent);
   }
+
+  // fnorm = f.norm();
+  // if (rnk == 0)
+  //   std::cout << fnorm << std::endl;
 
   if (lvl == 0) 
     smooth0(x(lvl), numSmooths_post[0]);
   else
-    smooth(lvl,x, f,  numSmooths_post[lvl]);
+    smooth(lvl,x, f,  numSmooths_post[lvl],true);
+
+  // fnorm = f.norm();
+  // if (rnk == 0)
+  //   std::cout << fnorm << std::endl;
 }
 
 template <int dim>

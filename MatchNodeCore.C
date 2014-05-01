@@ -168,7 +168,7 @@ void MatchNodeSet::setBufferPosition(int i, int pos)
 void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double uscale, 
 				   bool *flag, double (*disp)[2][3], double (*x0)[3], 
 				   double (*x)[3], double (*xdot)[3], double (*dx)[3],
-				   double *norms)
+				   double *norms, bool isEmbedded)
 {
 
   norms[0] = 0.0;
@@ -186,10 +186,12 @@ void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double 
       dx[ index[i][0] ][k] = lscale * disp[ index[i][2] ][0][k] - dx0;
       xdot[ index[i][0] ][k] = uscale * disp[ index[i][2] ][1][k];
 
-      if (algNum == 6)
-	dx[ index[i][0] ][k] += 0.5 * dt * xdot[ index[i][0] ][k];
-      else if (algNum == 7)
-	dx[ index[i][0] ][k] += dt * xdot[ index[i][0] ][k];
+//      if (!isEmbedded) {
+        if (algNum == 6)
+  	  dx[ index[i][0] ][k] += 0.5 * dt * xdot[ index[i][0] ][k];
+        else if (algNum == 7)
+	  dx[ index[i][0] ][k] += dt * xdot[ index[i][0] ][k]; 
+//      }
     }
   }
 }

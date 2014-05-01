@@ -921,7 +921,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
      DistSVec<double,3> Ydot(*di, Udot);
      DistSVec<double,3> Y(*di);
      Y = Y0; //KW: as long as Y = Y0, it doesn't matter if Y0 is X or X0, or anything else...
-     structExc->getDisplacement(Y0, Y, Ydot, V);
+     structExc->getDisplacement(Y0, Y, Ydot, V, true);
      V = XScale*V;
      Ydot = UScale*Ydot;
   }

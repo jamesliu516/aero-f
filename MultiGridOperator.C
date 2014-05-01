@@ -9,8 +9,10 @@ template <class Scalar,int dim>
 MultiGridOperator<Scalar,dim>::MultiGridOperator(MultiGridLevel<Scalar>* mg_lvl,
                                                  IoData& ioData, VarFcn* varFcn, 
                                                  Domain* domain, BcFcn* bcFcn,
-                                                 BcFcn* bcFcn1) : bcFcn(bcFcn),
-                                                 bcFcn1(bcFcn1) {
+                                                 BcFcn* bcFcn1,
+                                                 BcFcn* bcFcn2) : bcFcn(bcFcn),
+                                                 bcFcn1(bcFcn1),
+                                                 bcFcn2(bcFcn2) {
 
   mgLevel = mg_lvl;
   myBcData = new DistBcData<dim>(ioData, varFcn, domain, &mg_lvl->getNodeDistInfo(),
@@ -221,6 +223,10 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
     FemEquationTermNS* nst = dynamic_cast<FemEquationTermNS*>(fet);
     if (nst)
       nsterm = static_cast<NavierStokesTerm*>(nst);
+    else if (saterm) {
+      nsterm = static_cast<NavierStokesTerm*>(saterm);
+
+    }
  /*   else {
 
       fprintf(stderr, "Cannot create a NavierStokesTerm from FemEquationTerm!");
@@ -229,8 +235,13 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
 */
   }
 
-  if (nsterm)
-  mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
+  if (nsterm) {
+    //std::cout << "Computing GG gradient" << std::endl;
+    mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
+  }
+
+float dxn[3] = {(*DX[0])*(*DX[0]), (*DX[1])*(*DX[1]), (*DX[2])*(*DX[2])};
+//std::cout << dxn[0] << " " << dxn[1] << " " << dxn[2] << std::endl;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
@@ -267,14 +278,14 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
 					    (*DX[0])(iSub), 
 					    (*DX[1])(iSub), (*DX[2])(iSub) ,
 					    res(iSub));
-
+/*
       mgLevel->getAgglomeratedFaces()[iSub]->computeThinLayerViscousFiniteVolumeTerm(
                                       fet, myVarFcn,V(iSub), (*DX[0])(iSub), 
                                       (*DX[1])(iSub), (*DX[2])(iSub) ,
                                       mgLevel->getGeoState()(iSub).getDistanceToWall(),
                                       (*myBcData)(iSub).getFaceStateVector(),
                                       res(iSub)); 
-      
+  */    
     }    
 
   }
@@ -353,21 +364,20 @@ computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
   DistVec<Scalar2>& irey = *scalar_zero; 
   
   NavierStokesTerm* nsterm = NULL;
+  FemEquationTermSA* saterm = dynamic_cast<FemEquationTermSA*>(fet);
   if (fet) {
 
     FemEquationTermNS* nst = dynamic_cast<FemEquationTermNS*>(fet);
     if (nst)
       nsterm = static_cast<NavierStokesTerm*>(nst);
- /*   else {
+    else if (saterm) {
+      nsterm = static_cast<NavierStokesTerm*>(saterm);
 
-      fprintf(stderr, "Cannot create a NavierStokesTerm from FemEquationTerm!");
-      exit(-1);
-    }
-*/
+    } 
   }
 
-//   if (nsterm)
-//     mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
+  if (nsterm)
+    mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2],mgLSS );
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
@@ -384,7 +394,7 @@ computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
 					    (mgLevel->getGeoState().getXn())(iSub), V(iSub), 
 					    (*Wstarij)(iSub), (*Wstarji)(iSub),
 					    (*mgLSS)(iSub), false,
-					    (*mgLSS).getStatus()(iSub) ,0, NULL,
+					    (*mgLSS).getStatus()(iSub) ,1, NULL,
 					    ngrad, NULL, res(iSub),0,
 					    (mgLevel->getFVCompTag())(iSub), 0,0); 
     
@@ -397,24 +407,33 @@ computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
 								   res(iSub), (*mgLSS)(iSub));
     
 
-    /*
+
     if (fet && addViscousTerms) {
  
+//      mgLevel->getEdges()[iSub]->template 
+//        computeThinLayerViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
+//                                                     fet, (mgLevel->getGeoState())(iSub),
+//                                                     (mgLevel->getGeoState().getXn())(iSub),
+//                                                     V(iSub),res(iSub));
+//
       mgLevel->getEdges()[iSub]->template 
-        computeThinLayerViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
-                                                     fet, (mgLevel->getGeoState())(iSub),
-                                                     (mgLevel->getGeoState().getXn())(iSub),
-                                                     V(iSub),res(iSub));
+        computeViscousFiniteVolumeTerm<dim>(NULL, myVarFcn,
+					    fet, (mgLevel->getGeoState())(iSub),
+					    (mgLevel->getGeoState().getXn())(iSub),
+					    V(iSub),
+					    (*DX[0])(iSub), 
+					    (*DX[1])(iSub), (*DX[2])(iSub) ,
+					    res(iSub), &(*mgLSS)(iSub));
 
-      mgLevel->getAgglomeratedFaces()[iSub]->computeThinLayerViscousFiniteVolumeTerm(
-                                      fet, myVarFcn,V(iSub), (*DX[0])(iSub), 
-                                      (*DX[1])(iSub), (*DX[2])(iSub) ,
-                                      mgLevel->getGeoState()(iSub).getDistanceToWall(),
-                                      (*myBcData)(iSub).getFaceStateVector(),
-                                      res(iSub)); 
+//      mgLevel->getAgglomeratedFaces()[iSub]->computeThinLayerViscousFiniteVolumeTerm(
+//                                      fet, myVarFcn,V(iSub), (*DX[0])(iSub), 
+//                                      (*DX[1])(iSub), (*DX[2])(iSub) ,
+//                                      mgLevel->getGeoState()(iSub).getDistanceToWall(),
+//                                      (*myBcData)(iSub).getFaceStateVector(),
+//                                      res(iSub)); 
                                                     
     }    
-    */
+  
   }
   
   mgLevel->assemble(res);
@@ -579,7 +598,15 @@ template <class Scalar2,int neq>
 void MultiGridOperator<Scalar,dim>::applyBCsToJacobian(DistSVec<Scalar2,dim>& U,
                                                        DistMvpMatrix<Scalar2,neq>& A) {
  
-  if (!bcFcn1)
+  BcFcn* B = NULL;
+  if (neq > 2) {
+    B = bcFcn1;
+  } else {
+    
+    B = bcFcn2;
+  }
+  
+  if (!B)
     return;
 
   EdgeSet** edges = mgLevel->getEdges();
@@ -599,13 +626,13 @@ void MultiGridOperator<Scalar,dim>::applyBCsToJacobian(DistSVec<Scalar2,dim>& U,
       if (nodeType[i] != BC_INTERNAL)  {
         Scalar *Aij = A(iSub).getElem_ij(l);
         if (Aij)
-          bcFcn1->applyToOffDiagonalTerm(nodeType[i], Aij);
+          B->applyToOffDiagonalTerm(nodeType[i], Aij);
       }
 
       if (nodeType[j] != BC_INTERNAL) {
         Scalar *Aji = A(iSub).getElem_ji(l);
         if (Aji)
-          bcFcn1->applyToOffDiagonalTerm(nodeType[j], Aji);
+          B->applyToOffDiagonalTerm(nodeType[j], Aji);
       }
     }
 
@@ -613,7 +640,7 @@ void MultiGridOperator<Scalar,dim>::applyBCsToJacobian(DistSVec<Scalar2,dim>& U,
       if (nodeType[i] != BC_INTERNAL) {
         Scalar *Aii = A(iSub).getElem_ii(i);
         if (Aii)
-          bcFcn1->applyToDiagonalTerm(nodeType[i], Vwall[i], U(iSub)[i], Aii);
+          B->applyToDiagonalTerm(nodeType[i], Vwall[i], U(iSub)[i], Aii);
       }
     }
 

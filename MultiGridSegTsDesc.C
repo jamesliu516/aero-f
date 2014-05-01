@@ -10,21 +10,23 @@ MultiGridSegTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   memset(numSmooths_post,0,sizeof(numSmooths_post));
   memset(numSmooths_pre,0,sizeof(numSmooths_pre));
   numSmooths_pre[0] = 1;
-  numSmooths_pre[1] = 10;
-  numSmooths_pre[2] = 15;
-  numSmooths_pre[3] = 20;
-  numSmooths_pre[4] = 20;
-  numSmooths_pre[5] = 20;
+  numSmooths_pre[1] = 2;
+  numSmooths_pre[2] = 3;
+  numSmooths_pre[3] = 4;
+  numSmooths_pre[4] = 5;
+  numSmooths_pre[5] = 6;
   
   numSmooths_post[0] = 0;
-  numSmooths_post[1] = 5;
-  numSmooths_post[2] = 10;
-  numSmooths_post[3] = 15;
-  numSmooths_post[4] = 20;
-  numSmooths_post[5] = 20;
+  numSmooths_post[1] = 0;
+  numSmooths_post[2] = 0;
+  numSmooths_post[3] = 0;
+  numSmooths_post[4] = 0;
+  numSmooths_post[5] = 0;
   
   prolong_relax_factor = iod.mg.prolong_relax_factor;
   restrict_relax_factor = iod.mg.restrict_relax_factor;
+
+  addTurbulenceTerms = iod.mg.addTurbulenceTerms;
 
   if (iod.mg.cycle_scheme == MultiGridData::VCYCLE)
     mc = 1;
@@ -210,13 +212,17 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
        DistSVec<double,dim>& f,int steps, bool postsmooth) {
 
   int i;
+  double norm;
+    int rnk;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+    
   for (i = 0; i < /*100000000*/steps; ++i) {
 
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
 
     mgSpaceOp->updateStateVectors(lvl,x);
 
-    mgSpaceOp->computeTimeStep(lvl,this->data->cfl,//*pow(0.75,lvl),
+    mgSpaceOp->computeTimeStep(lvl,this->data->cfl*pow(0.75,lvl),
                                V);
  
     if (i == 0 && postsmooth)
@@ -224,34 +230,42 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
     if (i == 0) {
       mgSpaceOp->computeJacobian(lvl, x, V, *mgMvp1);
-      mgSpaceOp->computeTurbulentJacobian(lvl, x, V, *mgMvp2);
+      if (addTurbulenceTerms)
+	mgSpaceOp->computeTurbulentJacobian(lvl, x, V, *mgMvp2);
     }
     R(lvl) = f-1.0*res(lvl);
     //R(lvl) = -1.0*res(lvl);
     R(lvl).split(R1(lvl), R2(lvl));
 
-    int rnk;
-    MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
-    
-    double norm = R(lvl).norm();
+    norm = R1(lvl).norm();
     if (rnk == 0)
-      std::cout << "i = " << i << " norm = " << norm << std::endl;
+      std::cout << "i = " << i << " Rnorm = " << norm << std::endl;
+
     if (smoothWithGMRES) {
       mgKspSolver1->solve(lvl, *mgMvp1, R1, dx1);
-      mgKspSolver2->solve(lvl, *mgMvp2, R2, dx2);
+      if (addTurbulenceTerms)
+	mgKspSolver2->solve(lvl, *mgMvp2, R2, dx2);
     }
     else {
       if (i == 0) {
 	smoothingMatrices1->acquire(lvl, *mgMvp1);
-	smoothingMatrices2->acquire(lvl, *mgMvp2);
+	if (addTurbulenceTerms)
+	  smoothingMatrices2->acquire(lvl, *mgMvp2);
       }
       smoothingMatrices1->apply(lvl, dx1, R1);
-      smoothingMatrices2->apply(lvl, dx2, R2); 
+      if (addTurbulenceTerms)
+	smoothingMatrices2->apply(lvl, dx2, R2); 
     }
-    //dx2(lvl) = 0.0;
+    if (!addTurbulenceTerms)
+      dx2(lvl) = 0.0;
     dx(lvl).merge(dx1(lvl), dx2(lvl));
     
     x(lvl) += dx(lvl);
+
+    
+    norm = dx(lvl).norm();
+    if (rnk == 0)
+      std::cout << "i = " << i << " dx norm = " << norm << std::endl;
    
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
 
@@ -260,6 +274,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
     mgSpaceOp->computeResidual(lvl, x, V, res, false);
     R(lvl) = f-res(lvl);
+
     /*
     if (lvl == 1 && i%1000==0) {
       pKernel->getLevel(lvl)->writePVTUSolutionFile("r.sol",x(lvl));
@@ -281,14 +296,67 @@ template <int dim,int neq1,int neq2>
 void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
                                     MultiGridDistSVec<double,dim>& x) {
 
+  int rnk;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rnk);
+    double norm;
+  if (lvl == 0) 
+    for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+
+      double Vloc[dim];
+      for (int l = 0; l < x(lvl)(iSub).size(); ++l) {
+        if (this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 9 ||
+	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 127182 ||
+            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 1892729 || 
+            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 11148134) {   
+
+          this->varFcn->conservativeToPrimitive(x(lvl)(iSub)[l],Vloc);
+          std::cout << "V[" << this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1  << "] = ";
+          for (int k = 0; k < dim; ++k)
+            std::cout << Vloc[k] << " ";
+          std::cout << std::endl;
+        }
+     }
+    }
   if (lvl == 0) { 
     smooth0(x(lvl), numSmooths_pre[0]);
     mgSpaceOp->setupBcs(this->getSpaceOperator()->getDistBcData());
   }
   else
     smooth(lvl,x, f,  numSmooths_pre[lvl],false);
+  
+  // Check for negative turbulence values
+  
+  if (lvl == 0)  {
+    for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
 
-  if (lvl < pKernel->numLevels()-1) {
+      double Vloc[dim];
+      for (int l = 0; l < x(lvl)(iSub).size(); ++l) {
+
+	if (x(lvl)(iSub)[l][5] < 1.0e-10)
+	  x(lvl)(iSub)[l][5] = 1.0e-10;
+      }
+    }
+  }
+
+  if (lvl == 0) 
+    for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
+
+      double Vloc[dim];
+      for (int l = 0; l < x(lvl)(iSub).size(); ++l) {
+        if (this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 9 ||
+	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 127182 ||
+            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 1892729 || 
+            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 11148134) {   
+
+          this->varFcn->conservativeToPrimitive(x(lvl)(iSub)[l],Vloc);
+          std::cout << "V[" << this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1  << "] = ";
+          for (int k = 0; k < dim; ++k)
+            std::cout << Vloc[k] << " ";
+          std::cout << std::endl;
+        }
+     }
+    }
+  if (lvl < pKernel->numLevels()-1 && globalIt > 50) {
     /*
     for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
 
@@ -333,19 +401,28 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
     }
     */
     mgSpaceOp->computeResidual(lvl+1, U, V, res, false);
+
     pKernel->applyFixes(lvl+1, R(lvl+1));
+
     //pKernel->fixNegativeValues(lvl+1,V(lvl+1), U(lvl+1), dx(lvl+1), F(lvl+1), this->varFcn);
     /*if (lvl == 0 && globalIt % 25 == 0) {
 
       pKernel->getLevel(lvl+1)->writePVTUSolutionFile("myR",R(lvl+1));
     }*/
     //Forig(lvl+1) = F(lvl+1);
-    F(lvl+1) = res(lvl+1) + R(lvl+1)*restrict_relax_factor;
+    if (rnk == 0)
+      std::cout << "Current Relaxation Factor = " << restrict_relax_factor*std::min((double)(globalIt-50)/200,1.0) << std::endl;
+
+    double loc_fac = restrict_relax_factor*std::min((double)(globalIt-50)/200,1.0);
+    F(lvl+1) = res(lvl+1) + R(lvl+1)*loc_fac;
+    Forig(lvl+1) = res(lvl+1);
+
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);
     
     update_tmp(lvl) = 0.0;
-    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), update_tmp(lvl),x(lvl), prolong_relax_factor);
+    loc_fac = prolong_relax_factor*std::min((double)(globalIt-50)/200,1.0);
+    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), update_tmp(lvl),x(lvl), loc_fac, this->varFcn);
 
     pKernel->applyFixes(lvl,update_tmp(lvl));
     x(lvl) += update_tmp(lvl);
@@ -361,20 +438,8 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
       double Vloc[dim];
       for (int l = 0; l < x(lvl)(iSub).size(); ++l) {
         if (this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 9 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 10 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 216 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 4155 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 4160 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 4629 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 180368 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 281716 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 224854 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 270000 || 
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 280000 || 
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 290000 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 1278215 ||
-	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 1617680 ||
-            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 2520747 ||
+	    this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 127182 ||
+            this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 1892729 || 
             this->domain->getSubDomain()[iSub]->getNodeMap()[l]+1 == 11148134) {   
 
           this->varFcn->conservativeToPrimitive(x(lvl)(iSub)[l],Vloc);

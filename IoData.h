@@ -1489,9 +1489,13 @@ struct MultiGridData {
 
   int addViscousTerms;
 
+  int addTurbulenceTerms;
+
   SchemeFixData fixes;
 
   const char* agglomerationFile;
+
+  double turbRelaxCutoff;
  
   MultiGridData();
   ~MultiGridData() {}
