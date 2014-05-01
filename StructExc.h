@@ -55,7 +55,7 @@ public:
   void getEmbeddedWetSurface(int, double*, int, int*, int=3);  //3 for triangle
 
   void getDisplacement(DistSVec<double,3> &, DistSVec<double,3> &, 
-		       DistSVec<double,3> &, DistSVec<double,3> &);
+		       DistSVec<double,3> &, DistSVec<double,3> &, bool isEmbedded);
   int getSubcyclingInfo();
   void getTemperature(DistVec<double>&);
   void sendForce(DistSVec<double,3> &);

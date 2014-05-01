@@ -13,6 +13,9 @@ MultiGridSpaceOperator(IoData& ioData,Domain* domain,
   BcFcn* bcFcn1 = spo->getBcFcn();
   if (spo1)
     bcFcn1 = spo1->getBcFcn();
+  BcFcn* bcFcn2 = spo->getBcFcn();
+  if (spo2)
+    bcFcn2 = spo2->getBcFcn();
   for (int i = 1; i < nLevels; ++i) {
 
     myOperators[i] = 

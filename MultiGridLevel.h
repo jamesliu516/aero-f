@@ -67,6 +67,8 @@ class MultiGridLevel {
 
     int my_dim, neq1,neq2;
 
+    double turbRelaxCutoff;
+
     Domain& domain;
     CommPattern<int> * nodeIdPattern;
     CommPattern<double> * nodeVolPattern;
@@ -76,6 +78,7 @@ class MultiGridLevel {
     CommPattern<double> * nodeNormalsPattern;
     CommPattern<double> * nodePosnPattern;
     CommPattern<double> * matPattern;
+    CommPattern<double> * matPattern2;
     CommPattern<double> * offDiagMatPattern;
     CommPattern<double> * edgeAreaPattern;
     CommPattern<double> * edgeVecPattern;
@@ -318,7 +321,7 @@ class MultiGridLevel {
                                          const DistVec<Scalar2>& fineData,
                                          DistVec<Scalar2>& coarseData) const;
     template<class Scalar2, int dim> void Prolong(MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
-                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,DistSVec<Scalar2,dim>& fine_ref,double relax_factor=1.0, class DistLevelSetStructure* coarse = NULL,class DistLevelSetStructure* fine = NULL) const;
+                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,DistSVec<Scalar2,dim>& fine_ref,double relax_factor, VarFcn*, class DistLevelSetStructure* coarse = NULL,class DistLevelSetStructure* fine = NULL) const;
 
     template<class Scalar2, int dim>
       void ExtrapolateProlongation(MultiGridLevel<Scalar>& fineGrid, 
@@ -362,7 +365,8 @@ class MultiGridLevel {
     void computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
                                    DistSVec<Scalar2,dim>& dX,
                                    DistSVec<Scalar2,dim>& dY,
-                                   DistSVec<Scalar2,dim>& dZ);
+                                   DistSVec<Scalar2,dim>& dZ, 
+                                   DistLevelSetStructure* = NULL);
     
     void WriteTopFile(const std::string& fileName);
 
@@ -391,6 +395,8 @@ class MultiGridLevel {
  
     DistVec<double>& getEdgeArea() { return *edgeArea; }
     DistVec<double>* getEdgeAreaPointer() { return edgeArea; }
+
+    void setTurbRelaxCutoff(double t) { turbRelaxCutoff = t; }
 
   private:
 

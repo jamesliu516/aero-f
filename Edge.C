@@ -849,7 +849,8 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 			       SVec<double,dim> &dX,
 			       SVec<double,dim> &dY,
 			       SVec<double,dim> &dZ,
-			       SVec<double,dim>& fluxes) {
+			       SVec<double,dim>& fluxes,
+                               LevelSetStructure* lss) {
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -890,6 +891,7 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
   int cnt = 0;
   double r[3][dim];
   double Vmid[dim];
+  memset(r,0,sizeof(r));
   for (int l=0; l<numSampledEdges; ++l) {    
 
     if (!masterFlag[l]) continue;
@@ -937,82 +939,218 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     kappa  *= ooreynolds_mu;
 
     Vec3D xhat(dx[0]/length,dx[1]/length,dx[2]/length);
-
     double dmid[dim][3];
     double dudxj[3][3];
     memset(dmid,0,sizeof(dmid));
     
     double dot;
-    for (int k = 0; k < dim; ++k) {
-      dmid[k][0] = 0.5*(dX[k][i] + dX[k][i]);
-      dmid[k][1] = 0.5*(dY[k][i] + dY[k][i]);
-      dmid[k][2] = 0.5*(dZ[k][i] + dZ[k][i]);
+    if (!lss || (lss->isActive(0.0,i) && lss->isActive(0.0,j))) {
+      for (int k = 0; k < dim; ++k) {
+        dmid[k][0] = 0.5*(dX[i][k] + dX[j][k]);
+        dmid[k][1] = 0.5*(dY[i][k] + dY[j][k]);
+        dmid[k][2] = 0.5*(dZ[i][k] + dZ[j][k]);
       
-      dot = dmid[k][0]*dx[0]+dmid[k][1]*dx[1]+dmid[k][2]*dx[2];
-      dot -= (V[j][k]-V[i][k])/length;
+        dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
+        dot -= (V[j][k]-V[i][k])/length;
       
-      dmid[k][0] -= dx[0];
-      dmid[k][1] -= dx[1];
-      dmid[k][2] -= dx[2];
+        dmid[k][0] -= dot*xhat[0];
+        dmid[k][1] -= dot*xhat[1];
+        dmid[k][2] -= dot*xhat[2];
       
-      if (k >= 1 && k <= 3) {
-	dudxj[k-1][0] = dmid[k][0];
-	dudxj[k-1][1] = dmid[k][1];
-	dudxj[k-1][2] = dmid[k][2];	
+        if (k >= 1 && k <= 3) {
+  	  dudxj[k-1][0] = dmid[k][0];
+	  dudxj[k-1][1] = dmid[k][1];
+	  dudxj[k-1][2] = dmid[k][2];	
+        }
       }
-    }
-    double tij[3][3];
+      double tij[3][3];
 
-    double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
+      double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
     
-    tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
-    tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
-    tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
-    tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
-    tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
-    tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
-    tij[1][0] = tij[0][1];
-    tij[2][0] = tij[0][2];
-    tij[2][1] = tij[1][2];
+      tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
+      tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
+      tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
+      tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
+      tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
+      tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
+      tij[1][0] = tij[0][1];
+      tij[2][0] = tij[0][2];
+      tij[2][1] = tij[1][2];
 
-    double dTdxj[3] = {0,0,0};
-    for (int m = 0; m < 3; ++m) {
+      double dTdxj[3] = {0,0,0};
+      for (int m = 0; m < 3; ++m) {
+
+        for (int k = 0; k < dim; ++k) {
+
+	  dTdxj[m] += Tg[k]*dmid[k][m];
+        }
+      }
+
+      double qj[3] = {-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
+
+      r[0][0] = 0.0;
+      r[0][1] = tij[0][0];
+      r[0][2] = tij[1][0];
+      r[0][3] = tij[2][0];
+      r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
+
+      r[1][0] = 0.0;
+      r[1][1] = tij[0][1];
+      r[1][2] = tij[1][1];
+      r[1][3] = tij[2][1];
+      r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
+
+      r[2][0] = 0.0;
+      r[2][1] = tij[0][2];
+      r[2][2] = tij[1][2];
+      r[2][3] = tij[2][2];
+      r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
 
       for (int k = 0; k < dim; ++k) {
 
-	dTdxj[m] += Tg[k]*dmid[k][m];
+        double ft = r[0][k]*normal[l][0]+r[1][k]*normal[l][1]+r[2][k]*normal[l][2];
+        fluxes[i][k] -= ft;
+        fluxes[j][k] += ft;
+      }
+    } else if (lss->isActive(0.0,i)) {
+      for (int k = 0; k < dim; ++k) {
+	dmid[k][0] = dX[i][k];
+	dmid[k][1] = dY[i][k];
+	dmid[k][2] = dZ[i][k];
+	
+	dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
+	if (k >= 1 && k <= 3)
+	  dot += 2.0*V[i][k]/length;
+	
+	dmid[k][0] -= dot*xhat[0];
+	dmid[k][1] -= dot*xhat[1];
+	dmid[k][2] -= dot*xhat[2];
+	
+        if (k >= 1 && k <= 3) {
+  	  dudxj[k-1][0] = dmid[k][0];
+	  dudxj[k-1][1] = dmid[k][1];
+	  dudxj[k-1][2] = dmid[k][2];	
+        }
+      }
+      double tij[3][3];
+
+      double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
+    
+      tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
+      tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
+      tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
+      tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
+      tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
+      tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
+      tij[1][0] = tij[0][1];
+      tij[2][0] = tij[0][2];
+      tij[2][1] = tij[1][2];
+
+      double dTdxj[3] = {0,0,0};
+      for (int m = 0; m < 3; ++m) {
+
+        for (int k = 0; k < dim; ++k) {
+
+	  dTdxj[m] += Tg[k]*dmid[k][m];
+        }
+      }
+  
+      double qj[3] = {0,0,0};//{-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
+
+      r[0][0] = 0.0;
+      r[0][1] = tij[0][0];
+      r[0][2] = tij[1][0];
+      r[0][3] = tij[2][0];
+      r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
+
+      r[1][0] = 0.0;
+      r[1][1] = tij[0][1];
+      r[1][2] = tij[1][1];
+      r[1][3] = tij[2][1];
+      r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
+
+      r[2][0] = 0.0;
+      r[2][1] = tij[0][2];
+      r[2][2] = tij[1][2];
+      r[2][3] = tij[2][2];
+      r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
+
+      for (int k = 0; k < dim; ++k) {
+
+        double ft = r[0][k]*normal[l][0]+r[1][k]*normal[l][1]+r[2][k]*normal[l][2];
+        fluxes[i][k] -= ft;
+      }
+    } else if (lss->isActive(0.0,j)) {
+      for (int k = 0; k < dim; ++k) {
+        dmid[k][0] = dX[j][k];
+        dmid[k][1] = dY[j][k];
+        dmid[k][2] = dZ[j][k];
+      
+        dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
+        if (k >= 1 && k <= 3)
+          dot -= 2.0*V[j][k]/length;
+      
+        dmid[k][0] -= dot*xhat[0];
+        dmid[k][1] -= dot*xhat[1];
+        dmid[k][2] -= dot*xhat[2];
+      
+        if (k >= 1 && k <= 3) {
+  	  dudxj[k-1][0] = dmid[k][0];
+	  dudxj[k-1][1] = dmid[k][1];
+	  dudxj[k-1][2] = dmid[k][2];	
+        }
+      }
+      double tij[3][3];
+
+      double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
+    
+      tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
+      tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
+      tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
+      tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
+      tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
+      tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
+      tij[1][0] = tij[0][1];
+      tij[2][0] = tij[0][2];
+      tij[2][1] = tij[1][2];
+
+      double dTdxj[3] = {0,0,0};
+      for (int m = 0; m < 3; ++m) {
+
+        for (int k = 0; k < dim; ++k) {
+
+	  dTdxj[m] += Tg[k]*dmid[k][m];
+        }
+      }
+
+      double qj[3] = {0,0,0};// {-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
+
+      r[0][0] = 0.0;
+      r[0][1] = tij[0][0];
+      r[0][2] = tij[1][0];
+      r[0][3] = tij[2][0];
+      r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
+
+      r[1][0] = 0.0;
+      r[1][1] = tij[0][1];
+      r[1][2] = tij[1][1];
+      r[1][3] = tij[2][1];
+      r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
+
+      r[2][0] = 0.0;
+      r[2][1] = tij[0][2];
+      r[2][2] = tij[1][2];
+      r[2][3] = tij[2][2];
+      r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
+
+      for (int k = 0; k < dim; ++k) {
+
+        double ft = r[0][k]*normal[l][0]+r[1][k]*normal[l][1]+r[2][k]*normal[l][2];
+        fluxes[j][k] += ft;
       }
     }
-
-    double qj[3] = {-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
-
-    r[0][0] = 0.0;
-    r[0][1] = tij[0][0];
-    r[0][2] = tij[1][0];
-    r[0][3] = tij[2][0];
-    r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
-
-    r[1][0] = 0.0;
-    r[1][1] = tij[0][1];
-    r[1][2] = tij[1][1];
-    r[1][3] = tij[2][1];
-    r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
-
-    r[2][0] = 0.0;
-    r[2][1] = tij[0][2];
-    r[2][2] = tij[1][2];
-    r[2][3] = tij[2][2];
-    r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
-
-    for (int k = 0; k < dim; ++k) {
-
-      double ft = r[k][0]*normal[l][0]+r[k][1]*normal[l][1]+r[k][2]*normal[l][2];
-      fluxes[i][k] -= ft;
-      fluxes[j][k] += ft;
-    }
-    
   }
-  
+
   return 0;
 }
 /*

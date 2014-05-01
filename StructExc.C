@@ -351,7 +351,8 @@ void StructExc::negotiateStopping(bool* lastIt)
 */
 
 void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X, 
-				DistSVec<double,3> &Xdot, DistSVec<double,3> &dX) 
+				DistSVec<double,3> &Xdot, DistSVec<double,3> &dX,
+                                bool isEmbedded) 
 {  
 //  fprintf(stderr,"[StExc] going to get displacement.\n");
   double norms[2] = {0.0, 0.0};
@@ -395,7 +396,7 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
 
       double locNorms[2];
       matchNodes[iSub]->getDisplacement(algNum, dt, oolscale, oovscale, X.getMasterFlag(iSub), 
-					disp, x0, x, xdot, dx, locNorms);
+					disp, x0, x, xdot, dx, locNorms, isEmbedded);
 
 #pragma omp critical
       norms[0] += locNorms[0];
@@ -594,7 +595,7 @@ void StructExc::getMdStrDisp(int id, DistSVec<double,3> &X0,
       double locNorms[2];
 
       matchNodes[iSub]->getDisplacement(algNum, dt, oolscale, oovscale, X.getMasterFlag(iSub),
-                                        disp, x0, x, xdot, dx, locNorms);
+                                        disp, x0, x, xdot, dx, locNorms, false);
 
 #pragma omp critical
       norms[0] += locNorms[0];

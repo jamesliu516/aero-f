@@ -70,7 +70,7 @@ computeEdgeCrossing(SVec<double,3>& nodeNormals) {
       surfaceNormals[i] = Vec3D(v[0],v[1],v[2]);
     } else {
       v = nodeNormals[ptr[i][1]];
-      assert(v[0]*v[0] + v[1]*v[1]+v[2]*v[2] > 0.0);
+      //assert(v[0]*v[0] + v[1]*v[1]+v[2]*v[2] > 0.0);
       
       surfaceNormals[i] = Vec3D(v[0],v[1],v[2]);
      

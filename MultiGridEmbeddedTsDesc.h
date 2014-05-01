@@ -26,7 +26,8 @@ class MultiGridEmbeddedTsDesc : public ImplicitEmbeddedCoupledTsDesc<dim> {
   void smooth0(DistSVec<double,dim>& x,int steps);
 
   void smooth(int lvl, MultiGridDistSVec<double,dim>& x,
-       DistSVec<double,dim>& f,int steps);
+	      DistSVec<double,dim>& f,int steps,
+	      bool postsmooth);
 
   void cycle(int lvl, DistSVec<double,dim>& f,
              MultiGridDistSVec<double,dim>& x);
@@ -37,7 +38,7 @@ class MultiGridEmbeddedTsDesc : public ImplicitEmbeddedCoupledTsDesc<dim> {
 
  private:
 
-  int numSmooths_pre[6],numSmooths_post[6];
+  int numSmooths_pre[10],numSmooths_post[10];
 
   bool smoothWithGMRES;
 

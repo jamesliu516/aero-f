@@ -446,7 +446,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
   }
   else  {
     if (algNum == 4) {
-      strExc->getDisplacement(X0, X, Xdot, dX);
+      strExc->getDisplacement(X0, X, Xdot, dX, false);
       if (*lastIt) 
         return 0.0;
       strExc->sendForce(F);
@@ -460,7 +460,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 	    return 0.0;
         }
       }
-      strExc->getDisplacement(X0, X, Xdot, dX);
+      strExc->getDisplacement(X0, X, Xdot, dX, false);
       if (*lastIt) 
         return 0.0;
     }
@@ -501,12 +501,12 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
     dt *= 0.5;
 
   if (algNum == 20 ){ // RK2-CD algorithm with FEM(20)
-    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX, false);} //for proper restart
     else if(it==it0) {/*nothing to do*/}
     else if(it!=1){strExc->sendForce(F);}
   }
   else if (algNum == 21 ){ // RK2-CD algorithm with XFEM(21)
-    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX, false);} //for proper restart
     else if(it==it0) {strExc->sendForce(F);}
     else if(it!=1){strExc->sendForce(F);}
   }
@@ -517,7 +517,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   else if (algNum == 4 || algNum == 5) {
     if (*lastIt)
       return 0.0;
-    strExc->getDisplacement(X0, X, Xdot, dX);
+    strExc->getDisplacement(X0, X, Xdot, dX, false);
   }
   else if (algNum == 10 && (/*it == 0 ||*/ *lastIt) ) // change to align B0 with manual description
     strExc->sendForce(F);
@@ -557,12 +557,12 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   if (algNum == 20){
     if(it==0){ strExc->sendForce(F);}
-    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX, false);}
     else return 0.0; // last iteration!
   }
   else if (algNum == 21){
     if(it==0){ strExc->sendForce(F);}
-    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX, false);}
     else return 0.0; // last iteration!
   }
   else if (algNum == 8) {
@@ -584,10 +584,10 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       }
     }
     if (algNum != 10 && !*lastIt)
-      strExc->getDisplacement(X0, X, Xdot, dX);
+      strExc->getDisplacement(X0, X, Xdot, dX, false);
     else
       if (it == it0)
-        strExc->getDisplacement(X0, X, Xdot, dX);
+        strExc->getDisplacement(X0, X, Xdot, dX, false);
 
     //ARL: Why send force twice at last iteration?
     //if (*lastIt){

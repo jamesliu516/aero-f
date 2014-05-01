@@ -28,8 +28,14 @@ public:
 
   void exportInfo(int, int (*)[3]);
   void setBufferPosition(int, int);
+
+  // If we are doing embedded, then all of the prediction is done on the structural side.
+  // For ALE, some prediction of the displacement is done for A6 and A7.
+  // 
   void getDisplacement(int, double, double, double, bool *, double (*)[2][3], double (*)[3], 
-		       double (*)[3], double (*)[3], double (*)[3], double *);
+		       double (*)[3], double (*)[3], double (*)[3], double *, 
+                       bool isEmbedded);
+
   double getTemperature(int, double, double, bool*, double*, double*);
   template<int dim>
   void send(double, double (*)[dim], double (*)[dim]);

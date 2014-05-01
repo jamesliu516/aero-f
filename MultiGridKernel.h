@@ -51,7 +51,7 @@ class MultiGridKernel {
   void Prolong(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
                DistSVec<Scalar2,dim>& coarse, DistSVec<Scalar2,dim>& fine,
 	       DistSVec<Scalar2,dim>& fine_ref,
-               double relax, 
+               double relax,VarFcn* varFcn, 
 	       class DistLevelSetStructure* coarselss = NULL,
 	       class DistLevelSetStructure* finelss = NULL);
 
@@ -114,5 +114,7 @@ class MultiGridKernel {
   std::set<int>** fixLocations;
 
   const char* agglomerationFile;
+
+  double turbRelaxCutoff;
  
 };
