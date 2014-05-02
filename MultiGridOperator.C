@@ -681,7 +681,7 @@ template void MultiGridOperator<S,D>::applyBCsToResidual(DistSVec<double,D>& U, 
 template \
 void MultiGridOperator<S,D>:: \
 add_dAW_dtEmbedded(DistSVec<S,D>& U, \
-                   DistSVec<S,D>& res, \	
+                   DistSVec<S,D>& res, \
                    DistMultiGridLevelSetStructure* mgLSS);
 
 #define INST_HELPER2(S,D,E) \
