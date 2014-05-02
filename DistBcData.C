@@ -332,6 +332,9 @@ void DistBcData<dim>::update(DistSVec<double,3> &X)  {
 #if defined(STRONG_INLET_BC)
     this->subDomain[iSub]->setNodeBcValue(Vin, this->Unode(iSub));
 #endif
+#if defined(STRONG_FARFIELD_BC)
+    this->subDomain[iSub]->setNodeBcValue2(this->Uin, this->Unode(iSub));
+#endif
     this->subDomain[iSub]->computeFaceBcValue(this->Unode(iSub), this->Uface(iSub));
   }
   if ( this->gravity > 0.0 )
@@ -410,6 +413,9 @@ void DistBcData<dim>::updateSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, do
     //if(count) { fprintf(stderr," In DistBcData<dim>::update(): subd %3d has %6d 'rotating' nodes\n",subDomain[iSub]->getGlobSubNum(),count); fflush(stderr); }
 #if defined(STRONG_INLET_BC)
     this->subDomain[iSub]->setNodeBcValue(dVin, (*dUnode)(iSub));
+#endif
+#if defined(STRONG_FARFIELD_BC)
+    this->subDomain[iSub]->setNodeBcValue2(this->dUin, (*dUnode)(iSub));
 #endif
     this->subDomain[iSub]->computeFaceBcValue((*dUnode)(iSub), (*dUface)(iSub));
   }

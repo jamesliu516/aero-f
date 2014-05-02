@@ -4181,6 +4181,25 @@ void SubDomain::setNodeBcValue(double* Vin, SVec<double,dim>& Unode)
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::setNodeBcValue2(double* Uin, SVec<double,dim>& Unode)
+{
+
+  for (int i=0; i<nodes.size(); ++i) {
+    if (nodeType[i] == BC_INLET_MOVING || nodeType[i] == BC_INLET_FIXED ||
+        nodeType[i] == BC_OUTLET_MOVING || nodeType[i] == BC_OUTLET_FIXED) {
+      Unode[i][0] = Uin[0];
+      Unode[i][1] = Uin[1];
+      Unode[i][2] = Uin[2];
+      Unode[i][3] = Uin[3];
+      Unode[i][4] = Uin[4];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::computeFaceBcValue(SVec<double,dim> &Unode, SVec<double,dim> &Uface)
 {
 

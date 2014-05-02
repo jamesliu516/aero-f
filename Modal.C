@@ -1145,9 +1145,13 @@ void ModalSolver<dim>::preProcess()  {
  FF /= controlVol;
 
  com->fprintf(stderr, " ... Norm FF: %e\n", FF.norm());
- if (FF.norm() > 1e-4)
+ if (FF.norm() > 1e-4) {
    com->fprintf(stderr, " *** WARNING: Check Steady State Convergence for this Mach Number ***\n");
-
+   if (FF.norm() > 1e-2) {
+     com->fprintf(stderr, " *** ERROR: Residual is too high. Exiting ***\n");
+     exit(-1);
+   }
+ }
  // Compute Derivatives***********************************
  //***Variable Initializations***
  DistSVec<double,3> Xnp1(domain.getNodeDistInfo());

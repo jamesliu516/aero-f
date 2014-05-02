@@ -9,6 +9,7 @@
 
 //#include <EdgeGrad.h>
 
+#include <cstring> // for memset and memcpy
 
 inline
 HigherOrderMultiFluid::HigherOrderMultiFluid() {
@@ -119,7 +120,7 @@ estimateR(int l, int vertex,
   for (int k = 0; k < 4; ++k) {
 
     if (fluidId[elem.nodeNum(k)] != myfid) {
-      memset(r,0,sizeof(double)*dim);
+      std::memset(r,0,sizeof(double)*dim);
       return;
 
     }
@@ -221,7 +222,7 @@ extrapolateV6(int l, int vertex,
   double face_t = v6data[l][vertex].t;
 
   if ((idxTet<0)||(idxTet>=elems->size())){
-    memcpy(Vsurrogate,W, sizeof(double)*dim);
+    std::memcpy(Vsurrogate,W, sizeof(double)*dim);
     return;
   }
 
@@ -231,7 +232,7 @@ extrapolateV6(int l, int vertex,
   for (int k = 0; k < 4; ++k) {
 
     if (fluidId[elem.nodeNum(k)] != myfid) {
-      memcpy(Vsurrogate,W, sizeof(double)*dim);
+      std::memcpy(Vsurrogate,W, sizeof(double)*dim);
       return;
     }
   }

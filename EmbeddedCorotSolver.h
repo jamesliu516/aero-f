@@ -18,6 +18,7 @@ class EmbeddedCorotSolver {
   int numLocSub;
 
   double *Xs0;
+  int (*stElem)[3];
 
   DistSVec<double,3> X0;
 
@@ -26,7 +27,9 @@ class EmbeddedCorotSolver {
   double n[3];
 
   double R[3][3];
-
+ 
+  MatchNodeSet **matchNodes;
+  IoData &iod;
   Domain *domain;
   Communicator *com;
 
@@ -51,11 +54,11 @@ private:
 
 public:
 
-  EmbeddedCorotSolver(DefoMeshMotionData &, Domain *, double*, int);
+  EmbeddedCorotSolver(IoData &, MatchNodeSet **, Domain *, double*, int, int (*)[3]);
   ~EmbeddedCorotSolver() {};
 
   void applyProjector(DistSVec<double,3> &Xdot);
-  void findProjection(DistSVec<double,3> &dX);
+  void fixNodes(double *Xtilde, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX);
   void computeMeanDXForSlidingPlane(DistSVec<double,3> &dX, double meandX[3]);
 
   void setup(double *Xtilde, int nNodes);
