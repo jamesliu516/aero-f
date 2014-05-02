@@ -284,6 +284,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 3;
     else if (iod.forced.type==ForcedData::DEFORMING)
       mode = 4;
+    else if (iod.forced.type==ForcedData::SPIRALING)
+      mode = 5;
     else if (iod.forced.type==ForcedData::ACOUSTICBEAM)
       mode = 98;
     else if (iod.forced.type==ForcedData::DEBUGDEFORMING)
@@ -339,6 +341,10 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     deformMeshFile[0] = '\0'; 
   Xd = 0;
   dXmax = 0;
+
+  // for spiraling
+  cableLen = iod.ref.rv.length*iod.forced.sp.xL;
+  xbeg = iod.ref.rv.length*iod.forced.sp.x0;
 
   // ----------------------------------
   //               End
@@ -1073,6 +1079,30 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
           Udot[i][j] = omega*cos(omega*time)*dXmax[i][j];
 	}
 
+      }
+    }
+    else if (mode==5) //spiraling data
+    {
+      double Rcurv = cableLen/(omega*time);
+      for(int i=0; i<nNodes; ++i) {
+        if ( X0[i][0] >= xbeg ) {
+          double xloc = X0[i][0] - xbeg;
+          double theta = xloc/Rcurv;
+          U[i][0] = (Rcurv + X0[i][1])*sin(theta) + xbeg;
+          U[i][1] = (Rcurv + X0[i][1])*cos(theta) - Rcurv;
+          U[i][2] = X0[i][2];
+        }
+        else {
+          U[i][0] = X0[i][0];
+          U[i][1] = X0[i][1];
+          U[i][2] = X0[i][2];
+        }
+
+        for(int j=0; j<3; j++)
+          Udot[i][j] = (U[i][j]-X[i][j])/dt;
+
+        for(int j=0; j<3; j++)
+          U[i][j] -= X0[i][j];
       }
     }
     else if (mode==98) //deforming data

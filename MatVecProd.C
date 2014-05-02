@@ -667,7 +667,7 @@ double MatVecProdFD<dim, neq>::computeEpsilon(DistSVec<double,neq> &U, DistSVec<
     for (int i=0; i<distInfo.subLen[iSub]; ++i) {
 
       if (distInfo.masterFlag[locOffset+i]) {
-	for (int j=0; j<dim; ++j) {
+	for (int j=0; j<neq; ++j) {
 	  ++locsize;
 	  loceps += eps0*fabs(U[locOffset+i][j]) + eps0;
 	}

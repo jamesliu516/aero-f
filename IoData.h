@@ -68,6 +68,8 @@ struct InputData {
   const char *decomposition;
   const char *cpumap;
   const char *match;
+  const char *embmeshmatch;
+  const char *embsurfmatch;
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
@@ -1949,6 +1951,21 @@ struct HeavingData {
 
 //----------------------------------------------------------
 
+struct SpiralingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double xL;
+  double x0;
+
+  SpiralingData();
+  ~SpiralingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
 struct PitchingData {
 
   enum Domain {VOLUME = 0, SURFACE = 1} domain;
@@ -2023,12 +2040,13 @@ struct Velocity  {
 struct ForcedData {
 
   enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
-             ACOUSTICBEAM=5} type;
+             ACOUSTICBEAM=5, SPIRALING = 6} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
+  SpiralingData sp;
   PitchingData pt;
   Velocity vel;
   DeformingData df;

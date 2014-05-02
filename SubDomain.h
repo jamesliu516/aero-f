@@ -758,6 +758,9 @@ public:
   void setNodeBcValue(double*, SVec<double,dim>&);
 
   template<int dim>
+  void setNodeBcValue2(double*, SVec<double,dim>&);
+
+  template<int dim>
   void computeFaceBcValue(SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim1, int dim2>

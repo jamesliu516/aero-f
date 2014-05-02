@@ -83,6 +83,8 @@ InputData::InputData()
   decomposition = "";
   cpumap = "";
   match = "";
+  embmeshmatch = "";
+  embsurfmatch = "";
   d2wall = "";
   perturbed = "";
   solutions = "";
@@ -132,7 +134,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 36, father);
+  ClassAssigner *ca = new ClassAssigner(name, 38, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -140,6 +142,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Decomposition", this, &InputData::decomposition);
   new ClassStr<InputData>(ca, "CpuMap", this, &InputData::cpumap);
   new ClassStr<InputData>(ca, "Matcher", this, &InputData::match);
+  new ClassStr<InputData>(ca, "EmbeddedMeshMatcher", this, &InputData::embmeshmatch);
+  new ClassStr<InputData>(ca, "EmbeddedSurfaceMatcher", this, &InputData::embsurfmatch);
   new ClassStr<InputData>(ca, "WallDistance", this, &InputData::d2wall);
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
@@ -3474,14 +3478,15 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 6,
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 7,
      "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4,
-     "AcousticBeam", 5);
+     "AcousticBeam", 5, "Spiraling", 6);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
 
   hv.setup("Heaving", ca);
+  sp.setup("Spiraling", ca);
   pt.setup("Pitching", ca);
   vel.setup("Velocity",ca);
   df.setup("Deforming", ca);
@@ -3520,6 +3525,33 @@ void HeavingData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+SpiralingData::SpiralingData()
+{
+
+  domain = VOLUME;
+  xL = 1.0;
+  x0 = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SpiralingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassToken<SpiralingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int SpiralingData::*>(&SpiralingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassDouble<SpiralingData>(ca, "CableLength", this, &SpiralingData::xL);
+  new ClassDouble<SpiralingData>(ca, "X0", this, &SpiralingData::x0);
+
+}
+
+//------------------------------------------------------------------------------
 PitchingData::PitchingData()
 {
 
@@ -5548,6 +5580,10 @@ void IoData:: nonDimensionalizeForcedMotion(){
   forced.hv.ax /= ref.rv.length;
   forced.hv.ay /= ref.rv.length;
   forced.hv.az /= ref.rv.length;
+
+  //spiraling
+  forced.sp.xL /= ref.rv.length;
+  forced.sp.x0 /= ref.rv.length;
 
   //pitching
   forced.pt.x11 /= ref.rv.length;

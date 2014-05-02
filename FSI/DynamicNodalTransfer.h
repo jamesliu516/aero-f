@@ -57,6 +57,8 @@ class EmbeddedStructure {
   double (*Xd)[3]; //deformed node coordinates
   double (*dXmax)[3]; //maximum deformation
 
+  double cableLen, xbeg;
+
   double t0; // starting time.
   int it;
 

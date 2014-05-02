@@ -278,6 +278,32 @@ public:
 
 //------------------------------------------------------------------------------
 
+class SpiralingMeshMotionHandler : public MeshMotionHandler {
+
+  double dt;
+  double omega;
+
+  double delta[3];
+
+  MeshMotionSolver *mms;
+
+public:
+
+  SpiralingMeshMotionHandler(IoData &, Domain *);
+  ~SpiralingMeshMotionHandler();
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  DistSVec<double,3> getModes();
+
+  void setup(DistSVec<double, 3> &X);
+
+};
+
+//------------------------------------------------------------------------------
+
 class AccForcedMeshMotionHandler : public DeformingMeshMotionHandler, 
 				   public RigidMeshMotionHandler {
 
@@ -352,12 +378,13 @@ public:
   void step1ForC0XFEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   void step1ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step2ForPP(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   int structureSubcycling() {return dynNodalTransfer->structSubcycling();}
 
-  int getAlgNum()  { return 0; }
+  int getAlgNum()  { return dynNodalTransfer->getAlgorithmNumber(); }
 
 };
 
@@ -379,7 +406,7 @@ protected:
 
 public:
 
-  EmbeddedALEMeshMotionHandler(IoData &, Domain *, DistLevelSetStructure *);
+  EmbeddedALEMeshMotionHandler(IoData &, Domain *, MatchNodeSet **, DistLevelSetStructure *);
   ~EmbeddedALEMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);

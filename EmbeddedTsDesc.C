@@ -772,9 +772,14 @@ void EmbeddedTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int
 
 //------------------------------------------------------------------------------
 
-//template<int dim>
-//void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
-//{}
+template<int dim>
+void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U) 
+{
+  TsDesc<dim>::outputPositionVectorToDisk(U);
+  
+  if(emmh && emmh->getAlgNum() == 1)
+    this->restart->writeStructPosToDisk(this->com->cpuNum(), true, this->distLSS->getStructPosition());
+}
 
 //------------------------------------------------------------------------------
 
@@ -1052,7 +1057,7 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
   MeshMotionHandler *_mmh = 0;
 
   if (ioData.problem.type[ProblemData::AERO]) {
-    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, geoSource.getMatchNodes(), distLSS);
     //check that algorithm number is consistent with simulation in special case RK2-CD
     // if C0 and RK2 then RK2DGCL is needed!
     if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
@@ -1070,7 +1075,7 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
     }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
-    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, geoSource.getMatchNodes(), distLSS);
   }
   else if (ioData.problem.type[ProblemData::ACCELERATED])
     _mmh = new AccMeshMotionHandler(ioData, this->varFcn, this->bcData->getInletPrimitiveState(), this->domain);

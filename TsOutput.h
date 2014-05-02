@@ -13,6 +13,7 @@ class Domain;
 class MeshMotionHandler;
 class RigidMeshMotionHandler;
 class HeavingMeshMotionHandler;
+class SpiralingMeshMotionHandler;
 class PitchingMeshMotionHandler;
 class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
@@ -35,6 +36,7 @@ private:
   PostOperator<dim> *postOp;
   RigidMeshMotionHandler *rmmh;
   HeavingMeshMotionHandler *hmmh;
+  SpiralingMeshMotionHandler *smmh;
   PitchingMeshMotionHandler *pmmh;
   DeformingMeshMotionHandler *dmmh;
   Domain *domain;
