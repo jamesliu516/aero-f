@@ -79,6 +79,7 @@ private:
   DistSVec<double,dim> *Fp;
   DistSVec<double,dim> *Fm;
   DistSVec<double,dim> dFdS;
+  DistSVec<double,dim> dFdSref;
   DistSVec<double,dim> *Up;
   DistSVec<double,dim> *Um;
   DistSVec<double,dim> dUdS;

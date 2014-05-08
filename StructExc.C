@@ -13,6 +13,7 @@
 #define INFO_TAG 3000
 #define HEATPOWER_TAG 5000
 #define TEMP_TAG 6000
+#define STRUC_NUMPA_TAG 7500
 #define STRUC_CMD_TAG 8000
 #define FLUID_CMD_TAG 9000
 #define NEGO_NUM_TAG 10000
@@ -347,6 +348,21 @@ void StructExc::negotiateStopping(bool* lastIt)
 }
 
 //------------------------------------------------------------------------------
+
+void StructExc::getNumParam(int &numParam)
+{
+  double xbuf;
+
+  if (strCom->cpuNum() == 0) {
+    strCom->recFrom(STRUC_NUMPA_TAG, &xbuf, 1);
+    strCom->waitForAllReq();
+  }
+
+  com->broadcast(1, &xbuf);
+  numParam = int(xbuf);
+}
+
+//------------------------------------------------------------------------------
 /* 
    dX contains the displacement of the boundaries with respect to the CURRENT 
    configuration of the structure
@@ -421,7 +437,7 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
    configuration of the structure
 */
 
-void StructExc::getDisplacementSensitivity(DistSVec<double,3> &dX) 
+void StructExc::getDisplacementSensitivity(DistSVec<double,3> &X, DistSVec<double,3> &dX) 
 {  
 //  fprintf(stderr,"[StExc] going to get displacement.\n");
   double norms[2] = {0.0, 0.0};
@@ -437,7 +453,7 @@ void StructExc::getDisplacementSensitivity(DistSVec<double,3> &dX)
         int size = bufsize * numStrNodes[iCpu][0];
         double *localBuffer = buffer + bufsize * numStrNodes[iCpu][1];
         strCom->recFrom(iCpu, DISP_TAG + recParity, localBuffer, size);
-        com->printf(7, "[F] received displacement from structure\n"); 
+        com->printf(7, "[F] received displacement sensitivity from structure\n"); 
 //        for(int i=0; i<size/3; i++)
 //          fprintf(stderr,"STEXC: %d %e %e %e\n", i+1, localBuffer[3*i], localBuffer[3*i+1], localBuffer[3*i+2]);
 
@@ -461,7 +477,7 @@ void StructExc::getDisplacementSensitivity(DistSVec<double,3> &dX)
       double (*dx)[3] = dX.subData(iSub);
 
       double locNorms[2];
-      matchNodes[iSub]->getDisplacementSensitivity(dX.getMasterFlag(iSub), disp, dx, locNorms);
+      matchNodes[iSub]->getDisplacementSensitivity(X.getMasterFlag(iSub), disp, dx, locNorms);
 
 #pragma omp critical
       norms[0] += locNorms[0];

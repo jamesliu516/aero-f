@@ -33,6 +33,7 @@ dXdSb(dom->getNodeDistInfo()),
 Xc(dom->getNodeDistInfo()),
 dAdS(dom->getNodeDistInfo()),
 dFdS(dom->getNodeDistInfo()),
+dFdSref(dom->getNodeDistInfo()),
 dUdS(dom->getNodeDistInfo()),
 p(dom->getNodeDistInfo()),
 dPdS(dom->getNodeDistInfo()),
@@ -138,6 +139,7 @@ dX(dom->getNodeDistInfo())
 
   dXdS=0.0;
   dFdS=0.0;
+  dFdSref=0.0;
   dUdS=0.0;
   p=0.0;
   dPdS=0.0;
@@ -1338,7 +1340,11 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
-  if (ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI) fso_on_sensitivityFSI(ioData, U);
+  if (ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI) {
+    int numParam;
+    this->getNumParam(numParam);
+    for(int i=0; i<numParam; ++i) fso_on_sensitivityFSI(ioData, U);
+  }
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) fso_on_sensitivityMesh(ioData, U);
   if (ioData.sa.sensMach == SensitivityAnalysis::ON_SENSITIVITYMACH) fso_on_sensitivityMach(ioData, U);
   if (ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) fso_on_sensitivityAlpha(ioData, U); 
@@ -1349,9 +1355,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 //  this->outputToDisk(ioData, &lastIt, 0, 0, 0, 0, dtLeft, U); 
 //  this->outputPositionVectorToDisk(U);
 
-  this->com->fprintf(stderr, "FluidShapeOptimizationHandler<dim>::fsoHandler 1 \n");
   this->output->closeAsciiFiles();
-  this->com->fprintf(stderr, "FluidShapeOptimizationHandler<dim>::fsoHandler 2 \n");
   
 
 //  this->com->barrier();
@@ -1464,9 +1468,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
       if(lastIt) break;
       this->com->fprintf(stderr, "fso_sensitivityFSI Iteration\t%d\n",iter+1);
       // Reading derivative of the overall deformation
-      if(ioData.sa.fsiFlag) {  
-        this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
-      }
+      this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
 
       // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
@@ -1565,10 +1567,16 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(
   dFdS = 0.0;
 
   // Derivative of the Flux, either analytical or semi-analytical
-  if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL )
+  if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL ) {
     fsoAnalytical(ioData, X, A, U, dFdS);
-  else
+//    dFdSref = 0.0;
+//    fsoSemiAnalytical(ioData, X, A, U, dFdSref);
+//    DistSVec<double,dim> difference(domain->getNodeDistInfo()); 
+//    difference = dFdS - dFdSref;
+//    this->com->fprintf(stderr, "\n !!! ERROR !!! dFdS and dFdSref do not match. The difference norm is %e\n\n", difference.norm());
+  } else {
     fsoSemiAnalytical(ioData, X, A, U, dFdS);
+  }
 
   // Computing the derivative of the fluid variables 
   // with respect to the fsoimization variables
