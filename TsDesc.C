@@ -385,6 +385,14 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsDesc<dim>::getNumParam(int &numParam)
+{
+  if (mmh) mmh->getNumParam(numParam);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsDesc<dim>::cmdCom(bool *lastIt)
 {
   if (mmh) mmh->cmdCom(lastIt);
@@ -446,7 +454,7 @@ void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &d
 {
   if (mmh) {
     printf(5," ~~~~~~~~~~~~~~~~~~~ TsDesc<dim>::receiveBoundaryPositionSensitivityVector 1\n");
-    mmh->updateDStep2(dXdSb);
+    mmh->updateDStep2(*Xs,dXdSb);
     printf(5," ~~~~~~~~~~~~~~~~~~~ TsDesc<dim>::receiveBoundaryPositionSensitivityVector 2\n");
   }
 }

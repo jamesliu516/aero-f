@@ -437,6 +437,13 @@ void AeroMeshMotionHandler::sendForceSensitivity(DistSVec<double,3> *dFdS)
 
 //------------------------------------------------------------------------------
 
+void AeroMeshMotionHandler::getNumParam(int &numParam)
+{
+  strExc->getNumParam(numParam);
+}
+
+//------------------------------------------------------------------------------
+
 void AeroMeshMotionHandler::cmdCom(bool *lastIt)
 {
   strExc->negotiateStopping(lastIt); 
@@ -662,7 +669,7 @@ void AeroMeshMotionHandler::setPositionVector(DistSVec<double,3> &X)
   dXdSb = boundary displacement sensitivity
 */
 
-void AeroMeshMotionHandler::updateDStep2(DistSVec<double,3> &dXdSb)
+void AeroMeshMotionHandler::updateDStep2(DistSVec<double,3> &X, DistSVec<double,3> &dXdSb)
 {
   int verbose = com->getMaxVerbose();
   Timer *timer;
@@ -671,94 +678,7 @@ void AeroMeshMotionHandler::updateDStep2(DistSVec<double,3> &dXdSb)
 
   int algNum = strExc->getAlgorithmNumber();
 
-  strExc->getDisplacementSensitivity(dXdSb);
-/*  double dt = strExc->getTimeStep();
-
-  com->fprintf(stderr," algNum = %d, dt = %e, it = %d\n",algNum,dt,it);
-  if (algNum == 6 && it == 0) {
-    if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.1\n");
-    dt *= 0.5;
-  }
-  if ((algNum == 20 || algNum == 21) && it == 0)
-    dt *= 0.5;
-
-  if (algNum == 20){
-    if(it==0){ strExc->sendForce(F);}
-    else if(!*lastIt) {strExc->getDisplacementSensitivity(dXds);}
-    else return 0.0; // last iteration!
-  }
-  else if (algNum == 21){
-    if(it==0){ strExc->sendForce(F);}
-    else if(!*lastIt) {strExc->getDisplacementSensitivity(dXds);}
-    else return 0.0; // last iteration!
-  }
-  else if (algNum == 8) {
-    return dt;
-  }
-
-
-  if (algNum == 4|| algNum == 5) {
-    if (*lastIt)
-      return 0.0;
-    strExc->sendForce(F);
-  }
-  else if(!(algNum == 20 || algNum == 21)){
-    if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.2\n");
-    if (it > it0 && algNum != 10) {
-      if (steady) {
-        if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.3\n");
-        strExc->negotiateStopping(lastIt);  // [F] receive iSteady from structure
-        if(verbose>4) com->fprintf(stderr," ... [F] received iSteady from structure\n");
-        if (*lastIt) {
-          if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.4\n");
-          return 0.0;
-        }
-      }
-    }
-    if (algNum != 10 && !*lastIt) {
-      if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.5\n");
-      strExc->getDisplacementSensitivity(dXds);  // [F] receive displacement sensitivity from structure
-    } else {
-      if (it == it0) {
-        if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.6\n");
-        strExc->getDisplacementSensitivity(dXds);
-      }
-    }
-    //ARL: Why send force twice at last iteration?
-    //if (*lastIt){
-    //  strExc->sendForce(F);
-    //  return 0.0;
-    //}
-  }
-  if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.7\n");
-  timer->removeForceAndDispComm(t0); // do not count the communication time with the
-                                     // structure in the mesh solution
-
-  if (algNum != 10 || it == it0)  {
-    //ARL: bug
-    //     if second comment line, several cpu crashes with a floating point exception.
-    //     if first comment  line, runs fine.
-    // suspecting memory leak
-
-    if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.8\n");
-    //com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %20.12e and %20.12e (%20.12e)\n", it, dX.norm(), Xdot.norm(), X.norm());
-    com->fprintf(stdout, "... It %5d: Received Incr. dXds and Vel. ==> %e and %e (%e) \n", it, dXds.norm(), Xdot.norm(), X0.norm());
-
-    if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.9\n");
-    mms1->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
-    com->sync();
-    if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.10\n");
-    mms1->solveSensitivity(dXds, dXsds); //HB: the sliding conditions are also applied to dXds inside the solve method
-    com->sync();
-    if(verbose>4) com->fprintf(stderr," `````````````````` updateDStep2.11\n");
-  }
-
-  if (algNum == 1)
-    *lastIt = true;
-
-  return dt;
-*/
-
+  strExc->getDisplacementSensitivity(X,dXdSb);
 }
 
 //------------------------------------------------------------------------------
