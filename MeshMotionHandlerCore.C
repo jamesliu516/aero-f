@@ -476,7 +476,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
   }
   else  {
     if (algNum == 4) {
-      strExc->getDisplacement(X0, X, Xdot, dX);
+      strExc->getDisplacement(X0, X, Xdot, dX, false);
       if (*lastIt) 
         return 0.0;
       strExc->sendForce(F);
@@ -490,7 +490,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 	    return 0.0;
         }
       }
-      strExc->getDisplacement(X0, X, Xdot, dX);
+      strExc->getDisplacement(X0, X, Xdot, dX, false);
       if (*lastIt) 
         return 0.0;
     }
@@ -531,12 +531,12 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
     dt *= 0.5;
 
   if (algNum == 20 ){ // RK2-CD algorithm with FEM(20)
-    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX, false);} //for proper restart
     else if(it==it0) {/*nothing to do*/}
     else if(it!=1){strExc->sendForce(F);}
   }
   else if (algNum == 21 ){ // RK2-CD algorithm with XFEM(21)
-    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX, false);} //for proper restart
     else if(it==it0) {strExc->sendForce(F);}
     else if(it!=1){strExc->sendForce(F);}
   }
@@ -547,7 +547,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   else if (algNum == 4 || algNum == 5) {
     if (*lastIt)
       return 0.0;
-    strExc->getDisplacement(X0, X, Xdot, dX);
+    strExc->getDisplacement(X0, X, Xdot, dX, false);
   }
   else if (algNum == 10 && (/*it == 0 ||*/ *lastIt) ) // change to align B0 with manual description
     strExc->sendForce(F);
@@ -589,12 +589,12 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   if (algNum == 20){
     if(it==0){ strExc->sendForce(F);}
-    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX, false);}
     else return 0.0; // last iteration!
   }
   else if (algNum == 21){
     if(it==0){ strExc->sendForce(F);}
-    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX, false);}
     else return 0.0; // last iteration!
   }
   else if (algNum == 8) {
@@ -617,13 +617,13 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
         }
       }
     }
-    if (algNum != 10 && !*lastIt) {
-      strExc->getDisplacement(X0, X, Xdot, dX);  // [F] receive displacement from structure
-    } else {
-      if (it == it0) {
-        strExc->getDisplacement(X0, X, Xdot, dX);
-      }
-    }
+    if (algNum != 10 && !*lastIt)
+      strExc->getDisplacement(X0, X, Xdot, dX, false);  // [F] receive displacement from structure
+    else
+      if (it == it0)
+        strExc->getDisplacement(X0, X, Xdot, dX, false);
+      
+  
     //ARL: Why send force twice at last iteration?
     //if (*lastIt){
     //  strExc->sendForce(F);
@@ -633,7 +633,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 
-  if (algNum != 10 || it == it0)  {
+  if ((algNum != 10 && !*lastIt) || it == it0)  {
     //ARL: bug
     //     if second comment line, several cpu crashes with a floating point exception.
     //     if first comment  line, runs fine.
@@ -1366,6 +1366,153 @@ double HeavingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 }
 
 //------------------------------------------------------------------------------
+//
+SpiralingMeshMotionHandler::SpiralingMeshMotionHandler(IoData &iod, Domain *dom) :
+                            MeshMotionHandler(iod, dom)
+{
+
+  dt = iod.forced.timestep;
+  omega = 2.0 * acos(-1.0) * iod.forced.frequency;
+  delta[0] = iod.forced.sp.xL;
+  delta[1] = iod.forced.sp.x0;
+
+  if (iod.forced.sp.domain == SpiralingData::VOLUME)
+    mms = 0;
+  else if (iod.forced.sp.domain == SpiralingData::SURFACE)
+    mms = new TetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+SpiralingMeshMotionHandler::~SpiralingMeshMotionHandler()
+{
+
+  if (mms) delete mms;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SpiralingMeshMotionHandler::setup(DistSVec<double,3> &X)
+{
+
+  if(mms) mms->setup(X);
+
+}
+
+//------------------------------------------------------------------------------
+
+DistSVec<double,3> SpiralingMeshMotionHandler::getModes()
+{
+// This is not doing the correct thing...Vinod
+
+  int numLocSub = domain->getNumLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*dx)[3] = dX.subData(iSub);
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = 0.0;
+      dx[i][1] = 0.0;
+      dx[i][2] = 0.0;
+
+    }
+  }
+
+ return(dX);
+
+}
+
+//------------------------------------------------------------------------------
+
+double SpiralingMeshMotionHandler::update(bool *lastIt, int it, double t,
+                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  
+ if (*lastIt) return dt;
+
+ int numLocSub = domain->getNumLocSub();
+
+ double Rcurv = delta[0]/( omega*(t+dt) );
+
+ #pragma omp parallel for
+   for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+      double (*dx)[3] = dX.subData(iSub);
+      double (*x0)[3] = X0.subData(iSub);
+
+      for (int i=0; i<dX.subSize(iSub); ++i) {
+        if ( x0[i][0] >= delta[1] ) {
+          double xloc = x0[i][0] - delta[1];
+          double theta = xloc/Rcurv;
+          dx[i][0] = (Rcurv + x0[i][1])*sin(theta) + delta[1];
+          dx[i][1] = (Rcurv + x0[i][1])*cos(theta) - Rcurv;
+          dx[i][2] = x0[i][2];
+        }
+        else {
+          dx[i][0] = x0[i][0];
+          dx[i][1] = x0[i][1];
+          dx[i][2] = x0[i][2];
+        }
+      }
+  }
+
+  dX -= X;
+
+  if (mms)
+  { //HB: changed to use dofType array instead of nodeType array
+    int numLocSub = domain->getNumLocSub();
+    BCApplier* meshMotionBCs = domain->getMeshMotionBCs();
+    int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0;
+
+    if(DofType)
+    {
+      #pragma omp parallel for
+      for(int iSub=0; iSub<numLocSub; ++iSub)
+      {
+        double (*dx)[3] = dX.subData(iSub);
+        int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
+        for(int i=0;i<dX.subSize(iSub); i++)
+          for(int l=0; l<3; l++)
+            if(dofType[i][l]!=BC_MATCHED) dx[i][l] = 0.0;
+      }
+    }
+
+
+    mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
+    mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+
+  }
+  else
+    X += dX;
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double SpiralingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+{
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double SpiralingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return update(lastIt, it, t, Xdot, X);
+
+}
+
+//------------------------------------------------------------------------------
 
 AccForcedMeshMotionHandler::
 AccForcedMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
@@ -1653,8 +1800,8 @@ void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
-  if (it==0) {
-//    dts *= 0.5;							/* XY */
+  if (it==0&& dynNodalTransfer->isCoupled()) {
+    dts *= 0.5;	
 
     int numStructNodes = dynNodalTransfer->numStNodes();
     if(numStructNodes != distLSS->getNumStructNodes()) {
@@ -1797,6 +1944,9 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   int algNum = dynNodalTransfer->getAlgorithmNumber();
 
   switch (algNum) {
+    case 1: //PP with FEM
+      step2ForPP(lastIt,it,t,Xdot,X);
+      break;
     case 6: //A6 with FEM
       step2ForA6(lastIt,it,t,Xdot,X);
       break;
@@ -1816,12 +1966,25 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
 //------------------------------------------------------------------------------
 
+void EmbeddedMeshMotionHandler::step2ForPP(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  // get displacement
+  if(it==it0) {
+    dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
+                             dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
+  }
+  *lastIt = true;
+}
+
+//------------------------------------------------------------------------------
 void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
-  if(it==0)
+  if(it==0 && dynNodalTransfer->isCoupled() )
     dts *= 0.5;
 
   // get displacement
@@ -1885,6 +2048,7 @@ void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *dom,
+                              MatchNodeSet **matchNodes,
                               DistLevelSetStructure *distlss) : MeshMotionHandler(iod, dom)
 {
   dt = iod.ts.timestep;
@@ -1897,10 +2061,10 @@ EmbeddedALEMeshMotionHandler::EmbeddedALEMeshMotionHandler(IoData &iod, Domain *
     for (int j=0; j<3; j++)
       Xs0[3*i + j] = Xstruct[i][j];
 
-  cs = new EmbeddedCorotSolver(iod.dmesh, domain, Xs0, distLSS->getNumStructNodes());
+  cs = new EmbeddedCorotSolver(iod, matchNodes, domain, Xs0, distLSS->getNumStructNodes(),distLSS->getStructElems());
 
   if (iod.dmesh.type == DefoMeshMotionData::COROTATIONAL)
-    mms = new EmbeddedALETetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+    mms = new EmbeddedALETetMeshMotionSolver(iod.dmesh, matchNodes, domain, 0);
   else
     mms = 0;
 
@@ -1972,7 +2136,7 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
         int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
         for(int i=0;i<dX.subSize(iSub); i++)
           for(int l=0; l<3; l++)
-            if(dofType[i][l]!=BC_MATCHED && dofType[i][l]!=BC_MATCHEDSLIDE) dx[i][l] = 0.0;
+            if(dofType[i][l]!=BC_FIXED && dofType[i][l]!=BC_MATCHED && dofType[i][l]!=BC_MATCHEDSLIDE) dx[i][l] = 0.0;
       }
     }
 //--------------------------------------------------------------

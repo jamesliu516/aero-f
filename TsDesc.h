@@ -101,6 +101,8 @@ protected:
   //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
   bool modifiedGhidaglia;
 
+  bool isMultigridTsDesc;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
@@ -161,7 +163,7 @@ public:
   virtual void outputForces(IoData &, bool*, int, int, int, double, double,
                             DistSVec<double,dim> &);
 
-  void outputPositionVectorToDisk(DistSVec<double,dim> &U);
+  virtual void outputPositionVectorToDisk(DistSVec<double,dim> &U);
 //  void outputPositionSensitivityVectorToDisk(DistSVec<double,dim> &dUds);
   virtual void resetOutputToStructure(DistSVec<double,dim> &);
   virtual void updateOutputToStructure(double, double, DistSVec<double,dim> &);

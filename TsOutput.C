@@ -937,6 +937,8 @@ void TsOutput<dim>::setMeshMotionHandler(IoData &ioData, MeshMotionHandler *mmh)
   if (ioData.problem.type[ProblemData::FORCED]) {
      if (ioData.forced.type == ForcedData::HEAVING)
        hmmh = dynamic_cast<HeavingMeshMotionHandler *>(mmh);
+     else if (ioData.forced.type  == ForcedData::SPIRALING)
+       smmh = dynamic_cast<SpiralingMeshMotionHandler *>(mmh);
      else if (ioData.forced.type  == ForcedData::PITCHING)
        pmmh = dynamic_cast<PitchingMeshMotionHandler *>(mmh);
      else if (ioData.forced.type  == ForcedData::DEFORMING)
@@ -952,6 +954,8 @@ void TsOutput<dim>::setMeshMotionHandler(IoData &ioData, MeshMotionHandler *mmh)
 
     if (hmmh)
        (*mX)[0] = hmmh->getModes(); 
+    else if(smmh)
+       (*mX)[0] = smmh->getModes();
     else if(pmmh)
        (*mX)[0] = pmmh->getModes(); 
     else if(dmmh)

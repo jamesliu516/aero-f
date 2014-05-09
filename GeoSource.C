@@ -44,11 +44,15 @@ GeoSource::GeoSource(IoData &ioData)
     matchName = new char[sp + strlen(ioData.input.match)];
     sprintf(matchName, "%s%s", ioData.input.prefix, ioData.input.match);
   }
+  else if (ioData.problem.framework==ProblemData::EMBEDDEDALE && ioData.dmesh.type == DefoMeshMotionData::COROTATIONAL && strcmp(ioData.input.embmeshmatch,"") != 0) {
+    matchName = new char[sp + strlen(ioData.input.embmeshmatch)];
+    sprintf(matchName, "%s%s", ioData.input.prefix, ioData.input.embmeshmatch);
+  }
   else {
     matchName = new char[1];
     sprintf(matchName, "");
   }
-  
+
   subToCluster = 0;
   subToSub = 0;
   cpuToSub = 0;

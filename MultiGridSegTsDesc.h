@@ -25,7 +25,8 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
   void smooth0(DistSVec<double,dim>& x,int steps);
 
   void smooth(int lvl, MultiGridDistSVec<double,dim>& x,
-       DistSVec<double,dim>& f,int steps);
+	      DistSVec<double,dim>& f,int steps,
+	      bool postsmooth);
 
   void cycle(int lvl, DistSVec<double,dim>& f,
              MultiGridDistSVec<double,dim>& x);
@@ -45,6 +46,8 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
 
   int globalIt;
 
+  int addTurbulenceTerms;
+
   double prolong_relax_factor,restrict_relax_factor;
   
   MultiGridKernel<double>* pKernel;
@@ -59,6 +62,8 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
   MultiGridSmoothingMatrices<double,neq2>* smoothingMatrices2;
 
   MultiGridMvpMatrix<double,neq1>* mgMvp1;
+  MultiGridMvpMatrix<double,neq2>* mgMvp2;
 
-  MultiGridKspSolver<double,neq1,double>* mgKspSolver;
+  MultiGridKspSolver<double,neq1,double>* mgKspSolver1;
+  MultiGridKspSolver<double,neq2,double>* mgKspSolver2;
 };

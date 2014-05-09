@@ -68,6 +68,8 @@ struct InputData {
   const char *decomposition;
   const char *cpumap;
   const char *match;
+  const char *embmeshmatch;
+  const char *embsurfmatch;
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
@@ -75,8 +77,16 @@ struct InputData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+
+  // We can now read the fluid ID from a file.
+  // Added by Alex Main (September 2013)
+  //
   const char *fluidId;
   const char *rstdata;
+
+  // File Package for restart support.
+  // Added by Alex Main (September 2013)
+  //
   const char *restart_file_package;
   const char *podFile;
   const char *snapFile;
@@ -1156,6 +1166,8 @@ struct MultiFluidData {
 
   enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
 
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
@@ -1479,9 +1491,13 @@ struct MultiGridData {
 
   int addViscousTerms;
 
+  int addTurbulenceTerms;
+
   SchemeFixData fixes;
 
   const char* agglomerationFile;
+
+  double turbRelaxCutoff;
  
   MultiGridData();
   ~MultiGridData() {}
@@ -1937,6 +1953,21 @@ struct HeavingData {
 
 //----------------------------------------------------------
 
+struct SpiralingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double xL;
+  double x0;
+
+  SpiralingData();
+  ~SpiralingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
 struct PitchingData {
 
   enum Domain {VOLUME = 0, SURFACE = 1} domain;
@@ -2011,12 +2042,13 @@ struct Velocity  {
 struct ForcedData {
 
   enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
-             ACOUSTICBEAM=5} type;
+             ACOUSTICBEAM=5, SPIRALING = 6} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
+  SpiralingData sp;
   PitchingData pt;
   Velocity vel;
   DeformingData df;
@@ -2243,6 +2275,8 @@ struct EmbeddedFramework {
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
 
   // Low mach preconditioning of the exact Riemann problem.
+  // Added by Alex Main (December 2013)
+  //
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
 
   double alpha;   // In the case of solve Riemann problem at intersection, this parameter

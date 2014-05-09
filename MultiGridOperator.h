@@ -19,7 +19,7 @@ class MultiGridOperator {
  public:
 
   MultiGridOperator(MultiGridLevel<Scalar>*, IoData& ioData, VarFcn* varFcn,
-                    Domain* domain, BcFcn* = NULL, BcFcn* = NULL);
+                    Domain* domain, BcFcn* = NULL, BcFcn* = NULL, BcFcn* = NULL);
 
   ~MultiGridOperator();
     
@@ -64,6 +64,12 @@ class MultiGridOperator {
 			       bool addDWdt = true);
 
   template <class Scalar2>
+    void 
+    add_dAW_dtEmbedded(DistSVec<Scalar2,dim>& U,
+		       DistSVec<Scalar2,dim>& res,	
+		       DistMultiGridLevelSetStructure* mgLSS);
+
+  template <class Scalar2>
   void applyBCsToResidual(DistSVec<Scalar2,dim>& U,
                           DistSVec<Scalar2,dim>& R);
 
@@ -85,6 +91,8 @@ class MultiGridOperator {
 
   double queryTimeStep(int iSub, int i);
 
+  DistSVec<Scalar,dim>* getDerivative(int i) { return DX[i]; }
+ 
  private:
 
   MultiGridLevel<Scalar>* mgLevel;
@@ -107,7 +115,7 @@ class MultiGridOperator {
 
   VarFcn* myVarFcn;
 
-  BcFcn* bcFcn,*bcFcn1;
+  BcFcn* bcFcn,*bcFcn1,*bcFcn2;
 
   int addViscousTerms;
 };

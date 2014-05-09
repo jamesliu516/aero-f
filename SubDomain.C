@@ -4181,6 +4181,25 @@ void SubDomain::setNodeBcValue(double* Vin, SVec<double,dim>& Unode)
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::setNodeBcValue2(double* Uin, SVec<double,dim>& Unode)
+{
+
+  for (int i=0; i<nodes.size(); ++i) {
+    if (nodeType[i] == BC_INLET_MOVING || nodeType[i] == BC_INLET_FIXED ||
+        nodeType[i] == BC_OUTLET_MOVING || nodeType[i] == BC_OUTLET_FIXED) {
+      Unode[i][0] = Uin[0];
+      Unode[i][1] = Uin[1];
+      Unode[i][2] = Uin[2];
+      Unode[i][3] = Uin[3];
+      Unode[i][4] = Uin[4];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::computeFaceBcValue(SVec<double,dim> &Unode, SVec<double,dim> &Uface)
 {
 
@@ -6858,6 +6877,13 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
       for (int i=0; i<4; i++) {
 	double dist = dbary[i].norm();
         if (norm[i] <= 0.) {
+	  
+	  // Bug fix for cracking simulations (also below)
+	  // Note that when we are doing cracking, isActive() always
+	  // returns false.  In this case, the node is assumed to be active.
+	  // so we only need to check if the node is occluded.
+	  // Added by Alex Main (October 2013)
+	  //
 	  if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] ) {
 	    mindist[0] = dist;
 	    node[0] = T[i];
@@ -7655,7 +7681,7 @@ void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double
 	
         if (fabs(U[i][k]-Uexact[i][k]) > 0.05) {
 
-          std::cout << locToGlobNodeMap[i] << " " <<  U[i][k] << " " << Uexact[i][k] << std::endl;
+//          std::cout << locToGlobNodeMap[i] << " " <<  U[i][k] << " " << Uexact[i][k] << std::endl;
         }
 	
 	error[k] = max(error[k],fabs(U[i][k]-Uexact[i][k]));

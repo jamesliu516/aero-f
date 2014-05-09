@@ -17,6 +17,8 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
     Vec<bool> &is_occluded;
     Vec<bool> &edge_intersects;
 
+    Vec<Vec3D> &surfaceNormals;
+
     class DistMultiGridLevelSetStructure& distLSS;
 
     LevelSetStructure* parent;
@@ -34,6 +36,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 			       Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,
 			       Vec<bool>& is_active,Vec<bool>& is_occluded,
 			       Vec<bool>& edge_intersects,
+			       Vec<Vec3D>& surfaceNormals,
 			       LevelSetStructure* parent,
 			       int mySub,MultiGridLevel<double>* myLevel);
 
@@ -51,7 +54,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 
     void recompute();
 
-    void computeEdgeCrossing();
+    void computeEdgeCrossing(SVec<double,3>& nodeNormals);
 
     bool withCracking() const { return false; }
 
@@ -82,6 +85,8 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
   Domain* domain;
 
   DistVec<ClosestPoint>* dummycp;
+
+  DistVec<Vec3D>* surfaceNormals;
 
   public:
     DistMultiGridLevelSetStructure(IoData &iod, Communicator *comm,

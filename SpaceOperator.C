@@ -2158,6 +2158,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       break;
 
     case 2: // Embedded Surface
+      ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true,distLSS);
       domain->computeEmbSurfBasedForceLoad(*iod,forceApp,orderOfAccuracy,X,Fs,sizeFs,
 					   distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,ngrad,varFcn,fid);
       break;

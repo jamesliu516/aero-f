@@ -1784,3 +1784,15 @@ template<int dim>
 int DistTimeState<dim>::getOutputNewtonStep() const {
 	return *(domain->getOutputNewtonStep()); 
 }
+
+template<int dim> 
+void DistTimeState<dim>::setExistsNm1() {
+
+  data->exist_nm1 = true;
+}
+
+template<int dim> 
+void DistTimeState<dim>::setDtNm1(double dt) {
+
+  data->dt_nm1 = dt;
+}

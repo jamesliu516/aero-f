@@ -108,6 +108,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   timeState = 0;
   mmh = 0; 
 
+  isMultigridTsDesc = false;
 }
 
 //------------------------------------------------------------------------------
@@ -269,6 +270,8 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
     else {
       if (ioData.forced.type == ForcedData::HEAVING)
         _mmh = new HeavingMeshMotionHandler(ioData, domain);
+      else if (ioData.forced.type == ForcedData::SPIRALING)
+        _mmh = new SpiralingMeshMotionHandler(ioData, domain);
       else if (ioData.forced.type  == ForcedData::PITCHING)
         _mmh = new PitchingMeshMotionHandler(ioData, domain);
       else if (ioData.forced.type  == ForcedData::DEFORMING)
@@ -325,6 +328,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
   HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(mmh);
+  SpiralingMeshMotionHandler* _smmh = dynamic_cast<SpiralingMeshMotionHandler*>(mmh);
   PitchingMeshMotionHandler* _pmmh = dynamic_cast<PitchingMeshMotionHandler*>(mmh);
 
   if (_mmh)
@@ -333,6 +337,8 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     _dmmh->setup(*X);
   else if (_hmmh)
     _hmmh->setup(*X);
+  else if (_smmh)
+    _smmh->setup(*X);
   else if (_pmmh)
     _pmmh->setup(*X);
 
@@ -906,7 +912,14 @@ void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 template<int dim>
 bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
 {
-  data->residual = computeResidualNorm(U);
+
+  // For multigrid, monitorConvergence() was already called in the 
+  // smoothing process.  It was called with it == 0
+  // in this case we do not need to recompute it
+  // 
+  if (!isMultigridTsDesc || it == 0)
+    data->residual = computeResidualNorm(U);
+
   if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2))
     restart->residual = data->residual;
 
