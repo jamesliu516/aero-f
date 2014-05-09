@@ -253,7 +253,10 @@ void VarFcnSGEuler::conservativeToPrimitive(double *U, double *V)
 {
 
 #ifndef NDEBUG 
-  if(U[0] == 0) fprintf(stderr,"U[0] is %e\n",U[0]);
+  if(U[0] == 0) { 
+    fprintf(stderr,"U[0] is %e\n",U[0]);
+//    exit(-1);
+  }
 #endif
   V[0] = U[0];
 

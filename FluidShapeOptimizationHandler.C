@@ -33,6 +33,7 @@ dXdSb(dom->getNodeDistInfo()),
 Xc(dom->getNodeDistInfo()),
 dAdS(dom->getNodeDistInfo()),
 dFdS(dom->getNodeDistInfo()),
+dFdSref(dom->getNodeDistInfo()),
 dUdS(dom->getNodeDistInfo()),
 p(dom->getNodeDistInfo()),
 dPdS(dom->getNodeDistInfo()),
@@ -48,6 +49,14 @@ dX(dom->getNodeDistInfo())
 
   // Initialize
   step = 0;
+
+  if ( ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ) {
+    load = new DistSVec<double,3>(domain->getNodeDistInfo());
+    dLoad = new DistSVec<double,3>(domain->getNodeDistInfo());
+  } else {
+    load = 0;
+    dLoad = 0;
+  }
 
   if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) {
     Xp = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -119,7 +128,7 @@ dX(dom->getNodeDistInfo())
   mvp->exportMemory(&mp);
   pc->exportMemory(&mp);
 
-  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
+  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH || ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI) {
     mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(),domain,0);
   }
 
@@ -130,6 +139,7 @@ dX(dom->getNodeDistInfo())
 
   dXdS=0.0;
   dFdS=0.0;
+  dFdSref=0.0;
   dUdS=0.0;
   p=0.0;
   dPdS=0.0;
@@ -155,6 +165,10 @@ FluidShapeOptimizationHandler<dim>::~FluidShapeOptimizationHandler()
   if (pc) delete pc;
 
   if (ksp) delete ksp;
+
+  if (load) delete load;
+
+  if (dLoad) delete dLoad;
 
 //  if (tsSolver) delete tsSolver;
 
@@ -763,7 +777,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(IoD
 
 template<int dim>
 void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadFiniteDifference(IoData &ioData, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &A,
-                                                                                                                            DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
+                                                            DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,3> &load, DistSVec<double,3> &dLoad)
 {
 
 //Remark: Error mesage for pointers
@@ -1326,104 +1340,40 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
-  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
-
-    double tag = 0.0;
-
-    step = 0;
-    dXdS = 0.0;
-    dXdSb = 0.0;
-    dAdS = 0.0;
-    DFSPAR[0] = 0.0;
-    DFSPAR[1] = 0.0;
-    DFSPAR[2] = 0.0;
-    actvar = 1;
-
-    while (true) {
-
-      // Reading derivative of the overall deformation
-      bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
-      if(!readOK) break;
-
-// Checking if dXdSb has entries different from zero at the interior of the mesh
-      this->postOp->checkVec(dXdSb);
-
-      if (dXdSb.norm() == 0.0)
-      {
-        this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
-        exit(1);
-      }
-
-      this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
-
-      // Updating the mesh
-      dXdS = *this->X;
-      mms->solve(dXdSb, dXdS);
-      dXdS -= *this->X;
-
-      // Check that the mesh perturbation is propagated
-      if (dXdS.norm() == 0.0)
-      {
-        this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
-      }
-
-      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+  if (ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI) {
+    int numParam;
+    this->getNumParam(numParam);
+    for(int i=0; i<numParam; ++i) fso_on_sensitivityFSI(ioData, U);
+  }
+  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) fso_on_sensitivityMesh(ioData, U);
+  if (ioData.sa.sensMach == SensitivityAnalysis::ON_SENSITIVITYMACH) fso_on_sensitivityMach(ioData, U);
+  if (ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) fso_on_sensitivityAlpha(ioData, U); 
+  if (ioData.sa.sensBeta == SensitivityAnalysis::ON_SENSITIVITYBETA) fso_on_sensitivityBeta(ioData, U); 
   
-      fsoComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
 
-      dXdSb = 0.0;
+  bool lastIt = true;
+//  this->outputToDisk(ioData, &lastIt, 0, 0, 0, 0, dtLeft, U); 
+//  this->outputPositionVectorToDisk(U);
 
-      step = step + 1;
-    }
+  this->output->closeAsciiFiles();
+  
 
-    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
-
+//  this->com->barrier();
+  MyLocalTimer += this->timer->getTime();
+  if (this->com->cpuNum() == 0)
+  {
+    std::cout << "\n *** FluidSensityAnalysisHandler::fsoHandler >> Exit";
+    std::cout << " (" << MyLocalTimer << " s)";
+    std::cout << "\n\n";
   }
 
-  if (ioData.sa.sensMach == SensitivityAnalysis::ON_SENSITIVITYMACH) {
+  return -1;
 
-    dXdS = 0.0;
-    dAdS = 0.0;
-    DFSPAR[0] = 1.0;
-    DFSPAR[1] = 0.0;
-    DFSPAR[2] = 0.0;
-    actvar = 2;
+}
 
-    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
-
-    fsoComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
-
-    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the Mach number were computed! \n");
-
-    step = step + 1;
-  }
-
-  if (ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) {
-
-    dXdS = 0.0;
-    dAdS = 0.0;
-    DFSPAR[0] = 0.0;
-    DFSPAR[1] = 1.0;
-    DFSPAR[2] = 0.0;
-    actvar = 3;
-
-    if (!ioData.sa.angleRad) 
-      ioData.sa.eps *= acos(-1.0) / 180.0;
-
-    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
-
-    fsoComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
-
-    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the angle of attack were computed! \n");
-
-    step = step + 1;
-
-    if (!ioData.sa.angleRad)
-      ioData.sa.eps /= acos(-1.0) / 180.0;
-  }
-
-  if (ioData.sa.sensBeta == SensitivityAnalysis::ON_SENSITIVITYBETA) {
-
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityBeta(IoData &ioData, DistSVec<double,dim> &U)
+{
     dXdS = 0.0;
     dAdS = 0.0;
     DFSPAR[0] = 0.0;
@@ -1444,24 +1394,167 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
     if (!ioData.sa.angleRad)
       ioData.sa.eps /= acos(-1.0) / 180.0;
-  }
+}
 
-  bool lastIt = true;
-//  this->outputToDisk(ioData, &lastIt, 0, 0, 0, 0, dtLeft, U); 
-  this->outputPositionVectorToDisk(U);
+//------------------------------------------------------------------------------
 
-  this->output->closeAsciiFiles();
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityAlpha(IoData &ioData, DistSVec<double,dim> &U)
+{
+    dXdS = 0.0;
+    dAdS = 0.0;
+    DFSPAR[0] = 0.0;
+    DFSPAR[1] = 1.0;
+    DFSPAR[2] = 0.0;
+    actvar = 3;
 
-  this->com->barrier();
-  MyLocalTimer += this->timer->getTime();
-  if (this->com->cpuNum() == 0)
-  {
-    std::cout << "\n *** FluidSensityAnalysisHandler::fsoHandler >> Exit";
-    std::cout << " (" << MyLocalTimer << " s)";
-    std::cout << "\n\n";
-  }
+    if (!ioData.sa.angleRad) 
+      ioData.sa.eps *= acos(-1.0) / 180.0;
 
-  return -1;
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+
+    fsoComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
+
+    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the angle of attack were computed! \n");
+
+    step = step + 1;
+
+    if (!ioData.sa.angleRad)
+      ioData.sa.eps /= acos(-1.0) / 180.0;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityMach(IoData &ioData, DistSVec<double,dim> &U)
+{
+    dXdS = 0.0;
+    dAdS = 0.0;
+    DFSPAR[0] = 1.0;
+    DFSPAR[1] = 0.0;
+    DFSPAR[2] = 0.0;
+    actvar = 2;
+
+    fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+
+    fsoComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
+
+    fsoPrintTextOnScreen("\n ***** Derivatives with respect to the Mach number were computed! \n");
+
+    step = step + 1;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, DistSVec<double,dim> &U)
+{
+
+    double tag = 0.0;
+    bool lastIt = false;
+    int iter = 0;
+
+    dXdS = 0.0;
+    dXdSb = 0.0;
+    dAdS = 0.0;
+    DFSPAR[0] = 0.0;
+    DFSPAR[1] = 0.0;
+    DFSPAR[2] = 0.0;
+    actvar = 1;
+
+    while (!lastIt) {
+
+      this->cmdCom(&lastIt);
+      if(lastIt) break;
+      this->com->fprintf(stderr, "fso_sensitivityFSI Iteration\t%d\n",iter+1);
+      // Reading derivative of the overall deformation
+      this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
+
+      // Checking if dXdSb has entries different from zero at the interior of the mesh
+      this->postOp->checkVec(dXdSb);
+
+      if (dXdSb.norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
+        if(!ioData.sa.fsiFlag) exit(1);
+      }
+
+      // Updating the mesh
+      dXdS = *this->X;
+      mms->solve(dXdSb, dXdS);
+      dXdS -= *this->X;
+
+      // Check that the mesh perturbation is propagated
+      if (dXdS.norm() == 0.0) this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Sensitivity Perturbation !!!\n\n");
+//      else this->com->fprintf(stderr, "\n norm of dXdS is %e\n", dXdS.norm());
+
+      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+  
+      fsoComputeAndSendForceSensitivities(ioData, ioData.sa.sensoutput, *this->X, U);
+
+      dXdSb = 0.0;
+      iter++;
+    }
+
+    fsoPrintTextOnScreen("\n ***** Derivatives of mesh position and state were computed! \n");
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityMesh(IoData &ioData, DistSVec<double,dim> &U)
+{
+
+    double tag = 0.0;
+
+    step = 0;
+    dXdS = 0.0;
+    dXdSb = 0.0;
+    dAdS = 0.0;
+    DFSPAR[0] = 0.0;
+    DFSPAR[1] = 0.0;
+    DFSPAR[2] = 0.0;
+    actvar = 1;
+
+    while (true) {
+
+      // Reading derivative of the overall deformation
+      bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb); 
+      if(!readOK) break;
+
+      // Checking if dXdSb has entries different from zero at the interior of the mesh
+      this->postOp->checkVec(dXdSb);
+
+      if (dXdSb.norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
+        if(!ioData.sa.fsiFlag) exit(1);
+      }
+
+      this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
+
+      // Updating the mesh
+      dXdS = *this->X;
+      mms->solve(dXdSb, dXdS);
+      dXdS -= *this->X;
+
+      // Check that the mesh perturbation is propagated
+      if (dXdS.norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Sensitivity Perturbation !!!\n\n");
+      }
+
+      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+  
+      fsoComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
+
+      dXdSb = 0.0;
+
+      step = step + 1;
+    }
+
+    fsoPrintTextOnScreen("\n ***** Derivatives of mesh position were computed! \n");
 
 }
 
@@ -1474,10 +1567,16 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(
   dFdS = 0.0;
 
   // Derivative of the Flux, either analytical or semi-analytical
-  if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL )
+  if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL ) {
     fsoAnalytical(ioData, X, A, U, dFdS);
-  else
+//    dFdSref = 0.0;
+//    fsoSemiAnalytical(ioData, X, A, U, dFdSref);
+//    DistSVec<double,dim> difference(domain->getNodeDistInfo()); 
+//    difference = dFdS - dFdSref;
+//    this->com->fprintf(stderr, "\n !!! ERROR !!! dFdS and dFdSref do not match. The difference norm is %e\n\n", difference.norm());
+  } else {
     fsoSemiAnalytical(ioData, X, A, U, dFdS);
+  }
 
   // Computing the derivative of the fluid variables 
   // with respect to the fsoimization variables
@@ -1489,7 +1588,27 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData, const char *mesage, const char *fileName, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+void FluidShapeOptimizationHandler<dim>::fsoComputeAndSendForceSensitivities(IoData &ioData, const char *fileName, 
+                                                                             DistSVec<double,3> &X, DistSVec<double,dim> &U)
+{
+
+  if ( ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI ) {
+    if (ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) { 
+      fsoGetDerivativeOfLoadFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, *load, *dLoad);
+    } else {
+      fsoGetDerivativeOfLoadAnalytical(ioData, X, dXdS, U, dUdS, *load, *dLoad);
+    }
+  }
+
+  this->sendForceSensitivity(dLoad); 
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData, const char *mesage, const char *fileName, 
+                                                                 DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
 
 // Computing efforts (F: force, M: moment, L:LiftAndDrag)

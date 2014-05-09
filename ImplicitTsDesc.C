@@ -39,8 +39,8 @@ template<int dim>
 ImplicitTsDesc<dim>::~ImplicitTsDesc()
 {
 
-  if (tag) delete tag;
-  if (ns) delete ns;
+  if (tag) { delete tag; tag = 0; }
+  if (ns) { delete ns; ns = 0; }
 
 }
 
@@ -105,11 +105,11 @@ void ImplicitTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
   // XML
   //spaceOp->applyBCsToSolutionVector(Q);
 
-  if(this->wallRecType==BcsWallData::CONSTANT)
+  if(this->wallRecType==BcsWallData::CONSTANT) {
     this->spaceOp->computeResidual(*this->X, *this->A, Q, F, this->timeState);
-  else
+  } else {
     this->spaceOp->computeResidual(this->riemann1, *this->X, *this->A, Q, F, this->timeState);
-
+  }
 
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
 

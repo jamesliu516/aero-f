@@ -18,7 +18,7 @@
 
 MeshMotionHandler::MeshMotionHandler(IoData &iod, Domain *dom) : 
   domain(dom), F(dom->getNodeDistInfo()), Pin(dom->getFaceDistInfo()), 
-  X0(dom->getNodeDistInfo()), dX(dom->getNodeDistInfo()), F0(dom->getNodeDistInfo())
+  X0(dom->getNodeDistInfo()), dX(dom->getNodeDistInfo()), dXds(dom->getNodeDistInfo()), F0(dom->getNodeDistInfo())
 {
 
   tscale = iod.ref.rv.time;
@@ -395,6 +395,7 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
   //com->fprintf(stderr, " ... Starting Struct Solver\n");
 
   mms = new TetMeshMotionSolver(ioData.dmesh, matchNodes, domain, mp);
+  if (ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ) mms1 = new TetMeshSensitivitySolver(ioData.dmesh, matchNodes, domain, mp);
 
   it0 = ioData.restart.iteration;
 
@@ -409,6 +410,13 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
 
 //------------------------------------------------------------------------------
 
+void AeroMeshMotionHandler::negotiate()
+{
+  strExc->negotiate();
+}
+
+//------------------------------------------------------------------------------
+
 AeroMeshMotionHandler::~AeroMeshMotionHandler()
 {
 
@@ -417,6 +425,28 @@ AeroMeshMotionHandler::~AeroMeshMotionHandler()
   if (Favg) delete Favg;
   if (strExc) delete strExc;
   if (mms) delete mms;
+  if (mms1) delete mms1;
+}
+
+//------------------------------------------------------------------------------
+
+void AeroMeshMotionHandler::sendForceSensitivity(DistSVec<double,3> *dFdS)
+{
+  strExc->sendForceSensitivity(*dFdS);
+}
+
+//------------------------------------------------------------------------------
+
+void AeroMeshMotionHandler::getNumParam(int &numParam)
+{
+  strExc->getNumParam(numParam);
+}
+
+//------------------------------------------------------------------------------
+
+void AeroMeshMotionHandler::cmdCom(bool *lastIt)
+{
+  strExc->negotiateStopping(lastIt); 
 }
 
 //------------------------------------------------------------------------------
@@ -521,9 +551,9 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   }
   else if (algNum == 10 && (/*it == 0 ||*/ *lastIt) ) // change to align B0 with manual description
     strExc->sendForce(F);
-  else if (it > it0 && algNum != 10)
+  else if (it > it0 && algNum != 10) {
     strExc->sendForce(F);
-
+  }
   timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 
@@ -542,6 +572,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  int verbose = com->getMaxVerbose();
   Timer *timer;
   timer = domain->getTimer();
   double t0 = timer->getTime();
@@ -550,8 +581,9 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   double dt = strExc->getTimeStep();
 
 
-  if (algNum == 6 && it == 0)
+  if (algNum == 6 && it == 0) {
     dt *= 0.5;
+  }
   if ((algNum == 20 || algNum == 21) && it == 0)
     dt *= 0.5;
 
@@ -578,17 +610,20 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   else if(!(algNum == 20 || algNum == 21)){
     if (it > it0 && algNum != 10) {
       if (steady) {
-        strExc->negotiateStopping(lastIt);
-        if (*lastIt)
+        strExc->negotiateStopping(lastIt);  // [F] receive iSteady from structure
+        if(verbose>4) com->fprintf(stderr," ... [F] received iSteady from structure\n");
+        if (*lastIt) {
           return 0.0;
+        }
       }
     }
     if (algNum != 10 && !*lastIt)
-      strExc->getDisplacement(X0, X, Xdot, dX, false);
+      strExc->getDisplacement(X0, X, Xdot, dX, false);  // [F] receive displacement from structure
     else
       if (it == it0)
         strExc->getDisplacement(X0, X, Xdot, dX, false);
-
+      
+  
     //ARL: Why send force twice at last iteration?
     //if (*lastIt){
     //  strExc->sendForce(F);
@@ -608,7 +643,9 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e (%e) \n", it, dX.norm(), Xdot.norm(), X0.norm());
 
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
+    com->sync();
     mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+    com->sync();
   }
 
   if (algNum == 1)
@@ -617,6 +654,33 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   return dt;
 
 }
+
+//------------------------------------------------------------------------------
+
+void AeroMeshMotionHandler::setPositionVector(DistSVec<double,3> &X)
+{
+  if(mms1)
+    mms1->setup(X);
+
+}
+
+//------------------------------------------------------------------------------
+/*
+  dXdSb = boundary displacement sensitivity
+*/
+
+void AeroMeshMotionHandler::updateDStep2(DistSVec<double,3> &X, DistSVec<double,3> &dXdSb)
+{
+  int verbose = com->getMaxVerbose();
+  Timer *timer;
+  timer = domain->getTimer();
+  double t0 = timer->getTime();
+
+  int algNum = strExc->getAlgorithmNumber();
+
+  strExc->getDisplacementSensitivity(X,dXdSb);
+}
+
 //------------------------------------------------------------------------------
 int AeroMeshMotionHandler::getAlgNum()  {
 
