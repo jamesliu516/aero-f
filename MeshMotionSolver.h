@@ -84,7 +84,7 @@ public:
   virtual ~TetMeshMotionSolver();
 
   virtual int solve(DistSVec<double,3> &, DistSVec<double,3> &);
-  int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &) { return 0.0; };
+  int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &) { return 0; };
 
   void applyProjector(DistSVec<double,3> &X);
  
