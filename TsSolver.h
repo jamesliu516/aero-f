@@ -128,7 +128,6 @@ int TsSolver<ProblemDescriptor>::fsisoSolve(IoData &ioData)
   resolve(U, ioData);
 
   ioData.sa.fsiFlag = true;
-  probDesc->printf(5," ***** ioData.sa.fsiFlag turns to be true\n");
   probDesc->fsoHandler(ioData, U);
   probDesc->printf(0," ***** fsisoSolve is done ********\n");
 
@@ -212,7 +211,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         if (dU && dUPrev && dUPrev->norm() != 0) angle = ((*dU) * (*dUPrev))/(dU->norm()*dUPrev->norm());
         else angle = -2.0;
         dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
-        probDesc->printf(5," ... dt after computeTimeStep is  %e\n",dt);
       }
       
       t += dt;
