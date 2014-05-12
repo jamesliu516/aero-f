@@ -1475,7 +1475,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
 
       if (dXdSb.norm() == 0.0)
       {
-        this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
+        this->com->fprintf(stderr, "\n *** WARNING *** No Surface Mesh Sensitivity Perturbation \n\n");
         if(!ioData.sa.fsiFlag) exit(1);
       }
 

@@ -33,19 +33,16 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
   {
 // Modified (MB)
-      com->fprintf(stderr," *** startNavierStokesCoupledSolver 0\n");
       FluidSensitivityAnalysisHandler<dim> fsah(ioData, geoSource, &domain);
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
-      com->fprintf(stderr," *** startNavierStokesCoupledSolver 1\n");
       FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) { // YC
-      com->fprintf(stderr," *** startNavierStokesCoupledSolver 2\n");
       FluidShapeOptimizationHandler<dim> fsisoh(ioData, geoSource, &domain);
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsisoh);
 //      ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
@@ -98,19 +95,16 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   }
   else if (ioData.ts.type == TsData::IMPLICIT) {
     if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
-      com->fprintf(stderr," *** startNavierStokesCoupledSolver 3\n");
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);
     } else {
-      com->fprintf(stderr," *** startNavierStokesCoupledSolver 4\n");
       MultiGridCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       MultiGridSolver<MultiGridCoupledTsDesc<dim> > mgSolver(&tsDesc);
       mgSolver.solve(ioData);
     }
   }
   else if (ioData.ts.type == TsData::EXPLICIT) {
-    com->fprintf(stderr," *** startNavierStokesCoupledSolver 5\n");
     ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
     TsSolver<ExplicitTsDesc<dim> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);

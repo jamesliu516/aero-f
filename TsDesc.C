@@ -311,9 +311,7 @@ template<int dim>
 double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Finlet)
 {
 
-  printf(5,"TsDesc<dim>::recomputeResidual 1\n");
   return spaceOp->recomputeResidual(F,Finlet);
-  printf(5,"TsDesc<dim>::recomputeResidual 2\n");
 
 }
 
@@ -459,9 +457,7 @@ template<int dim>
 void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &dXdSb)
 {
   if (mmh) {
-    printf(5," ~~~~~~~~~~~~~~~~~~~ TsDesc<dim>::receiveBoundaryPositionSensitivityVector 1\n");
     mmh->updateDStep2(*Xs,dXdSb);
-    printf(5," ~~~~~~~~~~~~~~~~~~~ TsDesc<dim>::receiveBoundaryPositionSensitivityVector 2\n");
   }
 }
 
@@ -613,64 +609,38 @@ template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
                                     DistSVec<double,dim> &U)
 {
-  printf(5," ------- setupOutputToDisk 0.\n"); 
-  printf(5," ------- it = %d\n", it);
-  printf(5," ------- data->maxIts = %d\n", data->maxIts);
   if (it == data->maxIts) {
     *lastIt = true;
-    printf(5," ------- setupOutputToDisk 00.\n"); 
   } else if (!ioData.sa.fsiFlag) {
-    printf(5," ------- setupOutputToDisk 000.\n"); 
     monitorInitialState(it, U);
-    printf(5," ------- setupOutputToDisk 0000.\n"); 
   }
-  printf(5," ------- setupOutputToDisk 1.\n"); 
  
   output->setMeshMotionHandler(ioData, mmh);
-  printf(5," ------- setupOutputToDisk 2.\n"); 
   output->openAsciiFiles();
-  printf(5," ------- setupOutputToDisk 3.\n"); 
   timer->setSetupTime();
-  printf(5," ------- setupOutputToDisk 4.\n"); 
   output->cleanProbesFile();
-  printf(5," ------- setupOutputToDisk 5.\n"); 
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
-    printf(5," ------- setupOutputToDisk 6.\n"); 
 
     if (wallRecType==BcsWallData::CONSTANT) {
-      printf(5," ------- setupOutputToDisk 7.\n"); 
       output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     } else { //wallRecType == EXACT_RIEMANN
       output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-      printf(5," ------- setupOutputToDisk 8.\n"); 
     }
 
-    printf(5," ------- setupOutputToDisk 9.\n"); 
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    printf(5," ------- setupOutputToDisk 10.\n"); 
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    printf(5," ------- setupOutputToDisk 11.\n"); 
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    printf(5," ------- setupOutputToDisk 12.\n"); 
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
-    printf(5," ------- setupOutputToDisk 13.\n"); 
     output->writeMaterialVolumesToDisk(it, 0.0, *A);
-    printf(5," ------- setupOutputToDisk 14.\n"); 
     output->writeCPUTimingToDisk(*lastIt, it, t, timer);
-    printf(5," ------- setupOutputToDisk 15.\n"); 
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-    printf(5," ------- setupOutputToDisk 16.\n"); 
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-    printf(5," ------- setupOutputToDisk 17.\n"); 
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    printf(5," ------- setupOutputToDisk 18.\n"); 
     restart->writeKPtracesToDisk(ioData, *lastIt, it, t, *X, *A, U, timeState, domain, postOp);
-    printf(5," ------- setupOutputToDisk 19.\n"); 
     writeStateRomToDisk(it, 0.0);
-    printf(5," ------- setupOutputToDisk 20.\n"); 
     writeErrorToDisk(it, 0.0);
   }
 }
@@ -887,8 +857,6 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 template<int dim>
 void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
-
-  //com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
 
   if (!problemType[ProblemData::UNSTEADY]) {
     double trhs = timer->getTimeSyncro();
