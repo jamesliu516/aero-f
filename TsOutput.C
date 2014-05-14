@@ -2379,6 +2379,8 @@ void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, i
                                      DistTimeState<dim> * timeState, DistVec<int> *fluidId)
 {
 
+  if (iod.output.transient.matchpressure[0] == 0) return;
+
   double time = refVal->time * t;
 
   if (!Qs_match)     Qs_match     = new DistVec<double>(domain->getNodeDistInfo());

@@ -19,6 +19,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   maxItsNewton = ioData->ts.implicit.newton.maxIts;
   epsNewton = ioData->ts.implicit.newton.eps;  
+  epsAbsResNewton = ioData->ts.implicit.newton.epsAbsRes;  
+  epsAbsIncNewton = ioData->ts.implicit.newton.epsAbsInc;  
 
   this->timeState = new DistTimeState<dim>(*ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -106,7 +108,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   rho = 0.5;
   c1 = 0.25;
-  maxItsLS = 1;
+  maxItsLS = 10;
 
 }
 
@@ -368,8 +370,12 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
         // increment or backtrack from previous trial 
         U += dUfull;          
-        computeFullResidual(it, U, true);
-        double restrial = (this->F)*(this->F);
+        double restrial = 1.0e20;
+        if (!this->checkSolution(U)) {
+          computeFullResidual(it, U, true);
+          restrial = (this->F)*(this->F);
+        }
+
         if (restrial>=0.0) {
           if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res)// || dQ.norm() <= epsAbsInc)
             break;

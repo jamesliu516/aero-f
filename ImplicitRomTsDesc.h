@@ -29,6 +29,8 @@ protected:
 
   int maxItsNewton;
   double epsNewton;
+  double epsAbsResNewton;
+  double epsAbsIncNewton;
 
   MatVecProdFD<dim,dim> *mvpfd;
 

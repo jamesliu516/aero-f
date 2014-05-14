@@ -687,6 +687,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -780,6 +781,7 @@ void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -916,6 +918,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1030,6 +1033,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistExactRiemannS
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1142,6 +1146,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1247,6 +1252,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1380,6 +1386,7 @@ void Domain::computeFiniteVolumeBarTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
