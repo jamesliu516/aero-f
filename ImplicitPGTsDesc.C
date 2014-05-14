@@ -134,7 +134,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		this->res0 = res;
 	}
 
-	if (res == 0.0 || res <= this->target) {
+	if (res == 0.0 || res <= this->target || res <= this->epsAbsResNewton) {
 		//this->com->fprintf(stdout, "breakloop=true: res=%e\n", res);
 		breakloop = true;
 		return;	// do not solve the system
