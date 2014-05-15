@@ -92,6 +92,7 @@ struct InputData {
   const char *krylovSnapFile;
   const char *sensitivitySnapFile;
   const char *approxMetricStateSnapFile;
+  const char *projErrorSnapFile;
   const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -353,9 +354,11 @@ struct ROMOutputData {
   const char *reducedCoords;  // generalized coords
   const char *dUnormAccum;
 
+  const char *residualsForCoordRange;
+
   int resjacfrequency;
 
-  enum OverwriteModelIISnaps {OVERWRITE_OFF = 0, OVERWRITE_ON = 1} overwriteModelIISnaps;
+  enum OverwriteNonlinearSnaps {OVERWRITE_OFF = 0, OVERWRITE_ON = 1} overwriteNonlinearSnaps;
 
   ROMOutputData();
   ~ROMOutputData() {}
@@ -2062,6 +2065,8 @@ struct NonlinearRomFilesData {
 
   // If a prefix and a name are both given, the name overrides the prefix. 
 
+  enum DuplicateSnapshots {DUPLICATE_SNAPSHOTS_FALSE = 0, DUPLICATE_SNAPSHOTS_TRUE = 1} duplicateSnapshots;
+ 
   // State snapshot clusters
   const char *statePrefix;
   const char *stateSnapsName;
@@ -2140,14 +2145,16 @@ struct NonlinearRomFilesData {
   const char *gappyResidualName;             //resMatrix in sampled coords;
   const char *approxMetricLowRankName; // approximated metric in reduced mesh coordinates
   const char *approxMetricLowRankFullCoordsName; // approximated metric in full mesh coordinates
-
+  const char *approxMetricLowRankSurfaceCoordsName;
+  
   // Surface quantities
   const char *surfacePrefix;
+  const char *surfaceCentersName;
   const char *surfaceStateBasisName;
+  const char *surfaceRefStateName;
   const char *surfaceSolutionName;
   const char *surfaceWallDistName;
   const char *surfaceMeshName;
-
 
   NonlinearRomFilesData();
   ~NonlinearRomFilesData() {}
@@ -2205,6 +2212,8 @@ struct NonlinearRomOnlineData {
   enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
   double weightingExponent;
   double ffWeight;
+  double wallWeight;
+  double bcWeightGrowthFactor;
   double levenbergMarquardtWeight;
 
   double regThresh;
@@ -2219,6 +2228,13 @@ struct NonlinearRomOnlineData {
 	int minDimension;
   int maxDimension;
   double energy;
+
+  double residualsCoordMin;
+  double residualsCoordMax;
+  int residualsCoordRes;
+
+  enum AdjustInteriorWeight {ADJUST_INTERIOR_WEIGHT_FALSE=0, ADJUST_INTERIOR_WEIGHT_TRUE=1} adjustInteriorWeight;
+  enum AllowBCWeightDecrease {ALLOW_DECREASE_FALSE=0, ALLOW_DECREASE_TRUE=1} allowBCWeightDecrease;
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;
@@ -2299,7 +2315,7 @@ struct DataCompressionData {
 
   enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
   enum Type {POD = 0, BALANCED_POD = 1} type;
-  enum PODMethod {SVD = 0, Eig = 1} podMethod;
+  enum PODMethod {SCALAPACK_SVD = 0, PROBABILISTIC_SVD = 1, Eig = 2} podMethod;
   int maxVecStorage;
   enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
   double tolerance;
@@ -2400,8 +2416,8 @@ struct ClusteringData {
   int kMeansRandSeed;
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
   enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
-  enum OutputSnapshots {OUTPUT_SNAPSHOTS_FALSE = 0, OUTPUT_SNAPSHOTS_TRUE = 1} outputSnapshots;
   enum ClusterFilesSeparately {CLUSTER_FILES_SEPARATELY_FALSE = 0, CLUSTER_FILES_SEPARATELY_TRUE = 1} clusterFilesSeparately;
+  enum ClusterIncrements {CLUSTER_INCREMENTS_FALSE = 0, CLUSTER_INCREMENTS_TRUE = 1} clusterIncrements;
 
   ClusteringData();
   ~ClusteringData() {}
@@ -2452,9 +2468,11 @@ struct ROBConstructionData {
   SensitivityData sensitivity;
   KrylovData krylov;
 
-	ClusteringData clustering;
+  ClusteringData clustering;
   BasisUpdatesData basisUpdates;
   RelativeProjectionErrorData relativeProjectionError;
+
+  enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
 
   ROBConstructionData();
   ~ROBConstructionData() {}
@@ -2499,19 +2517,24 @@ struct GNATConstructionData {
   int maxSampledNodes;
   int minSampledNodes;
   double sampledNodesFactor;
-	int layers;
+  int layers;
 
-	enum IncludeLiftFaces {NONE_LIFTFACE = 0,
+  enum IncludeLiftFaces {NONE_LIFTFACE = 0,
 		SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
 
-	enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
+  enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
 
   enum UseUnionOfSampledNodes {UNION_FALSE = 0, UNION_TRUE = 1} useUnionOfSampledNodes;
 
-	enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
+  enum UseOldReducedSVecFunction {USE_OLD_FALSE = 0, USE_OLD_TRUE = 1} useOldReducedSVecFunction;
+
+  enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
   int pseudoInverseNodes;
   enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
   enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
+
+  double farFieldWeight;
+  double wallWeight;
 
   GNATConstructionData();
   ~GNATConstructionData() {}

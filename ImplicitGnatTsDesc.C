@@ -62,12 +62,28 @@ void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> 
 
   this->spaceOp->applyBCsToResidual(Q, *R);
 
+  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
+    // weight residual
+    double weightExp = this->ioData->romOnline.weightingExponent;
+    double weightNorm = this->weightVec->norm();
+    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
+    int numLocSub = R->numLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      double (*weight)[dim] = this->weightVec->subData(iSub);
+      double (*r)[dim] = R->subData(iSub);
+      for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
+        for (int j=0; j<dim; ++j) {
+          //weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
+          r[i][j] = r[i][j] * weight[i][j];
+        }
+      }
+    }
+  }
+
 	double t0 = this->timer->getTime();
-
 	(this->rom->restrictMapping())->restriction(*R, *ResRestrict);
-
 	this->timer->addRestrictionTime(t0);
-
 
 }
 
@@ -86,6 +102,24 @@ void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool a
 		this->mvpfd->applyRestrict(this->pod[iPod], this->AJ[iPod],
 				*(this->rom->restrictMapping()));
 	}
+
+  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
+    double weightExp = this->ioData->romOnline.weightingExponent;
+    double weightNorm = this->weightVec->norm();
+    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
+    for (int iVec=0; iVec<this->nPod; ++iVec) {
+      int numLocSub = (this->AJ[iVec]).numLocSub();
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double (*weight)[dim] = this->weightVec->subData(iSub);
+        double (*aj)[dim] = (this->AJ[iVec]).subData(iSub);
+        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
+          for (int j=0; j<dim; ++j)
+            aj[i][j] = aj[i][j] * weight[i][j];
+        }
+      }
+    }
+  }
 
 	double t0 = this->timer->getTime();
 	for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod

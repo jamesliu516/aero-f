@@ -680,7 +680,7 @@ double AccAeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   if (*lastIt) return dt;
 
-  addRigidMotion(t + dt, Xrel, Xdot, X);
+  addRigidMotion(t + dt, Xrel, Xdot, X, com);
 
   return dt;
 
@@ -712,7 +712,7 @@ double AccAeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   if (*lastIt) return dt;
 
-  addRigidMotion(t + dt, Xrel, Xdot, X);
+  addRigidMotion(t + dt, Xrel, Xdot, X, com);
 
   return dt;
 
@@ -1302,11 +1302,133 @@ double HeavingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   return update(lastIt, it, t, Xdot, X);
 
 }
+//------------------------------------------------------------------------------
+
+AccPitchingMeshMotionHandler::
+AccPitchingMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
+  PitchingMeshMotionHandler(iod, dom), RigidMeshMotionHandler(iod, vf, Vin, dom)
+{
+
+}
 
 //------------------------------------------------------------------------------
 
-AccForcedMeshMotionHandler::
-AccForcedMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
+double AccPitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
+					  DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
+
+  double _dt = PitchingMeshMotionHandler::update(lastIt, it, t, Xdot, Xrel);
+
+  if (*lastIt) return _dt;
+
+  addRigidMotion(t + _dt, Xrel, Xdot, X, com);
+
+  return _dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double AccPitchingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+{
+
+ DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
+
+ double _dt = PitchingMeshMotionHandler::updateStep1(lastIt, it, t, Xdot, Xrel);
+ 
+ return _dt;
+ 
+}
+
+//------------------------------------------------------------------------------
+
+double AccPitchingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  //DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
+
+  //double _dt = PitchingMeshMotionHandler::updateStep2(lastIt, it, t, Xdot, Xrel);
+
+  //if (*lastIt) return _dt;
+
+  //addRigidMotion(t + _dt, Xrel, Xdot, X, com);
+
+  //return _dt;
+
+  double _dt = update(lastIt, it, t, Xdot, X);
+
+  return _dt;
+}
+//------------------------------------------------------------------------------
+
+AccHeavingMeshMotionHandler::
+AccHeavingMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
+  HeavingMeshMotionHandler(iod, dom), RigidMeshMotionHandler(iod, vf, Vin, dom)
+{
+
+}
+
+//------------------------------------------------------------------------------
+
+double AccHeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
+					  DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
+
+  double _dt = HeavingMeshMotionHandler::update(lastIt, it, t, Xdot, Xrel);
+
+  if (*lastIt) return _dt;
+
+  addRigidMotion(t + _dt, Xrel, Xdot, X, com);
+
+  return _dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double AccHeavingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+{
+
+ DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
+ 
+ double _dt = HeavingMeshMotionHandler::updateStep1(lastIt, it, t, Xdot, Xrel);
+
+ return _dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double AccHeavingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+ // DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
+
+ // double _dt = HeavingMeshMotionHandler::updateStep2(lastIt, it, t, Xdot, Xrel);
+
+ // if (*lastIt) return _dt;
+
+ // addRigidMotion(t + _dt, Xrel, Xdot, X, com);
+
+ // return _dt;
+
+  double  _dt = update(lastIt, it, t, Xdot, X);
+
+  return _dt;
+
+}
+//------------------------------------------------------------------------------
+
+AccDeformingMeshMotionHandler::
+AccDeformingMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
   DeformingMeshMotionHandler(iod, dom), RigidMeshMotionHandler(iod, vf, Vin, dom)
 {
 
@@ -1314,7 +1436,7 @@ AccForcedMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
 
 //------------------------------------------------------------------------------
 
-double AccForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
+double AccDeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
 					  DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
@@ -1324,7 +1446,7 @@ double AccForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   if (*lastIt) return _dt;
 
-  addRigidMotion(t + _dt, Xrel, Xdot, X);
+  addRigidMotion(t + _dt, Xrel, Xdot, X, com);
 
   return _dt;
 
@@ -1332,27 +1454,35 @@ double AccForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
 
 //------------------------------------------------------------------------------
 
-double AccForcedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+double AccDeformingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                           DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
-{
- return -1e15;
-}
-
-//------------------------------------------------------------------------------
-
-double AccForcedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
 
-  double _dt = DeformingMeshMotionHandler::updateStep2(lastIt, it, t, Xdot, Xrel);
+  double dt = DeformingMeshMotionHandler::updateStep1(lastIt, it, t, Xdot, Xrel);
 
-  if (*lastIt) return _dt;
+  return dt;
+ 
+}
 
-  addRigidMotion(t + _dt, Xrel, Xdot, X);
+//------------------------------------------------------------------------------
 
-  return _dt;
+double AccDeformingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  //DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
+
+ // double _dt = DeformingMeshMotionHandler::updateStep2(lastIt, it, t, Xdot, Xrel);
+
+  //if (*lastIt) return _dt;
+
+  //addRigidMotion(t + _dt, Xrel, Xdot, X, com);
+
+  //return _dt;
+
+  return -1e-15;
 
 }
 

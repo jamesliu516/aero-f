@@ -21,9 +21,9 @@ template<int dim>
 ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com) : 
 domain(_domain), com(_com), subDomain(_domain.getSubDomain()), maxCpuBlocks(0), nTotCpus(_com->size()), thisCPU(_com->cpuNum())
 {
+  locSendReceive = new int[nTotCpus];
   cpuNodes = new int[nTotCpus];
   cpuMasterNodes = new int[nTotCpus];
-  locSendReceive = new int[nTotCpus];
   for (int i = 0; i < 9; ++i) {
     desc_a[i] = -1;
     desc_b[i] = -1;
@@ -36,7 +36,6 @@ ParallelRom<dim>::~ParallelRom()
 
   delete [] cpuNodes;
   delete [] cpuMasterNodes;
-  delete [] locSendReceive;
   
 }
 
@@ -366,7 +365,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
  // this goes from physical node-based decomposition to the computationally balanced decomposition
  //   Note that A and B use the same decomposition
  //===============================
-
+ if (locSendReceive) delete [] locSendReceive;
  locSendReceive = new int[com->size()];  // how many nodes the current cpu sends to other cpu (not needed after this 
 
  // input: B, cpuMasterNodes, cpuNodes, nB
@@ -448,6 +447,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
  com->barrier();
 
  delete[] locSendReceive;
+ locSendReceive=NULL;
  delete[] subMatB;
  //===============================
  // clean up
@@ -492,6 +492,7 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
  double *buffer;  // buffer is filled in for all nodes first, then columns [node1col1, node2col1, ...]^T
 
  // send/receive for each cpu (if positive, it has received, if negative, it has sent)
+ if (!locSendReceive) locSendReceive = new int[nTotCpus];
  for (int iCpu = 0; iCpu < nTotCpus; iCpu++)
    locSendReceive[iCpu] = 0;
 
@@ -690,12 +691,12 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          totalSentNodes[iCpu] = index;
          // send data in buffer
          //fprintf(stderr, "*** CPU #%d sending back to CPU #%d: %d nodes = %d entries\n", thisCPU, jCpu, nSendNodes, buffLen);
-         com->sendTo(jCpu, 10*thisCPU*nTotCpus+jCpu, buffer, buffLen);
+         com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen); //kmw removed 10* because tag was too large!
        }
        com->barrier();
        // receive data and populate submatrix
        if (thisCPU==jCpu) {
-         com->recFrom(iCpu, 10*iCpu*nTotCpus+thisCPU, recData, buffLen);
+         com->recFrom(iCpu, iCpu*nTotCpus+thisCPU, recData, buffLen); //kmw removed 10* because tag was too large!
          for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
            index = 0;
            int k=0;
