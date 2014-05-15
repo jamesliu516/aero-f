@@ -962,6 +962,29 @@ double Timer::addApproxUpdatesPreproTime(double t0) {
 
 //------------------------------------------------------------------------------
                 
+double Timer::addSurfaceMeshConstructionTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[surfaceMeshConstruction] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+                
+double Timer::addSurfaceOutputTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[surfaceOutput] += t;
+
+  return t;
+
+} 
+
+
+//------------------------------------------------------------------------------
+                
 double Timer::addSampledMeshConstructionTime(double t0) {
                 
   double t = getTime() - t0;
@@ -1192,7 +1215,7 @@ void Timer::print(Timer *str, FILE *fp)
                tmin[readSnapshotFile], tmax[readSnapshotFile], tavg[readSnapshotFile]);
     com->fprintf(fp, "  K-Means Clustering          : %10.2f %10.2f %10.2f         -\n",
                tmin[clustering], tmax[clustering], tavg[clustering]);
-    com->fprintf(fp, "  ScaLAPACK SVD               : %10.2f %10.2f %10.2f         -\n",
+    com->fprintf(fp, "  SVDs                        : %10.2f %10.2f %10.2f         -\n",
                tmin[pod], tmax[pod], tavg[pod]);
     com->fprintf(fp, "  Fast Distance Calcs Prepro  : %10.2f %10.2f %10.2f         -\n",
                tmin[distCalcsPrepro], tmax[distCalcsPrepro], tavg[distCalcsPrepro]);
@@ -1202,7 +1225,7 @@ void Timer::print(Timer *str, FILE *fp)
                tmin[projError], tmax[projError], tavg[projError]);
     com->fprintf(fp, "  Multi-Dimensional Scaling   : %10.2f %10.2f %10.2f         -\n",
                tmin[mds], tmax[mds], tavg[mds]);
-    com->fprintf(fp, "  Offline GNAT Precomputations: %10.2f %10.2f %10.2f         -\n",
+    com->fprintf(fp, "  Offline GNAT Prepro         : %10.2f %10.2f %10.2f         -\n",
                tmin[gnatOffline], tmax[gnatOffline], tavg[gnatOffline]);
     com->fprintf(fp, "    Fast Approx Updates Prepro: %10.2f %10.2f %10.2f         -\n",
                tmin[approxUpdatesPrepro], tmax[approxUpdatesPrepro], tavg[approxUpdatesPrepro]);
@@ -1212,6 +1235,10 @@ void Timer::print(Timer *str, FILE *fp)
                tmin[sampledOutput], tmax[sampledOutput], tavg[sampledOutput]);
     com->fprintf(fp, "    Pseudo-Inverse            : %10.2f %10.2f %10.2f         -\n",
                tmin[pseudoInv], tmax[pseudoInv], tavg[pseudoInv]);
+    com->fprintf(fp, "    Surface Mesh Construction : %10.2f %10.2f %10.2f         -\n",
+               tmin[surfaceMeshConstruction], tmax[surfaceMeshConstruction], tavg[surfaceMeshConstruction]);
+    com->fprintf(fp, "    Surface Quantity Output   : %10.2f %10.2f %10.2f         -\n",
+               tmin[surfaceOutput], tmax[surfaceOutput], tavg[surfaceOutput]);
     com->fprintf(fp, "\n");
   }
   else if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {

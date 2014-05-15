@@ -120,13 +120,15 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
   determineFileName(romFiles->approxMetricLowRankName, "approxMetric", romFiles->gnatPrefix, approxMetricLowRankName);
   determineFileName(romFiles->approxMetricLowRankFullCoordsName, "approxMetricFullCoords", romFiles->gnatPrefix, approxMetricLowRankFullCoordsName);
+  determineFileName(romFiles->approxMetricLowRankSurfaceCoordsName, "approxMetricSurfaceCoords", romFiles->gnatPrefix, approxMetricLowRankSurfaceCoordsName);
 
-  // Surface quantities
-  //determineFileName(romFiles->gappyResidualName, "sampledStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
-  //determineFileName(romFiles->gappyResidualName, "sol", romFiles->surfacePrefix, surfaceSolutionName);
-  //determineFileName(romFiles->gappyResidualName, "dwall", romFiles->surfacePrefix, surfaceWallDistName);
-  //determineFileName(romFiles->gappyResidualName, "top", romFiles->surfacePrefix, surfaceMeshName);
-
+  // Surface quantities 
+  determineFileName(romFiles->surfaceCentersName, "surfaceCenters", romFiles->surfacePrefix, surfaceCentersName);
+  determineFileName(romFiles->surfaceStateBasisName, "surfaceStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
+  determineFileName(romFiles->surfaceRefStateName, "surfaceRefState", romFiles->surfacePrefix, surfaceRefStateName);
+  determineFileName(romFiles->surfaceSolutionName, "surfaceSolution", romFiles->surfacePrefix, surfaceSolutionName);
+  determineFileName(romFiles->surfaceWallDistName, "surfaceWallDist", romFiles->surfacePrefix, surfaceWallDistName);
+  determineFileName(romFiles->surfaceMeshName, "top", romFiles->surfacePrefix, surfaceMeshName);
 
   basis = NULL;
   snap = NULL; // snap(nTotSnaps, domain.getNodeDistInfo())
@@ -253,10 +255,13 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] gappyResidualName;
   delete [] approxMetricLowRankName;
   delete [] approxMetricLowRankFullCoordsName;
-  //delete [] surfaceStateBasisName;
-  //delete [] surfaceSolutionName;
-  //delete [] surfaceWallDistName;
-  //delete [] surfaceMeshName;
+  delete [] approxMetricLowRankSurfaceCoordsName;
+  delete [] surfaceCentersName;
+  delete [] surfaceStateBasisName;
+  delete [] surfaceRefStateName;
+  delete [] surfaceSolutionName;
+  delete [] surfaceWallDistName;
+  delete [] surfaceMeshName;
 
   delete [] stateBasisPrefix;
   delete [] krylovBasisPrefix;
@@ -905,6 +910,9 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
 //  } else if (strcmp(snapType,"residual")==0) {
 //    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.residualSnapFile) + 1];
 //    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.residualSnapFile);
+  } else if (strcmp(snapType,"projError")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.projErrorSnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.projErrorSnapFile);
   } else {
     this->com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", snapType);
     exit (-1);
@@ -1583,7 +1591,11 @@ void NonlinearRom<dim>::readClusteredReferenceState(int iCluster, const char* re
 
   char *refStatePath = 0;
   if (strcmp(refType,"state")==0) {
-      determinePath(refStateName, iCluster, refStatePath);
+      if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_POST_ && strcmp(surfaceRefStateName,"")!=0) {
+        determinePath(surfaceRefStateName, iCluster, refStatePath);
+      } else {
+        determinePath(refStateName, iCluster, refStatePath);
+      }
   } else if (strcmp(refType,"sampledState")==0) {
       determinePath(sampledRefStateName, iCluster, refStatePath);
   } else {
@@ -1607,7 +1619,11 @@ void NonlinearRom<dim>::readClusterCenters(const char* centersType) {
 
   char *clustCentersPath = 0;
   if (strcmp(centersType,"centers")==0) {
+    if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_POST_ && strcmp(surfaceCentersName,"")!=0) {
+      determinePath(surfaceCentersName, -1, clustCentersPath);
+    } else {
       determinePath(centersName, -1, clustCentersPath);
+    }
   } else if (strcmp(centersType,"sampledCenters")==0) {
       determinePath(sampledCentersName, -1, clustCentersPath);
   } else {
@@ -1822,7 +1838,11 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
   
   if (strcmp(basisType,"state")==0) {
       determinePath(stateSingValsName, iCluster, singValsPath);
-      determinePath(stateBasisName, iCluster, basisPath);
+      if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_POST_ && strcmp(surfaceStateBasisName,"")!=0) {
+        determinePath(surfaceStateBasisName, iCluster, basisPath);
+      } else {
+        determinePath(stateBasisName, iCluster, basisPath);
+      }
   } else if (strcmp(basisType,"sampledState")==0) {
       determinePath(stateSingValsName, iCluster, singValsPath);
       determinePath(sampledStateBasisName, iCluster, basisPath);
@@ -2604,7 +2624,11 @@ void NonlinearRom<dim>::readApproxMetricLowRankFactor(const char* sampledOrFull)
     determinePath(approxMetricLowRankName,-1,approxMetricPath);
     if (!clusterCenters) readClusterCenters("sampledCenters"); 
   } else if (strcmp(sampledOrFull,"full")==0) {
-    determinePath(approxMetricLowRankFullCoordsName,-1,approxMetricPath);
+    if (ioData->problem.alltype==ProblemData::_NONLINEAR_ROM_POST_ && strcmp(approxMetricLowRankSurfaceCoordsName,"")!=0) {
+      determinePath(approxMetricLowRankSurfaceCoordsName,-1,approxMetricPath);
+    } else {
+      determinePath(approxMetricLowRankFullCoordsName,-1,approxMetricPath);
+    }
     if (!clusterCenters) readClusterCenters("centers");
   } else {
     this->com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricLowRankFactor\n");
@@ -3430,6 +3454,90 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(const char* updateType) {
     com->fprintf(stderr, "*** Error: unexpected update method\n");
     exit(-1);
   }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::vector<double> >* RT, bool testQR) {
+
+  int nVec = Q->numVectors();
+
+  VecSet< DistSVec<double, dim> >* testVecSet = NULL;
+  if (testQR) {
+    testVecSet = new VecSet< DistSVec<double, dim> >(nVec, this->domain.getNodeDistInfo());
+    for (int iVec = 0; iVec<nVec; ++iVec) {
+      (*testVecSet)[iVec] = (*Q)[iVec];
+    }
+  }
+
+  if (RT) {
+    for (int iVec = 0; iVec<nVec; ++iVec)
+      (*RT)[iVec].clear();
+    RT->clear();
+
+    RT->resize(nVec);
+    for (int iVec = 0; iVec<nVec; ++iVec)
+      (*RT)[iVec].resize(nVec, 0.0);
+  }
+
+  for (int iVec = 0; iVec<nVec; ++iVec) {
+
+    double tmp;
+    std::vector<double> rlog;
+    rlog.resize(iVec+1,0.0);
+    for (int jVec = 0; jVec<iVec; ++jVec) {
+      tmp = (*Q)[jVec] * (*Q)[iVec];
+      (*Q)[iVec] -= (*Q)[jVec] * tmp; //*tmp
+      rlog[jVec]=(tmp);
+    }
+
+    double norm = (*Q)[iVec].norm();
+    rlog[iVec] = norm;
+    if (norm>=1e-13) {
+      (*Q)[iVec] *= 1/norm;
+      if (RT) {
+        for (int jVec = 0; jVec<=iVec; ++jVec)
+          (*RT)[iVec][jVec] = rlog[jVec];
+      }
+    } else {
+      com->fprintf(stderr, "*** Warning: QR encountered a rank defficient matrix in GNAT preprocessing (?)\n",norm);
+      exit(-1);
+    }
+  }
+
+  if (testQR) {
+    // Q orthogonal?
+    double tol = 1e-14;
+    com->fprintf(stdout, "Testing whether Q is orthogonal (only outputting errors greater than %e)\n", tol);
+    for (int iVec = 0; iVec<nVec; ++iVec) {
+      for (int jVec = 0; jVec<=iVec; ++jVec) {
+         double product = (*Q)[iVec] * (*Q)[jVec];
+         if ((iVec==jVec && (abs(product - 1.0)>tol)) || (iVec!=jVec && (abs(product)>tol)))
+           this->com->fprintf(stdout, " ... Q orthogonal test: Q^T Q [%d][%d] = %e\n", iVec, jVec, product);
+      }
+    }
+
+    // QR == original matrix?
+    double maxError = 0.0;
+    double avgError = 0.0;
+    DistSVec<double, dim> testVec(this->domain.getNodeDistInfo());
+    for (int iVec = 0; iVec<nVec; ++iVec) {
+      testVec = (*testVecSet)[iVec];
+      for (int jVec = 0; jVec<=iVec; ++jVec) {
+        testVec -= (*Q)[jVec]*(*RT)[iVec][jVec];
+      }
+      double error = testVec.norm();
+      if (error>maxError) maxError=error;
+      avgError += error/nVec;
+    }
+
+    com->fprintf(stdout, "QR accuracy test: maxError = %e\n", maxError);
+    com->fprintf(stdout, "QR accuracy test: avgError = %e\n", avgError);
+    delete testVecSet;
+  }
+
 
 }
 

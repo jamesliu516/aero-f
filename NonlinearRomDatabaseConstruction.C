@@ -1559,8 +1559,6 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
 
-  double podTime = this->timer->getTime();
-
   // for limited memory SVD
   int maxVecStorage;
 
@@ -1742,26 +1740,26 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
     }
   
     //check how many vectors to keep
-    double singValsTotal = 0;
+    double singValSquaresTotal = 0;
     for(int i = 0; i < nTotSnaps; ++i){
-      singValsTotal += (*singVals)[i];
+      singValSquaresTotal += pow((*singVals)[i],2);
     }
   
     int podSize = 0; 
-    double singValsPartialSum = 0; 
-    double target = maxEnergyRetained * singValsTotal; 
-     
+    double singValSquaresPartialSum = 0; 
+    double target = maxEnergyRetained * singValSquaresTotal; 
+
     for(int iSnap=0; iSnap<nTotSnaps; ++iSnap){ 
-      singValsPartialSum += (*singVals)[iSnap];  
+      singValSquaresPartialSum += pow((*singVals)[iSnap],2);  
       podSize = iSnap+1; 
       if (podSize == maxBasisSize) { // setting maxBasisSize <= 0 guarantees that this is always false 
         this->com->barrier();
         this->com->fprintf(stdout, "Retaining the specified limit of %d vectors in basis %d \n", podSize, iCluster); 
-        this->com->fprintf(stdout, "This basis retains %2.1f%% of the total energy\n", (singValsPartialSum/singValsTotal)*100); 
+        this->com->fprintf(stdout, "This basis retains %2.10f%% of the total energy\n", (singValSquaresPartialSum/singValSquaresTotal)*100); 
         break; 
-      } else if (((singValsPartialSum/singValsTotal) >= target) && (podSize>=minBasisSize)){ 
+      } else if ((singValSquaresPartialSum >= target) && (podSize>=minBasisSize)){ 
         this->com->barrier();
-        this->com->fprintf(stdout, "Reached specified energy (%2.1f%%) \n", (singValsPartialSum/singValsTotal)*100); 
+        this->com->fprintf(stdout, "Reached specified energy (%2.1f%%) \n", (singValSquaresPartialSum/singValSquaresTotal)*100); 
         this->com->fprintf(stdout, "Retaining %i vectors in basis %i \n", podSize, iCluster); 
         break; 
       } else if (((*singVals)[iSnap] <= singValTolerance) && (podSize>=minBasisSize)) { // singValTolerance is 1e-6 by default 
@@ -1819,7 +1817,6 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
     (this->nearestSnapsToCenters) = NULL;
   }
 
-  this->timer->addPODTime(podTime);
 }
 
 //----------------------------------------------------------------------------------
@@ -1827,6 +1824,8 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::SVD(VecSet< DistSVec<double, dim> > &snapshots, VecSet< DistSVec<double, dim> > &Utrue,
     double *singularValues, FullM &Vtrue, int numSnaps, int podMethod, bool computeV) {
+
+  double podTime = this->timer->getTime();
 
   if (podMethod==DataCompressionData::SCALAPACK_SVD) {
     scalapackSVD(snapshots, Utrue, singularValues, Vtrue, numSnaps, computeV);
@@ -1836,6 +1835,8 @@ void NonlinearRomDatabaseConstruction<dim>::SVD(VecSet< DistSVec<double, dim> > 
     this->com->fprintf(stderr, "*** Error: Unexpected POD method (EVD is not supported for nonlinear ROM prepro)\n");
     exit(-1);
   }
+
+  this->timer->addPODTime(podTime);
 
 }
 
@@ -1891,7 +1892,7 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
     boost::variate_generator<boost::mt19937&, boost::normal_distribution<> > normalGenerator(randSeed, normalDistribution);
     for (int iRand=0; iRand<numSnaps*numSnaps; ++iRand) {
       randMat[iRand] = normalGenerator();
-      this->com->fprintf(stdout, "random = %e\n", randMat[iRand]);
+      //this->com->fprintf(stdout, "random = %e\n", randMat[iRand]);
     }
   }
   this->com->broadcast(numSnaps*numSnaps, randMat, 0);
@@ -1908,7 +1909,7 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
   delete [] randMat;
 
   // power iteration
-  int nPowerIts=1;
+  int nPowerIts=0;
   for (int iPowerIt=0; iPowerIt<nPowerIts; ++iPowerIt) { 
     this->com->fprintf(stdout, " ... starting power iteration #%d\n",iPowerIt); 
     double* tmpMat = new double[numSnaps*numSnaps]; // store as vector for simplicity  
@@ -1929,13 +1930,17 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
   // orthogonalization
   this->com->fprintf(stdout, " ... orthogonalizing \n");
   for (int iSnap=0; iSnap<numSnaps; iSnap++) {
+    double norm = Utrue[iSnap].norm();
+    if (norm<=1e-15)
+      this->com->fprintf(stderr, "*** Warning: extremely small snapshot encountered in Gram-Schmidt (norm=%e)\n",norm);
+    Utrue[iSnap] *= 1/Utrue[iSnap].norm();
     for (int jSnap=0; jSnap<iSnap; jSnap++) {
       Utrue[iSnap] -= Utrue[jSnap] * (Utrue[iSnap] * Utrue[jSnap]);
+      norm = Utrue[iSnap].norm();
+      if (norm<=1e-15) 
+        this->com->fprintf(stderr, "*** Warning: linearly dependent snapshots detected during probabilistic SVD (norm=%e during Gram-Schmidt)\n",norm);
+      Utrue[iSnap] *= 1/norm; // TODO possibly omit this vector and return a smaller SVD
     }
-    double norm = Utrue[iSnap].norm();
-    if (norm<=1e-15) 
-      this->com->fprintf(stderr, "*** Warning: linearly dependent snapshots detected during probabilistic SVD (norm=%e during Gram-Schmidt)\n",norm);
-    Utrue[iSnap] *= 1/norm; // TODO possibly omit this vector and return a smaller SVD
   }
 
   // Projection
@@ -2346,7 +2351,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
   delete (this->clusterCenters);
   (this->clusterCenters) = NULL;
  
-  nSnapshotFiles = this->readSnapshotFiles("state", true);
+  nSnapshotFiles = this->readSnapshotFiles("projError", true);
   int nTotSnaps = this->snap->numVectors();
  
   projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);

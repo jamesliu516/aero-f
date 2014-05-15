@@ -20,7 +20,7 @@ class Timer {
 		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
 		eulerFSI, embedforce, walldistance, lsreinitialization, readSnapshotFile,
 		clustering, pod, distCalcsPrepro, exactUpdatesPrepro, projError, mds, 	
-		approxUpdatesPrepro, sampledMeshConstruction, sampledOutput, pseudoInv,
+		approxUpdatesPrepro, surfaceMeshConstruction, surfaceOutput, sampledMeshConstruction, sampledOutput, pseudoInv,
                 gnatOffline, romOffline, NUMTIMINGS
   };
 
@@ -119,6 +119,8 @@ public:
   double addApproxUpdatesPreproTime(double);
   double addSampledMeshConstructionTime(double);
   double addSampledOutputTime(double);
+  double addSurfaceMeshConstructionTime(double);
+  double addSurfaceOutputTime(double);
   double addPseudoInvTime(double);
   double addTotalGnatOfflineTime(double);
   double addTotalOfflineTime(double);

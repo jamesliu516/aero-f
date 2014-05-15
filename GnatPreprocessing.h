@@ -242,12 +242,12 @@ protected:
   SetOfVec pseudoInvRhs;
 
   virtual void computeQROfWeightedPhiJ();
-  double **RTranspose;    // for QR of W * phiJ (for weighted least squares preprocessing)
-  VecSet< DistSVec<double,dim> > *Qmat; // for QR of W * phiJ (for weighted least squares preprocessing)
+  std::vector<std::vector<double> >* RTranspose;    // for QR of W * phiJ (for weighted least squares preprocessing)
+  VecSet< DistSVec<double,dim> >* Qmat; // for QR of W * phiJ (for weighted least squares preprocessing)
   double **podTpod;	// stores either phiJ^T * phiR, or Q^T * W * phiR if using weighted least squares
   virtual void computePodTPod();  // compute phiJ^T * phiR
-  virtual void computeQTWeightedPod(); // compute Q^T * W * phiR
-  
+  //virtual void computeQTWeightedPod(); // compute Q^T * W * phiR
+ 
   double **(onlineMatrices [2]);	// dimension: (nSampleNode*dim) x nPod[1]
 		// onlineMatrices[0] is related to the residual: 
 		// 		pod[1]^Tpod[0] * podHatPseudoInv[0]^T
@@ -301,6 +301,8 @@ std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes
   //void readMaskedNonlinearROBs( );
   void initializeLeastSquaresPseudoInv(int);
   void formReducedSampleNodeMap();
+
+  bool surfaceMeshConstruction;
 
 public:
 	GnatPreprocessing(Communicator *, IoData &, Domain &, DistGeoState *);
