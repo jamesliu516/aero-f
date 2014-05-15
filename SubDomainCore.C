@@ -5221,15 +5221,53 @@ void SubDomain::setWallNodes()
 
 //------------------------------------------------------------------------------
 
-void SubDomain::setFarFieldMask(Vec<double>& ffMask){
+void SubDomain::setFarFieldMask(Vec<double>& ffMask, Vec<double>& neighborMask){
 
-  int node;
-  for (int j=0; j<farFieldNodes.size(); j++){
-    node = farFieldNodes[j];
-    ffMask[node] = 1.0;
+  // Note: vectors are initialized to zero in DomainCore.C
+
+  const Connectivity &Node2Node = *getNodeToNode();
+
+  for (int iNode=0; iNode<farFieldNodes.size(); iNode++){
+    int ffNode = farFieldNodes[iNode];
+    ffMask[ffNode] = 1.0;
+    for(int jNode=0; jNode<Node2Node.num(ffNode); jNode++) {
+      int neighbor = Node2Node[ffNode][jNode];
+      if(neighbor==ffNode) {
+        continue;
+      } else {
+        neighborMask[neighbor] = 1.0;
+      }
+    }
   }
 
 }
+
+//------------------------------------------------------------------------------
+
+void SubDomain::setWallMask(Vec<double>& wallMask, Vec<double>& neighborMask){
+
+  // Note: vectors are initialized to zero in DomainCore.C
+
+  const Connectivity &Node2Node = *getNodeToNode();
+
+  for (int iNode=0; iNode<wallNodes.size(); iNode++){
+    int wallNode = wallNodes[iNode];
+    wallMask[wallNode] = 1.0;
+    for(int jNode=0; jNode<Node2Node.num(wallNode); jNode++) {
+      int neighbor = Node2Node[wallNode][jNode];
+      if(neighbor==wallNode) {
+        continue;
+      } else {
+        neighborMask[neighbor] = 1.0;
+      }
+    }
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
 
 void SubDomain::maskHHVector(Vec<double>& hh) {
 

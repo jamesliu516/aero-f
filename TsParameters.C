@@ -72,7 +72,6 @@ TsParameters::TsParameters(IoData &ioData)
   for (int i=0; i<dft_history; i++) dft[i]=0.0;
 
   unphysical = false;
-  badlinsolve = false;
   allowstop = true;
 
   errorHandler = NULL;
@@ -94,7 +93,7 @@ TsParameters::~TsParameters()
 //Figure out what to do with errors (related to time step)
 void TsParameters::resolveErrors(){
 
-  if (checklinsolve && (errorHandler->globalErrors[ErrorHandler::SATURATED_LS] || badlinsolve)){
+  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]){ 
     errorHandler->com -> printf(1,"Detected saturated linear solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
   }
@@ -155,36 +154,9 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     return;
   }
 
-  // First run automatic CFL checks
-/*
-  if (unphysical){
-    unphysical=false;
-    badlinsolve=false;
-    cfl *= 0.5;
-    fixedunsteady_counter = 1;
-    //std::printf("Reduction params: cfl0=%f, cfl=%f\n",cfl0,cfl);
-    //std::printf("Unphysicality detected. Reducing CFL number to %f.\n",cfl);
-    if (cfl < cfl0/10000. && allowstop ) {
-      std::printf("Could not resolve unphysicality by reducing CFL number. Aborting.\n"); 
-      std::printf("Params: cfl0=%f, cfl=%f\n",cfl0,cfl);
-      exit(-1);
-    }
-    return;
-  }
-  if (badlinsolve){
-    unphysical=false;
-    badlinsolve=false;
-    cfl *= 0.5;
-    fixedunsteady_counter = 1;
-    //std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
-    if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
-    return;
-  }
-*/
+  if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]=0;
 
-  if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
-    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
-    badlinsolve=false;
     double cflold=cfl;
     cfl *= 0.5;
     fixedunsteady_counter = 1;

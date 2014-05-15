@@ -49,12 +49,20 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
    }
    // perform GNAT preprocessing (probably for snapshot collection method 0)
    const char *gnatPrefix = ioData->romDatabase.files.gnatPrefix;
-   const char *sampledNodesName = ioData->romDatabase.files.sampledStateBasisName;
-   if (strcmp(gnatPrefix,"")!=0 || strcmp(sampledNodesName,"")!=0) {
+   const char *sampledStateBasisName = ioData->romDatabase.files.sampledStateBasisName;
+   if (strcmp(gnatPrefix,"")!=0 || strcmp(sampledStateBasisName,"")!=0) {
      geoState = new DistGeoState(*ioData, &domain);
      geoState->setup1(ioData->input.positions, &Xref, &controlVol);
      GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);
      gappy.buildReducedModel();
+   }
+   const char *surfacePrefix = ioData->romDatabase.files.surfacePrefix;
+   const char *surfaceStateBasisName = ioData->romDatabase.files.surfaceStateBasisName;
+   if (strcmp(surfacePrefix,"")!=0 || strcmp(surfaceStateBasisName,"")!=0) {
+     geoState = new DistGeoState(*ioData, &domain);
+     geoState->setup1(ioData->input.positions, &Xref, &controlVol);
+     SurfMeshGen<dim> surfMeshGen(com,*ioData,domain,geoState);
+     surfMeshGen.buildReducedModel();
    }
  }
  else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_){
@@ -88,7 +96,9 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
    ReducedMeshShapeChanger<dim> reducedMeshShapeChanger(com,*ioData,domain,geoState);
    reducedMeshShapeChanger.buildReducedModel();
  }
+   modalTimer->print(this->domain.getStrTimer());
 
+ if (geoState) delete geoState;
 }
 
 //---------------------------------------------------------------------------------------

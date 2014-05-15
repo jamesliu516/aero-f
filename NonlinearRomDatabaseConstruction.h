@@ -23,7 +23,10 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
 
   // private functions
   double calcResidual(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &);
-  void localPod(char *);
+  void localPod(const char*);
+  void SVD(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, int, bool computeV=true);
+  void scalapackSVD(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, bool computeV=true);
+  void probabilisticSVD(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &, double *S, FullM &V, int, bool computeV=true);
   void kmeans();
   void kmeansWithBounds();
   void computeClassicalMultiDimensionalScaling();
@@ -34,15 +37,15 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   DistSVec<double, dim>* initialCondition;
   void readInitialCondition();
   void preprocessForDistanceComparisons();
-  void productOfBasisAndCenterDifferences(int, char*);
-  void productOfVectorAndCenterDifferences(int, char*);
+  void productOfBasisAndCenterDifferences(int, const char*);
+  void productOfVectorAndCenterDifferences(int, const char*);
 
   // gnat basis updates preprocessing
   void preprocessForExactBasisUpdates();
 
   // IO functions that are independent of database structure
   void writeProjErrorToDisk();
-  void placeNonStateSnapshotsInClusters(char *);
+  void placeNonStateSnapshotsInClusters(const char*);
 
   public:
 

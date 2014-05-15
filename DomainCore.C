@@ -674,7 +674,8 @@ void Domain::setInletNodes(IoData &ioData)
     inletCountPat->finalize();
   }
 
-  if (ioData.romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
+  if ((ioData.romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) // model II online
+      || (ioData.romOffline.gnat.farFieldWeight != 1.0 || ioData.romOffline.gnat.wallWeight != 1.0)) { // gnat prepro
     // If weighting the boundary conditions, create node lists for far field nodes and wall nodes.
     // Note that the far field node list is identical to the inletNodes information, but it was 
     // necessary to duplicate this because when the inletNodes object is defined it triggers the
@@ -682,7 +683,7 @@ void Domain::setInletNodes(IoData &ioData)
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; ++iSub) {
       subDomain[iSub]->setFarFieldNodes();
-      //subDomain[iSub]->setWallNodes();
+      subDomain[iSub]->setWallNodes();
     }
   }
 }
@@ -1834,14 +1835,25 @@ void Domain::attachTriangulatedInterface(TriangulatedInterface* T) {
 
 }
 
-void Domain::setFarFieldMask(DistVec<double>& ffMask) {
+void Domain::setFarFieldMask(DistVec<double>& ffMask, DistVec<double>& neighborMask) {
 
   ffMask = 0.0;
+  neighborMask = 0.0;
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->setFarFieldMask(ffMask(iSub)); // sets ffMask to 1.0 at far field nodes
+    subDomain[iSub]->setFarFieldMask(ffMask(iSub), neighborMask(iSub)); // sets ffMask to 1.0 at far field nodes
 
 }
 
+void Domain::setWallMask(DistVec<double>& wallMask, DistVec<double>& neighborMask) {
+
+  wallMask = 0.0;
+  neighborMask = 0.0;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->setWallMask(wallMask(iSub), neighborMask(iSub)); // sets wallMask to 1.0 at far field nodes
+
+}
 

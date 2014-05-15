@@ -3,7 +3,7 @@
 
 #include <RestrictionMapping.h>
 #include <vector>
-
+#include <string>
 
 template <int dim>
 class NonlinearRom {
@@ -109,11 +109,15 @@ class NonlinearRom {
   char* gappyResidualName;
   char* approxMetricLowRankName;
   char* approxMetricLowRankFullCoordsName;
-  // Surface quantities
-  //char* surfaceStateBasisName;
-  //char* surfaceSolutionName;
-  //char* surfaceWallDistName;
-  //char* surfaceMeshName;
+  char* approxMetricLowRankSurfaceCoordsName;
+
+  // Surface quantities 
+  char* surfaceCentersName;
+  char* surfaceStateBasisName;
+  char* surfaceRefStateName;
+  char* surfaceSolutionName;
+  char* surfaceWallDistName;
+  char* surfaceMeshName;
 
   // ROM database data
   VecSet< DistSVec<double, dim> >* snap; // snap(nTotSnaps, domain.getNodeDistInfo())
@@ -130,6 +134,7 @@ class NonlinearRom {
 
   // thin svd update quantities
   // 1: common to all update methods (simple updates, exact updates, approx updates)
+  double rTol;
   std::vector<double>* columnSumsV;
   std::vector<double>* sVals;
   DistSVec<double, dim>* Uref; 
@@ -171,30 +176,33 @@ class NonlinearRom {
   double ***cForFastDistComp;
   
   // non-database IO function
-  int readSnapshotFiles(char *, bool);
+  int readSnapshotFiles(const char*, bool);
   std::vector<int> stateSnapsFromFile;   // stateSnapsFromFile[iFile] = number of snapshots taken from file iFile
   std::vector<std::vector<double> > stateSnapshotTags; // stateSnapshotInfo[iFile][iSnap] = tag associated with snapshot
                                                        // iSnap from file iFile
 
+  typedef pair<std::string, int> snapID;
+  std::vector<snapID> originalSnapshotLocation;
+
   // database IO functions
   void createDirectories();
-  void outputClusteredSnapshots(char*);
-  void readClusteredSnapshots(int, bool, char*, int first = 0, int last = 0);
-  void outputClusteredBasis(int, int, char*);  // readClusteredBasis is public
+  void outputClusteredSnapshots(const char*);
+  void readClusteredSnapshots(int, bool, const char*, int first = 0, int last = 0);
+  void outputClusteredBasis(int, int, const char*);  // readClusteredBasis is public
   void outputClusteredReferenceState(int, DistSVec<double, dim> &);  // automatically stores snapshot reference state
-  void readClusteredReferenceState(int, char*);  // read the reference state that was automatically stored for each cluster.
+  void readClusteredReferenceState(int, const char*);  // read the reference state that was automatically stored for each cluster.
   void readNearestSnapsToCenters();
   void readReferenceState();  // read a reference state specified by the user
   void readClusteredSampleNodes(int iCluster, bool deleteExistingRestrictionMapping = true);
-  void readClusteredGappyMatrix(int, char*);
+  void readClusteredGappyMatrix(int, const char*);
 
   void outputCenterNorms(std::vector<std::vector<double> > &);
   void readCenterNorms();
-  void outputClusteredInfoASCII(int, char*, std::vector<double>* vec1 = NULL, 
+  void outputClusteredInfoASCII(int, const char*, std::vector<double>* vec1 = NULL, 
                                 std::vector<std::vector<double> >* vec2 = NULL,
                                 std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
                                 std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
-  void readClusteredInfoASCII(int, char*, std::vector<double>* vec1 = NULL,
+  void readClusteredInfoASCII(int, const char*, std::vector<double>* vec1 = NULL,
                               std::vector<std::vector<double> >* vec2 = NULL,
                               std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
                               std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
@@ -209,6 +217,7 @@ class NonlinearRom {
 
 
   // for local GNAT preprocessing
+  void freeMemoryForGnatPrepro();
 
   // for local GNAT online simulations
   int nSampleNodes;
@@ -217,8 +226,10 @@ class NonlinearRom {
   VecSet<DistSVec<double, dim> >* resMat;
   VecSet<DistSVec<double, dim> >* jacMat;
   RestrictionMapping<dim>* restrictionMapping;
-  // for storing all online quantities in memory (optional)
+
+  // for storing all clustered quantities in memory (optional)
   bool storedAllOnlineQuantities;
+  bool storedAllOfflineQuantities;
   std::vector<int>** allSampleNodes;
   VecSet<DistSVec<double, dim> >** allResMat;
   VecSet<DistSVec<double, dim> >** allJacMat;
@@ -248,6 +259,9 @@ class NonlinearRom {
   int nLowRankFactors;
   VecSet< DistSVec<double, dim> >* basis;
 
+  // When duplicateSnaps is set to true the clustered snapshots are written to the file system, which effectively
+  // doubles the required storage.  When false, only a small text file is written.
+  bool duplicateSnaps;
 
   // online selection of closest cluster center (calls either closestCenterFull or closestCenterFast)
   void closestCenter(DistSVec<double, dim> &, int* index1=NULL);
@@ -270,21 +284,22 @@ class NonlinearRom {
 	void determineFileName(const char*, const char*, const char*, char*&);
 	void determinePrefixName(const char*, const char*, char*&);
   void determinePath(char*, int, char*&); // top-level database directory is cluster "-1", sensitivity basis is cluster "-2"
-  void readClusteredBasis(int, char*, bool relProjError = false);
-  void readClusteredColumnSumsV(int, char*);
-  void readClusteredUpdateInfo(int, char*);
-  void readNonClusteredUpdateInfo(char*);
+  void readClusteredBasis(int, const char*, bool relProjError = false);
+  void readClusteredColumnSumsV(int, const char*);
+  void readClusteredUpdateInfo(int, const char*);
+  void readNonClusteredUpdateInfo(const char*);
   void readExactUpdateInfo();
-  void readClusterCenters(char*);
+  void readClusterCenters(const char*);
   void readAllClusteredOnlineQuantities();
-  void readApproxMetricLowRankFactor(char *);
-  void readDistanceComparisonInfo(char*); 
-  void writeClusteredBinaryVectors(int, DistSVec<double,dim> *, DistSVec<double,dim> *, DistSVec<double,dim> *);
+  void readAllClusteredOfflineQuantities();
+  void readApproxMetricLowRankFactor(const char *);
+  void readDistanceComparisonInfo(const char*); 
+  void writeClusteredBinaryVectors(int, DistSVec<double,dim> *, DistSVec<double,dim> *, DistSVec<double,dim> *, char *, int);
   void initializeClusteredOutputs(); 
 
   // for online ROMs (both with and without hyper-reduction)
-  virtual void updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {};
-  virtual void appendNonStateDataToBasis(int, char*, bool relProjError = false) {};
+  virtual bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {return false;};
+  virtual void appendNonStateDataToBasis(int, const char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};
   void writeReducedCoords(const int, bool, bool, int, Vec<double>); 
   void initializeFastExactUpdatesQuantities(DistSVec<double, dim> &);
@@ -299,6 +314,9 @@ class NonlinearRom {
   RestrictionMapping<dim>* restrictMapping() { return restrictionMapping; } 
 
   virtual void appendVectorToBasis(DistSVec<double, dim>&, int numVec = 0) {};
+
+  // general
+  void qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::vector<double> >* RT=NULL, bool testQR=false);
 
 };
 

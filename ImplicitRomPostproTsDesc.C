@@ -67,27 +67,32 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
 
 
   _n = fscanf(reducedCoordsFile, "%d %s %s %d %d %d %d %d", &tmp, switchStr, updateStr, &closestCluster, &nCoords, &tmp, &tmp, &tmp);
+  if (_n == EOF) {
+    this->com->fprintf(stdout, "*** Error: reached end of reduced coordinates file before final time step.  Exiting...\n\n\n");
+    exit(-1);  
+  }
 
   this->com->fprintf(stdout, "%s %s %d %d\n", switchStr, updateStr, closestCluster, nCoords);
 
   this->clusterSwitch = (strcmp(switchStr,"switch")==0) ? true : false;
-  this->updateFreq = (strcmp(updateStr,"update")==0) ? true : false;
+  this->updatePerformed = (strcmp(updateStr,"update")==0) ? true : false;
 
   if ((this->rom->nClusters > 1) || (this->basisUpdateFreq>0) || (this->currentCluster == -1))  {
-    //rom->closestCenter(U, &closestCluster);
+
+    if (this->currentCluster == -1) { // first iteration
+      if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT)
+        this->rom->initializeFastExactUpdatesQuantities(U);
+    }
 
     if (this->rom->nClusters > 1) this->com->fprintf(stdout, " ... using basis number %d\n", closestCluster);
 
-    //updateFreq = ((basisUpdateFreq > 0) && (totalTimeSteps%basisUpdateFreq == 0)) ? true : false;
-    //clusterSwitch = (currentCluster != closestCluster) ? true : false;
-
-    if (this->updateFreq || this->clusterSwitch) {
+    if (this->updatePerformed || this->clusterSwitch) {
       if (this->clusterSwitch) {
         this->currentCluster = closestCluster;
-        this->rom->readClusteredOnlineQuantities(this->currentCluster);  // read state basis, update info, and (if applicable) gnat online matrices
+        this->rom->readClusteredOnlineQuantities(this->currentCluster);  // read state basis, update info
       }
 
-      if (this->ioData->romOnline.basisUpdates) this->rom->updateBasis(this->currentCluster, U);
+      if (this->updatePerformed) this->rom->updateBasis(this->currentCluster, U);
       //if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       //if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 
@@ -102,6 +107,8 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
       //setProblemSize(U);  // defined in derived classes
       //if (clusterSwitch) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
 
+      this->dUromCurrentROB.resize(this->nPod);
+      this->dUromCurrentROB = 0.0;
     }
   }
 
