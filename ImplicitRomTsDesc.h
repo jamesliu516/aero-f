@@ -65,6 +65,15 @@ protected:
   double wallWeight;
   double bcWeightGrowthFactor;
   double levenbergMarquardtWeight;
+  bool wallUp;
+  bool wallDown;
+  double wallWeightGrowthFactor;
+  bool ffUp;
+  bool ffDown;
+  double ffWeightGrowthFactor;
+
+  int allowBCWeightDecrease;
+  int adjustInteriorWeight;
 
   double regThresh;
   double regWeight;
@@ -124,6 +133,9 @@ protected:
                                  // stored to recalculate reference residual after 
                                  // cluster switch (new sampled mesh for GNAT) or after
                                  // changing the residual weighting 
+
+  void printRomResiduals(DistSVec<double, dim> &U);
+  FILE *residualsFile;
 
 protected:
   template<class Scalar, int neq>

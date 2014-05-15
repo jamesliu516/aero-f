@@ -84,7 +84,9 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
     }
   } else {
     wallMask = NULL;
+    wallNeighborsMask = NULL;
     farFieldMask = NULL;
+    farFieldNeighborsMask = NULL;
     weightVec = NULL;
   }
 
@@ -100,6 +102,8 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
       bcFaces[i][j] = new std::vector< int > [BC_CODE_EXTREME];
     bcFaceSurfID[i] = new std::vector< int > [BC_CODE_EXTREME];
   }
+
+  surfaceMeshConstruction = false;
 
 }
 
@@ -238,7 +242,9 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     // compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
     //======================================
 
-  double sampledMeshConstructionTime = this->timer->getTime();
+  double sampledMeshConstructionTime = this->timer->getTime(); // only used if sampled mesh is built
+  double surfaceMeshConstructionTime = this->timer->getTime(); // only used if surface mesh is built
+
   int nTargetSampleNodesForApproxMetric;
   int nAddedSamplesLoc = 0;
   int nAddedSamplesGlob = 0;
@@ -281,106 +287,142 @@ void GnatPreprocessing<dim>::buildReducedModel() {
 
   setSampleNodes(unionOfSampleNodes); // also calls buildRemainingMesh()
 
-  this->timer->addSampledMeshConstructionTime(sampledMeshConstructionTime);
-
+  if (surfaceMeshConstruction) {
+    this->timer->addSurfaceMeshConstructionTime(surfaceMeshConstructionTime);
+  } else {
+    this->timer->addSampledMeshConstructionTime(sampledMeshConstructionTime);
+  }
 
   if (thisCPU == 0) outputTopFile(unionOfSampleNodes);
 
   double sampledVecsOutputTime = this->timer->getTime();
+  double surfaceVecsOutputTime = this->timer->getTime();
   outputInitialConditionReduced();
   outputWallDistanceReduced();  // distributed info (parallel)
-  this->timer->addSampledOutputTime(sampledVecsOutputTime);
+  if (surfaceMeshConstruction) {
+    this->timer->addSampledOutputTime(sampledVecsOutputTime);
+  } else {
+    this->timer->addSurfaceOutputTime(surfaceVecsOutputTime); 
+  }
 
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-    com->fprintf(stdout,"\n-----------------------------------------------------\n");
-    com->fprintf(stdout," ... Outputing sampled quantities for cluster %d\n\n", iCluster);
- 
+
     initialize();
 
-    int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
-    setSampleNodes(sampleNodes);
+    if (surfaceMeshConstruction) {
+      com->fprintf(stdout,"\n-----------------------------------------------------\n");
+      com->fprintf(stdout," ... Writing surface quantities for cluster %d\n\n", iCluster);
+ 
+      setSampleNodes(unionOfSampleNodes);
+      double surfaceOutputTime = this->timer->getTime();  
+      outputLocalStateBasisReduced(iCluster);
+      outputLocalReferenceStateReduced(iCluster);
+      this->timer->addSurfaceOutputTime(surfaceOutputTime);
 
-    double sampledOutputTime = this->timer->getTime();  
-    if (thisCPU == 0) outputSampleNodes(iCluster);
-    outputLocalStateBasisReduced(iCluster);
-    outputLocalReferenceStateReduced(iCluster);
-    this->timer->addSampledOutputTime(sampledOutputTime);
+    } else {
+      com->fprintf(stdout,"\n-----------------------------------------------------\n");
+      com->fprintf(stdout," ... Writing sampled quantities for cluster %d\n\n", iCluster);
+ 
+      int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
+      setSampleNodes(sampleNodes);
+  
+      double sampledOutputTime = this->timer->getTime();  
+      if (thisCPU == 0) outputSampleNodes(iCluster);
+      outputLocalStateBasisReduced(iCluster);
+      outputLocalReferenceStateReduced(iCluster);
+      this->timer->addSampledOutputTime(sampledOutputTime);
+
+    }
   }
 
   this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects 
 
-  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+  if (surfaceMeshConstruction) {
 
-    com->fprintf(stdout,"\n-----------------------------------------------------\n");
-    com->fprintf(stdout," ... Computing online GNAT matrices for cluster %d\n\n", iCluster);
+    com->fprintf(stdout," \n... Finished with Surface Mesh Construction\n");
 
-    initialize();                  // deallocate for everything but the sampled nodes (local and union)
+  } else { // build and output online matrices
 
-    int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
-    setSampleNodes(sampleNodes);   // use local sampled nodes
-
-    setUpPodResJac(iCluster);      // read in Res/Jac bases
-
-    formMaskedNonlinearROBs();
- 
-    setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
-
-    initializeLeastSquares();
- 
-    double pseudoInvTime = this->timer->getTime();
-    computePseudoInverse();        // only requires sample nodes and masked nonlinear ROBs
-    this->timer->addPseudoInvTime(pseudoInvTime);
-
-    // STRATEGY:
-    // - put zeros in the pod[0], pod[1] for any node that is not part of the local mask
-    // - don't evaluate rhat and jphihat for nodes that are not part of the local mask
-
-    // TRICK: adding zero rows to matrices has no effect on the qr decomposition
-
-    if (thisCPU == 0) {
-      assembleOnlineMatrices();   // handle online matrices so you can free up pseudo inverse matrix
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+  
+      com->fprintf(stdout,"\n-----------------------------------------------------\n");
+      com->fprintf(stdout," ... Computing online GNAT matrices for cluster %d\n\n", iCluster);
+  
+      initialize();                  // deallocate for everything but the sampled nodes (local and union)
+  
+      int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
+      setSampleNodes(sampleNodes);   // use local sampled nodes
+  
+      setUpPodResJac(iCluster);      // read in Res/Jac bases
+  
+      formMaskedNonlinearROBs();
+   
+      setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
+  
+      initializeLeastSquares();
+   
+      double pseudoInvTime = this->timer->getTime();
+      computePseudoInverse();        // only requires sample nodes and masked nonlinear ROBs
+      this->timer->addPseudoInvTime(pseudoInvTime);
+  
+      // STRATEGY:
+      // - put zeros in the pod[0], pod[1] for any node that is not part of the local mask
+      // - don't evaluate rhat and jphihat for nodes that are not part of the local mask
+  
+      // TRICK: adding zero rows to matrices has no effect on the qr decomposition
+  
+      if (thisCPU == 0) {
+        assembleOnlineMatrices();   // handle online matrices so you can free up pseudo inverse matrix
+      }
+  
+      double sampledOutputTime = this->timer->getTime();  
+      outputOnlineMatrices(iCluster);
+      this->timer->addSampledOutputTime(sampledOutputTime);
+  
+      if (podTpod) {
+        for (int iVec=0; iVec<nPod[1]; ++iVec)
+          delete [] podTpod[iVec];
+        delete podTpod;
+        podTpod = NULL;
+      }
+  
+      if (RTranspose) {
+        for (int iVec=0; iVec<nPod[1]; ++iVec)
+          (*RTranspose)[iVec].clear();
+        (*RTranspose).clear();
+        delete RTranspose;
+        RTranspose = NULL;
+        delete Qmat;
+        Qmat = NULL;
+      }
+  
     }
-
-    double sampledOutputTime = this->timer->getTime();  
-    outputOnlineMatrices(iCluster);
-    this->timer->addSampledOutputTime(sampledOutputTime);
-
-    if (podTpod) {
-      for (int iVec=0; iVec<nPod[1]; ++iVec)
-        delete [] podTpod[iVec];
-      delete podTpod;
-      podTpod = NULL;
+  
+    if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
+      if (!surfaceMeshConstruction) {
+      com->fprintf(stdout,"\nPreprocessing for approximate basis updates\n");
+      double approxUpdatesPreproTime = this->timer->getTime(); 
+  
+      outputClusterCentersReduced();
+  
+      constructApproximatedMetric();
+  
+      if (ioData->romOffline.gnat.testApproxMetric) {
+        com->fprintf(stdout," \n Computing approximated metric errors on training data\n");
+        testInnerProduct("approxMetricState");
+        com->fprintf(stdout," \n Computing approximated metric errors on training+validation data\n");
+        testInnerProduct("state");
+      }
+      this->timer->addApproxUpdatesPreproTime(approxUpdatesPreproTime);
+      } else {
+        this->readApproxMetricLowRankFactor("full");
+        outputApproxMetricLowRankFactorFullCoords();
+      }
     }
-
-    if (RTranspose) {
-      for (int iVec=0; iVec<nPod[1]; ++iVec)
-        delete [] RTranspose[iVec];
-      delete [] RTranspose;
-      RTranspose = NULL;
-      delete Qmat;
-      Qmat = NULL;
-    }
-
+  
+    com->fprintf(stdout," \n... Finished with GNAT preprocessing - Exiting...\n");
   }
 
-  if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
-    com->fprintf(stdout,"\nPreprocessing for approximate basis updates\n");
-    double approxUpdatesPreproTime = this->timer->getTime(); 
-
-    outputClusterCentersReduced();
-
-    constructApproximatedMetric();
-
-    if (ioData->romOffline.gnat.testApproxMetric) {
-      com->fprintf(stdout," \n Computing approximated metric errors on training data\n");
-      testInnerProduct("approxMetricState");
-      com->fprintf(stdout," \n Computing approximated metric errors on training+validation data\n");
-      testInnerProduct("state");
-    }
-    this->timer->addApproxUpdatesPreproTime(approxUpdatesPreproTime);
-  }
-
-  com->fprintf(stdout," \n... Finished with GNAT preprocessing - Exiting...\n");
   this->timer->addTotalGnatOfflineTime(totalGnatOfflineTime);
 
 } 
@@ -688,7 +730,11 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords() {
    com->fprintf(stdout,"\n ... Writing Low Rank Factor of Approximated Metric in Full Mesh Coordinates...\n");
 
   char *filePath = NULL;
-  this->determinePath(this->approxMetricLowRankFullCoordsName, -1, filePath);
+  if (surfaceMeshConstruction) {
+    this->determinePath(this->approxMetricLowRankSurfaceCoordsName, -1, filePath);
+  } else {
+    this->determinePath(this->approxMetricLowRankFullCoordsName, -1, filePath);
+  }
   
   FILE *outApproxMetric;
   if (thisCPU == 0) outApproxMetric = fopen(filePath, "wt");
@@ -729,7 +775,6 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords() {
 
   com->fprintf(outApproxMetric,"Vector ApproxMetric under load for FluidNodesRed\n");
   com->fprintf(outApproxMetric,"%d\n", nReducedNodes);
-
 
   int percentComplete = 0;
   for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) {  // # rows in A and B
@@ -812,6 +857,9 @@ void GnatPreprocessing<dim>::setSampleNodes(int iCluster) {
     int globalSampleNode = globalSampleNodes[iSampleNode];
     globalSampleNodeRankMap.insert(pair<int, int > (globalSampleNode, iSampleNode));
   }
+
+  // for surface mesh construction
+  if (surfaceMeshConstruction) nSampleNodes = 1; // should be zero previously
 
   if (!globalNodes && iCluster==unionOfSampleNodes) {
     buildRemainingMesh();
@@ -898,7 +946,9 @@ void GnatPreprocessing<dim>::setUpBasisBasisProducts() {
       computePodTPod();
     } else {
       // compute Q^T * W * pod[0]  (stored as podTpod)
-      computeQTWeightedPod();
+      com->fprintf(stderr, "*** Error: preprocessing for weighted GNAT with distinct R and J bases is not currently supported... ");
+      exit(-1);
+      //computeQTWeightedPod();
     }
   }
 
@@ -910,15 +960,16 @@ template<int dim>
 void GnatPreprocessing<dim>::computeQROfWeightedPhiJ() {
 
   // compute tmpVecSet = W * PhiJi
-  VecSet< DistSVec<double, dim> > tmpVecSet (nPod[1], this->domain.getNodeDistInfo());
+  if (Qmat) delete Qmat;
+  Qmat = new VecSet< DistSVec<double, dim> >(nPod[1], this->domain.getNodeDistInfo());
   int numLocSubWeight = weightVec->numLocSub();
   for (int iVec=0; iVec<nPod[1]; ++iVec) {
-    tmpVecSet[iVec] = pod[1][iVec];
+    (*Qmat)[iVec] = pod[1][iVec];
     if (ffWeight!=1.0) {
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSubWeight; ++iSub) {
         double (*weight)[dim] = weightVec->subData(iSub);
-        double (*v)[dim] = tmpVecSet[iVec].subData(iSub);
+        double (*v)[dim] = (*Qmat)[iVec].subData(iSub);
         for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
           for (int j=0; j<dim; ++j) {
             v[i][j] = v[i][j] * weight[i][j];
@@ -928,66 +979,9 @@ void GnatPreprocessing<dim>::computeQROfWeightedPhiJ() {
     }
   }
 
-  // compute QR of tempVecSet via stabilized gram schmidt (without pivoting -- should be full rank)
-  Qmat = new VecSet< DistSVec<double, dim> >(nPod[1], this->domain.getNodeDistInfo());
-  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
-    (*Qmat)[iVec] = tmpVecSet[iVec];
-  }
-  if (thisCPU == 0) { 
-    RTranspose = new double*[nPod[1]];
-    for (int iVec = 0; iVec<nPod[1]; ++iVec)
-      RTranspose[iVec] = new double[iVec+1];
-  }
+  if (!RTranspose) RTranspose = new std::vector<std::vector<double> >;  
 
-  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
-
-    double tmp;
-    std::vector<double> rlog;
-    rlog.resize(iVec+1,0.0);  
-    for (int jVec = 0; jVec<iVec; ++jVec) {
-      tmp = (*Qmat)[jVec] * (*Qmat)[iVec];
-      (*Qmat)[iVec] -= (*Qmat)[jVec] * tmp; //*tmp
-      rlog[jVec]=(tmp);
-    }
-
-    double norm = (*Qmat)[iVec].norm();
-    rlog[iVec] = norm;
-
-    if (norm>=1e-10) {
-      (*Qmat)[iVec] *= 1/norm;
-      if (thisCPU == 0) {
-        for (int jVec = 0; jVec<=iVec; ++jVec) {  
-          RTranspose[iVec][jVec] = rlog[jVec];
-        }
-      }
-    } else {
-      this->com->fprintf(stderr, "*** Warning: QR encountered a rank defficient matrix in GNAT preprocessing (?)\n",norm);
-      exit(-1);
-    }
-  }
-
-  // test QR
-  /*
-  // Q orthogonal
-  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
-    for (int jVec = 0; jVec<=iVec; ++jVec) {
-       double product = (*Qmat)[iVec] * (*Qmat)[jVec];
-       this->com->fprintf(stdout, "Q orthogonal test: Q^T Q [%d][%d] = %e\n", iVec, jVec, product);
-    }
-  }
-
-  // QR = W*pod[1]
-  DistSVec<double, dim> testVec(this->domain.getNodeDistInfo());
-  for (int iVec = 0; iVec<nPod[1]; ++iVec) {
-    testVec = tmpVecSet[iVec];
-    for (int jVec = 0; jVec<=iVec; ++jVec) {
-      double coef = 0.0;
-      if (thisCPU ==0) coef = RTranspose[iVec][jVec]; 
-      this->com->broadcast(1, &coef);
-      testVec -= (*Qmat)[jVec]*coef;
-    }
-    this->com->fprintf(stdout, "QR accuracy test: norm of difference for vector #%d = %e\n", iVec, testVec.norm());
-  }*/
+  this->qr(Qmat, RTranspose, true);
 
 }
 
@@ -1519,6 +1513,7 @@ void GnatPreprocessing<dim>::buildRemainingMesh() {
 
   // globalNodes[iIsland][0] is the sample node itself 
   // globalNodes[iIsland][iNode] is the iNode neighbor of iIsland.
+
 
   // quantities for entire sample mesh (not just sample nodes)
 
@@ -2156,7 +2151,11 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
   // initialize file
 
   char *sampledMeshPath = 0;
-  this->determinePath(this->sampledMeshName, iCluster, sampledMeshPath);
+  if (surfaceMeshConstruction) {
+    this->determinePath(this->surfaceMeshName, iCluster, sampledMeshPath);
+  } else {
+    this->determinePath(this->sampledMeshName, iCluster, sampledMeshPath);
+  }
   FILE *reducedMesh = 0;
   if (thisCPU == 0) reducedMesh = fopen(sampledMeshPath, "wt");
 
@@ -2463,57 +2462,6 @@ void GnatPreprocessing<dim>::computePodTPod() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeQTWeightedPod() {
-
-  // podTpod is nPod[1] x nPod[0] array
-
-  if (thisCPU == 0 && podTpod) {
-    for (int i = 0; i < nPod[1]; ++i)
-      delete [] podTpod[i];
-
-    delete [] podTpod;
-  }
-
-  if (thisCPU == 0) { 
-    podTpod = new double * [nPod[1]];
-    for (int i = 0; i < nPod[1]; ++i)
-      podTpod[i] = new double [nPod[0]];
-  }
-
-  VecSet< DistSVec<double, dim> > tmpVecSet (nPod[0], this->domain.getNodeDistInfo());
-  int numLocSubWeight = weightVec->numLocSub();
-  for (int iVec=0; iVec<nPod[0]; ++iVec) {
-    tmpVecSet[iVec] = pod[0][iVec];
-    if (ffWeight!=1.0) {
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSubWeight; ++iSub) {
-        double (*weight)[dim] = weightVec->subData(iSub);
-        double (*v)[dim] = tmpVecSet[iVec].subData(iSub);
-        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j) {
-            v[i][j] = v[i][j] * weight[i][j];
-          }
-        }
-      }
-    }
-  }
-
-  double podTpodTmp;
-  for (int i = 0; i < nPod[1]; ++i) {
-    com->fprintf(stdout," ... Computing podJac^TpodRes row %d of %d ...\n",i,nPod[1]);
-    for (int j = 0; j < nPod[0]; ++j) { 
-      podTpodTmp = (*Qmat)[i]*tmpVecSet[j];
-      if (thisCPU == 0)
-        podTpod[i][j] = podTpodTmp;
-    }
-  }
-
-
-}
-
-//----------------------------------------------
-
-template<int dim>
 void GnatPreprocessing<dim>::assembleOnlineMatrices() {
 
   // Purpose: assemble matrices that are used online
@@ -2535,7 +2483,7 @@ void GnatPreprocessing<dim>::assembleOnlineMatrices() {
           for (int jPod = 0; jPod < nPod[0]; ++jPod) {
             if (jPod>=iPod) {
               for (int k = 0; k < numCols; ++k) {
-                onlineMatrices[0][k][iPod] += RTranspose[jPod][iPod] * podHatPseudoInv[0][k][jPod];
+                onlineMatrices[0][k][iPod] += (*RTranspose)[jPod][iPod] * podHatPseudoInv[0][k][jPod];
               }
             }
           }
@@ -2559,7 +2507,7 @@ void GnatPreprocessing<dim>::assembleOnlineMatrices() {
           for (int jPod = 0; jPod < nPod[1]; ++jPod) {
             if (jPod>=iPod) {
               for (int k = 0; k < numCols; ++k) {
-                onlineMatrices[1][k][iPod] += RTranspose[jPod][iPod] * podHatPseudoInv[1][k][jPod];
+                onlineMatrices[1][k][iPod] += (*RTranspose)[jPod][iPod] * podHatPseudoInv[1][k][jPod];
               }
             }
           }
@@ -2613,6 +2561,19 @@ void GnatPreprocessing<dim>::outputOnlineMatrices(int iCluster) {
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
     if (podHatPseudoInv[iPodBasis]) {
+      // onlineMatrices might just be a pointer to podHatPseudoInv
+      if (onlineMatrices[iPodBasis] == podHatPseudoInv[iPodBasis]) {
+        onlineMatrices[iPodBasis] = NULL;
+      } else {
+        for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs) {
+          if (onlineMatrices[iPodBasis][iRhs]) {
+            delete [] onlineMatrices[iPodBasis][iRhs];
+            onlineMatrices[iPodBasis][iRhs] = NULL;
+          }
+        }
+        delete [] onlineMatrices[iPodBasis];
+        onlineMatrices[iPodBasis] = NULL;
+      }
       for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs) {
         if (podHatPseudoInv[iPodBasis][iRhs]) {
           delete [] podHatPseudoInv[iPodBasis][iRhs];
@@ -2622,17 +2583,34 @@ void GnatPreprocessing<dim>::outputOnlineMatrices(int iCluster) {
       delete [] podHatPseudoInv[iPodBasis];
       podHatPseudoInv[iPodBasis] = NULL;
     }
-    if (onlineMatrices[iPodBasis]) {
-      for (int i = 0; i < nSampleNodes * dim; ++i) {
-        if (onlineMatrices[iPodBasis][i]) {
-          delete [] onlineMatrices[iPodBasis][i];
-          onlineMatrices[iPodBasis][i] = NULL;
+  }
+
+ /* for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+    if (podHatPseudoInv[iPodBasis]) {
+      for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs) {
+        if (podHatPseudoInv[iPodBasis][iRhs]) {
+          delete [] podHatPseudoInv[iPodBasis][iRhs];
+          podHatPseudoInv[iPodBasis][iRhs] = NULL;
         }
       }
-      delete [] onlineMatrices[iPodBasis];
+      delete [] podHatPseudoInv[iPodBasis];
+      podHatPseudoInv[iPodBasis] = NULL;
+    }
+    if (ffWeight!=1 || (nPodBasis==2 && iPodBasis==0)) {
+      if (onlineMatrices[iPodBasis]) {
+        for (int i = 0; i < nSampleNodes * dim; ++i) {
+          if (onlineMatrices[iPodBasis][i]) {
+            delete [] onlineMatrices[iPodBasis][i];
+            onlineMatrices[iPodBasis][i] = NULL;
+          }
+        }
+        delete [] onlineMatrices[iPodBasis];
+        onlineMatrices[iPodBasis] = NULL;
+      }
+    } else {
       onlineMatrices[iPodBasis] = NULL;
     }
-  }
+  }*/
 
 }
 
@@ -2755,7 +2733,11 @@ void GnatPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
   com->fprintf(stdout,"\n ... Writing reference state for local state basis %d in sample mesh coordinates ...\n", iCluster);
 
   char *sampledRefStatePath = NULL;
-  this->determinePath(this->sampledRefStateName, iCluster, sampledRefStatePath);
+  if (surfaceMeshConstruction) {
+    this->determinePath(this->surfaceRefStateName, iCluster, sampledRefStatePath);
+  } else {
+    this->determinePath(this->sampledRefStateName, iCluster, sampledRefStatePath);
+  }
 
   FILE *sampledRefStateFile;
   if (thisCPU ==0) sampledRefStateFile = fopen(sampledRefStatePath, "wt");
@@ -2796,7 +2778,12 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
     com->fprintf(stdout," ... Writing initial condition in sample mesh coordinates ...\n");
   
     char *sampledSolutionPath = NULL;
-    this->determinePath(this->sampledSolutionName, -1, sampledSolutionPath);
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->surfaceSolutionName, -1, sampledSolutionPath);
+    } else {
+      this->determinePath(this->sampledSolutionName, -1, sampledSolutionPath);
+    }
+
   
     FILE *outInitialCondition;
     if (thisCPU ==0) outInitialCondition = fopen(sampledSolutionPath, "wt");
@@ -2852,7 +2839,12 @@ void GnatPreprocessing<dim>::outputClusterCentersReduced() {
   if (!(this->clusterCenters)) this->readClusterCenters("centers");
 
   char *sampledCentersPath = NULL;
-  this->determinePath(this->sampledCentersName, -1, sampledCentersPath);
+  if (surfaceMeshConstruction) {
+    this->determinePath(this->surfaceCentersName, -1, sampledCentersPath);
+  } else {
+    this->determinePath(this->sampledCentersName, -1, sampledCentersPath);
+  }
+
 
   FILE *outSampledCenters;
   if (thisCPU ==0) outSampledCenters = fopen(sampledCentersPath, "wt");
@@ -2889,13 +2881,21 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
   
     com->fprintf(stdout, " ... Reading local state ROB ...\n");
     this->readClusteredBasis(iCluster, "state");
-  
-    com->fprintf(stdout," ... Writing local state ROB in sample mesh coordinates ...\n");
-  
+ 
+    if (surfaceMeshConstruction) { 
+      com->fprintf(stdout," ... Writing local state ROB in surface mesh coordinates ...\n");
+    } else {
+      com->fprintf(stdout," ... Writing local state ROB in sample mesh coordinates ...\n");
+    }  
+
     double t0 = this->timer->getTime(); 
 
     char *filePath = NULL;
-    this->determinePath(this->sampledStateBasisName, iCluster, filePath);
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->surfaceStateBasisName, iCluster, filePath);
+    } else {
+      this->determinePath(this->sampledStateBasisName, iCluster, filePath);
+    }
   
     FILE *outPodState;
     if (thisCPU == 0) outPodState = fopen(filePath, "wt");
@@ -3053,7 +3053,12 @@ void GnatPreprocessing<dim>::outputWallDistanceReduced() {
   d2wallOutput += *d2wall;
 
   char *wallDistPath = NULL;
-  this->determinePath(this->sampledWallDistName, -1, wallDistPath);
+  if (surfaceMeshConstruction) {
+    this->determinePath(this->surfaceWallDistName, -1, wallDistPath);  //a bit silly, but easier than the alternative
+  } else {
+    this->determinePath(this->sampledWallDistName, -1, wallDistPath);  
+  }
+
 
   FILE *outWallDist;
   if (thisCPU ==0) outWallDist = fopen(wallDistPath, "wt");

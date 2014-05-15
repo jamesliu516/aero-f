@@ -281,6 +281,8 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     }
 
     rhs = rhs + (this->regWeight * (*PhiT_A_Uinlet - *PhiT_A_U));
+
+    // ROM timestepping
     if (rhsNormInit<0) rhsNormInit = rhs.norm();
     if (it==0) {
       double rhsNormPrev = rhs.norm();
@@ -291,7 +293,6 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     dUrom /= dt;
     if (false)
       rhs -= dUrom; 
-
 
    // begin: output convergence information
     this->com->fprintf(stdout, " ... forming A * (U-Uinlet).^2\n");

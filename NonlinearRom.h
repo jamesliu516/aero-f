@@ -109,11 +109,15 @@ class NonlinearRom {
   char* gappyResidualName;
   char* approxMetricLowRankName;
   char* approxMetricLowRankFullCoordsName;
-  // Surface quantities
-  //char* surfaceStateBasisName;
-  //char* surfaceSolutionName;
-  //char* surfaceWallDistName;
-  //char* surfaceMeshName;
+  char* approxMetricLowRankSurfaceCoordsName;
+
+  // Surface quantities 
+  char* surfaceCentersName;
+  char* surfaceStateBasisName;
+  char* surfaceRefStateName;
+  char* surfaceSolutionName;
+  char* surfaceWallDistName;
+  char* surfaceMeshName;
 
   // ROM database data
   VecSet< DistSVec<double, dim> >* snap; // snap(nTotSnaps, domain.getNodeDistInfo())
@@ -310,6 +314,9 @@ class NonlinearRom {
   RestrictionMapping<dim>* restrictMapping() { return restrictionMapping; } 
 
   virtual void appendVectorToBasis(DistSVec<double, dim>&, int numVec = 0) {};
+
+  // general
+  void qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::vector<double> >* RT=NULL, bool testQR=false);
 
 };
 

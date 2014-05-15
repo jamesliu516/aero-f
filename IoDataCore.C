@@ -100,6 +100,7 @@ InputData::InputData()
   krylovSnapFile = "";
   approxMetricStateSnapFile = "";
   sensitivitySnapFile = "";
+  projErrorSnapFile = "";
 
   reducedCoords = "";
 
@@ -149,6 +150,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "KrylovSnapshotData", this, &InputData::krylovSnapFile);
   new ClassStr<InputData>(ca, "SensitivitySnapshotData", this, &InputData::sensitivitySnapFile);
   new ClassStr<InputData>(ca, "ApproximatedMetricStateSnapshotData", this, &InputData::approxMetricStateSnapFile);
+  new ClassStr<InputData>(ca, "ProjectionErrorSnapshotData", this, &InputData::projErrorSnapFile);
   new ClassStr<InputData>(ca, "ReducedCoordinates", this, &InputData::reducedCoords);
 
   new ClassStr<InputData>(ca, "InitialWallDisplacement", this, &InputData::wallsurfacedisplac); // YC
@@ -540,6 +542,8 @@ ROMOutputData::ROMOutputData()
   reducedCoords = "";
   dUnormAccum = "";
 
+  residualsForCoordRange = "";
+
   overwriteNonlinearSnaps = OVERWRITE_ON;
 
   resjacfrequency = 0;  //TODO
@@ -574,6 +578,8 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "ClusterUsage", this, &ROMOutputData::clusterUsage);
   new ClassStr<ROMOutputData>(ca, "ReducedCoordinates", this, &ROMOutputData::reducedCoords);
   new ClassStr<ROMOutputData>(ca, "NetReducedCoordinates", this, &ROMOutputData::dUnormAccum);
+
+  new ClassStr<ROMOutputData>(ca, "ResidualsForCoordRange", this, &ROMOutputData::residualsForCoordRange);
 
   new ClassToken<ROMOutputData>(ca, "OverwriteNonlinearSnapshots", this,
             reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::overwriteNonlinearSnaps), 2, "Off", 0, "On", 1);
@@ -3646,33 +3652,25 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   gappyResidualName = "";
   approxMetricLowRankName = "";
   approxMetricLowRankFullCoordsName = "";
+  approxMetricLowRankSurfaceCoordsName = "";
 
   // Surface quantities
   surfacePrefix = "";
+  surfaceCentersName = "";
   surfaceStateBasisName = "";
+  surfaceRefStateName = "";
   surfaceSolutionName = "";
   surfaceWallDistName = "";
   surfaceMeshName = "";
 
-//  surfacePrefix = "";
-//  surfaceNodesName = "";
-//  surfaceCentersName = "";
-//  surfaceStateBasisName = "";
-//  surfaceKrylovBasisName = "";
-//  surfaceSensitivityBasisName = "";
-//  surfaceMeshName = "";
-//  surfaceSolutionName = "";
-//  surfaceRefStateName = "";
-//  surfaceWallDistName = "";
-//  approxMetricLowRankSurfaceCoordsName = "";
-
 }
+
 //------------------------------------------------------------------------------
 
 void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 61, father);
+  ClassAssigner *ca = new ClassAssigner(name, 65, father);
 
   new ClassToken<NonlinearRomFilesData> (ca, "DuplicateSnapshots", this, reinterpret_cast<int
       NonlinearRomFilesData::*>(&NonlinearRomFilesData::duplicateSnapshots), 2, "False", 0, "True", 1);
@@ -3755,9 +3753,11 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineJacActionMatrix", this, &NonlinearRomFilesData::gappyJacActionName);
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricLowRankMatrix", this, &NonlinearRomFilesData::approxMetricLowRankName);
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricLowRankMatrixFullCoords", this, &NonlinearRomFilesData::approxMetricLowRankFullCoordsName);
+  new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricLowRankMatrixSurfaceCoords", this, &NonlinearRomFilesData::approxMetricLowRankSurfaceCoordsName);
 
   // Surface quantities
   new ClassStr<NonlinearRomFilesData>(ca, "SurfacePrefix", this, &NonlinearRomFilesData::surfacePrefix);
+  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceClusterCenters", this, &NonlinearRomFilesData::surfaceCentersName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceStateBasis", this, &NonlinearRomFilesData::surfaceStateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceSolution", this, &NonlinearRomFilesData::surfaceSolutionName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceWallDistance", this, &NonlinearRomFilesData::surfaceWallDistName);
@@ -3796,6 +3796,14 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   levenbergMarquardtWeight = 1.0;
   ffErrorTol = 0.0;
   controlNodeID = -1;
+
+  residualsCoordMin=0.0;
+  residualsCoordMax=0.0;
+  residualsCoordRes=100;
+
+  adjustInteriorWeight = ADJUST_INTERIOR_WEIGHT_FALSE;
+  allowBCWeightDecrease = ALLOW_DECREASE_TRUE;
+
 }
 
 //------------------------------------------------------------------------------
@@ -3803,7 +3811,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
 void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 26, father);
+  ClassAssigner *ca = new ClassAssigner(name, 31, father);
 
 	new ClassToken<NonlinearRomOnlineData> (ca, "Projection", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projection), 2, "PetrovGalerkin", 0, "Galerkin", 1);
@@ -3842,6 +3850,15 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassInt<NonlinearRomOnlineData>(ca, "ControlNodeID", this, &NonlinearRomOnlineData::controlNodeID);
   new ClassDouble<NonlinearRomOnlineData>(ca, "ReducedTimeStep", this, &NonlinearRomOnlineData::reducedTimeStep);
 
+  new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMin", this, &NonlinearRomOnlineData::residualsCoordMin);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMax", this, &NonlinearRomOnlineData::residualsCoordMax);
+  new ClassInt<NonlinearRomOnlineData>(ca, "ResidualsCoordResolution", this, &NonlinearRomOnlineData::residualsCoordRes);
+
+  new ClassToken<NonlinearRomOnlineData> (ca, "AdjustInteriorWeight", this, reinterpret_cast<int
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::adjustInteriorWeight), 2, "False", 0, "True", 1);
+  new ClassToken<NonlinearRomOnlineData> (ca, "AllowBCWeightDecrease", this, reinterpret_cast<int
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::allowBCWeightDecrease), 2, "False", 0, "True", 1);
+
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
   onlineResiduals.setup("OnlineResiduals",ca);
@@ -3875,7 +3892,7 @@ void NonlinearRomOnlineNonStateData::setup(const char *name, ClassAssigner *fath
       NonlinearRomOnlineNonStateData::*>(&NonlinearRomOnlineNonStateData::gramSchmidt), 2, "Off", 0, "On", 1);
   new ClassInt<NonlinearRomOnlineNonStateData>(ca, "MaximumDimension", this, &NonlinearRomOnlineNonStateData::maxDimension);
   new ClassInt<NonlinearRomOnlineNonStateData>(ca, "MinimumDimension", this, &NonlinearRomOnlineNonStateData::minDimension); 
-  new ClassDouble<NonlinearRomOnlineNonStateData>(ca, "Energy", this, &NonlinearRomOnlineNonStateData::energy);
+  new ClassDouble<NonlinearRomOnlineNonStateData>(ca, "MaximumEnergy", this, &NonlinearRomOnlineNonStateData::energy);
 
   // only applicable for OnlineResiduals
   new ClassInt<NonlinearRomOnlineNonStateData>(ca, "TimeFrequency", this, &NonlinearRomOnlineNonStateData::timeFreq);
@@ -4367,7 +4384,7 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::basisUpdates), 2, "Off", 0, "Simple", 1);
   new ClassInt<RelativeProjectionErrorData>(ca, "MaximumDimension", this, &RelativeProjectionErrorData::maxDimension);
   new ClassInt<RelativeProjectionErrorData>(ca, "MinimumDimension", this, &RelativeProjectionErrorData::minDimension); 
-  new ClassDouble<RelativeProjectionErrorData>(ca, "Energy", this, &RelativeProjectionErrorData::energy);
+  new ClassDouble<RelativeProjectionErrorData>(ca, "MaximumEnergy", this, &RelativeProjectionErrorData::energy);
   new ClassToken<RelativeProjectionErrorData> (ca, "PostProcessForProjectedStates", this, reinterpret_cast<int
       RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::postProProjectedStates), 2, "Off", 0, "On", 1);
 

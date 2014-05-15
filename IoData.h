@@ -86,6 +86,7 @@ struct InputData {
   const char *krylovSnapFile;
   const char *sensitivitySnapFile;
   const char *approxMetricStateSnapFile;
+  const char *projErrorSnapFile;
   const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -337,6 +338,8 @@ struct ROMOutputData {
   const char *clusterUsage;
   const char *reducedCoords;  // generalized coords
   const char *dUnormAccum;
+
+  const char *residualsForCoordRange;
 
   int resjacfrequency;
 
@@ -2126,14 +2129,16 @@ struct NonlinearRomFilesData {
   const char *gappyResidualName;             //resMatrix in sampled coords;
   const char *approxMetricLowRankName; // approximated metric in reduced mesh coordinates
   const char *approxMetricLowRankFullCoordsName; // approximated metric in full mesh coordinates
-
+  const char *approxMetricLowRankSurfaceCoordsName;
+  
   // Surface quantities
   const char *surfacePrefix;
+  const char *surfaceCentersName;
   const char *surfaceStateBasisName;
+  const char *surfaceRefStateName;
   const char *surfaceSolutionName;
   const char *surfaceWallDistName;
   const char *surfaceMeshName;
-
 
   NonlinearRomFilesData();
   ~NonlinearRomFilesData() {}
@@ -2207,6 +2212,13 @@ struct NonlinearRomOnlineData {
 	int minDimension;
   int maxDimension;
   double energy;
+
+  double residualsCoordMin;
+  double residualsCoordMax;
+  int residualsCoordRes;
+
+  enum AdjustInteriorWeight {ADJUST_INTERIOR_WEIGHT_FALSE=0, ADJUST_INTERIOR_WEIGHT_TRUE=1} adjustInteriorWeight;
+  enum AllowBCWeightDecrease {ALLOW_DECREASE_FALSE=0, ALLOW_DECREASE_TRUE=1} allowBCWeightDecrease;
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;
