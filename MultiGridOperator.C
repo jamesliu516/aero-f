@@ -240,7 +240,7 @@ void MultiGridOperator<Scalar,dim>::computeResidual(DistSVec<Scalar2,dim>& V,
     mgLevel->computeGreenGaussGradient(V, *DX[0],*DX[1],*DX[2]);
   }
 
-float dxn[3] = {(*DX[0])*(*DX[0]), (*DX[1])*(*DX[1]), (*DX[2])*(*DX[2])};
+//float dxn[3] = {(*DX[0])*(*DX[0]), (*DX[1])*(*DX[1]), (*DX[2])*(*DX[2])};
 //std::cout << dxn[0] << " " << dxn[1] << " " << dxn[2] << std::endl;
 
 #pragma omp parallel for
