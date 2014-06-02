@@ -115,6 +115,8 @@ MatchNodeSet::MatchNodeSet(const char *name) {
 
   index = new int[numNodes][3];
   gap = new double[numNodes][3];
+  xi = 0;
+  normgap = 0;
 
   // read match points
   int i;
