@@ -228,8 +228,8 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
       bool swept = LSS.isSwept(0.0,i);
       bool occluded = LSS.isOccluded(0.0,i);
 /*
-      if(rank==120 && i==8470)
-        fprintf(stderr,"Rank 120, i = %d, swept = %d, occluded = %d, fluidId = %d, dimLS = %d, poll = %d %d %d %d. LSS.numOfFluids = %d\n", i, swept, occluded, subId[i], dim, poll[i][0], poll[i][1], poll[i][2], poll[i][3], LSS.numOfFluids());
+      if(rank==31 && i==2402)
+        fprintf(stderr,"Rank 31, i = %d, swept = %d, occluded = %d, fluidId = %d, dimLS = %d, poll = %d %d %d %d. LSS.numOfFluids = %d, subPhiV = %e.\n", i, swept, occluded, subId[i], dim, poll[i][0], poll[i][1], poll[i][2], poll[i][3], LSS.numOfFluids(), subPhiV[i][0]);
 */
       if(!swept) {//nothing to be done
         if(!occluded && subId[i]!=LSS.numOfFluids())
@@ -246,6 +246,9 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
       switch (count) {
         case 0: //no info
           fprintf(stderr,"More than one layer of nodes are swept in one step: Rank %d, i = %d.\n", rank, i);
+          LSS.forceOccluded(0.0,i);
+          poll[i][3] = 1;
+          subId[i] = LSS.numOfFluids(); 
           DebugTools::SpitRank();
           break;
         case 1: // Rule No.2
@@ -255,7 +258,7 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
           break;
       }
     
-      if(count==1) //already applied Rule No.2
+      if(count==0 || count==1) //already applied Rule No.2
         continue;
 
       // Rule No.3
@@ -263,18 +266,7 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
 
 //-------------------------
       //KW: I think this part is kind of arbitrary...
-/*    
-      if(subPhiV[i][0]>0.0) {
-        if(programmedBurn && (programmedBurn->isUnburnedEOS(1,burnTag) || programmedBurn->isBurnedEOS(1,burnTag)) ) {
-          if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag)) {
-            subId[i] = programmedBurn->getBurnedEOS(burnTag);
-          } else
-            subId[i] = programmedBurn->getUnburnedEOS(burnTag);
-        } else 
-          subId[i] = 1;
-      } else
-        subId[i] = 0;
-*/
+/*
       bool settled = false;
       int burnedEOS, unburnedEOS;
       if(programmedBurn) {
@@ -299,15 +291,35 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
       } 
       if(settled)
         continue; 
-
-      if(subPhiV[i][0]>0.0) {
+*/
+      if(subPhiV[i][0]>0.0 || (subPhiV[i][0]<=0.0 && poll[i][0]==0)) {
         if(programmedBurn && (programmedBurn->isUnburnedEOS(1,burnTag) || programmedBurn->isBurnedEOS(1,burnTag)) ) {
           if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag)) {
             subId[i] = programmedBurn->getBurnedEOS(burnTag);
-          } else
+            if(!poll[i][subId[i]]) {
+              if(poll[i][0]) {
+                subId[i] = 0;
+                fprintf(stderr,"WARNING: Setting node tag to 0 based on poll.\n");
+              } else {
+                fprintf(stderr,"WARNING: poll = %d %d %d %d, fluidId = %d.\n", 
+                        poll[i][0], poll[i][1], poll[i][2], poll[i][3], subId[i]);
+              }
+            }
+          } else {
             subId[i] = programmedBurn->getUnburnedEOS(burnTag);
-        } else 
+            if(!poll[i][subId[i]]) {
+              if(poll[i][0]) {
+                subId[i] = 0;
+                fprintf(stderr,"WARNING2: Setting node tag to 0 based on poll.\n");
+              } else {
+                fprintf(stderr,"WARNING2: poll = %d %d %d %d, fluidId = %d.\n", 
+                        poll[i][0], poll[i][1], poll[i][2], poll[i][3], subId[i]);
+              }
+            }
+          }
+        } else {
           subId[i] = 1;
+        }
       } else
         subId[i] = 0;
 //--------------------------------

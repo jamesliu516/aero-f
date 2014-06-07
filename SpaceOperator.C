@@ -2820,13 +2820,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
                                                     ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())))
             continue;
 
-//          fprintf(stderr,"I AM HERE. Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
+          if(locToGlobNodeMap[i]+1==508306) 
+            fprintf(stderr,"I AM HERE. Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
 
           if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || 
              (init(iSub)[i]<1.0 && ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() 
                                     || (*fluidId0)(iSub)[i]==(*distLSS)(iSub).numOfFluids()))) {
             if((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()) {
-              if(!(*distLSS)(iSub).isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
+              if(!(*distLSS)(iSub).isOccluded(0.0,i)) {
+                fprintf(stderr,"BUG in updateSweptNode! Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
+              } //just debug
               if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
                 const double one_over_weight=(double)1.0/Weights(iSub)[i];
                 V(iSub)[i][0] = vfar[0];
@@ -2942,12 +2945,13 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub) {
 	  int* locToGlobNodeMap = subD[iSub]->getNodeMap();
-	  if (locToGlobNodeMap[9045]+1==1589845)  {
+/*	  if (locToGlobNodeMap[9045]+1==1589845)  {
 	    int i = 9045;
 	    std::cout << 
 		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
 	      V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << fluidId(iSub)[i] << std::endl;
 	  }
+*/
       for(int i=0;i<init(iSub).size();++i) {
 //		if ((*distLSS)(iSub).isSwept(0.0,i)&&(*distLSS)(iSub).isActive(0.0,i))
 //		  fprintf(stdout,"XY: Node %d needs phase change update:\n",locToGlobNodeMap[i]+1);
@@ -2971,9 +2975,9 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
 			  break;
 		  }
-		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" <<  fluidId(iSub)[i] <<"): " <<
-		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
-		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
+//		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" <<  fluidId(iSub)[i] <<"): " <<
+//		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
+//		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
 
                   if (this->domain->getSubDomain()[iSub]->getHigherOrderMF() && limit) {
 
