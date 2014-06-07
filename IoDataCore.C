@@ -2256,6 +2256,7 @@ SchemeData::SchemeData(int af) : allowsFlux(af)
   xirho = 1.0;
   xip = 1.0;
 
+  vel_fac = sqrt(5.0);
 }
 
 //------------------------------------------------------------------------------
@@ -2310,6 +2311,7 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
   
   new ClassDouble<SchemeData>(ca, "XiRho", this, &SchemeData::xirho);
   new ClassDouble<SchemeData>(ca, "XiP", this, &SchemeData::xip);
+  new ClassDouble<SchemeData>(ca, "VelFac", this, &SchemeData::vel_fac);
 
   fluxMap.setup("FluxMap",ca);
 }
@@ -2642,6 +2644,9 @@ MultiGridData::MultiGridData()
   agglomerationFile = "";
 
   turbRelaxCutoff = 1.0e10;
+
+  densityMin = 0.0;
+  densityMax = 1e20;
 }
 
 //------------------------------------------------------------------------------
@@ -2698,6 +2703,12 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
   
   new ClassDouble<MultiGridData>(ca, "TurbulenceRelaxationCutoff",this,
 &MultiGridData::turbRelaxCutoff);
+
+  new ClassDouble<MultiGridData>(ca, "DensityMin",this,
+				 &MultiGridData::densityMin);
+
+  new ClassDouble<MultiGridData>(ca, "DensityMax",this,
+				 &MultiGridData::densityMax);
 
   fixes.setup("Fixes", ca);
 

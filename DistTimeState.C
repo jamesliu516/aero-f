@@ -467,6 +467,15 @@ void DistTimeState<dim>::setupUExactSolutionInitialConditions(IoData &iod, DistS
       dim, 1>(*Un,dummy2,
 	      dummy1, X, iod,0.0,
 	      varFcn);
+  } else if (iod.mf.testCase == 3) {
+
+    DistSVec<double,1> dummy1(X.info());
+    DistVec<int> dummy2(X.info());
+    
+    ExactSolution::Fill<&ExactSolution::AcousticTwoFluid,
+      dim, 1>(*Un,dummy2,
+	      dummy1, X, iod,0.0,
+	      varFcn);
   }
 }
 

@@ -33,6 +33,8 @@ class MultiGridCoupledTsDesc : public ImplicitCoupledTsDesc<dim> {
   
   void setupTimeStepping(DistSVec<double,dim> *U, IoData &iod);
 
+  DistSVec<double,dim>* getSmoothedVec() { return NULL; }
+
  private:
 
   int numSmooths_pre[6],numSmooths_post[6];

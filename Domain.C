@@ -4826,6 +4826,28 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 	}
       }
     }
+  } else if (iod.mf.testCase == 3) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = X(iSub)[i];
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12 ||
+	    x[1] == 0.0 || fabs(x[1]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+	  
+	  double V[5];
+	  double dummy;
+	  int fid;
+	  ExactSolution::AcousticTwoFluid(iod,x[0],x[1],x[2],t, V,&dummy, fid);
+
+	  varFcn->primitiveToConservative(V, U(iSub)[i], fid);
+	  
+	}
+      }
+    }
   }
 }
 

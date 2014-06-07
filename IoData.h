@@ -1244,6 +1244,7 @@ struct SchemeData {
   
   double xirho;
   double xip;
+  double vel_fac;
 
   struct MaterialFluxData {
 
@@ -1498,6 +1499,8 @@ struct MultiGridData {
   const char* agglomerationFile;
 
   double turbRelaxCutoff;
+
+  double densityMin,densityMax;
  
   MultiGridData();
   ~MultiGridData() {}

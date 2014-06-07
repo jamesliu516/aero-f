@@ -185,18 +185,22 @@ computeJacobianEmbedded(DistExactRiemannSolver<dim>& riemann,
       Scalar2 *Aii = matrices(iSub).getElem_ii(i);
       for (int k=0; k<neq*neq; ++k)
         Aii[k] *= voli;
+      
+      
     }
 
   }
 
-  mgLevel->assemble(matrices);
+  
 
+  mgLevel->assemble(matrices);
+  
   if (timeState) {
 
     timeState->addToJacobian(mgLevel->getCtrlVol(), matrices, U);
   }
-
-  applyBCsToJacobian(U, matrices); 
+  
+  //applyBCsToJacobian(U, matrices); 
 
 }
 
