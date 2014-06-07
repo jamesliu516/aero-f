@@ -243,8 +243,8 @@ void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double 
   for (int i=0; i<numNodes; ++i) {
     for (int k=0; k<3; ++k) {
       if (flag==0||flag[ index[i][0] ]) {
-	norms[0] += disp[ index[i][2] ][0][k] * disp[ index[i][2] ][0][k];
-	norms[1] += disp[ index[i][2] ][1][k] * disp[ index[i][2] ][1][k];
+        norms[0] += disp[ index[i][2] ][0][k] * disp[ index[i][2] ][0][k];
+        norms[1] += disp[ index[i][2] ][1][k] * disp[ index[i][2] ][1][k];
       }
 
       double dx0 = x[ index[i][0] ][k] - x0[ index[i][0] ][k];
@@ -254,9 +254,9 @@ void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double 
 
 //      if (!isEmbedded) {
         if (algNum == 6)
-  	  dx[ index[i][0] ][k] += 0.5 * dt * xdot[ index[i][0] ][k];
+        dx[ index[i][0] ][k] += 0.5 * dt * xdot[ index[i][0] ][k];
         else if (algNum == 7)
-	  dx[ index[i][0] ][k] += dt * xdot[ index[i][0] ][k]; 
+        dx[ index[i][0] ][k] += dt * xdot[ index[i][0] ][k];
 //      }
     }
   }
@@ -292,6 +292,27 @@ void MatchNodeSet::getDisplacement(double (*xs)[3], int (*stElem)[3],
       dx[ index[i][0] ][k] = xp - x[ index[i][0] ][k];
       dxp[ index[i][0] ][k] = 0.0;
 
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void MatchNodeSet::getDisplacementSensitivity(bool *flag, double (*disp)[2][3], 
+                                              double (*dx)[3], double *norms)
+{
+
+  norms[0] = 0.0;
+  norms[1] = 0.0;
+
+  for (int i=0; i<numNodes; ++i) {
+    for (int k=0; k<3; ++k) {
+      if (flag==0||flag[ index[i][0] ]) {
+        norms[0] += disp[ index[i][2] ][0][k] * disp[ index[i][2] ][0][k];
+        norms[1] += disp[ index[i][2] ][1][k] * disp[ index[i][2] ][1][k];
+      }
+
+      dx[ index[i][0] ][k] = disp[ index[i][2] ][0][k]; 
     }
   }
 }

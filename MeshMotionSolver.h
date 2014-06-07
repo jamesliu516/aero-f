@@ -33,6 +33,7 @@ public:
   virtual ~MeshMotionSolver() {}
 
   virtual int solve(DistSVec<double,3> &, DistSVec<double,3> &) = 0;
+  virtual int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual void setup(DistSVec<double,3> &) = 0;
   virtual void applyProjector(DistSVec<double,3> &dX) {};
 
@@ -83,11 +84,12 @@ public:
   virtual ~TetMeshMotionSolver();
 
   virtual int solve(DistSVec<double,3> &, DistSVec<double,3> &);
+  int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &) { return 0; };
 
   void applyProjector(DistSVec<double,3> &X);
  
   void printf(int, const char *, ...);
-  void computeFunction(int, DistSVec<double,3> &, DistSVec<double,3> &);
+  virtual void computeFunction(int, DistSVec<double,3> &, DistSVec<double,3> &);
   void recomputeFunction(DistSVec<double,3> &, DistSVec<double,3> &) {}
   double recomputeResidual(DistSVec<double,3> &, DistSVec<double,3> &) { return 0.0; }
   void computeJacobian(int, DistSVec<double,3> &, DistSVec<double,3> &);
@@ -107,7 +109,7 @@ public:
   double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   
-  void setup(DistSVec<double,3> &X);
+  virtual void setup(DistSVec<double,3> &X);
   TsParameters* getTsParams() { return NULL; }
   ErrorHandler* getErrorHandler() {return NULL; }
 
@@ -130,6 +132,25 @@ public:
   EmbeddedALETetMeshMotionSolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
   ~EmbeddedALETetMeshMotionSolver(){};
   int solve(DistSVec<double,3> &, DistSVec<double,3> &);
+};
+
+//------------------------------------------------------------------------------
+
+class TetMeshSensitivitySolver : public TetMeshMotionSolver {
+
+protected:
+
+ DistSVec<double,3> *currentPosition;
+ NewtonSolver<TetMeshSensitivitySolver> *nss;
+
+public:
+
+  TetMeshSensitivitySolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
+  ~TetMeshSensitivitySolver();
+  int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &);
+
+  void computeFunction(int, DistSVec<double,3> &, DistSVec<double,3> &);
+  void setup(DistSVec<double,3> &X);
 };
 
 //------------------------------------------------------------------------------
