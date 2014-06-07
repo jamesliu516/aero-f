@@ -116,7 +116,9 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
     subTimeState[iSub] = 0;
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
     dIdti = new DistVec<double>(dI);
     dIdtv = new DistVec<double>(dI);
     dIrey = new DistVec<double>(dI);
@@ -865,7 +867,9 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
                                            DistSVec<double,dim> &U, DistVec<int> &fluidId,
 					   DistVec<double>* umax)
 {
+  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 5\n");
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
+  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 6\n");
 
   domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, *dtau, tprec, fluidId,
 			  umax);
@@ -906,6 +910,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     *dtLeft -= dt_glob;
   }
                                                                                                          
+  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 7\n");
   data->computeCoefficients(*dt, dt_glob);
   
   return dt_glob;

@@ -563,7 +563,9 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.velocitynorm);
   }
 
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -663,7 +665,9 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   switchOpt = true;
   }
-  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+           iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ ||
+           iod.problem.alltype != ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
     switchOpt = false;
   }
 
@@ -2409,6 +2413,16 @@ void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsOutput<dim>::writePositionSensitivityVectorToDisk(int step, double tag, 
+                      DistSVec<double,3> &dXsds){
+
+  domain->writeVectorToFile(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], step, tag, dXsds, &(refVal->tlength));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X, 
                                              DistVec<double> &A, DistSVec<double,dim> &U, DistTimeState<dim> *timeState)
 {
@@ -2423,8 +2437,9 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
     if (solutions)  {
       DistSVec<double,dim> soltn(U);
-      if (refVal->mode == RefVal::DIMENSIONAL)
+      if (refVal->mode == RefVal::DIMENSIONAL) {
         domain->scaleSolution(soltn, refVal);
+      }
       domain->writeVectorToFile(solutions, step, tag, soltn);
     }
 

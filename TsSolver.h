@@ -24,6 +24,7 @@ public:
   int solve(IoData &);
 
   int fsoSolve(IoData &);
+  int fsisoSolve(IoData &);
 // Included (MB)
   int fsaSolve(IoData &);
 
@@ -46,7 +47,7 @@ template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 {
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
-  
+
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
   int status = resolve(U, ioData);
@@ -87,30 +88,52 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
 
 }
 
-
 //------------------------------------------------------------------------------
 
 template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
 {
 
+  probDesc->printf(0,"******************************************\n");
+  probDesc->printf(0,"*** Fluid Shape Optimization Interface ***\n");
+  probDesc->printf(0,"******************************************\n");
+
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
-
-  probDesc->fsoPrintTextOnScreen("******************************************\n");
-  probDesc->fsoPrintTextOnScreen("*** Fluid Shape Optimization Interface ***\n");
-  probDesc->fsoPrintTextOnScreen("******************************************\n");
-
   probDesc->fsoInitialize(ioData, U);
   resolve(U, ioData);
+
   probDesc->fsoHandler(ioData, U);
 
   return 0;
 
 }
 
+//------------------------------------------------------------------------------
+
+template<class ProblemDescriptor>
+int TsSolver<ProblemDescriptor>::fsisoSolve(IoData &ioData)
+{
+
+  probDesc->printf(0,"*******************************************************\n");
+  probDesc->printf(0,"*** Steady Aeroelastic Shape Optimization Interface ***\n");
+  probDesc->printf(0,"*******************************************************\n");
+
+  typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
+  // initialize solutions and geometry
+  probDesc->setupTimeStepping(&U, ioData);
+  probDesc->fsoInitialize(ioData, U);
+  resolve(U, ioData);
+
+  ioData.sa.fsiFlag = true;
+  probDesc->fsoHandler(ioData, U);
+  probDesc->printf(0," ***** fsisoSolve is done ********\n");
+
+  return 0;
+
+}
 
 //------------------------------------------------------------------------------
 
@@ -118,6 +141,7 @@ template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType &U,
                                          IoData &ioData)
 {
+  int verboseFlag = ioData.problem.verbose;
   bool lastIt = false;
 
   typename ProblemDescriptor::SolVecType *dU = NULL;
@@ -146,7 +170,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
   /** for embedded method: send force (if it>0) and receive disp (from Struct). */
-  dts = probDesc->computePositionVector(&lastIt, it, t, U);
+  dts = probDesc->computePositionVector(&lastIt, it, t, U); // [F] receive displacement from structure ...
 
   // For an embedded viscous simulation with turbulence model, compute the distance to the wall
   probDesc->computeDistanceToWall(ioData);
@@ -266,7 +290,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
-    dts = probDesc->computePositionVector(&lastIt, it, t, U);
+    dts = probDesc->computePositionVector(&lastIt, it, t, U); // [F] send force to structure
 
   // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
     if ( (ioData.problem.framework == ProblemData::EMBEDDED) || 

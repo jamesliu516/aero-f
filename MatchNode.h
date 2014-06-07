@@ -32,8 +32,9 @@ public:
   void setBufferPosition(int, int);
   void setBufferPosition(int, int, double[2], int (*)[3], double (*)[3]);
   void getDisplacement(int, double, double, double, bool *, double (*)[2][3], double (*)[3], 
-		       double (*)[3], double (*)[3], double (*)[3], double *, 
-                       bool isEmbedded);
+		       double (*)[3], double (*)[3], double (*)[3], double *,
+		       bool isEmbedded); 
+  void getDisplacementSensitivity(bool *, double (*)[2][3], double (*)[3], double *);
                        
   void getDisplacement(double (*)[3], int (*)[3], double (*)[3], double (*)[3], double (*)[3], double);
 

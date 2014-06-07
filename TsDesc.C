@@ -364,16 +364,19 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 
   double dt = 0.0;
   if(failSafeFlag == false){
-    if(timeStepCalculation == TsData::CFL || it==1)
+    if(timeStepCalculation == TsData::CFL || it==1) {
       dt = timeState->computeTimeStep(data->cfl, data->dualtimecfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
-    else  //time step size with error estimation
+    } else { //time step size with error estimation
       dt = timeState->computeTimeStep(it, dtLeft, &numSubCycles);
+    }
   }
-  else //if time step is repeated
+  else { //if time step is repeated
     dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+  }
 
-  if(timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
+  if(timeStepCalculation == TsData::ERRORESTIMATION && it == 1) {
     this->timeState->setDtMin(dt * data->getCflMinOverCfl0());
+  } 
 
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
@@ -381,6 +384,22 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   timer->addTimeStepTime(t0);
 
   return dt;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::getNumParam(int &numParam)
+{
+  if (mmh) mmh->getNumParam(numParam);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::cmdCom(bool *lastIt)
+{
+  if (mmh) mmh->cmdCom(lastIt);
 }
 
 //------------------------------------------------------------------------------
@@ -425,6 +444,42 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t, DistSV
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsDesc<dim>::setMeshSensitivitySolverPositionVector()
+{
+  if(mmh) {
+    mmh->setPositionVector(*Xs);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &dXdSb)
+{
+  if (mmh) {
+    mmh->updateDStep2(*Xs,dXdSb);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::negotiate() 
+{
+  if (mmh)  mmh->negotiate();
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::sendForceSensitivity(DistSVec<double,3> *dFdS) 
+{
+  if (mmh)  mmh->sendForceSensitivity(dFdS);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 {
   if (!mmh) return;
@@ -451,9 +506,10 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if (mmh || hth) 
+  if (mmh || hth) { 
     bcData->update(*X);
-
+  }
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -553,11 +609,12 @@ template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
                                     DistSVec<double,dim> &U)
 {
-  if (it == data->maxIts)
+  if (it == data->maxIts) {
     *lastIt = true;
-  else
+  } else if (!ioData.sa.fsiFlag) {
     monitorInitialState(it, U);
-  
+  }
+ 
   output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
   timer->setSetupTime();
@@ -567,10 +624,11 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
 
-    if (wallRecType==BcsWallData::CONSTANT)
+    if (wallRecType==BcsWallData::CONSTANT) {
       output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    else //wallRecType == EXACT_RIEMANN
+    } else { //wallRecType == EXACT_RIEMANN
       output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    }
 
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -595,8 +653,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 {
 
   com->globalSum(1, &interruptCode);
-  if (interruptCode)
+  if (interruptCode) {
     *lastIt = true;
+  }
 
   double cpu = timer->getRunTime();
   double res = data->residual / restart->residual;
@@ -628,10 +687,11 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
 
     timer->setRunTime();
-    if (com->getMaxVerbose() >= 2)
+    if (com->getMaxVerbose() >= 2) {
       timer->print(domain->getStrTimer());
+    }
 
-    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_) {
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && ioData.problem.alltype != ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
       output->closeAsciiFiles();
     }
   }
@@ -678,6 +738,25 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
 }
 
+//------------------------------------------------------------------------------
+/*
+template<int dim>
+void TsDesc<dim>::outputPositionSensitivityVectorToDisk(DistSVec<double,dim> &dUds)
+{
+
+  if (mmh)  {
+    int algNum = mmh->getAlgNum();
+    if (algNum == 8)  return;
+  }
+
+  output->writePositionSensitivityVectorToDisk(0, 0.0, *dXds);
+
+  timer->setRunTime();
+  if (com->getMaxVerbose() >= 2)
+    timer->print(domain->getStrTimer());
+
+}
+*/
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -778,8 +857,6 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 template<int dim>
 void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
-
-  //com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
 
   if (!problemType[ProblemData::UNSTEADY]) {
     double trhs = timer->getTimeSyncro();
