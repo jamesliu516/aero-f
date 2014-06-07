@@ -4942,11 +4942,18 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
   //if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
   const Connectivity &Node2Node = *getNodeToNode();
   
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   for(int i=0; i<nodes.size(); i++) {
     poll[i][0] = poll[i][1] = poll[i][2] = poll[i][3] = false;
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
-
+/*
+    if(locToGlobNodeMap[i]+1==349859) {
+      fprintf(stderr,"rank = %d, i = %d.\n", rank, i);      
+    }
+*/
     if(!swept){ //fluidId should not change.
       if(!occluded && fluidId[i]!=LSS.numOfFluids()) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
         poll[i][fluidId[i]] = true;
@@ -4960,7 +4967,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
     }
 
     int caught = 0;
-    if(locToGlobNodeMap[i]+1==416729)
+    if(locToGlobNodeMap[i]+1==349859)
       caught = 1;
 
     int myId = -1;
@@ -4972,7 +4979,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
         continue;
 
       if(caught)
-        fprintf(stderr,"Sub %d, Nei of 416729 (myId = %d): %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
+        fprintf(stderr,"Sub %d, Nei of 349859 (myId = %d): %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
                 globSubNum, myId, locToGlobNodeMap[iNei]+1, fluidId[iNei], LSS.isOccluded(0.0,iNei), LSS.isSwept(0.0,iNei), (int)LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)));
 
       if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)))
@@ -5001,7 +5008,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
 
 
     if(caught)
-      fprintf(stderr,"Sub %d, 416729, myId = %d, consistent = %d, poll = %d %d %d %d\n",
+      fprintf(stderr,"Sub %d, 349859, myId = %d, consistent = %d, poll = %d %d %d %d\n",
               globSubNum, myId, consistent, poll[i][0], poll[i][1], poll[i][2], poll[i][3]);
 
   }
