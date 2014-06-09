@@ -4,7 +4,8 @@ template <class Scalar,int dim>
 MultiGridSpaceOperator<Scalar,dim>::
 MultiGridSpaceOperator(IoData& ioData,Domain* domain, 
                        SpaceOperator<dim>* spo,MultiGridKernel<Scalar>* pKernel,
-                       SpaceOperator<dim>* spo1) : pKernel(pKernel) {
+                       SpaceOperator<dim>* spo1,
+                       SpaceOperator<dim>* spo2) : pKernel(pKernel) {
 
   nLevels = pKernel->numLevels();
 
@@ -12,6 +13,9 @@ MultiGridSpaceOperator(IoData& ioData,Domain* domain,
   BcFcn* bcFcn1 = spo->getBcFcn();
   if (spo1)
     bcFcn1 = spo1->getBcFcn();
+  BcFcn* bcFcn2 = spo->getBcFcn();
+  if (spo2)
+    bcFcn2 = spo2->getBcFcn();
   for (int i = 1; i < nLevels; ++i) {
 
     myOperators[i] = 
@@ -33,6 +37,13 @@ MultiGridSpaceOperator(IoData& ioData,Domain* domain,
   else {
     fluxFcn1 = fluxFcn;
     fet1 = fet;
+  }
+
+  if (spo2)  {
+
+    fluxFcn2 = spo2->getFluxFcn();
+    fet2 = spo2->getFemEquationTerm();
+    
   }
 
   varFcn = spo->getVarFcn();
@@ -112,8 +123,22 @@ computeJacobian(int lvl, MultiGridDistSVec<Scalar,dim>& U,
                 MultiGridDistSVec<Scalar,dim>& V,
                 MultiGridMvpMatrix<Scalar,neq>& mvp) {
 
+
   myOperators[lvl]->computeJacobian(U(lvl), V(lvl),
-                                      fluxFcn1, fet1,mvp(lvl));
+				    fluxFcn1, NULL,/*fet1,*/mvp(lvl));
+
+  myOperators[lvl]->applyBCsToJacobian(U(lvl),mvp(lvl));
+}
+
+template <class Scalar,int dim> 
+template <int neq>
+void MultiGridSpaceOperator<Scalar,dim>::
+computeTurbulentJacobian(int lvl, MultiGridDistSVec<Scalar,dim>& U,
+			 MultiGridDistSVec<Scalar,dim>& V,
+			 MultiGridMvpMatrix<Scalar,neq>& mvp) {
+
+  myOperators[lvl]->computeJacobian(U(lvl), V(lvl),
+				    fluxFcn2, NULL/*fet2*/,mvp(lvl));
 
   myOperators[lvl]->applyBCsToJacobian(U(lvl),mvp(lvl));
 }
@@ -160,6 +185,11 @@ template void MultiGridSpaceOperator<double,dim>:: \
 			 MultiGridDistSVec<double,dim>&, MultiGridMvpMatrix<double,neq>&, \
 			 DistMultiGridLevelSetStructure*);
 
+#define INST_HELPER2(dim,neq) \
+template void MultiGridSpaceOperator<double,dim>:: \
+ computeTurbulentJacobian(int level, MultiGridDistSVec<double,dim>&,	\
+MultiGridDistSVec<double,dim>&, MultiGridMvpMatrix<double,neq>&);
+
 INST_HELPER(5,5);
 INST_HELPER(6,6);
 INST_HELPER(7,7);
@@ -167,3 +197,6 @@ INST_HELPER(7,7);
 INST_HELPER(6,5);
 INST_HELPER(7,5);
 
+
+INST_HELPER2(6,1);
+INST_HELPER2(7,2);

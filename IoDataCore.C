@@ -83,6 +83,8 @@ InputData::InputData()
   decomposition = "";
   cpumap = "";
   match = "";
+  embmeshmatch = "";
+  embsurfmatch = "";
   d2wall = "";
   perturbed = "";
   solutions = "";
@@ -132,7 +134,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 36, father);
+  ClassAssigner *ca = new ClassAssigner(name, 38, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -140,6 +142,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Decomposition", this, &InputData::decomposition);
   new ClassStr<InputData>(ca, "CpuMap", this, &InputData::cpumap);
   new ClassStr<InputData>(ca, "Matcher", this, &InputData::match);
+  new ClassStr<InputData>(ca, "EmbeddedMeshMatcher", this, &InputData::embmeshmatch);
+  new ClassStr<InputData>(ca, "EmbeddedSurfaceMatcher", this, &InputData::embsurfmatch);
   new ClassStr<InputData>(ca, "WallDistance", this, &InputData::d2wall);
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
@@ -712,7 +716,6 @@ ProblemData::ProblemData()
 
   test = REGULAR;
   verbose = 4;
-
 }
 
 //------------------------------------------------------------------------------
@@ -723,7 +726,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 35,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 36,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -736,7 +739,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34);
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -2254,6 +2257,7 @@ SchemeData::SchemeData(int af) : allowsFlux(af)
   xirho = 1.0;
   xip = 1.0;
 
+  vel_fac = sqrt(5.0);
 }
 
 //------------------------------------------------------------------------------
@@ -2308,6 +2312,7 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
   
   new ClassDouble<SchemeData>(ca, "XiRho", this, &SchemeData::xirho);
   new ClassDouble<SchemeData>(ca, "XiP", this, &SchemeData::xip);
+  new ClassDouble<SchemeData>(ca, "VelFac", this, &SchemeData::vel_fac);
 
   fluxMap.setup("FluxMap",ca);
 }
@@ -2634,9 +2639,15 @@ MultiGridData::MultiGridData()
 
   restrictMethod = VOLUME_WEIGHTED;
   addViscousTerms = 0;
+  addTurbulenceTerms = 0;
   coarseningRatio = TWOTOONE;
 
   agglomerationFile = "";
+
+  turbRelaxCutoff = 1.0e10;
+
+  densityMin = 0.0;
+  densityMax = 1e20;
 }
 
 //------------------------------------------------------------------------------
@@ -2667,6 +2678,11 @@ MultiGridData::*>(&MultiGridData::restrictMethod), 2,
 MultiGridData::*>(&MultiGridData::addViscousTerms), 2,
        "No",0,"Yes", 1);
   
+  new ClassToken<MultiGridData>(ca, "AddTurbulenceTerms", this,
+       reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::addTurbulenceTerms), 2,
+       "No",0,"Yes", 1);
+
   new ClassToken<MultiGridData>(ca, "UseGMRESAcceleration", this,
        reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::useGMRESAcceleration), 2,
@@ -2686,6 +2702,15 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
   new ClassDouble<MultiGridData>(ca, "RestrictRelaxFactor",this,
 &MultiGridData::restrict_relax_factor);
   
+  new ClassDouble<MultiGridData>(ca, "TurbulenceRelaxationCutoff",this,
+&MultiGridData::turbRelaxCutoff);
+
+  new ClassDouble<MultiGridData>(ca, "DensityMin",this,
+				 &MultiGridData::densityMin);
+
+  new ClassDouble<MultiGridData>(ca, "DensityMax",this,
+				 &MultiGridData::densityMax);
+
   fixes.setup("Fixes", ca);
 
   new ClassStr<MultiGridData>
@@ -2768,8 +2793,7 @@ void KspFluidData::setup(const char *name, ClassAssigner *father)
 LineSearchData::LineSearchData()
 {
 
-  type = NONE;
-  maxIts = 1;
+  maxIts = 0;
   rho = 0.5;
   c1 = 0.25;
 
@@ -2780,13 +2804,11 @@ LineSearchData::LineSearchData()
 void LineSearchData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
-  new ClassToken<LineSearchData>(ca, "Type", this,
-                          reinterpret_cast<int LineSearchData::*>(&LineSearchData::type), 2, "None", 0, "Backtracking", 1);
 
   new ClassInt<LineSearchData>(ca, "MaxIts", this, &LineSearchData::maxIts);
-  new ClassDouble<LineSearchData>(ca, "SufficientDecrease", this, &LineSearchData::c1);
+  new ClassDouble<LineSearchData>(ca, "SufficientDecreaseFactor", this, &LineSearchData::c1);
   new ClassDouble<LineSearchData>(ca, "ContractionFactor", this, &LineSearchData::rho);
 }
 //------------------------------------------------------------------------------
@@ -3133,12 +3155,14 @@ SensitivityAnalysis::SensitivityAnalysis()
   method  = DIRECT;
   scFlag = ANALYTICAL;
   eps = 0.00001;
+  sensFSI  = OFF_SENSITIVITYFSI;
   sensMesh = OFF_SENSITIVITYMESH;
   sensMach = OFF_SENSITIVITYMACH;
   sensAlpha = OFF_SENSITIVITYALPHA;
   sensBeta = OFF_SENSITIVITYBETA;
   si = 0;
   sf = -1;
+  fsiFlag = false;
 
   // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
@@ -3165,6 +3189,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensFSI), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
@@ -3468,14 +3493,15 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 6,
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 7,
      "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4,
-     "AcousticBeam", 5);
+     "AcousticBeam", 5, "Spiraling", 6);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
 
   hv.setup("Heaving", ca);
+  sp.setup("Spiraling", ca);
   pt.setup("Pitching", ca);
   vel.setup("Velocity",ca);
   df.setup("Deforming", ca);
@@ -3514,6 +3540,33 @@ void HeavingData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+SpiralingData::SpiralingData()
+{
+
+  domain = VOLUME;
+  xL = 1.0;
+  x0 = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SpiralingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassToken<SpiralingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int SpiralingData::*>(&SpiralingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassDouble<SpiralingData>(ca, "CableLength", this, &SpiralingData::xL);
+  new ClassDouble<SpiralingData>(ca, "X0", this, &SpiralingData::x0);
+
+}
+
+//------------------------------------------------------------------------------
 PitchingData::PitchingData()
 {
 
@@ -4550,6 +4603,7 @@ void IoData::resetInputValues()
     problem.type[ProblemData::ACCELERATED] = true;
 
   if (problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
+      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_ ||
@@ -4590,12 +4644,20 @@ void IoData::resetInputValues()
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) 
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) 
   {
 
     //
     // Check that the code is running within the "correct" limits
     //
+
+    if(sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI && sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
+    {
+      sa.sensMesh = SensitivityAnalysis::OFF_SENSITIVITYMESH;
+      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.SensitivityMesh has been turned off -----\n");
+    } 
 
     if (sa.method == SensitivityAnalysis::ADJOINT)
     {
@@ -4815,7 +4877,7 @@ void IoData::resetInputValues()
     schemes.bc.type = BoundarySchemeData::STEGER_WARMING;
 
 
-  if (ts.implicit.newton.lineSearch.type == LineSearchData::BACKTRACKING) {
+  if (ts.implicit.newton.lineSearch.maxIts > 0) {
     if (ts.implicit.newton.lineSearch.rho <= 0 || ts.implicit.newton.lineSearch.rho >= 1){
       com->fprintf(stderr, "*** Warning: incorrect value for contraction factor in line-search: setting it to 0.5 \n");
       ts.implicit.newton.lineSearch.rho = 0.5;
@@ -5553,6 +5615,10 @@ void IoData:: nonDimensionalizeForcedMotion(){
   forced.hv.ax /= ref.rv.length;
   forced.hv.ay /= ref.rv.length;
   forced.hv.az /= ref.rv.length;
+
+  //spiraling
+  forced.sp.xL /= ref.rv.length;
+  forced.sp.x0 /= ref.rv.length;
 
   //pitching
   forced.pt.x11 /= ref.rv.length;

@@ -154,3 +154,73 @@ CylindricalBubble(IoData& iod,double x, double y, double z,
   exit(-1);
 #endif
 }
+
+void ExactSolution::
+AcousticTwoFluid(IoData& iod,double x, double y, double z,
+		 double t, double* V, double* phi, int& fid) {
+
+
+  double alpha1 = 3.017303450887337;
+  double alpha2 = 4.920327228498049;
+  double H = 1.0;
+  double omega = 1462.0641776748855;
+  double k = 2.0*3.14159265358979323846;
+  double rhof1 = 10,rhof2 = 1.0;
+  double c1 = sqrt(4.4*1e5/rhof1);
+  double c2 = sqrt(1.4*1e5/rhof2);
+  double a = 0.5;
+ 
+  for (int i = 0; i < 5; ++i)
+    V[i] = 0.0;
+
+  float f = cos(k*x - omega*t*iod.ref.rv.time);
+  float fs = sin(k*x - omega*t*iod.ref.rv.time);
+  //float A2overA1 = -rhof2/rhof1 *alpha1/alpha2* sinh(alpha1*a)/sinh(alpha2*(H-a));
+  float A2overA1 = -rhof2/rhof1 *alpha1/alpha2* sin(alpha1*a)/sinh(alpha2*(H-a));
+
+  float A1 = 0.1;
+  float A2 = A1*A2overA1;
+
+  std::cout.precision(15);
+
+  //std::cout << (omega*omega)/(c1*c1) << " " << k*k+alpha1*alpha1 << std::endl;
+  //std::cout << (omega*omega)/(c2*c2) << " " << k*k-alpha2*alpha2 << std::endl;
+
+  if (y < a) {
+    /*
+    double u = k*f/(rhof1*omega)*A1*cosh(alpha1*y) / iod.ref.rv.velocity;
+    double v = A1*fs*alpha1*sinh(alpha1*y)/(rhof1*omega) / iod.ref.rv.velocity;
+    double p = A1*cosh(alpha1*y)*f / iod.ref.rv.pressure + iod.bc.inlet.pressure;
+    */
+
+    double u = -k*f/(rhof1*omega)*A1*cos(alpha1*y) / iod.ref.rv.velocity;
+    double v = A1*fs*alpha1*sin(alpha1*y)/(rhof1*omega) / iod.ref.rv.velocity;
+    double p = -A1*cos(alpha1*y)*f / iod.ref.rv.pressure + iod.bc.inlet.pressure;
+    
+    V[0] = pow(p/(1.0e5/iod.ref.rv.pressure),(1.0/4.4))*(10.0 / iod.ref.rv.density);
+    V[1] = u;
+    V[2] = v;
+    V[3] = 0.0; 
+    V[4] = p;
+  } else {
+    
+    double u = k*f/(rhof2*omega)*A2*cosh(alpha2*(H-y)) / iod.ref.rv.velocity;
+    double v = -A2*fs*alpha2*sinh(alpha2*(H-y))/(rhof2*omega) / iod.ref.rv.velocity;
+    double p = A2*cosh(alpha2*(H-y))*f / iod.ref.rv.pressure + iod.bc.inlet.pressure;
+    /*
+    double u = k*f/(rhof2*omega)*A2*cosh(alpha2*(H-y)) / iod.ref.rv.velocity;
+    double v = -A2*fs*alpha2*sinh(alpha2*(H-y))/(rhof2*omega) / iod.ref.rv.velocity;
+    double p = A2*cosh(alpha2*(H-y))*f / iod.ref.rv.pressure + iod.bc.inlet.pressure;
+    */
+    V[0] = pow(p/(1.0e5/iod.ref.rv.pressure),(1.0/1.4))*(1.0 / iod.ref.rv.density);
+    V[1] = u;
+    V[2] = v;
+    V[3] = 0.0;
+    V[4] = p;
+  }
+
+  *phi = y-a;
+
+  fid = (y > a);
+
+}

@@ -346,6 +346,8 @@ void ProgrammedBurn::setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U)
 		      B.pgData->cjDensity*B.pgData->cjEnergy+ 
 		      0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
 	*/
+//	std::cout << "[ x = " << (*nodeSet0)[i][0] << " ]: ( " << U[i][0] <<
+//	    " , " << U[i][1] <<  " , " << U[i][4] << " )" << std::endl;
 	fluidIds[i] = B.pgData->burnedEOS;
       }
       if (fluidIds[i] == B.pgData->unburnedEOS)

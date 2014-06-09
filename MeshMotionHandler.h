@@ -35,6 +35,7 @@ protected:
   DistVec<double> Pin;
   DistSVec<double,3> X0;
   DistSVec<double,3> dX;
+  DistSVec<double,3> dXds;
 
   Domain *domain;
   Communicator *com;
@@ -44,11 +45,17 @@ public:
   MeshMotionHandler(IoData &, Domain *);
   virtual ~MeshMotionHandler() {}
 
+  virtual void sendForceSensitivity(DistSVec<double,3> *) {} 
+  virtual void cmdCom(bool *) {}
+  virtual void getNumParam(int &) {}
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0) {return 0.0;} 
   virtual double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;}
+  virtual void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &) {}
+  virtual void setPositionVector(DistSVec<double,3> &) {}
   virtual void storeFluidSuggestedTimestep(double dtf) {dtf0 = dtf;}
   virtual int    structureSubcycling() {return 0;}
+  virtual void negotiate() {}
 
   template<int dim>
   void computeInterfaceWork(double, PostOperator<dim>*, DistSVec<double,3>&, 
@@ -137,6 +144,7 @@ protected:
   StructExc *strExc;
 
   MeshMotionSolver *mms;
+  MeshMotionSolver *mms1;
   char *posFile;
 
 public:
@@ -159,10 +167,16 @@ public:
                                DistVec<int> * = 0);
 
   int getModalMotion(DistSVec<double,3> &);
+  void negotiate();
 
+  void sendForceSensitivity(DistSVec<double,3> *); 
+  void cmdCom(bool *);
+  void getNumParam(int &numParam);
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &);
+  void setPositionVector(DistSVec<double,3> &X);
   int getAlgNum(); 
 
 };
@@ -278,6 +292,32 @@ public:
 
 //------------------------------------------------------------------------------
 
+class SpiralingMeshMotionHandler : public MeshMotionHandler {
+
+  double dt;
+  double omega;
+
+  double delta[3];
+
+  MeshMotionSolver *mms;
+
+public:
+
+  SpiralingMeshMotionHandler(IoData &, Domain *);
+  ~SpiralingMeshMotionHandler();
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  DistSVec<double,3> getModes();
+
+  void setup(DistSVec<double, 3> &X);
+
+};
+
+//------------------------------------------------------------------------------
+
 class AccForcedMeshMotionHandler : public DeformingMeshMotionHandler, 
 				   public RigidMeshMotionHandler {
 
@@ -352,12 +392,13 @@ public:
   void step1ForC0XFEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   void step1ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step2ForPP(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   int structureSubcycling() {return dynNodalTransfer->structSubcycling();}
 
-  int getAlgNum()  { return 0; }
+  int getAlgNum()  { return dynNodalTransfer->getAlgorithmNumber(); }
 
 };
 
@@ -379,7 +420,7 @@ protected:
 
 public:
 
-  EmbeddedALEMeshMotionHandler(IoData &, Domain *, DistLevelSetStructure *);
+  EmbeddedALEMeshMotionHandler(IoData &, Domain *, MatchNodeSet **, DistLevelSetStructure *);
   ~EmbeddedALEMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);

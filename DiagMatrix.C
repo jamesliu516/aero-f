@@ -71,11 +71,11 @@ void DiagMat<Scalar,dim>::invert()
   else if (type == DIAGONAL) {
     for (int i=0; i<n; ++i) {
       if (nodeType && nodeType[i] != BC_INTERNAL)
-	for (int k=0; k<dim; ++k)
-	  a[i][k*dim + k] = 0.0;
+        for (int k=0; k<dim; ++k)
+          a[i][k*dim + k] = 0.0;
       else
-	for (int k=0; k<dim; ++k)
-	  a[i][k*dim + k] = 1.0 / a[i][k*dim + k];
+        for (int k=0; k<dim; ++k)
+          a[i][k*dim + k] = 1.0 / a[i][k*dim + k];
     }
   }
 

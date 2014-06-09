@@ -102,7 +102,9 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_){
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_){
     optFlag = 1;
     Xsa = new DistSVec<double,3>(domain->getNodeDistInfo());
     dXsa = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -500,7 +502,7 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
 
   data.config += 1;
     
-  //ctrlVol has the control volumes of Xnp1 
+  //ctrlVol has the control volumes of Xnp1
   domain->computeControlVolumes(lscale, X, ctrlVol);
 
   //Xdot

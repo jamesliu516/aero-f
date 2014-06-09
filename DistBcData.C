@@ -26,7 +26,9 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
   this->boundaryStateHH = 0;
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
     this->dXdot = new DistSVec<double,3>(nodeDistInfo);
     this->dTemp = new DistVec<double>(nodeDistInfo);
     this->dUface = new DistSVec<double,dim>(faceDistInfo);
@@ -73,7 +75,9 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 #pragma omp parallel for
   for (int iSub=0; iSub<this->numLocSub; ++iSub)
 // Included (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+        ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
           subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
@@ -170,7 +174,9 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
     (*dXdot) = 0.0;
     (*dTemp) = 0.0;
     (*dUface) = 0.0;
@@ -332,6 +338,9 @@ void DistBcData<dim>::update(DistSVec<double,3> &X)  {
 #if defined(STRONG_INLET_BC)
     this->subDomain[iSub]->setNodeBcValue(Vin, this->Unode(iSub));
 #endif
+#if defined(STRONG_FARFIELD_BC)
+    this->subDomain[iSub]->setNodeBcValue2(this->Uin, this->Unode(iSub));
+#endif
     this->subDomain[iSub]->computeFaceBcValue(this->Unode(iSub), this->Uface(iSub));
   }
   if ( this->gravity > 0.0 )
@@ -410,6 +419,9 @@ void DistBcData<dim>::updateSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, do
     //if(count) { fprintf(stderr," In DistBcData<dim>::update(): subd %3d has %6d 'rotating' nodes\n",subDomain[iSub]->getGlobSubNum(),count); fflush(stderr); }
 #if defined(STRONG_INLET_BC)
     this->subDomain[iSub]->setNodeBcValue(dVin, (*dUnode)(iSub));
+#endif
+#if defined(STRONG_FARFIELD_BC)
+    this->subDomain[iSub]->setNodeBcValue2(this->dUin, (*dUnode)(iSub));
 #endif
     this->subDomain[iSub]->computeFaceBcValue((*dUnode)(iSub), (*dUface)(iSub));
   }
@@ -1850,7 +1862,9 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
     vec2Pat = new CommPattern<double>(dom->getSubTopo(), this->com, CommPattern<double>::CopyOnSend);
 
 // Included (MB)
-    if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+    if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+        iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
       dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
     }
     else {
@@ -2054,7 +2068,9 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
   vec3Pat = dom->getVec3DPat();
 
 // Included (MB)
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
     dtmp = new DistSVec<double,3>(dom->getNodeDistInfo());
   }
   else {
