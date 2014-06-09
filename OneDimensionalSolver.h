@@ -37,6 +37,7 @@
 //
 //------------------------------------------------------------------------------
 #include "Domain.h"
+#include "SubDomain.h"
 #include "Vector.h"
 #include "FluidSelector.h"
 #include "IoData.h"

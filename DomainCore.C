@@ -925,9 +925,10 @@ void Domain::computeNormalsGCL1(DistSVec<double,3> &Xn, DistSVec<double,3> &Xnp1
   edgePat->exchange();
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub)
+  for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub),
 				edgeNormVel.subData(iSub));
+  }
 }
 
 //------------------------------------------------------------------------------

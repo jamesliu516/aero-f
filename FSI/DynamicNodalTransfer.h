@@ -57,6 +57,8 @@ class EmbeddedStructure {
   double (*Xd)[3]; //deformed node coordinates
   double (*dXmax)[3]; //maximum deformation
 
+  double cableLen, xbeg;
+
   double t0; // starting time.
   int it;
 
@@ -187,6 +189,8 @@ public:
 //          structure.getEmbeddedMesh(n1,xyz,n2,abc); 
 //          fprintf(stderr,"DY %d %e %e %e\n", 2, xyz[1][0], xyz[1][1], xyz[1][2]);
 //          fprintf(stderr,"DY %d %e %e %e\n", 2, structure.X[1][0], structure.X[1][1], structure.X[1][2]);}
+
+	bool isCoupled() const { return structure.coupled; }
 
 };
 

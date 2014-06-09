@@ -584,14 +584,28 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     double volume = elems[i].computeControlVolumes(X, ctrlVol);
 
     if (volume <= 0.0) {
-      fprintf(stderr,"Element %i has a negative volume…\n",i+1);
+      fprintf(stderr,"Element %i has a negative volume\n",locToGlobElemMap[i]+1);
       ++ierr;
+      ++numInvElem;
+      fprintf(stderr,"ierr has been increased to %i \n",ierr);
       if (numInvElem)
-	elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
-				     locToGlobElemMap, nodes, X);
+      elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
+                                   locToGlobElemMap, nodes, X);
     }
   }
+ 
+  if(ierr > 0) { 
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) {
+      cerr << "Error: cannot open file" << output << endl;
+      exit(-1);
+    } 
   
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
   return ierr;
 
 }
@@ -3467,7 +3481,7 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
       dofType[i][l] = BC_FREE;
   }
 
-  // Step 2. Set appropriate matched bc's 
+  // Step 2. Set appropriate fixed bc's 
   for (int i=0;i<faces.size(); i++) { // Loop over faces
     bool isSliding = false;
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
@@ -3480,10 +3494,10 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
       case(BC_SYMMETRY):
         if(!isSliding)
           for(int j=0; j<faces[i].numNodes();j++)
-            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_MATCHED;
+            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
 	else
           for(int j=0; j<faces[i].numNodes();j++)
-            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = (dofType[faces[i][j]][l] == BC_MATCHED) ? BC_MATCHED : BC_MATCHEDSLIDE;
+            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = (dofType[faces[i][j]][l] == BC_FIXED) ? BC_FIXED : BC_MATCHEDSLIDE;
 	break;
       case(BC_ISOTHERMAL_WALL_FIXED):
       case(BC_ADIABATIC_WALL_FIXED):
@@ -3491,12 +3505,20 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
       case(BC_INLET_FIXED):
       case(BC_SLIP_WALL_FIXED):
         for(int j=0; j<faces[i].numNodes();j++)
-          for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_MATCHED;
+          for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
         break;
     }
   }
 
-  // Step 3. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
+  // Step 3. Take into account the matched nodes
+  if(matchNodes) {
+    for(int i=0;i<matchNodes->size();i++) {
+      int inode = matchNodes->subMatchNode(i);
+      for(int l=0; l<3; l++) dofType[inode][l] = BC_MATCHED;
+    }
+  }
+
+  // Step 4. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<int> nInfo = ntP.getSendBuffer(sndChannel[iSub]);
     int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);

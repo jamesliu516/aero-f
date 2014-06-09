@@ -42,9 +42,16 @@ class MultiGridKernel {
 		bool = false);
 
   template<class Scalar2, int dim>
+  void ExtrapolateProlongation(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
+			       DistSVec<Scalar2,dim>& coarse,	      
+			       class DistLevelSetStructure* coarselss = NULL,
+			       class DistLevelSetStructure* finelss = NULL);
+
+  template<class Scalar2, int dim>
   void Prolong(int coarseLvl, DistSVec<Scalar2,dim>& coarseOld, 
                DistSVec<Scalar2,dim>& coarse, DistSVec<Scalar2,dim>& fine,
-               double relax, 
+	       DistSVec<Scalar2,dim>& fine_ref,
+               double relax,VarFcn* varFcn, 
 	       class DistLevelSetStructure* coarselss = NULL,
 	       class DistLevelSetStructure* finelss = NULL);
 
@@ -107,5 +114,7 @@ class MultiGridKernel {
   std::set<int>** fixLocations;
 
   const char* agglomerationFile;
+
+  double turbRelaxCutoff;
  
 };

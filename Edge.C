@@ -21,6 +21,7 @@ using std::min;
 #include <GenMatrix.h>
 #include <LowMachPrec.h>
 #include "LevelSet/LevelSetStructure.h"
+#include "LevelSet/MultiGridLevelSetStructure.h"
 #include "FluidSelector.h"
 #include "DenseMatrixOps.h"
 #include "FemEquationTermDesc.h"
@@ -520,7 +521,7 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     mu     *= ooreynolds_mu;
     lambda *= ooreynolds_mu;
     kappa  *= ooreynolds_mu;
-
+    
 /*    Fuhat = (lambda+2.0*mu)*(Uj-Ui)/length;
     Fvhat = mu*(vj-vi)/length;
     
@@ -535,6 +536,9 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
       fluxes[j][k] -= flux[k];
     }
 */
+    bool write = false;//(length < 1.0e-3 && cnt < 4);
+    if (write)
+      ++cnt;
 
     bool write = false;//(length < 1.0e-3 && cnt < 4);
     if (write)
@@ -838,6 +842,498 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
  
   return 0;
 }
+
+template<int dim>
+int EdgeSet::
+computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+			       VarFcn* varFcn,
+			       FemEquationTerm *fet,
+			       GeoState& geoState, SVec<double,3>& X,
+			       SVec<double,dim>& V,
+			       SVec<double,dim> &dX,
+			       SVec<double,dim> &dY,
+			       SVec<double,dim> &dZ,
+			       SVec<double,dim>& fluxes,
+                               LevelSetStructure* lss) {
+
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  double length;
+
+  int ierr = 0;
+  int l;
+
+  double Fuhat;
+  Vec3D Fvhat;
+  double Tcg,Tj,Ti;
+  double Tg[dim];
+  double mu,lambda,kappa;
+  double flux[dim];
+  flux[0] = 0.0;
+  double fluxl[5][3];
+  fluxl[0][0] = fluxl[0][1] = fluxl[0][2] = 0.0;
+
+  FemEquationTermNS* ns = dynamic_cast<FemEquationTermNS*>(fet);
+  FemEquationTermSA* sa = dynamic_cast<FemEquationTermSA*>(fet);
+
+  NavierStokesTerm* nsterm = NULL; 
+  if (ns)
+    nsterm = dynamic_cast<NavierStokesTerm*>(ns);
+  else if (sa)
+    nsterm = dynamic_cast<NavierStokesTerm*>(sa);
+  else  {
+
+    fprintf(stderr,"Error - Cannot construct a NavierStokesTerm in "
+                        "EdgeSet::computeThinLayerViscousFiniteVolumeTerm");
+  }
+
+  double ooreynolds_mu,mutilde,mut,lambdat,kappat;
+  if (ns) ooreynolds_mu = ns->get_ooreynolds_mu(); 
+  if (sa) ooreynolds_mu = sa->get_ooreynolds_mu(); 
+  
+  int cnt = 0;
+  double r[3][dim];
+  double Vmid[dim];
+  memset(r,0,sizeof(r));
+  for (int l=0; l<numSampledEdges; ++l) {    
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    // Compute the interal terms
+    double area = normal[l].norm();
+  
+    //Vec3D xhat = normal[l];
+    //xhat /= area;
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+    if (length < 1.0e-18 || area < 1.0e-18)
+      continue;
+
+    Ti = varFcn->computeTemperature(V[i]);
+    Tj = varFcn->computeTemperature(V[j]);
+    Tcg = 0.5*(Ti+Tj);
+    
+    for (int k = 0; k < dim; ++k) {
+      Vmid[k] = 0.5*(V[i][k]+V[j][k]);
+    }
+
+    varFcn->computeTemperatureGradient(Vmid,Tg);
+
+    mu     = nsterm->getViscoFcn()->compute_mu(Tcg);
+    lambda = nsterm->getViscoFcn()->compute_lambda(Tcg,mu);
+    kappa  = nsterm->getThermalCondFcn()->compute(Tcg);
+    if (sa) {
+
+      int nodeNum[3] = {i,j,i};
+      double* Vl[] = {V[i],V[j],V[i],V[j]};
+      sa->computeTurbulentTransportCoefficients(Vl, nodeNum, X, mu,lambda,
+                 kappa, mutilde, mut, lambdat, kappat); 
+      mu += mut;
+      lambda += lambdat;
+      kappa += kappat;
+    }
+
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
+    kappa  *= ooreynolds_mu;
+
+    Vec3D xhat(dx[0]/length,dx[1]/length,dx[2]/length);
+    double dmid[dim][3];
+    double dudxj[3][3];
+    memset(dmid,0,sizeof(dmid));
+    
+    double dot;
+    if (!lss || (lss->isActive(0.0,i) && lss->isActive(0.0,j))) {
+      for (int k = 0; k < dim; ++k) {
+        dmid[k][0] = 0.5*(dX[i][k] + dX[j][k]);
+        dmid[k][1] = 0.5*(dY[i][k] + dY[j][k]);
+        dmid[k][2] = 0.5*(dZ[i][k] + dZ[j][k]);
+      
+        dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
+        dot -= (V[j][k]-V[i][k])/length;
+      
+        dmid[k][0] -= dot*xhat[0];
+        dmid[k][1] -= dot*xhat[1];
+        dmid[k][2] -= dot*xhat[2];
+      
+        if (k >= 1 && k <= 3) {
+  	  dudxj[k-1][0] = dmid[k][0];
+	  dudxj[k-1][1] = dmid[k][1];
+	  dudxj[k-1][2] = dmid[k][2];	
+        }
+      }
+      double tij[3][3];
+
+      double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
+    
+      tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
+      tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
+      tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
+      tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
+      tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
+      tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
+      tij[1][0] = tij[0][1];
+      tij[2][0] = tij[0][2];
+      tij[2][1] = tij[1][2];
+
+      double dTdxj[3] = {0,0,0};
+      for (int m = 0; m < 3; ++m) {
+
+        for (int k = 0; k < dim; ++k) {
+
+	  dTdxj[m] += Tg[k]*dmid[k][m];
+        }
+      }
+
+      double qj[3] = {-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
+
+      r[0][0] = 0.0;
+      r[0][1] = tij[0][0];
+      r[0][2] = tij[1][0];
+      r[0][3] = tij[2][0];
+      r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
+
+      r[1][0] = 0.0;
+      r[1][1] = tij[0][1];
+      r[1][2] = tij[1][1];
+      r[1][3] = tij[2][1];
+      r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
+
+      r[2][0] = 0.0;
+      r[2][1] = tij[0][2];
+      r[2][2] = tij[1][2];
+      r[2][3] = tij[2][2];
+      r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
+
+      for (int k = 0; k < dim; ++k) {
+
+        double ft = r[0][k]*normal[l][0]+r[1][k]*normal[l][1]+r[2][k]*normal[l][2];
+        fluxes[i][k] -= ft;
+        fluxes[j][k] += ft;
+      }
+    } else if (lss->isActive(0.0,i)) {
+      for (int k = 0; k < dim; ++k) {
+	dmid[k][0] = dX[i][k];
+	dmid[k][1] = dY[i][k];
+	dmid[k][2] = dZ[i][k];
+	
+	dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
+	if (k >= 1 && k <= 3)
+	  dot += 2.0*V[i][k]/length;
+	
+	dmid[k][0] -= dot*xhat[0];
+	dmid[k][1] -= dot*xhat[1];
+	dmid[k][2] -= dot*xhat[2];
+	
+        if (k >= 1 && k <= 3) {
+  	  dudxj[k-1][0] = dmid[k][0];
+	  dudxj[k-1][1] = dmid[k][1];
+	  dudxj[k-1][2] = dmid[k][2];	
+        }
+      }
+      double tij[3][3];
+
+      double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
+    
+      tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
+      tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
+      tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
+      tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
+      tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
+      tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
+      tij[1][0] = tij[0][1];
+      tij[2][0] = tij[0][2];
+      tij[2][1] = tij[1][2];
+
+      double dTdxj[3] = {0,0,0};
+      for (int m = 0; m < 3; ++m) {
+
+        for (int k = 0; k < dim; ++k) {
+
+	  dTdxj[m] += Tg[k]*dmid[k][m];
+        }
+      }
+  
+      double qj[3] = {0,0,0};//{-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
+
+      r[0][0] = 0.0;
+      r[0][1] = tij[0][0];
+      r[0][2] = tij[1][0];
+      r[0][3] = tij[2][0];
+      r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
+
+      r[1][0] = 0.0;
+      r[1][1] = tij[0][1];
+      r[1][2] = tij[1][1];
+      r[1][3] = tij[2][1];
+      r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
+
+      r[2][0] = 0.0;
+      r[2][1] = tij[0][2];
+      r[2][2] = tij[1][2];
+      r[2][3] = tij[2][2];
+      r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
+
+      for (int k = 0; k < dim; ++k) {
+
+        double ft = r[0][k]*normal[l][0]+r[1][k]*normal[l][1]+r[2][k]*normal[l][2];
+        fluxes[i][k] -= ft;
+      }
+    } else if (lss->isActive(0.0,j)) {
+      for (int k = 0; k < dim; ++k) {
+        dmid[k][0] = dX[j][k];
+        dmid[k][1] = dY[j][k];
+        dmid[k][2] = dZ[j][k];
+      
+        dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
+        if (k >= 1 && k <= 3)
+          dot -= 2.0*V[j][k]/length;
+      
+        dmid[k][0] -= dot*xhat[0];
+        dmid[k][1] -= dot*xhat[1];
+        dmid[k][2] -= dot*xhat[2];
+      
+        if (k >= 1 && k <= 3) {
+  	  dudxj[k-1][0] = dmid[k][0];
+	  dudxj[k-1][1] = dmid[k][1];
+	  dudxj[k-1][2] = dmid[k][2];	
+        }
+      }
+      double tij[3][3];
+
+      double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
+    
+      tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
+      tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
+      tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
+      tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
+      tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
+      tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
+      tij[1][0] = tij[0][1];
+      tij[2][0] = tij[0][2];
+      tij[2][1] = tij[1][2];
+
+      double dTdxj[3] = {0,0,0};
+      for (int m = 0; m < 3; ++m) {
+
+        for (int k = 0; k < dim; ++k) {
+
+	  dTdxj[m] += Tg[k]*dmid[k][m];
+        }
+      }
+
+      double qj[3] = {0,0,0};// {-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
+
+      r[0][0] = 0.0;
+      r[0][1] = tij[0][0];
+      r[0][2] = tij[1][0];
+      r[0][3] = tij[2][0];
+      r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
+
+      r[1][0] = 0.0;
+      r[1][1] = tij[0][1];
+      r[1][2] = tij[1][1];
+      r[1][3] = tij[2][1];
+      r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
+
+      r[2][0] = 0.0;
+      r[2][1] = tij[0][2];
+      r[2][2] = tij[1][2];
+      r[2][3] = tij[2][2];
+      r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
+
+      for (int k = 0; k < dim; ++k) {
+
+        double ft = r[0][k]*normal[l][0]+r[1][k]*normal[l][1]+r[2][k]*normal[l][2];
+        fluxes[j][k] += ft;
+      }
+    }
+  }
+
+  return 0;
+}
+/*
+template<int dim>
+int EdgeSet::
+computeJacobianViscousFiniteVolumeTerm(int* locToGlobNodeMap,
+				       VarFcn* varFcn,
+				       FemEquationTerm *fet,
+				       GeoState& geoState, SVec<double,3>& X,
+				       SVec<double,dim>& V,
+				       SVec<double,dim> &dX,
+				       SVec<double,dim> &dY,
+				       SVec<double,dim> &dZ,
+				       SVec<double,dim>& fluxes) {
+
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  double length;
+
+  int ierr = 0;
+  int l;
+
+  double Fuhat;
+  Vec3D Fvhat;
+  double Tcg,Tj,Ti;
+  double Tg[dim];
+  double mu,lambda,kappa;
+  double flux[dim];
+  flux[0] = 0.0;
+  double fluxl[5][3];
+  fluxl[0][0] = fluxl[0][1] = fluxl[0][2] = 0.0;
+
+  FemEquationTermNS* ns = dynamic_cast<FemEquationTermNS*>(fet);
+  FemEquationTermSA* sa = dynamic_cast<FemEquationTermSA*>(fet);
+
+  NavierStokesTerm* nsterm = NULL; 
+  if (ns)
+    nsterm = dynamic_cast<NavierStokesTerm*>(ns);
+  else if (sa)
+    nsterm = dynamic_cast<NavierStokesTerm*>(sa);
+  else  {
+
+    fprintf(stderr,"Error - Cannot construct a NavierStokesTerm in "
+                        "EdgeSet::computeThinLayerViscousFiniteVolumeTerm");
+  }
+
+  double ooreynolds_mu,mutilde,mut,lambdat,kappat;
+  if (ns) ooreynolds_mu = ns->get_ooreynolds_mu(); 
+  if (sa) ooreynolds_mu = sa->get_ooreynolds_mu(); 
+  
+  int cnt = 0;
+  double r[3][dim];
+  double Vmid[dim];
+  for (int l=0; l<numSampledEdges; ++l) {    
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    // Compute the interal terms
+    double area = normal[l].norm();
+  
+    //Vec3D xhat = normal[l];
+    //xhat /= area;
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+    if (length < 1.0e-18 || area < 1.0e-18)
+      continue;
+
+    Ti = varFcn->computeTemperature(V[i]);
+    Tj = varFcn->computeTemperature(V[j]);
+    Tcg = 0.5*(Ti+Tj);
+    
+    for (int k = 0; k < dim; ++k) {
+      Vmid[k] = 0.5*(V[i][k]+V[j][k]);
+    }
+
+    varFcn->computeTemperatureGradient(Vmid,Tg);
+
+    mu     = nsterm->getViscoFcn()->compute_mu(Tcg);
+    lambda = nsterm->getViscoFcn()->compute_lambda(Tcg,mu);
+    kappa  = nsterm->getThermalCondFcn()->compute(Tcg);
+    if (sa) {
+
+      int nodeNum[3] = {i,j,i};
+      double* Vl[] = {V[i],V[j],V[i],V[j]};
+      sa->computeTurbulentTransportCoefficients(Vl, nodeNum, X, mu,lambda,
+                 kappa, mutilde, mut, lambdat, kappat); 
+      mu += mut;
+      lambda += lambdat;
+      kappa += kappat;
+    }
+
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
+    kappa  *= ooreynolds_mu;
+
+    Vec3D xhat(dx[0]/length,dx[1]/length,dx[2]/length);
+
+    double dmid[dim][3];
+    double dudxj[3][3];
+    memset(dmid,0,sizeof(dmid));
+    
+    double dot;
+    for (int k = 0; k < dim; ++k) {
+      dmid[k][0] = 0.5*(dX[k][i] + dX[k][i]);
+      dmid[k][1] = 0.5*(dY[k][i] + dY[k][i]);
+      dmid[k][2] = 0.5*(dZ[k][i] + dZ[k][i]);
+      
+      dot = dmid[k][0]*dx[0]+dmid[k][1]*dx[1]+dmid[k][2]*dx[2];
+      dot -= (V[j][k]-V[i][k])/length;
+      
+      dmid[k][0] -= dx[0];
+      dmid[k][1] -= dx[1];
+      dmid[k][2] -= dx[2];
+      
+      if (k >= 1 && k <= 3) {
+	dudxj[k][0] = dmid[k][0];
+	dudxj[k][1] = dmid[k][1];
+	dudxj[k][2] = dmid[k][2];	
+      }
+    }
+    double tij[3][3];
+
+    double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2]; 
+    
+    tij[0][0] = lambda * div + 2.0 * mu *dudxj[0][0];
+    tij[1][1] = lambda * div + 2.0 * mu *dudxj[1][1];
+    tij[2][2] = lambda * div + 2.0 * mu *dudxj[2][2];
+    tij[0][1] = mu * (dudxj[1][0] + dudxj[0][1]);
+    tij[0][2] = mu * (dudxj[2][0] + dudxj[0][2]);
+    tij[1][2] = mu * (dudxj[2][1] + dudxj[1][2]);
+    tij[1][0] = tij[0][1];
+    tij[2][0] = tij[0][2];
+    tij[2][1] = tij[1][2];
+
+    double dTdxj[3] = {0,0,0};
+    for (int m = 0; m < 3; ++m) {
+
+      for (int k = 0; k < dim; ++k) {
+
+	dTdxj[m] += Tg[k]*dmid[k][m];
+      }
+    }
+
+    double qj[3] = {-kappa*dTdxj[0], -kappa*dTdxj[1], -kappa*dTdxj[2] };
+
+    r[0][0] = 0.0;
+    r[0][1] = tij[0][0];
+    r[0][2] = tij[1][0];
+    r[0][3] = tij[2][0];
+    r[0][4] = Vmid[1] * tij[0][0] + Vmid[2] * tij[1][0] + Vmid[3] * tij[2][0] - qj[0];
+
+    r[1][0] = 0.0;
+    r[1][1] = tij[0][1];
+    r[1][2] = tij[1][1];
+    r[1][3] = tij[2][1];
+    r[1][4] = Vmid[1] * tij[0][1] + Vmid[2] * tij[1][1] + Vmid[3] * tij[2][1] - qj[1]; 
+
+    r[2][0] = 0.0;
+    r[2][1] = tij[0][2];
+    r[2][2] = tij[1][2];
+    r[2][3] = tij[2][2];
+    r[2][4] = Vmid[1] * tij[0][2] + Vmid[2] * tij[1][2] + Vmid[3] * tij[2][2] - qj[2];
+
+    for (int k = 0; k < dim; ++k) {
+
+      double ft = r[k][0]*normal[l][0]+r[k][1]*normal[l][1]+r[k][2]*normal[l][2];
+      fluxes[i][k] -= ft;
+      fluxes[j][k] += ft;
+    }
+    
+  }
+  
+}
+*/
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1180,11 +1676,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	
 	assert(fluidId[i] != fluidId[j]);
 
-//        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
-//                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
+        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
+                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
+
+	if (hasFix) {
+
+	  std::cout << "has fix! " << i << " " << j << " " << dVdx[i][0] << " " << dVdx[j][0] << std::endl;
+	}
 
 
-        bool hasFix = false;
+        hasFix = false;
 	
 	// There are two cases.  In the first case the surrogate interface is the
 	// same for both fluids.  This implies that the edge in question is cut by
@@ -1228,10 +1729,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  s = (-2.0*xdx+sqrt(4.0*xdx*xdx-4.0*length*length*(x0x0-0.5*0.5)))/(2.0*length*length);
 
 	}
-
+*/
 	for (int k=0; k<3; k++)
 	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
-
+/*
 	gradphi[0] = iloc[0]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
 	gradphi[1] = iloc[1]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
 	gradphi[2] = 0.0;//iloc[2]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1] +
@@ -1309,6 +1810,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
           //std::cout << "s = " << s << std::endl;
 	  if (0) {//s < 0.9) {
+	    
 	    for (int k = 0; k < dim; ++k) {
 	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai[k] + 
 		(1.0-betai[k])*Wi[k];
@@ -1489,6 +1991,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   //  THE MAIN EDGE LOOP...
   // ------------------------------------------------
   for (int l=0; l<numEdges; ++l) {
+
+    double area = normal[l].norm();
+
+    if (area < 1e-18) continue; 
 
     int i = ptr[l][0];
     int j = ptr[l][1];
@@ -1809,7 +2315,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           }
         }
 
-        //std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
+        std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
 
 	for (int k=0; k<3; k++)
 	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
@@ -2084,6 +2590,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
   for (int l=0; l<numEdges; ++l) {
 
+    double area = normal[l].norm();
+
+    if (area < 1e-18) continue; 
+
     int i = ptr[l][0];
     int j = ptr[l][1];
     bool intersect = LSS.edgeIntersectsStructure(0,l);
@@ -2180,7 +2690,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-      if (dynamic_cast<class MultiGridLevelSetStructure*>(&LSS) == 0) {
+      if (dynamic_cast<MultiGridLevelSetStructure*>(&LSS) == 0) {
 	for (int k=0; k<dim; ++k) {
 	  fluxes[i][k] += flux[k];
 	  fluxes[j][k] -= flux[k];
@@ -2408,6 +2918,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   //double clip_alpha_max = 1e-1;
 
   for (int l=0; l<numEdges; ++l) {
+
+    double area = normal[l].norm();
+
+    if (area < 1e-18) continue; 
+
     if (!masterFlag[l]) continue; //not a master edge
     int i = ptr[l][0];
     int j = ptr[l][1];
@@ -2685,7 +3200,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], Wi[2*dim], Wj[2*dim];
   double ddPij[dimLS], ddPji[dimLS], Pi[2*dimLS], Pj[2*dimLS];
   double Uni, Unj, Uwi, Uwj;
-  double Phia;
+  double Phia = 0.0;
   double srho1, srho2, srhod;
   double unroe, rroe;
   double uroe;
@@ -3118,6 +3633,10 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
+    double area = normal[l].norm();
+
+    if (area < 1e-18) continue; 
+
     if (fluidId[i]==fluidId[j]) {
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, fluidId[i]);
      } else {
@@ -3535,7 +4054,12 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
-    
+   
+    double area = normal[l].norm();
+
+    if (area < 1e-18) continue; 
+
+ 
     double edgeirey = 0.5*(irey[i]+irey[j]);
     if( !iActive && !jActive ) {
       continue;
@@ -3743,6 +4267,11 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
     bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
+
+    double area = normal[l].norm();
+
+    if (area < 1e-18) continue; 
+
 
     if(!iActive && !jActive) continue; //this edge is inside a solid body!
 

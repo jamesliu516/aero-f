@@ -33,6 +33,7 @@ MultiGridCoupledTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   mgKspSolver = NULL;
   smoothingMatrices = NULL;
 
+  TsDesc<dim>::isMultigridTsDesc = true;
 }
 
 template <int dim>
@@ -136,10 +137,10 @@ smooth0(DistSVec<double,dim>& x,int steps) {
     R(0) = -1.0*this->getCurrentResidual();
     
   }
-  if (i == 0) {
-    this->monitorConvergence(0, x);
-    R(0) = -1.0*this->getCurrentResidual();
-  }
+  //if (i == 0) {
+  //  this->monitorConvergence(0, x);
+  //  R(0) = -1.0*this->getCurrentResidual();
+ // }
   double one = 1.0;
   if (globalIt%10 == 1)  {
     //this->domain->writeVectorToFile("myResidual", globalIt/10, globalIt, R(0), &one);
@@ -186,23 +187,51 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     mgSpaceOp->computeTimeStep(lvl,this->data->cfl*pow(0.75,lvl),
                                V);
  
-    mgSpaceOp->computeResidual(lvl, x, V, res);
-    mgSpaceOp->computeJacobian(lvl, x, V, *mgMvp);
+    //mgSpaceOp->computeResidual(lvl, x, V, res);
+    if (i == 0)
+      mgSpaceOp->computeJacobian(lvl, x, V, *mgMvp);
     R(lvl) = f-res(lvl);
+    //R(lvl) = -1.0*res(lvl);
     if (smoothWithGMRES)
       mgKspSolver->solve(lvl, *mgMvp, R, dx);  
     else {
-      smoothingMatrices->acquire(lvl, *mgMvp);
+      if (i == 0)
+        smoothingMatrices->acquire(lvl, *mgMvp);
       smoothingMatrices->apply(lvl, dx, R); 
     }
     
     x(lvl) += dx(lvl);
+
+    //x(lvl) += 1e-4*R(lvl);
    
+    // char fn[64];
+    // if ( i % 100 == 0) {
+    //   double rnorm = R(lvl).norm();
+      
+    //   int rnk;
+    //   MPI_Comm_rank(MPI_COMM_WORLD, &rnk);
+    
+    //   if (rnk == 0)
+    // 	std::cout << "i = " << i << " r = " << rnorm  << std::endl;
+    //   sprintf(fn, "solutionresf%i_%i", globalIt,i);
+    //   pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+    // 						  f); 
+      
+    //   sprintf(fn, "solutionres%i_%i", globalIt,i);
+    //   pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+    // 						  res(lvl)); 
+    
+    //   sprintf(fn, "solutionV_%i",i);
+    //          pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+    //     						  V(lvl));
+
+    // }
+
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
     pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f,Forig(lvl), this->varFcn,
                                mgSpaceOp->getOperator(lvl));
-    mgSpaceOp->computeResidual(lvl, x, V, R, false);
-    R(lvl) = f-R(lvl);
+    mgSpaceOp->computeResidual(lvl, x, V, res, false);
+    R(lvl) = f-res(lvl);
   }
 }
 
@@ -225,18 +254,18 @@ void MultiGridCoupledTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
     
     this->varFcn->conservativeToPrimitive(U(lvl+1), V(lvl+1));
     //pKernel->fixNegativeValues(lvl+1,V(lvl+1), x(lvl+1), dx(lvl+1), R(lvl+1),Forig(lvl+1), this->varFcn);
-    mgSpaceOp->computeResidual(lvl+1, U, V, F, false);
+    mgSpaceOp->computeResidual(lvl+1, U, V, res, false);
     //pKernel->fixNegativeValues(lvl+1,V(lvl+1), x(lvl+1), dx(lvl+1), F(lvl+1),Forig(lvl+1), this->varFcn);
     if (lvl == 0) {
 
     //  pKernel->getLevel(lvl+1)->writePVTUSolutionFile("myR",R(lvl+1));
     }
     pKernel->applyFixes(lvl+1, R(lvl+1));
-    F(lvl+1) += R(lvl+1)*restrict_relax_factor;
+    F(lvl+1) = res(lvl+1) + R(lvl+1)*restrict_relax_factor;
     for (int i = 0; i < mc; ++i)
       cycle(lvl+1, F(lvl+1), U);
     
-    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), x(lvl), prolong_relax_factor);
+    pKernel->Prolong(lvl+1, Uold(lvl+1), U(lvl+1), x(lvl), x(lvl), prolong_relax_factor, this->varFcn);
   }
   
   if (lvl == 0) 

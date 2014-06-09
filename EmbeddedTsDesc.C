@@ -568,6 +568,32 @@ double EmbeddedTsDesc<dim>::computePositionVector(bool *lastIt, int it, double t
     this->hth->updateStep2(lastIt, it, this->bcData->getTemperatureVector());
   }
 
+
+  // Once we know the time step and the time, if we are doing an exact solution problem,
+  // set up Unm1.  This is not the best place to do this, but oh well.
+  
+  // In the case of an exact solution
+  if (ioData.embed.testCase == 1 && it == 0) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = (*this->X)(iSub)[i];
+	double V[5];
+	ExactSolution::AcousticBeam(ioData,x[0],x[1],x[2],-dt, V);
+
+	this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0);
+	
+      }
+    }
+    this->timeState->setExistsNm1();
+    this->timeState->setDtNm1(dt);
+  }
+
+
   return dt;
 
 }
@@ -746,9 +772,14 @@ void EmbeddedTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int
 
 //------------------------------------------------------------------------------
 
-//template<int dim>
-//void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
-//{}
+template<int dim>
+void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U) 
+{
+  TsDesc<dim>::outputPositionVectorToDisk(U);
+  
+  if(emmh && emmh->getAlgNum() == 1)
+    this->restart->writeStructPosToDisk(this->com->cpuNum(), true, this->distLSS->getStructPosition());
+}
 
 //------------------------------------------------------------------------------
 
@@ -811,6 +842,16 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   double t0 = this->timer->getTime();
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
+
+  
+/*  std::cout << "Current time =  " << (currentTime)*ioData.ref.rv.time << std::endl;
+  ExactSolution::FillPrimitive<&ExactSolution::AcousticBeam,
+    dim>(*this->spaceOp->getCurrentPrimitiveVector(),*this->X,
+	    ioData, currentTime + currentTimeStep,
+	    this->varFcn);
+*/
+
+  //*this->spaceOp->getCurrentPrimitiveVector() *= 0.5;
 
   if(!increasingPressure || recomputeIntersections) {
     for (int i=0; i<numStructNodes; i++) 
@@ -1016,7 +1057,7 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
   MeshMotionHandler *_mmh = 0;
 
   if (ioData.problem.type[ProblemData::AERO]) {
-    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, geoSource.getMatchNodes(), distLSS);
     //check that algorithm number is consistent with simulation in special case RK2-CD
     // if C0 and RK2 then RK2DGCL is needed!
     if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
@@ -1034,7 +1075,7 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
     }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
-    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, geoSource.getMatchNodes(), distLSS);
   }
   else if (ioData.problem.type[ProblemData::ACCELERATED])
     _mmh = new AccMeshMotionHandler(ioData, this->varFcn, this->bcData->getInletPrimitiveState(), this->domain);

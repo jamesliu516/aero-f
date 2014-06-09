@@ -2408,7 +2408,6 @@ int LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
   double rhomin1 = vf_->getVarFcnBase(fluid1)->rhomin;
   double rhomin2 = vf_->getVarFcnBase(fluid2)->rhomin;
  
-
   if (IDi==fluid1) {
 
     // cell i is fluid1

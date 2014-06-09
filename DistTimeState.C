@@ -116,7 +116,9 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
     subTimeState[iSub] = 0;
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
     dIdti = new DistVec<double>(dI);
     dIdtv = new DistVec<double>(dI);
     dIrey = new DistVec<double>(dI);
@@ -464,6 +466,15 @@ void DistTimeState<dim>::setupUExactSolutionInitialConditions(IoData &iod, DistS
     DistVec<int> dummy2(X.info());
     
     ExactSolution::Fill<&ExactSolution::CylindricalBubble,
+      dim, 1>(*Un,dummy2,
+	      dummy1, X, iod,0.0,
+	      varFcn);
+  } else if (iod.mf.testCase == 3) {
+
+    DistSVec<double,1> dummy1(X.info());
+    DistVec<int> dummy2(X.info());
+    
+    ExactSolution::Fill<&ExactSolution::AcousticTwoFluid,
       dim, 1>(*Un,dummy2,
 	      dummy1, X, iod,0.0,
 	      varFcn);
@@ -856,7 +867,9 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
                                            DistSVec<double,dim> &U, DistVec<int> &fluidId,
 					   DistVec<double>* umax)
 {
+  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 5\n");
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
+  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 6\n");
 
   domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, *dtau, tprec, fluidId,
 			  umax);
@@ -897,6 +910,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     *dtLeft -= dt_glob;
   }
                                                                                                          
+  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 7\n");
   data->computeCoefficients(*dt, dt_glob);
   
   return dt_glob;
@@ -1778,4 +1792,16 @@ DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState,
 template<int dim> 
 int DistTimeState<dim>::getOutputNewtonStep() const {
 	return *(domain->getOutputNewtonStep()); 
+}
+
+template<int dim> 
+void DistTimeState<dim>::setExistsNm1() {
+
+  data->exist_nm1 = true;
+}
+
+template<int dim> 
+void DistTimeState<dim>::setDtNm1(double dt) {
+
+  data->dt_nm1 = dt;
 }

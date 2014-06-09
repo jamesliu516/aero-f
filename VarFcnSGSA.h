@@ -95,6 +95,7 @@ public:
     Tg[0] =  -invgam1 * (V[4]+Pstiff) / (V[0]*V[0]);
     Tg[1] = Tg[2] = Tg[3] = 0.0;
     Tg[4] = invgam1 / V[0]; 
+    Tg[5] = 0.0;
   }
   void getV4FromTemperature(double *V, double T) const {
     V[4] = T*V[0]*gam1 - Pstiff;

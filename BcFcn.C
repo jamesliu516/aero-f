@@ -52,6 +52,25 @@ void BcFcnNS::template_applyToDiagonalTerm(int type, double *Vwall, double *U, S
   }
 #endif
 
+#if defined(STRONG_FARFIELD_BC)
+  if (type == BC_INLET_MOVING || type == BC_INLET_FIXED ||
+      type == BC_OUTLET_MOVING || type == BC_OUTLET_FIXED) {
+    for (int k=0; k<neq; ++k) {
+      A[neq*0 + k] = 0.0;
+      A[neq*1 + k] = 0.0;
+      A[neq*2 + k] = 0.0;
+      A[neq*3 + k] = 0.0;
+      A[neq*4 + k] = 0.0;
+    }
+	 
+    A[neq*0 + 0] = 1.0;
+    A[neq*1 + 1] = 1.0;
+    A[neq*2 + 2] = 1.0;
+    A[neq*3 + 3] = 1.0;
+    A[neq*4 + 4] = 1.0;
+  }
+#endif
+
 }
 
 //------------------------------------------------------------------------------
@@ -79,6 +98,19 @@ void BcFcnNS::template_applyToOffDiagonalTerm(int type, Scalar *A)
       A[neq*1 + k] = 0.0;
       A[neq*2 + k] = 0.0;
       A[neq*3 + k] = 0.0;
+    }
+  }
+#endif
+
+#if defined(STRONG_FARFIELD_BC)
+  if (type == BC_INLET_MOVING || type == BC_INLET_FIXED ||
+      type == BC_OUTLET_MOVING || type == BC_OUTLET_FIXED) {
+    for (int k=0; k<neq; ++k) {
+      A[neq*0 + k] = 0.0;
+      A[neq*1 + k] = 0.0;
+      A[neq*2 + k] = 0.0;
+      A[neq*3 + k] = 0.0;
+      A[neq*4 + k] = 0.0;
     }
   }
 #endif
@@ -130,6 +162,19 @@ void BcFcnNS::template_zeroDiagonalTerm(int type, Scalar *A)  {
       A[neq*3 + k] = 0.0;
 
       A[neq*k+k] = 0.0;
+    }
+  }
+#endif
+
+#if defined(STRONG_FARFIELD_BC)
+  if (type == BC_INLET_MOVING || type == BC_INLET_FIXED ||
+      type == BC_OUTLET_MOVING || type == BC_OUTLET_FIXED) {
+    for (int k=0; k<neq; ++k) {
+      A[neq*0 + k] = 0.0;
+      A[neq*1 + k] = 0.0;
+      A[neq*2 + k] = 0.0;
+      A[neq*3 + k] = 0.0;
+      A[neq*4 + k] = 0.0;
     }
   }
 #endif

@@ -1,4 +1,5 @@
 #include "MultiGridLevelSetStructure.h"
+#include "MultiGridLevel.h"
 
 MultiGridLevelSetStructure::
 MultiGridLevelSetStructure(DistMultiGridLevelSetStructure& lss,
@@ -38,6 +39,17 @@ recompute() {
       std::cout << "Error! status = " << stat[i] << std::endl;
   }
 
+  EdgeSet& edges = *myLevel->getParent()->getEdges()[mySub];
+  int (*ptr)[2] = edges.getPtr();
+  for (int l = 0; l < edges.size(); ++l) {
+ 
+    int i = ptr[l][0],j = ptr[l][1];
+    if (nodeMapping[i] == nodeMapping[j] && 
+        parent->edgeIntersectsStructure(0.0,l)  ) {
+      status[nodeMapping[i]] = 1;
+    }
+  }
+
 //  status = 0;
 }
 
@@ -58,7 +70,7 @@ computeEdgeCrossing(SVec<double,3>& nodeNormals) {
       surfaceNormals[i] = Vec3D(v[0],v[1],v[2]);
     } else {
       v = nodeNormals[ptr[i][1]];
-      assert(v[0]*v[0] + v[1]*v[1]+v[2]*v[2] > 0.0);
+      //assert(v[0]*v[0] + v[1]*v[1]+v[2]*v[2] > 0.0);
       
       surfaceNormals[i] = Vec3D(v[0],v[1],v[2]);
      

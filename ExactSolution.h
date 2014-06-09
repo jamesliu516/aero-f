@@ -20,6 +20,8 @@ class ExactSolution {
     CylindricalBubble(IoData& iod,double x, double y, double z,
 		      double t, double* V, double* phi, int& fid);
 
+  static void AcousticTwoFluid(IoData&, double x, double y, double z,
+			       double t, double* V, double* phi, int& fid);
 
   template <void (*F)(IoData&, double,double,double,
 				     double,double*), int dim >
@@ -36,6 +38,26 @@ class ExactSolution {
 	F(iod, x[i][0], x[i][1], x[i][2],
 	  t, v);
 	vf->primitiveToConservative(v, U(iSub)[i], 0);
+      }
+    }
+    
+  }
+
+  template <void (*F)(IoData&, double,double,double,
+				     double,double*), int dim >
+    static void FillPrimitive(DistSVec<double,dim>& V, DistSVec<double,3>& X,
+			      IoData& iod, double t, VarFcn* vf) {
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+      double v[dim];
+      SVec<double,3>& x(X(iSub));
+      for (int i = 0; i < V(iSub).size(); ++i) {
+
+	F(iod, x[i][0], x[i][1], x[i][2],
+	  t, v);
+	memcpy(V(iSub)[i], v, sizeof(v));
       }
     }
     

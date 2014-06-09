@@ -51,7 +51,9 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     V = new DistSVec<double,dim>(domain->getNodeDistInfo());
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
     dU = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dRm = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -363,7 +365,7 @@ RecFcn *SpaceOperator<dim>::createRecFcn(IoData &ioData)
 	rf = new RecFcnExtendedVanAlbada<dim>(beta, eps,ioData.eqs.fluidModelMap.dataMap[0]->pmin ,
                                               ioData.eqs.fluidModelMap.dataMap[0]->rhomin,
                                               ioData.schemes.ns.xip,
-                                              ioData.schemes.ns.xirho );
+                                              ioData.schemes.ns.xirho,ioData.schemes.ns.vel_fac );
       else if (ioData.schemes.ns.limiter == SchemeData::BARTH)
 	rf = new RecFcnBarth<dim>(beta, eps);
       else if (ioData.schemes.ns.limiter == SchemeData::VENKAT)

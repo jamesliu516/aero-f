@@ -24,7 +24,7 @@
 template<int dim, int dimLS>
 ExplicitLevelSetTsDesc<dim,dimLS>::
 ExplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom), 
+  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom),
   k1(this->getVecInfo()), k2(this->getVecInfo()), 
   k3(this->getVecInfo()), k4(this->getVecInfo()), 
   p1(this->getVecInfo()), p2(this->getVecInfo()), 
@@ -148,15 +148,20 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
 
     if (this->phaseChangeType == 0)
       this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
-    else
+    else {
+      this->multiPhaseSpaceOp->setLastPhaseChangeValues(this->riemann);
       this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X,*this->A, this->interfaceOrder-1,
-						      U, this->V0,
+						      U0, this->V0,
 						      this->Weights,this->VWeights,
 						      NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn,
                                                       this->limitHigherOrderExtrapolation);
 
-    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
-  }else U = U0;
+    }
+    this->varFcn->primitiveToConservative(this->V0,U0,this->fluidSelector.fluidId);
+   
+  }
+
+  U = U0;
 
   this->checkSolution(U);
 }
@@ -457,6 +462,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
 
   this->multiPhaseSpaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = ratioTimesU - k1;
+
+  this->domain->setExactBoundaryValues(U0, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->checkSolution(U0);
     
@@ -475,6 +485,11 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLEulerRK2(DistSVec<double,dim> &U)
 
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = ratioTimesU - 1.0/2.0 * (k1 + k2);
+
+  this->domain->setExactBoundaryValues(U, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
   this->checkSolution(U);

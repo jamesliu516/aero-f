@@ -13,6 +13,7 @@ class Domain;
 class MeshMotionHandler;
 class RigidMeshMotionHandler;
 class HeavingMeshMotionHandler;
+class SpiralingMeshMotionHandler;
 class PitchingMeshMotionHandler;
 class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
@@ -35,6 +36,7 @@ private:
   PostOperator<dim> *postOp;
   RigidMeshMotionHandler *rmmh;
   HeavingMeshMotionHandler *hmmh;
+  SpiralingMeshMotionHandler *smmh;
   PitchingMeshMotionHandler *pmmh;
   DeformingMeshMotionHandler *dmmh;
   Domain *domain;
@@ -208,6 +210,7 @@ public:
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
+  void writePositionSensitivityVectorToDisk(int step, double tag, DistSVec<double,3> &X);
   void writeBinaryVectorsToDiskRom(bool, int, double,
                                    DistSVec<double,dim> *U1 = NULL,
                                    DistSVec<double,dim> *U2 = NULL,

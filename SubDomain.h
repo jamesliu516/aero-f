@@ -13,7 +13,6 @@
 #include <BCond.h>
 #include <TriangulatedSurface.h>
 #include <DenseMatrix.h>
-#include "LevelSet/LevelSetStructure.h"
 #include <GhostPoint.h>
 #include <PolygonReconstructionData.h>
 
@@ -65,6 +64,7 @@ class VolumicForceTerm;
 class TriangulatedSurface;
 class TimeLowMachPrec;
 class FluidSelector;
+class LevelSetStructure;
 
 struct V6NodeData;
 struct Vec3D;
@@ -756,6 +756,9 @@ public:
 
   template<int dim>
   void setNodeBcValue(double*, SVec<double,dim>&);
+
+  template<int dim>
+  void setNodeBcValue2(double*, SVec<double,dim>&);
 
   template<int dim>
   void computeFaceBcValue(SVec<double,dim> &, SVec<double,dim> &);

@@ -68,6 +68,8 @@ struct InputData {
   const char *decomposition;
   const char *cpumap;
   const char *match;
+  const char *embmeshmatch;
+  const char *embsurfmatch;
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
@@ -423,7 +425,7 @@ struct ProblemData {
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
-                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34} alltype;
+                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _FSI_SHAPE_OPTIMIZATION_ = 35} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1244,6 +1246,7 @@ struct SchemeData {
   
   double xirho;
   double xip;
+  double vel_fac;
 
   struct MaterialFluxData {
 
@@ -1491,9 +1494,15 @@ struct MultiGridData {
 
   int addViscousTerms;
 
+  int addTurbulenceTerms;
+
   SchemeFixData fixes;
 
   const char* agglomerationFile;
+
+  double turbRelaxCutoff;
+
+  double densityMin,densityMax;
  
   MultiGridData();
   ~MultiGridData() {}
@@ -1750,6 +1759,7 @@ struct SensitivityAnalysis {
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
 
+  enum SensitivityFSI  {OFF_SENSITIVITYFSI  = 0, ON_SENSITIVITYFSI  = 1} sensFSI;
   enum SensitivityMesh {OFF_SENSITIVITYMESH = 0, ON_SENSITIVITYMESH = 1} sensMesh;
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
   enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
@@ -1773,6 +1783,7 @@ struct SensitivityAnalysis {
   bool densFlag;
   bool pressFlag;
   bool apressFlag;
+  bool fsiFlag;
 
   int si;
   int sf;
@@ -1947,6 +1958,21 @@ struct HeavingData {
 
 //----------------------------------------------------------
 
+struct SpiralingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double xL;
+  double x0;
+
+  SpiralingData();
+  ~SpiralingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
 struct PitchingData {
 
   enum Domain {VOLUME = 0, SURFACE = 1} domain;
@@ -2021,12 +2047,13 @@ struct Velocity  {
 struct ForcedData {
 
   enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
-             ACOUSTICBEAM=5} type;
+             ACOUSTICBEAM=5, SPIRALING = 6} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
+  SpiralingData sp;
   PitchingData pt;
   Velocity vel;
   DeformingData df;
