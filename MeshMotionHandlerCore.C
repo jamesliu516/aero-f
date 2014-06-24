@@ -420,12 +420,12 @@ void AeroMeshMotionHandler::negotiate()
 AeroMeshMotionHandler::~AeroMeshMotionHandler()
 {
 
-  if (Fn) delete Fn;
-  if (Fnp1) delete Fnp1;
-  if (Favg) delete Favg;
-  if (strExc) delete strExc;
-  if (mms) delete mms;
-  if (mms1) delete mms1;
+//  if (Fn) delete Fn;
+//  if (Fnp1) delete Fnp1;
+//  if (Favg) delete Favg;
+//  if (strExc) delete strExc;
+//  if (mms) delete mms;
+//  if (mms1) delete mms1;
 }
 
 //------------------------------------------------------------------------------
