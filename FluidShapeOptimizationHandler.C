@@ -1496,6 +1496,8 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
       iter++;
     }
 
+    fsoComputeSensitivities(ioData, "Derivatives with respect to the FSI parameter:", ioData.sa.sensoutput, *this->X, U);
+
     fsoPrintTextOnScreen("\n ***** Derivatives of mesh position and state were computed! \n");
 
 }

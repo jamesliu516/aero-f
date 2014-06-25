@@ -584,7 +584,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     double volume = elems[i].computeControlVolumes(X, ctrlVol);
 
     if (volume <= 0.0) {
-      fprintf(stderr,"Element %i has a negative volume\n",locToGlobElemMap[i]+1);
+      fprintf(stderr,"Element %i has a negative volume of %e\n",locToGlobElemMap[i]+1,volume);
       ++ierr;
       ++numInvElem;
       fprintf(stderr,"ierr has been increased to %i \n",ierr);
