@@ -2240,6 +2240,17 @@ struct SurfaceData  {
   enum ComputeHeatPower {FALSE_HF = 0, TRUE_HF = 1 } computeHeatFluxes;
   enum HeatFluxResults {UNSPECIFIED_HF = -1, NO_HF = 0, YES_HF = 1} heatFluxResults;
   //the HF (Heat Flux) index ensures that there is no confusion with the force related data.
+  enum BCType {DIRECTSTATE = 1, MASSFLOW = 2} bcType;
+
+  enum vars {RHO = 0, VX = 1, VY = 2, VZ = 3, P = 4, TEMP = 5, TOTALP = 6, MDOT = 7, NUTILDE = 8, SIZE = 9};
+  bool inVar[SIZE], outVar[SIZE]; 
+  double rho;
+  double vx, vy, vz;
+  double p;
+  double T;
+  double p_T;
+  double mdot;
+  double nutilde;
 
   SurfaceData();
   Assigner *getAssigner();

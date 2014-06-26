@@ -3919,6 +3919,21 @@ SurfaceData::SurfaceData()  {
   computeHeatFluxes = (ComputeHeatPower) UNSPECIFIED_HF;
   heatFluxResults = NO_HF;
 
+  bcType = (BCType) UNSPECIFIED; 
+  rho = -1.0;
+  vx = -1.0;
+  vy = -1.0;
+  vz = -1.0;
+  p = -1.0;
+  T = -1.0;
+  p_T = -1.0;
+  mdot = -1.0;
+  nutilde = -1.0;
+
+  for (int i=0; i<SIZE; ++i) {
+    inVar[i] = false;
+    outVar[i] = false;
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3944,6 +3959,22 @@ Assigner *SurfaceData::getAssigner()  {
                               (int SurfaceData::*)(&SurfaceData::type), 2,
                               "Isothermal", ISOTHERMAL, "Adiabatic", ADIABATIC);
   new ClassDouble<SurfaceData>(ca, "Temperature", this, &SurfaceData::temp);
+
+  new ClassToken<SurfaceData>(ca, "BCType", this,
+                              (int SurfaceData::*)(&SurfaceData::type), 2,
+                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW);
+  new ClassDouble<SurfaceData>(ca, "Rho", this, &SurfaceData::rho);
+  new ClassDouble<SurfaceData>(ca, "Vx", this, &SurfaceData::vx);
+  new ClassDouble<SurfaceData>(ca, "Vy", this, &SurfaceData::vy);
+  new ClassDouble<SurfaceData>(ca, "Vz", this, &SurfaceData::vz);
+  new ClassDouble<SurfaceData>(ca, "P", this, &SurfaceData::p);
+  new ClassDouble<SurfaceData>(ca, "T", this, &SurfaceData::T);
+  new ClassDouble<SurfaceData>(ca, "P_T", this, &SurfaceData::p_T);
+  new ClassDouble<SurfaceData>(ca, "MDot", this, &SurfaceData::mdot);
+  new ClassDouble<SurfaceData>(ca, "NuTilde", this, &SurfaceData::nutilde);
+
+  new ClassArray<SurfaceData>(ca, "InletVariables", this, &SurfaceData::inVar, 9, "Rho", RHO, "Vx", VX, "Vy", VY, "Vz", VZ, "P", P, "T", TEMP, "P_T", TOTALP, "MDot", MDOT, "NuTilde", NUTILDE);
+  new ClassArray<SurfaceData>(ca, "OutletVariables", this, &SurfaceData::outVar, 9, "Rho", RHO, "Vx", VX, "Vy", VY, "Vz", VZ, "P", P, "T", TEMP, "P_T", TOTALP, "MDot", MDOT, "NuTilde", NUTILDE);
 
   return ca;
 }
@@ -5994,14 +6025,21 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     restart.energy /= ref.rv.energy;
     bc.wall.temperature /= ref.rv.temperature;
 
-       for(int j = 1; j < 8*sizeof(int); j++) {
-            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
-             if(it == surfaceMap.end())
-               continue;
-             if(it->second->type == SurfaceData::ISOTHERMAL) {
-               it->second->temp /= ref.rv.temperature;
-            }
-       }
+    map<int,SurfaceData*>::iterator it;
+    for (it=surfaceMap.begin(); it!=surfaceMap.end();it++) {
+      if(it->second->type == SurfaceData::ISOTHERMAL)
+        it->second->temp /= ref.rv.temperature;
+
+        it->second->rho /= ref.rv.density;
+        it->second->vx /= ref.rv.velocity;
+        it->second->vy /= ref.rv.velocity;
+        it->second->vz /= ref.rv.velocity;
+        it->second->p /= ref.rv.pressure;
+        it->second->T /= ref.rv.temperature;
+        it->second->p_T /= ref.rv.pressure;
+        it->second->mdot /= ref.rv.density*ref.rv.velocity*ref.rv.length*ref.rv.length;
+        it->second->nutilde /= ref.rv.nutilde;
+    }
 
     linearizedData.stepsize = ts.timestep;
     linearizedData.stepsizeinitial = ts.timestepinitial;
@@ -6229,13 +6267,11 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
   }
 
 
-for(int j = 1; j < 8*sizeof(int); j++) {
-            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
-             if(it == surfaceMap.end())
-               continue;
+       map<int,SurfaceData*>::iterator it;
+       for (it=surfaceMap.begin(); it!=surfaceMap.end();it++) {
              if(it->second->type == SurfaceData::ISOTHERMAL && it->second->temp < 0 && eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ADIABATIC &&
                  !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
-               com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given and (%f) given for surface (%d) \n", bc.wall.temperature, it->second->temp, j);
+               com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given and (%f) given for surface (%d) \n", bc.wall.temperature, it->second->temp, it->first);
                error++;
             }
        }

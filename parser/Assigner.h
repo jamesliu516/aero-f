@@ -27,6 +27,7 @@ class Assigner {
    virtual void assignToken(int);
    virtual void assignString(const char *);
    virtual void assignTokenIntPair(int,int);
+   virtual void assignList(int n, int *(list[]));
    virtual Assigner *findSubToken(int);
 
    virtual Assigner *findIndexObject(int);
@@ -151,6 +152,19 @@ public:
  private: 
     ClassStr(const ClassStr &);
     ClassStr& operator=(const ClassStr &);
+};
+
+template <class T>
+class ClassArray : public Assigner {
+  T *ptr;
+  bool (T::*var)[T::SIZE];
+  vector<int> tk;
+  vector<int> val;
+
+public:
+   ClassArray(ClassAssigner *, const char *n, T *_ptr, bool (T::*_var)[T::SIZE], int nt, ...);
+   void assignList(int size, int *(list[]));
+
 };
 
 /*template <class T>
