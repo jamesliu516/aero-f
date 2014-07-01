@@ -208,6 +208,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPrescribedInflowEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnPrescribedInflowEuler3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnPrescribedInflowEuler3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnOutflowEuler3D : public FluxFcnFD<5> {
   
 public:
@@ -227,6 +239,18 @@ public:
   FluxFcnInternalOutflowEuler3D(VarFcnBase *vf, Type tp) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnInternalOutflowEuler3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+//
+class FluxFcnPrescribedOutflowEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnPrescribedOutflowEuler3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnPrescribedOutflowEuler3D() {}
   
 };
 
@@ -395,6 +419,18 @@ public:
 };
 
 //------------------------------------------------------------------------------
+//
+class FluxFcnPrescribedInflowSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnPrescribedInflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnPrescribedInflowSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
 
 class FluxFcnInternalOutflowSA3D : public FluxFcnBase {
 
@@ -403,6 +439,18 @@ public:
   FluxFcnInternalOutflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnInternalOutflowSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPrescribedOutflowSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnPrescribedOutflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnPrescribedOutflowSA3D() {}
   
 };
 
@@ -469,12 +517,34 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPrescribedInflowSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnPrescribedInflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnPrescribedInflowSAturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnInternalOutflowSAturb3D : public FluxFcnBase {
 
 public:
   FluxFcnInternalOutflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnInternalOutflowSAturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPrescribedOutflowSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnPrescribedOutflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnPrescribedOutflowSAturb3D() {}
 
 };
 

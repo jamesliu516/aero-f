@@ -339,6 +339,41 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnSGPrescribedInflowEuler3D : public FluxFcnPrescribedInflowEuler3D {
+
+public:
+
+  FluxFcnSGPrescribedInflowEuler3D(IoData &ioData, VarFcnSGEuler *varFcnSGEuler, Type tp = CONSERVATIVE) : 
+    FluxFcnPrescribedInflowEuler3D(varFcnSGEuler, tp) {}
+  ~FluxFcnSGPrescribedInflowEuler3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+//  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGPrescribedInflowEuler3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnSGOutflowEuler3D : public FluxFcnOutflowEuler3D {
 
 public:
@@ -394,6 +429,41 @@ public:
   )
   {
     std::cout << "\n !!! FluxFcnSGInternalOutflowEuler3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
+
+};
+
+//------------------------------------------------------------------------------
+//
+class FluxFcnSGPrescribedOutflowEuler3D : public FluxFcnPrescribedOutflowEuler3D {
+
+public:
+
+  FluxFcnSGPrescribedOutflowEuler3D(IoData &ioData, VarFcnSGEuler *varFcnSGEuler, Type tp = CONSERVATIVE) : 
+    FluxFcnPrescribedOutflowEuler3D(varFcnSGEuler, tp) {}
+  ~FluxFcnSGPrescribedOutflowEuler3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+//  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df,
+    bool useLimiter = false
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGPrescribedOutflowEuler3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
     exit(1);
   }
 
@@ -705,6 +775,41 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnSGPrescribedInflowSA3D : public FluxFcnPrescribedInflowSA3D {
+
+public:
+
+  FluxFcnSGPrescribedInflowSA3D(IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
+    FluxFcnPrescribedInflowSA3D(varFcnSGSA, tp) {}
+  ~FluxFcnSGPrescribedInflowSA3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+//  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGPrescribedInflowSA3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnSGInternalOutflowSA3D : public FluxFcnInternalOutflowSA3D {
 
 public:
@@ -726,6 +831,41 @@ public:
   )
   {
     std::cout << "\n !!! FluxFcnSGInternalOutflowSA3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnSGPrescribedOutflowSA3D : public FluxFcnPrescribedOutflowSA3D {
+
+public:
+
+  FluxFcnSGPrescribedOutflowSA3D(IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
+    FluxFcnPrescribedOutflowSA3D(varFcnSGSA, tp) {}
+  ~FluxFcnSGPrescribedOutflowSA3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+//  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGPrescribedOutflowSA3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
     exit(1);
   }
 
@@ -811,12 +951,40 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnSGPrescribedInflowSAturb3D : public FluxFcnPrescribedInflowSAturb3D {
+
+public:
+  FluxFcnSGPrescribedInflowSAturb3D(IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
+    FluxFcnPrescribedInflowSAturb3D(varFcnSGSA, tp) {}
+  ~FluxFcnSGPrescribedInflowSAturb3D() { vf = 0; }
+
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnSGInternalOutflowSAturb3D : public FluxFcnInternalOutflowSAturb3D {
 
 public:
   FluxFcnSGInternalOutflowSAturb3D(IoData  &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
     FluxFcnInternalOutflowSAturb3D(varFcnSGSA, tp) {}
   ~FluxFcnSGInternalOutflowSAturb3D() { vf = 0; }
+
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnSGPrescribedOutflowSAturb3D : public FluxFcnPrescribedOutflowSAturb3D {
+
+public:
+  FluxFcnSGPrescribedOutflowSAturb3D(IoData  &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
+    FluxFcnPrescribedOutflowSAturb3D(varFcnSGSA, tp) {}
+  ~FluxFcnSGPrescribedOutflowSAturb3D() { vf = 0; }
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);

@@ -540,12 +540,38 @@ struct BcsHydroData {
 
 //------------------------------------------------------------------------------
 
+struct BoundaryData  {
+
+  static const int UNSPECIFIED = -1;
+  enum Type {DIRECTSTATE = 1, MASSFLOW = 2} type;
+
+   enum vars {DENSITY = 0, VX = 1, VY = 2, VZ = 3, PRESSURE = 4, TEMPERATURE = 5, TOTALPRESSURE = 6, TOTALTEMPERATURE = 7, MDOT = 8, NUTILDE = 9, KENERGY = 10, EPSILON = 11, SIZE = 12};
+  bool inVar[SIZE], outVar[SIZE]; 
+  double density;
+  double velocityX, velocityY, velocityZ;
+  double pressure;
+  double temperature;
+  double totalPressure;
+  double totalTemperature;
+  double mdot;
+  double nutilde;
+  double kenergy;
+  double epsilon;
+
+  BoundaryData();
+  Assigner *getAssigner();
+
+};
+
+//-----------------------------------------------------------------------------
+
 struct BcsData {
 
   BcsFreeStreamData inlet;
   BcsFreeStreamData outlet;
   BcsWallData wall;
   BcsHydroData hydro;
+  ObjectMap<BoundaryData> bcMap;
 
   BcsData();
   ~BcsData() {}
@@ -2232,6 +2258,7 @@ struct SurfaceData  {
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
   int forceID;
+  int bcID;
   double velocity;
 
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
@@ -2240,17 +2267,6 @@ struct SurfaceData  {
   enum ComputeHeatPower {FALSE_HF = 0, TRUE_HF = 1 } computeHeatFluxes;
   enum HeatFluxResults {UNSPECIFIED_HF = -1, NO_HF = 0, YES_HF = 1} heatFluxResults;
   //the HF (Heat Flux) index ensures that there is no confusion with the force related data.
-  enum BCType {DIRECTSTATE = 1, MASSFLOW = 2} bcType;
-
-  enum vars {RHO = 0, VX = 1, VY = 2, VZ = 3, P = 4, TEMP = 5, TOTALP = 6, MDOT = 7, NUTILDE = 8, SIZE = 9};
-  bool inVar[SIZE], outVar[SIZE]; 
-  double rho;
-  double vx, vy, vz;
-  double p;
-  double T;
-  double p_T;
-  double mdot;
-  double nutilde;
 
   SurfaceData();
   Assigner *getAssigner();
@@ -2456,6 +2472,7 @@ public:
   int checkInputValuesEssentialBC();
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
+  int checkBoundaryValues();
   int checkSolverValues(map<int,SurfaceData*>& surfaceMap);
   int checkInputValuesInitialConditions(InitialConditions &initialConditions,
                                         int fluidModelID);

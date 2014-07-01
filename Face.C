@@ -47,13 +47,15 @@ void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout
   int k, j;
 
   NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
-  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED)
+  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED ||
+      code == BC_DIRECTSTATE_INLET_MOVING || code == BC_DIRECTSTATE_INLET_FIXED) 
     for (k=0; k<dim; ++k) {
       for (j=0, U[k] = 0.0; j<numNodes(); ++j) 
 	U[k] += Uin[nodeNum(j)][k];
       U[k] /= numNodes();
     }
-  else if (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED)
+  else if (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED ||
+           code == BC_DIRECTSTATE_OUTLET_MOVING || code == BC_DIRECTSTATE_OUTLET_FIXED)
     for (k=0; k<dim; ++k) {
       for (j=0, U[k] = 0.0; j<numNodes(); ++j) 
 	U[k] += Uout[nodeNum(j)][k];

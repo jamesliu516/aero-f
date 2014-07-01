@@ -735,6 +735,41 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
 //      */
 
     }
+
+    FaceSet& faces = this->subDomain[iSub]->getFaces();
+    for (int i=0;i<faces.size(); i++) { //loop over faces 
+      map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+      map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
+      if(it!=surfaceMap.end()) { // surface has attribut in the input file
+        map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+        if(it2 != bcMap.end()) { // the bc data have been defined
+          if(it2->second->type == BoundaryData::DIRECTSTATE || 
+             it2->second->type == BoundaryData::MASSFLOW) {
+            if (faces[i].getCode() ==  BC_DIRECTSTATE_INLET_MOVING ||
+                faces[i].getCode() ==  BC_DIRECTSTATE_INLET_FIXED ) {
+              for (int l = 0; l<faces[i].numNodes();++l) {
+                int k = faces[i][l];
+                uin[k][0] = it2->second->totalTemperature;
+                uin[k][1] = it2->second->velocityX;
+                uin[k][2] = it2->second->velocityY;
+                uin[k][3] = it2->second->velocityZ;
+                uin[k][4] = it2->second->totalPressure;
+              }
+            }
+
+            if (faces[i].getCode() ==  BC_DIRECTSTATE_OUTLET_MOVING ||
+                faces[i].getCode() ==  BC_DIRECTSTATE_OUTLET_FIXED ) {
+              for (int l = 0; l<faces[i].numNodes();++l) {
+                int k = faces[i][l];
+                uout[k][4] = it2->second->pressure;
+              }
+            }
+          }
+        }
+      }
+    }
+
   }
   for (int idim=0; idim<dim; idim++)
     this->Ub[idim] = 0.0;
@@ -1892,6 +1927,29 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
       uin[inode][5] = this->Uin[5];
       uout[inode][5] = this->Uout[5];
     }
+
+    FaceSet& faces = this->subDomain[iSub]->getFaces();
+    for (int i=0;i<faces.size(); i++) { //loop over faces 
+      map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+      map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
+      if(it!=surfaceMap.end()) { // surface has attribut in the input file
+        map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+        if(it2 != bcMap.end()) { // the bc data have been defined
+          if(it2->second->type == BoundaryData::DIRECTSTATE || 
+             it2->second->type == BoundaryData::MASSFLOW) {
+            if (faces[i].getCode() ==  BC_DIRECTSTATE_INLET_MOVING ||
+                faces[i].getCode() ==  BC_DIRECTSTATE_INLET_FIXED ) {
+              for (int l = 0; l<faces[i].numNodes();++l) {
+                int k = faces[i][l];
+                uin[k][5] = it2->second->nutilde;
+              }
+            }
+          }
+        }
+      }
+    }
+
   }
 
 // Included (MB)
