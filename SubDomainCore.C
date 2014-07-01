@@ -3398,6 +3398,8 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
         case(BC_ADIABATIC_WALL_FIXED):
         case(BC_OUTLET_FIXED):
         case(BC_INLET_FIXED):
+        case(BC_DIRECTSTATE_OUTLET_FIXED):
+        case(BC_DIRECTSTATE_INLET_FIXED):
         case(BC_SLIP_WALL_FIXED):
         for(int j=0; j<faces[i].numNodes();j++)
           for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
@@ -3503,6 +3505,8 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
       case(BC_ADIABATIC_WALL_FIXED):
       case(BC_OUTLET_FIXED):
       case(BC_INLET_FIXED):
+      case(BC_DIRECTSTATE_OUTLET_FIXED):
+      case(BC_DIRECTSTATE_INLET_FIXED):
       case(BC_SLIP_WALL_FIXED):
         for(int j=0; j<faces[i].numNodes();j++)
           for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
@@ -3613,7 +3617,8 @@ void SubDomain::getNdAeroLists(int &nInterfNd, int *&interfNd, int &nInfNd,
     }
     for (int i = 0; i < nodes.size(); ++i) {
       if(isMatched[i]) continue;
-      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED) nInfNd++;
+      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED || 
+          nodeType[i] == BC_DIRECTSTATE_INLET_FIXED || nodeType[i] == BC_DIRECTSTATE_OUTLET_FIXED) nInfNd++;
       else nInternalNd++;
     }
     infNd      = new int[nInfNd];
@@ -3622,13 +3627,15 @@ void SubDomain::getNdAeroLists(int &nInterfNd, int *&interfNd, int &nInfNd,
     nInternalNd= 0;
     for (int i = 0; i < nodes.size(); ++i) {
       if(isMatched[i]) continue;
-      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED) infNd[nInfNd++] = i;
+      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED || 
+          nodeType[i] == BC_DIRECTSTATE_INLET_FIXED || nodeType[i] == BC_DIRECTSTATE_OUTLET_FIXED) infNd[nInfNd++] = i;
       else internalNd[nInternalNd++] = i;
     }
   } else { // Only for ForcedMeshMotion (see ForcedMeshMotionHandler) where matchNodes is not
            // explicitly created -> consider all the node labelled as moving as "matched" nodes
     for (int i = 0; i < nodes.size(); ++i) {
-      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED) nInfNd++;
+      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED || 
+          nodeType[i] == BC_DIRECTSTATE_INLET_FIXED || nodeType[i] == BC_DIRECTSTATE_OUTLET_FIXED) nInfNd++;
       else if (nodeType[i] < BC_INTERNAL) nInterfNd++;
       else nInternalNd++;
     }
@@ -3642,7 +3649,8 @@ void SubDomain::getNdAeroLists(int &nInterfNd, int *&interfNd, int &nInfNd,
     nInternalNd = 0;
 
     for (int i = 0; i < nodes.size(); ++i) {
-      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED) infNd[nInfNd++] = i;
+      if (nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED || 
+          nodeType[i] == BC_DIRECTSTATE_INLET_FIXED || nodeType[i] == BC_DIRECTSTATE_OUTLET_FIXED) infNd[nInfNd++] = i;
       else if (nodeType[i] < BC_INTERNAL) interfNd[nInterfNd++] = i;
       else internalNd[nInternalNd++] = i;
     }
@@ -3796,8 +3804,8 @@ SubDomain::createSlipSurfProjection(int*surfOwn, CommPattern<int>&cpat,
   }
 }
 
-// ------------------------------------------------------------------------------------
-
+//------------------------------------------------------------------------------
+//
 int* SubDomain::getRotSurfaceOwnership(CommPattern<int> &cpat,
                                      map<int,SurfaceData *> &surfaceMap)
 {
@@ -4314,7 +4322,7 @@ void SubDomain::outputCsDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
 }
 
 //--------------------------------------------------------------------------
-void SubDomain::changeSurfaceType(map<int,SurfaceData*>& surfaceMap)  {
+void SubDomain::changeSurfaceType(map<int,SurfaceData*>& surfaceMap, map<int,BoundaryData*>& bcMap)  {
 for (int i=0;i<faces.size(); i++) { // Loop over faces
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
     if(it!=surfaceMap.end()) { // surface has attribut in the input file
@@ -4333,9 +4341,25 @@ if(faces[i].getCode()!=-1)
           faces[i].setType(BC_ISOTHERMAL_WALL_FIXED);
         }
       }
-   }
+
+      map<int,BoundaryData*>::iterator it2 = bcMap.find(it->second->bcID);
+      if(it2!=bcMap.end()) {
+        if(it2->second->type == BoundaryData::DIRECTSTATE || 
+           it2->second->type == BoundaryData::MASSFLOW) {
+          if(faces[i].getCode() == BC_INLET_MOVING)
+            faces[i].setType(BC_DIRECTSTATE_INLET_MOVING);
+          if(faces[i].getCode() == BC_INLET_FIXED)
+            faces[i].setType(BC_DIRECTSTATE_INLET_FIXED);
+          if(faces[i].getCode() == BC_OUTLET_MOVING)
+            faces[i].setType(BC_DIRECTSTATE_OUTLET_MOVING);
+          if(faces[i].getCode() == BC_OUTLET_FIXED)
+            faces[i].setType(BC_DIRECTSTATE_OUTLET_FIXED);
+        }
+      }
+    }
+  }
 }
-}
+
 //--------------------------------------------------------------------------
 void SubDomain::markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &cpat) {
 
@@ -4927,7 +4951,9 @@ int SubDomain::findFarfieldNode()
   for (int i=0; i<faces.size(); i++) {
     Face &curFace = faces[i];
     if (curFace.getCode() == BC_OUTLET_MOVING || curFace.getCode() == BC_OUTLET_FIXED || 
-        curFace.getCode() == BC_INLET_MOVING || curFace.getCode() == BC_INLET_FIXED) 
+        curFace.getCode() == BC_INLET_MOVING || curFace.getCode() == BC_INLET_FIXED   ||
+        curFace.getCode() == BC_DIRECTSTATE_OUTLET_MOVING || curFace.getCode() == BC_DIRECTSTATE_OUTLET_FIXED || 
+        curFace.getCode() == BC_DIRECTSTATE_INLET_MOVING || curFace.getCode() == BC_DIRECTSTATE_INLET_FIXED) 
       return curFace[0];
   }
   return -1;
@@ -5087,7 +5113,9 @@ void SubDomain::getFarFieldBoundaryNodes(Aerof_unordered_set<int>::type& boundar
 
     int code = faces[i].getCode();
     if (code != BC_OUTLET_MOVING && code != BC_OUTLET_FIXED &&
-        code != BC_INLET_MOVING && code != BC_INLET_FIXED)  
+        code != BC_INLET_MOVING && code != BC_INLET_FIXED &&
+        code != BC_DIRECTSTATE_OUTLET_MOVING && code != BC_DIRECTSTATE_OUTLET_FIXED &&
+        code != BC_DIRECTSTATE_INLET_MOVING && code != BC_DIRECTSTATE_INLET_FIXED)  
       continue;
 
     for (int k = 0; k < faces[i].numNodes(); ++k)

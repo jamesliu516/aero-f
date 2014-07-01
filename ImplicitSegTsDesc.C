@@ -118,6 +118,10 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
 
   ff1[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,this->varFcn,1);
+  ff1[BC_DIRECTSTATE_OUTLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_MOVING,ioData,this->varFcn,1);
+  ff1[BC_DIRECTSTATE_OUTLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_FIXED,ioData,this->varFcn,1);
+  ff1[BC_DIRECTSTATE_INLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_INLET_MOVING,ioData,this->varFcn,1);
+  ff1[BC_DIRECTSTATE_INLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_INLET_FIXED,ioData,this->varFcn,1);
   ff1[BC_OUTLET_MOVING] = new FluxFcn(0,BC_OUTLET_MOVING,ioData,this->varFcn,1);
   ff1[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,this->varFcn,1);
   ff1[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,this->varFcn,1);
@@ -163,10 +167,14 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
 
   FluxFcn** ff2 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff2 -= BC_MIN_CODE;
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 12)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 16)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
 
   ff2[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,this->varFcn,2);
+  ff2[BC_DIRECTSTATE_OUTLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_MOVING,ioData,this->varFcn,2);
+  ff2[BC_DIRECTSTATE_OUTLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_FIXED,ioData,this->varFcn,2);
+  ff2[BC_DIRECTSTATE_INLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_INLET_MOVING,ioData,this->varFcn,2);
+  ff2[BC_DIRECTSTATE_INLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_INLET_FIXED,ioData,this->varFcn,2);
   ff2[BC_OUTLET_MOVING] = new FluxFcn(0,BC_OUTLET_MOVING,ioData,this->varFcn,2);
   ff2[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,this->varFcn,2);
   ff2[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,this->varFcn,2);
