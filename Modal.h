@@ -149,6 +149,11 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     int ROBInnerProductSteps(int, int);
     void ROBInnerProducts();
     void modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &, double *, int);
+    void computeDampingRatios();
+    void evalMatForEvProblem(double, double, VecSet<Vec<bcomp> > &, VecSet<Vec<double> > &, VecSet<Vec<double> > &);
+    void computeGAM(double, double, VecSet<Vec<bcomp> > &);
+    void computeGenAeroForceMat();
+
 };
 
 #include "Modal.C"

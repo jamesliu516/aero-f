@@ -18,17 +18,21 @@ using std::sort;
 #include <DistTimeState.h>
 #include <PostOperator.h>
 #include <ParallelRom.h>
-#ifdef USE_EIGEN3
+//#ifdef USE_EIGEN3
 #include <Eigen/Dense>
-#endif
+#include <Eigen/Eigenvalues>
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
+//#endif
 
 #ifdef DO_MODAL
-#include <arpack++/include/ardsmat.h>
-//#include <arpack++/include/ardnsmat.h>
-#include <arpack++/include/ardssym.h>
-#include <arpack++/include/ardsnsym.h>
+ #include <arpack++/include/ardsmat.h>
+ #include <arpack++/include/ardnsmat.h>
+ #include <arpack++/include/ardssym.h>
+ #include <arpack++/include/ardsnsym.h>
 #endif
 
+#include <sstream>
+#include <string>
 #include <cstring>
 extern "C"      {
 
@@ -174,6 +178,14 @@ void ModalSolver<dim>::solve()  {
      podMethod = 0;
      constructPOD();
      modalTimer->addPodConstrTime(t0);
+   }
+   else if (ioData->problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_) {
+     // t0 = modalTimer->getTime();
+     computeDampingRatios();
+   }
+   else if (ioData->problem.alltype == ProblemData::_GAM_CONSTRUCTION_) {
+     // t0 = modalTimer->getTime();
+     computeGenAeroForceMat();
    }
    else {
      t0 = modalTimer->getTime();
@@ -1227,7 +1239,7 @@ void ModalSolver<dim>::preProcess()  {
      Ti = (pi*2.0/sqrt(K[ic]) ) / ioData->ref.rv.time; 
    else
      Ti = 1.0;
-
+   
    double eps2 = 0.5*dt/Ti*eps;
 
    Xnp1 = Xref - eps2*(mX[ic]);
@@ -1466,8 +1478,8 @@ void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, D
 
  Vec<double> modalF(nStrMode);
  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
- //modalF += 0.0*refModalF; // DJA: DEBUG only
- modalF += refModalF;
+ modalF += 0.0*refModalF; // DJA: DEBUG only
+ //modalF += refModalF;
  modalF *= ioData->ref.rv.force;
 
   updateModalValues(sdt, delU, delY, modalF, timeIt);
@@ -1507,7 +1519,7 @@ void ModalSolver<dim>::constructPOD()  {
 
  Timer *modalTimer = domain.getTimer();
  double t0;
-
+ 
  // Initial Conditions
  VecSet<DistSVec<bcomp,dim> > prevW(nStrMode, domain.getNodeDistInfo());
 
@@ -3630,3 +3642,407 @@ void ModalSolver<dim>::modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &vector
       vectors[jVec] *= 1.0/Rmatrix[jVec*numVecs+jVec];
   }
 }
+
+//-------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::computeDampingRatios()
+{
+  int nIt = 0;
+  int nMaxIt = 200;
+  double sReal = 0.0;
+  double sImag = 0.0;
+  double absLambda = 0.0;
+  double epsEV = ioData->linearizedData.epsEV;
+  double dampRatio = 0.0;
+  double dryModes[nStrMode];
+  
+  VecSet<Vec<bcomp> > compQ(nStrMode, nStrMode);
+  VecSet<Vec<double> > Omega(nStrMode, nStrMode);
+  VecSet<Vec<double> > eigMatA(2*nStrMode, 2*nStrMode);
+  Vec<bcomp> evList(nStrMode);
+  Vec<bcomp> sortEV(nStrMode);
+  Vec<bcomp> sortEV_c(nStrMode);
+  Vec<bcomp> sortEV_Eigen(2*nStrMode);
+ 
+  bcomp sEVnew(0.0,0.0);
+  bcomp sEVold(0.0,0.0);
+
+  int sp = strlen(ioData->output.transient.prefix) + 1;
+  char *outFile = new char[sp + strlen(ioData->output.transient.aeroelasticEigenvalues)];
+  sprintf(outFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.aeroelasticEigenvalues);
+  FILE *outEV = fopen(outFile, "w");
+  com->barrier();
+  delete [] outFile;
+
+  if (!outEV)  {
+    com->fprintf(stderr, " *** Error: DampRatio output file not specified\n");
+    exit(-1);
+  }
+
+
+  for (int i = 0; i < nStrMode; ++i) {
+    dryModes[i] = 0.0;
+    evList[i] = sEVnew;
+    sortEV[i] = sEVnew;
+  }
+
+//dry modes
+  for (int i = 0; i < nStrMode; ++i) {
+    for (int j = 0; j < nStrMode; ++j) {   
+      if (i == j) Omega[i][j] = K[i];
+      else  Omega[i][j] = 0.0;
+    }
+    dryModes[i] = sqrt(K[i]);
+  }
+
+  sort(dryModes, dryModes + nStrMode);
+ 
+  for (int i = 0; i < nStrMode; ++i) {
+    evList[i].imag() = dryModes[i]; 
+  }
+  
+  //for (int iEV = 0; iEV < nStrMode; ++iEV) {
+  //  com->fprintf(stderr, "Initial eigenvalue # %i ...  %e + i%e  \n", iEV, evList[iEV].real(), evList[iEV].imag());
+  //}
+ 
+//loop over eigenvalues/modes
+  com->fprintf(stderr, "Compute eigenvalues and damping ratios ...\n");
+  for (int iEV = 0; iEV < nStrMode; ++iEV) {
+    sEVold = evList[iEV];
+    sEVnew = evList[iEV];
+    nIt = 0;
+    com->fprintf(stderr, "\n ... solving for eigenvalue #%i \n", iEV+1);
+
+    while ((nIt == 0) || (sqrt (pow ((sEVnew.real()- sEVold.real()), 2.0)) + pow ((sEVnew.imag() - sEVold.imag()), 2.0)) / (sqrt (pow (sEVold.real(), 2.0) + pow (sEVold.imag(), 2.0))) > epsEV)  {
+      
+      if (nIt >= nMaxIt) {
+        com->fprintf(stderr, "\nWARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n\n", nMaxIt, iEV+1); 
+        break;
+      }
+      nIt++;
+      sEVold = sEVnew;
+      sReal = sEVnew.real();
+      sImag = sEVnew.imag();
+
+//call for assembly of A    
+      evalMatForEvProblem(sReal, sImag, compQ, eigMatA, Omega);
+
+//Eigen
+      for (int i = 0; i < 2* nStrMode; ++i) {
+          sortEV_Eigen[i] = 0.0;
+      }
+
+      MatrixXd evProb(2*nStrMode,2*nStrMode);
+      for (int i = 0; i < 2*nStrMode; i++) {
+        for (int j = 0; j < 2*nStrMode; j++) {
+          evProb(i,j) = 0.0;
+        }
+      }
+
+      //com->fprintf(stderr, "Output Matrix A (Eigen):\n");
+      for (int i = 0; i < 2*nStrMode; i++) {
+        for (int j = 0; j < 2*nStrMode; j++) {
+          evProb(i,j) = eigMatA[j][i];
+          //com->fprintf(stderr, "%e|", evProb(i,j));
+        }
+        //com->fprintf(stderr, "\n");
+      }
+      Eigen::EigenSolver<MatrixXd> eigSolv(evProb);
+
+      for (int i = 0; i < 2*nStrMode; ++i) {
+        sortEV_Eigen[i] = eigSolv.eigenvalues()[i];
+      }
+
+//sort
+     for (int i = 0; i < nStrMode; ++i) {
+          sortEV[i] = 0.0;
+     }
+     
+     int i_pos2 = 0;
+     for (int i = 0; i < 2*nStrMode; ++i) {
+        if ((sortEV_Eigen[i].imag() > 0.0) && (i_pos2 < nStrMode)) {
+          sortEV[i_pos2] = sortEV_Eigen[i];
+          i_pos2++;
+        }
+     }
+
+     bcomp tmpSort = (0.0,-1.0);
+     int i_addr = 0;
+     for (int i = 0; i < nStrMode; i++) {
+       sortEV_c[i] = sortEV[i];
+     }
+     for (int i = nStrMode-1; i >= 0; i--) {
+       tmpSort = (0.0,-1.0);
+       for (int j = 0; j < nStrMode; j++) {
+         if (sortEV_c[j].imag() > tmpSort.imag()) {
+           tmpSort = sortEV_c[j];
+           i_addr = j;
+         }
+       }
+       sortEV_c[i_addr].imag() = -1.0;
+       sortEV[i] = tmpSort;
+     }
+
+      sEVnew = sortEV[iEV];
+      evList[iEV] = sEVnew;
+      
+   }
+  com->fprintf(stderr, "Number of iterations on EV #%i ... %i\n", iEV+1, nIt);
+  com->fprintf(stderr, "Eigenvalue #%i ... %e + i %e\n", iEV+1, sEVnew.real(), sEVnew.imag());
+
+  }
+  
+//output damp ratio and eigenvalues
+
+  com->fprintf(outEV, "EV-ID RealPart ImagPart DampingRatio\n");
+  
+  com->fprintf(stderr, "\nEigenvalues and damping ratios...\n\n");
+  //com->fprintf(stderr, "Velocity... %e\n", ioData->ref.rv.velocity);
+  //com->fprintf(stderr, "Length... %e\n", ioData->ref.length);
+  for (int iEV = 0; iEV < nStrMode; ++iEV) {
+    absLambda = sqrt (pow (evList[iEV].real(), 2.0) + pow (evList[iEV].imag(), 2.0));
+    com->fprintf(stderr, "Eigenvalue # %i ...  %e + i%e", iEV+1, evList[iEV].real(), evList[iEV].imag());
+
+    if (absLambda != 0.0) { 
+      dampRatio = -evList[iEV].real() / absLambda;
+      com->fprintf(stderr, "\tDamping Ratio ... %e\n", dampRatio);
+      //Output in File
+      com->fprintf(outEV,"%i %e %e %e\n",iEV+1, evList[iEV].real(), evList[iEV].imag(), dampRatio);
+    }
+    else {
+      com->fprintf(stderr, "\tWARNING: Eigenvalue is 0!!\n");
+    }
+
+    //com->fprintf(stderr, "Omega of EV #%i ... %e\n", iEV+1, evList[iEV].imag());
+  } 
+
+}
+ 
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::evalMatForEvProblem(double sReal, double sImag, VecSet<Vec<bcomp> > &compGAM,
+                      VecSet<Vec<double> > &eigMatA, VecSet<Vec<double> > &Omega)
+{
+  VecSet<Vec<double> > realQ(nStrMode, nStrMode);
+  VecSet<Vec<double> > imagQ(nStrMode, nStrMode);
+  VecSet<Vec<double> > Aaa(nStrMode, nStrMode);
+  VecSet<Vec<double> > Aab(nStrMode, nStrMode);
+  VecSet<Vec<double> > Aba(nStrMode, nStrMode);
+  VecSet<Vec<double> > Abb(nStrMode, nStrMode);
+    
+  computeGAM(sReal, sImag, compGAM);
+
+// assemble Matrix for EV problem
+  for (int iMode = 0; iMode < nStrMode; iMode++)  {
+    for (int jj = 0; jj < nStrMode; jj++)  {
+
+      realQ[iMode][jj] = compGAM[iMode][jj].real();
+      imagQ[iMode][jj] = compGAM[iMode][jj].imag();
+
+      Aaa[iMode][jj] = 0.0;
+     
+      if (iMode == jj)  {
+        Aab[iMode][jj] = 1.0;
+      }
+      else {
+        Aab[iMode][jj] = 0.0;
+      }
+    }
+
+    Aba[iMode] = (-1.0)*Omega[iMode] - realQ[iMode] + (sReal/sImag)*imagQ[iMode];
+
+    Abb[iMode] = (-1.0/sImag)*imagQ[iMode];
+  }
+
+  for (int iMode = 0; iMode < 2*nStrMode; iMode++)  {
+    for (int jj = 0; jj < 2*nStrMode; jj++)  {
+      if (iMode < nStrMode && jj < nStrMode) {
+        eigMatA[iMode][jj] = Aaa[iMode][jj];
+      }
+      else if (iMode >= nStrMode && jj < nStrMode){
+        eigMatA[iMode][jj] = Aab[iMode-nStrMode][jj];
+      }
+      else if (iMode < nStrMode && jj >= nStrMode){
+        eigMatA[iMode][jj] = Aba[iMode][jj-nStrMode];
+      }
+      else {
+        eigMatA[iMode][jj] = Abb[iMode-nStrMode][jj-nStrMode];
+      }
+    }
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::computeGAM(double sReal, double sImag, VecSet<Vec<bcomp> > &compGAM)
+{
+// get aero operators and form GAM
+  bcomp oneReal(1.0, 0.0);
+  bcomp oneImag(0.0, 1.0);
+  bcomp sCompl(sReal, sImag);
+  Vec<double> modalFr(nStrMode);
+  Vec<double> modalFi(nStrMode);
+  modalFr = 0.0;
+  modalFi = 0.0;
+ 
+  DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
+  DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
+  DistSVec<double, dim> FF(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWreal(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWimag(domain.getNodeDistInfo());
+  DistMat<bcomp,dim> *_pcC = dynamic_cast<DistMat<bcomp,dim> *>(pcComplex);
+  
+  double invT = 1.0/ioData->ref.rv.time;
+  
+  Timer *modalTimer = domain.getTimer();
+  double t0;
+
+  //com->fprintf(stderr, "Output dry modes********************************\n");
+  //for (int i = 0; i < nStrMode; ++i) {
+  //  com->fprintf(stderr, "%e\t", K[i]);
+  //}
+  //com->fprintf(stderr, "\nEnd Output dry modes****************************\n");
+
+  
+  rhs = sCompl*DE[0] + oneReal*DX[0];
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->setup(1, 40, rhs);
+    kspCompGcr->printParam();
+    kspCompGcr->numCalcVec = 0;
+  }
+  else {
+    kspComp->setup(1, 40, rhs);
+    kspComp->printParam();
+  }
+ 
+//form [s/invT*A+H]
+  sCompl /= invT;
+  HOpC->evaluate(0, Xref, controlVol, Uref, FF, sCompl);
+  if (_pcC) {
+    spaceOp->computeH1(Xref, controlVol, Uref, *_pcC);
+    tState->addToH1(controlVol, *_pcC, sCompl);
+    spaceOp->applyBCsToJacobian(Uref, *_pcC);
+  }
+  pcComplex->setup();
+  
+//loop over modes
+  sCompl *= invT;
+  for (int iMode = 0; iMode < nStrMode; iMode++)  {
+ 
+    //com->fprintf(stderr, "... Solving for GAM column %i\n", iMode+1);
+    // form [s(E+C)+G]
+    rhs = 0.0;
+    rhs = sCompl*DE[iMode] + oneReal*DX[iMode];
+   
+    // solve for [sA+H]^(-1) * [s(E+C)+G]
+    delW = 0.0;
+    t0 = modalTimer->getTime();
+
+    if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+      kspCompGcr->solve(rhs, delW);
+    }
+    else {
+      kspComp->solve(rhs, delW);
+    }
+
+    modalTimer->addKspTime(t0);
+ 
+    delWreal.getReal(delW);
+    delWimag.getImag(delW);
+    
+  // multiply by P
+    postOp->computeForceDerivs(Xref, Uref, delWreal, modalFr, mX);
+    postOp->computeForceDerivs(Xref, Uref, delWimag, modalFi, mX);
+    
+  // build GAM Q
+    compGAM[iMode] = (ioData->ref.rv.force/ioData->ref.length)*oneReal*modalFr + (ioData->ref.rv.force/ioData->ref.length)*oneImag*modalFi;
+    
+  }
+ 
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::computeGenAeroForceMat()
+{
+  int sp = strlen(ioData->output.transient.prefix) + 1;
+   
+  char *outFileGAM = new char[sp + strlen(ioData->output.transient.gamData)];
+  sprintf(outFileGAM, "%s%s", ioData->output.transient.prefix, ioData->output.transient.gamData);
+  FILE *outGAM = fopen(outFileGAM, "w");
+  com->barrier();
+  delete [] outFileGAM;
+
+  char *outFileGAMF = new char[sp + strlen(ioData->output.transient.gamFData)];
+  sprintf(outFileGAMF, "%s%s", ioData->output.transient.prefix, ioData->output.transient.gamFData);
+  FILE *outGAMF = fopen(outFileGAMF, "w");
+  com->barrier();
+  delete [] outFileGAMF;
+  
+
+  for (int numF = 0; numF < ioData->linearizedData.numFreq; numF++) {
+    if (ioData->linearizedData.gamFreq[numF] >= 0.0) {
+      double GAMfreq = ioData->linearizedData.gamFreq[numF];
+      com->fprintf(stderr, " ... GAMfreq%i = %e\n", numF, GAMfreq);
+
+      VecSet<Vec<bcomp> > compQ(nStrMode, nStrMode);
+      VecSet<Vec<bcomp> > compQstar(nStrMode, nStrMode);
+
+      double invT = 1.0/ioData->ref.rv.time;
+      GAMfreq *= invT;
+
+      computeGAM(0.0, GAMfreq, compQ);
+
+      for (int i = 0; i < nStrMode; ++i) {
+        for (int j = 0; j < nStrMode; ++j) {
+          compQ[i][j] *= -1.0;
+          compQstar[i][j] = compQ[i][j]*(2.0/((pow(ioData->ref.rv.velocity,2))*ioData->ref.rv.density));
+        }
+      }
+
+      if (strlen(ioData->output.transient.gamData) > 0) {
+        if (!outGAM)  {
+          com->fprintf(stderr, " *** Error: GAMData output file not specified\n");
+          exit(-1);
+        }
+
+        com->fprintf(stderr, " ... write  Qstar (generalized aerodynamic matrix) for GAMFrequency%i = %e to file\n", numF+1, ioData->linearizedData.gamFreq[numF]);//gen aero matrix
+        com->fprintf(outGAM, "\n%i %i %i 4QHH 1P,5E16.9\n", nStrMode, nStrMode, 1);//header
+
+        for (int i = 0; i < nStrMode; ++i) {
+          com->fprintf(outGAM, "%i %i\n", i+1, 2*nStrMode);
+          for (int j = 0; j < nStrMode; ++j) {
+            com->fprintf(outGAM, "%e %e ", compQstar[i][j].real(), compQstar[i][j].imag());
+          }
+          com->fprintf(outGAM, "\n");
+        }
+        com->fprintf(outGAM, "%i %i %i\n%e\n", nStrMode+1, 1, 1, ioData->linearizedData.gamFreq[numF]);
+      }
+
+      if (strlen(ioData->output.transient.gamFData) > 0) {
+        if (!outGAMF)  {
+          com->fprintf(stderr, " *** Error: GAMFData output file not specified\n");
+          exit(-1);
+        }
+
+       com->fprintf(stderr, " ... write Q (generalized aerodynamic force matrix) for GAMFrequency%i = %e to file\n", numF+1, ioData->linearizedData.gamFreq[numF]);//gen aero FORCE matrix
+       com->fprintf(outGAMF, "\n%i %i %i 4QHH 1P,5E16.9\n", nStrMode, nStrMode, 1);//header
+
+       for (int i = 0; i < nStrMode; ++i) {
+         com->fprintf(outGAMF, "%i %i\n", i+1, 2*nStrMode);
+         for (int j = 0; j < nStrMode; ++j) {
+           com->fprintf(outGAMF, "%e %e ", compQ[i][j].real(), compQ[i][j].imag());
+         }
+         com->fprintf(outGAMF, "\n");
+       }
+       com->fprintf(outGAMF, "%i %i %i\n%e\n", nStrMode+1, 1, 1, ioData->linearizedData.gamFreq[numF]);
+       
+   
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
