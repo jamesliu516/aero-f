@@ -1672,11 +1672,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	
 	assert(fluidId[i] != fluidId[j]);
 
-//        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
-//                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
+        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
+                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
+
+	if (hasFix) {
+
+	  std::cout << "has fix! " << i << " " << j << " " << dVdx[i][0] << " " << dVdx[j][0] << std::endl;
+	}
 
 
-        bool hasFix = false;
+        hasFix = false;
 	
 	// There are two cases.  In the first case the surrogate interface is the
 	// same for both fluids.  This implies that the edge in question is cut by
@@ -1801,6 +1806,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
           //std::cout << "s = " << s << std::endl;
 	  if (0) {//s < 0.9) {
+	    
 	    for (int k = 0; k < dim; ++k) {
 	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai[k] + 
 		(1.0-betai[k])*Wi[k];
@@ -2303,7 +2309,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           }
         }
 
-        //std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
+        std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
 
 	for (int k=0; k<3; k++)
 	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
@@ -3183,7 +3189,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], Wi[2*dim], Wj[2*dim];
   double ddPij[dimLS], ddPji[dimLS], Pi[2*dimLS], Pj[2*dimLS];
   double Uni, Unj, Uwi, Uwj;
-  double Phia;
+  double Phia = 0.0;
   double srho1, srho2, srhod;
   double unroe, rroe;
   double uroe;
