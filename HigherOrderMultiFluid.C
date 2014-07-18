@@ -73,8 +73,8 @@ setLastPhaseChangeValue(int nodeId,const double* v) {
   SVec<double,dim>* V = 
     static_cast<SVec<double,dim>*>(lastPhaseChangeState);
 
-  if (v[0] != 0.0)
-    std::cout << "phase change value = " << v[0]  << std::endl;
+//  if (v[0] != 0.0)
+//    std::cout << "phase change value = " << v[0]  << std::endl;
   memcpy((*V)[nodeId], v ,sizeof(double)*dim);
 }
 

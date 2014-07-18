@@ -362,7 +362,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
 void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface) {
 
   // node set
-  if(cracking && nNodes!=cracking->usedNodes()) {com->fprintf(stderr,"SOFTWARE BUG!\n");exit(-1);}
+  if(cracking && nNodes!=cracking->usedNodes()) { com->fprintf(stderr,"SOFTWARE BUG (nNodes = %d; usedNodes = %d)!\n", nNodes, cracking->usedNodes());exit(-1);}
 
   numStNodes = nNodes;
   totStNodes = cracking ? cracking->totNodes() : numStNodes;

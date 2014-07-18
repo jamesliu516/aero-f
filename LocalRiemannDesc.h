@@ -745,6 +745,9 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     else
       Wi[4]  = Vi[4] + 1.0/cp*(P_i/R_ir-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w));
 
+    // CHF: believe this line is missing
+    Wi[dim+4] = Wi[4];
+
     Wj[0]  = R_il;                      Wj[dim]    = Wj[0];
     Wj[1]  = vtj[0]+U_i*nphi[0];        Wj[dim+1]  = Wj[1];
     Wj[2]  = vtj[1]+U_i*nphi[1];        Wj[dim+2]  = Wj[2];
@@ -3386,13 +3389,25 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
 	   pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,power)-pref;
 	   rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma); */
       
+// CHF: debug : original code
+/*
       double power = 2.0*gamma/(gamma-1.0);
       double a = sqrt(gamma*(p+pref)/rho);
       double pbar = p + pref;
       double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
       pi = pbar*pow(s,power)-pref;
-      
       rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+*/
+// debug test - code does not crash w/this code below... from a previous revision
+// seems the pow has changed where the base used to be a guaranteed positive number to something that can be neg.
+// i don't know what effect that has on the riemann solver
+    double power = gamma/(gamma-1.0);
+    double a = sqrt(gamma*(p+pref)/rho);
+    double pbar = p + pref;
+    double dee = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
+    pi = pbar*pow(dee*dee,power)-pref;
+    rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+
     }
     else{ // shock
       double temp = ((gamma+1.0)*rho*(ui-u)*(ui-u))/2.0;
@@ -3443,7 +3458,8 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     return;
   }
 
-  double q = (gamma-1.0)/(gamma+1.0);
+// CHF: check that the next line is correct
+  double q = (gamma+1.0)/(gamma-1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
@@ -3453,7 +3469,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
 //    if (s < 0.0) {
 //      fprintf(stderr,"Warning: s (%lf) in fs_grad is < 0!\n",s);
 //    }
-    double eta = pbar*power*pow(s,power-1.0);
+    // CHF: debug think this line is correct? ... commented line could result in negative base in power operation
+    double eta = pbar*power*pow(s*s,q*0.5);
+    //double eta = pbar*power*pow(s,power-1.0);
     double xi = eta*(-0.5/(a*a)*(gamma-1.0)*(ui-u));
  
     double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a/rho;
