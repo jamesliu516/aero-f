@@ -867,9 +867,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
                                            DistSVec<double,dim> &U, DistVec<int> &fluidId,
 					   DistVec<double>* umax)
 {
-  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 5\n");
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
-  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 6\n");
 
   domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, *dtau, tprec, fluidId,
 			  umax);
@@ -909,8 +907,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = *dtLeft / double(*numSubCycles);
     *dtLeft -= dt_glob;
   }
-                                                                                                         
-  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 7\n");
+                                                                                            
   data->computeCoefficients(*dt, dt_glob);
   
   return dt_glob;
