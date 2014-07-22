@@ -757,6 +757,9 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
                 uin[k][4] = it2->second->totalPressure;
               }
             }
+            if (faces[i].getCode() ==  BC_MASSFLOW_INLET_MOVING ||
+                faces[i].getCode() ==  BC_MASSFLOW_INLET_FIXED ) {
+            }
 
             if (faces[i].getCode() ==  BC_DIRECTSTATE_OUTLET_MOVING ||
                 faces[i].getCode() ==  BC_DIRECTSTATE_OUTLET_FIXED ) {
@@ -764,6 +767,9 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
                 int k = faces[i][l];
                 uout[k][4] = it2->second->pressure;
               }
+            }
+            if (faces[i].getCode() ==  BC_MASSFLOW_OUTLET_MOVING ||
+                faces[i].getCode() ==  BC_MASSFLOW_OUTLET_FIXED ) {
             }
           }
         }
@@ -1944,6 +1950,9 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
                 int k = faces[i][l];
                 uin[k][5] = it2->second->nutilde;
               }
+            }
+            if (faces[i].getCode() ==  BC_MASSFLOW_INLET_MOVING ||
+                faces[i].getCode() ==  BC_MASSFLOW_INLET_FIXED ) {
             }
           }
         }

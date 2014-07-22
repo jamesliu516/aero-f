@@ -38,6 +38,8 @@ void Face::setup(int fc, int *nn, int nnum, int sid)
       fc == BC_INLET_MOVING || fc == BC_INLET_FIXED ||
       fc == BC_DIRECTSTATE_OUTLET_MOVING || fc == BC_DIRECTSTATE_OUTLET_FIXED || 
       fc == BC_DIRECTSTATE_INLET_MOVING || fc == BC_DIRECTSTATE_INLET_FIXED ||
+      fc == BC_MASSFLOW_OUTLET_MOVING || fc == BC_MASSFLOW_OUTLET_FIXED || 
+      fc == BC_MASSFLOW_INLET_MOVING || fc == BC_MASSFLOW_INLET_FIXED ||
       fc == BC_ADIABATIC_WALL_MOVING || fc == BC_ADIABATIC_WALL_FIXED ||
       fc == BC_SLIP_WALL_MOVING || fc == BC_SLIP_WALL_FIXED ||
       fc == BC_ISOTHERMAL_WALL_MOVING || fc == BC_ISOTHERMAL_WALL_FIXED ||
@@ -101,7 +103,9 @@ void Face::setNodeFaceType(int* nodeFaceType)
   if( code==BC_INLET_FIXED  || code==BC_INLET_MOVING  ||
       code==BC_OUTLET_FIXED || code==BC_OUTLET_MOVING ||
       code==BC_DIRECTSTATE_INLET_FIXED  || code==BC_DIRECTSTATE_INLET_MOVING ||
-      code==BC_DIRECTSTATE_OUTLET_FIXED || code==BC_DIRECTSTATE_OUTLET_MOVING ) {
+      code==BC_DIRECTSTATE_OUTLET_FIXED || code==BC_DIRECTSTATE_OUTLET_MOVING ||
+      code==BC_MASSFLOW_INLET_FIXED  || code==BC_MASSFLOW_INLET_MOVING ||
+      code==BC_MASSFLOW_OUTLET_FIXED || code==BC_MASSFLOW_OUTLET_MOVING ) {
     for (int j=0; j<numNodes(); j++){
       nft = nodeFaceType[nodeNum(j)];
       if(nft == 0)

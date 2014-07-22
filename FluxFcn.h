@@ -215,6 +215,16 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             localff = new FluxFcnSGPrescribedInflowSA3D(iod, vfsgsa, typeJac);
             break;
 
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGPrescribedOutflowSA3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGPrescribedInflowSA3D(iod, vfsgsa, typeJac);
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
             if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
@@ -301,6 +311,14 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_DIRECTSTATE_INLET_MOVING:
             break;
 
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
           case BC_INLET_FIXED:
@@ -373,6 +391,16 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
         case BC_DIRECTSTATE_INLET_FIXED:
         case BC_DIRECTSTATE_INLET_MOVING:
+          localff = new FluxFcnSGPrescribedInflowEuler3D(iod, vfsgeuler, typeJac);
+          break;
+
+        case BC_MASSFLOW_OUTLET_FIXED:
+        case BC_MASSFLOW_OUTLET_MOVING:
+          localff = new FluxFcnSGPrescribedOutflowEuler3D(iod, vfsgeuler, typeJac);
+          break;
+
+        case BC_MASSFLOW_INLET_FIXED:
+        case BC_MASSFLOW_INLET_MOVING:
           localff = new FluxFcnSGPrescribedInflowEuler3D(iod, vfsgeuler, typeJac);
           break;
 
@@ -494,6 +522,14 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_DIRECTSTATE_INLET_MOVING:
             break;
 
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
             if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL)
@@ -551,6 +587,14 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
+            break;
+
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
             break;
 
           case BC_OUTLET_FIXED:
@@ -611,6 +655,14 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
         case BC_DIRECTSTATE_INLET_FIXED:
         case BC_DIRECTSTATE_INLET_MOVING:
+          break;
+
+        case BC_MASSFLOW_OUTLET_FIXED:
+        case BC_MASSFLOW_OUTLET_MOVING:
+          break;
+
+        case BC_MASSFLOW_INLET_FIXED:
+        case BC_MASSFLOW_INLET_MOVING:
           break;
 
         case BC_OUTLET_FIXED:
@@ -683,6 +735,14 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
       case BC_DIRECTSTATE_INLET_FIXED:
       case BC_DIRECTSTATE_INLET_MOVING:
+        break;
+
+      case BC_MASSFLOW_OUTLET_FIXED:
+      case BC_MASSFLOW_OUTLET_MOVING:
+        break;
+
+      case BC_MASSFLOW_INLET_FIXED:
+      case BC_MASSFLOW_INLET_MOVING:
         break;
 
       case BC_OUTLET_FIXED:
@@ -866,6 +926,16 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
             localff = new FluxFcnSGPrescribedInflowSAturb3D(iod, vfsgsa, typeJac);
             break;
 
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGPrescribedOutflowSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGPrescribedInflowSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
             if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
@@ -920,6 +990,14 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
+            break;
+
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
             break;
 
           case BC_OUTLET_FIXED:
@@ -978,6 +1056,14 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
       case BC_DIRECTSTATE_INLET_MOVING:
         break;
 
+      case BC_MASSFLOW_OUTLET_FIXED:
+      case BC_MASSFLOW_OUTLET_MOVING:
+        break;
+
+      case BC_MASSFLOW_INLET_FIXED:
+      case BC_MASSFLOW_INLET_MOVING:
+        break;
+
       case BC_OUTLET_FIXED:
       case BC_OUTLET_MOVING:
       case BC_INLET_FIXED:
@@ -1016,6 +1102,14 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
       case BC_DIRECTSTATE_INLET_FIXED:
       case BC_DIRECTSTATE_INLET_MOVING:
+        break;
+
+      case BC_MASSFLOW_OUTLET_FIXED:
+      case BC_MASSFLOW_OUTLET_MOVING:
+        break;
+
+      case BC_MASSFLOW_INLET_FIXED:
+      case BC_MASSFLOW_INLET_MOVING:
         break;
 
       case BC_OUTLET_FIXED:

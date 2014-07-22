@@ -614,7 +614,9 @@ void TimeState<dim>::addToJacobianNoPrec(bool *nodeFlag, Vec<double> &ctrlVol, G
       if(!(nodeType[i]==BC_INLET_MOVING || nodeType[i]==BC_OUTLET_MOVING ||
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED ||
            nodeType[i]==BC_DIRECTSTATE_INLET_MOVING || nodeType[i]==BC_DIRECTSTATE_OUTLET_MOVING ||
-           nodeType[i]==BC_DIRECTSTATE_INLET_FIXED || nodeType[i]==BC_DIRECTSTATE_OUTLET_FIXED) )
+           nodeType[i]==BC_DIRECTSTATE_INLET_FIXED || nodeType[i]==BC_DIRECTSTATE_OUTLET_FIXED ||
+           nodeType[i]==BC_MASSFLOW_INLET_MOVING || nodeType[i]==BC_MASSFLOW_OUTLET_MOVING ||
+           nodeType[i]==BC_MASSFLOW_INLET_FIXED || nodeType[i]==BC_MASSFLOW_OUTLET_FIXED) )
         addToJacobianNoPrecLocal(i, ctrlVol[i], U, A,i);
   }
 
@@ -728,7 +730,9 @@ void TimeState<dim>::addToJacobianGasPrec(bool *nodeFlag, Vec<double> &ctrlVol, 
       if(!(nodeType[i]==BC_INLET_MOVING || nodeType[i]==BC_OUTLET_MOVING ||
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED ||
            nodeType[i]==BC_DIRECTSTATE_INLET_MOVING || nodeType[i]==BC_DIRECTSTATE_OUTLET_MOVING ||
-           nodeType[i]==BC_DIRECTSTATE_INLET_FIXED || nodeType[i]==BC_DIRECTSTATE_OUTLET_FIXED) )
+           nodeType[i]==BC_DIRECTSTATE_INLET_FIXED || nodeType[i]==BC_DIRECTSTATE_OUTLET_FIXED ||
+           nodeType[i]==BC_MASSFLOW_INLET_MOVING || nodeType[i]==BC_MASSFLOW_OUTLET_MOVING ||
+           nodeType[i]==BC_MASSFLOW_INLET_FIXED || nodeType[i]==BC_MASSFLOW_OUTLET_FIXED) )
         addToJacobianGasPrecLocal(i,ctrlVol[i],gam,pstiff,tprec,irey[i],U,A);
 
   }
@@ -844,7 +848,9 @@ void TimeState<dim>::addToJacobianLiquidPrec(bool *nodeFlag, Vec<double> &ctrlVo
       if(!(nodeType[i]==BC_INLET_MOVING || nodeType[i]==BC_OUTLET_MOVING ||
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED ||
            nodeType[i]==BC_DIRECTSTATE_INLET_MOVING || nodeType[i]==BC_DIRECTSTATE_OUTLET_MOVING ||
-           nodeType[i]==BC_DIRECTSTATE_INLET_FIXED || nodeType[i]==BC_DIRECTSTATE_OUTLET_FIXED) )
+           nodeType[i]==BC_DIRECTSTATE_INLET_FIXED || nodeType[i]==BC_DIRECTSTATE_OUTLET_FIXED ||
+           nodeType[i]==BC_MASSFLOW_INLET_MOVING || nodeType[i]==BC_MASSFLOW_OUTLET_MOVING ||
+           nodeType[i]==BC_MASSFLOW_INLET_FIXED || nodeType[i]==BC_MASSFLOW_OUTLET_FIXED) )
         addToJacobianLiquidPrecLocal(i,ctrlVol[i],vf,tprec,irey[i],U,A);
   }
 }

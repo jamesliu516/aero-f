@@ -698,7 +698,11 @@ template<int dim> void GnatPreprocessing<dim>::subDFindMaxError(int iSub, bool
 			    currentFaces[iFace].getCode() == BC_DIRECTSTATE_INLET_MOVING ||
 			    currentFaces[iFace].getCode() == BC_DIRECTSTATE_INLET_FIXED ||
 			    currentFaces[iFace].getCode() == BC_DIRECTSTATE_OUTLET_MOVING ||
-			    currentFaces[iFace].getCode() == BC_DIRECTSTATE_OUTLET_FIXED) {
+			    currentFaces[iFace].getCode() == BC_DIRECTSTATE_OUTLET_FIXED ||
+			    currentFaces[iFace].getCode() == BC_MASSFLOW_INLET_MOVING ||
+			    currentFaces[iFace].getCode() == BC_MASSFLOW_INLET_FIXED ||
+			    currentFaces[iFace].getCode() == BC_MASSFLOW_OUTLET_MOVING ||
+			    currentFaces[iFace].getCode() == BC_MASSFLOW_OUTLET_FIXED) {
 			 locMasterFlag = nodeDistInfo.getMasterFlag(iSub); // master nodes on subdomain
 			 nLocNodes = currentFaces[iFace].numNodes(); // number of nodes on this face
 			 for (int iLocNode = 0; iLocNode < nLocNodes ; ++iLocNode){
