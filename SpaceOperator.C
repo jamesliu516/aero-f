@@ -263,9 +263,13 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
   ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff -= BC_MIN_CODE;
   
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 16)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 20)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
   ff[BC_SYMMETRY] = new FluxFcn(rshift,BC_SYMMETRY,ioData,varFcn); 
+  ff[BC_MASSFLOW_OUTLET_MOVING] = new FluxFcn(rshift,BC_MASSFLOW_OUTLET_MOVING,ioData,varFcn);
+  ff[BC_MASSFLOW_OUTLET_FIXED] = new FluxFcn(rshift,BC_MASSFLOW_OUTLET_FIXED,ioData,varFcn); 
+  ff[BC_MASSFLOW_INLET_MOVING] = new FluxFcn(rshift,BC_MASSFLOW_INLET_MOVING,ioData,varFcn);
+  ff[BC_MASSFLOW_INLET_FIXED] = new FluxFcn(rshift,BC_MASSFLOW_INLET_FIXED,ioData,varFcn);
   ff[BC_DIRECTSTATE_OUTLET_MOVING] = new FluxFcn(rshift,BC_DIRECTSTATE_OUTLET_MOVING,ioData,varFcn);
   ff[BC_DIRECTSTATE_OUTLET_FIXED] = new FluxFcn(rshift,BC_DIRECTSTATE_OUTLET_FIXED,ioData,varFcn); 
   ff[BC_DIRECTSTATE_INLET_MOVING] = new FluxFcn(rshift,BC_DIRECTSTATE_INLET_MOVING,ioData,varFcn);
