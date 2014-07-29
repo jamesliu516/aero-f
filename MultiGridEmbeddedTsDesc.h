@@ -36,6 +36,8 @@ class MultiGridEmbeddedTsDesc : public ImplicitEmbeddedCoupledTsDesc<dim> {
   
   void setupTimeStepping(DistSVec<double,dim> *U, IoData &iod);
 
+  DistSVec<double,dim>* getSmoothedVec() { return U_smoothed; }
+
  private:
 
   int numSmooths_pre[10],numSmooths_post[10];
@@ -61,4 +63,8 @@ class MultiGridEmbeddedTsDesc : public ImplicitEmbeddedCoupledTsDesc<dim> {
   DistMultiGridLevelSetStructure** mgLSS;
 
   int globalIt;
+
+  DistSVec<double,dim>* U_smoothed;
+
+  double densityMin, densityMax;
 };

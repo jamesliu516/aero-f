@@ -27,6 +27,9 @@ template<int dim, int dimLS>
 class LevelSetTsDesc : public TsDesc<dim> {
 
  protected:
+
+  IoData& ioData;
+
   MultiPhaseSpaceOperator<dim,dimLS> *multiPhaseSpaceOp;
   FluidSelector fluidSelector;
   LevelSet<dimLS> *LS;

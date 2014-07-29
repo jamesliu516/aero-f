@@ -20,6 +20,8 @@ class ExactSolution {
     CylindricalBubble(IoData& iod,double x, double y, double z,
 		      double t, double* V, double* phi, int& fid);
 
+  static void AcousticTwoFluid(IoData&, double x, double y, double z,
+			       double t, double* V, double* phi, int& fid);
 
   template <void (*F)(IoData&, double,double,double,
 				     double,double*), int dim >

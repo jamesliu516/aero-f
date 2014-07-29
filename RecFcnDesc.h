@@ -78,15 +78,15 @@ class RecFcnExtendedVanAlbada : public RecFcnVanAlbada<dim> {
 public:
 
   RecFcnExtendedVanAlbada(double b, double e, double pc, double rhoc,
-                          double xi_p, double xi_rho) : RecFcnVanAlbada<dim>(b, e),
-                          pc(pc), rhoc(rhoc), xi_p(xi_p),xi_rho(xi_rho) {}
+                          double xi_p, double vc,double xi_rho) : RecFcnVanAlbada<dim>(b, e),
+    pc(pc), rhoc(rhoc), xi_p(xi_p),xi_rho(xi_rho), vc(vc) {}
   ~RecFcnExtendedVanAlbada() {}
   
   void computeExtended(double *, double *, double *, double *, double *, double *, double, double,int,int);
 
 private:
 
-  double pc,rhoc;
+  double pc,rhoc,vc;
   double xi_p, xi_rho;
 };
 
@@ -797,8 +797,8 @@ void RecFcnExtendedVanAlbada<dim>::computeExtended(double* Vi, double* ddVij, do
   double phi_rhoi = std::max<double>((Vi[0]-rhoc)/xi_rho,0);
   double phi_rhoj = std::max<double>((Vj[0]-rhoc)/xi_rho,0);
 
-  double phi_vi = 5.0/std::max<double>(0.01,Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3]);
-  double phi_vj = 5.0/std::max<double>(0.01,Vj[1]*Vj[1]+Vj[2]*Vj[2]+Vj[3]*Vj[3]);
+  double phi_vi = (vc*vc)/std::max<double>(0.01,Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3]);
+  double phi_vj = (vc*vc)/std::max<double>(0.01,Vj[1]*Vj[1]+Vj[2]*Vj[2]+Vj[3]*Vj[3]);
 
   double phi_i = std::min<double>(phi_pi,phi_rhoi);
   double phi_j = std::min<double>(phi_pj,phi_rhoj);

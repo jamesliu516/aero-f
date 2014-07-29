@@ -17,7 +17,7 @@ MultiGridEmbeddedTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   numSmooths_pre[3] = 4;
   numSmooths_pre[4] = 5;
   numSmooths_pre[5] = 6;
-  numSmooths_pre[6] = 100;
+  numSmooths_pre[6] = 7;
   numSmooths_pre[7] = 8;
   numSmooths_pre[8] = 9;
   
@@ -52,6 +52,9 @@ MultiGridEmbeddedTsDesc(IoData & iod, GeoSource & gs,  Domain * dom) :
   mgLSS  = NULL;
 
   TsDesc<dim>::isMultigridTsDesc = true;
+
+  densityMin = iod.mg.densityMin/iod.ref.rv.density;
+  densityMax = iod.mg.densityMax/iod.ref.rv.density;
 
 }
 
@@ -97,6 +100,8 @@ void MultiGridEmbeddedTsDesc<dim>::
 setupTimeStepping(DistSVec<double,dim> *U0, IoData &iod) {
 
   EmbeddedTsDesc<dim>::setupTimeStepping(U0, iod);
+
+  U_smoothed = new DistSVec<double,dim>(*U0);
 
   pKernel = new MultiGridKernel<double>(this->domain, *this->geoState,
                                         iod,iod.mg.num_multigrid_levels);
@@ -154,7 +159,13 @@ smooth0(DistSVec<double,dim>& x,int steps) {
   double dummy = 0.0;
   this->updateStateVectors(x, 0);
 
+  int rnk;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rnk);
+
+
   for (i = 0; i < steps; ++i) {
+
+    this->domain->checkSolution(this->varFcn, x);
 
     this->computeTimeStep(globalIt,&dummy, x);
     ++globalIt;
@@ -166,6 +177,12 @@ smooth0(DistSVec<double,dim>& x,int steps) {
       smoothingMatrices->acquire( *this->GetJacobian());
   
     R(0) *= -1.0;
+
+    double mag = R(0).norm();
+    if (rnk == 0) {
+      std::cout << "norm = " << mag << std::endl;
+    }
+
     if (smoothWithGMRES)
       this->solveLinearSystem(0, R(0),dx(0));
     else
@@ -176,8 +193,16 @@ smooth0(DistSVec<double,dim>& x,int steps) {
     this->updateStateVectors(x, 0);
     this->monitorConvergence(0, x);
     R(0) = -1.0*this->getCurrentResidual();
-    
+
+    *U_smoothed = x;
+
   }
+
+  double mag = R(0).norm();
+  if (rnk == 0) {
+    std::cout << "norm = " << mag << std::endl;
+  }
+
 //  if (i == 0) {
 //    this->monitorConvergence(0, x);
 //    R(0) = -1.0*this->getCurrentResidual();
@@ -233,6 +258,10 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     
     //if (rnk == 0)
     //  std::cout << "i = " << i << std::endl;
+    
+    dx(lvl) = 0.0;
+    pKernel->fixNegativeValues(lvl,V(lvl), x(lvl), dx(lvl), f,Forig(lvl), this->varFcn,
+                               mgSpaceOp->getOperator(lvl));
 
     this->varFcn->conservativeToPrimitive(x(lvl), V(lvl));
 
@@ -262,11 +291,11 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
     for (int iSub = 0; iSub < R(lvl).numLocSub(); ++iSub) {
 
-      for (int i = 0; i < R(lvl).subSize(iSub); ++i) {
+      for (int j = 0; j < R(lvl).subSize(iSub); ++j) {
 
-	if (!(*mgLSS[lvl])(iSub).isActive(0.0,i)) {
+	if (!(*mgLSS[lvl])(iSub).isActive(0.0,j)) {
 
-	  memset(R(lvl)(iSub)[i], 0, sizeof(double)*dim);
+	  memset(R(lvl)(iSub)[j], 0, sizeof(double)*dim);
 	}
       }
     }
@@ -278,19 +307,19 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 
 
     
-    if ( globalIt % 25 == 0 && i == 0) {
+    if ( /*globalIt % 25 == 0 &&*/ i == 0) {
       //sprintf(fn, "solution_dz_%i_%i", globalIt,lvl);
       //  pKernel->getLevel(lvl)->writePVTUSolutionFile(fn, 
       //					    *mgSpaceOp->getOperator(lvl)->getDerivative(2)); 
-      
-      //sprintf(fn, "solutionres_%i_%i", lvl, globalIt);
-      //pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
-      //						  R(lvl)); 
+      /*
+      sprintf(fn, "solutionres_%i_%i", lvl, globalIt);
+      pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+      						  R(lvl)); 
    
-      //sprintf(fn, "solutionV_%i_%i",lvl,globalIt);
-      //        pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
-      // 						  V(lvl));
-
+      sprintf(fn, "solutionV_%i_%i",lvl,globalIt);
+              pKernel->getLevel(lvl)->writePVTUSolutionFile(fn,
+       						  V(lvl));
+      */
     }
 
     //if (lvl == 3) {
@@ -319,7 +348,7 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
 //						  V(lvl));
 
 
-
+    dx(lvl) = 0.0;
     if (smoothWithGMRES)
       mgKspSolver->solve(lvl, *mgMvp, R, dx);  
     else {
@@ -331,6 +360,24 @@ smooth(int lvl, MultiGridDistSVec<double,dim>& x,
     //dx(lvl) *= 0.5;
 
     //dx(lvl) = 0.0;
+    /*
+    for (int iSub = 0; iSub < R(lvl).numLocSub(); ++iSub) {
+
+      for (int i = 0; i < R(lvl).subSize(iSub); ++i) {
+
+	if (!(*mgLSS[lvl])(iSub).isActive(0.0,i)) {
+
+	  memset(dx(lvl)(iSub)[i], 0, sizeof(double)*dim);
+	}
+      }
+    }
+
+    std::cout << dx(lvl).norm() << std::endl;
+    */
+
+    mag = dx(lvl).norm();
+    if (rnk == 0)
+      std::cout << "res = " << mag << std::endl;
 
     x(lvl) += dx(lvl); 
 
@@ -396,6 +443,18 @@ void MultiGridEmbeddedTsDesc<dim>::cycle(int lvl, DistSVec<double,dim>& f,
 
     char fn[64];
     
+    for (int iSub = 0; iSub < R(lvl+1).numLocSub(); ++iSub) {
+      
+      for (int i = 0; i < R(lvl+1).subSize(iSub); ++i) {
+
+	if (V(lvl+1)(iSub)[i][0] <= densityMin ||
+	    V(lvl+1)(iSub)[i][0] >= densityMax) {
+	  for (int k = 0; k < dim; ++k) {
+	    R(lvl+1)(iSub)[i][k] = 0.0;
+	  }
+	}
+      }
+    }
     
     if (globalIt % 100 == 0) {
       sprintf(fn, "solutionresF%i", globalIt);
