@@ -14,6 +14,7 @@
 #define HEATPOWER_TAG 5000
 #define TEMP_TAG 6000
 #define STRUC_NUMPA_TAG 7500
+#define STRUC_RELRES_TAG 7600
 #define STRUC_CMD_TAG 8000
 #define FLUID_CMD_TAG 9000
 #define NEGO_NUM_TAG 10000
@@ -360,6 +361,21 @@ void StructExc::getNumParam(int &numParam)
 
   com->broadcast(1, &xbuf);
   numParam = int(xbuf);
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::getRelResidual(double &relres)
+{
+  double xbuf;
+
+  if (strCom->cpuNum() == 0) {
+    strCom->recFrom(STRUC_RELRES_TAG, &xbuf, 1);
+    strCom->waitForAllReq();
+  }
+
+  com->broadcast(1, &xbuf);
+  relres = double(xbuf);
 }
 
 //------------------------------------------------------------------------------

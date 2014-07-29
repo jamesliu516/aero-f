@@ -4078,7 +4078,7 @@ void SubDomain::readVectorFromFile(const char *prefix, int no, int neq,
     int minsize = min(neq, dim);
     for (i=0; i<U.size(); ++i) {
       for (int j=0; j<minsize; ++j)
-	U[i][j] = data[neq*i + j];
+        U[i][j] = data[neq*i + j];
     }
     delete [] data;
   }

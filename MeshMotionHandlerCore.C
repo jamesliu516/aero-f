@@ -444,6 +444,13 @@ void AeroMeshMotionHandler::getNumParam(int &numParam)
 
 //------------------------------------------------------------------------------
 
+void AeroMeshMotionHandler::getRelResidual(double &relres)
+{
+  strExc->getRelResidual(relres);
+}
+
+//------------------------------------------------------------------------------
+
 void AeroMeshMotionHandler::cmdCom(bool *lastIt)
 {
   strExc->negotiateStopping(lastIt); 
