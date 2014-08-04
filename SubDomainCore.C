@@ -587,25 +587,12 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
       fprintf(stderr,"Element %i has a negative volume of %e\n",locToGlobElemMap[i]+1,volume);
       ++ierr;
       ++numInvElem;
-      fprintf(stderr,"ierr has been increased to %i \n",ierr);
       if (numInvElem)
-      elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
-                                   locToGlobElemMap, nodes, X);
+       elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
+                                    locToGlobElemMap, nodes, X);
     }
   }
  
-  if(ierr > 0) { 
-    const char* output = "elementvolumecheck";
-    ofstream out(output, ios::out);
-    if(!out) {
-      cerr << "Error: cannot open file" << output << endl;
-      exit(-1);
-    } 
-  
-    out << ierr << endl;
-    out.close();
-    exit(-1);
-  }
   return ierr;
 
 }
