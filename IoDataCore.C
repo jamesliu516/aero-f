@@ -5295,7 +5295,7 @@ int IoData::checkInputValuesAllInitialConditions(){
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID)
+      if(it->second->type==VolumeData::FLUID || it->second->type==VolumeData::POROUS)
         error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
   }
 
@@ -5469,7 +5469,7 @@ void IoData::nonDimensionalizeAllInitialConditions(){
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID)
+      if(it->second->type==VolumeData::FLUID || it->second->type==VolumeData::POROUS)
         nonDimensionalizeInitialConditions(it->second->initialConditions);
   }
 
@@ -6928,7 +6928,7 @@ void IoData::printDebug(){
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID){
+      if(it->second->type==VolumeData::FLUID || it->second->type==VolumeData::POROUS){
         com->fprintf(stderr, "VolumeData::tag          = %d\n", it->first);
         com->fprintf(stderr, "VolumeData::fluidModelID = %d\n", it->second->fluidModelID);
         com->fprintf(stderr, "VolumeData::density      = %e\n", it->second->initialConditions.density);
