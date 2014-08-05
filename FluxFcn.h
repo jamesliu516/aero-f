@@ -207,22 +207,22 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
           case BC_DIRECTSTATE_OUTLET_FIXED:
           case BC_DIRECTSTATE_OUTLET_MOVING:
-            localff = new FluxFcnSGPrescribedOutflowSA3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGDirectStateOutflowSA3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
-            localff = new FluxFcnSGPrescribedInflowSA3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGDirectStateInflowSA3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_MASSFLOW_OUTLET_FIXED:
           case BC_MASSFLOW_OUTLET_MOVING:
-            localff = new FluxFcnSGPrescribedOutflowSA3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGMassFlowOutflowSA3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_MASSFLOW_INLET_FIXED:
           case BC_MASSFLOW_INLET_MOVING:
-            localff = new FluxFcnSGPrescribedInflowSA3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGMassFlowInflowSA3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_OUTLET_FIXED:
@@ -305,18 +305,22 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
           case BC_DIRECTSTATE_OUTLET_FIXED:
           case BC_DIRECTSTATE_OUTLET_MOVING:
+            localff = new FluxFcnSGDirectStateOutflowKE3D(iod, vfsgke, typeJac);
             break;
 
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
+            localff = new FluxFcnSGDirectStateInflowKE3D(iod, vfsgke, typeJac);
             break;
 
           case BC_MASSFLOW_OUTLET_FIXED:
           case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGMassFlowOutflowKE3D(iod, vfsgke, typeJac);
             break;
 
           case BC_MASSFLOW_INLET_FIXED:
           case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGMassFlowInflowKE3D(iod, vfsgke, typeJac);
             break;
 
           case BC_OUTLET_FIXED:
@@ -386,22 +390,22 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
         case BC_DIRECTSTATE_OUTLET_FIXED:
         case BC_DIRECTSTATE_OUTLET_MOVING:
-          localff = new FluxFcnSGPrescribedOutflowEuler3D(iod, vfsgeuler, typeJac);
+          localff = new FluxFcnSGDirectStateOutflowEuler3D(iod, vfsgeuler, typeJac);
           break;
 
         case BC_DIRECTSTATE_INLET_FIXED:
         case BC_DIRECTSTATE_INLET_MOVING:
-          localff = new FluxFcnSGPrescribedInflowEuler3D(iod, vfsgeuler, typeJac);
+          localff = new FluxFcnSGDirectStateInflowEuler3D(iod, vfsgeuler, typeJac);
           break;
 
         case BC_MASSFLOW_OUTLET_FIXED:
         case BC_MASSFLOW_OUTLET_MOVING:
-          localff = new FluxFcnSGPrescribedOutflowEuler3D(iod, vfsgeuler, typeJac);
+          localff = new FluxFcnSGMassFlowOutflowEuler3D(iod, vfsgeuler, typeJac);
           break;
 
         case BC_MASSFLOW_INLET_FIXED:
         case BC_MASSFLOW_INLET_MOVING:
-          localff = new FluxFcnSGPrescribedInflowEuler3D(iod, vfsgeuler, typeJac);
+          localff = new FluxFcnSGMassFlowInflowEuler3D(iod, vfsgeuler, typeJac);
           break;
 
         case BC_OUTLET_FIXED:
@@ -516,16 +520,10 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
           case BC_DIRECTSTATE_OUTLET_FIXED:
           case BC_DIRECTSTATE_OUTLET_MOVING:
-            break;
-
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
-            break;
-
           case BC_MASSFLOW_OUTLET_FIXED:
           case BC_MASSFLOW_OUTLET_MOVING:
-            break;
-
           case BC_MASSFLOW_INLET_FIXED:
           case BC_MASSFLOW_INLET_MOVING:
             break;
@@ -583,16 +581,10 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
           case BC_DIRECTSTATE_OUTLET_FIXED:
           case BC_DIRECTSTATE_OUTLET_MOVING:
-            break;
-
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
-            break;
-
           case BC_MASSFLOW_OUTLET_FIXED:
           case BC_MASSFLOW_OUTLET_MOVING:
-            break;
-
           case BC_MASSFLOW_INLET_FIXED:
           case BC_MASSFLOW_INLET_MOVING:
             break;
@@ -651,16 +643,10 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
         case BC_DIRECTSTATE_OUTLET_FIXED:
         case BC_DIRECTSTATE_OUTLET_MOVING:
-          break;
-
         case BC_DIRECTSTATE_INLET_FIXED:
         case BC_DIRECTSTATE_INLET_MOVING:
-          break;
-
         case BC_MASSFLOW_OUTLET_FIXED:
         case BC_MASSFLOW_OUTLET_MOVING:
-          break;
-
         case BC_MASSFLOW_INLET_FIXED:
         case BC_MASSFLOW_INLET_MOVING:
           break;
@@ -731,16 +717,10 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
       case BC_DIRECTSTATE_OUTLET_FIXED:
       case BC_DIRECTSTATE_OUTLET_MOVING:
-        break;
-
       case BC_DIRECTSTATE_INLET_FIXED:
       case BC_DIRECTSTATE_INLET_MOVING:
-        break;
-
       case BC_MASSFLOW_OUTLET_FIXED:
       case BC_MASSFLOW_OUTLET_MOVING:
-        break;
-
       case BC_MASSFLOW_INLET_FIXED:
       case BC_MASSFLOW_INLET_MOVING:
         break;
@@ -918,22 +898,22 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
           case BC_DIRECTSTATE_OUTLET_FIXED:
           case BC_DIRECTSTATE_OUTLET_MOVING:
-            localff = new FluxFcnSGPrescribedOutflowSAturb3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGDirectStateOutflowSAturb3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
-            localff = new FluxFcnSGPrescribedInflowSAturb3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGDirectStateInflowSAturb3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_MASSFLOW_OUTLET_FIXED:
           case BC_MASSFLOW_OUTLET_MOVING:
-            localff = new FluxFcnSGPrescribedOutflowSAturb3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGMassFlowOutflowSAturb3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_MASSFLOW_INLET_FIXED:
           case BC_MASSFLOW_INLET_MOVING:
-            localff = new FluxFcnSGPrescribedInflowSAturb3D(iod, vfsgsa, typeJac);
+            localff = new FluxFcnSGMassFlowInflowSAturb3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_OUTLET_FIXED:
@@ -986,18 +966,22 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
           case BC_DIRECTSTATE_OUTLET_FIXED:
           case BC_DIRECTSTATE_OUTLET_MOVING:
+            localff = new FluxFcnSGDirectStateOutflowKEturb3D(iod, vfsgke, typeJac);
             break;
 
           case BC_DIRECTSTATE_INLET_FIXED:
           case BC_DIRECTSTATE_INLET_MOVING:
+            localff = new FluxFcnSGDirectStateInflowKEturb3D(iod, vfsgke, typeJac);
             break;
 
           case BC_MASSFLOW_OUTLET_FIXED:
           case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGMassFlowOutflowKEturb3D(iod, vfsgke, typeJac);
             break;
 
           case BC_MASSFLOW_INLET_FIXED:
           case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGMassFlowInflowKEturb3D(iod, vfsgke, typeJac);
             break;
 
           case BC_OUTLET_FIXED:
@@ -1050,16 +1034,10 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
       case BC_DIRECTSTATE_OUTLET_FIXED:
       case BC_DIRECTSTATE_OUTLET_MOVING:
-        break;
-
       case BC_DIRECTSTATE_INLET_FIXED:
       case BC_DIRECTSTATE_INLET_MOVING:
-        break;
-
       case BC_MASSFLOW_OUTLET_FIXED:
       case BC_MASSFLOW_OUTLET_MOVING:
-        break;
-
       case BC_MASSFLOW_INLET_FIXED:
       case BC_MASSFLOW_INLET_MOVING:
         break;
@@ -1098,16 +1076,10 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
       case BC_DIRECTSTATE_OUTLET_FIXED:
       case BC_DIRECTSTATE_OUTLET_MOVING:
-        break;
-
       case BC_DIRECTSTATE_INLET_FIXED:
       case BC_DIRECTSTATE_INLET_MOVING:
-        break;
-
       case BC_MASSFLOW_OUTLET_FIXED:
       case BC_MASSFLOW_OUTLET_MOVING:
-        break;
-
       case BC_MASSFLOW_INLET_FIXED:
       case BC_MASSFLOW_INLET_MOVING:
         break;
