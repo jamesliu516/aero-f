@@ -197,20 +197,14 @@ template<int dim>
 int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &b, 
 						  DistSVec<double,dim> &dQ)
 {
-  using namespace std;
+
   double t0 = this->timer->getTime();
 
   dQ = 0.0;
 
   ksp->setup(it, this->maxItsNewton, b);
-//  cerr << "it is " << it << endl;
-//  cerr << "maxItsNewton is " << this->maxItsNewton << endl;
 
-//  clock_t begin = clock();
   int lits = ksp->solve(b, dQ);
-//  clock_t end = clock();
-//  double elapsed_secs = double(end-begin) / CLOCKS_PER_SEC;
-//  this->com->printf(0, "elapsed_secs for ImplicitCoupledTsDesc<dim>::solveLinearSystem is %f s\n", elapsed_secs);
 
   if (lits == ksp->maxits && this->data->checklinsolve) this->data->badlinsolve=true;
 
