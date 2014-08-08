@@ -592,7 +592,19 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
                                     locToGlobElemMap, nodes, X);
     }
   }
- 
+
+  if(ierr > 0) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) {
+      cerr << "Error: cannot open file" << output << endl;
+      exit(-1);
+    }
+
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
   return ierr;
 
 }
