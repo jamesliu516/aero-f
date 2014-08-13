@@ -593,6 +593,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     }
   }
 
+#ifdef YDEBUG
   if(ierr > 0) {
     const char* output = "elementvolumecheck";
     ofstream out(output, ios::out);
@@ -605,6 +606,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     out.close();
     exit(-1);
   }
+#endif
   return ierr;
 
 }
