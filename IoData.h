@@ -2211,6 +2211,7 @@ struct LinearizedData {
   int numSteps;
   int numPOD;
   int numStrModes;
+  int maxItEV;
   const char *romFile;
   static const int numFreq = 20;
   double gamFreq[numFreq];
