@@ -3803,6 +3803,7 @@ LinearizedData::LinearizedData()
   eps = 1e-4;
   eps2 = 5.0;
   epsEV = 1e-4;
+  maxItEV = 20;
   tolerance = 1e-8;
   strModesFile = "";
   modeNumber = 1;
@@ -3877,6 +3878,7 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
+  new ClassInt<LinearizedData>(ca, "MaxItEV", this, &LinearizedData::maxItEV);
   new ClassDouble<LinearizedData>(ca, "GAMFrequency1ReducedFrequency", this, &LinearizedData::gamFreq1);
   new ClassDouble<LinearizedData>(ca, "GAMFrequency2ReducedFrequency", this, &LinearizedData::gamFreq2);
   new ClassDouble<LinearizedData>(ca, "GAMFrequency3ReducedFrequency", this, &LinearizedData::gamFreq3);
