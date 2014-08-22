@@ -3460,6 +3460,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
 
 // CHF: check that the next line is correct
   double a = sqrt(gamma*(p+pref)/rho);
+  double q = (gamma+1.0)/(gamma-1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
     double pbar = p + pref;
