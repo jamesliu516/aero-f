@@ -920,7 +920,6 @@ EmbeddedStructure::sendInitialPosition(Communication::Window<double> *window)
 void
 EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 {
-  mode = 98;
   if(coupled) {
      DistSVec<double,3> Y0(*di, X);
      DistSVec<double,3> V(*di, U);
