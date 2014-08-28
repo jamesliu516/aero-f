@@ -354,10 +354,10 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       setSampleNodes(sampleNodes);   // use local sampled nodes
   
       setUpPodResJac(iCluster);      // read in Res/Jac bases
-  
-      formMaskedNonlinearROBs();
    
       setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
+  
+      formMaskedNonlinearROBs();
   
       initializeLeastSquares();
    
@@ -397,8 +397,12 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       }
   
     }
-  
+
+
     if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
+      this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects
+      initialize(); 
+ 
       if (!surfaceMeshConstruction) {
       com->fprintf(stdout,"\nPreprocessing for approximate basis updates\n");
       double approxUpdatesPreproTime = this->timer->getTime(); 
@@ -615,14 +619,15 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
   // check the svd
   // (looks good: errors less than 1e-15)  Note that Vtrue is not Vtranspose
   double errorNorm,maxErr,avgErr;
-  DistSVec<double,dim> error( domain.getNodeDistInfo() );
+  DistSVec<double,dim> errorVec( domain.getNodeDistInfo() );
   /*maxErr = 0.0;
   avgErr = 0.0;
   for (int iSnap = 0; iSnap <nSnaps; ++iSnap) {
-    error = snapHatApproxMetric[iSnap];
+    errorVec = snapHatApproxMetric[iSnap];
     for (int jSnap = 0; jSnap < nSnaps; ++jSnap)
-      error = error - ((singValsTmp[jSnap]*VtrueTmp[iSnap][jSnap])*UTrueTmp[jSnap]);
-    errorNorm = error.norm()/((snapHatApproxMetric[iSnap]).norm());
+      errorVec = errorVec - ((singValsTmp[jSnap]*VtrueTmp[iSnap][jSnap])*UTrueTmp[jSnap]);
+    errorNorm = ( ((snapHatApproxMetric[iSnap]).norm())> 1e-15) ? errorVec.norm()/((snapHatApproxMetric[iSnap]).norm()): 0.0;
+
     avgErr += errorNorm;
     if (errorNorm > maxErr)
       maxErr = errorNorm;   
@@ -670,15 +675,15 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
     maxErr = 0.0;
     avgErr = 0.0;
     for (int iSnap = 0; iSnap <nSnaps; ++iSnap) {
-      error = snapHatApproxMetric[iSnap];
+      errorVec = snapHatApproxMetric[iSnap];
       for (int jSnap = 0; jSnap < nSnaps; ++jSnap) {
         if (jSnap <= iSnap)
           temp = rVals[(iSnap+1)*iSnap/2 + jSnap];
         else
            temp = rVals[(jSnap+1)*jSnap/2 + iSnap];
-        error = error - (temp*pseudoInverseMaskedSnapsTrans[jSnap]);
+        errorVec = errorVec - (temp*pseudoInverseMaskedSnapsTrans[jSnap]);
       }
-      errorNorm = error.norm()/((snapHatApproxMetric[iSnap]).norm());
+      errorNorm = errorVec.norm()/((snapHatApproxMetric[iSnap]).norm());
       avgErr += errorNorm;
       if (errorNorm > maxErr)
         maxErr = errorNorm;
@@ -3223,10 +3228,7 @@ void GnatPreprocessing<dim>::formMaskedNonlinearROBs()
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
     podHat[iPodBasis].resize(nPod[iPodBasis]);
     for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0;
-    error[iPodBasis].resize(nRhsMax);
   }
-
-
 
   // fill (from findMaxAndFillPodHat())
   for (int iSampleNode=0; iSampleNode<nSampleNodes; ++iSampleNode) {
@@ -3249,6 +3251,10 @@ void GnatPreprocessing<dim>::formMaskedNonlinearROBs()
       }
     }
     com->barrier();
+  }
+
+  for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
+    pod[iPodBasis].resize(0);  // pod no longer needed
   }
 
 }

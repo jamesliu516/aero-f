@@ -1024,3 +1024,32 @@ void NonlinearRomOnlineII<dim>::appendVectorToBasis(DistSVec<double,dim> &vec, i
 }
 
 
+//-------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluster, DistSVec<double, dim> &U) {
+
+  this->com->fprintf(stdout, " ... projecting switch state onto affine subspace\n");
+
+  // dif = U_switch - U_ref
+  DistSVec<double, dim> dif(this->domain.getNodeDistInfo());
+  if (!this->Uref) this->readClusteredReferenceState(iCluster, "state");
+  dif = U - *(this->Uref); 
+  
+  // result = basis^T * dif  
+  int nPodVecs = this->basis->numVectors();
+  Vec<double> tmpReducedVec(nPodVecs);
+  for (int iVec = 0; iVec < nPodVecs; iVec++)
+    tmpReducedVec[iVec] = (*(this->basis))[iVec] * dif;
+
+  // result = basis * result 
+  DistSVec<double, dim> projectedDif(this->domain.getNodeDistInfo());
+  projectedDif = 0;
+  for (int iVec = 0; iVec < nPodVecs; iVec++)
+    projectedDif += tmpReducedVec[iVec] * (*(this->basis))[iVec];
+
+  // U_switch_projected = U_ref + result
+  U = *(this->Uref) + projectedDif;
+
+}
+

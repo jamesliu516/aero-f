@@ -1964,8 +1964,9 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
 template<int dim>
 void NonlinearRom<dim>::readClusteredUpdateInfo(int iCluster, const char* basisType) {
 
-  if (ioData->romOnline.basisUpdates == NonlinearRomOnlineData::UPDATES_OFF) {
-    // do nothing
+  if (ioData->romOnline.basisUpdates == NonlinearRomOnlineData::UPDATES_OFF &&
+      ioData->romOnline.projectSwitchStateOntoAffineSubspace == NonlinearRomOnlineData::PROJECT_ON) {
+    readClusteredReferenceState(iCluster, basisType);
   } else {
     readClusteredReferenceState(iCluster, basisType);
     readClusteredColumnSumsV(iCluster, basisType);
@@ -2290,16 +2291,33 @@ void NonlinearRom<dim>::createDirectories() {
 template<int dim>
 void NonlinearRom<dim>::readReferenceState() {
 
-  double tmp;
-  bool status;
   char* fullRefName;
   const char* refSolName = ioData->input.stateSnapRefSolution;
   fullRefName = new char[strlen(ioData->input.prefix) + strlen(refSolName) + 1];
   sprintf(fullRefName, "%s%s", ioData->input.prefix, refSolName);
-  com->fprintf(stdout, "\nReading reference solution for snapshots from %s\n", fullRefName);
-  if (snapRefState) delete snapRefState;
-  snapRefState = new DistSVec<double, dim>(domain.getNodeDistInfo());
-  status = domain.readVectorFromFile(fullRefName, 0, &tmp, *snapRefState);
+
+  int numSteps = 0;
+  double tag = 0.0;
+  bool status = domain.readTagFromFile<double, dim>(fullRefName, 0, &tag, &numSteps);
+  if (status) {
+    if (snapRefState) delete snapRefState;
+    snapRefState = new DistSVec<double, dim>(domain.getNodeDistInfo());
+    com->fprintf(stdout, "\nReading reference solution for snapshots from %s\n", fullRefName);
+  } else {
+    com->fprintf(stderr, "\n*** Error: no snapshots found in %s\n", fullRefName);
+    exit(-1);
+  }
+
+  // different stencils for different time integrators
+  int refVecIndex = 0;
+  if ((ioData->ts.implicit.type == ImplicitData::THREE_POINT_BDF) && (numSteps>=2)) {
+    refVecIndex = 1;
+  } else if ((ioData->ts.implicit.type == ImplicitData::FOUR_POINT_BDF) && (numSteps>=3)) {
+    refVecIndex = 2;
+  }
+
+  status = domain.readVectorFromFile(fullRefName, refVecIndex, &tag, *snapRefState);
+  
   delete [] fullRefName;
   fullRefName = NULL;
 
@@ -2727,9 +2745,12 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
     allKrylovSVals = new std::vector<double>*[nClusters];
   }
 
-  if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+  if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF ||
+      ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
     allRefStates = new VecSet< DistSVec<double, dim> >(nClusters, domain.getNodeDistInfo());
-    allColumnSumsV = new std::vector<double>*[nClusters];
+    if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+      allColumnSumsV = new std::vector<double>*[nClusters];
+    }
     if (false) { 
       // additional update info
     }
@@ -2761,17 +2782,20 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         sVals = NULL;
 
         // read update info
-        if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+        if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF || 
+            ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
           readClusteredUpdateInfo(iCluster, "state");
           (*allRefStates)[iCluster] = *Uref;
           delete Uref;
           Uref = NULL;
-          allColumnSumsV[iCluster] = new vector<double>;
-          *(allColumnSumsV[iCluster]) = *columnSumsV;
-          delete columnSumsV;
-          columnSumsV = NULL;
-          if (false) { 
-            // read additional update information
+          if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+            allColumnSumsV[iCluster] = new vector<double>;
+            *(allColumnSumsV[iCluster]) = *columnSumsV;
+            delete columnSumsV;
+            columnSumsV = NULL;
+            if (false) { 
+              // read additional update information
+            }
           }
         }
 
@@ -2845,17 +2869,20 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         sVals = NULL;
 
         // read ROB update information
-        if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+        if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF ||
+            ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
           readClusteredUpdateInfo(iCluster, "sampledState");
           (*allRefStates)[iCluster] = *Uref;
           delete Uref;
           Uref = NULL;
-          allColumnSumsV[iCluster] = new vector<double>;
-          *(allColumnSumsV[iCluster]) = *columnSumsV;
-          delete columnSumsV;
-          columnSumsV = NULL;
-          if (false) {
-            // read additional update information
+          if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+            allColumnSumsV[iCluster] = new vector<double>;
+            *(allColumnSumsV[iCluster]) = *columnSumsV;
+            delete columnSumsV;
+            columnSumsV = NULL;
+            if (false) {
+              // read additional update information
+            }
           }
         }
 
@@ -3568,4 +3595,5 @@ void NonlinearRom<dim>::qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::
 
   if (fpStateRom) fclose(fpStateRom);
 */
+
 

@@ -691,7 +691,7 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          totalSentNodes[iCpu] = index;
          // send data in buffer
          //fprintf(stderr, "*** CPU #%d sending back to CPU #%d: %d nodes = %d entries\n", thisCPU, jCpu, nSendNodes, buffLen);
-         com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen); //kmw removed 10* because tag was too large!
+         com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen); //KMW: removed 10* because tag was too large for MPICH!
        }
        com->barrier();
        // receive data and populate submatrix
@@ -723,6 +723,7 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          delete[] buffer;
      }
      com->barrier();
+     com->waitForAllReq(); // KMW
    }
  }
  //Completing the rest of the matrices

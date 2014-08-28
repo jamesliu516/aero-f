@@ -2238,6 +2238,9 @@ struct NonlinearRomOnlineData {
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;
+
+  enum ProjectSwitchStateOntoAffineSubspace {PROJECT_OFF = 0, PROJECT_ON = 1} projectSwitchStateOntoAffineSubspace;
+
   enum DistanceComparisons {DISTANCE_COMPARISONS_OFF = 0, DISTANCE_COMPARISONS_ON = 1} distanceComparisons;
   enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
 
@@ -2263,6 +2266,8 @@ struct RelativeProjectionErrorData {
   int minDimension;
   int maxDimension;
   double energy;
+
+  int sweepFreq;
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1} basisUpdates;
 

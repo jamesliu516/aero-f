@@ -3437,7 +3437,9 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep,
     if (prevStep>=0) domain->readTagFromFile<double,dim>(stateVectors, prevStep, &prevTag, &dummy);
     if ((newtonIt==0) && (step!=0) && (prevTag==tag)) { //do nothing
     } else if (timeStep%stateOutputFreqTime==0) { 
-        if (((stateOutputFreqNewton==0)&&lastNewtonIt) || (((stateOutputFreqNewton>0))&&(newtonIt%stateOutputFreqNewton==0))) {
+        if (((stateOutputFreqNewton==0)&&lastNewtonIt) ||  // special case: last newton iteration
+            ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
+            ((stateOutputFreqNewton>0)&&(newtonIt%stateOutputFreqNewton==0))) {
           // output FOM state 
           domain->writeVectorToFile(stateVectors, step, tag, *state);
           ++(*(domain->getNewtonStateStep()));
@@ -3447,7 +3449,9 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep,
 
   if (residual && residualVectors) {
     if (timeStep%residualOutputFreqTime==0) { 
-      if (((residualOutputFreqNewton==0)&&lastNewtonIt) || (((residualOutputFreqNewton>0))&&(newtonIt%residualOutputFreqNewton==0))) {
+      if (((residualOutputFreqNewton==0) && lastNewtonIt) || // special case: last newton iteration 
+          ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
+          (((residualOutputFreqNewton>0))&&(newtonIt%residualOutputFreqNewton==0))) {
         // for FOM residuals only (residuals from PG are clustered during the online simulations)
 
         // if outputting krylov vects, limit number of residuals output per newton iteration to
