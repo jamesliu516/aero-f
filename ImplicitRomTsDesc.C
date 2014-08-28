@@ -277,6 +277,8 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
         deleteRestrictedQuantities(); // only defined for GNAT
         currentCluster = closestCluster;
         rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
+        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) 
+          rom->projectSwitchStateOntoAffineSubspace(currentCluster, U); // probably only useful when the cluster centers were used as reference states
       }
       if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) 
         updatePerformed = rom->updateBasis(currentCluster, U, &dUromCurrentROB);
@@ -413,21 +415,21 @@ void ImplicitRomTsDesc<dim>::printBCWeightingInfo(bool updateWeights) {
     relErrFF = abs(relErrFF);
     relErrWall = abs(relErrWall);
 
-    relErrFF = min(relErrFF,1000.0);
-    relErrWall = min(relErrWall,1000.0);
-
     double totRelError = relErrFF+relErrWall;
+
+    double ffRatio = 10.0;
+    double wallRatio = 10.0;
 
     ffWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrFF/totRelError;
     wallWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrWall/totRelError;
 
-    if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))>1.0 && interiorWeight>0.0 
+    if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))>ffRatio && interiorWeight>0.0 
          && resNormSquaredFFNodes/((double)numFFNodes)>1e-12) {
       if (ffDown) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
       ffUp = true;
       ffDown = false;
-      ffWeight *= (1+(ffWeightGrowthFactor-1)*relErrFF);
-    } else if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))<=1.0 && ffWeight>1.0
+      ffWeight *= ffWeightGrowthFactor;
+    } else if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))<=ffRatio && ffWeight>1.0
                && allowBCWeightDecrease) {
       if (ffUp) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
       ffUp = false;
@@ -435,13 +437,13 @@ void ImplicitRomTsDesc<dim>::printBCWeightingInfo(bool updateWeights) {
       ffWeight /= ffWeightGrowthFactor;
     }
 
-    if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))>10.0 && interiorWeight>0.0
+    if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))>wallRatio && interiorWeight>0.0
         && resNormSquaredWallNodes/((double)numWallNodes)>1e-12) {
       if (wallDown) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
       wallUp = true;
       wallDown = false;
-      wallWeight *= (1+(wallWeightGrowthFactor-1)*relErrWall); 
-    } else if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))<=10.0 && wallWeight>1.0 
+      wallWeight *= wallWeightGrowthFactor; 
+    } else if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))<=wallRatio && wallWeight>1.0 
                 && allowBCWeightDecrease) {
       if (wallUp) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
       wallUp = false;
@@ -457,6 +459,58 @@ void ImplicitRomTsDesc<dim>::printBCWeightingInfo(bool updateWeights) {
     }
   }
 
+  /*  double relErrFF = (resNormSquaredFFNodes/((double)numFFNodes) - resNormSquaredInteriorNodes/((double)numInteriorNodes))/
+                      (resNormSquaredInteriorNodes/((double)numInteriorNodes));
+
+    double relErrWall = (resNormSquaredWallNodes/((double)numWallNodes)  - resNormSquaredInteriorNodes/((double)numInteriorNodes))/
+                      (resNormSquaredInteriorNodes/((double)numInteriorNodes));
+
+    relErrFF = abs(relErrFF);
+    relErrWall = abs(relErrWall);
+
+    double totRelError = relErrFF+relErrWall;
+
+    ffWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrFF/totRelError;
+    wallWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrWall/totRelError;
+ 
+    double ffRatio = 1.0;
+    double wallRatio = 10.0;
+
+    if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))>ffRatio && interiorWeight>0.0
+         && resNormSquaredFFNodes/((double)numFFNodes)>1e-12) {
+      if (ffDown) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
+      ffUp = true;
+      ffDown = false;
+      ffWeight *= ffWeightGrowthFactor;
+    } else if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))<=ffRatio && ffWeight>1.0
+               && allowBCWeightDecrease) {
+      if (ffUp) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
+      ffUp = false;
+      ffDown = true;
+      ffWeight /= ffWeightGrowthFactor;
+    }
+
+    if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))>wallRatio && interiorWeight>0.0
+        && resNormSquaredWallNodes/((double)numWallNodes)>1e-12) {
+      if (wallDown) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
+      wallUp = true;
+      wallDown = false;
+      wallWeight *= wallWeightGrowthFactor;
+    } else if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))<=wallRatio && wallWeight>1.0
+                && allowBCWeightDecrease) {
+      if (wallUp) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
+      wallUp = false;
+      wallDown = true;
+      wallWeight /= wallWeightGrowthFactor;
+    }
+
+    ffWeight = (ffWeight<1.0) ? 1.0 : ffWeight;
+    wallWeight = (wallWeight<1.0) ? 1.0 : wallWeight;
+    if (adjustInteriorWeight) {
+      interiorWeight = 1.0 - (ffWeight-1.0)*ffRatio*(double)numFFNodes/(double)numInteriorNodes - (wallWeight-1.0)*wallRatio*(double)numWallNodes/(double)numInteriorNodes;
+      interiorWeight = (interiorWeight<0.0) ? 0.0 : interiorWeight;
+    }
+  }*/
 }
 
 //------------------------------------------------------------------------------

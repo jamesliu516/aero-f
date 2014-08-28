@@ -298,6 +298,7 @@ class NonlinearRom {
   void initializeClusteredOutputs(); 
 
   // for online ROMs (both with and without hyper-reduction)
+  virtual void projectSwitchStateOntoAffineSubspace(int, DistSVec<double, dim> &) {};
   virtual bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {return false;};
   virtual void appendNonStateDataToBasis(int, const char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};

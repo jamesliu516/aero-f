@@ -24,13 +24,14 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   // private functions
   double calcResidual(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &);
   void localPod(const char*);
-  void SVD(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, int, bool computeV=true);
-  void scalapackSVD(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, bool computeV=true);
-  void probabilisticSVD(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &, double *S, FullM &V, int, bool computeV=true);
+  void SVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, int, bool computeV=true);
+  void scalapackSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, bool computeV=true);
+  void probabilisticSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &V, int, bool computeV=true);
   void kmeans();
   void kmeansWithBounds();
   void computeClassicalMultiDimensionalScaling();
   void localRelProjError(); 
+  void localRelProjErrorSweep();
 
   // fast distance calculation preprocessing
   bool arbitraryUniformIC;
@@ -45,6 +46,7 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
 
   // IO functions that are independent of database structure
   void writeProjErrorToDisk();
+  void writeProjErrorSweepToDisk(std::vector<std::vector<int> >, std::vector<std::vector<double> >);
   void placeNonStateSnapshotsInClusters(const char*);
 
   public:

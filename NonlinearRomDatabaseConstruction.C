@@ -36,6 +36,8 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
 
   robConstruction = &(this->ioData->romOffline.rob);
   projError = &(robConstruction->relativeProjectionError);
+
+  
 }
 
 //----------------------------------------------------------------------------------
@@ -98,8 +100,15 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   if (robConstruction->residual.dataCompression.computePOD) localPod("residual");
   if (robConstruction->jacAction.dataCompression.computePOD) localPod("jacAction");
 
+  // projection error
+  if (projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
+  if ((projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) &&
+      (projError->sweepFreq > 0)) localRelProjErrorSweep();
+
   // store ROBs in memory to avoid excessive IO time
-  if (robConstruction->storeAllClusters) this->readAllClusteredOfflineQuantities();
+  if (robConstruction->storeAllClusters && (robConstruction->basisUpdates.preprocessForNoUpdates ||
+      robConstruction->basisUpdates.preprocessForExactUpdates ||
+      robConstruction->basisUpdates.preprocessForApproxUpdates)) this->readAllClusteredOfflineQuantities();
 
   // preprocessing for fast distance calculations (not currently supported for simple updates)
   if (robConstruction->basisUpdates.preprocessForNoUpdates || 
@@ -109,9 +118,6 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   // preprocessing for exact basis updates 
   // (data for simple updates is ouput automatically; data for approx updates is output in GNAT preprocessing)
   if (robConstruction->basisUpdates.preprocessForExactUpdates) preprocessForExactBasisUpdates();
-
-  // projection error
-  if (projError->relProjError!=RelativeProjectionErrorData::REL_PROJ_ERROR_OFF) localRelProjError();
 
   this->timer->addTotalOfflineTime(tOffline);
 
@@ -1657,7 +1663,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
         int nKeep = maxBasisSize;
         this->com->fprintf(stdout, " ... performing SVD on matrix of size %d, storing first %d vectors to final SVD matrix \n", nSnaps, nKeep);
 
-        SVD(*(this->snap), UTrueTmp, singValsTmp.data(), VtrueTmp, nSnaps, podMethod, true);
+        SVD(this->snap, UTrueTmp, singValsTmp.data(), VtrueTmp, nSnaps, podMethod, true);
        
         if (this->snap) delete (this->snap);
         this->snap = NULL;         
@@ -1703,9 +1709,9 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
       Utrue = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
       singVals = new Vec<double>(nTotSnaps);
       Vtrue = new FullM(nTotSnaps);
-      SVD(*(fullSnaps), *Utrue, singVals->data(), *Vtrue, nTotSnaps, podMethod, true);
+      SVD(fullSnaps, *Utrue, singVals->data(), *Vtrue, nTotSnaps, podMethod, true);
 
-      delete fullSnaps;
+      if (fullSnaps) delete fullSnaps;
       fullSnaps = NULL;
 
     } else { // regular SVD
@@ -1714,7 +1720,12 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
       Utrue = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
       singVals = new Vec<double>(nTotSnaps);
       Vtrue = new FullM(nTotSnaps);
-      SVD(*(this->snap), *Utrue, singVals->data(), *Vtrue, nTotSnaps, podMethod, true);
+
+      SVD(this->snap, *Utrue, singVals->data(), *Vtrue, nTotSnaps, podMethod, true);
+      if (this->snap) delete (this->snap);
+      (this->snap) = NULL;
+
+      /*SVD(this->snap, *Utrue, singVals->data(), *Vtrue, nTotSnaps, podMethod, true);
   
       // check svd
       double errorNorm,maxErr,avgErr;
@@ -1725,7 +1736,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
         error = (*this->snap)[iSnap];
         for (int jSnap = 0; jSnap < nTotSnaps; ++jSnap)
           error = error - (((*singVals)[jSnap]*(*Vtrue)[iSnap][jSnap])*(*Utrue)[jSnap]);
-        errorNorm = error.norm()/(((*this->snap)[iSnap]).norm());
+        errorNorm = ((((*this->snap)[iSnap]).norm()) > 1e-15) ? error.norm()/(((*this->snap)[iSnap]).norm()) : 0.0;
         avgErr += errorNorm;
         if (errorNorm > maxErr)
           maxErr = errorNorm;   
@@ -1737,7 +1748,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
       // end check svd
  
       delete (this->snap);
-      (this->snap) = NULL;
+      (this->snap) = NULL; */
 
     }
   
@@ -1761,7 +1772,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
         break; 
       } else if ((singValSquaresPartialSum >= target) && (podSize>=minBasisSize)){ 
         this->com->barrier();
-        this->com->fprintf(stdout, "Reached specified energy (%2.1f%%) \n", (singValSquaresPartialSum/singValSquaresTotal)*100); 
+        this->com->fprintf(stdout, "Reached specified energy (%2.10f%%) \n", (singValSquaresPartialSum/singValSquaresTotal)*100); 
         this->com->fprintf(stdout, "Retaining %i vectors in basis %i \n", podSize, iCluster); 
         break; 
       } else if (((*singVals)[iSnap] <= singValTolerance) && (podSize>=minBasisSize)) { // singValTolerance is 1e-6 by default 
@@ -1824,7 +1835,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomDatabaseConstruction<dim>::SVD(VecSet< DistSVec<double, dim> > &snapshots, VecSet< DistSVec<double, dim> > &Utrue,
+void NonlinearRomDatabaseConstruction<dim>::SVD(VecSet< DistSVec<double, dim> >*& snapshots, VecSet< DistSVec<double, dim> > &Utrue,
     double *singularValues, FullM &Vtrue, int numSnaps, int podMethod, bool computeV) {
 
   double podTime = this->timer->getTime();
@@ -1845,7 +1856,7 @@ void NonlinearRomDatabaseConstruction<dim>::SVD(VecSet< DistSVec<double, dim> > 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomDatabaseConstruction<dim>::scalapackSVD(VecSet< DistSVec<double, dim> > &snapshots, VecSet< DistSVec<double, dim> > &Utrue,
+void NonlinearRomDatabaseConstruction<dim>::scalapackSVD(VecSet< DistSVec<double, dim> >*& snapshots, VecSet< DistSVec<double, dim> > &Utrue,
     double *singularValues, FullM &Vtrue, int numSnaps, bool computeV) {
  
   #ifndef DO_SCALAPACK
@@ -1854,7 +1865,7 @@ void NonlinearRomDatabaseConstruction<dim>::scalapackSVD(VecSet< DistSVec<double
   #endif
 
   ParallelRom<dim> parallelRom( this->domain, this->com);
-  parallelRom.parallelSVD(snapshots, Utrue, singularValues, Vtrue, numSnaps, computeV);
+  parallelRom.parallelSVD(*snapshots, Utrue, singularValues, Vtrue, numSnaps, computeV);
 
 }
 
@@ -1862,7 +1873,7 @@ void NonlinearRomDatabaseConstruction<dim>::scalapackSVD(VecSet< DistSVec<double
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<double, dim> > &snapshots, VecSet< DistSVec<double, dim> > &Utrue,
+void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<double, dim> >*& snapshots, VecSet< DistSVec<double, dim> > &Utrue,
     double *singularValues, FullM &Vtrue, int numSnaps, bool computeV) {
 
 //    function [U,S,V] = probabilistic_svd(A,k,q)
@@ -1881,7 +1892,7 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
 
   // choose k=numSnaps for now (can change this if it's too expensive)
   // generate random numbers from normal distribution
-    this->com->fprintf(stdout, " ... generating random matrix\n");
+  this->com->fprintf(stdout, " ... generating random matrix\n");
   double* randMat = new double[numSnaps*numSnaps]; // store as vector for simplicity
   if (this->com->cpuNum()==0) {
     //std::default_random_engine generator;
@@ -1905,7 +1916,7 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
   for (int iSnap=0; iSnap<numSnaps; ++iSnap) {
     Utrue[iSnap] = 0.0;
     for (int jSnap=0; jSnap<numSnaps; ++jSnap) {
-      Utrue[iSnap] += snapshots[jSnap]*randMat[iSnap*numSnaps + jSnap];
+      Utrue[iSnap] += (*snapshots)[jSnap]*randMat[iSnap*numSnaps + jSnap];
     }
   }
   delete [] randMat;
@@ -1917,13 +1928,13 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
     double* tmpMat = new double[numSnaps*numSnaps]; // store as vector for simplicity  
     for (int iSnap=0; iSnap<numSnaps; ++iSnap) {
       for (int jSnap=0; jSnap<numSnaps; ++jSnap) {
-        tmpMat[iSnap*numSnaps + jSnap] = snapshots[jSnap]*Utrue[iSnap]; // tmpMat[jSnap][iSnap]
+        tmpMat[iSnap*numSnaps + jSnap] = (*snapshots)[jSnap]*Utrue[iSnap]; // tmpMat[jSnap][iSnap]
       }
     }
     for (int iSnap=0; iSnap<numSnaps; ++iSnap) {
       Utrue[iSnap] = 0.0;
       for (int jSnap=0; jSnap<numSnaps; ++jSnap) {
-        Utrue[iSnap] += snapshots[jSnap]*tmpMat[iSnap*numSnaps + jSnap];
+        Utrue[iSnap] += (*snapshots)[jSnap]*tmpMat[iSnap*numSnaps + jSnap];
       }
     }
     delete [] tmpMat;
@@ -1950,9 +1961,12 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
   double* tmpMat = new double[numSnaps*numSnaps];
   for (int iSnap=0; iSnap<numSnaps; ++iSnap) {
     for (int jSnap=0; jSnap<numSnaps; ++jSnap) {
-      tmpMat[iSnap*numSnaps + jSnap] = Utrue[jSnap]*snapshots[iSnap]; // tmpMat[jSnap][iSnap]
+      tmpMat[iSnap*numSnaps + jSnap] = Utrue[jSnap]*(*snapshots)[iSnap]; // tmpMat[jSnap][iSnap]
     }
   }
+
+  delete snapshots;
+  snapshots = NULL; 
  
   // SVD
   double *error = new double[numSnaps];
@@ -2528,6 +2542,175 @@ void NonlinearRomDatabaseConstruction<dim>::writeProjErrorToDisk()  {
   this->com->barrier();
 
 }
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::writeProjErrorSweepToDisk(std::vector<std::vector<int> > robSizes,
+                                                                      std::vector<std::vector<double> > projErrors)  {
+
+  // output projError as ASCII file in top level of ROM database
+  for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+
+    FILE *projErrorSweepFile;
+    int extraDigits = (iCluster==0) ? 1 : floor(log10((double)iCluster));
+    char *fullProjErrorSweepName = new char[strlen(this->databasePrefix) + strlen(this->databaseName) + 1 + 
+                                            strlen(this->projErrorName) + extraDigits + 1];
+    sprintf(fullProjErrorSweepName, "%s%s/%s%d", this->databasePrefix, this->databaseName, this->projErrorName, iCluster);
+    this->com->fprintf(stdout, "\nWriting projection error sweep info to disk: %s \n", fullProjErrorSweepName);
+  
+    int nSweeps = projErrors[iCluster].size();
+  
+    if (this->com->cpuNum() == 0) {  
+      projErrorSweepFile = fopen(fullProjErrorSweepName, "wt");
+      this->com->fprintf(projErrorSweepFile,"#BasisVecs FrobeniusNormOfError\n");
+  
+      for (int iSweep=0; iSweep<nSweeps; ++iSweep)
+        this->com->fprintf(projErrorSweepFile,"%d %e\n", robSizes[iCluster][iSweep], projErrors[iCluster][iSweep]);
+  
+      fclose (projErrorSweepFile);
+    }
+  
+    delete [] fullProjErrorSweepName;
+    fullProjErrorSweepName = NULL;
+  
+    this->com->barrier();
+
+  }
+
+}
+
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::localRelProjErrorSweep() {
+
+  double projErrorTime = this->timer->getTime();
+
+  this->readClusterCenters("centers");
+  delete (this->clusterCenters);
+  (this->clusterCenters) = NULL;
+ 
+  nSnapshotFiles = this->readSnapshotFiles("projError", true);
+
+  //normalize snapshots
+  int nTotSnaps = this->snap->numVectors();
+  for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+    double norm = ((*(this->snap))[iSnap].norm());
+    if (norm>1e-16)  (*(this->snap))[iSnap] *= 1/norm;
+  }
+
+  std::vector<std::vector<int> > robSizes; // [basis][sweep]
+  std::vector<std::vector<double> > projErrors; // [basis][sweep]
+  robSizes.resize(this->nClusters);
+  projErrors.resize(this->nClusters);
+
+  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+
+    robSizes[iCluster].clear();
+    projErrors[iCluster].clear();
+
+    switch (projError->relProjError) {
+      case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
+        this->readClusteredBasis(iCluster, "state", true);
+        if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
+            this->snapRefState!=NULL) 
+          this->updateBasis(iCluster, *(this->snapRefState));
+        if (projError->krylov.include) this->com->fprintf(stdout, "*** Warning: Krylov vecs will not be appended for projection error sweep\n");
+        if (projError->sensitivity.include) this->com->fprintf(stdout, "*** Warning: Sensitivities will not be appended for projection error sweep\n");
+        break;
+      case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
+        this->readClusteredBasis(iCluster, "residual", true);
+        break;
+      case (RelativeProjectionErrorData::REL_PROJ_ERROR_JACACTION):
+        this->readClusteredBasis(iCluster, "jacAction", true);
+        break;
+      default:
+        exit (-1);
+    }
+
+    this->com->fprintf(stdout, "\nStarting projection error sweep for basis %d\n", iCluster);
+
+    int nPodVecs = this->basis->numVectors();
+    int nSweeps = floor(((double)nPodVecs-1)/((double)projError->sweepFreq));
+    if (nPodVecs>0) ++nSweeps;
+
+    for (int iSweep = 0; iSweep < nSweeps; ++iSweep) {
+
+      this->com->fprintf(stdout, "\nCalculating relative projection error for basis %d with %d basis vectors\n", iCluster, nPodVecs);
+  
+      // basis^T * snapshots    
+      this->com->fprintf(stdout, " ... tmp = basis^T * snapshots\n");
+      Vec<double> tmpVec(nPodVecs);
+      VecSet<Vec<double> >* tmpVecSet = new VecSet<Vec<double> >(nTotSnaps, nPodVecs);
+      for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+        for (int iVec = 0; iVec < nPodVecs; iVec++){
+          tmpVec[iVec] = (*(this->basis))[iVec] * (*(this->snap))[iSnap];
+        }
+        (*tmpVecSet)[iSnap] = tmpVec;
+      }
+  
+      // basis * result 
+      this->com->fprintf(stdout, " ... projected snaps = basis * tmp\n");
+      VecSet<DistSVec<double, dim> >* projectedSnaps = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+      for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+        (*projectedSnaps)[iSnap] = 0.0;
+        for (int iVec = 0; iVec < nPodVecs; iVec++)
+          (*projectedSnaps)[iSnap] += ((*tmpVecSet)[iSnap])[iVec] * (*(this->basis))[iVec];
+      }
+      delete tmpVecSet;
+      tmpVecSet = NULL;
+  
+      // snaps - projSnaps
+      projErrors[iCluster].push_back(0.0);
+      robSizes[iCluster].push_back(nPodVecs);
+      this->com->fprintf(stdout, " ... difference = originalSnaps - projectedSnaps\n");
+      VecSet<DistSVec<double, dim> >* snapDifference = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+      for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+        (*snapDifference)[iSnap] = (*(this->snap))[iSnap] - (*projectedSnaps)[iSnap];
+        projErrors[iCluster][iSweep] += (*snapDifference)[iSnap] * (*snapDifference)[iSnap];
+      }
+      projErrors[iCluster][iSweep] = pow(projErrors[iCluster][iSweep],0.5); // frobenius norm  
+
+      delete projectedSnaps;
+      projectedSnaps = NULL;
+ 
+      delete snapDifference;
+      snapDifference = NULL;
+  
+
+      // resize ROB
+      int newRobSize = nPodVecs - projError->sweepFreq;
+      if (newRobSize>0) {
+        VecSet< DistSVec<double, dim> >* newBasis = new VecSet< DistSVec<double, dim> >(newRobSize, this->domain.getNodeDistInfo());
+        for (int iVec=0; iVec<newRobSize; ++iVec)
+          (*newBasis)[iVec] = (*(this->basis))[iVec];
+       
+        delete this->basis;
+        this->basis = newBasis;
+        nPodVecs = this->basis->numVectors();
+        }
+      }
+
+    delete (this->basis);
+    (this->basis) = NULL;
+
+  }  
+
+  // output
+  writeProjErrorSweepToDisk(robSizes, projErrors);
+
+  delete [] (this->snapsInCluster);
+  (this->snapsInCluster) = NULL;
+  delete (this->snap);
+  (this->snap) = NULL;
+
+  this->timer->addProjErrorTime(projErrorTime);
+
+}
+
+
 
 //----------------------------------------------------------------------------------
 

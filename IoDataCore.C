@@ -3802,6 +3802,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   reducedTimeStep = 1e-10;
   basisUpdates = UPDATES_OFF;
   basisUpdateFreq = -1;
+  projectSwitchStateOntoAffineSubspace = PROJECT_OFF;
   distanceComparisons = DISTANCE_COMPARISONS_OFF;
   storeAllClusters = STORE_ALL_CLUSTERS_TRUE;
   maxDimension = -1; 
@@ -3839,18 +3840,20 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 
   ClassAssigner *ca = new ClassAssigner(name, 31, father);
 
-	new ClassToken<NonlinearRomOnlineData> (ca, "Projection", this, reinterpret_cast<int
+  new ClassToken<NonlinearRomOnlineData> (ca, "Projection", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projection), 2, "PetrovGalerkin", 0, "Galerkin", 1);
-	new ClassToken<NonlinearRomOnlineData> (ca, "SystemApproximation", this, reinterpret_cast<int
+  new ClassToken<NonlinearRomOnlineData> (ca, "SystemApproximation", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::systemApproximation), 2, "None", 0, "GNAT", 1);
   new ClassToken<NonlinearRomOnlineData> (ca, "PerformLineSearch", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 3, "False", 0, "Backtracking", 1, "StrongWolfe", 2);
-	new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
+  new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 4, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3);
- 	new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
+  new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
   new ClassInt<NonlinearRomOnlineData>(ca, "BasisUpdateFrequency", this, &NonlinearRomOnlineData::basisUpdateFreq);
- 	new ClassToken<NonlinearRomOnlineData> (ca, "FastDistanceComparisons", this, reinterpret_cast<int
+  new ClassToken<NonlinearRomOnlineData> (ca, "ProjectSwitchStateOntoAffineSubspace", this, reinterpret_cast<int
+                        NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projectSwitchStateOntoAffineSubspace), 2, "Off", 0, "On", 1);
+  new ClassToken<NonlinearRomOnlineData> (ca, "FastDistanceComparisons", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::distanceComparisons), 2, "Off", 0, "On", 1);
   new ClassToken<NonlinearRomOnlineData> (ca, "StoreAllClustersInMemory", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::storeAllClusters), 2, "False", 0, "True", 1);
@@ -4388,9 +4391,10 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
 
   basisUpdates = UPDATES_OFF;
   maxDimension = -1; 
-	minDimension = 0;
+  minDimension = 0;
   energy = 1.0;
   postProProjectedStates = POST_PRO_OFF;
+  sweepFreq = -1;
 
 }
 
@@ -4398,7 +4402,7 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
 
 void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 10, father);
+  ClassAssigner *ca = new ClassAssigner(name, 11, father);
 	new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 4, "Off", 0, "State", 1, "Residual", 2, "JacAction", 3);
 	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
@@ -4413,6 +4417,8 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<RelativeProjectionErrorData>(ca, "MaximumEnergy", this, &RelativeProjectionErrorData::energy);
   new ClassToken<RelativeProjectionErrorData> (ca, "PostProcessForProjectedStates", this, reinterpret_cast<int
       RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::postProProjectedStates), 2, "Off", 0, "On", 1);
+
+  new ClassInt<RelativeProjectionErrorData>(ca, "SweepFrequency", this, &RelativeProjectionErrorData::sweepFreq);
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
@@ -5447,8 +5453,7 @@ void IoData::resetInputValues()
   // Part 3
   //
  
-  if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
-    com->fprintf(stderr, "*** Warning: Using fixed unsteady CFL strategy for unsteady problem. To force a strategy designed for steady problems, set UseSteadyStrategy to On.\n");
+  if(!problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
     ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
     ts.cfl.checklinsolve = 0;
   }
@@ -5458,7 +5463,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_)
     problem.mode = ProblemData::DIMENSIONAL;
 
-  if (!problem.type[ProblemData::UNSTEADY] && (ts.implicit.type != ImplicitData::SPATIAL_ONLY)) {
+  if (!(problem.type[ProblemData::UNSTEADY] || problem.type[ProblemData::NLROMOFFLINE]) 
+        && (ts.implicit.type != ImplicitData::SPATIAL_ONLY)) {
     ts.implicit.type = ImplicitData::BACKWARD_EULER;
   }
 
@@ -5847,15 +5853,17 @@ int IoData::checkCFLBackwardsCompatibility(){
     com->fprintf(stderr, "*** Warning: Using CFL values under Time and old CFL law for backwards compatibility. The program will run, but correct execution requires all CFL parameters to be under CFLLaw.\n");
     ts.cfl.strategy = CFLData::OLD;
     //com->fprintf(stderr, "cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",ts.cfl0,ts.cflCoef1,ts.cflCoef2,ts.cflMax,ts.cflMin,ts.ser,ts.dualtimecfl);
+
+    ts.cfl.cfl0 = ts.cfl0;
+    ts.cfl.cflCoef1 = ts.cflCoef1;
+    ts.cfl.cflCoef2 = ts.cflCoef2;
+    ts.cfl.cflCoef3 = ts.cflCoef3;
+    ts.cfl.cflMax = ts.cflMax;
+    ts.cfl.cflMin = ts.cflMin;
+    ts.cfl.ser = ts.ser;
+    ts.cfl.dualtimecfl = ts.dualtimecfl;
+ 
   }
-  if(ts.cfl0 != -1.0) ts.cfl.cfl0 = ts.cfl0;
-  if(ts.cflCoef1 != -1.0) ts.cfl.cflCoef1 = ts.cflCoef1;
-  if(ts.cflCoef2 != -1.0) ts.cfl.cflCoef2 = ts.cflCoef2;
-  if(ts.cflCoef3 != -1.0) ts.cfl.cflCoef3 = ts.cflCoef3;
-  if(ts.cflMax != -1.0) ts.cfl.cflMax = ts.cflMax;
-  if(ts.cflMin != -1.0) ts.cfl.cflMin = ts.cflMin;
-  if(ts.ser != -1.0) ts.cfl.ser = ts.ser;
-  if(ts.dualtimecfl != -1.0) ts.cfl.dualtimecfl = ts.dualtimecfl;
 
   return 0;
 }

@@ -677,3 +677,13 @@ void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, const ch
 //----------------------------------------------------------------------------------
 
 
+//-------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomOnlineIII<dim>::projectSwitchStateOntoAffineSubspace(int iCluster, DistSVec<double, dim> &U) {
+
+  this->com->fprintf(stdout, " ... projecting switch state onto affine subspace is not yet supported\n");
+
+  // approx metric!
+}
+

@@ -468,7 +468,7 @@ if (NOT WITH_PHYSBAM EQUAL 0)
   SET_TARGET_PROPERTIES(physbam
                 PROPERTIES COMPILE_FLAGS "-fPIC -DCOMPILE_WITHOUT_READ_WRITE_SUPPORT")
 
-  SET(INC_DIR_TMP . IntersectorFRG IntersectorPhysBAM LevelSet ${PHYSBAM_BASE} ${PHYSBAM_BASE}/Public_Library)
+  SET(INC_DIR_TMP . IntersectorFRG IntersectorPhysBAM LevelSet ./PhysBAM_Interface ./PhysBAM_Interface/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR_TMP})
 
   #same definitions as AERO-F main code
