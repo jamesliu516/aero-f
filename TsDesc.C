@@ -338,6 +338,11 @@ void TsDesc<dim>::evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln)
   _n = fscanf(inFP, "%d",&nData);
   com->fprintf(stdout, "Reading %d Solutions for Flux Evaluation\n",nData);
 
+  if (nData == 0) {
+     strcpy(best_soln,"");
+     return;
+  }
+
   char solnFile1[500];
   char** solnFile = new char*[nData];
   for (int iData=0; iData < nData; ++iData)

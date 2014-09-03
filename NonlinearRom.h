@@ -4,6 +4,7 @@
 #include <RestrictionMapping.h>
 #include <vector>
 #include <string>
+#include <map>
 
 template <int dim>
 class NonlinearRom {
@@ -27,6 +28,9 @@ class NonlinearRom {
   const char* sensitivityClusterName;
 
   NonlinearRomFilesData* romFiles;
+
+  // Map from snapshot file to corresponding reference vector
+  std::map<std::string,std::string> mapSnapToRef;
 
   // State snapshot clusters
   char* stateSnapsName;
