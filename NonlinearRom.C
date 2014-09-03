@@ -931,9 +931,28 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   _n = fscanf(inFP, "%d",&nData);
   this->com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
 
+  FILE *inFPref; 
+  char refFile1[500];
+  char *refFile;
   if (typeIsState) {
     stateSnapsFromFile.clear();
     stateSnapsFromFile.resize(nData, 0);
+    if (!(strcmp(ioData->input.multiStateSnapRefSolution,"")==0) && !duplicateSnaps) {
+      refFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.multiStateSnapRefSolution)+1];
+      sprintf(refFile, "%s%s", ioData->input.prefix, ioData->input.multiStateSnapRefSolution);
+
+      inFPref = fopen(refFile, "r");
+      if (!inFPref)  {
+        this->com->fprintf(stderr, "*** Error: No references FILES in %s\n", vecFile);
+        exit (-1);
+      }
+      int nRef;
+      _n = fscanf(inFPref, "%d",&nRef);
+      if (nRef != nData) {
+        this->com->fprintf(stdout,"Number of references must be equal to number of snapshot files.  Exiting...\n");
+        exit(-1);
+      }
+    }
   }
 
   char** snapFile = new char*[nData];
@@ -967,6 +986,13 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     sampleFreq[iData] = iFreq;
     snapWeight[iData] = weight;
     this->com->fprintf(stdout, " ... Reading snapshots from %s \n", snapFile[iData]);
+
+    if (typeIsState) {
+      if (!(strcmp(ioData->input.multiStateSnapRefSolution,"")==0) && !duplicateSnaps) {
+        _n = fscanf(inFPref, "%s", refFile1);
+        mapSnapToRef[std::string(snapFile1)]=std::string(refFile1);
+      }
+    }
   }
 
   // compute the total number of snapshots
@@ -1097,6 +1123,10 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   snapWeight = NULL;
   delete [] tags;
   tags = NULL;
+
+  if (typeIsState && !(strcmp(ioData->input.multiStateSnapRefSolution,"")==0) && !duplicateSnaps) {
+    delete[] refFile;
+  }
 
   return nData;
 
@@ -1467,6 +1497,14 @@ void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, co
         snapNew = NULL;
       }
       (*snap)[snapCount] = *tmpSnap;
+      if (strcmp(basisType,"state")==0 && !(strcmp(ioData->input.multiStateSnapRefSolution,"")==0)) {
+        binaryStatus = domain.readVectorFromFile(mapSnapToRef[std::string(snapshotsPath)].c_str(), 0, &tmp, *tmpSnap);
+        if (!binaryStatus) {
+          com->fprintf(stdout, "***Error: Encountered error while reading snapshot reference from file %s", snapshotsPath);
+          exit(-1);
+        }
+        (*snap)[snapCount] -= *tmpSnap;
+      } 
       ++snapCount;
     }
 
@@ -1534,7 +1572,8 @@ void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, co
         if (ioData->romOffline.rob.state.snapshots.incrementalSnaps)
           com->fprintf(stderr, "*** Warning: incremental snapshots not supported for local ROM construction\n");
         com->fprintf(stdout, " ... using raw states as snapshots\n");
-        DistSVec<double, dim> zeroVec(domain.getNodeDistInfo(), 0);
+        DistSVec<double, dim> zeroVec(domain.getNodeDistInfo());
+        zeroVec = 0.0;
         outputClusteredReferenceState(iCluster, zeroVec);
         com->barrier();
       }
