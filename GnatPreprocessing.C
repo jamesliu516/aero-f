@@ -599,6 +599,9 @@ void GnatPreprocessing<dim>::computeMaskedSnapshots() {
     }
     com->barrier();
   }
+
+  this->freeMemoryForGnatPrepro();
+
 }
 
 //----------------------------------------------
