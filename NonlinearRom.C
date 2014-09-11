@@ -1948,7 +1948,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
   if (sVals) delete sVals;
   sVals = new std::vector<double>;
  
-  this->nBuffer=0;
+  nBuffer=0;
 
   for (int iVec=0; iVec<maxDimension; ++iVec) {
     _n = fscanf(singValFile,"%d %le %le", &vecNumber, &tmpSVal, &percentEnergy);
@@ -1956,7 +1956,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
       sVals->push_back(tmpSVal);
       if ((percentEnergy>=energyTol)&&((iVec+1)>=minDimension)) {
         if (percentEnergy<bufferEnergyTol) {
-          ++(this->nBuffer);
+          ++nBuffer;
         } else { 
           break;
         }
@@ -1968,8 +1968,6 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
       exit(-1);
     }
   }
-
-  if (nBuffer>0) this->com->fprintf(stderr, " ... using a buffer of size %d for this basis\n", nBuffer);
 
   int basisSize = sVals->size();
   fclose(singValFile);
@@ -2001,8 +1999,14 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
 
     delete basis;
     basis = basisNew;
-    basisNew = NULL;    
+    basisNew = NULL; 
+
+    if (nBuffer>0) {
+      nBuffer = (numBasisVecs-(basisSize-nBuffer)>0) ? numBasisVecs-(basisSize-nBuffer) : 0 ;   
+    }
   }    
+
+  if (nBuffer>0) this->com->fprintf(stderr, " ... using a buffer of size %d for this basis\n", nBuffer);
 
   // for ASCII output files (clusterUsage and reducedCoords)
   if ((strcmp(basisType,"state")==0) || (strcmp(basisType,"sampledState")==0)) {
