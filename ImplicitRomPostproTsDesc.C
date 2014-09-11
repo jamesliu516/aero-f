@@ -90,12 +90,14 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
       if (this->clusterSwitch) {
         this->currentCluster = closestCluster;
         this->rom->readClusteredOnlineQuantities(this->currentCluster);  // read state basis, update info
+        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF)
+          this->rom->projectSwitchStateOntoAffineSubspace(this->currentCluster, U);
       }
 
       if (this->updatePerformed) this->rom->updateBasis(this->currentCluster, U);
       //if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       //if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
-
+      if (this->ioData->romOnline.bufferEnergy!=0.0) this->rom->truncateBufferedBasis();
       this->nPod = this->rom->basis->numVectors();
       this->pod.resize(this->nPod);
       for (int iVec=0; iVec<this->nPod; ++iVec) {

@@ -278,10 +278,11 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
         currentCluster = closestCluster;
         rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
         if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) 
-          rom->projectSwitchStateOntoAffineSubspace(currentCluster, U); // probably only useful when the cluster centers were used as reference states
+          rom->projectSwitchStateOntoAffineSubspace(currentCluster, U);
       }
       if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) 
         updatePerformed = rom->updateBasis(currentCluster, U, &dUromCurrentROB);
+      if (this->ioData->romOnline.bufferEnergy!=0.0) rom->truncateBufferedBasis();
       if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
       if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 

@@ -155,6 +155,8 @@ com(_com), ioData(&_ioData), domain(_domain)
   jacMat = NULL;
   restrictionMapping = NULL;
 
+  nBuffer = 0;
+
   clustUsageFile = NULL;
   reducedCoordsFile = NULL;
 
@@ -194,6 +196,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   allRefStates = NULL;
   allColumnSumsV = NULL; 
   allRestrictionMappings = NULL;
+  allNBuffer.clear();
 
   // for fast distance calculation quantities / exact update quantitiess
   specifiedIC = false;
@@ -333,6 +336,7 @@ NonlinearRom<dim>::~NonlinearRom()
     if (sensitivityBasis) delete sensitivityBasis;
     if (sensitivitySVals) delete sensitivitySVals;
     if (allRefStates) delete allRefStates;
+    allNBuffer.clear();
   } else {
     if (restrictionMapping) delete restrictionMapping;
   }
@@ -442,6 +446,8 @@ void NonlinearRom<dim>::freeMemoryForGnatPrepro() {
     delete lowRankFactor;
     lowRankFactor=NULL;
   }
+
+  allNBuffer.clear();
 
 }
 
@@ -1779,6 +1785,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
         (*basis)[iVec] = (*(allStateBases[iCluster]))[iVec]; 
       sVals = new std::vector<double>;
       *sVals = *(allStateSVals[iCluster]);
+      nBuffer = allNBuffer[iCluster];
     } else if ((strcmp(basisType,"sensitivity")==0) || (strcmp(basisType,"sampledSensitivity")==0) ) {
       com->fprintf(stdout, " ... loading sensitivity ROB\n");
       nSens = sensitivityBasis->numVectors();
@@ -1802,6 +1809,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
   int maxDimension;
   int minDimension;
   double energyTol;
+  double bufferEnergyTol = 0.0;
 
   if (ioData->problem.type[ProblemData::NLROMOFFLINE]) {
     if (relProjError) {
@@ -1861,6 +1869,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
       maxDimension = ioData->romOnline.maxDimension;
       minDimension = ioData->romOnline.minDimension;
       energyTol = ioData->romOnline.energy;
+      bufferEnergyTol = ioData->romOnline.bufferEnergy;
     } else if ((strcmp(basisType,"sensitivity")==0) || (strcmp(basisType,"sampledSensitivity")==0) ) {
       maxDimension = ioData->romOnline.sensitivity.maxDimension;
       minDimension = ioData->romOnline.sensitivity.minDimension;
@@ -1938,12 +1947,20 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
 
   if (sVals) delete sVals;
   sVals = new std::vector<double>;
+ 
+  this->nBuffer=0;
 
   for (int iVec=0; iVec<maxDimension; ++iVec) {
     _n = fscanf(singValFile,"%d %le %le", &vecNumber, &tmpSVal, &percentEnergy);
     if (_n == 3) {
       sVals->push_back(tmpSVal);
-      if ((percentEnergy>=energyTol)&&((iVec+1)>=minDimension)) break;
+      if ((percentEnergy>=energyTol)&&((iVec+1)>=minDimension)) {
+        if (percentEnergy<bufferEnergyTol) {
+          ++(this->nBuffer);
+        } else { 
+          break;
+        }
+      }
     } else if (feof(singValFile)) {
       break;
     } else {
@@ -1951,6 +1968,8 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
       exit(-1);
     }
   }
+
+  if (nBuffer>0) this->com->fprintf(stderr, " ... using a buffer of size %d for this basis\n", nBuffer);
 
   int basisSize = sVals->size();
   fclose(singValFile);
@@ -2779,6 +2798,8 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
   allStateBases = new VecSet< DistSVec<double, dim> >*[nClusters];
   allStateSVals = new std::vector<double>*[nClusters];
 
+  allNBuffer.resize(nClusters);
+
   if (ioData->romOnline.krylov.include==NonlinearRomOnlineNonStateData::INCLUDE_ON) {
     allKrylovBases = new VecSet< DistSVec<double, dim> >*[nClusters];
     allKrylovSVals = new std::vector<double>*[nClusters];
@@ -2819,7 +2840,8 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         *(allStateSVals[iCluster]) = *sVals;
         delete sVals;
         sVals = NULL;
-
+        allNBuffer[iCluster]=nBuffer;
+  
         // read update info
         if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF || 
             ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
@@ -2906,6 +2928,7 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         *(allStateSVals[iCluster]) = *sVals;
         delete sVals;
         sVals = NULL;
+        allNBuffer[iCluster]=nBuffer;
 
         // read ROB update information
         if (ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF ||
@@ -3635,4 +3658,30 @@ void NonlinearRom<dim>::qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::
   if (fpStateRom) fclose(fpStateRom);
 */
 
+//------------------------------------------------------------------------------
+template<int dim>
+void NonlinearRom<dim>::truncateBufferedBasis() {
 
+  int nPod = basis->numVectors();
+  int nPodNew = nPod-nBuffer;
+
+  if (nBuffer>0) {
+
+    this->com->fprintf(stderr, " ... truncating buffered basis from %d vectors to %d vectors\n", nPod, nPodNew);
+
+    VecSet< DistSVec<double, dim> >* basisNew =  new VecSet< DistSVec<double, dim> >(nPodNew, domain.getNodeDistInfo());
+
+    for (int iVec=0; iVec<nPodNew; ++iVec) {
+      (*basisNew)[iVec]=(*basis)[iVec];
+    }
+
+    delete basis;
+    basis = basisNew;
+    basisNew = NULL;
+
+    sVals->resize(nPodNew);
+  }
+
+  nBuffer = 0;
+
+}
