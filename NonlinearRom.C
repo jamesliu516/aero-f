@@ -1785,7 +1785,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
         (*basis)[iVec] = (*(allStateBases[iCluster]))[iVec]; 
       sVals = new std::vector<double>;
       *sVals = *(allStateSVals[iCluster]);
-      nBuffer = allNBuffer[iCluster];
+      nBuffer = (allNBuffer.size()>0) ? allNBuffer[iCluster] : 0;
     } else if ((strcmp(basisType,"sensitivity")==0) || (strcmp(basisType,"sampledSensitivity")==0) ) {
       com->fprintf(stdout, " ... loading sensitivity ROB\n");
       nSens = sensitivityBasis->numVectors();
