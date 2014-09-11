@@ -225,7 +225,7 @@ bool NonlinearRomOnlineII<dim>::updateBasisSimple(int iCluster, DistSVec<double,
     delete [] yVec;
 
   } else {
-    this->com->fprintf(stdout, "... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
+    this->com->fprintf(stdout, " ... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
   }
 
   delete (this->Uref);
@@ -532,7 +532,7 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
 
   //  Only update if Uref is different than U (this handles the case of time=0) 
   if ( r < pow(this->rTol,2.0) ) { // no need to update basis -- just need to update alpha, beta, and N
-    this->com->fprintf(stdout, "... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
+    this->com->fprintf(stdout, " ... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
     this->exactUpdatesAlpha.clear();
     for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
       this->exactUpdatesBeta[iCluster].clear();
@@ -887,7 +887,7 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastApprox(int iCluster, DistSVec<dou
     delete [] yVec;
 
   } else {
-    this->com->fprintf(stdout, "... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
+    this->com->fprintf(stdout, " ... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
   }
 
   delete (this->Uref);

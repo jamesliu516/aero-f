@@ -141,7 +141,8 @@ class NonlinearRom {
   double rTol;
   std::vector<double>* columnSumsV;
   std::vector<double>* sVals;
-  DistSVec<double, dim>* Uref; 
+  DistSVec<double, dim>* Uref;
+  int nBuffer; // number of buffer vectors added for updates 
   // 2: unique to exact updates
   double uicNorm;
   std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
@@ -246,6 +247,7 @@ class NonlinearRom {
   VecSet<DistSVec<double, dim> >* allRefStates;
   std::vector<double>** allColumnSumsV; 
   RestrictionMapping<dim>** allRestrictionMappings;
+  std::vector<int> allNBuffer;
 
   // ASCII output files 
   FILE* clustUsageFile;
@@ -306,6 +308,7 @@ class NonlinearRom {
   virtual bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {return false;};
   virtual void appendNonStateDataToBasis(int, const char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};
+  void truncateBufferedBasis();
   void writeReducedCoords(const int, bool, bool, int, Vec<double>); 
   void initializeFastExactUpdatesQuantities(DistSVec<double, dim> &);
 

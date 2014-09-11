@@ -3808,6 +3808,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   maxDimension = -1; 
   minDimension = 0;
   energy = 1.0;
+  bufferEnergy = 0.0;
 
   weightedLeastSquares = WEIGHTED_LS_FALSE;
   weightingExponent = 1.0;
@@ -3860,6 +3861,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassInt<NonlinearRomOnlineData>(ca, "MaximumDimension", this, &NonlinearRomOnlineData::maxDimension);
   new ClassInt<NonlinearRomOnlineData>(ca, "MinimumDimension", this, &NonlinearRomOnlineData::minDimension); 
   new ClassDouble<NonlinearRomOnlineData>(ca, "MaximumEnergy", this, &NonlinearRomOnlineData::energy);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "MaximumEnergyForBuffer", this, &NonlinearRomOnlineData::bufferEnergy);
 
   new ClassToken<NonlinearRomOnlineData> (ca, "WeightedLeastSquares", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 5, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3, "BoundaryConditions", 4);

@@ -2225,9 +2225,10 @@ struct NonlinearRomOnlineData {
   int controlNodeID; 
   double reducedTimeStep;
 
-	int minDimension;
+  int minDimension;
   int maxDimension;
   double energy;
+  double bufferEnergy;
 
   double residualsCoordMin;
   double residualsCoordMax;
