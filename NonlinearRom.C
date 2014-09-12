@@ -154,6 +154,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   resMat = NULL;
   jacMat = NULL;
   restrictionMapping = NULL;
+  cumulativeSnapWeights.clear();
 
   nBuffer = 0;
 
@@ -299,6 +300,7 @@ NonlinearRom<dim>::~NonlinearRom()
   if (columnSumsV) delete columnSumsV; 
   if (sVals) delete sVals;
   if (Uref) delete Uref;
+  cumulativeSnapWeights.clear();
 
   //TODO
   //clusterSnapshotMap
@@ -448,7 +450,7 @@ void NonlinearRom<dim>::freeMemoryForGnatPrepro() {
   }
 
   allNBuffer.clear();
-
+  cumulativeSnapWeights.clear();
 }
 
 //----------------------------------------------------------------------------------
@@ -1089,7 +1091,14 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
           tags[numCurrentSnapshots] = tagNew;
           (*snap)[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
           if (incrementalSnaps) *snapBufOld = *snapBufNew;
-          if (snapWeight[iData]) (*snap)[numCurrentSnapshots] *= snapWeight[iData]; //CBM--check
+          if (snapWeight[iData]>0.0) {
+            (*snap)[numCurrentSnapshots] *= snapWeight[iData];
+            this->com->fprintf(stderr, "*** Warning: basis updates should not be used for bases built with weighted snapshots (normalizing the snapshot matrix is supported, however)\n");  // supporting updates for bases built with weighted snapshots would require storing the weights when clustering (and not just the snapshots).  Since normalization happens after clustering there's no need to store anything in that case.
+            if (!preprocess && nClusters>1) {
+              this->com->fprintf(stderr, "*** Error: Clustering weighted snapshots is usually a very bad idea.  Exiting...\n");
+              exit(-1);
+            }
+          }
           originalSnapshotLocation.push_back(std::make_pair(string(snapFile[iData]),iSnap));
           ++numCurrentSnapshots;
         }
@@ -1585,15 +1594,24 @@ void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, co
       }
     }
 
-    if (normalizeSnaps) {
-      com->fprintf(stdout, " ... normalizing snapshots \n");
-      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-        double tmpNorm = ((*snap)[iSnap]).norm();
-        if (tmpNorm != 0) {
-          double normalize = 1.0 / tmpNorm;
-          (*snap)[iSnap] *= normalize;
-        }
-      }
+  }
+
+  cumulativeSnapWeights.clear();
+  cumulativeSnapWeights.resize(nTotSnaps, 1.0); // updated below if normalizing snapshots
+  if (preprocess && normalizeSnaps) {
+    com->fprintf(stdout, " ... normalizing snapshots \n");
+    double tmpNorm;
+    double weight;
+    double maxWeight = 1.0;
+    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+      tmpNorm = ((*snap)[iSnap]).norm();
+      weight = (tmpNorm > 1e-14) ? 1.0/tmpNorm : -1.0;
+      maxWeight = (weight > maxWeight) ? weight : maxWeight;
+      cumulativeSnapWeights[iSnap] = weight;
+    }
+    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) { 
+      cumulativeSnapWeights[iSnap] = (cumulativeSnapWeights[iSnap]>0) ? cumulativeSnapWeights[iSnap] : maxWeight;
+      (*snap)[iSnap] *= cumulativeSnapWeights[iSnap];
     }
   }
 

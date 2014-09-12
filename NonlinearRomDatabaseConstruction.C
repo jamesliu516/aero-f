@@ -1797,11 +1797,12 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
     this->columnSumsV->resize(nTotSnaps, 0.0);
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
       for (int jSnap=0; jSnap<nTotSnaps; ++jSnap) {
-        (*(this->columnSumsV))[iSnap] += (*Vtrue)[jSnap][iSnap];
+        (*(this->columnSumsV))[iSnap] += (*Vtrue)[jSnap][iSnap] * (this->cumulativeSnapWeights[jSnap]);
       }
     }  
     delete Vtrue;
     Vtrue = NULL;
+    this->cumulativeSnapWeights.clear();
   
     if (this->sVals) delete (this->sVals);
     (this->sVals) = new std::vector<double>;
