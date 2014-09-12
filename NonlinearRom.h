@@ -143,6 +143,7 @@ class NonlinearRom {
   std::vector<double>* sVals;
   DistSVec<double, dim>* Uref;
   int nBuffer; // number of buffer vectors added for updates 
+  std::vector<double> cumulativeSnapWeights;  // needed in order to ouput a correct columnSumsV that accounts for normalizing snapshots
   // 2: unique to exact updates
   double uicNorm;
   std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
