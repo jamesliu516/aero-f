@@ -2239,6 +2239,7 @@ struct NonlinearRomOnlineData {
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;
+  double basisUpdateTolerance;
 
   enum ProjectSwitchStateOntoAffineSubspace {PROJECT_OFF = 0, PROJECT_ON = 1} projectSwitchStateOntoAffineSubspace;
 

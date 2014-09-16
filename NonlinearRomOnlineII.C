@@ -225,7 +225,7 @@ bool NonlinearRomOnlineII<dim>::updateBasisSimple(int iCluster, DistSVec<double,
     delete [] yVec;
 
   } else {
-    this->com->fprintf(stdout, " ... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
+    this->com->fprintf(stdout, " ... r is less than the specified tolerance of %e (%e) -- skipping the update\n", this->rTol, Ra);
   }
 
   delete (this->Uref);
@@ -1048,8 +1048,14 @@ void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluste
   for (int iVec = 0; iVec < nPodVecs; iVec++)
     projectedDif += tmpReducedVec[iVec] * (*(this->basis))[iVec];
 
+  // give the user an idea of how significant the projection is...
+  dif = dif - projectedDif; // zero if U-Uref is contained in the basis
+  this->com->fprintf(stdout, " ... || original - projected ||_2 / || original ||_2 = %e\n", dif.norm() / U.norm());
+
   // U_switch_projected = U_ref + result
   U = *(this->Uref) + projectedDif;
+
+
 
 }
 

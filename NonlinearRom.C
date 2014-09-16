@@ -203,7 +203,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   specifiedIC = false;
   uniformIC = NULL;
 
-  rTol = 1e-3;
+  rTol = ioData->romOnline.basisUpdateTolerance;
 
 }
 
@@ -1091,7 +1091,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
           tags[numCurrentSnapshots] = tagNew;
           (*snap)[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
           if (incrementalSnaps) *snapBufOld = *snapBufNew;
-          if (snapWeight[iData]>0.0) {
+          if (snapWeight[iData]>0.0 && snapWeight[iData]!=1.0) {
             (*snap)[numCurrentSnapshots] *= snapWeight[iData];
             this->com->fprintf(stderr, "*** Warning: basis updates should not be used for bases built with weighted snapshots (normalizing the snapshot matrix is supported, however)\n");  // supporting updates for bases built with weighted snapshots would require storing the weights when clustering (and not just the snapshots).  Since normalization happens after clustering there's no need to store anything in that case.
             if (!preprocess && nClusters>1) {
@@ -1611,6 +1611,7 @@ void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, co
     }
     for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) { 
       cumulativeSnapWeights[iSnap] = (cumulativeSnapWeights[iSnap]>0) ? cumulativeSnapWeights[iSnap] : maxWeight;
+      //com->fprintf(stdout, " ... debugging: normalization weight for snapshot %d = %e\n", iSnap, cumulativeSnapWeights[iSnap]);
       (*snap)[iSnap] *= cumulativeSnapWeights[iSnap];
     }
   }
