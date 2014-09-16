@@ -3802,6 +3802,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   reducedTimeStep = 1e-10;
   basisUpdates = UPDATES_OFF;
   basisUpdateFreq = -1;
+  basisUpdateTolerance = 1e-6;
   projectSwitchStateOntoAffineSubspace = PROJECT_OFF;
   distanceComparisons = DISTANCE_COMPARISONS_OFF;
   storeAllClusters = STORE_ALL_CLUSTERS_TRUE;
@@ -3851,6 +3852,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 4, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3);
   new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "BasisUpdateTolerance", this, &NonlinearRomOnlineData::basisUpdateTolerance);
   new ClassInt<NonlinearRomOnlineData>(ca, "BasisUpdateFrequency", this, &NonlinearRomOnlineData::basisUpdateFreq);
   new ClassToken<NonlinearRomOnlineData> (ca, "ProjectSwitchStateOntoAffineSubspace", this, reinterpret_cast<int
                         NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projectSwitchStateOntoAffineSubspace), 2, "Off", 0, "On", 1);
