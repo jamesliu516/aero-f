@@ -1033,7 +1033,7 @@ void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluste
 
   // dif = U_switch - U_ref
   DistSVec<double, dim> dif(this->domain.getNodeDistInfo());
-  if (!this->Uref) this->readClusteredReferenceState(iCluster, "state");
+  this->readClusteredReferenceState(iCluster, "state");
   dif = U - *(this->Uref); 
   
   // result = basis^T * dif  
