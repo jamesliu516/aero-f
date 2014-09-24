@@ -806,7 +806,7 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeControlVolumes(ierr, lscale, X(iSub), ctrlVol(iSub));
 
-    exit(1);
+//    exit(1);
   }
 
   return ierr;

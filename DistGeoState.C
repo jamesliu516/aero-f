@@ -341,11 +341,13 @@ void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<doubl
 
   data.config = 0;
 
-  domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  if(ierr) exit(-1);
   if (data.use_nm1)
-    domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
+    ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
   if (data.use_nm2)
-    domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+    ierr = domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+  if(ierr) exit(-1);  
 
 	*Xn = *X;
   *ctrlVol = *ctrlVol_n;
@@ -403,11 +405,13 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
 
   data.config = 0;
     
-  domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  if(ierr) exit(-1);
   if (data.use_nm1)
-    domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
+    ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
   if (data.use_nm2)
-    domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+    ierr = domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+  if(ierr) exit(-1);
 
   *X = *Xn;
   *ctrlVol = *ctrlVol_n;
@@ -503,7 +507,8 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
   data.config += 1;
     
   //ctrlVol has the control volumes of Xnp1
-  domain->computeControlVolumes(lscale, X, ctrlVol);
+  int ierr = domain->computeControlVolumes(lscale, X, ctrlVol);
+  if(ierr) exit(-1);
 
   //Xdot
   domain->computeVelocities(data.typeVelocities, timeData, Xsdot, *Xnm1, *Xn, X, *Xdot);

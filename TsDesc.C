@@ -767,7 +767,8 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
     timer->print(domain->getStrTimer());
 
   DistVec<double> As(getVecInfo());
-  domain->computeControlVolumes(refVal->tlength, *Xs, As);
+  int ierr = domain->computeControlVolumes(refVal->tlength, *Xs, As);
+  if(ierr) exit(-1);
 
 }
 
