@@ -1478,8 +1478,8 @@ void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, D
 
  Vec<double> modalF(nStrMode);
  postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
- modalF += 0.0*refModalF; // DJA: DEBUG only
- //modalF += refModalF;
+ //modalF += 0.0*refModalF; // DJA: DEBUG only
+ modalF += refModalF;
  modalF *= ioData->ref.rv.force;
 
   updateModalValues(sdt, delU, delY, modalF, timeIt);
@@ -3673,20 +3673,13 @@ void ModalSolver<dim>::computeDampingRatios()
   sprintf(outFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.aeroelasticEigenvalues);
   FILE *outEV = fopen(outFile, "w");
   com->barrier();
-  delete [] outFile;
+  //delete [] outFile;
 
   if (!outEV)  {
     com->fprintf(stderr, " *** Error: DampRatio output file not specified\n");
     exit(-1);
   }
 
- // int splog = strlen(ioData->output.transient.prefix) + 1;
- // char strAero[] = "log.txt";
- // char *logFile = new char[splog + strlen(strAero)];
- // sprintf(logFile, "%s%s", ioData->output.transient.prefix, strAero);
- // FILE *logEV = fopen(logFile, "w");
- // com->barrier();
- // delete [] logFile;
 
   for (int i = 0; i < nStrMode; ++i) {
     dryModes[i] = 0.0;
@@ -3710,12 +3703,6 @@ void ModalSolver<dim>::computeDampingRatios()
     evList[i].imag() = dryModes[i]; 
   }
   
-  //better guess
-  //evList[1].real() = -1.893597e-01;
-  //evList[1].imag() = 1.928259e+02;
-  //for (int iEV = 0; iEV < nStrMode; ++iEV) {
-  //  com->fprintf(stderr, "Initial eigenvalue # %i ...  %e + i%e  \n", iEV, evList[iEV].real(), evList[iEV].imag());
-  //}
  
 //loop over eigenvalues/modes
   com->fprintf(stderr, "Compute eigenvalues and damping ratios ...\n");
@@ -3723,13 +3710,13 @@ void ModalSolver<dim>::computeDampingRatios()
     sEVold = evList[iEV];
     sEVnew = evList[iEV];
     nIt = 0;
-    com->fprintf(stderr, "\n ... solving for eigenvalue #%i \n", iEV+1);
+    com->fprintf(stderr, "\n ... solving for eigenmode #%i \n", iEV+1);
 
     while ((nIt == 0) || (sqrt (pow ((sEVnew.real()- sEVold.real()), 2.0)) + pow ((sEVnew.imag() - sEVold.imag()), 2.0)) / (sqrt (pow (sEVold.real(), 2.0) + pow (sEVold.imag(), 2.0))) > epsEV)  {
       
-      //com->fprintf(outEV, "Eigenvalue #%i iteration #%i: %e + i*(%e)\n", iEV+1, nIt, sEVnew.real(), sEVnew.imag());
+      com->fprintf(stderr, " ........ iteration #%i \n", nIt+1);
       if (nIt >= nMaxIt) {
-        com->fprintf(stderr, "\nWARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n\n", nMaxIt, iEV+1); 
+        com->fprintf(stderr, "\n***WARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n\n", nMaxIt, iEV+1); 
         //com->fprintf(outEV, "WARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n", nMaxIt, iEV+1);
         flagMaxIt[iEV] = 1;
         break;
@@ -3752,30 +3739,21 @@ void ModalSolver<dim>::computeDampingRatios()
         }
       }
 
-      //com->fprintf(stderr, "Output Matrix A (Eigen):\n");
       for (int i = 0; i < 2*nStrMode; i++) {
         for (int j = 0; j < 2*nStrMode; j++) {
           evProb(i,j) = eigMatA[j][i];
-          //com->fprintf(stderr, "%e|", evProb(i,j));
         }
-        //com->fprintf(stderr, "\n");
       }
       Eigen::EigenSolver<MatrixXd> eigSolv(evProb);
 
       for (int i = 0; i < 2*nStrMode; ++i) {
         sortEV_Eigen[i] = eigSolv.eigenvalues()[i];
       }
-      com->fprintf(stderr, "Eigenvalues for mode #%i iteration #%i\n", iEV+1, nIt);
-      for (int i = 0; i < 2*nStrMode; i++) {
-        com->fprintf(stderr, "*** EV %i = %e + j (%e)\n", i, sortEV_Eigen[i].real(), sortEV_Eigen[i].imag());
-      }
 
 
-  
 //sort
      for (int i = 0; i < nStrMode; ++i) {
           sortEV[i] = 0.0;
-          //com->fprintf(stderr, "Test sortEV %i = %e + j (%e)\n", i, sortEV[i].real(), sortEV[i].imag());
      }
      int i_pos2 = 0;
      for (int i = 0; i < 2*nStrMode; ++i) {
@@ -3785,14 +3763,12 @@ void ModalSolver<dim>::computeDampingRatios()
         }
      }
      bcomp tmpSort(0.0,-1.0); 
-     //com->fprintf(stderr, "tmpSort = %e + j %e\n", tmpSort.real(), tmpSort.imag());
      int i_addr = 0;
      for (int i = 0; i < nStrMode; i++) {
        sortEV_c[i] = sortEV[i];
      }
      for (int i = nStrMode-1; i >= 0; i--) {
        tmpSort.imag() = (-1.0);
-       //com->fprintf(stderr, "tmpSort2 = %e + j %e\n", tmpSort.real(), tmpSort.imag());
        for (int j = 0; j < nStrMode; j++) {
          if (sortEV_c[j].imag() > tmpSort.imag()) {
            tmpSort = sortEV_c[j];
@@ -3805,37 +3781,34 @@ void ModalSolver<dim>::computeDampingRatios()
       sEVnew = sortEV[iEV];
       evList[iEV] = sEVnew;
       if (abs(sEVnew.imag()) <= 1.0e-16) {
-        com->fprintf(stderr, "*************sImag is zero ******************\n");
-        sEVnew.imag() = 1.0;
-        //com->fprintf(stderr, "sImag = %e\n",sEVnew.imag());
+        com->fprintf(stderr, "***WARNING: sImag is zero\n");
+        break;
       }
 
    }
-  com->fprintf(stderr, "Number of iterations on EV #%i ... %i\n", iEV+1, nIt);
-  com->fprintf(stderr, "Eigenvalue #%i ... %e + i %e\n", iEV+1, sEVnew.real(), sEVnew.imag());
+  //com->fprintf(stderr, "Number of iterations on EV #%i ... %i\n", iEV+1, nIt);
+  //com->fprintf(stderr, "Eigenvalue #%i ... %e + i %e\n", iEV+1, sEVnew.real(), sEVnew.imag());
 
   }
   
 //output damp ratio and eigenvalues
-
+  com->fprintf(stderr, "\nWrite solution to '%s'\n\n", outFile);
+ 
   com->fprintf(outEV, "EV-ID RealPart ImagPart DampingRatio\n");
   
-  com->fprintf(stderr, "\nEigenvalues and damping ratios...\n\n");
-  //com->fprintf(stderr, "Velocity... %e\n", ioData->ref.rv.velocity);
-  //com->fprintf(stderr, "Length... %e\n", ioData->ref.length);
   for (int iEV = 0; iEV < nStrMode; ++iEV) {
     absLambda = sqrt (pow (evList[iEV].real(), 2.0) + pow (evList[iEV].imag(), 2.0));
-    com->fprintf(stderr, "Eigenvalue # %i ...  %e + i%e", iEV+1, evList[iEV].real(), evList[iEV].imag());
+    //com->fprintf(stderr, "Eigenvalue # %i ...  %e + i%e", iEV+1, evList[iEV].real(), evList[iEV].imag());
 
     if (absLambda >=  1.0e-16) { 
       dampRatio = -evList[iEV].real() / absLambda;
-      com->fprintf(stderr, "\tDamping Ratio ... %e\n", dampRatio);
+      //com->fprintf(stderr, "\tDamping Ratio ... %e\n", dampRatio);
       //Output in File
       com->fprintf(outEV,"%i %e %e %e",iEV+1, evList[iEV].real(), evList[iEV].imag(), dampRatio);
     }
     else {
-      com->fprintf(stderr, "\tWARNING: Eigenvalue is 0!!\n");
-      com->fprintf(outEV, "%i 0.0 0.0 N/A \tWARNING: Eigenvalue is 0", iEV+1);
+      com->fprintf(stderr, "\t***WARNING: Eigenvalue is 0!!\n");
+      com->fprintf(outEV, "%i 0.0 0.0 0.0 \tWARNING: Eigenvalue is 0", iEV+1);
       //com->fprintf(outEV, "WARNING: Eigenvalue is 0 for mode = %i", iEV+1);
     }
     if (flagMaxIt[iEV]==1) {
@@ -3846,7 +3819,6 @@ void ModalSolver<dim>::computeDampingRatios()
     }
 
 
-    //com->fprintf(stderr, "Omega of EV #%i ... %e\n", iEV+1, evList[iEV].imag());
   } 
 
 }
@@ -3930,12 +3902,6 @@ void ModalSolver<dim>::computeGAM(double sReal, double sImag, VecSet<Vec<bcomp> 
   Timer *modalTimer = domain.getTimer();
   double t0;
 
-  //com->fprintf(stderr, "Output dry modes********************************\n");
-  //for (int i = 0; i < nStrMode; ++i) {
-  //  com->fprintf(stderr, "%e\t", K[i]);
-  //}
-  //com->fprintf(stderr, "\nEnd Output dry modes****************************\n");
-
   rhs = sCompl*DE[0] + oneReal*DX[0];
   if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
     kspCompGcr->setup(1, 40, rhs);
@@ -3959,7 +3925,6 @@ void ModalSolver<dim>::computeGAM(double sReal, double sImag, VecSet<Vec<bcomp> 
   sCompl *= invT;
   for (int iMode = 0; iMode < nStrMode; iMode++)  {
  
-    //com->fprintf(stderr, "... Solving for GAM column %i\n", iMode+1);
     // form [s(E+C)+G]
     rhs = 0.0;
     rhs = sCompl*DE[iMode] + oneReal*DX[iMode];
