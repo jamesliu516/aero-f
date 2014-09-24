@@ -1669,7 +1669,7 @@ void NonlinearRom<dim>::readClusteredReferenceState(int iCluster, const char* re
   double tmp;
   bool status;
  
-  com->fprintf(stdout, "Reading reference snapshot %s\n", refStatePath);
+  //com->fprintf(stdout, "Reading reference snapshot %s\n", refStatePath);
   Uref = new DistSVec<double, dim>(domain.getNodeDistInfo());
   status = domain.readVectorFromFile(refStatePath, 0, &tmp, *Uref);
 
