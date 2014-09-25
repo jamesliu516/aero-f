@@ -768,6 +768,16 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
   DistVec<double> As(getVecInfo());
   int ierr = domain->computeControlVolumes(refVal->tlength, *Xs, As);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if(ierr) exit(-1);
 
 }
