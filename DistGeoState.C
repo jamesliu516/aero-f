@@ -342,11 +342,31 @@ void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<doubl
   data.config = 0;
 
   int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if(ierr) exit(-1);
   if (data.use_nm1)
     ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
   if (data.use_nm2)
     ierr = domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if(ierr) exit(-1);  
 
 	*Xn = *X;
@@ -407,10 +427,30 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
     
   int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
   if(ierr) exit(-1);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if (data.use_nm1)
     ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
   if (data.use_nm2)
     ierr = domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if(ierr) exit(-1);
 
   *X = *Xn;
@@ -508,6 +548,16 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
     
   //ctrlVol has the control volumes of Xnp1
   int ierr = domain->computeControlVolumes(lscale, X, ctrlVol);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if(ierr) exit(-1);
 
   //Xdot

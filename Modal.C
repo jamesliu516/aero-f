@@ -3794,7 +3794,7 @@ void ModalSolver<dim>::computeDampingRatios()
 //output damp ratio and eigenvalues
   com->fprintf(stderr, "\nWrite solution to '%s'\n\n", outFile);
  
-  com->fprintf(outEV, "EV-ID RealPart ImagPart DampingRatio\n");
+  com->fprintf(outEV, "EV-ID RealPart ImagPart DampingRatio Converged\n");
   
   for (int iEV = 0; iEV < nStrMode; ++iEV) {
     absLambda = sqrt (pow (evList[iEV].real(), 2.0) + pow (evList[iEV].imag(), 2.0));
@@ -3812,10 +3812,10 @@ void ModalSolver<dim>::computeDampingRatios()
       //com->fprintf(outEV, "WARNING: Eigenvalue is 0 for mode = %i", iEV+1);
     }
     if (flagMaxIt[iEV]==1) {
-      com->fprintf(outEV, " \tWARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n", nMaxIt, iEV+1);
-    }
-    else {
-      com->fprintf(outEV, "\n");
+//      com->fprintf(outEV, " \tWARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n", nMaxIt, iEV+1);
+      com->fprintf(outEV, " 0\n");
+    } else {
+      com->fprintf(outEV, " 1\n");
     }
 
 
