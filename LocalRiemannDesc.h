@@ -3420,10 +3420,10 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
   } else {
 
     double a = sqrt(gamma*(p+pref)/rho);
-    double X = 4.0*a*a*beta*beta + u*u*pow(beta*beta-1.0,2.0);
+    double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
     double sqrtX = sqrt(X);
-    double lambda = 0.5*(u*(1.0+beta*beta) - sqrtX);
-    double dp = rho*(beta*beta*u - lambda - sqrtX)*(ui-u);
+    double lambda = 0.5*(ui*(1.0+beta*beta) - sqrtX);
+    double dp = rho*a*a*(u-ui)*beta*beta/(lambda-beta*beta*ui);
 
     pi = p + dp;
     double power = 2.0*gamma/(gamma-1.0);
@@ -3459,10 +3459,10 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   }
 
 // CHF: check that the next line is correct
+  double a = sqrt(gamma*(p+pref)/rho);
   double q = (gamma+1.0)/(gamma-1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
-    double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
 
     double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
@@ -3490,17 +3490,25 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[0] = rhoi/rho+mu/pbar*dWidWi[6];
     }
     else {
+
+      double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
+      double sqrtX = sqrt(X);
+      double lambda = 0.5*(ui*(1.0+beta*beta) - sqrtX);
+      double q = lambda-beta*beta*ui;
+  
       // dpi/dp
-      dWidWi[8] = 1.0;
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
       // dpidrho
-      dWidWi[6] = 0.0;
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
       // dpidu
-      dWidWi[7] = 0.0;
+      dWidWi[7] = beta*beta*rho*a*a/q;
       
-      double mu = rho/gamma*pow((pi+pref)/pbar, (1.0-gamma)/gamma); 
-      dWidWi[2] = 0.0;
-      dWidWi[1] = 0.0;
-      dWidWi[0] = 1.0;
+      rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+      double rhopp = rho*pow((pi+pref)/(p+pref), 1.0/gamma-1.0);
+      double dpp = 1.0/gamma*rhopp/(p+pref);
+      dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
+      dWidWi[1] = dpp*dWidWi[7];
+      dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
 
     }
   }
@@ -3533,17 +3541,25 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[1] = rho*deriv*dWidWi[7];
       dWidWi[2] = rho*(deriv*dWidWi[8]+deriv2);
     } else {
+
+      double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
+      double sqrtX = sqrt(X);
+      double lambda = 0.5*(ui*(1.0+beta*beta) - sqrtX);
+      double q = lambda-beta*beta*ui;
+  
       // dpi/dp
-      dWidWi[8] = 1.0;
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
       // dpidrho
-      dWidWi[6] = 0.0;
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
       // dpidu
-      dWidWi[7] = 0.0;
+      dWidWi[7] = beta*beta*rho*a*a/q;
       
-      double mu = rho/gamma*pow((pi+pref)/pbar, (1.0-gamma)/gamma); 
-      dWidWi[2] = 0.0;
-      dWidWi[1] = 0.0;
-      dWidWi[0] = 1.0;
+      rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+      double rhopp = rho*pow((pi+pref)/(p+pref), 1.0/gamma-1.0);
+      double dpp = 1.0/gamma*rhopp/(p+pref);
+      dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
+      dWidWi[1] = dpp*dWidWi[7];
+      dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
     }
   }
 }
