@@ -352,7 +352,6 @@ void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<doubl
     exit(-1);
   }
 #endif
-  if(ierr) exit(-1);
   if (data.use_nm1)
     ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
   if (data.use_nm2)
@@ -367,7 +366,6 @@ void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<doubl
     exit(-1);
   }
 #endif
-  if(ierr) exit(-1);  
 
 	*Xn = *X;
   *ctrlVol = *ctrlVol_n;
@@ -426,7 +424,6 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
   data.config = 0;
     
   int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
-  if(ierr) exit(-1);
 #ifdef YDEBUG
   if(ierr) {
     const char* output = "elementvolumecheck";
@@ -451,7 +448,6 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
     exit(-1);
   }
 #endif
-  if(ierr) exit(-1);
 
   *X = *Xn;
   *ctrlVol = *ctrlVol_n;
@@ -558,7 +554,6 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
     exit(-1);
   }
 #endif
-  if(ierr) exit(-1);
 
   //Xdot
   domain->computeVelocities(data.typeVelocities, timeData, Xsdot, *Xnm1, *Xn, X, *Xdot);

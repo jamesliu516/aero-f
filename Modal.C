@@ -18,11 +18,11 @@ using std::sort;
 #include <DistTimeState.h>
 #include <PostOperator.h>
 #include <ParallelRom.h>
-//#ifdef USE_EIGEN3
+#ifdef USE_EIGEN3
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
-//#endif
+#endif
 
 #ifdef DO_MODAL
  #include <arpack++/include/ardsmat.h>
@@ -3732,6 +3732,7 @@ void ModalSolver<dim>::computeDampingRatios()
           sortEV_Eigen[i] = 0.0;
       }
 
+#ifdef USE_EIGEN3
       MatrixXd evProb(2*nStrMode,2*nStrMode);
       for (int i = 0; i < 2*nStrMode; i++) {
         for (int j = 0; j < 2*nStrMode; j++) {
@@ -3745,11 +3746,13 @@ void ModalSolver<dim>::computeDampingRatios()
         }
       }
       Eigen::EigenSolver<MatrixXd> eigSolv(evProb);
-
       for (int i = 0; i < 2*nStrMode; ++i) {
         sortEV_Eigen[i] = eigSolv.eigenvalues()[i];
       }
-
+#else
+      com->fprintf(stderr, " ***  ERROR: ModalSolver<dim>::computeDampingRatios() needs EIGEN library\n");
+      exit(-1); 
+#endif
 
 //sort
      for (int i = 0; i < nStrMode; ++i) {
