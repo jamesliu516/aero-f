@@ -17,7 +17,6 @@ typedef std::complex<double> bcomp;
 using std::cout;
 using std::endl;
 
-
 class IoData;
 class VarFcn;
 class BcFcn;
@@ -816,6 +815,8 @@ public:
   }
 
   void assembleEdge(CommPattern<double> *commPat, DistVec<double> &W);
+  
+  void readEigenValuesAndVectors(const char *eigFile, double &realEigV, double &imagEigV, int &);
 
   template<int dim>
   void assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn);
