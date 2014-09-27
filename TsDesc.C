@@ -778,7 +778,6 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
     exit(-1);
   }
 #endif
-  if(ierr) exit(-1);
 
 }
 
