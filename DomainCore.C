@@ -1665,6 +1665,21 @@ void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&gl
 
 }
 
+//------------------------------------------------------------------------------
+
+void Domain::readEigenValuesAndVectors(const char *eigFile, double &realEigV, double &imagEigV, int &iEV) {	
+   if(!eigFile)
+     eigFile = "eigFile.in"; // default filename
+   FILE *eFile = fopen(eigFile, "r");
+   if(!eFile) {
+		 com->fprintf(stderr, "*** Warning: No Eigen FILES in %s\n", eigFile);
+		 exit (-1);
+   }
+   fscanf(eFile, "%lf %lf %d\n", &realEigV, &imagEigV, &iEV); // first two entries are real and imaginary part of eigenvalues.
+                                                              // third entry is corresponding eigenvalues's sorted order of imaginary part.
+   fclose(eFile);
+}
+
 //-------------------------------------------------------------------------------
 
 void Domain::readInterpMatrix(const char *interpMatrixFile, int &dimInterpMat, FullM &interpMat) { // for Gappy Pod

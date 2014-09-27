@@ -38,6 +38,10 @@ template<int dim> class PostOperator;
 
 #include <complex>
 typedef std::complex<double> bcomp;
+#ifdef USE_EIGEN3
+#include <Eigen/Dense>
+#endif
+
 
 //-----------------------------------------------------------------------------------
 
@@ -150,8 +154,23 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void ROBInnerProducts();
     void modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &, double *, int);
     void computeDampingRatios();
+#ifdef USE_EIGEN3
+    void computeEigenvectorsAndResidual(double, double, int,
+                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &rEigenVector,
+                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &lEigenVector,
+                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual);
+    double computeResidualDenominator(double sReal, double sImag, 
+                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
+                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector); 
+    void computeNonlinearEigenResidual(double sReal, double sImag, 
+                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
+                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector, 
+                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual);
+#endif
     void evalMatForEvProblem(double, double, VecSet<Vec<bcomp> > &, VecSet<Vec<double> > &, VecSet<Vec<double> > &);
     void computeGAM(double, double, VecSet<Vec<bcomp> > &);
+    void multiplyQ(double, double, complex<double> *, Vec<bcomp> &);
+    void multiply_dQdLambda(double, double, complex<double> *, Vec<bcomp> &);
     void computeGenAeroForceMat();
 
 };
