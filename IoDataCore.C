@@ -121,6 +121,7 @@ InputData::InputData()
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
+  reducedEigState = "";
 
   exactInterfaceLocation = "";
 
@@ -177,6 +178,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
+  new ClassStr<InputData>(ca, "RedEigState", this, &InputData::reducedEigState);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
   new ClassStr<InputData>(ca, "ConvergenceFile", this, &InputData::convergence_file);
@@ -733,7 +735,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 37,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 38,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -746,7 +748,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "AeroelasticAnalysis", 35, "GAMConstruction", 36);
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "AeroelasticAnalysis", 35, "GAMConstruction", 36,
+     "NonlinearEigenResidual", 37);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -4694,7 +4697,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
       problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_ ||
       problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
-      problem.alltype == ProblemData::_GAM_CONSTRUCTION_) 
+      problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2

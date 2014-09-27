@@ -587,13 +587,13 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
       fprintf(stderr,"Element %i has a negative volume\n",locToGlobElemMap[i]+1);
       ++ierr;
       ++numInvElem;
-      fprintf(stderr,"ierr has been increased to %i \n",ierr);
       if (numInvElem)
       elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
                                    locToGlobElemMap, nodes, X);
     }
   }
  
+#ifdef YDEBUG
   if(ierr > 0) { 
     const char* output = "elementvolumecheck";
     ofstream out(output, ios::out);
@@ -606,6 +606,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     out.close();
     exit(-1);
   }
+#endif
   return ierr;
 
 }

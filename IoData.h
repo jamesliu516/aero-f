@@ -123,6 +123,7 @@ struct InputData {
   const char* strKPtraces;
 
   const char *wallsurfacedisplac; //YC
+  const char *reducedEigState;
 // Included (MB)
   const char *shapederivatives;
 
@@ -428,7 +429,8 @@ struct ProblemData {
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
-                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _AEROELASTIC_ANALYSIS_ = 35, _GAM_CONSTRUCTION_ = 36} alltype;
+                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _AEROELASTIC_ANALYSIS_ = 35, _GAM_CONSTRUCTION_ = 36,
+                _NONLINEAR_EIGENRESIDUAL_ = 37} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
