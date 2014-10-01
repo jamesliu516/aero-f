@@ -5956,8 +5956,13 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       if (eqs.type == EquationsData::NAVIER_STOKES){
         viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
         (1.0 + eqs.viscosityModel.sutherlandReferenceTemperature/ref.temperature);
-        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT)
+        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT) {
+          if (eqs.viscosityModel.dynamicViscosity < 0.0) {
+            com->fprintf(stderr, "*** Error: no valid dynamic viscosity (%f) given\n",eqs.viscosityModel.dynamicViscosity);
+            ++error;
+          }
           viscosity = eqs.viscosityModel.dynamicViscosity;
+        }
         ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
       }
 
