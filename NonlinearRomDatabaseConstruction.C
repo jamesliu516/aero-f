@@ -856,30 +856,63 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
 
 
     // pick random initial centers (use shuffle algorithm to ensure no duplicates)
-    int randSeed;
-    if (kMeansRandSeed == -1) {
-      randSeed = time(NULL);
-    } else {
-      randSeed = kMeansRandSeed;
+    int* shuffle = new int[nTotSnaps];     
+
+    if (this->com->cpuNum()==0) { 
+      int randSeed;
+  
+      if (kMeansRandSeed == -1) {
+        randSeed = time(NULL);
+      } else {
+        randSeed = kMeansRandSeed;
+      }
+   
+      srand(randSeed);
+   
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+        shuffle[iSnap] = iSnap; 
+      }
+  
+      for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
+        int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
+        int temp = shuffle[iSnap];
+        shuffle[iSnap] = shuffle[randPosition];
+        shuffle[randPosition] = temp;
+      }
     }
-    srand(randSeed);
-
-    std::vector<int> shuffle;
-    shuffle.resize(nTotSnaps);     
-
-    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-      shuffle[iSnap] = iSnap; 
+  
+    this->com->broadcast(nTotSnaps, shuffle, 0);
+  
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      (*(this->clusterCenters))[iCluster]=(*(this->snap))[shuffle[iCluster]];
     }
-
-    for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
-      int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
-      int temp = shuffle[iSnap];
-      shuffle[iSnap] = shuffle[randPosition];
-      shuffle[randPosition] = temp;
-    }
-
-    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster)
-      (*(this->clusterCenters))[iCluster]=(*snapshots)[shuffle[iCluster]];
+  
+    delete [] shuffle;
+ 
+//    int randSeed;
+//    if (kMeansRandSeed == -1) {
+//      randSeed = time(NULL);
+//    } else {
+//      randSeed = kMeansRandSeed;
+//    }
+//    srand(randSeed);
+//
+//    std::vector<int> shuffle;
+//    shuffle.resize(nTotSnaps);     
+//
+//    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+//      shuffle[iSnap] = iSnap; 
+//    }
+//
+//    for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
+//      int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
+//      int temp = shuffle[iSnap];
+//      shuffle[iSnap] = shuffle[randPosition];
+//      shuffle[randPosition] = temp;
+//    }
+//
+//    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster)
+//      (*(this->clusterCenters))[iCluster]=(*snapshots)[shuffle[iCluster]];
 
     // start k-means algorithm
     for (int iCluster=0; iCluster<this->nClusters; iCluster++)
