@@ -32,7 +32,7 @@ class RecFcn : virtual public RecFcnBase {
 
   double beta;
   double beta1;
-  double beta4;
+  double beta2;
   double eps0;
   double eps3;
 
@@ -42,7 +42,7 @@ public:
   { 
     beta = b;
     beta1 = 0.5 - beta;
-    beta4 = 1.0 - 4.0*beta;
+    beta2 = 1.0 - 2.0*beta;
     eps0 = 1.e-16;
     eps3 = e*e*e;
 
@@ -342,10 +342,10 @@ void RecFcn::prevanalbada(double Vi, double ddVij, double Vj, double ddVji,
 {
 
   double dVji = Vj - Vi;
-  double dV   = beta4 * dVji;
+  double dV   = beta2 * dVji;
 
-  double dVi = dV + 4.0 * beta * ddVij;
-  double dVj = dV + 4.0 * beta * ddVji;
+  double dVi = dV + 2.0 * beta * ddVij;
+  double dVj = dV + 2.0 * beta * ddVji;
 
   double lai = computeDerivativeVanAlbadaFcn(eps0, dVji, dVi);
   double lbi = computeDerivativeVanAlbadaFcn(eps0, dVi, dVji);
@@ -353,10 +353,10 @@ void RecFcn::prevanalbada(double Vi, double ddVij, double Vj, double ddVji,
   double laj = computeDerivativeVanAlbadaFcn(eps0, dVji, dVj);
   double lbj = computeDerivativeVanAlbadaFcn(eps0, dVj, dVji);
 
-  aij = 0.5 * (lai + beta4*lbi);
-  bij = 2.0 * beta * lbi;
-  aji = 0.5 * (laj + beta4*lbj);
-  bji = 2.0 * beta * lbj;
+  aij = 0.5 * (lai + beta2*lbi);
+  bij = beta * lbi;
+  aji = 0.5 * (laj + beta2*lbj);
+  bji = beta * lbj;
 
 }
 
@@ -369,16 +369,16 @@ void RecFcn::prevanalbadaDerivative(double Vi, double dVi, double ddVij, double 
 {
 
   double d_Vji = Vj - Vi;
-  double d_V   = beta4 * d_Vji;
+  double d_V   = beta2 * d_Vji;
 
   double dd_Vji = dVj - dVi;
-  double dd_V   = beta4 * dd_Vji;
+  double dd_V   = beta2 * dd_Vji;
 
-  double d_Vi = d_V + 4.0 * beta * ddVij;
-  double d_Vj = d_V + 4.0 * beta * ddVji;
+  double d_Vi = d_V + 2.0 * beta * ddVij;
+  double d_Vj = d_V + 2.0 * beta * ddVji;
 
-  double dd_Vi = dd_V + 4.0 * beta * dddVij;
-  double dd_Vj = dd_V + 4.0 * beta * dddVji;
+  double dd_Vi = dd_V + 2.0 * beta * dddVij;
+  double dd_Vj = dd_V + 2.0 * beta * dddVji;
 
   double dlai = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vji, dd_Vji, d_Vi, dd_Vi);
   double dlbi = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vi, dd_Vi, d_Vji, dd_Vji);
@@ -386,10 +386,10 @@ void RecFcn::prevanalbadaDerivative(double Vi, double dVi, double ddVij, double 
   double dlaj = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vji, dd_Vji, d_Vj, dd_Vj);
   double dlbj = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vj, dd_Vj, d_Vji, dd_Vji);
 
-  daij = 0.5 * (dlai + beta4*dlbi);
-  dbij = 2.0 * beta * dlbi;
-  daji = 0.5 * (dlaj + beta4*dlbj);
-  dbji = 2.0 * beta * dlbj;
+  daij = 0.5 * (dlai + beta2*dlbi);
+  dbij = beta * dlbi;
+  daji = 0.5 * (dlaj + beta2*dlbj);
+  dbji = beta * dlbj;
 
 }
 
@@ -401,10 +401,10 @@ void RecFcn::vanalbada(double Vi, double ddVij, double Vj, double ddVji,
 {
 
   double dVji = Vj - Vi;
-  double dV   = beta4 * dVji;
+  double dV   = beta2 * dVji;
 
-  double dVi = dV + 4.0 * beta * ddVij;
-  double dVj = dV + 4.0 * beta * ddVji;
+  double dVi = dV + 2.0 * beta * ddVij;
+  double dVj = dV + 2.0 * beta * ddVji;
 
   Vij = Vi + 0.5 * computeVanAlbadaFcn(eps0, dVi, dVji);
   Vji = Vj - 0.5 * computeVanAlbadaFcn(eps0, dVj, dVji);
@@ -420,16 +420,16 @@ void RecFcn::vanalbadaDerivative(double Vi, double dVi, double ddVij, double ddd
 {
 
   double d_Vji = Vj - Vi;
-  double d_V   = beta4 * d_Vji;
+  double d_V   = beta2 * d_Vji;
 
   double dd_Vji = dVj - dVi;
-  double dd_V   = beta4 * dd_Vji;
+  double dd_V   = beta2 * dd_Vji;
 
-  double d_Vi = d_V + 4.0 * beta * ddVij;
-  double d_Vj = d_V + 4.0 * beta * ddVji;
+  double d_Vi = d_V + 2.0 * beta * ddVij;
+  double d_Vj = d_V + 2.0 * beta * ddVji;
 
-  double dd_Vi = dd_V + 4.0 * beta * dddVij;
-  double dd_Vj = dd_V + 4.0 * beta * dddVji;
+  double dd_Vi = dd_V + 2.0 * beta * dddVij;
+  double dd_Vj = dd_V + 2.0 * beta * dddVji;
 
   dVij = dVi + 0.5 * computeDerivativeOfVanAlbadaFcn(eps0, d_Vi, dd_Vi, d_Vji, dd_Vji);
   dVji = dVj - 0.5 * computeDerivativeOfVanAlbadaFcn(eps0, d_Vj, dd_Vj, d_Vji, dd_Vji);
