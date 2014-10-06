@@ -774,6 +774,83 @@ void FluxFcnSGWallEuler3D::computeJacobian(double length, double irey, double *n
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGPorousWallEuler3D::compute(double length, double irey, double *normal, double normalVel, 
+				   double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+  double porosity = Ub[1];
+
+  if (porosity != 0 ) {
+    double rho,rhoun,u,v,w,p,q;
+    if ( Ub[0] <= 0.0 ) {
+      rho = invgam1 * (V[4]+pstiff) / Ub[4];
+      double ujet = Ub[0]/rho;
+      double un = ujet/porosity;
+      rhoun = rho*(ujet - nVel);
+      u = un*n[0];
+      v = un*n[1];
+      w = un*n[2];
+      q = u*u + v*v + w*w;
+      p = V[4];
+    }
+    else if ( Ub[0] > 0.0 ) {
+      rho = V[0];
+      double ujet = Ub[0]/rho;
+      double Un = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+      double Vt[3] = {V[1] - Un*n[0],V[2] - Un*n[1],V[3] - Un*n[2]};
+      rhoun = rho*(ujet - nVel);
+      u = ujet*n[0] + Vt[0];
+      v = ujet*n[1] + Vt[1];
+      w = ujet*n[2] + Vt[2];
+      double u1 = ujet*n[0]/porosity + Vt[0];
+      double v1 = ujet*n[1]/porosity + Vt[1];
+      double w1 = ujet*n[2]/porosity + Vt[2];
+      q = u1*u1 + v1*v1 + w1*w1;
+      p = V[4];
+    } 
+    flux[0] = S * rhoun;
+    flux[1] = S * (rhoun*u + p*n[0]);
+    flux[2] = S * (rhoun*v + p*n[1]);
+    flux[3] = S * (rhoun*w + p*n[2]);
+    flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+  }
+  else {
+    flux[0] = 0.0;
+    flux[1] = V[4] * normal[0];
+    flux[2] = V[4] * normal[1];
+    flux[3] = V[4] * normal[2];
+    flux[4] = V[4] * normalVel;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGPorousWallEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal, 
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+// not implemented 
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1848,6 +1925,82 @@ void FluxFcnSGWallSA3D::computeJacobian(double length, double irey, double *norm
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGPorousWallSA3D::compute(double length, double irey, double *normal, double normalVel,
+                              double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+  double porosity = Ub[1];
+
+  if (porosity != 0 ) {
+    double rho,rhoun,u,v,w,p,q;
+    if ( Ub[0] <= 0.0 ) {
+      rho = invgam1 * (V[4]+pstiff) / Ub[4];
+      double ujet = Ub[0]/rho;
+      double un = ujet/porosity;
+      rhoun = rho*(ujet - nVel);
+      u = un*n[0];
+      v = un*n[1];
+      w = un*n[2];
+      q = u*u + v*v + w*w;
+      p = V[4];
+    }
+    else if ( Ub[0] > 0.0 ) {
+      rho = V[0];
+      double ujet = Ub[0]/rho;
+      double Un = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+      double Vt[3] = {V[1] - Un*n[0],V[2] - Un*n[1],V[3] - Un*n[2]};
+      rhoun = rho*(ujet - nVel);
+      u = ujet*n[0] + Vt[0];
+      v = ujet*n[1] + Vt[1];
+      w = ujet*n[2] + Vt[2];
+      double u1 = ujet*n[0]/porosity + Vt[0];
+      double v1 = ujet*n[1]/porosity + Vt[1];
+      double w1 = ujet*n[2]/porosity + Vt[2];
+      q = u1*u1 + v1*v1 + w1*w1;
+      p = V[4];
+    } 
+    flux[0] = S * rhoun;
+    flux[1] = S * (rhoun*u + p*n[0]);
+    flux[2] = S * (rhoun*v + p*n[1]);
+    flux[3] = S * (rhoun*w + p*n[2]);
+    flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+  }
+  else {
+    flux[0] = 0.0;
+    flux[1] = V[4] * normal[0];
+    flux[2] = V[4] * normal[1];
+    flux[3] = V[4] * normal[2];
+    flux[4] = V[4] * normalVel;
+  }
+  flux[5] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGPorousWallSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+// not implemented
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGGhidagliaSA3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -2069,6 +2222,16 @@ void FluxFcnSGRoeSAturb3D::computeJacobians(double length, double irey, double *
 //------------------------------------------------------------------------------
 
 void FluxFcnSGWallSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                          double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  jacL[0] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGPorousWallSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
                                           double *V, double *Ub, double *jacL, bool useLimiter)
 {
 
@@ -2503,6 +2666,84 @@ void FluxFcnSGWallKE3D::computeJacobian(double length, double irey, double *norm
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGPorousWallKE3D::compute(double length, double irey, double *normal, double normalVel,
+                              double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+  double porosity = Ub[1];
+
+  if (porosity != 0 ) {
+    double rho,rhoun,u,v,w,p,q;
+    if ( Ub[0] <= 0.0 ) {
+      rho = invgam1 * (V[4]+pstiff) / Ub[4];
+      double ujet = Ub[0]/rho;
+      double un = ujet/porosity;
+      rhoun = rho*(ujet - nVel);
+      u = un*n[0];
+      v = un*n[1];
+      w = un*n[2];
+      q = u*u + v*v + w*w;
+      p = V[4];
+    }
+    else if ( Ub[0] > 0.0 ) {
+      rho = V[0];
+      double ujet = Ub[0]/rho;
+      double Un = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+      double Vt[3] = {V[1] - Un*n[0],V[2] - Un*n[1],V[3] - Un*n[2]};
+      rhoun = rho*(ujet - nVel);
+      u = ujet*n[0] + Vt[0];
+      v = ujet*n[1] + Vt[1];
+      w = ujet*n[2] + Vt[2];
+      double u1 = ujet*n[0]/porosity + Vt[0];
+      double v1 = ujet*n[1]/porosity + Vt[1];
+      double w1 = ujet*n[2]/porosity + Vt[2];
+      q = u1*u1 + v1*v1 + w1*w1;
+      p = V[4];
+    } 
+    flux[0] = S * rhoun;
+    flux[1] = S * (rhoun*u + p*n[0]);
+    flux[2] = S * (rhoun*v + p*n[1]);
+    flux[3] = S * (rhoun*w + p*n[2]);
+    flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+  }
+  else {
+    flux[0] = 0.0;
+    flux[1] = V[4] * normal[0];
+    flux[2] = V[4] * normal[1];
+    flux[3] = V[4] * normal[2];
+    flux[4] = V[4] * normalVel;
+  }
+
+  flux[5] = 0.0;
+  flux[6] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGPorousWallKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+// not implemented
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGGhidagliaKE3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -2653,6 +2894,19 @@ void FluxFcnSGRoeKEturb3D::computeJacobians(double length, double irey, double *
 //------------------------------------------------------------------------------
 
 void FluxFcnSGWallKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                          double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  jacL[0] = 0.0;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGPorousWallKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
                                           double *V, double *Ub, double *jacL, bool useLimiter)
 {
 

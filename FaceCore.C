@@ -42,6 +42,7 @@ void Face::setup(int fc, int *nn, int nnum, int sid)
       fc == BC_MASSFLOW_INLET_MOVING || fc == BC_MASSFLOW_INLET_FIXED ||
       fc == BC_ADIABATIC_WALL_MOVING || fc == BC_ADIABATIC_WALL_FIXED ||
       fc == BC_SLIP_WALL_MOVING || fc == BC_SLIP_WALL_FIXED ||
+      fc == BC_POROUS_WALL_MOVING || fc == BC_POROUS_WALL_FIXED ||
       fc == BC_ISOTHERMAL_WALL_MOVING || fc == BC_ISOTHERMAL_WALL_FIXED ||
       fc == BC_SYMMETRY || fc == BC_KIRCHHOFF_SURFACE)
   {

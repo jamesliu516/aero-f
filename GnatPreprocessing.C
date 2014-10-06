@@ -1305,7 +1305,8 @@ bool GnatPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const in
 	else if (includeLiftFaces == 2){	// include face if it is on any moving wall (perhaps remove)
 		if(faces[iFace].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
 				faces[iFace].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-				faces[iFace].getCode() == BC_SLIP_WALL_MOVING)
+				faces[iFace].getCode() == BC_SLIP_WALL_MOVING ||
+				faces[iFace].getCode() == BC_POROUS_WALL_MOVING)
 			idx = 0;
 		else
 			idx = -1;

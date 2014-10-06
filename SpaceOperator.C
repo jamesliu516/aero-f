@@ -263,7 +263,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
   ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff -= BC_MIN_CODE;
   
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 20)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
   ff[BC_SYMMETRY] = new FluxFcn(rshift,BC_SYMMETRY,ioData,varFcn); 
   ff[BC_MASSFLOW_OUTLET_MOVING] = new FluxFcn(rshift,BC_MASSFLOW_OUTLET_MOVING,ioData,varFcn);
@@ -278,6 +278,8 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
   ff[BC_OUTLET_FIXED] = new FluxFcn(rshift,BC_OUTLET_FIXED,ioData,varFcn); 
   ff[BC_INLET_MOVING] = new FluxFcn(rshift,BC_INLET_MOVING,ioData,varFcn);
   ff[BC_INLET_FIXED] = new FluxFcn(rshift,BC_INLET_FIXED,ioData,varFcn);
+  ff[BC_POROUS_WALL_MOVING] = new FluxFcn(rshift,BC_POROUS_WALL_MOVING,ioData,varFcn);
+  ff[BC_POROUS_WALL_FIXED] = new FluxFcn(rshift,BC_POROUS_WALL_FIXED,ioData,varFcn);
   ff[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(rshift,BC_ADIABATIC_WALL_MOVING,ioData,varFcn);
   ff[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(rshift,BC_ADIABATIC_WALL_FIXED,ioData,varFcn);
   ff[BC_SLIP_WALL_MOVING] = new FluxFcn(rshift,BC_SLIP_WALL_MOVING,ioData,varFcn);

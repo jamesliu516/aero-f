@@ -751,8 +751,12 @@ public:
   template<int dim>
   void assignFreeStreamValues2(SVec<double,dim> &, SVec<double,dim> &,
 			       SVec<double,dim> &, SVec<double,dim> &);
+
   template<int dim>
   void assignFreeStreamValues(double *, double *, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void assignPorousWallValues(SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
   void setNodeBcValue(double*, SVec<double,dim>&);
