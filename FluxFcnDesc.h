@@ -160,6 +160,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnPorousWallEuler3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnPorousWallEuler3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnGhidagliaEuler3D : public FluxFcnFD<5> {
 
 public:
@@ -406,6 +418,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnPorousWallSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnPorousWallSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnGhidagliaSA3D : public FluxFcnFD<6>{
 
 public:
@@ -537,6 +561,17 @@ public:
   FluxFcnWallSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnWallSAturb3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPorousWallSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnPorousWallSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnPorousWallSAturb3D() {}
   
 };
 
@@ -741,6 +776,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallKE3D : public FluxFcnFD<7> {
+
+public:
+
+  FluxFcnPorousWallKE3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) {}
+  ~FluxFcnPorousWallKE3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnGhidagliaKE3D : public FluxFcnFD<7>{
 
 public:
@@ -837,6 +884,18 @@ public:
   FluxFcnWallKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnWallKEturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPorousWallKEturb3D : public FluxFcnBase {
+
+public:
+
+  FluxFcnPorousWallKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnPorousWallKEturb3D() {}
 
 };
 

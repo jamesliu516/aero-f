@@ -265,7 +265,7 @@ void FaceTria::computeNodalForce(ElemSet &elems,
 {
 
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING
-    || code == BC_SLIP_WALL_MOVING) {
+    || code == BC_SLIP_WALL_MOVING || code == BC_POROUS_WALL_MOVING) {
     Vec3D Fi0, Fi1, Fi2, Fv;
 
     computeForceTransmitted(elems, postFcn, X, d2wall, Vwall, V, &pin, Fi0, Fi1, Fi2, Fv, gradP);
@@ -294,7 +294,7 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
 {
 
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING
-    || code == BC_SLIP_WALL_MOVING) {
+    || code == BC_SLIP_WALL_MOVING || code == BC_POROUS_WALL_MOVING) {
 
     Vec3D dFi0, dFi1, dFi2, dFv;
     computeDerivativeOfForceTransmitted(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, 0, dFi0, dFi1, dFi2, dFv, gradP, dGradP);
@@ -795,7 +795,7 @@ void FaceTria::computeForceDerivs(ElemSet &elems, VarFcn *varFcn,
   int j, k;
 
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING
-   || code == BC_SLIP_WALL_MOVING) {
+   || code == BC_SLIP_WALL_MOVING || code == BC_POROUS_WALL_MOVING) {
 
     Vec3D F[dim];
 
@@ -840,7 +840,7 @@ void FaceTria::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, ElemSet &el
   static double third = 1.0/3.0;
 
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING
-   || code == BC_SLIP_WALL_MOVING) {
+   || code == BC_SLIP_WALL_MOVING || code == BC_POROUS_WALL_MOVING) {
 
     Vec3D x[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
     Vec3D xcg = third * (x[0] + x[1] + x[2]);

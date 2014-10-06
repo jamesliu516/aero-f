@@ -3396,6 +3396,7 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
         case(BC_SYMMETRY): //by default a symmetry plane is fixed ...
         case(BC_ISOTHERMAL_WALL_FIXED):
         case(BC_ADIABATIC_WALL_FIXED):
+        case(BC_POROUS_WALL_FIXED):
         case(BC_OUTLET_FIXED):
         case(BC_INLET_FIXED):
         case(BC_DIRECTSTATE_OUTLET_FIXED):
@@ -3505,6 +3506,7 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
 	break;
       case(BC_ISOTHERMAL_WALL_FIXED):
       case(BC_ADIABATIC_WALL_FIXED):
+      case(BC_POROUS_WALL_FIXED):
       case(BC_OUTLET_FIXED):
       case(BC_INLET_FIXED):
       case(BC_DIRECTSTATE_OUTLET_FIXED):
@@ -4372,6 +4374,12 @@ if(faces[i].getCode()!=-1)
           if(faces[i].getCode() == BC_OUTLET_FIXED)
             faces[i].setType(BC_MASSFLOW_OUTLET_FIXED);
         }
+        if(it2->second->type == BoundaryData::POROUSWALL) {
+          if(faces[i].getCode() == BC_SLIP_WALL_MOVING)
+            faces[i].setType(BC_POROUS_WALL_MOVING);
+          if(faces[i].getCode() == BC_SLIP_WALL_FIXED)
+            faces[i].setType(BC_POROUS_WALL_FIXED);
+        }
       }
     }
   }
@@ -5096,10 +5104,10 @@ void SubDomain::getSurfaceNodes(Aerof_unordered_set<int>::type& boundaryNodes) c
   for (int i = 0; i < faces.size(); ++i) {
 
     int code = faces[i].getCode();
-    if (code != BC_SLIP_WALL_MOVING &&
-        code != BC_SLIP_WALL_FIXED && code != BC_ADIABATIC_WALL_MOVING &&
-        code != BC_ADIABATIC_WALL_FIXED && code != BC_ISOTHERMAL_WALL_MOVING &&
-        code != BC_ISOTHERMAL_WALL_FIXED)
+    if (code != BC_SLIP_WALL_MOVING && code != BC_SLIP_WALL_FIXED && 
+        code != BC_ADIABATIC_WALL_MOVING && code != BC_ADIABATIC_WALL_FIXED && 
+        code != BC_ISOTHERMAL_WALL_MOVING && code != BC_ISOTHERMAL_WALL_FIXED &&
+        code != BC_POROUS_WALL_MOVING && code != BC_POROUS_WALL_FIXED)
       continue;
 
     for (int k = 0; k < faces[i].numNodes(); ++k)
@@ -5114,10 +5122,11 @@ void SubDomain::getSolidBoundaryNodes(Aerof_unordered_set<int>::type& boundaryNo
   for (int i = 0; i < faces.size(); ++i) {
 
     int code = faces[i].getCode();
-    if (code != BC_SYMMETRY && code != BC_SLIP_WALL_MOVING &&
-        code != BC_SLIP_WALL_FIXED && code != BC_ADIABATIC_WALL_MOVING &&
-        code != BC_ADIABATIC_WALL_FIXED && code != BC_ISOTHERMAL_WALL_MOVING &&
-        code != BC_ISOTHERMAL_WALL_FIXED)
+    if (code != BC_SYMMETRY && 
+        code != BC_SLIP_WALL_MOVING && code != BC_SLIP_WALL_FIXED && 
+        code != BC_ADIABATIC_WALL_MOVING && code != BC_ADIABATIC_WALL_FIXED && 
+        code != BC_ISOTHERMAL_WALL_MOVING && code != BC_ISOTHERMAL_WALL_FIXED &&
+        code != BC_POROUS_WALL_MOVING && code != BC_POROUS_WALL_FIXED)
       continue;
 
     for (int k = 0; k < faces[i].numNodes(); ++k)

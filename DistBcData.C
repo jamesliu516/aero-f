@@ -19,7 +19,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
   inletNodeDistInfo(__inletNodeDistInfo?*__inletNodeDistInfo:domain->getInletNodeDistInfo()),
   faceDistInfo(__faceDistInfo?*__faceDistInfo:domain->getFaceDistInfo()),
   Xdot(nodeDistInfo), Temp(nodeDistInfo),vf(varFcn),
-  Ufarin(nodeDistInfo), Ufarout(nodeDistInfo),
+  Ufarin(nodeDistInfo), Ufarout(nodeDistInfo), Uporouswall(nodeDistInfo),
   Uface(faceDistInfo), Unode(nodeDistInfo),
   Uinletnode(inletNodeDistInfo), rotInfo(ioData.rotations.rotationMap.dataMap)
 {
@@ -36,6 +36,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
     this->dUinletnode = new DistSVec<double,dim>(faceDistInfo);
     this->dUfarin = new DistSVec<double,dim>(nodeDistInfo);
     this->dUfarout = new DistSVec<double,dim>(nodeDistInfo);
+    this->dUporouswall = new DistSVec<double,dim>(nodeDistInfo);
   }
   else {
     this->dXdot = 0;
@@ -45,6 +46,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
     this->dUinletnode = 0;
     this->dUfarin = 0;
     this->dUfarout = 0;
+    this->dUporouswall = 0;
   }
   if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
     if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
@@ -80,27 +82,27 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
         ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
-          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUporouswall)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
         }
         else {
-          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub));
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUporouswall)(iSub));
 	}
       }
       else {
-        subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub));
+        subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUporouswall)(iSub));
       }
     }
     else {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
-          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
         }
         else {
-          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub));
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub));
 	}
       }
       else {
-        subBcData[iSub] = new BcData<dim>(this->Uface(iSub),this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub));
+        subBcData[iSub] = new BcData<dim>(this->Uface(iSub),this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub));
       }
     }
 
@@ -134,6 +136,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
   Temp      = ioData.bc.wall.temperature;
   this->Ufarin     = 0.0;
   this->Ufarout    = 0.0;
+  this->Uporouswall= 0.0;
   this->Unode      = 0.0;
   this->Uface      = 0.0;
   this->Uinletnode = 0.0;
@@ -184,6 +187,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
     (*dUinletnode) = 0.0;
     (*dUfarin) = 0.0;
     (*dUfarout) = 0.0;
+    (*dUporouswall) = 0.0;
   }
   dtrefdMach = ioData.ref.rv.dtimedMach;
   dvrefdMach = ioData.ref.rv.dvelocitydMach;
@@ -219,6 +223,7 @@ DistBcData<dim>::~DistBcData()
   if (this->dUinletnode) delete this->dUinletnode;
   if (this->dUfarin) delete this->dUfarin;
   if (this->dUfarout) delete this->dUfarout;
+  if (this->dUporouswall) delete this->dUporouswall;
 
 }
 
@@ -243,10 +248,12 @@ void DistBcData<dim>::finalize(DistSVec<double,3> &X)
   com->printf(2,"\n");
 */
 #pragma omp parallel for
-  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->assignFreeStreamValues2(this->Ufarin(iSub),
                                  this->Ufarout(iSub), this->Uface(iSub),
                                  this->Uinletnode(iSub));
+    this->subDomain[iSub]->assignPorousWallValues(this->Uporouswall(iSub), this->Uface(iSub));
+  }
   update(X);
 }
 
@@ -267,10 +274,12 @@ void DistBcData<dim>::finalizeSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, 
   this->vf->conservativeToPrimitiveDerivative(this->Uout, this->dUout, Vout, dVout);
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->assignFreeStreamValues2((*dUfarin)(iSub),
                                  (*dUfarout)(iSub), (*dUface)(iSub),
                                  (*dUinletnode)(iSub));
+    this->subDomain[iSub]->assignPorousWallValues((*dUporouswall)(iSub), (*dUface)(iSub));
+  }
 
   updateSA(X, dX, dMach);
 
@@ -448,10 +457,12 @@ void DistBcDataEuler<dim>::updateFarField(DistSVec<double,3> &X)
     updateFarFieldJWL(X);
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->assignFreeStreamValues2(this->Ufarin(iSub),
                                  this->Ufarout(iSub), this->Uface(iSub),
                                  this->Uinletnode(iSub));
+    this->subDomain[iSub]->assignPorousWallValues(this->Uporouswall(iSub), this->Uface(iSub));
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -471,10 +482,12 @@ void DistBcDataEuler<dim>::updateFarFieldSA(DistSVec<double,3> &X, DistSVec<doub
   }
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->assignFreeStreamValues2((*this->dUfarin)(iSub),
                                  (*this->dUfarout)(iSub), (*this->dUface)(iSub),
                                  (*this->dUinletnode)(iSub));
+    this->subDomain[iSub]->assignPorousWallValues((*this->dUporouswall)(iSub), (*this->dUface)(iSub));
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -695,6 +708,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
     double (*uout)[dim] = this->Ufarout.subData(iSub);
+    double (*uporouswall)[dim] = this->Uporouswall.subData(iSub);
     double ptempin, ptempout, un;
 
     for(int inode = 0; inode<this->Unode.subSize(iSub); inode++){
@@ -770,6 +784,15 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
             }
             if (faces[i].getCode() ==  BC_MASSFLOW_OUTLET_MOVING ||
                 faces[i].getCode() ==  BC_MASSFLOW_OUTLET_FIXED ) {
+            }
+          }
+
+          else if(it2->second->type == BoundaryData::POROUSWALL ) {
+            for (int l = 0; l<faces[i].numNodes();++l) {
+              int k = faces[i][l];
+              uporouswall[k][0] = it2->second->mdot;
+              uporouswall[k][1] = it2->second->porosity;
+              uporouswall[k][4] = it2->second->temperature;
             }
           }
         }

@@ -259,6 +259,11 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             localff = new FluxFcnSGWallSA3D(iod, vfsgsa, typeJac);
             break;
 
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallSA3D(iod, vfsgsa, typeJac);
+            break;
+
           case BC_INTERNAL:
             if (ns_flux == SchemeData::ROE) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
@@ -343,6 +348,11 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             localff = new FluxFcnSGWallKE3D(iod, vfsgke, typeJac);
             break;
   
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallKE3D(iod, vfsgke, typeJac);
+            break;
+
           case BC_INTERNAL:
             if (ns_flux == SchemeData::ROE) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
@@ -456,6 +466,11 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           localff = new FluxFcnSGWallEuler3D(iod, vfsgeuler, typeJac);
           break;
 
+        case BC_POROUS_WALL_MOVING:
+        case BC_POROUS_WALL_FIXED:
+          localff = new FluxFcnSGPorousWallEuler3D(iod, vfsgeuler, typeJac);
+          break;
+
         case BC_INTERNAL:
           if (ns_flux == SchemeData::VANLEER)
           {
@@ -555,6 +570,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_SYMMETRY:
           case BC_ISOTHERMAL_WALL_MOVING:
           case BC_ISOTHERMAL_WALL_FIXED:
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
             localff = new FluxFcnTaitWallSA3D(iod, vftaitsa, typeJac);
             break;
 
@@ -616,6 +633,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_SYMMETRY:
           case BC_ISOTHERMAL_WALL_MOVING:
           case BC_ISOTHERMAL_WALL_FIXED:
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
             localff = new FluxFcnTaitWallKE3D(iod, vftaitke, typeJac);
             break;
 
@@ -690,6 +709,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         case BC_SYMMETRY:
         case BC_ISOTHERMAL_WALL_MOVING:
         case BC_ISOTHERMAL_WALL_FIXED:
+        case BC_POROUS_WALL_MOVING:
+        case BC_POROUS_WALL_FIXED:
           localff = new FluxFcnTaitWallEuler3D(iod, vftait, typeJac);
           break;
   
@@ -739,6 +760,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
       case BC_SYMMETRY:
       case BC_ISOTHERMAL_WALL_MOVING:
       case BC_ISOTHERMAL_WALL_FIXED:
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
         localff = new FluxFcnJwlWallEuler3D(iod, vfjwl, typeJac);
         break;
 
@@ -823,6 +846,11 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
         localff = new FluxFcnSGWallEuler3D(iod, vfsgeuler, typeJac);
         break;
 
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
+        localff = new FluxFcnSGPorousWallEuler3D(iod, vfsgeuler, typeJac);
+        break;
+
       case BC_INTERNAL:
         localff = new FluxFcnSGApprJacRoeEuler3D(0, gamma, iod, vfsgeuler, typeJac);
         break;
@@ -857,6 +885,8 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
     case BC_SYMMETRY:
     case BC_ISOTHERMAL_WALL_MOVING:
     case BC_ISOTHERMAL_WALL_FIXED:
+    case BC_POROUS_WALL_MOVING:
+    case BC_POROUS_WALL_FIXED:
       localff = new FluxFcnTaitWallEuler3D(iod, vftait, typeJac);
       break;
 
@@ -950,6 +980,11 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
             localff = new FluxFcnSGWallSAturb3D(iod, vfsgsa, typeJac);
             break;
 
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
           case BC_INTERNAL:
             localff = new FluxFcnSGRoeSAturb3D(gamma, iod, vfsgsa, typeJac);
             break;
@@ -1004,6 +1039,11 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
             localff = new FluxFcnSGWallKEturb3D(iod, vfsgke, typeJac);
             break;
   
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallKEturb3D(iod, vfsgke, typeJac);
+            break;
+
           case BC_INTERNAL:
             localff = new FluxFcnSGRoeKEturb3D(gamma, iod, vfsgke, typeJac);
             break;
@@ -1056,6 +1096,8 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
       case BC_SYMMETRY:
       case BC_ISOTHERMAL_WALL_MOVING:
       case BC_ISOTHERMAL_WALL_FIXED:
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
         localff = new FluxFcnTaitWallSAturb3D(iod, vftaitsa, typeJac);
         break;
 
@@ -1098,6 +1140,8 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
       case BC_SYMMETRY:
       case BC_ISOTHERMAL_WALL_MOVING:
       case BC_ISOTHERMAL_WALL_FIXED:
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
         localff = new FluxFcnTaitWallKEturb3D(iod, vftaitke, typeJac);
         break;
 

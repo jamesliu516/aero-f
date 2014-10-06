@@ -114,7 +114,7 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
 
   FluxFcn **ff1 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
   ff1 -= BC_MIN_CODE;
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 20)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
 
   ff1[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,this->varFcn,1);
@@ -130,6 +130,8 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
   ff1[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,this->varFcn,1);
   ff1[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,this->varFcn,1);
   ff1[BC_INLET_FIXED] = new FluxFcn(0,BC_INLET_FIXED,ioData,this->varFcn,1);
+  ff1[BC_POROUS_WALL_MOVING] = new FluxFcn(0,BC_POROUS_WALL_MOVING,ioData,this->varFcn,1);
+  ff1[BC_POROUS_WALL_FIXED] = new FluxFcn(0,BC_POROUS_WALL_FIXED,ioData,this->varFcn,1);
   ff1[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(0,BC_ADIABATIC_WALL_MOVING,ioData,this->varFcn,1);
   ff1[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(0,BC_ADIABATIC_WALL_FIXED,ioData,this->varFcn,1);
   ff1[BC_SLIP_WALL_MOVING] = new FluxFcn(0,BC_SLIP_WALL_MOVING,ioData,this->varFcn,1);
@@ -171,7 +173,7 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
 
   FluxFcn** ff2 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff2 -= BC_MIN_CODE;
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 20)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
 
   ff2[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,this->varFcn,2);
@@ -187,6 +189,8 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
   ff2[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,this->varFcn,2);
   ff2[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,this->varFcn,2);
   ff2[BC_INLET_FIXED] = new FluxFcn(0,BC_INLET_FIXED,ioData,this->varFcn,2);
+  ff2[BC_POROUS_WALL_MOVING] = new FluxFcn(0,BC_POROUS_WALL_MOVING,ioData,this->varFcn,2);
+  ff2[BC_POROUS_WALL_FIXED] = new FluxFcn(0,BC_POROUS_WALL_FIXED,ioData,this->varFcn,2);
   ff2[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(0,BC_ADIABATIC_WALL_MOVING,ioData,this->varFcn,2);
   ff2[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(0,BC_ADIABATIC_WALL_FIXED,ioData,this->varFcn,2);
   ff2[BC_SLIP_WALL_MOVING] = new FluxFcn(0,BC_SLIP_WALL_MOVING,ioData,this->varFcn,2);

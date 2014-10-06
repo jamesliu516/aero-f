@@ -917,6 +917,7 @@ BoundaryData::BoundaryData()
   nutilde = -1.0;
   kenergy = -1.0;
   epsilon = -1.0;
+  porosity = 0.0;
 
   for (int i=0; i<SIZE; ++i) {
     inVar[i] = false;
@@ -929,11 +930,11 @@ BoundaryData::BoundaryData()
 
 Assigner *BoundaryData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 15, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 16, nullAssigner);
 
   new ClassToken<BoundaryData>(ca, "Type", this,
-                              (int BoundaryData::*)(&BoundaryData::type), 2,
-                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW);
+                              (int BoundaryData::*)(&BoundaryData::type), 3,
+                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW, "PorousWall", POROUSWALL);
   new ClassDouble<BoundaryData>(ca, "Density", this, &BoundaryData::density);
   new ClassDouble<BoundaryData>(ca, "VelocityX", this, &BoundaryData::velocityX);
   new ClassDouble<BoundaryData>(ca, "VelocityY", this, &BoundaryData::velocityY);
@@ -942,10 +943,12 @@ Assigner *BoundaryData::getAssigner()  {
   new ClassDouble<BoundaryData>(ca, "Temperature", this, &BoundaryData::temperature);
   new ClassDouble<BoundaryData>(ca, "TotalPressure", this, &BoundaryData::totalPressure);
   new ClassDouble<BoundaryData>(ca, "TotalTemperature", this, &BoundaryData::totalTemperature);
-  new ClassDouble<BoundaryData>(ca, "MDot", this, &BoundaryData::mdot);
+  new ClassDouble<BoundaryData>(ca, "MassFlow", this, &BoundaryData::mdot);
   new ClassDouble<BoundaryData>(ca, "NuTilde", this, &BoundaryData::nutilde);
   new ClassDouble<BoundaryData>(ca, "K", this, &BoundaryData::kenergy);
   new ClassDouble<BoundaryData>(ca, "Eps", this, &BoundaryData::epsilon);
+
+  new ClassDouble<BoundaryData>(ca, "Porosity", this, &BoundaryData::porosity);
 
   new ClassArray<BoundaryData>(ca, "InletVariables", this, &BoundaryData::inVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
   new ClassArray<BoundaryData>(ca, "OutletVariables", this, &BoundaryData::outVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
