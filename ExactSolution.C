@@ -6,6 +6,8 @@
 
 #include <math.h>
 
+#include <complex>
+
 #ifdef AEROACOUSTIC
 
 #include "gsl/gsl_sf.h"
@@ -76,6 +78,88 @@ AcousticBeamStructure(IoData& iod,double x, double y, double z,
   vy = omega*what* (sin(k*x-omega*t*iod.ref.rv.time)-
 	             sin(-k*x-omega*t*iod.ref.rv.time)) / iod.ref.rv.velocity;
 }
+
+void ExactSolution::
+AcousticViscousBeam(IoData& iod,double x, double y, double z,
+	            double t, double* V) {
+
+  t *= iod.ref.rv.time;
+
+  double k = 2.0*3.14159265358979323846;
+  double rhof = 1.3;
+  double rhos = 10,h=0.02;
+  double Ib = pow(h,3)/12.0;
+  std::complex<double> I(0,1);
+  double H = 1.0;
+  std::complex<double> omega(59.0185,-0.824694);
+
+  double c = sqrt(1.4*1e5/1.3);
+
+  double nu = 0.01/rhof;
+
+  std::complex<double> alpha = sqrt(k*k- omega*omega/(c*c-I*omega*nu));
+
+  std::complex<double> albar = sqrt(k*k-I*omega/nu);
+
+  std::complex<double> phi = 1.0/(nu*(alpha*alpha-k*k)+I*omega);
+
+  std::complex<double>  q = I*omega/(rhof*c*c)-alpha*alpha*phi/rhof;
+
+  std::complex<double> what(1e-6,0);
+  
+  std::complex<double> g2 = 1.4e6*pow(k,4)*Ib- rhos*h*pow(omega,2);
+
+  std::complex<double> A = g2*what/(cosh(alpha*H)+sinh(alpha*H)*q*rhof/(alpha*albar*phi));
+  
+  std::complex<double> B = A*q*rhof/(alpha*albar*phi);
+ 
+  std::complex<double> M = B*alpha*phi/rhof;
+  std::complex<double> N = A*alpha*phi/rhof;
+
+  std::complex<double> P = -I*omega*what-M*cosh(alpha*H)-N*sinh(alpha*H);
+
+  std::complex<double> p = (A*cosh(alpha*y)+B*sinh(alpha*y))*(exp(I*k*x-I*omega*t)-exp(-I*k*x-I*omega*t)) / iod.ref.rv.pressure + iod.bc.inlet.pressure;
+
+  std::complex<double> v = (M*cosh(alpha*y) + N*sinh(alpha*y) + P*exp(albar*(y-H))-M*exp(-albar*y))*(exp(I*k*x-I*omega*t)-exp(-I*k*x-I*omega*t)) / iod.ref.rv.velocity;
+  std::complex<double> dv = (alpha*M*sinh(alpha*y) + alpha*N*cosh(alpha*y) + albar*P*exp(albar*(y-H))+M*albar*exp(-albar*y));
+
+  std::complex<double> u = ((A*cosh(alpha*y)+B*sinh(alpha*y))*I*omega/(rhof*c*c)-dv)/(I*k)*(exp(I*k*x-I*omega*t)+exp(-I*k*x-I*omega*t)) / iod.ref.rv.velocity;
+
+//  if (y > H)
+//   std::cout <<  " " << x << " " << y << " " << z << " " << t << " " <<  (M*cosh(alpha*H) + N*sinh(alpha*H) + P*exp(albar*(H-H))-M*exp(-albar*H))*(exp(I*k*x-I*omega*t)-exp(-I*k*x-I*omega*t)) << " " << -I*omega*what*(exp(I*k*x-I*omega*t)-exp(-I*k*x-I*omega*t)) << std::endl;
+
+  V[0] = pow(real(p)/(1.0e5/iod.ref.rv.pressure),(1.0/1.4))*(1.3 / iod.ref.rv.density);
+  V[1] = real(u);
+  V[2] = real(v);
+  V[3] = 0.0;
+  V[4] = real(p);
+
+
+  
+}
+
+void ExactSolution::
+AcousticViscousBeamStructure(IoData& iod,double x, double y, double z,
+  	                     double t, double& uy, double& vy) {
+
+  t *= iod.ref.rv.time;
+  
+  double k = 2.0*3.14159265358979323846;
+  std::complex<double> omega(59.0185,-0.824694);
+
+  std::complex<double> what(1e-6,0);
+
+  std::complex<double> I(0,1);
+ 
+  std::complex<double> w = what*(exp(I*k*x-I*omega*t)-exp(-I*k*x-I*omega*t));
+  std::complex<double> v = -I*omega*what*(exp(I*k*x-I*omega*t)-exp(-I*k*x-I*omega*t)) / iod.ref.rv.velocity;
+
+
+  uy = real(w);
+  vy = real(v); 
+
+}
+
 
 #ifdef AEROACOUSTIC
 double j0prime(double r) {

@@ -388,7 +388,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   else
     LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0, lsMethod);
 
-
   // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
   //if(this->input->levelsets[0] == 0) // init
   //  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
@@ -404,7 +403,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   //
   if(ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0) // init
     fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
-  
+ 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 

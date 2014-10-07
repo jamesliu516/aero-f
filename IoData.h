@@ -156,6 +156,7 @@ struct Probes {
   const char *prefix;
   const char *density;
   const char *pressure;
+  const char *diffpressure;
   const char *temperature;
   const char *velocity;
   const char *displacement;
@@ -2045,7 +2046,7 @@ struct Velocity  {
 struct ForcedData {
 
   enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
-             ACOUSTICBEAM=5, SPIRALING = 6} type;
+             ACOUSTICBEAM=5, SPIRALING = 6, ACOUSTICVISCOUSBEAM=7} type;
 
   double frequency;
   double timestep;

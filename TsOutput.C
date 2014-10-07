@@ -735,6 +735,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s", 
             iod.output.transient.probes.prefix, iod.output.transient.probes.pressure);
   }
+  if (iod.output.transient.probes.diffpressure[0] != 0) {
+    nodal_scalars[PostFcn::DIFFPRESSURE] = new char[spn + strlen(iod.output.transient.probes.diffpressure)];
+    sprintf(nodal_scalars[PostFcn::DIFFPRESSURE], "%s%s", 
+            iod.output.transient.probes.prefix, iod.output.transient.probes.diffpressure);
+  }
   if (iod.output.transient.probes.temperature[0] != 0) {
     nodal_scalars[PostFcn::TEMPERATURE] = new char[spn + strlen(iod.output.transient.probes.temperature)];
     sprintf(nodal_scalars[PostFcn::TEMPERATURE], "%s%s", 
