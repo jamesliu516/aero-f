@@ -2076,7 +2076,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         switch (Nriemann) { // normal should point to this node (i). 
           case 0: //structure normal
-            normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+            //normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
@@ -2147,7 +2148,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         switch (Nriemann) {
           case 0: //structure normal
-            normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+            //normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
@@ -2714,7 +2716,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         switch (Nriemann) {
           case 0: //structure normal
-            normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+            //normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
             //if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
             //else                                normalDir = -1.0*resij.gradPhi;
             break;
@@ -2765,6 +2768,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      int idxFace = v6data[l][0].face;
 	      double face_r = v6data[l][0].r;
 	      double face_t = v6data[l][0].t;
+	    if (1.0-resij.alpha > alpha) {
+	      //if (1.0-resij.alpha > alpha)
+		for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+	    }
+	    else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) { 
+	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+	    }
+	    else
+	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+							     X,V,Wstar,resij.alpha,length,i);
+	    /*
 	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) { 
 		if (1.0-resij.alpha > alpha) {
 		  //if (1.0-resij.alpha > alpha)
@@ -2775,7 +2789,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      else
 		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
 							       X,V,Wstar,resij.alpha,length,i);
-	      
+	      */
 	    }
 	    
 	    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
@@ -2794,7 +2808,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         switch (Nriemann) {
           case 0: //structure normal
-            normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
             //if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
             //else                                normalDir = -1.0*resji.gradPhi;
             break;
@@ -2835,7 +2849,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	   
 	  if (masterFlag[l]) {
 	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-	    
+
 	    if (v6data==NULL) {
 	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
 	    }
@@ -2844,6 +2858,19 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      int idxFace = v6data[l][1].face;
 	      double face_r = v6data[l][1].r;
 	      double face_t = v6data[l][1].t;
+	    if ( 1.0-resji.alpha > alpha) {
+
+	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+	    }
+	    else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) {
+	      //
+	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+	      // 
+	    }
+	    else
+	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+							     X,V,Wstar,resji.alpha,length,j);
+	    /*
 	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) {
 	      //
 	      //	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
@@ -2856,7 +2883,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      else
 		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
 							       X,V,Wstar,resji.alpha,length,j);
-	      
+	    */
 	    }
 	    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 	    //if (  1.0-resji.alpha > alpha)
@@ -3029,7 +3056,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         }
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-	if (countWstarij[l] == 0)
+	if (1)//countWstarij[l] == 0)
           riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
 		else {
 		  for (int k=0; k<dim; k++) Wstar[k] = Wstarij[l][k];
@@ -3110,7 +3137,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         }
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-		if (countWstarji[l] == 0)
+	if (1)//{countWstarji[l] == 0)
           riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
 		else {
 		  for (int k=0; k<dim; k++) Wstar[k] = Wstarji[l][k];

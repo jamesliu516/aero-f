@@ -255,6 +255,7 @@ Probes::Probes() {
   prefix = "";
   density = "";
   pressure = "";
+  diffpressure = "";
   temperature = "";
   velocity = "";
   displacement = "";
@@ -271,6 +272,7 @@ void Probes::setup(const char *name, ClassAssigner *father)
   new ClassStr<Probes>(ca, "Density", this, &Probes::density);
   new ClassStr<Probes>(ca, "Pressure", this, &Probes::pressure);
   new ClassStr<Probes>(ca, "Temperature", this, &Probes::temperature);
+  new ClassStr<Probes>(ca, "DeltaPressure", this, &Probes::diffpressure);
   new ClassStr<Probes>(ca, "Velocity", this, &Probes::velocity);
   new ClassStr<Probes>(ca, "Displacement", this, &Probes::displacement);
 
@@ -3493,9 +3495,9 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 7,
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 8,
      "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4,
-     "AcousticBeam", 5, "Spiraling", 6);
+     "AcousticBeam", 5, "Spiraling", 6,"AcousticViscousBeam", 7);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
@@ -5359,6 +5361,14 @@ int IoData::checkInputValuesAllInitialConditions(){
       usedModels.insert(it->second->fluidModelID);
   }
  
+  for (map<int, PlaneData *>::iterator it=mf.multiInitialConditions.planeMap.dataMap.begin();
+       it!=mf.multiInitialConditions.planeMap.dataMap.end();
+       it++) {
+    
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
+
   if (!input.oneDimensionalInput.dataMap.empty()) {
     if (input.oneDimensionalInput.dataMap.size() > 1) 
       std::cout << "Warning: having more than one 1D->3D remap has not been considered" << std::endl;
@@ -6419,6 +6429,7 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
 
 void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialConditions){
 
+
   initialConditions.velocity    /= ref.rv.velocity;
   initialConditions.pressure    /= ref.rv.pressure;
   initialConditions.density     /= ref.rv.density;
@@ -6709,8 +6720,8 @@ int IoData::checkInputValuesEmbeddedFramework() {
 
   if(!mf.multiInitialConditions.planeMap.dataMap.empty() ||
      !volumes.volumeMap.dataMap.empty()) {
-    com->fprintf(stderr,"ERROR: Currently specifying initial conditions using 'planes' or 'volumes' are not supported by the Embedded Framework!\n");
-    error ++;
+    com->fprintf(stderr,"Warning: Currently specifying initial conditions using 'planes' or 'volumes' may not be supported by the Embedded Framework!\n");
+    //error ++;
   }
   return error;
 }

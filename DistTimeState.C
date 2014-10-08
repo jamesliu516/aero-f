@@ -270,12 +270,16 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // second, setup U for multiphase geometric conditions (planes, then spheres)
   // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
-  setupUVolumesInitialConditions(iod);
-  setupUMultiFluidInitialConditions(iod,X);
-  setupUOneDimensionalSolution(iod,X);
+  // CHANGED by Alexander the Great.  Now the point ic's are setup first.
+  //
   if(point_based_id)
     setupUFluidIdInitialConditions(iod, *point_based_id);
 
+
+  setupUVolumesInitialConditions(iod);
+  setupUMultiFluidInitialConditions(iod,X);
+  setupUOneDimensionalSolution(iod,X);
+  
   setupUExactSolutionInitialConditions(iod,X);
 
   if (name[0] != 0) {
@@ -457,6 +461,21 @@ void DistTimeState<dim>::setupUExactSolutionInitialConditions(IoData &iod, DistS
 	varFcn->primitiveToConservative(v, u[i], 0);
       }
     }
+  } else if (iod.embed.testCase == 2) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      SVec<double,dim> &u((*Un)(iSub));
+      SVec<double, 3> &x(X(iSub));
+      for(int i=0; i<X.subSize(iSub); i++) {
+
+	double v[dim];
+	
+	ExactSolution::AcousticViscousBeam(iod,x[i][0],x[i][1],x[i][2], 0.0, v);
+
+	varFcn->primitiveToConservative(v, u[i], 0);
+      }
+    }
   }
 
   // Test case two:
@@ -577,6 +596,7 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
 /*      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
       domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
 */
+
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -867,9 +887,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
                                            DistSVec<double,dim> &U, DistVec<int> &fluidId,
 					   DistVec<double>* umax)
 {
-  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 5\n");
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
-  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 6\n");
 
   domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, *dtau, tprec, fluidId,
 			  umax);
@@ -909,8 +927,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
     dt_glob = *dtLeft / double(*numSubCycles);
     *dtLeft -= dt_glob;
   }
-                                                                                                         
-  domain->getCommunicator()->fprintf(stderr,"DistTimeState<dim>::computeTimeStep 7\n");
+                                                                                            
   data->computeCoefficients(*dt, dt_glob);
   
   return dt_glob;

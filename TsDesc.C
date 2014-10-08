@@ -23,6 +23,7 @@ extern int interruptCode;
 template<int dim>
 TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(dom),fluidIdDummy(dom->getNodeDistInfo())
 {
+
   X = new DistSVec<double,3>(getVecInfo());
   A = new DistVec<double>(getVecInfo());
   Xs = new DistSVec<double,3>(getVecInfo());
@@ -159,6 +160,30 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
         exit(1);
       }
       com->fprintf(stderr," *** mesh has been moved.\n");
+
+/*      double tag = 0.0;
+      for(int i=0; i<1; ++i) {
+        com->fprintf(stderr," *** mesh sensitivity has been computed 0.\n");
+        bool readOK = domain->readVectorFromFile(this->input->shapederivatives, 0, &tag, *dXdSb0); 
+        com->fprintf(stderr," *** mesh sensitivity has been computed 1.\n");
+        if(readOK) {
+          // Checking if dXdSb0 has entries different from zero at the interior of the mesh
+//          this->postOp->checkVec(*dXdSb0);
+          com->fprintf(stderr," *** mesh sensitivity has been computed 2.\n");
+    
+          if (dXdSb0->norm() == 0.0)
+          {
+            this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
+            if(!ioData.sa.fsiFlag) exit(1);
+          }
+        } else *dXdSb0 = 0.0;
+        *dXdS0 = *this->X;
+        com->fprintf(stderr," *** mesh sensitivity has been computed 3.\n");
+        mems->solve(*dXdSb0, *dXdS0);
+        com->fprintf(stderr," *** mesh sensitivity has been computed 4.\n");
+        *dXdS0 -= *this->X;
+      }
+*/ 
       char temp[1]; temp[0] = '\0';
       geoState->setup3(temp, X, A);
       if(ioData.output.restart.positions[0] != 0) {
@@ -392,6 +417,14 @@ template<int dim>
 void TsDesc<dim>::getNumParam(int &numParam)
 {
   if (mmh) mmh->getNumParam(numParam);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::getRelResidual(double &relres)
+{
+  if (mmh) mmh->getRelResidual(relres);
 }
 
 //------------------------------------------------------------------------------

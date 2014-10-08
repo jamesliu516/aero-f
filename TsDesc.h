@@ -136,6 +136,7 @@ public:
   virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }
   virtual void cmdCom(bool *);
   virtual void getNumParam(int &);
+  virtual void getRelResidual(double &);
   virtual double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
 //  virtual double computePositionSensitivityVector(bool *, int, double);
   virtual void setMeshSensitivitySolverPositionVector();

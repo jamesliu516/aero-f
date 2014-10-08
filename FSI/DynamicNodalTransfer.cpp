@@ -286,6 +286,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       mode = 4;
     else if (iod.forced.type==ForcedData::SPIRALING)
       mode = 5;
+    else if (iod.forced.type==ForcedData::ACOUSTICVISCOUSBEAM)
+      mode = 97;
     else if (iod.forced.type==ForcedData::ACOUSTICBEAM)
       mode = 98;
     else if (iod.forced.type==ForcedData::DEBUGDEFORMING)
@@ -920,7 +922,6 @@ EmbeddedStructure::sendInitialPosition(Communication::Window<double> *window)
 void
 EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 {
-  mode = 98;
   if(coupled) {
      DistSVec<double,3> Y0(*di, X);
      DistSVec<double,3> V(*di, U);
@@ -1105,6 +1106,20 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
           U[i][j] -= X0[i][j];
       }
     }
+    else if (mode==97) //deforming data
+    {
+      for(int i=0; i<nNodes; ++i) {
+        U[i][0] = U[i][2] = 0.0;
+        Udot[i][0] = Udot[i][2] = 0.0;
+
+        ExactSolution::AcousticViscousBeamStructure(iod,X0[i][0],X0[i][1],
+                                                    X0[i][2], time/tScale,
+                                                    U[i][1], Udot[i][1]);
+        Udot[i][1] /= tScale;
+      }
+    }
+
+
     else if (mode==98) //deforming data
     {
       for(int i=0; i<nNodes; ++i) {
@@ -1127,7 +1142,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 //			Udot[i][j] = 0.0;
 //		  }
 //		}
-		double tt = t0+dt*(double)(it-1);
+		double tt = time;//t0+dt*(double)(it-1);
 		double dist, dir[3];
         for(int i=0; i < nNodes; ++i) {
           dist = sqrt(X0[i][0]*X0[i][0]+X0[i][1]*X0[i][1]+X0[i][2]*X0[i][2]);

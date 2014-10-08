@@ -396,6 +396,7 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
 
   mms = new TetMeshMotionSolver(ioData.dmesh, matchNodes, domain, mp);
   if (ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ) mms1 = new TetMeshSensitivitySolver(ioData.dmesh, matchNodes, domain, mp);
+  else mms1 = 0;
 
   it0 = ioData.restart.iteration;
 
@@ -440,6 +441,13 @@ void AeroMeshMotionHandler::sendForceSensitivity(DistSVec<double,3> *dFdS)
 void AeroMeshMotionHandler::getNumParam(int &numParam)
 {
   strExc->getNumParam(numParam);
+}
+
+//------------------------------------------------------------------------------
+
+void AeroMeshMotionHandler::getRelResidual(double &relres)
+{
+  strExc->getRelResidual(relres);
 }
 
 //------------------------------------------------------------------------------
