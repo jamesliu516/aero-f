@@ -137,9 +137,9 @@ public:
   void fsoSemiAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void fsoAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void fsoSetUpLinearSolver(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void fsoLinearSolver(IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fsoLinearSolver(IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &, bool=false);
   int fsoHandler(IoData &, DistSVec<double,dim> &);
-  void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
+  void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, bool=false);
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void fsoComputeAndSendForceSensitivities(IoData &, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);

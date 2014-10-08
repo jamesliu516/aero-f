@@ -4805,6 +4805,25 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 	}
       }
     }
+  } else if (iod.embed.testCase == 2) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = X(iSub)[i];
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+	  
+	  double V[5];
+	  ExactSolution::AcousticViscousBeam(iod,x[0],x[1],x[2],t, V);
+
+	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
+	  
+	}
+      }
+    }
   } else if (iod.mf.testCase == 3) {
 
 #pragma omp parallel for
@@ -4834,7 +4853,7 @@ template <int dim>
 void Domain::setExactBoundaryResidual(DistSVec<double,dim>& U, DistSVec<double,3>& X,
 				      IoData& iod,double t, VarFcn* varFcn) {
 
-  if (iod.embed.testCase == 1) {
+  if (iod.embed.testCase == 1 || iod.embed.testCase == 2 || iod.mf.testCase == 3) {
 
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -4858,7 +4877,7 @@ void Domain::setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3
 				      IoData& iod,double t, VarFcn* varFcn,
 				      DistMat<Scalar,neq>& A) {
 
-  if (iod.embed.testCase == 1) {
+  if (iod.embed.testCase == 1 || iod.embed.testCase == 2 || iod.mf.testCase == 3) {
 
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; iSub++) {

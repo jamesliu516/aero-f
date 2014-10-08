@@ -1251,9 +1251,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
         bool linFSI = linRecAtInterface || viscSecOrder;
-	ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, 
-			  	   Wstarij, Wstarji, countWstarij, countWstarji, 
-			  	   linFSI, distLSS);
+        ngrad->compute(geoState->getConfig(), X, ctrlVol, 
+                   fluidId, *V, linFSI, distLSS);
+//	ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, 
+//			  	   Wstarij, Wstarji, countWstarij, countWstarji, 
+//			  	   linFSI, distLSS);
     timer->addNodalGradTime(t0);
   }
 
@@ -1419,7 +1421,7 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, true, fluidId);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, false, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }

@@ -1148,11 +1148,25 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
-
+/*
+  Vec<int> dummy(Wstarij.size());
+  int ierr = edges.computeFiniteVolumeTerm(riemann,locToGlobNodeMap,
+                                     fluxFcn, recFcn,  elems, 
+				     geoState,  X,  V, 
+				     Wstarij, Wstarji, 
+				     dummy,dummy, 
+				     LSS, linRecAtInterface, 
+				     fluidId, Nriemann, Nsbar, 
+				     0.0, 0.1, ngrad, 
+				     egrad, fluxes, it,
+                                     tag, failsafe, rshift, 
+				     higherOrderFSI->v6data);
+*/
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
                                            linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
-                                           tag, failsafe, rshift);
+                                          tag, failsafe, rshift);
+
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
   return ierr;
@@ -4079,7 +4093,7 @@ void SubDomain::readVectorFromFile(const char *prefix, int no, int neq,
     int minsize = min(neq, dim);
     for (i=0; i<U.size(); ++i) {
       for (int j=0; j<minsize; ++j)
-	U[i][j] = data[neq*i + j];
+        U[i][j] = data[neq*i + j];
     }
     delete [] data;
   }

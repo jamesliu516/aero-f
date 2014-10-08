@@ -292,13 +292,13 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
 	     (iSub == B.x0subdom && i == B.x0id)) &&
 	    fid[i] == B.pgData->unburnedEOS && B.ignited) {
 	  //bBurned->subData(iSub)[i] = true;
-	  /*U.subData(iSub)[i][0] = min(U.subData(iSub)[i][0],  B.pgData->cjDensity);
 	  double* v = &(U.subData(iSub)[i][1]);
-	  if (B.pgData->limitPeak)
+	  if (B.pgData->limitPeak) {
+	    U.subData(iSub)[i][0] = min(U.subData(iSub)[i][0],  B.pgData->cjDensity);
 	    U.subData(iSub)[i][4] = min(U.subData(iSub)[i][4],  
 					B.pgData->cjDensity*B.pgData->cjEnergy+ 
 					0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
-	  */
+	  }
 
 	  std::cout << "[ " << x[i][0] << " " << x[i][1] << " " << x[i][2] << " ]: ( " << U.subData(iSub)[i][0] <<
 	    " , " << U.subData(iSub)[i][4] << " )" << std::endl;
