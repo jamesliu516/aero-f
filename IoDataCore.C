@@ -5800,9 +5800,9 @@ int IoData::checkInputValuesNonDimensional()
       bc.inlet.density = 1.0;
 
     // set up pressure
-    if (bc.inlet.pressure < 0.0)
+    if (bc.inlet.pressure < 0.0) {
       if (eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
-          eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
+          eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS) {
         if(ref.mach>0.0) {
 //          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
           bc.inlet.pressure = bc.inlet.density / (gamma * ref.mach * ref.mach * (1.0 + eqs.fluidModel.gasModel.pressureConstant));
@@ -5810,7 +5810,8 @@ int IoData::checkInputValuesNonDimensional()
         }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
-      else if (eqs.fluidModel.fluid == FluidModelData::JWL)
+      }
+      else if (eqs.fluidModel.fluid == FluidModelData::JWL) {
         if(ref.mach>0.0){
           double frho  = A1*(1-omega*bc.inlet.density/(R1*rhoref))*exp(-R1*rhoref/bc.inlet.density) +
                          A2*(1-omega*bc.inlet.density/(R2*rhoref))*exp(-R2*rhoref/bc.inlet.density);
@@ -5822,8 +5823,10 @@ int IoData::checkInputValuesNonDimensional()
         }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
+      }
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
+    }
 
     // set up temperature (for Tait)
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
