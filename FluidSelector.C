@@ -238,7 +238,7 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
 
       if(occluded) { // Rule No.1
         subId[i] = LSS.numOfFluids();
-        if(!poll[i][3/*LSS.numOfFluids()*/]) fprintf(stderr,"TOO BAD TOO!\n");
+        if(!poll[i][3]) fprintf(stderr,"TOO BAD TOO!\n");
         continue;
       }
 
@@ -246,9 +246,9 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
       switch (count) {
         case 0: //no info
           fprintf(stderr,"More than one layer of nodes are swept in one step: Rank %d, i = %d.\n", rank, i);
-          LSS.forceOccluded(0.0,i);
-          poll[i][3] = 1;
-          subId[i] = LSS.numOfFluids(); 
+  //        LSS.forceOccluded(0.0,i);
+  //        poll[i][3] = 1;
+  //        subId[i] = LSS.numOfFluids(); 
           DebugTools::SpitRank();
           break;
         case 1: // Rule No.2
@@ -258,12 +258,10 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
           break;
       }
     
-      if(count==0 || count==1) //already applied Rule No.2
+      if(count==1) //already applied Rule No.2
         continue;
 
       // Rule No.3
-      if(dim!=1) {fprintf(stderr,"ASSUMING dimLS=1! Actually it is %d!\n", dim);exit(-1);}
-
 //-------------------------
       //KW: I think this part is kind of arbitrary...
 /*
@@ -292,36 +290,48 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
       if(settled)
         continue; 
 */
-      if(subPhiV[i][0]>0.0 || (subPhiV[i][0]<=0.0 && poll[i][0]==0)) {
-        if(programmedBurn && (programmedBurn->isUnburnedEOS(1,burnTag) || programmedBurn->isBurnedEOS(1,burnTag)) ) {
-          if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag)) {
-            subId[i] = programmedBurn->getBurnedEOS(burnTag);
-            if(!poll[i][subId[i]]) {
-              if(poll[i][0]) {
-                subId[i] = 0;
-                fprintf(stderr,"WARNING: Setting node tag to 0 based on poll.\n");
-              } else {
-                fprintf(stderr,"WARNING: poll = %d %d %d %d, fluidId = %d.\n", 
-                        poll[i][0], poll[i][1], poll[i][2], poll[i][3], subId[i]);
+      if(dim==1) { // consider detonation inside structure
+        if(subPhiV[i][0]>0.0 || (subPhiV[i][0]<=0.0 && poll[i][0]==0)) {
+          if(programmedBurn && (programmedBurn->isUnburnedEOS(1,burnTag) || programmedBurn->isBurnedEOS(1,burnTag)) ) {
+            if(programmedBurn->nodeInside(burnTag,iSub,i) || programmedBurn->isFinished(burnTag)) {
+              subId[i] = programmedBurn->getBurnedEOS(burnTag);
+              if(!poll[i][subId[i]]) {
+                if(poll[i][0]) {
+                  subId[i] = 0;
+                  fprintf(stderr,"WARNING: Setting node tag to 0 based on poll.\n");
+                } else {
+                  fprintf(stderr,"WARNING: poll = %d %d %d %d, fluidId = %d.\n", 
+                          poll[i][0], poll[i][1], poll[i][2], poll[i][3], subId[i]);
+                }
+              }
+            } else {
+              subId[i] = programmedBurn->getUnburnedEOS(burnTag);
+              if(!poll[i][subId[i]]) {
+                if(poll[i][0]) {
+                  subId[i] = 0;
+                  fprintf(stderr,"WARNING2: Setting node tag to 0 based on poll.\n");
+                } else {
+                  fprintf(stderr,"WARNING2: poll = %d %d %d %d, fluidId = %d.\n", 
+                          poll[i][0], poll[i][1], poll[i][2], poll[i][3], subId[i]);
+                }
               }
             }
           } else {
-            subId[i] = programmedBurn->getUnburnedEOS(burnTag);
-            if(!poll[i][subId[i]]) {
-              if(poll[i][0]) {
-                subId[i] = 0;
-                fprintf(stderr,"WARNING2: Setting node tag to 0 based on poll.\n");
-              } else {
-                fprintf(stderr,"WARNING2: poll = %d %d %d %d, fluidId = %d.\n", 
-                        poll[i][0], poll[i][1], poll[i][2], poll[i][3], subId[i]);
-              }
-            }
+            subId[i] = 1;
           }
-        } else {
-          subId[i] = 1;
-        }
-      } else
-        subId[i] = 0;
+        } else
+          subId[i] = 0;
+      } else {
+        bool done = false;
+        for(int k=0; k<dim; k++)
+          if(subPhiV[i][k]>0.0) {
+            subId[i] = k+1;
+            done = true;
+            break;
+          }
+        if(!done)
+          subId[i] = 0;
+      }
 //--------------------------------
     }
   } 

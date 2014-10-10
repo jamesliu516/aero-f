@@ -2947,6 +2947,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
     
   new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
   new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
+  new ClassDouble<CFLData>(ca, "Cfl2", this, &CFLData::cflCoef2);
   new ClassDouble<CFLData>(ca, "CflMax", this, &CFLData::cflMax);
   new ClassDouble<CFLData>(ca, "CflMin", this, &CFLData::cflMin);
   new ClassDouble<CFLData>(ca, "DualTimeCfl", this, &CFLData::dualtimecfl);
@@ -5336,6 +5337,13 @@ int IoData::checkInputValuesAllInitialConditions(){
   }
 
   embed.nLevelset = (embed.crackingWithLevelset==EmbeddedFramework::ON) ? 1 : 0;
+
+  if (embed.crackingWithLevelset==EmbeddedFramework::ON && embed.forceAlg == 0) {
+
+    error++;
+    com->fprintf(stderr, "*** Error: cannot use ReconstructedSurface for SurrogateSurface when doing cracking!\n");
+    
+  } 
 
   // count number of levelsets (consider only bubbles!) for the Embedded Framework.
   set<int> usedModels; 
