@@ -235,7 +235,7 @@ void resize(int l) {
   }
 
 #ifdef USE_IOSTREAM
-  void print(char *msg = "") const {
+  void print(const char *msg = "") const {
     cerr.flush();
     if (msg) cerr << msg << endl;
     for (int i=0; i<len; ++i) 
@@ -971,7 +971,7 @@ public:
   }
 
 //#ifdef USE_IOSTREAM
-  void print(char *msg = "") { 
+  void print(const char *msg = "") { 
     if (msg) cerr << msg << endl;
     for (int i=0; i<len; ++i) {
       cerr << i << ": ";

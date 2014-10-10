@@ -512,7 +512,7 @@ void DistGeoState::setup2(TimeData &timeData)
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
-    if (!subGeoState[iSub])
+    if (!subGeoState[iSub]) {
 // Included (MB)
       if (optFlag)
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
@@ -531,7 +531,7 @@ void DistGeoState::setup2(TimeData &timeData)
 				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
-
+    }
 }
 
 //------------------------------------------------------------------------------

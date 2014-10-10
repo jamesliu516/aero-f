@@ -3764,7 +3764,7 @@ SubDomain::createSlipSurfProjection(int*surfOwn, CommPattern<int>&cpat,
     int locOwn = surfOwn[i];
     int numActDir = 0; // count the number of "active" projection directions at this node
     while(locOwn != 0) { // loop over the sliding surfaces
-      if(locOwn & 1 != 0) { // this node belong to sliding surface "surfNum"
+      if((locOwn & 1) != 0) { // this node belong to sliding surface "surfNum"
         double nx = surfData[surfNum]->nx;
         double ny = surfData[surfNum]->ny;
         double nz = surfData[surfNum]->nz;

@@ -3825,8 +3825,8 @@ void MultiGridLevel<Scalar>::ExtrapolateProlongation(MultiGridLevel<Scalar>& fin
       bool iActive = coarseLSS_sub->isActive(0.0, i),
 	jActive = coarseLSS_sub->isActive(0.0, j);
 
-      if (iActive && jActive ||
-	  !iActive && !jActive)
+      if ((iActive && jActive) ||
+	  (!iActive && !jActive))
 	continue;
 
       if (iActive) {

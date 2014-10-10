@@ -3413,9 +3413,7 @@ void ModalSolver<dim>::ROBInnerProducts()
   double *eig = new double[numPod];
 
   //open POD file
-  char *vecFile = tInput->podFile;
-  if (!vecFile)
-    vecFile = "podFiles.in";
+  const char *vecFile = (tInput->podFile) ? tInput->podFile : "podFiles.in";
   FILE *inFP = fopen(vecFile, "r");
   if (!inFP)  {
     com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);

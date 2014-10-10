@@ -2790,7 +2790,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0 || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
+          if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
             if(!(*distLSS)(iSub).isActive(0.0,i)) {
               if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
                 const double one_over_weight=(double)1.0/Weights(iSub)[i];

@@ -2629,15 +2629,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
         }
         // Case 2: i is active, j is inactive
-        else if (iActive)
+        else if (iActive) {
           if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
             for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
           } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vj);
+        }
         // Case 3: i is inactive, j is active
-        else if (jActive)
+        else if (jActive) {
           if (Wstarji[l][0]<1e-8) {
             for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
           } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
+        }
       }
     } 
 
