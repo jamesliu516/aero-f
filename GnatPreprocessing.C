@@ -1043,7 +1043,7 @@ void GnatPreprocessing<dim>::defineMaps() {
 	if (totalNodesCommunicated) delete [] totalNodesCommunicated;
 	if (totalEleCommunicated) delete [] totalEleCommunicated;
 for (int i = 0; i < 3; ++i)
-		if (nodesXYZ) delete [] nodesXYZ[i];
+		if (nodesXYZ[i]) delete [] nodesXYZ[i];
 	for (int i = 0; i < 4; ++i)
 		if (elemToNode[i]) delete [] elemToNode[i];
 

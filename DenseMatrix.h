@@ -57,7 +57,7 @@ class GenFullM {
    Scalar* data() const { return v; }
 
 //   double max();
-   void print(char *msg = "");
+   void print(const char *msg = "");
    void factor();
    void Factor(double tol=1.0e-6); //CBM-pivot
    void reSolve(double *d);
@@ -139,7 +139,7 @@ class SymFullM : public GenFullM<Scalar> {
   Scalar* data() const { return v; }
 
 //double max();
-  void print(char *msg = "");
+  void print(const char *msg = "");
 
  // write a cholesky
  void factor();

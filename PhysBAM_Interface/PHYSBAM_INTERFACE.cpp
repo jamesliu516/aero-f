@@ -115,7 +115,7 @@ HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV m
         if(is_occluded){
             *is_occluded=false;
             for(int t=1;t<=candidates.Size() && !*is_occluded;++t) 
-                if(sub.triangle_list(candidates(t)).Point_Inside_Triangle(position,thickness_over_two)) //occluded
+                if(sub.triangle_list(candidates(t)).Point_Inside_Triangle(position,thickness_over_two)) { //occluded
                     if(!surface_levelset) //cracking not considered.
                         *is_occluded=true;
                     else {  //check if occluded in the active part of inactive part.
@@ -123,6 +123,7 @@ HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV m
                         if(surface_levelset->getPhiPhysBAM(sub.scope(candidates(t))-1,weights.x,weights.y) > (T)0)
                             *is_occluded=true;
                     }
+                }
         }
         return true;
     }

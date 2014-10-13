@@ -5013,7 +5013,7 @@ int SubDomain::fixSolution2(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim
 
     double rhomin = varFcn->getVarFcnBase(id)->rhomin;  
     double pmin = varFcn->getVarFcnBase(id)->pmin;  
-    if (rhomin < 0.0 && pmin < 0.0 || 
+    if ((rhomin < 0.0 && pmin < 0.0) || 
         (rho > rhomin && p > pmin))
       continue;
   

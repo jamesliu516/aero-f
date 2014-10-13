@@ -701,7 +701,7 @@ int AeroMeshMotionHandler::getAlgNum()  {
 int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
 {
 
-  int nf;
+  int nf, ierr(0);
   double *f;
   strExc->getMdFreq(nf, f);
   com->fprintf(stderr, " ... Reading %d modal frequencies\n", nf);
@@ -712,20 +712,45 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
   double lscale = 1.0/oolscale;
 
   for (int im = 0; im < nf; ++im) {
+
+    double rscale=1;
     X = X0;
     strExc->getMdStrDisp(im, X0, X, dX);
-    
-    com->fprintf(stderr, "Modal Displacement at Interface  norm %e for freq: %f\n", dX.norm(), f[im]);
+    for(int i=0; i<4; ++i) {
+      if(i > 0) rscale /= 2;
+      X = X0;
+      dX *= rscale;    
+      com->fprintf(stderr, "Modal Displacement at Interface  norm %e for freq: %f\n", dX.norm(), f[im]);
+      mms->solve(dX, X);
 
-    mms->solve(dX, X);
+      // verify mesh integrity
+      ierr = domain->computeControlVolumes(lscale, X, cv);
+      if(ierr > 0) {
+        com->fprintf(stderr, " ... WARNING: negative volume element is detected. turn modal displacement upside down\n");
+        dX *= -1;
+        X = X0;
+        mms->solve(dX, X);
+        ierr = domain->computeControlVolumes(lscale, X, cv);
+      }
 
-    // verify mesh integrity
-    domain->computeControlVolumes(lscale, X, cv);
-    dX = X - X0;
-    dX *= mppFactor;
-    domain->writeVectorToFile(posFile, im+1, f[im], dX);
+      if(ierr == 0) {
+        dX = X - X0;
+        dX *= (mppFactor/rscale);
+        domain->writeVectorToFile(posFile, im+1, f[im], dX);
+        break;
+      } else com->fprintf(stderr, " ... WARNING: negative volume element is detected. attempt to increase mppFactor to %e\n", mppFactor/(rscale/2));
+    }
+#ifdef YDEBUG
+    if(ierr > 0) {
+      const char* output = "elementvolumecheck";
+      ofstream out(output, ios::out);
+      if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+      out << ierr << endl;
+      out.close();
+      exit(-1);
+    }
+#endif
   }
-
   return 1;
 
 }

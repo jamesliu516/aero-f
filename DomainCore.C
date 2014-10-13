@@ -806,12 +806,22 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
   if (ierr) {
     com->fprintf(stderr, "*** Error: %d negative volume%s\n", ierr, ierr>1? "s":"");
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
 
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeControlVolumes(ierr, lscale, X(iSub), ctrlVol(iSub));
 
-    exit(1);
+//    exit(1);
   }
 
   return ierr;
@@ -1658,6 +1668,21 @@ void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&gl
     locNodeSet[iData] = locNode;
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::readEigenValuesAndVectors(const char *eigFile, double &realEigV, double &imagEigV, int &iEV) {	
+   if(!eigFile)
+     eigFile = "eigFile.in"; // default filename
+   FILE *eFile = fopen(eigFile, "r");
+   if(!eFile) {
+		 com->fprintf(stderr, "*** Warning: No Eigen FILES in %s\n", eigFile);
+		 exit (-1);
+   }
+   fscanf(eFile, "%lf %lf %d\n", &realEigV, &imagEigV, &iEV); // first two entries are real and imaginary part of eigenvalues.
+                                                              // third entry is corresponding eigenvalues's sorted order of imaginary part.
+   fclose(eFile);
 }
 
 //-------------------------------------------------------------------------------
