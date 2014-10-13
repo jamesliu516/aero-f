@@ -95,7 +95,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
     if (data->use_nm1){
       DistSVec<double,dimLS> ReadPhi1(domain->getNodeDistInfo());
-      if (data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1))
+      if ((data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1)))
         Phinm1 = ReadPhi1;
       else
         Phinm1 = Phin;
@@ -103,7 +103,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
     if (data->use_nm2){
       DistSVec<double,dimLS> ReadPhi2(domain->getNodeDistInfo());
-      if (data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2))
+      if ((data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2)))
         Phinm2 = ReadPhi2;
       else
         Phinm2 = Phinm1;

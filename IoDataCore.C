@@ -121,6 +121,7 @@ InputData::InputData()
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
+  reducedEigState = "";
 
   exactInterfaceLocation = "";
 
@@ -177,6 +178,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
+  new ClassStr<InputData>(ca, "RedEigState", this, &InputData::reducedEigState);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
   new ClassStr<InputData>(ca, "ConvergenceFile", this, &InputData::convergence_file);
@@ -390,7 +392,10 @@ TransientData::TransientData()
   fluidid="";
   d2wall="";
   embeddedsurface = "";
-  cputiming = "";
+  cputiming = ""; 
+  aeroelasticEigenvalues = "";
+  gamData = "";
+  gamFData = "";
 
 // Included (MB)
   velocitynorm = "";
@@ -510,6 +515,9 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "WallDistance", this, &TransientData::d2wall);
   new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
   new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
+  new ClassStr<TransientData>(ca, "AeroelasticEigenvalues", this, &TransientData::aeroelasticEigenvalues);
+  new ClassStr<TransientData>(ca, "GAMData", this, &TransientData::gamData);
+  new ClassStr<TransientData>(ca, "GAMFData", this, &TransientData::gamFData);
 
   // Gappy POD offline
   // Gappy POD snapshots
@@ -728,7 +736,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 36,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 39,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -741,7 +749,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35);
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35, "AeroelasticAnalysis", 36, 
+     "GAMConstruction", 37, "NonlinearEigenResidual", 38);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3814,6 +3823,8 @@ LinearizedData::LinearizedData()
   stepsizeinitial = -1.0;
   eps = 1e-4;
   eps2 = 5.0;
+  epsEV = 1e-4;
+  maxItEV = 20;
   tolerance = 1e-8;
   strModesFile = "";
   modeNumber = 1;
@@ -3823,6 +3834,46 @@ LinearizedData::LinearizedData()
   refLength = 1;
   freqStep = 0;
 
+  gamFreq[0] = -1.0;
+  gamFreq[1] = -1.0;
+  gamFreq[2] = -1.0;
+  gamFreq[4] = -1.0;
+  gamFreq[5] = -1.0;
+  gamFreq[6] = -1.0;
+  gamFreq[7] = -1.0;
+  gamFreq[8] = -1.0;
+  gamFreq[9] = -1.0;
+  gamFreq[10] = -1.0;
+  gamFreq[11] = -1.0;
+  gamFreq[12] = -1.0;
+  gamFreq[14] = -1.0;
+  gamFreq[15] = -1.0;
+  gamFreq[16] = -1.0;
+  gamFreq[17] = -1.0;
+  gamFreq[18] = -1.0;
+  gamFreq[19] = -1.0;
+ 
+  gamFreq1 = -1.0;
+  gamFreq2 = -1.0;
+  gamFreq3 = -1.0;
+  gamFreq4 = -1.0;
+  gamFreq5 = -1.0;
+  gamFreq6 = -1.0;
+  gamFreq7 = -1.0;
+  gamFreq8 = -1.0;
+  gamFreq9 = -1.0;
+  gamFreq10 = -1.0;
+  gamFreq11 = -1.0;
+  gamFreq12 = -1.0;
+  gamFreq13 = -1.0;
+  gamFreq14 = -1.0;
+  gamFreq15 = -1.0;
+  gamFreq16 = -1.0;
+  gamFreq17 = -1.0;
+  gamFreq18 = -1.0;
+  gamFreq19 = -1.0;
+  gamFreq20 = -1.0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -3830,7 +3881,7 @@ LinearizedData::LinearizedData()
 void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 17, father);
+  ClassAssigner *ca = new ClassAssigner(name, 28, father);
 
   new ClassToken<LinearizedData> (ca, "Type", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::type), 3, "Default", 0, "Rom", 1, "Forced", 2);
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
@@ -3841,12 +3892,34 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
   new ClassDouble<LinearizedData>(ca, "Eps", this, &LinearizedData::eps);
   new ClassDouble<LinearizedData>(ca, "Eps2", this, &LinearizedData::eps2);
+  new ClassDouble<LinearizedData>(ca, "EpsEV", this, &LinearizedData::epsEV);
   new ClassDouble<LinearizedData>(ca, "Tolerance", this, &LinearizedData::tolerance);
   new ClassStr<LinearizedData>(ca, "StrModes", this, &LinearizedData::strModesFile);
   new ClassInt<LinearizedData>(ca, "ExcMode", this, &LinearizedData::modeNumber);
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
+  new ClassInt<LinearizedData>(ca, "MaxItEV", this, &LinearizedData::maxItEV);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency1ReducedFrequency", this, &LinearizedData::gamFreq1);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency2ReducedFrequency", this, &LinearizedData::gamFreq2);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency3ReducedFrequency", this, &LinearizedData::gamFreq3);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency4ReducedFrequency", this, &LinearizedData::gamFreq4);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency5ReducedFrequency", this, &LinearizedData::gamFreq5);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency6ReducedFrequency", this, &LinearizedData::gamFreq6);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency7ReducedFrequency", this, &LinearizedData::gamFreq7);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency8ReducedFrequency", this, &LinearizedData::gamFreq8);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency9ReducedFrequency", this, &LinearizedData::gamFreq9);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency10ReducedFrequency", this, &LinearizedData::gamFreq10);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency11ReducedFrequency", this, &LinearizedData::gamFreq11);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency12ReducedFrequency", this, &LinearizedData::gamFreq12);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency13ReducedFrequency", this, &LinearizedData::gamFreq13);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency14ReducedFrequency", this, &LinearizedData::gamFreq14);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency15ReducedFrequency", this, &LinearizedData::gamFreq15);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency16ReducedFrequency", this, &LinearizedData::gamFreq16); 
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency17ReducedFrequency", this, &LinearizedData::gamFreq17);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency18ReducedFrequency", this, &LinearizedData::gamFreq18);  
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency19ReducedFrequency", this, &LinearizedData::gamFreq19);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency20ReducedFrequency", this, &LinearizedData::gamFreq20);
   pade.setup("Pade", ca);
   dataCompression.setup("DataCompression", ca);
 
@@ -4641,7 +4714,10 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
       problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
       problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
-      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_) 
+      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_ ||
+      problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
+      problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2
@@ -4969,6 +5045,30 @@ void IoData::resetInputValues()
                          " cannot be used for unsteady problems.\n");
     exit(1);
   }
+
+  if (problem.alltype == ProblemData::_GAM_CONSTRUCTION_) {
+    linearizedData.gamFreq[0] = linearizedData.gamFreq1;
+    linearizedData.gamFreq[1] = linearizedData.gamFreq2;
+    linearizedData.gamFreq[2] = linearizedData.gamFreq3;
+    linearizedData.gamFreq[3] = linearizedData.gamFreq4;
+    linearizedData.gamFreq[4] = linearizedData.gamFreq5;
+    linearizedData.gamFreq[5] = linearizedData.gamFreq6;
+    linearizedData.gamFreq[6] = linearizedData.gamFreq7;
+    linearizedData.gamFreq[7] = linearizedData.gamFreq8;
+    linearizedData.gamFreq[8] = linearizedData.gamFreq9;
+    linearizedData.gamFreq[9] = linearizedData.gamFreq10;
+    linearizedData.gamFreq[10] = linearizedData.gamFreq11;
+    linearizedData.gamFreq[11] = linearizedData.gamFreq12;
+    linearizedData.gamFreq[12] = linearizedData.gamFreq13;
+    linearizedData.gamFreq[13] = linearizedData.gamFreq14;
+    linearizedData.gamFreq[14] = linearizedData.gamFreq15;
+    linearizedData.gamFreq[15] = linearizedData.gamFreq16;
+    linearizedData.gamFreq[16] = linearizedData.gamFreq17;
+    linearizedData.gamFreq[17] = linearizedData.gamFreq18;
+    linearizedData.gamFreq[18] = linearizedData.gamFreq19;
+    linearizedData.gamFreq[19] = linearizedData.gamFreq20;
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -5731,9 +5831,9 @@ int IoData::checkInputValuesNonDimensional()
       bc.inlet.density = 1.0;
 
     // set up pressure
-    if (bc.inlet.pressure < 0.0)
+    if (bc.inlet.pressure < 0.0) {
       if (eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
-          eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
+          eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS) {
         if(ref.mach>0.0) {
 //          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
           bc.inlet.pressure = bc.inlet.density / (gamma * ref.mach * ref.mach * (1.0 + eqs.fluidModel.gasModel.pressureConstant));
@@ -5741,7 +5841,8 @@ int IoData::checkInputValuesNonDimensional()
         }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
-      else if (eqs.fluidModel.fluid == FluidModelData::JWL)
+      }
+      else if (eqs.fluidModel.fluid == FluidModelData::JWL) {
         if(ref.mach>0.0){
           double frho  = A1*(1-omega*bc.inlet.density/(R1*rhoref))*exp(-R1*rhoref/bc.inlet.density) +
                          A2*(1-omega*bc.inlet.density/(R2*rhoref))*exp(-R2*rhoref/bc.inlet.density);
@@ -5753,8 +5854,10 @@ int IoData::checkInputValuesNonDimensional()
         }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
+      }
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
+    }
 
     // set up temperature (for Tait)
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -5887,8 +5990,13 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       if (eqs.type == EquationsData::NAVIER_STOKES){
         viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
         (1.0 + eqs.viscosityModel.sutherlandReferenceTemperature/ref.temperature);
-        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT)
+        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT) {
+          if (eqs.viscosityModel.dynamicViscosity < 0.0) {
+            com->fprintf(stderr, "*** Error: no valid dynamic viscosity (%f) given\n",eqs.viscosityModel.dynamicViscosity);
+            ++error;
+          }
           viscosity = eqs.viscosityModel.dynamicViscosity;
+        }
         ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
       }
 
