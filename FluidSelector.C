@@ -1,5 +1,6 @@
 #include "LevelSet/LevelSetStructure.h"
 //#include <Domain.h>
+#include <DebugTools.h>
 #include <cassert>
 
 //------------------------------------------------------------------------------

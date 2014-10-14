@@ -141,7 +141,7 @@ class DebugTools {
         for(int i=0; i<fluidId.subSize(iSub); i++) {
           if(id[i]==2) {
             Vec3D Xnode = Vec3D(Xsub[i][0], Xsub[i][1], Xsub[i][2]);
-            cout << tag << "Rank " << rank << ", Sub " << iSub << ", LocId " << i << ", Pos " << Xnode[0] << " " << Xnode[1] << " " << Xnode[2] << ", FluidId " << id[i] << "." << endl;
+            std::cout << tag << "Rank " << rank << ", Sub " << iSub << ", LocId " << i << ", Pos " << Xnode[0] << " " << Xnode[1] << " " << Xnode[2] << ", FluidId " << id[i] << "." << std::endl;
           }
         }
       }
@@ -157,7 +157,7 @@ class DebugTools {
       for(int i=0; i<fluidId.subSize(iSub); i++) {
         Vec3D Xnode = Vec3D(Xsub[i][0], Xsub[i][1], Xsub[i][2]);
         if(Vec3D(Xnode-pos).norm()<1.0e-5) //found it
-          cout << tag << "Rank " << rank << ", Sub " << iSub << ", LocId " << i << ", Pos " << Xnode[0] << " " << Xnode[1] << " " << Xnode[2] << ", FluidId " << id[i] << "." << endl;
+          std::cout << tag << "Rank " << rank << ", Sub " << iSub << ", LocId " << i << ", Pos " << Xnode[0] << " " << Xnode[1] << " " << Xnode[2] << ", FluidId " << id[i] << "." << std::endl;
       }
     }
   }
