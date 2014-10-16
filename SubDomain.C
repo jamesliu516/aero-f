@@ -7673,6 +7673,25 @@ void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,d
   }
 }
 
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void SubDomain::computeL2Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, Vec<double>& vol,double error[dim], LevelSetStructure* LSS) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i] && (!LSS || LSS->isActive(0.0,i))) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] += pow(U[i][k]-Uexact[i][k],2.0)*vol[i];
+      }
+    }
+  }
+}
+
 template <int dim>
 void SubDomain::computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* LSS) {
 

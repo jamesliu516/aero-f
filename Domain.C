@@ -4760,6 +4760,28 @@ void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexac
   com->globalSum(dim, error);
 }
 
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void Domain::computeL2Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
+			    DistVec<double>& vol, double error[dim],
+                            DistLevelSetStructure* distLSS) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    LevelSetStructure*  LSS = (distLSS ? &(*distLSS)(iSub) : NULL);
+    subDomain[iSub]->computeL2Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), 
+				    vol(iSub),error, LSS);
+  }
+
+  com->globalSum(dim, error);
+
+  for (int k = 0; k < dim; ++k) {
+
+    error[k] = sqrt(error[k]);
+  }
+}
+
+
 
 template <int dim>
 void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],DistLevelSetStructure* distLSS) {

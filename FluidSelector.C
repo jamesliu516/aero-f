@@ -207,7 +207,7 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
 //------------------------------------------------------------------------------
 
 template<int dim> /*this dim is actually dimLS*/
-void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV, DistSVec<bool,4> &poll)
+void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV, DistSVec<bool,4> &pollp)
 {
   // ------- Determine status for grid-points swept by FS interface -------
   // Rule No.1: If this grid point is "occluded", set its status to "numPhases".
@@ -224,6 +224,8 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
     SVec<double,dim> &subPhiV(PhiV(iSub));
     LevelSetStructure &LSS((*distLSS)(iSub));
 
+    SVec<bool,4> &poll(pollp(iSub));
+
     for(int i=0; i<subPhiV.size(); i++) {
       bool swept = LSS.isSwept(0.0,i);
       bool occluded = LSS.isOccluded(0.0,i);
@@ -238,7 +240,11 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
 
       if(occluded) { // Rule No.1
         subId[i] = LSS.numOfFluids();
-        if(!poll[i][3]) fprintf(stderr,"TOO BAD TOO!\n");
+        if(!poll[i][3]) {
+          fprintf(stderr,"Rank %d, i = %d, swept = %d, occluded = %d, fluidId = %d, dimLS = %d, poll = %d %d %d %d. LSS.numOfFluids = %d, subPhiV = %e.\n", rank,i, swept, occluded, subId[i], dim, poll[i][0], poll[i][1], poll[i][2], poll[i][3], LSS.numOfFluids(), subPhiV[i][0]);
+          fprintf(stderr,"TOO BAD TOO! %i %i %i %i\n",poll[i][0], poll[i][1],poll[i][2],poll[i][3]);
+          DebugTools::PrintBacktrace();
+        }
         continue;
       }
 

@@ -4969,6 +4969,11 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
     poll[i][0] = poll[i][1] = poll[i][2] = poll[i][3] = false;
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
+
+/*    if (i == 4498)
+      fprintf(stderr,"Rank %d, i = %d, swept = %d, occluded = %d, fluidId = %d, dimLS = %d, poll = %d %d %d %d. LSS.numOfFluids = %d.\n", rank,i, swept, occluded, fluidId[i], 0xFFFF, poll[i][0], poll[i][1], poll[i][2], poll[i][3], LSS.numOfFluids());
+*/
+
 /*
     if(locToGlobNodeMap[i]+1==349859) {
       fprintf(stderr,"rank = %d, i = %d.\n", rank, i);      

@@ -769,6 +769,14 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 	this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %e\n", k, error[k]*refs[k]);
       }
       this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %e\n", tot_error);
+ 
+      tot_error = 0.0;
+      this->domain->computeL2Error(U,Uexact,*this->A,error, this->distLSS);
+      for (int k = 0; k < dim; ++k) {
+	tot_error += error[k];
+	this->domain->getCommunicator()->fprintf(stdout,"L2 error [%d]: %e\n", k, error[k]*refs[k]);
+      }
+      this->domain->getCommunicator()->fprintf(stdout,"L2 error (total): %e\n", tot_error);
       
       tot_error = 0.0;
       this->domain->computeLInfError(U,Uexact,error, this->distLSS);

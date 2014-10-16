@@ -1067,6 +1067,13 @@ public:
     void computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
 			DistVec<double>& vol,double error[dim],
                         DistLevelSetStructure* = NULL);
+
+
+  template <int dim>
+    void computeL2Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
+			DistVec<double>& vol,double error[dim],
+                        DistLevelSetStructure* = NULL);
+
   template <int dim>
     void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],
                           DistLevelSetStructure* = NULL);
