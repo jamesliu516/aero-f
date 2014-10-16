@@ -540,10 +540,6 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
     if (write)
       ++cnt;
 
-    bool write = false;//(length < 1.0e-3 && cnt < 4);
-    if (write)
-      ++cnt;
-
     if (write)
       std::cout << mu << " " << mut << " " << lambda << " " << lambdat << " " << length << " " << dx[0] << " " << dx[1] << " " << dx[2] << " ";
     double gradu[3][3];
