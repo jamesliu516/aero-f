@@ -977,8 +977,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
       continue; 
  
     double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
-    if (!isSixthOrder || !(i > 0 && i < numPoints-3 && (fidi == fluidId[i+1] && 
-				     fidi == fluidId[i+2] && fidi == fluidId[i-1] || isSinglePhase))) {
+    if (!isSixthOrder || !(i > 0 && i < numPoints-3 && ((fidi == fluidId[i+1] && 
+				     fidi == fluidId[i+2] && fidi == fluidId[i-1]) || isSinglePhase))) {
 
       double *Vsi = Vslope[i];      
       double *Vsj = Vslope[j];      
@@ -1855,18 +1855,18 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     
     //if (crossInterface) {
       if (i > 0 && i < numPoints-1 &&
-	  (interfaceTreatment == 0 && fid[i] == fid[i+1] && fid[i] == fid[i-1] ||
-	   interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] && cutCellStatus[i] == cutCellStatus[i+1]
+	  ((interfaceTreatment == 0 && fid[i] == fid[i+1] && fid[i] == fid[i-1]) ||
+	   (interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] && cutCellStatus[i] == cutCellStatus[i+1])
 	   || !crossInterface))
 	stat = 0;
       else if (i < numPoints-1 && 
-	       (interfaceTreatment == 0 && fid[i] == fid[i+1] ||
-		interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i+1] ||
+	       ((interfaceTreatment == 0 && fid[i] == fid[i+1]) ||
+		(interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i+1]) ||
 		!crossInterface))
 	stat = 1;
       else if (i > 0 && 
-	       (interfaceTreatment == 0 && fid[i] == fid[i-1] ||
-		interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] ||
+	       ((interfaceTreatment == 0 && fid[i] == fid[i-1]) ||
+		(interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1]) ||
 		!crossInterface) )
 	stat = 2;
       else

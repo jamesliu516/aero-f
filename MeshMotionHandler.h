@@ -48,6 +48,7 @@ public:
   virtual void sendForceSensitivity(DistSVec<double,3> *) {} 
   virtual void cmdCom(bool *) {}
   virtual void getNumParam(int &) {}
+  virtual void getRelResidual(double &) {}
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0) {return 0.0;} 
   virtual double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;}
@@ -172,6 +173,7 @@ public:
   void sendForceSensitivity(DistSVec<double,3> *); 
   void cmdCom(bool *);
   void getNumParam(int &numParam);
+  void getRelResidual(double &relres);
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);

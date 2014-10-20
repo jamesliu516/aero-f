@@ -15,11 +15,20 @@ class ExactSolution {
   static void 
   AcousticBeamStructure(IoData& iod,double x, double y, double z,
   	              double t, double& uy, double& vy);
+ 
+  static void AcousticViscousBeam(IoData&, double x, double y, double z,
+			          double t, double* V);
+
+  static void 
+  AcousticViscousBeamStructure(IoData& iod,double x, double y, double z,
+  	                       double t, double& uy, double& vy);
   
   static void 
     CylindricalBubble(IoData& iod,double x, double y, double z,
 		      double t, double* V, double* phi, int& fid);
 
+  static void AcousticTwoFluid(IoData&, double x, double y, double z,
+			       double t, double* V, double* phi, int& fid);
 
   template <void (*F)(IoData&, double,double,double,
 				     double,double*), int dim >

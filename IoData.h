@@ -123,6 +123,7 @@ struct InputData {
   const char* strKPtraces;
 
   const char *wallsurfacedisplac; //YC
+  const char *reducedEigState;
 // Included (MB)
   const char *shapederivatives;
 
@@ -156,6 +157,7 @@ struct Probes {
   const char *prefix;
   const char *density;
   const char *pressure;
+  const char *diffpressure;
   const char *temperature;
   const char *velocity;
   const char *displacement;
@@ -256,6 +258,9 @@ struct TransientData {
   const char* d2wall;
   const char *embeddedsurface;
   const char *cputiming;
+  const char *aeroelasticEigenvalues;
+  const char *gamData;
+  const char *gamFData;
 
 // Included (MB)
   const char *velocitynorm;
@@ -425,7 +430,8 @@ struct ProblemData {
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
-                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _FSI_SHAPE_OPTIMIZATION_ = 35} alltype;
+                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _FSI_SHAPE_OPTIMIZATION_ = 35,
+                _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _NONLINEAR_EIGENRESIDUAL_ = 38} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1099,6 +1105,8 @@ struct PointData {
   double x,y,z;
   InitialConditions initialConditions;
 
+  ProgrammedBurnData programmedBurn;
+
   PointData();
   ~PointData() {}
   Assigner *getAssigner();
@@ -1271,6 +1279,7 @@ struct SchemeData {
   
   double xirho;
   double xip;
+  double vel_fac;
 
   struct MaterialFluxData {
 
@@ -1525,6 +1534,8 @@ struct MultiGridData {
   const char* agglomerationFile;
 
   double turbRelaxCutoff;
+
+  double densityMin,densityMax;
  
   MultiGridData();
   ~MultiGridData() {}
@@ -2069,7 +2080,7 @@ struct Velocity  {
 struct ForcedData {
 
   enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
-             ACOUSTICBEAM=5, SPIRALING = 6} type;
+             ACOUSTICBEAM=5, SPIRALING = 6, ACOUSTICVISCOUSBEAM=7} type;
 
   double frequency;
   double timestep;
@@ -2229,6 +2240,7 @@ struct LinearizedData {
   double freqStep;
   double eps;
   double eps2;
+  double epsEV;
   double tolerance;
   double refLength;
   const char *strModesFile;
@@ -2236,7 +2248,32 @@ struct LinearizedData {
   int numSteps;
   int numPOD;
   int numStrModes;
+  int maxItEV;
   const char *romFile;
+  static const int numFreq = 20;
+  double gamFreq[numFreq];
+  double gamFreq1;
+  double gamFreq2;
+  double gamFreq3;
+  double gamFreq4;
+  double gamFreq5;
+  double gamFreq6;
+  double gamFreq7;
+  double gamFreq8;
+  double gamFreq9;
+  double gamFreq10;
+  double gamFreq11;
+  double gamFreq12;
+  double gamFreq13;
+  double gamFreq14;
+  double gamFreq15;
+  double gamFreq16;
+  double gamFreq17;
+  double gamFreq18;
+  double gamFreq19;
+  double gamFreq20;
+
+
   DataCompressionData dataCompression;
 
   PadeData pade;

@@ -154,7 +154,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
   }
 
   // First run automatic CFL checks
-/*
+
   if (unphysical){
     unphysical=false;
     badlinsolve=false;
@@ -178,7 +178,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
     return;
   }
-*/
+
 
   if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;

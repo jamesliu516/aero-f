@@ -341,11 +341,31 @@ void DistGeoState::setup3(const char *name, DistSVec<double,3> *X, DistVec<doubl
 
   data.config = 0;
 
-  domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if (data.use_nm1)
-    domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
+    ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
   if (data.use_nm2)
-    domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+    ierr = domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
 
 	*Xn = *X;
   *ctrlVol = *ctrlVol_n;
@@ -403,11 +423,31 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
 
   data.config = 0;
     
-  domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
   if (data.use_nm1)
-    domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
+    ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
   if (data.use_nm2)
-    domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+    ierr = domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
 
   *X = *Xn;
   *ctrlVol = *ctrlVol_n;
@@ -472,7 +512,7 @@ void DistGeoState::setup2(TimeData &timeData)
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
-    if (!subGeoState[iSub])
+    if (!subGeoState[iSub]) {
 // Included (MB)
       if (optFlag)
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
@@ -491,7 +531,7 @@ void DistGeoState::setup2(TimeData &timeData)
 				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
-
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -503,7 +543,17 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
   data.config += 1;
     
   //ctrlVol has the control volumes of Xnp1
-  domain->computeControlVolumes(lscale, X, ctrlVol);
+  int ierr = domain->computeControlVolumes(lscale, X, ctrlVol);
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
 
   //Xdot
   domain->computeVelocities(data.typeVelocities, timeData, Xsdot, *Xnm1, *Xn, X, *Xdot);

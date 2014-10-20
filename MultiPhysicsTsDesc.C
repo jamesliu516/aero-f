@@ -49,6 +49,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
+  this->com->fprintf(stderr,"numBurnableFluids = %d.\n", numBurnableFluids);
   if (numBurnableFluids > 0) {
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
@@ -388,7 +389,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   else
     LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0, lsMethod);
 
-
   // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
   //if(this->input->levelsets[0] == 0) // init
   //  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
@@ -404,7 +404,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   //
   if(ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0) // init
     fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
-  
+ 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 

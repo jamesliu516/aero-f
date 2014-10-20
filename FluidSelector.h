@@ -68,6 +68,7 @@ public:
 
 //------------------------------------------------------------------------------
 
+  int getNumOfPhases() {return numPhases;}
   void initializeFluidIds(DistVec<int> &fsId, DistSVec<double,3> &X, IoData &ioData);
   void getFluidId(DistVec<double> &Phi);
   void getFluidId(int &tag, double phi){ tag = (phi<0.0) ? 0 : 1; }
@@ -97,7 +98,7 @@ public:
   void updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV);
 
   template<int dim> /*this dim is actually dimLS*/
-  void updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV);
+  void updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV, DistSVec<bool,4> &poll);
 
   template<int dim> /*this dim is actually dimLS*/
   void updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi);

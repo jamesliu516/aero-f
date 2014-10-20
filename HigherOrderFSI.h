@@ -56,7 +56,9 @@ class HigherOrderFSI {
 
    V6NodeData (*getV6Data() const) [2] { return v6data; }
 
-  private:
+   //V6NodeData (*getV6Data()) [2] { return v6data; }
+
+   //private:
 
    void* lastPhaseChangeState;
 

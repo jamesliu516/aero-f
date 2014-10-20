@@ -425,20 +425,15 @@ int TetMeshSensitivitySolver::solveSensitivity(DistSVec<double,3> &bdXds, DistSV
   // WARNING: assume the homogeneous Dirichlet BCs have already been applied to dX
   //com->fprintf(stdout, "Received 'unprojected' incr disp = %e\n",dX.norm());
 
-  com->printf(6,"TetMeshSensitivitySolver::solveSensitivity 1\n");
   applyProjector(bdXds); 
-  com->printf(6,"TetMeshSensitivitySolver::solveSensitivity 2\n");
 
   //com->fprintf(stdout, "Received 'projected' incr disp = %e\n",dX.norm());
 
   dX0 = &bdXds;
 
-  com->printf(6,"TetMeshSensitivitySolver::solveSensitivity 3\n");
-
   com->sync();
   nss->solve(dXds);
   com->sync();
-  com->printf(6,"TetMeshSensitivitySolver::solveSensitivity 4\n");
 
   return 0;
 }
@@ -458,35 +453,22 @@ void TetMeshSensitivitySolver::computeFunction(int it, DistSVec<double,3> &X,
 
   DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
 
-  // PJSA FIX
   if(it == 0 && (typeElement == DefoMeshMotionData::NON_LINEAR_FE 
      || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) {
-    com->printf(6,"TetMeshSensitivitySolver::computeFunction 1\n");
     X += *dX0; 
   }
 
-  com->printf(6,"TetMeshSensitivitySolver::computeFunction 2\n");
   domain->computeStiffAndForce(typeElement, *currentPosition, F, *mvp, _pc, volStiff);
-  com->printf(6,"norm of F = %e after computeStiffAndForce\n",F.norm());
 
-
-  // PJSA FIX 
   if (it == 0 && !(typeElement == DefoMeshMotionData::NON_LINEAR_FE 
       || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) { // compute F0 <- F0 + [Kib*dXb,0] & X <- X + [0,dXb]
-      com->printf(6,"TetMeshSensitivitySolver::computeFunction 3\n");
       mvp->BCs = 0;
-      com->printf(6,"norm of dX0 = %e before mvp->apply\n",dX0->norm());
       mvp->apply(*dX0, *F0);
-      com->printf(6,"norm of dX0 = %e after mvp->apply\n",dX0->norm());
-      com->printf(6,"norm of F0 = %e after mvp->apply\n",F0->norm());
-      com->printf(6,"TetMeshSensitivitySolver::computeFunction 4\n");
       mvp->BCs = meshMotionBCs;
       F += *F0;
-      com->printf(6,"TetMeshSensitivitySolver::computeFunction 5\n");
       X += *dX0;
     }
 
-  // PJSA FIX
   if(meshMotionBCs) {
 //		meshMotionBCs->applyD(F);
 //		com->fprintf(stderr,"F*F in TetMeshMotionSolver::computeFunction after applyD in final PJSA FIX is %e.\n", F*F);

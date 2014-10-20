@@ -12,6 +12,7 @@
 #endif
 
 #include <DistVector.h>
+#include <Vector3D.h>
 
 
 class DebugTools {
@@ -125,6 +126,39 @@ class DebugTools {
       for (int k = 0; k < dim; ++k) 
         std::cout << V(iSub)[i][k] << ((k < dim-1)?", ":"}");
       std::cout << std::endl;
+    }
+  }
+
+  template <class Scalar>
+  static void PrintFluidId(const char* tag, DistVec<int>& fluidId, DistSVec<Scalar,3>& X, Vec3D pos, int rank) {
+
+    if(pos.norm() < 1.0e-8) { //print every node that has fluidId 2
+      int numLocSub = fluidId.numLocSub();
+#pragma omp parallel for
+      for(int iSub=0; iSub<numLocSub; iSub++) {
+        double (*Xsub)[3] = X.subData(iSub);
+        int *id = fluidId.subData(iSub);
+        for(int i=0; i<fluidId.subSize(iSub); i++) {
+          if(id[i]==2) {
+            Vec3D Xnode = Vec3D(Xsub[i][0], Xsub[i][1], Xsub[i][2]);
+            std::cout << tag << "Rank " << rank << ", Sub " << iSub << ", LocId " << i << ", Pos " << Xnode[0] << " " << Xnode[1] << " " << Xnode[2] << ", FluidId " << id[i] << "." << std::endl;
+          }
+        }
+      }
+      return;
+    }
+
+    double eps = 1.0e-5;
+    int numLocSub = fluidId.numLocSub();
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++) {
+      double (*Xsub)[3] = X.subData(iSub);
+      int *id = fluidId.subData(iSub);
+      for(int i=0; i<fluidId.subSize(iSub); i++) {
+        Vec3D Xnode = Vec3D(Xsub[i][0], Xsub[i][1], Xsub[i][2]);
+        if(Vec3D(Xnode-pos).norm()<1.0e-5) //found it
+          std::cout << tag << "Rank " << rank << ", Sub " << iSub << ", LocId " << i << ", Pos " << Xnode[0] << " " << Xnode[1] << " " << Xnode[2] << ", FluidId " << id[i] << "." << std::endl;
+      }
     }
   }
 };

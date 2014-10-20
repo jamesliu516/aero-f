@@ -332,7 +332,9 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
   this->domain->setExactBoundaryResidual(F, *this->X, this->ioData, 
 					 this->currentTime + this->currentTimeStep,
 					 this->spaceOp->getVarFcn());
-  
+
+//  std::cout << "t^{n+1} = " << (this->currentTime + this->currentTimeStep)*this->ioData.ref.rv.time << std::endl; 
+ 
   if (this->modifiedGhidaglia) {
 
     *hhResidual = 0.0;

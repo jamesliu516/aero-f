@@ -65,8 +65,7 @@ public:
    double [4][3], double [4][3], int, Vec3D &, Vec3D &, double [4],
    double *, double *, double *[4], double *[4], double, double *
    );
-  
-  
+ 
   void rstVar
   (IoData &ioData, Communicator *com) 
   { 

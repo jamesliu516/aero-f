@@ -278,11 +278,17 @@ fixNegativeValues(int lvl,DistSVec<Scalar2,dim>& V,
 	//std::cout << "Found negative value at node " << multiGridLevels[lvl]->getMgSubDomains()[iSub].locToGlobMap[i] << ", level " << lvl << std::endl;
         if (vf->getPressure(Vl[i]) > 0.0 && vf->getDensity(Vl[i]) > 0.0 ) continue;
 
-        for (int k = 0; k < dim; ++k) {
-          Ul[i][k] -= dxl[i][k];
-          fl[i][k] = forig[i][k];
-        }
-        vf->conservativeToPrimitive(Ul[i],Vl[i]);
+	if (dxl[i][0] != 0.0) {
+	  for (int k = 0; k < dim; ++k) {
+	    Ul[i][k] -= dxl[i][k];
+	    fl[i][k] = forig[i][k];
+	  }
+	  vf->conservativeToPrimitive(Ul[i],Vl[i]);
+	} else {
+
+	  vf->conservativeToPrimitiveVerification(0,Ul[i],Vl[i]);
+	}
+        
         fixLocations[lvl][iSub].insert(i);
       }
 

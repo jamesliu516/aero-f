@@ -362,7 +362,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
 void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface) {
 
   // node set
-  if(cracking && nNodes!=cracking->usedNodes()) {com->fprintf(stderr,"SOFTWARE BUG!\n");exit(-1);}
+  if(cracking && nNodes!=cracking->usedNodes()) { com->fprintf(stderr,"SOFTWARE BUG (nNodes = %d; usedNodes = %d)!\n", nNodes, cracking->usedNodes());exit(-1);}
 
   numStNodes = nNodes;
   totStNodes = cracking ? cracking->totNodes() : numStNodes;
@@ -576,6 +576,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
+  com->fprintf(stderr,"Setting interface thickness to %e.\n", interface_thickness);
   physInterface->SetThickness(interface_thickness);
 }
 
