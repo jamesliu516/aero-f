@@ -882,8 +882,10 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
     }
   
     this->com->broadcast(nTotSnaps, shuffle, 0);
-  
+ 
+     
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      this->com->fprintf(stdout, "\n... debugging: shuffle[%d]=%d \n", iCluster, shuffle[iCluster]);
       (*(this->clusterCenters))[iCluster]=(*(this->snap))[shuffle[iCluster]];
     }
   
@@ -2389,7 +2391,156 @@ void NonlinearRomDatabaseConstruction<dim>::readInitialCondition() {
 
 }
 
-
+////----------------------------------------------------------------------------------
+//
+//template<int dim>
+//void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
+//
+//  double projErrorTime = this->timer->getTime();
+//
+//  this->readClusterCenters("centers");
+//  delete (this->clusterCenters);
+//  (this->clusterCenters) = NULL;
+// 
+//  nSnapshotFiles = this->readSnapshotFiles("projError", true);
+//  int nTotSnaps = this->snap->numVectors();
+// 
+//  projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);
+//
+//  // if computing residuals
+//  //  if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
+//  //  ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+//
+//  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+//
+//    switch (projError->relProjError) {
+//      case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
+//        this->readClusteredBasis(iCluster, "state", true);
+//        if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
+//            this->snapRefState!=NULL) 
+//          this->updateBasis(iCluster, *(this->snapRefState));
+//        if (projError->krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
+//        if (projError->sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
+//        break;
+//      case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
+//        this->readClusteredBasis(iCluster, "residual", true);
+//        break;
+//      case (RelativeProjectionErrorData::REL_PROJ_ERROR_JACACTION):
+//        this->readClusteredBasis(iCluster, "jacAction", true);
+//        break;
+//      default:
+//        exit (-1);
+//    }
+//
+//    int nPodVecs = this->basis->numVectors();
+//
+//    this->com->fprintf(stdout, "\nCalculating relative projection error for basis %d\n", iCluster);
+//
+//    // basis^T * snapshots    
+//    this->com->fprintf(stdout, " ... tmp = basis^T * snapshots\n");
+//    Vec<double> tmpVec(nPodVecs);
+//    VecSet<Vec<double> >* tmpVecSet = new VecSet<Vec<double> >(nTotSnaps, nPodVecs);
+//    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+//      for (int iVec = 0; iVec < nPodVecs; iVec++){
+//        tmpVec[iVec] = (*(this->basis))[iVec] * (*(this->snap))[iSnap];
+//      }
+//      (*tmpVecSet)[iSnap] = tmpVec;
+//    }
+//
+//    // basis * result 
+//    this->com->fprintf(stdout, " ... projected snaps = basis * tmp\n");
+//    VecSet<DistSVec<double, dim> >* projectedSnaps = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+//    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+//      (*projectedSnaps)[iSnap] = 0.0;
+//      for (int iVec = 0; iVec < nPodVecs; iVec++)
+//        (*projectedSnaps)[iSnap] += ((*tmpVecSet)[iSnap])[iVec] * (*(this->basis))[iVec];
+//    }
+//    delete tmpVecSet;
+//    tmpVecSet = NULL;
+//
+//    // option to output postprocesed projected states (projectedSnaps + snapRefState if snapRefState is defined)
+//    
+//    if (projError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON ) { //||
+//       // projError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+//  
+//      TsDesc<dim>* tsDesc = new TsDesc<dim>(*(this->ioData), geoSource, &(this->domain));    
+//
+//      if (projError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON) {
+//
+//        DistSVec<double,dim> outVec(this->domain.getNodeDistInfo());
+//
+//        for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
+//          if (projError->subtractRefSol) {
+//             this->readReferenceState(); 
+//             outVec = *(this->snapRefState);
+//             outVec += (*projectedSnaps)[iSnap];
+//             delete (this->snapRefState);
+//             (this->snapRefState) = NULL;
+//          } else {
+//             outVec = (*projectedSnaps)[iSnap];
+//          }
+//          tsDesc->performPostProForState(outVec);
+//        }
+//      }
+//
+//      // option to output spatial residual of projected states (projectedSnaps + snapRefState if snapRefState is defined)
+//      //if (projError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
+//       // this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
+//      //}
+//      if (tsDesc) delete tsDesc;
+//    }
+//
+//    // snaps - projSnaps
+//    this->com->fprintf(stdout, " ... difference = originalSnaps - projectedSnaps\n");
+//    VecSet<DistSVec<double, dim> >* snapDifference = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+//    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+//      (*snapDifference)[iSnap] = (*(this->snap))[iSnap] - (*projectedSnaps)[iSnap];
+//    }
+//
+//    delete projectedSnaps;
+//    projectedSnaps = NULL;
+//   
+//    // compute l2 norm for each 
+//    Vec<double> numeratorNorms(nTotSnaps);
+//    Vec<double> denominatorNorms(nTotSnaps);
+//
+//    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+//      numeratorNorms[iSnap] = (*snapDifference)[iSnap].norm();
+//      denominatorNorms[iSnap] = (*(this->snap))[iSnap].norm();
+//    }
+//
+//    delete snapDifference;
+//    snapDifference = NULL;
+//
+//    this->com->fprintf(stdout, " ... relProjError = difference.norm / originalSnap.norm\n");
+//    Vec<double> relProjError(nTotSnaps);
+//    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+//    if (denominatorNorms[iSnap] != 0) {
+//        relProjError[iSnap] = numeratorNorms[iSnap]/denominatorNorms[iSnap];
+//      } else {
+//        relProjError[iSnap] = 1;
+//      }
+//    }
+//
+//    (*projErrorLog)[iCluster] = relProjError;
+//
+//    delete (this->basis);
+//    (this->basis) = NULL;
+//
+//  }  
+//
+//  delete [] (this->snapsInCluster);
+//  (this->snapsInCluster) = NULL;
+//  delete (this->snap);
+//  (this->snap) = NULL;
+//
+//  writeProjErrorToDisk();
+//
+//  this->timer->addProjErrorTime(projErrorTime);
+//
+//}
+//
+//
 //----------------------------------------------------------------------------------
 
 template<int dim>
@@ -2401,31 +2552,41 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
   delete (this->clusterCenters);
   (this->clusterCenters) = NULL;
  
-  nSnapshotFiles = this->readSnapshotFiles("projError", true);
+  nSnapshotFiles = this->readSnapshotFiles("projError", false);
   int nTotSnaps = this->snap->numVectors();
  
   projErrorLog = new VecSet<Vec<double> >((this->nClusters),nTotSnaps);
 
-  // if computing residuals
-  //  if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF)
-  //  ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-
   for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-
     switch (projError->relProjError) {
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
         this->readClusteredBasis(iCluster, "state", true);
-        if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
-            this->snapRefState!=NULL) 
-          this->updateBasis(iCluster, *(this->snapRefState));
-        if (projError->krylov.include) this->appendNonStateDataToBasis(iCluster,"krylov",true);
-        if (projError->sensitivity.include) this->appendNonStateDataToBasis(iCluster,"sensitivity",true);
+        if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF) {
+          this->updateBasis(iCluster, (*(this->snap))[0]);
+        } else {
+          this->readClusteredReferenceState(iCluster, "state");
+          if (projError->useFirstStateAsRefStateForIncrBasis) {
+            if (this->Uref->norm()>1e-15)  {
+              this->com->fprintf(stderr, "*** Error: UseFirstStateAsRefStateForIncrementalBasis is set to True, but the stored reference state for this basis is nonzero.  This shouldn't be the case for a basis built with incremental snapshots.  Exiting.\n");
+              exit(-1);
+            }
+            *(this->Uref) = (*(this->snap))[0];
+          }
+        }
+        if (projError->krylov.include) this->com->fprintf(stdout, "*** Warning: Krylov vecs will not be appended for reconstruction error sweep\n");
+        if (projError->sensitivity.include) this->com->fprintf(stdout, "*** Warning: Sensitivities will not be appended for reconstruction error sweep\n");
         break;
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
         this->readClusteredBasis(iCluster, "residual", true);
+        if (this->Uref) delete this->Uref;
+        this->Uref = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+        *(this->Uref) = 0.0;
         break;
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_JACACTION):
         this->readClusteredBasis(iCluster, "jacAction", true);
+        if (this->Uref) delete this->Uref;
+        this->Uref = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+        *(this->Uref) = 0.0;
         break;
       default:
         exit (-1);
@@ -2433,7 +2594,13 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
 
     int nPodVecs = this->basis->numVectors();
 
-    this->com->fprintf(stdout, "\nCalculating relative projection error for basis %d\n", iCluster);
+    Vec<double> denominatorNorms(nTotSnaps);
+    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+      denominatorNorms[iSnap] = (*(this->snap))[iSnap].norm();
+      (*(this->snap))[iSnap] -= *(this->Uref);  //form snapshot matrix by subtracting reference state from each training state
+    }
+
+    this->com->fprintf(stdout, "\nCalculating affine approximation error using basis %d\n", iCluster);
 
     // basis^T * snapshots    
     this->com->fprintf(stdout, " ... tmp = basis^T * snapshots\n");
@@ -2501,11 +2668,9 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
    
     // compute l2 norm for each 
     Vec<double> numeratorNorms(nTotSnaps);
-    Vec<double> denominatorNorms(nTotSnaps);
 
     for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
       numeratorNorms[iSnap] = (*snapDifference)[iSnap].norm();
-      denominatorNorms[iSnap] = (*(this->snap))[iSnap].norm();
     }
 
     delete snapDifference;
@@ -2626,14 +2791,14 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjErrorSweep() {
   delete (this->clusterCenters);
   (this->clusterCenters) = NULL;
  
-  nSnapshotFiles = this->readSnapshotFiles("projError", true);
+  nSnapshotFiles = this->readSnapshotFiles("projError", false);
 
-  //normalize snapshots
   int nTotSnaps = this->snap->numVectors();
-  for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
-    double norm = ((*(this->snap))[iSnap].norm());
-    if (norm>1e-16)  (*(this->snap))[iSnap] *= 1/norm;
-  }
+  //normalize snapshots
+  //for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+  //  double norm = ((*(this->snap))[iSnap].norm());
+  //  if (norm>1e-16)  (*(this->snap))[iSnap] *= 1/norm;
+  //}
 
   std::vector<std::vector<int> > robSizes; // [basis][sweep]
   std::vector<std::vector<double> > projErrors; // [basis][sweep]
@@ -2648,87 +2813,103 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjErrorSweep() {
     switch (projError->relProjError) {
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_STATE):
         this->readClusteredBasis(iCluster, "state", true);
-        if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF &&
-            this->snapRefState!=NULL) 
-          this->updateBasis(iCluster, *(this->snapRefState));
-        if (projError->krylov.include) this->com->fprintf(stdout, "*** Warning: Krylov vecs will not be appended for projection error sweep\n");
-        if (projError->sensitivity.include) this->com->fprintf(stdout, "*** Warning: Sensitivities will not be appended for projection error sweep\n");
+        if (projError->basisUpdates!=RelativeProjectionErrorData::UPDATES_OFF) {
+          this->updateBasis(iCluster, (*(this->snap))[0]);
+        } else {
+          this->readClusteredReferenceState(iCluster, "state");
+          if (projError->useFirstStateAsRefStateForIncrBasis) {
+            if (this->Uref->norm()>1e-15)  {
+              this->com->fprintf(stderr, "*** Error: UseFirstStateAsRefStateForIncrementalBasis is set to True, but the stored reference state for this basis is nonzero.  This shouldn't be the case for a basis built with incremental snapshots.  Exiting.\n"); 
+              exit(-1);
+            }
+            *(this->Uref) = (*(this->snap))[0];
+          }
+        }
+        if (projError->krylov.include) this->com->fprintf(stdout, "*** Warning: Krylov vecs will not be appended for reconstruction error sweep\n");
+        if (projError->sensitivity.include) this->com->fprintf(stdout, "*** Warning: Sensitivities will not be appended for reconstruction error sweep\n");
         break;
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_RESIDUAL):
         this->readClusteredBasis(iCluster, "residual", true);
+        if (this->Uref) delete this->Uref;
+        this->Uref = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+        *(this->Uref) = 0.0;
         break;
       case (RelativeProjectionErrorData::REL_PROJ_ERROR_JACACTION):
         this->readClusteredBasis(iCluster, "jacAction", true);
+        if (this->Uref) delete this->Uref;
+        this->Uref = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+        *(this->Uref) = 0.0;
         break;
       default:
         exit (-1);
     }
 
-    this->com->fprintf(stdout, "\nStarting projection error sweep for basis %d\n", iCluster);
+    this->com->fprintf(stdout, "\nStarting snapshot reconstruction error sweep for basis %d\n", iCluster);
 
     int nPodVecs = this->basis->numVectors();
-    int nSweeps = floor(((double)nPodVecs-1)/((double)projError->sweepFreq));
-    if (nPodVecs>0) ++nSweeps;
+    double sweepFreq = (double)projError->sweepFreq;
+    sweepFreq = (sweepFreq>nPodVecs) ? nPodVecs : sweepFreq;
+    int nSweeps = ceil(((double)nPodVecs)/(sweepFreq));
 
+    // calculate frobenius norm of training state matrix
+    double stateMatrixFroNorm = 0.0;
+    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+      stateMatrixFroNorm += pow((*(this->snap))[iSnap].norm(),2.0);
+    }
+    stateMatrixFroNorm = pow(stateMatrixFroNorm,0.5);
+
+    // form snapshot matrix by subtracting reference state from each training state
+    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+      (*(this->snap))[iSnap] -= *(this->Uref);
+    }
+
+    // basis^T * snapshots    
+    this->com->fprintf(stdout, " ... tmp = basis^T * snapshots\n");
+    Vec<double> tmpVec(nPodVecs);
+    VecSet<Vec<double> >* tmpVecSet = new VecSet<Vec<double> >(nTotSnaps, nPodVecs);
+    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+      for (int iVec = 0; iVec < nPodVecs; iVec++){
+        tmpVec[iVec] = (*(this->basis))[iVec] * (*(this->snap))[iSnap];
+      }
+      (*tmpVecSet)[iSnap] = tmpVec;
+    }
+
+    VecSet<DistSVec<double, dim> >* snapDifference = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+    for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
+      (*snapDifference)[iSnap] = (*(this->snap))[iSnap];
+    }
+
+    int nPodVecsPrev = 0;
+    int nPodVecsCurrent = sweepFreq;
+ 
     for (int iSweep = 0; iSweep < nSweeps; ++iSweep) {
 
-      this->com->fprintf(stdout, "\nCalculating relative projection error for basis %d with %d basis vectors\n", iCluster, nPodVecs);
-  
-      // basis^T * snapshots    
-      this->com->fprintf(stdout, " ... tmp = basis^T * snapshots\n");
-      Vec<double> tmpVec(nPodVecs);
-      VecSet<Vec<double> >* tmpVecSet = new VecSet<Vec<double> >(nTotSnaps, nPodVecs);
-      for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
-        for (int iVec = 0; iVec < nPodVecs; iVec++){
-          tmpVec[iVec] = (*(this->basis))[iVec] * (*(this->snap))[iSnap];
-        }
-        (*tmpVecSet)[iSnap] = tmpVec;
-      }
-  
-      // basis * result 
-      this->com->fprintf(stdout, " ... projected snaps = basis * tmp\n");
-      VecSet<DistSVec<double, dim> >* projectedSnaps = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
-      for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
-        (*projectedSnaps)[iSnap] = 0.0;
-        for (int iVec = 0; iVec < nPodVecs; iVec++)
-          (*projectedSnaps)[iSnap] += ((*tmpVecSet)[iSnap])[iVec] * (*(this->basis))[iVec];
-      }
-      delete tmpVecSet;
-      tmpVecSet = NULL;
-  
-      // snaps - projSnaps
+      this->com->fprintf(stdout, "\nCalculating snapshot reconstruction error for basis %d with %d basis vectors\n", iCluster, nPodVecsCurrent);
+   
       projErrors[iCluster].push_back(0.0);
-      robSizes[iCluster].push_back(nPodVecs);
-      this->com->fprintf(stdout, " ... difference = originalSnaps - projectedSnaps\n");
-      VecSet<DistSVec<double, dim> >* snapDifference = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+      robSizes[iCluster].push_back(nPodVecsCurrent);
       for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
-        (*snapDifference)[iSnap] = (*(this->snap))[iSnap] - (*projectedSnaps)[iSnap];
+        for (int iVec = nPodVecsPrev; iVec < nPodVecsCurrent; iVec++) {
+          (*snapDifference)[iSnap] -= ((*tmpVecSet)[iSnap])[iVec] * (*(this->basis))[iVec];
+        }
         projErrors[iCluster][iSweep] += (*snapDifference)[iSnap] * (*snapDifference)[iSnap];
       }
       projErrors[iCluster][iSweep] = pow(projErrors[iCluster][iSweep],0.5); // frobenius norm  
+      projErrors[iCluster][iSweep] = (stateMatrixFroNorm>0) ? projErrors[iCluster][iSweep]/stateMatrixFroNorm : 1.0 ;
 
-      delete projectedSnaps;
-      projectedSnaps = NULL;
- 
-      delete snapDifference;
-      snapDifference = NULL;
+      nPodVecsPrev=nPodVecsCurrent;
+      nPodVecsCurrent=nPodVecsPrev+sweepFreq;
+      if (nPodVecsCurrent>nPodVecs) nPodVecsCurrent=nPodVecs;
+    }
+
+    delete snapDifference;
+    snapDifference = NULL;
   
-
-      // resize ROB
-      int newRobSize = nPodVecs - projError->sweepFreq;
-      if (newRobSize>0) {
-        VecSet< DistSVec<double, dim> >* newBasis = new VecSet< DistSVec<double, dim> >(newRobSize, this->domain.getNodeDistInfo());
-        for (int iVec=0; iVec<newRobSize; ++iVec)
-          (*newBasis)[iVec] = (*(this->basis))[iVec];
-       
-        delete this->basis;
-        this->basis = newBasis;
-        nPodVecs = this->basis->numVectors();
-        }
-      }
-
     delete (this->basis);
     (this->basis) = NULL;
+
+    delete tmpVecSet;
+    tmpVecSet = NULL;
 
   }  
 

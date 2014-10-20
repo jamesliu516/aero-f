@@ -49,16 +49,17 @@ void ImplicitGnatTsDesc<dim>::deleteRestrictedQuantities() {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R) {
-
+void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R, bool includeHomotopy)
+{
 	// Evaluate residual on full mesh
 
   if (R==NULL) R=&(this->F);
-
+ 
   this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *R, this->timeState, *(this->rom->restrictMapping()));
 
-	this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q,
-			*R, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
+  if (includeHomotopy) {
+    this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q, *R, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
+  }
 
   this->spaceOp->applyBCsToResidual(Q, *R);
 
@@ -81,9 +82,9 @@ void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> 
     }
   }
 
-	double t0 = this->timer->getTime();
-	(this->rom->restrictMapping())->restriction(*R, *ResRestrict);
-	this->timer->addRestrictionTime(t0);
+  double t0 = this->timer->getTime();
+  (this->rom->restrictMapping())->restriction(*R, *ResRestrict);
+  this->timer->addRestrictionTime(t0);
 
 }
 
@@ -136,37 +137,36 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
 
   // Form A * of and distribute
 
-	double t0 = this->timer->getTime();
-	transMatMatProd(*(this->rom->getJacMat()), *AJRestrict,jactmp);
+  double t0 = this->timer->getTime();
+  transMatMatProd(*(this->rom->getJacMat()), *AJRestrict,jactmp);
 
   for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {
-		const int globalColIdx = leastSquaresSolver.globalColIdx(iCol);
-		const int colOffset = globalColIdx * leastSquaresSolver.equationCount();
+    const int globalColIdx = leastSquaresSolver.globalColIdx(iCol);
+    const int colOffset = globalColIdx * leastSquaresSolver.equationCount();
     for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
-			const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
-			leastSquaresSolver.matrixEntry(iRow, iCol) = jactmp[globalRowIdx + colOffset];
-		}
-	}
+      const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
+      leastSquaresSolver.matrixEntry(iRow, iCol) = jactmp[globalRowIdx + colOffset];
+    }
+  }
 
   // Form B * ResRestrict and distribute
-	// NOTE: do not check if current CPU has rhs
+  // NOTE: do not check if current CPU has rhs
 
-	transMatVecProd(*(this->rom->getResMat()), *ResRestrict, column);
+  transMatVecProd(*(this->rom->getResMat()), *ResRestrict, column);
 
-	for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
-		const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
-		leastSquaresSolver.rhsEntry(iRow) = -column[globalRowIdx];
-	}
-	this->timer->addLinearSystemFormTime(t0);
+  for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
+    const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
+    leastSquaresSolver.rhsEntry(iRow) = -column[globalRowIdx];
+  }
+  this->timer->addLinearSystemFormTime(t0);
 
   // Solve least squares problem
-
-	t0 = this->timer->getTime();
+  t0 = this->timer->getTime();
   leastSquaresSolver.solve();
-	this->timer->addLinearSystemSolveTime(t0);
+  this->timer->addLinearSystemSolveTime(t0);
 
   // Update vector: The first nPod rows give the components in the pod basis
-	t0 = this->timer->getTime();
+  t0 = this->timer->getTime();
   this->dUromNewtonIt = 0.0;
   for (int localIRow = 0; localIRow < leastSquaresSolver.localSolutionRows(); ++localIRow) {
     const int iRow = leastSquaresSolver.globalRhsRowIdx(localIRow);
@@ -184,7 +184,7 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
   }
 
   breakloop = (res == 0.0) || (res <= this->target);
-	this->timer->addCheckConvergenceTime(t0);
+  this->timer->addCheckConvergenceTime(t0);
 
 }
 

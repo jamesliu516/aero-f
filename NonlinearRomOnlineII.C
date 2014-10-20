@@ -135,7 +135,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisSimple(int iCluster, DistSVec<double,
   bool updatePerformed = false;
 
   this->readClusteredUpdateInfo(iCluster, "state");
-  this->readClusteredReferenceState(iCluster, "state"); // reads Uref
 
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
@@ -276,7 +275,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
   bool updatePerformed = false;
 
   this->readClusteredUpdateInfo(currentCluster, "state");
-  this->readClusteredReferenceState(currentCluster, "state"); // reads Uref
 
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
@@ -783,8 +781,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastApprox(int iCluster, DistSVec<dou
 
   this->readClusteredUpdateInfo(iCluster, "state");
 
-  this->readClusteredReferenceState(iCluster,"state"); // reads Uref
-
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
 
@@ -1033,7 +1029,7 @@ void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluste
 
   // dif = U_switch - U_ref
   DistSVec<double, dim> dif(this->domain.getNodeDistInfo());
-  this->readClusteredReferenceState(iCluster, "state");
+  this->readClusteredUpdateInfo(iCluster, "state");
   dif = U - *(this->Uref); 
   
   // result = basis^T * dif  
