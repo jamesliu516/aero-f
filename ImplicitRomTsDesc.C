@@ -539,7 +539,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   double alpha;
   bool convergeFlag=0;
 
-	postProStep(U,totalTimeSteps);
+  postProStep(U,totalTimeSteps);
 
   updateLeastSquaresWeightingVector(); //only updated at the start of Newton
 
@@ -556,9 +556,9 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
    //     *weightFRef = this->F;
    // }
 
-		double tRes = this->timer->getTime();
+    double tRes = this->timer->getTime();
     computeFullResidual(it, U, false);
-		this->timer->addResidualTime(tRes);
+    this->timer->addResidualTime(tRes);
 
     if (this->ioData->romOnline.onlineResiduals.include 
         && (it%(this->ioData->romOnline.onlineResiduals.newtonFreq)==0)
@@ -574,19 +574,20 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
       setProblemSize(U);
     }
 
-		computeAJ(it, U, true);	// skipped some times for Broyden
+    computeAJ(it, U, true);	// skipped some times for Broyden
 
     if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
-		  tRes = this->timer->getTime();
+      tRes = this->timer->getTime();
       computeFullResidual(it, U, true);
-		  this->timer->addResidualTime(tRes);
+      this->timer->addResidualTime(tRes);
     }
 
-		solveNewtonSystem(it, res, breakloop, U, totalTimeSteps);	// 1) check if residual small enough, 2) solve 
-			// INPUTS: AJ, F
-			// OUTPUTS: dUromNewtonIt, res, breakloop
-		breakloopNow = breakloop1(breakloop);
-		if (breakloopNow) break;
+    solveNewtonSystem(it, res, breakloop, U, totalTimeSteps);	// 1) check if residual small enough, 2) solve 
+      // INPUTS: AJ, F
+      // OUTPUTS: dUromNewtonIt, res, breakloop
+
+    breakloopNow = breakloop1(breakloop);
+    if (breakloopNow) break;
 
     if (this->ioData->romOnline.lineSearch==NonlinearRomOnlineData::LINE_SEARCH_WOLF) { 
       // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
@@ -626,15 +627,15 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
       }
     }
 
-		double tSol = this->timer->getTime();    
+    double tSol = this->timer->getTime();    
     dUromTimeIt += dUromNewtonIt; // solution increment in reduced coordinates (initialized to zero in checkLocalRomStatus)
     if (this->ioData->romOnline.lineSearch!=NonlinearRomOnlineData::LINE_SEARCH_BACKTRACKING) {
       expandVector(dUromNewtonIt, dUfull); // solution increment in full coordinates
       U += dUfull;
     }
-		this->timer->addSolutionIncrementTime(tSol);
+    this->timer->addSolutionIncrementTime(tSol);
 
-		saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
+    saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
 
     // verify that the solution is physical
     if (this->checkSolution(U)) {
@@ -650,28 +651,32 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
         exit(-1);
       }
     }
-		breakloopNow = breakloop2(breakloop);
-		if (breakloopNow) break;
+    breakloopNow = breakloop2(breakloop);
+    if (breakloopNow) break;
   }	// end Newton loop
-
 
   if (this->ioData->romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
     computeFullResidual(it, U, false);
     printBCWeightingInfo(true);
   }
 	
-	//savedUnormAccum();
-	if (fsIt > 0 && checkFailSafe(U) == 1)
-		resetFixesTag();
+  //savedUnormAccum();
+  if (fsIt > 0 && checkFailSafe(U) == 1)
+  resetFixesTag();
 
   if (it == maxItsNewton && maxItsNewton!=1 && maxItsNewton!=0) {
     this->com->fprintf(stderr, "*** Warning: ROM Newton solver reached %d its", maxItsNewton);
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }
 
+  if (it==0) {
+    this->com->fprintf(stderr, "*** Warning: ROM converged on first iteration");
+    this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
+  }
+
   this->timer->addFluidSolutionTime(t0);
 
-	// output POD coordinates
+  // output POD coordinates
   dUromCurrentROB += dUromTimeIt;
   rom->writeReducedCoords(totalTimeSteps, clusterSwitch, updatePerformed, currentCluster, dUromTimeIt); 
 
@@ -680,7 +685,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   this->com->fprintf(stdout, "\n");
 
-  return (maxItsNewton == 0) ? 1 : it;
+  return (maxItsNewton == 0 || it==0) ? 1 : it;
 
 }
                                                                                                            
@@ -705,7 +710,7 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
 template<int dim>
 void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R, bool includeHomotopy)
 {
-  if (R==NULL) R = &F;
+  if (R==NULL) R = &F;  // make R an alias for F
 
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
 

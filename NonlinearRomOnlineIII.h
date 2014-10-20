@@ -15,7 +15,7 @@ class NonlinearRomOnlineIII : public NonlinearRom<dim> {
   ~NonlinearRomOnlineIII();
 
   bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL);
-  bool updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>* coords);
+  bool updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>*);
   bool updateBasisFastApprox(int, DistSVec<double, dim> &);
   void projectSwitchStateOntoAffineSubspace(int, DistSVec<double, dim> &);
 

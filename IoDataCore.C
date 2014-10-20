@@ -4399,6 +4399,7 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
   energy = 1.0;
   postProProjectedStates = POST_PRO_OFF;
   sweepFreq = -1;
+  useFirstStateAsRefStateForIncrBasis = ASSUME_INCR_REFSTATE_FALSE;
 
 }
 
@@ -4407,14 +4408,14 @@ RelativeProjectionErrorData::RelativeProjectionErrorData()
 void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father) {
 
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
-	new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
+  new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 4, "Off", 0, "State", 1, "Residual", 2, "JacAction", 3);
-	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
+  new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::projectIncrementalSnaps), 2, "False", 0, "True", 1);
-	new ClassToken<RelativeProjectionErrorData> (ca, "ProjectSnapshotsMinusRefSol", this, reinterpret_cast<int
+  new ClassToken<RelativeProjectionErrorData> (ca, "ProjectSnapshotsMinusRefSol", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::subtractRefSol), 2, "False", 0, "True", 1);
 
- 	new ClassToken<RelativeProjectionErrorData> (ca, "BasisUpdates", this, reinterpret_cast<int
+  new ClassToken<RelativeProjectionErrorData> (ca, "BasisUpdates", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::basisUpdates), 2, "Off", 0, "Simple", 1);
   new ClassInt<RelativeProjectionErrorData>(ca, "MaximumDimension", this, &RelativeProjectionErrorData::maxDimension);
   new ClassInt<RelativeProjectionErrorData>(ca, "MinimumDimension", this, &RelativeProjectionErrorData::minDimension); 
@@ -4423,6 +4424,9 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
       RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::postProProjectedStates), 2, "Off", 0, "On", 1);
 
   new ClassInt<RelativeProjectionErrorData>(ca, "SweepFrequency", this, &RelativeProjectionErrorData::sweepFreq);
+
+  new ClassToken<RelativeProjectionErrorData>(ca, "UseFirstStateAsRefStateForIncrementalBasis", this, reinterpret_cast<int
+                        RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::useFirstStateAsRefStateForIncrBasis), 2, "False", 0, "True", 1);
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
@@ -7476,6 +7480,11 @@ int IoData::checkInputValuesNonlinearRomPostprocessing() {
 
   // TODO KMW
   romOnline.distanceComparisons = NonlinearRomOnlineData::DISTANCE_COMPARISONS_OFF;
+
+  if (romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT) {
+    com->fprintf(stderr, "*** Warning: changing basis updates to Simple\n");
+    romOnline.basisUpdates = NonlinearRomOnlineData::UPDATES_SIMPLE; 
+  }
 
   return error;
 }

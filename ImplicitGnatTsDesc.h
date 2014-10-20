@@ -27,12 +27,13 @@ protected:
 
   void setProblemSize(DistSVec<double, dim> &);
 
-	void solveNewtonSystem(const int &, double &, bool &, DistSVec<double, dim> &, const int & totalTimeSteps = 0);
+  void solveNewtonSystem(const int &, double &, bool &, DistSVec<double, dim> &, const int & totalTimeSteps = 0);
 
-	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
-	virtual void computeAJ(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
-	virtual bool breakloop1(const bool);
-	virtual bool breakloop2(const bool);
+  virtual void computeFullResidual(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL, bool includeHomotopy = true);
+
+  virtual void computeAJ(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
+  virtual bool breakloop1(const bool);
+  virtual bool breakloop2(const bool);
 
   double computeGnatResidualNorm(DistSVec<double,dim> &);
   void setReferenceResidual();

@@ -2261,15 +2261,16 @@ struct NonlinearRomOnlineData {
 
 struct RelativeProjectionErrorData {
 
-	enum RelativeProjectionError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_STATE = 1, REL_PROJ_ERROR_RESIDUAL = 2, REL_PROJ_ERROR_JACACTION = 3} relProjError;
-	enum ProjectIncrementalSnapshots {PROJECT_INCREMENTAL_SNAPS_FALSE = 0, PROJECT_INCREMENTAL_SNAPS_TRUE = 1} projectIncrementalSnaps;
-	enum ProjectSnapshotsMinusRefSol {PROJECT_SNAPS_MINUS_REF_SOL_FALSE = 0, PROJECT_SNAPS_MINUS_REF_SOL_TRUE = 1} subtractRefSol;
+  enum RelativeProjectionError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_STATE = 1, REL_PROJ_ERROR_RESIDUAL = 2, REL_PROJ_ERROR_JACACTION = 3} relProjError;
+  enum ProjectIncrementalSnapshots {PROJECT_INCREMENTAL_SNAPS_FALSE = 0, PROJECT_INCREMENTAL_SNAPS_TRUE = 1} projectIncrementalSnaps;
+  enum ProjectSnapshotsMinusRefSol {PROJECT_SNAPS_MINUS_REF_SOL_FALSE = 0, PROJECT_SNAPS_MINUS_REF_SOL_TRUE = 1} subtractRefSol;
 
   int minDimension;
   int maxDimension;
   double energy;
 
   int sweepFreq;
+  enum UseFirstStateAsRefStateForIncrBasis {ASSUME_INCR_REFSTATE_FALSE = 0, ASSUME_INCR_REFSTATE_TRUE = 1} useFirstStateAsRefStateForIncrBasis;
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1} basisUpdates;
 
