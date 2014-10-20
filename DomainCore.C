@@ -498,18 +498,28 @@ void Domain::setNodeType(IoData &ioData)
   int* bcpriority = reinterpret_cast<int *>(alloca(sizeof(int) * (BC_MAX_CODE - BC_MIN_CODE + 1)));
   bcpriority -= BC_MIN_CODE;
 
-  bcpriority[BC_ADIABATIC_WALL_MOVING ] = 10;
-  bcpriority[BC_ISOTHERMAL_WALL_MOVING] =  9;
-  bcpriority[BC_SLIP_WALL_MOVING      ] =  8;
-  bcpriority[BC_INLET_MOVING          ] =  7;
-  bcpriority[BC_OUTLET_MOVING         ] =  6;
-  bcpriority[BC_ADIABATIC_WALL_FIXED  ] =  5;
-  bcpriority[BC_ISOTHERMAL_WALL_FIXED ] =  4;
-  bcpriority[BC_SLIP_WALL_FIXED       ] =  3;
-  bcpriority[BC_INLET_FIXED           ] =  2;
-  bcpriority[BC_OUTLET_FIXED          ] =  1;
-  bcpriority[BC_SYMMETRY              ] =  0;
-  bcpriority[BC_INTERNAL              ] = -1;
+  bcpriority[BC_ADIABATIC_WALL_MOVING     ] = 20;
+  bcpriority[BC_ISOTHERMAL_WALL_MOVING    ] = 19;
+  bcpriority[BC_SLIP_WALL_MOVING          ] = 18;
+  bcpriority[BC_POROUS_WALL_MOVING        ] = 17;
+  bcpriority[BC_MASSFLOW_INLET_MOVING     ] = 16;
+  bcpriority[BC_MASSFLOW_OUTLET_MOVING    ] = 15;
+  bcpriority[BC_DIRECTSTATE_INLET_MOVING  ] = 14;
+  bcpriority[BC_DIRECTSTATE_OUTLET_MOVING ] = 13;
+  bcpriority[BC_INLET_MOVING              ] = 12;
+  bcpriority[BC_OUTLET_MOVING             ] = 11;
+  bcpriority[BC_ADIABATIC_WALL_FIXED      ] = 10;
+  bcpriority[BC_ISOTHERMAL_WALL_FIXED     ] =  9;
+  bcpriority[BC_SLIP_WALL_FIXED           ] =  8;
+  bcpriority[BC_POROUS_WALL_FIXED         ] =  7;
+  bcpriority[BC_MASSFLOW_INLET_FIXED      ] =  6;
+  bcpriority[BC_MASSFLOW_OUTLET_FIXED     ] =  5;
+  bcpriority[BC_DIRECTSTATE_INLET_FIXED   ] =  4;
+  bcpriority[BC_DIRECTSTATE_OUTLET_FIXED  ] =  3;
+  bcpriority[BC_INLET_FIXED               ] =  2;
+  bcpriority[BC_OUTLET_FIXED              ] =  1;
+  bcpriority[BC_SYMMETRY                  ] =  0;
+  bcpriority[BC_INTERNAL                  ] = -1;
 
   int iSub;
 
@@ -530,7 +540,7 @@ void Domain::setNodeType(IoData &ioData)
 
 #pragma omp parallel for
   for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->changeSurfaceType(ioData.surfaces.surfaceMap.dataMap);
+    subDomain[iSub]->changeSurfaceType(ioData.surfaces.surfaceMap.dataMap, ioData.bc.bcMap.dataMap);
 
  this->com->sync();
 

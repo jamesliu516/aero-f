@@ -751,8 +751,12 @@ public:
   template<int dim>
   void assignFreeStreamValues2(SVec<double,dim> &, SVec<double,dim> &,
 			       SVec<double,dim> &, SVec<double,dim> &);
+
   template<int dim>
   void assignFreeStreamValues(double *, double *, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void assignPorousWallValues(SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
   void setNodeBcValue(double*, SVec<double,dim>&);
@@ -1013,7 +1017,7 @@ public:
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
-  void changeSurfaceType(map<int,SurfaceData*>& surfaceMap);
+  void changeSurfaceType(map<int,SurfaceData*>& surfaceMap, map<int,BoundaryData*>& bcMap);
   void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
   void completeFaceBelongsToSurface(Vec<int> &faceFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP);
  

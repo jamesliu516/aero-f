@@ -8,6 +8,8 @@ extern void yyCmdferror(const char  *);
 #include "parser/Dictionary.h"
 #include "ResizeArray.h"
 
+void reduceList(int, int *(list[]), ... );
+
 ResizeArray<Assigner *> underVar(0);
 int underLevel = 0;
 
@@ -19,6 +21,7 @@ int underLevel = 0;
   double    dval;
   int	    token;
   char     *sval; 
+  int      **list;
   Assigner *asgn;
 }
 
@@ -33,6 +36,13 @@ int underLevel = 0;
 %type <token>   Symbol
 %type <asgn>	Assignable
 %type <sval>	String
+%type <list>	List1
+%type <list>	List2
+%type <list>	List3
+%type <list>	List4
+%type <list>	List5
+%type <list>	List6
+%type <list>	List7
 
 %%
 
@@ -55,6 +65,20 @@ Assignment: Assignable '=' Symbol ';'
 	{ $1->assignString($3); }
 	| Assignable '=' Symbol IntExpr ';'
 	{ $1->assignTokenIntPair($3,$4); }
+        | Assignable '=' List1 ';'
+	{ $1->assignList(1,$3); }
+        | Assignable '=' List2 ';'
+	{ $1->assignList(2,$3); }
+        | Assignable '=' List3 ';'
+	{ $1->assignList(3,$3); }
+        | Assignable '=' List4 ';'
+	{ $1->assignList(4,$3); }
+        | Assignable '=' List5 ';'
+	{ $1->assignList(5,$3); }
+        | Assignable '=' List6 ';'
+	{ $1->assignList(6,$3); }
+        | Assignable '=' List7 ';'
+	{ $1->assignList(7,$3); }
 
 GroupInput: UNDER Assignable '{'
 	{
@@ -136,4 +160,78 @@ DblExpr:
         { $$ = $1 / $3; }
         | DblExpr '/' IntExpr
         { $$ = $1 / $3; }
+
+List1: '{' Symbol '}'
+	{ 
+          int size = 1;
+          int *list = NULL;
+          reduceList(size, &list,$2);
+          $$ = &list;
+	}
+
+List2: '{' Symbol ',' Symbol '}'
+	{ 
+          int size = 2;
+          int *list = NULL;
+          reduceList(size, &list,$2,$4);
+          $$ = &list;
+	}
+
+List3: '{' Symbol ',' Symbol ',' Symbol '}'
+	{ 
+          int size = 3;
+          int *list = NULL;
+          reduceList(size, &list,$2,$4,$6);
+          $$ = &list;
+	}
+
+List4: '{' Symbol ',' Symbol ',' Symbol ',' Symbol '}'
+	{ 
+          int size = 4;
+          int *list = NULL;
+          reduceList(size, &list,$2,$4,$6,$8);
+          $$ = &list;
+	}
+
+List5: '{' Symbol ',' Symbol ',' Symbol ',' Symbol ',' Symbol '}'
+	{ 
+          int size = 5;
+          int *list = NULL;
+          reduceList(size, &list,$2,$4,$6,$8,$10);
+          $$ = &list;
+	}
+
+List6: '{' Symbol ',' Symbol ',' Symbol ',' Symbol ',' Symbol ',' Symbol '}'
+	{ 
+	  int size = 6;
+	  int *list = NULL;
+	  reduceList(size, &list,$2,$4,$6,$8,$10,$12); 
+	  $$ = &list;
+	}
+List7: '{'  Symbol ',' Symbol ',' Symbol ',' Symbol ',' Symbol ',' Symbol ',' Symbol '}'
+	{ 
+	  int size = 7;
+	  int *list = NULL;
+	  reduceList(size, &list, $2,$4,$6,$8,$10,$12,$14); 
+	  $$ = &list;
+	}
+
 %%
+
+void reduceList(int symNum, int *(list[]), ...) {
+  int tk = 0;
+  va_list syms;
+  va_start(syms,list);
+  *list = (int *) malloc(symNum*sizeof(int));
+  if (*list == NULL){
+    fprintf(stderr, "Error allocating memory for variable set\n");
+    exit(-1);
+  }
+  memset(*list,0,symNum*sizeof(int));
+  for(int i = 0; i < symNum; i++){
+    tk = va_arg(syms,int);
+    (*list)[i] = tk;
+  }
+  va_end(syms);
+}
+

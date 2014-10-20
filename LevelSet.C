@@ -148,7 +148,7 @@ void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<dou
   if(!iod.volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator volIt;
     for (volIt=iod.volumes.volumeMap.dataMap.begin(); volIt!=iod.volumes.volumeMap.dataMap.end();volIt++)
-      if(volIt->second->type==VolumeData::FLUID){
+      if(volIt->second->type==VolumeData::FLUID || volIt->second->type==VolumeData::POROUS){
         //com->fprintf(stdout, "Processing initialization of LevelSet for volume %d paired with EOS %d\n", volIt->first, volIt->second->fluidModelID);
         domain->setupPhiVolumesInitialConditions(volIt->first, volIt->second->fluidModelID,Phi);
       }

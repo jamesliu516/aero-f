@@ -4179,6 +4179,17 @@ void SubDomain::assignFreeStreamValues(double *Uin, double *Uout, SVec<double,di
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::assignPorousWallValues(SVec<double,dim> &Uin, SVec<double,dim> &U)
+{
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].template assignPorousWallValues<dim>(Uin, U[i]);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::setNodeBcValue(double* Vin, SVec<double,dim>& Unode)
 {
 
@@ -4398,7 +4409,8 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;
@@ -4437,7 +4449,8 @@ void SubDomain::computeForceAndMoment(ExactRiemannSolver<dim> &riemann, VarFcn *
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;
@@ -4471,7 +4484,8 @@ void SubDomain::computeLiftSurfaces(map<int,int> & surfOutMap, PostFcn *postFcn,
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;
@@ -4534,7 +4548,8 @@ void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, Pos
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-	 faces[i].getCode() == BC_SLIP_WALL_MOVING)
+	 faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+	 faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;

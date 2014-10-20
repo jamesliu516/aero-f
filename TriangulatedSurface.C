@@ -60,7 +60,9 @@ void TriangulatedSurface::addSurfaceFromFace( SVec<double,3> &X, FaceSet &bounda
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_MOVING
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_FIXED
         || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING
-        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED )
+        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_MOVING
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_FIXED )
       totTriagulatedSurfacesToCreate++;
   }
   if(!triangleList) triangleList = new Vec3D[totTriagulatedSurfacesToCreate][3];
@@ -72,7 +74,9 @@ void TriangulatedSurface::addSurfaceFromFace( SVec<double,3> &X, FaceSet &bounda
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_MOVING
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_FIXED
         || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING
-        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED ){
+        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_MOVING
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_FIXED ){
 
        Vec3D A( X[ boundaryFaces[i][0] ]);
        Vec3D B( X[ boundaryFaces[i][1] ]);
@@ -115,7 +119,9 @@ void TriangulatedSurface::addSurfaceFromFace( FaceSet &boundaryFaces )
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_MOVING
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_FIXED
         || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING
-        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED )
+        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_MOVING
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_FIXED )
       totTriagulatedSurfacesToCreate++;
   }
   if(!triangleNodeNum) triangleNodeNum = new int[totTriagulatedSurfacesToCreate][3];
@@ -127,7 +133,9 @@ void TriangulatedSurface::addSurfaceFromFace( FaceSet &boundaryFaces )
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_MOVING
         || boundaryFaces[i].getCode() == BC_SLIP_WALL_FIXED
         || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING
-        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED ){
+        || boundaryFaces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_MOVING
+        || boundaryFaces[i].getCode() == BC_POROUS_WALL_FIXED ){
 
        int A = boundaryFaces[i][0];
        int B = boundaryFaces[i][1];
