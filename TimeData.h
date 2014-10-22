@@ -20,7 +20,12 @@ public:
   double dt_n;
   double dt_nm1;
   double dt_nm2;
-  int output_newton_step;
+
+  int outputNewtonTag;
+  int outputNewtonStateStep;
+  int outputNewtonResidualStep;
+  int outputKrylovStep;
+
   double dtau_switch;
 
   double tau_n;
@@ -55,7 +60,10 @@ public:
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
   double getTauN() const { return tau_n; }
-  int getOutputNewtonStep() const { return output_newton_step; }
+  int getNewtonTag() const  { return outputNewtonTag; }
+  int getNewtonStateStep() const  { return outputNewtonStateStep; }
+  int getNewtonResidualStep() const  { return outputNewtonResidualStep; }
+  int getKrylovStep() const  { return outputKrylovStep; }
 
 // Included
   void rstVar(IoData &);

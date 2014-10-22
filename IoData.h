@@ -61,6 +61,8 @@ struct OneDimensionalInputData {
 
 struct InputData {
 
+  enum OptimalPressureDimensionality {NON_DIMENSIONAL=0, DIMENSIONAL=1,NONE=2} optPressureDim;
+
   const char *prefix;
   const char *geometryprefix;
   const char *connectivity;
@@ -73,6 +75,7 @@ struct InputData {
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
+  const char *multisolutions;
   const char *positions;
   const char *embeddedpositions;
   const char *levelsets;
@@ -89,28 +92,23 @@ struct InputData {
   //
   const char *restart_file_package;
   const char *podFile;
-  const char *snapFile;
-  const char *snapRefSolutionFile;
-  const char *staterom;
+  const char *optimalPressureFile;
+  const char *optimalPressureDim;
+  //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
+  const char *stateSnapFile;
+  const char *stateSnapRefSolution;
+  const char *multiStateSnapRefSolution;
+  const char *residualSnapFile;
+  const char *krylovSnapFile;
+  const char *sensitivitySnapFile;
+  const char *approxMetricStateSnapFile;
+  const char *projErrorSnapFile;
+  const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
   const char *oneDimensionalSolution;
 
-  const char *stateVecFile;//CBM
-
-  // Gappy POD
-
-  const char *gnatPrefix;
-  const char *sampleNodes;
-  const char *jacMatrix;
-  const char *resMatrix;
-  const char *podFileState;
-  const char *podFileRes;
-  const char *podFileJac;
-  const char *podFileResHat;
-  const char *podFileJacHat;
-  const char *mesh;
-  const char *reducedfullnodemap;
+  //const char *stateVecFile;//CBM
 
   const char* convergence_file;
   
@@ -194,7 +192,6 @@ struct LinePlot {
 struct TransientData {
 
   const char *prefix;
-  const char *solutions;
   const char *density;
   const char *tavdensity;
   const char *mach;
@@ -240,6 +237,8 @@ struct TransientData {
   const char *hydrodynamicforces;
   const char *generalizedforces;
   const char *lift;
+  const char *matchpressure;
+  const char *fluxnorm;
   const char *tavlift;
   const char *hydrostaticlift;
   const char *hydrodynamiclift;
@@ -262,12 +261,16 @@ struct TransientData {
   const char *gamData;
   const char *gamFData;
 
+
 // Included (MB)
   const char *velocitynorm;
+  const char *dSpatialres;
+  const char *dSpatialresnorm;
   const char *dSolutions;
   const char *dDensity;
   const char *dMach;
   const char *dPressure;
+  const char *dMatchPressure;
   const char *dTemperature;
   const char *dTotalpressure;
   const char *dNutturb;
@@ -286,6 +289,8 @@ struct TransientData {
 
   // For 1D solver
   const char* bubbleRadius;
+
+  const char* multiSolnFluxNorm;
 
   int frequency;
   double x0, y0, z0;
@@ -342,32 +347,33 @@ struct ROMOutputData {
 
   const char *prefix;
 
-  const char *newtonresiduals;
-  const char *jacobiandeltastate;
-  const char *reducedjac;
-  const char *stateRom;
+  const char *dFluxNorm;
 
-  // specific gnat quantities
-  const char *gnatPrefix;
+  const char *stateVector;
+  int stateOutputFreqTime;
+  int stateOutputFreqNewton;
 
-  const char *mesh;
-  const char *sampleNodes;
-  const char *onlineMatrix;
-  const char *podStateRed;
-  const char *podNonlinRed;
-  const char *solution;
-  const char *wallDistanceRed;
-  const char *staterom;
-  const char *error;
+  const char *residualVector;
+  int residualOutputFreqTime;
+  int residualOutputFreqNewton;
+  enum FDResiduals {FD_RESIDUALS_OFF = 0, FD_RESIDUALS_ON = 1} fdResiduals;
+  enum FDResidualsLimit {FD_RESIDUALS_LIMIT_OFF = 0, FD_RESIDUALS_LIMIT_ON = 1} fdResidualsLimit;
+
+  const char *krylovVector;
+  int krylovOutputFreqTime;
+  int krylovOutputFreqNewton;
+  double krylovVectorEnergy;
+  enum AddStateToKrylov {ADD_STATE_TO_KRYLOV_OFF = 0, ADD_STATE_TO_KRYLOV_ON = 1} addStateToKrylov;
+
+  const char *clusterUsage;
+  const char *reducedCoords;  // generalized coords
   const char *dUnormAccum;
 
-  // in full mesh coordinates (optional)
-  const char *sampleNodesFull;
-  const char *onlineMatrixFull;
-  const char *reducedfullnodemap;
+  const char *residualsForCoordRange;
 
-  int frequency;
-  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+  int resjacfrequency;
+
+  enum OverwriteNonlinearSnaps {OVERWRITE_OFF = 0, OVERWRITE_ON = 1} overwriteNonlinearSnaps;
 
   ROMOutputData();
   ~ROMOutputData() {}
@@ -402,7 +408,10 @@ struct RestartParametersData {
   double dt_nm2;
   double residual;
   double energy;
-  int output_newton_step;
+  double outputNewtonTag;
+  int outputNewtonStateStep;
+  int outputNewtonResidualStep;
+  int outputKrylovStep;
 
   RestartParametersData();
   ~RestartParametersData() {}
@@ -416,7 +425,7 @@ struct RestartParametersData {
 struct ProblemData {
 
   enum Type {UNSTEADY = 0, ACCELERATED = 1, AERO = 2, THERMO = 3, FORCED = 4,
-             ROLL = 5, RBM = 6, LINEARIZED = 7, SIZE = 8};
+             ROLL = 5, RBM = 6, LINEARIZED = 7, NLROMOFFLINE = 8, NLROMONLINE = 9, SIZE = 10};
   bool type[SIZE];
 
   enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3,
@@ -424,14 +433,15 @@ struct ProblemData {
                 _STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
                 _UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
                 _ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-                _UNSTEADY_LINEARIZED_ = 15, _ROB_CONSTRUCTION_ = 16,
+                _UNSTEADY_LINEARIZED_ = 15, _NONLINEAR_ROM_OFFLINE_ = 16,
                 _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
                 _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-                _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
+                _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
                 _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _FSI_SHAPE_OPTIMIZATION_ = 35,
-                _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _NONLINEAR_EIGENRESIDUAL_ = 38} alltype;
+                _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _NONLINEAR_EIGENRESIDUAL_ = 38, _ACC_UNSTEADY_NONLINEAR_ROM_ = 39,
+                _STEADY_NONLINEAR_ROM_ = 40, _FORCED_NONLINEAR_ROM_ = 41, _ROM_SHAPE_OPTIMIZATION_ = 42} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1533,7 +1543,7 @@ struct KspData {
   double absoluteEps;
 
   const char *output;
-
+  
   PcData pc;
 
   KspData();
@@ -1601,7 +1611,7 @@ struct NewtonData {
 
 struct ImplicitData {
 
-  enum Type {BACKWARD_EULER = 0, CRANK_NICOLSON = 1, THREE_POINT_BDF = 2, FOUR_POINT_BDF = 3} type;
+  enum Type {BACKWARD_EULER = 0, CRANK_NICOLSON = 1, THREE_POINT_BDF = 2, FOUR_POINT_BDF = 3, SPATIAL_ONLY = 4} type;
   enum Startup {REGULAR = 0, MODIFIED = 1} startup;
   enum TurbulenceModelCoupling {WEAK = 0, STRONG = 1} tmcoupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
@@ -1631,6 +1641,7 @@ struct CFLData {
   double cfl0;
   double cflCoef1;
   double cflCoef2;
+  double cflCoef3;
   double cflMax;
   double cflMin;
   double dualtimecfl;
@@ -1696,6 +1707,7 @@ struct TsData {
 
   int maxIts;
   double eps;
+  double epsabs;
   double timestep;
   double timestepinitial;
   double maxTime;
@@ -1707,6 +1719,7 @@ struct TsData {
   double cfl0;
   double cflCoef1;
   double cflCoef2;
+  double cflCoef3;
   double cflMax;
   double cflMin;
   double ser;
@@ -1762,6 +1775,8 @@ struct SensitivityAnalysis {
 
   enum Method {DIRECT = 0, ADJOINT = 1} method;
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
+  enum LsSolver {QR=0, NORMAL_EQUATIONS=1} lsSolver;
+  enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
 
@@ -1985,6 +2000,7 @@ struct PitchingData {
 
   double alpha_in;
   double alpha_max;
+  double alpha_slope;
   double x11;
   double y11;
   double z11;
@@ -1994,6 +2010,7 @@ struct PitchingData {
 
   double beta_in;
   double beta_max;
+  double beta_slope;
   double x12;
   double y12;
   double z12;
@@ -2103,20 +2120,15 @@ struct PadeData {
 
 //------------------------------------------------------------------------------
 
-struct ModelReductionData {
+struct NonlinearRomDirectoriesData {
 
-  enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1, PROJECTION_ERROR = 2} projection;
-  enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1,
-                            COLLOCATION = 2, BROYDEN = 3} systemApproximation;
-  enum BasisType {POD = 0, SNAPSHOTS = 1, BASIS_TYPE_NONE = 2} basisType;
-  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1} lsSolver;
+  const char *prefix;
+  const char *databaseName;
+  const char *clusterName;
+  const char *sensitivityClusterName;
 
-  int dimension;  // used by all nonlinear ROMs
-  int dimensionROBJacobian; // used by GNAT
-  int dimensionROBResidual; // used by GNAT
-
-  ModelReductionData();
-  ~ModelReductionData() {}
+  NonlinearRomDirectoriesData();
+  ~NonlinearRomDirectoriesData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -2124,54 +2136,248 @@ struct ModelReductionData {
 
 //------------------------------------------------------------------------------
 
-struct GNATData {
+struct NonlinearRomFilesData {
 
-  // optional: to document
+  // A nonlinear ROM database can consist of a very large number of files.
+  // To make life easier for the user, this code introduces a "prefix" feature,
+  // which tells aero-f to read and write database files using a built-in
+  // naming convention. 
 
-  int nRobState;
+  // If a prefix and a name are both given, the name overrides the prefix. 
 
-  enum ROBNonlinear {UNSPECIFIED_NONLIN = -1, RESIDUAL_NONLIN = 0,
-                     JACOBIAN_NONLIN  = 1, BOTH_NONLIN = 2} robNonlinear;  // default: -1
+  enum DuplicateSnapshots {DUPLICATE_SNAPSHOTS_FALSE = 0, DUPLICATE_SNAPSHOTS_TRUE = 1} duplicateSnapshots;
+ 
+  // State snapshot clusters
+  const char *statePrefix;
+  const char *stateSnapsName;
+  const char *mapName;  
+  const char *indexName;
+  const char *connName;
+  const char *centersName;
+  const char *nearestName;
+  const char *centerNormsName;
+  const char *distanceMatrixName;
 
-  int nRobNonlin;
-  int nRobRes;  // default: nRobNonlin
-  int nRobJac;  // default: nRobNonlin
+  // State bases
+  const char *stateBasisPrefix;
+  const char *stateBasisName;
+  const char *stateSingValsName;
+  const char *simpleUpdateInfoName;
+  const char *exactUpdateInfoPrefix;
+  const char *stateDistanceComparisonInfoName;
+  const char *stateDistanceComparisonInfoExactUpdatesName;
+  const char *projErrorName;
+  const char *refStateName;
 
-  enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
-    JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy; // default: ROBNonlinear
+  // Krylov snaps
+  const char *krylovPrefix;
+  const char *krylovSnapsName;
 
-  int nRobGreedy; // default: nRobNonlin
+  // Krylov bases
+  const char *krylovBasisPrefix;
+  const char *krylovBasisName;
+  const char *krylovSingValsName;
+  const char *krylovDistanceComparisonInfoName;
 
-  double sampleNodeFactor;  // default: 2.0
-  int nSampleNodes;
-  int layers;
+  // Sensitivities
+  const char *sensitivityPrefix;
+  const char *sensitivitySnapsName;
+  
+  // Sensitivity basis
+  const char *sensitivityBasisPrefix;
+  const char *sensitivityBasisName;
+  const char *sensitivitySingValsName;
+  const char *sensitivityDistanceComparisonInfoName;
 
-  enum IncludeLiftFaces {NONE_LIFTFACE = 0,
-                         SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
+  // Residual snaps
+  const char *residualPrefix;
+  const char *residualSnapsName;
 
-  enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
+  // Residual bases
+  const char *residualBasisPrefix;
+  const char *residualBasisName;
+  const char *residualSingValsName;
 
-  enum SampleMeshUsed {SAMPLE_MESH_NOT_USED = 0, SAMPLE_MESH_USED = 1} sampleMeshUsed;
-  int pseudoInverseNodes;
+  // Action-of-Jacobian snaps
+  const char *jacActionPrefix;
+  const char *jacActionSnapsName;
 
-  GNATData();
-  ~GNATData() {}
+  // Action-of-Jacobian bases
+  const char *jacActionBasisPrefix;
+  const char *jacActionBasisName;
+  const char *jacActionSingValsName;
+
+  // GNAT quantities
+  const char *gnatPrefix;
+  const char *sampledNodesName;         //sampleNodes;
+  const char *sampledNodesFullCoordsName; // sampled nodes in full mesh coordinates
+  const char *sampledCentersName;
+  const char *sampledStateBasisName;    //podStateRed;
+  const char *sampledKrylovBasisName;
+  const char *sampledSensitivityBasisName;
+  const char *sampledResidualBasisName; //podFileResHat;
+  const char *sampledJacActionBasisName; //podFileJacHat;
+  const char *sampledMeshName;          //mesh;
+  const char *sampledSolutionName;      //solution;
+  const char *sampledRefStateName;
+  const char *sampledWallDistName;      //wallDistanceRed;
+  const char *gappyJacActionName;             //jacMatrix in sampled coords; 
+  const char *gappyResidualName;             //resMatrix in sampled coords;
+  const char *approxMetricLowRankName; // approximated metric in reduced mesh coordinates
+  const char *approxMetricLowRankFullCoordsName; // approximated metric in full mesh coordinates
+  const char *approxMetricLowRankSurfaceCoordsName;
+  
+  // Surface quantities
+  const char *surfacePrefix;
+  const char *surfaceCentersName;
+  const char *surfaceStateBasisName;
+  const char *surfaceRefStateName;
+  const char *surfaceSolutionName;
+  const char *surfaceWallDistName;
+  const char *surfaceMeshName;
+
+  NonlinearRomFilesData();
+  ~NonlinearRomFilesData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
 };
+
 //------------------------------------------------------------------------------
 
-struct DataCompressionData {
+struct NonlinearRomFileSystemData {
 
-  enum Type {POD = 0, BALANCED_POD = 1} type;
-  enum PODMethod {SVD = 0, Eig = 1} podMethod;
-  int maxVecStorage;
-  enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
-  double tolerance;
+  int nClusters;
 
-  DataCompressionData();
-  ~DataCompressionData() {}
+  NonlinearRomDirectoriesData directories;
+  NonlinearRomFilesData files;
+
+  NonlinearRomFileSystemData();
+  ~NonlinearRomFileSystemData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct NonlinearRomOnlineNonStateData {
+
+  enum Include {INCLUDE_OFF = 0, INCLUDE_ON = 1} include;
+  enum GramSchmidt {GRAMSCHMIDT_OFF = 0, GRAMSCHMIDT_ON = 1} gramSchmidt;
+
+	int minDimension;
+  int maxDimension;
+  double energy;
+
+  int timeFreq;
+  int newtonFreq;
+
+  NonlinearRomOnlineNonStateData();
+  ~NonlinearRomOnlineNonStateData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct NonlinearRomOnlineData {
+
+	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
+	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
+  enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
+	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3} lsSolver;
+
+  enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
+  double weightingExponent;
+  double ffWeight;
+  double wallWeight;
+  double bcWeightGrowthFactor;
+  double levenbergMarquardtWeight;
+
+  double regThresh;
+  double constantGain;
+  double proportionalGain;
+  double integralGain;
+  double integralLeakGain;
+  double ffErrorTol;
+  int controlNodeID; 
+  double reducedTimeStep;
+
+  int minDimension;
+  int maxDimension;
+  double energy;
+  double bufferEnergy;
+
+  double residualsCoordMin;
+  double residualsCoordMax;
+  int residualsCoordRes;
+
+  enum AdjustInteriorWeight {ADJUST_INTERIOR_WEIGHT_FALSE=0, ADJUST_INTERIOR_WEIGHT_TRUE=1} adjustInteriorWeight;
+  enum AllowBCWeightDecrease {ALLOW_DECREASE_FALSE=0, ALLOW_DECREASE_TRUE=1} allowBCWeightDecrease;
+
+  enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
+  int basisUpdateFreq;
+  double basisUpdateTolerance;
+
+  enum ProjectSwitchStateOntoAffineSubspace {PROJECT_OFF = 0, PROJECT_ON = 1} projectSwitchStateOntoAffineSubspace;
+
+  enum DistanceComparisons {DISTANCE_COMPARISONS_OFF = 0, DISTANCE_COMPARISONS_ON = 1} distanceComparisons;
+  enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
+
+  NonlinearRomOnlineNonStateData krylov;
+  NonlinearRomOnlineNonStateData sensitivity;
+  NonlinearRomOnlineNonStateData onlineResiduals;
+
+  NonlinearRomOnlineData();
+  ~NonlinearRomOnlineData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct RelativeProjectionErrorData {
+
+  enum RelativeProjectionError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_STATE = 1, REL_PROJ_ERROR_RESIDUAL = 2, REL_PROJ_ERROR_JACACTION = 3} relProjError;
+  enum ProjectIncrementalSnapshots {PROJECT_INCREMENTAL_SNAPS_FALSE = 0, PROJECT_INCREMENTAL_SNAPS_TRUE = 1} projectIncrementalSnaps;
+  enum ProjectSnapshotsMinusRefSol {PROJECT_SNAPS_MINUS_REF_SOL_FALSE = 0, PROJECT_SNAPS_MINUS_REF_SOL_TRUE = 1} subtractRefSol;
+
+  int minDimension;
+  int maxDimension;
+  double energy;
+
+  int sweepFreq;
+  enum UseFirstStateAsRefStateForIncrBasis {ASSUME_INCR_REFSTATE_FALSE = 0, ASSUME_INCR_REFSTATE_TRUE = 1} useFirstStateAsRefStateForIncrBasis;
+
+  enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1} basisUpdates;
+
+  enum PostProProjectedStates {POST_PRO_OFF = 0, POST_PRO_ON = 1} postProProjectedStates;
+
+  NonlinearRomOnlineNonStateData krylov;
+  NonlinearRomOnlineNonStateData sensitivity;
+
+  RelativeProjectionErrorData();
+  ~RelativeProjectionErrorData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct StateSnapshotsData {
+
+  enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
+  enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
+  enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
+  enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;
+  enum SubtractRefState {SUBTRACT_REF_STATE_FALSE = 0, SUBTRACT_REF_STATE_TRUE = 1} subtractRefState;
+
+  StateSnapshotsData();
+  ~StateSnapshotsData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -2181,18 +2387,262 @@ struct DataCompressionData {
 
 struct SnapshotsData {
 
-  enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
-  enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
-  enum SubtractIC {SUBTRACT_IC_FALSE = 0, SUBTRACT_IC_TRUE = 1} subtractIC;
-  enum RelProjError {REL_PROJ_ERROR_OFF = 0, REL_PROJ_ERROR_ON = 1} relProjError;
-  // int sampleFreq; // this is now specified in the ascii snapshot file
-  enum SnapshotWeights {UNIFORM = 0, RBF = 1} snapshotWeights;
-  DataCompressionData dataCompression;
+	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
 
-  SnapshotsData();
-  ~SnapshotsData() {}
+	SnapshotsData();
+	~SnapshotsData() {}
 
   void setup(const char *, ClassAssigner * = 0);
+
+};
+
+
+//------------------------------------------------------------------------------
+
+struct DataCompressionData {
+
+  enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
+  enum Type {POD = 0, BALANCED_POD = 1} type;
+  enum PODMethod {SCALAPACK_SVD = 0, PROBABILISTIC_SVD = 1, Eig = 2} podMethod;
+  int maxVecStorage;
+  enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
+  double tolerance;
+  int maxBasisSize;
+  int minBasisSize;
+  double singValTolerance;
+  double maxEnergyRetained;
+
+  DataCompressionData();
+  ~DataCompressionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+
+//------------------------------------------------------------------------------
+
+struct StateData {
+
+  StateSnapshotsData snapshots;
+  DataCompressionData dataCompression;
+
+  StateData();
+  ~StateData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct ResidualData {
+
+  SnapshotsData snapshots;
+	DataCompressionData dataCompression;
+
+  ResidualData();
+  ~ResidualData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct JacobianActionData {
+
+  SnapshotsData snapshots;
+	DataCompressionData dataCompression;
+
+  JacobianActionData();
+  ~JacobianActionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct SensitivityData {
+
+  SnapshotsData snapshots;
+	DataCompressionData dataCompression;
+
+  SensitivityData();
+  ~SensitivityData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct KrylovData {
+
+  SnapshotsData snapshots;
+	DataCompressionData dataCompression;
+
+  KrylovData();
+  ~KrylovData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct ClusteringData {
+
+  enum ClusteringAlgorithm {K_MEANS_WITHOUT_BOUNDS = 0, K_MEANS_WITH_BOUNDS = 1} clusteringAlgorithm;
+  enum KmeansBoundType {TIGHT_BOUNDS = 0, LOOSE_BOUNDS = 1} kmeansBoundType;
+  double percentOverlap;
+  int maxIter;
+  int maxIterAggressive;
+  int minClusterSize;
+  double kMeansTol;
+  int kMeansRandSeed;
+  enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
+  enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
+  enum ClusterFilesSeparately {CLUSTER_FILES_SEPARATELY_FALSE = 0, CLUSTER_FILES_SEPARATELY_TRUE = 1} clusterFilesSeparately;
+  enum ClusterIncrements {CLUSTER_INCREMENTS_FALSE = 0, CLUSTER_INCREMENTS_TRUE = 1} clusterIncrements;
+
+  ClusteringData();
+  ~ClusteringData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+
+//------------------------------------------------------------------------------
+
+struct ApproximatedMetricData {
+
+  double sampledMeshFraction;
+  double lowRankEnergy;
+  double tolerance;
+  ApproximatedMetricData();
+  ~ApproximatedMetricData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+//------------------------------------------------------------------------------
+
+struct BasisUpdatesData {
+
+  enum PreprocessForNoUpdates {NO_UPDATES_FALSE = 0, NO_UPDATES_TRUE = 1} preprocessForNoUpdates;
+  enum PreprocessForSimpleUpdates {SIMPLE_UPDATES_FALSE = 0, SIMPLE_UPDATES_TRUE = 1} preprocessForSimpleUpdates;
+  enum PreprocessForExactUpdates {EXACT_UPDATES_FALSE = 0, EXACT_UPDATES_TRUE = 1} preprocessForExactUpdates;
+  enum PreprocessForApproxUpdates {APPROX_UPDATES_FALSE = 0, APPROX_UPDATES_TRUE = 1} preprocessForApproxUpdates;
+  ApproximatedMetricData approximatedMetric;
+
+
+  BasisUpdatesData();
+  ~BasisUpdatesData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct ROBConstructionData {
+
+  StateData state;
+  ResidualData residual;
+  JacobianActionData jacAction;
+  SensitivityData sensitivity;
+  KrylovData krylov;
+
+  ClusteringData clustering;
+  BasisUpdatesData basisUpdates;
+  RelativeProjectionErrorData relativeProjectionError;
+
+  enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
+
+  ROBConstructionData();
+  ~ROBConstructionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct GNATConstructionData {
+
+	// optional: to document
+
+  int maxDimensionState;
+  int minDimensionState;
+  double energyState;
+
+  int maxDimensionSensitivity;
+  int minDimensionSensitivity;
+  double energySensitivity;
+
+  int maxDimensionKrylov;
+  int minDimensionKrylov;
+  double energyKrylov;
+
+  int maxDimensionResidual;
+  int minDimensionResidual;
+  double energyResidual;
+
+  int maxDimensionJacAction;
+  int minDimensionJacAction;
+  double energyJacAction;
+
+	enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
+		JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;
+
+  int maxDimensionROBGreedy;	// default: nRobNonlin
+  int minDimensionROBGreedy;
+  double robGreedyFactor;
+
+  int maxSampledNodes;
+  int minSampledNodes;
+  double sampledNodesFactor;
+  int layers;
+
+  enum IncludeLiftFaces {NONE_LIFTFACE = 0,
+		SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
+
+  enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
+
+  enum UseUnionOfSampledNodes {UNION_FALSE = 0, UNION_TRUE = 1} useUnionOfSampledNodes;
+
+  enum UseOldReducedSVecFunction {USE_OLD_FALSE = 0, USE_OLD_TRUE = 1} useOldReducedSVecFunction;
+
+  enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
+  int pseudoInverseNodes;
+  enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
+  enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
+
+  double farFieldWeight;
+  double wallWeight;
+
+  GNATConstructionData();
+  ~GNATConstructionData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct NonlinearRomOfflineData {
+
+  GNATConstructionData gnat;
+  ROBConstructionData rob;
+
+  NonlinearRomOfflineData();
+  ~NonlinearRomOfflineData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
 };
 
 //------------------------------------------------------------------------------
@@ -2247,7 +2697,6 @@ struct LinearizedData {
   double gamFreq20;
 
 
-  DataCompressionData dataCompression;
 
   PadeData pade;
 
@@ -2438,9 +2887,9 @@ public:
   RigidMeshMotionData rmesh;
   AeroelasticData aero;
   ForcedData forced;
-  ModelReductionData rom;
-  GNATData gnat;
-  SnapshotsData snapshots;
+  NonlinearRomOfflineData romOffline;
+  NonlinearRomOnlineData romOnline;
+  NonlinearRomFileSystemData romDatabase;
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
@@ -2495,6 +2944,11 @@ public:
   void printDebug();
 
   void setupOneDimensional();
+
+  int checkInputValuesNonlinearRomPreprocessing();
+  int checkInputValuesNonlinearRomOnline();
+  int checkInputValuesNonlinearRomPostprocessing();
+
 };
 
 //------------------------------------------------------------------------------

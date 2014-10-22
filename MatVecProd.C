@@ -56,6 +56,8 @@ MatVecProdFD<dim, neq>::MatVecProdFD
 
   fdOrder = ioData.ts.implicit.fdOrder; 
 
+  output = NULL;
+
 }
 
 //------------------------------------------------------------------------------
@@ -93,8 +95,9 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
   if (recFcnCon && !this->isFSI) {
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
-    if (timeState)
+    if (timeState) {
       timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
+    }
 
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -280,6 +283,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
+  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   if (fdOrder == 1) {
 
@@ -316,6 +320,8 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     Feps.strip(Ftmp);
 
     prod = (0.5/eps) * (Fepstmp - Ftmp);
+
+    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 
@@ -369,7 +375,10 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
 	std::vector<std::vector<int> > sampledLocNodes =
 		restrictionMapping.getRestrictedToOriginLocNode() ;
 
-  double eps = computeEpsilon(Q, p);
+  DistSVec<double, dim> pRestricted(restrictionMapping.restrictedDistInfo());
+  restrictionMapping.restriction(p,pRestricted);
+
+  double eps = computeEpsilon(Q, pRestricted);
 
 // Included (MB)
   Qepstmp = Q + eps * p;
@@ -543,7 +552,9 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
-  
+
+  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+ 
   if (fdOrder == 1) {
 
     spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
@@ -583,6 +594,8 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
     prod += (0.5/eps) * (Fepstmp - Ftmp);
 
+    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+
   }
 
 }
@@ -606,6 +619,8 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
   Feps.strip(Fepstmp);
   
+  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+
   if (fdOrder == 1) {
 
     Q.pad(Qeps);
@@ -632,6 +647,8 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
     Feps.strip(Ftmp);
 
     prod += (0.5/eps) * (Fepstmp - Ftmp);
+
+    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 

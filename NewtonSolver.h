@@ -98,6 +98,9 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
   for (it=0; it<maxIts; ++it) {
 
+    *(probDesc->getNewtonIt()) = it;
+    *(probDesc->getNumResidualsOutputCurrentNewtonIt()) = 0;
+
 
     // compute the nonlinear function value
     probDesc->computeFunction(it, Q, F);
@@ -122,15 +125,17 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
     rhs = -1.0 * F;
+    
+    probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);  // save states and residuals for rom
 
-    // arguments: lastIt, time step, total time, vector
-    // for now, do not output on last time step (lastIt = false)
-    probDesc->writeBinaryVectorsToDiskRom(false, timeStep, 0.0, &F);	// save residuals for rom (must know time step)
     probDesc->recomputeFunction(Q, rhs);
     probDesc->computeJacobian(it, Q, F);
 
     // apply preconditioner if available
     probDesc->setOperators(Q);
+
+    // set up krylov snapshots for ROM if applicable
+    probDesc->setCurrentStateForKspBinaryOutput(Q);
 
     probDesc->solveLinearSystem(it, rhs, dQ);
 
@@ -167,6 +172,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       rhs = Q;
       Q += dQ;
    }
+    probDesc->incrementNewtonOutputTag();
+
     // verify that the solution is physical
     if (probDesc->checkSolution(Q)) {
       if (probDesc->getTsParams()->checksol){
@@ -199,6 +206,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->printf(1, "*** Warning: Newton solver reached %d its", maxIts);
     probDesc->printf(1, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);    
   }
+
+  probDesc->writeBinaryVectorsToDiskRom(true, timeStep, it, &Q, NULL);  // save state after final iteration for ROM
   
   return it;
 

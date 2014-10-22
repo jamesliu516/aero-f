@@ -45,6 +45,7 @@ using std::max;
 #include <limits>
 #include <PolygonReconstructionData.h> 
 #include <Quadrature.h>
+#include <sys/stat.h>
 #include <RTree.h>
 #include <ProgrammedBurn.h>
 #include "LevelSet/LevelSetStructure.h"
@@ -3970,6 +3971,21 @@ void SubDomain::addRcvGhostOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,
 }
 
 //------------------------------------------------------------------------------
+template<class Scalar, int dim>
+bool SubDomain::checkIfFileExists(const char *prefix)
+{
+
+  char name[MAXLINE];
+  sprintf(name, "%s%s", prefix, suffix);
+
+  struct stat buf;
+  
+  return (stat(name, &buf) != -1) ? true : false;
+
+}
+
+
+//------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
 double SubDomain::readTagFromFile(const char *prefix, int no, int *neq, int *nsol)
@@ -7742,5 +7758,4 @@ void SubDomain::computeJacobianFiniteVolumeTermHH(FluxFcn **fluxFcn, BcData<dim>
   }
 
 }
-
 

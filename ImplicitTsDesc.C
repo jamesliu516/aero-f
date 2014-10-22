@@ -8,6 +8,7 @@
 #include <KspSolver.h>
 #include <NewtonSolver.h>
 #include <MultiGridPrec.h>
+#include <cstring>
 
 //------------------------------------------------------------------------------
 
@@ -31,6 +32,13 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);
 
   myIoDataPtr = &ioData;
+  
+  if (strcmp(ioData.output.rom.krylovVector,"")==0) {
+    kspBinaryOutput = NULL;
+  } else {
+    kspBinaryOutput = new KspBinaryOutput<DistSVec<double,dim> >(this->domain->getCommunicator(), &ioData, this->domain);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -38,9 +46,9 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
 template<int dim>
 ImplicitTsDesc<dim>::~ImplicitTsDesc()
 {
-
   if (tag) { delete tag; tag = 0; }
   if (ns) { delete ns; ns = 0; }
+  if (kspBinaryOutput) delete kspBinaryOutput;
 
 }
 
@@ -179,7 +187,6 @@ ImplicitTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &kspdata,
   else if (kspdata.type == KspData::GCR)
      _ksp = new GcrSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
        KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
-                                                        
   return _ksp;
 
 }
@@ -211,3 +218,21 @@ void ImplicitTsDesc<dim>::resetFixesTag()
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
+                                                        DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
+{
+  this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, state, residual); 
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitTsDesc<dim>::incrementNewtonOutputTag()
+{
+    ++(*(this->domain->getNewtonTag()));
+
+}
+

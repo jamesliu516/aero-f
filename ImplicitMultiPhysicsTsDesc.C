@@ -480,7 +480,7 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<do
 
   int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
   
-  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
+  if(this->data->checklinsolve && lits==ksp->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1; 
   
   dQ = this->embeddeddQ.real();
 //  this->embeddedU.ghost() += this->embeddeddQ.ghost();
@@ -566,7 +566,7 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<
   
   int lits = kspLS->solve(b, dQ);
 
-  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1;
 
   //mvpLS->apply(dQ, fnew);
 

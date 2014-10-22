@@ -188,7 +188,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-     
+    
+    *(probDesc->getTimeIt()) = it;
+ 
     bool solveOrNot = true;
     
     bool repeat;

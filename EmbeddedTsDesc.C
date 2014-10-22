@@ -663,12 +663,15 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
   this->output->cleanProbesFile();
+  double fluxNorm = 0.5*(this->data->residual)*(this->data->residual);
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
+    this->output->writeMatchPressureToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, *this->A, U, this->timeState, &nodeTag);
+    this->output->writeFluxNormToDisk(it, 0, 0, t, fluxNorm);
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
@@ -693,8 +696,11 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
+  double fluxNorm = 0.5*(this->data->residual)*(this->data->residual);
 
   this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeMatchPressureToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, *this->A, U, this->timeState, &nodeTag);
+  this->output->writeFluxNormToDisk(it, itSc, itNl, t, fluxNorm);
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);

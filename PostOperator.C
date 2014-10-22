@@ -41,7 +41,8 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
 // Included (MB)
   if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
       iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
+      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
   }
   else {
@@ -1553,7 +1554,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
         status[i] = 1;
       } else {
         int fid,nid;
-#pragma omp parallel for reduction(+: status[i])
+#pragma omp parallel for reduction(+: (status[i]))
         for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
           if (distLSS) { // Then we are in the case of an Embedded simulation
             if (ghostPoints) { // Embedded Navier-Stokes

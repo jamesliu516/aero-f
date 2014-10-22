@@ -139,6 +139,10 @@ class SubDomain {
 
   InletNodeSet inletNodes;
 
+  // for weighting the residual in Nonlinear ROM simulations
+  std::vector<int> farFieldNodes;
+  std::vector<int> wallNodes;
+
   int *locToGlobNodeMap;
   int *locToGlobFaceMap;
   int *locToGlobElemMap;
@@ -298,6 +302,8 @@ public:
   void checkNormalTetrahedra(ExtrapolationNodeData (*&)[2]);
   void setInletNodes(IoData& );
   void setInletNodes2(IoData& );
+  void setFarFieldNodes();
+  void setWallNodes();
   int findOppositeTet(int* , int );
   bool findNodeInTet(int, int);
   void checkInletNodes();
@@ -732,6 +738,8 @@ public:
 
 
   // I/O
+  template<class Scalar, int dim>
+  bool checkIfFileExists(const char *); // without opening file
 
   template<class Scalar, int dim>
   double readTagFromFile(const char *, int, int *, int *);
@@ -1386,7 +1394,6 @@ public:
 				       VarFcn* vf);
 
   void maskHHVector(Vec<double>& hh);
-
   template<int dim, class Scalar, int neq>
     void computeJacobianFiniteVolumeTermHH(FluxFcn **fluxFcn, BcData<dim> &bcData,
 					   GeoState& geoState,
@@ -1395,6 +1402,9 @@ public:
 					   GenMat<Scalar,neq> &A,
 					   VarFcn* vf);
 
+  void setFarFieldMask(Vec<double>& ffMask, Vec<double>& neighborMask);
+  void setWallMask(Vec<double>& wallMask, Vec<double>& neighborMask); 
+ 
   void attachTriangulatedInterfaceLSS(LevelSetStructure*);
   
   Elem* searchPoint(Vec3D Xp, SVec<double,3>& X);

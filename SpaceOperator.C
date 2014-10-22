@@ -53,7 +53,8 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
       ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     dU = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dRm = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -561,6 +562,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     dvms->compute(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState,
                   timeState, X, U, *V, R, failsafe, rshift);
 
+//  if (weightFarFieldSpatialResidual)
+//    domain->weightFarFieldResidual(R, eps)
+
 // Modified (MB)
   if (compatF3D) {
     if (descriptorCase != DESCRIPTOR)  {
@@ -587,7 +591,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
         }
       }
     }
-
   }
 
   // Delete the pointer for consistency
@@ -619,6 +622,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
     timer->addNodalGradTime(t0); 
 	}
+
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);

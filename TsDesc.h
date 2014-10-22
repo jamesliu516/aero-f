@@ -44,6 +44,9 @@ public:
   virtual void monitorInitialState(int, DistSVec<double,dim> &);
 
   Timer *timer;
+
+  void performPostProForState(DistSVec<double,dim> &);
+
 protected:
   DistExactRiemannSolver<dim> *riemann1;
 
@@ -63,7 +66,9 @@ protected:
   TsOutput<dim> *output;
   TsRestart *restart;
 
+  DistSVec<double,dim> *Uic;
   DistSVec<double,dim> *V;
+  DistSVec<double,dim> *F;
   DistSVec<double,dim> *R;
   DistSVec<double,dim> *Rinlet;
   DistSVec<double,dim> *Rreal;
@@ -128,9 +133,10 @@ public:
   SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
   Communicator* getCommunicator() { return com; } 
  
-  bool monitorConvergence(int, DistSVec<double,dim> &);
+  virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
   virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }
@@ -152,7 +158,7 @@ public:
   DistSVec<double,dim>& getCurrentResidual() { return *R; }
 
 // Modified (MB)
-  bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
+  virtual bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
 
   virtual void setupOutputToDisk(IoData &, bool *, int, double,
                                  DistSVec<double,dim> &);
@@ -189,10 +195,6 @@ public:
 
   virtual void setFluidSubcycling(bool inSub) { }
 
-  virtual void writeBinaryVectorsToDiskRom(bool, int, double, 
-		                           DistSVec<double,dim> *F1 = NULL,
-                                           DistSVec<double,dim> *F2 = NULL,
-                                           VecSet< DistSVec<double,dim> > *F3 = NULL);
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
   void updateFarfieldCoeffs(double dt);
@@ -208,6 +210,11 @@ public:
   void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
   void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &);
 
+  virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
+  virtual void incrementNewtonOutputTag() {}
+  int *getTimeIt() { return domain->getTimeIt(); }
+  int *getNewtonIt() { return domain->getNewtonIt(); }
+  int *getNumResidualsOutputCurrentNewtonIt() { return domain->getNumResidualsOutputCurrentNewtonIt(); }
 };
 
 //------------------------------------------------------------------------------

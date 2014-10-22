@@ -878,6 +878,172 @@ double Timer::addWallDistanceTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addReadSnapshotFileTime(double t0) {
+
+  double t = getTime() - t0;
+  data[readSnapshotFile] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addClusteringTime(double t0) {
+
+  double t = getTime() - t0;
+  data[clustering] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addPODTime(double t0) {
+
+  double t = getTime() - t0;
+  data[pod] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addDistCalcsPreproTime(double t0) {
+
+  double t = getTime() - t0;
+  data[distCalcsPrepro] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+                
+double Timer::addExactUpdatesPreproTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[exactUpdatesPrepro] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+                
+double Timer::addProjErrorTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[projError] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+
+double Timer::addMDSTime(double t0) {
+  
+  double t = getTime() - t0;
+  data[mds] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+                
+double Timer::addApproxUpdatesPreproTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[approxUpdatesPrepro] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+                
+double Timer::addSurfaceMeshConstructionTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[surfaceMeshConstruction] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+                
+double Timer::addSurfaceOutputTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[surfaceOutput] += t;
+
+  return t;
+
+} 
+
+
+//------------------------------------------------------------------------------
+                
+double Timer::addSampledMeshConstructionTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[sampledMeshConstruction] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+                
+double Timer::addSampledOutputTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[sampledOutput] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+                
+double Timer::addPseudoInvTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[pseudoInv] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+                
+double Timer::addTotalGnatOfflineTime(double t0) {
+                
+  double t = getTime() - t0;
+  data[gnatOffline] += t;
+
+  return t;
+
+} 
+
+//------------------------------------------------------------------------------
+
+double Timer::addTotalOfflineTime(double t0) {
+
+  double t = getTime() - t0;
+  data[romOffline] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
 // note: the timings of both fluid and mesh parts contain their communication
 void Timer::print(Timer *str, FILE *fp)
 {
@@ -899,7 +1065,7 @@ void Timer::print(Timer *str, FILE *fp)
   data[comm] = data[localCom] + data[globalCom] + data[rmaCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
   
-  if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_)
+  if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
     data[podConstr] -= data[io];
 
   int i;
@@ -982,7 +1148,10 @@ void Timer::print(Timer *str, FILE *fp)
   }
   com->fprintf(fp, "\n");
 
-  if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_)  {
+  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ) || 
+      (ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_ ) ||
+      (ioData->problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ) ||
+      (ioData->problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ))  {
     com->fprintf(fp, "  Residual evaluation         : %10.2f %10.2f %10.2f %9d\n",
               tmin[residual], tmax[residual], tavg[residual],
 							counter[residual]);
@@ -1044,7 +1213,40 @@ void Timer::print(Timer *str, FILE *fp)
 
 
   // Output POD Timers
-  if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_) {
+  if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_) {
+    com->fprintf(fp, "Offline ROM Precomputations   : %10.2f %10.2f %10.2f         -\n",
+               tmin[romOffline], tmax[romOffline], tavg[romOffline]);
+    com->fprintf(fp, "  Read State Snapshot Files   : %10.2f %10.2f %10.2f         -\n",
+               tmin[readSnapshotFile], tmax[readSnapshotFile], tavg[readSnapshotFile]);
+    com->fprintf(fp, "  K-Means Clustering          : %10.2f %10.2f %10.2f         -\n",
+               tmin[clustering], tmax[clustering], tavg[clustering]);
+    com->fprintf(fp, "  SVDs                        : %10.2f %10.2f %10.2f         -\n",
+               tmin[pod], tmax[pod], tavg[pod]);
+    com->fprintf(fp, "  Fast Distance Calcs Prepro  : %10.2f %10.2f %10.2f         -\n",
+               tmin[distCalcsPrepro], tmax[distCalcsPrepro], tavg[distCalcsPrepro]);
+    com->fprintf(fp, "  Fast Exact Updates Prepro   : %10.2f %10.2f %10.2f         -\n",
+               tmin[exactUpdatesPrepro], tmax[exactUpdatesPrepro], tavg[exactUpdatesPrepro]);
+    com->fprintf(fp, "  Relative Projection Error   : %10.2f %10.2f %10.2f         -\n",
+               tmin[projError], tmax[projError], tavg[projError]);
+    com->fprintf(fp, "  Multi-Dimensional Scaling   : %10.2f %10.2f %10.2f         -\n",
+               tmin[mds], tmax[mds], tavg[mds]);
+    com->fprintf(fp, "  Offline GNAT Prepro         : %10.2f %10.2f %10.2f         -\n",
+               tmin[gnatOffline], tmax[gnatOffline], tavg[gnatOffline]);
+    com->fprintf(fp, "    Fast Approx Updates Prepro: %10.2f %10.2f %10.2f         -\n",
+               tmin[approxUpdatesPrepro], tmax[approxUpdatesPrepro], tavg[approxUpdatesPrepro]);
+    com->fprintf(fp, "    Sampled Mesh Construction : %10.2f %10.2f %10.2f         -\n",
+               tmin[sampledMeshConstruction], tmax[sampledMeshConstruction], tavg[sampledMeshConstruction]);
+    com->fprintf(fp, "    Sampled Quantity Output   : %10.2f %10.2f %10.2f         -\n",
+               tmin[sampledOutput], tmax[sampledOutput], tavg[sampledOutput]);
+    com->fprintf(fp, "    Pseudo-Inverse            : %10.2f %10.2f %10.2f         -\n",
+               tmin[pseudoInv], tmax[pseudoInv], tavg[pseudoInv]);
+    com->fprintf(fp, "    Surface Mesh Construction : %10.2f %10.2f %10.2f         -\n",
+               tmin[surfaceMeshConstruction], tmax[surfaceMeshConstruction], tavg[surfaceMeshConstruction]);
+    com->fprintf(fp, "    Surface Quantity Output   : %10.2f %10.2f %10.2f         -\n",
+               tmin[surfaceOutput], tmax[surfaceOutput], tavg[surfaceOutput]);
+    com->fprintf(fp, "\n");
+  }
+  else if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
     com->fprintf(fp, "POD Basis Construction        : %10.2f %10.2f %10.2f         -\n",
                tmin[podConstr], tmax[podConstr], tavg[podConstr]);
     com->fprintf(fp, "  Snapshot Linear Solver      : %10.2f %10.2f %10.2f %9d\n",

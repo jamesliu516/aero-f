@@ -1545,7 +1545,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
     this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
   }
 
-  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
+  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, *this->A, this->timeState);
 
 }
 

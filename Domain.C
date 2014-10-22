@@ -687,6 +687,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -780,6 +781,7 @@ void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -916,6 +918,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1030,6 +1033,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistExactRiemannS
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1142,6 +1146,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1247,6 +1252,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -1380,6 +1386,7 @@ void Domain::computeFiniteVolumeBarTerm(DistVec<double> &ctrlVol,
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      MPI_Abort(com->comm,-1);
       exit(1);
     }
     else {   // If failsafe option is Yes or Always
@@ -3195,6 +3202,31 @@ void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn 
       subDomain[iSub]->rcvGhostTags(*levelPat, ghostPoints(iSub));
     }
 }
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+bool Domain::readTagFromFile(const char *prefix, int step, double *tag, int *numSteps)
+{// unlike readVectorFromFile and writeVectorToFile, this function will not call exit() if the file does not exist -- it simply returns false
+
+  bool fileExists = subDomain[0]->template checkIfFileExists<Scalar,dim>(prefix);
+
+  if (fileExists) {
+    int neq;
+    double t = subDomain[0]->template readTagFromFile<Scalar,dim>(prefix, step, &neq, numSteps);
+    if (tag) *tag = t;
+    if (neq != dim) com->printf(1, "*** Warning: mismatch in dim for \'%s\' (%d vs %d)\n", prefix, neq, dim);
+    if (step >= *numSteps)  return false;
+    return true;
+  } else {
+    *numSteps = 0;
+    *tag = 0;
+    return false;
+  }
+
+}
+
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -4564,7 +4596,7 @@ void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,di
 }
 
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded, int *whichFiles) {	
 
@@ -4675,6 +4707,8 @@ void Domain::readPodBasis(const char *podFile, int &nPod,
 	}
   com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEigDisplayed, eigValue/firstEigDisplayed);
 }
+
+*/
 
 template<typename Scalar>
 void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,

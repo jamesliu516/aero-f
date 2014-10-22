@@ -97,7 +97,7 @@ dX(dom->getNodeDistInfo())
 
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)  
   {
-    if (ioData.ts.implicit.mvp == ImplicitData::H2)
+    if (ioData.sa.mvp == SensitivityAnalysis::H2)
     {
       mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
     }
@@ -108,7 +108,7 @@ dX(dom->getNodeDistInfo())
   }
   else 
   {
-    if (ioData.ts.implicit.mvp == ImplicitData::H2)
+    if (ioData.sa.mvp == SensitivityAnalysis::H2)
     {
       mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
     }
@@ -1126,7 +1126,6 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
-
 }
 
 //------------------------------------------------------------------------------
@@ -1668,9 +1667,26 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData,
   double sboom = 0.0;
   double dSboom = 0.0;
 
+/*  // Compute Flux norm and derivative
+  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
+     this->computeFunction(0,U,Flux,true);
+  else
+     this->computeFunction(0,U,Flux,false);
+
+  double normF = Flux.norm();
+  double normF2 = 0.5*normF*normF;
+  double dnormF2; 
+
+  DFluxDs = 0;
+  for (int i = 0; i < this->nPod; ++i)
+    DFluxDs += (this->AJ[i])*dYdS[i];
+  dnormF2 = (this->F)*DFluxDs;*/
+
+
   //
   // This function is simply writing to the disk.
   //
+  //this->output->writeDerivativeOfFluxNormToDisk(step, actvar, normF2, dnormF2);
   this->output->writeDerivativeOfForcesToDisk(step, actvar, F, dFds, M, dMds, sboom, dSboom);
   this->output->writeDerivativeOfLiftDragToDisk(step, actvar, L, dLds); 
  
@@ -1683,7 +1699,7 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData,
   // - Derivative of Vector Quantities: VelocityVector, Displacement
   //
   //
-  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
+  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, *this->A, this->timeState);
 
 }
 
