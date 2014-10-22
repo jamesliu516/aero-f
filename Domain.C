@@ -4541,46 +4541,25 @@ void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void Domain::updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId)
+void Domain::updateFluidIdFS2Prep(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<bool,4> &poll)
 {
-  //if(dimLS!=1) {fprintf(stderr,"ERROR: For Multi-Phase Cracking, dimLS must be 1. (Here it is %d).\n", dimLS);exit(-1);}
-  DistSVec<bool,3> poll(getNodeDistInfo());
-
   int iSub;
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub),dimLS);
-    subDomain[iSub]->sndData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub));
+    subDomain[iSub]->sndData(*bool4Pat, reinterpret_cast<bool (*)[4]>(poll.subData(iSub)));
+    //subDomain[iSub]->sndData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
   }
 
-  bool3Pat->exchange();
+  bool4Pat->exchange();
+  //bool3Pat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->maxRcvData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
-    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), poll(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
-//    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+    subDomain[iSub]->maxRcvData(*bool4Pat, reinterpret_cast<bool (*)[4]>(poll.subData(iSub)));
+    //subDomain[iSub]->maxRcvData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+//    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), poll(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
   }
-
-//  levelPat->exchange();
-
-//#pragma omp parallel for
-//  for (iSub = 0; iSub < numLocSub; ++iSub)
-//    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
-
-/*
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
-    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
-  }
-
-  levelPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -4815,6 +4794,28 @@ void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexac
   com->globalSum(dim, error);
 }
 
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void Domain::computeL2Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
+			    DistVec<double>& vol, double error[dim],
+                            DistLevelSetStructure* distLSS) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    LevelSetStructure*  LSS = (distLSS ? &(*distLSS)(iSub) : NULL);
+    subDomain[iSub]->computeL2Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), 
+				    vol(iSub),error, LSS);
+  }
+
+  com->globalSum(dim, error);
+
+  for (int k = 0; k < dim; ++k) {
+
+    error[k] = sqrt(error[k]);
+  }
+}
+
+
 
 template <int dim>
 void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],DistLevelSetStructure* distLSS) {
@@ -4857,6 +4858,106 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 
 	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
 	  
+	}
+      }
+    }
+  } else if (iod.embed.testCase == 2) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = X(iSub)[i];
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+	  
+	  double V[5];
+	  ExactSolution::AcousticViscousBeam(iod,x[0],x[1],x[2],t, V);
+
+	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
+	  
+	}
+      }
+    }
+  } else if (iod.mf.testCase == 3) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = X(iSub)[i];
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12 ||
+	    x[1] == 0.0 || fabs(x[1]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+	  
+	  double V[5];
+	  double dummy;
+	  int fid;
+	  ExactSolution::AcousticTwoFluid(iod,x[0],x[1],x[2],t, V,&dummy, fid);
+
+	  varFcn->primitiveToConservative(V, U(iSub)[i], fid);
+	  
+	}
+      }
+    }
+  }
+}
+
+template <int dim>
+void Domain::setExactBoundaryResidual(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				      IoData& iod,double t, VarFcn* varFcn) {
+
+  if (iod.embed.testCase == 1 || iod.embed.testCase == 2 || iod.mf.testCase == 3) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = X(iSub)[i];
+	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+	  
+	  memset(U(iSub)[i], 0, sizeof(double)*dim);
+	  
+	}
+      }
+    }
+  }
+}
+
+template <int dim,int neq,class Scalar>
+void Domain::setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3>& X,
+				      IoData& iod,double t, VarFcn* varFcn,
+				      DistMat<Scalar,neq>& A) {
+
+  if (iod.embed.testCase == 1 || iod.embed.testCase == 2 || iod.mf.testCase == 3) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++) {
+
+      int (*edgePtr)[2] = subDomain[iSub]->getEdges().getPtr();
+      
+      GenMat<Scalar,neq> &Asub = A(iSub);
+      for (int l=0; l<subDomain[iSub]->getEdges().size(); ++l) {
+	int i = edgePtr[l][0];
+	int j = edgePtr[l][1];
+	
+	double* xi = X(iSub)[i];
+	double* xj = X(iSub)[j];
+	bool isi = (xi[0] == 0.0 || fabs(xi[0]-1.0) < 1.0e-12);
+	bool isj = (xj[0] == 0.0 || fabs(xj[0]-1.0) < 1.0e-12);
+	
+	if (isi)  {
+	  Scalar *Aij = Asub.getElem_ij(l);
+	  memset(Aij, 0, sizeof(double)*neq*neq);
+	}
+	
+	if (isj)  {
+	  Scalar *Aji = Asub.getElem_ji(l);
+	  memset(Aji, 0, sizeof(double)*neq*neq);
 	}
       }
     }

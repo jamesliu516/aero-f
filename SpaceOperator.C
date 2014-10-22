@@ -51,7 +51,10 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     V = new DistSVec<double,dim>(domain->getNodeDistInfo());
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     dU = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dRm = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -363,7 +366,7 @@ RecFcn *SpaceOperator<dim>::createRecFcn(IoData &ioData)
 	rf = new RecFcnExtendedVanAlbada<dim>(beta, eps,ioData.eqs.fluidModelMap.dataMap[0]->pmin ,
                                               ioData.eqs.fluidModelMap.dataMap[0]->rhomin,
                                               ioData.schemes.ns.xip,
-                                              ioData.schemes.ns.xirho );
+                                              ioData.schemes.ns.xirho,ioData.schemes.ns.vel_fac );
       else if (ioData.schemes.ns.limiter == SchemeData::BARTH)
 	rf = new RecFcnBarth<dim>(beta, eps);
       else if (ioData.schemes.ns.limiter == SchemeData::VENKAT)
@@ -1252,9 +1255,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
         bool linFSI = linRecAtInterface || viscSecOrder;
-	ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, 
-			  	   Wstarij, Wstarji, countWstarij, countWstarji, 
-			  	   linFSI, distLSS);
+        ngrad->compute(geoState->getConfig(), X, ctrlVol, 
+                   fluidId, *V, linFSI, distLSS);
+//	ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, 
+//			  	   Wstarij, Wstarji, countWstarij, countWstarji, 
+//			  	   linFSI, distLSS);
     timer->addNodalGradTime(t0);
   }
 
@@ -1420,7 +1425,7 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, true, fluidId);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, false, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }
@@ -2159,6 +2164,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       break;
 
     case 2: // Embedded Surface
+      ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true,distLSS);
       domain->computeEmbSurfBasedForceLoad(*iod,forceApp,orderOfAccuracy,X,Fs,sizeFs,
 					   distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,ngrad,varFcn,fid);
       break;
@@ -2775,14 +2781,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 
   int iter=0, maxIter=1000000;
   int finished = 0;
-  while(finished == 0 && iter < maxIter){++iter;finished = 1;
+  while(finished == 0 && iter < maxIter){
+    ++iter;
+    finished = 1;
     switch(phaseChangeChoice){
-    case 0: this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,
-                                                          init, next_init, distLSS, fluidId);
+    case 0: 
+      this->domain->computeWeightsForEmbeddedStruct(X, V, Weights,VWeights,Phi,PhiWeights,init, next_init, distLSS, fluidId);
       break;
-    case 1: this->com->fprintf(stderr," *** computeReimannWeights temporarily broken / using regular extrapolation ***\n");
-      this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,
-                                                    init, next_init, distLSS, fluidId);
+    case 1: 
+      this->com->fprintf(stderr," *** computeReimannWeights temporarily broken / using regular extrapolation ***\n");
+      this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights,init,next_init,distLSS,fluidId);
       break;
     }
 
@@ -2790,7 +2798,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
 #pragma omp parallel for
       for(iSub=0;iSub<numLocSub;++iSub) {
         for(int i=0;i<init(iSub).size();++i)
-          if(init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0 || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
+          if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || (init(iSub)[i]<1.0 && (*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())) {
             if(!(*distLSS)(iSub).isActive(0.0,i)) {
               if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
                 const double one_over_weight=(double)1.0/Weights(iSub)[i];
@@ -2819,11 +2827,17 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
           if(!((*distLSS)(iSub).isSwept(0.0,i)) && (((*fluidId0)(iSub)[i]!=(*distLSS)(iSub).numOfFluids()) || 
                                                     ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())))
             continue;
+
+          if(locToGlobNodeMap[i]+1==508306) 
+            fprintf(stderr,"I AM HERE. Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
+
           if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || 
              (init(iSub)[i]<1.0 && ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() 
                                     || (*fluidId0)(iSub)[i]==(*distLSS)(iSub).numOfFluids()))) {
             if((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids()) {
-              if(!(*distLSS)(iSub).isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
+              if(!(*distLSS)(iSub).isOccluded(0.0,i)) {
+                fprintf(stderr,"BUG in updateSweptNode! Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
+              } //just debug
               if(Weights(iSub)[i]>=0.1/*i.e. at least 1*/) {
                 const double one_over_weight=(double)1.0/Weights(iSub)[i];
                 V(iSub)[i][0] = vfar[0];
@@ -2831,12 +2845,17 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
                 for(int d=4; d<dim; d++) V(iSub)[i][d] = vfar[d];
                 for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = PhiWeights(iSub)[i][d]*one_over_weight;
               } else { // might want to print a warning message. I don't see why this can happen
+                fprintf(stderr,"WARNING: Setting nodal state at Global Node Id %d to farfield state...\n", locToGlobNodeMap[i]+1);
                 for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
                 for(int d=0;d<dimLS;++d) Phi(iSub)[i][d] = 0.0; //set phi = 0 because this node is at interface
               }
             } else {
-              const double one_over_weight=(double)1.0/Weights(iSub)[i];
               double phiS = (*distLSS)(iSub).distToInterface(0.0,i); //this is the UNSIGNED distance
+              if(Weights(iSub)[i]<0.1) {
+                fprintf(stderr,"ERROR in updateSweptNodes: Weight = %e. (Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, phiS: %e, LSS.numOfFluids: %d.\n", Weights(iSub)[i], locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), phiS, (*distLSS)(iSub).numOfFluids());
+                exit(-1);
+              }
+              const double one_over_weight=(double)1.0/Weights(iSub)[i];
               if(phiS<0.0) {
                 Phi(iSub)[i][dimLS-1] = std::fabs(PhiWeights(iSub)[i][dimLS-1]*one_over_weight);
                 for(int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
@@ -2934,12 +2953,13 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub) {
 	  int* locToGlobNodeMap = subD[iSub]->getNodeMap();
-	  if (locToGlobNodeMap[9045]+1==1589845)  {
+/*	  if (locToGlobNodeMap[9045]+1==1589845)  {
 	    int i = 9045;
 	    std::cout << 
 		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
 	      V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << fluidId(iSub)[i] << std::endl;
 	  }
+*/
       for(int i=0;i<init(iSub).size();++i) {
 //		if ((*distLSS)(iSub).isSwept(0.0,i)&&(*distLSS)(iSub).isActive(0.0,i))
 //		  fprintf(stdout,"XY: Node %d needs phase change update:\n",locToGlobNodeMap[i]+1);
@@ -2963,9 +2983,9 @@ extrapolatePhaseChange(DistSVec<double,3> &X, DistVec<double> &ctrlVol,int phase
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
 			  break;
 		  }
-		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" <<  fluidId(iSub)[i] <<"): " <<
-		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
-		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
+//		  std::cout << "Phase change value " << locToGlobNodeMap[i]+1 << " (" <<  fluidId(iSub)[i] <<"): " <<
+//		    V0(iSub)[i][0] << " " << V0(iSub)[i][1] << " " << V0(iSub)[i][2] << " "  <<
+//		    V0(iSub)[i][3] << " "  <<V0(iSub)[i][4] << " " << std::endl;
 
                   if (this->domain->getSubDomain()[iSub]->getHigherOrderMF() && limit) {
 

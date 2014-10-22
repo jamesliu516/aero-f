@@ -36,6 +36,10 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   epsNewton = implicitData.newton.eps;
   epsAbsResNewton = implicitData.newton.epsAbsRes;
   epsAbsIncNewton = implicitData.newton.epsAbsInc;
+  maxItsLS = implicitData.newton.lineSearch.maxIts;
+  contractionLS = implicitData.newton.lineSearch.rho;
+  sufficDecreaseLS = implicitData.newton.lineSearch.c1;
+
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD)
@@ -211,6 +215,11 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
   if (this->modifiedGhidaglia)
     embeddedU.hh() = *this->bcData->getBoundaryStateHH();
   
+  this->domain->setExactBoundaryValues(U, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+  
+
   its = this->ns->solve(U);
 
   this->errorHandler->reduceError();
@@ -257,6 +266,9 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     this->timeState->updateHH(embeddedU.hh());
   }
 
+  this->domain->setExactBoundaryValues(U, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
 
   this->updateBoundaryExternalState();
   return its;
@@ -302,6 +314,10 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   //else if (it > 1 &&  timeType == ExplicitData::RUNGE_KUTTA_2)
   //  locphi = this->Phi0;
 
+  this->domain->setExactBoundaryValues(Q, *this->X, this->ioData, 
+				       this->currentTime + this->currentTimeStep,
+				       this->spaceOp->getVarFcn());
+  
   if (this->lsMethod == 0) {
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 
@@ -316,6 +332,10 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
+  this->domain->setExactBoundaryResidual(F, *this->X, this->ioData, 
+					 this->currentTime + this->currentTimeStep,
+					 this->spaceOp->getVarFcn());
+
  
   if (this->modifiedGhidaglia) {
 
@@ -372,6 +392,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<double,
 							DistSVec<double,dim> &F)
 {
 
+  MatVecProdH1<dim,double,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
   if (this->modifiedGhidaglia)
     mvp->evaluateHH(*this->hhResidual, *this->bcData->getBoundaryStateHH());
   
@@ -380,6 +401,10 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<double,
   } else
     mvp->evaluate(it, *this->X, *this->A, Q, this->Phi, F);
   
+  if (mvph1) 
+    this->domain->setExactBoundaryJacobian(Q, *this->X, this->ioData, 
+					   this->currentTime + this->currentTimeStep,
+					   this->spaceOp->getVarFcn(), *mvph1);
 }
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>

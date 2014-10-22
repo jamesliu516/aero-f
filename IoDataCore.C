@@ -85,6 +85,8 @@ InputData::InputData()
   decomposition = "";
   cpumap = "";
   match = "";
+  embmeshmatch = "";
+  embsurfmatch = "";
   d2wall = "";
   perturbed = "";
   solutions = "";
@@ -117,6 +119,7 @@ InputData::InputData()
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
+  reducedEigState = "";
 
   exactInterfaceLocation = "";
 
@@ -130,7 +133,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 36, father);
+  ClassAssigner *ca = new ClassAssigner(name, 38, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -138,6 +141,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Decomposition", this, &InputData::decomposition);
   new ClassStr<InputData>(ca, "CpuMap", this, &InputData::cpumap);
   new ClassStr<InputData>(ca, "Matcher", this, &InputData::match);
+  new ClassStr<InputData>(ca, "EmbeddedMeshMatcher", this, &InputData::embmeshmatch);
+  new ClassStr<InputData>(ca, "EmbeddedSurfaceMatcher", this, &InputData::embsurfmatch);
   new ClassStr<InputData>(ca, "WallDistance", this, &InputData::d2wall);
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
@@ -166,6 +171,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
+  new ClassStr<InputData>(ca, "RedEigState", this, &InputData::reducedEigState);
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
   new ClassStr<InputData>(ca, "ConvergenceFile", this, &InputData::convergence_file);
@@ -244,6 +250,7 @@ Probes::Probes() {
   prefix = "";
   density = "";
   pressure = "";
+  diffpressure = "";
   temperature = "";
   velocity = "";
   displacement = "";
@@ -260,6 +267,7 @@ void Probes::setup(const char *name, ClassAssigner *father)
   new ClassStr<Probes>(ca, "Density", this, &Probes::density);
   new ClassStr<Probes>(ca, "Pressure", this, &Probes::pressure);
   new ClassStr<Probes>(ca, "Temperature", this, &Probes::temperature);
+  new ClassStr<Probes>(ca, "DeltaPressure", this, &Probes::diffpressure);
   new ClassStr<Probes>(ca, "Velocity", this, &Probes::velocity);
   new ClassStr<Probes>(ca, "Displacement", this, &Probes::displacement);
 
@@ -378,7 +386,10 @@ TransientData::TransientData()
   fluidid="";
   d2wall="";
   embeddedsurface = "";
-  cputiming = "";
+  cputiming = ""; 
+  aeroelasticEigenvalues = "";
+  gamData = "";
+  gamFData = "";
 
 // Included (MB)
   velocitynorm = "";
@@ -504,6 +515,9 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "WallDistance", this, &TransientData::d2wall);
   new ClassStr<TransientData>(ca, "EmbeddedSurfaceDisplacement", this, &TransientData::embeddedsurface);
   new ClassStr<TransientData>(ca, "CPUTiming", this, &TransientData::cputiming);
+  new ClassStr<TransientData>(ca, "AeroelasticEigenvalues", this, &TransientData::aeroelasticEigenvalues);
+  new ClassStr<TransientData>(ca, "GAMData", this, &TransientData::gamData);
+  new ClassStr<TransientData>(ca, "GAMFData", this, &TransientData::gamFData);
 
   // Gappy POD offline
   // Gappy POD snapshots
@@ -724,7 +738,6 @@ ProblemData::ProblemData()
 
   test = REGULAR;
   verbose = 4;
-
 }
 
 //------------------------------------------------------------------------------
@@ -748,8 +761,9 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-		 "Aeroacoustic", 33, "ShapeOptimization", 34, "AcceleratedUnsteadyNonlinearROM", 35,
-		 "SteadyNonlinearROM", 36, "ForcedNonlinearROM", 37, "RomShapeOptimization", 38);
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35, "AeroelasticAnalysis", 36, 
+     "GAMConstruction", 37, "NonlinearEigenResidual", 38, "AcceleratedUnsteadyNonlinearROM", 39,
+     "SteadyNonlinearROM", 40, "ForcedNonlinearROM", 41, "RomShapeOptimization", 42);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -1839,6 +1853,46 @@ Assigner *PlaneData::getAssigner()
 
 //------------------------------------------------------------------------------
 
+CylinderData::CylinderData() {
+
+  fluidModelID = -1;
+  cen_x  = 0.0;
+  cen_y  = 0.0;
+  cen_z  = 0.0;
+  nx     = 0.0;
+  ny     = 0.0;
+  nz     = 1.0;
+
+  r = 0.5;
+  L = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+Assigner *CylinderData::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
+
+  new ClassInt<CylinderData> (ca, "FluidID", this, &CylinderData::fluidModelID);
+
+  new ClassDouble<CylinderData> (ca, "Point_x", this, &CylinderData::cen_x);
+  new ClassDouble<CylinderData> (ca, "Point_y", this, &CylinderData::cen_y);
+  new ClassDouble<CylinderData> (ca, "Point_z", this, &CylinderData::cen_z);
+  new ClassDouble<CylinderData> (ca, "Normal_x", this, &CylinderData::nx);
+  new ClassDouble<CylinderData> (ca, "Normal_y", this, &CylinderData::ny);
+  new ClassDouble<CylinderData> (ca, "Normal_z", this, &CylinderData::nz);
+  new ClassDouble<CylinderData> (ca, "Radius", this, &CylinderData::r);
+  new ClassDouble<CylinderData> (ca, "Length", this, &CylinderData::L);
+
+  initialConditions.setup("InitialState", ca);
+
+  return ca;
+}
+
+//------------------------------------------------------------------------------
+
 PointData::PointData()
 {
   fluidModelID = -1;
@@ -1865,6 +1919,8 @@ Assigner *PointData::getAssigner()
     (ca, "Z", this, &PointData::z);
 
   initialConditions.setup("InitialState", ca);
+
+  programmedBurn.setup("ProgrammedBurn", ca);
 
   return ca;
 }
@@ -1895,6 +1951,7 @@ void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
   sphereMap.setup("Sphere", ca);
   prismMap.setup("Box", ca);
   planeMap.setup("Plane", ca);
+  cylinderMap.setup("Cylinder", ca);
   pointMap.setup("Point", ca);
   dummyPointMap.setup("DummyPoint", ca);
 
@@ -2108,6 +2165,8 @@ MultiFluidData::MultiFluidData()
   levelSetMethod = CONSERVATIVE;
   interfaceOmitCells = 0;
 
+  prec = NON_PRECONDITIONED;
+
   riemannNormal = REAL;
 }
 
@@ -2187,6 +2246,14 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
                                  "LevelSet",0,"Fluid",1);
 
+  // Low mach preconditioning of the exact Riemann problem.
+  // Added by Alex Main (December 2013)
+  //
+  new ClassToken<MultiFluidData>
+    (ca, "Prec", this,
+     reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::prec), 2,
+     "NonPreconditioned", 0, "LowMach", 1);
+
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
@@ -2214,6 +2281,7 @@ SchemeData::SchemeData(int af) : allowsFlux(af)
   xirho = 1.0;
   xip = 1.0;
 
+  vel_fac = sqrt(5.0);
 }
 
 //------------------------------------------------------------------------------
@@ -2268,6 +2336,7 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
   
   new ClassDouble<SchemeData>(ca, "XiRho", this, &SchemeData::xirho);
   new ClassDouble<SchemeData>(ca, "XiP", this, &SchemeData::xip);
+  new ClassDouble<SchemeData>(ca, "VelFac", this, &SchemeData::vel_fac);
 
   fluxMap.setup("FluxMap",ca);
 }
@@ -2594,9 +2663,15 @@ MultiGridData::MultiGridData()
 
   restrictMethod = VOLUME_WEIGHTED;
   addViscousTerms = 0;
+  addTurbulenceTerms = 0;
   coarseningRatio = TWOTOONE;
 
   agglomerationFile = "";
+
+  turbRelaxCutoff = 1.0e10;
+
+  densityMin = 0.0;
+  densityMax = 1e20;
 }
 
 //------------------------------------------------------------------------------
@@ -2627,6 +2702,11 @@ MultiGridData::*>(&MultiGridData::restrictMethod), 2,
 MultiGridData::*>(&MultiGridData::addViscousTerms), 2,
        "No",0,"Yes", 1);
   
+  new ClassToken<MultiGridData>(ca, "AddTurbulenceTerms", this,
+       reinterpret_cast<int
+MultiGridData::*>(&MultiGridData::addTurbulenceTerms), 2,
+       "No",0,"Yes", 1);
+
   new ClassToken<MultiGridData>(ca, "UseGMRESAcceleration", this,
        reinterpret_cast<int
 MultiGridData::*>(&MultiGridData::useGMRESAcceleration), 2,
@@ -2646,6 +2726,15 @@ MultiGridData::*>(&MultiGridData::coarseningRatio), 2,
   new ClassDouble<MultiGridData>(ca, "RestrictRelaxFactor",this,
 &MultiGridData::restrict_relax_factor);
   
+  new ClassDouble<MultiGridData>(ca, "TurbulenceRelaxationCutoff",this,
+&MultiGridData::turbRelaxCutoff);
+
+  new ClassDouble<MultiGridData>(ca, "DensityMin",this,
+				 &MultiGridData::densityMin);
+
+  new ClassDouble<MultiGridData>(ca, "DensityMax",this,
+				 &MultiGridData::densityMax);
+
   fixes.setup("Fixes", ca);
 
   new ClassStr<MultiGridData>
@@ -2723,6 +2812,29 @@ void KspFluidData::setup(const char *name, ClassAssigner *father)
 
 }
 
+//------------------------------------------------------------------------------
+
+LineSearchData::LineSearchData()
+{
+
+  maxIts = 0;
+  rho = 0.5;
+  c1 = 0.25;
+
+}
+
+//------------------------------------------------------------------------------
+
+void LineSearchData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+
+  new ClassInt<LineSearchData>(ca, "MaxIts", this, &LineSearchData::maxIts);
+  new ClassDouble<LineSearchData>(ca, "SufficientDecreaseFactor", this, &LineSearchData::c1);
+  new ClassDouble<LineSearchData>(ca, "ContractionFactor", this, &LineSearchData::rho);
+}
 //------------------------------------------------------------------------------
 
 ImplicitData::ImplicitData()
@@ -2856,6 +2968,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
     
   new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
   new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
+  new ClassDouble<CFLData>(ca, "Cfl2", this, &CFLData::cflCoef2);
   new ClassDouble<CFLData>(ca, "CflMax", this, &CFLData::cflMax);
   new ClassDouble<CFLData>(ca, "CflMin", this, &CFLData::cflMin);
   new ClassDouble<CFLData>(ca, "DualTimeCfl", this, &CFLData::dualtimecfl);
@@ -3071,12 +3184,14 @@ SensitivityAnalysis::SensitivityAnalysis()
   mvp = H2;
   lsSolver=QR;
   eps = 0.00001;
+  sensFSI  = OFF_SENSITIVITYFSI;
   sensMesh = OFF_SENSITIVITYMESH;
   sensMach = OFF_SENSITIVITYMACH;
   sensAlpha = OFF_SENSITIVITYALPHA;
   sensBeta = OFF_SENSITIVITYBETA;
   si = 0;
   sf = -1;
+  fsiFlag = false;
 
   // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
@@ -3105,6 +3220,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensFSI), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
@@ -3408,14 +3524,15 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ForcedData>
     (ca, "Type", this,
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 6,
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 8,
      "Heaving", 0, "Pitching", 1, "Velocity", 2, "Deforming", 3, "DebugDeforming",4,
-     "AcousticBeam", 5);
+     "AcousticBeam", 5, "Spiraling", 6,"AcousticViscousBeam", 7);
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
 
   hv.setup("Heaving", ca);
+  sp.setup("Spiraling", ca);
   pt.setup("Pitching", ca);
   vel.setup("Velocity",ca);
   df.setup("Deforming", ca);
@@ -3454,6 +3571,33 @@ void HeavingData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+SpiralingData::SpiralingData()
+{
+
+  domain = VOLUME;
+  xL = 1.0;
+  x0 = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SpiralingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassToken<SpiralingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int SpiralingData::*>(&SpiralingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassDouble<SpiralingData>(ca, "CableLength", this, &SpiralingData::xL);
+  new ClassDouble<SpiralingData>(ca, "X0", this, &SpiralingData::x0);
+
+}
+
+//------------------------------------------------------------------------------
 PitchingData::PitchingData()
 {
 
@@ -4449,6 +4593,8 @@ LinearizedData::LinearizedData()
   stepsizeinitial = -1.0;
   eps = 1e-4;
   eps2 = 5.0;
+  epsEV = 1e-4;
+  maxItEV = 20;
   tolerance = 1e-8;
   strModesFile = "";
   modeNumber = 1;
@@ -4458,6 +4604,46 @@ LinearizedData::LinearizedData()
   refLength = 1;
   freqStep = 0;
 
+  gamFreq[0] = -1.0;
+  gamFreq[1] = -1.0;
+  gamFreq[2] = -1.0;
+  gamFreq[4] = -1.0;
+  gamFreq[5] = -1.0;
+  gamFreq[6] = -1.0;
+  gamFreq[7] = -1.0;
+  gamFreq[8] = -1.0;
+  gamFreq[9] = -1.0;
+  gamFreq[10] = -1.0;
+  gamFreq[11] = -1.0;
+  gamFreq[12] = -1.0;
+  gamFreq[14] = -1.0;
+  gamFreq[15] = -1.0;
+  gamFreq[16] = -1.0;
+  gamFreq[17] = -1.0;
+  gamFreq[18] = -1.0;
+  gamFreq[19] = -1.0;
+ 
+  gamFreq1 = -1.0;
+  gamFreq2 = -1.0;
+  gamFreq3 = -1.0;
+  gamFreq4 = -1.0;
+  gamFreq5 = -1.0;
+  gamFreq6 = -1.0;
+  gamFreq7 = -1.0;
+  gamFreq8 = -1.0;
+  gamFreq9 = -1.0;
+  gamFreq10 = -1.0;
+  gamFreq11 = -1.0;
+  gamFreq12 = -1.0;
+  gamFreq13 = -1.0;
+  gamFreq14 = -1.0;
+  gamFreq15 = -1.0;
+  gamFreq16 = -1.0;
+  gamFreq17 = -1.0;
+  gamFreq18 = -1.0;
+  gamFreq19 = -1.0;
+  gamFreq20 = -1.0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -4465,7 +4651,7 @@ LinearizedData::LinearizedData()
 void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 17, father);
+  ClassAssigner *ca = new ClassAssigner(name, 28, father);
 
   new ClassToken<LinearizedData> (ca, "Type", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::type), 3, "Default", 0, "Rom", 1, "Forced", 2);
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
@@ -4476,12 +4662,34 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
   new ClassDouble<LinearizedData>(ca, "Eps", this, &LinearizedData::eps);
   new ClassDouble<LinearizedData>(ca, "Eps2", this, &LinearizedData::eps2);
+  new ClassDouble<LinearizedData>(ca, "EpsEV", this, &LinearizedData::epsEV);
   new ClassDouble<LinearizedData>(ca, "Tolerance", this, &LinearizedData::tolerance);
   new ClassStr<LinearizedData>(ca, "StrModes", this, &LinearizedData::strModesFile);
   new ClassInt<LinearizedData>(ca, "ExcMode", this, &LinearizedData::modeNumber);
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
+  new ClassInt<LinearizedData>(ca, "MaxItEV", this, &LinearizedData::maxItEV);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency1ReducedFrequency", this, &LinearizedData::gamFreq1);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency2ReducedFrequency", this, &LinearizedData::gamFreq2);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency3ReducedFrequency", this, &LinearizedData::gamFreq3);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency4ReducedFrequency", this, &LinearizedData::gamFreq4);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency5ReducedFrequency", this, &LinearizedData::gamFreq5);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency6ReducedFrequency", this, &LinearizedData::gamFreq6);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency7ReducedFrequency", this, &LinearizedData::gamFreq7);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency8ReducedFrequency", this, &LinearizedData::gamFreq8);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency9ReducedFrequency", this, &LinearizedData::gamFreq9);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency10ReducedFrequency", this, &LinearizedData::gamFreq10);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency11ReducedFrequency", this, &LinearizedData::gamFreq11);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency12ReducedFrequency", this, &LinearizedData::gamFreq12);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency13ReducedFrequency", this, &LinearizedData::gamFreq13);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency14ReducedFrequency", this, &LinearizedData::gamFreq14);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency15ReducedFrequency", this, &LinearizedData::gamFreq15);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency16ReducedFrequency", this, &LinearizedData::gamFreq16); 
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency17ReducedFrequency", this, &LinearizedData::gamFreq17);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency18ReducedFrequency", this, &LinearizedData::gamFreq18);  
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency19ReducedFrequency", this, &LinearizedData::gamFreq19);
+  new ClassDouble<LinearizedData>(ca, "GAMFrequency20ReducedFrequency", this, &LinearizedData::gamFreq20);
   pade.setup("Pade", ca);
 
 }
@@ -4814,6 +5022,8 @@ EmbeddedFramework::EmbeddedFramework() {
   riemannNormal = STRUCTURE;
   phaseChangeAlg = AVERAGE;
   interfaceAlg = MID_EDGE;
+
+  prec = NON_PRECONDITIONED;
   alpha = 0.1;
 
   nLevelset = 0;
@@ -4870,6 +5080,15 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
+
+  // Low mach preconditioning of the exact Riemann problem.
+  // Added by Alex Main (December 2013)
+  //
+  new ClassToken<EmbeddedFramework>
+    (ca, "Prec", this,
+     reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::prec), 2,
+     "NonPreconditioned", 0, "LowMach", 1);
+
 
 }
 
@@ -5233,6 +5452,7 @@ void IoData::resetInputValues()
     problem.type[ProblemData::ACCELERATED] = true;
 
   if (problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
+      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_ ||
@@ -5262,7 +5482,10 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
-      problem.alltype == ProblemData::_ROB_INNER_PRODUCT_)
+      problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
+      problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
+      problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_)
     problem.type[ProblemData::LINEARIZED] = true;
 
   if (problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_ ||
@@ -5270,7 +5493,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
       problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
       problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
-      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_) 
+      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_)
     problem.type[ProblemData::NLROMOFFLINE] = true;
 
   if (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ||
@@ -5283,12 +5506,21 @@ void IoData::resetInputValues()
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) 
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) 
   {
 
     //
     // Check that the code is running within the "correct" limits
     //
+
+    if(sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI && sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
+    {
+      sa.sensMesh = SensitivityAnalysis::OFF_SENSITIVITYMESH;
+      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.SensitivityMesh has been turned off -----\n");
+    } 
 
     if (sa.method == SensitivityAnalysis::ADJOINT)
     {
@@ -5507,6 +5739,19 @@ void IoData::resetInputValues()
   if(bc.inlet.type == BcsFreeStreamData::INTERNAL)
     schemes.bc.type = BoundarySchemeData::STEGER_WARMING;
 
+
+  if (ts.implicit.newton.lineSearch.maxIts > 0) {
+    if (ts.implicit.newton.lineSearch.rho <= 0 || ts.implicit.newton.lineSearch.rho >= 1){
+      com->fprintf(stderr, "*** Warning: incorrect value for contraction factor in line-search: setting it to 0.5 \n");
+      ts.implicit.newton.lineSearch.rho = 0.5;
+    }
+    if (ts.implicit.newton.lineSearch.c1 <= 0 || ts.implicit.newton.lineSearch.c1 >= 0.5){
+      com->fprintf(stderr, "*** Warning: incorrect value for sufficient decrease coefficient in line-search: setting it to 0.25 \n");
+      ts.implicit.newton.lineSearch.c1 = 0.25;
+    }
+  }
+
+
   int nCoarseFreq = 0;
   if (problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
 
@@ -5584,6 +5829,30 @@ void IoData::resetInputValues()
                          " cannot be used for unsteady problems.\n");
     exit(1);
   }
+
+  if (problem.alltype == ProblemData::_GAM_CONSTRUCTION_) {
+    linearizedData.gamFreq[0] = linearizedData.gamFreq1;
+    linearizedData.gamFreq[1] = linearizedData.gamFreq2;
+    linearizedData.gamFreq[2] = linearizedData.gamFreq3;
+    linearizedData.gamFreq[3] = linearizedData.gamFreq4;
+    linearizedData.gamFreq[4] = linearizedData.gamFreq5;
+    linearizedData.gamFreq[5] = linearizedData.gamFreq6;
+    linearizedData.gamFreq[6] = linearizedData.gamFreq7;
+    linearizedData.gamFreq[7] = linearizedData.gamFreq8;
+    linearizedData.gamFreq[8] = linearizedData.gamFreq9;
+    linearizedData.gamFreq[9] = linearizedData.gamFreq10;
+    linearizedData.gamFreq[10] = linearizedData.gamFreq11;
+    linearizedData.gamFreq[11] = linearizedData.gamFreq12;
+    linearizedData.gamFreq[12] = linearizedData.gamFreq13;
+    linearizedData.gamFreq[13] = linearizedData.gamFreq14;
+    linearizedData.gamFreq[14] = linearizedData.gamFreq15;
+    linearizedData.gamFreq[15] = linearizedData.gamFreq16;
+    linearizedData.gamFreq[16] = linearizedData.gamFreq17;
+    linearizedData.gamFreq[17] = linearizedData.gamFreq18;
+    linearizedData.gamFreq[18] = linearizedData.gamFreq19;
+    linearizedData.gamFreq[19] = linearizedData.gamFreq20;
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -5843,6 +6112,7 @@ int IoData::checkInputValuesAllEquationsOfState(){
   if(eqs.numPhase > 1 && 
      (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
       !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
+      !mf.multiInitialConditions.cylinderMap.dataMap.empty()  ||
       !mf.multiInitialConditions.prismMap.dataMap.empty() || 
       !input.oneDimensionalInput.dataMap.empty()))
     mf.interfaceType = MultiFluidData::FF;
@@ -5942,6 +6212,20 @@ int IoData::checkInputValuesAllInitialConditions(){
     }
   }
 
+  if(!mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator it;
+    for (it=mf.multiInitialConditions.cylinderMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.cylinderMap.dataMap.end();
+         it++){
+      error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+      
+      if(it->second->r <= 0.0){
+        error++;
+        com->fprintf(stderr, "*** Error: a positive radius must be specified for the cylinder[%d] initial conditions\n", it->first);
+      }
+    }
+  }
+
   // check input values of initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator it;
@@ -5956,10 +6240,24 @@ int IoData::checkInputValuesAllInitialConditions(){
 
   embed.nLevelset = (embed.crackingWithLevelset==EmbeddedFramework::ON) ? 1 : 0;
 
+  if (embed.crackingWithLevelset==EmbeddedFramework::ON && embed.forceAlg == 0) {
+
+    error++;
+    com->fprintf(stderr, "*** Error: cannot use ReconstructedSurface for SurrogateSurface when doing cracking!\n");
+    
+  } 
+
   // count number of levelsets (consider only bubbles!) for the Embedded Framework.
   set<int> usedModels; 
   for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
        it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+       it++) {
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
+
+  for (map<int, CylinderData *>::iterator it=mf.multiInitialConditions.cylinderMap.dataMap.begin();
+       it!=mf.multiInitialConditions.cylinderMap.dataMap.end();
        it++) {
     if (it->second->fluidModelID > 0)
       usedModels.insert(it->second->fluidModelID);
@@ -5973,6 +6271,14 @@ int IoData::checkInputValuesAllInitialConditions(){
       usedModels.insert(it->second->fluidModelID);
   }
  
+  for (map<int, PlaneData *>::iterator it=mf.multiInitialConditions.planeMap.dataMap.begin();
+       it!=mf.multiInitialConditions.planeMap.dataMap.end();
+       it++) {
+    
+    if (it->second->fluidModelID > 0)
+      usedModels.insert(it->second->fluidModelID);
+  }
+
   if (!input.oneDimensionalInput.dataMap.empty()) {
     if (input.oneDimensionalInput.dataMap.size() > 1) 
       std::cout << "Warning: having more than one 1D->3D remap has not been considered" << std::endl;
@@ -6107,6 +6413,20 @@ void IoData::nonDimensionalizeAllInitialConditions(){
     }
   }
 
+  if(!mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator it;
+    for (it=mf.multiInitialConditions.cylinderMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.cylinderMap.dataMap.end();
+         it++){
+      nonDimensionalizeInitialConditions(it->second->initialConditions);
+      it->second->cen_x /= ref.rv.length;
+      it->second->cen_y  /= ref.rv.length;
+      it->second->cen_z  /= ref.rv.length;
+      it->second->r  /= ref.rv.length;
+      it->second->L  /= ref.rv.length;
+    }
+  }
+
   implosion.Pinit /= ref.rv.pressure;
   implosion.Prate /= ref.rv.pressure/ref.rv.time;
   implosion.tmax  /= ref.rv.time;
@@ -6121,6 +6441,17 @@ void IoData::nonDimensionalizeAllInitialConditions(){
       it->second->x /= ref.rv.length;
       it->second->y /= ref.rv.length;
       it->second->z /= ref.rv.length;
+      
+      // Nondimensionalize  programmed burn
+      it->second->programmedBurn.ignitionX0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionY0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionZ0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionTime /= ref.rv.time;
+      it->second->programmedBurn.e0 /= ref.rv.energy;
+      it->second->programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+      it->second->programmedBurn.cjPressure /= ref.rv.pressure;
+      it->second->programmedBurn.cjDensity /= ref.rv.density;
+      it->second->programmedBurn.cjEnergy /= ref.rv.energy;
     }
   }
 }
@@ -6204,6 +6535,10 @@ void IoData:: nonDimensionalizeForcedMotion(){
   forced.hv.ax /= ref.rv.length;
   forced.hv.ay /= ref.rv.length;
   forced.hv.az /= ref.rv.length;
+
+  //spiraling
+  forced.sp.xL /= ref.rv.length;
+  forced.sp.x0 /= ref.rv.length;
 
   //pitching
   forced.pt.x11 /= ref.rv.length;
@@ -6298,9 +6633,9 @@ int IoData::checkInputValuesNonDimensional()
       bc.inlet.density = 1.0;
 
     // set up pressure
-    if (bc.inlet.pressure < 0.0)
+    if (bc.inlet.pressure < 0.0) {
       if (eqs.fluidModel.fluid == FluidModelData::PERFECT_GAS ||
-          eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS)
+          eqs.fluidModel.fluid == FluidModelData::STIFFENED_GAS) {
         if(ref.mach>0.0) {
 //          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
           bc.inlet.pressure = bc.inlet.density / (gamma * ref.mach * ref.mach * (1.0 + eqs.fluidModel.gasModel.pressureConstant));
@@ -6308,7 +6643,8 @@ int IoData::checkInputValuesNonDimensional()
         }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
-      else if (eqs.fluidModel.fluid == FluidModelData::JWL)
+      }
+      else if (eqs.fluidModel.fluid == FluidModelData::JWL) {
         if(ref.mach>0.0){
           double frho  = A1*(1-omega*bc.inlet.density/(R1*rhoref))*exp(-R1*rhoref/bc.inlet.density) +
                          A2*(1-omega*bc.inlet.density/(R2*rhoref))*exp(-R2*rhoref/bc.inlet.density);
@@ -6320,8 +6656,10 @@ int IoData::checkInputValuesNonDimensional()
         }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
+      }
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
+    }
 
     // set up temperature (for Tait)
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -6454,8 +6792,13 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       if (eqs.type == EquationsData::NAVIER_STOKES){
         viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
         (1.0 + eqs.viscosityModel.sutherlandReferenceTemperature/ref.temperature);
-        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT)
+        if(eqs.viscosityModel.type == ViscosityModelData::CONSTANT) {
+          if (eqs.viscosityModel.dynamicViscosity < 0.0) {
+            com->fprintf(stderr, "*** Error: no valid dynamic viscosity (%f) given\n",eqs.viscosityModel.dynamicViscosity);
+            ++error;
+          }
           viscosity = eqs.viscosityModel.dynamicViscosity;
+        }
         ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
       }
 
@@ -6903,6 +7246,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
     }
   }
       
+#define SUPERMAN 1
 
   // then check that the initial conditions for that fluidModel are adequate.
   if(initialConditions.mach < 0 && initialConditions.velocity < 0 ){
@@ -6927,7 +7271,7 @@ int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditio
       error++;
       com->fprintf(stderr, "*** Error : either initial pressure or density must be specified\n");
     }
-    if(initialConditions.temperature < 0 && fluidModel->liquidModel.burnable == LiquidModelData::NO){
+    if(initialConditions.temperature < 0 && fluidModel->liquidModel.burnable == LiquidModelData::NO && !SUPERMAN){
       error++;
       com->fprintf(stderr, "*** Error : an initial temperature must be specified\n");
     }
@@ -7011,6 +7355,7 @@ int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int flui
 //------------------------------------------------------------------------------
 
 void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialConditions){
+
 
   initialConditions.velocity    /= ref.rv.velocity;
   initialConditions.pressure    /= ref.rv.pressure;
@@ -7281,6 +7626,18 @@ int IoData::checkInputValuesProgrammedBurn() {
     }
   }
 
+  if(!embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator it;
+    for (it=embed.embedIC.pointMap.dataMap.begin();
+         it!=embed.embedIC.pointMap.dataMap.end();
+         it++) {
+
+      ProgrammedBurnData& programmedBurn = it->second->programmedBurn;
+      InitialConditions& IC = it->second->initialConditions;
+      error += checkProgrammedBurnLocal(programmedBurn, IC);
+    }
+  }
+
   return error;
 }
 //------------------------------------------------------------------------------
@@ -7290,8 +7647,8 @@ int IoData::checkInputValuesEmbeddedFramework() {
 
   if(!mf.multiInitialConditions.planeMap.dataMap.empty() ||
      !volumes.volumeMap.dataMap.empty()) {
-    com->fprintf(stderr,"ERROR: Currently specifying initial conditions using 'planes' or 'volumes' are not supported by the Embedded Framework!\n");
-    error ++;
+    com->fprintf(stderr,"Warning: Currently specifying initial conditions using 'planes' or 'volumes' may not be supported by the Embedded Framework!\n");
+    //error ++;
   }
   return error;
 }

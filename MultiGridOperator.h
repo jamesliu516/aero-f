@@ -9,6 +9,8 @@
 #include <DistMvpMatrix.h>
 #include <DistTimeState.h>
 
+#include <LevelSet/MultiGridLevelSetStructure.h>
+
 template <class Scalar> class MultiGridLevel;
 
 template<class Scalar,int dim>
@@ -17,7 +19,7 @@ class MultiGridOperator {
  public:
 
   MultiGridOperator(MultiGridLevel<Scalar>*, IoData& ioData, VarFcn* varFcn,
-                    Domain* domain, BcFcn* = NULL, BcFcn* = NULL);
+                    Domain* domain, BcFcn* = NULL, BcFcn* = NULL, BcFcn* = NULL);
 
   ~MultiGridOperator();
     
@@ -29,6 +31,16 @@ class MultiGridOperator {
                        FemEquationTerm*, 
                        DistMvpMatrix<Scalar2,neq> &A); 
 
+  template <class Scalar2,int neq>
+  void computeJacobianEmbedded(DistExactRiemannSolver<dim>&,
+			       DistSVec<Scalar2,dim>& U, 
+			       DistSVec<Scalar2,dim>& V,
+			       //                       DistVec<Scalar2>& irey,
+			       FluxFcn **fluxFcn,
+			       FemEquationTerm*, 
+			       DistMvpMatrix<Scalar2,neq> &A,
+			       DistMultiGridLevelSetStructure*); 
+  
   template <class Scalar2>
   void computeResidual(DistSVec<Scalar2,dim>& V,
                        DistSVec<Scalar2,dim>& U,
@@ -38,6 +50,24 @@ class MultiGridOperator {
                        FemEquationTerm*, 
                        DistSVec<Scalar2,dim>& res,
                        bool addDWdt = true);
+
+  template <class Scalar2>
+    void computeResidualEmbedded(DistExactRiemannSolver<dim>&,
+				 DistSVec<Scalar2,dim>& V,
+			       DistSVec<Scalar2,dim>& U,
+			       //                     DistVec<Scalar2>& irey,
+			       FluxFcn** fluxFcn,
+			       RecFcn* recFcn,
+			       FemEquationTerm*, 
+			       DistSVec<Scalar2,dim>& res,
+			       DistMultiGridLevelSetStructure*,
+			       bool addDWdt = true);
+
+  template <class Scalar2>
+    void 
+    add_dAW_dtEmbedded(DistSVec<Scalar2,dim>& U,
+		       DistSVec<Scalar2,dim>& res,	
+		       DistMultiGridLevelSetStructure* mgLSS);
 
   template <class Scalar2>
   void applyBCsToResidual(DistSVec<Scalar2,dim>& U,
@@ -61,6 +91,8 @@ class MultiGridOperator {
 
   double queryTimeStep(int iSub, int i);
 
+  DistSVec<Scalar,dim>* getDerivative(int i) { return DX[i]; }
+ 
  private:
 
   MultiGridLevel<Scalar>* mgLevel;
@@ -77,11 +109,13 @@ class MultiGridOperator {
   DistVec<Scalar>* idti;
   DistVec<Scalar>* idtv;
 
+  DistSVec<Scalar,dim>* Wstarij,*Wstarji;
+
   DistNodalGrad<dim,Scalar>* myNodalGrad;
 
   VarFcn* myVarFcn;
 
-  BcFcn* bcFcn,*bcFcn1;
+  BcFcn* bcFcn,*bcFcn1,*bcFcn2;
 
   int addViscousTerms;
 };

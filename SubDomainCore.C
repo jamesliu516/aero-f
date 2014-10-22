@@ -584,14 +584,26 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     double volume = elems[i].computeControlVolumes(X, ctrlVol);
 
     if (volume <= 0.0) {
-      fprintf(stderr,"Element %i has a negative volume…\n",i+1);
+      fprintf(stderr,"Element %i has a negative volume of %e\n",locToGlobElemMap[i]+1,volume);
       ++ierr;
+      ++numInvElem;
       if (numInvElem)
-	elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
-				     locToGlobElemMap, nodes, X);
+       elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
+                                    locToGlobElemMap, nodes, X);
     }
   }
-  
+/*
+#ifdef YDEBUG
+  if(ierr > 0) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
+*/
   return ierr;
 
 }
@@ -3467,7 +3479,7 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
       dofType[i][l] = BC_FREE;
   }
 
-  // Step 2. Set appropriate matched bc's 
+  // Step 2. Set appropriate fixed bc's 
   for (int i=0;i<faces.size(); i++) { // Loop over faces
     bool isSliding = false;
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
@@ -3480,10 +3492,10 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
       case(BC_SYMMETRY):
         if(!isSliding)
           for(int j=0; j<faces[i].numNodes();j++)
-            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_MATCHED;
+            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
 	else
           for(int j=0; j<faces[i].numNodes();j++)
-            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = (dofType[faces[i][j]][l] == BC_MATCHED) ? BC_MATCHED : BC_MATCHEDSLIDE;
+            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = (dofType[faces[i][j]][l] == BC_FIXED) ? BC_FIXED : BC_MATCHEDSLIDE;
 	break;
       case(BC_ISOTHERMAL_WALL_FIXED):
       case(BC_ADIABATIC_WALL_FIXED):
@@ -3491,12 +3503,20 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
       case(BC_INLET_FIXED):
       case(BC_SLIP_WALL_FIXED):
         for(int j=0; j<faces[i].numNodes();j++)
-          for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_MATCHED;
+          for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
         break;
     }
   }
 
-  // Step 3. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
+  // Step 3. Take into account the matched nodes
+  if(matchNodes) {
+    for(int i=0;i<matchNodes->size();i++) {
+      int inode = matchNodes->subMatchNode(i);
+      for(int l=0; l<3; l++) dofType[inode][l] = BC_MATCHED;
+    }
+  }
+
+  // Step 4. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<int> nInfo = ntP.getSendBuffer(sndChannel[iSub]);
     int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
@@ -3744,7 +3764,7 @@ SubDomain::createSlipSurfProjection(int*surfOwn, CommPattern<int>&cpat,
     int locOwn = surfOwn[i];
     int numActDir = 0; // count the number of "active" projection directions at this node
     while(locOwn != 0) { // loop over the sliding surfaces
-      if(locOwn & 1 != 0) { // this node belong to sliding surface "surfNum"
+      if((locOwn & 1) != 0) { // this node belong to sliding surface "surfNum"
         double nx = surfData[surfNum]->nx;
         double ny = surfData[surfNum]->ny;
         double nz = surfData[surfNum]->nz;
@@ -4927,38 +4947,53 @@ void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int 
     }
   }
 }
-void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,
-                                 int dimLS)
+
+void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,4> &poll)
 {
-  /* poll[0,1,2]  |   indication
+  /* poll[0,1,2,3]|   indication
      -------------+---------------
-     1  0  0      |     Id = 0
-     0  1  0      |     Id = 1
-     0  0  1      |     Id = 2(occluded)
-     0  0  0      |     no info available
-     1  1  1      |     can't decide */
+     1  0  0  0   |     Id = 0
+     0  1  0  0   |     Id = 1
+     0  0  1  0   |     Id = 2
+     0  0  0  1   |     Id = occluded
+     0  0  0  0   |     no info available
+     1  1  1  1   |     can't decide */
   
   //if(LSS.numOfFluids()!=2) {fprintf(stderr,"ERROR: #Fluid must be 2! Now it is %d\n",LSS.numOfFluids());exit(-1);}
   const Connectivity &Node2Node = *getNodeToNode();
   
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   for(int i=0; i<nodes.size(); i++) {
-    poll[i][0] = poll[i][1] = poll[i][2] = false;
+    poll[i][0] = poll[i][1] = poll[i][2] = poll[i][3] = false;
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
 
+/*    if (i == 4498)
+      fprintf(stderr,"Rank %d, i = %d, swept = %d, occluded = %d, fluidId = %d, dimLS = %d, poll = %d %d %d %d. LSS.numOfFluids = %d.\n", rank,i, swept, occluded, fluidId[i], 0xFFFF, poll[i][0], poll[i][1], poll[i][2], poll[i][3], LSS.numOfFluids());
+*/
+
+/*
+    if(locToGlobNodeMap[i]+1==349859) {
+      fprintf(stderr,"rank = %d, i = %d.\n", rank, i);      
+    }
+*/
     if(!swept){ //fluidId should not change.
-      if(!occluded && fluidId[i]!=dimLS+1) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
-        //poll[i][fluidId[i]] = true;
-        if (fluidId[i] == 0) poll[i][0] = true;
-        else if (fluidId[i] == dimLS) poll[i][1] = true;
+      if(!occluded && fluidId[i]!=LSS.numOfFluids()) {//this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+        poll[i][fluidId[i]] = true;
         continue;
       }
     }
 
     if(occluded){ //set Id to 2
-      poll[i][2] = true;
+      poll[i][3] = true;
       continue;
     }
+
+    int caught = 0;
+    if(locToGlobNodeMap[i]+1==349859)
+      caught = 1;
 
     int myId = -1;
     int iNei;
@@ -4967,24 +5002,40 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
       iNei = Node2Node[i][j];
       if(i==iNei)
         continue;
+
+      if(caught)
+        fprintf(stderr,"Sub %d, Nei of 349859 (myId = %d): %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
+                globSubNum, myId, locToGlobNodeMap[iNei]+1, fluidId[iNei], LSS.isOccluded(0.0,iNei), LSS.isSwept(0.0,iNei), (int)LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)));
+
       if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)))
         continue;
-      if(myId==-1) {
+
+
+//----------------------------------------
+/*      if(myId==-1) {
         myId = fluidId[iNei];
         consistent = true;
       } else if(myId!=fluidId[iNei]) {
         consistent = false;
         break;
       }
+*/
+      poll[i][fluidId[iNei]] = true;
+
+//------------------------------------------
     }
-
-    if (myId == dimLS) myId = 1;
-    else if (myId == dimLS+1) myId = 2;    
-
+/*
     if(consistent)
       poll[i][myId] = true; //its visible neighbors have the same id
     else
       poll[i][0] = poll[i][1] = poll[i][2] = (myId!=-1); //either 'no info' or 'can't decide'.
+*/
+
+
+    if(caught)
+      fprintf(stderr,"Sub %d, 349859, myId = %d, consistent = %d, poll = %d %d %d %d\n",
+              globSubNum, myId, consistent, poll[i][0], poll[i][1], poll[i][2], poll[i][3]);
+
   }
 }
 

@@ -9,6 +9,7 @@
 
 //#include <EdgeGrad.h>
 
+#include <cstring> // for memset and memcpy
 
 inline
 HigherOrderMultiFluid::HigherOrderMultiFluid() {
@@ -72,8 +73,8 @@ setLastPhaseChangeValue(int nodeId,const double* v) {
   SVec<double,dim>* V = 
     static_cast<SVec<double,dim>*>(lastPhaseChangeState);
 
-  if (v[0] != 0.0)
-    std::cout << "phase change value = " << v[0]  << std::endl;
+//  if (v[0] != 0.0)
+//    std::cout << "phase change value = " << v[0]  << std::endl;
   memcpy((*V)[nodeId], v ,sizeof(double)*dim);
 }
 
@@ -119,7 +120,7 @@ estimateR(int l, int vertex,
   for (int k = 0; k < 4; ++k) {
 
     if (fluidId[elem.nodeNum(k)] != myfid) {
-      memset(r,0,sizeof(double)*dim);
+      std::memset(r,0,sizeof(double)*dim);
       return;
 
     }
@@ -154,14 +155,14 @@ estimateR(int l, int vertex,
     Vfg[k][2] = dVdx.getZ()[n2][k] + face_r*(dVdx.getZ()[n0][k]-dVdx.getZ()[n2][k])+
       face_t*(dVdx.getZ()[n1][k]-dVdx.getZ()[n2][k]);
   }
-  
+ /* 
   if (myfid == 0)
     std::cout << Vfg[4][0]*vec[0]+
       Vfg[4][1]*vec[1]+
       Vfg[4][2]*vec[2] << " " << (V[i][4]-Vf[4]) << " " << 
       V[i][4] << " " << Vf[4] << " " << X[i][0] << " " << X[i][1] << " " << X[i][2] <<   " " <<
       vec[0] << " " << vec[1] << " " << vec[2] << std::endl;
-  
+  */
 
   for (int k = 0; k < dim; ++k) {
 
@@ -221,7 +222,7 @@ extrapolateV6(int l, int vertex,
   double face_t = v6data[l][vertex].t;
 
   if ((idxTet<0)||(idxTet>=elems->size())){
-    memcpy(Vsurrogate,W, sizeof(double)*dim);
+    std::memcpy(Vsurrogate,W, sizeof(double)*dim);
     return;
   }
 
@@ -231,7 +232,7 @@ extrapolateV6(int l, int vertex,
   for (int k = 0; k < 4; ++k) {
 
     if (fluidId[elem.nodeNum(k)] != myfid) {
-      memcpy(Vsurrogate,W, sizeof(double)*dim);
+      std::memcpy(Vsurrogate,W, sizeof(double)*dim);
       return;
     }
   }
@@ -261,10 +262,14 @@ extrapolateV6(int l, int vertex,
 			(xf[1]-X[i][1])*(xf[1]-X[i][1])+
 			(xf[2]-X[i][2])*(xf[2]-X[i][2]))/length;
 
+  //if (alpha  < 0.1)
+  //  std::cout << i << " " <<  alpha_f << " " << alpha << " " << Vf[0] << " " << Vf[1] << " " <<
+  //    Vf[2] << " " << Vf[3] << " " << Vf[4] << " " << W[0] << " " << W[1] << " " << W[2] << " " << W[3] << " " << W[4] << std::endl;
+
   double frac = 0.5/(1.0+alpha_f-alpha);
   for (int k = 0; k < dim; ++k) {
 
-    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k]);//*beta[k] + 
-    //(1.0-beta[k])*W[k];
+    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k])*beta[k] + 
+    (1.0-beta[k])*W[k];
   }
 }

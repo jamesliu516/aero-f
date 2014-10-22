@@ -24,6 +24,9 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   epsNewton = ioData.ts.implicit.newton.eps;  
   epsAbsResNewton = ioData.ts.implicit.newton.epsAbsRes;
   epsAbsIncNewton = ioData.ts.implicit.newton.epsAbsInc;
+  maxItsLS = ioData.ts.implicit.newton.lineSearch.maxIts;
+  contractionLS = ioData.ts.implicit.newton.lineSearch.rho;
+  sufficDecreaseLS = ioData.ts.implicit.newton.lineSearch.c1;
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);
@@ -43,8 +46,8 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
 template<int dim>
 ImplicitTsDesc<dim>::~ImplicitTsDesc()
 {
-  if (tag) delete tag;
-  if (ns) delete ns;
+  if (tag) { delete tag; tag = 0; }
+  if (ns) { delete ns; ns = 0; }
   if (kspBinaryOutput) delete kspBinaryOutput;
 
 }
@@ -110,11 +113,11 @@ void ImplicitTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
   // XML
   //spaceOp->applyBCsToSolutionVector(Q);
 
-  if(this->wallRecType==BcsWallData::CONSTANT)
+  if(this->wallRecType==BcsWallData::CONSTANT) {
     this->spaceOp->computeResidual(*this->X, *this->A, Q, F, this->timeState);
-  else
+  } else {
     this->spaceOp->computeResidual(this->riemann1, *this->X, *this->A, Q, F, this->timeState);
-
+  }
 
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
 
@@ -218,7 +221,7 @@ void ImplicitTsDesc<dim>::resetFixesTag()
 
 template<int dim>
 void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
-                                                        DistSVec<double,dim> *state = NULL, DistSVec<double,dim> *residual = NULL)
+                                                        DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
 {
   this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, state, residual); 
 

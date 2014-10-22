@@ -13,7 +13,6 @@
 #include <BCond.h>
 #include <TriangulatedSurface.h>
 #include <DenseMatrix.h>
-#include "LevelSet/LevelSetStructure.h"
 #include <GhostPoint.h>
 #include <PolygonReconstructionData.h>
 
@@ -65,6 +64,7 @@ class VolumicForceTerm;
 class TriangulatedSurface;
 class TimeLowMachPrec;
 class FluidSelector;
+class LevelSetStructure;
 
 struct V6NodeData;
 struct Vec3D;
@@ -766,6 +766,9 @@ public:
   void setNodeBcValue(double*, SVec<double,dim>&);
 
   template<int dim>
+  void setNodeBcValue2(double*, SVec<double,dim>&);
+
+  template<int dim>
   void computeFaceBcValue(SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim1, int dim2>
@@ -1343,9 +1346,10 @@ public:
   template<int dim>
   void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
 
-  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,3> &poll,int dimLS);
+  void solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec<bool,4> &poll);
+
   template<int dimLS>
-  void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, Vec<int> &fluidId, bool *masterFlag);
+  void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, Vec<int> &fluidId, bool *masterFlag); //KW:obsolete
 
   template<int dim, int dimLS>
   void debugMultiPhysics(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, Vec<int> &fluidId, SVec<double,dim> &U);
@@ -1376,6 +1380,9 @@ public:
   template <int dim>
     void computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, Vec<double>& vol, double error[dim], LevelSetStructure* = NULL);
 
+  template <int dim>
+    void computeL2Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, Vec<double>& vol, double error[dim], LevelSetStructure* = NULL);
+  
   template <int dim>
     void computeLInfError(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, double error[dim], LevelSetStructure* = NULL);
 

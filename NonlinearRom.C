@@ -2480,8 +2480,8 @@ void NonlinearRom<dim>::initializeClusteredOutputs()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::writeClusteredBinaryVectors(int iCluster, DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL, 
-                                                     DistSVec<double,dim> *U3 = NULL, char* originalSnapshotFile = NULL, int originalSnapshotNumber = 0)
+void NonlinearRom<dim>::writeClusteredBinaryVectors(int iCluster, DistSVec<double,dim> *U1, DistSVec<double,dim> *U2, 
+                                                     DistSVec<double,dim> *U3, char* originalSnapshotFile, int originalSnapshotNumber)
 { 
   // For writing PG residual/jacaction/krylov snapshots during online simulation, 
   // and also for writing FOM residual/krylov snapshots during ROM preprocessing (snapshot collection method 0).

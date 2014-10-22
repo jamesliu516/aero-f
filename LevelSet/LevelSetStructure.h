@@ -88,6 +88,7 @@ class LevelSetStructure {
     virtual bool withCracking() const = 0;
     virtual bool isNearInterface(double t, int n) const = 0;
 
+    void forceOccluded(double t, int n) const                { is_swept[n] = true; is_occluded[n] = true; }
     int fluidModel(double t, int n) const                 { return status[n]; }
     double distToInterface(double t, int n) const         { return distance[n]; } 
     bool isSwept(double t, int n) const                   { return is_swept[n]; }

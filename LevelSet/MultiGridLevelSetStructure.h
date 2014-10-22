@@ -3,9 +3,9 @@
  
 #include "LevelSetStructure.h"
 
-#include "Domain.h"
-
-#include "MultiGridLevel.h"
+template <typename Scalar> class MultiGridLevel;
+class SubDomain;
+class EdgeSet;
 
 /** Abstract class for finding levelset information */
 class MultiGridLevelSetStructure : public LevelSetStructure {
@@ -16,6 +16,8 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
     Vec<bool> &is_active;
     Vec<bool> &is_occluded;
     Vec<bool> &edge_intersects;
+
+    Vec<Vec3D> &surfaceNormals;
 
     class DistMultiGridLevelSetStructure& distLSS;
 
@@ -34,6 +36,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 			       Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,
 			       Vec<bool>& is_active,Vec<bool>& is_occluded,
 			       Vec<bool>& edge_intersects,
+			       Vec<Vec3D>& surfaceNormals,
 			       LevelSetStructure* parent,
 			       int mySub,MultiGridLevel<double>* myLevel);
 
@@ -46,18 +49,22 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
      * */
     LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j);
-    bool withCracking() const;
-    bool isNearInterface(double t, int n) const;
-
-    double isPointOnSurface(Vec3D, int, int, int);
 
     int numOfFluids();
 
-    void findNodesNearInterface(SVec<double,3>&, SVec<double,3>&, SVec<double,3>&);
-
     void recompute();
 
-    void computeEdgeCrossing();
+    void computeEdgeCrossing(SVec<double,3>& nodeNormals);
+
+    bool withCracking() const { return false; }
+
+    bool isNearInterface(double, int) const { return false; }
+
+    double isPointOnSurface(Vec3D, int, int, int) { return 0.0; }
+
+    void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) { }
+
+    
 };
 
 class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
@@ -77,6 +84,10 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
 
   Domain* domain;
 
+  DistVec<ClosestPoint>* dummycp;
+
+  DistVec<Vec3D>* surfaceNormals;
+
   public:
     DistMultiGridLevelSetStructure(IoData &iod, Communicator *comm,
 				   DistLevelSetStructure* parent,
@@ -88,9 +99,7 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int> *point_based_id = 0, DistVec<int>* oldStatus = 0);
     LevelSetStructure & operator()(int subNum) const;
 
-    DistVec<ClosestPoint> &getClosestPoints();
-    DistVec<ClosestPoint> *getClosestPointsPointer();
-    void setStatus(DistVec<int> nodeTag) = 0;                                
+    void setStatus(DistVec<int> nodeTag) { }
 
     void updateStructure(double *Xs, double *Vs, int nNodes, int(*abc)[3]=0) {
 
@@ -109,7 +118,11 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     int getNumStructElems() { return parent->getNumStructElems(); }
     int (*getStructElems())[3]  { return parent->getStructElems(); }
 
-    int getSurfaceID(int k) const { return parent->getSurfaceID(k); }
+    int getSurfaceID(int k) { return parent->getSurfaceID(k); }
+
+    virtual DistVec<ClosestPoint> &getClosestPoints() { return *dummycp; }
+    virtual DistVec<ClosestPoint> *getClosestPointsPointer() { return dummycp; }
+
 };
 
 #endif

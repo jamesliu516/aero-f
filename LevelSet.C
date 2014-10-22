@@ -77,7 +77,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
     setupPhiMultiFluidInitialConditions(iod,X, Phi0);
     if(closest && fsId)
-      setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId);
+      setupPhiFluidStructureInitialConditions(iod,X,Phi0,*closest,*fsId,fs);
     if (lsMethod == 0)
       primitiveToConservative(Phi0, Phi, U);
     else
@@ -95,7 +95,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
     if (data->use_nm1){
       DistSVec<double,dimLS> ReadPhi1(domain->getNodeDistInfo());
-      if (data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1))
+      if ((data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1)))
         Phinm1 = ReadPhi1;
       else
         Phinm1 = Phin;
@@ -103,7 +103,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
     if (data->use_nm2){
       DistSVec<double,dimLS> ReadPhi2(domain->getNodeDistInfo());
-      if (data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2))
+      if ((data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2)))
         Phinm2 = ReadPhi2;
       else
         Phinm2 = Phinm1;
@@ -248,6 +248,48 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     }
   }
 
+  if(!iod.mf.multiInitialConditions.cylinderMap.dataMap.empty()){
+    map<int, CylinderData *>::iterator cylinderIt;
+    for(cylinderIt  = iod.mf.multiInitialConditions.cylinderMap.dataMap.begin();
+        cylinderIt != iod.mf.multiInitialConditions.cylinderMap.dataMap.end();
+        cylinderIt++){
+      
+     if(cylinderIt->second->fluidModelID <= 0)
+	continue;
+
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double, 3> &x(X(iSub));
+
+        SVec<double,dimLS> &phi(Phi(iSub));
+        SVec<double,dimLS> &distance(Distance(iSub));
+
+        double scalar = 0.0;
+        for(int i=0; i<phi.size(); i++) {
+          scalar = cylinderIt->second->nx*(x[i][0] - cylinderIt->second->cen_x)+cylinderIt->second->ny*(x[i][1] - cylinderIt->second->cen_y)+cylinderIt->second->nz*(x[i][2] - cylinderIt->second->cen_z);
+	  //if (scalar < 0.0 || scalar > cylinderIt->L)
+	  //  continue;
+	  
+	  double q[3] = {(x[i][0] - cylinderIt->second->cen_x) - scalar*cylinderIt->second->nx,
+			 (x[i][1] - cylinderIt->second->cen_y) - scalar*cylinderIt->second->ny,
+			 (x[i][2] - cylinderIt->second->cen_z) - scalar*cylinderIt->second->nz};
+	  
+	  double R = sqrt(q[0]*q[0]+q[1]*q[1]+q[2]*q[2]);
+
+	  int fluidId = cylinderIt->second->fluidModelID-1;
+
+	  double dist = std::min((-R + cylinderIt->second->r), (scalar)*(cylinderIt->second->L-scalar));
+	  
+	  if(dist>0.0) phi[i][fluidId] = 1.0;
+	  if(distance[i][fluidId]<0.0) distance[i][fluidId] = fabs(dist);
+	  else                         distance[i][fluidId] = fmin(fabs(dist),distance[i][fluidId]);
+	  
+
+        }
+      }
+    }
+  }
+
   if(!iod.mf.multiInitialConditions.sphereMap.dataMap.empty()){
     map<int, SphereData *>::iterator sphereIt;
     for(sphereIt  = iod.mf.multiInitialConditions.sphereMap.dataMap.begin();
@@ -338,38 +380,47 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     }
   }
 
+  // Test case two:
+  /*  if (iod.mf.testCase == 2) {
+
+    DistSVec<double,5> dummy1(X.info());
+    DistVec<int> dummy2(X.info());
+    
+    ExactSolution::Fill<&ExactSolution::CylindricalBubble,
+      5, 1>(*Un,dummy2,
+	      dummy1, X, iod,0.0,
+	      varFcn);
+  }
+  */
 }
 
 //---------------------------------------------------------------------------------------
 
 template<int dimLS>
-void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, 
-                                                              DistVec<ClosestPoint> &closest, DistVec<int> &status)
+void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, 
+                      DistSVec<double,dimLS> &Phi, DistVec<ClosestPoint> &closest, DistVec<int> &status, FluidSelector* fs)
 {
+  int numPhases = fs->getNumOfPhases();
   trueLevelSet[dimLS-1] = true; //this is a 'true' level-set.
   //initialize the level-set near FS interface  
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      SVec<double,dimLS> &phi(Phi(iSub));
-      Vec<ClosestPoint> &clo(closest(iSub));
-      Vec<int> &stat(status(iSub));
-      for(int i=0; i<phi.size(); i++) {
-        switch (stat[i]) {
-          case 0 : //outside the structure
-            phi[i][dimLS-1] = clo[i].nearInterface() ? -1.0*clo[i].dist : -1.0;
-            break;
-          case dimLS : //inside the structure
-            phi[i][dimLS-1] = clo[i].nearInterface() ?  1.0*clo[i].dist :  1.0;
-            break;
-          case (dimLS+1)://2 : //occluded
-            phi[i][dimLS-1] = 0.0;
-            break;
-          default :
-            fprintf(stderr,"ERROR: Status cannot be %d.\n", stat[i]);
-            exit(-1);
-        }
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    SVec<double,dimLS> &phi(Phi(iSub));
+    Vec<ClosestPoint> &clo(closest(iSub));
+    Vec<int> &stat(status(iSub));
+    for(int i=0; i<phi.size(); i++) {
+      if(stat[i]==0)//outside the structure 
+        phi[i][dimLS-1] = clo[i].nearInterface() ? -1.0*clo[i].dist : -1.0;
+      else if(stat[i]==dimLS) //inside the structure
+        phi[i][dimLS-1] = clo[i].nearInterface() ?  1.0*clo[i].dist :  1.0;
+      else if(stat[i]==numPhases) //occluded 
+        phi[i][dimLS-1] = 0.0;
+      else {
+        fprintf(stderr,"ERROR: Status cannot be %d.\n", stat[i]);
+        exit(-1);
       }
     }
+  }
 
   //call "reinitialize"
   reinitializeLevelSet(X, Phi, false,dimLS-1);

@@ -50,15 +50,19 @@ public:
 
   void negotiate();
   void negotiateStopping(bool*);
+  void getNumParam(int &);
+  void getRelResidual(double &);
   double getInfo();
   void getEmbeddedWetSurfaceInfo(int&, bool&, int&, int&);
   void getEmbeddedWetSurface(int, double*, int, int*, int=3);  //3 for triangle
 
   void getDisplacement(DistSVec<double,3> &, DistSVec<double,3> &, 
-		       DistSVec<double,3> &, DistSVec<double,3> &);
+		       DistSVec<double,3> &, DistSVec<double,3> &, bool isEmbedded);
+  void getDisplacementSensitivity(DistSVec<double,3> &, DistSVec<double,3> &);
   int getSubcyclingInfo();
   void getTemperature(DistVec<double>&);
   void sendForce(DistSVec<double,3> &);
+  void sendForceSensitivity(DistSVec<double,3> &);
   void getMdFreq(int &, double *&);
   void getMdStrDisp(int, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
   void sendHeatPower(DistVec<double>&);

@@ -3,19 +3,21 @@
 
 #include <DistInfo.h>
 #include <DistVector.h>
-#include <Domain.h>
 #include <MultiGridSmoothingMatrix.h>
 #include <DistMvpMatrix.h>
 #include <DistTimeState.h>
 #include <SparseMatrix.h>
 #include <MultigridCommon.h>
 #include <AgglomeratedFace.h>
+#include <Aerof_unordered_set.h>
 #include <list>
 #include <set>
 
 
+class Domain;
 class Connectivity;
 class EdgeSet;
+class EdgeDef;
 template<class Scalar, int dim> class DistSVec;
 
 typedef Aerof_unordered_set<int>::type PriorityNodes;
@@ -62,7 +64,10 @@ class MultiGridLevel {
 
   AgglomerationType agglomType;
 
+
     int my_dim, neq1,neq2;
+
+    double turbRelaxCutoff;
 
     Domain& domain;
     CommPattern<int> * nodeIdPattern;
@@ -73,6 +78,7 @@ class MultiGridLevel {
     CommPattern<double> * nodeNormalsPattern;
     CommPattern<double> * nodePosnPattern;
     CommPattern<double> * matPattern;
+    CommPattern<double> * matPattern2;
     CommPattern<double> * offDiagMatPattern;
     CommPattern<double> * edgeAreaPattern;
     CommPattern<double> * edgeVecPattern;
@@ -141,6 +147,8 @@ class MultiGridLevel {
 
     DistVec<double>* ctrlVol; 
     DistVec<double>* ctrlVolCount;
+    
+    DistVec<int>* mgLevelStatus;
 
     int* numLines;
 
@@ -302,7 +310,10 @@ class MultiGridLevel {
 
     template<class Scalar2, int dim> void Restrict(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
-                                                   DistSVec<Scalar2, dim>& coarseData, bool apply_relaxation = false) const;
+                                                   DistSVec<Scalar2, dim>& coarseData,
+						   bool average = true,
+						   bool apply_relaxation = false) const;
+
     template<class Scalar2, int dim> void RestrictFaceVector(const MultiGridLevel<Scalar>& fineGrid,
                                                    const DistSVec<Scalar2, dim>& fineData,
                                                    DistSVec<Scalar2, dim>& coarseData) const;
@@ -310,7 +321,14 @@ class MultiGridLevel {
                                          const DistVec<Scalar2>& fineData,
                                          DistVec<Scalar2>& coarseData) const;
     template<class Scalar2, int dim> void Prolong(MultiGridLevel<Scalar>& coarseGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
-                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,double relax_factor=1.0) const;
+                                                  const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,DistSVec<Scalar2,dim>& fine_ref,double relax_factor, VarFcn*, class DistLevelSetStructure* coarse = NULL,class DistLevelSetStructure* fine = NULL) const;
+
+    template<class Scalar2, int dim>
+      void ExtrapolateProlongation(MultiGridLevel<Scalar>& fineGrid, 
+				   const DistSVec<Scalar2,dim>& coarseInitialData,
+				   DistSVec<Scalar2,dim>& coarseData,
+				   DistLevelSetStructure* coarseLSS, 
+				   DistLevelSetStructure* fineLSS);
 
     template<class Scalar2, int dim>
     void ProjectResidual(DistSVec<Scalar2,dim>& r) const;
@@ -347,7 +365,8 @@ class MultiGridLevel {
     void computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
                                    DistSVec<Scalar2,dim>& dX,
                                    DistSVec<Scalar2,dim>& dY,
-                                   DistSVec<Scalar2,dim>& dZ);
+                                   DistSVec<Scalar2,dim>& dZ, 
+                                   DistLevelSetStructure* = NULL);
     
     void WriteTopFile(const std::string& fileName);
 
@@ -376,6 +395,8 @@ class MultiGridLevel {
  
     DistVec<double>& getEdgeArea() { return *edgeArea; }
     DistVec<double>* getEdgeAreaPointer() { return edgeArea; }
+
+    void setTurbRelaxCutoff(double t) { turbRelaxCutoff = t; }
 
   private:
 

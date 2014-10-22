@@ -160,6 +160,9 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
     limiterLeft = limiterRight = 1; 
   }
+
+  //limiterLeft = 0;
+  
   
   if (ioData.mf.levelSetMethod == MultiFluidData::HJWENO)
     levelSetMethod = 1;
@@ -974,8 +977,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
       continue; 
  
     double Vi[dim*2],Vj[dim*2],Vsi[dim],Vsj[dim],VslopeI[dim],VslopeJ[dim];
-    if (!isSixthOrder || !(i > 0 && i < numPoints-3 && (fidi == fluidId[i+1] && 
-				     fidi == fluidId[i+2] && fidi == fluidId[i-1] || isSinglePhase))) {
+    if (!isSixthOrder || !(i > 0 && i < numPoints-3 && ((fidi == fluidId[i+1] && 
+				     fidi == fluidId[i+2] && fidi == fluidId[i-1]) || isSinglePhase))) {
 
       double *Vsi = Vslope[i];      
       double *Vsj = Vslope[j];      
@@ -1266,6 +1269,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
             //betapl = sqrt(betapl);
             //betapr = sqrt(betapr);
 	    beta = sqrt(beta);
+	    std::cout << betapl << " " << betapr << std::endl;
             //betapl = betapr = beta;
 	    for (int k = 0; k < dim; ++k) {
               Vir[k] = betapl*Vir[k]+(1.0-betapl)*V[i-1][k];
@@ -1309,13 +1313,15 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         if (interfaceExtrapolation == 1) {
           if (cutCellStatus[j] == 1) {
 	    for (int k = 0; k < dim; ++k) {
-	      Wi[k] = (Y[i+1][0]-X[i][0])/(interfaceLocation-X[i][0])*Wir[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[i][0])*V[i][k];
+	      //Wi[k] = (Y[i+1][0]-X[i][0])/(interfaceLocation-X[i][0])*Wir[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[i][0])*V[i][k];
+	      Wi[k] = (Y[i+1][0]-X[i-1][0])/(interfaceLocation-X[i-1][0])*Wir[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[i-1][0])*V[i-1][k];
               Wi[k] = betapl*Wi[k]+(1.0-betapl)*Wir[k];
               //Wi[k] = betam[k]*Wi[k]+(1.0-betam[k])*Wir[k];
 	    }
           } else {
 	    for (int k = 0; k < dim; ++k) {
-	      Wj[k] = (Y[i+1][0]-X[j][0])/(interfaceLocation-X[j][0])*Wjr[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[j][0])*V[j][k];
+	      //Wj[k] = (Y[i+1][0]-X[j][0])/(interfaceLocation-X[j][0])*Wjr[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[j][0])*V[j][k];
+	      Wj[k] = (Y[i+1][0]-X[j+1][0])/(interfaceLocation-X[j+1][0])*Wjr[k] + (interfaceLocation-Y[i+1][0])/(interfaceLocation-X[j+1][0])*V[j+1][k];
               Wj[k] = betapr*Wj[k]+(1.0-betapr)*Wjr[k];
               //Wj[k] = betam[k]*Wj[k]+(1.0-betam[k])*Wjr[k];
             }
@@ -1849,18 +1855,18 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     
     //if (crossInterface) {
       if (i > 0 && i < numPoints-1 &&
-	  (interfaceTreatment == 0 && fid[i] == fid[i+1] && fid[i] == fid[i-1] ||
-	   interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] && cutCellStatus[i] == cutCellStatus[i+1]
+	  ((interfaceTreatment == 0 && fid[i] == fid[i+1] && fid[i] == fid[i-1]) ||
+	   (interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] && cutCellStatus[i] == cutCellStatus[i+1])
 	   || !crossInterface))
 	stat = 0;
       else if (i < numPoints-1 && 
-	       (interfaceTreatment == 0 && fid[i] == fid[i+1] ||
-		interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i+1] ||
+	       ((interfaceTreatment == 0 && fid[i] == fid[i+1]) ||
+		(interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i+1]) ||
 		!crossInterface))
 	stat = 1;
       else if (i > 0 && 
-	       (interfaceTreatment == 0 && fid[i] == fid[i-1] ||
-		interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1] ||
+	       ((interfaceTreatment == 0 && fid[i] == fid[i-1]) ||
+		(interfaceTreatment == 1 && cutCellStatus[i] == cutCellStatus[i-1]) ||
 		!crossInterface) )
 	stat = 2;
       else

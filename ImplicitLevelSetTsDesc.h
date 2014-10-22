@@ -51,6 +51,8 @@ public:
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
+  int maxItsLS;
+  double contractionLS, sufficDecreaseLS;
 
   DistVec<double>* hhResidual;
  public:
@@ -61,6 +63,11 @@ public:
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
+  int getLineSearch() const { return (maxItsLS>0); }
+  int getMaxItsLineSearch() const { return maxItsLS; }
+  double getContractionLineSearch() const { return contractionLS; }
+  double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
+
 
   //-- functions for solving Euler equations
   int solveNonLinearSystem(DistSVec<double,dim> &, int);

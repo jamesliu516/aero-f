@@ -80,7 +80,7 @@ class LevelSet {
   void setupPhiMultiFluidInitialConditions(IoData &iod, 
                               DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
   void setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, 
-                              DistVec<ClosestPoint> &closest, DistVec<int> &fsId);
+                              DistVec<ClosestPoint> &closest, DistVec<int> &fsId, FluidSelector* fs);
 
   // update the members of the class and writing them to the disk
   void checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi);

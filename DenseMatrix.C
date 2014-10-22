@@ -380,7 +380,7 @@ GenFullM<Scalar>::ReSolve(double *b)
 
 template<class Scalar>
 void
-GenFullM<Scalar>::print(char *msg)
+GenFullM<Scalar>::print(const char *msg)
 {
  if(*msg) fprintf(stderr,"%s\n",msg);
  int i,j;
@@ -639,7 +639,7 @@ void SymFullM<Scalar>::invert()
 }
 
 template<class Scalar>
-void SymFullM<Scalar>::print(char *msg)
+void SymFullM<Scalar>::print(const char *msg)
 {
   if (*msg) fprintf(stderr,"%s\n",msg);
   for (int i=0 ; i < n ; ++i) {

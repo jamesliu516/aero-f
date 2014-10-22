@@ -106,6 +106,8 @@ protected:
   //Modified Ghidaglia scheme with 'external state' estimated using the Hagstrom b.c.
   bool modifiedGhidaglia;
 
+  bool isMultigridTsDesc;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
@@ -129,7 +131,8 @@ public:
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
   SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
-  
+  Communicator* getCommunicator() { return com; } 
+ 
   virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -137,7 +140,14 @@ public:
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
   virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }
+  virtual void cmdCom(bool *);
+  virtual void getNumParam(int &);
+  virtual void getRelResidual(double &);
   virtual double computePositionVector(bool *, int, double, DistSVec<double,dim> &);
+//  virtual double computePositionSensitivityVector(bool *, int, double);
+  virtual void setMeshSensitivitySolverPositionVector();
+  void negotiate();
+  void sendForceSensitivity(DistSVec<double,3> *);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
@@ -160,7 +170,8 @@ public:
   virtual void outputForces(IoData &, bool*, int, int, int, double, double,
                             DistSVec<double,dim> &);
 
-  void outputPositionVectorToDisk(DistSVec<double,dim> &U);
+  virtual void outputPositionVectorToDisk(DistSVec<double,dim> &U);
+//  void outputPositionSensitivityVectorToDisk(DistSVec<double,dim> &dUds);
   virtual void resetOutputToStructure(DistSVec<double,dim> &);
   virtual void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
@@ -197,6 +208,7 @@ public:
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
   void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
+  void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &);
 
   virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
   virtual void incrementNewtonOutputTag() {}

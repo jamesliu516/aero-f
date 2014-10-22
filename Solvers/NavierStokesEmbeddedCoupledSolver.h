@@ -5,7 +5,9 @@
 #include <Domain.h>
 #include <TsSolver.h>
 #include <ExplicitEmbeddedTsDesc.h>
+#include <MultiGridEmbeddedTsDesc.h>
 #include <ImplicitEmbeddedCoupledTsDesc.h>
+#include <MultiGridSolver.h>
 template<int dim>
 void startNavierStokesEmbeddedCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
@@ -15,16 +17,24 @@ void startNavierStokesEmbeddedCoupledSolver(IoData &ioData, GeoSource &geoSource
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
-  if (ioData.ts.type == TsData::IMPLICIT) {
-  
-    ImplicitEmbeddedCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ImplicitEmbeddedCoupledTsDesc<dim> > tsSolver(&tsDesc);
-    tsSolver.solve(ioData);
-  }
-  else{
-    ExplicitEmbeddedTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ExplicitEmbeddedTsDesc<dim> > tsSolver(&tsDesc);
-    tsSolver.solve(ioData);
+  if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
+    
+    if (ioData.ts.type == TsData::IMPLICIT) {
+      
+      ImplicitEmbeddedCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+      TsSolver<ImplicitEmbeddedCoupledTsDesc<dim> > tsSolver(&tsDesc);
+      tsSolver.solve(ioData);
+    }
+    else{
+      ExplicitEmbeddedTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+      TsSolver<ExplicitEmbeddedTsDesc<dim> > tsSolver(&tsDesc);
+      tsSolver.solve(ioData);
+    }
+  } else {
+
+    MultiGridEmbeddedTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+    MultiGridSolver<MultiGridEmbeddedTsDesc<dim> > mgSolver(&tsDesc);
+    mgSolver.solve(ioData);
   }
 
 }

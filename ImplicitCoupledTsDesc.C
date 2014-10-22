@@ -87,11 +87,11 @@ void ImplicitCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q
 						 DistSVec<double,dim> &F)
 {
 
-  if(this->wallRecType==BcsWallData::CONSTANT)
+  if(this->wallRecType==BcsWallData::CONSTANT) {
     mvp->evaluate(it, *this->X, *this->A, Q, F);
-  else
+  } else {
     mvp->evaluate(*this->riemann1, it, *this->X, *this->A, Q, F);
-
+  }
 #ifdef MVP_CHECK
   DistSVec<double,dim> p(this->getVecInfo());
   DistSVec<double,dim> prod(this->getVecInfo());
@@ -136,7 +136,7 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
     if (mvpfd || mvph2) {
       if (_pc) {
-     
+
         this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         this->spaceOp->applyBCsToJacobian(Q, *_pc);
@@ -156,11 +156,11 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
       IluPrec<PrecScalar,dim> *ilu = dynamic_cast<IluPrec<PrecScalar,dim> *>(pc);
       MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
       
-      if (jac) 
+      if (jac) {
         jac->getData(*mvph1);
-      else if (ilu) 
+      } else if (ilu) {
         ilu->getData(*mvph1);
-      else if (pmg) {
+      } else if (pmg) {
         if (!pmg->isInitialized())
           pmg->initialize();
         pmg->getData(*mvph1);

@@ -575,7 +575,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.velocitynorm);
   }
 
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -694,7 +697,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   switchOpt = true;
   }
-  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ || iod.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+  else {
     switchOpt = false;
   }
 
@@ -770,6 +773,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     nodal_scalars[PostFcn::PRESSURE] = new char[spn + strlen(iod.output.transient.probes.pressure)];
     sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s", 
             iod.output.transient.probes.prefix, iod.output.transient.probes.pressure);
+  }
+  if (iod.output.transient.probes.diffpressure[0] != 0) {
+    nodal_scalars[PostFcn::DIFFPRESSURE] = new char[spn + strlen(iod.output.transient.probes.diffpressure)];
+    sprintf(nodal_scalars[PostFcn::DIFFPRESSURE], "%s%s", 
+            iod.output.transient.probes.prefix, iod.output.transient.probes.diffpressure);
   }
   if (iod.output.transient.probes.temperature[0] != 0) {
     nodal_scalars[PostFcn::TEMPERATURE] = new char[spn + strlen(iod.output.transient.probes.temperature)];
@@ -977,6 +985,8 @@ void TsOutput<dim>::setMeshMotionHandler(IoData &ioData, MeshMotionHandler *mmh)
   if (ioData.problem.type[ProblemData::FORCED]) {
      if (ioData.forced.type == ForcedData::HEAVING)
        hmmh = dynamic_cast<HeavingMeshMotionHandler *>(mmh);
+     else if (ioData.forced.type  == ForcedData::SPIRALING)
+       smmh = dynamic_cast<SpiralingMeshMotionHandler *>(mmh);
      else if (ioData.forced.type  == ForcedData::PITCHING)
        pmmh = dynamic_cast<PitchingMeshMotionHandler *>(mmh);
      else if (ioData.forced.type  == ForcedData::DEFORMING)
@@ -992,6 +1002,8 @@ void TsOutput<dim>::setMeshMotionHandler(IoData &ioData, MeshMotionHandler *mmh)
 
     if (hmmh)
        (*mX)[0] = hmmh->getModes(); 
+    else if(smmh)
+       (*mX)[0] = smmh->getModes();
     else if(pmmh)
        (*mX)[0] = pmmh->getModes(); 
     else if(dmmh)
@@ -2534,6 +2546,16 @@ void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsOutput<dim>::writePositionSensitivityVectorToDisk(int step, double tag, 
+                      DistSVec<double,3> &dXsds){
+
+  domain->writeVectorToFile(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], step, tag, dXsds, &(refVal->tlength));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X, 
                                              DistVec<double> &A, DistSVec<double,dim> &U, DistTimeState<dim> *timeState)
 {
@@ -2546,10 +2568,6 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     else
       tag = t * refVal->time;
 
-//		if (stateVector)  { // Moved to NewtonSolver.h
-//			DistSVec<double,dim> soltn(U);
-//			domain->writeVectorToFile(stateVector, step, tag, soltn);
-//		}
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {

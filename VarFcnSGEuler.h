@@ -2,6 +2,7 @@
 #define _VAR_FCN_SGEULER_H
 
 #include <VarFcnBase.h>
+#include <fstream>
 
 #ifdef AEROF_MPI_DEBUG
 #include "mpi.h"
@@ -252,8 +253,19 @@ inline
 void VarFcnSGEuler::conservativeToPrimitive(double *U, double *V)
 {
 
-#ifndef NDEBUG 
-  if(U[0] == 0) fprintf(stderr,"U[0] is %e\n",U[0]);
+#ifdef YDEBUG 
+  if(U[0] == 0) { 
+    const char* output = "conservativetoprimitivecheck";
+    std::ofstream out(output, std::ios::out);
+    if(!out) {
+     std::cerr << "Error: cannot open file" << output << std::endl;
+     exit(-1);
+    }
+    fprintf(stderr,"U[0] is %e\n",U[0]);
+    out << 1 << std::endl;
+    exit(-1);
+    out.close();
+  }
 #endif
   V[0] = U[0];
 

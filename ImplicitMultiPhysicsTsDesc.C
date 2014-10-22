@@ -33,6 +33,9 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   epsNewton = implicitData.newton.eps;
   epsAbsResNewton = implicitData.newton.epsAbsRes;
   epsAbsIncNewton = implicitData.newton.epsAbsInc;
+  maxItsLS = implicitData.newton.lineSearch.maxIts;
+  contractionLS = implicitData.newton.lineSearch.rho;
+  sufficDecreaseLS = implicitData.newton.lineSearch.c1;
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD)

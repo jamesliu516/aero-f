@@ -242,6 +242,9 @@ public:
   inline bool existsNm1() const { return data->exist_nm1; }
   inline bool useNm1() const { return data->use_nm1; }
 
+  void setExistsNm1();
+  void setDtNm1(double dt);
+
   double getTime()  { return data->dt_n; }
   
   void updateDtCoeff();

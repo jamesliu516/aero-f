@@ -77,6 +77,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
       for (int k=0; k<dim; ++k) {
         R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                               r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+
       }
     }
 

@@ -37,7 +37,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
   fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo()),
-  VWeights(this->getVecInfo()), Weights(this->getVecInfo())
+  VWeights(this->getVecInfo()), Weights(this->getVecInfo()),ioData(ioData)
 
 {
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -347,9 +347,15 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
 						   this->timeState, *fluidSelector.fluidId);
 
     if (strcmp(ioData.input.convergence_file,"") != 0) {
-      
+
       this->varFcn->conservativeToPrimitive(U, *this->V, fluidSelector.fluidId);
       computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
+    }
+    else if (ioData.mf.testCase == 2 ||
+	     ioData.mf.testCase == 3) {
+      
+      //this->varFcn->conservativeToPrimitive(U, *this->V, fluidSelector.fluidId);
+      computeConvergenceInformation(ioData,ioData.input.convergence_file,U);//*this->V);
     }
   }
 
@@ -450,19 +456,52 @@ void LevelSetTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>& U)
 template<int dim, int dimLS>
 void LevelSetTsDesc<dim,dimLS>::computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U) {
 
-  DistSVec<double,dim> Uexact(U);
-  OneDimensional::read1DSolution(ioData,file, Uexact, 
-				 (DistSVec<double,dimLS>*)0,
-				 &fluidSelector,
-				 multiPhaseSpaceOp->getVarFcn(),
-				 *this->X,
-				 *this->domain,
-				 OneDimensional::ModeU,
-				 false) ;
+  DistSVec<double,dim> Uexact(U.info());
 
+  std::cout << "current time = " << currentTime*ioData.ref.rv.time << std::endl;
+
+  if (ioData.mf.testCase == 2 || 
+      ioData.mf.testCase == 3 ) {
+
+    
+    if (ioData.mf.testCase == 2) {
+      
+      DistSVec<double,1> dummy1(U.info());
+      DistVec<int> dummy2(U.info());
+      
+      ExactSolution::Fill<&ExactSolution::CylindricalBubble,
+	dim, 1>(Uexact,dummy2,
+		dummy1, *this->X, ioData,currentTime+currentTimeStep,
+		this->spaceOp->getVarFcn());
+      
+    } else if (ioData.mf.testCase == 3) {
+      
+      DistSVec<double,1> dummy1(U.info());
+      DistVec<int> dummy2(U.info());
+      
+      ExactSolution::Fill<&ExactSolution::AcousticTwoFluid,
+	dim, 1>(Uexact,dummy2,
+		dummy1, *this->X, ioData,currentTime+currentTimeStep,
+		this->spaceOp->getVarFcn());
+      
+    }
+  
+  } else {
+    
+    OneDimensional::read1DSolution(ioData,file, Uexact, 
+				   (DistSVec<double,dimLS>*)0,
+				   &fluidSelector,
+				   multiPhaseSpaceOp->getVarFcn(),
+				   *this->X,
+				   *this->domain,
+				   OneDimensional::ModeU,
+				   false) ;
+    
+  }
+  
   double error[dim];
   double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
-		       ioData.ref.rv.velocity, ioData.ref.rv.velocity,
+		      ioData.ref.rv.velocity, ioData.ref.rv.velocity,
 		      ioData.ref.rv.pressure};
 
   //std::cout << "ref pressure = " <<  ioData.ref.rv.pressure << " ref length =  " <<  ioData.ref.rv.length << std::endl;
@@ -473,18 +512,27 @@ void LevelSetTsDesc<dim,dimLS>::computeConvergenceInformation(IoData &ioData, co
 
   this->domain->computeL1Error(U,Uexact,*this->A,error);
   for (int k = 0; k < dim; ++k) {
-    tot_error += error[k] / nNodes;
-    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %lf\n", k, error[k]*refs[k] / nNodes);
+    tot_error += error[k];
+    this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %e\n", k, error[k]*refs[k]);
   }
-  this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %lf\n", tot_error);
+  this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %e\n", tot_error);
+
+  tot_error = 0.0;
+  this->domain->computeL2Error(U,Uexact,*this->A,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error += error[k];
+    this->domain->getCommunicator()->fprintf(stdout,"L2 error [%d]: %e\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"L2 error (total): %e\n", tot_error);
+
 
   tot_error = 0.0;
   this->domain->computeLInfError(U,Uexact,error);
   for (int k = 0; k < dim; ++k) {
     tot_error = max(error[k],tot_error);
-    this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %lf\n", k, error[k]*refs[k]);
+    this->domain->getCommunicator()->fprintf(stdout,"Linf error [%d]: %e\n", k, error[k]*refs[k]);
   }
-  this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %lf\n", tot_error);
+  this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %e\n", tot_error);
 
   
 }

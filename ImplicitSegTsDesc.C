@@ -385,6 +385,8 @@ int ImplicitSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec<double,
 
   if(this->data->checklinsolve && (lits1 == ksp1->maxits || lits2 == ksp2->maxits)) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1; 
 
+  //std::cout << "Lin solve  status = " << this->data->badlinsolve << std::endl;
+
   this->timer->addKspTime(t0);
 
   dQ.merge(dQ1, dQ2);

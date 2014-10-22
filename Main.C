@@ -67,7 +67,6 @@ void abort_sigaction(int signal, siginfo_t *si, void *arg)
 }
 
 
-
 //------------------------------------------------------------------------------
 
 #ifdef CREATE_DSO

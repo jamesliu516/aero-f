@@ -23,6 +23,8 @@ class MultiGridSolver {
 //  typedef typename ProblemDescriptor::MultiGridKernelType::MultiGridSmoother
 //    MultiGridSmoother;
 
+  typename ProblemDescriptor::SolVecType* U_vec_smooth;
+
 public:
 
   MultiGridSolver(ProblemDescriptor *);
@@ -68,6 +70,13 @@ int MultiGridSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolV
                                                 IoData &ioData)
 {
   bool lastIt = false;
+  
+  U_vec_smooth = &U;
+
+  if (probDesc->getSmoothedVec()) {
+
+    U_vec_smooth = probDesc->getSmoothedVec();
+  }
 
   // dts is structural time step
   double dt, dts;
@@ -114,15 +123,25 @@ int MultiGridSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolV
     t += 1.0;
 
     // compute the current aerodynamic force
-    probDesc->updateOutputToStructure(0.0, 0.0, U);
+    if (it % 10 == 0) {
+      probDesc->updateOutputToStructure(0.0, 0.0, U);
+    }
 
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, 0.00, U);
 
-    probDesc->outputForces(ioData, &lastIt, it, 1, 1, t, 0.0, U);
-    dts = probDesc->computePositionVector(&lastIt, it, t, U);
-    probDesc->outputToDisk(ioData, &lastIt, it, 1, 1, t, 0.0, U);
+    if (it % 1 == 0) {
+      probDesc->outputForces(ioData, &lastIt, it, 1, 1, t, 0.0, *U_vec_smooth);
+      dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+      probDesc->outputToDisk(ioData, &lastIt, it, 1, 1, t, 0.0, U);
+    }
   }
+
+  probDesc->outputForces(ioData, &lastIt, it, 1, 1, t, 0.0, *U_vec_smooth);
+  dts = probDesc->computePositionVector(&lastIt, it, t, U);
+
+  probDesc->outputToDisk(ioData, &lastIt, it, 1, 1, t, 0.0, U);
   return 0;
 
 }

@@ -15,6 +15,7 @@
 #include <VarFcn.h>
 #include "LevelSet/LevelSetStructure.h"
 
+#include <cstring> // for memset
 
 //------------------------------------------------------------------------------
 //--------------functions in ElemSet class
@@ -291,7 +292,7 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
   
   int nn;
   Vec3D bbox[2];
-  memset(status, 0, sizeof(int)*locs.size());
+  std::memset(status, 0, sizeof(int)*locs.size());
  
   int found_all = 1; 
   for (int j = 0; j < locs.size(); ++j) {

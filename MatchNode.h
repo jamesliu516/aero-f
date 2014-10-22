@@ -11,11 +11,13 @@ class MatchNodeSet {
 
   int (*index)[3];
   double (*gap)[3];
+  double (*xi)[3];
+  double *normgap;
 
 public:
 
   MatchNodeSet(const char *fileName);
-  MatchNodeSet() { numNodes = 0; totalSize = 0; index = 0; gap = 0; }
+  MatchNodeSet() { numNodes = 0; totalSize = 0; index = 0; gap = 0; xi = 0; normgap = 0; }
   MatchNodeSet(int);
   ~MatchNodeSet();
 
@@ -28,9 +30,16 @@ public:
 
   void exportInfo(int, int (*)[3]);
   void setBufferPosition(int, int);
+  void setBufferPosition(int, int, double[2], int (*)[3], double (*)[3]);
   void getDisplacement(int, double, double, double, bool *, double (*)[2][3], double (*)[3], 
-		       double (*)[3], double (*)[3], double (*)[3], double *);
+		       double (*)[3], double (*)[3], double (*)[3], double *,
+		       bool isEmbedded); 
+  void getDisplacementSensitivity(bool *, double (*)[2][3], double (*)[3], double *);
+                       
+  void getDisplacement(double (*)[3], int (*)[3], double (*)[3], double (*)[3], double (*)[3], double);
+
   double getTemperature(int, double, double, bool*, double*, double*);
+
   template<int dim>
   void send(double, double (*)[dim], double (*)[dim]);
   double (*getGap(int, int *))[3];

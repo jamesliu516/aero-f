@@ -271,7 +271,7 @@ EigenValVectors(ARFLOAT* &EigVecp, ARFLOAT* &EigValp, bool ischur)
 
   if (this->ValuesOK) {                  // Eigenvalues are already available .
     this->nconv = Eigenvalues(EigValp, false);
-    this->nconv = Eigenvectors(EigVecp, ischur);
+    this->nconv = this->Eigenvectors(EigVecp, ischur);
   }
   else {                           // Eigenvalues and vectors are not available.
     try {

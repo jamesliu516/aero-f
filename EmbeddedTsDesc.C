@@ -359,7 +359,6 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   if (ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) {
     FluidSelector f(2, ioData,this->domain);
     nodeTag0 = nodeTag = *f.fluidId;
-    std::cout << "Read fid " << std::endl;
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id, &nodeTag);
   } else
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
@@ -569,6 +568,51 @@ double EmbeddedTsDesc<dim>::computePositionVector(bool *lastIt, int it, double t
     this->hth->updateStep2(lastIt, it, this->bcData->getTemperatureVector());
   }
 
+
+  // Once we know the time step and the time, if we are doing an exact solution problem,
+  // set up Unm1.  This is not the best place to do this, but oh well.
+  
+  // In the case of an exact solution
+  if (ioData.embed.testCase == 1 && it == 0) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = (*this->X)(iSub)[i];
+	double V[5];
+	ExactSolution::AcousticBeam(ioData,x[0],x[1],x[2],-dt, V);
+
+	this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0);
+	
+      }
+    }
+    this->timeState->setExistsNm1();
+    this->timeState->setDtNm1(dt);
+  } else if (ioData.embed.testCase == 2 && it == 0) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = (*this->X)(iSub)[i];
+	double V[5];
+	ExactSolution::AcousticViscousBeam(ioData,x[0],x[1],x[2],-dt, V);
+
+	this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0);
+	
+      }
+    }
+    this->timeState->setExistsNm1();
+    this->timeState->setDtNm1(dt);
+  }
+
+
+
   return dt;
 
 }
@@ -699,7 +743,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
       computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
     }
 
-    if (ioData.embed.testCase == 1) {
+    if (ioData.embed.testCase == 1 || ioData.embed.testCase == 2) {
 
       DistSVec<double,dim> Uexact(U);
       
@@ -709,7 +753,16 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 							     ioData, t, 
 							     this->spaceOp->getVarFcn());
 
+      } else if (ioData.embed.testCase == 2) {
+
+	ExactSolution::Fill<&ExactSolution::AcousticViscousBeam, dim>(Uexact, *this->X,
+							     ioData, t, 
+							     this->spaceOp->getVarFcn());
+
       }
+
+
+      //std::cout << "t = " << t << std::endl;
 
       double error[dim];
       double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
@@ -722,6 +775,14 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 	this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %e\n", k, error[k]*refs[k]);
       }
       this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %e\n", tot_error);
+ 
+      tot_error = 0.0;
+      this->domain->computeL2Error(U,Uexact,*this->A,error, this->distLSS);
+      for (int k = 0; k < dim; ++k) {
+	tot_error += error[k];
+	this->domain->getCommunicator()->fprintf(stdout,"L2 error [%d]: %e\n", k, error[k]*refs[k]);
+      }
+      this->domain->getCommunicator()->fprintf(stdout,"L2 error (total): %e\n", tot_error);
       
       tot_error = 0.0;
       this->domain->computeLInfError(U,Uexact,error, this->distLSS);
@@ -753,9 +814,14 @@ void EmbeddedTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int
 
 //------------------------------------------------------------------------------
 
-//template<int dim>
-//void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
-//{}
+template<int dim>
+void EmbeddedTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U) 
+{
+  TsDesc<dim>::outputPositionVectorToDisk(U);
+  
+  if(emmh && emmh->getAlgNum() == 1)
+    this->restart->writeStructPosToDisk(this->com->cpuNum(), true, this->distLSS->getStructPosition());
+}
 
 //------------------------------------------------------------------------------
 
@@ -818,6 +884,16 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   double t0 = this->timer->getTime();
   if(dynNodalTransfer)
     numStructNodes = dynNodalTransfer->numStNodes();
+
+  
+  /*std::cout << "Current time =  " << (currentTime)*ioData.ref.rv.time << std::endl;
+  ExactSolution::FillPrimitive<&ExactSolution::AcousticBeam,
+    dim>(*this->spaceOp->getCurrentPrimitiveVector(),*this->X,
+	    ioData, currentTime + currentTimeStep,
+	    this->varFcn);
+*/
+
+  //*this->spaceOp->getCurrentPrimitiveVector() *= 0.5;
 
   if(!increasingPressure || recomputeIntersections) {
     for (int i=0; i<numStructNodes; i++) 
@@ -1023,7 +1099,7 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
   MeshMotionHandler *_mmh = 0;
 
   if (ioData.problem.type[ProblemData::AERO]) {
-    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, geoSource.getMatchNodes(), distLSS);
     //check that algorithm number is consistent with simulation in special case RK2-CD
     // if C0 and RK2 then RK2DGCL is needed!
     if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
@@ -1041,7 +1117,7 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
     }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
-    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, distLSS);
+    _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, geoSource.getMatchNodes(), distLSS);
   }
   else if (ioData.problem.type[ProblemData::ACCELERATED])
     _mmh = new AccMeshMotionHandler(ioData, this->varFcn, this->bcData->getInletPrimitiveState(), this->domain);

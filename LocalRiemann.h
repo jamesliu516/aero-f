@@ -658,5 +658,177 @@ void LocalRiemannGfmpar::oneDtoThreeD(const double* dWidWi3, const double* dWidW
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
+
+class LocalRiemannLowMach : public LocalRiemann {
+
+protected:
+
+  double beta;
+
+  int dim;
+
+public:
+  LocalRiemannLowMach()           { vf_ = 0; fluid1 = 0; fluid2 = 1;}
+ LocalRiemannLowMach(VarFcn *vf, int tag1, int tag2, double beta, int dim) : LocalRiemann(vf, tag1, tag2), beta(beta), dim(dim)
+  {}
+  virtual ~LocalRiemannLowMach()  { vf_ = 0; }
+
+  int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){
+    if(ID == IDn && !isCellCut) return 0; /* node does not change phase: nothing to do*/
+    if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange %d %d\n",ID, IDn);
+                       return -1;} }
+    else
+      for(int k=0; k<5; k++) V[k] = newV[k]/weight;
+
+    return 0;
+  }
+  
+  // multiphase Riemann problem
+  int computeRiemannSolution(double *Vi, double *Vj,
+			     int IDi, int IDj, double *nphi,
+			     double *initWi, double *initWj,
+			     double *Wi, double *Wj,
+			     double *rupdatei, double *rupdatej,
+			     double &weighti, double &weightj, 
+			     double dx[3], int it, bool isHigherOrder) {
+
+    double aL = vf_->computeSoundSpeed(Vi, IDi);
+    double aR = vf_->computeSoundSpeed(Vj, IDj);
+
+    double beta2l = 1.0-beta*beta;
+    double beta2r = beta2l;
+
+    double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+    double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+    double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+    double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+    double pl = vf_->getPressure(Vi, IDi);
+    double pr = vf_->getPressure(Vj, IDj);
+    
+    
+    double XL = beta2l*beta2l*vni*vni+4.0*beta*beta*aL*aL;
+    double XR = beta2r*beta2r*vnj*vnj+4.0*beta*beta*aR*aR;
+    
+    double C_L = 0.5*Vi[0]*(sqrt(XL) + beta2l*vni);
+    double C_R = 0.5*Vj[0]*(sqrt(XR) - beta2r*vnj);
+    
+    double Csum = C_L+C_R;
+    double ustar = (C_L*vni+C_R*vnj)/Csum - (pr-pl)/Csum;
+    double pstar = (C_L*pr+C_R*pl)/Csum - C_L*C_R*(vnj-vni)/Csum;
+    
+    // Use the secant method to find a root for the densities,
+    // assuming the flow is isentropic across the two waves.
+    double sL = vf_->computeEntropy(Vi[0], pl, IDi);
+    double rhonm2 = Vi[0];
+    double rhonm1 = Vi[0]*(1.0001);
+    /*
+    double fnm2 = vf_->computeIsentropicPressure(sL, rhonm2, IDi) - pl;
+    double fnm1 = vf_->computeIsentropicPressure(sL, rhonm1, IDi) - pl;
+    double rhon;
+
+    while (fabs(rhonm1-rhonm2) > 1.0e-10) {
+
+      rhon = rhonm1 - fnm1*(rhonm1-rhonm2)/(fnm1-fnm2);
+      rhonm2 = rhonm1;
+      rhonm1 = rhon;
+
+      fnm2 = fnm1;
+      fnm1 = vf_->computeIsentropicPressure(sL, rhonm1, IDi) - pl;
+    }
+    */
+    double rhoistar = Vi[0];//rhon;
+    /*
+    double sR = vf_->computeEntropy(Vj[0], pr, IDj);
+    rhonm2 = Vj[0];
+    rhonm1 = Vj[0]*(1.0001);
+    
+    fnm2 = vf_->computeIsentropicPressure(sR, rhonm1, IDj) - pr;
+    fnm1 = vf_->computeIsentropicPressure(sR, rhon, IDj) - pr;
+
+    while (fabs(rhon-rhonm1) > 1.0e-10) {
+
+      rhon = rhonm1 - fnm1*(rhonm1-rhonm2)/(fnm1-fnm2);
+      rhonm2 = rhonm1;
+      rhonm1 = rhon;
+
+      fnm2 = fnm1;
+      fnm1 = vf_->computeIsentropicPressure(sR, rhonm1, IDj) - pr;
+    }
+    */
+    double rhojstar = Vj[0];//rhon;
+
+    
+    Wi[0]  = rhoistar;                Wi[dim]    = Wi[0];
+    Wi[1]  = vti[0]+ustar*nphi[0];      Wi[dim+1]  = Wi[1];
+    Wi[2]  = vti[1]+ustar*nphi[1];      Wi[dim+2]  = Wi[2];
+    Wi[3]  = vti[2]+ustar*nphi[2];      Wi[dim+3]  = Wi[3];
+    Wi[4]  = pstar;                     Wi[dim+4]  = Wi[4];
+
+    Wj[0]  = rhojstar;                    Wj[dim]    = Wj[0];
+    Wj[1]  = vtj[0]+ustar*nphi[0];      Wj[dim+1]  = Wj[1];
+    Wj[2]  = vtj[1]+ustar*nphi[1];      Wj[dim+2]  = Wj[2];
+    Wj[3]  = vtj[2]+ustar*nphi[2];      Wj[dim+3]  = Wj[3];
+    Wj[4]  = pstar;                     Wj[dim+4]  = Wj[4];
+
+    if (it == 1 && !isHigherOrder)
+      updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
+
+    return 0;
+  }
+
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi,
+			      double *Wi, double *Wj,
+			      double dx[3],int it,
+			      double* dWidWi,double*  dWidWj,
+			      double* dWjdWi,double*  dWjdWj) {} 
+
+
+  void updatePhaseChangingNodeValues( double * const dx, 
+				      double * const Wi, double * const Wj,
+				      double &weighti, double *rupdatei, 
+				      double &weightj, double *rupdatej)
+  {
+    // In multiphase flow:
+    // From one iteration to the next, some nodes change phases.
+    // The state values at these nodes are not relevant to the thermodynamics
+    //     of the fluid they belong to at the end of the iteration and thus
+    //     must somehow be replaced or "updated".
+    // Appropriate state values are given by the interfacial states of the
+    //     solution of the two-phase Riemann problem.
+    // In three dimensions, there are several interfacial states to consider.
+    // The present routine uses all interfacial states that are upwind of
+    //    the node that may need to be "updated" and weighs them according
+    //    to their upwind position.
+    
+    int dim = 5;
+    
+    double temp = 0.0;
+    double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+    double normWi2 = Wi[1]*Wi[1]+Wi[2]*Wi[2]+Wi[3]*Wi[3];
+    double normWj2 = Wj[1]*Wj[1]+Wj[2]*Wj[2]+Wj[3]*Wj[3];
+    
+    if(normdx2 > 0.0 && normWj2 > 0.0)
+      temp = -(Wj[1]*dx[0]+Wj[2]*dx[1]+Wj[3]*dx[2])/sqrt(normdx2*normWj2);
+    if (temp > 0.0){
+      weighti += temp;
+      for (int k=0; k<dim; k++)
+	rupdatei[k] += temp*Wj[k];
+    }
+    temp = 0.0;
+    if(normdx2 > 0.0 && normWi2 > 0.0)
+      temp = (Wi[1]*dx[0]+Wi[2]*dx[1]+Wi[3]*dx[2])/sqrt(normdx2*normWi2);
+    if(temp > 0.0){ // for update of node j
+      weightj += temp;
+      for (int k=0; k<dim; k++)
+	rupdatej[k] += temp*Wi[k];
+    }
+    
+  }
+
+};
+
 #endif
 

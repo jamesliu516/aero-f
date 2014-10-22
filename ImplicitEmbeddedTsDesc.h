@@ -35,6 +35,9 @@ protected:
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
+  
+  int maxItsLS;
+  double contractionLS, sufficDecreaseLS;
 
   template <int neq>
   KspPrec<neq> *createPreconditioner(PcData &pcdata, Domain *dom);
@@ -45,6 +48,10 @@ protected:
 
 public:
   
+  virtual DistMat<double,dim>* GetJacobian() { 
+    return NULL;
+  }
+
   ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom);
 
   ~ImplicitEmbeddedTsDesc();
@@ -83,9 +90,12 @@ public:
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
-
+  int getLineSearch() const { return (maxItsLS>0); }
+  int getMaxItsLineSearch() const { return maxItsLS; }
+  double getContractionLineSearch() const { return contractionLS; }
+  double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
+  
   void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {}
- 
 };
 
 

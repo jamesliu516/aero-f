@@ -11,6 +11,46 @@
 
 #include <DebugTools.h>
 
+template <class Scalar>
+CommPattern<Scalar>* internal_select(CommPattern<int>* a, CommPattern<double>* b) {
+
+  std::cout << "Error: should not be called!" << std::endl;
+  return NULL;
+}
+
+template <>
+CommPattern<int>* internal_select<int>(CommPattern<int>* a, CommPattern<double>* b) {
+
+  return a;
+}
+
+template <>
+CommPattern<double>* internal_select<double>(CommPattern<int>* a, CommPattern<double>* b) {
+
+  return b;
+}
+
+template <class Scalar>
+const CommPattern<Scalar>* internal_select(const CommPattern<int>* a, const CommPattern<double>* b) {
+
+  std::cout << "Error: should not be called!" << std::endl;
+  return NULL;
+}
+
+template <>
+const CommPattern<int>* internal_select<int>(const CommPattern<int>* a,const  CommPattern<double>* b) {
+
+  return a;
+}
+
+template <>
+const CommPattern<double>* internal_select<double>(const CommPattern<int>* a,const  CommPattern<double>* b) {
+
+  return b;
+}
+
+
+
 template<class Scalar>
 MultiGridLevel<Scalar>::MultiGridLevel(MultiGridMethod mgm,MultiGridLevel* mg, Domain& domain, DistInfo& refinedNodeDistInfo, DistInfo& refinedEdgeDistInfo)
   : nodeIdPattern(0), nodeVolPattern(0), nodePosnPattern(0),nodeVecPattern(0), domain(domain),
@@ -62,6 +102,8 @@ faceNormDistInfo(new DistInfo(refinedEdgeDistInfo.numLocThreads, refinedEdgeDist
   nodeVecPattern = NULL;
   nodeVecPatternEq1 = NULL;
   nodeVecPatternEq2 = NULL;
+
+  matPattern2 = NULL;
 }
 
 struct agg_face {
@@ -123,7 +165,8 @@ neq1(neq1), neq2(neq2) {
   offDiagMatPattern = NULL;
   edgeAreaPattern = NULL;
   edgeVecPattern = NULL;
-  //nodeIdPattern = new CommPattern<int>(domain.getSubTopo(), domain.getCommunicator(), CommPattern<int>::CopyOnSend);
+  nodeVecPatternEq1 = nodeVecPatternEq2 = NULL;
+  nodeIdPattern = new CommPattern<int>(levelSubDTopo, domain.getCommunicator(), CommPattern<int>::CopyOnSend);
   nodeVolPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   nodeVecPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   
@@ -133,6 +176,7 @@ neq1(neq1), neq2(neq2) {
   }
   nodePosnPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
   matPattern = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
+  matPattern2 = new CommPattern<double>(levelSubDTopo, domain.getCommunicator(), CommPattern<double>::CopyOnSend);
 
   numLocSub = domain.getNumLocSub();
   
@@ -157,6 +201,8 @@ neq1(neq1), neq2(neq2) {
   edges = new EdgeSet*[numLocSub];
 
   numNodes = new int[numLocSub]; 
+
+  int numTotalNodes = 0;
 
   mgMethod = MultiGridGeometric; 
  
@@ -225,7 +271,7 @@ neq1(neq1), neq2(neq2) {
 
       for (int i = 0; i < parent_nn; ++i) {
 
-        if (pNodeMapping->v[i] == 854)
+        if (pNodeMapping->v[i] == 1617679)
           std::cout << pNodeMapping->v[i] << " ";
       }
     }
@@ -234,6 +280,8 @@ neq1(neq1), neq2(neq2) {
     fread(&s, sizeof(int), 1, fin);
     SD.ownedNodes.resize(s);
     fread(&SD.ownedNodes[0], sizeof(int), s, fin);
+
+    numTotalNodes += s;
 
     fread(&s, sizeof(int), 1, fin);
     SD.sharedNodes.resize(s);
@@ -258,7 +306,7 @@ neq1(neq1), neq2(neq2) {
     for (int i = 0; i < parent_nn; ++i) {
 
       assert((*pNodeMapping)(iSub)[i] >= 0 && (*pNodeMapping)(iSub)[i] < SD.numNodes);
-      if (SD.locToGlobMap[(*pNodeMapping)(iSub)[i] ] == 854)
+      if (SD.locToGlobMap[(*pNodeMapping)(iSub)[i] ] == 1617679)
         std::cout << "map " << level_num-1 << "->" << level_num << ": " << i  << "->" << (*pNodeMapping)(iSub)[i] << std::endl;
     }
 
@@ -283,6 +331,8 @@ neq1(neq1), neq2(neq2) {
 
     fread(&s, sizeof(int), 1, fin);
     myFacesOwned.resize(s);
+
+    Vec3D tot = 0.0;
     for (int i = 0; i < s; ++i) {
 
       int glSub = domain.getSubDomain()[iSub]->getGlobSubNum();
@@ -292,9 +342,10 @@ neq1(neq1), neq2(neq2) {
       fread(&myFacesOwned[i].normal,sizeof(Vec3D),1, fin);
       myFacesOwned[i].normal /= (ref_length*ref_length);
       myFacesOwned[i].area /= (ref_length*ref_length);
-      if (SD.locToGlobMap[myFacesOwned[i].node_id] == 854) {
+      if (SD.locToGlobMap[myFacesOwned[i].node_id] == 1617679) {
         std::cout << "Owned face (" << glSub << ", " << level_num << "), code = " << myFacesOwned[i].code << ": ";
         myFacesOwned[i].normal.print();
+	tot += myFacesOwned[i].normal;
       }
     }
   
@@ -309,7 +360,7 @@ neq1(neq1), neq2(neq2) {
       fread(&myFacesShared[i].normal,sizeof(Vec3D),1, fin);
       myFacesShared[i].normal /= (ref_length*ref_length);
       myFacesShared[i].area /= (ref_length*ref_length);
-      if (SD.locToGlobMap[myFacesShared[i].node_id] == 854) {
+      if (SD.locToGlobMap[myFacesShared[i].node_id] == 1617679) {
         std::cout << "Shared face (" << glSub << ", " << level_num << "), code = " << myFacesShared[i].code << ": ";
         myFacesShared[i].normal.print();
       }
@@ -350,6 +401,16 @@ neq1(neq1), neq2(neq2) {
       E.owned = true;
       myEdges.push_back(E);
       edges[iSub]->find(E.ij.first,E.ij.second);
+
+      if (SD.locToGlobMap[E.ij.first] == 1617679 || SD.locToGlobMap[E.ij.second] == 1617679) {
+        std::cout << "Owned edge (" << SD.locToGlobMap[E.ij.first] << " , "
+		  <<  SD.locToGlobMap[E.ij.second] << "): ";
+	if (SD.locToGlobMap[E.ij.first] == 1617679)
+	  tot += E.normal;
+	else
+	  tot -= E.normal;
+	E.normal.print();
+      }
     }
       
     fread(&s, sizeof(int), 1, fin);
@@ -364,8 +425,16 @@ neq1(neq1), neq2(neq2) {
       E.owned = false;
       myEdges.push_back(E);
       edges[iSub]->find(E.ij.first,E.ij.second);
+      if (SD.locToGlobMap[E.ij.first] == 1617679 || SD.locToGlobMap[E.ij.second] == 1617679) {
+        std::cout << "Shared edge (" << SD.locToGlobMap[E.ij.first] << " , "
+		  <<  SD.locToGlobMap[E.ij.second] << "): ";
+	E.normal.print();
+      }
     }  
-    
+
+    //std::cout << "ref_length = " << ref_length << " tot = ";
+    //tot.print();
+
     edgeDistInfo->setLen(iSub, myEdges.size());
 
     Vec<int> newNum(edges[iSub]->size());
@@ -400,6 +469,9 @@ neq1(neq1), neq2(neq2) {
     faceDistInfo->setLen(iSub,myFacesOwned.size()+myFacesShared.size());
     agglomFaceDistInfo->setLen(iSub,myFacesOwned.size()+myFacesShared.size());
   }
+
+  com->globalSum(1,&numTotalNodes);
+  com->fprintf(stdout, "Number of nodes in multigrid level %d = %d\n",level_num, numTotalNodes);
   
   nodeDistInfo->finalize(true);
   edgeDistInfo->finalize(true);
@@ -442,6 +514,9 @@ neq1(neq1), neq2(neq2) {
 
   edgeNormals = &myGeoState->getEdgeNormal();//new DistVec<Vec3D>(*edgeDistInfo);  
   *edgeNormals = Vec3D(0.0);
+  
+  myGeoState->getEdgeNormalVel() = 0.0;
+  myGeoState->getFaceNorVel() = 0.0;
 
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
 
@@ -452,20 +527,20 @@ neq1(neq1), neq2(neq2) {
 
       int l = edges[iSub]->find(myEdges[i].ij.first, myEdges[i].ij.second);
 
-      if (D->locToGlobMap[myEdges[i].ij.first] == 854 ||
-          D->locToGlobMap[myEdges[i].ij.second] == 854) {
+      /*if (D->locToGlobMap[myEdges[i].ij.first] == 1617679 ||
+          D->locToGlobMap[myEdges[i].ij.second] == 1617679) {
 
         std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
 	  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
         myEdges[i].normal.print();
       }
-
+      */
       if (myEdges[i].normal.norm() < 1e-16) {
 
-	std::cout << "Error: normal = 0!, (" << level_num << ") " << std::endl;
-        std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
-	  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
-        myEdges[i].normal.print();
+	//std::cout << "Error: normal = 0!, (" << level_num << ") " << std::endl;
+        //std::cout << glSub << ", " << level_num << ": " << D->locToGlobMap[myEdges[i].ij.first] << " " <<
+	//  D->locToGlobMap[myEdges[i].ij.second] << " " << myEdges[i].owned << " "; 
+        //myEdges[i].normal.print();
       }
       (*edgeNormals)(iSub)[l] = myEdges[i].normal;
       (*edgeArea)(iSub)[l] = myEdges[i].area;
@@ -485,6 +560,9 @@ neq1(neq1), neq2(neq2) {
       
       nodeVolPattern->setLen(sndChannel(glSub,neighb),itr->second->sharedNodes.size());
       nodeVolPattern->setLen(rcvChannel(glSub,neighb),itr->second->sharedNodes.size());
+
+      nodeIdPattern->setLen(sndChannel(glSub,neighb),itr->second->sharedNodes.size());
+      nodeIdPattern->setLen(rcvChannel(glSub,neighb),itr->second->sharedNodes.size());
       if (neq2 > 0) {
 	nodeVecPatternEq1->setLen(sndChannel(glSub,neighb),neq1*itr->second->sharedNodes.size());
 	nodeVecPatternEq1->setLen(rcvChannel(glSub,neighb),neq1*itr->second->sharedNodes.size());
@@ -494,15 +572,21 @@ neq1(neq1), neq2(neq2) {
       }
       matPattern->setLen(sndChannel(glSub,neighb),neq1*neq1*itr->second->sharedNodes.size());
       matPattern->setLen(rcvChannel(glSub,neighb),neq1*neq1*itr->second->sharedNodes.size());
+
+      if (neq2 > 0) {
+	matPattern2->setLen(sndChannel(glSub,neighb),neq2*neq2*itr->second->sharedNodes.size());
+	matPattern2->setLen(rcvChannel(glSub,neighb),neq2*neq2*itr->second->sharedNodes.size());
+      }
     }
   }
 
-  //nodeIdPattern->finalize();
+  nodeIdPattern->finalize();
   nodeVolPattern->finalize();
   nodeVecPattern->finalize();
   if (neq2 > 0) {
     nodeVecPatternEq1->finalize();
     nodeVecPatternEq2->finalize();
+    matPattern2->finalize();
   }
   //nodePosnPattern->finalize();
   matPattern->finalize();
@@ -654,23 +738,26 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
     if (nodeIdPattern)
       delete nodeIdPattern;
     delete nodeVolPattern;
-    delete nodeVecPattern;
     if (nodeVecPattern)
+      delete nodeVecPattern;
+    if (nodePosnPattern)
       delete nodePosnPattern;
     if (nodeVecPatternEq1) {
       delete nodeVecPatternEq1;
       delete nodeVecPatternEq2;
     }
     delete matPattern;
+    if (matPattern2)
+      delete matPattern2;
     if (offDiagMatPattern)
       delete offDiagMatPattern;
     if (edgeAreaPattern)
       delete edgeAreaPattern;
     if (edgeVecPattern)
       delete edgeVecPattern;
-
+    
   }
-
+  
   if (faceMapping)
     delete faceMapping;
   delete nodeDistInfo;
@@ -700,7 +787,7 @@ MultiGridLevel<Scalar>::~MultiGridLevel()
   delete [] numNodes;
   if (nodeToNodeMaskILU)
     delete [] nodeToNodeMaskILU;
- 
+  
 }
 
 //------------------------------------------------------------------------------
@@ -1219,6 +1306,7 @@ template<class T,int dim>
 void MultiGridLevel<Scalar>::assembleInternal(DistMat<T,dim> & A) const {
 
   
+  
 #pragma omp parallel for
   for (int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
 
@@ -1230,7 +1318,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistMat<T,dim> & A) const {
       
       NeighborDomain* N = it->second;
       int snd = sndChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = matPattern->getSendBuffer(snd);
+      SubRecInfo<T> sInfo = (dim == neq1? matPattern : matPattern2)->getSendBuffer(snd);
       T (*buffer)[dim*dim] = reinterpret_cast<T (*)[dim*dim]>(sInfo.data);
     
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -1241,7 +1329,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistMat<T,dim> & A) const {
     
   }
 
-  matPattern->exchange();
+  (dim == neq1? matPattern : matPattern2)->exchange();
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
@@ -1255,7 +1343,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistMat<T,dim> & A) const {
       NeighborDomain* N = it->second;
 
       int rcv = rcvChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = matPattern->recData(rcv);
+      SubRecInfo<T> sInfo = (dim == neq1? matPattern : matPattern2)->recData(rcv);
       T (*buffer)[dim*dim] = reinterpret_cast<T (*)[dim*dim]>(sInfo.data);
 
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -1328,6 +1416,8 @@ template<class T>
 void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
 
   
+  CommPattern<T>* compat = internal_select<T>(nodeIdPattern, nodeVolPattern);
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
 
@@ -1339,7 +1429,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
       
       NeighborDomain* N = it->second;
       int snd = sndChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->getSendBuffer(snd);
+      SubRecInfo<T> sInfo = compat->getSendBuffer(snd);
       T *buffer = reinterpret_cast<T *>(sInfo.data);
     
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -1350,7 +1440,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
     
   }
 
-  nodeVolPattern->exchange();
+  compat->exchange();
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
@@ -1364,7 +1454,7 @@ void MultiGridLevel<Scalar>::assembleInternal(DistVec<T> & A) const {
       NeighborDomain* N = it->second;
 
       int rcv = rcvChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->recData(rcv);
+      SubRecInfo<T> sInfo = compat->recData(rcv);
       T *buffer = reinterpret_cast<T *>(sInfo.data);
 
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -1383,6 +1473,7 @@ void MultiGridLevel<Scalar>::
 assembleInternalMax(DistVec<T> & A) const {
 
   
+  CommPattern<T>* compat = internal_select<T>(nodeIdPattern, nodeVolPattern);
 #pragma omp parallel for
   for (int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
 
@@ -1394,18 +1485,19 @@ assembleInternalMax(DistVec<T> & A) const {
       
       NeighborDomain* N = it->second;
       int snd = sndChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->getSendBuffer(snd);
+      SubRecInfo<T> sInfo = compat->getSendBuffer(snd);
+
       T *buffer = reinterpret_cast<T *>(sInfo.data);
     
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
         T * a = &A(iSub)[N->sharedNodes[iNode].second];
-        buffer[iNode] =  std::max<T>(*a,buffer[iNode]);
+        buffer[iNode] = *a;// std::max<T>(*a,buffer[iNode]);
       }
     }
     
   }
 
-  nodeVolPattern->exchange();
+  compat->exchange();
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < domain.getNumLocSub(); ++iSub) {
@@ -1419,7 +1511,7 @@ assembleInternalMax(DistVec<T> & A) const {
       NeighborDomain* N = it->second;
 
       int rcv = rcvChannel(glSub, it->first);
-      SubRecInfo<T> sInfo = nodeVolPattern->recData(rcv);
+      SubRecInfo<T> sInfo = compat->recData(rcv);
       T *buffer = reinterpret_cast<T *>(sInfo.data);
 
       for (int iNode = 0; iNode < N->sharedNodes.size(); ++iNode) {
@@ -2458,7 +2550,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 */
 // ------------------------- MPI PARALLEL CRAP -----------------------------------------------------------------
   DistVec<int> ownerSubDomain(refinedNodeDistInfo);
-
+ 
   maxNodesPerSubD = 0;
   for(int iSub = 0; iSub < numLocSub; ++iSub) maxNodesPerSubD = max(maxNodesPerSubD, nodeMapping(iSub).size());
  
@@ -2804,7 +2896,7 @@ void MultiGridLevel<Scalar>::agglomerate(const DistInfo& refinedNodeDistInfo,
 
       if (fabs((*edgeNormals)(iSub)[i].norm()) < 1.0e-15) {
 
-        std::cout << "Error: normal = 0!" << std::endl;
+        //std::cout << "Error: normal = 0!" << std::endl;
       }
     }
   }
@@ -3358,7 +3450,7 @@ void MultiGridLevel<Scalar>::computeRestrictedQuantities(const DistGeoState& ref
 //------------------------------------------------------------------------------
 
 template<class Scalar> template<class Scalar2, int dim>
-void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData,
+void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2, dim>& fineData, DistSVec<Scalar2, dim>& coarseData,bool average,
                                       bool apply_relaxation) const
 {
   coarseData = 0.0;
@@ -3372,64 +3464,89 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 */
 
   DistVec<int>& nodeMapping = *pNodeMapping;
-  if (useVolumeWeightedAverage) {
+  if (average) {
+    if (useVolumeWeightedAverage) {
 #pragma omp parallel for
-    for(int iSub = 0; iSub < numLocSub; ++iSub) {
-      for(int i = 0; i < fineData(iSub).size(); ++i)  {
- /*       if (fineGrid.getMyLevel() == 0 && iSub == 0 && rnk == 110 && 
-            nodeMapping(iSub)[i] == 3136)
-          std::cout << "f = [" << fineData(iSub)[i][0] << " " <<
-                                  fineData(iSub)[i][1] << " " <<
-                                  fineData(iSub)[i][2] << " " <<
-                                  fineData(iSub)[i][3] << " " <<
-                                  fineData(iSub)[i][4] << "]" << std::endl;
-*/
-        if (!fineGrid.nodeDistInfo->getMasterFlag(iSub)[i])
-          continue;
-        /*if (rnk == 7 && nodeMapping(iSub)[i] == 2) {
-
-          std::cout << "i = " << i << ", vol = " << fineGrid.getCtrlVol().v[i] << std::endl;
-          for(int j = 0; j < dim; ++j)
+      for(int iSub = 0; iSub < numLocSub; ++iSub) {
+	for(int i = 0; i < fineData(iSub).size(); ++i)  {
+	  /*       if (fineGrid.getMyLevel() == 0 && iSub == 0 && rnk == 110 && 
+		   nodeMapping(iSub)[i] == 3136)
+		   std::cout << "f = [" << fineData(iSub)[i][0] << " " <<
+		   fineData(iSub)[i][1] << " " <<
+		   fineData(iSub)[i][2] << " " <<
+		   fineData(iSub)[i][3] << " " <<
+		   fineData(iSub)[i][4] << "]" << std::endl;
+	  */
+	  if (!fineGrid.nodeDistInfo->getMasterFlag(iSub)[i])
+	    continue;
+	  /*if (rnk == 7 && nodeMapping(iSub)[i] == 2) {
+	    
+	    std::cout << "i = " << i << ", vol = " << fineGrid.getCtrlVol().v[i] << std::endl;
+	    for(int j = 0; j < dim; ++j)
             std::cout << "V[" << j << "] = " << fineData.v[i][j] << std::endl;
-        
-        }*/
+	    
+	    }*/
+	  
+	  double loc_relax_factor = 1.0;
+	  if (mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] != 
+	      MultigridSubdomain::TopoInterior && apply_relaxation)
+	    loc_relax_factor *= 0.5;
 
-        double loc_relax_factor = 1.0;
-        if (mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] != 
-          MultigridSubdomain::TopoInterior && apply_relaxation)
-          loc_relax_factor *= 0.5;
-
-        for(int j = 0; j < dim; ++j)
-          coarseData(iSub)[nodeMapping(iSub)[i]][j] += loc_relax_factor*fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i][j];
+	  for(int j = 0; j < dim; ++j) {
+	    //if (j < 5) {
+	      coarseData(iSub)[nodeMapping(iSub)[i]][j] += loc_relax_factor*fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i][j];
+	      //} else {
+	      //  coarseData(iSub)[nodeMapping(iSub)[i]][j] += loc_relax_factor*fineGrid.getCtrlVol()(iSub)[i] * std::max(fineData(iSub)[i][j],0.0);
+	      //}
+	  }
+	}
+	
+	for(int i = 0; i < coarseData(iSub).size(); ++i) {
+	  const Scalar one_over_volume = 1.0 / getCtrlVol()(iSub)[i];
+	  for(int j = 0; j < dim; ++j) coarseData(iSub)[i][j] *= one_over_volume;
+	}
+	
       }
-
-      for(int i = 0; i < coarseData(iSub).size(); ++i) {
-        const Scalar one_over_volume = 1.0 / getCtrlVol()(iSub)[i];
-        for(int j = 0; j < dim; ++j) coarseData(iSub)[i][j] *= one_over_volume;
+    } else {
+      
+      assert(false);
+#pragma omp parallel for
+      for(int iSub = 0; iSub < numLocSub; ++iSub) {
+	for(int i = 0; i < fineData(iSub).size(); ++i)  {
+	  for(int j = 0; j < dim; ++j)
+	    coarseData(iSub)[nodeMapping(iSub)[i]][j] += /*(*fineGrid.ctrlVolCount)(iSub)[i] */ fineData(iSub)[i][j];
+	}
+	
+	for(int i = 0; i < coarseData(iSub).size(); ++i) {
+	  const Scalar one_over_volume = 1.0 / (*ctrlVolCount)(iSub)[i];
+	  if (nodeDistInfo->getMasterFlag(iSub)[i]) {
+	    for(int j = 0; j < dim; ++j) coarseData(iSub)[i][j] *= one_over_volume;
+	  } else {
+	    for(int j = 0; j < dim; ++j) coarseData(iSub)[i][j] = 0.0;
+	  }      
+	}
+	
       }
-
+      
     }
   } else {
 
-    assert(false);
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       for(int i = 0; i < fineData(iSub).size(); ++i)  {
-        for(int j = 0; j < dim; ++j)
-          coarseData(iSub)[nodeMapping(iSub)[i]][j] += /*(*fineGrid.ctrlVolCount)(iSub)[i] */ fineData(iSub)[i][j];
+	if (!fineGrid.nodeDistInfo->getMasterFlag(iSub)[i])
+	  continue;
+	
+	double loc_relax_factor = 1.0;
+	if (mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] != 
+	    MultigridSubdomain::TopoInterior && apply_relaxation)
+	  loc_relax_factor *= 0.5;
+	
+	for(int j = 0; j < dim; ++j)
+	  coarseData(iSub)[nodeMapping(iSub)[i]][j] += loc_relax_factor*fineData(iSub)[i][j];
       }
-
-      for(int i = 0; i < coarseData(iSub).size(); ++i) {
-        const Scalar one_over_volume = 1.0 / (*ctrlVolCount)(iSub)[i];
-        if (nodeDistInfo->getMasterFlag(iSub)[i]) {
-          for(int j = 0; j < dim; ++j) coarseData(iSub)[i][j] *= one_over_volume;
-        } else {
-          for(int j = 0; j < dim; ++j) coarseData(iSub)[i][j] = 0.0;
-        }       
-      }
-
+      
     }
-
   }
  
   operAdd<double> addOp;
@@ -3455,14 +3572,14 @@ void MultiGridLevel<Scalar>::Restrict(const MultiGridLevel<Scalar>& fineGrid, co
 
         if (!fineGrid.nodeDistInfo->getMasterFlag(iSub)[i])
           continue;
-        coarseData(iSub)[nodeMapping(iSub)[i]] += fineGrid.getCtrlVol()(iSub)[i] * fineData(iSub)[i];
+        coarseData(iSub)[nodeMapping(iSub)[i]] += /*fineGrid.getCtrlVol()(iSub)[i] * */fineData(iSub)[i];
       }
-
+      /*
       for(int i = 0; i < coarseData(iSub).size(); ++i) {
         const Scalar one_over_volume = 1.0 / getCtrlVol()(iSub)[i];
         coarseData(iSub)[i] *= one_over_volume;
       }
-
+      */
     }
   } else {
     assert(false);
@@ -3590,7 +3707,9 @@ void MultiGridLevel<Scalar>::RestrictOperator(const MultiGridLevel<Scalar>& fine
 
 template<class Scalar> template<class Scalar2, int dim>
 void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const DistSVec<Scalar2,dim>& coarseInitialData,
-                                     const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,double relax_factor) const
+                                     const DistSVec<Scalar2,dim>& coarseData, DistSVec<Scalar2,dim>& fineData,
+				     DistSVec<Scalar2,dim>& fine_ref,double relax_factor,VarFcn* varFcn,
+				     DistLevelSetStructure* coarseLSS, DistLevelSetStructure* fineLSS) const
 {
 
   int rnk;
@@ -3599,8 +3718,18 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
   DistVec<int>& nodeMapping = *pNodeMapping;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    LevelSetStructure* coarseLSS_sub = (coarseLSS ? &(*coarseLSS)(iSub) : NULL);
+    LevelSetStructure* fineLSS_sub = (fineLSS ? &(*fineLSS)(iSub) : NULL);
     for(int i = 0; i < fineData(iSub).size(); ++i) {
       const int coarseIndex = nodeMapping(iSub)[i];
+      //if (coarseLSS_sub && !(coarseLSS_sub->isActive(0.0, coarseIndex)))
+      //	  continue;
+      if (fineLSS_sub && !(fineLSS_sub->isActive(0.0, i)))
+      	  continue;
+      //if (coarseLSS_sub && !(coarseLSS_sub->isActive(0.0, coarseIndex)))
+      //	std::cout << coarseData(iSub)[coarseIndex][0] << " " <<  coarseInitialData(iSub)[coarseIndex][0] << std::endl;
+
       if (mgMethod == MultiGridAlgebraic) {
         for(int j = 0; j < dim; ++j) {
           fineData(iSub)[i][j] += fineGrid.getCtrlVol()(iSub)[i]*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]) / getCtrlVol()(iSub)[coarseIndex];
@@ -3614,16 +3743,135 @@ void MultiGridLevel<Scalar>::Prolong(MultiGridLevel<Scalar>& fineGrid, const Dis
         }
           */
         double loc_relax_factor = relax_factor;
-        if (mgSubdomains[iSub].nodeTopology[coarseIndex] != 
-            MultigridSubdomain::TopoInterior)
-          loc_relax_factor *= 0.5;
+        //if (mgSubdomains[iSub].nodeTopology[coarseIndex] != 
+        //    MultigridSubdomain::TopoInterior)
+        //  loc_relax_factor *= 0.5;
+	if (dim > 5 && fine_ref(iSub)[i][5] > turbRelaxCutoff) {
+
+	  loc_relax_factor *= turbRelaxCutoff/ fine_ref(iSub)[i][5];
+	  //std::cout << "loc_relax_factor  = " << loc_relax_factor << " " << fineData(iSub)[i][5] << std::endl;
+	}
+
+	/*if (mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] ==
+	    MultigridSubdomain::TopoLine ||
+	    mgSubdomains[iSub].nodeTopology[nodeMapping(iSub)[i]] ==
+	    MultigridSubdomain::TopoVertex)
+	  loc_relax_factor = 0.0;
+	*/
+        double tmp[dim], tmpv[dim];
         for(int j = 0; j < dim; ++j) {
-          fineData(iSub)[i][j] += loc_relax_factor*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
+          tmp[j] = fineData(iSub)[i][j] + loc_relax_factor*(coarseData(iSub)[coarseIndex][j] - coarseInitialData(iSub)[coarseIndex][j]);
         }
+        if (varFcn) {
+          varFcn->conservativeToPrimitive(tmp, tmpv);
+          if (tmpv[0] <= 0.0 || tmpv[4] <= 0.0) {
+            memcpy(tmp, fineData(iSub)[i], sizeof(tmp));
+          }
+        }
+        memcpy(fineData(iSub)[i], tmp, sizeof(tmp));
+
       }
     }
   }
+  /*
+  if (coarseLSS) {
+
+    
+  }*/
 }
+
+template<class Scalar> template<class Scalar2, int dim>
+void MultiGridLevel<Scalar>::ExtrapolateProlongation(MultiGridLevel<Scalar>& fineGrid, 
+						     const DistSVec<Scalar2,dim>& coarseInitialData,
+						     DistSVec<Scalar2,dim>& coarseData,
+						     DistLevelSetStructure* coarseLSS, 
+						     DistLevelSetStructure* fineLSS) {
+
+  DistVec<int> cnt(coarseData.info());
+  cnt = 0;
+  DistSVec<Scalar2,dim> extUpdate(coarseData);
+  extUpdate = 0.0;
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    LevelSetStructure* coarseLSS_sub = (coarseLSS ? &(*coarseLSS)(iSub) : NULL);
+
+    for (int i = 0; i < cnt.subSize(iSub); ++i) {
+
+      bool iActive = coarseLSS_sub->isActive(0.0, i);
+
+      if (!iActive) {
+	for (int k = 0; k < dim; ++k)
+	  coarseData(iSub)[i][k] = coarseInitialData(iSub)[i][k];
+      }
+    }
+  }
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    LevelSetStructure* coarseLSS_sub = (coarseLSS ? &(*coarseLSS)(iSub) : NULL);
+    bool* edgeFlag = edges[iSub]->getMasterFlag();
+    int (*edgePtr)[2] = edges[iSub]->getPtr();
+    for (int l = 0; l < edges[iSub]->size(); ++l) {
+
+      if (!edgeFlag[l])
+        continue;
+
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      bool iActive = coarseLSS_sub->isActive(0.0, i),
+	jActive = coarseLSS_sub->isActive(0.0, j);
+
+      if ((iActive && jActive) ||
+	  (!iActive && !jActive))
+	continue;
+
+      if (iActive) {
+
+	++cnt(iSub)[j];
+	for (int k = 0; k < dim; ++k)
+	  extUpdate(iSub)[j][k] += (coarseData(iSub)[i][k]-coarseInitialData(iSub)[i][k]);
+      } else {
+
+	++cnt(iSub)[i];
+	for (int k = 0; k < dim; ++k)
+	  extUpdate(iSub)[i][k] += (coarseData(iSub)[j][k]-coarseInitialData(iSub)[j][k]);
+
+      }    
+      
+    }
+  }
+
+  assembleInternal(extUpdate);
+  assembleInternal(cnt);
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    
+    for (int i = 0; i < cnt.subSize(iSub); ++i) {
+
+      int c = cnt(iSub)[i];
+      /*
+      LevelSetStructure* fineLSS_sub = (fineLSS ? &(*fineLSS)(iSub) : NULL);
+     
+      if (!fineLSS_sub->isActive(0.0,i))
+        continue;
+      */
+      if (c == 0)
+	continue;
+
+      //std::cout << "c = " << c << extUpdate(iSub)[i][0] << std::endl;
+
+      for (int k = 0; k < dim; ++k)
+      	coarseData(iSub)[i][k] += extUpdate(iSub)[i][k] / c;
+    }
+  }
+  
+}
+
 
 template <class Scalar>
 template<class Scalar2, int dim>
@@ -3705,7 +3953,7 @@ void MultiGridLevel<Scalar>::assemble(DistVec<Scalar2>& V)
 
   operAdd<double> addOp;
   if (agglomType == AgglomerationLocal)
-    ::assemble(domain, *nodeVolPattern, sharedNodes, V, addOp);
+    ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVolPattern)), sharedNodes, V, addOp);
   else
     assembleInternal(V);
 }
@@ -3718,11 +3966,11 @@ void MultiGridLevel<Scalar>::assemble(DistSVec<Scalar2,dim>& V)
   operAdd<double> addOp;
   if (agglomType == AgglomerationLocal) {
     if (dim == my_dim) {
-      ::assemble(domain, *nodeVecPattern, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPattern)) , sharedNodes, V, addOp);
     } else if (neq1 == dim) {
-      ::assemble(domain, *nodeVecPatternEq1, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPatternEq1)), sharedNodes, V, addOp);
     } else if (neq2 == dim) {
-      ::assemble(domain, *nodeVecPatternEq2, sharedNodes, V, addOp);
+      ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPatternEq2)), sharedNodes, V, addOp);
     } else {
       std::cout << "Assemble called for dim = " << dim << std::endl;
       DebugTools::PrintBacktrace();
@@ -3736,7 +3984,7 @@ template<class Scalar>
 template <class Scalar2,int dim> 
 void MultiGridLevel<Scalar>::assemble(DistMat<Scalar2,dim>& A)
 {
-  assert(dim == neq1);
+  //assert(dim == neq1);
   if (agglomType == AgglomerationLocal)
     ::assemble(domain, *matPattern, sharedNodes, A);
   else
@@ -3748,7 +3996,7 @@ template <class Scalar2,int dim>
 void MultiGridLevel<Scalar>::assembleMax(DistSVec<Scalar2,dim>& V)
 {
 
-  operMax<double> maxOp;
+  operMax<Scalar2> maxOp;
 //  std::cout << "Error: not used!" << std::endl;
   if (agglomType == AgglomerationLocal)
     ::assemble(domain, *nodeVecPattern, sharedNodes, V, maxOp);
@@ -3758,9 +4006,9 @@ template<class Scalar>
 template <class Scalar2> 
 void MultiGridLevel<Scalar>::assembleMax(DistVec<Scalar2>& V) {
 
-  operMax<double> maxOp;
+  operMax<Scalar2> maxOp;
   if (agglomType == AgglomerationLocal)
-    ::assemble(domain, *nodeVecPattern, sharedNodes, V, maxOp);
+    ::assemble(domain, *(internal_select<Scalar2>(nodeIdPattern, nodeVecPattern))  ,  sharedNodes, V, maxOp);
   else
     assembleInternalMax(V);
 }
@@ -3846,16 +4094,32 @@ void MultiGridLevel<Scalar>::computeMatVecProd(DistMat<Scalar2,dim>& mat,
 
 template <class Scalar>
 template <class Scalar2,int dim>
-void MultiGridLevel<Scalar>::computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
-                               DistSVec<Scalar2,dim>& dX,
-                               DistSVec<Scalar2,dim>& dY,
-                               DistSVec<Scalar2,dim>& dZ) {
+void MultiGridLevel<Scalar>::
+computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
+			  DistSVec<Scalar2,dim>& dX,
+			  DistSVec<Scalar2,dim>& dY,
+			  DistSVec<Scalar2,dim>& dZ,
+                          DistLevelSetStructure* distLSS) {
+  /*
+  DistSVec<Scalar2,dim> Vtmp(V);
+#pragma omp parallel for 
+  for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
+
+    for (int i = 0; i < V(iSub).size(); ++i) {
+
+      for (int k = 0; k < dim; ++k) {
+	V(iSub)[i][k] = (*Xn)(iSub)[i][0] + 5.0*(*Xn)(iSub)[i][2];
+      }
+    }
+  }
+  */
   dX = dY = dZ = 0.0;
 #pragma omp parallel for 
   for (int iSub = 0; iSub < V.numLocSub(); ++iSub) {
  
     bool* edgeFlag = edges[iSub]->getMasterFlag();
     int (*edgePtr)[2] = edges[iSub]->getPtr();
+    LevelSetStructure* lss = (distLSS ? &(*distLSS)(iSub) : NULL);
     for (int l = 0; l < edges[iSub]->size(); ++l) {
 
       if (!edgeFlag[l])
@@ -3864,24 +4128,46 @@ void MultiGridLevel<Scalar>::computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
 
-      for (int k = 0; k < dim; ++k) {
-        dX(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][0];
-        dY(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][1];
-        dZ(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][2];
+      if (!lss || (lss->isActive(0.0,i) && lss->isActive(0.0,j))) {
+        for (int k = 0; k < dim; ++k) {
+          dX(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][0];
+          dY(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][1];
+          dZ(iSub)[i][k] += 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][2];
         
-        dX(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][0];
-        dY(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][1];
-        dZ(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][2];
+          dX(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][0];
+          dY(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][1];
+          dZ(iSub)[j][k] -= 0.5*(V(iSub)[i][k]+V(iSub)[j][k])*(*edgeNormals)(iSub)[l][2];
+        }
+      } else if (lss->isActive(0.0,i)) {
+        for (int k = 0; k < dim; ++k) {
+          if (k < 1 || k > 3) {
+            dX(iSub)[i][k] += V(iSub)[i][k]*(*edgeNormals)(iSub)[l][0];
+            dY(iSub)[i][k] += V(iSub)[i][k]*(*edgeNormals)(iSub)[l][1];
+            dZ(iSub)[i][k] += V(iSub)[i][k]*(*edgeNormals)(iSub)[l][2];
+	  }
+        }
+      } else if (lss->isActive(0.0,j)) {
+        for (int k = 0; k < dim; ++k) {
+          if (k < 1 || k > 3) {
+            dX(iSub)[j][k] -= V(iSub)[j][k]*(*edgeNormals)(iSub)[l][0];
+            dY(iSub)[j][k] -= V(iSub)[j][k]*(*edgeNormals)(iSub)[l][1];
+            dZ(iSub)[j][k] -= V(iSub)[j][k]*(*edgeNormals)(iSub)[l][2];
+	  }
+        }
       }
     }
 
     for (int i = 0; i < agglomeratedFaces[iSub]->size(); ++i) {
 
+      if (!(*agglomeratedFaces[iSub])[i].getMasterFlag())
+	continue;
       int nd = (*agglomeratedFaces[iSub])[i].getNode();
-      for (int k = 0; k < dim; ++k) {
-        dX(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[0];
-        dY(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[1];
-        dZ(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[2];
+      if (!lss || (lss->isActive(0.0,nd))) {
+        for (int k = 0; k < dim; ++k) {
+          dX(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[0];
+          dY(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[1];
+          dZ(iSub)[nd][k] += V(iSub)[nd][k]*(*agglomeratedFaces[iSub])[i].getNormal()[2];
+        }
       }
     }
   }
@@ -3902,6 +4188,10 @@ void MultiGridLevel<Scalar>::computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
       }
     }
   }   
+  //dX = dY = dZ = 1.0;
+  //dZ = V;
+
+  //V = Vtmp;
 }
 
 
@@ -4172,10 +4462,10 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
 
       int I = mapFineToCoarse(iSub, E->getPtr()[i][0]);
       int J = mapFineToCoarse(iSub, E->getPtr()[i][1]);
-      DistVec<Topology>* nt = getFinestTopology();
-      if ((*nt)(iSub)[E->getPtr()[i][0]] == TopoInterior ||
-          (*nt)(iSub)[E->getPtr()[i][1]] == TopoInterior)
-        continue;
+      //DistVec<Topology>* nt = getFinestTopology();
+      //if ((*nt)(iSub)[E->getPtr()[i][0]] == TopoInterior ||
+      //    (*nt)(iSub)[E->getPtr()[i][1]] == TopoInterior)
+      //  continue;
       //if (I != J) {
 
         int tmp;
@@ -4323,9 +4613,15 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
 //------------------------------------------------------------------------------
 
 #define INSTANTIATION_HELPER(T,dim) \
-  template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &,bool) const; \
+  template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &,bool, bool) const; \
   template void MultiGridLevel<T>::RestrictFaceVector(const MultiGridLevel<T> &, const DistSVec<double,dim> &, DistSVec<double,dim> &) const; \
-  template void MultiGridLevel<T>::Prolong(  MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &,double) const; \
+  template void MultiGridLevel<T>::Prolong(  MultiGridLevel<T> &, const DistSVec<double,dim> &, const DistSVec<double,dim> &, DistSVec<double,dim> &, \
+DistSVec<double,dim>&,double, VarFcn*, DistLevelSetStructure*,DistLevelSetStructure*) const; \
+template void MultiGridLevel<T>::ExtrapolateProlongation(MultiGridLevel<T>& fineGrid,  \
+							 const DistSVec<double,dim>& coarseInitialData,\
+							 DistSVec<double,dim>& coarseData,\
+							 DistLevelSetStructure* coarseLSS, \
+							 DistLevelSetStructure* fineLSS); \
   template void MultiGridLevel<T>::assemble(DistSVec<double,dim> &); \
   template void MultiGridLevel<T>::ProjectResidual(DistSVec<double,dim> &) const; \
   template void MultiGridLevel<T>::setupBcs(DistBcData<dim>&,DistBcData<dim>&,DistSVec<T,dim>&); \
@@ -4342,7 +4638,8 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
   template void MultiGridLevel<T>::computeGreenGaussGradient(DistSVec<double,dim>& V, \
                                DistSVec<double,dim>& dX, \
                                DistSVec<double,dim>& dY, \
-                               DistSVec<double,dim>& dZ); \
+                               DistSVec<double,dim>& dZ, \
+                               DistLevelSetStructure*); \
   template void MultiGridLevel<T>::writeXpostFile(const std::string&, \
                                                     DistSVec<T,dim>&, \
                                                     int); \
@@ -4354,8 +4651,10 @@ void MultiGridLevel<Scalar>::writePVTUSolutionFile(const char* filename,
 
 #define INSTANTIATION_HELPER2(T) \
   template void MultiGridLevel<T>::assemble(DistVec<double> &); \
+  template void MultiGridLevel<T>::assemble(DistVec<int> &); \
   template void MultiGridLevel<T>::assembleInternal(DistVec<double> &) const; \
   template void MultiGridLevel<T>::assembleMax(DistVec<double> &); \
+  template void MultiGridLevel<T>::assembleMax(DistVec<int> &); \
   template void MultiGridLevel<T>::assembleInternalMax(DistVec<double> &) const; \
   template void MultiGridLevel<T>::Restrict(const MultiGridLevel<T> &, const DistVec<double> &, DistVec<double> &) const; 
 
@@ -4363,6 +4662,7 @@ template class MultiGridLevel<double>;
 INSTANTIATION_HELPER2(double);
 INSTANTIATION_HELPER(double,1);
 INSTANTIATION_HELPER(double,2);
+INSTANTIATION_HELPER(double,3);
 INSTANTIATION_HELPER(double,5);
 INSTANTIATION_HELPER(double,6);
 INSTANTIATION_HELPER(double,7);

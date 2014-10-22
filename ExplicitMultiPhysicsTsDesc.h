@@ -3,6 +3,7 @@
 
 #include <MultiPhysicsTsDesc.h>
 #include <DistVector.h>
+#include <DebugTools.h>
 
 class IoData;
 class Domain;

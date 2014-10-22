@@ -34,7 +34,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     phi = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
 
 // Included (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+        ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       dVmin = new DistSVec<double,dim>(domain->getNodeDistInfo());
       dVmax = new DistSVec<double,dim>(domain->getNodeDistInfo());
       dphi = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -76,7 +79,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
   dTdz = new DistVec<Scalar>(domain->getNodeDistInfo());
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     dddx = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     dddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     dddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
@@ -106,7 +112,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     dwii = 0;
     dwij = 0;
     dwji = 0;
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+        ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       dR = new DistSVec<double,6>(domain->getNodeDistInfo());
     }
     else {
@@ -122,7 +131,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 
 // Included (MB)
     dR = 0;
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+        ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       dwii = new DistSVec<double,3>(domain->getNodeDistInfo());
       dwij = new DistSVec<double,3>(domain->getEdgeDistInfo());
       dwji = new DistSVec<double,3>(domain->getEdgeDistInfo());
@@ -140,7 +152,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 // Included (MB)
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
+        ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub), (*dTdx)(iSub), (*dTdy)(iSub), (*dTdz)(iSub),
                                              (*dddx)(iSub), (*dddy)(iSub), (*dddz)(iSub));
       lastConfigSA = -1;

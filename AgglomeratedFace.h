@@ -6,6 +6,8 @@
 
 #include <FemEquationTerm.h>
 
+#include <LevelSet/LevelSetStructure.h>
+
 class AgglomeratedFace {
 
  public:
@@ -33,6 +35,18 @@ class AgglomeratedFace {
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, 
 				       SVec<double,dim> &V, 
 				       double *Ub, GenMat<Scalar,neq> &A);
+
+  template<int dim>
+  void computeFiniteVolumeTerm(FluxFcn **fluxFcn, 
+			       SVec<double,dim> &V, 
+			       double *Ub, SVec<double,dim> &fluxes,
+			       LevelSetStructure&);
+
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, 
+				       SVec<double,dim> &V, 
+				       double *Ub, GenMat<Scalar,neq> &A,
+				       LevelSetStructure&);
 
   template <int dim>
   void computeThinLayerViscousFiniteVolumeTerm(class FemEquationTerm*,
@@ -109,6 +123,12 @@ class AgglomeratedFaceSet {
 			       SVec<double,dim> &V, 
 			       SVec<double,dim>& Ub, SVec<double,dim> &fluxes);
 
+  template<int dim>
+  void computeFiniteVolumeTerm(FluxFcn **fluxFcn, 
+			       SVec<double,dim> &V, 
+			       SVec<double,dim>& Ub, SVec<double,dim> &fluxes,
+			       LevelSetStructure&);
+
   template <int dim>
   void computeThinLayerViscousFiniteVolumeTerm(class FemEquationTerm*,
                                         VarFcn* varFcn,
@@ -123,7 +143,13 @@ class AgglomeratedFaceSet {
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn,
 				       SVec<double,dim> &V, 
-				       SVec<double,dim>& Ub, GenMat<Scalar,neq> &A);
+				       SVec<double,dim>& Ub, GenMat<Scalar,neq> & A);
+
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn,
+				       SVec<double,dim> &V, 
+				       SVec<double,dim>& Ub, GenMat<Scalar,neq> & A,
+				       LevelSetStructure&);
 
   template<int dim,class Scalar,int neq>
   void

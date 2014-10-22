@@ -82,26 +82,34 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   double epsAbsInc = probDesc->getEpsAbsIncNewton();
 
   double res0, res2=0.0;
-  int it;
-//  int BuggyNode = 340680;
+
+  double rho; //contraction factor for backtracking
+  double c1; //sufficient decrease factor for backtracking
+  double restrial, res2trial=0.0;
+  double alpha;
+  int maxItsLS;
+  
+  if (probDesc->getLineSearch()) {
+   rho = probDesc->getContractionLineSearch();
+   c1 = probDesc->getSufficientDecreaseLineSearch();
+   maxItsLS = probDesc->getMaxItsLineSearch(); 
+  }
+  int it, itLS;
 
   for (it=0; it<maxIts; ++it) {
 
     *(probDesc->getNewtonIt()) = it;
     *(probDesc->getNumResidualsOutputCurrentNewtonIt()) = 0;
 
-//    probDesc->printNodalDebug(BuggyNode,11,&Q);
 
     // compute the nonlinear function value
     probDesc->computeFunction(it, Q, F);
-//    probDesc->printNodalDebug(BuggyNode,1000,&F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
     if(res<0.0){
       probDesc->printf(1, "ERROR: negative residual captured in Newton Solver!\n");
       exit(1);
     }
-//    probDesc->printNodalDebug(BuggyNode,12,&Q);
 
     // UH (08/10) After the test, it is safe to take the square root.
     //res = sqrt(F*F-res2);
@@ -117,7 +125,6 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
     rhs = -1.0 * F;
-//    probDesc->printNodalDebug(BuggyNode,13,&Q);
     
     probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);  // save states and residuals for rom
 
@@ -130,18 +137,41 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     // set up krylov snapshots for ROM if applicable
     probDesc->setCurrentStateForKspBinaryOutput(Q);
 
-//    probDesc->printNodalDebug(BuggyNode,14,&Q);
     probDesc->solveLinearSystem(it, rhs, dQ);
 
-//    probDesc->printNodalDebug(BuggyNode,995,&dQ);
+   if (probDesc->getLineSearch()) { 
+     for (itLS=0; itLS<maxItsLS; ++itLS) {
+       if (itLS>0){
+         alpha *= rho; 
+         if (itLS==1)
+           dQ *= (rho-1);
+         else
+           dQ *= rho;
+       }
+       else 
+         alpha = 1.0;
+       // increment or backtract from previous trial 
+       probDesc->fixSolution(Q, dQ);
+       // compute updated residual
+       rhs = Q;
+       Q += dQ;
+       probDesc->computeFunction(it, Q, F);
+       res2trial = probDesc->recomputeResidual(F, Finlet);
+       restrial = F*F-res2trial;
+       if (restrial>=0.0) {
+         if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res || dQ.norm() <= epsAbsInc)
+           break;
+       }
+       if (itLS == maxItsLS-1 && maxItsLS != 1) 
+         probDesc->printf(1, "*** Warning: Line Search reached %d its ***\n", maxItsLS);
+     }
+   }
+   else { 
 // Included (MB)
-    probDesc->fixSolution(Q, dQ);
-//    probDesc->printNodalDebug(BuggyNode,996,&dQ);
-
-    rhs = Q;
-    Q += dQ;
-//    probDesc->printNodalDebug(BuggyNode,17,&Q);
-
+      probDesc->fixSolution(Q, dQ);
+      rhs = Q;
+      Q += dQ;
+   }
     probDesc->incrementNewtonOutputTag();
 
     // verify that the solution is physical
@@ -156,14 +186,14 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
         return -10; // signal re-compute CFL number
       }
       else if (probDesc->checkFailSafe(Q) && fsIt < 5) {
-	probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
-	Q = rhs;
-	--it;
-	++fsIt;
+        probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
+        Q = rhs;
+        --it;
+        ++fsIt;
       }
       else{
-	probDesc->printf(1, "Newton solver failed\n");
-	return -3;
+        probDesc->printf(1, "Newton solver failed\n");
+        return -3;
       }
     }
 

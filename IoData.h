@@ -70,6 +70,8 @@ struct InputData {
   const char *decomposition;
   const char *cpumap;
   const char *match;
+  const char *embmeshmatch;
+  const char *embsurfmatch;
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
@@ -78,8 +80,16 @@ struct InputData {
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
+
+  // We can now read the fluid ID from a file.
+  // Added by Alex Main (September 2013)
+  //
   const char *fluidId;
   const char *rstdata;
+
+  // File Package for restart support.
+  // Added by Alex Main (September 2013)
+  //
   const char *restart_file_package;
   const char *podFile;
   const char *optimalPressureFile;
@@ -111,6 +121,7 @@ struct InputData {
   const char* strKPtraces;
 
   const char *wallsurfacedisplac; //YC
+  const char *reducedEigState;
 // Included (MB)
   const char *shapederivatives;
 
@@ -144,6 +155,7 @@ struct Probes {
   const char *prefix;
   const char *density;
   const char *pressure;
+  const char *diffpressure;
   const char *temperature;
   const char *velocity;
   const char *displacement;
@@ -245,6 +257,9 @@ struct TransientData {
   const char* d2wall;
   const char *embeddedsurface;
   const char *cputiming;
+  const char *aeroelasticEigenvalues;
+  const char *gamData;
+  const char *gamFData;
 
 
 // Included (MB)
@@ -424,8 +439,9 @@ struct ProblemData {
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
-                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34,  _ACC_UNSTEADY_NONLINEAR_ROM_ = 35,
-                _STEADY_NONLINEAR_ROM_ = 36, _FORCED_NONLINEAR_ROM_ = 37, _ROM_SHAPE_OPTIMIZATION_ = 38} alltype;
+                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _FSI_SHAPE_OPTIMIZATION_ = 35,
+                _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _NONLINEAR_EIGENRESIDUAL_ = 38, _ACC_UNSTEADY_NONLINEAR_ROM_ = 39,
+                _STEADY_NONLINEAR_ROM_ = 40, _FORCED_NONLINEAR_ROM_ = 41, _ROM_SHAPE_OPTIMIZATION_ = 42} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1052,11 +1068,27 @@ struct PlaneData {
 
 //------------------------------------------------------------------------------
 
+struct CylinderData {
+
+  double cen_x, cen_y, cen_z, nx, ny, nz, r, L;
+  int fluidModelID;
+  InitialConditions initialConditions;
+
+  CylinderData();
+  ~CylinderData() {}
+  Assigner *getAssigner();
+
+};
+
+//------------------------------------------------------------------------------
+
 struct PointData {
 
   int fluidModelID;
   double x,y,z;
   InitialConditions initialConditions;
+
+  ProgrammedBurnData programmedBurn;
 
   PointData();
   ~PointData() {}
@@ -1080,6 +1112,7 @@ struct MultiInitialConditionsData {
   ObjectMap<SphereData> sphereMap;
   ObjectMap<PrismData>  prismMap;
   ObjectMap<PlaneData>  planeMap;
+  ObjectMap<CylinderData>  cylinderMap;
   ObjectMap<PointData>  pointMap;
   ObjectMap<DummyPointData>  dummyPointMap;
 
@@ -1150,6 +1183,8 @@ struct MultiFluidData {
                         TRIANGULATED = 4} levelSetMethod;
 
   enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
+
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
 
   MultiInitialConditionsData multiInitialConditions;
 
@@ -1227,6 +1262,7 @@ struct SchemeData {
   
   double xirho;
   double xip;
+  double vel_fac;
 
   struct MaterialFluxData {
 
@@ -1474,9 +1510,15 @@ struct MultiGridData {
 
   int addViscousTerms;
 
+  int addTurbulenceTerms;
+
   SchemeFixData fixes;
 
   const char* agglomerationFile;
+
+  double turbRelaxCutoff;
+
+  double densityMin,densityMax;
  
   MultiGridData();
   ~MultiGridData() {}
@@ -1528,6 +1570,25 @@ struct KspFluidData {
 
 //------------------------------------------------------------------------------
 
+struct LineSearchData {
+
+  enum Type {NONE = 0, BACKTRACKING = 1} type;
+  int maxIts;
+  double rho;
+  double c1;
+
+  LineSearchData();
+  ~LineSearchData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+
+
+
+//------------------------------------------------------------------------------
+
 template<class GenericKrylov>
 struct NewtonData {
 
@@ -1537,6 +1598,7 @@ struct NewtonData {
   int JacSkip;
   double epsAbsRes, epsAbsInc;
   GenericKrylov ksp;
+  LineSearchData lineSearch;
 
   NewtonData();
   ~NewtonData() {}
@@ -1718,6 +1780,7 @@ struct SensitivityAnalysis {
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
 
+  enum SensitivityFSI  {OFF_SENSITIVITYFSI  = 0, ON_SENSITIVITYFSI  = 1} sensFSI;
   enum SensitivityMesh {OFF_SENSITIVITYMESH = 0, ON_SENSITIVITYMESH = 1} sensMesh;
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
   enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
@@ -1741,6 +1804,7 @@ struct SensitivityAnalysis {
   bool densFlag;
   bool pressFlag;
   bool apressFlag;
+  bool fsiFlag;
 
   int si;
   int sf;
@@ -1915,6 +1979,21 @@ struct HeavingData {
 
 //----------------------------------------------------------
 
+struct SpiralingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double xL;
+  double x0;
+
+  SpiralingData();
+  ~SpiralingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
 struct PitchingData {
 
   enum Domain {VOLUME = 0, SURFACE = 1} domain;
@@ -1991,12 +2070,13 @@ struct Velocity  {
 struct ForcedData {
 
   enum Type {HEAVING = 0, PITCHING = 1, VELOCITY = 2, DEFORMING = 3, DEBUGDEFORMING=4,
-             ACOUSTICBEAM=5} type;
+             ACOUSTICBEAM=5, SPIRALING = 6, ACOUSTICVISCOUSBEAM=7} type;
 
   double frequency;
   double timestep;
 
   HeavingData hv;
+  SpiralingData sp;
   PitchingData pt;
   Velocity vel;
   DeformingData df;
@@ -2583,6 +2663,7 @@ struct LinearizedData {
   double freqStep;
   double eps;
   double eps2;
+  double epsEV;
   double tolerance;
   double refLength;
   const char *strModesFile;
@@ -2590,7 +2671,32 @@ struct LinearizedData {
   int numSteps;
   int numPOD;
   int numStrModes;
+  int maxItEV;
   const char *romFile;
+  static const int numFreq = 20;
+  double gamFreq[numFreq];
+  double gamFreq1;
+  double gamFreq2;
+  double gamFreq3;
+  double gamFreq4;
+  double gamFreq5;
+  double gamFreq6;
+  double gamFreq7;
+  double gamFreq8;
+  double gamFreq9;
+  double gamFreq10;
+  double gamFreq11;
+  double gamFreq12;
+  double gamFreq13;
+  double gamFreq14;
+  double gamFreq15;
+  double gamFreq16;
+  double gamFreq17;
+  double gamFreq18;
+  double gamFreq19;
+  double gamFreq20;
+
+
 
   PadeData pade;
 
@@ -2653,6 +2759,12 @@ struct EmbeddedFramework {
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
+
+  // Low mach preconditioning of the exact Riemann problem.
+  // Added by Alex Main (December 2013)
+  //
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+
   double alpha;   // In the case of solve Riemann problem at intersection, this parameter
                   // controls whether to switch to a first order method to avoid divided-by-zero
 

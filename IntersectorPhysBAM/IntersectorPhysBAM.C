@@ -362,7 +362,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
 void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface) {
 
   // node set
-  if(cracking && nNodes!=cracking->usedNodes()) {com->fprintf(stderr,"SOFTWARE BUG!\n");exit(-1);}
+  if(cracking && nNodes!=cracking->usedNodes()) { com->fprintf(stderr,"SOFTWARE BUG (nNodes = %d; usedNodes = %d)!\n", nNodes, cracking->usedNodes());exit(-1);}
 
   numStNodes = nNodes;
   totStNodes = cracking ? cracking->totNodes() : numStNodes;
@@ -551,6 +551,11 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   for (int i=0; i<numStNodes; i++) physbam_solids_particle->X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],Xs[i][1], Xs[i][2]);
   
   // Initialize the Triangle list.
+
+  // Speed improvement.  When we are doing cracking,
+  // we do not add phantom triangles to the triangle hierarchy.
+  // Added by Alex Main (October 2013)
+  //
   int np = (cracking?cracking->numberRealTriangles():numStElems);
   PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > physbam_stElem(np);
   if (cracking) {
@@ -571,6 +576,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
+  com->fprintf(stderr,"Setting interface thickness to %e.\n", interface_thickness);
   physInterface->SetThickness(interface_thickness);
 }
 
@@ -778,6 +784,10 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<do
     points.push_back(pair<Vec3D,int>(Vec3D(1.0,0.0,0.0),1));
   }
 
+  // If we have the fluid ID from a restart file, use that.  Otherwise,
+  // it will be set by a flood fill
+  // Added by Alex Main (September 2013)
+  //
   if (!oldStatus)
     findActiveNodesUsingFloodFill(tId,points);
   else
@@ -1463,7 +1473,11 @@ void IntersectorPhysBAM::findNodeClosestPoint(const int nodeId, Vec3D& x0, ARRAY
   const double eps = 0;
 
   for(int iArray=1; iArray<=cand.Size(); iArray++) {
-
+	  
+    // Speed improvement.  When we are doing cracking,
+    // we do not add phantom triangles to the triangle hierarchy.
+    // Added by Alex Main (October 2013)
+    //
     if (!distIntersector.cracking)
       trId = cand(iArray)-1;
     else

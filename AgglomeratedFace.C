@@ -11,11 +11,19 @@ AgglomeratedFace::AgglomeratedFace() : node(0), code(0), normal(0.0), area(0.0),
 AgglomeratedFace::AgglomeratedFace(int node, int code) : node(node), code(code), normal(0.0),
                                     area(0.0),masterFlag(true) {
 
+//  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED ||
+//      code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED)
+//    normal = -1.0*normal;
 }
 
 AgglomeratedFace::AgglomeratedFace(const AgglomeratedFace& oth) :
   node(oth.node), code(oth.code), normal(oth.normal),masterFlag(oth.masterFlag) {
+/*
+  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED ||
+      code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED)
+    normal = -1.0*normal;
 
+*/
 }
 
 AgglomeratedFace::~AgglomeratedFace() {
@@ -54,6 +62,33 @@ void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn,
   		           V[node], Ub, flux);
     for (int k=0; k<dim; ++k){
       fluxes[ node ][k] += flux[k];
+    } 
+  }
+}
+
+template<int dim>
+void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn, 
+	                                       SVec<double,dim> &V, 
+			                       double *Ub, SVec<double,dim> &fluxes,
+					       LevelSetStructure& LSS) {
+  if (!masterFlag)
+    return;
+  
+  if (!LSS.isActive(0.0, node))
+    return;
+  
+  Vec3D n2 = normal;
+   
+  if(fluxFcn[code]){
+    double flux[dim];
+    fluxFcn[code]->compute(0.0, 0.0,  n2, 0.0, 
+  		           V[node], Ub, flux);
+//    if (code == BC_INLET_MOVING || code == BC_INLET_FIXED ||
+//        code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED)
+//      std::cout << Ub[0] << " " << Ub[1] << " " << Ub[3] <<  " " << V[node][0] << " "  << V[node][1] << " " << V[node][3] << std::endl;
+ 
+    for (int k=0; k<dim; ++k){
+      fluxes[ node ][k] += flux[k]; //= normal[0]+normal[1]+normal[2];//flux[k];
     } 
   }
 }
@@ -117,6 +152,27 @@ void AgglomeratedFace::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn,
   double normVel= 0.0;
 
   fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[node], Ub, jac);
+  Scalar *Aii = A.getElem_ii(node);
+  for (int k=0; k<neq*neq; ++k) 
+    Aii[k] += jac[k];
+
+}
+template<int dim, class Scalar, int neq>
+void AgglomeratedFace::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, 
+			 	                       SVec<double,dim> &V, 
+ 				                       double *Ub, GenMat<Scalar,neq> &A,
+						       LevelSetStructure& LSS) {
+  if (!masterFlag)
+    return;
+
+  if (!LSS.isActive(0.0, node))
+    return;
+
+  double jac[neq*neq];
+
+  double normVel= 0.0;
+  Vec3D n2 = normal;
+  fluxFcn[code]->computeJacobian(1.0, 0.0, n2, normVel, V[node], Ub, jac);
   Scalar *Aii = A.getElem_ii(node);
   for (int k=0; k<neq*neq; ++k) 
     Aii[k] += jac[k];
@@ -393,6 +449,32 @@ void AgglomeratedFaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn,
 
 template<int dim>
 void AgglomeratedFaceSet::
+computeFiniteVolumeTerm(FluxFcn **fluxFcn, 
+			SVec<double,dim> &V, 
+			SVec<double,dim>& Ub, SVec<double,dim> &fluxes,
+			LevelSetStructure& LSS) {
+  
+  for (int i = 0; i < numFaces; ++i) {
+
+    myFaces[i].computeFiniteVolumeTerm(fluxFcn, V, Ub[i], fluxes, LSS);
+  }
+}
+
+template<int dim, class Scalar, int neq>
+void AgglomeratedFaceSet::
+computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn,
+				SVec<double,dim> &V, 
+				SVec<double,dim>& Ub, GenMat<Scalar,neq> &A,
+				LevelSetStructure& LSS) {
+  
+  for (int i = 0; i < numFaces; ++i) {
+ 
+    myFaces[i].computeJacobianFiniteVolumeTerm(fluxFcn,V, Ub[i], A, LSS);
+  }
+}
+
+template<int dim>
+void AgglomeratedFaceSet::
 computeThinLayerViscousFiniteVolumeTerm(class FemEquationTerm* ns,
                                         VarFcn* varFcn,
                                         SVec<double,dim> &V, 
@@ -453,6 +535,10 @@ template void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn, \
          SVec<double,dim> &V, double* Ub, SVec<double,dim> &fluxes); \
 template void AgglomeratedFaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, \
          SVec<double,dim> &V, SVec<double,dim>& Ub, SVec<double,dim> &fluxes); \
+template void AgglomeratedFace::computeFiniteVolumeTerm(FluxFcn **fluxFcn, \
+							SVec<double,dim> &V, double* Ub, SVec<double,dim> &fluxes, LevelSetStructure&); \
+template void AgglomeratedFaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, \
+         SVec<double,dim> &V, SVec<double,dim>& Ub, SVec<double,dim> &fluxes, LevelSetStructure&); \
 template void AgglomeratedFace::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout, double *U); \
   template void AgglomeratedFace::computeThinLayerViscousFiniteVolumeTerm(class FemEquationTerm*, \
                                         VarFcn* varFcn, \
@@ -484,6 +570,8 @@ template void AgglomeratedFaceSet::computeTimeStep(FemEquationTerm *fet, VarFcn 
 #define INST_HELPER2(dim,Scalar,neq) \
 template void AgglomeratedFace::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, \
                          SVec<double,dim> &V, double *Ub, GenMat<Scalar,neq> &A); \
+template void AgglomeratedFace::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, \
+								SVec<double,dim> &V, double *Ub, GenMat<Scalar,neq> &A, LevelSetStructure&); \
 template  void AgglomeratedFace:: \
   computeJacobianThinLayerViscousFiniteVolumeTerm(class FemEquationTerm* ns,\
                                         VarFcn* varFcn, \
@@ -507,7 +595,9 @@ template  void AgglomeratedFaceSet:: \
                                         SVec<double,dim>& Vwall, \
                                         GenMat<Scalar,neq>& A);\
 template void AgglomeratedFaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, \
-                  SVec<double,dim> &V, SVec<double,dim>& Ub, GenMat<Scalar,neq> &A);
+                  SVec<double,dim> &V, SVec<double,dim>& Ub, GenMat<Scalar,neq> &A);\
+template void AgglomeratedFaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, \
+								   SVec<double,dim> &V, SVec<double,dim>& Ub, GenMat<Scalar,neq> &A,LevelSetStructure&);
 
 
 INST_HELPER(1);
@@ -524,3 +614,6 @@ INST_HELPER2(6,double,6);
 INST_HELPER2(7,double,5);
 INST_HELPER2(6,double,5);
 INST_HELPER2(7,double,7);
+
+INST_HELPER2(6,double,1);
+INST_HELPER2(7,double,2);

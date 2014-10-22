@@ -1241,7 +1241,7 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
       for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
         distMat[iCluster].resize(this->nClusters, 0.0);
         for (int jCluster=0; jCluster<this->nClusters; ++jCluster) {
-          distMat[iCluster][jCluster] = distanceFull((*this->clusterCenters)[iCluster], (*clusterCentersAll[iFile])[jCluster]);
+          distMat[iCluster][jCluster] = this->distanceFull((*this->clusterCenters)[iCluster], (*clusterCentersAll[iFile])[jCluster]);
         }
       }
 
@@ -2151,32 +2151,32 @@ double exactUpdatesPreproTime = this->timer->getTime();
 
   // Basis Basis Products (rob_i^T * rob_p)
   // std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
-  outputClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &this->basisBasisProducts);
+  this->outputClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &this->basisBasisProducts);
 
   // Basis Uref Products (rob_i^T * Uref_p)
   // std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
-  outputClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
+  this->outputClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
 
   // Uref Uref Products
   // std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
-  outputClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
+  this->outputClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
 
   if (arbitraryUniformIC) {
     // Uref Componentwise Sums
     // std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
-    outputClusteredInfoASCII(-1, "urefComponentwiseSums", NULL, &this->urefComponentwiseSums);
+    this->outputClusteredInfoASCII(-1, "urefComponentwiseSums", NULL, &this->urefComponentwiseSums);
 
     // Basis Componentwise Sums
     // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
-    outputClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &this->basisComponentwiseSums);
+    this->outputClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &this->basisComponentwiseSums);
   } else {
     // Basis Uic Products
     // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
-    outputClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
+    this->outputClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
 
     // Uref Uic Products
     // std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
-    outputClusteredInfoASCII(-1, "urefUicProducts", &this->urefUicProducts);
+    this->outputClusteredInfoASCII(-1, "urefUicProducts", &this->urefUicProducts);
   }
 
   this->timer->addExactUpdatesPreproTime(exactUpdatesPreproTime);

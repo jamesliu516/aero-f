@@ -94,11 +94,12 @@ SubDTopo::makeCrossConnect()
 
  for(iPair = 0; iPair < numPairs; ++iPair) {
     int cpu;
-    if((cpu = allPairs[iPair].cpuID) >= 0)
+    if((cpu = allPairs[iPair].cpuID) >= 0) {
      if(glSubToCPU[allPairs[iPair].from] == cpuNum) // send pair
        sndPtr[glToLocCPU[cpu]]++;
      else // receive
        rcvPtr[glToLocCPU[cpu]]++;
+    }
  }
  // Make the actual pointers (shifted for easy fill in)
  for(iCPU = 0; iCPU < numNeighbCPU; ++iCPU) {

@@ -301,7 +301,8 @@ class NonlinearRom {
   void readAllClusteredOfflineQuantities();
   void readApproxMetricLowRankFactor(const char *);
   void readDistanceComparisonInfo(const char*); 
-  void writeClusteredBinaryVectors(int, DistSVec<double,dim> *, DistSVec<double,dim> *, DistSVec<double,dim> *, char *, int);
+  void writeClusteredBinaryVectors(int iCluster, DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL,
+                                   DistSVec<double,dim> *U3 = NULL, char* originalSnapshotFile = NULL, int originalSnapshotNumber = 0);
   void initializeClusteredOutputs(); 
 
   // for online ROMs (both with and without hyper-reduction)

@@ -80,7 +80,7 @@ BCApplier::applyD2(DistSVec<double,dim> &X, double dX[dim])
       int (*subDofType)[dim] = reinterpret_cast<int (*)[dim]>(dofType[iSub]); 
       for(int i=0;i<X.subSize(iSub); i++) {
         for(int l=0; l<dim; l++) {
-          if(subDofType[i][l]==BC_MATCHED || subDofType[i][l]==BC_FIXED) 
+          if(subDofType[i][l]==BC_FIXED) 
             x[i][l] = 0.0; 
 	  else if (subDofType[i][l]==BC_MATCHEDSLIDE)
 	    x[i][l] = dX[l];

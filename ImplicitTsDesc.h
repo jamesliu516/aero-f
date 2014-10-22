@@ -32,6 +32,8 @@ protected:
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
+  int maxItsLS;
+  double contractionLS, sufficDecreaseLS;
 
   DistSVec<bool,2> *tag;
 
@@ -71,8 +73,14 @@ public:
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
+  int getLineSearch() const { return (maxItsLS>0); }
+  int getMaxItsLineSearch() const { return maxItsLS; }
+  double getContractionLineSearch() const { return contractionLS; }
+  double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
 
-  void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *);
+  void writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt,
+                                   DistSVec<double,dim> *state = NULL, DistSVec<double,dim> *residual = NULL);
+
   void incrementNewtonOutputTag();
   void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {if (kspBinaryOutput) kspBinaryOutput->setCurrentState(Q);}
 
