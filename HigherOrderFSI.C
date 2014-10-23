@@ -72,8 +72,8 @@ setLastPhaseChangeValue(int nodeId,const double* v) {
   SVec<double,dim>* V = 
     static_cast<SVec<double,dim>*>(lastPhaseChangeState);
 
-  if (v[0] != 0.0)
-    std::cout << "phase change value = " << v[0]  << std::endl;
+  //if (v[0] != 0.0)
+  //  std::cout << "phase change value = " << v[0]  << std::endl;
   memcpy((*V)[nodeId], v ,sizeof(double)*dim);
 }
 
@@ -155,13 +155,13 @@ estimateR(int l, int vertex,
       face_t*(dVdx.getZ()[n1][k]-dVdx.getZ()[n2][k]);
   }
   
-  if (myfid == 0)
+ /* if (myfid == 0)
     std::cout << Vfg[4][0]*vec[0]+
       Vfg[4][1]*vec[1]+
       Vfg[4][2]*vec[2] << " " << (V[i][4]-Vf[4]) << " " << 
       V[i][4] << " " << Vf[4] << " " << X[i][0] << " " << X[i][1] << " " << X[i][2] <<   " " <<
       vec[0] << " " << vec[1] << " " << vec[2] << std::endl;
-  
+  */
 
   for (int k = 0; k < dim; ++k) {
 

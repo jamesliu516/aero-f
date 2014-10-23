@@ -2088,7 +2088,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         }
 
 	if (higherOrderFSI) {
-
+							
 	  for (int k=0; k<dim; k++) Vi[k] = V[i][k];//+(1.0-resij.alpha)*ddVij[k];
 	  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
 	}
@@ -2621,12 +2621,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
 
     else { // linRec at interface using Wstar
-      if (!linRecAtInterface) // just set Vi = V[i], Vj = V[j]
+      // if (!linRecAtInterface) // just set Vi = V[i], Vj = V[j]
         for(int k=0; k<dim; k++) {
           Vi[k] = V[i][k];
           Vj[k] = V[j][k];
         }
-      else { // linRec at interface using Wstar        
+      /*else { // linRec at interface using Wstar        
         // Case 1: i and j are both active (but i-j intersects)
         if (iActive&&jActive) {
           double Vtemp[2*dim];
@@ -2649,7 +2649,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
           } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
         }
-      }
+	}*/
     } 
 
     varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
@@ -2735,6 +2735,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 	if (higherOrderFSI) {
 
+          //std::cout << "Using ho fsi" << std::endl;
 	  for (int k=0; k<dim; k++) Vi[k] = V[i][k]+(1.0-resij.alpha)*ddVij[k];
 	  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
 	}
@@ -2757,43 +2758,55 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	   
 	  if (masterFlag[l]) {
 	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-	    
+            double ri[dim],rj[dim];
+            higherOrderFSI->estimateR(l, 0, j, V, ngrad, X, fluidId,ri);
+
+            //double betai = 1.0,betaj = 1.0;
+            double betai[dim], betaj[dim];
+            for (int k = 0; k < dim; ++k) {
+              betai[k] = betaj[k] = 1.0;
+            }
+	
+            if (higherOrderFSI->limitExtrapolation()) {
+	      if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] > 0.0) {
+	        for (int k = 0; k < dim; ++k) {
+	          betai[k] = std::min<double>(betai[k],ri[k]);
+	        }
+	      }
+	   
+              //betai = std::min<double>(betai,betaj);
+              //betaj = std::min<double>(betai,betaj);
+            }
+	   
+            //std::cout << "beta[] = " << betaj[0] << " " << betaj[1] << " " << betaj[2] << " " << betaj[3] << " " << betaj[4] << std::endl; 
+            //std::cout << "r[] = " << rj[0] << " " << rj[1] << " " << rj[2] << " " << rj[3] << " " << rj[4] << std::endl; 
 	    if (v6data==NULL) {
 	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
 	    }
 	    else {
-	      int idxTet = v6data[l][0].tet;
+/*	      int idxTet = v6data[l][0].tet;
 	      int idxFace = v6data[l][0].face;
 	      double face_r = v6data[l][0].r;
 	      double face_t = v6data[l][0].t;
-	    if (1.0-resij.alpha > alpha) {
-	      //if (1.0-resij.alpha > alpha)
-		for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+	     if (1.0-resij.alpha > alpha) {
+	       //if (1.0-resij.alpha > alpha)
+	    	for (int k=0; k<dim; k++) Wstar[k] = betaj[k]*(V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k])) + (1.0-betaj[k])*Wstar[k];
 	    }
 	    else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) { 
-	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+	       for (int k=0; k<dim; k++) Wstar[k] = betaj[k]*(V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k])) + (1.0-betaj[k])*Wstar[k];
 	    }
 	    else
 	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
 							     X,V,Wstar,resij.alpha,length,i);
-	    /*
-	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) { 
-		if (1.0-resij.alpha > alpha) {
-		  //if (1.0-resij.alpha > alpha)
-		  for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-		}
-		//	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-	      }
-	      else
-		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-							       X,V,Wstar,resij.alpha,length,i);
-	      */
+*/
+	      higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X,resij.alpha, length,fluidId, betai);
 	    }
 	    
+            
 	    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
 	    //if (1.0-resij.alpha > alpha)
-	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
 	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
 	  }
 	}
@@ -2848,6 +2861,26 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  if (masterFlag[l]) {
 	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
 
+            double ri[dim],rj[dim];
+            higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId,rj);
+
+            //double betai = 1.0,betaj = 1.0;
+            double betai[dim], betaj[dim];
+            for (int k = 0; k < dim; ++k) {
+              betai[k] = betaj[k] = 1.0;
+            }
+	
+            if (higherOrderFSI->limitExtrapolation()) {
+	      if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
+	        for (int k = 0; k < dim; ++k) {
+	          betaj[k] = std::min<double>(betaj[k],rj[k]);
+	        }
+	      }
+	   
+              //betai = std::min<double>(betai,betaj);
+              //betaj = std::min<double>(betai,betaj);
+            }
+	
 	    if (v6data==NULL) {
 	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
 	    }
@@ -2856,38 +2889,29 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      int idxFace = v6data[l][1].face;
 	      double face_r = v6data[l][1].r;
 	      double face_t = v6data[l][1].t;
-	    if ( 1.0-resji.alpha > alpha) {
+/*	     if ( 1.0-resji.alpha > alpha) {
 
-	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+	       for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+	     }
+	     else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) {
+	       //
+	       for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+	       // 
+	     }
+              else
+	        extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+	  		 				       X,V,Wstar,resji.alpha,length,j);
+*/
+
+             
+	      higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0-resji.alpha, length, fluidId,betaj);
 	    }
-	    else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) {
-	      //
-	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	      // 
-	    }
-	    else
-	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-							     X,V,Wstar,resji.alpha,length,j);
-	    /*
-	      if ((idxTet<0)||(idxTet>=elems.size())||hasIntersection(elems[idxTet],LSS)) {
-	      //
-	      //	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	      // 
-		if ( 1.0-resji.alpha > alpha) {
-		  
-		  for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-		}
-	      }
-	      else
-		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-							       X,V,Wstar,resji.alpha,length,j);
-	    */
-	    }
+  
 	    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 	    //if (  1.0-resji.alpha > alpha)
-	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
 	  
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
 	    //else
 	    //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, V[j], fluxj, fluidId[j], false);
 	    

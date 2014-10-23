@@ -1009,9 +1009,10 @@ void DistIntersectorPhysBAM::updateCracking(int (*abc)[3])
     cracking->getQuad2Tria(*it,trId1,trId2); //obtain trId1 and trId2;
     for(int j=0; j<3; j++) {
       stElem[trId1][j] = abc[trId1][j];
-      stElem[trId2][j] = abc[trId2][j];
+      if (trId2 >= 0)
+	stElem[trId2][j] = abc[trId2][j];
     } 
-  } 
+  }
 }
 
 //----------------------------------------------------------------------------

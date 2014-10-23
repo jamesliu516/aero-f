@@ -1450,9 +1450,9 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 				for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d];
 			  else
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
-			  std::cout << "Phase change value: " << std::endl;
-			  for (int d=0;d<dim;++d) 
-			    std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
+			  //std::cout << "Phase change value: " << std::endl;
+			  //for (int d=0;d<dim;++d) 
+			  //  std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
                   if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && true) {
