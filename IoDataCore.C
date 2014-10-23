@@ -3494,6 +3494,7 @@ ForcedData::ForcedData()
   frequency = -1.0;
   timestep = -1.0;
 
+  tsoffset = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -3511,6 +3512,7 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
+  new ClassDouble<ForcedData>(ca, "TimeStepOffset", this, &ForcedData::tsoffset);
 
   hv.setup("Heaving", ca);
   sp.setup("Spiraling", ca);
@@ -4271,6 +4273,8 @@ EmbeddedFramework::EmbeddedFramework() {
   interfaceThickness = 1e-8;
 
   testCase = 0;
+
+  interfaceLimiter = LIMITERNONE;
 }
 
 //------------------------------------------------------------------------------
@@ -4311,6 +4315,11 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
+
+  new ClassToken<EmbeddedFramework>(ca, "InterfaceLimiter", this,
+                                    reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceLimiter),2,
+                                    "None", 0, "Alex1", 1);
+
 
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)

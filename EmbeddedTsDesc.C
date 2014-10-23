@@ -91,8 +91,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 			dom->getSubDomain()[iSub]->getElems(),
 			v6data); 
 
-      //if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
-      dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+      if (ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1)
+        dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
     }
     
   }

@@ -94,6 +94,8 @@ class EmbeddedStructure {
 
   IoData& iod;
 
+  double timeStepOffset;
+
 public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc, Timer *tim);
   ~EmbeddedStructure();
@@ -145,6 +147,8 @@ class DynamicNodalTransfer {
         double tMax;
 
         IoData& iod;
+
+
 
 public:
 	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &, Timer *);

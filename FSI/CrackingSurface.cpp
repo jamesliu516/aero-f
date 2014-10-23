@@ -111,6 +111,7 @@ int CrackingSurface::splitQuads(int* quadTopo, int nQuads, int(*triaTopo)[3])
 {
   if(nQuads!=nUsedQuads) {fprintf(stderr,"Software bug in CrackingSurface::splitQuads!\n");exit(-1);}
 
+
   int count = 0;
   for(int i=0; i<nQuads; i++) {
     triaTopo[count][0] = quadTopo[i*4];
@@ -215,15 +216,20 @@ int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* con
     } else { //this is an existing quad
       trId1 = quad2tria[quadId][0];
       trId2 = quad2tria[quadId][1];
-      if(trId2<0) {fprintf(stderr,"SOFTWARE BUG: CAPTURED TRIANGLE ID %d for QUAD %d\n", trId2+1, quadId+1);exit(-1);}
+      //if(trId2<0) {fprintf(stderr,"SOFTWARE BUG: CAPTURED TRIANGLE ID %d for QUAD %d\n", trId2+1, quadId+1);exit(-1);}
     }
 
     triaTopo[trId1][0] = connUpdate[5*i+1];
     triaTopo[trId1][1] = connUpdate[5*i+2];
     triaTopo[trId1][2] = connUpdate[5*i+3];
-    triaTopo[trId2][0] = connUpdate[5*i+1];
-    triaTopo[trId2][1] = connUpdate[5*i+3];
-    triaTopo[trId2][2] = connUpdate[5*i+4];
+
+    // Check to see if the second quad exists.  If the element deletion is done with triangles,
+    // then the quad is a degenerated triangle and the second triangle has id -1
+    if (trId2 >= 0) {
+      triaTopo[trId2][0] = connUpdate[5*i+1];
+      triaTopo[trId2][1] = connUpdate[5*i+3];
+      triaTopo[trId2][2] = connUpdate[5*i+4];
+    }
   }
 
   //construct latest.phantomNodes.

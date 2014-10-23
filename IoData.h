@@ -2064,6 +2064,8 @@ struct ForcedData {
   Velocity vel;
   DeformingData df;
 
+  double tsoffset;
+
   ForcedData();
   ~ForcedData() {}
 
@@ -2311,6 +2313,7 @@ struct EmbeddedFramework {
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
 
+  enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)
   //

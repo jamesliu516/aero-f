@@ -135,7 +135,8 @@ HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV m
 template<class T> IntersectionResult<T> PhysBAMInterface<T>::
 Intersect(const TV& start,const TV& end,const T thickness) const
 {
-    fprintf(stderr,"KW: I THOUGHT THIS FUNCTION IS OBSOLETE. APPARENTLY NOT...\n");
+    // WTF?? 
+    //fprintf(stderr,"KW: I THOUGHT THIS FUNCTION IS OBSOLETE. APPARENTLY NOT...\n");
     IntersectionResult<T> result;
     RAY<TV> edge(SEGMENT_3D<T>(start,end));
     TV weights;T old_t_max=edge.t_max;
