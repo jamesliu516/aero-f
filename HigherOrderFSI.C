@@ -185,11 +185,9 @@ double HigherOrderFSI::
 computeAlpha(int nodeId,const double* currentV, 
 	     const double* neighborV) {
 
-  return 0.0;
-
   if (!hasLastPhaseChangeValue<dim>(nodeId)) {
 
-    std::cout << "alpha = 0!!" << std::endl;
+    //std::cout << "alpha = 0!!" << std::endl;
     return 0.0;
   }
 
@@ -198,13 +196,13 @@ computeAlpha(int nodeId,const double* currentV,
   double alpha = 1.0;
   for (int k = 0; k < dim; ++k) {
 
-    std::cout << currentV[k] << " " << vlast[k]<< " " << 
-      neighborV[k] << std::endl;
+    //std::cout << currentV[k] << " " << vlast[k]<< " " << 
+    //  neighborV[k] << std::endl;
     alpha = std::min<double>(alpha, fabs(currentV[k]-vlast[k])/
 			     std::max<double>(1e-8,fabs(neighborV[k]-currentV[k])));
   }
 
-  std::cout << "alpha = " << alpha << std::endl;
+  //std::cout << "alpha = " << alpha << std::endl;
 
   return alpha;
 }
@@ -266,7 +264,7 @@ extrapolateV6(int l, int vertex,
   double frac = 0.5/(1.0+alpha_f-alpha);
   for (int k = 0; k < dim; ++k) {
 
-    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k]);//*beta[k] + 
-    //(1.0-beta[k])*W[k];
+    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k])*beta[k] + 
+      (1.0-beta[k])*W[k];
   }
 }

@@ -2733,10 +2733,30 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
+	double betai[dim], betaj[dim];
 	if (higherOrderFSI) {
 
+	  double ri[dim],rj[dim];
+	  higherOrderFSI->estimateR(l, 0, j, V, ngrad, X, fluidId,ri);
+
+	  //double betai = 1.0,betaj = 1.0;
+	  for (int k = 0; k < dim; ++k) {
+	    betai[k] = betaj[k] = 1.0;
+	  }
+	
+	  if (higherOrderFSI->limitExtrapolation()) {
+	    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
+	      for (int k = 0; k < dim; ++k) {
+		betai[k] = std::min<double>(betai[k],ri[k]);
+	      }
+	    }
+	    
+	    //betai = std::min<double>(betai,betaj);
+	    //betaj = std::min<double>(betai,betaj);
+	  }
+
           //std::cout << "Using ho fsi" << std::endl;
-	  for (int k=0; k<dim; k++) Vi[k] = V[i][k]+(1.0-resij.alpha)*ddVij[k];
+	  for (int k=0; k<dim; k++) Vi[k] = V[i][k]+(1.0-resij.alpha)*ddVij[k]*betai[k];
 	  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
 	}
 
@@ -2758,25 +2778,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	   
 	  if (masterFlag[l]) {
 	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-            double ri[dim],rj[dim];
-            higherOrderFSI->estimateR(l, 0, j, V, ngrad, X, fluidId,ri);
-
-            //double betai = 1.0,betaj = 1.0;
-            double betai[dim], betaj[dim];
-            for (int k = 0; k < dim; ++k) {
-              betai[k] = betaj[k] = 1.0;
-            }
-	
-            if (higherOrderFSI->limitExtrapolation()) {
-	      if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] > 0.0) {
-	        for (int k = 0; k < dim; ++k) {
-	          betai[k] = std::min<double>(betai[k],ri[k]);
-	        }
-	      }
-	   
-              //betai = std::min<double>(betai,betaj);
-              //betaj = std::min<double>(betai,betaj);
-            }
 	   
             //std::cout << "beta[] = " << betaj[0] << " " << betaj[1] << " " << betaj[2] << " " << betaj[3] << " " << betaj[4] << std::endl; 
             //std::cout << "r[] = " << rj[0] << " " << rj[1] << " " << rj[2] << " " << rj[3] << " " << rj[4] << std::endl; 
@@ -2837,9 +2838,30 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
   
+            double betai[dim], betaj[dim];
+
 	if (higherOrderFSI) {
 
-	  for (int k=0; k<dim; k++) Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k];
+	  double ri[dim],rj[dim];
+	  higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId,rj);
+	  
+	  //double betai = 1.0,betaj = 1.0;
+	  for (int k = 0; k < dim; ++k) {
+	    betai[k] = betaj[k] = 1.0;
+	  }
+	  
+	  if (higherOrderFSI->limitExtrapolation()) {
+	    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
+	      for (int k = 0; k < dim; ++k) {
+		betaj[k] = std::min<double>(betaj[k],rj[k]);
+	      }
+	    }
+	    
+	    //betai = std::min<double>(betai,betaj);
+	    //betaj = std::min<double>(betai,betaj);
+	  }
+	  
+	  for (int k=0; k<dim; k++) Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k]*betaj[k];
 	  varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 	}
 
@@ -2861,25 +2883,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  if (masterFlag[l]) {
 	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
 
-            double ri[dim],rj[dim];
-            higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId,rj);
-
-            //double betai = 1.0,betaj = 1.0;
-            double betai[dim], betaj[dim];
-            for (int k = 0; k < dim; ++k) {
-              betai[k] = betaj[k] = 1.0;
-            }
-	
-            if (higherOrderFSI->limitExtrapolation()) {
-	      if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
-	        for (int k = 0; k < dim; ++k) {
-	          betaj[k] = std::min<double>(betaj[k],rj[k]);
-	        }
-	      }
-	   
-              //betai = std::min<double>(betai,betaj);
-              //betaj = std::min<double>(betai,betaj);
-            }
 	
 	    if (v6data==NULL) {
 	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
