@@ -1000,7 +1000,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     if(recomputeIntersections)
       this->spaceOp->updateSweptNodes(*this->X,*this->A, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
+				      this->distLSS, (double*)this->vfar, this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1,(this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
   } 

@@ -1388,7 +1388,8 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
                  DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                  DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-                 DistLevelSetStructure *distLSS, double *vfar, DistVec<int> *fluidId)
+                 DistLevelSetStructure *distLSS, double *vfar,
+		 bool limit, DistVec<int> *fluidId)
 {
   int iSub, numLocSub = this->domain->getNumLocSub();
   DistVec<int> init(domain->getNodeDistInfo()),next_init(domain->getNodeDistInfo());
@@ -1421,7 +1422,7 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, false, fluidId);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, limit, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }
@@ -1455,7 +1456,7 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 			  //  std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
-                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && true) {
+                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && limit) {
 
                     this->domain->getSubDomain()[iSub]->getHigherOrderFSI()->
                       template setLastPhaseChangeValue<dim>(i, V(iSub)[i]);
