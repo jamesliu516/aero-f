@@ -2582,6 +2582,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
+    bool iPorous = false;
+    bool jPorous = false;
 
 //    if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode) {
 //      fprintf(stderr,"--- (%d(%d), %d(%d)): intersect = %d, normal = %e %e %e\n", locToGlobNodeMap[i]+1, iActive, locToGlobNodeMap[j]+1, jActive, intersect, normal[l][0], normal[l][1], normal[l][2]);
@@ -2694,6 +2696,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       // for node i
       if(iActive) {
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+        if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0)  iPorous = true;
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -2730,6 +2733,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   
 	  if (masterFlag[l]) {
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+            if (iPorous) {
+              fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+              for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
+            }
 	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
 	    //          if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode)
 	    //            fprintf(stderr,"--- B fluxi(%d,%d) = %e %e %e %e %e\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, fluxi[0], fluxi[1], fluxi[2], fluxi[3], fluxi[4]);
@@ -2765,6 +2772,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    //if (1.0-resij.alpha > alpha)
 	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+            if (iPorous) {
+              fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+              for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
+            }
 	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
 	  }
 	}
@@ -2774,6 +2785,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       // for node j
       if(jActive){
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+        if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0)  jPorous = true;
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -2810,6 +2822,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   
 	  if (masterFlag[l]) {
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+            if (jPorous) {
+              fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+              for (int k=0; k<dim; k++) fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
+            }
 	    for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
 	    //          if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode)
 	    //            fprintf(stderr,"--- C fluxj(%d,%d) = %e %e %e %e %e\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, fluxj[0], fluxj[1], fluxj[2], fluxj[3], fluxj[4]);
@@ -2846,6 +2862,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
 	  
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+            if (jPorous) {
+              fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+              for (int k=0; k<dim; k++) fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
+            }
 	    //else
 	    //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, V[j], fluxj, fluidId[j], false);
 	    
@@ -2912,6 +2932,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
+    bool iPorous = false;
+    bool jPorous = false;
 
     if( !iActive && !jActive ) {
       if(it>0) for(int k=0;k<dim;k++) Wstarij[l][k] = Wstarji[l][k] = 0.0; //clean-up Wstar
@@ -2989,6 +3011,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       if(iActive) {// for node i
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+        if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0)  iPorous = true;
 
 	double xstar[3] = {X[i][0] + dx[0]*(1.0-resij.alpha),
 			   X[i][1] + dx[1]*(1.0-resij.alpha),
@@ -3064,6 +3087,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
 	//if (1.0-resij.alpha > alpha)
 	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+          if (iPorous) {
+            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+            for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
+          }
 	//else
 	//  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V[i], Wstar, fluxi, fluidId[i], false);
 //		double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
@@ -3072,6 +3099,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
       if(jActive){// for node j
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+        if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0)  jPorous = true;
 	double xstar[3] = {X[j][0] - dx[0]*(1.0-resji.alpha),
 			   X[j][1] - dx[1]*(1.0-resji.alpha),
 			   X[j][2] - dx[2]*(1.0-resji.alpha)};
@@ -3146,6 +3174,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 	//if (  1.0-resji.alpha > alpha)
 	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+          if (jPorous) {
+            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+            for (int k=0; k<dim; k++) fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
+          }
 	  //else
 	  //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, V[j], fluxj, fluidId[j], false);
 	  
@@ -4037,6 +4069,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     bool intersect = LSS.edgeIntersectsStructure(0,l);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
+    bool iPorous = false;
+    bool jPorous = false;
    
     double area = normal[l].norm();
 
@@ -4093,6 +4127,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
       if(iActive) {
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+        if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0)  iPorous = true;
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -4136,15 +4171,42 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wstar, dfdUi, dfdUj, fluidId[i],false);
         DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUj,0,&dUdU, 0, &dkk,0);
 
+        if (iPorous) {
+          for (k=0; k<neq*neq; ++k) {
+            dfdUi[k] = (1.0 - resij.porosity)*dfdUi[k];
+            dkk[k] = (1.0 - resij.porosity)*dkk[k];
+          }
+        }
         Aii = A.getElem_ii(i);
         for (k=0; k<neq*neq; ++k) {
           Aii[k] += dfdUi[k]+dkk[k];
+        }
+
+        if (iPorous) {
+          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[i]);
+          for (k=0; k<neq*neq; ++k) {
+            dfdUi[k] = resij.porosity*dfdUi[k];
+            dfdUj[k] = resij.porosity*dfdUj[k];
+          }
+
+          for (k=0; k<neq*neq; ++k) {
+            Aii[k] += (dfdUi[k]);
+          }
+          Scalar *Aij = A.getElem_ij(l);
+          if (Aij) {
+            double voli = 1.0 / ctrlVol[i];
+          
+            for (k=0; k<neq*neq; ++k) {
+              Aij[k] += (dfdUj[k])*voli;
+            }
+          }
         }
       }
 
       // for node j
       if(jActive){
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+        if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0)  jPorous = true;
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -4188,9 +4250,34 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar,Vj, dfdUi, dfdUj, fluidId[j],false); 
         DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUi,0,&dUdU, 0, &dkk,0);
 
+        if (jPorous) {
+          for (k=0; k<neq*neq; ++k) {
+            dfdUj[k] = (1.0 - resji.porosity)*dfdUj[k];
+            dkk[k] = (1.0 - resji.porosity)*dkk[k];
+          }
+        }
         Ajj = A.getElem_ii(j);
         for (k=0; k<neq*neq; ++k) {
           Ajj[k] -= dfdUj[k]+dkk[k];
+        }
+        if (jPorous) {
+          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[j]);
+          for (k=0; k<neq*neq; ++k) {
+            dfdUi[k] = resji.porosity*dfdUi[k];
+            dfdUj[k] = resji.porosity*dfdUj[k];
+          }
+
+          for (k=0; k<neq*neq; ++k) {
+            Ajj[k] -= (dfdUj[k]);
+          }
+          Scalar *Aji = A.getElem_ji(l);
+          if (Aji) {
+            double volj = 1.0 / ctrlVol[j];
+          
+            for (k=0; k<neq*neq; ++k) {
+              Aji[k] -= (dfdUi[k])*volj;
+            }
+          }
         }
       }
     }

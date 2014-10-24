@@ -20,11 +20,13 @@ struct LevelSetResult {
    int trNodes[3];
    Vec3D gradPhi;
    Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
+   double porosity;
 
    LevelSetResult() {
      alpha = xi[0] = xi[1] = -1.0;
      trNodes[0] = trNodes[1] = trNodes[2] = -1;
      gradPhi = normVel = 0.0;
+     porosity = 0.0;
    }
    LevelSetResult(double gpx, double gpy, double gpz,
                   double nvx, double nvy, double nvz) :
@@ -33,6 +35,7 @@ struct LevelSetResult {
                      alpha = -1.0;
                      xi[0] = xi[1] = xi[2] = -1.0;
                      trNodes[0] = trNodes[1] = trNodes[2] = -1;
+                     porosity = 0.0;
 		   }
 
    class iterator {
