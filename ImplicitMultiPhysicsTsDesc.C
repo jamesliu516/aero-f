@@ -228,8 +228,17 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     } 
 */
     //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
-    this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
-     this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
+    if(this->withCracking && this->withMixedLS) {
+      //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
+      //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
+      //    this->com->fprintf(stderr,"calling updateFluidIdFS2!\n");
+      DistSVec<bool,4> poll(this->domain->getNodeDistInfo());
+      this->domain->updateFluidIdFS2Prep(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), poll);
+      this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV, poll);
+    } else {
+      this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
+    }
+    this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                        //  is meaningful. We destroy it so people wouldn't use it
                        //  by mistake later on.
 
@@ -307,10 +316,20 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
   double t1 = this->timer->getTime();
   int itsLS = this->ns->solveLS(this->Phi, U);
   this->riemann->storeOldV(U);
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin,this->distLSS);
+  if(this->withCracking && this->withMixedLS)
+    this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  else
+    this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin,this->distLSS);
+  
+  
 //  this->fluidSelector.getFluidId(this->Phi,&(this->distLSS->getStatus()));
   DistVec<int> fluidId0(*this->fluidSelector.fluidId);
-  this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
+  if(this->withCracking && this->withMixedLS) {
+    this->fluidSelector.updateFluidIdFF2(this->distLSS, this->Phi);
+  } else {
+    this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
+  }
+
   this->timer->addLevelSetSolutionTime(t1);
 
   if (this->phaseChangeType == 0)
