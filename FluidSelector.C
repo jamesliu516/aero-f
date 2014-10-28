@@ -239,6 +239,9 @@ void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<do
           continue;
       }
 
+      //if (i == 4566)
+      //  fprintf(stderr,"Rank %d, i = %d, swept = %d, occluded = %d, fluidId = %d, dimLS = %d, poll = %d %d %d %d. LSS.numOfFluids = %d, subPhiV = %e.\n", rank,i, swept, occluded, subId[i], dim, poll[i][0], poll[i][1], poll[i][2], poll[i][3], LSS.numOfFluids(), subPhiV[i][0]);
+
       if(occluded) { // Rule No.1
         subId[i] = LSS.numOfFluids();
         if(!poll[i][3]) {
@@ -397,6 +400,7 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
   int numLocSub = Phi.numLocSub();
   int burnTag;
   int iSub;
+ 
 #pragma omp parallel for
   for(iSub=0; iSub<numLocSub; ++iSub) {
     double (*phi)[dim]     = Phi.subData(iSub);
@@ -428,6 +432,7 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
         }
       }
     }
+
   }
 }
 
