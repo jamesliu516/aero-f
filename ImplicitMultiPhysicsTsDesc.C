@@ -227,6 +227,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
       std::cout << "phi[5302] = " << this->Phi(0)[5302][0] << std::endl;
     } 
 */
+
     //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     if(this->withCracking && this->withMixedLS) {
       //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
@@ -245,9 +246,9 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     //update phase-change
     tw = this->timer->getTime();
     this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp, *this->Weights, *this->VWeights,
-                                              this->Phi, this->PhiWeights, *this->Wstarij, *this->Wstarji,
-                                              this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-   
+                                              this->LS->Phin, this->PhiWeights, *this->Wstarij, *this->Wstarji,
+                                              this->distLSS, this->vfar, (this->withCracking && this->withMixedLS), this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
+
     this->timeState->getUn() = U;
 
     // BDF update (Unm1)
@@ -261,8 +262,8 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
       }
 
       this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, Unm1, this->Vtemp, *this->Weights, *this->VWeights,
-                                                this->Phi, this->PhiWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
-                                                this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
+                                                this->LS->Phinm1, this->PhiWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
+                                                this->distLSS, this->vfar, (this->withCracking && this->withMixedLS), this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
       this->timer->addEmbedPhaseChangeTime(tw);
       this->timer->removeIntersAndPhaseChange(tw);
     }
