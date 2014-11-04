@@ -58,6 +58,7 @@ Domain::Domain()
   levelPat = 0;
   bool2Pat = 0;
   bool3Pat = 0;
+  bool4Pat = 0;
   weightPat = 0;
   weightPhaseChangePat = 0;
   edgePat = 0;
@@ -135,7 +136,7 @@ Domain::Domain()
 
 Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType(0), nodeFaceType(0),
     nodeDistInfo(0), edgeDistInfo(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0), kirchhoffNodeDistInfo(0),
-    vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0),
+    vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0), bool4Pat(0),
     weightPat(0), weightPhaseChangePat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
     inletCountPat(0), inletRhsPat(0), Delta(0), CsDelSq(0), PrT(0), WCsDelSq(0), WPrT(0), tag(0), tagBar(0),
     weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), output_newton_step(0)
@@ -169,6 +170,7 @@ Domain::~Domain()
   if (levelPat) delete levelPat;
   if (bool2Pat) delete bool2Pat;
   if (bool3Pat) delete bool3Pat;
+  if (bool4Pat) delete bool4Pat;
   if (weightPat) delete weightPat;
   if (weightPhaseChangePat) delete weightPhaseChangePat;
   if (edgePat) delete edgePat;
@@ -284,6 +286,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   levelPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend); // New Comm Pattern
   bool2Pat = new CommPattern<bool>(subTopo, com, CommPattern<bool>::CopyOnSend); // New Comm Pattern
   bool3Pat = new CommPattern<bool>(subTopo, com, CommPattern<bool>::CopyOnSend); // New Comm Pattern
+  bool4Pat = new CommPattern<bool>(subTopo, com, CommPattern<bool>::CopyOnSend); // New Comm Pattern
   vec3DPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   weightPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   weightPhaseChangePat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
@@ -334,6 +337,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setComLenNodes(1, *levelPat); // New Comm Pattern
     subDomain[iSub]->setComLenNodes(2, *bool2Pat); // New Comm Pattern
     subDomain[iSub]->setComLenNodes(3, *bool3Pat); // New Comm Pattern
+    subDomain[iSub]->setComLenNodes(4, *bool4Pat); // New Comm Pattern
     subDomain[iSub]->setComLenNodes(2, *csPat);
     subDomain[iSub]->setComLenNodes(2, *fsPat);
     subDomain[iSub]->setComLenNodes(3, *vec3DPat);
@@ -357,6 +361,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   levelPat->finalize();
   bool2Pat->finalize();
   bool3Pat->finalize();
+  bool4Pat->finalize();
   csPat->finalize();
   engPat->finalize();
   fsPat->finalize();
@@ -811,12 +816,22 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
   if (ierr) {
     com->fprintf(stderr, "*** Error: %d negative volume%s\n", ierr, ierr>1? "s":"");
+#ifdef YDEBUG
+  if(ierr) {
+    const char* output = "elementvolumecheck";
+    ofstream out(output, ios::out);
+    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+    out << ierr << endl;
+    out.close();
+    exit(-1);
+  }
+#endif
 
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeControlVolumes(ierr, lscale, X(iSub), ctrlVol(iSub));
 
-    exit(1);
+//    exit(1);
   }
 
   return ierr;
@@ -1663,6 +1678,21 @@ void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&gl
     locNodeSet[iData] = locNode;
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::readEigenValuesAndVectors(const char *eigFile, double &realEigV, double &imagEigV, int &iEV) {	
+   if(!eigFile)
+     eigFile = "eigFile.in"; // default filename
+   FILE *eFile = fopen(eigFile, "r");
+   if(!eFile) {
+		 com->fprintf(stderr, "*** Warning: No Eigen FILES in %s\n", eigFile);
+		 exit (-1);
+   }
+   fscanf(eFile, "%lf %lf %d\n", &realEigV, &imagEigV, &iEV); // first two entries are real and imaginary part of eigenvalues.
+                                                              // third entry is corresponding eigenvalues's sorted order of imaginary part.
+   fclose(eFile);
 }
 
 //-------------------------------------------------------------------------------

@@ -1186,14 +1186,15 @@ template<int dim>
 void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
 (
   IoData &ioData, 
-  DistSVec<double,dim> &dFdS, DistSVec<double,dim> &dUdS
+  DistSVec<double,dim> &dFdS, DistSVec<double,dim> &dUdS,
+  bool isFSI
 )
 {
 
   dUdS = 0.0;
 
   dFdS *= (-1.0);
-  ksp->setup(0, 0, dFdS);
+  if(!isFSI) ksp->setup(0, 1, dFdS);
 
   int numberIteration;
   bool istop = false;
@@ -1201,7 +1202,11 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
 
   while ((istop == false) && (iter < 100))
   {
+//    clock_t begin = clock();
     numberIteration = ksp->solve(dFdS, dUdS);
+//    clock_t end = clock();
+//    double elapsed_secs = double(end-begin) / CLOCKS_PER_SEC;
+//    this->com->printf(0, "elapsed_secs for FluidShapeOptimizationHandler<dim>::fsoLinearSolver is %f s\n", elapsed_secs);
     if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true; 
     iter += 1;
@@ -1343,7 +1348,9 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
   if (ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI) {
     int numParam;
     this->getNumParam(numParam);
-    for(int i=0; i<numParam; ++i) fso_on_sensitivityFSI(ioData, U);
+    for(int i=0; i<numParam; ++i) { // obtain shape sensitivities first
+      fso_on_sensitivityFSI(ioData, U);
+    }
   }
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) fso_on_sensitivityMesh(ioData, U);
   if (ioData.sa.sensMach == SensitivityAnalysis::ON_SENSITIVITYMACH) fso_on_sensitivityMach(ioData, U);
@@ -1362,7 +1369,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
   MyLocalTimer += this->timer->getTime();
   if (this->com->cpuNum() == 0)
   {
-    std::cout << "\n *** FluidSensityAnalysisHandler::fsoHandler >> Exit";
+    std::cout << "\n *** FluidShapeOptimizationHandler::fsoHandler >> Exit";
     std::cout << " (" << MyLocalTimer << " s)";
     std::cout << "\n\n";
   }
@@ -1463,10 +1470,14 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
     actvar = 1;
 
     while (!lastIt) {
-
+      
       this->cmdCom(&lastIt);
-      if(lastIt) break;
+      if(lastIt) { dXdSb = 0.0; break; }
       this->com->fprintf(stderr, "fso_sensitivityFSI Iteration\t%d\n",iter+1);
+      double relres;
+      this->getRelResidual(relres);
+      this->com->fprintf(stderr, "relres received from Structure = %e\n", relres);
+      ksp->setEps(relres);
       // Reading derivative of the overall deformation
       this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
 
@@ -1478,7 +1489,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
         this->com->fprintf(stderr, "\n *** WARNING *** No Surface Mesh Sensitivity Perturbation \n\n");
         if(!ioData.sa.fsiFlag) exit(1);
       }
-
+ 
       // Updating the mesh
       dXdS = *this->X;
       mms->solve(dXdSb, dXdS);
@@ -1488,7 +1499,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
       if (dXdS.norm() == 0.0) this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Sensitivity Perturbation !!!\n\n");
 //      else this->com->fprintf(stderr, "\n norm of dXdS is %e\n", dXdS.norm());
 
-      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+      fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, true);
   
       fsoComputeAndSendForceSensitivities(ioData, ioData.sa.sensoutput, *this->X, U);
 
@@ -1496,7 +1507,9 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
       iter++;
     }
 
+    fsoComputeSensitivities(ioData, "Derivatives with respect to the FSI parameter:", ioData.sa.sensoutput, *this->X, U);
     fsoPrintTextOnScreen("\n ***** Derivatives of mesh position and state were computed! \n");
+    step++;
 
 }
 
@@ -1561,7 +1574,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityMesh(IoData &ioData, 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U)
+void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U, bool isFSI)
 {
 
   dFdS = 0.0;
@@ -1580,7 +1593,7 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(
 
   // Computing the derivative of the fluid variables 
   // with respect to the fsoimization variables
-  fsoLinearSolver(ioData, dFdS, dUdS);
+  fsoLinearSolver(ioData, dFdS, dUdS,isFSI);
 
 
 }
@@ -1623,10 +1636,12 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioData,
   else
     fsoGetDerivativeOfEffortsAnalytical(ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
 
+
   if ((!ioData.sa.angleRad) && (DFSPAR[1] || DFSPAR[2])) {
     dFds *= acos(-1.0) / 180.0;
     dMds *= acos(-1.0) / 180.0;
   }  
+
 
   if (this->com->cpuNum() == 0) {
     outFile = fopen(fileName,"a+");

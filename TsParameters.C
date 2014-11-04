@@ -154,7 +154,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
   }
 
   // First run automatic CFL checks
-/*
+
   if (unphysical){
     unphysical=false;
     badlinsolve=false;
@@ -178,7 +178,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
     return;
   }
-*/
+
 
   if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
@@ -242,22 +242,22 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
       else hf_ratio = e_hf/e_ac;
 
       if (hf_ratio<0 || hf_ratio>1) {
-        std::printf("Found invalid hf_ratio: %e, check for bugs in CFL Law\n",hf_ratio); 
-        char buffer[250];
+	std::printf("Found invalid hf_ratio: %e, check for bugs in CFL Law\n",hf_ratio); 
+        char buffer[2500];
         sprintf(buffer,"Res history:");
         for (int i=0; i<dft_history; i++) sprintf(buffer,"%s %e",buffer,reshistory[i]);
         sprintf(buffer,"%s \n",buffer);
         sprintf(buffer,"%s DFT:",buffer);
         for (int i=0; i<dft_history; i++) sprintf(buffer,"%s %e+%ei", buffer,dft[i].real(),dft[i].imag());
         sprintf(buffer,"%s \n",buffer);
-        std::printf("%s e_total=%e, e_dc=%e, e_ac=%e, e_hf=%e, hf_ratio=%e\n",buffer,e_total,e_dc,e_ac,e_hf,hf_ratio);
-        exit(-1);
+        errorHandler->com ->fprintf(stderr,"%s e_total=%e, e_dc=%e, e_ac=%e, e_hf=%e, hf_ratio=%e\n",buffer,e_total,e_dc,e_ac,e_hf,hf_ratio);
+	exit(-1);
       }
 
       cfl *= pow(dft_growth, 1-2*hf_ratio);
+      //errorHandler->com ->fprintf(stdout,"CFL DFT strategy: e_ac: %e, e_hf: %e, CFL proposal: %e\n",e_ac,e_hf,cfl);
     }
     cfl_dft = cfl;
-    //std::printf("CFL DFT strategy: e_ac: %e, e_hf: %e, CFL proposal: %e\n",e_ac,e_hf,cfl_dft);
   }
   if (cfllaw == CFLData::HYBRID){
     // compute hybrid strategy cfl

@@ -17,7 +17,6 @@ typedef std::complex<double> bcomp;
 using std::cout;
 using std::endl;
 
-
 class IoData;
 class VarFcn;
 class BcFcn;
@@ -88,7 +87,7 @@ class operMax {
 
 //------------------------------------------------------------------------------
 /** \brief Class of all data for this MPI process
-/** Class containing the geometry of all the subdomains used in the current MPI process
+ *  Class containing the geometry of all the subdomains used in the current MPI process
  *
  * The Domain class contains all the SubDomain s and offers entry points for all
  * parallel routines, distributing the work to each SubDomain.
@@ -119,6 +118,7 @@ class Domain {
   CommPattern<int> *levelPat;
   CommPattern<bool> *bool2Pat;
   CommPattern<bool> *bool3Pat;
+  CommPattern<bool> *bool4Pat; //KW(02/2014): for FluidIdFS2
 
   CommPattern<double> *weightPat;
   CommPattern<double> *weightPhaseChangePat;
@@ -816,6 +816,8 @@ public:
   }
 
   void assembleEdge(CommPattern<double> *commPat, DistVec<double> &W);
+  
+  void readEigenValuesAndVectors(const char *eigFile, double &realEigV, double &imagEigV, int &);
 
   template<int dim>
   void assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn);
@@ -1044,7 +1046,7 @@ public:
   void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
 
   template<int dimLS>
-  void updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId);
+  void updateFluidIdFS2Prep(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<bool,4> &poll);
 
   template<int dim, int dimLS>
   void debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<double,dim> &U);
@@ -1065,6 +1067,13 @@ public:
     void computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
 			DistVec<double>& vol,double error[dim],
                         DistLevelSetStructure* = NULL);
+
+
+  template <int dim>
+    void computeL2Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
+			DistVec<double>& vol,double error[dim],
+                        DistLevelSetStructure* = NULL);
+
   template <int dim>
     void computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, double error[dim],
                           DistLevelSetStructure* = NULL);

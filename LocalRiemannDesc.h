@@ -717,6 +717,10 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
   if (IDi==fluid2) {
+    if(IDj!=fluid1) {
+      fprintf(stderr,"ERROR: IDi = %d, IDj = %d, fluid1 = %d, fluid2 = %d.\n", IDi, IDj, fluid1, fluid2);
+      exit(-1);
+    }
     // cell j is gas
     // cell i is tait
     R_g  = Vj[0];     R_w  = Vi[0];
@@ -745,6 +749,9 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     else
       Wi[4]  = Vi[4] + 1.0/cp*(P_i/R_ir-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w));
 
+    // CHF: believe this line is missing
+    Wi[dim+4] = Wi[4];
+
     Wj[0]  = R_il;                      Wj[dim]    = Wj[0];
     Wj[1]  = vtj[0]+U_i*nphi[0];        Wj[dim+1]  = Wj[1];
     Wj[2]  = vtj[1]+U_i*nphi[1];        Wj[dim+2]  = Wj[2];
@@ -752,6 +759,10 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     Wj[4]  = P_i;                       Wj[dim+4]  = P_i;
 
   }else{
+    if(IDi!=fluid1 || IDj!=fluid2) {
+      fprintf(stderr,"ERROR: IDi = %d, IDj = %d, fluid1 = %d, fluid2 = %d.\n", IDi, IDj, fluid1, fluid2);
+      exit(-1);
+    }
     // cell j is tait
     // cell i is gas
     R_g  = Vi[0];     R_w  = Vj[0];
@@ -3386,13 +3397,25 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
 	   pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,power)-pref;
 	   rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma); */
       
+// CHF: debug : original code
+/*
       double power = 2.0*gamma/(gamma-1.0);
       double a = sqrt(gamma*(p+pref)/rho);
       double pbar = p + pref;
       double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
       pi = pbar*pow(s,power)-pref;
-      
       rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+*/
+// debug test - code does not crash w/this code below... from a previous revision
+// seems the pow has changed where the base used to be a guaranteed positive number to something that can be neg.
+// i don't know what effect that has on the riemann solver
+    double power = gamma/(gamma-1.0);
+    double a = sqrt(gamma*(p+pref)/rho);
+    double pbar = p + pref;
+    double dee = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
+    pi = pbar*pow(dee*dee,power)-pref;
+    rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+
     }
     else{ // shock
       double temp = ((gamma+1.0)*rho*(ui-u)*(ui-u))/2.0;
@@ -3405,10 +3428,10 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
   } else {
 
     double a = sqrt(gamma*(p+pref)/rho);
-    double X = 4.0*a*a*beta*beta + u*u*pow(beta*beta-1.0,2.0);
+    double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
     double sqrtX = sqrt(X);
-    double lambda = 0.5*(u*(1.0+beta*beta) - sqrtX);
-    double dp = rho*(beta*beta*u - lambda - sqrtX)*(ui-u);
+    double lambda = 0.5*(ui*(1.0+beta*beta) - sqrtX);
+    double dp = rho*a*a*(u-ui)*beta*beta/(lambda-beta*beta*ui);
 
     pi = p + dp;
     double power = 2.0*gamma/(gamma-1.0);
@@ -3437,23 +3460,26 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
 
-  if(u==ui){ // contact
+  if(fabs(u-ui)<1e-14){ // contact
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;
   }
 
-  double q = (gamma-1.0)/(gamma+1.0);
+// CHF: check that the next line is correct
+  double a = sqrt(gamma*(p+pref)/rho);
+  double q = (gamma+1.0)/(gamma-1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
-    double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
 
     double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
 //    if (s < 0.0) {
 //      fprintf(stderr,"Warning: s (%lf) in fs_grad is < 0!\n",s);
 //    }
-    double eta = pbar*power*pow(s,power-1.0);
+    // CHF: debug think this line is correct? ... commented line could result in negative base in power operation
+    double eta = pbar*power*pow(s*s,q*0.5);
+    //double eta = pbar*power*pow(s,power-1.0);
     double xi = eta*(-0.5/(a*a)*(gamma-1.0)*(ui-u));
  
     double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a/rho;
@@ -3472,17 +3498,25 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[0] = rhoi/rho+mu/pbar*dWidWi[6];
     }
     else {
+
+      double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
+      double sqrtX = sqrt(X);
+      double lambda = 0.5*(ui*(1.0+beta*beta) - sqrtX);
+      double q = lambda-beta*beta*ui;
+  
       // dpi/dp
-      dWidWi[8] = 1.0;
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
       // dpidrho
-      dWidWi[6] = 0.0;
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
       // dpidu
-      dWidWi[7] = 0.0;
+      dWidWi[7] = beta*beta*rho*a*a/q;
       
-      double mu = rho/gamma*pow((pi+pref)/pbar, (1.0-gamma)/gamma); 
-      dWidWi[2] = 0.0;
-      dWidWi[1] = 0.0;
-      dWidWi[0] = 1.0;
+      rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+      double rhopp = rho*pow((pi+pref)/(p+pref), 1.0/gamma-1.0);
+      double dpp = 1.0/gamma*rhopp/(p+pref);
+      dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
+      dWidWi[1] = dpp*dWidWi[7];
+      dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
 
     }
   }
@@ -3515,17 +3549,25 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[1] = rho*deriv*dWidWi[7];
       dWidWi[2] = rho*(deriv*dWidWi[8]+deriv2);
     } else {
+
+      double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
+      double sqrtX = sqrt(X);
+      double lambda = 0.5*(ui*(1.0+beta*beta) - sqrtX);
+      double q = lambda-beta*beta*ui;
+  
       // dpi/dp
-      dWidWi[8] = 1.0;
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
       // dpidrho
-      dWidWi[6] = 0.0;
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
       // dpidu
-      dWidWi[7] = 0.0;
+      dWidWi[7] = beta*beta*rho*a*a/q;
       
-      double mu = rho/gamma*pow((pi+pref)/pbar, (1.0-gamma)/gamma); 
-      dWidWi[2] = 0.0;
-      dWidWi[1] = 0.0;
-      dWidWi[0] = 1.0;
+      rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+      double rhopp = rho*pow((pi+pref)/(p+pref), 1.0/gamma-1.0);
+      double dpp = 1.0/gamma*rhopp/(p+pref);
+      dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
+      dWidWi[1] = dpp*dWidWi[7];
+      dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
     }
   }
 }

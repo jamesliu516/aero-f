@@ -356,7 +356,7 @@ void MultiGridSegTsDesc<dim,neq1,neq2>::cycle(int lvl, DistSVec<double,dim>& f,
         }
      }
     }
-  if (lvl < pKernel->numLevels()-1 && globalIt > 50) {
+  if (lvl < pKernel->numLevels()-1/* && globalIt > 50*/) {
     /*
     for (int iSub = 0; iSub < this->domain->getNumLocSub(); ++iSub) {
 

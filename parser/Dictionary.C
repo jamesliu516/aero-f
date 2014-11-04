@@ -36,7 +36,9 @@ findSysObj(int tk)
   map<int, Assigner *>::iterator it = sysSmb->forest.find(tk);
   if(it == sysSmb->forest.end()) {
     fprintf(stderr, "Error: Symbol not found: %s\n", dictionary->word(tk).c_str());
-    return 0;
+    // Exit so that AERO-f does not seg-fault.
+    exit(-1);
+    //return 0;
   }
   return it->second;
 }
