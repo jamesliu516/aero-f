@@ -19,16 +19,20 @@ using std::sort;
 #include <PostOperator.h>
 #include <ParallelRom.h>
 #ifdef USE_EIGEN3
-#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
 #endif
+#include <complex>
 
 #ifdef DO_MODAL
-#include <arpack++/include/ardsmat.h>
-//#include <arpack++/include/ardnsmat.h>
-#include <arpack++/include/ardssym.h>
-#include <arpack++/include/ardsnsym.h>
+ #include <arpack++/include/ardsmat.h>
+ #include <arpack++/include/ardnsmat.h>
+ #include <arpack++/include/ardssym.h>
+ #include <arpack++/include/ardsnsym.h>
 #endif
 
+#include <sstream>
+#include <string>
 #include <cstring>
 extern "C"      {
 
@@ -174,6 +178,40 @@ void ModalSolver<dim>::solve()  {
      podMethod = 0;
      constructPOD();
      modalTimer->addPodConstrTime(t0);
+   }
+   else if (ioData->problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_) {
+     // t0 = modalTimer->getTime();
+     computeDampingRatios();
+   }
+#ifdef USE_EIGEN3
+   else if (ioData->problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_) {
+     double sReal, sImag;
+     Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rightEigenVector(nStrMode,1), leftEigenVector(nStrMode,1), residual(nStrMode,1);
+     rightEigenVector.setZero();    leftEigenVector.setZero();    residual.setZero();
+     char eigFile [100];  int iEV;
+     sprintf(eigFile, "%s%s", ioData->input.prefix, ioData->input.reducedEigState);
+     domain.readEigenValuesAndVectors(eigFile, sReal, sImag, iEV);
+     computeEigenvectorsAndResidual(sReal,sImag,iEV,rightEigenVector,leftEigenVector,residual);
+//     computeNonlinearEigenResidual(sReal, sImag, rightEigenVector, leftEigenVector, residual);
+     double residualnorm = residual.norm(); ///(leftEigenVector.adjoint()*rightEigenVector).norm();
+     double resDenominator = computeResidualDenominator(sReal, sImag, rightEigenVector, leftEigenVector);
+     com->fprintf(stderr,"residualnorm is %e\n", residualnorm); 
+     com->fprintf(stderr,"resDenominator is %e\n", resDenominator); 
+     com->fprintf(stderr,"errorEstimate is %e\n", residualnorm/resDenominator); 
+     const char* output = "errorIndicator1";
+     ofstream out(output, ios::out);
+     if(!out) {
+       cerr << "Error: cannot open file" << output << endl;
+       exit(-1);
+     } 
+     out << residualnorm/resDenominator << endl;
+     out.close();
+//     delete [] rEigenVector;
+   }
+#endif
+   else if (ioData->problem.alltype == ProblemData::_GAM_CONSTRUCTION_) {
+     // t0 = modalTimer->getTime();
+     computeGenAeroForceMat();
    }
    else {
      t0 = modalTimer->getTime();
@@ -1227,7 +1265,7 @@ void ModalSolver<dim>::preProcess()  {
      Ti = (pi*2.0/sqrt(K[ic]) ) / ioData->ref.rv.time; 
    else
      Ti = 1.0;
-
+   
    double eps2 = 0.5*dt/Ti*eps;
 
    Xnp1 = Xref - eps2*(mX[ic]);
@@ -1274,6 +1312,7 @@ void ModalSolver<dim>::preProcess()  {
  geoState->compute(tState->getData(), bcData->getVelocityVector(), Xref, controlVol);
  geoState->update(Xref, controlVol);
  geoState->compute(tState->getData(), bcData->getVelocityVector(), Xref, controlVol);
+
 
 
  // Now setup H matrices
@@ -1507,7 +1546,7 @@ void ModalSolver<dim>::constructPOD()  {
 
  Timer *modalTimer = domain.getTimer();
  double t0;
-
+ 
  // Initial Conditions
  VecSet<DistSVec<bcomp,dim> > prevW(nStrMode, domain.getNodeDistInfo());
 
@@ -3374,9 +3413,7 @@ void ModalSolver<dim>::ROBInnerProducts()
   double *eig = new double[numPod];
 
   //open POD file
-  char *vecFile = tInput->podFile;
-  if (!vecFile)
-    vecFile = "podFiles.in";
+  const char *vecFile = (tInput->podFile) ? tInput->podFile : "podFiles.in";
   FILE *inFP = fopen(vecFile, "r");
   if (!inFP)  {
     com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
@@ -3630,3 +3667,779 @@ void ModalSolver<dim>::modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &vector
       vectors[jVec] *= 1.0/Rmatrix[jVec*numVecs+jVec];
   }
 }
+
+//-------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::computeDampingRatios()
+{
+  int nIt = 0;
+  int nMaxIt = ioData->linearizedData.maxItEV;
+  int flagMaxIt[nStrMode]; 
+  double sReal = 0.0;
+  double sImag = 0.0;
+  double absLambda = 0.0;
+  double epsEV = ioData->linearizedData.epsEV;
+  double dampRatio = 0.0;
+  double dryModes[nStrMode];
+  
+  VecSet<Vec<bcomp> > compQ(nStrMode, nStrMode);
+  VecSet<Vec<double> > Omega(nStrMode, nStrMode);
+  VecSet<Vec<double> > eigMatA(2*nStrMode, 2*nStrMode);
+  Vec<bcomp> evList(nStrMode);
+  Vec<bcomp> sortEV(nStrMode);
+  Vec<bcomp> sortEV_c(nStrMode);
+  Vec<bcomp> sortEV_Eigen(2*nStrMode);
+ 
+  bcomp sEVnew(0.0,0.0);
+  bcomp sEVold(0.0,0.0);
+
+  int sp = strlen(ioData->output.transient.prefix) + 1;
+  char *outFile = new char[sp + strlen(ioData->output.transient.aeroelasticEigenvalues)];
+  sprintf(outFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.aeroelasticEigenvalues);
+  FILE *outEV = fopen(outFile, "w");
+  com->barrier();
+  //delete [] outFile;
+
+  if (!outEV)  {
+    com->fprintf(stderr, " *** Error: DampRatio output file not specified\n");
+    exit(-1);
+  }
+
+  for (int i = 0; i < nStrMode; ++i) {
+    dryModes[i] = 0.0;
+    evList[i] = sEVnew;
+    sortEV[i] = sEVnew;
+    flagMaxIt[i] = 0; 
+  }
+
+//dry modes
+  for (int i = 0; i < nStrMode; ++i) {
+    for (int j = 0; j < nStrMode; ++j) {   
+      if (i == j) Omega[i][j] = K[i];
+      else  Omega[i][j] = 0.0;
+    }
+    dryModes[i] = sqrt(K[i]);
+  }
+
+  sort(dryModes, dryModes + nStrMode);
+ 
+  for (int i = 0; i < nStrMode; ++i) {
+    evList[i].imag() = dryModes[i]; 
+  }
+ 
+//loop over eigenvalues/modes
+  com->fprintf(stderr, "Compute eigenvalues and damping ratios ...\n");
+  for (int iEV = 0; iEV < nStrMode; ++iEV) {
+    sEVold = evList[iEV];
+    sEVnew = evList[iEV];
+    nIt = 0;
+    com->fprintf(stderr, "\n ... solving for eigenmode #%i \n", iEV+1);
+    int Index;
+
+    while ((nIt == 0) || (sqrt (pow ((sEVnew.real()- sEVold.real()), 2.0)) + pow ((sEVnew.imag() - sEVold.imag()), 2.0)) / (sqrt (pow (sEVold.real(), 2.0) + pow (sEVold.imag(), 2.0))) > epsEV)  {
+      
+      com->fprintf(stderr, " ........ iteration #%i \n", nIt+1);
+      if (nIt >= nMaxIt) {
+        com->fprintf(stderr, "\n***WARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n\n", nMaxIt, iEV+1); 
+        flagMaxIt[iEV] = 1;
+        break;
+      }
+      nIt++;
+      sEVold = sEVnew;
+      sReal = sEVnew.real();
+      sImag = sEVnew.imag();
+//call for assembly of A  
+      evalMatForEvProblem(sReal, sImag, compQ, eigMatA, Omega);
+//Eigen
+      for (int i = 0; i < 2* nStrMode; ++i) {
+          sortEV_Eigen[i] = 0.0;
+      }
+
+#ifdef USE_EIGEN3
+      MatrixXd evProb(2*nStrMode,2*nStrMode);
+      for (int i = 0; i < 2*nStrMode; i++) {
+        for (int j = 0; j < 2*nStrMode; j++) {
+          evProb(i,j) = eigMatA[j][i];
+        }
+      }
+      Eigen::EigenSolver<MatrixXd> eigSolv(evProb);
+      for (int i = 0; i < 2*nStrMode; ++i) {
+        sortEV_Eigen[i] = eigSolv.eigenvalues()[i];
+      }
+#else
+      com->fprintf(stderr, " ***  ERROR: ModalSolver<dim>::computeDampingRatios() needs EIGEN library\n");
+      exit(-1); 
+#endif
+
+//sort
+      for (int i = 0; i < nStrMode; ++i) {
+          sortEV[i] = 0.0;
+      }
+      int i_pos2 = 0;
+      int ipos3 [nStrMode];
+      for (int i = 0; i < 2*nStrMode; ++i) {
+        if ((sortEV_Eigen[i].imag() > 0.0) && (i_pos2 < nStrMode)) {
+          sortEV[i_pos2] = sortEV_Eigen[i];
+          ipos3[i_pos2] = i;
+          i_pos2++;
+        }
+      }
+      bcomp tmpSort(0.0,-1.0); 
+      int i_addr = 0;
+      for (int i = 0; i < nStrMode; i++) {
+        sortEV_c[i] = sortEV[i];
+      }
+      for (int i = nStrMode-1; i >= 0; i--) {
+        tmpSort.imag() = (-1.0);
+        for (int j = 0; j < nStrMode; j++) {
+          if (sortEV_c[j].imag() > tmpSort.imag()) {
+            tmpSort = sortEV_c[j];
+            i_addr = j;
+          }
+        }
+        sortEV_c[i_addr].imag() = -1.0;
+        if(iEV == i)
+          Index = i_addr;
+        sortEV[i] = tmpSort;
+      }
+      sEVnew = sortEV[iEV];
+      evList[iEV] = sEVnew;
+      if (abs(sEVnew.imag()) <= 1.0e-16) {
+        com->fprintf(stderr, "***WARNING: sImag is zero\n");
+        break;
+      }
+
+   }
+  }
+  
+//output damp ratio and eigenvalues
+  com->fprintf(stderr, "\nWrite solution to '%s'\n\n", outFile);
+ 
+  com->fprintf(outEV, "EV-ID RealPart ImagPart DampingRatio Converged\n");
+  
+  for (int iEV = 0; iEV < nStrMode; ++iEV) {
+    absLambda = sqrt (pow (evList[iEV].real(), 2.0) + pow (evList[iEV].imag(), 2.0));
+    //com->fprintf(stderr, "Eigenvalue # %i ...  %e + i%e", iEV+1, evList[iEV].real(), evList[iEV].imag());
+
+    if (absLambda >=  1.0e-16) { 
+      dampRatio = -evList[iEV].real() / absLambda;
+      //com->fprintf(stderr, "\tDamping Ratio ... %e\n", dampRatio);
+      //Output in File
+      com->fprintf(outEV,"%i %e %e %e",iEV+1, evList[iEV].real(), evList[iEV].imag(), dampRatio);
+    } else {
+      com->fprintf(stderr, "\t***WARNING: Eigenvalue is 0!!\n");
+      com->fprintf(outEV, "%i 0.0 0.0 0.0 \tWARNING: Eigenvalue is 0", iEV+1);
+    }
+    if (flagMaxIt[iEV]==1) {
+//      com->fprintf(outEV, " \tWARNING: max. number of eigenvalue iterations (%i) is reached for mode = %i\n", nMaxIt, iEV+1);
+      com->fprintf(outEV, " 0\n");
+    } else {
+      com->fprintf(outEV, " 1\n");
+    }
+  } 
+
+}
+//-------------------------------------------------------------------------------
+#ifdef USE_EIGEN3
+template<int dim>
+void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag, int iEV, 
+                                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &revector,
+                                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &levector,
+                                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual)
+{
+  iEV--;  // subtract 1 because iEV starts with zero
+  Vec<bcomp> sortEV_Eigen(2*nStrMode);
+  Vec<bcomp> sortEV(nStrMode);
+  Vec<bcomp> sortEV_c(nStrMode);
+  
+  VecSet<Vec<bcomp> > compQ(nStrMode, nStrMode);
+  VecSet<Vec<double> > Omega(nStrMode, nStrMode);
+  VecSet<Vec<double> > eigMatA(2*nStrMode, 2*nStrMode);
+ 
+  bcomp sEVnew(0.0,0.0);
+  bcomp sEVold(0.0,0.0);
+
+//dry modes
+  for (int i = 0; i < nStrMode; ++i) {
+    for (int j = 0; j < nStrMode; ++j) {   
+      if (i == j) Omega[i][j] = K[i];
+      else  Omega[i][j] = 0.0;
+    }
+  }
+
+//loop over eigenvalues/modes
+  Eigen::Matrix<complex<double>, Eigen::Dynamic, Eigen::Dynamic> eigenvector(2*nStrMode,1);
+      
+//call for assembly of A  
+  evalMatForEvProblem(sReal, sImag, compQ, eigMatA, Omega);
+
+  MatrixXd evProb(2*nStrMode,2*nStrMode);
+  for (int i = 0; i < 2*nStrMode; i++) {
+    for (int j = 0; j < 2*nStrMode; j++) {
+      evProb(i,j) = eigMatA[j][i];
+    }
+  }
+  Eigen::Matrix<complex<double>, Eigen::Dynamic, Eigen::Dynamic> Qmatrix(nStrMode,nStrMode);
+  for (int i = 0; i < nStrMode; i++) {
+    for (int j = 0; j < nStrMode; j++) {
+      Qmatrix(i,j) = compQ[j][i];
+    }
+  }
+
+  Eigen::EigenSolver<MatrixXd> eigSolv(evProb);
+
+  for (int i = 0; i < 2*nStrMode; ++i) {
+    sortEV_Eigen[i] = eigSolv.eigenvalues()[i];
+  }
+
+
+// sort
+  for (int i = 0; i < nStrMode; ++i) {
+    sortEV[i] = 0.0;
+  }
+  int i_pos2 = 0;
+  int ipos3 [nStrMode]; int Index;
+  for (int i = 0; i < 2*nStrMode; ++i) {
+    if ((sortEV_Eigen[i].imag() > 0.0) && (i_pos2 < nStrMode)) {
+      sortEV[i_pos2] = sortEV_Eigen[i];
+      ipos3[i_pos2] = i;
+      i_pos2++;
+     }
+   }
+   bcomp tmpSort(0.0,-1.0); 
+   int i_addr = 0;
+   for (int i = 0; i < nStrMode; i++) {
+     sortEV_c[i] = sortEV[i];
+   }
+   for (int i = nStrMode-1; i >= 0; i--) {
+     tmpSort.imag() = (-1.0);
+     for (int j = 0; j < nStrMode; j++) {
+       if (sortEV_c[j].imag() > tmpSort.imag()) {
+         tmpSort = sortEV_c[j];
+         i_addr = j;
+       }
+     }
+     sortEV_c[i_addr].imag() = -1.0;
+     if(iEV == i)
+       Index = i_addr;
+     sortEV[i] = tmpSort;
+   }
+   sEVnew = sortEV[iEV];
+// end sort
+   com->fprintf(stderr, "iEV = %d\n", iEV);
+   com->fprintf(stderr, "sEVnew = %e + i %e\n", sEVnew.real(), sEVnew.imag());
+   com->fprintf(stderr, "sEVnew.imag() - sImag = %e\n", sEVnew.imag() - sImag);
+   com->fprintf(stderr, "print sortEVs\n");
+   for(int i=0; i<nStrMode; ++i) {
+     com->fprintf(stderr, "%e + i %e\n", sortEV[i].real(), sortEV[i].imag());
+   }
+   
+   Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> dRatios(nStrMode,1);
+   for(int i=0; i<nStrMode; ++i) {
+     dRatios(i,0) = -sortEV[i].real()/std::norm(sortEV[i]);
+   }
+   double minDRatio = dRatios.minCoeff();
+   double minDRatio_candidate = -sReal/sqrt(sReal*sReal+sImag*sImag);
+
+   double errorIndicator2 = std::abs((minDRatio - minDRatio_candidate)/minDRatio); 
+//   double errorIndicator2 = (sqrt (pow ((sEVnew.real()- sReal), 2.0)) + pow ((sEVnew.imag() - sImag), 2.0)) / (sqrt (pow (sEVnew.real(), 2.0) + pow (sEVnew.imag(), 2.0)));
+   com->fprintf(stderr, "error indicator 2 = %e\n", errorIndicator2);   
+
+   const char* output = "errorIndicator2";
+   ofstream out(output, ios::out);
+   if(!out) {
+     cerr << "Error: cannot open file" << output << endl;
+     exit(-1);
+   } 
+   out << errorIndicator2 << endl;
+   out.close();
+ 
+// find imaginary part of an eigenvalue that is closest to sImag
+/*  double cur_dist;  double dist=10000000;  
+  for (int i = 0; i < 2*nStrMode; ++i) {
+    cur_dist = abs(sortEV_Eigen[i].imag() - sImag);
+    if (cur_dist < dist) { 
+      dist = cur_dist;
+      Index = i;
+    }
+  } 
+  com->fprintf(stderr, "closest distance = %e\n", dist);
+  com->fprintf(stderr, "sortEV_Eigen[%d] = %e + i %e\n", Index, sortEV_Eigen[Index].real(), sortEV_Eigen[Index].imag());
+*/
+  eigenvector = eigSolv.eigenvectors().col(ipos3[Index]);
+// eigenvector = eigSolv.eigenvectors().col(Index);
+  com->fprintf(stderr, "Eigenvalue ... %e + i %e\n", sReal, sImag);
+//  for(int i=0; i<nStrMode; ++i) com->fprintf(stderr, "%e %e\n", eigenvector(i,0).real(), eigenvector(i,0).imag());
+  for(int i=0; i<nStrMode; ++i) revector(i,0) = eigenvector(i,0);
+
+  for (int i = 0; i < 2*nStrMode; i++) {
+    for (int j = 0; j < 2*nStrMode; j++) {
+      evProb(j,i) = eigMatA[j][i];
+    }
+  }
+  Eigen::EigenSolver<MatrixXd> leigSolv(evProb);
+
+  for (int i = 0; i < 2*nStrMode; ++i) {
+    sortEV_Eigen[i] = leigSolv.eigenvalues()[i];
+  }
+ 
+// find imaginary part of an eigenvalue that is closest to sImag
+//  dist=10000000;  
+  double cur_dist;  double dist=10000000;  
+  for (int i = 0; i < 2*nStrMode; ++i) {
+    cur_dist = abs(sortEV_Eigen[i].imag() - sEVnew.imag());
+    if (cur_dist < dist) { 
+      dist = cur_dist;
+      Index = i;
+    }
+  }
+  eigenvector = leigSolv.eigenvectors().col(Index);
+  for(int i=0; i<nStrMode; ++i) levector(i,0) = eigenvector(i,0);
+
+// compute residual
+  complex<double> lambda(sReal,sImag);
+//  Vec<bcomp> GAMrEigenVector(nStrMode);
+//  Eigen::Matrix<complex<double>, Eigen::Dynamic, Eigen::Dynamic> GAMrEigenVector(nStrMode,1);
+
+  for (int jj = 0; jj < nStrMode; jj++) {
+    residual(jj,0) = (K[jj] + lambda*lambda)*revector(jj,0);
+  }
+
+  residual += Qmatrix*revector;
+//  multiplyQ(sReal, sImag, revector.data(), GAMrEigenVector);
+//  for(int jj=0; jj<nStrMode; ++jj) {
+//    residual(jj,0) += GAMrEigenVector[jj];
+//  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::computeNonlinearEigenResidual(double sReal, double sImag, 
+                                                     Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
+                                                     Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector, 
+                                                     Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual) 
+{
+  complex<double> lambda(sReal,sImag);
+  Vec<bcomp> GAMrEigenVector(nStrMode);
+
+  for (int jj = 0; jj < nStrMode; jj++) {
+    residual(jj,0) = (K[jj] + lambda*lambda)*rEigenVector(jj,0);
+  }
+
+  multiplyQ(sReal, sImag, rEigenVector.data(), GAMrEigenVector);
+  for(int jj=0; jj<nStrMode; ++jj) {
+    residual(jj,0) += GAMrEigenVector[jj];
+  }
+
+} 
+//------------------------------------------------------------------------------
+template<int dim>
+double ModalSolver<dim>::computeResidualDenominator(double sReal, double sImag, 
+                                                   Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
+                                                   Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector) 
+{
+  complex<double> lambda(sReal,sImag);
+  Vec<bcomp> GAMrEigenVector(nStrMode);
+  Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> residual(nStrMode,1);
+
+  for (int jj = 0; jj < nStrMode; jj++) {
+    residual(jj,0) = 2.0*lambda*rEigenVector(jj,0);
+  }
+
+  multiply_dQdLambda(sReal, sImag, rEigenVector.data(), GAMrEigenVector);
+  for(int jj=0; jj<nStrMode; ++jj) {
+    residual(jj,0) += GAMrEigenVector[jj];
+  }
+  return (lEigenVector.adjoint()*residual).norm();
+
+}
+#endif 
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::evalMatForEvProblem(double sReal, double sImag, VecSet<Vec<bcomp> > &compGAM,
+                      VecSet<Vec<double> > &eigMatA, VecSet<Vec<double> > &Omega)
+{
+  VecSet<Vec<double> > realQ(nStrMode, nStrMode);
+  VecSet<Vec<double> > imagQ(nStrMode, nStrMode);
+  VecSet<Vec<double> > Aaa(nStrMode, nStrMode);
+  VecSet<Vec<double> > Aab(nStrMode, nStrMode);
+  VecSet<Vec<double> > Aba(nStrMode, nStrMode);
+  VecSet<Vec<double> > Abb(nStrMode, nStrMode);
+  computeGAM(sReal, sImag, compGAM);
+
+
+// assemble Matrix for EV problem
+  for (int iMode = 0; iMode < nStrMode; iMode++)  {
+    for (int jj = 0; jj < nStrMode; jj++)  {
+
+      realQ[iMode][jj] = compGAM[iMode][jj].real();
+      imagQ[iMode][jj] = compGAM[iMode][jj].imag();
+
+      Aaa[iMode][jj] = 0.0;
+     
+      if (iMode == jj)  {
+        Aab[iMode][jj] = 1.0;
+      }
+      else {
+        Aab[iMode][jj] = 0.0;
+      }
+    }
+    Aba[iMode] = (-1.0)*Omega[iMode] - realQ[iMode] + (sReal/sImag)*imagQ[iMode];
+
+    Abb[iMode] = (-1.0/sImag)*imagQ[iMode];
+  }
+
+  for (int iMode = 0; iMode < 2*nStrMode; iMode++)  {
+    for (int jj = 0; jj < 2*nStrMode; jj++)  {
+      if (iMode < nStrMode && jj < nStrMode) {
+        eigMatA[iMode][jj] = Aaa[iMode][jj];
+      }
+      else if (iMode >= nStrMode && jj < nStrMode){
+        eigMatA[iMode][jj] = Aab[iMode-nStrMode][jj];
+      }
+      else if (iMode < nStrMode && jj >= nStrMode){
+        eigMatA[iMode][jj] = Aba[iMode][jj-nStrMode];
+      }
+      else {
+        eigMatA[iMode][jj] = Abb[iMode-nStrMode][jj-nStrMode];
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::computeGAM(double sReal, double sImag, VecSet<Vec<bcomp> > &compGAM)
+{
+// get aero operators and form GAM
+  bcomp oneReal(1.0, 0.0);
+  bcomp oneImag(0.0, 1.0);
+  bcomp sCompl(sReal, sImag);
+  Vec<double> modalFr(nStrMode);
+  Vec<double> modalFi(nStrMode);
+  modalFr = 0.0;
+  modalFi = 0.0;
+ 
+  DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
+  DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
+  DistSVec<double, dim> FF(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWreal(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWimag(domain.getNodeDistInfo());
+  DistMat<bcomp,dim> *_pcC = dynamic_cast<DistMat<bcomp,dim> *>(pcComplex);
+  
+  double invT = 1.0/ioData->ref.rv.time;
+  
+  Timer *modalTimer = domain.getTimer();
+  double t0;
+
+  rhs = sCompl*DE[0] + oneReal*DX[0];
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->setup(1, 40, rhs);
+    kspCompGcr->numCalcVec = 0;
+  }
+  else {
+    kspComp->setup(1, 40, rhs);
+  }
+//form [s/invT*A+H]
+  sCompl /= invT; 
+  HOpC->evaluate(0, Xref, controlVol, Uref, FF, sCompl);
+  if (_pcC) {
+    spaceOp->computeH1(Xref, controlVol, Uref, *_pcC);
+    tState->addToH1(controlVol, *_pcC, sCompl);
+    spaceOp->applyBCsToJacobian(Uref, *_pcC);
+  }
+  pcComplex->setup();
+//loop over modes
+  sCompl *= invT;
+  for (int iMode = 0; iMode < nStrMode; iMode++)  {
+ 
+    // form [s(E+C)+G]
+    rhs = 0.0;
+    rhs = sCompl*DE[iMode] + oneReal*DX[iMode];
+   
+    // solve for [sA+H]^(-1) * [s(E+C)+G]
+    delW = 0.0;
+    t0 = modalTimer->getTime();
+
+    if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+      kspCompGcr->solve(rhs, delW);
+    }
+    else {
+      kspComp->solve(rhs, delW);
+    }
+    modalTimer->addKspTime(t0);
+ 
+    delWreal.getReal(delW);
+    delWimag.getImag(delW);
+    
+  // multiply by P
+    postOp->computeForceDerivs(Xref, Uref, delWreal, modalFr, mX);
+    postOp->computeForceDerivs(Xref, Uref, delWimag, modalFi, mX);
+    
+  // build GAM Q
+    compGAM[iMode] = (ioData->ref.rv.force/ioData->ref.length)*oneReal*modalFr + (ioData->ref.rv.force/ioData->ref.length)*oneImag*modalFi;
+  }
+ 
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::multiplyQ(double sReal, double sImag, complex<double> *reigvector, Vec<bcomp> &GAMreigenvector)
+{
+// get aero operators and form GAM
+  bcomp oneReal(1.0, 0.0);
+  bcomp oneImag(0.0, 1.0);
+  bcomp sCompl(sReal, sImag);
+  Vec<double> modalFr(nStrMode);
+  Vec<double> modalFi(nStrMode);
+  modalFr = 0.0;
+  modalFi = 0.0;
+ 
+  DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
+  DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
+  DistSVec<double, dim> FF(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWreal(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWimag(domain.getNodeDistInfo());
+  DistMat<bcomp,dim> *_pcC = dynamic_cast<DistMat<bcomp,dim> *>(pcComplex);
+  
+  double invT = 1.0/ioData->ref.rv.time;
+  
+  Timer *modalTimer = domain.getTimer();
+  double t0;
+
+  rhs = sCompl*DE[0] + oneReal*DX[0];
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->setup(1, 40, rhs);
+    kspCompGcr->numCalcVec = 0;
+  }
+  else {
+    kspComp->setup(1, 40, rhs);
+  }
+//form [s/invT*A+H]
+  sCompl /= invT; 
+  HOpC->evaluate(0, Xref, controlVol, Uref, FF, sCompl);
+  if (_pcC) {
+    spaceOp->computeH1(Xref, controlVol, Uref, *_pcC);
+    tState->addToH1(controlVol, *_pcC, sCompl);
+    spaceOp->applyBCsToJacobian(Uref, *_pcC);
+  }
+  pcComplex->setup();
+//loop over modes
+  sCompl *= invT;
+   
+  rhs = 0.0;
+  for (int iMode = 0; iMode < nStrMode; iMode++)  {
+    rhs += reigvector[iMode]*(sCompl*DE[iMode] + oneReal*DX[iMode]);
+  }
+   
+  // solve for [sA+H]^(-1) * [s(E+C)+G]
+  delW = 0.0;
+  t0 = modalTimer->getTime();
+
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->solve(rhs, delW);
+  }
+  else {
+    kspComp->solve(rhs, delW);
+  }
+  modalTimer->addKspTime(t0);
+ 
+  delWreal.getReal(delW);
+  delWimag.getImag(delW);
+    
+  // multiply by P
+  postOp->computeForceDerivs(Xref, Uref, delWreal, modalFr, mX);
+  postOp->computeForceDerivs(Xref, Uref, delWimag, modalFi, mX);
+    
+  // build GAM Q
+  GAMreigenvector = (ioData->ref.rv.force/ioData->ref.length)*oneReal*modalFr + (ioData->ref.rv.force/ioData->ref.length)*oneImag*modalFi;
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::multiply_dQdLambda(double sReal, double sImag, complex<double> *reigvector, Vec<bcomp> &GAMreigenvector)
+{
+// get aero operators and form GAM
+  bcomp oneReal(1.0, 0.0);
+  bcomp oneImag(0.0, 1.0);
+  bcomp sCompl(sReal, sImag);
+  Vec<double> modalFr(nStrMode);
+  Vec<double> modalFi(nStrMode);
+  modalFr = 0.0;
+  modalFi = 0.0;
+ 
+  DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
+  DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
+  DistSVec<bcomp, dim> delW2(domain.getNodeDistInfo());
+  DistSVec<double, dim> FF(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWreal(domain.getNodeDistInfo());
+  DistSVec<double, dim> delWimag(domain.getNodeDistInfo());
+  DistMat<bcomp,dim> *_pcC = dynamic_cast<DistMat<bcomp,dim> *>(pcComplex);
+  
+  double invT = 1.0/ioData->ref.rv.time;
+  
+  Timer *modalTimer = domain.getTimer();
+  double t0;
+
+  //com->fprintf(stderr, "Output dry modes********************************\n");
+  //for (int i = 0; i < nStrMode; ++i) {
+  //  com->fprintf(stderr, "%e\t", K[i]);
+  //}
+  //com->fprintf(stderr, "\nEnd Output dry modes****************************\n");
+
+  rhs = 0.0;
+  for (int iMode = 0; iMode < nStrMode; iMode++)  {
+    rhs += reigvector[iMode]*(sCompl*DE[iMode] + oneReal*DX[iMode]);
+  }
+   
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->setup(1, 40, rhs);
+//    kspCompGcr->printParam();
+    kspCompGcr->numCalcVec = 0;
+  }
+  else {
+    kspComp->setup(1, 40, rhs);
+//    kspComp->printParam();
+  }
+//form [s/invT*A+H]
+  sCompl /= invT; 
+  HOpC->evaluate(0, Xref, controlVol, Uref, FF, sCompl);
+  if (_pcC) {
+    spaceOp->computeH1(Xref, controlVol, Uref, *_pcC);
+    tState->addToH1(controlVol, *_pcC, sCompl);
+    spaceOp->applyBCsToJacobian(Uref, *_pcC);
+  }
+  pcComplex->setup();
+//loop over modes
+  sCompl *= invT;
+   
+  // solve for [sA+H]^(-1) * [s(E+C)+G]
+  delW = 0.0;
+  t0 = modalTimer->getTime();
+
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->solve(rhs, delW);
+  }
+  else {
+    kspComp->solve(rhs, delW);
+  }
+  modalTimer->addKspTime(t0);
+
+  for (int iMode = 0; iMode < nStrMode; iMode++)  {
+    delW += reigvector[iMode]*DE[iMode];
+  }
+
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->setup(1, 40, delW);
+//    kspCompGcr->printParam();
+    kspCompGcr->numCalcVec = 0;
+  }
+  else {
+    kspComp->setup(1, 40, delW);
+//    kspComp->printParam();
+  }
+  delW2 = 0.0;
+  t0 = modalTimer->getTime();
+
+  if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
+    kspCompGcr->solve(delW, delW2);
+  }
+  else {
+    kspComp->solve(delW, delW2);
+  }
+  modalTimer->addKspTime(t0);
+ 
+  delWreal.getReal(delW2);
+  delWimag.getImag(delW2);
+    
+  // multiply by P
+  postOp->computeForceDerivs(Xref, Uref, delWreal, modalFr, mX);
+  postOp->computeForceDerivs(Xref, Uref, delWimag, modalFi, mX);
+    
+  // build GAM Q
+  GAMreigenvector = (ioData->ref.rv.force/ioData->ref.length)*oneReal*modalFr + (ioData->ref.rv.force/ioData->ref.length)*oneImag*modalFi;
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::computeGenAeroForceMat()
+{
+  int sp = strlen(ioData->output.transient.prefix) + 1;
+   
+  char *outFileGAM = new char[sp + strlen(ioData->output.transient.gamData)];
+  sprintf(outFileGAM, "%s%s", ioData->output.transient.prefix, ioData->output.transient.gamData);
+  FILE *outGAM = fopen(outFileGAM, "w");
+  com->barrier();
+  delete [] outFileGAM;
+
+  char *outFileGAMF = new char[sp + strlen(ioData->output.transient.gamFData)];
+  sprintf(outFileGAMF, "%s%s", ioData->output.transient.prefix, ioData->output.transient.gamFData);
+  FILE *outGAMF = fopen(outFileGAMF, "w");
+  com->barrier();
+  delete [] outFileGAMF;
+  
+
+  for (int numF = 0; numF < ioData->linearizedData.numFreq; numF++) {
+    if (ioData->linearizedData.gamFreq[numF] >= 0.0) {
+      double GAMfreq = ioData->linearizedData.gamFreq[numF];
+      com->fprintf(stderr, " ... GAMfreq%i = %e\n", numF, GAMfreq);
+
+      VecSet<Vec<bcomp> > compQ(nStrMode, nStrMode);
+      VecSet<Vec<bcomp> > compQstar(nStrMode, nStrMode);
+
+      double invT = 1.0/ioData->ref.rv.time;
+      GAMfreq *= invT;
+
+      computeGAM(0.0, GAMfreq, compQ);
+
+      for (int i = 0; i < nStrMode; ++i) {
+        for (int j = 0; j < nStrMode; ++j) {
+          compQ[i][j] *= -1.0;
+          compQstar[i][j] = compQ[i][j]*(2.0/((pow(ioData->ref.rv.velocity,2))*ioData->ref.rv.density));
+        }
+      }
+
+      if (strlen(ioData->output.transient.gamData) > 0) {
+        if (!outGAM)  {
+          com->fprintf(stderr, " *** Error: GAMData output file not specified\n");
+          exit(-1);
+        }
+
+        com->fprintf(stderr, " ... write  Qstar (generalized aerodynamic matrix) for GAMFrequency%i = %e to file\n", numF+1, ioData->linearizedData.gamFreq[numF]);//gen aero matrix
+        com->fprintf(outGAM, "\n%i %i %i 4QHH 1P,5E16.9\n", nStrMode, nStrMode, 1);//header
+
+        for (int i = 0; i < nStrMode; ++i) {
+          com->fprintf(outGAM, "%i %i\n", i+1, 2*nStrMode);
+          for (int j = 0; j < nStrMode; ++j) {
+            com->fprintf(outGAM, "%e %e ", compQstar[i][j].real(), compQstar[i][j].imag());
+          }
+          com->fprintf(outGAM, "\n");
+        }
+        com->fprintf(outGAM, "%i %i %i\n%e\n", nStrMode+1, 1, 1, ioData->linearizedData.gamFreq[numF]);
+      }
+
+      if (strlen(ioData->output.transient.gamFData) > 0) {
+        if (!outGAMF)  {
+          com->fprintf(stderr, " *** Error: GAMFData output file not specified\n");
+          exit(-1);
+        }
+
+       com->fprintf(stderr, " ... write Q (generalized aerodynamic force matrix) for GAMFrequency%i = %e to file\n", numF+1, ioData->linearizedData.gamFreq[numF]);//gen aero FORCE matrix
+       com->fprintf(outGAMF, "\n%i %i %i 4QHH 1P,5E16.9\n", nStrMode, nStrMode, 1);//header
+
+       for (int i = 0; i < nStrMode; ++i) {
+         com->fprintf(outGAMF, "%i %i\n", i+1, 2*nStrMode);
+         for (int j = 0; j < nStrMode; ++j) {
+           com->fprintf(outGAMF, "%e %e ", compQ[i][j].real(), compQ[i][j].imag());
+         }
+         com->fprintf(outGAMF, "\n");
+       }
+       com->fprintf(outGAMF, "%i %i %i\n%e\n", nStrMode+1, 1, 1, ioData->linearizedData.gamFreq[numF]);
+       
+   
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------

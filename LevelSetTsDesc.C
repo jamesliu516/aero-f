@@ -37,7 +37,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
   fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL),Utilde(this->getVecInfo()),
-  VWeights(this->getVecInfo()), Weights(this->getVecInfo())
+  VWeights(this->getVecInfo()), Weights(this->getVecInfo()),ioData(ioData)
 
 {
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -345,7 +345,8 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
       this->varFcn->conservativeToPrimitive(U, *this->V, fluidSelector.fluidId);
       computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
     }
-    else if (ioData.mf.testCase == 2) {
+    else if (ioData.mf.testCase == 2 ||
+	     ioData.mf.testCase == 3) {
       
       //this->varFcn->conservativeToPrimitive(U, *this->V, fluidSelector.fluidId);
       computeConvergenceInformation(ioData,ioData.input.convergence_file,U);//*this->V);
@@ -451,7 +452,10 @@ void LevelSetTsDesc<dim,dimLS>::computeConvergenceInformation(IoData &ioData, co
 
   DistSVec<double,dim> Uexact(U.info());
 
-  if (ioData.mf.testCase == 2) {
+  std::cout << "current time = " << currentTime*ioData.ref.rv.time << std::endl;
+
+  if (ioData.mf.testCase == 2 || 
+      ioData.mf.testCase == 3 ) {
 
     
     if (ioData.mf.testCase == 2) {
@@ -461,11 +465,20 @@ void LevelSetTsDesc<dim,dimLS>::computeConvergenceInformation(IoData &ioData, co
       
       ExactSolution::Fill<&ExactSolution::CylindricalBubble,
 	dim, 1>(Uexact,dummy2,
-		dummy1, *this->X, ioData,currentTime,
+		dummy1, *this->X, ioData,currentTime+currentTimeStep,
+		this->spaceOp->getVarFcn());
+      
+    } else if (ioData.mf.testCase == 3) {
+      
+      DistSVec<double,1> dummy1(U.info());
+      DistVec<int> dummy2(U.info());
+      
+      ExactSolution::Fill<&ExactSolution::AcousticTwoFluid,
+	dim, 1>(Uexact,dummy2,
+		dummy1, *this->X, ioData,currentTime+currentTimeStep,
 		this->spaceOp->getVarFcn());
       
     }
-    
   
   } else {
     
@@ -497,6 +510,15 @@ void LevelSetTsDesc<dim,dimLS>::computeConvergenceInformation(IoData &ioData, co
     this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %e\n", k, error[k]*refs[k]);
   }
   this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %e\n", tot_error);
+
+  tot_error = 0.0;
+  this->domain->computeL2Error(U,Uexact,*this->A,error);
+  for (int k = 0; k < dim; ++k) {
+    tot_error += error[k];
+    this->domain->getCommunicator()->fprintf(stdout,"L2 error [%d]: %e\n", k, error[k]*refs[k]);
+  }
+  this->domain->getCommunicator()->fprintf(stdout,"L2 error (total): %e\n", tot_error);
+
 
   tot_error = 0.0;
   this->domain->computeLInfError(U,Uexact,error);

@@ -1933,11 +1933,12 @@ bool IntersectorFRG::finishStatusByHistory(SubDomain& sub)
         }
       }
     } 
-    else if(status[i]==UNDECIDED)
+    else if(status[i]==UNDECIDED) {
       if(status0[i]!=UNDECIDED)
         status[i] = status0[i];
       else  
         fprintf(stderr,"ERROR: Unable to determine node status for Node %d\n", locToGlobNodeMap[i]+1);
+    }
 
 //    if(locToGlobNodeMap[i]+1==151870)
 //      fprintf(stderr,"CPU%d: status of 151870 is %d...\n", distIntersector.com->cpuNum(), status[i]);

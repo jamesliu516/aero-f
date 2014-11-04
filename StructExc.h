@@ -51,6 +51,7 @@ public:
   void negotiate();
   void negotiateStopping(bool*);
   void getNumParam(int &);
+  void getRelResidual(double &);
   double getInfo();
   void getEmbeddedWetSurfaceInfo(int&, bool&, int&, int&);
   void getEmbeddedWetSurface(int, double*, int, int*, int=3);  //3 for triangle

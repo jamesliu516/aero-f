@@ -46,25 +46,24 @@ class ARrcNonSymStdEig: public virtual ARrcStdEig<ARFLOAT, ARFLOAT> {
   using ARrcStdEig<ARFLOAT, ARFLOAT>::tol;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::resid;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::V;
-  using ARrcStdEig<ARFLOAT, ARFLOAT>::iparam;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::ipntr;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::workd;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::info;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::rvec;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::HowMny;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::EigVec;
-  using ARrcStdEig<ARFLOAT, ARFLOAT>::sigmaR;
-  using ARrcStdEig<ARFLOAT, ARFLOAT>::sigmaI;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::ValuesOK;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::nconv;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::newVec;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::VectorsOK;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::FindEigenvectors;
-  using ARrcStdEig<ARFLOAT, ARFLOAT>::FindEigenvalues;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::NoShift;
   using ARrcStdEig<ARFLOAT, ARFLOAT>::ClearMem;
  
-protected:
+ protected:
+  using ARrcStdEig<ARFLOAT, ARFLOAT>::iparam;
+  using ARrcStdEig<ARFLOAT, ARFLOAT>::sigmaR;
+  using ARrcStdEig<ARFLOAT, ARFLOAT>::sigmaI;
 
  // a) Protected functions:
 
@@ -125,6 +124,7 @@ protected:
 #endif // ARCOMP_H.
 
  public:
+  using ARrcStdEig<ARFLOAT, ARFLOAT>::FindEigenvalues;
 
  // b) Public functions:
 

@@ -35,6 +35,7 @@ class MultiGridSegTsDesc : public ImplicitSegTsDesc<dim,neq1,neq2> {
   
   void setupTimeStepping(DistSVec<double,dim> *U, IoData &iod);
 
+  DistSVec<double,dim>* getSmoothedVec() { return NULL; }
 
  private:
 

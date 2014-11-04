@@ -143,8 +143,9 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = sqrt(varFcn->computeU2(V));
   else if (type == WTSPEED)
     q = sqrt(varFcn->computeWtU2(V));
-  else if (type == PRESSURE)
+  else if (type == PRESSURE) {
     q = varFcn->getPressure(V, fluidId);
+  }
   else if (type == DIFFPRESSURE)
     q = varFcn->getPressure(V, fluidId)-pinfty;
   else if (type == TEMPERATURE)

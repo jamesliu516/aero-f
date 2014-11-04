@@ -3835,8 +3835,8 @@ void MultiGridLevel<Scalar>::ExtrapolateProlongation(MultiGridLevel<Scalar>& fin
       bool iActive = coarseLSS_sub->isActive(0.0, i),
 	jActive = coarseLSS_sub->isActive(0.0, j);
 
-      if (iActive && jActive ||
-	  !iActive && !jActive)
+      if ((iActive && jActive) ||
+	  (!iActive && !jActive))
 	continue;
 
       if (iActive) {
@@ -4152,19 +4152,19 @@ computeGreenGaussGradient(DistSVec<Scalar2,dim>& V,
         }
       } else if (lss->isActive(0.0,i)) {
         for (int k = 0; k < dim; ++k) {
-          //if (k < 1 || k > 3) {
+          if (k < 1 || k > 3) {
             dX(iSub)[i][k] += V(iSub)[i][k]*(*edgeNormals)(iSub)[l][0];
             dY(iSub)[i][k] += V(iSub)[i][k]*(*edgeNormals)(iSub)[l][1];
             dZ(iSub)[i][k] += V(iSub)[i][k]*(*edgeNormals)(iSub)[l][2];
-	    //}
+	  }
         }
       } else if (lss->isActive(0.0,j)) {
         for (int k = 0; k < dim; ++k) {
-          //if (k < 1 || k > 3) {
+          if (k < 1 || k > 3) {
             dX(iSub)[j][k] -= V(iSub)[j][k]*(*edgeNormals)(iSub)[l][0];
             dY(iSub)[j][k] -= V(iSub)[j][k]*(*edgeNormals)(iSub)[l][1];
             dZ(iSub)[j][k] -= V(iSub)[j][k]*(*edgeNormals)(iSub)[l][2];
-	    //}
+	  }
         }
       }
     }

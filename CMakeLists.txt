@@ -30,6 +30,10 @@ IF(USE_STRONG_FARFIELD_BC)
   add_definitions(-DSTRONG_FARFIELD_BC)
 ENDIF(USE_STRONG_FARFIELD_BC)
 
+IF(YDEBUG EQUAL 1)
+  add_definitions(-DYDEBUG)
+endif(YDEBUG EQUAL 1)
+
 # Code to determine if we should add some link libraries
 IF("${CMAKE_Fortran_COMPILER_ID}" MATCHES GNU)
   EXEC_PROGRAM(${CMAKE_Fortran_COMPILER}

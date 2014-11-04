@@ -227,18 +227,28 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
       std::cout << "phi[5302] = " << this->Phi(0)[5302][0] << std::endl;
     } 
 */
+
     //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
-    this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
-     this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
+    if(this->withCracking && this->withMixedLS) {
+      //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
+      //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
+      //    this->com->fprintf(stderr,"calling updateFluidIdFS2!\n");
+      DistSVec<bool,4> poll(this->domain->getNodeDistInfo());
+      this->domain->updateFluidIdFS2Prep(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), poll);
+      this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV, poll);
+    } else {
+      this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
+    }
+    this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                        //  is meaningful. We destroy it so people wouldn't use it
                        //  by mistake later on.
 
     //update phase-change
     tw = this->timer->getTime();
     this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, U, this->Vtemp, *this->Weights, *this->VWeights,
-                                              this->Phi, this->PhiWeights, *this->Wstarij, *this->Wstarji,
-                                              this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
-   
+                                              this->LS->Phin, this->PhiWeights, *this->Wstarij, *this->Wstarji,
+                                              this->distLSS, this->vfar, (this->withCracking && this->withMixedLS), this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
+
     this->timeState->getUn() = U;
 
     // BDF update (Unm1)
@@ -252,8 +262,8 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
       }
 
       this->multiPhaseSpaceOp->updateSweptNodes(*this->X, this->phaseChangeChoice, Unm1, this->Vtemp, *this->Weights, *this->VWeights,
-                                                this->Phi, this->PhiWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
-                                                this->distLSS, this->vfar, false, this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
+                                                this->LS->Phinm1, this->PhiWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
+                                                this->distLSS, this->vfar, (this->withCracking && this->withMixedLS), this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
       this->timer->addEmbedPhaseChangeTime(tw);
       this->timer->removeIntersAndPhaseChange(tw);
     }
@@ -307,10 +317,20 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
   double t1 = this->timer->getTime();
   int itsLS = this->ns->solveLS(this->Phi, U);
   this->riemann->storeOldV(U);
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin,this->distLSS);
+  if(this->withCracking && this->withMixedLS)
+    this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  else
+    this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin,this->distLSS);
+  
+  
 //  this->fluidSelector.getFluidId(this->Phi,&(this->distLSS->getStatus()));
   DistVec<int> fluidId0(*this->fluidSelector.fluidId);
-  this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
+  if(this->withCracking && this->withMixedLS) {
+    this->fluidSelector.updateFluidIdFF2(this->distLSS, this->Phi);
+  } else {
+    this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
+  }
+
   this->timer->addLevelSetSolutionTime(t1);
 
   if (this->phaseChangeType == 0)

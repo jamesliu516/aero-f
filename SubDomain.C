@@ -46,6 +46,7 @@ using std::max;
 #include <PolygonReconstructionData.h> 
 #include <Quadrature.h>
 #include <RTree.h>
+#include <ProgrammedBurn.h>
 #include "LevelSet/LevelSetStructure.h"
 
 #include "FSI/CrackingSurface.h"
@@ -1147,11 +1148,25 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
-
+/*
+  Vec<int> dummy(Wstarij.size());
+  int ierr = edges.computeFiniteVolumeTerm(riemann,locToGlobNodeMap,
+                                     fluxFcn, recFcn,  elems, 
+				     geoState,  X,  V, 
+				     Wstarij, Wstarji, 
+				     dummy,dummy, 
+				     LSS, linRecAtInterface, 
+				     fluidId, Nriemann, Nsbar, 
+				     0.0, 0.1, ngrad, 
+				     egrad, fluxes, it,
+                                     tag, failsafe, rshift, 
+				     higherOrderFSI->v6data);
+*/
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
                                            linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
-                                           tag, failsafe, rshift);
+                                          tag, failsafe, rshift);
+
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
   return ierr;
@@ -4078,7 +4093,7 @@ void SubDomain::readVectorFromFile(const char *prefix, int no, int neq,
     int minsize = min(neq, dim);
     for (i=0; i<U.size(); ++i) {
       for (int j=0; j<minsize; ++j)
-	U[i][j] = data[neq*i + j];
+        U[i][j] = data[neq*i + j];
     }
     delete [] data;
   }
@@ -5013,7 +5028,7 @@ int SubDomain::fixSolution2(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim
 
     double rhomin = varFcn->getVarFcnBase(id)->rhomin;  
     double pmin = varFcn->getVarFcnBase(id)->pmin;  
-    if (rhomin < 0.0 && pmin < 0.0 || 
+    if ((rhomin < 0.0 && pmin < 0.0) || 
         (rho > rhomin && p > pmin))
       continue;
   
@@ -5449,6 +5464,7 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		SVec<double,3> &X, SVec<double,10> &R, SVec<double,dim> &V, Vec<double> &Weights, 
 		SVec<double,dim> &VWeights, LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init,NodalGrad<dim>& DX,bool limit,Vec<int>* fluidId) 
 {
+
   const Connectivity &nToN = *getNodeToNode();
   bool *masterFlag = edges.getMasterFlag();
   double lin_extrap[dim];
@@ -5613,12 +5629,23 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
                                                 Vec<int> &init, Vec<int> &next_init, Vec<int> &fluidId)
 {
   const Connectivity &nToN = *getNodeToNode();
-  for(int currentNode=0;currentNode<numNodes();++currentNode)
+  for(int currentNode=0;currentNode<numNodes();++currentNode) {
+
+    int caught = 0;
+    if(locToGlobNodeMap[currentNode]+1 == 72844)
+      caught = 1;
+
     if(init[currentNode]<1.0 && !LSS.isOccluded(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         int yourId = fluidId[neighborNode];
+
+      if(caught && currentNode!=neighborNode)
+        fprintf(stderr,"SubDomain->computeWeights..., Nei of 72844: %d, init = %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
+            locToGlobNodeMap[neighborNode]+1, init[neighborNode], fluidId[neighborNode], LSS.isOccluded(0.0,neighborNode), 
+            LSS.isSwept(0.0,neighborNode), (int)LSS.edgeIntersectsStructure(0.0,edges.findOnly(currentNode,neighborNode)));
+
         if(currentNode==neighborNode || init[neighborNode]<1 || myId!=yourId) continue;
         int l = edges.findOnly(currentNode,neighborNode);
         if(LSS.edgeIntersectsStructure(0.0,l)) continue;
@@ -5660,6 +5687,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
         }
       }
     }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -7371,6 +7399,8 @@ template<int dimLS>
 void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, SVec<bool,3> &poll, 
                                  Vec<int> &fluidId, bool *masterFlag)
 {
+  fprintf(stderr,"ERROR: This function should not be called anymore. Moved into FluidSelector.\n");
+
   const Connectivity &Node2Node = *getNodeToNode();
   // ------- Determine status for grid-points swept by FS interface -------
   // Rule No.1: If this grid point is "occluded", set its status to "numPhases".
@@ -7384,24 +7414,15 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
     bool swept = LSS.isSwept(0.0,i);
     bool occluded = LSS.isOccluded(0.0,i);
 
-    //DEBUG
-    /*
-    int myNode = 13558;
-    if(rnk == 113 && i == 339){
-      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
-      for(int j=0; j<Node2Node.num(i); j++) { 
-        if(Node2Node[i][j]==i) continue;
-        fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
-                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
-                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][dimLS-1]); 
-      }
-
-    }
-    */
+    if(rnk==6 && i==30903)
+      fprintf(stderr,"Rank 6, i = %d, swept = %d, occluded = %d, dimLS = %d, poll = %d %d %d.\n", i, swept, occluded, dimLS, poll[i][0], poll[i][1], poll[i][2]);
 
     if(!swept) {//nothing to be done
-      if(!occluded && fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
-        continue;
+      continue;
+
+//KW: I DONT KNOW WHO ADDED THIS, NOR WHY
+//      if(!occluded && fluidId[i]!=dimLS+1) //this "if" is false when the structural elment covering node i got deleted in Element Deletion.
+//        continue;
     }
 
     if(occluded) { // Rule No.1
@@ -7417,28 +7438,14 @@ void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &Phi
         DebugTools::SpitRank();
         break;
       case 1: // Rule No.2
-        //for(int j=0; j<3; j++)
-        //  if(poll[i][j]) fluidId[i] = j;
         if (poll[i][0]) fluidId[i] = 0;
         else if (poll[i][1]) fluidId[i] = dimLS;
         else if (poll[i][2]) fluidId[i] = dimLS+1;
         break;
     }
-    /*
-    if (count > 1) {
+    
+    // consider programmed burn
 
-      fprintf(stderr,"WARNING: cant decide for");
-      fprintf(stderr,"Node %d(%d), Sub %d. master = %d, swept = %d, occluded = %d, id = %d, phi = %e. Poll(%d,%d,%d)\n", locToGlobNodeMap[i]+1, i, globSubNum, masterFlag[i], swept, occluded, fluidId[i], PhiV[i][dimLS-1], poll[i][0], poll[i][1], poll[i][2]);
-      for(int j=0; j<Node2Node.num(i); j++) { 
-        if(Node2Node[i][j]==i) continue;
-        fprintf(stderr,"  Nei(%d,%d) on Sub %d--> GlobId(%d), occluded(%d), swept(%d), intersect(%d), id(%d), phi(%e).\n", myNode,i,globSubNum,
-                          locToGlobNodeMap[Node2Node[i][j]], LSS.isOccluded(0.0,Node2Node[i][j]), LSS.isSwept(0.0,Node2Node[i][j]),
-                          LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,Node2Node[i][j])), fluidId[Node2Node[i][j]], PhiV[Node2Node[i][j]][dimLS-1]); 
-      }
-
-
-    } 
-    */
     if(count==1) //already applied Rule No.2
       continue;
 
@@ -7677,6 +7684,25 @@ void SubDomain::computeL1Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,d
       for (int k = 0; k < dim; ++k) {
 	
 	error[k] += fabs(U[i][k]-Uexact[i][k])*vol[i];
+      }
+    }
+  }
+}
+
+// Functions to compute the error (that is, the difference between two state vectors)
+template <int dim>
+void SubDomain::computeL2Error(bool* nodeFlag,SVec<double,dim>& U, SVec<double,dim>& Uexact, Vec<double>& vol,double error[dim], LevelSetStructure* LSS) {
+
+  for (int k = 0; k < dim; ++k)
+    error[k] = 0.0;
+
+  for(int i=0; i<nodes.size(); i++) {
+
+    if (nodeFlag[i] && (!LSS || LSS->isActive(0.0,i))) {
+      
+      for (int k = 0; k < dim; ++k) {
+	
+	error[k] += pow(U[i][k]-Uexact[i][k],2.0)*vol[i];
       }
     }
   }

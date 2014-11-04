@@ -91,8 +91,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 			dom->getSubDomain()[iSub]->getElems(),
 			v6data); 
 
-      //if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
-      dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+      if (ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1)
+        dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
     }
     
   }
@@ -591,7 +591,26 @@ double EmbeddedTsDesc<dim>::computePositionVector(bool *lastIt, int it, double t
     }
     this->timeState->setExistsNm1();
     this->timeState->setDtNm1(dt);
+  } else if (ioData.embed.testCase == 2 && it == 0) {
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+
+      int lsize = U(iSub).size();
+      for (int i = 0; i < lsize; ++i) {
+
+	double* x = (*this->X)(iSub)[i];
+	double V[5];
+	ExactSolution::AcousticViscousBeam(ioData,x[0],x[1],x[2],-dt, V);
+
+	this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0);
+	
+      }
+    }
+    this->timeState->setExistsNm1();
+    this->timeState->setDtNm1(dt);
   }
+
 
 
   return dt;
@@ -718,7 +737,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
       computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
     }
 
-    if (ioData.embed.testCase == 1) {
+    if (ioData.embed.testCase == 1 || ioData.embed.testCase == 2) {
 
       DistSVec<double,dim> Uexact(U);
       
@@ -728,7 +747,16 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 							     ioData, t, 
 							     this->spaceOp->getVarFcn());
 
+      } else if (ioData.embed.testCase == 2) {
+
+	ExactSolution::Fill<&ExactSolution::AcousticViscousBeam, dim>(Uexact, *this->X,
+							     ioData, t, 
+							     this->spaceOp->getVarFcn());
+
       }
+
+
+      //std::cout << "t = " << t << std::endl;
 
       double error[dim];
       double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
@@ -741,6 +769,14 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 	this->domain->getCommunicator()->fprintf(stdout,"L1 error [%d]: %e\n", k, error[k]*refs[k]);
       }
       this->domain->getCommunicator()->fprintf(stdout,"L1 error (total): %e\n", tot_error);
+ 
+      tot_error = 0.0;
+      this->domain->computeL2Error(U,Uexact,*this->A,error, this->distLSS);
+      for (int k = 0; k < dim; ++k) {
+	tot_error += error[k];
+	this->domain->getCommunicator()->fprintf(stdout,"L2 error [%d]: %e\n", k, error[k]*refs[k]);
+      }
+      this->domain->getCommunicator()->fprintf(stdout,"L2 error (total): %e\n", tot_error);
       
       tot_error = 0.0;
       this->domain->computeLInfError(U,Uexact,error, this->distLSS);
@@ -844,7 +880,7 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
     numStructNodes = dynNodalTransfer->numStNodes();
 
   
-/*  std::cout << "Current time =  " << (currentTime)*ioData.ref.rv.time << std::endl;
+  /*std::cout << "Current time =  " << (currentTime)*ioData.ref.rv.time << std::endl;
   ExactSolution::FillPrimitive<&ExactSolution::AcousticBeam,
     dim>(*this->spaceOp->getCurrentPrimitiveVector(),*this->X,
 	    ioData, currentTime + currentTimeStep,
@@ -964,7 +1000,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     if(recomputeIntersections)
       this->spaceOp->updateSweptNodes(*this->X,*this->A, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
+				      this->distLSS, (double*)this->vfar, this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1,(this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
   } 
