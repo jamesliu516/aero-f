@@ -3460,7 +3460,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
 
-  if(u==ui){ // contact
+  if(fabs(u-ui)<1e-14){ // contact
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;

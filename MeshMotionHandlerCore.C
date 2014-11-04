@@ -1818,6 +1818,10 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
       step1ForC0XFEM3D(lastIt,it,t,Xdot,X);
       *tmax = dynNodalTransfer->getStructureMaxTime();
       break;
+    default:
+      fprintf(stderr,"Specified algorithm is not supported for embedded framework\n");
+      exit(-1);
+      break;
   }
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the
                                      // structure in the mesh solution
@@ -1989,6 +1993,10 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       break;
     case 22: //C0 with XFEM3D
       step2ForC0XFEM3D(lastIt,it,t,Xdot,X);
+      break;
+    default:
+      fprintf(stderr,"Specified algorithm is not supported for embedded framework\n");
+      exit(-1);
       break;
   }
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the

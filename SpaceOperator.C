@@ -1398,7 +1398,8 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
                  DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                  DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-                 DistLevelSetStructure *distLSS, double *vfar, DistVec<int> *fluidId)
+                 DistLevelSetStructure *distLSS, double *vfar,
+		 bool limit, DistVec<int> *fluidId)
 {
   int iSub, numLocSub = this->domain->getNumLocSub();
   DistVec<int> init(domain->getNodeDistInfo()),next_init(domain->getNodeDistInfo());
@@ -1431,7 +1432,7 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 		case 1:
-		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, false, fluidId);
+		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, limit, fluidId);
 //		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
 		  break;
 	  }
@@ -1460,12 +1461,12 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 				for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d];
 			  else
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
-			  std::cout << "Phase change value: " << std::endl;
-			  for (int d=0;d<dim;++d) 
-			    std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
+			  //std::cout << "Phase change value: " << std::endl;
+			  //for (int d=0;d<dim;++d) 
+			  //  std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
-                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && true) {
+                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && limit) {
 
                     this->domain->getSubDomain()[iSub]->getHigherOrderFSI()->
                       template setLastPhaseChangeValue<dim>(i, V(iSub)[i]);
@@ -2834,8 +2835,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updateSweptNodes(DistSVec<double,3> &X,
                                                     ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids())))
             continue;
 
-          if(locToGlobNodeMap[i]+1==508306) 
-            fprintf(stderr,"I AM HERE. Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
+          //if(locToGlobNodeMap[i]+1==11667) 
+          //  fprintf(stderr,"I AM HERE. Global Node Id: %d, init: %d, next_init: %d, FluidId: %d, FluidId0: %d, Swept: %d, Occluded: %d, LSS.numOfFluids: %d.\n", locToGlobNodeMap[i]+1, init(iSub)[i], next_init(iSub)[i], (*fluidId)(iSub)[i], (*fluidId0)(iSub)[i], (*distLSS)(iSub).isSwept(0.0,i), (*distLSS)(iSub).isOccluded(0.0,i), (*distLSS)(iSub).numOfFluids());
 
           if((init(iSub)[i]<1.0 && next_init(iSub)[i]>0.0) || 
              (init(iSub)[i]<1.0 && ((*fluidId)(iSub)[i]==(*distLSS)(iSub).numOfFluids() 

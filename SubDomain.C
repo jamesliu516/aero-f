@@ -5464,6 +5464,7 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(
 		SVec<double,3> &X, SVec<double,10> &R, SVec<double,dim> &V, Vec<double> &Weights, 
 		SVec<double,dim> &VWeights, LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init,NodalGrad<dim>& DX,bool limit,Vec<int>* fluidId) 
 {
+
   const Connectivity &nToN = *getNodeToNode();
   bool *masterFlag = edges.getMasterFlag();
   double lin_extrap[dim];

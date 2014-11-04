@@ -97,6 +97,7 @@ public:
   int updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight,bool isCellCut){
     if(ID == IDn && !isCellCut) return 0; /* node does not change phase: nothing to do*/
     if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange %d %d\n",ID, IDn);
+      DebugTools::PrintBacktrace();
                        return -1;} }
     else
       for(int k=0; k<5; k++) V[k] = newV[k]/weight;
