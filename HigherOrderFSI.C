@@ -72,8 +72,8 @@ setLastPhaseChangeValue(int nodeId,const double* v) {
   SVec<double,dim>* V = 
     static_cast<SVec<double,dim>*>(lastPhaseChangeState);
 
-  if (v[0] != 0.0)
-    std::cout << "phase change value = " << v[0]  << std::endl;
+  //if (v[0] != 0.0)
+  //  std::cout << "phase change value = " << v[0]  << std::endl;
   memcpy((*V)[nodeId], v ,sizeof(double)*dim);
 }
 
@@ -155,13 +155,13 @@ estimateR(int l, int vertex,
       face_t*(dVdx.getZ()[n1][k]-dVdx.getZ()[n2][k]);
   }
   
-  if (myfid == 0)
+ /* if (myfid == 0)
     std::cout << Vfg[4][0]*vec[0]+
       Vfg[4][1]*vec[1]+
       Vfg[4][2]*vec[2] << " " << (V[i][4]-Vf[4]) << " " << 
       V[i][4] << " " << Vf[4] << " " << X[i][0] << " " << X[i][1] << " " << X[i][2] <<   " " <<
       vec[0] << " " << vec[1] << " " << vec[2] << std::endl;
-  
+  */
 
   for (int k = 0; k < dim; ++k) {
 
@@ -185,11 +185,9 @@ double HigherOrderFSI::
 computeAlpha(int nodeId,const double* currentV, 
 	     const double* neighborV) {
 
-  return 0.0;
-
   if (!hasLastPhaseChangeValue<dim>(nodeId)) {
 
-    std::cout << "alpha = 0!!" << std::endl;
+    //std::cout << "alpha = 0!!" << std::endl;
     return 0.0;
   }
 
@@ -198,13 +196,13 @@ computeAlpha(int nodeId,const double* currentV,
   double alpha = 1.0;
   for (int k = 0; k < dim; ++k) {
 
-    std::cout << currentV[k] << " " << vlast[k]<< " " << 
-      neighborV[k] << std::endl;
+    //std::cout << currentV[k] << " " << vlast[k]<< " " << 
+    //  neighborV[k] << std::endl;
     alpha = std::min<double>(alpha, fabs(currentV[k]-vlast[k])/
 			     std::max<double>(1e-8,fabs(neighborV[k]-currentV[k])));
   }
 
-  std::cout << "alpha = " << alpha << std::endl;
+  //std::cout << "alpha = " << alpha << std::endl;
 
   return alpha;
 }
@@ -266,7 +264,7 @@ extrapolateV6(int l, int vertex,
   double frac = 0.5/(1.0+alpha_f-alpha);
   for (int k = 0; k < dim; ++k) {
 
-    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k]);//*beta[k] + 
-    //(1.0-beta[k])*W[k];
+    Vsurrogate[k] = ((1.0-2.0*alpha)*frac*Vf[k]+(1.0+2.0*alpha_f)*frac*W[k])*beta[k] + 
+      (1.0-beta[k])*W[k];
   }
 }

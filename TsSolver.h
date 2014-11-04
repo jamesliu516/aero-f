@@ -247,7 +247,8 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]){ // || stat == -10 // must redo iteration with a different CFL number, undo everything we have done so far 
           probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]=0;
           probDesc->printf(1,"Repeating time-step.\n");
-          probDesc->setFailSafe(true);
+	  probDesc->printf(1, "WARNING: Alex modified this... hopefully to fix a bug.\n");
+          //probDesc->setFailSafe(true);
           U = (*UPrev); // Reset U to its previous state
           repeat = true;
           // Reset directions for direction strategy

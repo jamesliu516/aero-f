@@ -385,8 +385,6 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
-//  printf(1,"cfl=%e\n",data->cfl);
-
   double dt = 0.0;
   if(failSafeFlag == false){
     if(timeStepCalculation == TsData::CFL || it==1) {

@@ -183,7 +183,6 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
 
   myTimer = domain->getTimer();
 
-  std::cout << "Hello" << std::endl;
 }
 //------------------------------------------------------------------------------
 OneDimensional::~OneDimensional(){
@@ -451,6 +450,13 @@ void OneDimensional::load1DMesh(IoData& ioData,int& numPts,double* &meshPoints) 
     
     sprintf(mesh1d,"%s%s",ioData.input.prefix,ioData.input.geometry);
     FILE* fin = fopen(mesh1d,"r");
+    
+    if (!fin) {
+
+      std::cout << "*** Error: cannot open mesh file " << mesh1d << std::endl;
+      exit(-1);
+    }
+    
     int n = fscanf(fin, "%i",&numPts);
     meshPoints = new double[numPts];
     for (int i = 0; i < numPts; ++i) {
@@ -462,27 +468,22 @@ void OneDimensional::load1DMesh(IoData& ioData,int& numPts,double* &meshPoints) 
     numPts = ioData.oneDimensionalInfo.numPoints;
     meshPoints = new double[numPts];
     for (int i = 0; i < numPts; ++i)
-      meshPoints[i] = (double)i / (numPts-1)*ioData.oneDimensionalInfo.maxDistance;// + 0.25*((double)rand()/RAND_MAX-0.5)/(numPts-1)*ioData.oneDimensionalInfo.maxDistance;
+      meshPoints[i] = (double)i / (numPts-1)*ioData.oneDimensionalInfo.maxDistance;
   }
 }
 //------------------------------------------------------------------------------
 void OneDimensional::spatialSetup(){
 
-  //cout << "computing cell boundaries" <<endl;
   Y = 0.0;
   Y[0][0] = X[0][0];
   for(int i=1; i<numPoints; i++) Y[i][0] = 0.5*(X[i-1][0]+X[i][0]);
   Y[numPoints][0] = X[numPoints-1][0];
 
-  //cout << "computing control volumes"<<endl;
-  // computation of control volumes, for volumeType == CONSTANT_VOLUME
   ctrlVol[0][0] = 0.5*(X[1][0]-X[0][0]);
   for(int i=1; i<numPoints-1; i++)
     ctrlVol[i][0] = 0.5*(X[i+1][0]-X[i-1][0]);
   ctrlVol[numPoints-1][0] = 0.5*(X[numPoints-1][0]-X[numPoints-2][0]);
 
-  // computation of control surfaces, for volumeType == CONSTANT_VOLUME
-  //cout << "computing control surfaces"<<endl;
   for(int i=0; i<numPoints+1; i++) ctrlSurf[i][0] = 1.0;
 
   // in case a real Finite Volume approach is considered
@@ -509,6 +510,7 @@ void OneDimensional::spatialSetup(){
 }
 //------------------------------------------------------------------------------
 void OneDimensional::temporalSetup(){
+
 }
 //------------------------------------------------------------------------------
 void OneDimensional::stateInitialization(OneDimensionalInfo &data){
@@ -545,7 +547,7 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
     if (data.mode == OneDimensionalInfo::CONVTEST1) {
       V[i][0] = data.density2;
       if (fabs(X[i][0]-data.interfacePosition) < 0.2)
-	V[i][4] = //data.pressure2+100.0*pow(cos(3.14159265358979323846/2.0*(X[i][0]-data.interfacePosition)/0.2),2.0);
+	V[i][4] = 
 	  (1000000.0*pow((X[i][0]-data.interfacePosition)+0.2,4.0)*pow((X[i][0]-data.interfacePosition)-0.2,4.0)+1.0)*data.pressure2;
       else
 	V[i][4] = data.pressure2;
@@ -661,8 +663,10 @@ double OneDimensional::computeMaxTimeStep(){
 
   for(int i=0; i<numPoints; i++){
     c = varFcn->computeSoundSpeed(V[i],fluidId[i]);
-    if (c == 0.0)
+    if (c == 0.0) {
+      std::cout << "*** Error: zero sound speed detected!" << std::endl;
       std::cout << "c = " << c <<  " " << fluidId[i] <<  std::endl;
+    }
     maxTimeStep = min(maxTimeStep, 0.5*(Y[i+1][0]-Y[i][0])/c);
   }
 
@@ -948,7 +952,7 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
   
   for(int i=0; i<numPoints; i++){
     if (y[i][0] < 0.0)
-      std::cout << "Error: node " << i << " has negative density " <<
+      std::cout << "*** Error: node " << i << " has negative density " <<
             y[i][0] << "; fid = " << fluidId[i] << std::endl;
   }
 
@@ -1711,6 +1715,12 @@ void OneDimensional::resultsOutput(double time, int iteration){
 	output.open(scalars[i], fstream::out);
       else
 	output.open(scalars[i], fstream::out | fstream::app);
+
+      if (!output.good()) {
+	std::cout << "*** Error: cannot open output file " << scalars[i] << std::endl;
+	exit(-1);
+      }
+
       output << time*refVal.time  << endl;
       for (int j = 0; j < numPoints; ++j) {
 	switch ( (PostFcn::ScalarType)i ) {
@@ -1744,6 +1754,11 @@ void OneDimensional::resultsOutput(double time, int iteration){
       else
 	output.open(vectors[i], fstream::out | fstream::app);
 
+      if (!output.good()) {
+	std::cout << "*** Error: cannot open output file " << vectors[i] << std::endl;
+	exit(-1);
+      }
+
       output << time*refVal.time << endl;
       for (int j = 0; j < numPoints; ++j) {
 	switch ( (PostFcn::VectorType)i ) {
@@ -1765,6 +1780,11 @@ void OneDimensional::resultsOutput(double time, int iteration){
       output.open(bubbleRadiusFile, fstream::out);
     else
       output.open(bubbleRadiusFile, fstream::out | fstream::app);
+
+    if (!output.good()) {
+      std::cout << "*** Error: cannot open output file " << bubbleRadiusFile[0] << std::endl;
+      exit(-1);
+    }
     double rad = 0.0;
     for (i=0; i<numPoints; ++i) {
       if (fluidId[i+1] == 0) {
@@ -1793,6 +1813,12 @@ void OneDimensional::restartOutput(double time, int iteration){
   output.open(outfile, fstream::out | fstream::trunc);
   output.setf(ios::scientific);
   output.precision(20);
+
+  if (!output.good()) {
+
+    std::cout << "*** Error: Cannot open restart file " << outfile << std::endl;
+    exit(-1);
+  }
 
   cout << "outputting last results in file "<<outfile<<endl;
 
@@ -2056,6 +2082,13 @@ void OneDimensional::outputProbes(double time,int iteration) {
   for (i=0; i<PostFcn::SSIZE; ++i) {
     if (nodal_scalars[i]) {
       FILE* out = fopen(nodal_scalars[i],mode);
+
+      if (!out) {
+
+	std::cout << "*** Error: cannot open probes file " << nodal_scalars[i] << std::endl;
+	exit(-1);
+      }
+
       fprintf(out,"%e ",time*refVal.time);
       for (j = 0; j < nodal_output.numNodes; ++j) {
         if (nodal_output.locations[i].v[0] >= 0.0) {
@@ -2102,6 +2135,11 @@ void OneDimensional::outputProbes(double time,int iteration) {
   for (i=0; i<PostFcn::VSIZE; ++i) {
     if (nodal_vectors[i]) {
       FILE* out = fopen(nodal_vectors[i],mode); 
+      if (!out) {
+
+	std::cout << "*** Error: cannot open probes file " << nodal_vectors[i] << std::endl;
+	exit(-1);
+      }
       fprintf(out,"%e ",time*refVal.time);
       for (j = 0; j < nodal_output.numNodes; ++j) {
         if (nodal_output.locations[i].v[0] >= 0.0) {

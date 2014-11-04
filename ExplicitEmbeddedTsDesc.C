@@ -130,8 +130,8 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     //store previous states for phase-change update
     tw = this->timer->getTime();
     this->spaceOp->updateSweptNodes(*this->X, *this->A,this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
-            *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar,  &this->nodeTag);
+				    *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
+				    this->distLSS, (double*)this->vfar, this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1, &this->nodeTag);
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
