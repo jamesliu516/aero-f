@@ -168,7 +168,6 @@ template<int dim, int dimLS>
 double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
                                             DistSVec<double,dim> &U, double angle)
 {
-
   double t0 = this->timer->getTime();
   this->data->allowstop = this->timeState->allowcflstop;
   this->timeState->unphysical = this->data->unphysical;
@@ -203,7 +202,8 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
   this->timer->addFluidSolutionTime(t0);
   this->timer->addTimeStepTime(t0);
 
-  if (dt + this->currentTime > this->data->maxTime)
+  // for algNum 22 the maxTime can be set to less than the current time, to trigger termination
+  if (dt + this->currentTime > this->data->maxTime && (this->mmh && this->mmh->getAlgNum() != 22))
     dt = this->data->maxTime - this->currentTime; 
 
   currentTimeStep = dt;

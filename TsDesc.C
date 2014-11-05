@@ -275,13 +275,13 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
                                        geoSource.getMatchNodes(), domain, mp);
     //check that algorithm number is consistent with simulation in special case RK2-CD
     // if C0 and RK2 then RK2DGCL is needed!
-    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
+    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21 || _mmh->getAlgNum() == 22){
       if(ioData.ts.type == TsData::EXPLICIT &&
          (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
           ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
           ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis )){
-        if(!(ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2 &&
-             ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL)){
+        if(!((ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2     || ioData.dgcl.normals == DGCLData::AUTO) &&
+             (ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL || ioData.dgcl.velocities == DGCLData::AUTO_VEL))){
           com->fprintf(stderr, "***Error: Computation of the normals or velocities (%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities);
           com->fprintf(stderr, "***       is not consistent with Aeroelastic algorithm\n");
           exit(1);

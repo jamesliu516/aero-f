@@ -316,7 +316,7 @@ AccMeshMotionHandler::AccMeshMotionHandler(IoData &iod, VarFcn *vf,
 //------------------------------------------------------------------------------
 
 double AccMeshMotionHandler::update(bool *lastIt, int it, double t,
-				    DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                    DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   if (*lastIt) return dt;
@@ -331,7 +331,7 @@ double AccMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-				    DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                         DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   if (*lastIt) return dt;
@@ -347,7 +347,7 @@ double AccMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-				    DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+                                         DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
  return dt;
@@ -465,9 +465,8 @@ void AeroMeshMotionHandler::cmdCom(bool *lastIt)
 */
 
 double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
-				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-
   int algNum = strExc->getAlgorithmNumber();
   double dt = strExc->getTimeStep();
   if (steady)
@@ -475,7 +474,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   if (algNum == 6 && it == 0) 
     dt *= 0.5;
-  if ((algNum == 20 || algNum == 21) && it == 0) 
+  if ((algNum == 20 || algNum == 21 || algNum == 22) && it == 0) 
     dt *= 0.5;
 
   if (algNum == 8) {
@@ -522,7 +521,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 */
 
 double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
   Timer *timer;
   timer = domain->getTimer();
@@ -535,18 +534,24 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 
   if (algNum == 6 && it == 0)
     dt *= 0.5;
-  if ((algNum == 20 || algNum == 21) && it == 0)
+  if ((algNum == 20 || algNum == 21 || algNum == 22) && it == 0)
     dt *= 0.5;
 
-  if (algNum == 20 ){ // RK2-CD algorithm with FEM(20)
+  if (algNum == 20) { // RK2-CD algorithm with Aero-S C0_legacy
     if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX, false);} //for proper restart
     else if(it==it0) {/*nothing to do*/}
-    else if(it!=1){strExc->sendForce(F);}
+    else if(it!=1) {strExc->sendForce(F);}
   }
-  else if (algNum == 21 ){ // RK2-CD algorithm with XFEM(21)
+  else if (algNum == 21) { // RK2-CD algorithm with XED3D
     if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX, false);} //for proper restart
     else if(it==it0) {strExc->sendForce(F);}
-    else if(it!=1){strExc->sendForce(F);}
+    else if(it!=1) {strExc->sendForce(F);}
+  }
+  else if (algNum == 22) { // RK2-CD algorithm with Dyna3D-XFEM or Aero-S C0
+    if(it==0) strExc->getDisplacement(X0,X,Xdot,dX, false); //for proper restart
+    if(it!=1) strExc->sendForce(F);
+    if(it==0 || it!=(*lastIt)) {strExc->getInfo(); dt = strExc->getTimeStep(); if(it==0) dt *= 0.5;}
+    *tmax = strExc->getMaxTime();
   }
   else if (algNum == 8) {
     getModalMotion(X);
@@ -567,7 +572,6 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 
   //com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
   return dt;
-
 }
 
 //------------------------------------------------------------------------------
@@ -578,7 +582,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 */
 
 double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   int verbose = com->getMaxVerbose();
   Timer *timer;
@@ -592,16 +596,16 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   if (algNum == 6 && it == 0) {
     dt *= 0.5;
   }
-  if ((algNum == 20 || algNum == 21) && it == 0)
+  if ((algNum == 20 || algNum == 21 || algNum == 22) && it == 0)
     dt *= 0.5;
 
-  if (algNum == 20){
-    if(it==0){ strExc->sendForce(F);}
+  if (algNum == 20 || algNum == 21) {
+    if(it==0) {strExc->sendForce(F);}
     else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX, false);}
     else return 0.0; // last iteration!
   }
-  else if (algNum == 21){
-    if(it==0){ strExc->sendForce(F);}
+  else if (algNum == 22) {
+    if(it==0) {/*nothing to do*/}
     else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX, false);}
     else return 0.0; // last iteration!
   }
@@ -610,12 +614,12 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   }
 
 
-  if (algNum == 4|| algNum == 5) {
+  if (algNum == 4 || algNum == 5) {
     if (*lastIt)
       return 0.0;
     strExc->sendForce(F);
   }
-  else if(!(algNum == 20 || algNum == 21)){
+  else if(!(algNum == 20 || algNum == 21 || algNum == 22)) {
     if (it > it0 && algNum != 10) {
       if (steady) {
         strExc->negotiateStopping(lastIt);  // [F] receive iSteady from structure
@@ -631,23 +635,12 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       if (it == it0)
         strExc->getDisplacement(X0, X, Xdot, dX, false);
       
-  
-    //ARL: Why send force twice at last iteration?
-    //if (*lastIt){
-    //  strExc->sendForce(F);
-    //  return 0.0;
-    //}
   }
   timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 
   if ((algNum != 10 && !*lastIt) || it == it0)  {
-    //ARL: bug
-    //     if second comment line, several cpu crashes with a floating point exception.
-    //     if first comment  line, runs fine.
-    // suspecting memory leak
 
-    //com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %20.12e and %20.12e (%20.12e)\n", it, dX.norm(), Xdot.norm(), X.norm());
     com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e (%e) \n", it, dX.norm(), Xdot.norm(), X0.norm());
 
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
@@ -660,7 +653,6 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     *lastIt = true;
 
   return dt;
-
 }
 
 //------------------------------------------------------------------------------
@@ -768,7 +760,7 @@ AccAeroMeshMotionHandler::AccAeroMeshMotionHandler(IoData &iod, VarFcn *vf, doub
 //------------------------------------------------------------------------------
 
 double AccAeroMeshMotionHandler::update(bool *lastIt, int it, double t,
-					DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
@@ -786,7 +778,7 @@ double AccAeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccAeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
@@ -800,7 +792,7 @@ double AccAeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccAeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
@@ -1080,7 +1072,7 @@ DistSVec<double,3> PitchingMeshMotionHandler::getModes()
 //------------------------------------------------------------------------------
 
 double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
-                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                         DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   if (*lastIt) return dt;
@@ -1248,7 +1240,7 @@ double PitchingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double PitchingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   return update(lastIt, it, t, Xdot, X);
@@ -1319,7 +1311,7 @@ DistSVec<double,3> HeavingMeshMotionHandler::getModes()
 //------------------------------------------------------------------------------
 
 double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
-                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   
  if (*lastIt) return dt;
@@ -1381,7 +1373,7 @@ double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double HeavingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   return dt;
@@ -1391,7 +1383,7 @@ double HeavingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double HeavingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   return update(lastIt, it, t, Xdot, X);
@@ -1461,7 +1453,7 @@ DistSVec<double,3> SpiralingMeshMotionHandler::getModes()
 //------------------------------------------------------------------------------
 
 double SpiralingMeshMotionHandler::update(bool *lastIt, int it, double t,
-                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   
  if (*lastIt) return dt;
@@ -1528,7 +1520,7 @@ double SpiralingMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double SpiralingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   return dt;
@@ -1557,7 +1549,7 @@ AccForcedMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
 //------------------------------------------------------------------------------
 
 double AccForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
-					  DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
@@ -1575,7 +1567,7 @@ double AccForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccForcedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
  return -1e15;
 }
@@ -1583,7 +1575,7 @@ double AccForcedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccForcedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
@@ -1670,7 +1662,7 @@ double RigidRollMeshMotionHandler::computeRotationAngle(double time)
 //------------------------------------------------------------------------------
 
 double RigidRollMeshMotionHandler::update(bool *lastIt, int it, double t, 
-					  DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   if (*lastIt) return dt;
@@ -1754,7 +1746,7 @@ double RigidRollMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double RigidRollMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
  return update(lastIt, it, t, Xdot, X);
 }
@@ -1792,8 +1784,6 @@ void EmbeddedMeshMotionHandler::setup(double *maxTime)
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
-//  com->fprintf(stderr,"<AERO-F> I'm in Step 1!\n");
-
   Timer *timer;
   timer = domain->getTimer();
   double ttt = timer->getTime();
@@ -1803,37 +1793,36 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   }
   int algNum = dynNodalTransfer->getAlgorithmNumber();
   switch (algNum) {
-    case 6: //A6 with FEM
+    case 6: //A6 with Aero-S
       step1ForA6(lastIt,it,t,Xdot,X);
       break;
-    case 20: //C0 with FEM
+    case 20: //C0_legacy with Aero-S
       step1ForC0FEM(lastIt,it,t,Xdot,X);
       break;
-    case 21: //C0 with XFEM
+    case 21: //C0 with XED3D
       if(dynNodalTransfer->cracking()) {
-        fprintf(stderr,"XFEM is not supported for FSI w/ cracking!\n"); exit(-1);}
+        fprintf(stderr,"XED3D is not supported for FSI w/ cracking!\n"); exit(-1);}
       step1ForC0XFEM(lastIt,it,t,Xdot,X);
       break;
-    case 22: //C0 with XFEM3D
+    case 22: //C0 with Dyna3D-XFEM or Aero-S
       step1ForC0XFEM3D(lastIt,it,t,Xdot,X);
       *tmax = dynNodalTransfer->getStructureMaxTime();
       break;
-    default:
-      fprintf(stderr,"Specified algorithm is not supported for embedded framework\n");
+    case 0: case 4: case 5: case 7: // A0/A4/A5/A7 with Aero-S
+      fprintf(stderr,"***Error: Aeroelastic algorithm A%1d is not supported for embedded framework.\n", algNum);
       exit(-1);
       break;
   }
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the
-                                     // structure in the mesh solution
+                                      // structure in the mesh solution
 
-//  com->fprintf(stderr,"<AERO-F> done with Step 1.\n");
   return dts;
 }
 
 //------------------------------------------------------------------------------
 
 void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
-                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                           DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
@@ -1857,7 +1846,7 @@ void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
-                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
@@ -1886,7 +1875,7 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
-                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
@@ -1968,8 +1957,6 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
 double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-//  com->fprintf(stderr,"<AERO-F> I'm in Step 2!\n");
-
   Timer *timer;
   timer = domain->getTimer();
   double ttt = timer->getTime();
@@ -1981,26 +1968,26 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   int algNum = dynNodalTransfer->getAlgorithmNumber();
 
   switch (algNum) {
-    case 1: //PP with FEM
+    case 1: //PP with Aero-S
       step2ForPP(lastIt,it,t,Xdot,X);
       break;
-    case 6: //A6 with FEM
+    case 6: //A6 with Aero-S
       step2ForA6(lastIt,it,t,Xdot,X);
       break;
-    case 20: //C0 with FEM
-    case 21: //C0 with XFEM
+    case 20: //C0_legacy with Aero-S
+    case 21: //C0 with XED3D
       step2ForC0(lastIt,it,t,Xdot,X);
       break;
-    case 22: //C0 with XFEM3D
+    case 22: //C0 with Dyna3D-XFEM or Aero-S
       step2ForC0XFEM3D(lastIt,it,t,Xdot,X);
       break;
-    default:
-      fprintf(stderr,"Specified algorithm is not supported for embedded framework\n");
+    case 0: case 4: case 5: case 7: // A0/A4/A5/A7 with Aero-S
+      fprintf(stderr,"***Error: Aeroelastic algorithm A%1d is not supported for embedded framework.\n", algNum);
       exit(-1);
       break;
   }
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the
-                                     // structure in the mesh solution
+                                      // structure in the mesh solution
 
   return dts;
 }
@@ -2008,7 +1995,7 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 void EmbeddedMeshMotionHandler::step2ForPP(bool *lastIt, int it, double t,
-                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                           DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   // get displacement
   if(it==it0) {
@@ -2021,7 +2008,7 @@ void EmbeddedMeshMotionHandler::step2ForPP(bool *lastIt, int it, double t,
 
 //------------------------------------------------------------------------------
 void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
-                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                           DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
@@ -2044,7 +2031,7 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
-                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                           DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
@@ -2068,7 +2055,7 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
-                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                                 DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   if(it==0) {
     dts = dynNodalTransfer->getStructureTimeStep();
@@ -2143,7 +2130,7 @@ void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,
 //------------------------------------------------------------------------------
 
 double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
-                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                            DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   
   if (*lastIt) return dt;
@@ -2196,7 +2183,7 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double EmbeddedALEMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
+                                                 DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   return dt;
@@ -2206,7 +2193,7 @@ double EmbeddedALEMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double EmbeddedALEMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
-                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                                 DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   return update(lastIt, it, t, Xdot, X);
@@ -2236,7 +2223,7 @@ RbmExtractor::RbmExtractor(IoData &iod, Domain *dom)
 //------------------------------------------------------------------------------
 
 double RbmExtractor::update(bool *lastIt, int it,double t,
-			    DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                            DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
   double amp = 10.0;
@@ -2270,7 +2257,7 @@ double RbmExtractor::update(bool *lastIt, int it,double t,
 //------------------------------------------------------------------------------
 
 double RbmExtractor::updateStep2(bool *lastIt, int it,double t,
-			    DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                 DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   return update(lastIt, it, t, Xdot, X);
 }
