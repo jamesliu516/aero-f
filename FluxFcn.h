@@ -205,6 +205,26 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 // Spalart-Allmaras for Stiffened Gas
         switch(ffType){
 
+          case BC_DIRECTSTATE_OUTLET_FIXED:
+          case BC_DIRECTSTATE_OUTLET_MOVING:
+            localff = new FluxFcnSGDirectStateOutflowSA3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_DIRECTSTATE_INLET_FIXED:
+          case BC_DIRECTSTATE_INLET_MOVING:
+            localff = new FluxFcnSGDirectStateInflowSA3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGMassFlowOutflowSA3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGMassFlowInflowSA3D(iod, vfsgsa, typeJac);
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
             if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
@@ -237,6 +257,11 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_ISOTHERMAL_WALL_MOVING:
           case BC_ISOTHERMAL_WALL_FIXED:
             localff = new FluxFcnSGWallSA3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallSA3D(iod, vfsgsa, typeJac);
             break;
 
           case BC_INTERNAL:
@@ -283,6 +308,26 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         }
         switch(ffType){
 
+          case BC_DIRECTSTATE_OUTLET_FIXED:
+          case BC_DIRECTSTATE_OUTLET_MOVING:
+            localff = new FluxFcnSGDirectStateOutflowKE3D(iod, vfsgke, typeJac);
+            break;
+
+          case BC_DIRECTSTATE_INLET_FIXED:
+          case BC_DIRECTSTATE_INLET_MOVING:
+            localff = new FluxFcnSGDirectStateInflowKE3D(iod, vfsgke, typeJac);
+            break;
+
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGMassFlowOutflowKE3D(iod, vfsgke, typeJac);
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGMassFlowInflowKE3D(iod, vfsgke, typeJac);
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
           case BC_INLET_FIXED:
@@ -303,6 +348,11 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
             localff = new FluxFcnSGWallKE3D(iod, vfsgke, typeJac);
             break;
   
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallKE3D(iod, vfsgke, typeJac);
+            break;
+
           case BC_INTERNAL:
             if (ns_flux == SchemeData::ROE) {
               if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
@@ -347,6 +397,26 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         exit(-1);
       }
       switch(ffType){
+
+        case BC_DIRECTSTATE_OUTLET_FIXED:
+        case BC_DIRECTSTATE_OUTLET_MOVING:
+          localff = new FluxFcnSGDirectStateOutflowEuler3D(iod, vfsgeuler, typeJac);
+          break;
+
+        case BC_DIRECTSTATE_INLET_FIXED:
+        case BC_DIRECTSTATE_INLET_MOVING:
+          localff = new FluxFcnSGDirectStateInflowEuler3D(iod, vfsgeuler, typeJac);
+          break;
+
+        case BC_MASSFLOW_OUTLET_FIXED:
+        case BC_MASSFLOW_OUTLET_MOVING:
+          localff = new FluxFcnSGMassFlowOutflowEuler3D(iod, vfsgeuler, typeJac);
+          break;
+
+        case BC_MASSFLOW_INLET_FIXED:
+        case BC_MASSFLOW_INLET_MOVING:
+          localff = new FluxFcnSGMassFlowInflowEuler3D(iod, vfsgeuler, typeJac);
+          break;
 
         case BC_OUTLET_FIXED:
         case BC_OUTLET_MOVING:
@@ -394,6 +464,11 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         case BC_ISOTHERMAL_WALL_MOVING:
         case BC_ISOTHERMAL_WALL_FIXED:
           localff = new FluxFcnSGWallEuler3D(iod, vfsgeuler, typeJac);
+          break;
+
+        case BC_POROUS_WALL_MOVING:
+        case BC_POROUS_WALL_FIXED:
+          localff = new FluxFcnSGPorousWallEuler3D(iod, vfsgeuler, typeJac);
           break;
 
         case BC_INTERNAL:
@@ -458,6 +533,16 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 // Spalart-Allmaras for Barotropic Liquids 
         switch(ffType){
 
+          case BC_DIRECTSTATE_OUTLET_FIXED:
+          case BC_DIRECTSTATE_OUTLET_MOVING:
+          case BC_DIRECTSTATE_INLET_FIXED:
+          case BC_DIRECTSTATE_INLET_MOVING:
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
             if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL)
@@ -485,6 +570,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_SYMMETRY:
           case BC_ISOTHERMAL_WALL_MOVING:
           case BC_ISOTHERMAL_WALL_FIXED:
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
             localff = new FluxFcnTaitWallSA3D(iod, vftaitsa, typeJac);
             break;
 
@@ -509,6 +596,16 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         }
         switch(ffType){
 
+          case BC_DIRECTSTATE_OUTLET_FIXED:
+          case BC_DIRECTSTATE_OUTLET_MOVING:
+          case BC_DIRECTSTATE_INLET_FIXED:
+          case BC_DIRECTSTATE_INLET_MOVING:
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
             if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL)
@@ -536,6 +633,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           case BC_SYMMETRY:
           case BC_ISOTHERMAL_WALL_MOVING:
           case BC_ISOTHERMAL_WALL_FIXED:
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
             localff = new FluxFcnTaitWallKE3D(iod, vftaitke, typeJac);
             break;
 
@@ -560,6 +659,16 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         exit(-1);
       }
       switch(ffType){
+
+        case BC_DIRECTSTATE_OUTLET_FIXED:
+        case BC_DIRECTSTATE_OUTLET_MOVING:
+        case BC_DIRECTSTATE_INLET_FIXED:
+        case BC_DIRECTSTATE_INLET_MOVING:
+        case BC_MASSFLOW_OUTLET_FIXED:
+        case BC_MASSFLOW_OUTLET_MOVING:
+        case BC_MASSFLOW_INLET_FIXED:
+        case BC_MASSFLOW_INLET_MOVING:
+          break;
 
         case BC_OUTLET_FIXED:
         case BC_OUTLET_MOVING:
@@ -600,6 +709,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
         case BC_SYMMETRY:
         case BC_ISOTHERMAL_WALL_MOVING:
         case BC_ISOTHERMAL_WALL_FIXED:
+        case BC_POROUS_WALL_MOVING:
+        case BC_POROUS_WALL_FIXED:
           localff = new FluxFcnTaitWallEuler3D(iod, vftait, typeJac);
           break;
   
@@ -625,6 +736,16 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
     }
     switch(ffType){
 
+      case BC_DIRECTSTATE_OUTLET_FIXED:
+      case BC_DIRECTSTATE_OUTLET_MOVING:
+      case BC_DIRECTSTATE_INLET_FIXED:
+      case BC_DIRECTSTATE_INLET_MOVING:
+      case BC_MASSFLOW_OUTLET_FIXED:
+      case BC_MASSFLOW_OUTLET_MOVING:
+      case BC_MASSFLOW_INLET_FIXED:
+      case BC_MASSFLOW_INLET_MOVING:
+        break;
+
       case BC_OUTLET_FIXED:
       case BC_OUTLET_MOVING:
       case BC_INLET_FIXED:
@@ -639,6 +760,8 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
       case BC_SYMMETRY:
       case BC_ISOTHERMAL_WALL_MOVING:
       case BC_ISOTHERMAL_WALL_FIXED:
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
         localff = new FluxFcnJwlWallEuler3D(iod, vfjwl, typeJac);
         break;
 
@@ -723,6 +846,11 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
         localff = new FluxFcnSGWallEuler3D(iod, vfsgeuler, typeJac);
         break;
 
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
+        localff = new FluxFcnSGPorousWallEuler3D(iod, vfsgeuler, typeJac);
+        break;
+
       case BC_INTERNAL:
         localff = new FluxFcnSGApprJacRoeEuler3D(0, gamma, iod, vfsgeuler, typeJac);
         break;
@@ -757,6 +885,8 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
     case BC_SYMMETRY:
     case BC_ISOTHERMAL_WALL_MOVING:
     case BC_ISOTHERMAL_WALL_FIXED:
+    case BC_POROUS_WALL_MOVING:
+    case BC_POROUS_WALL_FIXED:
       localff = new FluxFcnTaitWallEuler3D(iod, vftait, typeJac);
       break;
 
@@ -796,6 +926,26 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 // Spalart-Allmaras for Stiffened Gas
         switch(ffType){
 
+          case BC_DIRECTSTATE_OUTLET_FIXED:
+          case BC_DIRECTSTATE_OUTLET_MOVING:
+            localff = new FluxFcnSGDirectStateOutflowSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_DIRECTSTATE_INLET_FIXED:
+          case BC_DIRECTSTATE_INLET_MOVING:
+            localff = new FluxFcnSGDirectStateInflowSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGMassFlowOutflowSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGMassFlowInflowSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
             if(iod.bc.outlet.type == BcsFreeStreamData::EXTERNAL &&
@@ -830,6 +980,11 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
             localff = new FluxFcnSGWallSAturb3D(iod, vfsgsa, typeJac);
             break;
 
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallSAturb3D(iod, vfsgsa, typeJac);
+            break;
+
           case BC_INTERNAL:
             localff = new FluxFcnSGRoeSAturb3D(gamma, iod, vfsgsa, typeJac);
             break;
@@ -843,6 +998,26 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
           exit(-1);
         }
         switch(ffType){
+
+          case BC_DIRECTSTATE_OUTLET_FIXED:
+          case BC_DIRECTSTATE_OUTLET_MOVING:
+            localff = new FluxFcnSGDirectStateOutflowKEturb3D(iod, vfsgke, typeJac);
+            break;
+
+          case BC_DIRECTSTATE_INLET_FIXED:
+          case BC_DIRECTSTATE_INLET_MOVING:
+            localff = new FluxFcnSGDirectStateInflowKEturb3D(iod, vfsgke, typeJac);
+            break;
+
+          case BC_MASSFLOW_OUTLET_FIXED:
+          case BC_MASSFLOW_OUTLET_MOVING:
+            localff = new FluxFcnSGMassFlowOutflowKEturb3D(iod, vfsgke, typeJac);
+            break;
+
+          case BC_MASSFLOW_INLET_FIXED:
+          case BC_MASSFLOW_INLET_MOVING:
+            localff = new FluxFcnSGMassFlowInflowKEturb3D(iod, vfsgke, typeJac);
+            break;
 
           case BC_OUTLET_FIXED:
           case BC_OUTLET_MOVING:
@@ -864,6 +1039,11 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
             localff = new FluxFcnSGWallKEturb3D(iod, vfsgke, typeJac);
             break;
   
+          case BC_POROUS_WALL_MOVING:
+          case BC_POROUS_WALL_FIXED:
+            localff = new FluxFcnSGPorousWallKEturb3D(iod, vfsgke, typeJac);
+            break;
+
           case BC_INTERNAL:
             localff = new FluxFcnSGRoeKEturb3D(gamma, iod, vfsgke, typeJac);
             break;
@@ -892,6 +1072,16 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
       // Spalart-Allmaras for Tait
       switch(ffType){
 
+      case BC_DIRECTSTATE_OUTLET_FIXED:
+      case BC_DIRECTSTATE_OUTLET_MOVING:
+      case BC_DIRECTSTATE_INLET_FIXED:
+      case BC_DIRECTSTATE_INLET_MOVING:
+      case BC_MASSFLOW_OUTLET_FIXED:
+      case BC_MASSFLOW_OUTLET_MOVING:
+      case BC_MASSFLOW_INLET_FIXED:
+      case BC_MASSFLOW_INLET_MOVING:
+        break;
+
       case BC_OUTLET_FIXED:
       case BC_OUTLET_MOVING:
       case BC_INLET_FIXED:
@@ -906,6 +1096,8 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
       case BC_SYMMETRY:
       case BC_ISOTHERMAL_WALL_MOVING:
       case BC_ISOTHERMAL_WALL_FIXED:
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
         localff = new FluxFcnTaitWallSAturb3D(iod, vftaitsa, typeJac);
         break;
 
@@ -924,6 +1116,16 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
 
       switch(ffType){
 
+      case BC_DIRECTSTATE_OUTLET_FIXED:
+      case BC_DIRECTSTATE_OUTLET_MOVING:
+      case BC_DIRECTSTATE_INLET_FIXED:
+      case BC_DIRECTSTATE_INLET_MOVING:
+      case BC_MASSFLOW_OUTLET_FIXED:
+      case BC_MASSFLOW_OUTLET_MOVING:
+      case BC_MASSFLOW_INLET_FIXED:
+      case BC_MASSFLOW_INLET_MOVING:
+        break;
+
       case BC_OUTLET_FIXED:
       case BC_OUTLET_MOVING:
       case BC_INLET_FIXED:
@@ -938,6 +1140,8 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
       case BC_SYMMETRY:
       case BC_ISOTHERMAL_WALL_MOVING:
       case BC_ISOTHERMAL_WALL_FIXED:
+      case BC_POROUS_WALL_MOVING:
+      case BC_POROUS_WALL_FIXED:
         localff = new FluxFcnTaitWallKEturb3D(iod, vftaitke, typeJac);
         break;
 

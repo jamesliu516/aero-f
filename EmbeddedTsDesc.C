@@ -369,6 +369,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+  this->spaceOp->applyBCsToTurbSolutionVector(*U,distLSS);
   // Initialize fluid Ids (not on restart)
   if (ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0)
     nodeTag0 = nodeTag = distLSS->getStatus();
@@ -633,10 +634,19 @@ template<int dim>
 int EmbeddedTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = 0;
-  if(numFluid==1)
-    ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
-  else
+  if(numFluid==1) {
+    if (dim == 6)
+      ierr = this->domain->template 
+        clipSolution<dim,1>(this->clippingType, this->wallType, this->varFcn, this->bcData->getInletConservativeState(), U);
+    else if (dim == 7)
+      ierr = this->domain->template 
+        clipSolution<dim,2>(this->clippingType, this->wallType, this->varFcn, this->bcData->getInletConservativeState(), U);
+    else
+      ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
+  }
+  else {
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
+  }
 
   if (ierr != 0 && this->data->checksol) {
     this->data->unphysical = true;
@@ -835,7 +845,7 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 
   this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  viscSecOrder, nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
 
-  this->spaceOp->applyBCsToResidual(U, *this->R);
+  this->spaceOp->applyBCsToResidual(U, *this->R, distLSS);
 
   double res = 0.0;
   if(this->numFluid==1)
@@ -1078,6 +1088,8 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
       wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
 //      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
       this->timer->addWallDistanceTime(t0);
+
+      this->domain->computeOffWallNode(this->distLSS);
     }
   }
 }
