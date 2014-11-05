@@ -277,7 +277,10 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
       timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
   }
 
-  spaceOp->applyBCsToResidual(Qeps, Feps);
+  if (this->isFSI)
+    spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+  else
+    spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
 
@@ -311,7 +314,10 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
         timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
     }
 
-    spaceOp->applyBCsToResidual(Qeps, Feps);
+    if (this->isFSI)
+      spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+    else
+      spaceOp->applyBCsToResidual(Qeps, Feps);
 
     Feps.strip(Ftmp);
 
@@ -456,7 +462,10 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
       timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
   }
 
-  spaceOp->applyBCsToResidual(Qeps, Feps);
+  if (this->isFSI)
+    spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+  else
+    spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
 
@@ -509,7 +518,10 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
     }
 
 
-    spaceOp->applyBCsToResidual(Qeps, Feps);
+    if (this->isFSI)
+      spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+    else
+      spaceOp->applyBCsToResidual(Qeps, Feps);
 
     Feps.strip(Ftmp);
 
@@ -850,7 +862,10 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
 
-  spaceOp->applyBCsToJacobian(Q, *this);
+  if (this->isFSI)
+    spaceOp->applyBCsToJacobian(Q, *this, this->fsi.LSS);
+  else
+    spaceOp->applyBCsToJacobian(Q, *this);
 
   if (areHHTermsActive) {
 
@@ -1077,13 +1092,23 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
 // Included (MB)
   fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
   fluxFcn -= BC_MIN_CODE;
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 12)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
   fluxFcn[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_OUTLET_MOVING] = new FluxFcn(0,BC_MASSFLOW_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_OUTLET_FIXED] = new FluxFcn(0,BC_MASSFLOW_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_INLET_MOVING] = new FluxFcn(0,BC_MASSFLOW_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_INLET_FIXED] = new FluxFcn(0,BC_MASSFLOW_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_OUTLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_OUTLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_INLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_INLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_OUTLET_MOVING] = new FluxFcn(0,BC_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_INLET_FIXED] = new FluxFcn(0,BC_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_POROUS_WALL_MOVING] = new FluxFcn(0,BC_POROUS_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_POROUS_WALL_FIXED] = new FluxFcn(0,BC_POROUS_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(0,BC_ADIABATIC_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(0,BC_ADIABATIC_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcn(0,BC_SLIP_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
@@ -1564,14 +1589,24 @@ void MatVecProdH2<dim,Scalar,neq>::rstSpaceOp
 
   fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
   fluxFcn -= BC_MIN_CODE;
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 12)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
 
   fluxFcn[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_OUTLET_MOVING] = new FluxFcn(0,BC_MASSFLOW_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_OUTLET_FIXED] = new FluxFcn(0,BC_MASSFLOW_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_INLET_MOVING] = new FluxFcn(0,BC_MASSFLOW_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_MASSFLOW_INLET_FIXED] = new FluxFcn(0,BC_MASSFLOW_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_OUTLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_OUTLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_INLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_DIRECTSTATE_INLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_OUTLET_MOVING] = new FluxFcn(0,BC_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_INLET_FIXED] = new FluxFcn(0,BC_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_POROUS_WALL_MOVING] = new FluxFcn(0,BC_POROUS_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
+  fluxFcn[BC_POROUS_WALL_FIXED] = new FluxFcn(0,BC_POROUS_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(0,BC_ADIABATIC_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(0,BC_ADIABATIC_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcn(0,BC_SLIP_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);

@@ -2276,6 +2276,22 @@ void SubDomain::applyBCsToSolutionVector(BcFcn *bcFcn, BcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::applyBCsToTurbSolutionVector(BcFcn *bcFcn, BcData<dim> &bcData,
+                                         SVec<double,dim> &U, LevelSetStructure *LSS)
+{
+  SVec<double,dim> &Vwall = bcData.getNodeStateVector();
+
+  if (offWallNode && dim>5) {
+    for (int i=0; i<nodes.size(); ++i) {
+      if (offWallNode[i]) 
+        bcFcn->applyToTurbSolutionVector(nodeType[i], Vwall[i], U[i]);
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
 				   SVec<double,dim> &U, SVec<double,dim> &F, LevelSetStructure *LSS)
 {
@@ -2297,6 +2313,13 @@ void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
 		for (int i=0; i<nodes.size(); ++i) {
 			if (nodeType[i] != BC_INTERNAL)
 				bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+		}
+
+		if (offWallNode && dim>5) {
+		  for (int i=0; i<nodes.size(); ++i) {
+		    if (offWallNode[i]) 
+			bcFcn->applyToTurbResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+		  }
 		}
 	}
 }
@@ -2470,11 +2493,12 @@ void SubDomain::applyBCsToProduct(BcFcn *bcFcn, BcData<dim> &bcs, SVec<double,di
 
 template<int dim, class Scalar, int neq>
 void SubDomain::applyBCsToJacobian(BcFcn *bcFcn, BcData<dim> &bcs,
-                                   SVec<double,dim> &U, GenMat<Scalar,neq> &A)
+                                   SVec<double,dim> &U, GenMat<Scalar,neq> &A, LevelSetStructure *LSS)
 {
   SVec<double,dim> &Vwall = bcs.getNodeStateVector();
 
   int (*edgePtr)[2] = edges.getPtr();
+  bool *edgeFlag = edges.getMasterFlag();
 
   for (int l=0; l<edges.size(); ++l) {
     int i = edgePtr[l][0];
@@ -2498,6 +2522,46 @@ void SubDomain::applyBCsToJacobian(BcFcn *bcFcn, BcData<dim> &bcs,
       Scalar *Aii = A.getElem_ii(i);
       if (Aii)
         bcFcn->applyToDiagonalTerm(nodeType[i], Vwall[i], U[i], Aii);
+    }
+  }
+
+  if ( LSS && offWallNode && neq!=5 ) {
+    for (int l=0; l<edges.size(); ++l) {
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      if (offWallNode[i]) {
+	Scalar *Aij = 0;
+        if (LSS->edgeIntersectsStructure(0.0,l))
+          Aij = A.getRealNodeElem_ij(i,j);
+	else
+          Aij = A.getElem_ij(l);
+
+        if (Aij)
+          bcFcn->applyToTurbOffDiagonalTerm(nodeType[i], Aij);
+
+
+        Scalar *Aii = A.getElem_ii(i);
+        if (Aii)
+          bcFcn->applyToTurbDiagonalTerm(nodeType[i], Vwall[i], U[i], Aii);
+
+      }
+
+      if (offWallNode[j]) {
+	Scalar *Aji = 0;
+        if (LSS->edgeIntersectsStructure(0.0,l))
+          Aji = A.getRealNodeElem_ij(j,i);
+	else
+          Aji = A.getElem_ji(l);
+
+        if (Aji)
+          bcFcn->applyToTurbOffDiagonalTerm(nodeType[j], Aji);
+
+        Scalar *Ajj = A.getElem_ii(j);
+        if (Ajj)
+          bcFcn->applyToTurbDiagonalTerm(nodeType[j], Vwall[j], U[j], Ajj);
+
+      }
     }
   }
 }
@@ -2641,7 +2705,7 @@ SparseMat<Scalar,dim> *SubDomain::createMaskILU(int fill, int renum, int *ndType
 }
 
 //------------------------------------------------------------------------------
-
+//
 template<class Scalar, int dim>
 void SubDomain::computeH1(FluxFcn **fluxFcn, BcData<dim> &bcData,
                           GeoState &geoState, Vec<double> &ctrlVol,
@@ -4179,6 +4243,17 @@ void SubDomain::assignFreeStreamValues(double *Uin, double *Uout, SVec<double,di
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::assignPorousWallValues(SVec<double,dim> &Uin, SVec<double,dim> &U)
+{
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].template assignPorousWallValues<dim>(Uin, U[i]);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::setNodeBcValue(double* Vin, SVec<double,dim>& Unode)
 {
 
@@ -4398,7 +4473,8 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;
@@ -4437,7 +4513,8 @@ void SubDomain::computeForceAndMoment(ExactRiemannSolver<dim> &riemann, VarFcn *
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;
@@ -4471,7 +4548,8 @@ void SubDomain::computeLiftSurfaces(map<int,int> & surfOutMap, PostFcn *postFcn,
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;
@@ -4534,7 +4612,8 @@ void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, Pos
     else {
       if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
          faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
-	 faces[i].getCode() == BC_SLIP_WALL_MOVING)
+	 faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+	 faces[i].getCode() == BC_POROUS_WALL_MOVING)
         idx = 0;
       else
         idx = -1;
@@ -5100,11 +5179,14 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
 	    U[i][dim-neq+k] = fabs(U[i][dim-neq+k]);
 	  else if (ctype == TsData::FREESTREAM)
 	    U[i][dim-neq+k] = Uin[dim-neq+k];
+	  else if (ctype == TsData::CUTOFF)
+	    U[i][dim-neq+k] = 0.0;
 	}
       }
     }
   }
 
+  errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
   return ierr;
 
 }
@@ -5766,8 +5848,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         }
 
 	if (dim==6) {  // One Equation Turbulent Model
-	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
-          weights[5] = (1.0-alpha)*(1.0-alpha);
+	  Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
+          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
 	}
 	else if (dim==7) { // Two Equations Turbulent Model
 	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
@@ -5811,8 +5893,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         }
 
 	if (dim==6) {  // One Equation Turbulent Model
-	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
-          weights[5] = (1.0-alpha)*(1.0-alpha);
+	  Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
+          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
 	}
 	else if (dim==7) { // Two Equations Turbulent Model
 	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
@@ -5863,8 +5945,10 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
   memset(dUdV,0,sizeof(double)*neq*neq);
   memset(dVdU,0,sizeof(double)*neq*neq);
   memset(B,0,sizeof(double)*neq*neq);
-  for (k = 0; k < neq; ++k) B[k*neq+k] = -1.0;
-  if (neq > 2)  B[0] = B[4*neq+4] = 1.0;
+  if (neq > 2)  {
+    for (k = 1; k < 4; ++k) B[k*neq+k] = 1.0;
+    B[0] = B[4*neq+4] = -1.0;
+  }
 
   for (int l=0; l<edges.size(); l++) {
     i = edgePtr[l][0];

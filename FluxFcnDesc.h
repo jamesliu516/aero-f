@@ -160,6 +160,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnPorousWallEuler3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnPorousWallEuler3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnGhidagliaEuler3D : public FluxFcnFD<5> {
 
 public:
@@ -208,6 +220,29 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnDirectStateInflowEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnDirectStateInflowEuler3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnDirectStateInflowEuler3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowInflowEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnMassFlowInflowEuler3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnMassFlowInflowEuler3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
 class FluxFcnOutflowEuler3D : public FluxFcnFD<5> {
   
 public:
@@ -227,6 +262,30 @@ public:
   FluxFcnInternalOutflowEuler3D(VarFcnBase *vf, Type tp) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnInternalOutflowEuler3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+//
+class FluxFcnDirectStateOutflowEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnDirectStateOutflowEuler3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnDirectStateOutflowEuler3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+//
+class FluxFcnMassFlowOutflowEuler3D : public FluxFcnFD<5> {
+
+public:
+
+  FluxFcnMassFlowOutflowEuler3D(VarFcnBase *vf, Type tp) :
+    FluxFcnFD<5>(vf, tp) {}
+  ~FluxFcnMassFlowOutflowEuler3D() {}
   
 };
 
@@ -359,6 +418,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnPorousWallSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnPorousWallSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnGhidagliaSA3D : public FluxFcnFD<6>{
 
 public:
@@ -395,6 +466,30 @@ public:
 };
 
 //------------------------------------------------------------------------------
+//
+class FluxFcnDirectStateInflowSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnDirectStateInflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnDirectStateInflowSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowInflowSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnMassFlowInflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnMassFlowInflowSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
 
 class FluxFcnInternalOutflowSA3D : public FluxFcnBase {
 
@@ -403,6 +498,30 @@ public:
   FluxFcnInternalOutflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnInternalOutflowSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnDirectStateOutflowSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnDirectStateOutflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnDirectStateOutflowSA3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowOutflowSA3D : public FluxFcnFD<6> {
+
+public:
+
+  FluxFcnMassFlowOutflowSA3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) {}
+  ~FluxFcnMassFlowOutflowSA3D() {}
   
 };
 
@@ -447,6 +566,17 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnPorousWallSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnPorousWallSAturb3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnOutflowSAturb3D : public FluxFcnBase {
 
 public:
@@ -469,12 +599,56 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnDirectStateInflowSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnDirectStateInflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnDirectStateInflowSAturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowInflowSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnMassFlowInflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnMassFlowInflowSAturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnInternalOutflowSAturb3D : public FluxFcnBase {
 
 public:
   FluxFcnInternalOutflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnInternalOutflowSAturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnDirectStateOutflowSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnDirectStateOutflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnDirectStateOutflowSAturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowOutflowSAturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnMassFlowOutflowSAturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnMassFlowOutflowSAturb3D() {}
 
 };
 
@@ -602,6 +776,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallKE3D : public FluxFcnFD<7> {
+
+public:
+
+  FluxFcnPorousWallKE3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) {}
+  ~FluxFcnPorousWallKE3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnGhidagliaKE3D : public FluxFcnFD<7>{
 
 public:
@@ -623,6 +809,54 @@ public:
     FluxFcnFD<7>(vf, tp) {}
   ~FluxFcnOutflowKE3D() {}
 
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnDirectStateInflowKE3D : public FluxFcnFD<7> {
+
+public:
+
+  FluxFcnDirectStateInflowKE3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) {}
+  ~FluxFcnDirectStateInflowKE3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowInflowKE3D : public FluxFcnFD<7> {
+
+public:
+
+  FluxFcnMassFlowInflowKE3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) {}
+  ~FluxFcnMassFlowInflowKE3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnDirectStateOutflowKE3D : public FluxFcnFD<7> {
+
+public:
+
+  FluxFcnDirectStateOutflowKE3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) {}
+  ~FluxFcnDirectStateOutflowKE3D() {}
+  
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowOutflowKE3D : public FluxFcnFD<7> {
+
+public:
+
+  FluxFcnMassFlowOutflowKE3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) {}
+  ~FluxFcnMassFlowOutflowKE3D() {}
+  
 };
 
 //------------------------------------------------------------------------------
@@ -655,6 +889,18 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPorousWallKEturb3D : public FluxFcnBase {
+
+public:
+
+  FluxFcnPorousWallKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnPorousWallKEturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnGhidagliaKEturb3D : public FluxFcnBase{
 
 public:
@@ -674,6 +920,50 @@ public:
   FluxFcnOutflowKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) {}
   ~FluxFcnOutflowKEturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnDirectStateInflowKEturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnDirectStateInflowKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnDirectStateInflowKEturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowInflowKEturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnMassFlowInflowKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnMassFlowInflowKEturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnDirectStateOutflowKEturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnDirectStateOutflowKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnDirectStateOutflowKEturb3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnMassFlowOutflowKEturb3D : public FluxFcnBase {
+
+public:
+  FluxFcnMassFlowOutflowKEturb3D(VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) {}
+  ~FluxFcnMassFlowOutflowKEturb3D() {}
 
 };
 

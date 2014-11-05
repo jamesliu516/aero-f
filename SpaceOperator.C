@@ -263,13 +263,23 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
   ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff -= BC_MIN_CODE;
   
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 12)
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
   ff[BC_SYMMETRY] = new FluxFcn(rshift,BC_SYMMETRY,ioData,varFcn); 
+  ff[BC_MASSFLOW_OUTLET_MOVING] = new FluxFcn(rshift,BC_MASSFLOW_OUTLET_MOVING,ioData,varFcn);
+  ff[BC_MASSFLOW_OUTLET_FIXED] = new FluxFcn(rshift,BC_MASSFLOW_OUTLET_FIXED,ioData,varFcn); 
+  ff[BC_MASSFLOW_INLET_MOVING] = new FluxFcn(rshift,BC_MASSFLOW_INLET_MOVING,ioData,varFcn);
+  ff[BC_MASSFLOW_INLET_FIXED] = new FluxFcn(rshift,BC_MASSFLOW_INLET_FIXED,ioData,varFcn);
+  ff[BC_DIRECTSTATE_OUTLET_MOVING] = new FluxFcn(rshift,BC_DIRECTSTATE_OUTLET_MOVING,ioData,varFcn);
+  ff[BC_DIRECTSTATE_OUTLET_FIXED] = new FluxFcn(rshift,BC_DIRECTSTATE_OUTLET_FIXED,ioData,varFcn); 
+  ff[BC_DIRECTSTATE_INLET_MOVING] = new FluxFcn(rshift,BC_DIRECTSTATE_INLET_MOVING,ioData,varFcn);
+  ff[BC_DIRECTSTATE_INLET_FIXED] = new FluxFcn(rshift,BC_DIRECTSTATE_INLET_FIXED,ioData,varFcn);
   ff[BC_OUTLET_MOVING] = new FluxFcn(rshift,BC_OUTLET_MOVING,ioData,varFcn);
   ff[BC_OUTLET_FIXED] = new FluxFcn(rshift,BC_OUTLET_FIXED,ioData,varFcn); 
   ff[BC_INLET_MOVING] = new FluxFcn(rshift,BC_INLET_MOVING,ioData,varFcn);
   ff[BC_INLET_FIXED] = new FluxFcn(rshift,BC_INLET_FIXED,ioData,varFcn);
+  ff[BC_POROUS_WALL_MOVING] = new FluxFcn(rshift,BC_POROUS_WALL_MOVING,ioData,varFcn);
+  ff[BC_POROUS_WALL_FIXED] = new FluxFcn(rshift,BC_POROUS_WALL_FIXED,ioData,varFcn);
   ff[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(rshift,BC_ADIABATIC_WALL_MOVING,ioData,varFcn);
   ff[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(rshift,BC_ADIABATIC_WALL_FIXED,ioData,varFcn);
   ff[BC_SLIP_WALL_MOVING] = new FluxFcn(rshift,BC_SLIP_WALL_MOVING,ioData,varFcn);
@@ -1800,6 +1810,17 @@ void SpaceOperator<dim>::applyBCsToSolutionVector(DistSVec<double,dim> &U, DistL
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SpaceOperator<dim>::applyBCsToTurbSolutionVector(DistSVec<double,dim> &U, DistLevelSetStructure *distLSS)
+{
+
+  if (bcFcn)
+    domain->applyBCsToTurbSolutionVector(bcFcn, *bcData, U, distLSS);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
 
@@ -1832,11 +1853,11 @@ void SpaceOperator<dim>::applyBCsToDerivativeOfResidual(DistSVec<double,dim> &U,
 
 template<int dim>
 template<class Scalar, int neq>
-void SpaceOperator<dim>::applyBCsToJacobian(DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
+void SpaceOperator<dim>::applyBCsToJacobian(DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, DistLevelSetStructure *distLSS)
 {
 
   if (bcFcn)
-    domain->applyBCsToJacobian(bcFcn, *bcData, U, A);
+    domain->applyBCsToJacobian(bcFcn, *bcData, U, A, distLSS);
 
 // Included (MB*)
   if (bcFcn)

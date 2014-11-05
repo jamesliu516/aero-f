@@ -103,6 +103,8 @@ class Domain {
 
   int **nodeFaceType;
 
+  int **offWallNode;
+
   DistInfo *nodeDistInfo;
   DistInfo *edgeDistInfo;
   DistInfo *faceDistInfo;
@@ -240,6 +242,7 @@ public:
   void numberEdges();
   void setNodeType(IoData &);
   void setInletNodes(IoData &);
+  void computeOffWallNode(DistLevelSetStructure *distLSS=0);
   void makeRotationOwnership(IoData &);
   void setFaceToElementConnectivity();
   void printElementStatistics();
@@ -747,12 +750,15 @@ public:
     void applyBCsToSolutionVector(BcFcn *, DistBcData<dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<int dim>
+    void applyBCsToTurbSolutionVector(BcFcn *, DistBcData<dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
+
+  template<int dim>
   void applyBCsToResidual(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobian(BcFcn *, DistBcData<dim> &,
-			  DistSVec<double,dim> &, DistMat<Scalar,neq> &);
+			  DistSVec<double,dim> &, DistMat<Scalar,neq> &, DistLevelSetStructure *distLSS=0);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &,

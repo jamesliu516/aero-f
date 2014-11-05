@@ -47,6 +47,7 @@ protected:
 
   DistSVec<double,dim> Ufarin;
   DistSVec<double,dim> Ufarout;
+  DistSVec<double,dim> Uporouswall;
   double Uin[dim], Vin[dim];
   double Uout[dim], Vout[dim];
   double Ub[dim];
@@ -74,6 +75,7 @@ protected:
   DistSVec<double,dim> *dUinletnode;
   DistSVec<double,dim> *dUfarin;
   DistSVec<double,dim> *dUfarout;
+  DistSVec<double,dim> *dUporouswall;
   double dUin[dim], dVin[dim];
   double dUout[dim], dVout[dim];
 
@@ -114,6 +116,7 @@ public:
   DistSVec<double,dim> &getNodeStateVector() { return Unode; }
   DistSVec<double,dim> &getUfarin() { return Ufarin; }
   DistSVec<double,dim> &getUfarout() { return Ufarout; }
+  DistSVec<double,dim> &getUporouswall() { return Uporouswall; }
 
   DistVec<double>* getBoundaryStateHH() { return boundaryStateHH; }
 

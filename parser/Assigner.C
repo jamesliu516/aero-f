@@ -93,6 +93,45 @@ ClassStr<T>::assignString(const char *string)
  ptr->*str = string;
 }
 
+template <class T>
+ClassArray<T>::ClassArray(ClassAssigner *ca, const char *n, T *_ptr, bool (T::*_var)[T::SIZE], int nt, ...) : tk(nt), val(nt), Assigner(n)
+{
+  ptr = _ptr;
+  var = _var;
+  ca->addSmb(n, this);
+  va_list vl;
+  va_start(vl,nt);
+ 
+  for(int i = 0; i < nt; ++i) {
+    const char *tokenString = va_arg(vl, const char *);
+    int v = va_arg(vl, int);
+    tk[i] = findSysToken(tokenString);
+    val[i] = v;
+  }
+  va_end(vl);
+}
+
+template <class T>
+void 
+ClassArray<T>::assignList(int nt, int *(list[]))
+{
+  bool assigned;
+  for(int l = 0; l < nt; ++l) {
+    assigned = false;
+    for(int i = 0; i < tk.size(); ++i) {
+      if(tk[i] == (*list)[l]) {
+        (ptr->*var)[val[i]] = true;
+        assigned =  true;
+      }
+    }
+    if (!assigned) {
+      fprintf(stderr, "ERROR: Token not understood: %s\n", 
+            	  dictionary->word((*list)[l]).c_str());
+      exit(1);
+    }
+  }
+}
+
 /*template <class T>
 ClassTokenIntPair<T>::
 ClassTokenIntPair(ClassAssigner *ca, const char *n, T *_ptr,int T::*ss, int T::*_sp, int nt, ...)

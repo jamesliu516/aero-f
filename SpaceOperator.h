@@ -247,10 +247,12 @@ public:
 
   void applyBCsToSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
 
+  void applyBCsToTurbSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
+
   void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
-  void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);
+  void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
   void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);
