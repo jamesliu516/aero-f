@@ -57,13 +57,16 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   geoState = new DistGeoState(ioData, domain);
 
   // restart the geoState (positions of the mesh) At return X contains the last
-  // position of the mesh.
+  // position of the mesh
+  //
+  // .
   if ((ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) &&
       (ioData.problem.type[ProblemData::AERO] ||
        ioData.problem.type[ProblemData::ACCELERATED] ||
        ioData.problem.type[ProblemData::FORCED] ||
        ioData.problem.type[ProblemData::ROLL] ||
-       ioData.problem.type[ProblemData::RBM] )) {
+       ioData.problem.type[ProblemData::RBM] ||
+        ioData.problem.alltype==ProblemData::_STEADY_)) {
     geoState->setup1(input->positions, X, A);
     moveMesh(ioData, geoSource);
   } else {
@@ -71,7 +74,6 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
     geoState->setup1(temp, X, A);
     moveMesh(ioData, geoSource);
   }
-
   bcData = createBcData(ioData);
 
   spaceOp = new SpaceOperator<dim>(ioData, varFcn, bcData, geoState, domain, V);
