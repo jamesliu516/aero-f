@@ -302,7 +302,23 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
 
   if (this->modifiedGhidaglia)
     embeddedU.hh() = *this->bcData->getBoundaryStateHH();
+
+ 
+  if (this->timeState->useNm1() && this->timeState->existsNm1() &&
+      this->phaseChangeType == 1) {
+    DistSVec<double,dim>& Unm1 = this->timeState->getUnm1();
   
+    this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
+    this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X, *this->A, this->multiFluidInterfaceOrder-1,
+ 					            Unm1, this->V0,
+						    *this->Weights,*this->VWeights,
+						    NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdnm1,
+						    false);
+    this->varFcn->primitiveToConservative(this->V0,Unm1,this->fluidSelector.fluidId);
+  }
+    
+
+ 
   int its = this->ns->solve(U);
  
   this->errorHandler->reduceError();

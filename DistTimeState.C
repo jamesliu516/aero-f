@@ -141,6 +141,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   
   fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
 
+  mf_phase_change_type = (ioData.mf.typePhaseChange != MultiFluidData::EXTRAPOLATION);
+
   *dtau = 1.0;
   unphysical = false;
   dt_coeff = 1.0;
