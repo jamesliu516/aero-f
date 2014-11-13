@@ -84,6 +84,8 @@ private:
   bool isGFMPAR;
   int fvmers_3pbdf ;
 
+  int mf_phase_change_type;
+
   double dt_coeff;
   int dt_coeff_count;
 
