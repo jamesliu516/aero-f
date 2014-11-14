@@ -1194,7 +1194,8 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
   dUdS = 0.0;
 
   dFdS *= (-1.0);
-  if(!isFSI) ksp->setup(0, 1, dFdS);
+//  if(!isFSI) 
+  ksp->setup(0, 1, dFdS);
 
   int numberIteration;
   bool istop = false;
@@ -1202,11 +1203,7 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
 
   while ((istop == false) && (iter < 100))
   {
-//    clock_t begin = clock();
     numberIteration = ksp->solve(dFdS, dUdS);
-//    clock_t end = clock();
-//    double elapsed_secs = double(end-begin) / CLOCKS_PER_SEC;
-//    this->com->printf(0, "elapsed_secs for FluidShapeOptimizationHandler<dim>::fsoLinearSolver is %f s\n", elapsed_secs);
     if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true; 
     iter += 1;
@@ -1477,7 +1474,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
       double relres;
       this->getRelResidual(relres);
       this->com->fprintf(stderr, "relres received from Structure = %e\n", relres);
-      ksp->setEps(relres);
+//      ksp->setEps(relres);
       // Reading derivative of the overall deformation
       this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
 
