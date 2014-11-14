@@ -1472,10 +1472,9 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
       
       this->cmdCom(&lastIt);
       if(lastIt) { dXdSb = 0.0; break; }
-      this->com->fprintf(stderr, "fso_sensitivityFSI Iteration\t%d\n",iter+1);
+      this->com->fprintf(stderr, "fso_sensitivityFSI Iteration\t");
       double relres;
       this->getRelResidual(relres);
-      this->com->fprintf(stderr, "relres received from Structure = %e\n", relres);
       if(ioData.sa.adaptiveThreshold) ksp->setEps(relres);
       // Reading derivative of the overall deformation
       this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
