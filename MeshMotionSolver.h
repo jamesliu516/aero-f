@@ -136,23 +136,4 @@ public:
 
 //------------------------------------------------------------------------------
 
-class TetMeshSensitivitySolver : public TetMeshMotionSolver {
-
-protected:
-
- DistSVec<double,3> *currentPosition;
- NewtonSolver<TetMeshSensitivitySolver> *nss;
-
-public:
-
-  TetMeshSensitivitySolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
-  ~TetMeshSensitivitySolver();
-  int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &);
-
-  void computeFunction(int, DistSVec<double,3> &, DistSVec<double,3> &);
-  void setup(DistSVec<double,3> &X);
-};
-
-//------------------------------------------------------------------------------
-
 #endif
