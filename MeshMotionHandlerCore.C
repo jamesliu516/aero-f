@@ -395,8 +395,6 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
   //com->fprintf(stderr, " ... Starting Struct Solver\n");
 
   mms = new TetMeshMotionSolver(ioData.dmesh, matchNodes, domain, mp);
-  if (ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ) mms1 = new TetMeshSensitivitySolver(ioData.dmesh, matchNodes, domain, mp);
-  else mms1 = 0;
 
   it0 = ioData.restart.iteration;
 
@@ -426,7 +424,6 @@ AeroMeshMotionHandler::~AeroMeshMotionHandler()
   if (Favg) delete Favg;
   if (strExc) delete strExc;
   if (mms) delete mms;
-  if (mms1) delete mms1;
 }
 
 //------------------------------------------------------------------------------
