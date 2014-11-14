@@ -3232,6 +3232,7 @@ SensitivityAnalysis::SensitivityAnalysis()
   si = 0;
   sf = -1;
   fsiFlag = false;
+  adaptiveThreshold = OFF_ADAPTIVETHRESHOLD;
 
   // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
@@ -3263,6 +3264,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityBeta", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensBeta), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "AdaptiveThreshold", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveThreshold), 2, "Off", 0, "On", 1);
   new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableInitial", this, &SensitivityAnalysis::si);
   new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableFinal", this, &SensitivityAnalysis::sf);
 
