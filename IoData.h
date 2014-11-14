@@ -1805,6 +1805,7 @@ struct SensitivityAnalysis {
 
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
+  enum AdaptiveThreshold {OFF_ADAPTIVETHRESHOLD = 0, ON_ADAPTIVETHRESHOLD = 1} adaptiveThreshold;
 
   double machref;
   double alpharef;
