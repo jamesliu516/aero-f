@@ -488,6 +488,9 @@ public:
   void assignFreeStreamValues(double *Uin, double *Uout, double *U);
   
   template<int dim>
+  void assignPorousWallValues(SVec<double,dim> &Uin, double *U);
+  
+  template<int dim>
   void computeFaceBcValue(SVec<double,dim> &Unode, double *Uface);
 
   template<int dim1, int dim2>

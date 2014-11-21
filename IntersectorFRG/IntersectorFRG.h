@@ -68,6 +68,9 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
+    int *faceID;
+    double *porosity;
+
     // surface rotation
     int *surfaceID;
     int *rotOwn;
@@ -111,6 +114,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
+    void setPorosity();
     void makerotationownership();
     void updatebc();
 

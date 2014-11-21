@@ -17,10 +17,30 @@ void BcFcn::applyToSolutionVector(int t, double *v, double *u)
 
 //------------------------------------------------------------------------------
 
+void BcFcn::applyToTurbSolutionVector(int t, double *v, double *u)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbSolutionVector function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcn::applyToResidualTerm(int t, double *v, double *u, double *f)
 {
 
   fprintf(stderr, "*** Error: applyToResidualTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+//
+void BcFcn::applyToTurbResidualTerm(int t, double *v, double *u, double *f)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbResidualTerm function not implemented\n");
   exit(1);
 
 }
@@ -68,6 +88,36 @@ void BcFcn::applyToDiagonalTerm(int t, double *v, double *u, bcomp *a)
 
 //------------------------------------------------------------------------------
 
+void BcFcn::applyToTurbDiagonalTerm(int t, double *v, double *u, float *a)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbDiagonalTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcn::applyToTurbDiagonalTerm(int t, double *v, double *u, double *a)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbDiagonalTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcn::applyToTurbDiagonalTerm(int t, double *v, double *u, bcomp *a)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbDiagonalTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcn::applyToOffDiagonalTerm(int t, float *a)
 {
 
@@ -92,6 +142,36 @@ void BcFcn::applyToOffDiagonalTerm(int t, bcomp *a)
 {
 
   fprintf(stderr, "*** Error: applyToOffDiagonalTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcn::applyToTurbOffDiagonalTerm(int t, float *a)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbOffDiagonalTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcn::applyToTurbOffDiagonalTerm(int t, double *a)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbOffDiagonalTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcn::applyToTurbOffDiagonalTerm(int t, bcomp *a)
+{
+
+  fprintf(stderr, "*** Error: applyToTurbOffDiagonalTerm function not implemented\n");
   exit(1);
 
 }
@@ -357,6 +437,13 @@ void BcFcnSA::applyToSolutionVector(int type, double *Vwall, double *U)
 
 //------------------------------------------------------------------------------
 
+void BcFcnSA::applyToTurbSolutionVector(int type, double *Vwall, double *U)
+{
+    U[5] = U[0] * Vwall[5];
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcnSA::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
 {
 
@@ -367,6 +454,13 @@ void BcFcnSA::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
       type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
     F[5] = - U[0] * Vwall[5] + U[5];
 
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSA::applyToTurbResidualTerm(int type, double *Vwall, double *U, double *F)
+{
+    F[5] = - U[0] * Vwall[5] + U[5];
 }
 
 //------------------------------------------------------------------------------
@@ -450,6 +544,25 @@ void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *U, double *A)
 
 //------------------------------------------------------------------------------
 
+void BcFcnSA::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, float *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+
+void BcFcnSA::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, double *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *dVwall, double *U, double *A)
 {
@@ -461,6 +574,15 @@ void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *dVwall, doubl
 //------------------------------------------------------------------------------
 
 void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *U, bcomp *A)
+{
+
+  template_applyToDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+//
+void BcFcnSA::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, bcomp *A)
 {
 
   template_applyToDiagonalTerm(type, Vwall, U, A);
@@ -506,6 +628,33 @@ void BcFcnSA::applyToOffDiagonalTerm(int type, bcomp *A)
 
 //------------------------------------------------------------------------------
 
+void BcFcnSA::applyToTurbOffDiagonalTerm(int type, float *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSA::applyToTurbOffDiagonalTerm(int type, double *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSA::applyToTurbOffDiagonalTerm(int type, bcomp *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcnSAturb::applyToSolutionVector(int type, double *Vwall, double *U)
 {
 
@@ -514,6 +663,13 @@ void BcFcnSAturb::applyToSolutionVector(int type, double *Vwall, double *U)
     U[5] = Vwall[5];
 
 
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSAturb::applyToTurbSolutionVector(int type, double *Vwall, double *U)
+{
+    U[5] = Vwall[5];
 }
 
 //------------------------------------------------------------------------------
@@ -540,6 +696,33 @@ void BcFcnSAturb::applyToDiagonalTerm(int type, double *Vwall, double *U, bcomp 
 {
 
   template_applyToDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSAturb::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, float *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSAturb::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, double *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSAturb::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, bcomp *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
 
 }
 
@@ -572,6 +755,33 @@ void BcFcnSAturb::applyToOffDiagonalTerm(int type, bcomp *A)
 
 //------------------------------------------------------------------------------
 
+void BcFcnSAturb::applyToTurbOffDiagonalTerm(int type, float *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSAturb::applyToTurbOffDiagonalTerm(int type, double *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnSAturb::applyToTurbOffDiagonalTerm(int type, bcomp *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
 BcFcnKE::BcFcnKE(IoData& iod)
 {
 
@@ -596,6 +806,12 @@ void BcFcnKE::applyToSolutionVector(int type, double *Vwall, double *U)
 }
 //------------------------------------------------------------------------------
 
+void BcFcnKE::applyToTurbSolutionVector(int type, double *Vwall, double *U)
+{
+  U[5] = U[0] * Vwall[5];
+}
+//------------------------------------------------------------------------------
+
 
 void BcFcnKE::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
 {
@@ -606,6 +822,14 @@ void BcFcnKE::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
     F[6] = - Vwall[6] * U[0] + U[6];
   }
 
+}
+
+//------------------------------------------------------------------------------
+//
+void BcFcnKE::applyToTurbResidualTerm(int type, double *Vwall, double *U, double *F)
+{
+  F[5] = - Vwall[5] * U[0] + U[5];
+  F[6] = - Vwall[6] * U[0] + U[6];
 }
 
 //------------------------------------------------------------------------------
@@ -651,6 +875,33 @@ void BcFcnKE::applyToDiagonalTerm(int type, double *Vwall, double *U, bcomp *A)
 
 //------------------------------------------------------------------------------
 
+void BcFcnKE::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, float *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKE::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, double *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKE::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, bcomp *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcnKE::applyToOffDiagonalTerm(int type, float *A)
 {
 
@@ -673,6 +924,33 @@ void BcFcnKE::applyToOffDiagonalTerm(int type, bcomp *A)
 {
 
   template_applyToOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKE::applyToTurbOffDiagonalTerm(int type, float *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKE::applyToTurbOffDiagonalTerm(int type, double *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKE::applyToTurbOffDiagonalTerm(int type, bcomp *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
 
 }
 
@@ -705,6 +983,33 @@ void BcFcnKEturb::applyToDiagonalTerm(int type, double *Vwall, double *U, bcomp 
 
 //------------------------------------------------------------------------------
 
+void BcFcnKEturb::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, float *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKEturb::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, double *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKEturb::applyToTurbDiagonalTerm(int type, double *Vwall, double *U, bcomp *A)
+{
+
+  template_applyToTurbDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcnKEturb::applyToOffDiagonalTerm(int type, float *A)
 {
 
@@ -727,6 +1032,33 @@ void BcFcnKEturb::applyToOffDiagonalTerm(int type, bcomp *A)
 {
 
   template_applyToOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKEturb::applyToTurbOffDiagonalTerm(int type, float *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKEturb::applyToTurbOffDiagonalTerm(int type, double *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKEturb::applyToTurbOffDiagonalTerm(int type, bcomp *A)
+{
+
+  template_applyToTurbOffDiagonalTerm(type, A);
 
 }
 

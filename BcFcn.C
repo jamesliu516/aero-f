@@ -204,6 +204,21 @@ void BcFcnSA::template_applyToDiagonalTerm(int type, double *Vwall, double *U, S
 
 //------------------------------------------------------------------------------
 
+template<class Scalar>
+inline
+void BcFcnSA::template_applyToTurbDiagonalTerm(int type, double *Vwall, double *U, Scalar *A)
+{
+
+  const int neq = 6;
+
+  for (int k=0; k<neq; ++k)
+    A[neq*5 + k] = 0.0;
+  A[neq*5 + 5] = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<class Scalar>
 inline
@@ -248,12 +263,37 @@ void BcFcnSA::template_applyToOffDiagonalTerm(int type, Scalar *A)
 
 template<class Scalar>
 inline
+void BcFcnSA::template_applyToTurbOffDiagonalTerm(int type, Scalar *A)
+{
+
+  const int neq = 6;
+
+  for (int k=0; k<neq; ++k)
+    A[neq*5 + k] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
 void BcFcnSAturb::template_applyToDiagonalTerm(int type, double *Vwall, double *U, Scalar *A)
 {
 
   if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
       type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
     A[0] = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+//
+template<class Scalar>
+inline
+void BcFcnSAturb::template_applyToTurbDiagonalTerm(int type, double *Vwall, double *U, Scalar *A)
+{
+
+  A[0] = 1.0;
 
 }
 
@@ -267,6 +307,17 @@ void BcFcnSAturb::template_applyToOffDiagonalTerm(int type, Scalar *A)
   if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
       type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
     A[0] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
+void BcFcnSAturb::template_applyToTurbOffDiagonalTerm(int type, Scalar *A)
+{
+
+  A[0] = 0.0;
 
 }
 
@@ -297,6 +348,26 @@ void BcFcnKE::template_applyToDiagonalTerm(int type, double *Vwall, double *U, S
 
 template<class Scalar>
 inline
+void BcFcnKE::template_applyToTurbDiagonalTerm(int type, double *Vwall, double *U, Scalar *A)
+{
+
+  const int neq = 7;
+
+  for (int k=0; k<neq; ++k) {
+    A[neq*5 + k] = 0.0;
+    A[neq*6 + k] = 0.0;
+  }
+  A[neq*5 + 0] = - Vwall[5];
+  A[neq*5 + 5] = 1.0;
+  A[neq*5 + 0] = - Vwall[6];
+  A[neq*6 + 6] = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
 void BcFcnKE::template_applyToOffDiagonalTerm(int type, Scalar *A)
 {
 
@@ -308,6 +379,22 @@ void BcFcnKE::template_applyToOffDiagonalTerm(int type, Scalar *A)
       A[neq*5 + k] = 0.0;
       A[neq*6 + k] = 0.0;
     }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
+void BcFcnKE::template_applyToTurbOffDiagonalTerm(int type, Scalar *A)
+{
+
+  const int neq = 7;
+
+  for (int k=0; k<neq; ++k) {
+    A[neq*5 + k] = 0.0;
+    A[neq*6 + k] = 0.0;
   }
 
 }
@@ -333,6 +420,20 @@ void BcFcnKEturb::template_applyToDiagonalTerm(int type, double *Vwall, double *
 
 template<class Scalar>
 inline
+void BcFcnKEturb::template_applyToTurbDiagonalTerm(int type, double *Vwall, double *U, Scalar *A)
+{
+
+  A[0] = 1.0;
+  A[1] = 0.0;
+  A[2] = 0.0;
+  A[3] = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
 void BcFcnKEturb::template_applyToOffDiagonalTerm(int type, Scalar *A)
 {
 
@@ -343,6 +444,20 @@ void BcFcnKEturb::template_applyToOffDiagonalTerm(int type, Scalar *A)
     A[2] = 0.0;
     A[3] = 0.0;
   }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
+void BcFcnKEturb::template_applyToTurbOffDiagonalTerm(int type, Scalar *A)
+{
+
+  A[0] = 0.0;
+  A[1] = 0.0;
+  A[2] = 0.0;
+  A[3] = 0.0;
 
 }
 

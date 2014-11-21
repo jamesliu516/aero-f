@@ -161,10 +161,10 @@ public:
 			RestrictionMapping<dim> &, bool=true);
 // Included (MB)
   void computeResidual(DistExactRiemannSolver<dim> *,
-											 DistSVec<double,3> &, DistVec<double> &,
-											 DistSVec<double,dim> &, DistSVec<double,dim> &,
-											 DistTimeState<dim> *, bool=true);
-
+		       DistSVec<double,3> &, DistVec<double> &,
+		       DistSVec<double,dim> &, DistSVec<double,dim> &,
+		       DistTimeState<dim> *, bool=true);
+  
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
@@ -184,7 +184,8 @@ public:
                         DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                         DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-                        DistLevelSetStructure *distLSS, double *vfar, DistVec<int> *fluidId = 0);
+                        DistLevelSetStructure *distLSS, double *vfar, bool limit,
+			DistVec<int> *fluidId);
 
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linFSI,DistVec<int> &tag);
   
@@ -246,10 +247,12 @@ public:
 
   void applyBCsToSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
 
+  void applyBCsToTurbSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
+
   void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
-  void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);
+  void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
   void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);

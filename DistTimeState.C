@@ -424,7 +424,7 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
   if(!iod.volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator volIt;
     for (volIt=iod.volumes.volumeMap.dataMap.begin(); volIt!=iod.volumes.volumeMap.dataMap.end();volIt++)
-      if(volIt->second->type==VolumeData::FLUID){
+      if(volIt->second->type==VolumeData::FLUID || volIt->second->type==VolumeData::POROUS){
         //each volume (volIt->first) is setup using Input variables 'volumeInitialConditions'
         //                                 and equation of state 'fluidModel'
         map<int, FluidModelData *>::iterator fluidIt = iod.eqs.fluidModelMap.dataMap.find(volIt->second->fluidModelID);
