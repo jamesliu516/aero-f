@@ -556,12 +556,39 @@ struct BcsHydroData {
 
 //------------------------------------------------------------------------------
 
+struct BoundaryData  {
+
+  static const int UNSPECIFIED = -1;
+  enum Type {DIRECTSTATE = 1, MASSFLOW = 2, POROUSWALL = 3} type;
+
+   enum vars {DENSITY = 0, VX = 1, VY = 2, VZ = 3, PRESSURE = 4, TEMPERATURE = 5, TOTALPRESSURE = 6, TOTALTEMPERATURE = 7, MDOT = 8, NUTILDE = 9, KENERGY = 10, EPSILON = 11, SIZE = 12};
+  bool inVar[SIZE], outVar[SIZE]; 
+  double density;
+  double velocityX, velocityY, velocityZ;
+  double pressure;
+  double temperature;
+  double totalPressure;
+  double totalTemperature;
+  double mdot;
+  double nutilde;
+  double kenergy;
+  double epsilon;
+  double porosity;
+
+  BoundaryData();
+  Assigner *getAssigner();
+
+};
+
+//-----------------------------------------------------------------------------
+
 struct BcsData {
 
   BcsFreeStreamData inlet;
   BcsFreeStreamData outlet;
   BcsWallData wall;
   BcsHydroData hydro;
+  ObjectMap<BoundaryData> bcMap;
 
   BcsData();
   ~BcsData() {}
@@ -1697,7 +1724,7 @@ struct TsData {
 
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
   enum TypeTimeStep {AUTO = 0, LOCAL = 1, GLOBAL = 2} typeTimeStep;
-  enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2} typeClipping;
+  enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2, CUTOFF = 3} typeClipping;
   enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
   enum DualTimeStepping {OFF = 0, ON = 1} dualtimestepping;
 
@@ -2080,6 +2107,8 @@ struct ForcedData {
   PitchingData pt;
   Velocity vel;
   DeformingData df;
+
+  double tsoffset;
 
   ForcedData();
   ~ForcedData() {}
@@ -2718,6 +2747,7 @@ struct SurfaceData  {
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
   int forceID;
+  int bcID;
   double velocity;
 
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
@@ -2760,6 +2790,7 @@ struct EmbeddedFramework {
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
 
+  enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)
   //
@@ -2931,6 +2962,7 @@ public:
   int checkInputValuesEssentialBC();
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
+  int checkBoundaryValues();
   int checkSolverValues(map<int,SurfaceData*>& surfaceMap);
   int checkInputValuesInitialConditions(InitialConditions &initialConditions,
                                         int fluidModelID);

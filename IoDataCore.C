@@ -926,6 +926,62 @@ void BcsHydroData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+BoundaryData::BoundaryData()
+{
+  type = (Type) UNSPECIFIED; 
+  density = -1.0;
+  velocityX = 0.0;
+  velocityY = 0.0;
+  velocityZ = 0.0;
+  pressure = -1.0;
+  temperature = -1.0;
+  totalPressure = -1.0;
+  totalTemperature = -1.0;
+  mdot = -1.0;
+  nutilde = -1.0;
+  kenergy = -1.0;
+  epsilon = -1.0;
+  porosity = 0.0;
+
+  for (int i=0; i<SIZE; ++i) {
+    inVar[i] = false;
+    outVar[i] = false;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+Assigner *BoundaryData::getAssigner()  {
+
+  ClassAssigner *ca = new ClassAssigner("normal", 16, nullAssigner);
+
+  new ClassToken<BoundaryData>(ca, "Type", this,
+                              (int BoundaryData::*)(&BoundaryData::type), 3,
+                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW, "PorousWall", POROUSWALL);
+  new ClassDouble<BoundaryData>(ca, "Density", this, &BoundaryData::density);
+  new ClassDouble<BoundaryData>(ca, "VelocityX", this, &BoundaryData::velocityX);
+  new ClassDouble<BoundaryData>(ca, "VelocityY", this, &BoundaryData::velocityY);
+  new ClassDouble<BoundaryData>(ca, "VelocityZ", this, &BoundaryData::velocityZ);
+  new ClassDouble<BoundaryData>(ca, "Pressure", this, &BoundaryData::pressure);
+  new ClassDouble<BoundaryData>(ca, "Temperature", this, &BoundaryData::temperature);
+  new ClassDouble<BoundaryData>(ca, "TotalPressure", this, &BoundaryData::totalPressure);
+  new ClassDouble<BoundaryData>(ca, "TotalTemperature", this, &BoundaryData::totalTemperature);
+  new ClassDouble<BoundaryData>(ca, "MassFlow", this, &BoundaryData::mdot);
+  new ClassDouble<BoundaryData>(ca, "NuTilde", this, &BoundaryData::nutilde);
+  new ClassDouble<BoundaryData>(ca, "K", this, &BoundaryData::kenergy);
+  new ClassDouble<BoundaryData>(ca, "Eps", this, &BoundaryData::epsilon);
+
+  new ClassDouble<BoundaryData>(ca, "Porosity", this, &BoundaryData::porosity);
+
+  new ClassArray<BoundaryData>(ca, "InletVariables", this, &BoundaryData::inVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
+  new ClassArray<BoundaryData>(ca, "OutletVariables", this, &BoundaryData::outVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
+
+  return ca;
+}
+
+//------------------------------------------------------------------------------
+
 BcsData::BcsData()
 {
 
@@ -936,12 +992,13 @@ BcsData::BcsData()
 void BcsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
   inlet.setup("Inlet", ca);
   outlet.setup("Outlet", ca);
   wall.setup("Wall", ca);
   hydro.setup("Hydro", ca);
+  bcMap.setup("BoundaryData", ca);
 
 }
 
@@ -3099,8 +3156,8 @@ void TsData::setup(const char *name, ClassAssigner *father)
                          reinterpret_cast<int TsData::*>(&TsData::checkdensity), 2,
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
-                         reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
-                         "None", 0, "AbsoluteValue", 1, "Freestream", 2);
+                         reinterpret_cast<int TsData::*>(&TsData::typeClipping), 4,
+                         "None", 0, "AbsoluteValue", 1, "Freestream", 2, "CutOff", 3);
   new ClassToken<TsData>(ca, "TimeStepAdaptation", this,
                          reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
                          "Cfl", 0, "ErrorEstimation", 1);
@@ -3513,6 +3570,7 @@ ForcedData::ForcedData()
   frequency = -1.0;
   timestep = -1.0;
 
+  tsoffset = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -3530,6 +3588,7 @@ void ForcedData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
+  new ClassDouble<ForcedData>(ca, "TimeStepOffset", this, &ForcedData::tsoffset);
 
   hv.setup("Heaving", ca);
   sp.setup("Spiraling", ca);
@@ -4770,6 +4829,7 @@ SurfaceData::SurfaceData()  {
 
   rotationID = -1;
   forceID = -1;
+  bcID = -1;
   velocity = 0.0;
 
   type = (Type) UNSPECIFIED; 
@@ -4782,7 +4842,7 @@ SurfaceData::SurfaceData()  {
 //------------------------------------------------------------------------------
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 13, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 14, nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
@@ -4796,6 +4856,7 @@ Assigner *SurfaceData::getAssigner()  {
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
   new ClassInt<SurfaceData>(ca, "ForcedVelocityID", this, &SurfaceData::forceID);
+  new ClassInt<SurfaceData>(ca, "BoundaryConditionID", this, &SurfaceData::bcID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);
 
   new ClassToken<SurfaceData>(ca, "Type", this,
@@ -5040,6 +5101,8 @@ EmbeddedFramework::EmbeddedFramework() {
   interfaceThickness = 1e-8;
 
   testCase = 0;
+
+  interfaceLimiter = LIMITERNONE;
 }
 
 //------------------------------------------------------------------------------
@@ -5080,6 +5143,11 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
+
+  new ClassToken<EmbeddedFramework>(ca, "InterfaceLimiter", this,
+                                    reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceLimiter),2,
+                                    "None", 0, "Alex1", 1);
+
 
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)
@@ -5357,6 +5425,7 @@ void IoData::readCmdFile()
   resetInputValues();
   error = checkFileNames();
   error += checkInputValues();
+  error += checkBoundaryValues();
   error += checkSolverValues(surfaces.surfaceMap.dataMap);
   if (error) {
     com->fprintf(stderr, "*** Error: command file contained %d error%s\n",
@@ -6156,7 +6225,7 @@ int IoData::checkInputValuesAllInitialConditions(){
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID)
+      if(it->second->type==VolumeData::FLUID || it->second->type==VolumeData::POROUS)
         error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
   }
 
@@ -6345,7 +6414,7 @@ void IoData::nonDimensionalizeAllInitialConditions(){
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID)
+      if(it->second->type==VolumeData::FLUID || it->second->type==VolumeData::POROUS)
         nonDimensionalizeInitialConditions(it->second->initialConditions);
   }
 
@@ -6946,14 +7015,27 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     restart.energy /= ref.rv.energy;
     bc.wall.temperature /= ref.rv.temperature;
 
-       for(int j = 1; j < 8*sizeof(int); j++) {
-            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
-             if(it == surfaceMap.end())
-               continue;
-             if(it->second->type == SurfaceData::ISOTHERMAL) {
-               it->second->temp /= ref.rv.temperature;
-            }
-       }
+    map<int,SurfaceData*>::iterator it;
+    for (it=surfaceMap.begin(); it!=surfaceMap.end();it++) {
+      if(it->second->type == SurfaceData::ISOTHERMAL)
+        it->second->temp /= ref.rv.temperature;
+    }
+
+    map<int,BoundaryData*>::iterator it2;
+    for (it2=bc.bcMap.dataMap.begin(); it2!=bc.bcMap.dataMap.end();it2++) {
+        it2->second->density /= ref.rv.density;
+        it2->second->velocityX /= ref.rv.velocity;
+        it2->second->velocityY /= ref.rv.velocity;
+        it2->second->velocityZ /= ref.rv.velocity;
+        it2->second->pressure /= ref.rv.pressure;
+        it2->second->temperature /= ref.rv.temperature;
+        it2->second->totalPressure /= ref.rv.pressure;
+        it2->second->totalTemperature /= ref.rv.temperature;
+        it2->second->mdot /= ref.rv.density*ref.rv.velocity*ref.rv.length*ref.rv.length;
+        it2->second->nutilde /= ref.rv.nutilde;
+        it2->second->kenergy /= ref.rv.kenergy;
+        it2->second->epsilon /= ref.rv.epsilon;
+    }
 
     linearizedData.stepsize = ts.timestep;
     linearizedData.stepsizeinitial = ts.timestepinitial;
@@ -7151,6 +7233,136 @@ void IoData::checkInputValuesDefaultOutlet()
 
 //------------------------------------------------------------------------------
 
+int IoData::checkBoundaryValues()
+{
+
+  int error = 0;
+
+  map<int,BoundaryData*>::iterator it;
+  for (it=bc.bcMap.dataMap.begin(); it!=bc.bcMap.dataMap.end();it++) {
+    if(it->second->type == BoundaryData::DIRECTSTATE || it->second->type == BoundaryData::MASSFLOW) {
+
+      if (it->second->inVar[BoundaryData::DENSITY] && it->second->density < 0.0) {
+        it->second->density = bc.inlet.density;
+        com->fprintf(stdout, "*** Warning: no valid inlet density given for boundary (%d), value set to (%f)\n",it->first,it->second->density);
+      }
+      if (it->second->outVar[BoundaryData::DENSITY] && it->second->density < 0.0) {
+        it->second->density = bc.outlet.density;
+        com->fprintf(stdout, "*** Warning: no valid outlet density given for boundary (%d), value set to (%f)\n",it->first,it->second->density);
+      }
+
+      if (it->second->inVar[BoundaryData::VX] || it->second->inVar[BoundaryData::VY] || it->second->inVar[BoundaryData::VZ]) {
+        if (!(it->second->inVar[BoundaryData::VX] && it->second->inVar[BoundaryData::VY] && it->second->inVar[BoundaryData::VZ])) {
+        com->fprintf(stderr, "*** Error: All three components of inlet velocity should be provided for boundary (%d)\n",it->first);
+        error++;
+        }
+      }
+      if (it->second->outVar[BoundaryData::VX] || it->second->outVar[BoundaryData::VY] || it->second->outVar[BoundaryData::VZ]) {
+        if (!(it->second->outVar[BoundaryData::VX] && it->second->outVar[BoundaryData::VY] && it->second->outVar[BoundaryData::VZ])) {
+        com->fprintf(stderr, "*** Error: All three components of outlet velocity should be provided for boundary (%d)\n",it->first);
+        error++;
+        }
+      }
+         
+      if (it->second->inVar[BoundaryData::VX] && 
+          it->second->velocityX == 0.0 && it->second->velocityY == 0.0 && it->second->velocityZ == 0.0) {
+        com->fprintf(stderr, "*** Error: no valid inlet velocity given for boundary (%d)\n",it->first);
+        error++;
+      }
+      if (it->second->outVar[BoundaryData::VX] && 
+          it->second->velocityX == 0.0 && it->second->velocityY == 0.0 && it->second->velocityZ == 0.0) {
+        com->fprintf(stderr, "*** Error: no valid outlet velocity given for boundary (%d)\n",it->first);
+        error++;
+      }
+
+      if (it->second->inVar[BoundaryData::PRESSURE] && it->second->pressure < 0.0) {
+        it->second->pressure = bc.inlet.pressure;
+        com->fprintf(stdout, "*** Warning: no valid inlet pressure given for boundary (%d), value set to (%f)\n",it->first,it->second->pressure);
+      }
+      if (it->second->outVar[BoundaryData::PRESSURE] && it->second->pressure < 0.0) {
+        it->second->pressure = bc.outlet.pressure;
+        com->fprintf(stdout, "*** Warning: no valid outlet pressure given for boundary (%d), value set to (%f)\n",it->first,it->second->pressure);
+      }
+
+      if (it->second->inVar[BoundaryData::TEMPERATURE] && it->second->temperature < 0.0) {
+        it->second->temperature = bc.inlet.temperature;
+        com->fprintf(stdout, "*** Warning: no valid inlet temperature given for boundary (%d), value set to (%f)\n",it->first,it->second->temperature);
+      }
+      if (it->second->outVar[BoundaryData::TEMPERATURE] && it->second->temperature < 0.0) {
+        it->second->temperature = bc.outlet.temperature;
+        com->fprintf(stdout, "*** Warning: no valid outlet temperature given for boundary (%d), value set to (%f)\n",it->first,it->second->temperature);
+      }
+
+      if (it->second->inVar[BoundaryData::TOTALPRESSURE] && it->second->totalPressure < 0.0) {
+        com->fprintf(stderr, "*** Error: no valid inlet total pressure given for boundary (%d)\n",it->first);
+        error++;
+      }
+      if (it->second->outVar[BoundaryData::TOTALPRESSURE] && it->second->totalPressure < 0.0) {
+        com->fprintf(stderr, "*** Error: no valid outlet total pressure given for boundary (%d)\n",it->first);
+        error++;
+      }
+
+      if (it->second->inVar[BoundaryData::TOTALTEMPERATURE] && it->second->totalTemperature < 0.0) {
+        com->fprintf(stderr, "*** Error: no valid inlet total temperature given for boundary (%d)\n",it->first);
+        error++;
+      }
+      if (it->second->outVar[BoundaryData::TOTALTEMPERATURE] && it->second->totalTemperature < 0.0) {
+        com->fprintf(stderr, "*** Error: no valid outlet total temperature given for boundary (%d)\n",it->first);
+        error++;
+      }
+
+      if (it->second->inVar[BoundaryData::MDOT] && it->second->mdot < 0.0) {
+        com->fprintf(stderr, "*** Error: no valid inlet massflow given for boundary (%d)\n",it->first);
+        error++;
+      }
+      if (it->second->outVar[BoundaryData::MDOT] && it->second->mdot < 0.0) {
+        com->fprintf(stderr, "*** Error: no valid outlet massflow given for boundary (%d)\n",it->first);
+        error++;
+      }
+
+      if (it->second->inVar[BoundaryData::NUTILDE] && it->second->nutilde < 0.0 &&
+         ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+           eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
+        it->second->nutilde = bc.inlet.nutilde;
+        com->fprintf(stdout, "*** Warning: no valid inlet nutilde given for boundary (%d), value set to (%f)\n",it->first,it->second->nutilde);
+      }
+      if (it->second->outVar[BoundaryData::NUTILDE] && it->second->nutilde < 0.0 &&
+         ( eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
+           eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ) )  {
+        it->second->nutilde = bc.outlet.nutilde;
+        com->fprintf(stdout, "*** Warning: no valid outlet nutilde given for boundary (%d), value set to (%f)\n",it->first,it->second->nutilde);
+      }
+
+      if (it->second->inVar[BoundaryData::KENERGY] && it->second->kenergy < 0.0 &&
+          eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+        it->second->kenergy = bc.inlet.kenergy;
+        com->fprintf(stdout, "*** Warning: no valid inlet kenergy given for boundary (%d), value set to (%f)\n",it->first,it->second->kenergy);
+      }
+      if (it->second->outVar[BoundaryData::KENERGY] && it->second->kenergy < 0.0 &&
+          eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+        it->second->kenergy = bc.outlet.kenergy;
+        com->fprintf(stdout, "*** Warning: no valid outlet kenergy given for boundary (%d), value set to (%f)\n",it->first,it->second->kenergy);
+      }
+
+      if (it->second->inVar[BoundaryData::EPSILON] && it->second->epsilon < 0.0 &&
+          eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+        it->second->epsilon = bc.inlet.eps;
+        com->fprintf(stdout, "*** Warning: no valid inlet epsilon given for boundary (%d), value set to (%f)\n",it->first,it->second->epsilon);
+      }
+      if (it->second->outVar[BoundaryData::EPSILON] && it->second->epsilon < 0.0 &&
+          eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+        it->second->epsilon = bc.outlet.eps;
+        com->fprintf(stdout, "*** Warning: no valid outlet epsilon given for boundary (%d), value set to (%f)\n",it->first,it->second->epsilon);
+      }
+    }
+  }
+
+  return error;
+
+}
+
+//------------------------------------------------------------------------------
+
 int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
 {
 
@@ -7190,15 +7402,13 @@ int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
   }
 
 
-for(int j = 1; j < 8*sizeof(int); j++) {
-            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
-             if(it == surfaceMap.end())
-               continue;
-             if(it->second->type == SurfaceData::ISOTHERMAL && it->second->temp < 0 && eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ADIABATIC &&
-                 !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
-               com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given and (%f) given for surface (%d) \n", bc.wall.temperature, it->second->temp, j);
-               error++;
-            }
+       map<int,SurfaceData*>::iterator it;
+       for (it=surfaceMap.begin(); it!=surfaceMap.end();it++) {
+         if(it->second->type == SurfaceData::ISOTHERMAL && it->second->temp < 0 && eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ADIABATIC &&
+            !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
+           com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given and (%f) given for surface (%d) \n", bc.wall.temperature, it->second->temp, it->first);
+           error++;
+         }
        }
 
 
@@ -7705,7 +7915,7 @@ void IoData::printDebug(){
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID){
+      if(it->second->type==VolumeData::FLUID || it->second->type==VolumeData::POROUS){
         com->fprintf(stderr, "VolumeData::tag          = %d\n", it->first);
         com->fprintf(stderr, "VolumeData::fluidModelID = %d\n", it->second->fluidModelID);
         com->fprintf(stderr, "VolumeData::density      = %e\n", it->second->initialConditions.density);

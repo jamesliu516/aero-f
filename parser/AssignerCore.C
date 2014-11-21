@@ -55,6 +55,14 @@ Assigner::assignTokenIntPair(int,int)
 }
 
 
+void 
+Assigner::assignList(int n,int *(list[]))
+{
+  fprintf(stderr, "*** ERROR: %s cannot be assigned an array \n", name.c_str());
+  exit(-1);
+}
+
+
 SysIntObj::SysIntObj(const char *n, int *p)
 : Assigner(n)
 {

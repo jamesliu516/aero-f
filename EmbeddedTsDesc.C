@@ -91,8 +91,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 			dom->getSubDomain()[iSub]->getElems(),
 			v6data); 
 
-      //if (ioData.mf.interfaceLimiter == MultiFluidData::LIMITERALEX1)
-      dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+      if (ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1)
+        dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
     }
     
   }
@@ -369,6 +369,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+  this->spaceOp->applyBCsToTurbSolutionVector(*U,distLSS);
   // Initialize fluid Ids (not on restart)
   if (ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0)
     nodeTag0 = nodeTag = distLSS->getStatus();
@@ -507,7 +508,6 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   if(TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
     this->timeState->setDtMin(dt * TsDesc<dim>::data->getCflMinOverCfl0());
 
-
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
                       dt*this->refVal->time, numSubCycles);
@@ -634,10 +634,19 @@ template<int dim>
 int EmbeddedTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = 0;
-  if(numFluid==1)
-    ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
-  else
+  if(numFluid==1) {
+    if (dim == 6)
+      ierr = this->domain->template 
+        clipSolution<dim,1>(this->clippingType, this->wallType, this->varFcn, this->bcData->getInletConservativeState(), U);
+    else if (dim == 7)
+      ierr = this->domain->template 
+        clipSolution<dim,2>(this->clippingType, this->wallType, this->varFcn, this->bcData->getInletConservativeState(), U);
+    else
+      ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
+  }
+  else {
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
+  }
 
   if (ierr != 0 && this->data->checksol) {
     this->data->unphysical = true;
@@ -842,7 +851,7 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 
   this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  viscSecOrder, nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
 
-  this->spaceOp->applyBCsToResidual(U, *this->R);
+  this->spaceOp->applyBCsToResidual(U, *this->R, distLSS);
 
   double res = 0.0;
   if(this->numFluid==1)
@@ -1006,7 +1015,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     if(recomputeIntersections)
       this->spaceOp->updateSweptNodes(*this->X,*this->A, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
             *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-            this->distLSS, (double*)this->vfar, (this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
+				      this->distLSS, (double*)this->vfar, this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1,(this->numFluid == 1 ? (DistVec<int>*)0 : &this->nodeTag));
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
   } 
@@ -1085,6 +1094,8 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
       wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
 //      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
       this->timer->addWallDistanceTime(t0);
+
+      this->domain->computeOffWallNode(this->distLSS);
     }
   }
 }
@@ -1102,13 +1113,13 @@ createEmbeddedALEMeshMotionHandler(IoData &ioData, GeoSource &geoSource, DistLev
     _mmh = new EmbeddedALEMeshMotionHandler(ioData, this->domain, geoSource.getMatchNodes(), distLSS);
     //check that algorithm number is consistent with simulation in special case RK2-CD
     // if C0 and RK2 then RK2DGCL is needed!
-    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
+    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21 || _mmh->getAlgNum() == 22){
       if(ioData.ts.type == TsData::EXPLICIT &&
          (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
           ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
           ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis )){
-        if(!(ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2 &&
-             ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL)){
+        if(!((ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2     || ioData.dgcl.normals == DGCLData::AUTO) &&
+             (ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL || ioData.dgcl.velocities == DGCLData::AUTO_VEL))){
           this->com->fprintf(stderr, "***Error: Computation of the normals or velocities (%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities);
           this->com->fprintf(stderr, "***       is not consistent with Aeroelastic algorithm\n");
           exit(1);

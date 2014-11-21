@@ -47,13 +47,17 @@ void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout
   int k, j;
 
   NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
-  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED)
+  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED ||
+      code == BC_DIRECTSTATE_INLET_MOVING || code == BC_DIRECTSTATE_INLET_FIXED ||
+      code == BC_MASSFLOW_INLET_MOVING || code == BC_MASSFLOW_INLET_FIXED) 
     for (k=0; k<dim; ++k) {
       for (j=0, U[k] = 0.0; j<numNodes(); ++j) 
 	U[k] += Uin[nodeNum(j)][k];
       U[k] /= numNodes();
     }
-  else if (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED)
+  else if (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED ||
+           code == BC_DIRECTSTATE_OUTLET_MOVING || code == BC_DIRECTSTATE_OUTLET_FIXED ||
+           code == BC_MASSFLOW_OUTLET_MOVING || code == BC_MASSFLOW_OUTLET_FIXED)
     for (k=0; k<dim; ++k) {
       for (j=0, U[k] = 0.0; j<numNodes(); ++j) 
 	U[k] += Uout[nodeNum(j)][k];
@@ -88,6 +92,28 @@ void Face::assignFreeStreamValues(double *Uin, double *Uout, double *U)
   else
     for (k=0; k<dim; ++k)
       U[k] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Face::assignPorousWallValues(SVec<double,dim> &Uin, double *U)
+{
+
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+
+  int k, j;
+
+  NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
+  if (code == BC_POROUS_WALL_MOVING || code == BC_POROUS_WALL_FIXED) {
+    for (k=0; k<dim; ++k) {
+      for (j=0, U[k] = 0.0; j<numNodes(); ++j) 
+	U[k] += Uin[nodeNum(j)][k];
+      U[k] /= numNodes();
+    }
+  }
 
 }
 
@@ -365,7 +391,8 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
-     code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
+     code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
+     code == BC_POROUS_WALL_MOVING     || code == BC_POROUS_WALL_FIXED) {
   // FS Riemann based flux calculation.
     double flux[dim], Wstar[2*dim], Vi[2*dim];
     int k;
@@ -531,6 +558,7 @@ void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
       code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
       code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED       ||
+      code == BC_POROUS_WALL_MOVING     || code == BC_POROUS_WALL_FIXED     ||
       code == BC_SYMMETRY
       ) {
     //at wall either U.n = Uwall.n (Euler) or U = Uwall (Navier-Stokes)
@@ -770,7 +798,8 @@ void Face::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, Flu
   
   if(code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED ||
      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED      ||
-     code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED) {
+     code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
+     code == BC_POROUS_WALL_MOVING     || code == BC_POROUS_WALL_FIXED) {
   // FS Riemann based flux calculation.
     double flux[dim], Wstar[2*dim], Vi[2*dim];
     double dUdU[neq*neq],dfdUi[neq*neq],dkk[neq*neq],dWdW[dim*dim],dWdU[dim*dim];
@@ -958,6 +987,7 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
       code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
       code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED       ||
+      code == BC_POROUS_WALL_MOVING     || code == BC_POROUS_WALL_FIXED     ||
       code == BC_SYMMETRY
       ) {
     //at wall either U.n = Uwall.n (Euler) or U = Uwall (Navier-Stokes)

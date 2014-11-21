@@ -94,6 +94,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
 
   rotOwn = 0;
 
+  faceID = NULL;
   surfaceID = NULL;
 
   cracking = cs;
@@ -106,6 +107,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
   }
+  setPorosity();
   makerotationownership();
   updatebc();
 
@@ -145,7 +147,9 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(solidX0) delete solidX0;
   if(solidXn) delete solidXn;
   if(solidXnp1) delete solidXnp1;
+  if(faceID) delete[] faceID;
   if(surfaceID) delete[] surfaceID;
+  if(porosity) delete[] porosity;
   if(rotOwn) delete[] rotOwn;
 }
 
@@ -256,6 +260,8 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
   solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
+  faceID = new int[numStElems];
+
   surfaceID = new int[numStNodes];
 
   std::list<Vec3D>::iterator it1;
@@ -289,6 +295,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
     stElem[i][0] = *it_1;
     stElem[i][1] = *it_2;
     stElem[i][2] = *it_3;
+    faceID[i] = *it_4;
     surfaceID[*it_1] = *it_4;
     surfaceID[*it_2] = *it_4;
     surfaceID[*it_3] = *it_4;
@@ -451,6 +458,30 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
   initializePhysBAM();
 }
 
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setPorosity() {
+  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+
+  porosity = new double[numStElems];
+  for(int i=0; i<numStElems; i++) {
+    porosity[i] = 0.;
+  }
+
+  if(faceID) {
+    for(int i=0; i<numStElems; i++) {
+      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+      if (it != surfaceMap.end()) {
+        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+        if(it2 != bcMap.end()) { // the bc data have been defined
+          if(it2->second->type == BoundaryData::POROUSWALL ) {
+            porosity[i] = it2->second->porosity;
+          }
+        }
+      }
+    }
+  }
+}
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
@@ -1009,9 +1040,10 @@ void DistIntersectorPhysBAM::updateCracking(int (*abc)[3])
     cracking->getQuad2Tria(*it,trId1,trId2); //obtain trId1 and trId2;
     for(int j=0; j<3; j++) {
       stElem[trId1][j] = abc[trId1][j];
-      stElem[trId2][j] = abc[trId2][j];
+      if (trId2 >= 0)
+	stElem[trId2][j] = abc[trId2][j];
     } 
-  } 
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -1416,6 +1448,7 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) 
   lsRes.normVel = lsRes.xi[0]*distIntersector.Xsdot[lsRes.trNodes[0]]
                 + lsRes.xi[1]*distIntersector.Xsdot[lsRes.trNodes[1]]
                 + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
+  lsRes.porosity = distIntersector.porosity[trueTriangleID];
 
   if(!distIntersector.interpolatedNormal)
     lsRes.gradPhi = distIntersector.getSurfaceNorm(trueTriangleID);

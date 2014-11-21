@@ -37,8 +37,13 @@ void Face::setup(int fc, int *nn, int nnum, int sid)
 
   if (fc == BC_OUTLET_MOVING || fc == BC_OUTLET_FIXED || 
       fc == BC_INLET_MOVING || fc == BC_INLET_FIXED ||
+      fc == BC_DIRECTSTATE_OUTLET_MOVING || fc == BC_DIRECTSTATE_OUTLET_FIXED || 
+      fc == BC_DIRECTSTATE_INLET_MOVING || fc == BC_DIRECTSTATE_INLET_FIXED ||
+      fc == BC_MASSFLOW_OUTLET_MOVING || fc == BC_MASSFLOW_OUTLET_FIXED || 
+      fc == BC_MASSFLOW_INLET_MOVING || fc == BC_MASSFLOW_INLET_FIXED ||
       fc == BC_ADIABATIC_WALL_MOVING || fc == BC_ADIABATIC_WALL_FIXED ||
       fc == BC_SLIP_WALL_MOVING || fc == BC_SLIP_WALL_FIXED ||
+      fc == BC_POROUS_WALL_MOVING || fc == BC_POROUS_WALL_FIXED ||
       fc == BC_ISOTHERMAL_WALL_MOVING || fc == BC_ISOTHERMAL_WALL_FIXED ||
       fc == BC_SYMMETRY || fc == BC_KIRCHHOFF_SURFACE)
   {
@@ -97,8 +102,12 @@ void Face::setNodeFaceType(int* nodeFaceType)
 {
   int nft;
 
-  if( code==BC_INLET_FIXED  || code==BC_INLET_MOVING ||
-      code==BC_OUTLET_FIXED || code==BC_OUTLET_MOVING ) {
+  if( code==BC_INLET_FIXED  || code==BC_INLET_MOVING  ||
+      code==BC_OUTLET_FIXED || code==BC_OUTLET_MOVING ||
+      code==BC_DIRECTSTATE_INLET_FIXED  || code==BC_DIRECTSTATE_INLET_MOVING ||
+      code==BC_DIRECTSTATE_OUTLET_FIXED || code==BC_DIRECTSTATE_OUTLET_MOVING ||
+      code==BC_MASSFLOW_INLET_FIXED  || code==BC_MASSFLOW_INLET_MOVING ||
+      code==BC_MASSFLOW_OUTLET_FIXED || code==BC_MASSFLOW_OUTLET_MOVING ) {
     for (int j=0; j<numNodes(); j++){
       nft = nodeFaceType[nodeNum(j)];
       if(nft == 0)
@@ -315,7 +324,10 @@ int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
 
       // read in the face code
       file.read(&code, 1);
-      if (code == 6) nSymm++;
+      if (code == 6) {
+        code = BC_SYMMETRY;
+        nSymm++;
+      }
 
       // read in the surface id
       file.read(&surface_id, 1);

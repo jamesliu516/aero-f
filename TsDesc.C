@@ -59,13 +59,16 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   geoState = new DistGeoState(ioData, domain);
 
   // restart the geoState (positions of the mesh) At return X contains the last
-  // position of the mesh.
+  // position of the mesh
+  //
+  // .
   if ((ioData.problem.framework==ProblemData::BODYFITTED || ioData.problem.framework==ProblemData::EMBEDDEDALE) &&
       (ioData.problem.type[ProblemData::AERO] ||
        ioData.problem.type[ProblemData::ACCELERATED] ||
        ioData.problem.type[ProblemData::FORCED] ||
        ioData.problem.type[ProblemData::ROLL] ||
-       ioData.problem.type[ProblemData::RBM] )) {
+       ioData.problem.type[ProblemData::RBM] ||
+        ioData.problem.alltype==ProblemData::_STEADY_)) {
     geoState->setup1(input->positions, X, A);
     moveMesh(ioData, geoSource);
   } else {
@@ -73,7 +76,6 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
     geoState->setup1(temp, X, A);
     moveMesh(ioData, geoSource);
   }
-
   bcData = createBcData(ioData);
 
   spaceOp = new SpaceOperator<dim>(ioData, varFcn, bcData, geoState, domain, V);
@@ -277,13 +279,13 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
                                        geoSource.getMatchNodes(), domain, mp);
     //check that algorithm number is consistent with simulation in special case RK2-CD
     // if C0 and RK2 then RK2DGCL is needed!
-    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
+    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21 || _mmh->getAlgNum() == 22){
       if(ioData.ts.type == TsData::EXPLICIT &&
          (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
           ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
           ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis )){
-        if(!(ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2 &&
-             ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL)){
+        if(!((ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2     || ioData.dgcl.normals == DGCLData::AUTO) &&
+             (ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL || ioData.dgcl.velocities == DGCLData::AUTO_VEL))){
           com->fprintf(stderr, "***Error: Computation of the normals or velocities (%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities);
           com->fprintf(stderr, "***       is not consistent with Aeroelastic algorithm\n");
           exit(1);
@@ -476,8 +478,6 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   timeState->unphysical = data->unphysical;
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
-
-//  printf(1,"cfl=%e\n",data->cfl);
 
   double dt = 0.0;
   if(failSafeFlag == false){

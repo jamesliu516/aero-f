@@ -102,7 +102,7 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
     }
 
   structureSubcycling = (algNum==22) ? getStructSubcyclingInfo() : 0;
-    
+
 }
 
 //------------------------------------------------------------------------------
@@ -676,6 +676,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
            std::abs(X[i][2]-X[j][2])<pairTol)
           pairing[i] = j;
   }
+
+  timeStepOffset = iod.forced.tsoffset;
 }
 
 //------------------------------------------------------------------------------
@@ -937,7 +939,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   it++;
   if(!coupled) {
     double time;
-    time = t0 + dt*(double)it;
+    time = t0 + dt*((double)it + timeStepOffset);
      
     if (mode==1) //heaving
       for(int i=0; i < nNodes; ++i) {

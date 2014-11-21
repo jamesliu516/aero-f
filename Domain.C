@@ -2849,6 +2849,21 @@ void Domain::applyBCsToSolutionVector(BcFcn *bcFcn, DistBcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void Domain::applyBCsToTurbSolutionVector(BcFcn *bcFcn, DistBcData<dim> &bcData,
+                                      DistSVec<double,dim> &U, DistLevelSetStructure *distLSS)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    { 
+      LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+      subDomain[iSub]->applyBCsToTurbSolutionVector(bcFcn, bcData(iSub), U(iSub), LSS);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void Domain::applyBCsToResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
 				DistSVec<double,dim> &U, DistSVec<double,dim> &F, DistLevelSetStructure *distLSS)
 {
@@ -2880,12 +2895,15 @@ void Domain::applyBCsToDerivativeOfResidual(BcFcn *bcFcn, DistBcData<dim> &bcDat
 
 template<int dim, class Scalar, int neq>
 void Domain::applyBCsToJacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
-				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
+				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, DistLevelSetStructure *distLSS)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->applyBCsToJacobian(bcFcn, bcData(iSub), U(iSub), A(iSub));
+  {
+    LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+    subDomain[iSub]->applyBCsToJacobian(bcFcn, bcData(iSub), U(iSub), A(iSub), LSS);
+  }
 
 }
 
@@ -3533,6 +3551,9 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
 		    cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
       else if (ctype == TsData::FREESTREAM)
 	com->printf(1, "*** Warning: %d %s value%s clipped at freestream (min=%e at %d)\n",
+		    cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
+      else if (ctype == TsData::CUTOFF)
+	com->printf(1, "*** Warning: %d %s value%s clipped at cutoff (min=%e at %d)\n",
 		    cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
     }
   }

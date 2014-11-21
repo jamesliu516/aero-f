@@ -774,6 +774,83 @@ void FluxFcnSGWallEuler3D::computeJacobian(double length, double irey, double *n
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGPorousWallEuler3D::compute(double length, double irey, double *normal, double normalVel, 
+				   double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+  double porosity = Ub[1];
+
+  if (porosity != 0 ) {
+    double rho,rhoun,u,v,w,p,q;
+    if ( Ub[0] <= 0.0 ) {
+      rho = invgam1 * (V[4]+pstiff) / Ub[4];
+      double ujet = Ub[0]/rho;
+      double un = ujet/porosity;
+      rhoun = rho*(ujet - nVel);
+      u = un*n[0];
+      v = un*n[1];
+      w = un*n[2];
+      q = u*u + v*v + w*w;
+      p = V[4];
+    }
+    else if ( Ub[0] > 0.0 ) {
+      rho = V[0];
+      double ujet = Ub[0]/rho;
+      double Un = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+      double Vt[3] = {V[1] - Un*n[0],V[2] - Un*n[1],V[3] - Un*n[2]};
+      rhoun = rho*(ujet - nVel);
+      u = ujet*n[0] + Vt[0];
+      v = ujet*n[1] + Vt[1];
+      w = ujet*n[2] + Vt[2];
+      double u1 = ujet*n[0]/porosity + Vt[0];
+      double v1 = ujet*n[1]/porosity + Vt[1];
+      double w1 = ujet*n[2]/porosity + Vt[2];
+      q = u1*u1 + v1*v1 + w1*w1;
+      p = V[4];
+    } 
+    flux[0] = S * rhoun;
+    flux[1] = S * (rhoun*u + p*n[0]);
+    flux[2] = S * (rhoun*v + p*n[1]);
+    flux[3] = S * (rhoun*w + p*n[2]);
+    flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+  }
+  else {
+    flux[0] = 0.0;
+    flux[1] = V[4] * normal[0];
+    flux[2] = V[4] * normal[1];
+    flux[3] = V[4] * normal[2];
+    flux[4] = V[4] * normalVel;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGPorousWallEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal, 
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+// not implemented 
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1207,6 +1284,227 @@ void jacinflux3D(int type, VarFcnBase *vf, FluxFcnBase::Type localTypeJac,
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 
+template<int dim>
+inline
+void directstateflux3D(int type, VarFcnBase *vf, double* normal, 
+	      double normalVel, double* V, double* Ub, double* flux)
+{
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double Vb[dim];
+//  vf->conservativeToPrimitive(Ub, Vb);
+
+  double Vvel2 = V[1]*V[1]+V[2]*V[2]+V[3]*V[3];
+ 
+  double rho, u, v, w, p, nut, eps, k;
+
+  double un = V[1]*n[0]+V[2]*n[1]+V[3]*n[2];
+
+  if (un <= 0.0){
+    double ci = vf->computeSoundSpeed(V);
+    double Rplus = un + 2.*ci*invgam1;
+    double Ht = invgam1*ci*ci + 0.5*Vvel2;
+
+    double a = 1 + 2.*invgam1;
+    double b = -2*Rplus;
+    double c = 0.5*gam1*(Rplus*Rplus - 2*Ht);
+
+    double term1 = -b/(2*a);
+    double term2 = sqrt(b*b - 4*a*c)/(2*a);
+
+    double cb = std::max(term1 + term2, term1 - term2);
+    double U = Rplus - 2*cb*invgam1;
+    double Mb = fabs(U)/cb;
+    double pb = Ub[4]/pow(1.0 + 0.5*gam1*Mb*Mb,gam*invgam1);
+    double Tb = Ub[0]/(1.0 + 0.5*gam1*Mb*Mb);
+
+  
+    rho = invgam1*(pb+pstiff)/Tb;
+    u = U*n[0];
+    v = U*n[1];
+    w = U*n[2];
+    p = pb;
+
+//  fprintf(stdout,"U,cbc,cb,Mb -> %f,%f,%f,%f\n",U,sqrt(gam*p/rho),cb,Mb);
+    if (type == 1)
+      nut = Ub[dimm1];
+    else if (type == 2){
+      k = Ub[dimm2];
+      eps = Ub[dimm2];
+    }
+  }
+  else{
+    rho = V[0];
+    u = V[1];
+    v = V[2];
+    w = V[3];
+    // If supersonic, all characteristics come from interior
+    if (vf->computeMachNumber(V)<1.0) p = Ub[4];
+    else p = V[4];
+    if (type == 1)
+      nut = V[dimm1];
+    else if (type == 2){
+      k = V[dimm2];
+      eps = V[dimm2];
+    }
+  }
+
+  double rhoun = rho * (u*n[0] + v*n[1] + w*n[2] - nVel);
+  double q = u*u + v*v + w*w;
+
+  flux[0] = S * rhoun;
+  flux[1] = S * (rhoun*u + p*n[0]);
+  flux[2] = S * (rhoun*v + p*n[1]);
+  flux[3] = S * (rhoun*w + p*n[2]);
+  flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+
+  if (type == 1) {
+    flux[5] = S * rhoun*nut;
+  }
+  else if (type == 2) {
+    flux[5] = S * rhoun*k;
+    flux[6] = S * rhoun*eps;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+inline
+void directstateflux3DDerivative(int type, VarFcnBase *vf, double* normal, double* dNormal,
+	      double normalVel, double dNormalVel, double* V, double* Ub, double* dUb, double* flux, double* dFlux)
+{
+// not implemented yet
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+template<int dim>
+inline
+void massflowflux3D(int type, VarFcnBase *vf, double* normal, 
+	      double normalVel, double* V, double* Ub, double* flux)
+{
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double Vb[dim];
+//  vf->conservativeToPrimitive(Ub, Vb);
+
+  double Vvel2 = V[1]*V[1]+V[2]*V[2]+V[3]*V[3];
+ 
+  double rho, u, v, w, p, nut, eps, k;
+
+  double un = V[1]*n[0]+V[2]*n[1]+V[3]*n[2];
+
+  if (un <= 0.0){
+    double ci = vf->computeSoundSpeed(V);
+    double Rplus = un + 2.*ci*invgam1;
+    double Ht = invgam1*ci*ci + 0.5*Vvel2;
+
+    double a = 1 + 2.*invgam1;
+    double b = -2*Rplus;
+    double c = 0.5*gam1*(Rplus*Rplus - 2*Ht);
+
+    double term1 = -b/(2*a);
+    double term2 = sqrt(b*b - 4*a*c)/(2*a);
+
+    double cb = std::max(term1 + term2, term1 - term2);
+    double U = Rplus - 2*cb*invgam1;
+    double Mb = fabs(U)/cb;
+    double pb = Ub[4]/pow(1.0 + 0.5*gam1*Mb*Mb,gam*invgam1);
+    double Tb = Ub[0]/(1.0 + 0.5*gam1*Mb*Mb);
+
+  
+    rho = invgam1*(pb+pstiff)/Tb;
+    u = U*n[0];
+    v = U*n[1];
+    w = U*n[2];
+    p = pb;
+
+//  fprintf(stdout,"U,cbc,cb,Mb -> %f,%f,%f,%f\n",U,sqrt(gam*p/rho),cb,Mb);
+    if (type == 1)
+      nut = Ub[dimm1];
+    else if (type == 2){
+      k = Ub[dimm2];
+      eps = Ub[dimm2];
+    }
+  }
+  else{
+    rho = V[0];
+    u = V[1];
+    v = V[2];
+    w = V[3];
+    // If supersonic, all characteristics come from interior
+    if (vf->computeMachNumber(V)<1.0) p = Ub[4];
+    else p = V[4];
+    if (type == 1)
+      nut = V[dimm1];
+    else if (type == 2){
+      k = V[dimm2];
+      eps = V[dimm2];
+    }
+  }
+
+  double rhoun = rho * (u*n[0] + v*n[1] + w*n[2] - nVel);
+  double q = u*u + v*v + w*w;
+
+  flux[0] = S * rhoun;
+  flux[1] = S * (rhoun*u + p*n[0]);
+  flux[2] = S * (rhoun*v + p*n[1]);
+  flux[3] = S * (rhoun*w + p*n[2]);
+  flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+
+  if (type == 1) {
+    flux[5] = S * rhoun*nut;
+  }
+  else if (type == 2) {
+    flux[5] = S * rhoun*k;
+    flux[6] = S * rhoun*eps;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+inline
+void massflowflux3DDerivative(int type, VarFcnBase *vf, double* normal, double* dNormal,
+	      double normalVel, double dNormalVel, double* V, double* Ub, double* dUb, double* flux, double* dFlux)
+{
+// not implemented yet
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
 void FluxFcnSGInternalInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                            double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1241,7 +1539,57 @@ void FluxFcnSGInternalInflowEuler3D::computeJacobian(double length, double irey,
 }
 
 //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//
+void FluxFcnSGDirectStateInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
+                                           double *V, double *Ub, double *flux, bool useLimiter)
+{
 
+  directstateflux3D<5>(0, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGDirectStateInflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  directstateflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
+                                           double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  massflowflux3D<5>(0, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGMassFlowInflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  massflowflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
 void FluxFcnSGInternalOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                             double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1272,6 +1620,57 @@ void FluxFcnSGInternalOutflowEuler3D::computeJacobian(double length, double irey
 {
 
   jacinflux3D<5>(0, vf, typeJac, normal, normalVel, V, Ub, jacL);
+
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+void FluxFcnSGDirectStateOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
+                                            double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  directstateflux3D<5>(0, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGDirectStateOutflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  directstateflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
+                                            double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  massflowflux3D<5>(0, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGMassFlowOutflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  massflowflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
 
@@ -1526,6 +1925,82 @@ void FluxFcnSGWallSA3D::computeJacobian(double length, double irey, double *norm
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGPorousWallSA3D::compute(double length, double irey, double *normal, double normalVel,
+                              double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+  double porosity = Ub[1];
+
+  if (porosity != 0 ) {
+    double rho,rhoun,u,v,w,p,q;
+    if ( Ub[0] <= 0.0 ) {
+      rho = invgam1 * (V[4]+pstiff) / Ub[4];
+      double ujet = Ub[0]/rho;
+      double un = ujet/porosity;
+      rhoun = rho*(ujet - nVel);
+      u = un*n[0];
+      v = un*n[1];
+      w = un*n[2];
+      q = u*u + v*v + w*w;
+      p = V[4];
+    }
+    else if ( Ub[0] > 0.0 ) {
+      rho = V[0];
+      double ujet = Ub[0]/rho;
+      double Un = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+      double Vt[3] = {V[1] - Un*n[0],V[2] - Un*n[1],V[3] - Un*n[2]};
+      rhoun = rho*(ujet - nVel);
+      u = ujet*n[0] + Vt[0];
+      v = ujet*n[1] + Vt[1];
+      w = ujet*n[2] + Vt[2];
+      double u1 = ujet*n[0]/porosity + Vt[0];
+      double v1 = ujet*n[1]/porosity + Vt[1];
+      double w1 = ujet*n[2]/porosity + Vt[2];
+      q = u1*u1 + v1*v1 + w1*w1;
+      p = V[4];
+    } 
+    flux[0] = S * rhoun;
+    flux[1] = S * (rhoun*u + p*n[0]);
+    flux[2] = S * (rhoun*v + p*n[1]);
+    flux[3] = S * (rhoun*w + p*n[2]);
+    flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+  }
+  else {
+    flux[0] = 0.0;
+    flux[1] = V[4] * normal[0];
+    flux[2] = V[4] * normal[1];
+    flux[3] = V[4] * normal[2];
+    flux[4] = V[4] * normalVel;
+  }
+  flux[5] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGPorousWallSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+// not implemented
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGGhidagliaSA3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1595,6 +2070,58 @@ void FluxFcnSGInternalInflowSA3D::computeJacobian(double length, double irey, do
 }
 
 //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//
+void FluxFcnSGDirectStateInflowSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                        double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  directstateflux3D<6>(1, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGDirectStateInflowSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  directstateflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowInflowSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                        double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  massflowflux3D<6>(1, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGMassFlowInflowSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  massflowflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 void FluxFcnSGInternalOutflowSA3D::compute(double length, double irey, double *normal, double normalVel,
                                          double *V, double *Ub, double *flux, bool useLimiter)
@@ -1630,6 +2157,57 @@ void FluxFcnSGInternalOutflowSA3D::computeJacobian(double length, double irey, d
 }
 
 //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+void FluxFcnSGDirectStateOutflowSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                         double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  directstateflux3D<6>(1, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGDirectStateOutflowSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  directstateflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowOutflowSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                         double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  massflowflux3D<6>(1, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGMassFlowOutflowSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  massflowflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
 // note: jacL = dFdUL and jacR = dFdUR
                                                                                                                   
 void FluxFcnSGRoeSAturb3D::computeJacobians(double length, double irey, double *normal, double normalVel,
@@ -1644,6 +2222,16 @@ void FluxFcnSGRoeSAturb3D::computeJacobians(double length, double irey, double *
 //------------------------------------------------------------------------------
 
 void FluxFcnSGWallSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                          double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  jacL[0] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGPorousWallSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
                                           double *V, double *Ub, double *jacL, bool useLimiter)
 {
 
@@ -1704,6 +2292,103 @@ void FluxFcnSGInternalOutflowSAturb3D::computeJacobian(double length, double ire
   double u = V[1];
   double v = V[2];
   double w = V[3];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//
+void FluxFcnSGDirectStateInflowSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                    double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowInflowSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                    double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGDirectStateOutflowSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                     double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowOutflowSAturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                     double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
   double un = u*n[0] + v*n[1] + w*n[2] - nVel;
 
   if (typeJac == FluxFcnBase::CONSERVATIVE)
@@ -1981,6 +2666,84 @@ void FluxFcnSGWallKE3D::computeJacobian(double length, double irey, double *norm
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGPorousWallKE3D::compute(double length, double irey, double *normal, double normalVel,
+                              double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  double gam, gam1, invgam1, pstiff;
+  gam = vf->getGamma();
+  pstiff = vf->getPressureConstant();
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+  double porosity = Ub[1];
+
+  if (porosity != 0 ) {
+    double rho,rhoun,u,v,w,p,q;
+    if ( Ub[0] <= 0.0 ) {
+      rho = invgam1 * (V[4]+pstiff) / Ub[4];
+      double ujet = Ub[0]/rho;
+      double un = ujet/porosity;
+      rhoun = rho*(ujet - nVel);
+      u = un*n[0];
+      v = un*n[1];
+      w = un*n[2];
+      q = u*u + v*v + w*w;
+      p = V[4];
+    }
+    else if ( Ub[0] > 0.0 ) {
+      rho = V[0];
+      double ujet = Ub[0]/rho;
+      double Un = V[1]*n[0] + V[2]*n[1] + V[3]*n[2];
+      double Vt[3] = {V[1] - Un*n[0],V[2] - Un*n[1],V[3] - Un*n[2]};
+      rhoun = rho*(ujet - nVel);
+      u = ujet*n[0] + Vt[0];
+      v = ujet*n[1] + Vt[1];
+      w = ujet*n[2] + Vt[2];
+      double u1 = ujet*n[0]/porosity + Vt[0];
+      double v1 = ujet*n[1]/porosity + Vt[1];
+      double w1 = ujet*n[2]/porosity + Vt[2];
+      q = u1*u1 + v1*v1 + w1*w1;
+      p = V[4];
+    } 
+    flux[0] = S * rhoun;
+    flux[1] = S * (rhoun*u + p*n[0]);
+    flux[2] = S * (rhoun*v + p*n[1]);
+    flux[3] = S * (rhoun*w + p*n[2]);
+    flux[4] = S * (rhoun*(gam*invgam1*(p+pstiff)/rho + 0.5*q) + p*nVel);
+  }
+  else {
+    flux[0] = 0.0;
+    flux[1] = V[4] * normal[0];
+    flux[2] = V[4] * normal[1];
+    flux[3] = V[4] * normal[2];
+    flux[4] = V[4] * normalVel;
+  }
+
+  flux[5] = 0.0;
+  flux[6] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGPorousWallKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+// not implemented
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGGhidagliaKE3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -2016,6 +2779,107 @@ void FluxFcnSGOutflowKE3D::computeDerivative
 }
 
 //------------------------------------------------------------------------------
+//
+void FluxFcnSGDirectStateInflowKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                        double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  directstateflux3D<7>(2, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGDirectStateInflowKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  directstateflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowInflowKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                        double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  massflowflux3D<7>(2, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGMassFlowInflowKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  massflowflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGDirectStateOutflowKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                         double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  directstateflux3D<7>(2, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGDirectStateOutflowKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  directstateflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowOutflowKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                         double *V, double *Ub, double *flux, bool useLimiter)
+{
+
+  massflowflux3D<7>(2, vf, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnSGMassFlowOutflowKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
+{
+
+  massflowflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // note: jacL = dFdUL and jacR = dFdUR
                                                                                                                   
 void FluxFcnSGRoeKEturb3D::computeJacobians(double length, double irey, double *normal, double normalVel,
@@ -2030,6 +2894,19 @@ void FluxFcnSGRoeKEturb3D::computeJacobians(double length, double irey, double *
 //------------------------------------------------------------------------------
 
 void FluxFcnSGWallKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                          double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  jacL[0] = 0.0;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGPorousWallKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
                                           double *V, double *Ub, double *jacL, bool useLimiter)
 {
 
@@ -2068,6 +2945,114 @@ void FluxFcnSGOutflowKEturb3D::computeJacobian(double length, double irey, doubl
 {
 
   F77NAME(boundjac2)(2, vf->getGamma(), normal, normalVel, V, Ub, jacL);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGDirectStateInflowKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                    double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = jacL[0];
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowInflowKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                    double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = jacL[0];
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGDirectStateOutflowKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                     double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = jacL[0];
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGMassFlowOutflowKEturb3D::computeJacobian(double length, double irey, double *normal, double normalVel,
+                                                     double *V, double *Ub, double *jacL, bool useLimiter)
+{
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double ooS = 1.0 / S;
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double nVel = normalVel * ooS;
+
+  double rho = Ub[0];
+  double u = Ub[1]/Ub[0];
+  double v = Ub[2]/Ub[0];
+  double w = Ub[3]/Ub[0];
+  double un = u*n[0] + v*n[1] + w*n[2] - nVel;
+
+  if (typeJac == FluxFcnBase::CONSERVATIVE)
+    jacL[0] = S * un;
+  else
+    jacL[0] = S * rho*un;
+  jacL[1] = 0.0;
+  jacL[2] = 0.0;
+  jacL[3] = jacL[0];
 
 }
 

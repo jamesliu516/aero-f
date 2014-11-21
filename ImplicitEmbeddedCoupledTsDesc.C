@@ -110,7 +110,7 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
       this->spaceOp->computeJacobian(*this->X, *this->A, Q,this->distLSS, this->nodeTag, this->riemann,
                                      this->riemannNormal, this->Nsbar,this->ghostPoints, *_pc,this->timeState);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
-      this->spaceOp->applyBCsToJacobian(Q, *_pc);
+      this->spaceOp->applyBCsToJacobian(Q, *_pc, this->distLSS);
     }
     else if (mvph1) {
       JacobiPrec<double,dim> *jac = dynamic_cast<JacobiPrec<double,dim> *>(pc);

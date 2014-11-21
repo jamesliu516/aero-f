@@ -35,11 +35,15 @@ void AgglomeratedFace::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<doubl
 {
   int k, j;
 
-  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED)
+  if (code == BC_INLET_MOVING || code == BC_INLET_FIXED ||
+      code == BC_DIRECTSTATE_INLET_MOVING || code == BC_DIRECTSTATE_INLET_FIXED ||
+      code == BC_MASSFLOW_INLET_MOVING || code == BC_MASSFLOW_INLET_FIXED)
     for (k=0; k<dim; ++k) {
       U[k] = Uin[node][k];
     }
-  else if (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED)
+  else if (code == BC_OUTLET_MOVING || code == BC_OUTLET_FIXED ||
+           code == BC_DIRECTSTATE_OUTLET_MOVING || code == BC_DIRECTSTATE_OUTLET_FIXED ||
+           code == BC_MASSFLOW_OUTLET_MOVING || code == BC_MASSFLOW_OUTLET_FIXED)
     for (k=0; k<dim; ++k) {
       U[k] = Uout[node][k];
     }
