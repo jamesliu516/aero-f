@@ -108,6 +108,7 @@ InputData::InputData()
   approxMetricStateSnapFile = "";
   sensitivitySnapFile = "";
   projErrorSnapFile = "";
+  initialClusterCentersFile = "";
 
   reducedCoords = "";
 
@@ -165,6 +166,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "SensitivitySnapshotData", this, &InputData::sensitivitySnapFile);
   new ClassStr<InputData>(ca, "ApproximatedMetricStateSnapshotData", this, &InputData::approxMetricStateSnapFile);
   new ClassStr<InputData>(ca, "ProjectionErrorSnapshotData", this, &InputData::projErrorSnapFile);
+  new ClassStr<InputData>(ca, "InitialClusterCentersData", this, &InputData::initialClusterCentersFile);
   new ClassStr<InputData>(ca, "ReducedCoordinates", this, &InputData::reducedCoords);
 
   new ClassStr<InputData>(ca, "InitialWallDisplacement", this, &InputData::wallsurfacedisplac); // YC
