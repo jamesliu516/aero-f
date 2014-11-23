@@ -27,6 +27,7 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   void SVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, int, bool computeV=true);
   void scalapackSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, bool computeV=true);
   void probabilisticSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &V, int, bool computeV=true);
+  void initializeClusterCenters();
   void kmeans();
   void kmeansWithBounds();
   void computeClassicalMultiDimensionalScaling();

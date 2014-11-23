@@ -103,6 +103,7 @@ struct InputData {
   const char *sensitivitySnapFile;
   const char *approxMetricStateSnapFile;
   const char *projErrorSnapFile;
+  const char *initialClusterCentersFile;
   const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -2416,10 +2417,10 @@ struct StateSnapshotsData {
 
 struct SnapshotsData {
 
-	enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
+  enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
 
-	SnapshotsData();
-	~SnapshotsData() {}
+  SnapshotsData();
+  ~SnapshotsData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -2468,7 +2469,7 @@ struct StateData {
 struct ResidualData {
 
   SnapshotsData snapshots;
-	DataCompressionData dataCompression;
+  DataCompressionData dataCompression;
 
   ResidualData();
   ~ResidualData() {}
@@ -2482,7 +2483,7 @@ struct ResidualData {
 struct JacobianActionData {
 
   SnapshotsData snapshots;
-	DataCompressionData dataCompression;
+  DataCompressionData dataCompression;
 
   JacobianActionData();
   ~JacobianActionData() {}
@@ -2496,7 +2497,7 @@ struct JacobianActionData {
 struct SensitivityData {
 
   SnapshotsData snapshots;
-	DataCompressionData dataCompression;
+  DataCompressionData dataCompression;
 
   SensitivityData();
   ~SensitivityData() {}
@@ -2510,7 +2511,7 @@ struct SensitivityData {
 struct KrylovData {
 
   SnapshotsData snapshots;
-	DataCompressionData dataCompression;
+  DataCompressionData dataCompression;
 
   KrylovData();
   ~KrylovData() {}

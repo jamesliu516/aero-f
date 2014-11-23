@@ -60,6 +60,7 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
   // clustering
   if (robConstruction->clustering.useExistingClusters == ClusteringData::USE_EXISTING_CLUSTERS_FALSE) {
+
     double tRead = this->timer->getTime();
     nSnapshotFiles = this->readSnapshotFiles("state", false);
     this->timer->addReadSnapshotFileTime(tRead);
@@ -122,6 +123,60 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
   this->timer->addTotalOfflineTime(tOffline);
 
 }
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::initializeClusterCenters() {
+
+    if (this->clusterCenters) delete (this->clusterCenters);
+    this->clusterCenters = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
+
+    if (!(strcmp(this->ioData->input.initialClusterCentersFile,"")==0)) { 
+      // use user-specified snapshots as initial cluster centers
+      int nFiles = this->readSnapshotFiles("initialClusterCenters", false);
+
+    } else {
+      // pick random initial centers (use shuffle algorithm to ensure no duplicates)
+
+      int nTotSnaps = this->snap->numVectors();
+      int* shuffle = new int[nTotSnaps];     
+      int kMeansRandSeed = robConstruction->clustering.kMeansRandSeed;
+   
+      if (this->com->cpuNum()==0) { 
+        int randSeed;
+    
+        if (kMeansRandSeed == -1) {
+          randSeed = time(NULL);
+        } else {
+          randSeed = kMeansRandSeed;
+        }
+     
+        srand(randSeed);
+     
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          shuffle[iSnap] = iSnap; 
+        }
+    
+        for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
+          int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
+          int temp = shuffle[iSnap];
+          shuffle[iSnap] = shuffle[randPosition];
+          shuffle[randPosition] = temp;
+        }
+      }
+    
+      this->com->broadcast(nTotSnaps, shuffle, 0);
+    
+      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+        (*(this->clusterCenters))[iCluster]=(*(this->snap))[shuffle[iCluster]];
+      }
+    
+      delete [] shuffle;  
+   }
+
+}
+
 
 //----------------------------------------------------------------------------------
 
@@ -334,7 +389,6 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   this->com->fprintf(stdout, "\nUsing K-Means algorithm to cluster snapshots\n");
 
   // parameters that control the kmeans clustering
-  int kMeansRandSeed = robConstruction->clustering.kMeansRandSeed;
   int minClusterSize = robConstruction->clustering.minClusterSize;
   double percentOverlap = robConstruction->clustering.percentOverlap;
   double kMeansTol = robConstruction->clustering.kMeansTol;
@@ -342,44 +396,9 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
   int nTotSnaps = this->snap->numVectors();
 
   (this->clusterIndex) = new int[nTotSnaps];
-  (this->clusterCenters) = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
   VecSet< DistSVec<double, dim> > clusterCentersOld((this->nClusters), this->domain.getNodeDistInfo());
+  initializeClusterCenters();
 
-  // pick random initial centers (use shuffle algorithm to ensure no duplicates)
-
-  int* shuffle = new int[nTotSnaps];     
-
-  if (this->com->cpuNum()==0) { 
-    int randSeed;
-
-    if (kMeansRandSeed == -1) {
-      randSeed = time(NULL);
-    } else {
-      randSeed = kMeansRandSeed;
-    }
- 
-    srand(randSeed);
- 
-    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-      shuffle[iSnap] = iSnap; 
-    }
-
-    for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
-      int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
-      int temp = shuffle[iSnap];
-      shuffle[iSnap] = shuffle[randPosition];
-      shuffle[randPosition] = temp;
-    }
-  }
-
-  this->com->broadcast(nTotSnaps, shuffle, 0);
-
-  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-    (*(this->clusterCenters))[iCluster]=(*(this->snap))[shuffle[iCluster]];
-  }
-
-  delete [] shuffle;
-  
   int iterMax = robConstruction->clustering.maxIter;  // max number of kmeans iterations
   int iterMaxAggressive = robConstruction->clustering.maxIterAggressive;  // number of aggressive kmeans iterations to use before switching to a more robust single update scheme
 
@@ -775,7 +794,6 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
   }
 
   // parameters that control the kmeans clustering
-  int kMeansRandSeed = robConstruction->clustering.kMeansRandSeed;
   int minClusterSize = robConstruction->clustering.minClusterSize;
   double percentOverlap = robConstruction->clustering.percentOverlap;
   double kMeansTol = robConstruction->clustering.kMeansTol;
@@ -827,7 +845,6 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
     }
 
     this->clusterIndex = new int[nTotSnaps];
-    this->clusterCenters = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
     this->snapsInCluster = new int[(this->nClusters)];
 
     distToCenters.resize(nTotSnaps);
@@ -854,67 +871,8 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
       clusterCentersOld = new VecSet< DistSVec<double, dim> >((this->nClusters), this->domain.getNodeDistInfo());
     }
 
-
-    // pick random initial centers (use shuffle algorithm to ensure no duplicates)
-    int* shuffle = new int[nTotSnaps];     
-
-    if (this->com->cpuNum()==0) { 
-      int randSeed;
-  
-      if (kMeansRandSeed == -1) {
-        randSeed = time(NULL);
-      } else {
-        randSeed = kMeansRandSeed;
-      }
-   
-      srand(randSeed);
-   
-      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-        shuffle[iSnap] = iSnap; 
-      }
-  
-      for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
-        int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
-        int temp = shuffle[iSnap];
-        shuffle[iSnap] = shuffle[randPosition];
-        shuffle[randPosition] = temp;
-      }
-    }
-  
-    this->com->broadcast(nTotSnaps, shuffle, 0);
- 
-     
-    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-      this->com->fprintf(stdout, "\n... debugging: shuffle[%d]=%d \n", iCluster, shuffle[iCluster]);
-      (*(this->clusterCenters))[iCluster]=(*(this->snap))[shuffle[iCluster]];
-    }
-  
-    delete [] shuffle;
- 
-//    int randSeed;
-//    if (kMeansRandSeed == -1) {
-//      randSeed = time(NULL);
-//    } else {
-//      randSeed = kMeansRandSeed;
-//    }
-//    srand(randSeed);
-//
-//    std::vector<int> shuffle;
-//    shuffle.resize(nTotSnaps);     
-//
-//    for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-//      shuffle[iSnap] = iSnap; 
-//    }
-//
-//    for (int iSnap=0; iSnap<(this->nClusters); iSnap++) { // only need to shuffle first nClusters snapshots
-//      int randPosition = iSnap + (rand() % (nTotSnaps-iSnap));
-//      int temp = shuffle[iSnap];
-//      shuffle[iSnap] = shuffle[randPosition];
-//      shuffle[randPosition] = temp;
-//    }
-//
-//    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster)
-//      (*(this->clusterCenters))[iCluster]=(*snapshots)[shuffle[iCluster]];
+    // initialize cluster centers either randomly or manualy
+    initializeClusterCenters(); 
 
     // start k-means algorithm
     for (int iCluster=0; iCluster<this->nClusters; iCluster++)

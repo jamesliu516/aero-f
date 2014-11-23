@@ -921,6 +921,9 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   } else if (strcmp(snapType,"projError")==0) {
     vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.projErrorSnapFile) + 1];
     sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.projErrorSnapFile);
+  } else if (strcmp(snapType,"initialClusterCenters")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.initialClusterCentersFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.initialClusterCentersFile);
   } else {
     this->com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", snapType);
     exit (-1);
@@ -1047,9 +1050,21 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
       }
   }
 
+  VecSet< DistSVec<double, dim> >* snapshots;
+  if (strcmp(snapType,"initialClusterCenters")==0) {
+    if (nTotSnaps!=nClusters) {
+      this->com->fprintf(stderr, "*** Error: number of specified centers (%d) does not match number of clusters (%d)\n",nTotSnaps,nClusters);
+      exit (-1);
+    }
+    if (clusterCenters) delete clusterCenters;
+    clusterCenters = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo()); 
+    snapshots = clusterCenters;
+  } else {
+    if (snap) delete snap;
+    snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+    snapshots = snap;
+  }
 
-  if (snap) delete snap;
-  snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
   DistSVec<double, dim>* snapBufOld = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
   DistSVec<double, dim>* snapBufNew = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
 
@@ -1089,10 +1104,10 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
         } else {
           status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
           tags[numCurrentSnapshots] = tagNew;
-          (*snap)[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
+          (*snapshots)[numCurrentSnapshots] = *snapBufNew - *snapBufOld;  //snapBufOld = 0 if not using incremental snaps
           if (incrementalSnaps) *snapBufOld = *snapBufNew;
           if (snapWeight[iData]>0.0 && snapWeight[iData]!=1.0) {
-            (*snap)[numCurrentSnapshots] *= snapWeight[iData];
+            (*snapshots)[numCurrentSnapshots] *= snapWeight[iData];
             this->com->fprintf(stderr, "*** Warning: basis updates should not be used for bases built with weighted snapshots (normalizing the snapshot matrix is supported, however)\n");  // supporting updates for bases built with weighted snapshots would require storing the weights when clustering (and not just the snapshots).  Since normalization happens after clustering there's no need to store anything in that case.
             if (!preprocess && nClusters>1) {
               this->com->fprintf(stderr, "*** Error: Clustering weighted snapshots is usually a very bad idea.  Exiting...\n");
