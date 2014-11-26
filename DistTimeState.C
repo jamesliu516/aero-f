@@ -272,16 +272,14 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // second, setup U for multiphase geometric conditions (planes, then spheres)
   // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
-  // CHANGED by Alexander the Great.  Now the point ic's are setup first.
-  //
+  // CHANGED by Alexander the Great.  Now the one dimensional solution is setup first, followed by the point ic's
+
+  setupUOneDimensionalSolution(iod,X);
   if(point_based_id)
     setupUFluidIdInitialConditions(iod, *point_based_id);
 
-
   setupUVolumesInitialConditions(iod);
   setupUMultiFluidInitialConditions(iod,X);
-  setupUOneDimensionalSolution(iod,X);
-  
   setupUExactSolutionInitialConditions(iod,X);
 
   if (name[0] != 0) {
