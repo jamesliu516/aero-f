@@ -19,7 +19,6 @@
 #include <cmath>
 #include <DebugTools.h>
 
-//#define NDEBUG // if commented, assert statements are evaluated
 //--------------------------------------------------------------------------
 //
 // This class is mostly a collection of FluxFcn used during the simulation
@@ -61,8 +60,9 @@ public:
 
   FluxFcn() {}
   ~FluxFcn() {
-    for(int i=0; i<numPhases_; i++)
-      delete ff_[i];
+    for(int i=0; i<numPhases_; i++) {
+      if(ff_[i]) delete ff_[i];
+    }
     delete [] ff_;
   }
 
@@ -181,7 +181,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
                                     VarFcnBase *vfb, FluxFcnBase::Type typeJac,
                                     int iPhase){
 
-  FluxFcnBase *localff;
+  FluxFcnBase *localff = 0;
   double gamma = iod.schemes.ns.gamma;
 
   SchemeData::Flux ns_flux = iod.schemes.ns.flux; 
