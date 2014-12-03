@@ -749,7 +749,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35, "AeroelasticAnalysis", 36, 
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35, "EigenAeroelastic", 36, 
      "GAMConstruction", 37, "NonlinearEigenResidual", 38);
 
   new ClassToken<ProblemData>
@@ -3885,7 +3885,7 @@ LinearizedData::LinearizedData()
   eps = 1e-4;
   eps2 = 5.0;
   epsEV = 1e-4;
-  maxItEV = 20;
+  maxItEV = 10;
   tolerance = 1e-8;
   strModesFile = "";
   modeNumber = 1;
@@ -3953,34 +3953,34 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
   new ClassDouble<LinearizedData>(ca, "Eps", this, &LinearizedData::eps);
   new ClassDouble<LinearizedData>(ca, "Eps2", this, &LinearizedData::eps2);
-  new ClassDouble<LinearizedData>(ca, "EpsEV", this, &LinearizedData::epsEV);
+  new ClassDouble<LinearizedData>(ca, "ToleranceEigenAeroelastic", this, &LinearizedData::epsEV);
   new ClassDouble<LinearizedData>(ca, "Tolerance", this, &LinearizedData::tolerance);
   new ClassStr<LinearizedData>(ca, "StrModes", this, &LinearizedData::strModesFile);
   new ClassInt<LinearizedData>(ca, "ExcMode", this, &LinearizedData::modeNumber);
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
-  new ClassInt<LinearizedData>(ca, "MaxItEV", this, &LinearizedData::maxItEV);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency1ReducedFrequency", this, &LinearizedData::gamFreq1);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency2ReducedFrequency", this, &LinearizedData::gamFreq2);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency3ReducedFrequency", this, &LinearizedData::gamFreq3);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency4ReducedFrequency", this, &LinearizedData::gamFreq4);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency5ReducedFrequency", this, &LinearizedData::gamFreq5);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency6ReducedFrequency", this, &LinearizedData::gamFreq6);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency7ReducedFrequency", this, &LinearizedData::gamFreq7);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency8ReducedFrequency", this, &LinearizedData::gamFreq8);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency9ReducedFrequency", this, &LinearizedData::gamFreq9);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency10ReducedFrequency", this, &LinearizedData::gamFreq10);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency11ReducedFrequency", this, &LinearizedData::gamFreq11);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency12ReducedFrequency", this, &LinearizedData::gamFreq12);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency13ReducedFrequency", this, &LinearizedData::gamFreq13);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency14ReducedFrequency", this, &LinearizedData::gamFreq14);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency15ReducedFrequency", this, &LinearizedData::gamFreq15);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency16ReducedFrequency", this, &LinearizedData::gamFreq16); 
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency17ReducedFrequency", this, &LinearizedData::gamFreq17);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency18ReducedFrequency", this, &LinearizedData::gamFreq18);  
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency19ReducedFrequency", this, &LinearizedData::gamFreq19);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency20ReducedFrequency", this, &LinearizedData::gamFreq20);
+  new ClassInt<LinearizedData>(ca, "MaxItsEigenAeroelastic", this, &LinearizedData::maxItEV);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency1", this, &LinearizedData::gamFreq1);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency2", this, &LinearizedData::gamFreq2);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency3", this, &LinearizedData::gamFreq3);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency4", this, &LinearizedData::gamFreq4);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency5", this, &LinearizedData::gamFreq5);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency6", this, &LinearizedData::gamFreq6);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency7", this, &LinearizedData::gamFreq7);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency8", this, &LinearizedData::gamFreq8);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency9", this, &LinearizedData::gamFreq9);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency10", this, &LinearizedData::gamFreq10);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency11", this, &LinearizedData::gamFreq11);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency12", this, &LinearizedData::gamFreq12);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency13", this, &LinearizedData::gamFreq13);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency14", this, &LinearizedData::gamFreq14);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency15", this, &LinearizedData::gamFreq15);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency16", this, &LinearizedData::gamFreq16); 
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency17", this, &LinearizedData::gamFreq17);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency18", this, &LinearizedData::gamFreq18);  
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency19", this, &LinearizedData::gamFreq19);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency20", this, &LinearizedData::gamFreq20);
   pade.setup("Pade", ca);
   dataCompression.setup("DataCompression", ca);
 
