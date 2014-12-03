@@ -3815,7 +3815,7 @@ void ModalSolver<dim>::computeDampingRatios()
 //output damp ratio and eigenvalues
   com->fprintf(stderr, "\nWrite solution to '%s'\n\n", outFile);
  
-  com->fprintf(outEV, "EV-ID RealPart ImagPart DampingRatio Converged\n");
+  com->fprintf(outEV, "ModeIDnumber RealPartEigenvalue ImaginaryPartEigenvalue DampingRatio ConvergenceToSpecifiedPrecision (1 = yes, 0 = no)\n");
   
   for (int iEV = 0; iEV < nStrMode; ++iEV) {
     absLambda = sqrt (pow (evList[iEV].real(), 2.0) + pow (evList[iEV].imag(), 2.0));
