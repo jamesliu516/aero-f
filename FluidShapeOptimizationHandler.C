@@ -50,7 +50,7 @@ dX(dom->getNodeDistInfo())
   // Initialize
   step = 0;
 
-  if ( ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_ ) {
+  if ( ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ) {
     load = new DistSVec<double,3>(domain->getNodeDistInfo());
     dLoad = new DistSVec<double,3>(domain->getNodeDistInfo());
   } else {
@@ -1196,7 +1196,7 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
   dFdS *= (-1.0);
   if(!isFSI) ksp->setup(0, 1, dFdS);
   else {
-    if(!ioData.sa.adaptiveThreshold) ksp->setup(0,1,dFdS);
+    if(!ioData.sa.adaptiveEpsFSI) ksp->setup(0,1,dFdS);
   }
 
   int numberIteration;
@@ -1475,7 +1475,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, D
       this->com->fprintf(stderr, "fso_sensitivityFSI Iteration\t");
       double relres;
       this->getRelResidual(relres);
-      if(ioData.sa.adaptiveThreshold) ksp->setEps(relres);
+      if(ioData.sa.adaptiveEpsFSI) ksp->setEps(relres);
       // Reading derivative of the overall deformation
       this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
 

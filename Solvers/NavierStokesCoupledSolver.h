@@ -17,9 +17,7 @@
 #include <ImplicitProjErrorTsDesc.h>
 #include <MultiGridSolver.h>
 #include <MultiGridCoupledTsDesc.h>
-#include <FluidShapeOptimizationHandler.h>  // YC
-// Included (MB)
-#include <FluidSensitivityAnalysisHandler.h>
+#include <FluidShapeOptimizationHandler.h>
 
 
 template<int dim>
@@ -30,19 +28,12 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
-  {
-// Modified (MB)
-      FluidSensitivityAnalysisHandler<dim> fsah(ioData, geoSource, &domain);
-      TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
-      tsSolver.fsaSolve(ioData);
-  }
-  else if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
+  if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
       FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
   }
-  else if (ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) { // YC
+  else if (ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) { // YC
       FluidShapeOptimizationHandler<dim> fsisoh(ioData, geoSource, &domain);
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsisoh);
       tsSolver.fsisoSolve(ioData);
