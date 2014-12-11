@@ -736,7 +736,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 39,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 38,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -744,13 +744,13 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "ROBConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
-     "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
+     "NonlinearEigenResidual", 21, "SparseGridGeneration", 22,
      "1D", 23, "NonlinearROM", 24, "NonlinearROMPreprocessing", 25,
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36, 
-     "GAMConstruction", 37, "NonlinearEigenResidual", 38);
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "AeroelasticShapeOptimization", 35, "EigenAeroelastic", 36, 
+     "GAMConstruction", 37);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3232,7 +3232,7 @@ SensitivityAnalysis::SensitivityAnalysis()
   si = 0;
   sf = -1;
   fsiFlag = false;
-  adaptiveThreshold = OFF_ADAPTIVETHRESHOLD;
+  adaptiveEpsFSI = OFF_ADAPTIVEEPSFSI;
 
   // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
@@ -3264,7 +3264,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityBeta", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensBeta), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "AdaptiveThreshold", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveThreshold), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "AdaptiveEpsFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveEpsFSI), 2, "Off", 0, "On", 1);
   new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableInitial", this, &SensitivityAnalysis::si);
   new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableFinal", this, &SensitivityAnalysis::sf);
 
@@ -4750,7 +4750,7 @@ void IoData::resetInputValues()
     problem.type[ProblemData::ACCELERATED] = true;
 
   if (problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_ ||
+      problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_ ||
@@ -4794,9 +4794,8 @@ void IoData::resetInputValues()
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) 
+  if (problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) 
   {
 
     //
@@ -4908,7 +4907,7 @@ void IoData::resetInputValues()
     }
 
 
-  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_)
+  } // END if (problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_)
 
   //
   // Check parameters for the matrix-vector product in implicit simulations.

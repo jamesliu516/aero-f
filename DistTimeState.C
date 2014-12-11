@@ -116,9 +116,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
     subTimeState[iSub] = 0;
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) {
+  if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) {
     dIdti = new DistVec<double>(dI);
     dIdtv = new DistVec<double>(dI);
     dIrey = new DistVec<double>(dI);
