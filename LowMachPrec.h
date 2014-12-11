@@ -74,7 +74,7 @@ protected:
         if(iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ &&
 					 iod.problem.alltype != ProblemData::_STEADY_ &&
            iod.problem.alltype != ProblemData::_STEADY_AEROELASTIC_ &&
-           iod.problem.alltype != ProblemData::_FSI_SHAPE_OPTIMIZATION_ &&
+           iod.problem.alltype != ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_ &&
            iod.problem.alltype != ProblemData::_STEADY_THERMO_ &&
            iod.problem.alltype != ProblemData::_STEADY_AEROTHERMOELASTIC_){
           if(iod.ts.type != TsData::IMPLICIT)

@@ -50,7 +50,7 @@ dX(dom->getNodeDistInfo())
   // Initialize
   step = 0;
 
-  if ( ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ) {
+  if ( ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_ ) {
     load = new DistSVec<double,3>(domain->getNodeDistInfo());
     dLoad = new DistSVec<double,3>(domain->getNodeDistInfo());
   } else {

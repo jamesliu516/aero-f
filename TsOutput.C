@@ -565,7 +565,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
       iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
+      iod.problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -667,7 +667,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
            iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ ||
-           iod.problem.alltype != ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
+           iod.problem.alltype != ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) {
     switchOpt = false;
   }
 
