@@ -749,7 +749,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35, "EigenAeroelastic", 36, 
+     "Aeroacoustic", 33, "ShapeOptimization", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36, 
      "GAMConstruction", 37, "NonlinearEigenResidual", 38);
 
   new ClassToken<ProblemData>
@@ -4750,7 +4750,7 @@ void IoData::resetInputValues()
     problem.type[ProblemData::ACCELERATED] = true;
 
   if (problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_ ||
@@ -4796,7 +4796,7 @@ void IoData::resetInputValues()
   // Included (MB)
   if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
       problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) 
+      problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) 
   {
 
     //

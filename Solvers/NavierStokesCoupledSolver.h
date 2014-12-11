@@ -42,11 +42,9 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
   }
-  else if (ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_) { // YC
+  else if (ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) { // YC
       FluidShapeOptimizationHandler<dim> fsisoh(ioData, geoSource, &domain);
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsisoh);
-//      ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-//      TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.fsisoSolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_ ) {

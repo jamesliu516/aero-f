@@ -724,7 +724,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
       timer->print(domain->getStrTimer());
     }
 
-    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && ioData.problem.alltype != ProblemData::_FSI_SHAPE_OPTIMIZATION_) {
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && ioData.problem.alltype != ProblemData::_STEADY_AEROELASTIC_SENSITIVITY_ANALYSIS_) {
       output->closeAsciiFiles();
     }
   }
