@@ -424,8 +424,12 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       }
     }
   
-    com->fprintf(stdout," \n... Finished with GNAT preprocessing - Exiting...\n");
+    com->fprintf(stdout," \n ... Finished with GNAT preprocessing calculations ...\n");
   }
+
+  this->freeMemoryForGnatPrepro();
+
+  this->partitionAndSowerForGnat(surfaceMeshConstruction);
 
   this->timer->addTotalGnatOfflineTime(totalGnatOfflineTime);
 
@@ -2219,18 +2223,34 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
   // write out boundary faces
 
   // from sower user manual
-  boundaryConditionsMap.insert(pair<int, std::string > (-5, "OutletMoving"));
-  boundaryConditionsMap.insert(pair<int, std::string > (-4, "InletMoving"));
-  boundaryConditionsMap.insert(pair<int, std::string > (-3, "StickMoving"));
-  boundaryConditionsMap.insert(pair<int, std::string > (-2, "SlipMoving"));
-  boundaryConditionsMap.insert(pair<int, std::string > (-1, "IsothermalMoving"));  // not sure (not in manual)
-  boundaryConditionsMap.insert(pair<int, std::string > (0, "Internal"));
-  boundaryConditionsMap.insert(pair<int, std::string > (1, "IsothermalFixed"));  // not sure (not in manual)
-  boundaryConditionsMap.insert(pair<int, std::string > (2, "SlipFixed"));
-  boundaryConditionsMap.insert(pair<int, std::string > (3, "StickFixed"));
-  boundaryConditionsMap.insert(pair<int, std::string > (4, "InletFixed"));
-  boundaryConditionsMap.insert(pair<int, std::string > (5, "OutletFixed"));
-  boundaryConditionsMap.insert(pair<int, std::string > (6, "Symmetry"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_MASSFLOW_OUTLET_MOVING, "MassFlowOutletMoving"));    // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_MASSFLOW_INLET_MOVING, "MassFlowInletMoving"));     // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_DIRECTSTATE_OUTLET_MOVING, "DirectStateOutletMoving")); // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_DIRECTSTATE_INLET_MOVING, "DirectStateInletMoving"));  // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_POROUS_WALL_MOVING, "PorousMoving"));            // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_OUTLET_MOVING, "OutletMoving"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_INLET_MOVING, "InletMoving"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_ADIABATIC_WALL_MOVING, "StickMoving"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_SLIP_WALL_MOVING, "SlipMoving"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_ISOTHERMAL_WALL_MOVING, "IsothermalMoving"));  // not sure (not in manual)
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_INTERNAL, "Internal"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_ISOTHERMAL_WALL_FIXED, "IsothermalFixed"));  // not sure (not in manual)
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_SLIP_WALL_FIXED, "SlipFixed"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_ADIABATIC_WALL_FIXED, "StickFixed"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_INLET_FIXED, "InletFixed"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_OUTLET_FIXED, "OutletFixed"));
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_POROUS_WALL_FIXED, "PorousFixed"));            // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_DIRECTSTATE_INLET_FIXED, "DirectStateInletFixed"));  // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_DIRECTSTATE_OUTLET_FIXED, "DirectStateOutletFixed")); // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_MASSFLOW_INLET_FIXED, "MassFlowInletFixed"));     // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_MASSFLOW_OUTLET_FIXED, "MassFlowOutletFixed"));    // guessing
+  boundaryConditionsMap.insert(pair<int, std::string > (BC_SYMMETRY, "Symmetry"));
+
+  if (boundaryConditionsMap.size() != (BC_MAX_CODE-BC_MIN_CODE+1)) {
+    this->com->fprintf(stderr,"*** Error: new boundary conditions have been added -- the GNAT preprocessing code needs to be updated\n");
+    sleep(1);
+    exit(-1);  
+  }
 
   for (int iSign = 0; iSign < 2; ++iSign) {
     for (int iBCtype = 0; iBCtype <= max(BC_MAX_CODE, -BC_MIN_CODE); ++iBCtype) {

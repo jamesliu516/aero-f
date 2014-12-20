@@ -7,6 +7,9 @@
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdio.h>
+#include <boost/lexical_cast.hpp>
+
 
 using std::stable_sort;
 
@@ -165,17 +168,17 @@ com(_com), ioData(&_ioData), domain(_domain)
   if (!(strcmp(ioData->output.rom.clusterUsage,"")==0) && nClusters>0) {
     char *fullClustUsageName = new char[strlen(ioData->output.rom.prefix) + 1 + strlen(ioData->output.rom.clusterUsage) + 1];
     sprintf(fullClustUsageName, "%s%s", ioData->output.rom.prefix, ioData->output.rom.clusterUsage);
-    if (this->com->cpuNum() == 0)  clustUsageFile = fopen(fullClustUsageName, "wt");
+    if (com->cpuNum() == 0)  clustUsageFile = fopen(fullClustUsageName, "wt");
     delete [] fullClustUsageName;
   }
 
   if (strcmp(ioData->output.rom.reducedCoords,"")==0) {
     if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT)
-      this->com->fprintf(stderr, "\n*** Warning: Reduced coordinates output file not specified\n\n");
+      com->fprintf(stderr, "\n*** Warning: Reduced coordinates output file not specified\n\n");
   } else {
     char *fullReducedCoordsName = new char[strlen(ioData->output.rom.prefix) + 1 + strlen(ioData->output.rom.reducedCoords) + 1];
     sprintf(fullReducedCoordsName, "%s%s", ioData->output.rom.prefix, ioData->output.rom.reducedCoords);
-    if (this->com->cpuNum() == 0)  reducedCoordsFile = fopen(fullReducedCoordsName, "wt");
+    if (com->cpuNum() == 0)  reducedCoordsFile = fopen(fullReducedCoordsName, "wt");
     delete [] fullReducedCoordsName;
   }
 
@@ -309,7 +312,7 @@ NonlinearRom<dim>::~NonlinearRom()
   if (resMat) delete resMat;
   if (jacMat) delete jacMat;
 
-  if (this->com->cpuNum() == 0) {
+  if (com->cpuNum() == 0) {
     if (clustUsageFile) fclose(clustUsageFile);
     if (reducedCoordsFile) fclose(reducedCoordsFile);
   }
@@ -559,7 +562,7 @@ void NonlinearRom<dim>::checkForSpecifiedInitialCondition() {
   if (specifiedIC || uniformIC) return;
 
   if (strcmp(ioData->input.solutions,"")!=0) {
-    this->com->fprintf(stderr, " ... Initial condition file is specified \n");
+    com->fprintf(stderr, " ... Initial condition file is specified \n");
     specifiedIC = true;
   } 
 
@@ -697,7 +700,7 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
       }
       break;
     default:
-      this->com->fprintf(stderr, "*** Error: Unexpected system approximation method\n");
+      com->fprintf(stderr, "*** Error: Unexpected system approximation method\n");
       exit(-1);
   }
 
@@ -792,7 +795,7 @@ void NonlinearRom<dim>::incrementDistanceComparisons(Vec<double> &dUTimeIt, int 
         incrementDistanceComparisonsForApproxUpdates(dUTimeIt, currentCluster);
         break;
       default:
-        this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+        com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
         exit(-1);
     }
   
@@ -925,13 +928,13 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.initialClusterCentersFile) + 1];
     sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.initialClusterCentersFile);
   } else {
-    this->com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", snapType);
+    com->fprintf(stderr, "*** Error: unexpected snapshot type %s\n", snapType);
     exit (-1);
   }
 
   FILE *inFP = fopen(vecFile, "r");
   if (!inFP)  {
-    this->com->fprintf(stderr, "*** Error: No snapshots FILES in %s\n", vecFile);
+    com->fprintf(stderr, "*** Error: No snapshots FILES in %s\n", vecFile);
     exit (-1);
   }
 
@@ -940,7 +943,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
 
   int nData, _n;
   _n = fscanf(inFP, "%d",&nData);
-  this->com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
+  com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
 
   FILE *inFPref; 
   char refFile1[500];
@@ -954,13 +957,13 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
 
       inFPref = fopen(refFile, "r");
       if (!inFPref)  {
-        this->com->fprintf(stderr, "*** Error: No references FILES in %s\n", vecFile);
+        com->fprintf(stderr, "*** Error: No references FILES in %s\n", vecFile);
         exit (-1);
       }
       int nRef;
       _n = fscanf(inFPref, "%d",&nRef);
       if (nRef != nData) {
-        this->com->fprintf(stdout,"Number of references must be equal to number of snapshot files.  Exiting...\n");
+        com->fprintf(stdout,"Number of references must be equal to number of snapshot files.  Exiting...\n");
         exit(-1);
       }
     }
@@ -979,10 +982,10 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   double weight;
 
   if (typeIsState && ioData->romOffline.rob.state.snapshots.incrementalSnaps)
-    this->com->fprintf(stderr, "*** Warning: Incremental snapshots is not supported for multiple bases (yet) \n");
+    com->fprintf(stderr, "*** Warning: Incremental snapshots is not supported for multiple bases (yet) \n");
 
   if (typeIsState && (ioData->romOffline.rob.state.dataCompression.energyOnly == DataCompressionData::ENERGY_ONLY_TRUE))
-    this->com->fprintf(stderr, "*** Warning: EnergyOnly is not supported for multiple bases\n");
+    com->fprintf(stderr, "*** Warning: EnergyOnly is not supported for multiple bases\n");
 
   // read snapshot command file
   for (int iData = 0; iData < nData; ++iData){
@@ -996,7 +999,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     endSnaps[iData] = iEnd;
     sampleFreq[iData] = iFreq;
     snapWeight[iData] = weight;
-    this->com->fprintf(stdout, " ... Reading snapshots from %s \n", snapFile[iData]);
+    com->fprintf(stdout, " ... Reading snapshots from %s \n", snapFile[iData]);
 
     if (typeIsState) {
       if (!(strcmp(ioData->input.multiStateSnapRefSolution,"")==0) && !duplicateSnaps) {
@@ -1014,7 +1017,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     bool status = this->domain.template readTagFromFile<double, dim>(snapFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
 
     if (!status) {
-      this->com->fprintf(stderr, "*** Error: could not read snapshots from %s \n", snapFile[iData]);
+      com->fprintf(stderr, "*** Error: could not read snapshots from %s \n", snapFile[iData]);
       exit(-1);
     }
 
@@ -1037,7 +1040,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     } else if (ioData->romOffline.rob.relativeProjectionError.subtractRefSol) {
       subtractRefSol = true;
       if (!(ioData->input.stateSnapRefSolution)) {
-        this->com->fprintf(stderr, "*** Error: Reference solution not found \n");
+        com->fprintf(stderr, "*** Error: Reference solution not found \n");
         exit (-1);
       }
       this->readReferenceState();
@@ -1053,7 +1056,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   VecSet< DistSVec<double, dim> >* snapshots;
   if (strcmp(snapType,"initialClusterCenters")==0) {
     if (nTotSnaps!=nClusters) {
-      this->com->fprintf(stderr, "*** Error: number of specified centers (%d) does not match number of clusters (%d)\n",nTotSnaps,nClusters);
+      com->fprintf(stderr, "*** Error: number of specified centers (%d) does not match number of clusters (%d)\n",nTotSnaps,nClusters);
       exit (-1);
     }
     if (clusterCenters) delete clusterCenters;
@@ -1108,9 +1111,9 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
           if (incrementalSnaps) *snapBufOld = *snapBufNew;
           if (snapWeight[iData]>0.0 && snapWeight[iData]!=1.0) {
             (*snapshots)[numCurrentSnapshots] *= snapWeight[iData];
-            this->com->fprintf(stderr, "*** Warning: basis updates should not be used for bases built with weighted snapshots (normalizing the snapshot matrix is supported, however)\n");  // supporting updates for bases built with weighted snapshots would require storing the weights when clustering (and not just the snapshots).  Since normalization happens after clustering there's no need to store anything in that case.
+            com->fprintf(stderr, "*** Warning: basis updates should not be used for bases built with weighted snapshots (normalizing the snapshot matrix is supported, however)\n");  // supporting updates for bases built with weighted snapshots would require storing the weights when clustering (and not just the snapshots).  Since normalization happens after clustering there's no need to store anything in that case.
             if (!preprocess && nClusters>1) {
-              this->com->fprintf(stderr, "*** Error: Clustering weighted snapshots is usually a very bad idea.  Exiting...\n");
+              com->fprintf(stderr, "*** Error: Clustering weighted snapshots is usually a very bad idea.  Exiting...\n");
               exit(-1);
             }
           }
@@ -2040,7 +2043,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
     }
   }    
 
-  if (nBuffer>0) this->com->fprintf(stderr, " ... using a buffer of size %d for this basis\n", nBuffer);
+  if (nBuffer>0) com->fprintf(stderr, " ... using a buffer of size %d for this basis\n", nBuffer);
 
   // for ASCII output files (clusterUsage and reducedCoords)
   if ((strcmp(basisType,"state")==0) || (strcmp(basisType,"sampledState")==0)) {
@@ -2086,7 +2089,7 @@ void NonlinearRom<dim>::readNonClusteredUpdateInfo(const char* sampledOrFull) {
       readApproxMetricLowRankFactor(sampledOrFull); 
       break;
     default:
-      this->com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
+      com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
       exit(-1);
   }
 }
@@ -2745,7 +2748,7 @@ void NonlinearRom<dim>::readApproxMetricLowRankFactor(const char* sampledOrFull)
     }
     if (!clusterCenters) readClusterCenters("centers");
   } else {
-    this->com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricLowRankFactor\n");
+    com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricLowRankFactor\n");
     exit (-1);
   }
   
@@ -3115,27 +3118,27 @@ void NonlinearRom<dim>::writeReducedCoords(const int totalTimeSteps, bool cluste
 
   int nPod = basis->numVectors();
 
-  if (this->com->cpuNum() == 0) {
+  if (com->cpuNum() == 0) {
     if (clustUsageFile)  // for plotting only
-      this->com->fprintf(clustUsageFile,"%d %d %d %d %d %d\n", totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
+      com->fprintf(clustUsageFile,"%d %d %d %d %d %d\n", totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
     if (reducedCoordsFile) {
       if (clusterSwitch) {
         if (update) {
-          this->com->fprintf(reducedCoordsFile,"%d switch update %d %d %d %d %d\n",
+          com->fprintf(reducedCoordsFile,"%d switch update %d %d %d %d %d\n",
             totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
         } else {
-          this->com->fprintf(reducedCoordsFile,"%d switch noUpdate %d %d %d %d %d\n",
+          com->fprintf(reducedCoordsFile,"%d switch noUpdate %d %d %d %d %d\n",
             totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
         }
       } else if (update) {
-        this->com->fprintf(reducedCoordsFile,"%d noSwitch update %d %d %d %d %d\n",
+        com->fprintf(reducedCoordsFile,"%d noSwitch update %d %d %d %d %d\n",
           totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
       } else { 
-        this->com->fprintf(reducedCoordsFile,"%d noSwitch noUpdate %d %d %d %d %d\n",
+        com->fprintf(reducedCoordsFile,"%d noSwitch noUpdate %d %d %d %d %d\n",
           totalTimeSteps, iCluster, nPod, nState, nKrylov, nSens);
       }
       for (int iPod=0; iPod<nPod; ++iPod) {
-        this->com->fprintf(reducedCoordsFile, "%23.15e\n", dUromTimeIt[iPod]);
+        com->fprintf(reducedCoordsFile, "%23.15e\n", dUromTimeIt[iPod]);
       }
     }
   }
@@ -3642,7 +3645,7 @@ void NonlinearRom<dim>::qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::
       for (int jVec = 0; jVec<=iVec; ++jVec) {
          double product = (*Q)[iVec] * (*Q)[jVec];
          if ((iVec==jVec && (abs(product - 1.0)>tol)) || (iVec!=jVec && (abs(product)>tol)))
-           this->com->fprintf(stdout, " ... Q orthogonal test: Q^T Q [%d][%d] = %e\n", iVec, jVec, product);
+           com->fprintf(stdout, " ... Q orthogonal test: Q^T Q [%d][%d] = %e\n", iVec, jVec, product);
       }
     }
 
@@ -3705,7 +3708,7 @@ void NonlinearRom<dim>::truncateBufferedBasis() {
 
   if (nBuffer>0) {
 
-    this->com->fprintf(stderr, " ... truncating buffered basis from %d vectors to %d vectors\n", nPod, nPodNew);
+    com->fprintf(stderr, " ... truncating buffered basis from %d vectors to %d vectors\n", nPod, nPodNew);
 
     VecSet< DistSVec<double, dim> >* basisNew =  new VecSet< DistSVec<double, dim> >(nPodNew, domain.getNodeDistInfo());
 
@@ -3721,5 +3724,191 @@ void NonlinearRom<dim>::truncateBufferedBasis() {
   }
 
   nBuffer = 0;
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
+
+  if (strcmp(ioData->input.metis,"")==0 || strcmp(ioData->input.sower,"")==0) {
+    com->fprintf(stdout, " ... consider specifying the METIS and SOWER executables to save yourself some work\n");
+    return; 
+  }
+
+  if (surfaceMeshConstruction) {
+      com->fprintf(stderr, " *** Error: Kyle, you still need to hook up the automated sowering for the surface mesh!\n");
+      exit(-1);
+  }
+  
+  if (com->cpuNum() == 0) {
+
+    char *topFilePath = NULL;
+    determinePath(sampledMeshName, -1, topFilePath);
+
+    // call metis
+    FILE *shell;
+    std::string metisCommandString(ioData->input.metis);
+    metisCommandString += " ";
+    metisCommandString += topFilePath;
+    metisCommandString += " ";
+    metisCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
+    const char *metisCommandChar = metisCommandString.c_str();
+
+    if (!(shell = popen(metisCommandChar, "r"))) {
+      com->fprintf(stderr, " *** Error: attempt to use external METIS executable (%s) failed!\n", ioData->input.metis);
+      exit(-1);
+    } else {
+      com->fprintf(stdout, "\n ... Calling external METIS executable (%s) ...\n", ioData->input.metis);
+    }
+
+    char buff[512];
+    while (fgets(buff, sizeof(buff), shell)!=NULL){
+      com->fprintf(stdout, "%s", buff);
+    }
+    pclose(shell);
+    sleep(10);
+
+    std::string decompositionPathString(topFilePath);
+    decompositionPathString += ".dec.";
+    decompositionPathString += boost::lexical_cast<std::string>(ioData->input.nParts);
+
+    // initial call to "sower -fluid"
+    std::string gnatPrefixPathString(databasePrefix);
+    gnatPrefixPathString += databaseName;
+    gnatPrefixPathString += "/";
+    gnatPrefixPathString += romFiles->gnatPrefix;
+    
+    std::vector<int> cpuMaps;
+    int nCores = 1;
+    while (nCores < ioData->input.nParts) {
+      cpuMaps.push_back(nCores);
+      nCores *= 2;
+    }
+    cpuMaps.push_back(ioData->input.nParts);
+
+    std::string sowerCommandString = ioData->input.sower;
+    sowerCommandString += " -fluid -mesh ";
+    sowerCommandString += topFilePath;
+    sowerCommandString += " -dec ";
+    sowerCommandString += decompositionPathString;
+    std::vector<int>::iterator it;
+    for (it = cpuMaps.begin(); it < cpuMaps.end(); ++it) { 
+      sowerCommandString += " -cpu ";
+      sowerCommandString += boost::lexical_cast<std::string>(*it);
+    }
+    sowerCommandString += " -output ";
+    sowerCommandString += gnatPrefixPathString;
+    sowerCommandString += " -cluster ";
+    sowerCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
+    const char *sowerCommandChar = sowerCommandString.c_str();
+
+    if (!(shell = popen(sowerCommandChar, "r"))) {
+      com->fprintf(stderr, " *** Error: attempt to use external SOWER executable (%s) failed!\n", ioData->input.sower);
+      exit(-1);
+    } else {
+      com->fprintf(stdout, "\n ... Calling external SOWER executable (%s) ...\n", ioData->input.sower);
+    }
+
+    while (fgets(buff, sizeof(buff), shell)!=NULL){
+      com->fprintf(stdout, "%s", buff);
+    }
+    pclose(shell);
+
+    std::string meshPathString(gnatPrefixPathString);
+    meshPathString += ".msh";
+
+    std::string connectivityPathString(gnatPrefixPathString);
+    connectivityPathString += ".con";
+  
+    delete [] topFilePath;
+
+    // now for all of the "sower -fluid -split" calls
+  
+    char *sampledCentersPath = NULL;
+    determinePath(sampledCentersName, -1, sampledCentersPath);
+    callSowerSplit(meshPathString, connectivityPathString, sampledCentersPath);
+    delete [] sampledCentersPath;
+  
+    char *sampledSolutionPath = NULL;
+    determinePath(sampledSolutionName, -1, sampledSolutionPath);
+    callSowerSplit(meshPathString, connectivityPathString, sampledSolutionPath);
+    delete [] sampledSolutionPath;
+  
+    char *sampledWallDistPath = NULL;
+    determinePath(sampledWallDistName, -1, sampledWallDistPath);
+    callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);
+    delete [] sampledWallDistPath;
+  
+    char *approxMetricLowRankPath = NULL;
+    determinePath(approxMetricLowRankName, -1, approxMetricLowRankPath);
+    callSowerSplit(meshPathString, connectivityPathString, approxMetricLowRankPath);
+    delete [] approxMetricLowRankPath;
+  
+    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+      char *gappyResidualPath = NULL;
+      determinePath(gappyResidualName, iCluster, gappyResidualPath);
+      callSowerSplit(meshPathString, connectivityPathString, gappyResidualPath);
+      delete [] gappyResidualPath;
+  
+      char *gappyJacActionPath = NULL;
+      determinePath(gappyJacActionName, iCluster, gappyJacActionPath);
+      callSowerSplit(meshPathString, connectivityPathString, gappyJacActionPath);
+      delete [] gappyJacActionPath;
+  
+      char *sampledStateBasisPath = NULL;
+      determinePath(sampledStateBasisName, iCluster, sampledStateBasisPath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledStateBasisPath);
+      delete [] sampledStateBasisPath;
+  
+      char *sampledRefStatePath = NULL;
+      determinePath(sampledRefStateName, iCluster, sampledRefStatePath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledRefStatePath);
+      delete [] sampledRefStatePath;
+  
+    }
+
+  }
+  
+  com->barrier();
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void NonlinearRom<dim>::callSowerSplit(std::string meshPath, std::string conPath, char* result) {
+
+    if (FILE *test = fopen(result, "r")) {
+        fclose(test);
+    } else {
+        return;
+    } 
+
+    std::string sowerCommandString = ioData->input.sower;
+    sowerCommandString += " -fluid -split -mesh ";
+    sowerCommandString += meshPath;
+    sowerCommandString += " -con ";
+    sowerCommandString += conPath;
+    sowerCommandString += " -result ";
+    sowerCommandString += result;
+    sowerCommandString += " -ascii -output ";
+    sowerCommandString += result;
+    const char *sowerCommandChar = sowerCommandString.c_str();
+
+    com->fprintf(stdout, "\n%s\n", sowerCommandChar);
+ 
+   FILE *shell;
+    if (!(shell = popen(sowerCommandChar, "r"))) {
+      com->fprintf(stderr, " *** Error: attempt to use external SOWER executable (%s) failed!\n", ioData->input.sower);
+      exit(-1);
+    } else {
+      com->fprintf(stdout, " ... Calling external SOWER executable (%s) ...\n", ioData->input.sower);
+    }
+
+    char buff[512];
+    while (fgets(buff, sizeof(buff), shell)!=NULL){
+      com->fprintf(stdout, "%s", buff);
+    }
+    pclose(shell);
 
 }

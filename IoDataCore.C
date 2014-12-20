@@ -122,6 +122,10 @@ InputData::InputData()
   oneDimensionalSolution = "";
   reducedEigState = "";
 
+  sower = "";
+  metis = "";
+  nParts = 0;
+
   exactInterfaceLocation = "";
 
   strKPtraces = "";
@@ -185,6 +189,11 @@ void InputData::setup(const char *name, ClassAssigner *father)
   // Input file for computing the Kirchhoff integral
   //
   new ClassStr<InputData>(ca, "PressureKirchhoff", this, &InputData::strKPtraces);
+
+  // Paths to external executables.  Currently only hooked up for GNAT preprocessing, but could be used for general simulations. 
+  new ClassStr<InputData>(ca, "PathToSowerExecutable", this, &InputData::sower);
+  new ClassStr<InputData>(ca, "PathToMetisExecutable", this, &InputData::metis);
+  new ClassInt<InputData>(ca, "NumberOfPartitions", this, &InputData::nParts);
 
 }
 
@@ -750,7 +759,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 39,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 43,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -759,7 +768,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "UnsteadyLinearized", 15, "NonlinearROMOffline", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
      "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
+     "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,

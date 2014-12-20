@@ -224,6 +224,8 @@ class NonlinearRom {
 
   // for local GNAT preprocessing
   void freeMemoryForGnatPrepro();
+  void partitionAndSowerForGnat(bool);
+  void callSowerSplit(std::string, std::string, char*);
 
   // for local GNAT online simulations
   int nSampleNodes;

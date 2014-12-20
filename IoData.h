@@ -91,10 +91,10 @@ struct InputData {
   // Added by Alex Main (September 2013)
   //
   const char *restart_file_package;
+
   const char *podFile;
   const char *optimalPressureFile;
   const char *optimalPressureDim;
-  //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
   const char *stateSnapFile;
   const char *stateSnapRefSolution;
   const char *multiStateSnapRefSolution;
@@ -108,6 +108,11 @@ struct InputData {
   const char *strModesFile;
   const char *embeddedSurface;
   const char *oneDimensionalSolution;
+
+  // Paths to external executables.  Currently only hooked up for GNAT preprocessing, but could be used for general simulations.
+  const char *sower;
+  const char *metis;
+  int nParts;
 
   //const char *stateVecFile;//CBM
 
