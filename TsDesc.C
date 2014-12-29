@@ -414,9 +414,17 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::getNumParam(int &numParam)
+void TsDesc<dim>::getNumParam(int &numParam, int &actvar, double &steadyTol)
 {
-  if (mmh) mmh->getNumParam(numParam);
+  if (mmh) mmh->getNumParam(numParam, actvar, steadyTol);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::sendNumParam(int numParam)
+{
+  if (mmh) mmh->sendNumParam(numParam);
 }
 
 //------------------------------------------------------------------------------

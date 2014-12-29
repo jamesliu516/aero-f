@@ -4802,12 +4802,6 @@ void IoData::resetInputValues()
     // Check that the code is running within the "correct" limits
     //
 
-    if(sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI && sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
-    {
-      sa.sensMesh = SensitivityAnalysis::OFF_SENSITIVITYMESH;
-      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.SensitivityMesh has been turned off -----\n");
-    } 
-
     if (sa.method == SensitivityAnalysis::ADJOINT)
     {
       com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.Method has to be set to Direct -----\n");

@@ -385,20 +385,20 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
       }
 
       for (int i=0; i<=j; ++i) {
-	// For complex vectors, w has to not be conjugated in the definition
+        // For complex vectors, w has to not be conjugated in the definition
         // of the dot product
-	H[i][j] = w * V[i];
-	w -= H[i][j] * V[i];
+        H[i][j] = w * V[i];
+        w -= H[i][j] * V[i];
       }
 
       H[j+1][j] = w.norm();
     
       if (H[j+1][j] == 0.0) {
 
-	applyPreviousRotations(j, H, cs);
-	applyNewRotation(j, H, cs, g);
+        applyPreviousRotations(j, H, cs);
+        applyNewRotation(j, H, cs, g);
 
-	++iter; exitLoop = 1; break;
+        ++iter; exitLoop = 1; break;
 
       }
       

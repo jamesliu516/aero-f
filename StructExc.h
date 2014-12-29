@@ -50,7 +50,8 @@ public:
 
   void negotiate();
   void negotiateStopping(bool*);
-  void getNumParam(int &);
+  void getNumParam(int &, int &, double &);
+  void sendNumParam(int);
   void getRelResidual(double &);
   double getInfo();
   void getEmbeddedWetSurfaceInfo(int&, bool&, int&, int&);

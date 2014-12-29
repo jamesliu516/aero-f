@@ -14,6 +14,7 @@
 #define HEATPOWER_TAG 5000
 #define TEMP_TAG 6000
 #define STRUC_NUMPA_TAG 7500
+#define FLUID_NUMPA_TAG 7550
 #define STRUC_RELRES_TAG 7600
 #define STRUC_CMD_TAG 8000
 #define FLUID_CMD_TAG 9000
@@ -350,17 +351,33 @@ void StructExc::negotiateStopping(bool* lastIt)
 
 //------------------------------------------------------------------------------
 
-void StructExc::getNumParam(int &numParam)
+void StructExc::sendNumParam(int numParam)
 {
-  double xbuf;
+  double xbuf = double(numParam);
 
   if (strCom->cpuNum() == 0) {
-    strCom->recFrom(STRUC_NUMPA_TAG, &xbuf, 1);
+    strCom->sendTo(0, FLUID_NUMPA_TAG, &xbuf, 1);
     strCom->waitForAllReq();
   }
 
   com->broadcast(1, &xbuf);
-  numParam = int(xbuf);
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::getNumParam(int &numParam, int &actvar, double &steadyTol)
+{
+  double xbuf[3];
+
+  if (strCom->cpuNum() == 0) {
+    strCom->recFrom(STRUC_NUMPA_TAG, xbuf, 3);
+    strCom->waitForAllReq();
+  }
+
+  com->broadcast(3, xbuf);
+  numParam = int(xbuf[0]);
+  actvar = int(xbuf[1]);
+  steadyTol = xbuf[2];
 }
 
 //------------------------------------------------------------------------------
