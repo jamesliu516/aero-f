@@ -53,12 +53,13 @@ dX(dom->getNodeDistInfo())
   if ( ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ) {
     load = new DistSVec<double,3>(domain->getNodeDistInfo());
     dLoad = new DistSVec<double,3>(domain->getNodeDistInfo());
+    dLoadref = new DistSVec<double,3>(domain->getNodeDistInfo());
   } else {
     load = 0;
     dLoad = 0;
   }
 
-  if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) {
+//  if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) {
     Xp = new DistSVec<double,3>(domain->getNodeDistInfo());
     Xm = new DistSVec<double,3>(domain->getNodeDistInfo());
     Lp = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -69,7 +70,7 @@ dX(dom->getNodeDistInfo())
     Fm = new DistSVec<double,dim>(domain->getNodeDistInfo());
     Up = new DistSVec<double,dim>(domain->getNodeDistInfo());
     Um = new DistSVec<double,dim>(domain->getNodeDistInfo());
-  }  
+/*  }  
   else if ( ioData.sa.scFlag == SensitivityAnalysis::SEMIANALYTICAL ) {
     Xp = new DistSVec<double,3>(domain->getNodeDistInfo());
     Xm = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -91,7 +92,7 @@ dX(dom->getNodeDistInfo())
     Am = 0;
     Fp = 0;
     Fm = 0;
-  }
+  } */
 
   Z = new DistSVec<double,3>(domain->getNodeDistInfo());
 
@@ -128,9 +129,9 @@ dX(dom->getNodeDistInfo())
   mvp->exportMemory(&mp);
   pc->exportMemory(&mp);
 
-  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH || ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI) {
+  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH || ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) {
     mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(),domain,0);
-  }
+  } else mms = 0;
 
   length = ioData.output.transient.length;
   surface = ioData.output.transient.surface;
@@ -150,6 +151,7 @@ dX(dom->getNodeDistInfo())
   reynolds0 = ioData.ref.reynolds_mu;
   kenergy0 = ioData.bc.inlet.kenergy;
 
+  steadyTol = 1.0;
 }
 
 //------------------------------------------------------------------------------
@@ -169,6 +171,8 @@ FluidShapeOptimizationHandler<dim>::~FluidShapeOptimizationHandler()
   if (load) delete load;
 
   if (dLoad) delete dLoad;
+
+  if (dLoadref) delete dLoadref;
 
 //  if (tsSolver) delete tsSolver;
 
@@ -1073,7 +1077,7 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   dAdS=1.0/(2.0*eps)*((*Ap)-(*Am));
 
   dF=1.0/(2.0*eps)*((*Fp)-(*Fm));
-
+  if(DFSPAR[1] || DFSPAR[2]) dF *= 0.0174532925;  // convert radian to degree
   //
   // Reset the steady state
   //
@@ -1126,6 +1130,7 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
+  if(DFSPAR[1] || DFSPAR[2]) dFdS *= 0.0174532925;  // convert radian to degree
 
 }
 
@@ -1191,13 +1196,10 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
 )
 {
 
-  dUdS = 0.0;
+//  dUdS = 0.0;
 
   dFdS *= (-1.0);
   if(!isFSI) ksp->setup(0, 1, dFdS);
-  else {
-    if(!ioData.sa.adaptiveEpsFSI) ksp->setup(0,1,dFdS);
-  }
 
   int numberIteration;
   bool istop = false;
@@ -1344,13 +1346,6 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
 
   fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
-  if (ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI) {
-    int numParam;
-    this->getNumParam(numParam);
-    for(int i=0; i<numParam; ++i) { // obtain shape sensitivities first
-      fso_on_sensitivityFSI(ioData, U);
-    }
-  }
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) fso_on_sensitivityMesh(ioData, U);
   if (ioData.sa.sensMach == SensitivityAnalysis::ON_SENSITIVITYMACH) fso_on_sensitivityMach(ioData, U);
   if (ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) fso_on_sensitivityAlpha(ioData, U); 
@@ -1376,6 +1371,94 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
   return -1;
 
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::setDFSPAR(IoData &ioData)
+{
+  switch (actvar) {
+    case 1:
+      if(ioData.sa.sensMesh == SensitivityAnalysis::OFF_SENSITIVITYMESH) { fsoPrintTextOnScreen(" ***** Error: SensitivityMesh in fluid input must be on\n"); exit(-1); }
+      DFSPAR[0] = 0;  DFSPAR[1] = 0;  DFSPAR[2] = 0;
+      break;
+    case 2: 
+      if(ioData.sa.sensMach == SensitivityAnalysis::OFF_SENSITIVITYMACH) { fsoPrintTextOnScreen(" ***** Error: SensitivityMach in fluid input must be on\n"); exit(-1); }
+      DFSPAR[0] = 1;  DFSPAR[1] = 0;  DFSPAR[2] = 0;
+      break;
+    case 3: 
+      if(ioData.sa.sensAlpha == SensitivityAnalysis::OFF_SENSITIVITYALPHA) { fsoPrintTextOnScreen(" ***** Error: SensitivityAlpha in fluid input must be on\n"); exit(-1); }
+      DFSPAR[0] = 0;  DFSPAR[1] = 1;  DFSPAR[2] = 0;
+      break;
+    case 4: 
+      if(ioData.sa.sensBeta == SensitivityAnalysis::OFF_SENSITIVITYBETA) { fsoPrintTextOnScreen(" ***** Error: SensitivityBeta in fluid input must be on\n"); exit(-1); }
+      DFSPAR[0] = 0;  DFSPAR[1] = 0;  DFSPAR[2] = 1;
+      break;
+    case 5: 
+      if(ioData.sa.sensFSI == SensitivityAnalysis::OFF_SENSITIVITYFSI) { fsoPrintTextOnScreen(" ***** Error: SensitivityFSI in fluid input must be on\n"); exit(-1); }
+      DFSPAR[0] = 0;  DFSPAR[1] = 0;  DFSPAR[2] = 0;
+      break;
+    default:
+      fsoPrintTextOnScreen(" ***** Error: invalid value for active sensitivity variable!\n"); exit(-1);
+      break;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int FluidShapeOptimizationHandler<dim>::fsoAeroelasticHandler(IoData &ioData, DistSVec<double,dim> &U)
+{
+
+  // xmach      -  Mach number
+  // alpha      -  pitch angle
+  // teta       -  yaw angle
+  // DFSPAR(1)  -  Mach number differential
+  // DFSPAR(2)  -  angle of attack differential
+  // DFSPAR(3)  -  yaw angle differential
+
+  // Start basic timer
+  double MyLocalTimer = -this->timer->getTime();
+
+  double dtLeft = 0.0;
+  this->computeTimeStep(1, &dtLeft, U);
+  this->computeMeshMetrics();
+  this->updateStateVectors(U);
+
+  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+  int totalNumParamTypes; 
+  this->getNumParam(totalNumParamTypes,actvar,steadyTol);
+  if(ioData.sa.sensMach == SensitivityAnalysis::ON_SENSITIVITYMACH) {  totalNumParamTypes++; }
+  if(ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) { totalNumParamTypes++; }
+  if(ioData.sa.sensBeta == SensitivityAnalysis::ON_SENSITIVITYBETA) { totalNumParamTypes++; }
+
+  for(int iparam=0; iparam<totalNumParamTypes; ++iparam) {
+    int numParam;
+    this->getNumParam(numParam,actvar,steadyTol);
+    setDFSPAR(ioData);
+    for(int i=0; i<numParam; ++i) fso_on_aeroelasticSensitivityFSI(ioData, U);
+  }
+  bool lastIt = true;
+//  this->outputToDisk(ioData, &lastIt, 0, 0, 0, 0, dtLeft, U); 
+//  this->outputPositionVectorToDisk(U);
+
+  this->output->closeAsciiFiles();
+  
+
+//  this->com->barrier();
+  MyLocalTimer += this->timer->getTime();
+  if (this->com->cpuNum() == 0)
+  {
+    std::cout << "\n *** FluidShapeOptimizationHandler::fsoAeroelasticHandler >> Exit";
+    std::cout << " (" << MyLocalTimer << " s)";
+    std::cout << "\n\n";
+  }
+
+  return -1;
+
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityBeta(IoData &ioData, DistSVec<double,dim> &U)
@@ -1453,31 +1536,29 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityMach(IoData &ioData, 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityFSI(IoData &ioData, DistSVec<double,dim> &U)
+void FluidShapeOptimizationHandler<dim>::fso_on_aeroelasticSensitivityFSI(IoData &ioData, DistSVec<double,dim> &U)
 {
 
     double tag = 0.0;
     bool lastIt = false;
     int iter = 0;
-
     dXdS = 0.0;
     dXdSb = 0.0;
     dAdS = 0.0;
-    DFSPAR[0] = 0.0;
-    DFSPAR[1] = 0.0;
-    DFSPAR[2] = 0.0;
-    actvar = 1;
 
     while (!lastIt) {
-      
+     
       this->cmdCom(&lastIt);
       if(lastIt) { dXdSb = 0.0; break; }
-      this->com->fprintf(stderr, "fso_sensitivityFSI Iteration\t");
-      double relres;
-      this->getRelResidual(relres);
-      if(ioData.sa.adaptiveEpsFSI) ksp->setEps(relres);
+      this->com->fprintf(stderr, "fso_aeroelatic_sensitivity Iteration\t");
+      if(ioData.sa.adaptiveEpsFSI) {
+        double relres;
+        this->getRelResidual(relres);
+        ksp->setEps(relres);
+      } else ksp->setEps(steadyTol);
       // Reading derivative of the overall deformation
       this->receiveBoundaryPositionSensitivityVector(dXdSb); // [F] receive boundary displacement sensitivity from structure ...
+//      this->com->fprintf(stderr, "norm of dXdSb is %e\n",dXdSb.norm());
 
       // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
@@ -1580,11 +1661,12 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(
   // Derivative of the Flux, either analytical or semi-analytical
   if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL ) {
     fsoAnalytical(ioData, X, A, U, dFdS);
-//    dFdSref = 0.0;
-//    fsoSemiAnalytical(ioData, X, A, U, dFdSref);
-//    DistSVec<double,dim> difference(domain->getNodeDistInfo()); 
-//    difference = dFdS - dFdSref;
-//    this->com->fprintf(stderr, "\n !!! ERROR !!! dFdS and dFdSref do not match. The difference norm is %e\n\n", difference.norm());
+/*    dFdSref = 0.0;
+    fsoSemiAnalytical(ioData, X, A, U, dFdSref);
+    DistSVec<double,dim> difference(domain->getNodeDistInfo()); 
+    difference = dFdS - dFdSref;
+    this->com->fprintf(stderr, "!!! dFdS and dFdSref do not match. The relative difference norm is %e\n", difference.norm()/dFdS.norm());
+    this->com->fprintf(stderr, "!!! dFdSref norm is %e\n", dFdSref.norm());  */
   } else {
     fsoSemiAnalytical(ioData, X, A, U, dFdS);
   }
@@ -1603,13 +1685,19 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeAndSendForceSensitivities(IoD
                                                                              DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
 
-  if ( ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI ) {
+//  if ( ioData.sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI ) {
     if (ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) { 
       fsoGetDerivativeOfLoadFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, *load, *dLoad);
     } else {
       fsoGetDerivativeOfLoadAnalytical(ioData, X, dXdS, U, dUdS, *load, *dLoad);
+/*      *dLoadref = 0.0;
+      fsoGetDerivativeOfLoadFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, *load, *dLoadref);
+      DistSVec<double,3> difference(domain->getNodeDistInfo());
+      difference = *dLoad - *dLoadref;
+      this->com->fprintf(stderr, "!!! dLoad and dLoadref do not match. The relative difference norm is %e\n", difference.norm()/dLoad->norm());
+      this->com->fprintf(stderr, "!!! dLoadref norm is %e\n", dLoadref->norm()); */
     }
-  }
+//  }
 
   this->sendForceSensitivity(dLoad); 
 

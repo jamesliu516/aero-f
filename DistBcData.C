@@ -814,17 +814,22 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
   double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   double Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
   double dPstiff = -iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)) * dM;
+//  double dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach)) * dM;
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
   double pressurein  = iod.bc.inlet.pressure + rhoin*this->gravity*this->depth;
+//  double dpressurein = iod.bc.inlet.pressure * (-2.0 / (iod.bc.inlet.mach)) * dM;
   double dpressurein = -2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach) * dM;
   double pressureout = iod.bc.outlet.pressure + rhoout*this->gravity*this->depth;
+//  double dpressureout = iod.bc.outlet.pressure * (-2.0 / (iod.bc.outlet.mach)) * dM;
   double dpressureout = -2.0 / (gam * iod.bc.outlet.mach * iod.bc.outlet.mach * iod.bc.outlet.mach) * dM;
 
   double velin2 = gam * (pressurein + Pstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;
   double dvelin2 = (gam * dPstiff * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * pressurein * iod.bc.inlet.mach / rhoin - 2.0 / (rhoin*iod.bc.inlet.mach)) * dM;
+//  double dvelin2 = (gam * (dpressurein + dPstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * (pressurein+Pstiff) * iod.bc.inlet.mach / rhoin) * dM;
   double velout2 = gam * (pressureout + Pstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout;
   double dvelout2 = (gam * dPstiff * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * pressureout * iod.bc.outlet.mach / rhoout  - 2.0 / (rhoout*iod.bc.outlet.mach)) * dM;
+//  double dvelout2 = (gam * (dpressureout + dPstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * (pressureout+Pstiff) * iod.bc.outlet.mach / rhoout) * dM;
   double velin = sqrt(velin2);
   double dvelin = dvelin2/(2*velin);
   double velout = sqrt(velout2);

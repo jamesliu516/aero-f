@@ -128,7 +128,7 @@ int TsSolver<ProblemDescriptor>::fsisoSolve(IoData &ioData)
   resolve(U, ioData);
 
   ioData.sa.fsiFlag = true;
-  probDesc->fsoHandler(ioData, U);
+  probDesc->fsoAeroelasticHandler(ioData, U);
   probDesc->printf(0," ***** fsisoSolve is done ********\n");
 
   return 0;

@@ -370,6 +370,7 @@ void Domain::computeDerivativeOfGradientsGalerkin(DistVec<double> &ctrlVol, Dist
 
   double t0 = timer->getTime();
 
+  com->fprintf(stderr," ... norm of dvar is %e  ....\n", dvar.norm());
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeDerivativeOfGradientsGalerkin(ctrlVol(iSub), dCtrlVol(iSub), wii(iSub), wij(iSub), wji(iSub),

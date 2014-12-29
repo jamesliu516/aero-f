@@ -435,9 +435,16 @@ void AeroMeshMotionHandler::sendForceSensitivity(DistSVec<double,3> *dFdS)
 
 //------------------------------------------------------------------------------
 
-void AeroMeshMotionHandler::getNumParam(int &numParam)
+void AeroMeshMotionHandler::getNumParam(int &numParam, int &actvar, double &steadyTol)
 {
-  strExc->getNumParam(numParam);
+  strExc->getNumParam(numParam, actvar, steadyTol);
+}
+
+//------------------------------------------------------------------------------
+
+void AeroMeshMotionHandler::sendNumParam(int numParam)
+{
+  strExc->sendNumParam(numParam);
 }
 
 //------------------------------------------------------------------------------
