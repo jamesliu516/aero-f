@@ -62,7 +62,7 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
 
   // checks whether the local ROM needs to be modified
 
-  int tmp, _n, closestCluster, nCoords; 
+  int tmp, _n, closestCluster, nCoords, prevCluster; 
   char switchStr[50], updateStr[50];
 
 
@@ -88,11 +88,18 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
 
     if (this->updatePerformed || this->clusterSwitch) {
       if (this->clusterSwitch) {
+        prevCluster = this->currentCluster;
         this->currentCluster = closestCluster;
         this->rom->readClusteredOnlineQuantities(this->currentCluster);  // read state basis, update info
-        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF)
-          this->rom->projectSwitchStateOntoAffineSubspace(this->currentCluster, U);
+        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+          if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_OFF) {
+            this->rom->projectSwitchStateOntoAffineSubspace(this->currentCluster,prevCluster,U,this->UromCurrentROB);
+          } else {
+            this->com->fprintf(stderr, "*** Warning: Updates and projection were both specified; not performing projection\n");
+          }
+        }
       }
+
 
       if (this->updatePerformed) this->rom->updateBasis(this->currentCluster, U);
       //if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
@@ -111,6 +118,7 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
 
       this->dUromCurrentROB.resize(this->nPod);
       this->dUromCurrentROB = 0.0;
+
     }
   }
 

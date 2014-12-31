@@ -167,7 +167,7 @@ class NonlinearRom {
   // 1: common to all GNAT update methods (no updates, exact updates, approx updates)
   bool specifiedIC;
   SVec<double, dim>* uniformIC;  // value of uniform initial condition at node 0 (should be representative)
-  std::vector<std::vector<double> > centerNorms;
+  std::vector<std::vector<double> > centerNorms; // note: actually norm squared
   std::vector<std::vector<std::vector<std::vector<double> > > > stateBasisCentersProduct;  //[iCluster][mCenter][pCenter][:]
   std::vector<std::vector<std::vector<std::vector<double> > > > krylovBasisCentersProduct; //[iCluster][mCenter][pCenter][:]
   std::vector<std::vector<std::vector<double> > > sensitivityBasisCentersProduct;          //[mCenter][pCenter][:]
@@ -202,8 +202,8 @@ class NonlinearRom {
   void readClusteredSampleNodes(int iCluster, bool deleteExistingRestrictionMapping = true);
   void readClusteredGappyMatrix(int, const char*);
 
-  void outputCenterNorms(std::vector<std::vector<double> > &);
-  void readCenterNorms();
+  void outputCenterNorms(std::vector<std::vector<double> > &); //note: norm squared
+  void readCenterNorms();  // note: norm squared
   void outputClusteredInfoASCII(int, const char*, std::vector<double>* vec1 = NULL, 
                                 std::vector<std::vector<double> >* vec2 = NULL,
                                 std::vector<std::vector<std::vector<double> > >* vec3 = NULL,
@@ -284,20 +284,22 @@ class NonlinearRom {
   void closestCenterFast(int* index1=NULL);
   void initializeDistanceComparisons(DistSVec<double, dim> &);
   void resetDistanceComparisonQuantitiesApproxUpdates();
-  void incrementDistanceComparisons(Vec<double> &, int);  // calls one of the following three functions
-  void incrementDistanceComparisonsForNoUpdates(Vec<double> &, int);
-  void incrementDistanceComparisonsForExactUpdates(Vec<double> &, int);
-  void incrementDistanceComparisonsForApproxUpdates(Vec<double> &, int);
+  void incrementDistanceComparisons(int, Vec<double> , Vec<double> );  // calls one of the following four functions
+  void distanceComparisonsForProjection(Vec<double> , int);
+  void incrementDistanceComparisonsForNoUpdates(Vec<double> , int);
+  void incrementDistanceComparisonsForExactUpdates(Vec<double> , int);
+  void incrementDistanceComparisonsForApproxUpdates(Vec<double> , int);
 
   // public database IO functions
-	void determineFileName(const char*, const char*, const char*, char*&);
-	void determinePrefixName(const char*, const char*, char*&);
+  void determineFileName(const char*, const char*, const char*, char*&);
+  void determinePrefixName(const char*, const char*, char*&);
   void determinePath(char*, int, char*&); // top-level database directory is cluster "-1", sensitivity basis is cluster "-2"
   void readClusteredBasis(int, const char*, bool relProjError = false);
   void readClusteredColumnSumsV(int, const char*);
   void readClusteredUpdateInfo(int, const char*);
   void readNonClusteredUpdateInfo(const char*);
   void readExactUpdateInfo();
+  void readProjectionInfo();
   void readClusterCenters(const char*);
   void readAllClusteredOnlineQuantities();
   void readAllClusteredOfflineQuantities();
@@ -308,12 +310,13 @@ class NonlinearRom {
   void initializeClusteredOutputs(); 
 
   // for online ROMs (both with and without hyper-reduction)
-  virtual void projectSwitchStateOntoAffineSubspace(int, DistSVec<double, dim> &) {};
+  virtual void projectSwitchStateOntoAffineSubspace(int, int, DistSVec<double, dim> &, Vec<double> &) {};
   virtual bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL) {return false;};
   virtual void appendNonStateDataToBasis(int, const char*, bool relProjError = false) {};
   virtual void readClusteredOnlineQuantities(int) {};
   void truncateBufferedBasis();
   void writeReducedCoords(const int, bool, bool, int, Vec<double>); 
+  void initializeProjectionQuantities(DistSVec<double, dim> &);
   void initializeFastExactUpdatesQuantities(DistSVec<double, dim> &);
 
   // for online ROMs with hyper-reduction

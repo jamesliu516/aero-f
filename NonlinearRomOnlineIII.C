@@ -50,7 +50,11 @@ void NonlinearRomOnlineIII<dim>::readClosestCenterInfoModelIII() {
   if (this->ioData->romOnline.distanceComparisons) {
     switch (this->ioData->romOnline.basisUpdates) {
       case (NonlinearRomOnlineData::UPDATES_OFF):
-        this->readDistanceComparisonInfo("noUpdates");
+        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+          this->readDistanceComparisonInfo("project");
+        } else {
+          this->readDistanceComparisonInfo("noUpdates");
+        }
         break;
       case (NonlinearRomOnlineData::UPDATES_SIMPLE):
         this->com->fprintf(stderr, "*** Error: fast distance caluclations are incompatible with simple ROB updates (use Exact)\n");
@@ -680,10 +684,56 @@ void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, const ch
 //-------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineIII<dim>::projectSwitchStateOntoAffineSubspace(int iCluster, DistSVec<double, dim> &U) {
+void NonlinearRomOnlineIII<dim>::projectSwitchStateOntoAffineSubspace(int currentCluster, int prevCluster, 
+                                                                      DistSVec<double, dim> &U, Vec<double> &UromCurrentROB) {
 
-  this->com->fprintf(stdout, " ... projecting switch state onto affine subspace is not yet supported\n");
+  this->com->fprintf(stdout, " ... projecting switch state onto affine subspace\n");
 
-  // approx metric!
+  // if first iteration
+  // currentReducedCoords = basisUicProducts[currentCluster] - basisUrefProducts[currentCluster,currentCluster];
+  //
+  // otherwise
+  // currentReducedCoords = basisUrefProducts[currentCluster,prevCluster] - basisUrefProducts[currentCluster,currentCluster]
+  //                      + basisBasisProducts[currentCluster,prevCluster,:,:] * prevReducedCoords;
+  //                      
+  // newState = currentReference + currentROB * currentReducedCoords;
+
+  int nPodVecs = this->basis->numVectors();
+  int nPodVecsPrev = UromCurrentROB.size();
+
+  if (prevCluster==-1) {
+    UromCurrentROB.resize(nPodVecs);
+    for (int iVec = 0; iVec < nPodVecs; iVec++)
+      UromCurrentROB[iVec] = this->basisUicProducts[currentCluster][iVec] - this->basisUrefProducts[currentCluster][currentCluster][iVec];
+  } else if (currentCluster==prevCluster) {
+    // do nothing -- (should never enter here, just being overly cautious because basisBasisProducts isn't defined for this case...)
+  } else {
+    Vec<double> UromPrevROB(UromCurrentROB);
+    UromCurrentROB.resize(nPodVecs);
+    for (int iVec = 0; iVec < nPodVecs; iVec++) {
+      UromCurrentROB[iVec] = -1.0* this->basisUrefProducts[currentCluster][currentCluster][iVec];
+      //if (prevCluster<currentCluster) {
+        UromCurrentROB[iVec] += this->basisUrefProducts[currentCluster][prevCluster][iVec];
+      //} else {
+      //  UromCurrentROB[iVec] -= this->basisUrefProducts[prevCluster][currentCluster][iVec];
+      //}
+      if (prevCluster<currentCluster) {
+        for (int jVec = 0; jVec < nPodVecsPrev; jVec++) {
+          UromCurrentROB[iVec] += this->basisBasisProducts[currentCluster][prevCluster][iVec][jVec] * UromPrevROB[jVec];
+        }                  
+      } else {
+        for (int jVec = 0; jVec < nPodVecsPrev; jVec++) {
+          UromCurrentROB[iVec] += this->basisBasisProducts[prevCluster][currentCluster][jVec][iVec] * UromPrevROB[jVec];
+        }
+      }
+    }
+  }
+
+  this->readClusteredUpdateInfo(currentCluster, "sampledstate");
+  U = *(this->Uref);
+  for (int iVec = 0; iVec < nPodVecs; iVec++)
+    U += UromCurrentROB[iVec] * (*(this->basis))[iVec];
+
+  return;
 }
 

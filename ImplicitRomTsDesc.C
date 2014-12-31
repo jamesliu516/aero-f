@@ -52,6 +52,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   dUromNewtonIt.resize(nPod);
   dUromTimeIt.resize(nPod);
   dUromCurrentROB.resize(nPod);
+  UromCurrentROB.resize(0);
   dUromNewtonIt = 0.0;
   dUromTimeIt = 0.0;
   dUromCurrentROB = 0.0;
@@ -255,11 +256,15 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
     if (currentCluster == -1) { // first iteration
       if (ioData->romOnline.distanceComparisons)
         rom->initializeDistanceComparisons(U);
-      if (ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT)
+      if (ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT) {
         rom->initializeFastExactUpdatesQuantities(U);
+      } else if (ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+        rom->initializeProjectionQuantities(U);
+      }
     }
 
     int closestCluster;
+    int prevCluster;
 
     if (rom->nClusters > 1) {
       rom->closestCenter(U, &closestCluster);
@@ -273,19 +278,28 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
     updatePerformed = false;
 
     if (updateFreq || clusterSwitch) {
+
       if (clusterSwitch) {
         deleteRestrictedQuantities(); // only defined for GNAT
+        prevCluster = currentCluster;
         currentCluster = closestCluster;
         rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
-        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) 
-          rom->projectSwitchStateOntoAffineSubspace(currentCluster, U);
+        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+          if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_OFF) {
+            rom->projectSwitchStateOntoAffineSubspace(currentCluster, prevCluster, U, UromCurrentROB);
+          } else {
+            this->com->fprintf(stderr, "*** Warning: Updates and projection were both specified; not performing projection\n");
+          }
+        }
       }
-      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) 
-        updatePerformed = rom->updateBasis(currentCluster, U, &dUromCurrentROB);
-      if (this->ioData->romOnline.bufferEnergy!=0.0) rom->truncateBufferedBasis();
-      if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
-      if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
 
+      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+        updatePerformed = rom->updateBasis(currentCluster, U, &dUromCurrentROB);
+        if (this->ioData->romOnline.bufferEnergy!=0.0) rom->truncateBufferedBasis();
+        if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
+        if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
+      }
+   
       nPod = rom->basis->numVectors();
       pod.resize(nPod);
       for (int iVec=0; iVec<nPod; ++iVec) {
@@ -678,10 +692,11 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   // output POD coordinates
   dUromCurrentROB += dUromTimeIt;
+  if (UromCurrentROB.size() == dUromTimeIt.size()) UromCurrentROB += dUromTimeIt;
   rom->writeReducedCoords(totalTimeSteps, clusterSwitch, updatePerformed, currentCluster, dUromTimeIt); 
 
   if (ioData->romOnline.distanceComparisons)
-    rom->incrementDistanceComparisons(dUromTimeIt, currentCluster);
+    rom->incrementDistanceComparisons(currentCluster, dUromTimeIt, UromCurrentROB);
 
   this->com->fprintf(stdout, "\n");
 
