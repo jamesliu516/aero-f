@@ -4374,6 +4374,7 @@ void ClusteringData::setup(const char *name, ClassAssigner *father) {
 BasisUpdatesData::BasisUpdatesData()
 {
   preprocessForNoUpdates = NO_UPDATES_FALSE;
+  preprocessForProjections = PROJECTIONS_FALSE;
   preprocessForSimpleUpdates = SIMPLE_UPDATES_FALSE;
   preprocessForExactUpdates = EXACT_UPDATES_FALSE;
   preprocessForApproxUpdates = APPROX_UPDATES_FALSE;
@@ -4386,6 +4387,8 @@ void BasisUpdatesData::setup(const char *name, ClassAssigner *father) {
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForNoUpdates", this, reinterpret_cast<int 
 			BasisUpdatesData::*>(&BasisUpdatesData::preprocessForNoUpdates), 2, "Off", 0, "On", 1);
+  new ClassToken<BasisUpdatesData> (ca, "PreprocessForProjections", this, reinterpret_cast<int
+                        BasisUpdatesData::*>(&BasisUpdatesData::preprocessForProjections), 2, "Off", 0, "On", 1);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForSimpleUpdates", this, reinterpret_cast<int
       BasisUpdatesData::*>(&BasisUpdatesData::preprocessForSimpleUpdates), 2, "Off", 0, "On", 1);
   new ClassToken<BasisUpdatesData> (ca, "PreprocessForFastExactUpdates", this, reinterpret_cast<int 

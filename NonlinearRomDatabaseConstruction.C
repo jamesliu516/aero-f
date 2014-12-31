@@ -108,17 +108,20 @@ void NonlinearRomDatabaseConstruction<dim>::constructDatabase() {
 
   // store ROBs in memory to avoid excessive IO time
   if (robConstruction->storeAllClusters && (robConstruction->basisUpdates.preprocessForNoUpdates ||
+      robConstruction->basisUpdates.preprocessForProjections ||
       robConstruction->basisUpdates.preprocessForExactUpdates ||
       robConstruction->basisUpdates.preprocessForApproxUpdates)) this->readAllClusteredOfflineQuantities();
 
   // preprocessing for fast distance calculations (not currently supported for simple updates)
-  if (robConstruction->basisUpdates.preprocessForNoUpdates || 
+  if (robConstruction->basisUpdates.preprocessForNoUpdates ||
+      robConstruction->basisUpdates.preprocessForProjections || 
       robConstruction->basisUpdates.preprocessForExactUpdates || 
       robConstruction->basisUpdates.preprocessForApproxUpdates) preprocessForDistanceComparisons();
 
   // preprocessing for exact basis updates 
   // (data for simple updates is ouput automatically; data for approx updates is output in GNAT preprocessing)
-  if (robConstruction->basisUpdates.preprocessForExactUpdates) preprocessForExactBasisUpdates();
+  if (robConstruction->basisUpdates.preprocessForExactUpdates ||
+      robConstruction->basisUpdates.preprocessForProjections) preprocessForExactBasisUpdates();
 
   this->timer->addTotalOfflineTime(tOffline);
 
@@ -2152,7 +2155,7 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
   readInitialCondition();
   
   this->readClusterCenters("centers");
-  std::vector<std::vector<double> > clusterCenterNorms; // nClusters-by-1, or nClusters-by-dim
+  std::vector<std::vector<double> > clusterCenterNorms; // nClusters-by-2, or nClusters-by-(dim+1)
   clusterCenterNorms.resize(this->nClusters);
   
   if (arbitraryUniformIC) {  // preprocess for an arbitrary uniform initial condition
@@ -2175,11 +2178,16 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
 
     // loop through all cluster centers, store the squared norm of (center - IC)
     for (int iCenter=0; iCenter<(this->nClusters); ++iCenter) {
+        clusterCenterNorms[iCenter].clear();
+        clusterCenterNorms[iCenter].resize(2);
+        double centerNorm = ((*(this->clusterCenters))[iCenter]).norm();
+        centerNorm *= centerNorm;
+        clusterCenterNorms[iCenter][0]=centerNorm;
         DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
         difference = (*(this->clusterCenters))[iCenter] - *initialCondition;
-        double norm = difference.norm();
-        norm *= norm;  // norm squared
-        (clusterCenterNorms[iCenter]).push_back(norm);
+        double diffNorm = difference.norm();
+        diffNorm *= diffNorm;  // norm squared
+        clusterCenterNorms[iCenter][1]=diffNorm;
     }
 
   }

@@ -88,12 +88,13 @@ protected:
   Vec<double> dUromNewtonIt;    // set to zero before each newton iteration
   Vec<double> dUromTimeIt;      // set to zero before each time iteration
   Vec<double> dUromCurrentROB;  // set to zero after each cluster switch
+  Vec<double> UromCurrentROB;   // for projection only: initialized at each cluster switch
 
   // dUromAccum, 
 
   //Vec<double> *dUnormAccum;	// accumulated contributions
 
-	double target, res0;	// for Newton convergence
+  double target, res0;	// for Newton convergence
 
   virtual void computeAJ(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
   virtual void computeRedHessianSums(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time 

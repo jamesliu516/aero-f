@@ -639,7 +639,7 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
     if (errorNorm > maxErr)
       maxErr = errorNorm;   
   }
-  avgErr /= nSnaps;
+  avgErr /= (double) nSnaps;
  
   com->fprintf(stderr, " ... Average error on Snapshots after SVD = %e\n", avgErr);  
   com->fprintf(stderr, " ... Maximum error on Snapshots after SVD = %e\n", maxErr);*/
@@ -659,7 +659,7 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
   // compute transpose of the pseudo-inverse: US^\dagger V'
   for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
     for (int jSnap = 0; jSnap < nSnapsRetained; ++jSnap) 
-        VtrueTmp[iSnap][jSnap] /= singValsTmp[jSnap];
+        VtrueTmp[iSnap][jSnap] /= max(singValsTmp[jSnap],1e-16);
   }
 
   pseudoInverseMaskedSnapsTrans.resize(nSnaps);
@@ -690,12 +690,11 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
            temp = rVals[(jSnap+1)*jSnap/2 + iSnap];
         errorVec = errorVec - (temp*pseudoInverseMaskedSnapsTrans[jSnap]);
       }
-      errorNorm = errorVec.norm()/((snapHatApproxMetric[iSnap]).norm());
-      avgErr += errorNorm;
+      errorNorm = errorVec.norm()/((snapHatApproxMetric[iSnap]).norm() + 1e-16);
+      avgErr += (errorNorm / (double) nSnaps);
       if (errorNorm > maxErr)
         maxErr = errorNorm;
     }
-    avgErr /= nSnaps;
   
     com->fprintf(stderr, " ... Average error on Snapshots after pseudo-inverse of transpose = %e\n", avgErr);
     com->fprintf(stderr, " ... Maximum error on Snapshots after pseudo-inverse of transpose = %e\n", maxErr);
