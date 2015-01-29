@@ -13,6 +13,8 @@ class Quadrature
 
     Quadrature () {
      n_point = 0;
+     qloc = 0;
+     weight = 0;
     }
     
     Quadrature (int qOrder) {
@@ -30,6 +32,7 @@ class Quadrature
         qloc[i][1] = xytab[1+2*i];
         qloc[i][2] = 1.0 - xytab[0+2*i] - xytab[1+2*i];
       }
+      delete [] xytab;
     }
     
     // Destructor
