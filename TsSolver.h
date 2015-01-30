@@ -175,7 +175,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   // For an embedded viscous simulation with turbulence model, compute the distance to the wall
   probDesc->computeDistanceToWall(ioData);
 
-  if (lastIt)
+  if (lastIt) 
     probDesc->outputPositionVectorToDisk(U);
 
   while (!lastIt) {

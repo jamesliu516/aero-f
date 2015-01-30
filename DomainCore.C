@@ -850,16 +850,6 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
   if (ierr) {
     com->fprintf(stderr, "*** Error: %d negative volume%s\n", ierr, ierr>1? "s":"");
-#ifdef YDEBUG
-  if(ierr) {
-    const char* output = "elementvolumecheck";
-    ofstream out(output, ios::out);
-    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
-    out << ierr << endl;
-    out.close();
-    exit(-1);
-  }
-#endif
 
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub)
@@ -867,6 +857,15 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
 //    exit(1);
   }
+
+#ifdef YDEBUG
+  const char* output = "elementvolumecheck";
+  ofstream out(output, ios::out);
+  if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+  out << ierr << endl;
+  out.close();
+  //exit(-1);
+#endif
 
   return ierr;
 }

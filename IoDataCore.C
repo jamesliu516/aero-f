@@ -736,7 +736,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 38,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 39,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -749,8 +749,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "AeroelasticShapeOptimization", 35, "EigenAeroelastic", 36, 
-     "GAMConstruction", 37);
+     "Aeroacoustic", 33, "SteadySensitivityAnalysis", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36, 
+     "GAMConstruction", 37, "NonlinearEigenResidual2", 38);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -4788,7 +4788,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_ ||
       problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
       problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
-      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_) 
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_ || 
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL2_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2

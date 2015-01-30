@@ -370,7 +370,6 @@ void Domain::computeDerivativeOfGradientsGalerkin(DistVec<double> &ctrlVol, Dist
 
   double t0 = timer->getTime();
 
-  com->fprintf(stderr," ... norm of dvar is %e  ....\n", dvar.norm());
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeDerivativeOfGradientsGalerkin(ctrlVol(iSub), dCtrlVol(iSub), wii(iSub), wij(iSub), wji(iSub),
@@ -3279,7 +3278,7 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 
   timer->addBinaryWriteTime(t0);
 
-  com->printf(4, "Wrote solution %d to \'%s\'\n", step, prefix);
+  com->printf(1, "Wrote solution %d to \'%s\'\n", step, prefix);
 
 }
 

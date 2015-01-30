@@ -497,8 +497,8 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
         strExc->sendForce(F);
         if (steady) {
     	  strExc->negotiateStopping(lastIt);
-	  if (*lastIt) 
-	    return 0.0;
+        if (*lastIt) 
+          return 0.0;
         }
       }
       strExc->getDisplacement(X0, X, Xdot, dX, false);
@@ -716,7 +716,6 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
       if(i > 0) rscale /= 2;
       X = X0;
       dX *= rscale;    
-      com->fprintf(stderr, "Modal Displacement at Interface  norm %e for freq: %f\n", dX.norm(), f[im]);
       mms->solve(dX, X);
 
       // verify mesh integrity
@@ -736,6 +735,7 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
         break;
       } else com->fprintf(stderr, " ... WARNING: negative volume element is detected. attempt to increase mppFactor to %e\n", mppFactor/(rscale/2));
     }
+
 #ifdef YDEBUG
     if(ierr > 0) {
       const char* output = "elementvolumecheck";
@@ -746,6 +746,7 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
       exit(-1);
     }
 #endif
+
   }
   return 1;
 

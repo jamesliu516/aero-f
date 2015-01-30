@@ -161,7 +161,7 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
         this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
         exit(1);
       }
-      com->fprintf(stderr," *** mesh has been moved.\n");
+      com->fprintf(stderr," ... mesh has been moved.\n");
 
 /*      double tag = 0.0;
       for(int i=0; i<1; ++i) {
@@ -767,8 +767,9 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 
-  if(mmh && mmh->getAlgNum() == 1)
+  if(mmh && mmh->getAlgNum() == 1) {
     output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
+  }
 
   timer->setRunTime();
   if (com->getMaxVerbose() >= 2)
