@@ -39,6 +39,8 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   DistSVec<double, dim>* initialCondition;
   void readInitialCondition();
   void preprocessForDistanceComparisons();
+  void preprocessForDistanceComparisonsStandard();
+  void preprocessForDistanceComparisonsIncrements();
   void productOfBasisAndCenterDifferences(int, const char*);
   void productOfVectorAndCenterDifferences(int, const char*);
 

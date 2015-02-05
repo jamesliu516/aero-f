@@ -574,6 +574,7 @@ ROMOutputData::ROMOutputData()
   stateVector = "";
   stateOutputFreqTime = 1;
   stateOutputFreqNewton = 0;
+  avgStateIncrements = AVG_STATE_INCREMENTS_OFF; 
 
   residualVector = "";
   residualOutputFreqTime = 1; 
@@ -608,6 +609,8 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
   new ClassStr<ROMOutputData>(ca, "StateVector", this, &ROMOutputData::stateVector);
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyTime", this, &ROMOutputData::stateOutputFreqTime);
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyNewton", this, &ROMOutputData::stateOutputFreqNewton);
+  new ClassToken<ROMOutputData>(ca, "OutputAverageStateVectorIncrements", this,
+            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::avgStateIncrements), 2, "Off", 0, "On", 1);
 
   new ClassStr<ROMOutputData>(ca, "ResidualVector", this, &ROMOutputData::residualVector);
   new ClassInt<ROMOutputData>(ca, "ResidualVectorOutputFrequencyTime", this, &ROMOutputData::residualOutputFreqTime);
@@ -3761,6 +3764,9 @@ NonlinearRomFileSystemData::NonlinearRomFileSystemData()
 
   nClusters = 0;
 
+  avgIncrementalStates = AVG_INCREMENTAL_STATES_FALSE;
+  distanceMetric = DIST_EUCLIDEAN; 
+
 }
 //------------------------------------------------------------------------------
 
@@ -3770,6 +3776,11 @@ void NonlinearRomFileSystemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   new ClassInt<NonlinearRomFileSystemData>(ca, "NumClusters", this, &NonlinearRomFileSystemData::nClusters);
+  new ClassToken<NonlinearRomFileSystemData> (ca, "StateSnapshotsAreIncrements", this, reinterpret_cast<int
+      NonlinearRomFileSystemData::*>(&NonlinearRomFileSystemData::avgIncrementalStates), 2, "False", 0, "True", 1);
+  new ClassToken<NonlinearRomFileSystemData> (ca, "DistanceMetric", this, reinterpret_cast<int
+      NonlinearRomFileSystemData::*>(&NonlinearRomFileSystemData::distanceMetric), 2, "Euclidean", 0, "SubspaceAngle", 1);
+
 
 	directories.setup("Directories",ca);
 	files.setup("Files",ca);
@@ -3833,6 +3844,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   exactUpdateInfoPrefix = "";
   stateDistanceComparisonInfoName = "";
   stateDistanceComparisonInfoExactUpdatesName = "";
+  basisNormalizedCenterProductsName = "";
   projErrorName = "";
   refStateName = "";
 
@@ -3934,6 +3946,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisExactUpdateInfo", this, &NonlinearRomFilesData::exactUpdateInfoPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfo", this, &NonlinearRomFilesData::stateDistanceComparisonInfoName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdates", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateIncrementComparisonInfo", this, &NonlinearRomFilesData::basisNormalizedCenterProductsName);
   new ClassStr<NonlinearRomFilesData>(ca, "ProjectionError", this, &NonlinearRomFilesData::projErrorName);
   new ClassStr<NonlinearRomFilesData>(ca, "ReferenceState", this, &NonlinearRomFilesData::refStateName);
 
@@ -4016,6 +4029,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   reducedTimeStep = 1e-10;
   basisUpdates = UPDATES_OFF;
   basisUpdateFreq = -1;
+  tryAllFreq = -1;
   basisUpdateTolerance = 1e-6;
   projectSwitchStateOntoAffineSubspace = PROJECT_OFF;
   distanceComparisons = DISTANCE_COMPARISONS_OFF;
@@ -4024,6 +4038,8 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   minDimension = 0;
   energy = 1.0;
   bufferEnergy = 0.0;
+
+  incrementCoordsTol = 1e-10;
 
   weightedLeastSquares = WEIGHTED_LS_FALSE;
   weightingExponent = 1.0;
@@ -4068,6 +4084,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
   new ClassDouble<NonlinearRomOnlineData>(ca, "BasisUpdateTolerance", this, &NonlinearRomOnlineData::basisUpdateTolerance);
   new ClassInt<NonlinearRomOnlineData>(ca, "BasisUpdateFrequency", this, &NonlinearRomOnlineData::basisUpdateFreq);
+  new ClassInt<NonlinearRomOnlineData>(ca, "TryAllClustersFrequency", this, &NonlinearRomOnlineData::tryAllFreq);
   new ClassToken<NonlinearRomOnlineData> (ca, "ProjectSwitchStateOntoAffineSubspace", this, reinterpret_cast<int
                         NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projectSwitchStateOntoAffineSubspace), 2, "Off", 0, "On", 1);
   new ClassToken<NonlinearRomOnlineData> (ca, "FastDistanceComparisons", this, reinterpret_cast<int
@@ -4078,6 +4095,9 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassInt<NonlinearRomOnlineData>(ca, "MinimumDimension", this, &NonlinearRomOnlineData::minDimension); 
   new ClassDouble<NonlinearRomOnlineData>(ca, "MaximumEnergy", this, &NonlinearRomOnlineData::energy);
   new ClassDouble<NonlinearRomOnlineData>(ca, "MaximumEnergyForBuffer", this, &NonlinearRomOnlineData::bufferEnergy);
+
+  new ClassDouble<NonlinearRomOnlineData>(ca, "IncrementCoordsTolerance", this, &NonlinearRomOnlineData::incrementCoordsTol);
+
 
   new ClassToken<NonlinearRomOnlineData> (ca, "WeightedLeastSquares", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 5, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3, "BoundaryConditions", 4);
@@ -4341,7 +4361,8 @@ ClusteringData::ClusteringData()
   useExistingClusters = USE_EXISTING_CLUSTERS_FALSE;
   computeMDS = COMPUTE_MDS_FALSE;
   clusterFilesSeparately = CLUSTER_FILES_SEPARATELY_FALSE;
-  clusterIncrements = CLUSTER_INCREMENTS_FALSE;
+
+  snapshotNormTolerance = 1e-12; 
 }
 
 //------------------------------------------------------------------------------
@@ -4365,8 +4386,7 @@ void ClusteringData::setup(const char *name, ClassAssigner *father) {
       ClusteringData::*>(&ClusteringData::computeMDS), 2, "False", 0, "True", 1);
   new ClassToken<ClusteringData> (ca, "ClusterSnapshotFilesSeparately", this, reinterpret_cast<int
       ClusteringData::*>(&ClusteringData::clusterFilesSeparately), 2, "False", 0, "True", 1);
-  new ClassToken<ClusteringData> (ca, "ClusterSnapshotIncrements", this, reinterpret_cast<int
-      ClusteringData::*>(&ClusteringData::clusterIncrements), 2, "False", 0, "True", 1);
+  new ClassDouble<ClusteringData>(ca, "IgnoreSnapshotsWithNormsLessThan", this, &ClusteringData::snapshotNormTolerance);
 }
 
 //------------------------------------------------------------------------------
@@ -4521,8 +4541,7 @@ void KrylovData::setup(const char *name, ClassAssigner *father) {
 
 StateSnapshotsData::StateSnapshotsData()
 {
-	normalizeSnaps = NORMALIZE_FALSE;
-	incrementalSnaps = INCREMENTAL_FALSE;
+  normalizeSnaps = NORMALIZE_FALSE;
   subtractCenters = SUBTRACT_CENTERS_FALSE;
   subtractNearestSnapsToCenters = SUBTRACT_NEAREST_FALSE;
   subtractRefState  = SUBTRACT_REF_STATE_FALSE;
@@ -4533,12 +4552,10 @@ StateSnapshotsData::StateSnapshotsData()
 void StateSnapshotsData::setup(const char *name, ClassAssigner *father)
 {
 
-	ClassAssigner *ca = new ClassAssigner(name, 5, father);
-	new ClassToken<StateSnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  new ClassToken<StateSnapshotsData> (ca, "NormalizeSnaps", this, reinterpret_cast<int
 			StateSnapshotsData::*>(&StateSnapshotsData::normalizeSnaps), 2, "False", 0, "True", 1);
-	new ClassToken<StateSnapshotsData> (ca, "IncrementalSnaps", this, reinterpret_cast<int
-			StateSnapshotsData::*>(&StateSnapshotsData::incrementalSnaps), 2, "False", 0, "True", 1);
-	new ClassToken<StateSnapshotsData> (ca, "SubtractClusterCenters", this, reinterpret_cast<int
+  new ClassToken<StateSnapshotsData> (ca, "SubtractClusterCenters", this, reinterpret_cast<int
 			StateSnapshotsData::*>(&StateSnapshotsData::subtractCenters), 2, "False", 0, "True", 1);
   new ClassToken<StateSnapshotsData> (ca, "SubtractNearestSnapToCenter", this, reinterpret_cast<int
 			StateSnapshotsData::*>(&StateSnapshotsData::subtractNearestSnapsToCenters), 2, "False", 0, "True", 1);
@@ -4607,8 +4624,7 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
 RelativeProjectionErrorData::RelativeProjectionErrorData()
 {
   relProjError = REL_PROJ_ERROR_OFF;
-  projectIncrementalSnaps = PROJECT_INCREMENTAL_SNAPS_FALSE;
-	subtractRefSol= PROJECT_SNAPS_MINUS_REF_SOL_FALSE;
+  subtractRefSol= PROJECT_SNAPS_MINUS_REF_SOL_FALSE;
 
   basisUpdates = UPDATES_OFF;
   maxDimension = -1; 
@@ -4627,8 +4643,6 @@ void RelativeProjectionErrorData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
   new ClassToken<RelativeProjectionErrorData> (ca, "RelativeProjectionError", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::relProjError), 4, "Off", 0, "State", 1, "Residual", 2, "JacAction", 3);
-  new ClassToken<RelativeProjectionErrorData> (ca, "ProjectIncrementalSnapshots", this, reinterpret_cast<int
-			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::projectIncrementalSnaps), 2, "False", 0, "True", 1);
   new ClassToken<RelativeProjectionErrorData> (ca, "ProjectSnapshotsMinusRefSol", this, reinterpret_cast<int
 			RelativeProjectionErrorData::*>(&RelativeProjectionErrorData::subtractRefSol), 2, "False", 0, "True", 1);
 

@@ -286,7 +286,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
-  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+  if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   if (fdOrder == 1) {
 
@@ -327,7 +327,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
     prod = (0.5/eps) * (Fepstmp - Ftmp);
 
-    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+    if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 
@@ -565,7 +565,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
   Feps.strip(Fepstmp);
 
-  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+  if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
  
   if (fdOrder == 1) {
 
@@ -606,7 +606,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
     prod += (0.5/eps) * (Fepstmp - Ftmp);
 
-    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+    if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 
@@ -631,7 +631,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
   Feps.strip(Fepstmp);
   
-  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+  if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   if (fdOrder == 1) {
 
@@ -660,7 +660,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
     prod += (0.5/eps) * (Fepstmp - Ftmp);
 
-    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+    if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 

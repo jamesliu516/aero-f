@@ -358,6 +358,7 @@ struct ROMOutputData {
   const char *stateVector;
   int stateOutputFreqTime;
   int stateOutputFreqNewton;
+  enum AvgStateIncrements {AVG_STATE_INCREMENTS_OFF = 0, AVG_STATE_INCREMENTS_ON = 1} avgStateIncrements;
 
   const char *residualVector;
   int residualOutputFreqTime;
@@ -2181,7 +2182,7 @@ struct NonlinearRomFilesData {
   // If a prefix and a name are both given, the name overrides the prefix. 
 
   enum DuplicateSnapshots {DUPLICATE_SNAPSHOTS_FALSE = 0, DUPLICATE_SNAPSHOTS_TRUE = 1} duplicateSnapshots;
- 
+
   // State snapshot clusters
   const char *statePrefix;
   const char *stateSnapsName;
@@ -2201,6 +2202,7 @@ struct NonlinearRomFilesData {
   const char *exactUpdateInfoPrefix;
   const char *stateDistanceComparisonInfoName;
   const char *stateDistanceComparisonInfoExactUpdatesName;
+  const char *basisNormalizedCenterProductsName;
   const char *projErrorName;
   const char *refStateName;
 
@@ -2282,6 +2284,9 @@ struct NonlinearRomFilesData {
 
 struct NonlinearRomFileSystemData {
 
+  enum AvgIncrementalStates {AVG_INCREMENTAL_STATES_FALSE = 0, AVG_INCREMENTAL_STATES_TRUE = 1} avgIncrementalStates;
+  enum DistanceMetric {DIST_EUCLIDEAN = 0, DIST_ANGLE = 1 } distanceMetric;
+ 
   int nClusters;
 
   NonlinearRomDirectoriesData directories;
@@ -2319,10 +2324,10 @@ struct NonlinearRomOnlineNonStateData {
 
 struct NonlinearRomOnlineData {
 
-	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
-	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
+  enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
+  enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
-	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3} lsSolver;
+  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3} lsSolver;
 
   enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
   double weightingExponent;
@@ -2345,6 +2350,8 @@ struct NonlinearRomOnlineData {
   double energy;
   double bufferEnergy;
 
+  double incrementCoordsTol;
+
   double residualsCoordMin;
   double residualsCoordMax;
   int residualsCoordRes;
@@ -2354,6 +2361,7 @@ struct NonlinearRomOnlineData {
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;
+  int tryAllFreq;
   double basisUpdateTolerance;
 
   enum ProjectSwitchStateOntoAffineSubspace {PROJECT_OFF = 0, PROJECT_ON = 1} projectSwitchStateOntoAffineSubspace;
@@ -2406,7 +2414,6 @@ struct RelativeProjectionErrorData {
 struct StateSnapshotsData {
 
   enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
-  enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
   enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
   enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;
   enum SubtractRefState {SUBTRACT_REF_STATE_FALSE = 0, SUBTRACT_REF_STATE_TRUE = 1} subtractRefState;
@@ -2540,7 +2547,7 @@ struct ClusteringData {
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
   enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
   enum ClusterFilesSeparately {CLUSTER_FILES_SEPARATELY_FALSE = 0, CLUSTER_FILES_SEPARATELY_TRUE = 1} clusterFilesSeparately;
-  enum ClusterIncrements {CLUSTER_INCREMENTS_FALSE = 0, CLUSTER_INCREMENTS_TRUE = 1} clusterIncrements;
+  double snapshotNormTolerance;
 
   ClusteringData();
   ~ClusteringData() {}

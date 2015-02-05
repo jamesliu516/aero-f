@@ -210,6 +210,7 @@ public:
   void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
   void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &);
 
+  virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int) {}
   virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
   virtual void incrementNewtonOutputTag() {}
   int *getTimeIt() { return domain->getTimeIt(); }
