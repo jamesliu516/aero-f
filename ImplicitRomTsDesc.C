@@ -32,9 +32,11 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   switch (ioData->romOnline.systemApproximation) {
     case (NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE):
       rom = new NonlinearRomOnlineII<dim>(dom->getCommunicator(), _ioData, *dom);
+      systemApprox=false;
       break;
     case (NonlinearRomOnlineData::GNAT):
       rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
+      systemApprox=true;
       break;
     default:
       this->com->fprintf(stderr, "*** Error:  Unexpected system approximation type\n");
@@ -67,6 +69,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
  
   basisUpdateFreq = ioData->romOnline.basisUpdateFreq;
+  tryAllFreq = ioData->romOnline.tryAllFreq;
 
   updateFreq = false;
   clusterSwitch = false;
@@ -125,7 +128,17 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   Uinit = NULL;
 
+  useIncrements = (ioData->romDatabase.avgIncrementalStates==NonlinearRomFileSystemData::AVG_INCREMENTAL_STATES_TRUE) ? true : false;
+
+  if ((!systemApprox) && useIncrements) {
+    Uprev = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
+  } else {
+    Uprev = NULL;
+  }
+
   unsteady = this->problemType[ProblemData::UNSTEADY];
+
+  tryingAllClusters = false;
 
   rho = 0.5;
   c1 = 0.25;
@@ -134,8 +147,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   const char *residualsFileName = ioData->output.rom.residualsForCoordRange;
   if (strcmp(residualsFileName, "") != 0)  {
     char *residualsPath = new char[strlen(ioData->output.rom.prefix) + strlen(residualsFileName)+1];
-    if (this->com->cpuNum() ==0) sprintf(residualsPath, "%s%s",ioData->output.rom.prefix, residualsFileName);
-    if (this->com->cpuNum() ==0) residualsFile = fopen(residualsPath, "wt");
+    if (this->com->cpuNum() == 0) sprintf(residualsPath, "%s%s",ioData->output.rom.prefix, residualsFileName);
+    if (this->com->cpuNum() == 0) residualsFile = fopen(residualsPath, "wt");
     delete [] residualsPath;
   } else { 
     residualsFile = NULL;
@@ -183,6 +196,8 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
   if (wallMask) delete wallMask;
   if (wallNeighborsMask) delete wallNeighborsMask;
   if (Uinit) delete Uinit;
+  if (Uprev) delete Uprev;
+
 }
 
 //------------------------------------------------------------------------------
@@ -246,6 +261,60 @@ void ImplicitRomTsDesc<dim>::printRomResiduals(DistSVec<double, dim> &U)  {
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::tryAllClusters(DistSVec<double, dim> &U, const int totalTimeSteps, int* bestCluster) {
+
+  this->com->fprintf(stdout, " ... trying to reduce residual with all clusters ...\n");
+
+  double bestResReduction = -1.0;
+  
+  DistSVec<double, dim> Ubackup(this->domain->getNodeDistInfo());
+  Ubackup = U;
+
+  int dummyInt = 0;
+  bool dummyTrue = true;
+  bool dummyFalse = false;
+
+  tryingAllClusters=true;
+
+  for (int iCluster=0; iCluster<(rom->nClusters); ++iCluster) {
+
+    loadCluster(iCluster, dummyTrue, U);
+
+    computeFullResidual(dummyInt, U, true);
+    double resInit = (this->F)*(this->F);
+
+    solveNonLinearSystem(U, totalTimeSteps);
+
+    computeFullResidual(dummyInt, U, true);
+    double resFinal = (this->F)*(this->F);
+
+    if (resFinal==0.0) {
+      *bestCluster = iCluster;
+      return;
+    }
+
+    double resReduction = resFinal / resInit;
+
+    this->com->fprintf(stdout, " ... reduced residual from %e to %e (ratio of %e) using cluster %d\n",
+                              resInit, resFinal, resReduction, iCluster);
+  
+    if ((resReduction<bestResReduction) || (bestResReduction<0.0)) {
+      *bestCluster = iCluster;
+      bestResReduction = resReduction;
+    }
+
+    U = Ubackup;
+
+  }
+
+  tryingAllClusters=false;
+  currentCluster = -1;
+
+}
+
+//------------------------------------------------------------------------------
 template<int dim>
 void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const int totalTimeSteps)  {
 
@@ -264,10 +333,24 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
     }
 
     int closestCluster;
-    int prevCluster;
 
     if (rom->nClusters > 1) {
-      rom->closestCenter(U, &closestCluster);
+      if (useIncrements) {
+        bool tryAllNow = ((tryAllFreq > 0) && (totalTimeSteps%tryAllFreq == 0)) ? true : false;
+        if ((currentCluster==-1) || (tryAllNow) || (dUromTimeIt.norm()<ioData->romOnline.incrementCoordsTol)) { 
+          tryAllClusters(U, totalTimeSteps, &closestCluster);
+        } else {
+          if (systemApprox) {
+            rom->closestCenter(U, &closestCluster); // U isn't actually used (and Uprev is NULL)
+          } else {
+            DistSVec<double, dim> Uincrement(this->domain->getNodeDistInfo());
+            Uincrement = U - *Uprev; 
+            rom->closestCenter(Uincrement, &closestCluster);
+          }
+        }
+      } else {
+        rom->closestCenter(U, &closestCluster);
+      }
       this->com->fprintf(stdout, " ... using cluster %d\n", closestCluster);
     } else {
       closestCluster = 0;
@@ -277,45 +360,52 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
     clusterSwitch = (currentCluster != closestCluster) ? true : false;
     updatePerformed = false;
 
-    if (updateFreq || clusterSwitch) {
+    if (updateFreq || clusterSwitch) loadCluster(closestCluster, clusterSwitch, U);
 
-      if (clusterSwitch) {
-        deleteRestrictedQuantities(); // only defined for GNAT
-        prevCluster = currentCluster;
-        currentCluster = closestCluster;
-        rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
-        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
-          if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_OFF) {
-            rom->projectSwitchStateOntoAffineSubspace(currentCluster, prevCluster, U, UromCurrentROB);
-          } else {
-            this->com->fprintf(stderr, "*** Warning: Updates and projection were both specified; not performing projection\n");
-          }
-        }
-      }
-
-      if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
-        updatePerformed = rom->updateBasis(currentCluster, U, &dUromCurrentROB);
-        if (this->ioData->romOnline.bufferEnergy!=0.0) rom->truncateBufferedBasis();
-        if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
-        if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
-      }
-   
-      nPod = rom->basis->numVectors();
-      pod.resize(nPod);
-      for (int iVec=0; iVec<nPod; ++iVec) {
-        pod[iVec] = (*(rom->basis))[iVec];
-      }
-      AJ.resize(nPod);
-      dUromNewtonIt.resize(nPod);
-      dUromTimeIt.resize(nPod);
-      dUromCurrentROB.resize(nPod);
-      dUromCurrentROB = 0.0;
-      setProblemSize(U);  // defined in derived classes
-      // TODO also set new reference residual if the weighting changes
-      if (clusterSwitch && !unsteady) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
-    }
   }
   dUromTimeIt = 0.0;
+
+}
+
+//-----------------------------------------------------------------------
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::loadCluster(int closestCluster, bool clusterSwitch, DistSVec<double, dim> &U) {
+
+  if (clusterSwitch) {
+    deleteRestrictedQuantities(); // only defined for GNAT
+    int prevCluster = currentCluster;
+    currentCluster = closestCluster;
+    rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
+    if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+      if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_OFF) {
+        rom->projectSwitchStateOntoAffineSubspace(currentCluster, prevCluster, U, UromCurrentROB);
+      } else {
+        this->com->fprintf(stderr, "*** Warning: Updates and projection were both specified; not performing projection\n");
+      }
+    }
+  }
+
+  if (this->ioData->romOnline.basisUpdates!=NonlinearRomOnlineData::UPDATES_OFF) {
+    updatePerformed = rom->updateBasis(currentCluster, U, &dUromCurrentROB);
+    if (this->ioData->romOnline.bufferEnergy!=0.0) rom->truncateBufferedBasis();
+    if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
+    if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
+  }
+  
+  nPod = rom->basis->numVectors();
+  pod.resize(nPod);
+  for (int iVec=0; iVec<nPod; ++iVec) {
+    pod[iVec] = (*(rom->basis))[iVec];
+  }
+  AJ.resize(nPod);
+  dUromNewtonIt.resize(nPod);
+  dUromTimeIt.resize(nPod);
+  dUromCurrentROB.resize(nPod);
+  dUromCurrentROB = 0.0;
+  setProblemSize(U);  // defined in derived classes
+  // TODO also set new reference residual if the weighting changes
+  if (clusterSwitch && !unsteady) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
 
 }
 
@@ -532,15 +622,14 @@ void ImplicitRomTsDesc<dim>::printBCWeightingInfo(bool updateWeights) {
 template<int dim>
 int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const int totalTimeSteps)  {
 
-  checkLocalRomStatus(U, totalTimeSteps);
+  if (Uprev) *Uprev = U;
 
-	// initializations 
+  // initializations 
 
   double t0 = this->timer->getTime();
 
   int it = 0;
   int fsIt = 0;
-	updateGlobalTimeSteps(totalTimeSteps);
 
   DistSVec<double, dim> dUfull(this->domain->getNodeDistInfo());	// solution increment at EACH NEWTON ITERATION in full coordinates
   dUfull = 0.0;	// initial zero increment
@@ -690,15 +779,19 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   this->timer->addFluidSolutionTime(t0);
 
+  this->com->fprintf(stdout, "\n");
+
+  // If trying all clusters, exit before writing reduced coordinates
+  if (tryingAllClusters) return (maxItsNewton == 0 || it==0) ? 1 : it;
+
   // output POD coordinates
   dUromCurrentROB += dUromTimeIt;
   if (UromCurrentROB.size() == dUromTimeIt.size()) UromCurrentROB += dUromTimeIt;
+
   rom->writeReducedCoords(totalTimeSteps, clusterSwitch, updatePerformed, currentCluster, dUromTimeIt); 
 
   if (ioData->romOnline.distanceComparisons)
-    rom->incrementDistanceComparisons(currentCluster, dUromTimeIt, UromCurrentROB);
-
-  this->com->fprintf(stdout, "\n");
+    rom->advanceDistanceComparisons(currentCluster, dUromTimeIt, UromCurrentROB);
 
   return (maxItsNewton == 0 || it==0) ? 1 : it;
 

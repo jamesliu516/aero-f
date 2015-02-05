@@ -650,6 +650,73 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
       }
     }
 
+    // if clustering increments, need to actually cluster increments by the preceding increment 
+    // Fairly simply, just need to shift all cluster associations.
+    // For the time being , I won't shift the cluster association of any IC... 
+    // (This is still consistent, provided that all ROBs are tested for the IC of the online simulation)
+    if (this->ioData->romDatabase.avgIncrementalStates==NonlinearRomFileSystemData::AVG_INCREMENTAL_STATES_TRUE) {
+
+      int nSnapsHandled = 0;
+      std::vector<int> newSnapsInCluster(this->nClusters,0);
+      std::vector<int> newClusterIndex(nTotSnaps,0);
+
+      for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
+        newClusterIndex[nSnapsHandled]=(this->clusterIndex)[nSnapsHandled];
+        ++newSnapsInCluster[newClusterIndex[nSnapsHandled]];
+        ++nSnapsHandled;
+        for (int iSnap=1; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
+          newClusterIndex[nSnapsHandled] = (this->clusterIndex)[nSnapsHandled-1];
+          ++newSnapsInCluster[newClusterIndex[nSnapsHandled]];
+          ++nSnapsHandled;
+        }
+      }
+      
+
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) (this->clusterIndex)[iSnap] = newClusterIndex[iSnap];                         
+
+      emptyClusterCount = 0;
+      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+        (this->snapsInCluster)[iCluster] = newSnapsInCluster[iCluster];
+        if ((this->snapsInCluster)[iCluster] == 0) ++emptyClusterCount;
+      }
+
+      if (emptyClusterCount>0) {
+        this->com->fprintf(stderr, "*** Warning: Deleting %d empty clusters\n", emptyClusterCount);
+
+        VecSet< DistSVec<double, dim> >* clusterCentersNew =  new VecSet< DistSVec<double, dim> >(((this->nClusters)-emptyClusterCount), this->domain.getNodeDistInfo());
+        int* snapsInClusterNew = new int[((this->nClusters)-emptyClusterCount)];
+    
+        int renumberedIndices[(this->nClusters)];
+        int clusterCount = 0;
+    
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          if ((this->snapsInCluster)[iCluster]==0) {
+            renumberedIndices[iCluster] = -1;
+          } else {
+            renumberedIndices[iCluster] = clusterCount;
+            (*clusterCentersNew)[clusterCount]=(*(this->clusterCenters))[iCluster];
+            snapsInClusterNew[clusterCount]=(this->snapsInCluster)[iCluster];
+            ++clusterCount;
+          }
+        }
+    
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          (this->clusterIndex)[iSnap] = renumberedIndices[(this->clusterIndex)[iSnap]];
+        }
+    
+        delete (this->clusterCenters);
+        (this->clusterCenters) = clusterCentersNew;
+        clusterCentersNew = NULL;
+    
+        delete [] (this->snapsInCluster);
+        (this->snapsInCluster) = snapsInClusterNew;
+        snapsInClusterNew = NULL;
+    
+        (this->nClusters) = (this->nClusters) - emptyClusterCount;
+      }
+
+    }
+
     index1 = 0;
     index2 = 0;
     dist1 = 0;
@@ -1437,6 +1504,74 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
       }
     } 
 
+    // if clustering increments, need to actually cluster increments by the preceding increment 
+    // Fairly simply, just need to shift all cluster associations.
+    // For the time being , I won't shift the cluster association of any IC... 
+    // (This is still consistent, provided that all ROBs are tested for the IC of the online simulation)
+    if (this->ioData->romDatabase.avgIncrementalStates==NonlinearRomFileSystemData::AVG_INCREMENTAL_STATES_TRUE) {
+
+      int nSnapsHandled = 0;
+      std::vector<int> newSnapsInCluster(this->nClusters,0);
+      std::vector<int> newClusterIndex(nTotSnaps,0);
+
+      for (int iFile=0; iFile<nSnapshotFiles; ++iFile) {
+        newClusterIndex[nSnapsHandled]=(this->clusterIndex)[nSnapsHandled];
+        ++newSnapsInCluster[newClusterIndex[nSnapsHandled]];
+        ++nSnapsHandled;
+        for (int iSnap=1; iSnap<this->stateSnapsFromFile[iFile]; ++iSnap) {
+          newClusterIndex[nSnapsHandled] = (this->clusterIndex)[nSnapsHandled-1];
+          ++newSnapsInCluster[newClusterIndex[nSnapsHandled]];
+          ++nSnapsHandled;
+        }
+      }
+      
+
+      for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) (this->clusterIndex)[iSnap] = newClusterIndex[iSnap];                         
+
+      emptyClusterCount = 0;
+      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+        (this->snapsInCluster)[iCluster] = newSnapsInCluster[iCluster];
+        if ((this->snapsInCluster)[iCluster] == 0) ++emptyClusterCount;
+      }
+
+      if (emptyClusterCount>0) {
+        this->com->fprintf(stderr, "*** Warning: Deleting %d empty clusters\n", emptyClusterCount);
+
+        VecSet< DistSVec<double, dim> >* clusterCentersNew =  new VecSet< DistSVec<double, dim> >(((this->nClusters)-emptyClusterCount), this->domain.getNodeDistInfo());
+        int* snapsInClusterNew = new int[((this->nClusters)-emptyClusterCount)];
+    
+        int renumberedIndices[(this->nClusters)];
+        int clusterCount = 0;
+    
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          if ((this->snapsInCluster)[iCluster]==0) {
+            renumberedIndices[iCluster] = -1;
+          } else {
+            renumberedIndices[iCluster] = clusterCount;
+            (*clusterCentersNew)[clusterCount]=(*(this->clusterCenters))[iCluster];
+            snapsInClusterNew[clusterCount]=(this->snapsInCluster)[iCluster];
+            ++clusterCount;
+          }
+        }
+    
+        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          (this->clusterIndex)[iSnap] = renumberedIndices[(this->clusterIndex)[iSnap]];
+        }
+    
+        delete (this->clusterCenters);
+        (this->clusterCenters) = clusterCentersNew;
+        clusterCentersNew = NULL;
+    
+        delete [] (this->snapsInCluster);
+        (this->snapsInCluster) = snapsInClusterNew;
+        snapsInClusterNew = NULL;
+    
+        (this->nClusters) = (this->nClusters) - emptyClusterCount;
+      }
+
+    }
+
+
     index1 = 0;
     index2 = 0;
     dist1 = 0;
@@ -2144,10 +2279,62 @@ double exactUpdatesPreproTime = this->timer->getTime();
 
 }
 
+
 //----------------------------------------------------------------------------------
 
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisons() {
+
+  if (this->incrementalStateSnaps) {
+    preprocessForDistanceComparisonsIncrements();
+  } else {
+    preprocessForDistanceComparisonsStandard();
+  }
+
+}
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisonsIncrements() {
+
+  // only need V_i^T * (Center_p / || Center_p ||_p)
+  this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection\n");
+  double distCalcsTime = this->timer->getTime();
+
+  this->basisNormalizedCenterProducts.resize(this->nClusters);
+
+  if (this->clusterCenters==NULL) {
+    this->readClusterCenters("centers");
+  }
+
+  DistSVec<double,dim> normalizedCenter(this->domain.getNodeDistInfo());
+  for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+    this->readClusteredBasis(iCluster, "state");
+    this->basisNormalizedCenterProducts[iCluster].resize(this->nClusters);
+    for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
+      this->basisNormalizedCenterProducts[iCluster][pCluster].clear();
+      this->basisNormalizedCenterProducts[iCluster][pCluster].resize(this->basis->numVectors(), 0.0);
+      normalizedCenter = (*this->clusterCenters)[pCluster];
+      double norm = normalizedCenter.norm();
+      if (norm>1e-16) normalizedCenter *= 1/norm; 
+      for (int iVec=0; iVec<this->basis->numVectors(); ++iVec)   
+        this->basisNormalizedCenterProducts[iCluster][pCluster][iVec] = (*this->basis)[iVec] * normalizedCenter;
+    }
+  }
+
+  // Basis Center Products (rob_i^T * Center_p / || Center_p ||)
+  // std::vector<std::vector<std::vector<double> > > basisNormalizedCenterProducts;  // [Cluster_Basis][Cluster_Center][:]
+  this->outputClusteredInfoASCII(-1, "basisNormalizedCenterProducts", NULL, NULL, &this->basisNormalizedCenterProducts);
+
+  this->timer->addDistCalcsPreproTime(distCalcsTime);
+
+}
+
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisonsStandard() {
 
   this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection\n");
   double distCalcsTime = this->timer->getTime();

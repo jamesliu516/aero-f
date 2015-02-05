@@ -57,6 +57,7 @@ class NonlinearRom {
   char* basisComponentwiseSumsName; // for exact updates with uniform IC (exactUpdateInfoPrefix.exactUpdates_StateBasisComponentwiseSums)
   //char* approxUpdateInfoName; // treating this as a GNAT quantity
   char* stateDistanceComparisonInfoName;
+  char* basisNormalizedCenterProductsName;   // for velocity-based local ROMs (incremental bases)
   char* centerComponentWiseSumsName; // for fast distance calcs when using either no updates or exact updates ()
   char* stateDistanceComparisonInfoExactUpdatesName;
   char* projErrorName;
@@ -136,6 +137,7 @@ class NonlinearRom {
   int* clusterKrylovCount;  // counts number of krylov vectors stored in each cluster
   DistSVec<double, dim>* snapRefState; 
 
+
   // thin svd update quantities
   // 1: common to all update methods (simple updates, exact updates, approx updates)
   double rTol;
@@ -168,19 +170,22 @@ class NonlinearRom {
   bool specifiedIC;
   SVec<double, dim>* uniformIC;  // value of uniform initial condition at node 0 (should be representative)
   std::vector<std::vector<double> > centerNorms; // note: actually norm squared
-  std::vector<std::vector<std::vector<std::vector<double> > > > stateBasisCentersProduct;  //[iCluster][mCenter][pCenter][:]
-  std::vector<std::vector<std::vector<std::vector<double> > > > krylovBasisCentersProduct; //[iCluster][mCenter][pCenter][:]
-  std::vector<std::vector<std::vector<double> > > sensitivityBasisCentersProduct;          //[mCenter][pCenter][:]
+  std::vector<std::vector<std::vector<std::vector<double> > > > stateBasisCentersDifProduct;  //[iCluster][mCenter][pCenter][:]
+  std::vector<std::vector<std::vector<std::vector<double> > > > krylovBasisCentersDifProduct; //[iCluster][mCenter][pCenter][:]
+  std::vector<std::vector<std::vector<double> > > sensitivityBasisCentersDifProduct;          //[mCenter][pCenter][:]
   std::vector<std::vector<double> > distanceComparisons;  // this is "z_(m,p)" from Amsallem et al., INJME 2012, but with p<m
   void checkUniformInitialCondition(DistSVec<double, dim> &);
   void checkForSpecifiedInitialCondition();
   // 2: unique to exact updates
-  std::vector<std::vector<double> > initialConditionCentersProduct; 
-  std::vector<std::vector<std::vector<double> > > refStateCentersProduct;
+  std::vector<std::vector<double> > initialConditionCentersDifProduct; 
+  std::vector<std::vector<std::vector<double> > > refStateCentersDifProduct;
   // 3: unique to approximate updates
   double ***hForFastDistComp;
   double ***cForFastDistComp;
   
+  // for fast cluster selection in the case of incremental snapshots
+  std::vector<std::vector<std::vector<double> > > basisNormalizedCenterProducts; // [Cluster_Basis][Cluster_Center][:]
+
   // non-database IO function
   int readSnapshotFiles(const char*, bool);
   std::vector<int> stateSnapsFromFile;   // stateSnapsFromFile[iFile] = number of snapshots taken from file iFile
@@ -271,6 +276,8 @@ class NonlinearRom {
   // When duplicateSnaps is set to true the clustered snapshots are written to the file system, which effectively
   // doubles the required storage.  When false, only a small text file is written.
   bool duplicateSnaps;
+  bool euclideanDistances;
+  bool incrementalStateSnaps;
 
   // online selection of closest cluster center (calls either closestCenterFull or closestCenterFast)
   void closestCenter(DistSVec<double, dim> &, int* index1=NULL);
@@ -279,12 +286,15 @@ class NonlinearRom {
   void closestCenterFull(DistSVec<double, dim> &, int* index1=NULL, int* index2=NULL, double* dist1=NULL, double* dist2=NULL);
   void distancesToCentersFull(DistSVec<double, dim> &, std::vector<double> &, int* closest=NULL);
   double distanceFull(DistSVec<double, dim> &, DistSVec<double, dim> &);
+  double euclideanFull(DistSVec<double, dim> &, DistSVec<double, dim> &);
+  double angleFull(DistSVec<double, dim> &, DistSVec<double, dim> &);
 
   // calculate closest center to current state without using full vectors (approach depends on ROB update method)
   void closestCenterFast(int* index1=NULL);
   void initializeDistanceComparisons(DistSVec<double, dim> &);
   void resetDistanceComparisonQuantitiesApproxUpdates();
-  void incrementDistanceComparisons(int, Vec<double> , Vec<double> );  // calls one of the following four functions
+  void advanceDistanceComparisons(int, Vec<double> , Vec<double> );  // calls one of the following five functions
+  void distanceComparisonsForIncrements(Vec<double> , int);
   void distanceComparisonsForProjection(Vec<double> , int);
   void incrementDistanceComparisonsForNoUpdates(Vec<double> , int);
   void incrementDistanceComparisonsForExactUpdates(Vec<double> , int);

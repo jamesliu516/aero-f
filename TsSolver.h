@@ -237,6 +237,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           *dU = -1.0*U;
         }
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->clearError(ErrorHandler::ALL);
+        probDesc->checkLocalRomStatus(U, it);
         stat = probDesc->solveNonLinearSystem(U, it);
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->reduceError();
 

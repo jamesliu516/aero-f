@@ -43,12 +43,16 @@ protected:
   int currentCluster;
 
   int basisUpdateFreq;  
+  int tryAllFreq;
 
   FullM jac;
   
   int nPod;
   
   bool unsteady;
+  bool systemApprox;
+  bool useIncrements;
+  bool tryingAllClusters;
 
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
@@ -103,7 +107,6 @@ protected:
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
 	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &, const int &totalTimeSteps = 0) = 0;
 	// each ROM has a different way of solving the Newton system
-  virtual void updateGlobalTimeSteps(const int _it) {};	// broyden needs to know global time steps
   int solveLinearSystem(int, Vec<double> &, Vec<double> &);
   virtual double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double); 
   double meritFunctionDeriv(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double);
@@ -115,7 +118,9 @@ protected:
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
-  virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int);
+
+  void loadCluster(int, bool, DistSVec<double, dim> &);
+
   virtual void updateLeastSquaresWeightingVector();
 	//void savedUnormAccum();
 	//virtual void writeStateRomToDisk(int it, double cpu);
@@ -138,6 +143,10 @@ protected:
                                  // cluster switch (new sampled mesh for GNAT) or after
                                  // changing the residual weighting 
 
+  DistSVec<double, dim>* Uprev;  // solution at the beginning of the previous time step (needed for model II incremental bases) 
+
+  void tryAllClusters(DistSVec<double, dim>&, const int totalTimeSteps, int*);
+
   void printRomResiduals(DistSVec<double, dim> &U);
   FILE *residualsFile;
 
@@ -152,6 +161,7 @@ public:
 
   int solveNonLinearSystem(DistSVec<double, dim> &, const int _it);
   void rstVarImplicitRomTsDesc(IoData &);
+  void checkLocalRomStatus(DistSVec<double, dim> &, const int);
 };
 
 //------------------------------------------------------------------------------

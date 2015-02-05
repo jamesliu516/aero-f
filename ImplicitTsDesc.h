@@ -52,6 +52,8 @@ protected:
 				      KspPrec<neq> *, Communicator *);
 
   KspBinaryOutput<DistSVec<double, dim> > *kspBinaryOutput; 
+  DistSVec<double,dim> *prevOutputState;
+  DistSVec<double,dim> *stateIncrement;
 
 public:
   
