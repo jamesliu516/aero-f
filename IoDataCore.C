@@ -4333,6 +4333,8 @@ EmbeddedFramework::EmbeddedFramework() {
 
   interfaceThickness = 1e-8;
 
+  qOrder = 3;
+
   testCase = 0;
 
   interfaceLimiter = LIMITERNONE;
@@ -4361,6 +4363,8 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);
   
   new ClassDouble<EmbeddedFramework>(ca, "StabilizingAlpha", this, &EmbeddedFramework::stabil_alpha);
+
+  new ClassInt<EmbeddedFramework>(ca, "QuadratureOrder", this, &EmbeddedFramework::qOrder);
 
   //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
