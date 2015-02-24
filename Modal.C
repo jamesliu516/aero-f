@@ -3941,11 +3941,11 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
    for(int i=0; i<nStrMode; ++i) {
      dRatios(i,0) = -sortEV[i].real()/std::norm(sortEV[i]);
    }
-   double minDRatio = dRatios.minCoeff();
+   double minDRatio = -sEVnew.real()/sqrt(sEVnew.real()*sEVnew.real() + sEVnew.imag()*sEVnew.imag());
    double minDRatio_candidate = -sReal/sqrt(sReal*sReal+sImag*sImag);
 
-//   double errorIndicator2 = std::abs((minDRatio - minDRatio_candidate)/minDRatio); 
-   double errorIndicator2 = (sqrt (pow ((sEVnew.real()- sReal), 2.0)) + pow ((sEVnew.imag() - sImag), 2.0)) / (sqrt (pow (sEVnew.real(), 2.0) + pow (sEVnew.imag(), 2.0)));
+   double errorIndicator2 = std::fabs(minDRatio - minDRatio_candidate); 
+//   double errorIndicator2 = (sqrt (pow ((sEVnew.real()- sReal), 2.0)) + pow ((sEVnew.imag() - sImag), 2.0)) / (sqrt (pow (sEVnew.real(), 2.0) + pow (sEVnew.imag(), 2.0)));
    com->fprintf(stderr, "error indicator 2 = %e\n", errorIndicator2);   
 
    const char* output = "errorIndicator2";
