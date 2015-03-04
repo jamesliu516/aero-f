@@ -127,7 +127,7 @@ GnatPreprocessing<dim>::~GnatPreprocessing()
 
   if (globalNodes) delete [] globalNodes;
   
-//  for(int i=0; i<2; ++i) {if (parallelRom[i]) delete parallelRom[i];}
+  for(int i=0; i<2; ++i) {if (parallelRom[i]) delete parallelRom[i];}
 }
 
 //----------------------------------------------
@@ -212,224 +212,226 @@ void GnatPreprocessing<dim>::buildReducedModel() {
 
   double totalGnatOfflineTime = this->timer->getTime();
 
-  this->readClusterCenters("centers"); // double checks the value of nClusters that was given in the input file
-  globalSampleNodesForCluster.resize(this->nClusters);
- 
-    //======================================
-    // PURPOSE
-    //   select sample globalNodes for each cluster.  Store sample nodes (mask) separately
-    //   for each cluster, but also form union of all sample nodes for the construction
-    //   of the sample mesh
-    // INPUTS (for each cluster)
-    //   nPod[0], nPod[1], nSampleNodes
-    //   full domain decomposition: pod[0], pod[1]
-    // OUTPUTS
-    //   reduced domain decomposition: mesh, podHat[0], podHat[1],
-    //======================================
-
-    //======================================
-    // NOTES
-    // nRhsMax = number of POD vectors for each interpolation node that is
-    // selected. It can be 1 to dim, where dim corresponds to interpolation.
-    //
-    // Fix the size of PhiHat using trick 1
-    //
-    // First compute a node, then compute the associated mask
-    //
-    //======================================
-
-    //======================================
-    // compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
-    //======================================
-
-  double sampledMeshConstructionTime = this->timer->getTime(); // only used if sampled mesh is built
-  double surfaceMeshConstructionTime = this->timer->getTime(); // only used if surface mesh is built
-
-  int nTargetSampleNodesForApproxMetric;
-  int nAddedSamplesLoc = 0;
-  int nAddedSamplesGlob = 0;
-  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-    com->fprintf(stdout,"\n ... Selecting sample nodes for cluster %d ...\n", iCluster);
-
-    initialize();
-
-    setUpPodResJac(iCluster);
-
-    setUpGreedy(iCluster);
-
-    determineSampleNodes();  // use greedy algorithm to determine sample nodes
-
-    globalSampleNodesForCluster[iCluster] = globalSampleNodes;     // store local sample nodes (the local mask)
+  if (ioData->romOffline.gnat.doPrepro) {
+    this->readClusterCenters("centers"); // double checks the value of nClusters that was given in the input file
+    globalSampleNodesForCluster.resize(this->nClusters);
+   
+      //======================================
+      // PURPOSE
+      //   select sample globalNodes for each cluster.  Store sample nodes (mask) separately
+      //   for each cluster, but also form union of all sample nodes for the construction
+      //   of the sample mesh
+      // INPUTS (for each cluster)
+      //   nPod[0], nPod[1], nSampleNodes
+      //   full domain decomposition: pod[0], pod[1]
+      // OUTPUTS
+      //   reduced domain decomposition: mesh, podHat[0], podHat[1],
+      //======================================
   
-    nTargetSampleNodesForApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*globalSampleNodes.size());
-    nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
-    for (int iNode=0; iNode<globalSampleNodes.size(); iNode++) { 
-      globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
-      nAddedSamplesLoc = globalSampleNodesUnionSet.size()-nAddedSamplesGlob;
-      if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetric)
-        globalSampleNodesUnionSetForApproxMetric.insert(globalSampleNodes[iNode]);
+      //======================================
+      // NOTES
+      // nRhsMax = number of POD vectors for each interpolation node that is
+      // selected. It can be 1 to dim, where dim corresponds to interpolation.
+      //
+      // Fix the size of PhiHat using trick 1
+      //
+      // First compute a node, then compute the associated mask
+      //
+      //======================================
+  
+      //======================================
+      // compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
+      //======================================
+  
+    double sampledMeshConstructionTime = this->timer->getTime(); // only used if sampled mesh is built
+    double surfaceMeshConstructionTime = this->timer->getTime(); // only used if surface mesh is built
+  
+    int nTargetSampleNodesForApproxMetric;
+    int nAddedSamplesLoc = 0;
+    int nAddedSamplesGlob = 0;
+    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      com->fprintf(stdout,"\n ... Selecting sample nodes for cluster %d ...\n", iCluster);
+  
+      initialize();
+  
+      setUpPodResJac(iCluster);
+  
+      setUpGreedy(iCluster);
+  
+      determineSampleNodes();  // use greedy algorithm to determine sample nodes
+  
+      globalSampleNodesForCluster[iCluster] = globalSampleNodes;     // store local sample nodes (the local mask)
+    
+      nTargetSampleNodesForApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*globalSampleNodes.size());
+      nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
+      for (int iNode=0; iNode<globalSampleNodes.size(); iNode++) { 
+        globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
+        nAddedSamplesLoc = globalSampleNodesUnionSet.size()-nAddedSamplesGlob;
+        if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetric)
+          globalSampleNodesUnionSetForApproxMetric.insert(globalSampleNodes[iNode]);
+      }
+    
+    } 
+  
+    // place the union of the sample nodes into a vector
+    for (std::set<int>::iterator it=globalSampleNodesUnionSet.begin(); it!=globalSampleNodesUnionSet.end(); ++it) {
+      globalSampleNodesUnion.push_back(*it);
     }
+    globalSampleNodesUnionSet.clear();
   
-  } 
-
-  // place the union of the sample nodes into a vector
-  for (std::set<int>::iterator it=globalSampleNodesUnionSet.begin(); it!=globalSampleNodesUnionSet.end(); ++it) {
-    globalSampleNodesUnion.push_back(*it);
-  }
-  globalSampleNodesUnionSet.clear();
-
-  for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetric.begin(); it!=globalSampleNodesUnionSetForApproxMetric.end(); ++it) {
-    globalSampleNodesUnionForApproxMetric.push_back(*it);
-  }
-  globalSampleNodesUnionSet.clear();
-
-  initialize(); 
-
-  setSampleNodes(unionOfSampleNodes); // also calls buildRemainingMesh()
-
-  if (surfaceMeshConstruction) {
-    this->timer->addSurfaceMeshConstructionTime(surfaceMeshConstructionTime);
-  } else {
-    this->timer->addSampledMeshConstructionTime(sampledMeshConstructionTime);
-  }
-
-  if (thisCPU == 0) outputTopFile(unionOfSampleNodes);
-
-  double sampledVecsOutputTime = this->timer->getTime();
-  double surfaceVecsOutputTime = this->timer->getTime();
-  outputInitialConditionReduced();
-  outputWallDistanceReduced();  // distributed info (parallel)
-  if (surfaceMeshConstruction) {
-    this->timer->addSampledOutputTime(sampledVecsOutputTime);
-  } else {
-    this->timer->addSurfaceOutputTime(surfaceVecsOutputTime); 
-  }
-
-  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-
-    initialize();
-
+    for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetric.begin(); it!=globalSampleNodesUnionSetForApproxMetric.end(); ++it) {
+      globalSampleNodesUnionForApproxMetric.push_back(*it);
+    }
+    globalSampleNodesUnionSet.clear();
+  
+    initialize(); 
+  
+    setSampleNodes(unionOfSampleNodes); // also calls buildRemainingMesh()
+  
     if (surfaceMeshConstruction) {
-      com->fprintf(stdout,"\n-----------------------------------------------------\n");
-      com->fprintf(stdout," ... Writing surface quantities for cluster %d\n\n", iCluster);
- 
-      setSampleNodes(unionOfSampleNodes);
-      double surfaceOutputTime = this->timer->getTime();  
-      outputLocalStateBasisReduced(iCluster);
-      outputLocalReferenceStateReduced(iCluster);
-      this->timer->addSurfaceOutputTime(surfaceOutputTime);
-
+      this->timer->addSurfaceMeshConstructionTime(surfaceMeshConstructionTime);
     } else {
-      com->fprintf(stdout,"\n-----------------------------------------------------\n");
-      com->fprintf(stdout," ... Writing sampled quantities for cluster %d\n\n", iCluster);
- 
-      int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
-      setSampleNodes(sampleNodes);
-  
-      double sampledOutputTime = this->timer->getTime();  
-      if (thisCPU == 0) outputSampleNodes(iCluster);
-      outputLocalStateBasisReduced(iCluster);
-      outputLocalReferenceStateReduced(iCluster);
-      this->timer->addSampledOutputTime(sampledOutputTime);
-
+      this->timer->addSampledMeshConstructionTime(sampledMeshConstructionTime);
     }
-  }
-
-  this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects 
-
-  if (surfaceMeshConstruction) {
-
-    com->fprintf(stdout," \n... Finished with Surface Mesh Construction\n");
-
-  } else { // build and output online matrices
-
+  
+    if (thisCPU == 0) outputTopFile(unionOfSampleNodes);
+  
+    double sampledVecsOutputTime = this->timer->getTime();
+    double surfaceVecsOutputTime = this->timer->getTime();
+    outputInitialConditionReduced();
+    outputWallDistanceReduced();  // distributed info (parallel)
+    if (surfaceMeshConstruction) {
+      this->timer->addSampledOutputTime(sampledVecsOutputTime);
+    } else {
+      this->timer->addSurfaceOutputTime(surfaceVecsOutputTime); 
+    }
+  
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
   
-      com->fprintf(stdout,"\n-----------------------------------------------------\n");
-      com->fprintf(stdout," ... Computing online GNAT matrices for cluster %d\n\n", iCluster);
+      initialize();
   
-      initialize();                  // deallocate for everything but the sampled nodes (local and union)
-  
-      int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
-      setSampleNodes(sampleNodes);   // use local sampled nodes
-  
-      setUpPodResJac(iCluster);      // read in Res/Jac bases
+      if (surfaceMeshConstruction) {
+        com->fprintf(stdout,"\n-----------------------------------------------------\n");
+        com->fprintf(stdout," ... Writing surface quantities for cluster %d\n\n", iCluster);
    
-      setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
+        setSampleNodes(unionOfSampleNodes);
+        double surfaceOutputTime = this->timer->getTime();  
+        outputLocalStateBasisReduced(iCluster);
+        outputLocalReferenceStateReduced(iCluster);
+        this->timer->addSurfaceOutputTime(surfaceOutputTime);
   
-      formMaskedNonlinearROBs();
-  
-      initializeLeastSquares();
-   
-      double pseudoInvTime = this->timer->getTime();
-      computePseudoInverse();        // only requires sample nodes and masked nonlinear ROBs
-      this->timer->addPseudoInvTime(pseudoInvTime);
-  
-      // STRATEGY:
-      // - put zeros in the pod[0], pod[1] for any node that is not part of the local mask
-      // - don't evaluate rhat and jphihat for nodes that are not part of the local mask
-  
-      // TRICK: adding zero rows to matrices has no effect on the qr decomposition
-  
-      if (thisCPU == 0) {
-        assembleOnlineMatrices();   // handle online matrices so you can free up pseudo inverse matrix
-      }
-  
-      double sampledOutputTime = this->timer->getTime();  
-      outputOnlineMatrices(iCluster);
-      this->timer->addSampledOutputTime(sampledOutputTime);
-  
-      if (podTpod) {
-        for (int iVec=0; iVec<nPod[1]; ++iVec)
-          delete [] podTpod[iVec];
-        delete podTpod;
-        podTpod = NULL;
-      }
-  
-      if (RTranspose) {
-        for (int iVec=0; iVec<nPod[1]; ++iVec)
-          (*RTranspose)[iVec].clear();
-        (*RTranspose).clear();
-        delete RTranspose;
-        RTranspose = NULL;
-        delete Qmat;
-        Qmat = NULL;
-      }
-  
-    }
-
-
-    if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
-      this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects
-      initialize(); 
- 
-      if (!surfaceMeshConstruction) {
-      com->fprintf(stdout,"\nPreprocessing for approximate basis updates\n");
-      double approxUpdatesPreproTime = this->timer->getTime(); 
-  
-      outputClusterCentersReduced();
-  
-      constructApproximatedMetric();
-  
-      if (ioData->romOffline.gnat.testApproxMetric) {
-        com->fprintf(stdout," \n Computing approximated metric errors on training data\n");
-        testInnerProduct("approxMetricState");
-        com->fprintf(stdout," \n Computing approximated metric errors on training+validation data\n");
-        testInnerProduct("state");
-      }
-      this->timer->addApproxUpdatesPreproTime(approxUpdatesPreproTime);
       } else {
-        this->readApproxMetricLowRankFactor("full");
-        outputApproxMetricLowRankFactorFullCoords();
+        com->fprintf(stdout,"\n-----------------------------------------------------\n");
+        com->fprintf(stdout," ... Writing sampled quantities for cluster %d\n\n", iCluster);
+   
+        int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
+        setSampleNodes(sampleNodes);
+    
+        double sampledOutputTime = this->timer->getTime();  
+        if (thisCPU == 0) outputSampleNodes(iCluster);
+        outputLocalStateBasisReduced(iCluster);
+        outputLocalReferenceStateReduced(iCluster);
+        this->timer->addSampledOutputTime(sampledOutputTime);
+  
       }
     }
   
-    com->fprintf(stdout," \n ... Finished with GNAT preprocessing calculations ...\n");
+    this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects 
+  
+    if (surfaceMeshConstruction) {
+  
+      com->fprintf(stdout," \n... Finished with Surface Mesh Construction\n");
+  
+    } else { // build and output online matrices
+  
+      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+    
+        com->fprintf(stdout,"\n-----------------------------------------------------\n");
+        com->fprintf(stdout," ... Computing online GNAT matrices for cluster %d\n\n", iCluster);
+    
+        initialize();                  // deallocate for everything but the sampled nodes (local and union)
+    
+        int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
+        setSampleNodes(sampleNodes);   // use local sampled nodes
+    
+        setUpPodResJac(iCluster);      // read in Res/Jac bases
+     
+        setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
+    
+        formMaskedNonlinearROBs();
+    
+        initializeLeastSquares();
+     
+        double pseudoInvTime = this->timer->getTime();
+        computePseudoInverse();        // only requires sample nodes and masked nonlinear ROBs
+        this->timer->addPseudoInvTime(pseudoInvTime);
+    
+        // STRATEGY:
+        // - put zeros in the pod[0], pod[1] for any node that is not part of the local mask
+        // - don't evaluate rhat and jphihat for nodes that are not part of the local mask
+    
+        // TRICK: adding zero rows to matrices has no effect on the qr decomposition
+    
+        if (thisCPU == 0) {
+          assembleOnlineMatrices();   // handle online matrices so you can free up pseudo inverse matrix
+        }
+    
+        double sampledOutputTime = this->timer->getTime();  
+        outputOnlineMatrices(iCluster);
+        this->timer->addSampledOutputTime(sampledOutputTime);
+    
+        if (podTpod) {
+          for (int iVec=0; iVec<nPod[1]; ++iVec)
+            delete [] podTpod[iVec];
+          delete podTpod;
+          podTpod = NULL;
+        }
+    
+        if (RTranspose) {
+          for (int iVec=0; iVec<nPod[1]; ++iVec)
+            (*RTranspose)[iVec].clear();
+          (*RTranspose).clear();
+          delete RTranspose;
+          RTranspose = NULL;
+          delete Qmat;
+          Qmat = NULL;
+        }
+    
+      }
+  
+  
+      if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
+        this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects
+        initialize(); 
+   
+        if (!surfaceMeshConstruction) {
+        com->fprintf(stdout,"\nPreprocessing for approximate basis updates\n");
+        double approxUpdatesPreproTime = this->timer->getTime(); 
+    
+        outputClusterCentersReduced();
+    
+        constructApproximatedMetric();
+    
+        if (ioData->romOffline.gnat.testApproxMetric) {
+          com->fprintf(stdout," \n Computing approximated metric errors on training data\n");
+          testInnerProduct("approxMetricState");
+          com->fprintf(stdout," \n Computing approximated metric errors on training+validation data\n");
+          testInnerProduct("state");
+        }
+        this->timer->addApproxUpdatesPreproTime(approxUpdatesPreproTime);
+        } else {
+          this->readApproxMetricLowRankFactor("full");
+          outputApproxMetricLowRankFactorFullCoords();
+        }
+      }
+    
+      com->fprintf(stdout," \n ... Finished with GNAT preprocessing calculations ...\n");
+    }
   }
 
   this->freeMemoryForGnatPrepro();
 
-  this->partitionAndSowerForGnat(surfaceMeshConstruction);
+  if (ioData->romOffline.gnat.sowerInputs) this->partitionAndSowerForGnat(surfaceMeshConstruction);
 
   this->timer->addTotalGnatOfflineTime(totalGnatOfflineTime);
 
@@ -1309,6 +1311,7 @@ void GnatPreprocessing<dim>::initializeLeastSquares() {
   if (initializeLeastSquaresDone == true) return;
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+    parallelRom[iPodBasis]->parallelLSMultiRHSClean();
     parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis], nPodGreedy);
   }
 
@@ -1326,6 +1329,7 @@ void GnatPreprocessing<dim>::initializeLeastSquaresPseudoInv(int numRhs) {
   // TODO: only allocate memory for required columns!
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+    parallelRom[iPodBasis]->parallelLSMultiRHSClean();
     parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], pseudoInvRhs, numRhs);
   }
 
@@ -1572,7 +1576,7 @@ void GnatPreprocessing<dim>::buildRemainingMesh() {
   if (twoLayers) {
     com->fprintf(stdout," ... Adding second layer of neighbors ...\n");
     for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-      com->fprintf(stdout," ... Adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
+      com->fprintf(stdout," ... Adding neighbors for sample node %d of %d...\n",iSampleNodes+1,nSampleNodes);
       addNeighbors(iSampleNodes, nodeOffset[iSampleNodes]);
     }
     communicateAll();  // all cpus need all nodes/elements to define maps
@@ -2191,12 +2195,12 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
   reducedSampleNodes.resize(nSampleNodes);
 
   // save the reduced node number for the sample node
-
+  double refLength = ioData->ref.rv.length;
   for (int j = 0; j < nReducedNodes; ++j) {
     // compute xyz position of the node
     globalNodeNum = globalNodes[0][j];  // global node numbers on sample mesh have been sorted in increasing order
     xyzVals = nodesXYZmap.find(globalNodeNum)->second;
-    com->fprintf(reducedMesh, "%d %8.15e %8.15e %8.15e \n", j+1, xyzVals[0], xyzVals[1], xyzVals[2]);  
+    com->fprintf(reducedMesh, "%d %8.15e %8.15e %8.15e \n", j+1, xyzVals[0]*refLength, xyzVals[1]*refLength, xyzVals[2]*refLength);  
 
     // associate global node to the current reduced node
     globalToReducedNodeNumbering.insert(pair<int, int> (globalNodeNum, j));

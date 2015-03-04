@@ -2616,7 +2616,8 @@ struct ROBConstructionData {
 
 struct GNATConstructionData {
 
-	// optional: to document
+  enum DoPrepro {DO_PREPRO_FALSE = 0, DO_PREPRO_TRUE = 1} doPrepro;
+  enum SowerInputs {SOWER_INPUTS_FALSE = 0, SOWER_INPUTS_TRUE = 1} sowerInputs;
 
   int maxDimensionState;
   int minDimensionState;

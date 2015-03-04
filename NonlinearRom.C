@@ -45,7 +45,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   // flag indicating that we're operating with incremental snapshots of the state
   incrementalStateSnaps = (ioData->romDatabase.avgIncrementalStates==NonlinearRomFileSystemData::AVG_INCREMENTAL_STATES_TRUE) ? true : false;
 
-  // use either euclidean distances or angle between subspaces 
+  // use either euclidean distances or angle between vectors 
   euclideanDistances = (ioData->romDatabase.distanceMetric==NonlinearRomFileSystemData::DIST_EUCLIDEAN) ? true : false;
 
   // State snapshot clusters
@@ -567,7 +567,7 @@ double NonlinearRom<dim>::euclideanFull(DistSVec<double, dim> &U1, DistSVec<doub
 
 template<int dim>
 double NonlinearRom<dim>::angleFull(DistSVec<double, dim> &U1, DistSVec<double, dim> &U2) {
-// Angle calculation between 1D subspaces using full-size state vectors.  
+// Angle calculation between two full-size state vectors.  
 // Returns an angle between 0 and pi/2 unless one vector is too small (then return -1)
 
   double norm1 = U1.norm();
@@ -579,8 +579,10 @@ double NonlinearRom<dim>::angleFull(DistSVec<double, dim> &U1, DistSVec<double, 
                  norm1,norm2);
     return -1;
   }
-
-  double angle = acos(min(abs((U1*U2)/(norm1*norm2)),1.0));
+  double arg = (U1*U2)/(norm1*norm2);
+  if (arg>1.0) arg=1.0;
+  if (arg<-1.0) arg=-1.0;
+  double angle = acos(arg);
 
   return angle;
 }
@@ -917,7 +919,7 @@ void NonlinearRom<dim>::distanceComparisonsForIncrements(Vec<double> dUromTimeIt
       for (int iState=0; iState<dUromTimeIt.size(); ++iState)
         pComponent += basisNormalizedCenterProducts[currentCluster][pCenter][iState] * dUromTimeIt[iState];
 
-      distanceComparisons[mCenter][pCenter] = abs(pComponent) - abs(mComponent); 
+      distanceComparisons[mCenter][pCenter] = pComponent - mComponent; //abs(pComponent) - abs(mComponent); 
                                                 
       for (int iKrylov=0; iKrylov<nKrylov; ++iKrylov) {
         // account for Krylov bases
@@ -3945,6 +3947,7 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
     metisCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
     const char *metisCommandChar = metisCommandString.c_str();
 
+    com->fprintf(stdout, "\n%s\n", metisCommandChar);
     if (!(shell = popen(metisCommandChar, "r"))) {
       com->fprintf(stderr, " *** Error: attempt to use external METIS executable (%s) failed!\n", ioData->input.metis);
       exit(-1);
@@ -3993,6 +3996,7 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
     sowerCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
     const char *sowerCommandChar = sowerCommandString.c_str();
 
+    com->fprintf(stdout, "\n%s\n", sowerCommandChar);
     if (!(shell = popen(sowerCommandChar, "r"))) {
       com->fprintf(stderr, " *** Error: attempt to use external SOWER executable (%s) failed!\n", ioData->input.sower);
       exit(-1);

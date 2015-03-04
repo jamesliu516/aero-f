@@ -40,6 +40,9 @@ class ParallelRom {
 			VecContainer2 &Utrue, double *S, FullM &Vtrue, int nSnaps, bool computeV=true);
 	template<class VecContainer1, class VecContainer2> void parallelLSMultiRHSInit(const VecContainer1
 			&A, const VecContainer2 &B, const int nA=0); 	// initialization
+
+        void parallelLSMultiRHSClean();
+
 	template<class VecContainer1, class VecContainer2> void parallelLSMultiRHS(const VecContainer1 &A,
 			const VecContainer2 &B, int n, int nRhs, double **lsSol, bool=true); // least-squares
 			// via QR with multiple RHS
