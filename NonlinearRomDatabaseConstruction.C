@@ -434,16 +434,28 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
         (*(this->clusterCenters))[iCluster] = 0.0;
       }
 
+      //KYLE_HERE
+      DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
       for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-        (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += (*(this->snap))[iSnap];
+        *tmpDistVec = (*(this->snap))[iSnap];
+        // if using angles, cluster center is average of normalized snapshots
+        if (!this->euclideanDistances) {
+          double normalize = tmpDistVec->norm();
+          //if (*tmpDistVec * clusterCentersOld[(this->clusterIndex)[iSnap]] < 0) normalize *= -1.0;
+          if (normalize > 0) normalize = 1.0/normalize;
+          *tmpDistVec *= normalize;
+        }
+        (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += *tmpDistVec;
         ++((this->snapsInCluster)[(this->clusterIndex)[iSnap]]);  
       }
+      delete tmpDistVec;
+      tmpDistVec = NULL;
 
       for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
         this->com->fprintf(stdout, " ... cluster %d has %d snaps \n", iCluster, (this->snapsInCluster)[iCluster]);
-        double normalize = 0;
-        if ((this->snapsInCluster)[iCluster] != 0) normalize = 1.0/double((this->snapsInCluster)[iCluster]);
-        (*(this->clusterCenters))[iCluster] *= normalize;
+        double snapsInClusterInv = 0;
+        if ((this->snapsInCluster)[iCluster] != 0) snapsInClusterInv = 1.0/double((this->snapsInCluster)[iCluster]);
+        (*(this->clusterCenters))[iCluster] *= snapsInClusterInv;
       }
 
     residual = calcResidual(*(this->clusterCenters), clusterCentersOld);
@@ -462,12 +474,20 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
 
         this->closestCenterFull( (*(this->snap))[iSnap], &newIndex);
 
+        // if using angles, cluster center is average of normalized snapshots
+        double normalize = 1.0;
+        if (!this->euclideanDistances) {
+          normalize = (*(this->snap))[iSnap].norm();
+          if (normalize > 0) normalize = 1.0/normalize;
+        }
+
+        //KYLE_HERE
         if (oldIndex != newIndex) {
           (this->clusterIndex)[iSnap] = newIndex;
           (*(this->clusterCenters))[oldIndex] *= (double((this->snapsInCluster)[oldIndex])/(double((this->snapsInCluster)[oldIndex])-1.0));
-          (*(this->clusterCenters))[oldIndex] -= (*(this->snap))[iSnap]*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
+          (*(this->clusterCenters))[oldIndex] -= (*(this->snap))[iSnap]*(normalize)*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
           (*(this->clusterCenters))[newIndex] *= (double((this->snapsInCluster)[newIndex])/(double((this->snapsInCluster)[newIndex])+1.0));
-          (*(this->clusterCenters))[newIndex] += (*(this->snap))[iSnap]*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
+          (*(this->clusterCenters))[newIndex] += (*(this->snap))[iSnap]*(normalize)*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
           --((this->snapsInCluster)[oldIndex]);
           ++((this->snapsInCluster)[newIndex]);
         } 
@@ -749,20 +769,49 @@ void NonlinearRomDatabaseConstruction<dim>::kmeans() {
         sortStruct* snapDist = new sortStruct[sortSize]; // this struct was defined earlier in this file 
 
         int snapCount = 0;
-        DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
-        *tmpDistVec = (*(this->clusterCenters))[iCluster] - (*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]];
-        double offset = (pow(((*(this->clusterCenters))[iCluster]).norm(),2) - pow(((*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]]).norm(),2))*(-0.5);
 
-        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-          if ((this->clusterIndex)[iSnap]==(this->clusterNeighbors)[iCluster][iNeighbor]) { // only need to sort snapshots that are outside of the current cluster
-            snapDist[snapCount].snapIndex = iSnap;
-            snapDist[snapCount].dist = abs( (*tmpDistVec) * (*(this->snap))[iSnap] + offset );
-           // (doesn't work well) snapDist[snapCount].dist = this->distance((*snap)[iSnap],(*(this->clusterCenters))[iCluster]);
-            ++snapCount;
+        if (this->euclideanDistances) {
+
+          DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+          *tmpDistVec = (*(this->clusterCenters))[iCluster] - (*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]];
+          double offset = (pow(((*(this->clusterCenters))[iCluster]).norm(),2) - pow(((*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]]).norm(),2))*(-0.5);
+          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+            if ((this->clusterIndex)[iSnap]==(this->clusterNeighbors)[iCluster][iNeighbor]) { // don't need to sort snapshots belonging to the current cluster
+              snapDist[snapCount].snapIndex = iSnap;
+              snapDist[snapCount].dist = abs( (*tmpDistVec) * (*(this->snap))[iSnap] + offset );  //don't need the abs? KMW
+              ++snapCount;
+            }
           }
+          delete tmpDistVec;
+          tmpDistVec = NULL;
+
+        } else { // angles
+
+          DistSVec<double, dim> projVec1(this->domain.getNodeDistInfo());
+          DistSVec<double, dim> projVec2(this->domain.getNodeDistInfo());
+
+          projVec1 = (*(this->clusterCenters))[iCluster];
+          projVec1 *= 1.0/projVec1.norm(); // norm can't be zero
+          projVec2 = (*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]];
+          projVec2 = projVec2 - (projVec1*projVec2)*projVec1;
+          projVec2 *= 1.0/projVec2.norm(); // again, norm can't be zero
+
+          DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+
+          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+            if ((this->clusterIndex)[iSnap]==(this->clusterNeighbors)[iCluster][iNeighbor]) { // don't need to sort snapshots belonging to the current cluster
+              snapDist[snapCount].snapIndex = iSnap;
+              *tmpDistVec = projVec1 * (projVec1*((*(this->snap))[iSnap]));
+              *tmpDistVec += projVec2 * (projVec2*((*(this->snap))[iSnap]));
+
+              snapDist[snapCount].dist = this->distanceFull(*tmpDistVec, (*(this->clusterCenters))[iCluster]);
+              ++snapCount;
+            }
+          }
+          delete tmpDistVec;
+          tmpDistVec = NULL;
+
         }
-        delete tmpDistVec;
-        tmpDistVec = NULL;
         sort(snapDist, snapDist+sortSize);
 
         for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
@@ -989,14 +1038,27 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
         for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
           (*(this->clusterCenters))[iCluster] = 0.0;
         }
+        
+        //KYLE_HERE
+        DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
         for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-          (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += (*snapshots)[iSnap];
-          ++((this->snapsInCluster)[(this->clusterIndex)[iSnap]]);  
+          *tmpDistVec = (*snapshots)[iSnap];
+          // if using angles, cluster center is average of normalized snapshots
+          if (!this->euclideanDistances) {
+            double normalize = tmpDistVec->norm();
+            if (normalize > 0) normalize = 1.0/normalize;
+            *tmpDistVec *= normalize;
+          }
+          (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += *tmpDistVec;
+          ++((this->snapsInCluster)[(this->clusterIndex)[iSnap]]);
         }
+        delete tmpDistVec;
+        tmpDistVec = NULL;
+
         for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-          double normalize = 0;
-          if ((this->snapsInCluster)[iCluster] != 0) normalize = 1.0/double((this->snapsInCluster)[iCluster]);
-          (*(this->clusterCenters))[iCluster] *= normalize;
+          double snapsInClusterInv = 0;
+          if ((this->snapsInCluster)[iCluster] != 0) snapsInClusterInv = 1.0/double((this->snapsInCluster)[iCluster]);
+          (*(this->clusterCenters))[iCluster] *= snapsInClusterInv;
         }
       } else {
   
@@ -1056,15 +1118,24 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
                       // all snapshots.  In this case "tight bounds" is a bit of a misnomer because the bounds are only tight
                       // at the beginning of each kmeans iteration (this is still tighter than the "loose bounds" case though)
   
+                      // KYLE_HERE
                       // update centers
+
+                      // if using angles, cluster center is average of normalized snapshots
+                      double normalize = 1.0;
+                      if (!this->euclideanDistances) {
+                        normalize = (*snapshots)[iSnap].norm();
+                        if (normalize > 0) normalize = 1.0/normalize;
+                      }
+
                       DistSVec<double, dim> originalOldCenter(this->domain.getNodeDistInfo());
                       DistSVec<double, dim> originalNewCenter(this->domain.getNodeDistInfo());
                       originalOldCenter = (*(this->clusterCenters))[oldIndex];
                       originalNewCenter = (*(this->clusterCenters))[newIndex];
                       (*(this->clusterCenters))[oldIndex] *= (double((this->snapsInCluster)[oldIndex])/(double((this->snapsInCluster)[oldIndex])-1.0));
-                      (*(this->clusterCenters))[oldIndex] -= (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
+                      (*(this->clusterCenters))[oldIndex] -= (*snapshots)[iSnap]*normalize*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
                       (*(this->clusterCenters))[newIndex] *= (double((this->snapsInCluster)[newIndex])/(double((this->snapsInCluster)[newIndex])+1.0));
-                      (*(this->clusterCenters))[newIndex] += (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
+                      (*(this->clusterCenters))[newIndex] += (*snapshots)[iSnap]*normalize*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
                       --((this->snapsInCluster)[oldIndex]);
                       ++((this->snapsInCluster)[newIndex]);
                       
@@ -1099,26 +1170,44 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
           for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
             (this->snapsInCluster)[iCluster]=0;
             (*(this->clusterCenters))[iCluster] = 0.0;
-           }
-          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-            (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += (*snapshots)[iSnap];
-            ++((this->snapsInCluster)[(this->clusterIndex)[iSnap]]);  
           }
+          //KYLE_HERE
+          DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+            *tmpDistVec = (*snapshots)[iSnap];
+            // if using angles, cluster center is average of normalized snapshots
+            if (!this->euclideanDistances) {
+              double normalize = tmpDistVec->norm();
+              if (normalize > 0) normalize = 1.0/normalize;
+              *tmpDistVec *= normalize;
+            }
+            (*(this->clusterCenters))[(this->clusterIndex)[iSnap]] += *tmpDistVec;
+            ++((this->snapsInCluster)[(this->clusterIndex)[iSnap]]);
+          }
+          delete tmpDistVec;
+          tmpDistVec = NULL;
+
           for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-            double normalize = 0;
-            if ((this->snapsInCluster)[iCluster] != 0) normalize = 1.0/double((this->snapsInCluster)[iCluster]);
-            (*(this->clusterCenters))[iCluster] *= normalize;
+            double snapsInClusterInv = 0;
+            if ((this->snapsInCluster)[iCluster] != 0) snapsInClusterInv = 1.0/double((this->snapsInCluster)[iCluster]);
+            (*(this->clusterCenters))[iCluster] *= snapsInClusterInv;
           }
         } else { // otherwise it's cheaper to update incrementally
           for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
             int oldIndex = clusterIndexOld[iSnap];
             int newIndex = (this->clusterIndex)[iSnap];
+            //KYLE_HERE
+            double normalize = 1.0;
+            if (!this->euclideanDistances) {
+              normalize = (*snapshots)[iSnap].norm();
+              if (normalize > 0) normalize = 1.0/normalize;
+            }
             if (oldIndex != newIndex) {
                 (this->clusterIndex)[iSnap] = newIndex;
                 (*(this->clusterCenters))[oldIndex] *= (double((this->snapsInCluster)[oldIndex])/(double((this->snapsInCluster)[oldIndex])-1.0));
-                (*(this->clusterCenters))[oldIndex] -= (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
+                (*(this->clusterCenters))[oldIndex] -= (*snapshots)[iSnap]*normalize*(1.0/(double((this->snapsInCluster)[oldIndex])-1.0));
                 (*(this->clusterCenters))[newIndex] *= (double((this->snapsInCluster)[newIndex])/(double((this->snapsInCluster)[newIndex])+1.0));
-                (*(this->clusterCenters))[newIndex] += (*snapshots)[iSnap]*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
+                (*(this->clusterCenters))[newIndex] += (*snapshots)[iSnap]*normalize*(1.0/(double((this->snapsInCluster)[newIndex])+1.0));
                 --((this->snapsInCluster)[oldIndex]);
                 ++((this->snapsInCluster)[newIndex]);
             } 
@@ -1600,38 +1689,70 @@ void NonlinearRomDatabaseConstruction<dim>::kmeansWithBounds() {
 
       for (int iNeighbor=0; iNeighbor<(this->clusterNeighborsCount)[iCluster]; ++iNeighbor) {
 
-        int sortSize = origSnapsInCluster[(this->clusterNeighbors)[iCluster][iNeighbor]]; 
-        sortStruct* snapDist = new sortStruct[sortSize]; // this struct was defined earlier
+        if (iCluster == (this->clusterNeighbors)[iCluster][iNeighbor]) {
+          this->com->fprintf(stderr, "*** Warning: Cluster  %d is its own neighbor (likely because KMeans didin't full converge). Ignoring...\n", iCluster);
+        } else {
 
-        snapCount = 0;
-        DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
-        *tmpDistVec = (*(this->clusterCenters))[iCluster] - (*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]];
-        double offset = (pow(((*(this->clusterCenters))[iCluster]).norm(),2) - pow(((*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]]).norm(),2))*(-0.5);
+          int sortSize = origSnapsInCluster[(this->clusterNeighbors)[iCluster][iNeighbor]]; 
+          sortStruct* snapDist = new sortStruct[sortSize]; // this struct was defined earlier
+  
+          snapCount = 0;
+              //KYLE_HERE
+          if (this->euclideanDistances) {
+            DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+            *tmpDistVec = (*(this->clusterCenters))[iCluster] - (*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]];
+            double offset = (pow(((*(this->clusterCenters))[iCluster]).norm(),2) - pow(((*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]]).norm(),2))*(-0.5);
+    
+            for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+              if ((this->clusterIndex)[iSnap]==(this->clusterNeighbors)[iCluster][iNeighbor]) { // don't need to sort snapshots belonging to the current cluster
+                snapDist[snapCount].snapIndex = iSnap;
+                snapDist[snapCount].dist = abs( (*tmpDistVec) * (*(this->snap))[iSnap] + offset );  //don't need the abs? KMW
+                ++snapCount;
+              }
+            }
+            delete tmpDistVec;
+            tmpDistVec = NULL;
+          } else { // angles
+  
+            DistSVec<double, dim> projVec1(this->domain.getNodeDistInfo());
+            DistSVec<double, dim> projVec2(this->domain.getNodeDistInfo());
+  
+            projVec1 = (*(this->clusterCenters))[iCluster];
+            projVec1 *= 1.0/projVec1.norm(); // norm can't be zero
+            projVec2 = (*(this->clusterCenters))[(this->clusterNeighbors)[iCluster][iNeighbor]];
+            projVec2 = projVec2 - (projVec1*projVec2)*projVec1;
+            projVec2 *= 1.0/projVec2.norm(); // again, norm can't be zero
 
-        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-          if ((this->clusterIndex)[iSnap]==(this->clusterNeighbors)[iCluster][iNeighbor]) { // don't need to sort snapshots belonging to the current cluster
-            snapDist[snapCount].snapIndex = iSnap;
-            snapDist[snapCount].dist = abs( (*tmpDistVec) * (*(this->snap))[iSnap] + offset );
-           // (doesn't work well) snapDist[snapCount].dist = this->distance((*snap)[iSnap],(*(this->clusterCenters))[iCluster]);
-            ++snapCount;
+            DistSVec<double, dim>* tmpDistVec = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+  
+            for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+              if ((this->clusterIndex)[iSnap]==(this->clusterNeighbors)[iCluster][iNeighbor]) { // don't need to sort snapshots belonging to the current cluster
+                snapDist[snapCount].snapIndex = iSnap;
+                *tmpDistVec = projVec1 * (projVec1*((*(this->snap))[iSnap]));
+                *tmpDistVec += projVec2 * (projVec2*((*(this->snap))[iSnap]));
+                snapDist[snapCount].dist = this->distanceFull(*tmpDistVec, (*(this->clusterCenters))[iCluster]);
+                ++snapCount;
+              }
+            }
+            delete tmpDistVec;
+            tmpDistVec = NULL;
+                
           }
-        }
-        delete tmpDistVec;
-        tmpDistVec = NULL;
-        sort(snapDist, snapDist+sortSize);
-
-        for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-          for (int jSnap=0; jSnap<numToAdd; ++jSnap) {
-            if (snapDist[jSnap].snapIndex==iSnap) {
-              (this->clusterSnapshotMap)[iCluster][mappedCount] = iSnap;
-              ++mappedCount;
-              ++((this->snapsInCluster)[iCluster]);
+          sort(snapDist, snapDist+sortSize);
+  
+          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+            for (int jSnap=0; jSnap<numToAdd; ++jSnap) {
+              if (snapDist[jSnap].snapIndex==iSnap) {
+                (this->clusterSnapshotMap)[iCluster][mappedCount] = iSnap;
+                ++mappedCount;
+                ++((this->snapsInCluster)[iCluster]);
+              }
             }
           }
+  
+          delete [] snapDist;
+          snapDist = NULL;
         }
-
-        delete [] snapDist;
-        snapDist = NULL;
       }
 
       this->com->fprintf(stdout, " ... cluster %d has %d snaps \n", iCluster, (this->snapsInCluster)[iCluster]);
@@ -2101,25 +2222,34 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
   snapshots = NULL; 
  
   // SVD
-  double *error = new double[numSnaps];
-  double *work = new double[numSnaps];
-  int info;
-  double *zVec = new double[numSnaps*numSnaps]; // right singular vectors
-  double *yVec = new double[numSnaps*numSnaps]; // left singular vectors
-
   this->com->fprintf(stdout, " ... computing (approximate) probabilistic SVD using LAPACK\n");
-  F77NAME(dsvdc)(tmpMat, numSnaps, numSnaps, numSnaps, singularValues, error, yVec, numSnaps, zVec, numSnaps, work, 11, info);
 
-  delete [] tmpMat;
-  delete [] error;
-  delete [] work;
+  double *yVec;
+  double *zVec;
+  if (this->com->cpuNum()==0) {
+    double *error = new double[numSnaps];
+    double *work = new double[numSnaps];
+    int info;
+    yVec = new double[numSnaps*numSnaps]; // left singular vectors
+    zVec = new double[numSnaps*numSnaps]; // right singular vectors
+  
+    F77NAME(dsvdc)(tmpMat, numSnaps, numSnaps, numSnaps, singularValues, error, yVec, numSnaps, zVec, numSnaps, work, 11, info);
+  
+    delete [] tmpMat;
+    delete [] error;
+    delete [] work;
+  }
+
+  this->com->barrier();
+  if (this->com->cpuNum()!=0) {
+    yVec = new double[numSnaps*numSnaps]; // left singular vectors (all CPUs need this)
+  }
+  this->com->broadcast(numSnaps*numSnaps, yVec, 0);
 
   VecSet< DistSVec<double, dim> >* tmpVecSet = new VecSet<DistSVec<double, dim> >(numSnaps, this->domain.getNodeDistInfo());
-
   for (int iSnap=0; iSnap<numSnaps; ++iSnap) {
     (*tmpVecSet)[iSnap] = Utrue[iSnap];
   }
-
   for (int iSnap=0; iSnap<numSnaps; ++iSnap) {
     Utrue[iSnap] = 0.0;
     for (int jSnap=0; jSnap<numSnaps; ++jSnap) {
@@ -2128,6 +2258,12 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVD(VecSet< DistSVec<do
   }
   delete tmpVecSet;
   delete [] yVec; 
+
+  this->com->barrier();
+  if (this->com->cpuNum()!=0) {
+    zVec = new double[numSnaps*numSnaps]; // right singular vectors (all CPUs need this)
+  }
+  this->com->broadcast(numSnaps*numSnaps, zVec, 0);
 
   for (int iSnap=0; iSnap<numSnaps; ++iSnap) {
     for (int jSnap=0; jSnap<numSnaps; ++jSnap) {

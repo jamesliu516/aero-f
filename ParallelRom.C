@@ -15,6 +15,7 @@ extern "C"      {
 
   void F77NAME(pdgels)(char &, int &, int &, int &, double *, int &, int &, int *,
                        double *, int &, int &, int *, double *, int &, int & );
+  void F77NAME(blacs_gridexit)(int &);
 };
 
 template<int dim> 
@@ -33,7 +34,7 @@ domain(_domain), com(_com), subDomain(_domain.getSubDomain()), maxCpuBlocks(0), 
 template<int dim> 
 ParallelRom<dim>::~ParallelRom() 
 {
-
+  parallelLSMultiRHSClean();
   delete [] cpuNodes;
   delete [] cpuMasterNodes;
   
@@ -306,6 +307,23 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 
 //----------------------------------
 
+
+template<int dim>
+void ParallelRom<dim>::parallelLSMultiRHSClean() {
+#ifdef DO_SCALAPACK
+  if (desc_a[1] != -1) {
+    F77NAME(blacs_gridexit)(desc_a[1]);
+    desc_a[1] = -1; 
+  }
+  //if (desc_b[1] != -1) {
+  //  F77NAME(blacs_gridexit)(desc_b[1]);
+  //  desc_b[1] = -1;
+  //}
+#endif /* DO_SCALAPACK */
+}
+
+//----------------------------------
+
 template<int dim>
 template<class VecContainer1, class VecContainer2> 
 void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
@@ -335,8 +353,10 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
   // check for any changes in the dimensions of the least squares problem
   //===============================
   
-  if (n != desc_a[3] || nRhs != desc_b[3])
+  if (n != desc_a[3] || nRhs != desc_b[3]) {
+    parallelLSMultiRHSClean();
     parallelLSMultiRHSInit(A, B, n);  // (re)-initialization needed
+  }
 
   // KTC: can make this more elegant if needed
   

@@ -3779,7 +3779,7 @@ void NonlinearRomFileSystemData::setup(const char *name, ClassAssigner *father)
   new ClassToken<NonlinearRomFileSystemData> (ca, "StateSnapshotsAreIncrements", this, reinterpret_cast<int
       NonlinearRomFileSystemData::*>(&NonlinearRomFileSystemData::avgIncrementalStates), 2, "False", 0, "True", 1);
   new ClassToken<NonlinearRomFileSystemData> (ca, "DistanceMetric", this, reinterpret_cast<int
-      NonlinearRomFileSystemData::*>(&NonlinearRomFileSystemData::distanceMetric), 2, "Euclidean", 0, "SubspaceAngle", 1);
+      NonlinearRomFileSystemData::*>(&NonlinearRomFileSystemData::distanceMetric), 2, "Euclidean", 0, "Angle", 1);
 
 
 	directories.setup("Directories",ca);
@@ -4193,6 +4193,9 @@ void NonlinearRomOfflineData::setup(const char *name, ClassAssigner *father)
 
 GNATConstructionData::GNATConstructionData()
 {
+  doPrepro = DO_PREPRO_FALSE;
+  sowerInputs = SOWER_INPUTS_FALSE;
+
   maxDimensionState = -1;
   minDimensionState = 0;
   energyState = 1.0;
@@ -4247,9 +4250,13 @@ GNATConstructionData::GNATConstructionData()
 
 void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 29, father);
+  ClassAssigner *ca = new ClassAssigner(name, 31, father);
   
-	// optional: document
+  new ClassToken<GNATConstructionData>(ca, "PerformGNATPrepro", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::doPrepro), 2, "False", 0, "True", 1);
+  new ClassToken<GNATConstructionData>(ca, "SowerGNATInputs", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::sowerInputs), 2, "False", 0, "True", 1);
+
   new ClassInt<GNATConstructionData>(ca, "MaxDimensionStateROB", this, &GNATConstructionData::maxDimensionState);	// default: full size
   new ClassInt<GNATConstructionData>(ca, "MinDimensionStateROB", this, &GNATConstructionData::minDimensionState); // default: 0
   new ClassDouble<GNATConstructionData>(ca, "EnergyStateROB", this, &GNATConstructionData::energyState);
@@ -4270,10 +4277,8 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<GNATConstructionData>(ca, "MinDimensionJacActionROB", this, &GNATConstructionData::minDimensionJacAction); // default: 0
   new ClassDouble<GNATConstructionData>(ca, "EnergyJacActionROB", this, &GNATConstructionData::energyJacAction);
 
-
   new ClassToken<GNATConstructionData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int 
       GNATConstructionData::*>(&GNATConstructionData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);
-
 
   new ClassToken<GNATConstructionData>(ca, "ROBGreedy", this, reinterpret_cast<int 
       GNATConstructionData::*>(&GNATConstructionData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "JacAction", 1, "Both", 2);
