@@ -127,7 +127,7 @@ c
       g_uar4(4) = g_uar2(2)
 c
       g_uar5(1) = squsr1*(ener1 - uar5*Ug(1) -
-     &            (gam+1)*Ug(5)/gam1+2.0*gam*pstiff/gam1)/Ug(1)
+     &            (gam+1)*Ug(5)/gam1-2.0*gam*pstiff/gam1)/Ug(1)
       g_uar5(2) = g_uar2(2)*Ug(2)
       g_uar5(3) = g_uar2(2)*Ug(3)
       g_uar5(4) = g_uar2(2)*Ug(4)
