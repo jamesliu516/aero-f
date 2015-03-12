@@ -134,8 +134,8 @@ SubDomain::~SubDomain()
   if (NodeToSubD) delete NodeToSubD;
   if (NodeToElem) delete NodeToElem;
   if (ElemToElem) delete ElemToElem;
-  delete nodeToNodeMaskJacobian;
-  delete nodeToNodeMaskILU;
+  //if (nodeToNodeMaskJacobian) delete nodeToNodeMaskJacobian;
+  //if (nodeToNodeMaskILU) delete nodeToNodeMaskILU;
   delete &nodes;
   delete &faces;
   delete &elems;  
@@ -144,8 +144,8 @@ SubDomain::~SubDomain()
       delete[] dGradP[i];
       delete[] gradP[i];
     }
-  delete[] rotOwn;
-  delete mmsBCs;
+  if (rotOwn) delete[] rotOwn;
+  if (mmsBCs) delete mmsBCs;
 //  if (triaSurf) delete triaSurf;
 //
   myTree->destruct();
