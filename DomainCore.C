@@ -1282,6 +1282,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
+//d2d
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
                                         DistSVec<double,6> &R, DistLevelSetStructure *distLSS,
 					bool includeSweptNodes)
@@ -1317,8 +1318,8 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 // with option to take into account of Riemann solution at interface
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
                                         DistSVec<double,6> &R, DistVec<int> &countWstarij,
-										DistVec<int> &countWstarji, 
-										DistLevelSetStructure *distLSS)
+					DistVec<int> &countWstarji, 
+					DistLevelSetStructure *distLSS)
 {
 
   int iSub;
@@ -1397,6 +1398,26 @@ void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &w
 }
 
 //------------------------------------------------------------------------------
+
+//d2d
+void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, const DistVec<int> &fluidId,
+				    DistSVec<double,3> &wii,
+				    DistSVec<double,3> &wij, 
+				    DistSVec<double,3> &wji,
+                                    DistLevelSetStructure *distLSS,
+				    bool includeSweptNodes)
+{
+
+  #pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->computeWeightsGalerkin(X(iSub), fluidId(iSub), 
+					    wii(iSub), wij(iSub), wji(iSub), 
+					    distLSS ? &((*distLSS)(iSub)) : 0, includeSweptNodes);
+  
+}
+
+//------------------------------------------------------------------------------
+
 
 // Included (MB)
 void Domain::computeDerivativeOfWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,3> &dwii,

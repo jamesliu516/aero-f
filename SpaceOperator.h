@@ -73,9 +73,8 @@ protected:
   BcFcn *bcFcn;
   FluxFcn **fluxFcn;
   RecFcn *recFcn;
-  //RecFcn *recFcnLS;
+
   DistNodalGrad<dim, double> *ngrad;
-  //DistNodalGrad<dimLS, double> *ngradLS;
   DistNodalGrad<dim, bcomp> *compNodalGrad;
 
   DistEdgeGrad<dim> *egrad;
@@ -165,6 +164,7 @@ public:
 		       DistSVec<double,dim> &, DistSVec<double,dim> &,
 		       DistTimeState<dim> *, bool=true);
   
+  //d2d embedded
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
@@ -391,6 +391,8 @@ protected:
 
   RecFcn *recFcnLS;
   DistNodalGrad<dimLS, double> *ngradLS;
+  DistEdgeGrad<dimLS>          *egradLS; //d2d
+
   DistSVec<double, dimLS>* normals[3]; 
   DistNodalGrad<dimLS, double> *ngradLS_second[3];
   DistSVec<double,dimLS>* curvature;

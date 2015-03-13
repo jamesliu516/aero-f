@@ -1,6 +1,9 @@
 #ifndef _EDGE_GRAD_H_
 #define _EDGE_GRAD_H_
 
+#include <Elem.h>
+#include <Edge.h>
+
 class IoData;
 class Elem;
 class ElemSet;
@@ -30,11 +33,14 @@ class EdgeGrad {
 
 private:
 
-  void computeUpwindGradient(Elem&, double [3], SVec<double,3>&,
-			     SVec<double,dim>&, double*);
-  void computeFaceGradient(ElemSet&, V6NodeData&, double [3],
-			   SVec<double,dim>&, SVec<double,dim>&,
-			   SVec<double,dim>&, double*);
+  void computeUpwindGradient(Elem&, double [3], SVec<double,3>&, SVec<double,dim>&, double*);
+
+  void computeUpwindGradient(Elem&, double [3], SVec<double,3>&, SVec<double,dim>&, double*, 
+			     bool*, Vec<int>&, LevelSetStructure&);
+  void computeUpwindGradient(Elem&, double [3], SVec<double,3>&, SVec<double,dim>&, double*, 
+			     bool*, Vec<int>&);
+
+  void computeFaceGradient(ElemSet&, V6NodeData&, double [3], SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, double*);
 
 // Included (MB)
   void computeDerivativeOfUpwindGradient(Elem&, double [3], double [3], SVec<double,3>&, SVec<double,3>&,
@@ -50,9 +56,17 @@ public:
 
   void settag(bool *ftag) { tag = ftag; }
 
-  //void findEdgeTetrahedra(SubDomain*, SVec<double,3>&);
   void compute(int, int, int, ElemSet&, SVec<double,3>&, SVec<double,dim>&, 
 	       SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, double*, double*);
+
+  //d2d
+  void compute(int, int, int, ElemSet&, SVec<double,3>&, SVec<double,dim>&, 
+	       SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, 
+	       Vec<int>&, double*, double*, LevelSetStructure& LSS);
+  void compute(int, int, int, ElemSet&, SVec<double,3>&, SVec<double,dim>&, 
+	       SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, 
+	       Vec<int>&, double*, double*);
+
   V6NodeDataOf2& getV6NodeData()  { return v6data; }
 
 
