@@ -2360,6 +2360,8 @@ struct EmbeddedFramework {
   MultiInitialConditionsData embedIC;
   
   int nLevelset; //number of level-sets. Currently only consider bubbles.
+
+  int qOrder; // order of quadrature rule used for EMBEDDED_SURFACE forceAlg
   
   //Debug variables
   enum CrackingWithLevelSet {OFF = 0, ON = 1} crackingWithLevelset;
