@@ -4,7 +4,8 @@
 #include <SubDomain.h>
 #include <Vector.h>
 #include <Vector3D.h>
-
+#include "LevelSet/LevelSetStructure.h"
+#include "LevelSet/MultiGridLevelSetStructure.h"
 #include <cmath>
 
 //------------------------------------------------------------------------------
@@ -45,16 +46,6 @@ EdgeGrad<dim>::~EdgeGrad()
 
 }
 
-//------------------------------------------------------------------------------
-/*
-template<int dim>
-void EdgeGrad<dim>::findEdgeTetrahedra(SubDomain* subDomain, SVec<double,3>& X)
-{
-
-  subDomain->findEdgeTetrahedra(X, v6data);
-
-}
-*/
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -118,6 +109,136 @@ void EdgeGrad<dim>::computeDerivativeOfUpwindGradient(Elem& elem, double rij[3],
 }
 
 //------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double,3>& X, SVec<double,dim>& V,
+					  double* grad, bool* v6_flag,
+					  Vec<int>& fluidId, LevelSetStructure &LSS)
+{
+  
+  // Check if all the nodes of the element are "valid".
+  // If not, flag the element and the gradient is set to 0
+  //---------------------------------------------------
+  int le, N1, N2;
+  bool e_flag = false;
+  for (int j=0; j<6; j++){
+
+    le = elem.edgeNum(j);
+
+    N1 = elem.nodeNum( elem.edgeEnd(j,0) );
+    N2 = elem.nodeNum( elem.edgeEnd(j,1) );
+   
+    if((fluidId[N1] != fluidId[N2]) ||
+      (!LSS.isActive(0.0, N1) || !LSS.isActive(0.0, N2)) ||
+       LSS.edgeIntersectsStructure(0.0, le) ) {
+    	 e_flag = true;
+    	 break;
+      }
+            
+  }
+  //---------------------------------------------------
+
+  if(!e_flag){
+
+    *v6_flag = false;
+
+    double dp1dxi[4][3];
+    elem.computeGradientP1Function(X, dp1dxi);
+  
+    int i0 = elem.nodeNum(0);
+    int i1 = elem.nodeNum(1);
+    int i2 = elem.nodeNum(2);
+    int i3 = elem.nodeNum(3);
+
+    for (int k=0; k<dim; ++k) {
+      grad[k] = ( (dp1dxi[0][0]*V[i0][k] + dp1dxi[1][0]*V[i1][k] + 
+		   dp1dxi[2][0]*V[i2][k] + dp1dxi[3][0]*V[i3][k]) * rij[0] +
+		  (dp1dxi[0][1]*V[i0][k] + dp1dxi[1][1]*V[i1][k] + 
+		   dp1dxi[2][1]*V[i2][k] + dp1dxi[3][1]*V[i3][k]) * rij[1] +
+		  (dp1dxi[0][2]*V[i0][k] + dp1dxi[1][2]*V[i1][k] + 
+		   dp1dxi[2][2]*V[i2][k] + dp1dxi[3][2]*V[i3][k]) * rij[2] );
+    }
+
+  }else{
+
+    *v6_flag = true;
+
+    for (int k=0; k<dim; ++k) {
+      grad[k] = 0.0;
+    }
+
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double,3>& X, SVec<double,dim>& V,
+					  double* grad, bool* v6_flag,
+					  Vec<int>& fluidId)
+{
+  
+  // Check if all the nodes of the element are "valid".
+  // If not, flag the element and the gradient is set to 0
+  //---------------------------------------------------
+  int le, N1, N2;
+  bool e_flag = false;
+  for (int j=0; j<6; j++){
+
+    le = elem.edgeNum(j);
+
+    N1 = elem.nodeNum( elem.edgeEnd(j,0) );
+    N2 = elem.nodeNum( elem.edgeEnd(j,1) );
+   
+    if(fluidId[N1] != fluidId[N2]) {
+    	 e_flag = true;
+    	 break;
+      }
+            
+  }
+  //---------------------------------------------------
+
+  if(!e_flag){
+
+    *v6_flag = false;
+
+    double dp1dxi[4][3];
+    elem.computeGradientP1Function(X, dp1dxi);
+  
+    int i0 = elem.nodeNum(0);
+    int i1 = elem.nodeNum(1);
+    int i2 = elem.nodeNum(2);
+    int i3 = elem.nodeNum(3);
+
+    for (int k=0; k<dim; ++k) {
+      grad[k] = ( (dp1dxi[0][0]*V[i0][k] + dp1dxi[1][0]*V[i1][k] + 
+		   dp1dxi[2][0]*V[i2][k] + dp1dxi[3][0]*V[i3][k]) * rij[0] +
+		  (dp1dxi[0][1]*V[i0][k] + dp1dxi[1][1]*V[i1][k] + 
+		   dp1dxi[2][1]*V[i2][k] + dp1dxi[3][1]*V[i3][k]) * rij[1] +
+		  (dp1dxi[0][2]*V[i0][k] + dp1dxi[1][2]*V[i1][k] + 
+		   dp1dxi[2][2]*V[i2][k] + dp1dxi[3][2]*V[i3][k]) * rij[2] );
+    }
+
+  }else{
+
+    *v6_flag = true;
+
+    for (int k=0; k<dim; ++k) {
+      grad[k] = 0.0;
+    }
+
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void EdgeGrad<dim>::computeFaceGradient(ElemSet& elems, V6NodeData& data, double rij[3],
@@ -191,18 +312,20 @@ void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems,
   double rij[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
 
   if (beta == 0.0) {
+
     for (int k=0; k<dim; ++k) {
       ddVij[k] = 0.0;
       ddVji[k] = 0.0;
     }
-  }
-  else if (v6data[l][0].tet == -1 || v6data[l][1].tet == -1) {
+
+  } else if (v6data[l][0].tet == -1 || v6data[l][1].tet == -1) {
     for (int k=0; k<dim; ++k) {
       ddVij[k] = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
       ddVji[k] = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
     }
-  }
-  else {
+
+  } else {
+
     double ddVij_u[dim];
     computeUpwindGradient(elems[v6data[l][0].tet], rij, X, V, ddVij_u);
     double ddVji_u[dim];
@@ -211,14 +334,15 @@ void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems,
     computeFaceGradient(elems, v6data[l][0], rij, dVdx, dVdy, dVdz, ddVij_f);
     double ddVji_f[dim];
     computeFaceGradient(elems, v6data[l][1], rij, dVdx, dVdy, dVdz, ddVji_f);
+
     for (int k=0; k<dim; ++k) {
       double ddVij_c = V[j][k] - V[i][k];
       double ddVi = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
       double ddVj = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
       ddVij[k] = 0.5 * (ddVij_c + ddVij_u[k] + xiu * (ddVij_f[k] - 2.0*ddVi + ddVj) +
-                        xic * (ddVij_u[k] - 2.0*ddVij_c + ddVji_u[k]));
+                                               xic * (ddVij_u[k] - 2.0*ddVij_c + ddVji_u[k]));
       ddVji[k] = 0.5 * (ddVij_c + ddVji_u[k] + xiu * (ddVji_f[k] - 2.0*ddVj + ddVi) +
-                        xic * (ddVji_u[k] - 2.0*ddVij_c + ddVij_u[k]));
+                                               xic * (ddVji_u[k] - 2.0*ddVij_c + ddVij_u[k]));
     }
   }
 
@@ -308,3 +432,182 @@ void EdgeGrad<dim>::computeDerivative(int l, int i, int j, ElemSet& elems,
 }
 
 //------------------------------------------------------------------------------
+
+//d2d
+template<int dim>
+void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems, 
+			    SVec<double,3>& X, SVec<double,dim>& V, 
+			    SVec<double,dim>& dVdx, 
+			    SVec<double,dim>& dVdy, 
+			    SVec<double,dim>& dVdz, 
+			    Vec<int> &fluidId, double* ddVij, double* ddVji,
+			    LevelSetStructure &LSS)
+{
+
+  if( (fluidId[i] != fluidId[j]) ||
+      (!LSS.isActive(0.0, i) || !LSS.isActive(0.0, j)) ||
+        LSS.edgeIntersectsStructure(0.0, l) ){
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = 0.0;
+      ddVji[k] = 0.0;
+    }
+    return;
+  }
+
+  // ~~~~~~
+
+  double rij[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+  
+  if (beta == 0.0) {
+
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = 0.0;
+      ddVji[k] = 0.0;
+    }
+
+  }else if (v6data[l][0].tet == -1 || v6data[l][1].tet == -1) {
+
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+      ddVji[k] = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+    }
+
+  } else {
+
+    bool v6_flag1, v6_flag2;
+
+    double ddVij_u[dim];
+    computeUpwindGradient(elems[v6data[l][0].tet], rij, X, V, ddVij_u, &v6_flag1, fluidId, LSS);
+    double ddVji_u[dim];
+    computeUpwindGradient(elems[v6data[l][1].tet], rij, X, V, ddVji_u, &v6_flag2, fluidId, LSS);
+
+    if(v6_flag1 || v6_flag2) {
+      for (int k=0; k<dim; ++k){
+	ddVij[k] = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+	ddVji[k] = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+      }
+
+    }else{
+
+      double ddVij_f[dim];
+      computeFaceGradient(elems, v6data[l][0], rij, dVdx, dVdy, dVdz, ddVij_f);
+      double ddVji_f[dim];
+      computeFaceGradient(elems, v6data[l][1], rij, dVdx, dVdy, dVdz, ddVji_f);
+
+      for (int k=0; k<dim; ++k) {
+
+	double ddVij_c = V[j][k] - V[i][k];
+
+	double ddVi = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+	double ddVj = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+
+	ddVij[k] = 0.5 * (ddVij_c + ddVij_u[k] + xiu * (ddVij_f[k] - 2.0*ddVi + ddVj) +
+                                                 xic * (ddVij_u[k] - 2.0*ddVij_c + ddVji_u[k]));
+	ddVji[k] = 0.5 * (ddVij_c + ddVji_u[k] + xiu * (ddVji_f[k] - 2.0*ddVj + ddVi) +
+                                                 xic * (ddVji_u[k] - 2.0*ddVij_c + ddVij_u[k]));
+      }
+
+    }
+
+  }
+
+  if (tag[i])
+    for (int k=0; k<dim; ++k)
+      ddVij[k] = 0.0;
+
+  if (tag[j])
+    for (int k=0; k<dim; ++k)
+      ddVji[k] = 0.0;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+//d2d
+template<int dim>
+void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems, 
+			    SVec<double,3>& X, SVec<double,dim>& V, 
+			    SVec<double,dim>& dVdx, 
+			    SVec<double,dim>& dVdy, 
+			    SVec<double,dim>& dVdz, 
+			    Vec<int> &fluidId, double* ddVij, double* ddVji)
+{
+
+  if((fluidId[i] != fluidId[j])) {
+
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = 0.0;
+      ddVji[k] = 0.0;
+    }
+    return;
+
+  }
+
+  // ~~~~~~
+
+  double rij[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+  
+  if (beta == 0.0) {
+
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = 0.0;
+      ddVji[k] = 0.0;
+    }
+
+  }else if (v6data[l][0].tet == -1 || v6data[l][1].tet == -1) {
+
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+      ddVji[k] = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+    }
+
+  } else {
+
+    bool v6_flag1, v6_flag2;
+
+    double ddVij_u[dim];
+    computeUpwindGradient(elems[v6data[l][0].tet], rij, X, V, ddVij_u, &v6_flag1, fluidId);
+    double ddVji_u[dim];
+    computeUpwindGradient(elems[v6data[l][1].tet], rij, X, V, ddVji_u, &v6_flag2, fluidId);
+
+    if(v6_flag1 || v6_flag2) {
+      for (int k=0; k<dim; ++k){
+	ddVij[k] = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+	ddVji[k] = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+      }
+
+    }else{
+
+      double ddVij_f[dim];
+      computeFaceGradient(elems, v6data[l][0], rij, dVdx, dVdy, dVdz, ddVij_f);
+      double ddVji_f[dim];
+      computeFaceGradient(elems, v6data[l][1], rij, dVdx, dVdy, dVdz, ddVji_f);
+
+      for (int k=0; k<dim; ++k) {
+
+	double ddVij_c = V[j][k] - V[i][k];
+
+	double ddVi = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+	double ddVj = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+
+	ddVij[k] = 0.5 * (ddVij_c + ddVij_u[k] + xiu * (ddVij_f[k] - 2.0*ddVi + ddVj) +
+                                                 xic * (ddVij_u[k] - 2.0*ddVij_c + ddVji_u[k]));
+	ddVji[k] = 0.5 * (ddVij_c + ddVji_u[k] + xiu * (ddVji_f[k] - 2.0*ddVj + ddVi) +
+                                                 xic * (ddVji_u[k] - 2.0*ddVij_c + ddVij_u[k]));
+      }
+
+    }
+
+  }
+
+  if (tag[i])
+    for (int k=0; k<dim; ++k)
+      ddVij[k] = 0.0;
+
+  if (tag[j])
+    for (int k=0; k<dim; ++k)
+      ddVji[k] = 0.0;
+
+}
+

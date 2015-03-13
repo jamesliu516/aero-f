@@ -285,19 +285,20 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
 }
 //------------------------------------------------------------------------------
 
-void PostFcnEuler::computeForceEmbedded(int orderOfAccuracy, double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
-					double *Vwall, double *Vface[3], double *Vtet[4],
-					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
+void PostFcnEuler::computeForceEmbedded(int orderOfAccuracy, double dp1dxj[4][3], 
+					double *Xface[3], Vec3D &n, double d2w[3],
+					double *Vwall, double *Vface[3], double *Vtet[4], double pin, 
+					Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
                                         int hydro, int* fid, bool applyRealForce)
 {
   if(hydro!=0) {fprintf(stderr,"hydro parameter (%d) not supported...\n",hydro); exit(-1);}
   Vec3D p;
   if(applyRealForce)
     for(int i=0;i<3;i++) 
-      p[i] = varFcn->getPressure(Vface[i],(fid?fid[i]:0));
+      p[i] = varFcn->getPressure(Vface[i],(fid?fid[i]:0)) - pin;
   else
     for(int i=0;i<3;i++)
-      p[i] = Vface[i][4];
+      p[i] = Vface[i][4] - pin;
 
   // Computes Int_{T} (N_i * Sum_{j\in T} p_j N_j) dx
   // At first order, N_j = Chi_j (constant per control volume)
@@ -960,8 +961,8 @@ void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, do
 //------------------------------------------------------------------------------
 
 void PostFcnNS::computeForceEmbedded(int orderOfAccuracy,double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
-																     double *Vwall, double *Vface[3], double *Vtet[4], 
-																     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
+				     double *Vwall, double *Vface[3], double *Vtet[4], 
+				     double pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], 
                                      int hydro, int* fid, bool applyRealForce)
 {
 

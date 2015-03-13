@@ -283,8 +283,19 @@ public:
 					  SVec<int,1> &, SVec<double,6> &, Vec<int> &, Vec<int> &, 
 					  LevelSetStructure* =0);
   void computeWeightsLeastSquaresNodePart(SVec<int,1> &, SVec<double,6> &);
-  void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &,
-			      SVec<double,3> &, SVec<double,3> &);
+
+  void computeWeightsGalerkin(SVec<double,3> &, 
+			      SVec<double,3> &,
+			      SVec<double,3> &, 
+			      SVec<double,3> &);
+
+  void computeWeightsGalerkin(SVec<double,3> &, const Vec<int> &,
+			      SVec<double,3> &,
+			      SVec<double,3> &, 
+			      SVec<double,3> &,
+			      LevelSetStructure* =0, 
+			      bool includeSweptNodes = true); //d2d
+
   void computeEdgeWeightsGalerkin(SVec<double,3> &, Vec<double> &, SVec<double,9> &);
 #define EDGE_LENGTH
 #ifdef EDGE_LENGTH
@@ -446,6 +457,7 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
+			      EdgeGrad<dimLS>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
   template<int dim, int dimLS>
@@ -457,6 +469,7 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
+			      EdgeGrad<dimLS>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
   template<int dim>
@@ -480,7 +493,9 @@ public:
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,Vec<int>& fluidId,
-                               NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*, SVec<double,dimLS>&,
+                               NodalGrad<dim>&,   EdgeGrad<dim>*,
+			       NodalGrad<dimLS>&, EdgeGrad<dimLS>*,
+			       SVec<double,dimLS>&,
                                SVec<double,dimLS>&, LevelSetStructure* =0, int ls_order = 1);
   template<int dim>
   int computeFiniteVolumeBar_Step1(Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&, SVec<double,3>& ,
