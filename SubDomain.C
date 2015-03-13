@@ -6927,7 +6927,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
    if (iod.problem.framework == ProblemData::EMBEDDEDALE)
      myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
 
-  int qOrder = 3;
+  int qOrder = iod.embed.qOrder; // default is 3
   Quadrature quadrature_formula(qOrder);
   int nqPoint = quadrature_formula.n_point;
   double (*qloc)[3](quadrature_formula.qloc);
@@ -6992,16 +6992,17 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
       dbary[2] = Vec3D(bary[0],bary[1],1.0-bary[2]);
       dbary[3] = Vec3D(bary[0],bary[1],bary[2]);
 
-// Determine the side of the nodes of the tet
-      double norm[4];
+// Determine the side of the nodes of the tet on intersected edges
+      int norm[4] = { 0, 0, 0, 0 };
       for (int e=0; e<6; ++e) {
 	int l = E->edgeNum(e);
 	if (LSS.edgeIntersectsStructure(0,l)) {
-          LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
 	  int i = E->edgeEnd(e,0);
 	  int j = E->edgeEnd(e,1);
-          norm[i] = lsRes.gradPhi*(Xstruct[lsRes.trNodes[0]]-Xf[i]); 
-          norm[j] = lsRes.gradPhi*(Xstruct[lsRes.trNodes[0]]-Xf[j]); 
+          LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));
+          norm[i] = (lsResij.gradPhi*(Xstruct[lsResij.trNodes[0]]-Xf[i]) <= 0) ? -1 : 1;
+          LevelSetResult lsResji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]>=T[j]));
+          norm[j] = (lsResji.gradPhi*(Xstruct[lsResji.trNodes[0]]-Xf[j]) <= 0) ? -1 : 1;
 	}
       }
 
@@ -7011,7 +7012,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
       Vec3D nf[2] = {-normal,normal};
       for (int i=0; i<4; i++) {
 	double dist = dbary[i].norm();
-        if (norm[i] <= 0.) {
+        if (norm[i] < 0) {  
 	  
 	  // Bug fix for cracking simulations (also below)
 	  // Note that when we are doing cracking, isActive() always
@@ -7019,13 +7020,13 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 	  // so we only need to check if the node is occluded.
 	  // Added by Alex Main (October 2013)
 	  //
-	  if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] ) {
+	  if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0. ) {
 	    mindist[0] = dist;
 	    node[0] = T[i];
 	  }
 	}
-	else {
-	  if( (LSS.isActive(0,T[i])|| (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[1] ) {
+	else if(norm[i] > 0) {
+	  if( (LSS.isActive(0,T[i])|| (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0. ) {
 	    mindist[1] = dist;
 	    node[1] = T[i];
 	  }

@@ -2089,7 +2089,7 @@ void OneDimensional::outputProbes(double time,int iteration) {
 	exit(-1);
       }
 
-      fprintf(out,"%e ",time*refVal.time);
+      fprintf(out,"%d %e ",iteration,time*refVal.time);
       for (j = 0; j < nodal_output.numNodes; ++j) {
         if (nodal_output.locations[i].v[0] >= 0.0) {
           switch ((PostFcn::ScalarType)i) {
