@@ -2997,7 +2997,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<CFLData>(ca, "Strategy", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
-                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
+                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Standard", 5); 
   new ClassToken<CFLData>(ca, "CheckSolution", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
                           "Off", 0, "On", 1);
