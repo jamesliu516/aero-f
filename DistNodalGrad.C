@@ -759,7 +759,7 @@ void DistNodalGrad<dim, Scalar>::computeTemperatureGradient(int config, DistSVec
   if (typeGradient == SchemeData::LEAST_SQUARES){
     
     domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS);
-    domain->computeGradientsLeastSquares(X, fluidId, *R, T, *dTx, *dTy, *dTz, distLSS);
+    domain->computeGradientsLeastSquares(X, fluidId, *R, T, *dTdx, *dTdy, *dTdz, distLSS);
 
   }else if(typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL){
     

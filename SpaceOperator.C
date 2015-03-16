@@ -2280,7 +2280,7 @@ MultiPhaseSpaceOperator<dim,dimLS>::~MultiPhaseSpaceOperator()
   if (this->locAlloc) {
     delete recFcnLS;
     delete ngradLS;
-    if(egradLS) delete egradLS
+    if(egradLS) delete egradLS;
   }
 
 }
