@@ -49,10 +49,13 @@ class FluxFcnExactJacRoeEuler3D : public FluxFcnBase {
 
  protected:
   double gamma;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnExactJacRoeEuler3D(double gg, VarFcnBase *vf, Type tp) : FluxFcnBase(vf, tp) { gamma = gg; }
+  FluxFcnExactJacRoeEuler3D(IoData &ioData, double gg, VarFcnBase *vf, Type tp) : 
+    FluxFcnBase(vf, tp) { sprec.setup(ioData); gamma = gg; }
+
   ~FluxFcnExactJacRoeEuler3D() {}
   
 };
@@ -329,11 +332,12 @@ class FluxFcnExactJacRoeSA3D : public FluxFcnBase {
 
  protected:
   double gamma;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnExactJacRoeSA3D(double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
-    FluxFcnBase(vf, tp) { gamma = gg; }
+  FluxFcnExactJacRoeSA3D(IoData &ioData, double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) { sprec.setup(ioData); gamma = gg; }
   ~FluxFcnExactJacRoeSA3D() {}
   
 };
@@ -690,10 +694,11 @@ class FluxFcnExactJacRoeKE3D : public FluxFcnBase {
 
  protected:
   double gamma;
+  SpatialLowMachPrec sprec;
 
 public:
-  FluxFcnExactJacRoeKE3D(double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
-    FluxFcnBase(vf, tp) { gamma = gg; }
+  FluxFcnExactJacRoeKE3D(IoData &ioData, double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) { sprec.setup(ioData); gamma = gg; }
   ~FluxFcnExactJacRoeKE3D() {}
 
 };

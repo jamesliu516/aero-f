@@ -4965,13 +4965,17 @@ void IoData::resetInputValues()
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
+#ifndef USE_EIGEN3
     if (problem.prec != ProblemData::PRECONDITIONED) {
+#endif
     // The overwriting is silent because ffjacobian is a "slave" flag.
       ts.implicit.ffjacobian = ImplicitData::EXACT;
+#ifndef USE_EIGEN3
     }
     else {
       com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented when using low Mach preconditioner. Using approximate Jacobian for inviscid flux term and exact Jacobian for other terms, if present.\n");
-    } 
+    }
+#endif
   }
 
   //
