@@ -43,6 +43,8 @@ public:
   int solveLinearSystem(int it, DistSVec<double,dim> &b,
 			DistSVec<double,dim> &dQ);
 
+  void rstVarImplicitEmbeddedCoupledTsDesc(IoData &);
+
   DistMat<double,dim>* GetJacobian() { 
     MatVecProdH1<dim,double,dim>* mvph1 = 
       dynamic_cast<MatVecProdH1<dim,double,dim>*>(this->mvp);

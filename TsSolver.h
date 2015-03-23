@@ -84,6 +84,10 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   
   probDesc->fsaHandler(ioData, U);
 
+  probDesc->fsaPrintTextOnScreen(" *** fsaSolver done *** \n");
+
+  probDesc->printf(0," ***** fsaSolve is done ********\n");
+
   return 0;
 
 }
