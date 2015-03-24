@@ -4169,10 +4169,10 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
  
     double edgeirey = 0.5*(irey[i]+irey[j]);
-/*    if( !iActive && !jActive ) {
-      continue;
-     }
-*/
+
+    if( !iActive && !jActive ) { //
+      continue;                  //
+    }                            //
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
@@ -4375,6 +4375,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       }
     }
 
+    /*
     //////////////////////////////
     if(!iActive) {
       Aii = A.getElem_ii(i);
@@ -4398,7 +4399,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       }
     }
     //////////////////////////////
-    
+    */
   }
 }
 
