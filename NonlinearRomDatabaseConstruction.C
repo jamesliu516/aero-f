@@ -2883,10 +2883,11 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
 
     int nPodVecs = this->basis->numVectors();
 
+    DistSVec<double,dim> referencedSnap(this->domain.getNodeDistInfo());
     Vec<double> denominatorNorms(nTotSnaps);
     for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
-      denominatorNorms[iSnap] = (*(this->snap))[iSnap].norm();
-      (*(this->snap))[iSnap] -= *(this->Uref);  //form snapshot matrix by subtracting reference state from each training state
+      referencedSnap = (*(this->snap))[iSnap] - *(this->Uref);
+      denominatorNorms[iSnap] = referencedSnap.norm();
     }
 
     this->com->fprintf(stdout, "\nCalculating affine approximation error using basis %d\n", iCluster);
@@ -2897,7 +2898,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
     VecSet<Vec<double> >* tmpVecSet = new VecSet<Vec<double> >(nTotSnaps, nPodVecs);
     for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
       for (int iVec = 0; iVec < nPodVecs; iVec++){
-        tmpVec[iVec] = (*(this->basis))[iVec] * (*(this->snap))[iSnap];
+        tmpVec[iVec] = (*(this->basis))[iVec] * ((*(this->snap))[iSnap] - *(this->Uref));
       }
       (*tmpVecSet)[iSnap] = tmpVec;
     }
@@ -2932,7 +2933,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
              delete (this->snapRefState);
              (this->snapRefState) = NULL;
           } else {
-             outVec = (*projectedSnaps)[iSnap];
+             outVec = (*projectedSnaps)[iSnap] + *(this->Uref);
           }
           tsDesc->performPostProForState(outVec);
         }
@@ -2949,7 +2950,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
     this->com->fprintf(stdout, " ... difference = originalSnaps - projectedSnaps\n");
     VecSet<DistSVec<double, dim> >* snapDifference = new VecSet<DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
     for (int iSnap = 0; iSnap < nTotSnaps; iSnap++) {
-      (*snapDifference)[iSnap] = (*(this->snap))[iSnap] - (*projectedSnaps)[iSnap];
+      (*snapDifference)[iSnap] = (*(this->snap))[iSnap] - *(this->Uref) - (*projectedSnaps)[iSnap];
     }
 
     delete projectedSnaps;
