@@ -2986,6 +2986,8 @@ CFLData::CFLData()
 
   useSteadyStrategy = 0;
 
+  output = "";
+
 }
 
 //------------------------------------------------------------------------------
@@ -3025,6 +3027,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
   new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
   new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
 
+  new ClassStr<CFLData>(ca, "Output", this, &CFLData::output);
 }
 
 //------------------------------------------------------------------------------

@@ -3487,7 +3487,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
       Scalar *Aij = A.getElem_ij(l);
       Scalar *Aji = A.getElem_ji(l);
 
-      if (Aij && Aij) {
+      if (Aij && Aji) {
 
         double voli = 1.0 / ctrlVol[i];
         double volj = 1.0 / ctrlVol[j];

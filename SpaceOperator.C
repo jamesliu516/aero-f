@@ -1564,10 +1564,9 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
   
       break; }
     case NONDESCRIPTOR: {
-  {
       if (fet)
         domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
-  }
+
       domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, ctrlVol, *V, A);
 
       if (volForce)

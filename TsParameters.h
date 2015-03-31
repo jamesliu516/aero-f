@@ -1,6 +1,7 @@
 #ifndef _TS_PARAMETERS_H_
 #define _TS_PARAMETERS_H_
 
+#include <cstdio>
 #include <ErrorHandler.h>
 
 class IoData;
@@ -29,6 +30,8 @@ class TsParameters {
   complex<double>* dft;
 
   ErrorHandler* errorHandler;
+
+  FILE *cfl_output;
 
 public:
 

@@ -44,6 +44,8 @@ public:
 
   void apply(SVec<double,dim> &, SVec<double,dim> &);
 
+  double norm() {return a.norm();}
+
   template<class MatScal>
   void getData(GenMat<MatScal,dim> &);
 

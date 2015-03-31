@@ -4104,7 +4104,6 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
                                      DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints, 
                                      PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad, VarFcn* vf, DistVec<int> *fid)
 {
-  //PJSA double subFs[numLocSub][sizeFs][3];
   typedef double array3d[3];
   array3d **subFs = new array3d * [numLocSub];
   for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];

@@ -2092,7 +2092,6 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
     fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
     fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
-    err = 1;
   }
 
   if(convergence) return true;

@@ -1682,6 +1682,8 @@ struct CFLData {
   // for unsteady problems
   int useSteadyStrategy;
 
+  const char *output;
+
   CFLData();
   ~CFLData() {}
 
