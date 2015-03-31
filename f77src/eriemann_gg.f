@@ -68,6 +68,7 @@ C     Compute sound speeds
       CL = DSQRT(gamL*PLL/DL)
       CR = DSQRT(gamR*PRR/DR)
       IF(gamR*PRR/DR.lt.0.0 .or. gamL*PLL/DL.lt.0.0)THEN
+         WRITE(*,*) 'Negative sound speeds'
          WRITE(*,*) 'CR, CL = ', gamR*PRR/DR, gamL*PLL/DL
       ENDIF
       
@@ -146,15 +147,18 @@ C     Shock wave
 
  10   CONTINUE
 *     
-      WRITE(6,*)'Divergence in Newton-Raphson iteration'
-      WRITE(6,*) PM, PL, PR
+      WRITE(*,*) ' *** Warning: '
+      WRITE(*,*) 'Newton-Raphson reached max num. iterations ', NRITER
+      WRITE(*,*) 'without converging to the desired tolerance', TOLPRE
+      WRITE(*,*) PM, PL, PR
       WRITE(*,*) 'INPUT RIEMANN (DL,UL,PL,DR,UR,PR)'
       WRITE(*,*) DL,UL,PL,DR,UR,PR
       WRITE(*,*) 'PARAMETERS (GAML,PREFL,GAMR,PREFR)'
       WRITE(*,*) GAML,PREFL,GAMR,PREFR
       WRITE(*,*) 'OUTPUT (PM,UM,RIL,RIR)'
       WRITE(*,*) PM,UM,RIL,RIR
-      errcod = 1
+      WRITE(*,*) ' *** '
+      errcod = 0
 *     
  20   CONTINUE
 
@@ -174,7 +178,16 @@ C        by rankine hugoniot relationship (24) of reference.
          RIR  = DR* ((PM+PREFR)/PRR+G4R)/((PM+PREFR)*G4R/PRR + 1.0)
       ENDIF
 
-      IF (RIL.LT.rcutl) RIL = rcutl
-      IF (RIR.LT.rcutr) RIR = rcutr
+      IF( (RIL.LT.rcutl) .OR. (RIR.LT.rcutr) ) THEN
+         WRITE(*,*) ' *** ERROR fERS_gg returned too small density '
+         WRITE(*,*) RIL, RIR
+         errcod = 1
+      ENDIF
+      
+      IF( (PM.LT.pcutl) .OR. (PM.LT.pcutr) ) THEN
+         WRITE(*,*) ' *** ERROR fERS_gg returned too small pressure '
+         WRITE(*,*) PM
+         errcod = 1
+      ENDIF
 
       END

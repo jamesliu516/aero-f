@@ -42,7 +42,7 @@ class FluxFcnJwlExactJacRoeEuler3D : public FluxFcnExactJacRoeEuler3D {
 public:
 
   FluxFcnJwlExactJacRoeEuler3D(double gg, IoData &ioData, VarFcnJwl *varFcnJwl, Type tp = CONSERVATIVE) : 
-    FluxFcnExactJacRoeEuler3D(gg, varFcnJwl, tp) {}
+    FluxFcnExactJacRoeEuler3D(ioData, gg, varFcnJwl, tp) {}
   ~FluxFcnJwlExactJacRoeEuler3D() { vf = 0; }
 
   void compute(double, double, double *, double, double *, double *, double *, bool);

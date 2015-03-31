@@ -214,8 +214,8 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
 
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &R,
-	        SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
-	        SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {	//KTC: CANNOT MODIFY
+					     SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
+					     SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {	//KTC: CANNOT MODIFY
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -294,13 +294,14 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
+// d2d
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
-                const Vec<int> &fluidId, SVec<double,6> &R,
-                SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
-                SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
-                bool linRecFSI, LevelSetStructure *LSS,
-                bool includeSweptNodes)  {
+					     const Vec<int> &fluidId, SVec<double,6> &R,
+					     SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
+					     SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
+					     bool linRecFSI, LevelSetStructure *LSS,
+					     bool includeSweptNodes)  {
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -363,6 +364,15 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
   }
 
 //KW: set gradients = 0 for cells near interface.
+  /* d2d 
+     in .h includeSweptNodes set always to TRUE
+     std::cout<<"I'm here DistNgrad 1\n";
+     if(linRecFSI){
+     std::cout<< "using Lin FSI \n";
+     }else{
+     std::cout<< "NOT using LinFSI \n";
+     }
+  */
   if(!linRecFSI)
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
@@ -559,9 +569,9 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 // Included (MB)
 template<int dim, class Scalar>
 void SubDomain::computeDerivativeOfGradientsLeastSquares(SVec<double,3> &X, SVec<double,3> &dX,
-                         SVec<double,6> &R, SVec<double,6> &dR,
-					     SVec<Scalar,dim> &var, SVec<Scalar,dim> &dvar, SVec<Scalar,dim> &dddx,
-                         SVec<Scalar,dim> &dddy, SVec<Scalar,dim> &dddz)
+							 SVec<double,6> &R, SVec<double,6> &dR,
+							 SVec<Scalar,dim> &var, SVec<Scalar,dim> &dvar, SVec<Scalar,dim> &dddx,
+							 SVec<Scalar,dim> &dddy, SVec<Scalar,dim> &dddz)
 {
 
   dddx = (Scalar) 0.0;
@@ -608,9 +618,10 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(SVec<double,3> &X, SVec
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void SubDomain::computeGradientsGalerkin(Vec<double> &ctrlVol, SVec<double,3> &wii,
-		SVec<double,3> &wij, SVec<double,3> &wji, SVec<Scalar,dim> &var,
-                SVec<Scalar,dim> &ddx, SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)
+void SubDomain::computeGradientsGalerkin(Vec<double> &ctrlVol, 
+					 SVec<double,3> &wii, SVec<double,3> &wij, SVec<double,3> &wji, 
+					 SVec<Scalar,dim> &var,
+					 SVec<Scalar,dim> &ddx, SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)
 {
 
   int i, j, k, l;
@@ -1092,12 +1103,14 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 				       SVec<double,dimLS>& phi,
                                        NodalGrad<dimLS>& ngradLS,
+				       EdgeGrad<dimLS>* egradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
+
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, fluidId, fluidSelector,
-                                           ngrad, egrad, phi,ngradLS, fluxes, it,
+                                           ngrad, egrad, phi, ngradLS, egradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes);
@@ -1117,16 +1130,19 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        LevelSetStructure& LSS, bool linRecAtInterface, 
                                        Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
                                        FluidSelector &fluidSelector,
-                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       NodalGrad<dim>& ngrad, 
+				       EdgeGrad<dim>* egrad,
 				       SVec<double,dimLS>& phi,
                                        NodalGrad<dimLS>& ngradLS,
+				       EdgeGrad<dimLS>* egradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
+
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, linRecAtInterface,
                                            fluidId, Nriemann, Nsbar, fluidSelector,
-                                           ngrad, egrad,phi, ngradLS, fluxes, it,
+                                           ngrad, egrad, phi, ngradLS, egradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
@@ -1136,7 +1152,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 }
 
 //------------------------------------------------------------------------------
-
+//d2d embedded structure
 template<int dim>
 int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -1148,6 +1164,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
+
 /*
   Vec<int> dummy(Wstarij.size());
   int ierr = edges.computeFiniteVolumeTerm(riemann,locToGlobNodeMap,
@@ -1189,6 +1206,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift) 
 {
+
   V6NodeData (*v6data)[2];
   v6data = 0;
   findEdgeTetrahedra(X, v6data);
@@ -1212,14 +1230,15 @@ void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, Rec
                                         BcData<dim>& bcData, GeoState& geoState,
                                         SVec<double,3>& X, SVec<double,dim>& V,
                                         Vec<int>& fluidId,
-                                        NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
-                                        EdgeGrad<dim>* egrad,
+                                        NodalGrad<dim>& ngrad,     EdgeGrad<dim>* egrad,
+					NodalGrad<dimLS> &ngradLS, EdgeGrad<dimLS>* egradLS,
                                         SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF,
                                         LevelSetStructure* LSS, int ls_order)
 {
+
   edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V,
-                                  fluidId, ngrad, ngradLS,
-                                  egrad, Phi, PhiF, LSS, ls_order);
+                                  fluidId, ngrad, egrad,
+				  ngradLS, egradLS, Phi, PhiF, LSS, ls_order);
 
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
     //Note: LSS is not needed because we assume that farfield nodes cannot be covered by structure.
@@ -6892,11 +6911,15 @@ class ElemForceCalcValid {
     bool Valid(Elem*) { return true; }
 };
 
+//-----------------------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
-                                             double (*Fs)[3], int sizeFs, int numStructElems, int (*stElem)[3], Vec<Vec3D>& Xstruct, LevelSetStructure &LSS, double pInfty, 
+                                             double (*Fs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 
+					     Vec<Vec3D>& Xstruct, LevelSetStructure &LSS, double pInfty, 
                                              SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
-                                             Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim, double> &ngrad, VarFcn* vf, Vec<int>* fid)
+                                             Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+					     NodalGrad<dim, double> &ngrad, VarFcn* vf, Vec<int>* fid)
 {
   if (forceApp!=2) 
     {fprintf(stderr,"ERROR: force method (%d) not recognized! Abort..\n", forceApp); exit(-1);}
@@ -7052,8 +7075,8 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
         }
         for (int k = 0; k < dim; ++k) {
           Vext[k] = v[k] + gradX[i][k]*vectorIJ[0]+
-                 gradY[i][k]*vectorIJ[1]+
-                 gradZ[i][k]*vectorIJ[2];
+                           gradY[i][k]*vectorIJ[1]+
+	                   gradZ[i][k]*vectorIJ[2];
         }
 	// check for neg pressures/densities
 	if (vf->doVerification()) {
@@ -7206,8 +7229,13 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
             Vface[m] = &Vinter[m][0];
             fid_face[m] = fid_local[m]; 
           }
-          postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
-                                        fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+          postFcn->computeForceEmbedded(order, dp1dxj, 
+					Xface, nf, d2w,
+					0/*Vwall*/, Vface, v, pInfty,
+                                        fi0, fi1, fi2, fv, 
+					dPdx, 0/*"hydro"*/, 
+					fid_face, applyRealForce);
+
           if(ghostPoints && applyRealForce) {
             fv *= oneThird;
             fi0+=fv;
@@ -7230,8 +7258,10 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
             Xface[0] = &Xinter[0][0];  Vface[0] = &Vinter[0][0];  fid_face[0] = fid_local[0];
             Xface[1] = &Xinter[1][0];  Vface[1] = &Vinter[1][0];  fid_face[1] = fid_local[1];
             Xface[2] = &Xinter[2][0];  Vface[2] = &Vinter[2][0];  fid_face[2] = fid_local[2];
-            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v, pInfty,
                                           fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+
             if(ghostPoints && applyRealForce) {
               fv *= oneThird;
               fi0+=fv;
@@ -7248,8 +7278,10 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
             Xface[0] = &Xinter[0][0];  Vface[0] = &Vinter[0][0];  fid_face[0] = fid_local[0];
             Xface[1] = &Xinter[2][0];  Vface[1] = &Vinter[2][0];  fid_face[1] = fid_local[2];
             Xface[2] = &Xinter[3][0];  Vface[2] = &Vinter[3][0];  fid_face[2] = fid_local[3];
-            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v, pInfty,
                                           fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+
             if(ghostPoints && applyRealForce) {
               fv *= oneThird;
               fi0+=fv;
@@ -7267,8 +7299,10 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
             Xface[0] = &Xinter[1][0];  Vface[0] = &Vinter[1][0];  fid_face[0] = fid_local[1]; 
             Xface[1] = &Xinter[2][0];  Vface[1] = &Vinter[2][0];  fid_face[1] = fid_local[2];
             Xface[2] = &Xinter[3][0];  Vface[2] = &Vinter[3][0];  fid_face[2] = fid_local[3];
-            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v, pInfty,
                                           fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+
             if(ghostPoints && applyRealForce) {
               fv *= oneThird;
               fi0+=fv;
@@ -7285,8 +7319,10 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<doubl
             Xface[0] = &Xinter[0][0];  Vface[0] = &Vinter[0][0];  fid_face[0] = fid_local[0];
             Xface[1] = &Xinter[1][0];  Vface[1] = &Vinter[1][0];  fid_face[1] = fid_local[1];
             Xface[2] = &Xinter[3][0];  Vface[2] = &Vinter[3][0];  fid_face[2] = fid_local[3];
-            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v,&pInfty,
+
+            postFcn->computeForceEmbedded(order,dp1dxj,Xface,nf,d2w,0/*Vwall*/,Vface,v, pInfty,
                                           fi0,fi1,fi2,fv,dPdx,0/*"hydro"*/, fid_face, applyRealForce);
+
             if(ghostPoints && applyRealForce) {
               fv *= oneThird;
               fi0+=fv;
@@ -7353,8 +7389,11 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     double *v[2] = {V[i],V[j]};  
 
     if (iActive) {
+
       Vec3D flocal(0.0,0.0,0.0); 
+
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+
       if(ghostPoints) {// Viscous Simulation
         // Replace the state of node j by its corresponding ghost state
         /* This is useless. We use ngrad to compute the velocity gradient. 
@@ -7368,15 +7407,20 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
         gradP[0] = gradX[i][4];
         gradP[1] = gradY[i][4];
         gradP[2] = gradZ[i][4];
+
         double pp = vf->getPressure(v[0], fid?(*fid)[i]:0);
+
         flocal = (pp - pInfty + 0.5*(gradP*vectorIJ))*normal[l];
+
         // Compute Velocity Gradient
+
         // ***************** Method 1 **********************
         dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
         dudxj[1][0] = gradX[i][2]; dudxj[1][1] = gradY[i][2]; dudxj[1][2] = gradZ[i][2];
         dudxj[2][0] = gradX[i][3]; dudxj[2][1] = gradY[i][3]; dudxj[2][2] = gradZ[i][3];
-        // ***************** Method 2 **********************
+
         /*
+        // ***************** Method 2 **********************
         double norm = vectorIJ.norm();
         double deltaU = (v[0][1]-v[1][1])/(norm*norm);
         dudxj[0][0] = deltaU*vectorIJ[0];dudxj[0][1] = deltaU*vectorIJ[1];dudxj[0][2] = deltaU*vectorIJ[2];
@@ -7385,17 +7429,23 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
         double deltaU = (v[0][3]-v[1][3])/(norm*norm);
         dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
         */
+
         flocal += postFcn->computeViscousForceCVBoundary(normal[l],v[0],dudxj);
-      }
-      else {
+
+      } else {
         double pp = vf->getPressure(Wstarij[l],fid?(*fid)[i]:0);
-        flocal = (pp-pInfty)*normal[l];
+        flocal = (pp - pInfty)*normal[l];
       }
+
       sendLocalForce(flocal, lsRes, Fs);
+
     }
+
     if (jActive) {
+
       Vec3D flocal(0.0,0.0,0.0);
       LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+
       if(ghostPoints) {// Viscous Simulation
         // Replace the state of node i by its corresponding ghost state
         /* This is useless. We use ngrad to compute the velocity gradient.
@@ -7406,19 +7456,25 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
         for(int m=0;m<3;++m) {
           vectorIJ[m] = X[j][m] - X[i][m];
         }
+
         gradP[0] = gradX[j][4];
         gradP[1] = gradY[j][4];
         gradP[2] = gradZ[j][4];
+
         double pp = vf->getPressure(v[1], fid?(*fid)[j]:0);
+
         // Minus, cause the normal points toward j
         flocal = -(pp - pInfty - 0.5*(gradP*vectorIJ))*normal[l];
+
         // Compute Velocity Gradient
+
         // ***************** Method 1 **********************
         dudxj[0][0] = gradX[j][1]; dudxj[0][1] = gradY[j][1]; dudxj[0][2] = gradZ[j][1];
         dudxj[1][0] = gradX[j][2]; dudxj[1][1] = gradY[j][2]; dudxj[1][2] = gradZ[j][2];
         dudxj[2][0] = gradX[j][3]; dudxj[2][1] = gradY[j][3]; dudxj[2][2] = gradZ[j][3];
-        // ***************** Method 2 **********************
+
         /*
+        // ***************** Method 2 **********************
         double norm = vectorIJ.norm();
         double deltaU = -(v[1][1]-v[0][1])/(norm*norm);
         dudxj[0][0] = deltaU*vectorIJ[0];dudxj[0][1] = deltaU*vectorIJ[1];dudxj[0][2] = deltaU*vectorIJ[2];
@@ -7427,12 +7483,13 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
         double deltaU = -(v[1][3]-v[0][3])/(norm*norm);
         dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
         */
+
         // Minus, cause the normal points toward j
         flocal -= postFcn->computeViscousForceCVBoundary(normal[l],v[1],dudxj);
-      }
-      else {
+
+      } else {
         double pp = vf->getPressure(Wstarji[l],fid?(*fid)[j]:0);
-        flocal = -(pp-pInfty)*normal[l];
+        flocal = -(pp - pInfty)*normal[l];
       }
       sendLocalForce(flocal, lsRes, Fs);
     }

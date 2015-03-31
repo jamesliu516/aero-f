@@ -736,7 +736,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 38,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 39,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -749,8 +749,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "AeroelasticShapeOptimization", 35, "EigenAeroelastic", 36, 
-     "GAMConstruction", 37);
+     "Aeroacoustic", 33, "SteadySensitivityAnalysis", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36, 
+     "GAMConstruction", 37, "NonlinearEigenResidual2", 38);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -2999,7 +2999,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<CFLData>(ca, "Strategy", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
-                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
+                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Standard", 5); 
   new ClassToken<CFLData>(ca, "CheckSolution", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
                           "Off", 0, "On", 1);
@@ -4795,7 +4795,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_ ||
       problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
       problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
-      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_) 
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_ || 
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL2_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2
@@ -4967,13 +4968,17 @@ void IoData::resetInputValues()
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
+#ifndef USE_EIGEN3
     if (problem.prec != ProblemData::PRECONDITIONED) {
+#endif
     // The overwriting is silent because ffjacobian is a "slave" flag.
       ts.implicit.ffjacobian = ImplicitData::EXACT;
+#ifndef USE_EIGEN3
     }
     else {
       com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented when using low Mach preconditioner. Using approximate Jacobian for inviscid flux term and exact Jacobian for other terms, if present.\n");
-    } 
+    }
+#endif
   }
 
   //

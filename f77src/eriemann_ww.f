@@ -136,9 +136,15 @@ C      Shock wave
 *
  10   CONTINUE
 *
-        WRITE(6,*)'Divergence in Newton-Raphson iteration', PM, PL, PR
+      WRITE(*,*) 'Newton-Raphson reached max num. iterations ', NRITER
+      WRITE(*,*) 'without converging to the desired tolerance', TOLPRE
+      WRITE(*,*) PM, PL, PR
+      WRITE(*,*) 'INPUT RIEMANN (DL,UL,PL,DR,UR,PR)'
+      WRITE(*,*) DL,UL,PL,DR,UR,PR
+      WRITE(*,*) 'OUTPUT (PM,UM,RIL,RIR)'
+      WRITE(*,*) PM,UM,RIL,RIR
+      errcod = 0
 *
-        errcod = 1
  20   CONTINUE
 
       UM = 0.5*(UL + UR + FR - FL)
@@ -155,8 +161,16 @@ C      Shock wave
         RIR  = DR*((PM  +PREFR)/(PR  +PREFR))**(1/BETAR)
       ENDIF
 
-      IF (RIL.LT.rcutl) RIL = rcutl
-      IF (RIR.LT.rcutr) RIR = rcutr
-
+      IF( (RIL.LT.rcutl) .OR. (RIR.LT.rcutr) ) THEN
+         WRITE(*,*) ' *** ERROR fERS_ww returned too small density '
+         WRITE(*,*) RIL, RIR
+         errcod = 1
+      ENDIF
+      
+      IF( (PM.LT.pcutl) .OR. (PM.LT.pcutr) ) THEN
+         WRITE(*,*) ' *** ERROR fERS_ww returned too small pressure '
+         WRITE(*,*) PM
+         errcod = 1
+      ENDIF
 
       END

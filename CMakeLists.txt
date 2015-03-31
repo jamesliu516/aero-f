@@ -540,6 +540,7 @@ f77src/roejac5waterdissprec.f
 f77src/roejac6.f
 f77src/roejac6jwl.f
 f77src/roejacwaterdissprim.f
+f77src/roeflux7.f
 f77src/torsionspring.f
 f77src/dgecp.f
 f77src/dgers.f)
