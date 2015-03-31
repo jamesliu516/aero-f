@@ -151,8 +151,8 @@ c Dynamic mesh inclusion
          flur5                     = -min(vp5,0.)*  
      &        ( -cr2byt*( VdotN*dif1 - normal(1)*dif2 - normal(2)*dif3
      &                              - normal(3)*dif4 ) + 
-     &          -gam1*r*invtbeta2*( qir*dif1 - uar2*dif2 - uar3*dif3
-     &                                     - uar4*dif4 + dif5 ) )
+     &          (-gam1*r*invtbeta2*( qir*dif1 - uar2*dif2 - uar3*dif3
+     &                                     - uar4*dif4 + dif5 ) ) )
       end if
 
 c
