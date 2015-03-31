@@ -158,13 +158,12 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void computeEigenvectorsAndResidual(double, double, int,
                                         Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &rEigenVector,
                                         Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &lEigenVector,
-                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual);
+                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual, bool);
     double computeResidualDenominator(double sReal, double sImag, 
                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector); 
     void computeNonlinearEigenResidual(double sReal, double sImag, 
                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
-                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector, 
                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual);
 #endif
     void evalMatForEvProblem(double, double, VecSet<Vec<bcomp> > &, VecSet<Vec<double> > &, VecSet<Vec<double> > &);

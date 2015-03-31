@@ -84,6 +84,10 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   
   probDesc->fsaHandler(ioData, U);
 
+  probDesc->fsaPrintTextOnScreen(" *** fsaSolver done *** \n");
+
+  probDesc->printf(0," ***** fsaSolve is done ********\n");
+
   return 0;
 
 }
@@ -175,7 +179,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   // For an embedded viscous simulation with turbulence model, compute the distance to the wall
   probDesc->computeDistanceToWall(ioData);
 
-  if (lastIt)
+  if (lastIt) 
     probDesc->outputPositionVectorToDisk(U);
 
   while (!lastIt) {

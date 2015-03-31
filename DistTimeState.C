@@ -2,6 +2,7 @@
 
 #include <IoData.h>
 #include <VarFcn.h>
+#include <RefVal.h>
 #include <TimeState.h>
 #include <Domain.h>
 #include <DistGeoState.h>
@@ -21,6 +22,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   : varFcn(vf), domain(dom) {
 
   initialize(ioData,spo,vf,dom,v,dom->getNodeDistInfo());
+  
+  refTime = ioData.ref.rv.time;
+
 }
 
 template<int dim>
@@ -29,6 +33,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   : varFcn(vf), domain(dom) {
 
   initialize(ioData,spo,vf,dom,v,dI);
+  
+  refTime = ioData.ref.rv.time;
+
 }
 
 template<int dim>
@@ -155,6 +162,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   checkForRapidlyChangingDensity = ioData.ts.rapidDensityThreshold;
 
   errorHandler = dom->getErrorHandler();
+
+  refTime = ioData.ref.rv.time;
 }
 
 //------------------------------------------------------------------------------
@@ -201,6 +210,8 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   domain = ts.domain;
 
   subTimeState = ts.subTimeState;
+
+  refTime = ioData.ref.rv.time;
 
 }
 
@@ -879,7 +890,8 @@ void DistTimeState<dim>::calculateErrorEstiNorm(DistSVec<double,dim> &U, DistSVe
 }
 
 //------------------------------------------------------------------------------
-                                                                
+                 
+//dd                                               
 template<int dim>
 double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, double* dtLeft, int* numSubCycles,
                                            DistGeoState &geoState, DistVec<double> &ctrlVol,
@@ -905,8 +917,9 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   if (umax && isGFMPAR) {
     double udt = umax->min();
     if (udt < dt_glob) {
-      domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
-      domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
+      domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt*refTime, dt_glob*refTime);
+      domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to \n");
+      domain->getCommunicator()->fprintf(stdout, "             %lf (user specified %lf)\n", udt/dt_glob*cfl, cfl);
       dt_glob = udt;
     }
   }

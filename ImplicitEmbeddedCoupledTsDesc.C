@@ -169,3 +169,16 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
   
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitEmbeddedCoupledTsDesc<dim>::rstVarImplicitEmbeddedCoupledTsDesc(IoData &ioData)
+{
+
+#ifdef MVP_CHECK
+    mvpfd1->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+#endif
+
+    mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+
+}

@@ -19,7 +19,6 @@
 #include <MultiGridCoupledTsDesc.h>
 #include <FluidShapeOptimizationHandler.h>
 
-
 template<int dim>
 void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
