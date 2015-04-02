@@ -696,12 +696,12 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
   }
   Rig = std::max<double>(rhocg, Rig);
 
-  if( Pi <= Pmin || Rig <= Rmin || Riw <= Rmin ){
+  /*if( Pi <= Pmin || Rig <= Rmin || Riw <= Rmin ){
     std::cout << "*** ERROR ERS SGTait: detected too small density or pressure " << std::endl;
     std::cout << " Rig, Riw, Pi " << std::endl;
     std::cout << Rig << " " << Riw << " " << Pi << std::endl;
     ierr = 1;
-  }
+  }*/
 
 }
 
@@ -1450,12 +1450,12 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
     err = 0;
   }
 
-  if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+  /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
     std::cout << "*** ERROR ERS JJ: detected too small density or pressure " << std::endl;
     std::cout << " rL, rR, Pi " << std::endl;
     std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
     err = 1;
-  } 
+  }*/ 
 
 }
 //----------------------------------------------------------------------------
@@ -1820,12 +1820,12 @@ void LocalRiemannGfmparGasJWL::eriemanngj_selector(
     double pcut = std::max<double>(  pcl,   pcr);
     double rcut = std::max<double>(rhocl, rhocr);
 
-    if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+    /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
       std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
       std::cout << " rL, rR, Pi " << std::endl;
       std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
       err = 1;
-    } 
+    }*/ 
 
   }
   else
@@ -2134,12 +2134,12 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
   }
 
-  if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+  /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
     std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
     std::cout << " rL, rR, Pi " << std::endl;
     std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
     err = 1;
-  }
+  }*/
 
   if(convergence) {    
     return true;
@@ -2698,12 +2698,12 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_selector(
     double pcut = std::max<double>(  pcl,   pcr);
     double rcut = std::max<double>(rhocl, rhocr);
 
-    if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+    /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
       std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
       std::cout << " rL, rR, Pi " << std::endl;
       std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl;
       err = 1;
-    }
+    }*/
 
   }
   else
@@ -3003,12 +3003,12 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
     fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
   }
 
-  if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+  /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
     std::cout << "*** ERROR ERS WJ: detected too small density or pressure " << std::endl;
     std::cout << " rL, rR, Pi " << std::endl;
     std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
     err = 1;
-  }
+  }*/
 
   if(convergence) return true;
   else            return false;
@@ -3513,12 +3513,12 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     pi = std::max<double>(  pi,   pc);
   rhoi = std::max<double>(rhoi, rhoc);
 
-  if(pi <= pc || rhoi <= rhoc){
+  /*if(pi <= pc || rhoi <= rhoc){
     std::cout << "*** ERROR FS-ERS: detected too small density or pressure " << std::endl;
     std::cout << " ri, Pi " << std::endl;
     std::cout << rhoi << " " << pi << std::endl; 
     err = 1;
-  } 
+  }*/ 
 
   return err;
 }
@@ -3733,12 +3733,12 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
     }
   }
 
-  if(pi <= pc || rhoi <= rhoc){
+  /*if(pi <= pc || rhoi <= rhoc){
     std::cout << "*** ERROR FS-ERS Tait: detected too small density or pressure " << std::endl;
     std::cout << " ri, Pi " << std::endl;
     std::cout << rhoi << " " << pi << std::endl; 
     err = 1;
-  }
+  }*/
 
 }
 

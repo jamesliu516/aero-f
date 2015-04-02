@@ -190,9 +190,10 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
 
-  if(orderOfAccuracy==1) //first-order everywhere...
+  if(orderOfAccuracy==1) { //first-order everywhere...
     linRecAtInterface = false;
     viscSecOrder = false;
+  }
 
   //for phase-change update
   Weights = 0;
