@@ -1686,7 +1686,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
   while(1) { //get out only when all nodes are decided
     //1. check if all the nodes (globally) are determined
     total = 0;
-#pragma omp parallel for
+#pragma omp parallel for reduction(+: total)
     for(int iSub=0; iSub<numLocSub; iSub++)
       total += nUndecided[iSub];
     com->globalSum(1,&total);
