@@ -711,17 +711,12 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::
 applyNewRotation(int j, GenFullM<ScalarT> &H, GenFullM<ScalarT> &cs, Vec<ScalarT> &g)
 {
 
-  double coef = 1.0 / sqrt( sqNorm(H[j][j]) + sqNorm(H[j+1][j]) );
-
-
-  //cs[j][0] = H[j+1][j] * coef; // sin
-  //cs[j][1] = H[j][j] * coef;   // cos
-
   if (sqNorm(H[j][j]) == 0.0)  {
     cs[j][1] = 0.0;   // cos
     cs[j][0] = 1.0;   // sin
   }
   else  {
+    double coef = 1.0 / sqrt( sqNorm(H[j][j]) + sqNorm(H[j+1][j]) );
     cs[j][1] = sqrt(sqNorm(H[j][j])) * coef;  //cos
     cs[j][0] = cs[j][1] * H[j+1][j]/H[j][j];  //sin
   }
