@@ -242,11 +242,11 @@ void ExactRiemannSolver<dim>::computeRiemannJacobian(double *Vi, double *Vj,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vstar,
+int ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vstar,
       double *nphi, VarFcn *vf, double *Wstar, int nodej, int Id)
 
 {
-  fsiRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
+  return fsiRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
          Wstar,rupdate[nodej],weight[nodej],iteration, Id);
 }
 //------------------------------------------------------------------------------

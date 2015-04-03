@@ -608,7 +608,7 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 			double pref, double gamma,
 			double Pinf, double Pcg,
                         double rhocg, double Pcw,
-                        double rhocw, int ierr) {
+                        double rhocw, int &ierr) {
 
   double Q,f,m,n,dQ,df,g,dg,db;
   double ag = sqrt(gamma/Rg*(Pg+Pinf));
@@ -684,6 +684,7 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     std::cout << "Input Tait: Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
     std::cout << "Output    : Pi = " << Pi << " Riw = " << Riw << " b = " << b << " db = " << db << std::endl;    
     std::cout << "*** " << std::endl;
+    ierr = 1;
   }
 
   Ui = (0.5*(Uw+Ug)+0.5*(f-g));
@@ -1447,7 +1448,7 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
     pi = std::max<double>(pcut, pi);
   }else{
     fprintf(stdout, "***WARNING: ERS for JWL-JWL did not converge in %d iterations to the desired tolerance %e \n", it, eps);
-    err = 0;
+    err = 1;
   }
 
   /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
@@ -1690,13 +1691,14 @@ void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell i is fluid1
     // cell j is fluid2
 
+    int err = 1;
     if (riemannComputationType_==MultiFluidData::TABULATION2) {
       double dVdv[2];
-      rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
-      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0]  );
-    } else {
-      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, NULL);
+      err = rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
+      if(!err) ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0]  );
     }
+    if(err)
+      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, NULL);
   
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
@@ -1721,14 +1723,14 @@ void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
 
     //std::cout << "ji" << std::endl << std::endl ;
 
+    int err = 1;
     if (riemannComputationType_==MultiFluidData::TABULATION2) {
       double dVdv[2];
-      rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
-      ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0]  );
+      err = rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
+      if(!err) ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0]  );
     }
-    else {
+    if(err)
       ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, NULL );
-    }
     
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
@@ -1817,10 +1819,10 @@ void LocalRiemannGfmparGasJWL::eriemanngj_selector(
     rhoil = std::max<double>(rhoil, rhocl);
     rhoir = std::max<double>(rhoir, rhocr);
 
-    double pcut = std::max<double>(  pcl,   pcr);
+  /*double pcut = std::max<double>(  pcl,   pcr);
     double rcut = std::max<double>(rhocl, rhocr);
 
-    /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+    if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
       std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
       std::cout << " rL, rR, Pi " << std::endl;
       std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
@@ -2695,10 +2697,10 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_selector(
     rhoir = std::max<double>(rhoir, rhocr);
     // not checking for vacuum!
 
-    double pcut = std::max<double>(  pcl,   pcr);
+  /*double pcut = std::max<double>(  pcl,   pcr);
     double rcut = std::max<double>(rhocl, rhocr);
 
-    /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+    if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
       std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
       std::cout << " rL, rR, Pi " << std::endl;
       std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl;
@@ -3726,7 +3728,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
     } while (i < max_ite);
 
     if (i >= max_ite) {
-      // err = 1;
+      err = 1;
       // fprintf(stderr,"%d %lf %lf %lf %lf %lf %lf %lf\n",i,rho,u,p,rhoi,ui,pi,fabs(u-ui+V));
       std::cout << "*** Warning FS-ERS Tait: Newton reached max num. iterations " << max_ite  << std::endl;
       std::cout << "without converging to the desired tolerance " << 1.0e-6 << std::endl;
