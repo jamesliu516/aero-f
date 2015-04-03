@@ -158,7 +158,7 @@ C     Shock wave
       WRITE(*,*) 'OUTPUT (PM,UM,RIL,RIR)'
       WRITE(*,*) PM,UM,RIL,RIR
       WRITE(*,*) ' *** '
-      errcod = 0
+      errcod = 1
 *     
  20   CONTINUE
 
@@ -178,16 +178,7 @@ C        by rankine hugoniot relationship (24) of reference.
          RIR  = DR* ((PM+PREFR)/PRR+G4R)/((PM+PREFR)*G4R/PRR + 1.0)
       ENDIF
 
-      IF( (RIL.LT.rcutl) .OR. (RIR.LT.rcutr) ) THEN
-         WRITE(*,*) ' *** ERROR fERS_gg returned too small density '
-         WRITE(*,*) RIL, RIR
-         errcod = 1
-      ENDIF
-      
-      IF( (PM.LT.pcutl) .OR. (PM.LT.pcutr) ) THEN
-         WRITE(*,*) ' *** ERROR fERS_gg returned too small pressure '
-         WRITE(*,*) PM
-         errcod = 1
-      ENDIF
+      IF (RIL.LT.rcutl) RIL = rcutl
+      IF (RIR.LT.rcutr) RIR = rcutr
 
       END

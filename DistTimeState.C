@@ -917,7 +917,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
   if (umax && isGFMPAR) {
     double udt = umax->min();
     if (udt < dt_glob) {
-      domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt*refTime, dt_glob*refTime);
+      domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)\n", udt*refTime, dt_glob*refTime);
       domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to \n");
       domain->getCommunicator()->fprintf(stdout, "             %lf (user specified %lf)\n", udt/dt_glob*cfl, cfl);
       dt_glob = udt;
