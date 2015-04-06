@@ -3806,7 +3806,7 @@ void ModalSolver<dim>::computeDampingRatios()
       }
       sEVnew = sortEV[iEV];
       evList[iEV] = sEVnew;
-      if (abs(sEVnew.imag()) <= 1.0e-16) {
+      if (std::abs(sEVnew.imag()) <= 1.0e-16) {
         com->fprintf(stderr, "***WARNING: sImag is zero\n");
         break;
       }
@@ -3960,7 +3960,7 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
 // find imaginary part of an eigenvalue that is closest to sImag
 /*  double cur_dist;  double dist=10000000;  
   for (int i = 0; i < 2*nStrMode; ++i) {
-    cur_dist = abs(sortEV_Eigen[i].imag() - sImag);
+    cur_dist = std::abs(sortEV_Eigen[i].imag() - sImag);
     if (cur_dist < dist) { 
       dist = cur_dist;
       Index = i;
@@ -3990,7 +3990,7 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
 //  dist=10000000;  
     double cur_dist;  double dist=10000000;  
     for (int i = 0; i < 2*nStrMode; ++i) {
-      cur_dist = abs(sortEV_Eigen[i].imag() - sEVnew.imag());
+      cur_dist = std::abs(sortEV_Eigen[i].imag() - sEVnew.imag());
       if (cur_dist < dist) { 
         dist = cur_dist;
         Index = i;
