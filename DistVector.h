@@ -1467,7 +1467,7 @@ DistSVec<Scalar,dim>::getAbs(const DistSVec<bcomp,dim> &y)
     int locOffset = dim * distInfo.subOffsetReg[iSub];
     int locLen = dim * distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) vv[locOffset+i] = abs(yy[locOffset+i]);
+    for (int i = 0; i < locLen; ++i) vv[locOffset+i] = std::abs(yy[locOffset+i]);
 
   }
 

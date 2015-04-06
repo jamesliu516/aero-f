@@ -4,7 +4,7 @@
 
 #include "ExactSolution.h"
 
-#include <math.h>
+#include <cmath>
 
 #include <complex>
 
