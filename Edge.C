@@ -2524,10 +2524,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       }	else {
 
-        if(fluidId[i]==3 || fluidId[j]==3) {
+        /*if(fluidId[i]==3 || fluidId[j]==3) {
           fprintf(stderr,"i=%d, globId = %d, fluidId = %d, occluded = %d, swept = %d.\n", i, locToGlobNodeMap[i]+1, fluidId[i], LSS.isOccluded(0.0,i), LSS.isSwept(0.0,i)); 
           fprintf(stderr,"j=%d, globId = %d, fluidId = %d, occluded = %d, swept = %d.\n", j, locToGlobNodeMap[j]+1, fluidId[j], LSS.isOccluded(0.0,j), LSS.isSwept(0.0,j)); 
-        }
+        }*/
 
 	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
 		         		         Wi,Wj,i,j,l,dx,lsdim,false);
