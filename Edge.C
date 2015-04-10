@@ -3094,8 +3094,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         switch (Nriemann) {
           case 0: //structure normal
-            if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
-            else                                normalDir = -1.0*resij.gradPhi;
+            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
@@ -3180,8 +3179,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 			   X[j][2] - dx[2]*(1.0-resji.alpha)};
         switch (Nriemann) {
           case 0: //structure normal
-            if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
-            else                                normalDir = -1.0*resji.gradPhi;
+            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
@@ -4228,7 +4226,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
         switch (Nriemann) {
           case 0: //structure normal
-            normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
@@ -4305,7 +4303,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
         switch (Nriemann) {
           case 0: //structure normal
-            normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
@@ -4489,10 +4487,9 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
       // for node i
       if(iActive) {
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-        switch (Nriemann) { // normal should point to this node (i). TODO: better to compute a projection to determine the sign.
+        switch (Nriemann) { // normal should point to this node (i).
           case 0: //structure normal
-            if(LSS.fluidModel(0.0,i)==farfieldFluid)  normalDir =      resij.gradPhi;
-            else                                     normalDir = -1.0*resij.gradPhi;
+            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
@@ -4525,8 +4522,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         switch (Nriemann) {
           case 0: //structure normal
-            if(LSS.fluidModel(0.0,j)==farfieldFluid)  normalDir =      resji.gradPhi;
-            else                                     normalDir = -1.0*resji.gradPhi;
+            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
