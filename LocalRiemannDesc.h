@@ -3585,9 +3585,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       double q = lambda-beta*beta*ui;
   
       // dpi/dp
-      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+gamma*a*a*beta*beta/sqrtX); // PJSA
       // dpidrho
-      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-a*a*beta*beta*gamma/(rho*sqrtX))/(q*q)); // PJSA
       // dpidu
       dWidWi[7] = beta*beta*rho*a*a/q;
       
@@ -3622,6 +3622,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
 //
 //    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
       
+      q = 1/q; // PJSA
       double s = q*pstarbar/pbar+1.0;
       double deriv = 1.0/(pbar*s)-(pstarbar/pbar+q)/(s*s)*(q/pbar);
       double deriv2 = -pstarbar/(pbar*pbar*s)+(pstarbar/pbar+q)*(q*pstarbar/(pbar*pbar))/(s*s);
@@ -3636,9 +3637,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       double q = lambda-beta*beta*ui;
   
       // dpi/dp
-      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+gamma*a*a*beta*beta/sqrtX); // PJSA
       // dpidrho
-      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-a*a*beta*beta*gamma/(rho*sqrtX))/(q*q)); // PJSA
       // dpidu
       dWidWi[7] = beta*beta*rho*a*a/q;
       
