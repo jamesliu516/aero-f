@@ -57,6 +57,7 @@ dX(dom->getNodeDistInfo())
   } else {
     load = 0;
     dLoad = 0;
+    dLoadref = 0;
   }
 
 //  if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) {
