@@ -4512,6 +4512,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi,Wstar, dfdUi, dfdUj, fluidId[i],false); 
         DenseMatrixOp<double, dim, dim*dim>::applyToDenseMatrix(&dfdUj,0,&dUdU, 0, &dkk,0);
         Scalar* Aii = A.getElem_ii(i);
+        if(masterFlag[l])
         for (k=0; k<dim*dim; ++k) {
           Aii[k] += dfdUi[k]+dkk[k];
         }
@@ -4544,6 +4545,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar,Vj, dfdUi, dfdUj, fluidId[j],false); 
         DenseMatrixOp<double, dim, dim*dim>::applyToDenseMatrix(&dfdUi,0,&dUdU, 0, &dkk,0);
         Scalar* Ajj = A.getElem_ii(j);
+        if(masterFlag[l])
         for (k=0; k<dim*dim; ++k) {
           Ajj[k] -= dfdUj[k]+dkk[k];
         }

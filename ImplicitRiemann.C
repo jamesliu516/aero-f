@@ -373,13 +373,19 @@ double ImplicitRiemann::computeJwlIntegral2(VarFcn* vf_, int fluidId, double ome
 // out[5] = dQ/drho*
 void ImplicitRiemann::computeGasDerivRarefaction2x2(double gamma,double p,double pref,
 						    double rhostar, double rho, double out[6], 
-						    double c, double cstar) {
-  
-  out[0] = 1.0/(gamma-1.0)*(c-cstar)/(p+pref);
-  out[1] = 1.0/(gamma-1.0)*(gamma*cstar/rho-c/rho);
-  out[2] = -cstar/rhostar;
+						    double c, double) {
 
   double pp2 = pow(rhostar/rho, gamma);
+  double ppref = (p+pref)*pp2;
+  double cstar = sqrt(gamma*ppref/rhostar);
+
+/*out[0] = 1.0/(gamma-1.0)*(c-cstar)/(p+pref);
+  out[1] = 1.0/(gamma-1.0)*(gamma*cstar/rho-c/rho);
+  out[2] = -cstar/rhostar;*/
+  out[0] = -1.0/(gamma-1.0)*(c-cstar/pp2)/(p+pref); // PJSA
+  out[1] = -1.0/(gamma-1.0)*(gamma*cstar/rho-c/rho); // PJSA
+  out[2] = cstar/rhostar; // PJSA
+
   out[3] = pp2;
   out[4] = -pp2*c*c;
   out[5] = cstar*cstar;
@@ -483,7 +489,8 @@ void ImplicitRiemann::computeJwlDerivShock(double omega,
   double V = sqrt((p-Q)*g);
 
   out[3] = (a/rho-b)/d;
-  out[4] = -1.0/(rho*rho*d)*((a-0.5)*p-(fdrho*rho-frho)/omega+0.5*Q);
+//out[4] = -1.0/(rho*rho*d)*((a-0.5)*p-(fdrho*rho-frho)/omega+0.5*Q);
+  out[4] = -1.0/(rho*rho*d)*((a-0.5)*p+(fdrho*rho-frho)/omega+0.5*Q); // PJSA
   out[5] = 1.0/(rhostar*rhostar*d)*(0.5*p+(fdrhostar*rhostar-frhostar)/omega+(a-0.5)*Q);
   
   out[0] = g*(1.0-out[3])/(2.0*V);
