@@ -208,11 +208,12 @@ int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
     exit(-1);
   }
   double lssign = levelSetSign[IDi][IDj];
+  double nphilss[3];
   for (int k=0; k < 3; ++k) {
-    nphi[k]*=lssign;
+    nphilss[k] = nphi[k]*lssign;
   }
   fluidIdToSet[i] = fluidIdToSet[j] = lsdim;
-  return lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
+  return lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphilss,interfacialWi[edgeNum],interfacialWj[edgeNum],
 					      Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
 					      dx,iteration,isHigherOrder);
 
@@ -232,10 +233,11 @@ void ExactRiemannSolver<dim>::computeRiemannJacobian(double *Vi, double *Vj,
     exit(-1);
   }
   double lssign = levelSetSign[IDi][IDj];
+  double nphilss[3];
   for (int k=0; k < 3; ++k) {
-    nphi[k]*=lssign;
+    nphilss[k] = nphi[k]*lssign;
   }
-  lriemann[riemannId]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphi,
+  lriemann[riemannId]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphilss,
           Wi,Wj,
           dx,iteration, dWidUi, dWidUj,dWjdUi, dWjdUj);
 }
