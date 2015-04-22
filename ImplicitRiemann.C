@@ -243,7 +243,8 @@ void ImplicitRiemann::computeTaitTaitJacobian(double Pstar, double alphai, doubl
 
 void ImplicitRiemann::computeGasTaitJacobian(double Pstar, double gammai, double Pci, double Pi,double rhoi,
 					     double alphaj, double betaj, double Pinfj, double Pj,double rhoj,  
-					     double* dWidWi, double* dWidWj, double* dWjdWj, double* dWjdWi) {
+					     double* dWidWi, double* dWidWj, double* dWjdWj, double* dWjdWi,
+                                             double cp, bool isBurnable) {
 
 
   double outi[6], outj[6];
@@ -314,7 +315,7 @@ void ImplicitRiemann::computeGasTaitJacobian(double Pstar, double gammai, double
   dWjdWi[4] = dWidWi[4];
   dWjdWi[5] = dWidWi[5];
 
-  dWidWj[3] = 0.5*outj[0]-0.5*outi[2]*dWidWj[6];
+  dWidWj[3] = 0.5*outj[1]*dWjdWj[0]+0.5*outj[0]-0.5*outi[2]*dWidWj[6]; // PJSA
   dWidWj[4] = 0.5+0.5*outj[1]*dWjdWj[1]-0.5*outi[2]*dWidWj[7];
   dWidWj[5] = 0.0;
   dWjdWj[3] = dWidWj[3];
@@ -324,13 +325,33 @@ void ImplicitRiemann::computeGasTaitJacobian(double Pstar, double gammai, double
   //dWidWj[8] = dWidWj[5] = dWidWj[2] = 0.0;
   //dWjdWj[8] = 1.0;
 
-  double g1 = gammai-1.0;
+/*double g1 = gammai-1.0;
   dWjdWj[6] = 1/(g1*rhostarj)*dWidWj[6]-(Pstar+gammai*Pci)/(g1*rhostarj*rhostarj)*dWjdWj[0];
   dWjdWj[7] = 1/(g1*rhostarj)*dWidWj[7]-(Pstar+gammai*Pci)/(g1*rhostarj*rhostarj)*dWjdWj[1];
 
   dWjdWi[6] = 1/(g1*rhostarj)*dWidWi[6]-(Pstar+gammai*Pci)/(g1*rhostarj*rhostarj)*dWjdWi[0];
   dWjdWi[7] = 1/(g1*rhostarj)*dWidWi[7]-(Pstar+gammai*Pci)/(g1*rhostarj*rhostarj)*dWjdWi[1];
-  dWjdWi[8] = 1/(g1*rhostarj)*dWidWi[8]-(Pstar+gammai*Pci)/(g1*rhostarj*rhostarj)*dWjdWi[2];
+  dWjdWi[8] = 1/(g1*rhostarj)*dWidWi[8]-(Pstar+gammai*Pci)/(g1*rhostarj*rhostarj)*dWjdWi[2];*/
+
+  // PJSA
+  if(isBurnable) {
+    dWjdWj[6] = -0.5/cp*((1/rhostarj-1/rhoj)*(dWidWj[6]+alphaj*betaj*pow(rhoj,betaj-1))-(Pstar+Pj)*(1/(rhostarj*rhostarj)*dWjdWj[0]-1/(rhoj*rhoj)));
+    dWjdWj[7] = -0.5/cp*((1/rhostarj-1/rhoj)*dWidWj[7]-(Pstar+Pj)/(rhostarj*rhostarj)*dWjdWj[1]);
+    dWjdWj[8] = 1;
+
+    dWjdWi[6] = -0.5/cp*((1/rhostarj-1/rhoj)*dWidWi[6]-(Pstar+Pj)/(rhostarj*rhostarj)*dWjdWi[0]);
+    dWjdWi[7] = -0.5/cp*((1/rhostarj-1/rhoj)*dWidWi[7]-(Pstar+Pj)/(rhostarj*rhostarj)*dWjdWi[1]);
+    dWjdWi[8] = -0.5/cp*((1/rhostarj-1/rhoj)*dWidWi[8]-(Pstar+Pj)/(rhostarj*rhostarj)*dWjdWi[2]);
+  }
+  else {
+    dWjdWj[6] = 0.5/cp*((1/rhostarj+1/rhoj)*(dWidWj[6]-alphaj*betaj*pow(rhoj,betaj-1))-(Pstar-Pj)*(1/(rhostarj*rhostarj)*dWjdWj[0]+1/(rhoj*rhoj)));
+    dWjdWj[7] = 0.5/cp*((1/rhostarj+1/rhoj)*dWidWj[7]-(Pstar-Pj)/(rhostarj*rhostarj)*dWjdWj[1]);
+    dWjdWj[8] = 1;
+
+    dWjdWi[6] = 0.5/cp*((1/rhostarj+1/rhoj)*dWidWi[6]-(Pstar-Pj)/(rhostarj*rhostarj)*dWjdWi[0]);
+    dWjdWi[7] = 0.5/cp*((1/rhostarj+1/rhoj)*dWidWi[7]-(Pstar-Pj)/(rhostarj*rhostarj)*dWjdWi[1]);
+    dWjdWi[8] = 0.5/cp*((1/rhostarj+1/rhoj)*dWidWi[8]-(Pstar-Pj)/(rhostarj*rhostarj)*dWjdWi[2]);
+  }
 
 
   //std::cout << "Hello2" << std::endl;
@@ -420,8 +441,8 @@ void ImplicitRiemann::computeTaitDerivRarefaction2x2(double alpha,double beta,do
   
   //std::cout << "TAit rarefaction" << std::endl;
   double f = sqrt(alpha*beta);
-  out[1] = f*pow(rho,0.5*(beta-3.0) );
-  out[2] = -f*pow(rhostar,0.5*(beta-3.0) );
+  out[1] = -f*pow(rho,0.5*(beta-3.0) ); // PJSA
+  out[2] = f*pow(rhostar,0.5*(beta-3.0) ); // PJSA
   out[0] = 0.0;
 
   out[3] = 0.0;
@@ -656,6 +677,8 @@ void ImplicitRiemann::computeTaitJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
   double alphai = vf->getAlphaWater(fluidi);
   double betai = vf->getBetaWater(fluidi);
   double pinfi = vf->getPrefWater(fluidi);
+  double cp = vf->specificHeatCstPressure(fluidi);
+  bool isBurnable = vf->isBurnable(fluidi);
   
   double omegaj = vf->getOmega(fluidj);
   double entropyj = vf->computeEntropy(Vj[0],Vj[4], fluidj);
@@ -691,4 +714,30 @@ void ImplicitRiemann::computeTaitJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
   computeInterfaceQuantities2x2(outi, outj,
 				jacii,jacij,
 				jacji,jacjj);
+
+  // PJSA
+  double pstari = pinfi + alphai*pow(Wi[0],betai);
+  const double &rhostari = Wi[0];
+  const double &rhoi = Vi[0];
+  if(isBurnable) {
+    jacii[6] = -0.5/cp*((1/rhostari-1/rhoi)*(jacji[6]+alphai*betai*pow(rhoi,betai-1))-(pstari+pi)*(1/(rhostari*rhostari)*jacii[0]-1/(rhoi*rhoi)));
+    jacii[7] = -0.5/cp*((1/rhostari-1/rhoi)*jacji[7]-(pstari+pi)/(rhostari*rhostari)*jacii[1]);
+    jacii[8] = 1;
+  }
+  else {
+    jacii[6] = 0.5/cp*((1/rhostari+1/rhoi)*(jacji[6]-alphai*betai*pow(rhoi,betai-1))-(pstari-pi)*(1/(rhostari*rhostari)*jacii[0]+1/(rhoi*rhoi)));
+    jacii[7] = 0.5/cp*((1/rhostari+1/rhoi)*jacji[7]-(pstari-pi)/(rhostari*rhostari)*jacii[1]);
+    jacii[8] = 1;
+  }
+
+  if(isBurnable) {
+    jacij[6] = -0.5/cp*((1/rhostari-1/rhoi)*jacjj[6]-(pstari+pi)/(rhostari*rhostari)*jacij[0]);
+    jacij[7] = -0.5/cp*((1/rhostari-1/rhoi)*jacjj[7]-(pstari+pi)/(rhostari*rhostari)*jacij[1]);
+    jacij[8] = -0.5/cp*((1/rhostari-1/rhoi)*jacjj[8]-(pstari+pi)/(rhostari*rhostari)*jacij[2]);
+  }
+  else {
+    jacij[6] = 0.5/cp*((1/rhostari+1/rhoi)*jacjj[6]-(pstari-pi)/(rhostari*rhostari)*jacij[0]);
+    jacij[7] = 0.5/cp*((1/rhostari+1/rhoi)*jacjj[7]-(pstari-pi)/(rhostari*rhostari)*jacij[1]);
+    jacij[8] = 0.5/cp*((1/rhostari+1/rhoi)*jacjj[8]-(pstari-pi)/(rhostari*rhostari)*jacij[2]);
+  }
 }

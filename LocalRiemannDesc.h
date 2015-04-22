@@ -647,9 +647,9 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     if (Pi > Pw) {
 
       g = max(1.0e-8,sqrt( alpha*(pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Rw) ));
-      dg = 0.5/g*(alpha*( beta*pow(Riw,beta-1.0))*(Riw-Rw)/(Riw*Rw) + 
+      dg = 0.5/g*(alpha*( beta*pow(Riw,beta-1.0)*(Riw-Rw)/(Riw*Rw) + 
 		  (pow(Riw,beta)-pow(Rw,beta))/(Riw*Rw) - 
-		  (pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Riw*Rw));
+		  (pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Riw*Rw) )); // PJSA
     } else {
 
       g = 2.0*aw/(beta-1.0)*( pow(Riw/Rw, (beta-1.0)*0.5) - 1.0);
@@ -813,9 +813,9 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
     if (vf_->isBurnable(IDj))
-      Wj[4]  = Vj[4] + 1.0/cp*(-0.5*(P_i+P_w)*(1.0/R_il-1.0/R_w));
+      Wj[4]  = Vj[4] + 1.0/cp*(-0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w)); // PJSA
     else
-      Wj[4]  = Vj[4] + 1.0/cp*(P_i/R_il-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_il-1.0/R_w));
+      Wj[4]  = Vj[4] + 1.0/cp*(P_i/R_ir-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w)); // PJSA
     /*vf_->computeTemperature(Wj, IDi);*/      Wj[dim+4]  = Wj[4];
 
   }
@@ -851,6 +851,8 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
   double alpha   = vf_->getAlphaWater(fluid2);
   double beta    = vf_->getBetaWater(fluid2);
   double pref    = vf_->getPrefWater(fluid2);
+  double cp      = vf_->specificHeatCstPressure(fluid2);
+  bool   isBurnable = vf_->isBurnable(fluid2);
   double gam     = vf_->getGamma(fluid1);
   double Pinf    = vf_->getPressureConstant(fluid1);
 
@@ -878,7 +880,8 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 
     ImplicitRiemann::computeGasTaitJacobian(Wj[4], gam, Pinf, P_g, R_g, alpha,
 					    beta, pref, P_w, R_w, 
-					    dWjdWj3, dWjdWi3, dWidWi3, dWidWj3);
+					    dWjdWj3, dWjdWi3, dWidWi3, dWidWj3,
+                                            cp, isBurnable); // PJSA
 
   }else{
     // cell j is tait
@@ -890,9 +893,10 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 
     //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
 
-    ImplicitRiemann::computeGasTaitJacobian(Wi[4], gam, 0.0, P_g, R_g, alpha,
+    ImplicitRiemann::computeGasTaitJacobian(Wi[4], gam, Pinf, P_g, R_g, alpha, // PJSA
 					    beta, pref, P_w, R_w, 
-					    dWidWi3, dWidWj3, dWjdWj3, dWjdWi3);
+					    dWidWi3, dWidWj3, dWjdWj3, dWjdWi3,
+                                            cp, isBurnable); // PJSA
   }
 
   this->oneDtoThreeD(dWidWi3, dWidWj3,
@@ -2990,7 +2994,7 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
     pir   = vacuumValues[5];
     ui    = 0.5*(uil+uir);
     pi    = 0.5*(pil+pir);*/
-    //err = 1;
+    err = 1;
     if(verbose>-1) fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
   }
   
