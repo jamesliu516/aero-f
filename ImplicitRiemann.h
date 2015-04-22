@@ -17,7 +17,8 @@ public:
 
   static void computeGasTaitJacobian(double Pstar, double gammai, double Pci, double Pi,double rhoi,
 				     double alphaj, double betaj, double Pinfj, double Pj,double rhoj,  
-				     double* dWidWi, double* dWidWj, double* dWjdWj, double* dWjdWi);
+				     double* dWidWi, double* dWidWj, double* dWjdWj, double* dWjdWi,
+                                     double cp, bool isBurnable);
 
   static void computeJwlJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
 				    double* Vi, double* Vj,
