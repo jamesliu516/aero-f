@@ -4180,7 +4180,6 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
   }
-#pragma omp parallel for
   for (int iSub=1; iSub<numLocSub; iSub++)
     for (int is=0; is<sizeFs; is++) {
       Fs[is][0] += subFs[iSub][is][0];
@@ -4201,9 +4200,6 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
                                           DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad, 
 					  VarFcn* vf, DistVec<int> *fid)
 {
-
-  
-  //PJSA double subFs[numLocSub][sizeFs][3];
   typedef double array3d[3];
   array3d **subFs = new array3d * [numLocSub];
   for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
@@ -4230,7 +4226,6 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
     Fs[is][2] = subFs[0][is][2];
     res += Fs[is][0]*Fs[is][0] +  Fs[is][1]*Fs[is][1] +  Fs[is][2]*Fs[is][2];
   }
-#pragma omp parallel for
   for (int iSub=1; iSub<numLocSub; iSub++)
     for (int is=0; is<sizeFs; is++) {
       Fs[is][0] += subFs[iSub][is][0];
@@ -4250,7 +4245,6 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
                                           DistSVec<double,dim> &V, 
                                           DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, VarFcn* vf, DistVec<int> *fid)
 {
-  //PJSA double subFs[numLocSub][sizeFs][3];
   typedef double array3d[3];
   array3d **subFs = new array3d * [numLocSub];
   for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
@@ -4270,7 +4264,6 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
   }
-#pragma omp parallel for
   for (int iSub=1; iSub<numLocSub; iSub++)
     for (int is=0; is<sizeFs; is++) {
       Fs[is][0] += subFs[iSub][is][0];
