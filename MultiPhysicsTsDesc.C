@@ -880,7 +880,10 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     }
   }
 
-  double pnow = currentPressure(t);;
+  // Population of spaceOp->V for the force computation
+  this->spaceOp->conservativeToPrimitive(U, this->fluidSelector.fluidId); // PJSA
+
+  double pnow = currentPressure(t);
   this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
   this->domain->IncreasePressure(pnow, this->varFcn, U, *(this->fluidSelector.fluidId));
 
