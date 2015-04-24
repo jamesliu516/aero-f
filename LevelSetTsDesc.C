@@ -8,6 +8,7 @@
 #include <FluidSelector.h>
 
 #include <cmath>
+#include <limits>
                                                                                                         
 #ifdef OLD_STL
 #include <algo.h>
@@ -59,7 +60,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   Prate = ioData.implosion.Prate;
   Pinit = ioData.implosion.Pinit;
-  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+  tmax = (Prate == 0) ? std::numeric_limits<double>::max() : (ioData.bc.inlet.pressure - Pinit)/Prate;
 
   requireSpecialBDF = false;
 
@@ -407,7 +408,7 @@ bool LevelSetTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t, Di
 {
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
-  if(t>tmax && t-dt>tmax) {this->com->fprintf(stdout, "max pressure reached\n"); return true;} // max pressure was reached, so now we solve
+  if(t>tmax && t-dt>tmax) return true; // max pressure was reached, so now we solve
   else{ // max pressure not reached, so we do not solve and we increase pressure and let structure react
     this->com->fprintf(stdout, "about to increase pressure to value of %e\n", Pinit+t*Prate);
     this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U);

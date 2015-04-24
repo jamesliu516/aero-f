@@ -10,6 +10,7 @@
 #endif
 
 #include <cmath>
+#include <limits>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -251,7 +252,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Pscale = ioData.ref.rv.pressure;
   intersector_freq = ioData.implosion.intersector_freq;
   if(ioData.implosion.type==ImplosionSetup::LINEAR)
-    tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+    tmax = (Prate == 0) ? std::numeric_limits<double>::max() : (ioData.bc.inlet.pressure - Pinit)/Prate;
   else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP) {
     tmax = ioData.implosion.tmax;
     if(tmax<=0.0) {
@@ -978,7 +979,6 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
   if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
-//    this->com->fprintf(stdout, "max pressure reached\n"); 
     return true;
   } 
 
