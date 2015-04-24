@@ -1037,7 +1037,10 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
     }
   }
 
-  double pnow = currentPressure(t);;
+  // Population of spaceOp->V for the force computation
+  this->spaceOp->conservativeToPrimitive(U, &this->nodeTag); // PJSA
+
+  double pnow = currentPressure(t);
   this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
   this->domain->IncreasePressure(pnow, this->varFcn, U, nodeTag);
   unifPressure[0] = unifPressure[1];
