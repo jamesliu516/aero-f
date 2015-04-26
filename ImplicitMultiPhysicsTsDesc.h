@@ -39,6 +39,7 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
+  FILE *outputNewton;
   int maxItsLS;
   double contractionLS, sufficDecreaseLS;
 
@@ -52,6 +53,7 @@ class ImplicitMultiPhysicsTsDesc : public MultiPhysicsTsDesc<dim,dimLS> {
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
+  FILE* getOutputNewton() const { return outputNewton; }
   int getLineSearch() const { return (maxItsLS>0); }
   int getMaxItsLineSearch() const { return maxItsLS; }
   double getContractionLineSearch() const { return contractionLS; }

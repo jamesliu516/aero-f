@@ -203,7 +203,6 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
 
 //------------------------------------------------------------------------------
 
-
 template<int dim>
 void TsDesc<dim>::printf(int verbose, const char *format, ...)
 {
@@ -213,6 +212,22 @@ void TsDesc<dim>::printf(int verbose, const char *format, ...)
     va_start(args, format);
     vfprintf(stdout, format, args);
     ::fflush(stdout);
+    va_end(args);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::fprintf(FILE *fp, const char *format, ...)
+{
+
+  if (com->cpuNum() == 0) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(fp, format, args);
+    ::fflush(fp);
     va_end(args);
   }
 

@@ -119,6 +119,7 @@ public:
   virtual ~TsDesc();
 
   void printf(int, const char *, ...);
+  void fprintf(FILE *, const char *, ...);
   VarFcn *createVarFcn(IoData &);
   DistBcData<dim> *createBcData(IoData &);
   MeshMotionHandler *createMeshMotionHandler(IoData &, GeoSource &, MemoryPool *);
