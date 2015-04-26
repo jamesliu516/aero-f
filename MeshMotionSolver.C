@@ -46,6 +46,19 @@ TetMeshMotionSolver::TetMeshMotionSolver
   maxItsLS = data.newton.lineSearch.maxIts;
   contractionLS = data.newton.lineSearch.rho;
   sufficDecreaseLS = data.newton.lineSearch.c1;
+  if (strcmp(data.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(data.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(data.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(data.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", data.newton.output);
+      exit(1);
+    }
+  }
 
   timer = domain->getTimer();
 
@@ -154,6 +167,7 @@ void TetMeshMotionSolver::setup(DistSVec<double,3> &X)
   if(cs) cs->setup(X);
 
 }
+
 //------------------------------------------------------------------------------
 
 void TetMeshMotionSolver::printf(int verbose, const char *format, ...)
@@ -163,6 +177,19 @@ void TetMeshMotionSolver::printf(int verbose, const char *format, ...)
     va_start(args, format);
     vfprintf(stdout, format, args);
     ::fflush(stdout);
+    va_end(args);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void TetMeshMotionSolver::fprintf(FILE *fp, const char *format, ...)
+{
+  if (com->cpuNum() == 0) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(fp, format, args);
+    ::fflush(fp);
     va_end(args);
   }
 }

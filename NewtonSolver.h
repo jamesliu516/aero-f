@@ -80,6 +80,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   double eps = probDesc->getEpsNewton();
   double epsAbsRes = probDesc->getEpsAbsResNewton();
   double epsAbsInc = probDesc->getEpsAbsIncNewton();
+  FILE *output = probDesc->getOutputNewton();
   bool finalRes = true; // if true, then a final residual evaluation will be done
                         // when maxIts is reached before terminating the loop.
   double res0, res2=0.0;
@@ -118,7 +119,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       res0 = res;
     }
 
-//    probDesc->printf(1,"Newton residual = %e, target = %e\n",res,target);
+    if(output) probDesc->fprintf(output,"Newton residual = %e, target = %e\n",res,target);
     if (res == 0.0 || res <= target) break;
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // alternative stopping criterion
     if (it == maxIts) break;

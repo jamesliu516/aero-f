@@ -1616,6 +1616,7 @@ struct NewtonData {
   double epsAbsRes, epsAbsInc;
   GenericKrylov ksp;
   LineSearchData lineSearch;
+  const char *output;
 
   NewtonData();
   ~NewtonData() {}
