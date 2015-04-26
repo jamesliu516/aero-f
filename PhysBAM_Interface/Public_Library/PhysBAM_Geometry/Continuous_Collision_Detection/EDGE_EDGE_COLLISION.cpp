@@ -64,7 +64,7 @@ Edge_Edge_Collision(const SEGMENT_3D<T>& seg_fault,const SEGMENT_3D<T>& segment,
         T collision_time=dt*(T)iterative_solver.Bisection_Secant_Root(cubic,intervals(k).min_corner,intervals(k).max_corner);
         SEGMENT_3D<T> segment2(seg_fault.x1+collision_time*v1,seg_fault.x2+collision_time*v2);
         if(segment2.Edge_Edge_Interaction(SEGMENT_3D<T>(segment.x1+collision_time*v3,segment.x2+collision_time*v4),v1,v2,v3,v4,collision_thickness,distance,normal,weights,relative_speed,
-                small_number,exit_early)) return true;}
+                true,small_number,exit_early)) return true;}
 
     return false;
 }
