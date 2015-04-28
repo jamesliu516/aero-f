@@ -97,6 +97,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
    maxItsLS = probDesc->getMaxItsLineSearch(); 
   }
   int it, itLS;
+  bool converged = false;
 
   for (it=0; finalRes||it<maxIts; ++it) {
 
@@ -120,8 +121,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     }
 
     if(output) probDesc->fprintf(output,"Newton residual = %e, target = %e\n",res,target);
-    if (res == 0.0 || res <= target) break;
-    if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // alternative stopping criterion
+    if (res == 0.0 || res <= target) { converged = true; break; }
+    if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) { converged = true; break; } // alternative stopping criterion
     if (it == maxIts) break;
 
     rhs = -1.0 * F;
@@ -198,7 +199,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   if (fsIt > 0 && probDesc->checkFailSafe(Q) == 1)
     probDesc->resetFixesTag();
 
-  if (it == maxIts && maxIts != 1) {
+  if (!converged && maxIts != 1) {
     probDesc->printf(1, "*** Warning: Newton solver reached %d its", maxIts);
     probDesc->printf(1, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);    
   }
