@@ -92,6 +92,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   // miscellaneous
   globIt = -1;
   inSubCycling = false;
+  inRedoTimestep = false;
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
     vfar[i] =Vin[i]; //for phase-change update only
