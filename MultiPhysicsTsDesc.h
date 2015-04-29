@@ -32,6 +32,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double dts;     //<! structure time-step
   int globIt;         //<! current global(i.e. structure) iteration
   bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
+  bool inRedoTimestep;
 
   bool requireSpecialBDF;
   bool increasingPressure;
