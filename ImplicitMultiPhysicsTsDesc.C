@@ -227,25 +227,15 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
    
-    /* I AM HERE */
     if (this->lsMethod == 0)
       this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
     else
       this->PhiV = this->Phi;
-/*
-    int my_pid;// = getpid();
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
-    if (my_pid == 66) {
-    
-      std::cout << "phi[5302] = " << this->Phi(0)[5302][0] << std::endl;
-    } 
-*/
 
     //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     if(this->withCracking && this->withMixedLS) {
       //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
       //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
-      //    this->com->fprintf(stderr,"calling updateFluidIdFS2!\n");
       DistSVec<bool,4> poll(this->domain->getNodeDistInfo());
       this->domain->updateFluidIdFS2Prep(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), poll);
       this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV, poll);
@@ -288,6 +278,11 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     }
  
   }
+  else if(this->mmh && this->inSubCycling) {
+     // PJSA: reset after ErrorHandler::REDO_TIMESTEP is raised
+     U = this->timeState->getUn();
+     *this->fluidSelector.fluidId = *this->fluidSelector.fluidIdn;
+  }
 
   *this->fluidSelector.fluidIdn = *this->fluidSelector.fluidId;
 
@@ -309,7 +304,7 @@ template<int dim,int dimLS>
 int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 { 
   double t0 = this->timer->getTime();
-  DistSVec<double,dim> Ubc(this->getVecInfo());
+  DistVec<int> fluidId_copy(*this->fluidSelector.fluidId);
 
   commonPart(U);
 
@@ -336,10 +331,14 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
  
   this->errorHandler->reduceError();
   this->data->resolveErrors();
-  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
- 
+
   this->timer->addFluidSolutionTime(t0);
-   
+
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) {
+    *this->fluidSelector.fluidId = fluidId_copy;
+    return its;
+  }
+ 
   this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
   this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
     
