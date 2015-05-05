@@ -811,6 +811,17 @@ void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(map<int,int> & surfOutMa
 }
 
 //-------------------------------------------------------------------------------
+template <int dim, int dimLS>
+void MultiPhysicsTsDesc<dim,dimLS>::getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
+								    DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+								    DistSVec<double,3> &X, double dS[3],
+								    Vec3D *dFi, Vec3D *dMi) 
+{
+  
+  fprintf(stderr, "ERROR: MultiPhys getderivativeOfForcesAndMoments not implemented \n");
+
+}
+//-------------------------------------------------------------------------------
 template<int dim, int dimLS>
 bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U)
 {

@@ -48,7 +48,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
      * If ni, nj is not an edge of the fluid mesh, result is undefined.
      * */
     LevelSetResult
-       getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j);
+      getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0);
 
     int numOfFluids();
 
@@ -64,7 +64,8 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) { }
 
-    
+    void setdXdSb(int, double*, double*, double*) {}
+
 };
 
 class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
@@ -106,7 +107,6 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
       parent->updateStructure(Xs, Vs, nNodes, abc);
     }
 
-
     int recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry = false);
 
 
@@ -114,6 +114,8 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0()  { return parent->getStructPosition_0(); }
     Vec<Vec3D> &getStructPosition_n() { return parent->getStructPosition_n(); }
     Vec<Vec3D> &getStructPosition_np1() { return parent->getStructPosition_np1(); }
+    Vec<Vec3D> &getStructDerivative() { return parent->getStructDerivative(); }
+
     int getNumStructNodes() { return parent->getNumStructNodes(); }
     int getNumStructElems() { return parent->getNumStructElems(); }
     int (*getStructElems())[3]  { return parent->getStructElems(); }
@@ -123,6 +125,9 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     virtual DistVec<ClosestPoint> &getClosestPoints() { return *dummycp; }
     virtual DistVec<ClosestPoint> *getClosestPointsPointer() { return dummycp; }
 
+    void setdXdSb(int, double*, double*, double*){}
+    void updateXb(double) {} //  
+    void testAlpha(Vec3D, Vec3D, int, int, int, double*, double){}
 };
 
 #endif

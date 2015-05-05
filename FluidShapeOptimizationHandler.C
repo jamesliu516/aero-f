@@ -60,6 +60,8 @@ dX(dom->getNodeDistInfo())
     dLoadref = 0;
   }
 
+  mms = 0;
+
 //  if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) {
     Xp = new DistSVec<double,3>(domain->getNodeDistInfo());
     Xm = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -766,15 +768,28 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(IoD
     dMoments = dM+M;
   }
 
-  dL[0] = dF[0]*cos(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) +
-          dF[1]*cos(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
-          dF[2]*sin(ioData.bc.inlet.alpha);
+  dL = 0.0;
+  double sin_a = sin(ioData.bc.inlet.alpha); 
+  double cos_a = cos(ioData.bc.inlet.alpha);
+  double sin_b = sin(ioData.bc.inlet.beta); 
+  double cos_b = cos(ioData.bc.inlet.beta);
 
-  dL[1] = -dF[0]*sin(ioData.bc.inlet.beta) + dF[1]*cos(ioData.bc.inlet.beta);
+  dL[0] =  dF[0]*cos_a*cos_b + dF[1]*cos_a*sin_b + dF[2]*sin_a;
+  dL[1] = -dF[0]*sin_b       + dF[1]*cos_b;
+  dL[2] = -dF[0]*sin_a*cos_b - dF[1]*sin_a*sin_b + dF[2]*cos_a;
+  
+  double dsin_a = cos_a*DFSPAR[1], dcos_a = -sin_a*DFSPAR[1];
+  double dsin_b = cos_b*DFSPAR[2], dcos_b = -sin_b*DFSPAR[2];
 
-  dL[2] = -dF[0]*sin(ioData.bc.inlet.alpha)*cos(ioData.bc.inlet.beta) -
-           dF[1]*sin(ioData.bc.inlet.alpha)*sin(ioData.bc.inlet.beta) +
-           dF[2]*cos(ioData.bc.inlet.alpha);
+  dL[0] += F[0]*(dcos_a*cos_b + cos_a*dcos_b) +
+           F[1]*(dcos_a*sin_b + cos_a*dsin_b) + 
+           F[2]*dsin_a;
+
+  dL[1] += -F[0]*dsin_b + F[1]*dcos_b;
+  
+  dL[2] += -F[0]*(dsin_a*cos_b + sin_a*dcos_b) -
+            F[1]*(dsin_a*sin_b + sin_a*dsin_b) +
+            F[2]*dcos_a;  
 
 }
 
@@ -1212,6 +1227,7 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver
     if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true; 
     iter += 1;
+
   }
 
   dFdS *= (-1.0);

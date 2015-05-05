@@ -43,6 +43,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;
 
+  double (*dFs)[3]; // derivative of force distribution on the structure surface
+
   bool increasingPressure;
   bool recomputeIntersections;
   double unifPressure[2];
@@ -149,10 +151,20 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
   /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 
 
+  void computederivativeOfForceLoad(DistSVec<double,dim> *Wij, 
+				    DistSVec<double,dim> *Wji, 
+				    double dS[3], 
+				    DistSVec<double,dim> &dV);
+
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
   void getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            Vec3D* Fi, Vec3D* Mi);
+
+  void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
+				       DistSVec<double,dim> &V, DistSVec<double,dim> &dV, 
+				       DistSVec<double,3> &X, double dS[3],
+				       Vec3D *dFi, Vec3D *dMi);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
   virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}

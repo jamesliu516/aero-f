@@ -294,6 +294,7 @@ void roejacexact3D(int type, double gamma, VarFcnBase *vf, FluxFcnBase::Type loc
 		   double normalVel, double* VL, double* VR, double* jacL, double* jacR, double irey, double betaRef,
                    double k1, double cmach, double shockreducer, double length, int prec)
 {
+
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
   const int dim2 = dim*dim;

@@ -725,10 +725,10 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(int configSA, DistSVec<double
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
-                                 DistVec<double> &ctrlVol, DistVec<int> &fluidId,
-                                 DistSVec<Scalar2, dim> &V, bool linFSI,
-                                 DistLevelSetStructure *distLSS,
-                                 bool includeSweptNodes)
+					 DistVec<double> &ctrlVol, DistVec<int> &fluidId,
+					 DistSVec<Scalar2, dim> &V, bool linFSI,
+					 DistLevelSetStructure *distLSS,
+					 bool includeSweptNodes)
 {
 
   if (typeGradient == SchemeData::LEAST_SQUARES){
@@ -739,8 +739,8 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 
   }else if(typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL){
     
-    //domain->computeWeightsGalerkin(X, fluidId, *wii, *wij, *wji, distLSS, includeSweptNodes);
-    //domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);       
+    domain->computeWeightsGalerkin(X, fluidId, *wii, *wij, *wji, distLSS, includeSweptNodes);
+    domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);       
 
   }
 
@@ -763,8 +763,8 @@ void DistNodalGrad<dim, Scalar>::computeTemperatureGradient(int config, DistSVec
 
   }else if(typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL){
     
-    //domain->computeWeightsGalerkin(X, fluidId, *wii, *wij, *wji, distLSS);
-    //domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, T, *dTx, *dTy, *dTz);
+    domain->computeWeightsGalerkin(X, fluidId, *wii, *wij, *wji, distLSS);
+    domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, T, *dTdx, *dTdy, *dTdz);
 
   }
   

@@ -286,6 +286,15 @@ public:
   void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&, SVec<double,3>&,
 			       SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
 			       SVec<double,dim>&);
+  
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
+					   GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
+					   bool linRecAtInterface, Vec<int> &fluidId, 
+					   ExactRiemannSolver<dim>& riemann, int Nriemann,
+					   SVec<double,3> *Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+					   double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes);
+    
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
                               SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,

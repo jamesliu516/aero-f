@@ -1601,16 +1601,20 @@ void TsOutput<dim>::closeAsciiFiles()
 {
 
   for (int iSurf = 0; iSurf < postOp->getNumSurf(); iSurf++)  {
+
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
     if (fpHydroStaticForces[iSurf]) fclose(fpHydroStaticForces[iSurf]);
     if (fpLift[iSurf]) { fclose(fpLift[iSurf]); fpLift[iSurf] = 0; }
     if (fpTavForces[iSurf]) fclose(fpTavForces[iSurf]);
     if (fpTavLift[iSurf]) fclose(fpTavLift[iSurf]);
+
   } 
+
   for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
+
 
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatVolumes) fclose(fpMatVolumes);
@@ -1620,6 +1624,7 @@ void TsOutput<dim>::closeAsciiFiles()
   if (fpError) fclose(fpError);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
+
 }
 
 //------------------------------------------------------------------------------
@@ -2861,7 +2866,10 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
 // Included (MB)
 template<int dim>
-void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistTimeState<dim> *timeState)
+void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], 
+							 DistSVec<double,3> &X, DistSVec<double,3> &dX, 
+							 DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+							 DistTimeState<dim> *timeState)
 {
   int    step = it-1;
   double tag  = (double)actvar;

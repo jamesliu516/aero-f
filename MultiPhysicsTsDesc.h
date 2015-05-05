@@ -162,6 +162,11 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            Vec3D* Fi, Vec3D* Mi);
 
+  void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
+				       DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+				       DistSVec<double,3> &X, double dS[3],
+				       Vec3D *dFi, Vec3D *dMi);
+
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;

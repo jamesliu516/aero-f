@@ -78,15 +78,14 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
 
+  probDesc->fsaPrintTextOnScreen("NO NO NO NO\n");
   probDesc->fsaPrintTextOnScreen("**********************************\n");
   probDesc->fsaPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
   probDesc->fsaPrintTextOnScreen("**********************************\n");
-  
+  probDesc->fsaPrintTextOnScreen("NO NO NO NO\n");
   probDesc->fsaHandler(ioData, U);
 
   probDesc->fsaPrintTextOnScreen(" *** fsaSolver done *** \n");
-
-  probDesc->printf(0," ***** fsaSolve is done ********\n");
 
   return 0;
 
@@ -183,6 +182,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     probDesc->outputPositionVectorToDisk(U);
 
   while (!lastIt) {
+
     probDesc->resetOutputToStructure(U);
     int stat = 0;
     int itSc = 0;
@@ -197,6 +197,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     
     bool repeat;
     do { // Subcycling
+
       (*UPrev) = U;
 
       repeat = false;
@@ -238,6 +239,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           *dUPrev = *dU;
           *dU = -1.0*U;
         }
+
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->clearError(ErrorHandler::ALL);
         stat = probDesc->solveNonLinearSystem(U, it);
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->reduceError();

@@ -305,7 +305,6 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
 { 
   double t0 = this->timer->getTime();
   DistVec<int> fluidId_copy(*this->fluidSelector.fluidId);
-
   commonPart(U);
 
   if (this->modifiedGhidaglia)

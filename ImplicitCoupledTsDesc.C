@@ -90,6 +90,7 @@ void ImplicitCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q
   } else {
     mvp->evaluate(*this->riemann1, it, *this->X, *this->A, Q, F);
   }
+
 #ifdef MVP_CHECK
   DistSVec<double,dim> p(this->getVecInfo());
   DistSVec<double,dim> prod(this->getVecInfo());
@@ -98,11 +99,6 @@ void ImplicitCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q
   mvp->apply(p, prod);
   this->domain->checkMatVecProd(prod, "mvp");
 
-//  ImplicitData fddata;
-//  fddata.mvp = ImplicitData::FD;
-  //fddata.type = ImplicitData::CRANK_NICOLSON;
-//  MatVecProd<dim,dim> *mvpfd = new MatVecProdFD<dim>(fddata, timeState, geoState, spaceOp, this->domain);
-
   computeFunction(it, Q, F);
   mvpfd1->evaluate(it, *this->X, *this->A, Q, F);
   mvpfd1->apply(p, prod);
@@ -110,7 +106,49 @@ void ImplicitCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q
 
   this->com->barrier();
   exit(1);
+
 #endif
+
+#ifdef DD_check
+//------------------------------------------------
+  std::cout << "Testing MVP \n";
+
+  DistSVec<double,dim>       p_x(this->getVecInfo());
+  DistSVec<double,dim>    prod_x(this->getVecInfo());
+
+  DistSVec<double,dim> prod_fd(this->getVecInfo());
+  DistSVec<double,dim>err_prod(this->getVecInfo());
+  DistSVec<double,dim>     Q_p(this->getVecInfo());
+  DistSVec<double,dim>     Q_m(this->getVecInfo());
+  DistSVec<double,dim>     F_p(this->getVecInfo());
+  DistSVec<double,dim>     F_m(this->getVecInfo());
+
+for(int dd=1; dd<=10; ++dd){
+
+  p_x = pow(10.0, -dd);
+
+  mvp->apply(p_x, prod_x);
+
+  Q_p = Q + p_x;
+  computeFunction(it, Q_p, F_p);
+
+  Q_m = Q - p_x;
+  computeFunction(it, Q_m, F_m);
+
+  prod_fd = 0.5*(F_p - F_m);
+ 
+  err_prod = prod_x - prod_fd;
+
+  double err_mvp = err_prod.norm();
+
+  fprintf(stderr, "********* %10.5e %24.16e\n ", pow(10.0, -dd), err_mvp);
+  
+  
+ }
+ exit(-1);
+//------------------------------------------------
+#endif
+
 
 }
 
@@ -122,8 +160,9 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
   double t0 = this->timer->getTime();
   
-  DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
-  DistMat<double,dim> *_pc2 = dynamic_cast<DistMat<double,dim> *>(pc);
+  DistMat<PrecScalar,dim>  *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
+  DistMat<double,    dim> *_pc2 = dynamic_cast<DistMat<double,    dim> *>(pc);
+
   MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
 
   if (_pc || _pc2) {
@@ -134,7 +173,6 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
     if (mvpfd || mvph2) {
       if (_pc) {
-
         this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         this->spaceOp->applyBCsToJacobian(Q, *_pc);
@@ -168,23 +206,8 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
   }
     
+  pc->setup();
   
-  //if (!pmg)    
-    pc->setup();
-  //else
-  //  pmg->setup(Q);
-/*  
-  MultiGridPrec<PrecScalar,dim> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,dim> *>(pc);
-  MatVecProdH1<dim,MatScalar,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,dim> *>(mvp);
-  if (pmg && mvph1) { 
-    //this->spaceOp->conservativeToPrimitive(Q);
-    pmg->getData(*mvph1, *this->spaceOp->getCurrentPrimitiveVector(),
-                 *this->spaceOp, this->timeState); 
-  }
-  //else
-  //  fprintf(stderr,"Tried to getData but instead got %x, %x\n", pmg, mvph1);
-  */
-
   double t = this->timer->addPrecSetupTime(t0);
 
   this->com->printf(6, "Fluid preconditioner computation: %f s\n", t);
@@ -197,6 +220,8 @@ template<int dim>
 int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &b, 
 						  DistSVec<double,dim> &dQ)
 {
+
+  //std::cout << " ********** IMP COUP TsDesc :: SOLVE LIN SYST >> PC\n";
 
   double t0 = this->timer->getTime();
 

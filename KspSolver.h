@@ -153,14 +153,12 @@ public:
   GcrSolver(const typename VecType::InfoType &, KspData &,
               MatVecProdOp *, PrecOp *, IoOp *);
   ~GcrSolver() {}
-                                                                                                                                                                          
+                      
   int solve(VecType &, VecType &);
   int solveMRhs(VecType &, VecType &);
                                                         
-                                                        
-                                                        
 };
-                                                                                                                                                                          
+                      
 //------------------------------------------------------------------------------
 
 
