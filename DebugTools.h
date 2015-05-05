@@ -161,6 +161,67 @@ class DebugTools {
       }
     }
   }
+
 };
+
+/*
+//----------------------------------------------------------
+ int id_var;
+ double diff, err_x, err_J;
+ double V_bk_i[dim], V_bk_j[dim], V_p[dim], V_m[dim];
+ double flux_p[dim], flux_m[dim], Jac_num[dim][dim];
+
+ for(id_var=0; id_var<dim; ++id_var) V_bk_i[id_var] = Vi[id_var];
+ for(id_var=0; id_var<dim; ++id_var) V_bk_j[id_var] = Vj[id_var];
+
+ for(int dd=1; dd<=10; ++dd){
+
+   diff = pow(10.0, -dd);
+
+   for(id_var=0; id_var<dim; ++id_var){
+     
+     //Plus
+     //---------------------------------------
+     for(k=0; k<dim; ++k) V_p[k] = V_bk_i[k];
+     V_p[id_var] = V_p[id_var] + diff;
+     fluxFcn[BC_INTERNAL]->compute(length, 0.0, edgeNorm[l], edgeNormVel[l], V_p, Vj, flux_p, fluidId[i]);
+
+     //Minus
+     //---------------------------------------
+     for(k=0; k<dim; ++k) V_m[k] = V_bk_i[k];
+     V_m[id_var] = V_m[id_var] - diff;
+     fluxFcn[BC_INTERNAL]->compute(length, 0.0, edgeNorm[l], edgeNormVel[l], V_m, Vj, flux_m, fluidId[i]);
+     
+     for(k=0; k<dim; ++k)
+       Jac_num[k][id_var] = ( flux_p[k] - flux_m[k] ) / (2.0*diff);
+
+   }
+
+   for(id_var=0; id_var<dim; ++id_var){
+     for(k=0; k<dim; ++k)
+       fprintf(stderr, "%15.5e", Jac_num[id_var][k]);
+     fprintf(stderr, " | ");     
+     for(k=0; k<dim; ++k)
+       fprintf(stderr, "%15.5e", dfdVi[id_var*dim+k] );
+     fprintf(stderr, "\n");    
+   }
+
+   err_J = 0.0;
+   for(id_var=0; id_var<dim; ++id_var){
+     for(k=0; k<dim; ++k){
+       err_x = sqrt( pow(Jac_num[id_var][k]-dfdVi[id_var*dim+k], 2) );
+       err_J = std::max(err_J, err_x);
+     }
+   }
+
+   fprintf(stderr, "****** %15.5e %24.16e ******* \n", diff, err_J);
+
+ }
+
+ fprintf(stderr, "\n");
+
+//----------------------------------------------------------
+*/
+
 
 #endif

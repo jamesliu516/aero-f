@@ -715,10 +715,29 @@ public:
   void computeH2(FluxFcn **, RecFcn *, BcData<dim> &, GeoState &, SVec<double,3> &,
 		 SVec<double,dim> &, NodalGrad<dim> &, GenMat<Scalar,neq> &);
 
+  template<int dim, class Scalar, int neq>
+  void computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData,
+		 GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
+		 NodalGrad<dim> &ngrad, 
+		 ExactRiemannSolver<dim>& riemann,
+		 LevelSetStructure &LSS, 
+		 Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,
+		 GenMat<Scalar,neq> &A,
+		 SVec<double,dim> &aij, SVec<double,dim> &aji,
+		 SVec<double,dim> &bij, SVec<double,dim> &bji, 
+		 SVec<double,dim> &betaij, SVec<double,dim> &betaji);
+
   template<class Scalar, int dim>
   void precomputeRec(RecFcn *, SVec<double,3> &, SVec<double,dim> &,
 		     NodalGrad<dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
 		     SVec<Scalar,dim> &, SVec<Scalar,dim> &);
+
+  template<class Scalar, int dim>
+  void precomputeRec(RecFcn *recFcn, SVec<double,3> &X, SVec<double,dim> &V,
+		     NodalGrad<dim> &ngrad, 
+		     LevelSetStructure &LSS,  Vec<int> &fluidId,
+		     SVec<Scalar,dim> &aij, SVec<Scalar,dim> &aji,
+		     SVec<Scalar,dim> &bij, SVec<Scalar,dim> &bji);
 
   template<class Scalar, int dim>
   void computeMatVecProdH1(bool *, GenMat<Scalar,dim> &, SVec<double,dim> &,
@@ -738,6 +757,30 @@ public:
 			   GenMat<Scalar1,dim> &, SVec<double,dim> &, SVec<double,dim> &,
 			   SVec<double,dim> &, SVec<double,dim> &, SVec<Scalar2,dim> &,
 			   NodalGrad<dim, Scalar2> &, SVec<Scalar2,dim> &);
+
+  template<class Scalar1, class Scalar2, int dim>
+  void computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, GeoState &geoState,
+			   SVec<double,3> &X, Vec<double> &ctrlVol, 
+			   ExactRiemannSolver<dim>& riemann,
+			   LevelSetStructure &LSS,
+			   Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,				    
+			   GenMat<Scalar1,dim> &A,
+			   SVec<double,dim> &aij, SVec<double,dim> &aji,
+			   SVec<double,dim> &bij, SVec<double,dim> &bji,
+			   SVec<double,dim> &betaij, SVec<double,dim> &betaji,
+			   SVec<Scalar2,dim> &p, NodalGrad<dim, Scalar2> &dpdxj,
+			   SVec<Scalar2,dim> &prod);
+
+  void convert2(double *Aij, int ln, double *Aij_c) {
+    for(int k=0; k<ln*ln; ++k) {;
+      Aij_c[k] = Aij[k];
+    }
+  }
+
+  void convert2(bcomp *Aij, int ln, double *Aij_c) {
+    fprintf(stderr, " *** ERROR: Incompatible Types\n");
+    exit(-1);
+  }
 
   template<class Scalar1, class Scalar2, int dim>
   void computeMatVecProdH2T(RecFcn *, SVec<double,3> &, Vec<double> &,
@@ -1238,8 +1281,21 @@ public:
 
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
-			       SVec<double,3>&, SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&,
-			       NodalGrad<dim>&, EdgeGrad<dim>*, double, SVec<double,dim>&);
+					   SVec<double,3>&, SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&,
+					   NodalGrad<dim>&, EdgeGrad<dim>*, double, SVec<double,dim>&);
+
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
+					   BcData<dim>& bcData, GeoState& geoState,
+					   SVec<double,3>& X, LevelSetStructure &LSS,
+					   bool linRecAtInterface, bool viscSecOrder,
+					   Vec<int> &fluidId,
+					   ExactRiemannSolver<dim>& riemann,
+					   int Nriemann, SVec<double,3>* Nsbar,
+					   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+					   double dMach,
+					   SVec<double,dim>& V,
+					   SVec<double,dim>& dFluxes);
 
   template<int dim1, int dim2>
   void computeDerivativeOfNodeBcValue(SVec<double,3> &, SVec<double,3> &, SVec<double,dim1> &, SVec<double,dim1> &, SVec<double,dim2> &);
@@ -1332,9 +1388,22 @@ public:
                                SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
                                Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int> *fid);
   template<int dim>
-  void computeEmbSurfBasedForceLoad(IoData &iod, int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, LevelSetStructure&, double pInfty, 
-                                    SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
-			                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, VarFcn *vf, Vec<int>* fid);
+  void computeEmbSurfBasedForceLoad(IoData &iod, int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, 
+				    LevelSetStructure&, double pInfty, 
+				    SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+				    Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, 
+				    VarFcn *vf, Vec<int>* fid);
+
+  template<int dim>
+  void computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
+					      double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 
+					      Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS, 
+					      double pInfty, double dpInfty, 
+					      SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, 
+					      SVec<double,dim> &V, SVec<double,dim> &dV_, 
+					      Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+					      NodalGrad<dim, double> &gradV, NodalGrad<dim, double> &graddV, VarFcn* vf, Vec<int>* fid);
+    
   template<int dim>
   void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
                                     SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
@@ -1423,6 +1492,7 @@ public:
   void attachTriangulatedInterfaceLSS(LevelSetStructure*);
   
   Elem* searchPoint(Vec3D Xp, SVec<double,3>& X);
+
 };
 //------------------------------------------------------------------------------
 

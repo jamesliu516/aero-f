@@ -281,9 +281,9 @@ void PostOperator<dim>::computeDerivativeOfNodalHeatPower(DistSVec<double,3>& X,
 
 template<int dim>
 void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
-																				      DistSVec<double,dim> &U, 
+					      DistSVec<double,dim> &U, 
                                               DistVec<int> *fluidId, Vec3D *Fi, 
-																				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 // fluidId must be a null pointer for single-phase flow
@@ -343,6 +343,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     fi[iSurf] = 0.0;
     mi[iSurf] = 0.0;
   }
+
   if(forceGen != 0)
     forceGen->getForcesAndMoments(surfOutMap, U, X, fi, mi);
 
@@ -358,8 +359,8 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 //#pragma omp critical
     double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
                        Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
-								       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
-								       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
+		       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
+		       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
     com->globalSum(12, coef);
 
     Fi[iSurf][0] = coef[0]; 
@@ -397,15 +398,16 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 
 }
 
-//------------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+
 // computes the non-dimensional forces and moments
 
 template<int dim>
-void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&riemann,
+void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim> &riemann,
                                               Vec3D &x0, DistSVec<double,3> &X, 
-																				      DistSVec<double,dim> &U, 
+					      DistSVec<double,dim> &U, 
                                               DistVec<int> *fluidId, Vec3D *Fi, 
-																				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
@@ -691,6 +693,89 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 //------------------------------------------------------------------------------
 
 template<int dim>
+void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
+							  DistSVec<double,dim> &U, 
+							  DistSVec<double,dim> &dU, 
+							  DistVec<int> *fluidId,
+							  double dS[3],
+							  Vec3D *dFi, Vec3D *dMi, 
+							  Vec3D *dFv, Vec3D *dMv, 
+							  int hydro, VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
+{
+
+  int iSurf;
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    dFi[iSurf] = 0.0;
+    dMi[iSurf] = 0.0;
+    dFv[iSurf] = 0.0;
+    dMv[iSurf] = 0.0;
+  }
+
+  varFcn->conservativeToPrimitive(U, *V, fluidId);
+  varFcn->conservativeToPrimitiveDerivative(U, dU, *V, *dV, fluidId); 
+
+  Vec3D *dfi = new Vec3D[numSurf];
+  Vec3D *dmi = new Vec3D[numSurf];
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    dfi[iSurf] = 0.0;
+    dmi[iSurf] = 0.0;
+  }
+
+  if(forceGen != 0)
+    forceGen->getderivativeOfForcesAndMoments(surfOutMap, *V, *dV, X, dS, dfi, dmi);
+ 
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    dFi[iSurf] += dfi[iSurf];
+    dMi[iSurf] += dmi[iSurf];
+  }
+
+  delete [] dfi;
+  delete [] dmi;
+
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+
+    double coef[12] = {dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
+                       dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
+		       dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],
+		       dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2]};
+
+    com->globalSum(12, coef);
+
+    dFi[iSurf][0] = coef[0]; 
+    dFi[iSurf][1] = coef[1];
+    dFi[iSurf][2] = coef[2];
+
+    dMi[iSurf][0] = coef[3]; 
+    dMi[iSurf][1] = coef[4];
+    dMi[iSurf][2] = coef[5];
+
+    dFv[iSurf][0] = coef[6]; 
+    dFv[iSurf][1] = coef[7];
+    dFv[iSurf][2] = coef[8];
+
+    dMv[iSurf][0] = coef[9]; 
+    dMv[iSurf][1] = coef[10];
+    dMv[iSurf][2] = coef[11];
+ 
+  }
+
+  map<int, int>::iterator it;
+  iSurf = 1;
+  for (it = surfOutMap.begin(); it != surfOutMap.end(); it++)  {
+    if (it->second > 0)  {
+      dFi[0] += dFi[it->second];
+      dMi[0] += dMi[it->second];
+      dFv[0] += dFv[it->second];
+      dMv[0] += dMv[it->second];
+    }
+  }
+
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 double PostOperator<dim>::computeInterfaceWork(DistSVec<double,3>& X, 
 					       DistSVec<double,dim>& U,
 					       DistVec<double> &Pin)
@@ -904,7 +989,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 // Included (MB)
 
 template<int dim>
-void PostOperator<dim>::computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType type, double dS[3], DistSVec<double,3>& X, DistSVec<double,3>& dX, DistSVec<double,dim>& U, DistSVec<double,dim>& dU, DistVec<double>& dQ, DistTimeState<dim> *timeState)
+void PostOperator<dim>::computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType type, double dS[3], 
+							  DistSVec<double,3>& X, DistSVec<double,3>& dX, 
+							  DistSVec<double,dim>& U, DistSVec<double,dim>& dU, 
+							  DistVec<double>& dQ, DistTimeState<dim> *timeState)
 {
 
   int iSub;

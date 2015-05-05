@@ -640,7 +640,9 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,3> &Xsdot, DistSVec<double,3> &dXsdot, DistVec<double> &dCtrlVol)
+void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> &dX, 
+				      DistSVec<double,3> &Xsdot, DistSVec<double,3> &dXsdot, 
+				      DistVec<double> &dCtrlVol)
 {
 
 //Remark: Error mesage for pointers
@@ -675,7 +677,8 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
   *dXsa=dX;
 
   if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
-    domain->computeDerivativeOfNormals(*Xsa, *dXsa, *edgeNorm, *dEdgeNorm, *edgeNormVel, *dEdgeNormVel, *faceNorm, *dFaceNorm, *faceNormVel, *dFaceNormVel);
+    domain->computeDerivativeOfNormals(*Xsa, *dXsa, *edgeNorm, *dEdgeNorm, *edgeNormVel, 
+				       *dEdgeNormVel, *faceNorm, *dFaceNorm, *faceNormVel, *dFaceNormVel);
   }
   else {
     fprintf(stderr, "*******************************************************************\n");
@@ -716,7 +719,6 @@ void DistGeoState::interpolate(double dt, double dtLeft,
 
 void DistGeoState::update(DistSVec<double,3> &X, DistVec<double> &ctrlVol)
 {
-
   if (data.use_save){
     // X and ctrlVol had configuration on which fluxes were computed
     // Xnp1 and ctrlVol_np1 are restored to X and ctrlVol

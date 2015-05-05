@@ -72,10 +72,13 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec3D *Xs0;
     Vec3D *Xs_n;
     Vec3D *Xs_np1;
+    Vec3D *dXdSb;
+
     Vec<Vec3D> *solidX;   //pointer to Xs
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
     Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
+    Vec<Vec3D> *solidXdS; //pointer to dXdSb
 
     int *faceID;
     double *porosity;
@@ -100,7 +103,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     double *triSize;
     Vec3D *triNorms;
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
-
+  
     DistSVec<double,3> *X; //pointer to fluid node coords
     DistSVec<double,3> *Xn; //pointer to fluid node coords at previous time
 
@@ -129,6 +132,9 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void makerotationownership();
     void updatebc();
 
+    void setdXdSb(int, double*, double*, double*); //
+    void updateXb(double); //  
+
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
     void initializePhysBAM();
@@ -136,6 +142,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int>* point_based_id = 0,
                     DistVec<int>* oldStatus = 0);
     void updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]=0);
+   
     void updateCracking(int (*abc)[3]);
     void expandScope();
     void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope,const bool retry);
@@ -156,6 +163,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
     int (*getStructElems())[3] { return stElem; }
+
+    Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
 
     int getSurfaceID(int k) {
       if (!surfaceID)
@@ -187,7 +196,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     int locIndex,globIndex;
     int *locToGlobNodeMap;
-
+ 
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
 
@@ -228,7 +237,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
     /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
-    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j);
+    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0);
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 
     bool isNearInterface(double t, int n) const {return closest[n].nearInterface();}
@@ -240,6 +249,17 @@ class IntersectorPhysBAM : public LevelSetStructure {
     double project(Vec3D x0, int tria, double& xi1, double& xi2) const;
     double edgeProject(Vec3D x0, Vec3D &xA, Vec3D &xB, double &alpha) const;
     double edgeProject(Vec3D x0, int n1, int n2, double &alpha) const;
+
+    void derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+			    Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+			    Vec3D &dnds);
+
+    double derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+	  		     Vec3D dxA, Vec3D dxB, Vec3D dxC,
+			     Vec3D X1, Vec3D X2);
+
+    double testAlpha(Vec3D, Vec3D, Vec3D, Vec3D, Vec3D);
+
 };
 
 #endif

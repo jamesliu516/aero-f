@@ -216,8 +216,8 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
 
 void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
                                 double *Vwall, double *Vface[3], double *Vtet[4],
-																double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro,
-																int fid)
+				double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro,
+				int fid)
 {
 
   double pcg[3], p[3];
@@ -426,7 +426,6 @@ void PostFcnEuler::computeDerivativeOfForce(double dp1dxj[4][3], double ddp1dxj[
   dFv = 0.0;
 
 }
-
 //-----------------------------------------------------------------------------------
 
 void PostFcnEuler::computeForceTransmitted(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],

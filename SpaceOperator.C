@@ -28,7 +28,10 @@
 #include <Timer.h>
 #include <FluidSelector.h>
 
-
+#include <DenseMatrixOps.h>
+#include <MemoryPool.h>
+#include <MvpMatrix.h>
+#include <SparseMatrix.h>
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -74,6 +77,12 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   recFcn = createRecFcn(ioData);
 
   ngrad  = new DistNodalGrad<dim, double>(ioData, domain);
+
+  ngraddV = 0;
+  if(ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ && 
+     ioData.problem.framework==ProblemData::EMBEDDED ){
+    ngraddV  = new DistNodalGrad<dim, double>(ioData, domain);
+  }
 
   egrad = 0;
   if (ioData.schemes.ns.dissipation == SchemeData::SIXTH_ORDER ||
@@ -162,6 +171,7 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   recFcn = spo.recFcn;
   ngrad = spo.ngrad;
   compNodalGrad = spo.compNodalGrad;
+  ngraddV = spo.ngraddV; /////////d2d
   egrad = spo.egrad;
   xpol = spo.xpol;
   vms = spo.vms;
@@ -206,6 +216,7 @@ SpaceOperator<dim>::~SpaceOperator()
     }
     if (recFcn) delete recFcn;
     if (ngrad) delete ngrad;
+    if (ngraddV) delete ngraddV;
     if (compNodalGrad) delete compNodalGrad;
     if (egrad) delete egrad;
     if (xpol) delete xpol;
@@ -988,6 +999,105 @@ void SpaceOperator<dim>::computeDerivativeOfResidual
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X,
+						     DistVec<double> &ctrlVol,
+						     DistSVec<double,dim> &U,
+						     DistLevelSetStructure *distLSS,
+						     bool linRecAtInterface, bool viscSecOrder, 
+						     DistVec<int> &fluidId, 
+						     DistExactRiemannSolver<dim> *riemann,
+						     int Nriemann, DistSVec<double,3> *Nsbar,
+						     DistVec<GhostPoint<dim>*> *ghostPoints,
+						     double dMach,
+						     DistSVec<double,dim> &R, DistSVec<double,dim> &dR,
+						     DistTimeState<dim> *timeState){
+  
+  //std::cout << "IN SPACE OPT EMB computeDerivativeOfResidual\n";
+  
+  dR = 0.0;
+
+  varFcn->conservativeToPrimitive(U, *V);
+
+  //****
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    bool linFSI = linRecAtInterface || viscSecOrder;
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+  }
+
+  if (egrad) {
+    egrad->compute(geoState->getConfig(), X);
+  }
+
+  DistVec<double> *irey;
+  if(timeState) {
+    irey = timeState->getInvReynolds();
+  } else {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
+  //****
+
+  domain->computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, *bcData, *geoState, 
+					      X, distLSS, 
+					      linRecAtInterface, viscSecOrder, 
+					      fluidId, *riemann, Nriemann, Nsbar, 
+					      *ngrad, egrad, dMach, 
+					      *V, dR);
+  
+  //domain->getGradP(*ngrad);
+  //domain->getDerivativeOfGradP(*ngrad);
+  //****
+
+  if (descriptorCase != DESCRIPTOR)  {
+
+    int numLocSub = dR.numLocSub();
+    int iSub;
+
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+
+      double *cv  =  ctrlVol.subData(iSub);
+
+      double (*dr)[dim] = dR.subData(iSub);
+
+      switch (descriptorCase) {
+
+        case HYBRID: {
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double invsqcv = 1.0 / sqrt(cv[i]);
+            for (int j=0; j<dim; ++j)
+              dr[i][j] = dr[i][j] * invsqcv;
+          }
+          break; 
+	}
+
+        case NONDESCRIPTOR: {
+          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+            double  invcv = 1.0 / cv[i];
+            for (int j=0; j<dim; ++j)
+              dr[i][j] =  dr[i][j] * invcv;
+          }
+          break; 
+	}
+
+      }
+    }
+  }
+  
+  // Delete pointers for consistency
+  if (timeState == 0){
+    if (irey) delete irey;
+  }
+
+  irey = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<int dim>
 void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U, DistSVec<double,dim> &R, DistTimeState<dim> *timeState, bool compatF3D)
@@ -1168,7 +1278,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &R, 
 					 DistExactRiemannSolver<dim> *riemann, int Nriemann, 
 					 DistSVec<double,3> *Nsbar, int it,
-                                         DistVec<GhostPoint<dim>*> *ghostPoints)
+                                         DistVec<GhostPoint<dim>*> *ghostPoints, bool compatF3D)
 {
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V, &fluidId);  
@@ -1225,14 +1335,15 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 				  R, 
 				  it, failsafe,rshift);
 
-  if (descriptorCase != DESCRIPTOR)  {
-    int numLocSub = R.numLocSub();
-    int iSub;
+  if (compatF3D) {
+    if (descriptorCase != DESCRIPTOR)  {
+      int numLocSub = R.numLocSub();
+      int iSub;
 #pragma omp parallel for
-    for (iSub=0; iSub<numLocSub; ++iSub) {
-      double *cv = ctrlVol.subData(iSub);
-      double (*r)[dim] = R.subData(iSub);
-      switch (descriptorCase) {
+      for (iSub=0; iSub<numLocSub; ++iSub) {
+	double *cv = ctrlVol.subData(iSub);
+	double (*r)[dim] = R.subData(iSub);
+	switch (descriptorCase) {
         case HYBRID: {
           for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
             double invsqcv = 1.0 / sqrt(cv[i]);
@@ -1246,8 +1357,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
             for (int j=0; j<dim; ++j) 
               r[i][j] *= invcv;
           }
-          break; }
-
+          break; }	  
+	}
       }
     }
   }
@@ -1669,6 +1780,7 @@ void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, D
 }
 //------------------------------------------------------------------------------
 
+//d2d emebedded
 template<int dim>
 template<class Scalar,int neq>
 void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
@@ -1681,6 +1793,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
                                          DistMat<Scalar,neq>& A,
                                          DistTimeState<dim>* timeState)
 {
+  
   A = 0.0;
   varFcn->conservativeToPrimitive(U, *V, &fluidId);  
   
@@ -1713,6 +1826,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
       delete irey;
   }
   irey = 0;
+
 }
   
 
@@ -1962,6 +2076,34 @@ void SpaceOperator<dim>::computeH2(DistSVec<double,3> &X, DistVec<double> &ctrlV
 		    H2, aij, aji, bij, bji);
 
 }
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar, int neq>
+void SpaceOperator<dim>::computeH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+				   DistSVec<double,dim> &U, 
+				   DistLevelSetStructure *distLSS,
+				   DistVec<int> &fluidId, 
+				   DistExactRiemannSolver<dim> *riemann, 
+				   int Nriemann, DistSVec<double,3> *Nsbar,
+				   DistVec<GhostPoint<dim>*> *ghostPoints,				   
+				   DistMat<Scalar,neq> &H2,
+				   DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+				   DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
+				   DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji)
+{
+
+  //std::cout << "$$$$$ IN SpaceOperatore EMB computeH2\n";
+
+  H2 = 0.0; 
+  domain->computeH2(fluxFcn, recFcn, *bcData, *geoState, 
+		    X, *V, *ngrad,  *riemann, distLSS, fluidId, 
+		    Nriemann, Nsbar,
+		    H2, aij, aji, bij, bji, betaij, betaji);
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1978,20 +2120,25 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
   DistSVec<Scalar2, dim> V2(domain->getNodeDistInfo());
   DistNodalGrad<dim, Scalar2> *distNodalGrad = getDistNodalGrad(p);
   int iSub;
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
+
     double (*locU)[dim] = U.subData(iSub);
     double (*locV)[dim] = V->subData(iSub);
     Scalar2 (*locp)[dim] = p.subData(iSub);
     Scalar2 (*locV2)[dim] = V2.subData(iSub);
+
     for (int i=0; i<p.subSize(iSub); ++i) {
       varFcn->conservativeToPrimitive(locU[i], locV[i]);
       varFcn->multiplyBydVdU(locV[i], locp[i], locV2[i]);
     }
+
   }
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0) {
     distNodalGrad->compute(geoState->getConfig(), X, ctrlVol, V2);
+
     distNodalGrad->limit(recFcn, X, ctrlVol, V2);
   }
 
@@ -2020,6 +2167,99 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar1, class Scalar2>
+void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+				 DistSVec<double,dim> &U,
+				 DistLevelSetStructure *distLSS,
+				 DistVec<int> &fluidId,
+				 bool linRecAtInterface, bool viscSecOrder,
+				 DistExactRiemannSolver<dim> *riemann, 
+				 int Nriemann, DistSVec<double,3> *Nsbar,
+				 DistVec<GhostPoint<dim>*> *ghostPoints,
+				 DistMat<Scalar1,dim> &H2,
+				 DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+				 DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
+				 DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji,
+				 DistSVec<Scalar2,dim> &p, DistSVec<Scalar2,dim> &prod)
+{
+
+  //std::cout << "$$$$$ IN SPACEOPT EMB applyH2\n";
+  int numLocSub = p.numLocSub();
+
+  DistSVec<Scalar2, dim> V2(domain->getNodeDistInfo());
+  DistNodalGrad<dim, Scalar2> *distNodalGrad = getDistNodalGrad(p);
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+
+    double (*locU)[dim]   = U.subData(iSub);
+    double (*locV)[dim]   = V->subData(iSub);
+    Scalar2 (*locp)[dim]  = p.subData(iSub);
+    Scalar2 (*locV2)[dim] = V2.subData(iSub);
+    int  (*locFluidId)    = fluidId.subData(iSub);
+
+    //double (*locX)[3] = X.subData(iSub);
+    //fprintf(stderr, "---------------------------- SUB %i \n",  iSub);
+
+    for (int i=0; i<p.subSize(iSub); ++i) {
+
+      varFcn->conservativeToPrimitive(locU[i], locV[i], locFluidId[i]);
+      varFcn->multiplyBydVdU(locV[i], locp[i], locV2[i]);
+
+      //fprintf(stderr, "XX[%3i] = %+10.5e %+10.5e %+10.5e | %i \n", i, locX[i][0], locX[i][1], locX[i][2], locFluidId[i]);
+      //for(int k=0; k<dim; ++k) fprintf(stderr, " %+10.5e ", locU[i][k]); fprintf(stderr, "\n");
+      //for(int k=0; k<dim; ++k) fprintf(stderr, " %+10.5e ", locV[i][k]); fprintf(stderr, "\n");
+      //fprintf(stderr, "\n");
+
+    }
+
+  }
+  
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0) {
+
+    bool linFSI = linRecAtInterface || viscSecOrder;
+
+    distNodalGrad->compute(geoState->getConfig(), X, ctrlVol, 
+    			   fluidId,  V2, linFSI, distLSS); // includeSweptNodes);
+    distNodalGrad->limit(recFcn, X, ctrlVol, V2);
+
+  }
+
+  switch (descriptorCase) {
+    case DESCRIPTOR: {
+      DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
+      unitCtrlVol = 1.0;
+      domain->computeMatVecProdH2(fluxFcn, recFcn, *geoState, X, unitCtrlVol, 
+				  *riemann, distLSS, fluidId, 
+				  Nriemann, Nsbar, H2, 
+				  aij, aji, bij, bji, betaij, betaji,
+				  V2, *distNodalGrad, prod);
+      break; }
+    case HYBRID: {
+      DistVec<double> sqrtCtrlVol(domain->getNodeDistInfo());
+      sqrtCtrlVol.pow(ctrlVol,0.5);
+      domain->computeMatVecProdH2(fluxFcn, recFcn, *geoState, X, sqrtCtrlVol,
+				  *riemann, distLSS, fluidId, 
+				  Nriemann, Nsbar, H2, 
+				  aij, aji, bij, bji, betaij, betaji,
+				  V2, *distNodalGrad, prod);
+      break; }
+    case NONDESCRIPTOR: {
+      domain->computeMatVecProdH2(fluxFcn, recFcn, *geoState, X, ctrlVol, 
+				  *riemann,  distLSS, fluidId,  
+				  Nriemann, Nsbar, H2, 
+				  aij, aji, bij, bji, betaij, betaji,
+				  V2, *distNodalGrad, prod);
+      break; }
+  }
+  
+}
+
+//------------------------------------------------------------------------------
+
 
 // V is destroyed and replaced by dVdU*p
 // dVdxj is destroyed and replaced by the derivatives of V = dVdU*p
@@ -2188,6 +2428,54 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       fprintf(stderr,"ERROR: force approach not specified correctly (%d)! Abort...\n", forceApp); 
       exit(-1);
     }
+}
+
+
+template<int dim>
+void SpaceOperator<dim>::computederivativeOfForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+ 						      DistVec<double> &ctrlVol, double (*dFs)[3], int sizeFs, 
+ 						      DistLevelSetStructure *distLSS,
+ 						      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+						      DistSVec<double,dim> &dV_, double dS[3],
+ 						      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
+ 						      DistVec<int>* fid){
+
+  double  pinternal = iod->aero.pressure;
+  double dpinternal;
+
+  if( iod->sa.apressFlag == false ) {
+    double Mach = iod->ref.mach;
+    double dPinfty = -2.0 / (iod->eqs.fluidModel.gasModel.specificHeatRatio * Mach*Mach*Mach);
+    dpinternal = dPinfty;
+  } else {
+    dpinternal = 0.0;
+  }
+  dpinternal *= dS[0]; 
+
+  switch (forceApp){
+    case 1: // Control Volume Boundaries
+      fprintf(stderr, "computederivativeOfForceLoad: Control Volume force algo not implemented\n");
+      exit(-1);
+      break;
+    case 2: // Embedded Surface
+
+        ngrad->compute(geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), *V,  true, distLSS);
+      ngraddV->compute(geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), dV_, true, distLSS);
+
+      domain->computederivativeEmbSurfBasedForceLoad(*iod, forceApp, orderOfAccuracy, X, dFs, sizeFs,
+						     distLSS, pinternal, dpinternal, Wstarij, Wstarji, 
+						     *V, dV_, ghostPoints, postFcn, ngrad, ngraddV, varFcn, fid);
+      
+      break;
+    case 3: // Reconstructed Surface
+      fprintf(stderr, "computederivativeOfForceLoad: Control Volume force algo not implemented\n");
+      exit(-1);
+      break;
+    default:
+      fprintf(stderr,"ERROR: force approach not specified correctly (%d)! Abort...\n", forceApp); 
+      exit(-1);
+    }
+
 }
 
 //------------------------------------------------------------------------------

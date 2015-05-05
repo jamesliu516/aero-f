@@ -113,7 +113,7 @@ KspPrec<neq> *ImplicitEmbeddedTsDesc<dim>::createPreconditioner(PcData &pcdata, 
 	   pcdata.type == PcData::ASH ||
 	   pcdata.type == PcData::AAS)
     _pc = new IluPrec<double,neq>(pcdata, dom);
-  
+
   return _pc;
   
 }
@@ -341,6 +341,7 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
 
 //  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
+
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
 

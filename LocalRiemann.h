@@ -56,6 +56,10 @@ public:
                               double *Wstar, double *rupdatei,
                               double &weighti, int it, double* dWstardU,int Id = 0) {}
 
+  virtual void computeRiemannderivative(double *Vi, double *Vstar, 
+					double *nphi, VarFcn *vf, double *Wstar, 
+					double* dWstardn, int Id = 0) {}
+
   virtual void computeRiemannSolution(int tag, double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,

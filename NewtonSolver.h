@@ -90,7 +90,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   double restrial, res2trial=0.0;
   double alpha;
   int maxItsLS;
-  
+
   if (probDesc->getLineSearch()) {
    rho = probDesc->getContractionLineSearch();
    c1 = probDesc->getSufficientDecreaseLineSearch();
@@ -98,7 +98,6 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   }
   int it, itLS;
   bool converged = false;
-
   for (it=0; finalRes||it<maxIts; ++it) {
 
 
@@ -131,11 +130,11 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     // for now, do not output on last time step (lastIt = false)
     probDesc->writeBinaryVectorsToDiskRom(false, timeStep, 0.0, &F);	// save residuals for rom (must know time step)
     probDesc->recomputeFunction(Q, rhs);
+
     probDesc->computeJacobian(it, Q, F);
 
     // apply preconditioner if available
     probDesc->setOperators(Q);
-
     probDesc->solveLinearSystem(it, rhs, dQ);
 
    if (probDesc->getLineSearch()) { 

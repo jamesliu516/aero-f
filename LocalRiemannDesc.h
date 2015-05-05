@@ -3125,6 +3125,10 @@ public:
                             double *Wstar, double *rupdatei,
                             double &weighti, int it, double* WstardU,int Id = 0);
 
+  void computeRiemannderivative(double *Vi, double *Vstar,
+				double *nphi, VarFcn *vf,
+				double *Wstar, double* dWstardn, int Id);
+
   // Multi-Phase Riemann solvers (implemented here just to stop compiler's complaining...)
   int computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
@@ -3150,15 +3154,15 @@ private:
   double mach;
 
   int eriemannfs(double rhol, double ul, double pl,
-                  double &rhoi, double ui, double &pi,
-                  VarFcn *vf, int Id,int& err,double pc, double rc,
-                  bool prec, double mach); //note: ui shouldn't be changed. so the value (instead of reference) is used.
+		 double &rhoi, double ui, double &pi,
+		 VarFcn *vf, int Id,int& err,double pc, double rc,
+ 		 bool prec, double mach); //note: ui shouldn't be changed. so the value (instead of reference) is used.
 
   void eriemannfs_grad(double rho, double u, double p,
                        double &rhoi, double ui, double &pi,
                        VarFcn *vf, double* dWdWi,int Id,
-                       bool prec, double mach); //Caution: "ui" will not be modified!
-  
+                       bool prec, double mach, double& drdus); //Caution: "ui" will not be modified!
+    
   void eriemannfs_tait(double rhol, double ul, double pl,
                   double &rhoi, double ui, double &pi,
                   VarFcn *vf, int Id,int& err,double pc, double rc); //note: ui shouldn't be changed. so the value (instead of reference) is used.
@@ -3335,6 +3339,7 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
   double dWdW[9]={1,0,0,0,1,0,0,0,1};
+  double dummy;
 
   R_1 = Vi[0];
   U_1 = vni;
@@ -3350,7 +3355,7 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   switch (vf->getType(Id)) {
   case VarFcnBase::STIFFENEDGAS:
   case VarFcnBase::PERFECTGAS:
-    eriemannfs_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id, prec, mach); //caution: U_i will not be modified!
+    eriemannfs_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id, prec, mach, dummy); //caution: U_i will not be modified!
     break;
   case VarFcnBase::TAIT:
     eriemannfs_tait_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id);
@@ -3394,6 +3399,78 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   dWstardU[4] = dWdW[2];
   dWstardU[dim*4] = dWdW[6]; 
 }
+//------------------------------------------------------------------------------
+
+template<int dim>
+inline
+void LocalRiemannFluidStructure<dim>::computeRiemannderivative(double *Vi, double *Vstar,
+							       double *nphi, VarFcn *vf,
+							       double *Wstar, double* dWstardn, int Id) {
+
+  // Compute the derivative of the WStar w.r.t the normal vector (nphi) //
+  // Works only for with perfect gas and no low-Mach preconditioner!!!!!!
+  
+  double P_1, U_1, R_1; // pass to 1D-FSI Riemann solver
+  double P_i, U_i, R_i; // solution given by 1D-FSI Riemann solver
+  double drdus, dpdus;
+
+  double vni = Vi[1]*nphi[0] + Vi[2]*nphi[1] + Vi[3]*nphi[2];
+
+  double dWdW[9]={1,0,0,0,1,0,0,0,1};
+
+  R_i = Wstar[0];
+  P_i = Wstar[4];
+
+  R_1 = Vi[0];
+  U_1 = vni;
+  P_1 = vf->getPressure(Vi,Id);
+
+  U_i = Vstar[0]*nphi[0] + Vstar[1]*nphi[1] + Vstar[2]*nphi[2];
+  P_i = vf->getPressure(Wstar, Id);
+
+  switch (vf->getType(Id)) {
+  case VarFcnBase::STIFFENEDGAS:
+  case VarFcnBase::PERFECTGAS:
+    eriemannfs_grad(R_1, U_1, P_1, 
+		    R_i, U_i, P_i, vf, dWdW, Id, prec, mach, drdus);
+    break;
+    case VarFcnBase::TAIT: 
+      fprintf(stderr, " ***ERROR: Tait EOS -> dW*/dn not implementted\n");
+      exit(-1);
+    //eriemannfs_tait_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id); 
+    //break;
+  }
+
+  dpdus = -dWdW[7];
+ 
+  memset(dWstardn, 0, sizeof(double)*dim*3);
+  
+  for (int i=0; i<3; ++i) {
+    dWstardn[i]     = dWdW[1]*Vi[(i+1)] + drdus*Vstar[i];  // drho* / dnn_Wall
+    dWstardn[i+4*3] = dWdW[7]*Vi[(i+1)] + dpdus*Vstar[i];  // dP*   / dnn_Wall
+  } 
+
+  double unn = (Vstar[0] - Vi[1])*nphi[0] 
+             + (Vstar[1] - Vi[2])*nphi[1] 
+             + (Vstar[2] - Vi[3])*nphi[2];
+
+  dWstardn[3]  = (Vstar[0] - Vi[1])*nphi[0] + unn; // du* / dnx_Wall
+  dWstardn[7]  = (Vstar[1] - Vi[2])*nphi[1] + unn; // dv* / dny_Wall
+  dWstardn[11] = (Vstar[2] - Vi[3])*nphi[2] + unn; // dw* / dnz_Wall
+  
+  dWstardn[4]  = (Vstar[1] - Vi[2])*nphi[0]; // du* / dny_Wall
+  dWstardn[5]  = (Vstar[2] - Vi[3])*nphi[0]; // du* / dnz_Wall
+
+  dWstardn[6]  = (Vstar[0] - Vi[1])*nphi[1]; // dv* / dnx_Wall
+  dWstardn[8]  = (Vstar[2] - Vi[3])*nphi[1]; // dv* / dnz_Wall
+
+  dWstardn[9]  = (Vstar[0] - Vi[1])*nphi[2]; // dw* / dnx_Wall
+  dWstardn[10] = (Vstar[1] - Vi[2])*nphi[2]; // dw* / dny_Wall
+
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 inline
@@ -3444,13 +3521,13 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(int tag, double *Vi
 }
 
 //------------------------------------------------------------------------------
-
+//Caution: "ui" will not be modified!
 template<int dim>
 inline
 int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
                                             VarFcn *vf, int Id,int& err, 
-                                            double pc, double rhoc, bool prec, double beta) //Caution: "ui" will not be modified!
+                                            double pc, double rhoc, bool prec, double beta) 
 {
   // assume structure on the left of the fluid
   // using the notation of Toro's paper
@@ -3532,9 +3609,9 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
 template<int dim>
 inline
 void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, double p,
-                                                 double &rhoi, double ui, double &pi,
-                                                 VarFcn *vf, double* dWidWi,int Id,
-                                                 bool prec, double beta) //Caution: "ui" will not be modified!
+						      double &rhoi, double ui, double &pi,
+						      VarFcn *vf, double* dWidWi,int Id,
+						      bool prec, double beta, double &drdus) //Caution: "ui" will not be modified!
 {
 
   // assume structure on the left of the fluid
@@ -3580,6 +3657,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[2] = mu*(1.0/pbar*dWidWi[8]-(pi+pref)/(pbar*pbar));
       dWidWi[1] = mu*dWidWi[7]/pbar;
       dWidWi[0] = rhoi/rho+mu/pbar*dWidWi[6];
+
+      drdus = -(mu/pbar)*dWidWi[7]; //**
+
     }
     else {
 
@@ -3601,6 +3681,8 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
       dWidWi[1] = dpp*dWidWi[7];
       dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
+
+      //drdus = ?
 
     }
   }
@@ -3633,6 +3715,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[0] = rhoi/rho+rho*deriv*dWidWi[6];
       dWidWi[1] = rho*deriv*dWidWi[7];
       dWidWi[2] = rho*(deriv*dWidWi[8]+deriv2);
+
+      drdus = -(rho*deriv)*dWidWi[7]; //**
+
     } else {
 
       double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
@@ -3653,6 +3738,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
       dWidWi[1] = dpp*dWidWi[7];
       dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
+
+      //drdus = ?
+
     }
   }
 }

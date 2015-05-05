@@ -8,7 +8,7 @@
 #include <MultiGridEmbeddedTsDesc.h>
 #include <ImplicitEmbeddedCoupledTsDesc.h>
 #include <MultiGridSolver.h>
-#include <EmbeddedFluidSensitivityAnalysisHandler.h>
+#include <EmbeddedFluidShapeOptimizationHandler.h>
 
 template<int dim>
 void startNavierStokesEmbeddedCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -20,9 +20,9 @@ void startNavierStokesEmbeddedCoupledSolver(IoData &ioData, GeoSource &geoSource
   domain.createRhsPat(dim, ioData);
 
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
-    EmbeddedFluidSensitivityAnalysisHandler<dim> fsah(ioData, geoSource, &domain);
-    TsSolver<EmbeddedFluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
-    tsSolver.fsaSolve(ioData);
+    EmbeddedFluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+    TsSolver<EmbeddedFluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+    tsSolver.fsoSolve(ioData);
   }
 
   else if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {

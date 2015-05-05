@@ -49,6 +49,8 @@ using std::max;
 #include <ProgrammedBurn.h>
 #include "LevelSet/LevelSetStructure.h"
 
+#include "HigherOrderFSI.h"
+
 #include "FSI/CrackingSurface.h"
 
 extern "C" {
@@ -365,7 +367,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
 //KW: set gradients = 0 for cells near interface.
   /* d2d 
-     in .h includeSweptNodes set always to TRUE
+     in .h includeSweptNodes set always to TRUE 
      std::cout<<"I'm here DistNgrad 1\n";
      if(linRecFSI){
      std::cout<< "using Lin FSI \n";
@@ -373,6 +375,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
      std::cout<< "NOT using LinFSI \n";
      }
   */
+
   if(!linRecFSI)
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
@@ -1094,6 +1097,33 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<doubl
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
+						    BcData<dim>& bcData, GeoState& geoState,
+						    SVec<double,3>& X, LevelSetStructure &LSS,
+						    bool linRecAtInterface, bool viscSecOrder,
+						    Vec<int> &fluidId,
+						    ExactRiemannSolver<dim>& riemann,
+						    int Nriemann, SVec<double,3>* Nsbar,
+						    NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+						    double dMach,
+						    SVec<double,dim>& V,
+						    SVec<double,dim>& dFluxes)
+{
+
+  //std::cout << "IN SUBDOM EMB :: computeDerivativeOfFiniteVolumeTerm\n";
+
+  edges.computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, geoState, X, LSS, 
+					    linRecAtInterface, fluidId, riemann,
+					    Nriemann, Nsbar, ngrad, egrad, dMach, V, dFluxes);
+
+  faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, int dimLS>
 int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -1179,6 +1209,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                      tag, failsafe, rshift, 
 				     higherOrderFSI->v6data);
 */
+
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
                                            linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
@@ -1325,6 +1356,7 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 CommPattern<double>* flag)
 {
+
   if (!flag){
     edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A);
 
@@ -1425,12 +1457,13 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
   }
 }
 //-------------------------------------------------------------------------------
+//d2d emebedded
 template<class Scalar,int dim,int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, 
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
-                                       LevelSetStructure &LSS,Vec<int> &fluidId,
+                                       LevelSetStructure &LSS, Vec<int> &fluidId,
                                        int Nriemann, SVec<double,3>* Nsbar,
                                        GenMat<Scalar,neq>& A,Vec<double>& irey)
 {
@@ -1450,6 +1483,8 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
   
 }
 
+//-------------------------------------------------------------------------------
+
 template<int dim, class Scalar, int neq, int dimLS>
 void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, 
@@ -1464,7 +1499,9 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
   edges.computeJacobianFiniteVolumeTerm(riemann,locToGlobNodeMap,
                                         fluxFcn, geoState, X, V, LSS,fluidId,Nriemann, Nsbar,
                                         fluidSelector, ngradLS,ctrlVol, A);
-  faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId,&LSS);
+
+  faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, &LSS);
+
   for (int i=0; i<ctrlVol.size(); ++i) {
     double voli = 1.0 / ctrlVol[i];
     Scalar *Aii = A.getElem_ii(i);
@@ -2795,6 +2832,8 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 			  NodalGrad<dim> &ngrad, GenMat<Scalar,neq> &A)
 {
 
+  //std::cout << "$$$$$ IN SUBDOMAIN computeH2\n";
+  
   double ddVij[dim], ddVji[dim], Vi[dim], Vj[dim], dfdVi[dim*dim], dfdVj[dim*dim];
 
   Scalar *Aij, *Aji;
@@ -2848,272 +2887,833 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void SubDomain::precomputeRec(RecFcn *recFcn, SVec<double,3> &X,
-			      SVec<double,dim> &V, NodalGrad<dim> &ngrad,
-			      SVec<Scalar,dim> &aij, SVec<Scalar,dim> &aji,
-			      SVec<Scalar,dim> &bij, SVec<Scalar,dim> &bji)
+template<int dim, class Scalar, int neq>
+void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData,
+			  GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
+			  NodalGrad<dim> &ngrad, 
+			  ExactRiemannSolver<dim>& riemann,
+			  LevelSetStructure &LSS, 
+			  Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,
+			  GenMat<Scalar,neq> &A,
+			  SVec<double,dim> &aij, SVec<double,dim> &aji,
+			  SVec<double,dim> &bij, SVec<double,dim> &bji,
+			  SVec<double,dim> &betaij, SVec<double,dim> &betaji)
 {
 
+  //std::cout << "$$$$$ IN SUBDOMAIN EMB computeH2\n";
+
+  double  Vi[2*dim],  Vj[2*dim], Vstar[2*dim];
+
   double ddVij[dim], ddVji[dim];
+
+  double  dfdVi[dim*dim],  dfdVj[dim*dim], dVsdV[dim*dim];
+  double dflux1[dim*dim], dflux2[dim*dim];
+  double betai[dim], betaj[dim];
+
+  Scalar *Aij, *Aji;
+
+  Vec<Vec3D>     &edgeNorm = geoState.getEdgeNormal();
+  Vec<double> &edgeNormVel = geoState.getEdgeNormalVel();
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
 
   SVec<double,dim> &dVdx = ngrad.getX();
   SVec<double,dim> &dVdy = ngrad.getY();
   SVec<double,dim> &dVdz = ngrad.getZ();
 
-  int (*edgePtr)[2] = edges.getPtr();
+  Vec3D normalDir;
 
-  for (int l=0; l<edges.size(); ++l) {
+  int k;
 
-    int i = edgePtr[l][0];
-    int j = edgePtr[l][1];
+  int farfieldFluid = 0;
+  double d_gradPhi;
 
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    for (int k=0; k<dim; ++k) {
-      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-    }
+   double alpha = 0.1;
 
-    recFcn->precompute(V[i], ddVij, V[j], ddVji, aij[l], aji[l], bij[l], bji[l]);
-  }
+   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
-}
+   for (int l=0; l<edges.size(); ++l) {
 
-//------------------------------------------------------------------------------
+     if (!edgeFlag[l]) continue;
 
-template<class Scalar, int dim>
-void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
-				    SVec<double,dim> &p, SVec<double,dim> &prod)
-{
+     int i = edgePtr[l][0];
+     int j = edgePtr[l][1];
 
-  int i, j, l;
+     bool intersect = LSS.edgeIntersectsStructure(0,l);
 
-  int numNodes = nodes.size();
-  int numEdges = edges.size();
+     bool iActive = LSS.isActive(0.0,i);
+     bool jActive = LSS.isActive(0.0,j);
 
-  bool *edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
+     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+     double length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
-  Scalar (*a)[dim*dim] = A.data();
+     for (k=0; k<dim; ++k) {
+       ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+     }
 
-  prod = 0.0;
+     if (iActive && jActive && !intersect){
+       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+     } else {
+       for(k=0; k<dim; k++) {
+	 Vi[k] = V[i][k];
+	 Vj[k] = V[j][k];
+       }
+     }
 
-#pragma ivdep
-  for (i=0; i<numNodes; ++i)
-    if (nodeFlag[i])
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+     for(k=0; k<dim; k++) {
+       Vi[k+dim] = V[i][k];
+       Vj[k+dim] = V[j][k];
+     }
 
-#pragma ivdep
-  for (l=0; l<numEdges; ++l) {
+     if (!intersect) {
 
-    if (edgeFlag[l]) {
+       fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vi, Vj, dfdVi, dfdVj);
 
-      i = edgePtr[l][0];
-      j = edgePtr[l][1];
+       Aij = A.getElem_ij(l);
+       Aji = A.getElem_ji(l);
 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+       if (Aij && Aji)  {
+	 for (k=0; k<dim*dim; ++k) {
+	   Aij[k] += dfdVj[k];
+	   Aji[k] += dfdVi[k];
+	 }
+       }
 
-    }
+     } else {
 
-  }
+       if(iActive) {
 
-}
+	 LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+	 switch (Nriemann) {
+	 case 0: //structure normal
+	   d_gradPhi = dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2];
+	   normalDir = (d_gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+	   break;
+	 case 1: //fluid normal
+	   normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
+	   break;
+	 case 2: //cell-averaged structure normal
+	   if(fluidId[i]==farfieldFluid)
+	     normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+	   else 
+	     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+	   break;
+	 default:
+	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+	   exit(-1);
+	 }
 
-//------------------------------------------------------------------------------
+	 for (k=0; k<dim; ++k) betai[k] = 0.0;
 
-template<class Scalar, int dim>
-void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
-				    SVec<double,dim> &p, SVec<double,dim> &prod,
-                                    SVec<double,dim> &ghostP, SVec<double,dim>& ghostProd)
-{
+	 //*************************************
+	 if (higherOrderFSI) {
 
-  int i, j, l;
+	   double ri[dim];
+	   higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri);
+	  
+	   for (k=0; k<dim; ++k) betai[k] = 1.0;
 
-  int numNodes = nodes.size();
-  int numEdges = edges.size();
+	   if (higherOrderFSI->limitExtrapolation()) {
+	     if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
+	       for (int k = 0; k < dim; ++k) {
+		 betai[k] = std::min<double>(betai[k],ri[k]);
+	       }
+	     }
+	   }
 
-  bool *edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
+	   for (k=0; k<dim; ++k){
+	     Vi[k] = V[i][k] + (1.0 - resij.alpha)*ddVij[k]*betai[k];
+	   }
 
-  Scalar (*a)[dim*dim] = A.data();
+	 }
+	 //*************************************
 
-  prod = 0.0;
+	 riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Vstar, j,        fluidId[i]);
+	 riemann.computeFSIRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Vstar, j, dVsdV, fluidId[i]);
 
-#pragma ivdep
-  for (i=0; i<numNodes; ++i)
-    if (nodeFlag[i])
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+	 //*************************************
+	 if(higherOrderFSI) {
 
-#pragma ivdep
-  for (l=0; l<numEdges; ++l) {
+	   V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
 
-    if (edgeFlag[l]) {
+	   if (v6data == NULL) {
+	     for (int k=0; k<dim; k++) {
+	       Vstar[k] = V[i][k] + (0.5/max(1.0-resij.alpha, alpha)) * (Vstar[k] - V[i][k]);
+	     }
+	   } else {
+	     higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Vstar, X, resij.alpha, length, fluidId, betai);
+	   }
 
-      i = edgePtr[l][0];
-      j = edgePtr[l][1];
+	 }
+	 //*************************************
 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+	 for (int k=0; k<dim; k++) {
+	   aij[l][k] = Vi[k];
+	   bij[l][k] = Vstar[k];
+	   betaij[l][k] = betai[k];
+	 }
 
-    }
+	 Aji = A.getElem_ji(l);
+	 //Aij = A.getElem_ij(l);
+	 for (int k=0; k<dim*dim; ++k) {
+	   Aji[k] += dVsdV[k];
+	   //Aij[k] += 0.0;
+	 }	
 
-  }
+       }
 
-  typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_realNodes();
-  if (myItr) {
-    do { 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , prod.v, myItr->row);
-    } while (A.next(myItr));
-    A.free(myItr);
-  }
-  
-  myItr = A.begin_ghostNodes();
-  if (myItr) {
-    do { 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostProd.v, myItr->row);
-    } while (A.next(myItr));
-    A.free(myItr);
-  }
+       if(jActive){
 
-  myItr = A.begin_ghostGhostNodes();
-  if (myItr) {
-    do { 
-     DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
-    } while (A.next(myItr));
-    A.free(myItr);
-  }
+	 LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+	 switch (Nriemann) {
+	 case 0: //structure normal
+	   d_gradPhi = dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2];
+	   normalDir = (d_gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+	   break;
+	 case 1: //fluid normal
+	   normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
+	   break;
+	 case 2: //cell-averaged structure normal
+	   if(fluidId[j]==farfieldFluid)       
+	     normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+	   else
+	     normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+	   break;
+	 default:
+	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+	   exit(-1);
+	 }
 
-}
+	 for (k=0; k<dim; ++k) betaj[k] = 0.0;
 
+	 //*************************************
+	 if (higherOrderFSI) {
+
+	   double rj[dim];
+
+	   higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj);
+
+	   for (k=0; k<dim; ++k) betaj[k] = 1.0;
+
+	   if (higherOrderFSI->limitExtrapolation()) {
+	     if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
+	       for (int k = 0; k < dim; ++k) {
+		 betaj[k] = std::min<double>(betaj[k],rj[k]);
+	       }
+	     }
+	   }
+	   for (k=0; k<dim; ++k){
+	     Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k]*betaj[k];
+	   }
+
+	 }
+	 //*************************************
+
+	 riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Vstar, i,        fluidId[j]);
+	 riemann.computeFSIRiemannJacobian(Vj, resji.normVel, normalDir, varFcn, Vstar, i, dVsdV, fluidId[j]);
+
+	 //*************************************
+	 if (higherOrderFSI) {
+
+	   V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+
+	   if (v6data==NULL) {
+	     for (int k=0; k<dim; k++){
+	       Vstar[k] = V[j][k]+(0.5/max(1.0 - resji.alpha, alpha))*(Vstar[k] - V[j][k]);
+	     }
+	   } else {
+	     higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Vstar, X, 1.0-resji.alpha, length, fluidId, betaj);
+	   }
+
+	 }
+	 //*************************************
+
+	 for (int k=0; k<dim; k++) {
+	   aji[l][k] = Vstar[k];
+	   bji[l][k] = Vj[k];
+	   betaji[l][k] = betaj[k];
+	 }
+
+	 Aij = A.getElem_ij(l);
+	 //Aji = A.getElem_ji(l);
+	 for (int k=0; k<dim*dim; ++k) {
+	   Aij[k] += dVsdV[k];
+	   //Aji[k] += 0.0;
+	 }
+
+       }    
+
+     }
+
+   }
+
+   // contribution of the boundary faces
+   faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
+
+ }
+
+ //------------------------------------------------------------------------------
+
+ template<class Scalar, int dim>
+ void SubDomain::precomputeRec(RecFcn *recFcn, SVec<double,3> &X,
+			       SVec<double,dim> &V, NodalGrad<dim> &ngrad,
+			       SVec<Scalar,dim> &aij, SVec<Scalar,dim> &aji,
+			       SVec<Scalar,dim> &bij, SVec<Scalar,dim> &bji)
+ {
+
+   double ddVij[dim], ddVji[dim];
+
+   SVec<double,dim> &dVdx = ngrad.getX();
+   SVec<double,dim> &dVdy = ngrad.getY();
+   SVec<double,dim> &dVdz = ngrad.getZ();
+
+   int (*edgePtr)[2] = edges.getPtr();
+
+   for (int l=0; l<edges.size(); ++l) {
+
+     int i = edgePtr[l][0];
+     int j = edgePtr[l][1];
+
+     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+     for (int k=0; k<dim; ++k) {
+       ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+     }
+
+     recFcn->precompute(V[i], ddVij, V[j], ddVji, aij[l], aji[l], bij[l], bji[l]);
+
+   }
+
+ }
+
+ //------------------------------------------------------------------------------
+
+ template<class Scalar, int dim>
+ void SubDomain::precomputeRec(RecFcn *recFcn, SVec<double,3> &X,
+			       SVec<double,dim> &V, NodalGrad<dim> &ngrad,
+			       LevelSetStructure &LSS, Vec<int> &fluidId,
+			       SVec<Scalar,dim> &aij, SVec<Scalar,dim> &aji,
+			       SVec<Scalar,dim> &bij, SVec<Scalar,dim> &bji)
+ {
+
+   //std::cout << "$$$$$ IN SUBDOMAIN EMB precompRec\n";
+
+   double ddVij[dim], ddVji[dim];
+
+   SVec<double,dim> &dVdx = ngrad.getX();
+   SVec<double,dim> &dVdy = ngrad.getY();
+   SVec<double,dim> &dVdz = ngrad.getZ();
+
+   int (*edgePtr)[2] = edges.getPtr();
+
+   for (int l=0; l<edges.size(); ++l) {
+
+     int i = edgePtr[l][0];
+     int j = edgePtr[l][1];
+
+     bool intersect = LSS.edgeIntersectsStructure(0,l);
+
+     bool iActive = LSS.isActive(0.0,i);
+     bool jActive = LSS.isActive(0.0,j);
+
+     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+
+     if (iActive && jActive && !intersect){
  
-template<class Scalar, int dim>
-void SubDomain::
-computeMatVecProdH1FarFieldHH(bool *nodeFlag, GenMat<Scalar,dim> &A, SVec<double,dim> &p_u,
-	                      SVec<double,dim> &prod_u,Vec<double>& p_hh, 
-                              Vec<double>& prod_hh) {
+       for (int k=0; k<dim; ++k) {
+	 ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+	 ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+       }
+       recFcn->precompute(V[i], ddVij, V[j], ddVji, aij[l], aji[l], bij[l], bji[l]);
 
-  faces.computeMatVecProdH1FarFieldHH(A, p_u, prod_u,p_hh, prod_hh);
+     }
 
-}
+   }
 
-//------------------------------------------------------------------------------
+ }
 
-template<class Scalar1, class Scalar2, int dim>
-void SubDomain::computeMatVecProdH2(RecFcn *recFcn, SVec<double,3> &X,
-	        Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
-	        SVec<double,dim> &aij, SVec<double,dim> &aji,
-	        SVec<double,dim> &bij, SVec<double,dim> &bji,
-	        SVec<Scalar2,dim> &p, NodalGrad<dim, Scalar2> &dpdxj,
-	        SVec<Scalar2,dim> &prod) {
+ //------------------------------------------------------------------------------
 
-  int i, j, l;
+ template<class Scalar, int dim>
+ void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
+				     SVec<double,dim> &p, SVec<double,dim> &prod)
+ {
 
-  Scalar2 ddpij[dim], ddpji[dim], pij[1][dim], pji[1][dim];
-  Scalar2 tmp[1][dim], tmpi[1][dim], tmpj[1][dim];
+   int i, j, l;
 
-  Scalar1 (*a)[dim*dim] = A.data();
+   int numNodes = nodes.size();
+   int numEdges = edges.size();
 
-  SVec<Scalar2,dim> &dpdx = dpdxj.getX();
-  SVec<Scalar2,dim> &dpdy = dpdxj.getY();
-  SVec<Scalar2,dim> &dpdz = dpdxj.getZ();
+   bool *edgeFlag = edges.getMasterFlag();
+   int (*edgePtr)[2] = edges.getPtr();
 
-  prod = (Scalar2) 0.0;
+   Scalar (*a)[dim*dim] = A.data();
 
-  int numNodes = nodes.size();
-  int numEdges = edges.size();
+   prod = 0.0;
 
-  int (*edgePtr)[2] = edges.getPtr();
+ #pragma ivdep
+   for (i=0; i<numNodes; ++i)
+     if (nodeFlag[i])
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
 
-  bool *masterFlag = edges.getMasterFlag();
+ #pragma ivdep
+   for (l=0; l<numEdges; ++l) {
 
-  if (bcMap.size() > 0)  {
-    int index;
-    for (l=0; l<numEdges; ++l) {
-      if (!masterFlag[l]) continue;
-      i = edgePtr[l][0];
-      j = edgePtr[l][1];
+     if (edgeFlag[l]) {
 
-      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-      for (int k=0; k<dim; ++k) {
-        ddpij[k] = dx[0]*dpdx[i][k] + dx[1]*dpdy[i][k] + dx[2]*dpdz[i][k];
-        ddpji[k] = dx[0]*dpdx[j][k] + dx[1]*dpdy[j][k] + dx[2]*dpdz[j][k];
+       i = edgePtr[l][0];
+       j = edgePtr[l][1];
 
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+
+     }
+
+   }
+
+ }
+
+ //------------------------------------------------------------------------------
+
+ template<class Scalar, int dim>
+ void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
+				     SVec<double,dim> &p, SVec<double,dim> &prod,
+				     SVec<double,dim> &ghostP, SVec<double,dim>& ghostProd)
+ {
+
+   int i, j, l;
+
+   int numNodes = nodes.size();
+   int numEdges = edges.size();
+
+   bool *edgeFlag = edges.getMasterFlag();
+   int (*edgePtr)[2] = edges.getPtr();
+
+   Scalar (*a)[dim*dim] = A.data();
+
+   prod = 0.0;
+
+ #pragma ivdep
+   for (i=0; i<numNodes; ++i)
+     if (nodeFlag[i])
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+
+ #pragma ivdep
+   for (l=0; l<numEdges; ++l) {
+
+     if (edgeFlag[l]) {
+
+       i = edgePtr[l][0];
+       j = edgePtr[l][1];
+
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l,     p.v, j, prod.v, i);
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+
+     }
+
+   }
+
+   typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_realNodes();
+   if (myItr) {
+     do { 
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , prod.v, myItr->row);
+     } while (A.next(myItr));
+     A.free(myItr);
+   }
+
+   myItr = A.begin_ghostNodes();
+   if (myItr) {
+     do { 
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostProd.v, myItr->row);
+     } while (A.next(myItr));
+     A.free(myItr);
+   }
+
+   myItr = A.begin_ghostGhostNodes();
+   if (myItr) {
+     do { 
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
+     } while (A.next(myItr));
+     A.free(myItr);
+   }
+
+ }
+
+
+ template<class Scalar, int dim>
+ void SubDomain::
+ computeMatVecProdH1FarFieldHH(bool *nodeFlag, GenMat<Scalar,dim> &A, SVec<double,dim> &p_u,
+			       SVec<double,dim> &prod_u,Vec<double>& p_hh, 
+			       Vec<double>& prod_hh) {
+
+   faces.computeMatVecProdH1FarFieldHH(A, p_u, prod_u,p_hh, prod_hh);
+
+ }
+
+ //------------------------------------------------------------------------------
+
+ template<class Scalar1, class Scalar2, int dim>
+ void SubDomain::computeMatVecProdH2(RecFcn *recFcn, SVec<double,3> &X,
+				     Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
+				     SVec<double,dim> &aij, SVec<double,dim> &aji,
+				     SVec<double,dim> &bij, SVec<double,dim> &bji,
+				     SVec<Scalar2,dim> &p, NodalGrad<dim, Scalar2> &dpdxj,
+				     SVec<Scalar2,dim> &prod) {
+
+   int i, j, l;
+
+   Scalar2 ddpij[dim], ddpji[dim], pij[1][dim], pji[1][dim];
+   Scalar2 tmp[1][dim], tmpi[1][dim], tmpj[1][dim];
+
+   Scalar1 (*a)[dim*dim] = A.data();
+
+   SVec<Scalar2,dim> &dpdx = dpdxj.getX();
+   SVec<Scalar2,dim> &dpdy = dpdxj.getY();
+   SVec<Scalar2,dim> &dpdz = dpdxj.getZ();
+
+   prod = (Scalar2) 0.0;
+
+   int numNodes = nodes.size();
+   int numEdges = edges.size();
+
+   int (*edgePtr)[2] = edges.getPtr();
+
+   bool *masterFlag = edges.getMasterFlag();
+
+   if (bcMap.size() > 0)  {
+
+     int index;
+     for (l=0; l<numEdges; ++l) {
+       if (!masterFlag[l]) continue;
+       i = edgePtr[l][0];
+       j = edgePtr[l][1];
+
+       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+       for (int k=0; k<dim; ++k) {
+	 ddpij[k] = dx[0]*dpdx[i][k] + dx[1]*dpdy[i][k] + dx[2]*dpdz[i][k];
+	 ddpji[k] = dx[0]*dpdx[j][k] + dx[1]*dpdy[j][k] + dx[2]*dpdz[j][k];
+
+       }
+
+       // result of the reconstructed-limited states are in pij, pji
+       recFcn->template compute<Scalar2, dim>(p[i], ddpij, p[j], ddpji, aij[l], aji[l],
+					      bij[l], bji[l], pij[0], pji[0]);
+
+       // A is applied to reconstructed-limited states and stored in tmpi, tmpj
+       // address of a is shifted by the number of diagonal entries (numnodes)
+
+       if (bcMap.find(l) != bcMap.end())  {
+	 if (nodeType[i] != BC_INTERNAL)
+	   index = numNodes+2*numEdges+2*bcMap[l];
+	 else
+	   index = numNodes + 2*l;
+
+	 DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, index, pji, 0, prod.v, i);
+	 DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, index+1, pij, 0, prod.v, i);
+
+	 if (nodeType[j] != BC_INTERNAL)
+	   index = numNodes+2*numEdges+2*bcMap[l]+2*numBcNodes[l];
+	 else
+	   index = numNodes+2*l;
+
+	 DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndSubToVector(a, index, pji, 0, prod.v, j);
+	 DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndSubToVector(a, index+1, pij, 0, prod.v, j);
+
+       }
+       else  {
+	 DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l, pji, 0, tmpi, 0);
+	 DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l + 1, pij, 0, tmpj, 0);
+
+	 VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);
+	 VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i);
+	 VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j);
+       }
+     }
+   }
+   else  {
+
+     //std::cout << "IN SUBCOM COMPUTE MatVecH2 NOOOOO bcMap" << bcMap.size() << "\n";
+
+     for (l=0; l<numEdges; ++l) {
+       if (!masterFlag[l]) continue;
+       i = edgePtr[l][0];
+       j = edgePtr[l][1];
+
+       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+       for (int k=0; k<dim; ++k) {
+	 ddpij[k] = dx[0]*dpdx[i][k] + dx[1]*dpdy[i][k] + dx[2]*dpdz[i][k];
+	 ddpji[k] = dx[0]*dpdx[j][k] + dx[1]*dpdy[j][k] + dx[2]*dpdz[j][k];
+
+       }
+
+       // result of the reconstructed-limited states are in pij, pji
+       recFcn->template compute<Scalar2, dim>(p[i], ddpij, p[j], ddpji, aij[l], aji[l],
+					      bij[l], bji[l], pij[0], pji[0]);
+
+       DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l,     pji, 0, tmpi, 0);
+       DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l + 1, pij, 0, tmpj, 0);
+
+       VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);
+       VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i); 
+       VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j); 
+     }
+   }
+
+   // contribution from diagonal entries of A
+   for (i=0; i<numNodes; ++i) {
+
+     DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+
+     double voli = 1.0 / ctrlVol[i];
+     for (int k=0; k<dim; ++k) prod[i][k] *= voli;
+
+   }
+ }
+
+ //------------------------------------------------------------------------------
+
+ template<class Scalar1, class Scalar2, int dim>
+ void SubDomain::computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, GeoState &geoState,
+				     SVec<double,3> &X, Vec<double> &ctrlVol, 
+				     ExactRiemannSolver<dim>& riemann,
+				     LevelSetStructure &LSS,
+				     Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,			    
+				     GenMat<Scalar1,dim> &A,
+				     SVec<double,dim> &aij, SVec<double,dim> &aji,
+				     SVec<double,dim> &bij, SVec<double,dim> &bji,
+				     SVec<double,dim> &betaij, SVec<double,dim> &betaji,
+				     SVec<Scalar2,dim> &p, NodalGrad<dim, Scalar2> &dpdxj,
+				     SVec<Scalar2,dim> &prod) {
+
+   //std::cout << "IN SUBCOM COMPUTE MatVecH2 EMB" << "\n";
+
+   int i, j, l;
+
+   Scalar2 ddpij[dim], ddpji[dim], pij[1][dim], pji[1][dim];
+   Scalar2 tmp[1][dim], tmpi[1][dim], tmpj[1][dim];
+
+   Scalar2 Vi[2*dim], Vj[2*dim], Vstar[2*dim];
+
+   Scalar2 dfdVi[dim*dim],  dfdVj[dim*dim];
+   Scalar2 dVsdV[dim*dim], dflux1[dim*dim], dflux2[dim*dim];
+
+   Scalar1 (*a)[dim*dim] = A.data();
+
+   Scalar1 Atmpij[1][dim*dim], Atmpji[1][dim*dim];
+
+   SVec<Scalar2,dim> &dpdx = dpdxj.getX();
+   SVec<Scalar2,dim> &dpdy = dpdxj.getY();
+   SVec<Scalar2,dim> &dpdz = dpdxj.getZ();
+
+   prod = (Scalar2) 0.0;
+
+   int numNodes = nodes.size();
+   int numEdges = edges.size();
+
+   Vec<Vec3D>     &edgeNorm = geoState.getEdgeNormal();
+   Vec<double> &edgeNormVel = geoState.getEdgeNormalVel();
+
+   int (*edgePtr)[2] = edges.getPtr();
+
+   bool *masterFlag = edges.getMasterFlag();
+
+   double d_gradPhi;
+
+   Vec3D normalDir;
+
+   int k;
+
+   int farfieldFluid = 0;
+
+   double alpha_lim = 0.1;
+
+   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+
+   if (bcMap.size() > 0)  {
+     std::cout << "****Not sure about what to do *****\n";
+     exit(-1);
+   }
+
+   for (l=0; l<numEdges; ++l) {
+
+     if (!masterFlag[l]) continue;
+
+     i = edgePtr[l][0];
+     j = edgePtr[l][1];
+
+     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+     double length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+     bool intersect = LSS.edgeIntersectsStructure(0,l);
+
+     bool iActive = LSS.isActive(0.0,i);
+     bool jActive = LSS.isActive(0.0,j);    
+
+     if( !iActive && !jActive ) {
+       continue;
+     }
+
+     for (k=0; k<dim; ++k) {
+       ddpij[k] = dx[0]*dpdx[i][k] + dx[1]*dpdy[i][k] + dx[2]*dpdz[i][k];
+       ddpji[k] = dx[0]*dpdx[j][k] + dx[1]*dpdy[j][k] + dx[2]*dpdz[j][k];
+     }
+
+     if(iActive && jActive && !intersect) {
+
+       recFcn->template compute<Scalar2, dim>(p[i], ddpij, p[j], ddpji, 
+					      aij[l], aji[l], bij[l], bji[l], 
+					      pij[0], pji[0]);
+
+       DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l,     pji, 0, tmpi, 0);
+       DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l + 1, pij, 0, tmpj, 0);
+
+       VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);
+       VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i); 
+       VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j); 
+
+     } else {
+
+       if(iActive) {
+
+	 LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+	 switch (Nriemann) {
+	 case 0: //structure normal
+	   d_gradPhi = dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2];
+	   normalDir = (d_gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+	   break;
+	 case 1: //fluid normal
+	   normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
+	   break;
+	 case 2: //cell-averaged structure normal
+	   if(fluidId[i]==farfieldFluid)
+	     normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+	   else 
+	     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+	   break;
+	 default:
+	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+	   exit(-1);
+	 }
+
+	 for(k=0; k<dim; ++k) {	  
+	   Vi[k]        = aij[l][k];
+	   Vi[k+dim]    = Vi[k];
+	   Vstar[k]     = bij[l][k];
+	   Vstar[k+dim] = Vstar[k];
+	 }
+
+	 convert2(a[numNodes+2*l+1], dim, dVsdV);
+
+	 fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vi, Vstar, dfdVi, dfdVj);
+
+	 if (!higherOrderFSI) {
+
+	   for(k=0; k<dim; ++k) pij[0][k] = p[i][k];
+
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToDenseMatrix(&dfdVj, 0, &dVsdV, 0, &dflux1, 0);
+	   for(k=0; k<dim*dim; ++k) Atmpij[0][k] = dflux1[k] + dfdVi[k];
+
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToVector(Atmpij, 0, pij, 0, tmp, 0);
+
+	 } else {
+
+	   LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+
+	   higherOrderFSI->RcnExtrap(l, 0, i, length, resij.alpha, p, ddpij, X, fluidId, betaij[l], dVsdV, pij[0], pji[0]);
+
+	   for(k=0; k<dim*dim; ++k) Atmpij[0][k] = dfdVi[k];
+	   for(k=0; k<dim*dim; ++k) Atmpji[0][k] = dfdVj[k];
+
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToVector(Atmpij, 0, pij, 0, tmpi, 0);
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToVector(Atmpji, 0, pji, 0, tmpj, 0);
+	   VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);
+
+	 }
+
+	 VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i);
+
+       }
+
+       if(jActive) {
+
+	 LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+	 switch (Nriemann) {
+	 case 0: //structure normal
+	   d_gradPhi = dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2];
+	   normalDir = (d_gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+	   break;
+	 case 1: //fluid normal
+	   normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
+	   break;
+	 case 2: //cell-averaged structure normal
+	   if(fluidId[j]==farfieldFluid)       
+	     normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+	   else
+	     normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+	   break;
+	 default:
+	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+	   exit(-1);
+	 }
+
+	 for(k=0; k<dim; ++k) {
+	   Vj[k]        = bji[l][k];
+	   Vj[k+dim]    = Vj[k];
+	   Vstar[k]     = aji[l][k];
+	   Vstar[k+dim] = Vstar[k];
+	 }
+
+	 convert2(a[numNodes+2*l], dim, dVsdV);
+
+	 fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vstar, Vj, dfdVi, dfdVj);
+
+	 if (!higherOrderFSI) {
+
+	   for(k=0; k<dim; ++k) pji[0][k] = p[j][k];
+
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToDenseMatrix(&dfdVi, 0, &dVsdV, 0, &dflux2, 0);
+	   for(k=0; k<dim*dim; ++k) Atmpji[0][k] = dflux2[k] + dfdVj[k];
+
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToVector(Atmpji, 0, pji, 0, tmp, 0);
+
+	 }else{
+
+	   LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+
+	   higherOrderFSI->RcnExtrap(l, 1, j, length, resji.alpha, p, ddpji, X, fluidId, betaji[l], dVsdV, pji[0], pij[0]);
+
+	   for(k=0; k<dim*dim; ++k) Atmpij[0][k] = dfdVi[k];
+	   for(k=0; k<dim*dim; ++k) Atmpji[0][k] = dfdVj[k];
+
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToVector(Atmpij, 0, pij, 0, tmpi, 0);
+	   DenseMatrixOp<Scalar2, dim, dim*dim>::applyToVector(Atmpji, 0, pji, 0, tmpj, 0);
+	   VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);	  
+
+	 }
+
+	 VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j);
+ 
       }
 
-      // result of the reconstructed-limited states are in pij, pji
-      recFcn->template compute<Scalar2, dim>(p[i], ddpij, p[j], ddpji, aij[l], aji[l],
-         				     bij[l], bji[l], pij[0], pji[0]);
-
-      // A is applied to reconstructed-limited states and stored in tmpi, tmpj
-      // address of a is shifted by the number of diagonal entries (numnodes)
-
-      if (bcMap.find(l) != bcMap.end())  {
-        if (nodeType[i] != BC_INTERNAL)
-          index = numNodes+2*numEdges+2*bcMap[l];
-        else
-          index = numNodes + 2*l;
-
-        DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, index, pji, 0, prod.v, i);
-        DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, index+1, pij, 0, prod.v, i);
-
-        if (nodeType[j] != BC_INTERNAL)
-          index = numNodes+2*numEdges+2*bcMap[l]+2*numBcNodes[l];
-        else
-          index = numNodes+2*l;
-
-        DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndSubToVector(a, index, pji, 0, prod.v, j);
-        DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndSubToVector(a, index+1, pij, 0, prod.v, j);
-
-      }
-      else  {
-        DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l, pji, 0, tmpi, 0);
-        DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l + 1, pij, 0, tmpj, 0);
-
-        VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);
-        VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i);
-        VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j);
-      }
     }
-  }
-  else  {
 
-    for (l=0; l<numEdges; ++l) {
-      if (!masterFlag[l]) continue;
-      i = edgePtr[l][0];
-      j = edgePtr[l][1];
-
-      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-      for (int k=0; k<dim; ++k) {
-        ddpij[k] = dx[0]*dpdx[i][k] + dx[1]*dpdy[i][k] + dx[2]*dpdz[i][k];
-        ddpji[k] = dx[0]*dpdx[j][k] + dx[1]*dpdy[j][k] + dx[2]*dpdz[j][k];
-
-      }
-
-      // result of the reconstructed-limited states are in pij, pji
-      recFcn->template compute<Scalar2, dim>(p[i], ddpij, p[j], ddpji, aij[l], aji[l],
-                                             bij[l], bji[l], pij[0], pji[0]);
-
-      DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l, pji, 0, tmpi, 0);
-      DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l + 1, pij, 0, tmpj, 0);
-
-      VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);
-      VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i); 
-      VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j); 
-    }
   }
 
   // contribution from diagonal entries of A
   for (i=0; i<numNodes; ++i) {
 
-    DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
-
+    DenseMatrixOp<Scalar2,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+    
     double voli = 1.0 / ctrlVol[i];
     for (int k=0; k<dim; ++k) prod[i][k] *= voli;
 
-  }
-}
+    if(!LSS.isActive(0.0,i)) for (int k=0; k<dim; ++k) prod[i][k] = 0.0;
 
+  }
+
+}
 //------------------------------------------------------------------------------
 
 template<class Scalar1, class Scalar2, int dim>
@@ -4475,10 +5075,10 @@ void SubDomain::computeDerivativeOfNodalHeatPower(PostFcn* postFcn, BcData<dim>&
 
 template<int dim>
 void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
-																      GeoState &geoState, SVec<double,3> &X,
-																      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
-																      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
-												              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
+				      GeoState &geoState, SVec<double,3> &X,
+				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
+				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
+				      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
@@ -4502,6 +5102,7 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
     if(idx >= 0)  {
       faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0,
                        Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro, mX, genCF);
+
     }
   }
 
@@ -6951,7 +7552,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 
     for (int j=0; j<3; ++j) {
       stNode[j] = stElem[nSt][j];
-      Xst[j] = Xstruct[stNode[j]]; 
+         Xst[j] = Xstruct[stNode[j]]; 
     }
     Vec3D normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
 
@@ -7078,6 +7679,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
                            gradY[i][k]*vectorIJ[1]+
 	                   gradZ[i][k]*vectorIJ[2];
         }
+
 	// check for neg pressures/densities
 	if (vf->doVerification()) {
 	  double Udummy[dim];
@@ -7085,7 +7687,8 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 	  vf->getVarFcnBase(fid?(*fid)[i]:0)->
 	    verification(0,Udummy, Vext);
 	}
-        double pp = vf->getPressure(Vext, fid?(*fid)[i]:0);
+	double pp = vf->getPressure(Vext, fid?(*fid)[i]:0);
+
         flocal += (pp - pInfty)*nf[n];
         if(ghostPoints) {// Viscous Simulation
           flocal += postFcn->computeViscousForce(dp1dxj,nf[n],d2w,Vwall,Vface,vtet[n]);
@@ -7101,6 +7704,180 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
   }
 }
 
+//-----------------------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
+						       double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 
+						       Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS, 
+						       double pInfty, double dpInfty, 
+						       SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, 
+						       SVec<double,dim> &V, SVec<double,dim> &dV_, 
+						       Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+						       NodalGrad<dim, double> &gradV, NodalGrad<dim, double> &graddV, VarFcn* vf, Vec<int>* fid){
+
+  int qOrder = iod.embed.qOrder;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double (*qloc)[3](quadrature_formula.qloc);
+  double *qweight(quadrature_formula.weight);
+
+  int iElem = -1;
+  int T[4];
+
+  Vec3D vectorIJ, dvectorIJ, gradP, dflocal;
+
+  SVec<double,dim> gradVX = gradV.getX();
+  SVec<double,dim> gradVY = gradV.getY();
+  SVec<double,dim> gradVZ = gradV.getZ();
+
+  SVec<double,dim> graddVX = graddV.getX();
+  SVec<double,dim> graddVY = graddV.getY();
+  SVec<double,dim> graddVZ = graddV.getZ();
+
+  int stNode[3];
+  Vec3D Xst[3], dXst[3];
+  Vec3D Xp, dXp;
+
+  for(int nSt = 0; nSt < numStructElems; ++nSt) {
+
+    for (int j=0; j<3; ++j) {
+      stNode[j] = stElem[nSt][j];
+         Xst[j] =  Xstruct[stNode[j]]; 
+        dXst[j] = dXstruct[stNode[j]]; 
+    }
+
+    Vec3D normal  = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+
+    Vec3D dnormal = 0.5*(( (dXst[1] - dXst[0])^( Xst[2] -  Xst[0]) )
+                       + ( ( Xst[1] -  Xst[0])^(dXst[2] - dXst[0]) ));
+
+    for(int nq=0; nq<nqPoint; ++nq) {
+
+      for (int j=0; j<3; ++j){
+	 Xp[j] = qloc[nq][0]* Xst[0][j] + qloc[nq][1]* Xst[1][j] + qloc[nq][2]* Xst[2][j];
+	dXp[j] = qloc[nq][0]*dXst[0][j] + qloc[nq][1]*dXst[1][j] + qloc[nq][2]*dXst[2][j];
+      }
+
+      ElemForceCalcValid myObj;
+      Elem* E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+	                       &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+      if (!E) continue;
+
+      for (int i=0; i<4; i++) T[i] = (*E)[i];
+
+      Vec3D Xf[4]; 
+      for (int i=0; i<4; i++)
+        for(int j=0;j<3;++j) Xf[i][j] = X[T[i]][j];
+
+      // Compute barycentric coordinates
+      Vec3D bary;
+      E->computeBarycentricCoordinates(X,Xp,bary); 
+
+      if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0) {
+        E = 0;
+	continue;
+      }
+
+      Vec3D dbary[4];
+      dbary[0] = Vec3D(1.0-bary[0],bary[1],bary[2]);
+      dbary[1] = Vec3D(bary[0],1.0-bary[1],bary[2]);
+      dbary[2] = Vec3D(bary[0],bary[1],1.0-bary[2]);
+      dbary[3] = Vec3D(bary[0],bary[1],bary[2]);
+
+      // Determine the side of the nodes of the tet on intersected edges
+      int norm[4] = { 0, 0, 0, 0 };
+
+      for (int e=0; e<6; ++e) {
+
+	int l = E->edgeNum(e);
+
+	if (LSS.edgeIntersectsStructure(0,l)) {
+
+	  int i = E->edgeEnd(e,0);
+	  int j = E->edgeEnd(e,1);
+
+          LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));
+          norm[i] = (lsResij.gradPhi*(Xstruct[lsResij.trNodes[0]]-Xf[i]) <= 0) ? -1 : 1;
+
+          LevelSetResult lsResji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]>=T[j]));
+          norm[j] = (lsResji.gradPhi*(Xstruct[lsResji.trNodes[0]]-Xf[j]) <= 0) ? -1 : 1;
+	
+	}
+
+      }
+
+      double mindist[2] = {FLT_MAX, FLT_MAX};
+
+      int node[2] = {-1,-1};
+
+      Vec3D  nf[2] = { -normal,  normal};
+      Vec3D dnf[2] = {-dnormal, dnormal};
+      
+      for (int i=0; i<4; i++) {
+
+	double dist = dbary[i].norm();
+
+        if (norm[i] < 0) {
+
+	  if( LSS.isActive(0,T[i]) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0.0 ) {
+	    mindist[0] = dist;
+	    node[0] = T[i];
+	  }
+
+	} else if(norm[i] > 0) {
+
+	  if( LSS.isActive(0,T[i]) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0.0 ) {
+	    mindist[1] = dist;
+	    node[1] = T[i];
+	  }
+
+	}
+
+      }
+
+      dflocal = 0.0;
+      for (int n = 0; n < 2; ++n) {
+
+	int i = node[n];
+	if (i < 0) continue;
+
+	double *Vi = V[i];
+
+        for(int m=0; m<3; ++m){
+           vectorIJ[m] =  Xp[m] - X[i][m];
+	  dvectorIJ[m] = dXp[m];
+        }
+
+	double Pe = Vi[4] + gradVX[i][4]*vectorIJ[0]+
+                            gradVY[i][4]*vectorIJ[1]+
+	                    gradVZ[i][4]*vectorIJ[2];
+
+        double dPeS = gradVX[i][4]*dvectorIJ[0]+
+	              gradVY[i][4]*dvectorIJ[1]+
+ 	              gradVZ[i][4]*dvectorIJ[2];
+
+	double dPew = dV_[i][4] + graddVX[i][4]*vectorIJ[0]+
+                                  graddVY[i][4]*vectorIJ[1]+
+                                  graddVZ[i][4]*vectorIJ[2];
+
+	double dPe = dPeS + dPew;
+	//           ****
+
+	dflocal += ( (dPe - dpInfty)*nf[n] + (Pe - pInfty)*dnf[n] );
+
+      }	
+
+      for (int j=0; j<3; ++j) {
+        dFs[stNode[0]][j] += qweight[nq]*dflocal[j]*qloc[nq][0];
+        dFs[stNode[1]][j] += qweight[nq]*dflocal[j]*qloc[nq][1];
+        dFs[stNode[2]][j] += qweight[nq]*dflocal[j]*qloc[nq][2];
+      }
+    }
+  }
+
+}
 //-----------------------------------------------------------------------------------------------
 
 template<int dim>

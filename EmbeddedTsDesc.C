@@ -126,7 +126,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   switch (ioData.embed.intersectorName) {
     case EmbeddedFramework::FRG :
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+      
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
 
@@ -145,7 +145,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
     case EmbeddedFramework::PHYSBAM : 
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
         double *xyz = dynNodalTransfer->getStNodes();
@@ -291,6 +290,12 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
 
   FsComputed = false;
+
+  dFs = 0;
+  if(ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+     ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_)
+    dFs = new (*this->com) double[totStructNodes][3];
+
 //-------------------------------------------------------------
 
   // Adam 04/06/2010
@@ -337,6 +342,8 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (dynNodalTransfer) delete dynNodalTransfer;
   if (emmh) delete emmh;
   if (Fs) operator delete[] (Fs, *this->com);
+  if (dFs) delete [] dFs;
+  
   if(ghostPoints) 
     {
       ghostPoints->deletePointers();
@@ -664,6 +671,7 @@ template<int dim>
 void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t,
                                                   DistSVec<double,dim> &U)
 {
+
   if (it == this->data->maxIts)
     *lastIt = true;
   else 
@@ -697,6 +705,7 @@ template<int dim>
 void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                              double t, double dt, DistSVec<double,dim> &U)
 {
+
   this->com->globalSum(1, &interruptCode);
   if (interruptCode)
     *lastIt = true;
@@ -809,6 +818,7 @@ template<int dim>
 void EmbeddedTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                double t, double dt, DistSVec<double,dim> &U)
 { 
+
   double cpu = this->timer->getRunTime();
   if(this->numFluid==1)
     this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
@@ -922,10 +932,34 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
 
 //-------------------------------------------------------------------------------
 
+template<int dim>
+void EmbeddedTsDesc<dim>::computederivativeOfForceLoad(DistSVec<double,dim> *Wij, 
+						       DistSVec<double,dim> *Wji,
+						       double dS[3],
+						       DistSVec<double,dim> &dV) {
+
+  if (!dFs) {fprintf(stderr,"dFs not initialized!"); exit(-1);}
+
+  double t0 = this->timer->getTime();
+ 
+  for (int i=0; i<numStructNodes; i++) 
+    dFs[i][0] = dFs[i][1] = dFs[i][2] = 0.0;
+
+  this->spaceOp->computederivativeOfForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, 
+					      dFs, numStructNodes, distLSS, *Wij, *Wji, dV, dS,
+					      ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+
+  this->timer->addEmbeddedForceTime(t0);
+
+}
+
+//-------------------------------------------------------------------------------
+
 template <int dim>
 void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           Vec3D *Fi, Vec3D *Mi) 
+					      Vec3D *Fi, Vec3D *Mi) 
 {
+
   int idx;
   if (!FsComputed) 
     computeForceLoad(this->Wstarij, this->Wstarji);
@@ -951,6 +985,49 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVe
     Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
     Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
   }
+}
+
+//-------------------------------------------------------------------------------
+
+template <int dim>
+void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
+							  DistSVec<double,dim> &V, DistSVec<double,dim> &dV, 
+							  DistSVec<double,3> &X, double dS[3],
+							  Vec3D *dFi, Vec3D *dMi) 
+{
+
+  int idx;
+  computederivativeOfForceLoad(this->Wstarij, this->Wstarji, dS, dV);
+
+  Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
+
+  for (int i=0; i<numStructNodes; i++) {
+
+     map<int,int>::iterator it = surfOutMap.find(distLSS->getSurfaceID(i));
+
+     if(it != surfOutMap.end() && it->second != -2)
+       idx = it->second;
+     else {
+       idx = 0;
+     }
+
+     dFi[idx][0] += dFs[i][0]; 
+     dFi[idx][1] += dFs[i][1]; 
+     dFi[idx][2] += dFs[i][2];
+
+     Vec<Vec3D>& dXstruc = distLSS->getStructDerivative();
+     
+     dMi[idx][0] += (dXstruc[i][1]* Fs[i][2] -  dXstruc[i][2]* Fs[i][1] +
+                      Xstruc[i][2]*dFs[i][2] -   Xstruc[i][2]*dFs[i][1]);
+
+     dMi[idx][1] += (dXstruc[i][2]* Fs[i][0] - dXstruc[i][0]* Fs[i][2] +
+       	              Xstruc[i][2]*dFs[i][0] -  Xstruc[i][0]*dFs[i][2]);
+
+     dMi[idx][2] += (dXstruc[i][0]* Fs[i][1] - dXstruc[i][1]* Fs[i][0] +
+		      Xstruc[i][0]*dFs[i][1] -  Xstruc[i][1]*dFs[i][0]);
+  
+  }
+
 }
 
 //-------------------------------------------------------------------------------

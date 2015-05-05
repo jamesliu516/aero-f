@@ -1294,7 +1294,10 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) { 
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0, includeSweptNodes);
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), 
+							(*count)(iSub), R(iSub), 
+							distLSS ? &((*distLSS)(iSub)) : 0, 
+							includeSweptNodes);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
