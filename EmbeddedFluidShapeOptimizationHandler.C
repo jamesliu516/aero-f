@@ -903,7 +903,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities
 
     fsoGetDerivativeOfEffortsAnalytical(ioData, X, U, dUdS, dFds, dMds, dLds);
 
-    
+    /*
     //debug-----------------------------------------------------------------------------------
     Vec3D dFds_fd = 0.0, dMds_fd = 0.0, dLs_fd = 0.0;
     fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds_fd, dMds_fd, dLs_fd);
@@ -929,7 +929,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities
                                                 	              abs(dLds[1]-dLs_fd[1]), 
                                                                       abs(dLds[2]-dLs_fd[2]));
     //debug-----------------------------------------------------------------------------------
-        
+    */  
   }
 
   if ((!ioData.sa.angleRad) && (DFSPAR[1] || DFSPAR[2])) {
