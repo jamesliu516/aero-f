@@ -180,6 +180,7 @@ void HigherOrderFSI::estimateRderivative(int l, int vertex,
 					 Vec<int>& fluidId, 
 					 double* dV, double* dV_g) {
 
+  /* // No longer-used
   int idxTet    = v6data[l][vertex].tet;
   int idxFace   = v6data[l][vertex].face;
   double face_r = v6data[l][vertex].r;
@@ -263,7 +264,7 @@ void HigherOrderFSI::estimateRderivative(int l, int vertex,
     dV_g[k] *= delta;
 
   }  
-  
+  */
 }
 
 //--------------------------------------------------

@@ -3205,15 +3205,20 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   if (Vi[0] < rc)
     Vi[0] = rc;
 
+  ////
+  if (Vi[4] < pc)
+    Vi[4] = pc;
+  ////
+
   R_1 = Vi[0];
 
   U_1 = vni;
   P_1  = vf->getPressure(Vi,Id);
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
   double U_ti[3] = {Vstar[0] - U_i*nphi[0], Vstar[1] - U_i*nphi[1], Vstar[2] - U_i*nphi[2]};
+
 /*
   double normv = Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3];
-
   // Attempt at stabilization of structure normal.
   U_1 += stabil_alpha*sqrt(normv - U_1*U_1);
 */

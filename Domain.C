@@ -3786,7 +3786,7 @@ void Domain::checkGradients(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 
 template<int dim>
 void Domain::checkMatVecProd(DistSVec<double,dim> &prod,
-			     const char *msh)
+			     const char *msg)
 {
 
 
