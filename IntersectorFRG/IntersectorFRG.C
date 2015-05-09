@@ -1518,7 +1518,9 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       int error = intersector[iSub]->findIntersections((*X)(iSub), true);
-      while(error) {
+      int nCalls = 0;
+      while(error && nCalls<100) {
+        nCalls++;
         com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
         intersector[iSub]->CrossingEdgeRes.clear();
         intersector[iSub]->ReverseCrossingEdgeRes.clear();

@@ -302,6 +302,20 @@ EmbeddedALETetMeshMotionSolver::EmbeddedALETetMeshMotionSolver
   maxItsLS = data.newton.lineSearch.maxIts;
   contractionLS = data.newton.lineSearch.rho;
   sufficDecreaseLS = data.newton.lineSearch.c1;
+  if (strcmp(data.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(data.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(data.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(data.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", data.newton.output);
+      exit(1);
+    }
+  }
+
 
   timer = domain->getTimer();
 
