@@ -84,7 +84,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   recFcnLS = createRecFcnLS(ioData);
 
   if (ioData.ts.type != TsData::EXPLICIT) {
-    fprintf(stderr,"Only explcit integration available for the 1D solver!\n");
+    fprintf(stderr,"Only explicit integration available for the 1D solver!\n");
     exit(1);
   }
 
