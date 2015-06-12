@@ -55,7 +55,9 @@ void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> 
 
   if (R==NULL) R=&(this->F);
  
-  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *R, this->timeState, *(this->rom->restrictMapping()));
+  double tRes = this->timer->getTime(); 
+
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *R, this->timeState, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
 
   if (includeHomotopy) {
     this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q, *R, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
@@ -82,6 +84,8 @@ void ImplicitGnatTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> 
     }
   }
 
+  this->timer->addResidualTime(tRes); 
+
   double t0 = this->timer->getTime();
   (this->rom->restrictMapping())->restriction(*R, *ResRestrict);
   this->timer->addRestrictionTime(t0);
@@ -96,13 +100,17 @@ void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool a
 	// Evaluate action of Jacobian on full mesh
   if (R==NULL) R = &this->F;
 
-	this->mvpfd->evaluateRestrict(it, *this->X, *this->A, Q, *R,
-			*(this->rom->restrictMapping()));	// very cheap
-  
+  double t0 = this->timer->getTime();
+  this->mvp->evaluateRestrict(it, *this->X, *this->A, Q, *R, *(this->rom->restrictMapping()));	// very cheap
+  this->timer->addJacEvaluateTime(t0);
+
+  if (this->AJ.numVectors()!=this->nPod) this->AJ.resize(this->nPod);
+
   for (int iPod = 0; iPod < this->nPod; iPod++) {
-		this->mvpfd->applyRestrict(this->pod[iPod], this->AJ[iPod],
-				*(this->rom->restrictMapping()));
-	}
+    t0 = this->timer->getTime();
+    this->mvp->applyRestrict(this->pod[iPod], this->AJ[iPod], *(this->rom->restrictMapping()));
+    this->timer->addJacApplyTime(t0);
+  }
 
   if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
     double weightExp = this->ioData->romOnline.weightingExponent;
@@ -122,11 +130,11 @@ void ImplicitGnatTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool a
     }
   }
 
-	double t0 = this->timer->getTime();
-	for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
-		(this->rom->restrictMapping())->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
-	}
-	this->timer->addRestrictionTime(t0);
+  t0 = this->timer->getTime();
+  for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
+    (this->rom->restrictMapping())->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
+  }
+  this->timer->addRestrictionTime(t0);
 
 }
 
@@ -333,7 +341,7 @@ template<int dim>
 double ImplicitGnatTsDesc<dim>::computeGnatResidualNorm(DistSVec<double,dim>& Q)
 { // spatial only
 
-  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, this->F, this->timeState, *(this->rom->restrictMapping()));
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, this->F, this->timeState, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
 
   this->spaceOp->applyBCsToResidual(Q, this->F);
 
@@ -360,6 +368,18 @@ void ImplicitGnatTsDesc<dim>::setReferenceResidual()
 
   this->com->printf(2, "Norm of restricted reference residual = %.12e\n", this->restart->residual);
 
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ImplicitGnatTsDesc<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U, std::vector<double> &weights)  {
+  // interpolating conservative variables currently, since the conservative-to-primitive conversion isn't GNAT-friendly
+
+  // call NonlinearROM.C method to build state from information stored in database
+  // also need to build basisMultiUicProducts, urefMultiUicProducts, and centersMultiUicProducts
+  this->rom->formInterpolatedInitialConditionQuantities( U, weights);
+
+ 
 }
 
 

@@ -16,6 +16,8 @@ class TsSolver {
   int resolve(typename ProblemDescriptor::SolVecType &,
               IoData &);
 
+  int solveWithMultipleICs(typename ProblemDescriptor::SolVecType &,
+              IoData &);
 public:
 
   TsSolver(ProblemDescriptor *);
@@ -48,11 +50,51 @@ int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 {
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
-  // initialize solutions and geometry
-  probDesc->setupTimeStepping(&U, ioData);
-  int status = resolve(U, ioData);
+  int status;
+  if (ioData.problem.solveWithMultipleICs) { 
+    // solve the system starting from multiple initial conditions
+    status = solveWithMultipleICs(U,ioData);
+  } else { 
+    // standard solve
+    probDesc->setupTimeStepping(&U, ioData);  // initialize solutions and geometry
+    status = resolve(U, ioData);
+  }
   return status;
+  
+}
 
+//------------------------------------------------------------------------------
+template<class ProblemDescriptor>
+int TsSolver<ProblemDescriptor>::solveWithMultipleICs(typename ProblemDescriptor::SolVecType &U, IoData &iod)
+{
+  // Solve the system starting from multiple initial conditions.
+  // This is intended to help with training ROM simulations
+
+  FILE *inFP = fopen(iod.input.multiSolutions,"r");
+  if (!inFP)  {
+    //probDesc->com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", iod.input.multiSolutions);
+    exit (-1);
+  }
+  int nVecs, _n;
+  _n = fscanf(inFP, "%d",&nVecs);
+
+  char solnFile[500];
+  double tmp;
+  int status;
+
+  int initialIt = probDesc->getInitialIteration();
+  double initialTime = probDesc->getInitialTime();
+
+  for (int iVec=0; iVec < nVecs; ++iVec) {
+    _n = fscanf(inFP, "%s", solnFile);
+    probDesc->readICFromDisk(solnFile, iVec, nVecs, U);
+    probDesc->setRestartIterationAndTime(initialIt, initialTime);
+    probDesc->setupTimeStepping(&U, iod);
+    status = resolve(U, iod);
+  }
+  fclose(inFP);
+
+  return status;  
 }
 
 //------------------------------------------------------------------------------

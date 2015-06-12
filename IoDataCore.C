@@ -73,10 +73,14 @@ Assigner* OneDimensionalInputData::getAssigner() {
   return ca;
 }
 
+
+//------------------------------------------------
+
 InputData::InputData()
 {
 
   optPressureDim=NONE;
+  useMultiSolutionsGNAT=MULTI_SOLUTIONS_GNAT_FALSE;
 
   prefix = "";
   geometryprefix = "";
@@ -90,8 +94,11 @@ InputData::InputData()
   d2wall = "";
   perturbed = "";
   solutions = "";
-  multisolutions = "";
+  multiSolutions = "";
+  multiSolutionsParams = "";
+  parameters = "";
   positions = "";
+  displacements = "";
   embeddedpositions = "";
   levelsets = "";
   cracking = "";
@@ -151,8 +158,12 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "WallDistance", this, &InputData::d2wall);
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
-  new ClassStr<InputData>(ca, "MultipleSolutions", this, &InputData::multisolutions);
+  new ClassStr<InputData>(ca, "MultipleSolutions", this, &InputData::multiSolutions);
+  new ClassToken<InputData>(ca, "UseMultipleSolutionsGNAT", this, reinterpret_cast<int InputData::*>(&InputData::useMultiSolutionsGNAT), 2, "False", 0, "True", 1);
+  new ClassStr<InputData>(ca, "ParametersForMultipleSolutions", this, &InputData::multiSolutionsParams);
+  new ClassStr<InputData>(ca, "ParametersForThisSimulation", this, &InputData::parameters);
   new ClassStr<InputData>(ca, "Position", this, &InputData::positions);
+  new ClassStr<InputData>(ca, "InitialDisplacement", this, &InputData::displacements);
   new ClassStr<InputData>(ca, "EmbeddedPosition", this, &InputData::embeddedpositions);
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
   new ClassStr<InputData>(ca, "Cracking", this, &InputData::cracking);
@@ -578,9 +589,10 @@ ROMOutputData::ROMOutputData()
 
   residualVector = "";
   residualOutputFreqTime = 1; 
-  residualOutputFreqNewton = 1;
+  residualOutputMaxNewton = 5;
   fdResiduals = FD_RESIDUALS_OFF;
   fdResidualsLimit = FD_RESIDUALS_LIMIT_OFF;
+  outputOnlySpatialResidual = OUTPUT_ONLY_SPATIAL_RES_OFF;
 
   krylovVector = "";
   krylovOutputFreqTime = 1;
@@ -614,11 +626,13 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
   new ClassStr<ROMOutputData>(ca, "ResidualVector", this, &ROMOutputData::residualVector);
   new ClassInt<ROMOutputData>(ca, "ResidualVectorOutputFrequencyTime", this, &ROMOutputData::residualOutputFreqTime);
-  new ClassInt<ROMOutputData>(ca, "ResidualVectorOutputFrequencyNewton", this, &ROMOutputData::residualOutputFreqNewton);  
+  new ClassInt<ROMOutputData>(ca, "ResidualVectorOutputMaxNewton", this, &ROMOutputData::residualOutputMaxNewton);  
   new ClassToken<ROMOutputData>(ca, "OutputResidualsFromMVPFiniteDifference", this,
             reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::fdResiduals), 2, "Off", 0, "On", 1);
   new ClassToken<ROMOutputData>(ca, "OutputResidualsFromMVPFiniteDifferenceLimit", this,
             reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::fdResidualsLimit), 2, "Off", 0, "On", 1);
+  new ClassToken<ROMOutputData>(ca, "OutputOnlySpatialResidual", this,
+            reinterpret_cast<int ROMOutputData::*>(&ROMOutputData::outputOnlySpatialResidual), 2, "Off", 0, "On", 1);
 
   new ClassStr<ROMOutputData>(ca, "KrylovVector", this, &ROMOutputData::krylovVector);  
   new ClassInt<ROMOutputData>(ca, "KrylovVectorOutputFrequencyTime", this, &ROMOutputData::krylovOutputFreqTime);
@@ -750,6 +764,8 @@ ProblemData::ProblemData()
 
   solutionMethod = TIMESTEPPING;
 
+  solveWithMultipleICs = _MULTIPLE_ICS_FALSE_; // multiple initial conditions
+
   test = REGULAR;
   verbose = 4;
 }
@@ -803,6 +819,11 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
     (ca, "Test", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::test), 1,
      "Regular", 0);
+
+  new ClassToken<ProblemData>
+    (ca, "SolveWithMultipleInitialConditions", this,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::solveWithMultipleICs), 2,
+     "False", 0, "True", 1);
 
   new ClassToken<ProblemData>
     (ca, "SolutionMethod", this,
@@ -3844,7 +3865,9 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   exactUpdateInfoPrefix = "";
   stateDistanceComparisonInfoName = "";
   stateDistanceComparisonInfoExactUpdatesName = "";
+  stateDistanceComparisonInfoExactUpdatesMultiICName = "";
   basisNormalizedCenterProductsName = "";
+  basisMultiUicProductsName = "";
   projErrorName = "";
   refStateName = "";
 
@@ -3898,6 +3921,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   sampledJacActionBasisName = "";
   sampledMeshName = "";
   sampledSolutionName = "";
+  sampledMultiSolutionsName = "";
   sampledRefStateName = "";
   sampledWallDistName = "";
   gappyJacActionName = "";
@@ -3914,7 +3938,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   surfaceSolutionName = "";
   surfaceWallDistName = "";
   surfaceMeshName = "";
-
+  surfaceMultiSolutionsName = "";
 }
 
 //------------------------------------------------------------------------------
@@ -3946,7 +3970,9 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "StateBasisExactUpdateInfo", this, &NonlinearRomFilesData::exactUpdateInfoPrefix);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfo", this, &NonlinearRomFilesData::stateDistanceComparisonInfoName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdates", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesName);
+  new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdatesMultiIC", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesMultiICName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateIncrementComparisonInfo", this, &NonlinearRomFilesData::basisNormalizedCenterProductsName);
+  new ClassStr<NonlinearRomFilesData>(ca, "MultiInitialConditionInterpolationInfo", this, &NonlinearRomFilesData::basisMultiUicProductsName);
   new ClassStr<NonlinearRomFilesData>(ca, "ProjectionError", this, &NonlinearRomFilesData::projErrorName);
   new ClassStr<NonlinearRomFilesData>(ca, "ReferenceState", this, &NonlinearRomFilesData::refStateName);
 
@@ -3999,6 +4025,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SampledResidualBasis", this, &NonlinearRomFilesData::sampledResidualBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledJacActionBasis", this, &NonlinearRomFilesData::sampledJacActionBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledSolution", this, &NonlinearRomFilesData::sampledSolutionName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledMultiSolutions", this, &NonlinearRomFilesData::sampledMultiSolutionsName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledReferenceState", this, &NonlinearRomFilesData::sampledRefStateName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledWallDistance", this, &NonlinearRomFilesData::sampledWallDistName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledMesh", this, &NonlinearRomFilesData::sampledMeshName);
@@ -4015,6 +4042,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceSolution", this, &NonlinearRomFilesData::surfaceSolutionName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceWallDistance", this, &NonlinearRomFilesData::surfaceWallDistName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfacedMesh", this, &NonlinearRomFilesData::surfaceMeshName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceMultiSolutions", this, &NonlinearRomFilesData::surfaceMultiSolutionsName);
 
 }
 
@@ -4026,6 +4054,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   systemApproximation = SYSTEM_APPROXIMATION_NONE;
   lineSearch = LINE_SEARCH_FALSE;
   lsSolver = QR;
+  randMatDimension = 200;
   reducedTimeStep = 1e-10;
   basisUpdates = UPDATES_OFF;
   basisUpdateFreq = -1;
@@ -4079,7 +4108,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassToken<NonlinearRomOnlineData> (ca, "PerformLineSearch", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 3, "False", 0, "Backtracking", 1, "StrongWolfe", 2);
   new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
-			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 4, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3);
+			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 6, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3, "ProbabilisticSVD", 4, "LSMR", 5);
   new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
   new ClassDouble<NonlinearRomOnlineData>(ca, "BasisUpdateTolerance", this, &NonlinearRomOnlineData::basisUpdateTolerance);
@@ -4091,6 +4120,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::distanceComparisons), 2, "Off", 0, "On", 1);
   new ClassToken<NonlinearRomOnlineData> (ca, "StoreAllClustersInMemory", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::storeAllClusters), 2, "False", 0, "True", 1);
+  new ClassInt<NonlinearRomOnlineData>(ca, "MaxColumnsInRandomMatrix", this, &NonlinearRomOnlineData::randMatDimension);
   new ClassInt<NonlinearRomOnlineData>(ca, "MaximumDimension", this, &NonlinearRomOnlineData::maxDimension);
   new ClassInt<NonlinearRomOnlineData>(ca, "MinimumDimension", this, &NonlinearRomOnlineData::minDimension); 
   new ClassDouble<NonlinearRomOnlineData>(ca, "MaximumEnergy", this, &NonlinearRomOnlineData::energy);
@@ -4216,7 +4246,13 @@ GNATConstructionData::GNATConstructionData()
   minDimensionJacAction = 0;
   energyJacAction = 1.0;
 
+  selectSampledNodes = SELECT_SAMPLED_NODES_TRUE;
+
   robGreedy = UNSPECIFIED_GREEDY;
+  greedyLeastSquaresSolver = GREEDY_LS_LINPACK;
+
+  randMatDimension = 200;
+  nPowerIts = 0;
 
   maxDimensionROBGreedy = -1;
   minDimensionROBGreedy = 0;
@@ -4230,6 +4266,8 @@ GNATConstructionData::GNATConstructionData()
   farFieldWeight = 1.0;
   wallWeight = 1.0;
 
+  initialCluster = 0; // assume online matrices have been output for all clusters before initialCluster (restart)
+
   includeLiftFaces = NONE_LIFTFACE;
   computeGappyRes = YES_GAPPYRES;
   // if NO, only output things corresponding to the jacobian (first pod basis),
@@ -4241,6 +4279,8 @@ GNATConstructionData::GNATConstructionData()
   useOldReducedSVecFunction = USE_OLD_FALSE;
 
   sampledMeshUsed = SAMPLED_MESH_USED;
+
+  pseudoInverseSolver = PSEUDO_INVERSE_LINPACK;
   pseudoInverseNodes = 20;
   outputReducedBases = OUTPUT_REDUCED_BASES_TRUE;
   testApproxMetric = TEST_APPROX_METRIC_FALSE;
@@ -4280,8 +4320,24 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassToken<GNATConstructionData>(ca, "IncludeLiftDragFaces", this, reinterpret_cast<int 
       GNATConstructionData::*>(&GNATConstructionData::includeLiftFaces), 3, "None", 0, "Specified", 1, "All", 2);
 
+  new ClassToken<GNATConstructionData> (ca, "SelectSampledNodes", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::selectSampledNodes), 2, "False", 0, "True", 1);
+
   new ClassToken<GNATConstructionData>(ca, "ROBGreedy", this, reinterpret_cast<int 
       GNATConstructionData::*>(&GNATConstructionData::robGreedy), 4, "Unspecified", -1, "Residual", 0, "JacAction", 1, "Both", 2);
+
+  new ClassToken<GNATConstructionData>(ca, "ROBGreedyLeastSquaresSolver", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::greedyLeastSquaresSolver), 3, "ProbabilisticSVD", 0, "Scalapack", 1, "Linpack", 2);
+
+  new ClassToken<GNATConstructionData>(ca, "PseudoInverseSolver", this, reinterpret_cast<int
+      GNATConstructionData::*>(&GNATConstructionData::pseudoInverseSolver), 2, "Scalapack", 0, "Linpack", 1);
+  new ClassDouble<GNATConstructionData>(ca, "InitialCluster", this, &GNATConstructionData::initialCluster);
+
+  new ClassInt<GNATConstructionData>(ca, "NumPseudoInvNodesAtATime", this, &GNATConstructionData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
+
+  new ClassInt<GNATConstructionData>(ca, "MaxColumnsInRandomMatrix", this, &GNATConstructionData::randMatDimension);
+  new ClassInt<GNATConstructionData>(ca, "NumProbabilisticPowerIterations", this, &GNATConstructionData::nPowerIts);
+
   new ClassInt<GNATConstructionData>(ca, "MaxDimensionROBGreedy", this, &GNATConstructionData::maxDimensionROBGreedy); // default: full size
   new ClassInt<GNATConstructionData>(ca, "MinDimensionROBGreedy", this, &GNATConstructionData::minDimensionROBGreedy); // default: 0
   new ClassDouble<GNATConstructionData>(ca, "ROBGreedyFactor", this, &GNATConstructionData::robGreedyFactor);
@@ -4294,7 +4350,7 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassDouble<GNATConstructionData>(ca, "FarFieldWeight", this, &GNATConstructionData::farFieldWeight); 
   new ClassDouble<GNATConstructionData>(ca, "WallWeight", this, &GNATConstructionData::wallWeight);
 
-	// optional: undocumented
+  // optional: undocumented
   new ClassToken<GNATConstructionData> (ca, "ComputeGappyRes", this, reinterpret_cast<int
       GNATConstructionData::*>(&GNATConstructionData::computeGappyRes), 2, "False", 0, "True", 1);	
 
@@ -4307,7 +4363,6 @@ void GNATConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassToken<GNATConstructionData> (ca, "SampledMeshUsed", this, reinterpret_cast<int
       GNATConstructionData::*>(&GNATConstructionData::sampledMeshUsed), 2, "False", 0, "True", 1);	
 
-  new ClassInt<GNATConstructionData>(ca, "NumPseudoInvNodesAtATime", this, &GNATConstructionData::pseudoInverseNodes);	// how many nodes of the pseudo inverse are calculated at a time. If this is too high, memory problems may ensue.
 
   new ClassToken<GNATConstructionData> (ca, "OutputReducedBases", this, reinterpret_cast<int
       GNATConstructionData::*>(&GNATConstructionData::outputReducedBases), 2, "False", 0, "True", 1);
@@ -4592,15 +4647,20 @@ void SnapshotsData::setup(const char *name, ClassAssigner *father)
 DataCompressionData::DataCompressionData()
 {
   computePOD = COMPUTE_POD_FALSE;  
-	type = POD;
-	podMethod = SCALAPACK_SVD;
-	maxVecStorage = 0;
-	energyOnly = ENERGY_ONLY_FALSE;	// if ROB computation should only compute total energy of snapshots
+  type = POD;
+  podMethod = SCALAPACK_SVD;
+  randMatDimension = 500;
+  nPowerIts = 0;
+  compareSVDMethods = COMPARE_SVD_FALSE; // compare probabilistic and scalapack for various basis sizes
+  maxVecStorage = 0;
+  energyOnly = ENERGY_ONLY_FALSE;	// if ROB computation should only compute total energy of snapshots
   tolerance = 1e-8;  // this only applies to EIG
   minBasisSize = 0;
   maxBasisSize = -1; // retain all vectors
   singValTolerance = 1e-16;
   maxEnergyRetained = 1.0; // retain all energy
+  initialCluster = 0;
+  testProbabilisticSVD = TEST_PROBABILISTIC_SVD_FALSE; // compare reconstructed snapshots with actual snapshots (sanity check)
 }
 
 //------------------------------------------------------------------------------
@@ -4610,18 +4670,25 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
   ClassAssigner *ca = new ClassAssigner(name, 10, father);
   new ClassToken<DataCompressionData> (ca, "ComputePOD", this, reinterpret_cast<int
       DataCompressionData::*>(&DataCompressionData::computePOD), 2, "False", 0, "True", 1); 
-	new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int 
+  new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int 
       DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
-	new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
+  new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "ScalapackSVD", 0, "ProbabilisticSVD", 1, "Eig", 2);
+  new ClassInt<DataCompressionData>(ca, "MaxColumnsInRandomMatrix", this, &DataCompressionData::randMatDimension);
+  new ClassInt<DataCompressionData>(ca, "NumProbabilisticPowerIterations", this, &DataCompressionData::nPowerIts);
   new ClassInt<DataCompressionData>(ca, "MaxNumStoredVectors", this, &DataCompressionData::maxVecStorage);
-	new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
+  new ClassToken<DataCompressionData> (ca, "CompareSVDMethods", this, reinterpret_cast<int
+                        DataCompressionData::*>(&DataCompressionData::compareSVDMethods), 2, "False", 0, "True", 1);
+  new ClassToken<DataCompressionData> (ca, "EnergyOnly", this, reinterpret_cast<int
 			DataCompressionData::*>(&DataCompressionData::energyOnly), 2, "False", 0, "True", 1);
   new ClassDouble<DataCompressionData>(ca, "EigenToleranceARPACK", this, &DataCompressionData::tolerance);
   new ClassInt<DataCompressionData>(ca, "MinBasisSize", this, &DataCompressionData::minBasisSize);
   new ClassInt<DataCompressionData>(ca, "MaxBasisSize", this, &DataCompressionData::maxBasisSize);
   new ClassDouble<DataCompressionData>(ca, "SingularValueTolerance", this, &DataCompressionData::singValTolerance);
   new ClassDouble<DataCompressionData>(ca, "MaxEnergyRetained", this, &DataCompressionData::maxEnergyRetained);
+  new ClassInt<DataCompressionData>(ca, "InitialCluster", this, &DataCompressionData::initialCluster);
+  new ClassToken<DataCompressionData>(ca, "TestProbabilisticSVD", this, reinterpret_cast<int
+                        DataCompressionData::*>(&DataCompressionData::testProbabilisticSVD), 2, "False", 0, "True", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -5847,7 +5914,7 @@ void IoData::resetInputValues()
       com->fprintf(stderr, "*** Warning: incorrect value for contraction factor in line-search: setting it to 0.5 \n");
       ts.implicit.newton.lineSearch.rho = 0.5;
     }
-    if (ts.implicit.newton.lineSearch.c1 <= 0 || ts.implicit.newton.lineSearch.c1 >= 0.5){
+    if (ts.implicit.newton.lineSearch.c1 < 0 || ts.implicit.newton.lineSearch.c1 >= 0.5){
       com->fprintf(stderr, "*** Warning: incorrect value for sufficient decrease coefficient in line-search: setting it to 0.25 \n");
       ts.implicit.newton.lineSearch.c1 = 0.25;
     }

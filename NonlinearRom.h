@@ -52,6 +52,7 @@ class NonlinearRom {
   char* basisUrefProductsName;      // for exact updates (exactUpdateInfoPrefix.exactUpdates_e)
   char* basisUicProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_d)
   char* urefUicProductsName;        // for exact updates (exactUpdateInfoPrefix.exactUpdates_c)
+  char* urefMultiUicProductsName;
   char* urefUrefProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_g)   
   char* urefComponentwiseSumsName;  // for exact updates with uniform IC (exactUpdateInfoPrefix.exactUpdates_UrefComponentwiseSums)
   char* basisComponentwiseSumsName; // for exact updates with uniform IC (exactUpdateInfoPrefix.exactUpdates_StateBasisComponentwiseSums)
@@ -60,8 +61,10 @@ class NonlinearRom {
   char* basisNormalizedCenterProductsName;   // for velocity-based local ROMs (incremental bases)
   char* centerComponentWiseSumsName; // for fast distance calcs when using either no updates or exact updates ()
   char* stateDistanceComparisonInfoExactUpdatesName;
+  char* stateDistanceComparisonInfoExactUpdatesMultiICName;
   char* projErrorName;
   char* refStateName;
+  char* basisMultiUicProductsName;
 
   // Krylov snaps
   char* krylovSnapsName;
@@ -108,6 +111,7 @@ class NonlinearRom {
   char* sampledJacActionBasisName;
   char* sampledMeshName;
   char* sampledSolutionName;
+  char* sampledMultiSolutionsName;
   char* sampledRefStateName;
   char* sampledWallDistName;
   char* gappyJacActionName;
@@ -121,6 +125,7 @@ class NonlinearRom {
   char* surfaceStateBasisName;
   char* surfaceRefStateName;
   char* surfaceSolutionName;
+  char* surfaceMultiSolutionsName;
   char* surfaceWallDistName;
   char* surfaceMeshName;
 
@@ -204,7 +209,8 @@ class NonlinearRom {
   void readClusteredReferenceState(int, const char*);  // read the reference state that was automatically stored for each cluster.
   void readNearestSnapsToCenters();
   void readReferenceState();  // read a reference state specified by the user
-  void readClusteredSampleNodes(int iCluster, bool deleteExistingRestrictionMapping = true);
+  void readSampleNodes(int iCluster, const char* sampledOrFull, bool deleteExistingRestrictionMapping);  // wrapper for readClusteredSampleNodes, where iCluster<0 indicates union
+  void readClusteredSampleNodes(int iCluster, const char* sampledOrFull, bool deleteExistingRestrictionMapping = true);
   void readClusteredGappyMatrix(int, const char*);
 
   void outputCenterNorms(std::vector<std::vector<double> > &); //note: norm squared
@@ -337,12 +343,18 @@ class NonlinearRom {
   VecSet<DistSVec<double,dim> >* getJacMat() {if (numResJacMat==2) { return jacMat; } else { return resMat;} }
   const DistInfo& getRestrictedDistInfo () const {return restrictionMapping->restrictedDistInfo();}
   RestrictionMapping<dim>* restrictMapping() { return restrictionMapping; } 
+  void formInterpolatedInitialConditionQuantities(DistSVec<double,dim> *U, std::vector<double> &weights);
 
   virtual void appendVectorToBasis(DistSVec<double, dim>&, int numVec = 0) {};
 
   // general
   void qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::vector<double> >* RT=NULL, bool testQR=false);
-
+  void probabilisticSVD(VecSet< DistSVec<double, dim> >& Utrue, std::vector<double>& singularValues, FullM& Vtrue, 
+                        int k, int nPowerIts, bool testSVD=false);
+  void probabilisticLSMultiRHS(VecSet< DistSVec<double, dim> >& LHS, VecSet< DistSVec<double, dim> >& RHS,
+                                 std::vector<std::vector<double> >& lsCoeffVec, int k, int nPowerIts, bool testSVD=false);
+  void linpackSVD(double* tmpMat, int rows, int columns, double*& yVec, double*& singVals, double*& zVec);
+  void printDebug(int iDebug);
 };
 
 #include "NonlinearRom.C"

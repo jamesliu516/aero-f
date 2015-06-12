@@ -149,6 +149,8 @@ protected:
 	VecSubDomainData<dim> locError;
 
 	void parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff);
+        void serialLSMultiRHSGap(int iPodBasis, double **lsCoeff);
+        void probabilisticLSMultiRHSGap(int iPodBasis, double **lsCoeff);
 	bool onlyInletOutletBC;
 
 	// greedy functions
@@ -169,7 +171,7 @@ protected:
 
 	// distribution info
 
-	int numLocSub, nTotCpus, thisCPU;
+	int numLocSub, nTotCpus, thisCPU; 
 	DistInfo &nodeDistInfo;
 	SubDomain** subD; 
 	
@@ -206,6 +208,7 @@ protected:
 
   // also create a pointer of vectors to handle the faces that might be
   // boundary conditions
+  bool cleanTempFiles;
 
   void computeXYZ(int iSub, int iLocNode, double *xyz);
   virtual void buildRemainingMesh();
@@ -236,7 +239,8 @@ protected:
   // pseudo-inverse functions
   double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
   virtual void computePseudoInverse();
-  void computePseudoInverse(int iPodBasis);
+  void parallelPseudoInverse(int iPodBasis);
+  void serialPseudoInverse(int iPodBasis);
   //void computePseudoInverseRHS();
   void checkConsistency();
   SetOfVec pseudoInvRhs;
@@ -262,11 +266,12 @@ protected:
   virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
   virtual void outputInitialConditionReduced();
+  virtual void outputMultiSolutionsReduced();
   virtual void outputClusterCentersReduced();
   virtual void outputLocalStateBasisReduced(int);
   virtual void outputLocalReferenceStateReduced(int);
   virtual void outputWallDistanceReduced();
-  void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , double tag);
+  void outputReducedSVec(const DistSVec<double,dim> &distSVec, char* outFilePath , double tag, int step, int nTotSteps, const char *);
   void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 	//void determineFileName(const char *fileNameInput, const char
 	//		*currentExtension, const char *(&fileNameBase), const char
@@ -297,6 +302,7 @@ std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes
   SetOfVec snapHatApproxMetric;
   void setSampleNodes(int);
   void formMaskedNonlinearROBs();
+  void reinitializeMapsForSampleNodes();
   //void outputMaskedNonlinearROBs(int, const std::map<int,int> &, const std::vector<int> &);
   //void readMaskedNonlinearROBs( );
   void initializeLeastSquaresPseudoInv(int);
