@@ -618,10 +618,8 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 		DistSVec<double,dim> &U,
 		DistSVec<double,dim> &R,
 		DistTimeState<dim> *timeState,
-		RestrictionMapping<dim> & restrictionMapping, bool compatF3D)
+		const std::vector<std::vector<int> >& sampledLocNodes, bool compatF3D)
 {
-	std::vector<std::vector<int> > sampledLocNodes =
-		restrictionMapping.getRestrictedToOriginLocNode() ;
 
 	R = 0.0;
 	varFcn->conservativeToPrimitive(U, *V);

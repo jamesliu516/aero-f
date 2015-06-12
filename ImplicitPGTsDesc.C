@@ -8,21 +8,23 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
   pc = ImplicitRomTsDesc<dim>::template 
   createPreconditioner<PrecScalar,dim>(this->ioData->ts.implicit.newton.ksp.ns.pc, this->domain);
 
-  parallelRom = new ParallelRom<dim>(*dom,this->com);
 
   // TODO necessary?
   currentProblemSize = this->nPod;
-  parallelRom->parallelLSMultiRHSInit(this->AJ,residualRef);  
   lsCoeff = new double*[1];
   lsCoeff[0] = new double[this->nPod];
-	this->projVectorTmp = new double [this->nPod];
+  this->projVectorTmp = new double [this->nPod];
 
-	lsSolver = this->ioData->romOnline.lsSolver;
-	if ((lsSolver == 1) || (lsSolver == 2)){  // normal equations
-		jactmp = new double [this->nPod * this->nPod];
-		this->jac.setNewSize(this->nPod,this->nPod);
-	} else {
-    jactmp = NULL;
+  parallelRom = NULL;
+  jactmp = NULL;
+
+
+  lsSolver = this->ioData->romOnline.lsSolver;
+  if ((lsSolver==NonlinearRomOnlineData::QR) || (lsSolver==NonlinearRomOnlineData::LEVENBERG_MARQUARDT_SVD)) {
+    parallelRom = new ParallelRom<dim>(*dom,this->com);
+  } else if ((lsSolver==NonlinearRomOnlineData::NORMAL_EQUATIONS) || (lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS)){  // normal equations
+    jactmp = new double [this->nPod * this->nPod];
+    this->jac.setNewSize(this->nPod,this->nPod);
   }
 
   minRes = -1;
@@ -56,7 +58,7 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
   controlNodeSubDomain = -1;
   controlNodeCpuNum = -1;
 
-  if (lsSolver == 2) {
+  if (lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS) {
     if (controlNodeGlobalID < 0) {
       fprintf(stderr, "*** Error: ControlNodeID must be specified\n");
       exit(-1);
@@ -88,14 +90,15 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 
     delete [] lsCoeff[0];
     delete [] lsCoeff;  
-		if (this->projVectorTmp) delete [] this->projVectorTmp;
-		if (jactmp) delete [] jactmp;
+    if (this->projVectorTmp) delete [] this->projVectorTmp;
+    if (jactmp) delete [] jactmp;
     if (pc) delete pc;
     if (A_Uinlet) delete A_Uinlet;
     if (PhiT_A_Uinlet) delete PhiT_A_Uinlet;
     if (PhiT_A_U) delete PhiT_A_U;
     if (PhiT_A_Phi) delete PhiT_A_Phi;
     if (A_Phi) delete A_Phi;
+    if (parallelRom) delete parallelRom;
 }
 
 
@@ -103,11 +106,11 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
 
-	this->projectVector(this->AJ, this->F, From);
-	Vec<double> rhs(this->nPod);
-	rhs = -1.0 * From;
+  this->projectVector(this->AJ, this->F, From);
+  Vec<double> rhs(this->nPod);
+  rhs = -1.0 * From;
 
-	res = rhs*rhs;
+  res = rhs*rhs;
 
   this->com->fprintf(stdout, "||W*R(U)|| = %1.12e\n", this->F.norm());
   this->com->fprintf(stdout, "|| U || = %1.12e\n", U.norm());
@@ -121,38 +124,123 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 
   double resReg = 0;
 
-	if (res < 0.0){
-		this->com->fprintf(stderr, "*** negative residual: %e\n", res);
-		exit(1);
-	}
-	res = sqrt(res);
+  if (res < 0.0){
+    this->com->fprintf(stderr, "*** negative residual: %e\n", res);
+    exit(1);
+  }
+  res = sqrt(res);
 
   if (minRes<=0) minRes = res / this->restart->residual; 
 
-	if (it == 0) {
-		this->target = this->epsNewton*res;
-		this->res0 = res;
-	}
+  if (it == 0) {
+    this->target = this->epsNewton*res;
+    this->res0 = res;
+  }
 
-	if (res == 0.0 || res <= this->target || res <= this->epsAbsResNewton) {
-		//this->com->fprintf(stdout, "breakloop=true: res=%e\n", res);
-		breakloop = true;
-		return;	// do not solve the system
-	}
+  if (res == 0.0 || res <= this->target || res <= this->epsAbsResNewton) {
+    //this->com->fprintf(stdout, "breakloop=true: res=%e\n", res);
+    breakloop = true;
+    return;  // do not solve the system
+  }
 
-	if (lsSolver == 0){	// ScaLAPACK least-squares
+  double t0 = this->timer->getTime();
+  if (lsSolver==NonlinearRomOnlineData::LSMR) { // Iterative Least Squares Solver
 
-		RefVec<DistSVec<double, dim> > residualRef2(this->F);
-		parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
+    MatVecProdH2<dim,double,dim>* mvpExact = dynamic_cast<MatVecProdH2<dim,double,dim>*>(this->mvp);
+    if (mvpExact==NULL) {
+      this->com->fprintf(stderr,"*** ERROR: LSMR only implemented for MatVecProd=Exact! (requires MatTransposeVecProd) \n");
+      exit(-1);
+    }
+
+    // set up
+    int nVecs = this->rom->basis->numVectors();
+    double* tempDoubleVec = new double [nVecs];
+    for (int iVec=0; iVec<nVecs; ++iVec)
+      tempDoubleVec[iVec] = 1.0;
+    DistSVec<double, dim> tempDistSVec1( this->domain->getNodeDistInfo() );
+    DistSVec<double, dim> tempDistSVec2( this->domain->getNodeDistInfo() );
+    tempDistSVec1 = 0.0; 
+    tempDistSVec2 = 0.0;
+
+    mvpExact->evaluate(it, *this->X, *this->A, U, *this->R);
+
+    // time a basis vector product
+    double tempT = this->timer->getTime();
+    for (int iVec=0; iVec<nVecs; ++iVec) 
+      tempDistSVec1 += this->pod[iVec]*(tempDoubleVec[iVec]);
+    double basisVecProdTime = this->timer->getTime()-tempT;
+    this->com->fprintf(stderr," ... time for a basis vector product = %esec\n",basisVecProdTime);
+
+    // time a Jac vector product
+    tempT = this->timer->getTime();
+    for (int iVec=0; iVec<100; ++iVec)
+      mvpExact->apply(tempDistSVec1,tempDistSVec2);
+    double jacVecProdTime = (this->timer->getTime()-tempT)/100.0;
+    this->com->fprintf(stderr, " ... time for a jac vector product = %esec\n",jacVecProdTime);
+
+    // report total time for A*vec
+    this->com->fprintf(stderr, " ... time for a A*v = %esec\n",jacVecProdTime+basisVecProdTime);
+
+    // time a Jac^T vector product
+    tempT = this->timer->getTime();
+    for (int iVec=0; iVec<100; ++iVec)
+      mvpExact->applyT(tempDistSVec1,tempDistSVec2);
+    double jacTVecProdTime = (this->timer->getTime()-tempT)/100.0;
+    this->com->fprintf(stderr, " ... time for a jac^T vector product = %esec\n",jacTVecProdTime);
+
+    // time a basis^T vector product.
+    tempT = this->timer->getTime();
+    for (int iVec=0; iVec<nVecs; ++iVec)
+      tempDoubleVec[iVec] = this->pod[iVec]*tempDistSVec2;
+    double basisTVecProdTime = this->timer->getTime()-tempT;
+    this->com->fprintf(stderr, " ... time for a basis^T vector product = %esec\n",basisTVecProdTime);
+
+    // report total time for A^T*vec
+    this->com->fprintf(stderr, " ... time for a A^T*v = %esec\n",jacTVecProdTime+basisTVecProdTime);
+
+    // report total time
+    this->com->fprintf(stderr, " ... expected time per iteration = %esec\n",
+       jacTVecProdTime+basisTVecProdTime+jacVecProdTime+basisVecProdTime);
+
+    this->com->barrier();
+    sleep(5);
+    exit(-1);
+
+  } else if (lsSolver==NonlinearRomOnlineData::QR) {  // ScaLAPACK least-squares
+
+    RefVec<DistSVec<double, dim> > residualRef2(this->F);
+    parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
     double dUromNewtonItNormSquared = 0;
     for (int iPod=0; iPod<this->nPod; ++iPod) {
-			this->dUromNewtonIt[iPod] = -lsCoeff[0][iPod];
+      this->dUromNewtonIt[iPod] = -lsCoeff[0][iPod];
       //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
       dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
     }
     this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %1.12e \n", dUromNewtonItNormSquared);
 
-	} else if (lsSolver == 3){	// Solve Levenberg-Marquardt regularized LS via ScaLAPACK SVD
+  } else if (lsSolver==NonlinearRomOnlineData::PROBABILISTIC_SVD) {
+
+    VecSet<DistSVec<double, dim> > resTmp(1, this->domain->getNodeDistInfo());
+    resTmp[0] = this->F;
+
+    VecSet<DistSVec<double, dim> > ajTmp(this->AJ.numVectors(), this->domain->getNodeDistInfo());
+    for (int iVec=0; iVec<this->AJ.numVectors(); ++iVec) ajTmp[iVec] = this->AJ[iVec];
+
+    std::vector<std::vector<double> > lsCoeffVec;
+    lsCoeffVec.resize(1);
+    lsCoeffVec[0].resize(this->nPod,0.0);
+
+    this->rom->probabilisticLSMultiRHS(ajTmp, resTmp, lsCoeffVec, this->ioData->romOnline.randMatDimension * (it+1), 0, false);
+
+    double dUromNewtonItNormSquared = 0;
+    for (int iPod=0; iPod<this->nPod; ++iPod) {
+      lsCoeff[0][iPod] = lsCoeffVec[0][iPod];
+      this->dUromNewtonIt[iPod] = -lsCoeff[0][iPod];
+      dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
+    }
+    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %1.12e \n", dUromNewtonItNormSquared);
+
+  } else if (lsSolver==NonlinearRomOnlineData::LEVENBERG_MARQUARDT_SVD){  // Solve Levenberg-Marquardt regularized LS via ScaLAPACK SVD
 
     // SVD quantities
     VecSet< DistSVec<double, dim> >* U_AJ = new VecSet< DistSVec<double, dim> >(this->nPod, this->domain->getNodeDistInfo());
@@ -225,14 +313,14 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
  
     delete V_AJ;
 
-  } else if (lsSolver == 1)	{		// normal equations
-		transMatMatProd(this->AJ,this->AJ,jactmp);	// TODO: make symmetric product
-		for (int iRow = 0; iRow < this->nPod; ++iRow) {
-			for (int iCol = 0; iCol < this->nPod; ++iCol) {
-				this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
-			}
-		} 
-		this->solveLinearSystem(it, rhs, this->dUromNewtonIt);
+  } else if (lsSolver==NonlinearRomOnlineData::NORMAL_EQUATIONS)  {    // normal equations
+    transMatMatProd(this->AJ,this->AJ,jactmp);  // TODO: make symmetric product
+    for (int iRow = 0; iRow < this->nPod; ++iRow) {
+      for (int iCol = 0; iCol < this->nPod; ++iCol) {
+        this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
+      }
+    } 
+    this->solveLinearSystem(it, rhs, this->dUromNewtonIt);
 
     double dUromNewtonItNormSquared = 0;
     for (int iPod=0; iPod<this->nPod; ++iPod) {
@@ -241,7 +329,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     }
     this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
 
-	} else if (lsSolver == 2) {  // regularized normal equations
+  } else if (lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS) {  // regularized normal equations
 
     //if (it==0) minRes = ((res/this->restart->residual)<minRes) ? res/this->restart->residual : minRes;
  
@@ -312,6 +400,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
       }
     }
 
+
     DistSVec<double, dim>* ones = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
     *ones = 1.0;
 
@@ -338,6 +427,8 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 
   } 
   
+  this->timer->addLinearSystemSolveTime(t0); 
+
 }
 
 
@@ -443,7 +534,7 @@ void ImplicitPGTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
   if (currentProblemSize != this->nPod){
     currentProblemSize = this->nPod;
 
-    parallelRom->parallelLSMultiRHSInit(this->AJ,residualRef);
+    if (lsSolver==NonlinearRomOnlineData::QR) parallelRom->parallelLSMultiRHSInit(this->AJ,residualRef);
 
     if (lsCoeff) delete [] lsCoeff[0];
     lsCoeff[0] = new double[this->nPod];
@@ -451,7 +542,7 @@ void ImplicitPGTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
     if (this->projVectorTmp) delete [] (this->projVectorTmp);
     this->projVectorTmp = new double [this->nPod];
 
-    if ((lsSolver == 1) || (lsSolver == 2)) {
+    if ((lsSolver==NonlinearRomOnlineData::NORMAL_EQUATIONS) || (lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS)) {
       if (jactmp) delete [] jactmp;
       jactmp = new double [this->nPod * this->nPod];
       this->jac.setNewSize(this->nPod,this->nPod);
@@ -461,7 +552,7 @@ void ImplicitPGTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
     rhs.resize(this->nPod);
   }
 
-  if (lsSolver == 2) {
+  if (lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS) {
     if (A_Uinlet==NULL) {  // only needs to be done once
       this->com->fprintf(stdout, " ... forming A * Uinlet\n");
       A_Uinlet = new DistSVec<double, dim>(this->domain->getNodeDistInfo());

@@ -53,6 +53,19 @@ public:
   virtual void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
 
+  virtual void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &) {
+    std::cout<<"*** Error: function evaluateRestrict not implemented"<<std::endl;
+    sleep(1);
+    exit(-1);
+  }
+  virtual void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &) {
+    std::cout<<"*** Error: function applyRestrict not implemented"<<std::endl;
+    sleep(1);
+    exit(-1);
+  }
+
+
 // Included (MB)
   virtual void evaluateInviscid(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &){
     std::cout<<"*** Error: function evaluateInviscid not implemented"<<std::endl;}
@@ -152,7 +165,7 @@ public:
   void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<dim> &);
+  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &);
   void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
@@ -229,6 +242,10 @@ public:
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
+
+  void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
+  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &);
 
   void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
 
@@ -403,6 +420,10 @@ public:
   //               DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
+
+  void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
+  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &);
 
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &);

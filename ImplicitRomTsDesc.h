@@ -15,7 +15,7 @@ class Domain;
 class Communicator;
 
 template<class Scalar, int dim> class DistSVec;
-template<int dim, int neq> class MatVecProdFD;
+template<int dim, int neq> class MatVecProd;
 
 
 //------------------------------------------------------------------------------
@@ -25,14 +25,14 @@ class ImplicitRomTsDesc : public TsDesc<dim> {
 
 protected:
 
-	IoData *ioData;
+  IoData *ioData;
 
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton;
   double epsAbsIncNewton;
 
-  MatVecProdFD<dim,dim> *mvpfd;
+  MatVecProd<dim,dim> *mvp;
 
   DistSVec<bool,2> *tag;
 

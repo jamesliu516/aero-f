@@ -500,6 +500,51 @@ double Timer::addEigSolvTime(double t0)
 
 //------------------------------------------------------------------------------
 
+double Timer::addAJTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[aj]++;
+  data[aj] += t;
+
+  return t;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+double Timer::addJacEvaluateTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[jacEvaluate]++;
+  data[jacEvaluate] += t;
+
+  return t;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+double Timer::addJacApplyTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[jacApply]++;
+  data[jacApply] += t;
+
+  return t;
+
+}
+
+
+//------------------------------------------------------------------------------
+
 double Timer::addResidualTime(double t0)
 {
 
@@ -1153,23 +1198,23 @@ void Timer::print(Timer *str, FILE *fp)
       (ioData->problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ) ||
       (ioData->problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ))  {
     com->fprintf(fp, "  Residual evaluation         : %10.2f %10.2f %10.2f %9d\n",
-              tmin[residual], tmax[residual], tavg[residual],
-							counter[residual]);
+              tmin[residual], tmax[residual], tavg[residual], counter[residual]);
+    com->fprintf(fp, "  Action of Jacobian on ROB   : %10.2f %10.2f %10.2f %9d\n",
+              tmin[aj], tmax[aj], tavg[aj], counter[aj]);
+    com->fprintf(fp, "    Jacobian evaluation       : %10.2f %10.2f %10.2f %9d\n",
+              tmin[jacEvaluate], tmax[jacEvaluate], tavg[jacEvaluate], counter[jacEvaluate]);
+    com->fprintf(fp, "    Jacobian vector product   : %10.2f %10.2f %10.2f %9d\n",
+              tmin[jacApply], tmax[jacApply], tavg[jacApply], counter[jacApply]);
     com->fprintf(fp, "  Solution increment          : %10.2f %10.2f %10.2f %9d\n",
-              tmin[solutionIncrement], tmax[solutionIncrement], tavg[solutionIncrement],
-							counter[solutionIncrement]);
+              tmin[solutionIncrement], tmax[solutionIncrement], tavg[solutionIncrement], counter[solutionIncrement]);
     com->fprintf(fp, "  Linear system form          : %10.2f %10.2f %10.2f %9d\n",
-              tmin[linearSystemForm], tmax[linearSystemForm], tavg[linearSystemForm],
-							counter[linearSystemForm]);
+              tmin[linearSystemForm], tmax[linearSystemForm], tavg[linearSystemForm], counter[linearSystemForm]);
     com->fprintf(fp, "  Linear system solve         : %10.2f %10.2f %10.2f %9d\n",
-              tmin[linearSystemSolve], tmax[linearSystemSolve], tavg[linearSystemSolve],
-							counter[linearSystemSolve]);
+              tmin[linearSystemSolve], tmax[linearSystemSolve], tavg[linearSystemSolve], counter[linearSystemSolve]);
     com->fprintf(fp, "  Restriction                 : %10.2f %10.2f %10.2f %9d\n",
-              tmin[restriction], tmax[restriction], tavg[restriction],
-							counter[restriction]);
+              tmin[restriction], tmax[restriction], tavg[restriction], counter[restriction]);
     com->fprintf(fp, "  Check convergence           : %10.2f %10.2f %10.2f %9d\n",
-              tmin[checkConvergence], tmax[checkConvergence], tavg[checkConvergence],
-							counter[checkConvergence]);
+              tmin[checkConvergence], tmax[checkConvergence], tavg[checkConvergence], counter[checkConvergence]);
 	}
 
   // Output Mesh solution time (except for Euler FSI)

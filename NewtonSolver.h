@@ -125,8 +125,14 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
     rhs = -1.0 * F;
-    
-    probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);  // save states and residuals for rom
+
+    if (probDesc->outputOnlySpatialResidual()) {
+      typename ProblemDescriptor::SolVecType spatialRes(probDesc->getVecInfo());
+      probDesc->calculateSpatialResidual(Q,spatialRes);
+      probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &spatialRes);
+    } else {
+      probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);
+    }
 
     probDesc->recomputeFunction(Q, rhs);
     probDesc->computeJacobian(it, Q, F);

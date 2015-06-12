@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <boost/lexical_cast.hpp>
+#include <boost/random.hpp>
+#include <boost/random/normal_distribution.hpp>
 
 
 using std::stable_sort;
@@ -64,7 +66,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->stateSingValsName, "svals", stateBasisPrefix, stateSingValsName);
   determineFileName(romFiles->projErrorName, "proj", stateBasisPrefix, projErrorName);
   determineFileName(romFiles->refStateName, "refState", stateBasisPrefix, refStateName); 
- 
+
   // Update info for state bases (this is a bit tricky)
   determineFileName(romFiles->simpleUpdateInfoName, "allUpdates", stateBasisPrefix, simpleUpdateInfoName);
   determineFileName(romFiles->stateDistanceComparisonInfoName, "distanceInfo", stateBasisPrefix, stateDistanceComparisonInfoName);
@@ -74,10 +76,12 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName("", "exactUpdates_e", exactUpdateInfoPrefix, basisUrefProductsName);
   determineFileName("", "exactUpdates_d", exactUpdateInfoPrefix, basisUicProductsName);
   determineFileName("", "exactUpdates_c", exactUpdateInfoPrefix, urefUicProductsName);
+  determineFileName("", "exactUpdates_c_multiIC", exactUpdateInfoPrefix, urefMultiUicProductsName);
   determineFileName("", "exactUpdates_g", exactUpdateInfoPrefix, urefUrefProductsName);
   determineFileName("", "exactUpdates_UrefComponentwiseSums", exactUpdateInfoPrefix, urefComponentwiseSumsName);
   determineFileName("", "exactUpdates_StateBasisComponentwiseSums", exactUpdateInfoPrefix, basisComponentwiseSumsName);
   determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesName, "exactUpdatesDistanceInfo", exactUpdateInfoPrefix, stateDistanceComparisonInfoExactUpdatesName); 
+  determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesMultiICName, "exactUpdatesDistanceInfoMultiIC", exactUpdateInfoPrefix, stateDistanceComparisonInfoExactUpdatesMultiICName);
 
   // Krylov snaps
   determineFileName(romFiles->krylovSnapsName, "snaps", romFiles->krylovPrefix, krylovSnapsName);
@@ -120,10 +124,12 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledStateBasisName, "sampledStateROB", romFiles->gnatPrefix, sampledStateBasisName);
   determineFileName(romFiles->sampledSensitivityBasisName, "sampledSensitivityROB", romFiles->gnatPrefix, sampledSensitivityBasisName);
   determineFileName(romFiles->sampledKrylovBasisName, "sampledKrylovROB", romFiles->gnatPrefix, sampledKrylovBasisName);
+  determineFileName(romFiles->basisMultiUicProductsName, "basisMultiUicProducts", stateBasisPrefix, basisMultiUicProductsName);
   determineFileName(romFiles->sampledResidualBasisName, "sampledResROB", romFiles->gnatPrefix, sampledResidualBasisName);
   determineFileName(romFiles->sampledJacActionBasisName, "sampledJacROB", romFiles->gnatPrefix, sampledJacActionBasisName);
   determineFileName(romFiles->sampledMeshName, "top", romFiles->gnatPrefix, sampledMeshName);
   determineFileName(romFiles->sampledSolutionName, "sampledSolution", romFiles->gnatPrefix, sampledSolutionName);
+  determineFileName(romFiles->sampledMultiSolutionsName, "sampledMultiSolutions", romFiles->gnatPrefix, sampledMultiSolutionsName);
   determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gnatPrefix, sampledRefStateName);
   determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gnatPrefix, sampledWallDistName);
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gnatPrefix, gappyJacActionName);
@@ -136,6 +142,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->surfaceStateBasisName, "surfaceStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
   determineFileName(romFiles->surfaceRefStateName, "surfaceRefState", romFiles->surfacePrefix, surfaceRefStateName);
   determineFileName(romFiles->surfaceSolutionName, "surfaceSolution", romFiles->surfacePrefix, surfaceSolutionName);
+  determineFileName(romFiles->surfaceMultiSolutionsName, "surfaceMultiSolutions", romFiles->surfacePrefix, surfaceMultiSolutionsName);
   determineFileName(romFiles->surfaceWallDistName, "surfaceWallDist", romFiles->surfacePrefix, surfaceWallDistName);
   determineFileName(romFiles->surfaceMeshName, "top", romFiles->surfacePrefix, surfaceMeshName);
   determineFileName(romFiles->approxMetricLowRankSurfaceCoordsName, "approxMetricSurfaceCoords", romFiles->surfacePrefix, approxMetricLowRankSurfaceCoordsName);
@@ -221,6 +228,7 @@ com(_com), ioData(&_ioData), domain(_domain)
 template<int dim> 
 NonlinearRom<dim>::~NonlinearRom() 
 {
+
   delete [] stateSnapsName;
   delete [] mapName;  
   delete [] indexName;
@@ -236,12 +244,15 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] basisUrefProductsName;
   delete [] basisNormalizedCenterProductsName;
   delete [] basisUicProductsName;  
-  delete [] urefUicProductsName;    
+  delete [] basisMultiUicProductsName;
+  delete [] urefUicProductsName;
+  delete [] urefMultiUicProductsName;
   delete [] urefUrefProductsName;    
   delete [] urefComponentwiseSumsName;
   delete [] basisComponentwiseSumsName;
   delete [] stateDistanceComparisonInfoName;
   delete [] stateDistanceComparisonInfoExactUpdatesName;
+  delete [] stateDistanceComparisonInfoExactUpdatesMultiICName;
   delete [] refStateName;
   delete [] projErrorName;
   delete [] krylovSnapsName;
@@ -263,6 +274,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledJacActionBasisName;
   delete [] sampledMeshName;
   delete [] sampledSolutionName;
+  delete [] sampledMultiSolutionsName;
   delete [] sampledRefStateName;
   delete [] sampledWallDistName;
   delete [] gappyJacActionName;
@@ -274,6 +286,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] surfaceStateBasisName;
   delete [] surfaceRefStateName;
   delete [] surfaceSolutionName;
+  delete [] surfaceMultiSolutionsName;
   delete [] surfaceWallDistName;
   delete [] surfaceMeshName;
 
@@ -684,6 +697,8 @@ void NonlinearRom<dim>::initializeProjectionQuantities(DistSVec<double, dim> &ic
 
   // we always have basisBasisProducts basisUrefProducts precomputed (regardless of IC)
 
+  //TODO INTERP
+
   checkForSpecifiedInitialCondition();
 
   if (specifiedIC) {
@@ -717,6 +732,8 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
   // we always have basisBasisProducts, basisUrefProducts, and basisUrefProducts precomputed (regardless of IC)
 
   checkForSpecifiedInitialCondition();
+
+  //TODO INTERP
 
   if (specifiedIC) {
     // do nothing; basisUicProducts and urefUicProducts should already be stored
@@ -1097,9 +1114,6 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     exit (-1);
   }
 
-  delete [] vecFile;
-  vecFile = NULL;
-
   int nData, _n;
   _n = fscanf(inFP, "%d",&nData);
   com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
@@ -1146,6 +1160,10 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   // read snapshot command file
   for (int iData = 0; iData < nData; ++iData){
     _n = fscanf(inFP, "%s %d %d %d %lf", snapFile1,&iStart,&iEnd,&iFreq,&weight);
+    if (_n<5) {
+      com->fprintf(stderr, "*** Error: snapshot file %s is not formatted properly (path startSnap endSnap freq weight)\n", vecFile);
+      exit(-1);
+    }
     if (iStart < 1) iStart = 1;
     if (iEnd < 0) iEnd = 0;
     if (iFreq < 1) iFreq = 1;
@@ -1165,12 +1183,15 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     }
   }
 
+  delete [] vecFile;
+  vecFile = NULL;
+
   // compute the total number of snapshots
   int nTotSnaps = 0;
   int dummyStep = 0;
   double dummyTag = 0.0;
   for (int iData = 0; iData < nData; ++iData) {
-    bool status = this->domain.template readTagFromFile<double, dim>(snapFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
+    bool status = domain.template readTagFromFile<double, dim>(snapFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
 
     if (!status) {
       com->fprintf(stderr, "*** Error: could not read snapshots from %s \n", snapFile[iData]);
@@ -1206,16 +1227,16 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
       exit (-1);
     }
     if (clusterCenters) delete clusterCenters;
-    clusterCenters = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo()); 
+    clusterCenters = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo()); 
     snapshots = clusterCenters;
   } else {
     if (snap) delete snap;
-    snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+    snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
     snapshots = snap;
   }
 
-  DistSVec<double, dim>* snapBufOld = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
-  DistSVec<double, dim>* snapBufNew = new DistSVec<double, dim>(this->domain.getNodeDistInfo());
+  DistSVec<double, dim>* snapBufOld = new DistSVec<double, dim>(domain.getNodeDistInfo());
+  DistSVec<double, dim>* snapBufNew = new DistSVec<double, dim>(domain.getNodeDistInfo());
 
   originalSnapshotLocation.clear();
 
@@ -1242,7 +1263,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
     for (int iSnap = startSnaps[iData]; iSnap<endSnaps[iData]; ++iSnap) {
       if (iSnap % sampleFreq[iData] == 0) { //TODO ignore 
         // snapshot must be between startSnaps and endSnaps, and a multiple of sampleFreq. 
-        status = this->domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
+        status = domain.readVectorFromFile(snapFile[iData], iSnap, &tagNew, *snapBufNew);
         (*snapshots)[numCurrentSnapshots] = *snapBufNew - *snapBufOld;
         double snapNorm = (*snapshots)[numCurrentSnapshots].norm();
         if (snapNorm > ioData->romOffline.rob.clustering.snapshotNormTolerance) {
@@ -1267,7 +1288,7 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
 
   if (numCurrentSnapshots <  nTotSnaps) {
     nTotSnaps = numCurrentSnapshots;
-    VecSet< DistSVec<double, dim> > *newSnap = new VecSet< DistSVec<double, dim> >(nTotSnaps, this->domain.getNodeDistInfo());
+    VecSet< DistSVec<double, dim> > *newSnap = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
     for (int iVec=0; iVec<nTotSnaps; ++iVec)
       (*newSnap)[iVec] = (*snapshots)[iVec];
     delete snapshots;
@@ -2258,11 +2279,16 @@ void NonlinearRom<dim>::readProjectionInfo() {
   readClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
 
   checkForSpecifiedInitialCondition();
+  //TODO INTERP checkForInterpolatedInitialCondition();
 
   if (specifiedIC) {
     // Basis Uic Products
     // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
     readClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
+ // } else if (interpolatedIC){
+    // Uic was interpolated from multiple initial conditions, form basisUicProducts after interpolating
+    // std::vector<std::vector<double> > basisMultiUicProducts;  // [iSolution][1:nPod] (clustered)
+ //   readClusteredInfoASCII(-1, "basisMultiUicProducts", NULL, &this->basisMultiUicProducts);
   } else {
     // Basis Componentwise Sums
     // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
@@ -2291,6 +2317,8 @@ void NonlinearRom<dim>::readExactUpdateInfo() {
   readClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
 
   checkForSpecifiedInitialCondition();
+
+  //TODO INTERP checkForInterpolatedInitialCondition();
 
   if (specifiedIC) {
 
@@ -2763,13 +2791,39 @@ void NonlinearRom<dim>::determineNumResJacMat() {
 
 } 
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::readSampleNodes(int iCluster, const char* sampledOrFull, bool deleteExistingRestrictionMapping) {
+// this is generalized for the case where iCluster = -1, indicating that the union of all sampled nodes is required
+  if (iCluster<0) { // union (which isn't stored in the ROM database)
+    std::set<int> sampleNodesUnion;
+    for (int jCluster=0; jCluster<nClusters; ++jCluster) {
+      readClusteredSampleNodes(jCluster, sampledOrFull, true);
+      for (std::vector<int>::iterator it = sampleNodes.begin(); it != sampleNodes.end(); ++it) {
+        sampleNodesUnion.insert(*it);
+      }   
+    }
+    sampleNodes.clear();
+    nSampleNodes = sampleNodesUnion.size();
+    sampleNodes.reserve(nSampleNodes);
+    for (std::set<int>::iterator it = sampleNodesUnion.begin(); it != sampleNodesUnion.end(); ++it) {
+      sampleNodes.push_back(*it);
+    }
+
+  } else { // sample nodes for iCluster, which is stored in the ROM database
+    readClusteredSampleNodes(iCluster, sampledOrFull, deleteExistingRestrictionMapping);
+  }
+}
+
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readClusteredSampleNodes(int iCluster, bool deleteExistingRestrictionMapping) {
+void NonlinearRom<dim>::readClusteredSampleNodes(int iCluster, const char* sampledOrFull, bool deleteExistingRestrictionMapping) {
 
-  if (storedAllOnlineQuantities || storedAllOfflineQuantities) {
+
+  if (storedAllOnlineQuantities) {
     com->fprintf(stdout, " ... loading sampled nodes for cluster %d\n", iCluster);
     sampleNodes.clear();
     sampleNodes = *(allSampleNodes[iCluster]);
@@ -2780,20 +2834,26 @@ void NonlinearRom<dim>::readClusteredSampleNodes(int iCluster, bool deleteExisti
   }
 
   char *sampleNodesPath = 0;
-  determinePath(sampledNodesName, iCluster, sampleNodesPath);
+  if (strcmp(sampledOrFull,"sampled")==0) {
+    determinePath(sampledNodesName, iCluster, sampleNodesPath);
+  } else if (strcmp(sampledOrFull,"full")==0) {
+    determinePath(sampledNodesFullCoordsName, iCluster, sampleNodesPath);
+  } else {
+     com->fprintf(stderr, "*** Error: unexpected value for sampledOrFull (%s)\n", sampledOrFull);
+     exit (-1);
+  }
   FILE *sampleNodeFile = fopen(sampleNodesPath, "r");
-
   if (!sampleNodeFile)  {
      com->fprintf(stderr, "*** Error: unable to open file %s\n", sampleNodesPath);
      exit (-1);
   }
 
   int _n;
+
   _n = fscanf(sampleNodeFile, "%d", &nSampleNodes);  // first entry is the number of sample nodes
 
   sampleNodes.clear();
   sampleNodes.reserve(nSampleNodes);  // know it will be nSampleNodes long (efficiency)
-
   int index, currentSampleNode;
   for (int i = 0; i < nSampleNodes; ++i){
     _n = fscanf(sampleNodeFile, "%d", &index);
@@ -2809,9 +2869,12 @@ void NonlinearRom<dim>::readClusteredSampleNodes(int iCluster, bool deleteExisti
 
   fclose(sampleNodeFile);
 
-  if (restrictionMapping && deleteExistingRestrictionMapping) delete restrictionMapping;
-  restrictionMapping = new RestrictionMapping<dim>(&domain, sampleNodes.begin(), sampleNodes.end());
-
+  if (ioData->problem.type[ProblemData::NLROMOFFLINE]) {
+    // continue
+  } else {
+    if (restrictionMapping && deleteExistingRestrictionMapping) delete restrictionMapping;
+    restrictionMapping = new RestrictionMapping<dim>(&domain, sampleNodes.begin(), sampleNodes.end());
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3113,7 +3176,7 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
     case (NonlinearRomOnlineData::GNAT):
       for (int iCluster=0; iCluster<nClusters; ++iCluster) {
         // read sample nodes
-        readClusteredSampleNodes(iCluster, false); // resets restriction map
+        readClusteredSampleNodes(iCluster, "sampled", false); // resets restriction map
         allSampleNodes[iCluster] = new vector<int>;
         *(allSampleNodes[iCluster]) = sampleNodes;
         allRestrictionMappings[iCluster] = restrictionMapping; // sets pointer to dynamically allocated memory
@@ -3427,6 +3490,8 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, const char* type,
     exit(-1); 
   }
 
+  //TODO INTERP
+
   char *infoPath = NULL;
   if (strcmp(type, "referenceState") == 0) { // 2*(U_center_p - U_center_m)^T U_ref
     determinePath(stateDistanceComparisonInfoExactUpdatesName, iCluster, infoPath);
@@ -3434,6 +3499,9 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, const char* type,
   } else if (strcmp(type, "initialCondition") == 0) { // 2*(U_center_p - U_center_m)^T U_ic
     determinePath(stateDistanceComparisonInfoExactUpdatesName, -1, infoPath);
     assert(vec2);
+  } else if (strcmp(type, "multiInitialCondition") == 0) { // 2*(U_center_p - U_center_m)^T U_ic
+    determinePath(stateDistanceComparisonInfoExactUpdatesMultiICName, -1, infoPath);
+    assert(vec3);
   } else if (strcmp(type, "state") == 0) { // 2*(U_center_p - U_center_m)^T V_state_k
     determinePath(stateDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
@@ -3461,9 +3529,15 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, const char* type,
   } else if (strcmp(type, "urefUicProducts") == 0) {               
     determinePath(urefUicProductsName, -1, infoPath);
     assert(vec1);
+  } else if (strcmp(type, "urefMultiUicProducts") == 0) {
+    determinePath(urefMultiUicProductsName, -1, infoPath);
+    assert(vec2);
   } else if (strcmp(type, "basisUicProducts") == 0) {               
     determinePath(basisUicProductsName, -1, infoPath);
     assert(vec2);
+  } else if (strcmp(type, "basisMultiUicProducts") == 0) {
+    determinePath(basisMultiUicProductsName, iCluster, infoPath);
+    assert(vec3);
   } else if (strcmp(type, "urefComponentwiseSums") == 0) {               
     determinePath(urefComponentwiseSumsName, -1, infoPath);
     assert(vec2);
@@ -3502,12 +3576,17 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, const char* type, s
 
   char *infoPath = NULL;
 
+  //TODO INTERP
+
   if (strcmp(type, "referenceState") == 0) {// 2*(U_center_p - U_center_m)^T U_ref
     determinePath(stateDistanceComparisonInfoExactUpdatesName, iCluster, infoPath);
     assert(vec2);
   } else if (strcmp(type, "initialCondition") == 0) {// 2*(U_center_p - U_center_m)^T U_ic
     determinePath(stateDistanceComparisonInfoExactUpdatesName, -1, infoPath);
     assert(vec2);
+  } else if (strcmp(type, "multiInitialCondition") == 0) {// 2*(U_center_p - U_center_m)^T U_ic_i
+    determinePath(stateDistanceComparisonInfoExactUpdatesMultiICName, -1, infoPath);
+    assert(vec3);
   } else if (strcmp(type, "state") == 0) {// 2*(U_center_p - U_center_m)^T V_state_k
     determinePath(stateDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
@@ -3532,9 +3611,15 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, const char* type, s
   } else if (strcmp(type, "urefUicProducts") == 0) {
     determinePath(urefUicProductsName, -1, infoPath);
     assert(vec1);
+  } else if (strcmp(type, "urefMultiUicProducts") == 0) {
+    determinePath(urefMultiUicProductsName, -1, infoPath);
+    assert(vec2);
   } else if (strcmp(type, "basisUicProducts") == 0) {
     determinePath(basisUicProductsName, -1, infoPath);
     assert(vec2);
+  } else if (strcmp(type, "basisMultiUicProducts") == 0) {
+    determinePath(basisMultiUicProductsName, iCluster, infoPath);
+    assert(vec3);
   } else if (strcmp(type, "urefComponentwiseSums") == 0) {
     determinePath(urefComponentwiseSumsName, -1, infoPath);
     assert(vec2);
@@ -3786,65 +3871,89 @@ void NonlinearRom<dim>::qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::
 
   int nVec = Q->numVectors();
 
+  std::vector<std::vector<double> >* RT_testing = NULL;
   VecSet< DistSVec<double, dim> >* testVecSet = NULL;
   if (testQR) {
-    testVecSet = new VecSet< DistSVec<double, dim> >(nVec, this->domain.getNodeDistInfo());
+    testVecSet = new VecSet< DistSVec<double, dim> >(nVec, domain.getNodeDistInfo());
     for (int iVec = 0; iVec<nVec; ++iVec) {
       (*testVecSet)[iVec] = (*Q)[iVec];
+    }  
+    if (!RT) {
+        RT_testing = new std::vector<std::vector<double> >;
+        RT = RT_testing;  // need R to test the QR...
     }
   }
 
   if (RT) {
-    for (int iVec = 0; iVec<nVec; ++iVec)
-      (*RT)[iVec].clear();
     RT->clear();
-
     RT->resize(nVec);
     for (int iVec = 0; iVec<nVec; ++iVec)
-      (*RT)[iVec].resize(nVec, 0.0);
+      (*RT)[iVec].resize(iVec+1, 0.0);
   }
 
   for (int iVec = 0; iVec<nVec; ++iVec) {
 
-    double tmp;
-    std::vector<double> rlog;
-    rlog.resize(iVec+1,0.0);
-    for (int jVec = 0; jVec<iVec; ++jVec) {
-      tmp = (*Q)[jVec] * (*Q)[iVec];
-      (*Q)[iVec] -= (*Q)[jVec] * tmp; //*tmp
-      rlog[jVec]=(tmp);
-    }
-
     double norm = (*Q)[iVec].norm();
-    rlog[iVec] = norm;
+    if (RT) (*RT)[iVec][iVec] = norm;
     if (norm>=1e-13) {
       (*Q)[iVec] *= 1/norm;
-      if (RT) {
-        for (int jVec = 0; jVec<=iVec; ++jVec)
-          (*RT)[iVec][jVec] = rlog[jVec];
-      }
     } else {
-      com->fprintf(stderr, "*** Warning: QR encountered a rank defficient matrix in GNAT preprocessing (?)\n",norm);
-      exit(-1);
+      com->fprintf(stderr, "*** Warning: QR encountered a rank defficient matrix in GNAT preprocessing (norm %e)\n",norm);
+      // resize everything
+      int newSize = nVec-1;
+      for (int jVec = iVec+1; jVec<nVec; ++jVec)
+        (*Q)[jVec-1] = (*Q)[jVec];
+      Q->resize(newSize);
+
+      if (testVecSet) {
+        for (int jVec = iVec+1; jVec<nVec; ++jVec)
+          (*testVecSet)[jVec-1] = (*testVecSet)[jVec];
+        testVecSet->resize(newSize);
+      }
+
+      if (RT)
+        RT->resize(newSize);
+
+      nVec = newSize;
     }
+
+    for (int jVec = iVec+1; jVec<nVec; ++jVec) {
+      double r = (*Q)[iVec] * (*Q)[jVec];
+      (*Q)[jVec] -= (*Q)[iVec] * r;
+      if (RT) (*RT)[jVec][iVec] = r;
+    }
+
   }
 
   if (testQR) {
     // Q orthogonal?
-    double tol = 1e-14;
-    com->fprintf(stdout, "Testing whether Q is orthogonal (only outputting errors greater than %e)\n", tol);
+    com->fprintf(stdout, "\n ... testing whether Q is orthogonal\n");
+    std::vector<int> errorLog;
+    int nErrorBins = 11;
+    errorLog.resize(nErrorBins,0);
     for (int iVec = 0; iVec<nVec; ++iVec) {
       for (int jVec = 0; jVec<=iVec; ++jVec) {
-         double product = (*Q)[iVec] * (*Q)[jVec];
-         if ((iVec==jVec && (abs(product - 1.0)>tol)) || (iVec!=jVec && (abs(product)>tol)))
-           com->fprintf(stdout, " ... Q orthogonal test: Q^T Q [%d][%d] = %e\n", iVec, jVec, product);
+        double product = (*Q)[iVec] * (*Q)[jVec];
+        double error = (iVec==jVec) ? abs(product - 1.0) : abs(product);
+        if (error<=pow(10.0,-1.0*(double)(nErrorBins-1))) {
+          ++errorLog[nErrorBins-1];
+        } else {
+          for (int iErr = 0; iErr<nErrorBins-1; ++iErr) {
+            if ((log10(error)<=-1.0*(double)iErr) && (log10(error)>-1.0*(double)(iErr+1))) 
+              ++errorLog[iErr];
+          }
+        }
       }
     }
+    for (int iErr = 0; iErr<nErrorBins-1; ++iErr)
+      com->fprintf(stdout, " ... ... %d errors between 1e-%d and 1e-%d\n", errorLog[iErr], iErr, iErr+1);
+    com->fprintf(stdout, " ... ... %d errors less than 1e-%d\n", errorLog[nErrorBins-1],nErrorBins-1);
 
     // QR == original matrix?
     double maxError = 0.0;
     double avgError = 0.0;
-    DistSVec<double, dim> testVec(this->domain.getNodeDistInfo());
+    DistSVec<double, dim> testVec(domain.getNodeDistInfo());
+    com->fprintf(stdout, " ... testing whether QR recovers the original matrix\n");
     for (int iVec = 0; iVec<nVec; ++iVec) {
       testVec = (*testVecSet)[iVec];
       for (int jVec = 0; jVec<=iVec; ++jVec) {
@@ -3855,11 +3964,373 @@ void NonlinearRom<dim>::qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::
       avgError += error/nVec;
     }
 
-    com->fprintf(stdout, "QR accuracy test: maxError = %e\n", maxError);
-    com->fprintf(stdout, "QR accuracy test: avgError = %e\n", avgError);
+    com->fprintf(stdout, " ... ... QR accuracy test: maxError = %e\n", maxError);
+    com->fprintf(stdout, " ... ... QR accuracy test: avgError = %e\n", avgError);
     delete testVecSet;
+    if (RT_testing) delete RT_testing;
   }
 
+
+}
+
+//---------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::probabilisticSVD(VecSet< DistSVec<double, dim> >& Utrue, std::vector<double>& singularValues, FullM& Vtrue,
+                                           int k, int nPowerIts, bool testSVD) {
+  // Strategy:
+  //   CPU0 generates random martrix, randMat, which is nVecs x k with k <= nVecs
+  //   Communicate randMat to all mpi ranks
+  //   tmpMat = origMatrix * randMat
+  //   for i = 1:nPowerIts
+  //      tmpMat = podHat * (podHat' * tmpMat)
+  //   end
+  //   [Q,~] = qr(tmpMat)
+  //   tmpMat2 = Q' * origMatrix
+  //   [Utmp S V] = svd(tmpMat2) (in serial using lapack)
+  //   Communicate svd result to all mpi ranks
+  //   U = Q*Utmp
+  //
+  // Note: the matrix is passed in via Utrue, which is overwritten
+
+  int nVecs = Utrue.numVectors();
+  k = min(nVecs,k);
+
+  VecSet< DistSVec<double, dim> > testVecSet(0, domain.getNodeDistInfo());
+  if (testSVD) {// store the original matrix for comparison later
+    testVecSet.resize(nVecs);
+    for (int iVec=0; iVec<nVecs; ++iVec) 
+      testVecSet[iVec]=Utrue[iVec];
+  }
+
+  VecSet< DistSVec<double, dim> > tmpVecSet(k, domain.getNodeDistInfo());
+  bool solveLinearSystem = (nPowerIts<=0 && k==nVecs); // for Q^T * Snapshots in the projection step
+
+  double* randMat = NULL;
+  if ((com->cpuNum()==0) && solveLinearSystem) randMat = new double[nVecs*k]; // only store for cpu0
+
+  int seed = 1;
+  boost::mt19937 randSeed(seed);
+  boost::normal_distribution<> normalDistribution(0.0, 1.0);
+  boost::variate_generator<boost::mt19937&, boost::normal_distribution<> > normalGenerator(randSeed, normalDistribution);
+
+  // tmp = snaps * randMat
+  com->fprintf(stdout, " ... right multiplying by %dx%d random matrix", nVecs, k);
+  double multTime = timer->getTime();
+  double randVal;
+  for (int iVec=0; iVec<k; ++iVec) {
+    tmpVecSet[iVec] = 0.0;
+    for (int jVec=0; jVec<nVecs; ++jVec) {
+      randVal = normalGenerator();
+      tmpVecSet[iVec] += Utrue[jVec]*randVal;
+      if (randMat) randMat[iVec*nVecs + jVec] = randVal;
+    }
+  }
+  multTime = timer->getTime() - multTime;
+  com->fprintf(stdout," (%e sec)\n", multTime);
+
+  // power iteration
+  for (int iPowerIt=0; iPowerIt<nPowerIts; ++iPowerIt) {
+    double powerItTime = timer->getTime();
+    com->fprintf(stdout, " ... power iteration #%d of %d",iPowerIt,nPowerIts);
+    double* tmpMat = new double[nVecs*k]; // store as vector for simplicity  
+    for (int iVec=0; iVec<k; ++iVec) {
+      for (int jVec=0; jVec<nVecs; ++jVec) {
+        tmpMat[iVec*nVecs + jVec] = Utrue[jVec]*tmpVecSet[iVec]; // tmpMat[jSnap][iSnap]
+      }
+    }
+    for (int iVec=0; iVec<k; ++iVec) {
+      tmpVecSet[iVec] = 0.0;
+      for (int jVec=0; jVec<nVecs; ++jVec) {
+        tmpVecSet[iVec] += Utrue[jVec]*tmpMat[iVec*nVecs + jVec];
+      }
+    }
+    delete [] tmpMat;
+    powerItTime = timer->getTime() - powerItTime;
+    com->fprintf(stdout," (%e sec)\n", powerItTime);
+  }
+
+  // orthogonalization
+  com->fprintf(stdout, " ... orthogonalizing");
+  double orthTime = timer->getTime();
+  std::vector<std::vector<double> > RTranspose;
+  if (solveLinearSystem) {
+    qr(&tmpVecSet, &RTranspose, false); 
+  } else {
+    qr(&tmpVecSet, NULL, false);
+  }
+  if (tmpVecSet.numVectors() < k) { //QR might return fewer vectors if tmpVecSet wasn't full rank.
+    k=tmpVecSet.numVectors();
+    solveLinearSystem = false;
+    if (randMat) {
+      delete [] randMat;
+      randMat = NULL;
+    }
+  }
+  orthTime = timer->getTime() - orthTime;
+  com->fprintf(stdout," (%e sec)\n", orthTime);
+
+  // projection
+  com->fprintf(stdout, " ... projecting");
+  double projTime = timer->getTime();
+  double* tmpMat = NULL;
+  if (com->cpuNum()==0) {
+    tmpMat = new double[k*nVecs];
+  } 
+  if (solveLinearSystem) { // solve a small system
+    if (com->cpuNum()==0) {
+      // set up the left hand side
+      FullM randMatTranspose(k);
+      for (int iEntry=0; iEntry<k; ++iEntry) {
+        for (int jEntry=0; jEntry<k; ++jEntry) {
+          randMatTranspose[iEntry][jEntry] = randMat[k*iEntry+jEntry]; 
+        }
+      }
+      delete [] randMat;
+      randMat = NULL;
+      randMatTranspose.Factor();
+
+      double *RHS = new double[k];
+      for (int iRHS=0; iRHS<k; ++iRHS) {
+        // Fill RHS from RTranspose
+        for (int iEntry=0; iEntry<k; ++iEntry) {
+          RHS[iEntry] = (iEntry>=iRHS) ? RTranspose[iEntry][iRHS] : 0.0; 
+        }
+        // Solve for i-th row of Q^T * Snapshots
+        randMatTranspose.ReSolve(RHS);
+        // Store result in tmpMat
+        for (int iEntry=0; iEntry<k; ++iEntry) {
+          tmpMat[iEntry*k + iRHS] = RHS[iEntry];
+        }
+      }
+      delete [] RHS;
+    }
+    // testing
+    /*projTime = timer->getTime() - projTime;
+    com->fprintf(stdout," (%e sec)\n", projTime);
+    projTime = timer->getTime();
+    double tmpProduct;
+    for (int iVec=0; iVec<k; ++iVec) {
+      for (int jVec=0; jVec<k; ++jVec) {
+        tmpProduct = tmpVecSet[jVec]*Utrue[iVec]; // tmpMat[jVec][iVec]
+        if (com->cpuNum()==0) {
+          if (abs(tmpMat[iVec*k + jVec] - tmpProduct)>1e-6)  
+            com->fprintf(stderr,"... iVec=%d, jVec=%d, solve=%e, direct=%e)\n", iVec, jVec, tmpMat[iVec*k + jVec], tmpProduct);
+        }
+      }
+     } */
+  } else { // just compute the matrix matrix product directly.  This is hundreds to thousands of times slower.
+    double tmpProduct = 0.0;
+    for (int iVec=0; iVec<nVecs; ++iVec) {
+      for (int jVec=0; jVec<k; ++jVec) {
+        tmpProduct = tmpVecSet[jVec]*Utrue[iVec]; // tmpMat[jVec][iVec]
+        if (com->cpuNum()==0) tmpMat[iVec*k + jVec] = tmpProduct; 
+      }
+    }
+  }
+  projTime = timer->getTime() - projTime;
+  com->fprintf(stdout," (%e sec)\n", projTime);
+
+  // SVD
+  double lapackTime = timer->getTime();
+  com->fprintf(stdout, " ... computing SVD using linpack");
+
+  double *yVec;
+  double *zVec;
+  double *singVals;
+
+  if (com->cpuNum()==0) {
+    linpackSVD(tmpMat, k, nVecs, yVec, singVals, zVec);
+    delete [] tmpMat;
+  }
+
+  com->barrier();
+  lapackTime = timer->getTime() - lapackTime;
+  com->fprintf(stdout," (%e sec)\n", lapackTime);
+
+  com->fprintf(stdout, " ... broadcasting result (and forming U)");
+  double broadcastTime = timer->getTime();
+  // broadcast singular values
+  // only the first k should be nonzero
+  if (com->cpuNum()!=0) {
+    singVals = new double[k];
+  }
+  com->broadcast(k, singVals, 0);
+  com->barrier();
+
+  singularValues.resize(k);
+  for (int iVec=0; iVec<k; ++iVec) {
+    singularValues[iVec]=singVals[iVec];
+  }
+  delete [] singVals;
+
+  // broadcast left singular vectors
+  if (com->cpuNum()!=0) {
+    yVec = new double[k*k];
+  }
+  com->broadcast(k*k, yVec, 0);
+  com->barrier();
+
+  Utrue.resize(k);
+  for (int iVec=0; iVec<k; ++iVec) {
+    Utrue[iVec] = 0.0;
+    for (int jVec=0; jVec<k; ++jVec) {
+      Utrue[iVec] += tmpVecSet[jVec]*yVec[iVec*k + jVec];
+    }
+  }
+  tmpVecSet.resize(0);
+  delete [] yVec;
+
+  // broadcast right singular vectors
+  if (com->cpuNum()!=0) {
+    zVec = new double[nVecs*nVecs]; 
+  }
+  com->broadcast(nVecs*nVecs, zVec, 0);
+  com->barrier();
+
+  Vtrue.setNewSize(nVecs);
+  for (int iVec=0; iVec<nVecs; ++iVec) {
+    for (int jVec=0; jVec<nVecs; ++jVec) {
+      Vtrue[jVec][iVec] = zVec[iVec*nVecs + jVec];
+    }
+  }
+  delete [] zVec;
+
+  broadcastTime = timer->getTime() - broadcastTime;
+  com->fprintf(stdout," (%e sec)\n", broadcastTime);
+
+  if (testSVD) {
+    //check svd
+    com->fprintf(stdout," ... checking the SVD (debugging)");
+    double checkTime = timer->getTime();
+    double errorNorm,maxErr,avgErr;
+    DistSVec<double,dim> errorVec( domain.getNodeDistInfo() );
+    maxErr = 0.0;
+    avgErr = 0.0;
+    for (int iVec = 0; iVec < nVecs; ++iVec) {
+      errorVec = testVecSet[iVec];
+      for (int jVec = 0; jVec < k; ++jVec)
+        errorVec = errorVec - ((singularValues[jVec] * Vtrue[iVec][jVec]) * Utrue[jVec]);
+      errorNorm = (((testVecSet[iVec]).norm()) > 1e-15) ? errorVec.norm()/((testVecSet[iVec]).norm()) : 0.0;
+      avgErr += errorNorm;
+      if (errorNorm > maxErr)
+        maxErr = errorNorm;
+    }
+    avgErr /= nVecs;
+  
+    checkTime = timer->getTime() - checkTime;
+    com->fprintf(stdout," (%e sec)\n", checkTime);
+  
+    com->fprintf(stdout, " ... Average error on Snapshots after SVD = %e\n", avgErr);
+    com->fprintf(stdout, " ... Maximum error on Snapshots after SVD = %e\n", maxErr);
+    // end check svd  
+    testVecSet.resize(0);
+  }
+
+
+}
+
+//-------------------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::linpackSVD(double* tmpMat, int rows, int columns, double*& yVec, double*& singVals, double*& zVec) {
+/*subroutine dsvdc(x,ldx,n,p,s,e,u,ldu,v,ldv,work,job,info)
+ON ENTRY
+
+x    double precision(ldx,p), where ldx.ge.n.  x contains the matrix whose singular value decomposition is to be computed. x is destroyed by dsvdc.
+ldx  integer. ldx is the leading dimension of the array x.
+n    integer. n is the number of rows of the matrix x.
+p    integer. p is the number of columns of the matrix x.
+ldu  integer. ldu is the leading dimension of the array u. (see below).
+ldv  integer. ldv is the leading dimension of the array v. (see below).
+work double precision(n). work is a scratch array.
+job  integer. job controls the computation of the singular vectors.  it has the decimal expansion ab with the following meaning
+         a.eq.0    do not compute the left singular vectors.
+         a.eq.1    return the n left singular vector in u.
+         a.ge.2    return the first min(n,p) singular vectors in u.
+         b.eq.0    do not compute the right singular vectors.
+         b.eq.1    return the right singular vectors in v.
+
+ON RETURN
+
+s   double precision(mm), where mm=min(n+1,p). the first min(n,p) entries of s contain the singular values of x arranged in descending order of magnitude.
+e   double precision(p), e ordinarily contains zeros.  however see the discussion of info for exceptions.
+u   double precision(ldu,k), where ldu.ge.n.  if joba.eq.1 then k.eq.n, if joba.ge.2 then k.eq.min(n,p). u contains the matrix of left singular vectors. u is not referenced if joba.eq.0.  if n.le.p or if joba.eq.2, then u may be identified with x in the subroutine call.
+v   double precision(ldv,p), where ldv.ge.p. v contains the matrix of right singular vectors. v is not referenced if job.eq.0.  if p.le.n, then v may be identified with x in the subroutine call.*/
+    double *err = new double[columns];
+    double *work = new double[rows];
+    int info;
+    int job;
+    if (rows<=columns) { // fat or square
+      job = 11;
+      yVec = new double[rows*rows]; // left singular vectors
+    } else { // thin
+      job = 21;
+      yVec = new double[rows*columns]; // left singular vectors
+    }
+    zVec = new double[columns*columns]; // right singular vectors
+    singVals = new double[min(columns,rows+1)];
+
+    F77NAME(dsvdc)(tmpMat, rows, rows, columns, singVals, err, yVec, rows, zVec, columns, work, job, info);
+
+    if (info>0) {
+      com->fprintf(stderr,"\n*** Error (mesg 1 of 2): linpack failed -- unable to find the first %d singular values\n", info);
+      exit(-1);
+    }
+
+    delete [] err;
+    delete [] work;
+
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void NonlinearRom<dim>::probabilisticLSMultiRHS(VecSet< DistSVec<double, dim> >& LHS, VecSet< DistSVec<double, dim> >& RHS,
+                                                  std::vector<std::vector<double> >& lsCoeffVec, int k, int nPowerIts, bool testSVD) {
+
+  // Multi-RHS Least Squares via probabilistic SVD
+  // LHS is destroyed by probabilisticSVD, which returns Utrue (size k) in its place.  LHS is resized to zero before this function returns.
+
+  int nRhs = RHS.numVectors();
+  int nLhs = LHS.numVectors();
+
+  // first call probabilistic SVD
+  std::vector<double> singularValues;
+  FullM Vtrue;
+  probabilisticSVD(LHS, singularValues, Vtrue, k, nPowerIts, testSVD);
+
+  // now compute LS coefficients
+  //   lsCoeff = V * inv(S) * U' * RHS
+  com->fprintf(stdout," ... computing least squares coefficients using SVD");
+
+  double lscoeffTime = timer->getTime();
+  lsCoeffVec.clear();
+  lsCoeffVec.resize(nRhs);
+  for (int iRhs=0; iRhs<nRhs; ++iRhs) {
+    lsCoeffVec[iRhs].resize(nLhs,0.0);
+  }
+
+  std::vector< double > result;
+  result.resize(k, 0.0);
+  for (int iRhs=0; iRhs<nRhs; ++iRhs) {
+    for (int iVec=0; iVec<LHS.numVectors(); ++iVec) {
+      result[iVec] = LHS[iVec] * RHS[iRhs];  // note: LHS was destroyed by probabilisticSVD and is now Utrue (size k)
+      result[iVec] = (singularValues[iVec]>1e-15) ? result[iVec] / singularValues[iVec] : 0;
+    }
+
+    for (int iLhs=0; iLhs<nLhs; ++iLhs) {
+      lsCoeffVec[iRhs][iLhs] = 0.0;
+      for (int iVec=0; iVec<LHS.numVectors(); ++iVec) {
+        lsCoeffVec[iRhs][iLhs] += Vtrue[iLhs][iVec]*result[iVec];
+      }
+    }
+  }
+  result.clear();
+  LHS.resize(0);
+
+  lscoeffTime = timer->getTime() - lscoeffTime;
+  com->fprintf(stdout," (%e sec)\n", lscoeffTime);
 
 }
 
@@ -3900,7 +4371,7 @@ void NonlinearRom<dim>::truncateBufferedBasis() {
 
   if (nBuffer>0) {
 
-    com->fprintf(stderr, " ... truncating buffered basis from %d vectors to %d vectors\n", nPod, nPodNew);
+    com->fprintf(stdout, " ... truncating buffered basis from %d vectors to %d vectors\n", nPod, nPodNew);
 
     VecSet< DistSVec<double, dim> >* basisNew =  new VecSet< DistSVec<double, dim> >(nPodNew, domain.getNodeDistInfo());
 
@@ -3986,7 +4457,7 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
     sowerCommandString += " -dec ";
     sowerCommandString += decompositionPathString;
     std::vector<int>::iterator it;
-    for (it = cpuMaps.begin(); it < cpuMaps.end(); ++it) { 
+    for (it = cpuMaps.begin(); it != cpuMaps.end(); ++it) { 
       sowerCommandString += " -cpu ";
       sowerCommandString += boost::lexical_cast<std::string>(*it);
     }
@@ -4106,3 +4577,45 @@ void NonlinearRom<dim>::callSowerSplit(std::string meshPath, std::string conPath
     pclose(shell);
 
 }
+
+//----------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::printDebug(int iDebug) {
+
+    com->fprintf(stderr," ... Debugging: %d ...\n",iDebug);
+    sleep(1);
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::formInterpolatedInitialConditionQuantities(DistSVec<double,dim> *U, std::vector<double> &weights) {
+
+  // form the path to multi solutions
+  *U = 0.0;
+  char *sampledMultiSolutionsPath = NULL;
+  determinePath(sampledMultiSolutionsName, -1, sampledMultiSolutionsPath);
+  DistSVec<double, dim> solVec(domain.getNodeDistInfo());
+
+  // if necessary, read urefMultiUicProducts, basisMultiUicProducts, and centersMultiUicProducts
+
+  for (int iData=0; iData<weights.size(); ++iData) {
+    // add this vector's contribution to U
+    domain.readVectorFromFile(sampledMultiSolutionsPath, iData, 0, solVec);
+    *U += weights[iData]*solVec;
+
+    // add this vector's contribution to urefUicProducts
+
+    // add this vector's contribution to basisUicProducts
+
+    // add this vector's contribution to centersUicProducts
+
+  }
+
+  delete [] sampledMultiSolutionsPath; 
+
+}
+
+

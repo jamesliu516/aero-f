@@ -48,6 +48,7 @@ public:
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
   void monitorInitialState(int, DistSVec<double,dim> &);
   bool monitorConvergence(int, DistSVec<double,dim> &);
+  void formInterpolatedInitialCondition(DistSVec<double,dim> *, std::vector<double> &);
 
   ImplicitGnatTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitGnatTsDesc();

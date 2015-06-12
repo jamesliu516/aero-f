@@ -82,7 +82,7 @@ public:
 
   void writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt,
                                    DistSVec<double,dim> *state = NULL, DistSVec<double,dim> *residual = NULL);
-
+  void calculateSpatialResidual(DistSVec<double,dim> &, DistSVec<double,dim> &); 
   void incrementNewtonOutputTag();
   void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {if (kspBinaryOutput) kspBinaryOutput->setCurrentState(Q);}
 

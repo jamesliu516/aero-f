@@ -88,7 +88,7 @@ template<int dim>
 void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
 
     // read in sample nodes
-    this->readClusteredSampleNodes(iCluster);
+    this->readClusteredSampleNodes(iCluster, "sampled");
 
     // read in gappy POD matrix for residual
     this->readClusteredGappyMatrix(iCluster, "resMatrix");
@@ -691,6 +691,8 @@ void NonlinearRomOnlineIII<dim>::projectSwitchStateOntoAffineSubspace(int curren
 
   // if first iteration
   // currentReducedCoords = basisUicProducts[currentCluster] - basisUrefProducts[currentCluster,currentCluster];
+  //
+  // (if starting with an interpolated Uic, basisUicProducts[currentCluster] is formed in TsDesc.C)
   //
   // otherwise
   // currentReducedCoords = basisUrefProducts[currentCluster,prevCluster] - basisUrefProducts[currentCluster,currentCluster]

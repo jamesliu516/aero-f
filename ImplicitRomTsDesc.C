@@ -7,6 +7,12 @@
 
 #include <TsOutput.h>
 
+#ifdef TYPE_MAT
+#define MatScalar TYPE_MAT
+#else
+#define MatScalar double
+#endif
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -21,13 +27,22 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   epsNewton = ioData->ts.implicit.newton.eps;  
   epsAbsResNewton = ioData->ts.implicit.newton.epsAbsRes;  
   epsAbsIncNewton = ioData->ts.implicit.newton.epsAbsInc;  
+  maxItsLS = ioData->ts.implicit.newton.lineSearch.maxIts;
+  rho = ioData->ts.implicit.newton.lineSearch.rho;
+  c1 = ioData->ts.implicit.newton.lineSearch.c1;
 
   this->timeState = new DistTimeState<dim>(*ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
-  ImplicitData fddata;
-  fddata.mvp = ImplicitData::FD;
 
-  mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
+  ImplicitData &implicitData = ioData->ts.implicit;
+  if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD) {
+    mvp = new MatVecProdFD<dim,dim>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
+  } else if (implicitData.mvp == ImplicitData::H1) {
+    mvp = new MatVecProdH1<dim,MatScalar,dim>(this->timeState, this->spaceOp, this->domain, *ioData);
+  } else if (implicitData.mvp == ImplicitData::H2) {
+    mvp = new MatVecProdH2<dim,MatScalar,dim>(*ioData, this->varFcn, this->timeState, this->spaceOp, this->domain, this->geoState);
+  }
+
 
   switch (ioData->romOnline.systemApproximation) {
     case (NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE):
@@ -67,6 +82,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
+  mvp->exportMemory(&mp);
  
   basisUpdateFreq = ioData->romOnline.basisUpdateFreq;
   tryAllFreq = ioData->romOnline.tryAllFreq;
@@ -139,10 +155,6 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   unsteady = this->problemType[ProblemData::UNSTEADY];
 
   tryingAllClusters = false;
-
-  rho = 0.5;
-  c1 = 0.25;
-  maxItsLS = 10;
 
   const char *residualsFileName = ioData->output.rom.residualsForCoordRange;
   if (strcmp(residualsFileName, "") != 0)  {
@@ -297,7 +309,7 @@ void ImplicitRomTsDesc<dim>::tryAllClusters(DistSVec<double, dim> &U, const int 
 
     double resReduction = resFinal / resInit;
 
-    this->com->fprintf(stdout, " ... reduced residual from %e to %e (ratio of %e) using cluster %d\n",
+    this->com->fprintf(stdout, " ... reduced residual from %e to %e (ratio of %e) using cluster %d\n\n",
                               resInit, resFinal, resReduction, iCluster);
   
     if ((resReduction<bestResReduction) || (bestResReduction<0.0)) {
@@ -638,7 +650,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   bool breakloop = false;
   bool breakloopNow = false;
 
-	// line search variables
+  // line search variables
   double alpha;
   bool convergeFlag=0;
 
@@ -658,10 +670,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
    //   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL)
    //     *weightFRef = this->F;
    // }
-
-    double tRes = this->timer->getTime();
     computeFullResidual(it, U, false);
-    this->timer->addResidualTime(tRes);
 
     if (this->ioData->romOnline.onlineResiduals.include 
         && (it%(this->ioData->romOnline.onlineResiduals.newtonFreq)==0)
@@ -677,12 +686,12 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
       setProblemSize(U);
     }
 
+    double tAJ = this->timer->getTime();
     computeAJ(it, U, true);	// skipped some times for Broyden
+    this->timer->addAJTime(tAJ);
 
     if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
-      tRes = this->timer->getTime();
       computeFullResidual(it, U, true);
-      this->timer->addResidualTime(tRes);
     }
 
     solveNewtonSystem(it, res, breakloop, U, totalTimeSteps);	// 1) check if residual small enough, 2) solve 
@@ -698,44 +707,28 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
       if (it > 0 && convergeFlag == 1) break;
       dUromNewtonIt *= alpha;
     } else if (this->ioData->romOnline.lineSearch==NonlinearRomOnlineData::LINE_SEARCH_BACKTRACKING) {
+      double baselineMerit = meritFunction(it, U, dUfull, this->F, 0);
+      alpha = 1.0;
       expandVector(dUromNewtonIt, dUfull);
       for (int itLS=0; itLS<maxItsLS; ++itLS) {
-        if (itLS>0){
-          alpha *= rho;
-          if (itLS==1) {
-            dUfull *= (rho-1);
-            dUromNewtonIt *= (rho-1);
-          } else {
-            dUfull *= rho;
-            dUromNewtonIt *= rho;
-          }
-        } else {
-          alpha = 1.0;
+        if (itLS>0) alpha *= rho;
+        double testMerit = meritFunction(it, U, dUfull, this->F, alpha);
+        //this->com->fprintf(stderr, "*** baselineMerit=%e, baslineMerit*coeff=%e, testMerit=%e\n", baselineMerit, sqrt(1-2.0*alpha*c1)*baselineMerit, testMerit);
+        if (testMerit < sqrt(1-2.0*alpha*c1)*baselineMerit) {// || dQ.norm() <= epsAbsInc)
+          dUromNewtonIt *= alpha;
+          break;
         }
-
-        // increment or backtrack from previous trial 
-        U += dUfull;          
-        double restrial = 1.0e20;
-        if (!this->checkSolution(U)) {
-          computeFullResidual(it, U, true);
-          restrial = (this->F)*(this->F);
-        }
-
-        if (restrial>=0.0) {
-          if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res)// || dQ.norm() <= epsAbsInc)
-            break;
-        }
-        if (itLS == maxItsLS-1 && maxItsLS != 1)
+        if (itLS == maxItsLS-1 && maxItsLS != 1) {
           this->com->printf(1, "*** Warning: Line Search reached %d its ***\n", maxItsLS);
+          dUromNewtonIt *= alpha;
+        }
       }
     }
 
     double tSol = this->timer->getTime();    
     dUromTimeIt += dUromNewtonIt; // solution increment in reduced coordinates (initialized to zero in checkLocalRomStatus)
-    if (this->ioData->romOnline.lineSearch!=NonlinearRomOnlineData::LINE_SEARCH_BACKTRACKING) {
-      expandVector(dUromNewtonIt, dUfull); // solution increment in full coordinates
-      U += dUfull;
-    }
+    expandVector(dUromNewtonIt, dUfull); // solution increment in full coordinates
+    U += dUfull;
     this->timer->addSolutionIncrementTime(tSol);
 
     saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
@@ -820,6 +813,8 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
 {
   if (R==NULL) R = &F;  // make R an alias for F
 
+  double tRes = this->timer->getTime();
+
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *R, this->timeState);
 
   if (includeHomotopy)
@@ -846,6 +841,8 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
     }
   }
 
+  this->timer->addResidualTime(tRes);
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -862,7 +859,7 @@ double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, D
   merit *= merit;
 //  merit *= 0.5;
 
-  if (this->ioData->romOnline.lsSolver == 2) {
+  if (this->ioData->romOnline.lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS) {
     DistSVec<double, dim>* A_Uerr = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
     *A_Uerr = 0.0;
     int numLocSub = A_Uerr->numLocSub();
@@ -897,6 +894,12 @@ double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, D
 //------------------------------------------------------------------------------
 template<int dim>
 double ImplicitRomTsDesc<dim>::meritFunctionDeriv(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &p, DistSVec<double, dim> &R, double currentMerit)  { 
+
+  MatVecProdFD<dim,dim>* mvpfd = dynamic_cast<MatVecProdFD<dim,dim>*>(mvp);
+  if (mvpfd==NULL) {
+    this->com->fprintf(stderr,"*** ERROR: Wolfe line search only implemented for MatVecProd=FD! \n"); 
+    exit(-1);
+  }
 
   double eps = mvpfd->computeEpsilon(Q,p);
   DistSVec<double, dim> newR(this->domain->getNodeDistInfo());
@@ -935,7 +938,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
 
   // Parameters for Wolfe conditions
 
-  double c1 = 0.00001;  // for Armijo (sufficient decrease) condition
+  double c1Wolfe = 0.00001;  // for Armijo (sufficient decrease) condition
   double c2 = 0.0001; // relative gradient condition.
   //NOTE: We require 0<c1<c2<1 
   //NOTE: the smaller the value of c2, the closer the steplength will be to a local minimizer
@@ -985,24 +988,24 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
   
   while (count<maxIter){
     merit = meritFunction(it, Q, dQ, R, alpha); // evaluate merit function at current alpha
-    if (merit>meritZero+c1*alpha*meritDerivZero || (merit>=meritOld && count>0)){
+    if (merit>meritZero+c1Wolfe*alpha*meritDerivZero || (merit>=meritOld && count>0)){
         // alphaLo=alphaOld, alphaHi=alpha
         this->com->fprintf(stderr,"Entering zoom from location 1, alpha = %e \n",alpha);
-        alpha = zoom(alphaOld, alpha, meritOld, merit, meritDerivOld, meritDerivZero, meritZero, c1, c2, Q, dQ, R, it);
+        alpha = zoom(alphaOld, alpha, meritOld, merit, meritDerivOld, meritDerivZero, meritZero, c1Wolfe, c2, Q, dQ, R, it);
         return alpha;
     }
     Qnew = Q+alpha*dQ;  // Q at current alpha
     meritDeriv = meritFunctionDeriv(it, Qnew, dQ, R, merit);
 
     if (fabs(meritDeriv)<=-c2*meritDerivZero){
-       this->com->fprintf(stderr,"Condition one is satisfied: %d. Condition two is satisfied: %d.\n",fabs(meritDeriv)<=-c2*meritDerivZero,merit<meritZero+c1*alpha*meritDerivZero);
+       this->com->fprintf(stderr,"Condition one is satisfied: %d. Condition two is satisfied: %d.\n",fabs(meritDeriv)<=-c2*meritDerivZero,merit<meritZero+c1Wolfe*alpha*meritDerivZero);
        this->com->fprintf(stderr,"Returning alpha without zoom, alpha = %e \n",alpha);
        return alpha;  // a valid solution has been found
     }
     if (meritDeriv>=0){
        // alphaLo=alpha, alphaHi=alphaOld
        this->com->fprintf(stderr,"Entering zoom from location 2.  The alphas are: alpha = %e, alphaOld = %e \n",alpha,alphaOld);
-       alpha = zoom(alpha, alphaOld, merit, meritOld, meritDeriv, meritDerivZero, meritZero, c1, c2, Q, dQ, R, it);
+       alpha = zoom(alpha, alphaOld, merit, meritOld, meritDeriv, meritDerivZero, meritZero, c1Wolfe, c2, Q, dQ, R, it);
        return alpha;
     }
 
@@ -1033,7 +1036,7 @@ double ImplicitRomTsDesc<dim>::lineSearch(DistSVec<double, dim> &Q, Vec<double> 
 }
 //-----------------------------------------------------------------------------
 template<int dim>
-double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double meritLo, double meritHi, double meritDerivLo, double meritDerivZero, double meritZero, double c1, double c2, DistSVec<double, dim> Q, DistSVec<double, dim> dQ, DistSVec<double, dim> R, int it){
+double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double meritLo, double meritHi, double meritDerivLo, double meritDerivZero, double meritZero, double c1Wolfe, double c2, DistSVec<double, dim> Q, DistSVec<double, dim> dQ, DistSVec<double, dim> R, int it){
 
     // Given a valid bracket, this function finds an alpha within the bracket satisfying the Strong Wolfe conditions
     // See p. 61 of Numerical Optimization, 2nd ed by Nocedal and Wright for details
@@ -1075,7 +1078,7 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
 
       merit = meritFunction(it, Q, dQ, R, alpha);
 
-      if (merit>meritZero+c1*alpha*meritDerivZero || merit>=meritLo){
+      if (merit>meritZero+c1Wolfe*alpha*meritDerivZero || merit>=meritLo){
            alphaHi = alpha;
            meritHi = merit;
       }
@@ -1083,7 +1086,7 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
            Qnew = Q+alpha*dQ;
            meritDeriv = meritFunctionDeriv(it, Qnew, dQ, R, merit);
            if (fabs(meritDeriv)<=-c2*meritDerivZero){
-                this->com->fprintf(stderr,"Condition one is satisfied: %d. Condition two is satisfied: %d.\n",fabs(meritDeriv)<=-c2*meritDerivZero,merit<meritZero+c1*alpha*meritDerivZero);
+                this->com->fprintf(stderr,"Condition one is satisfied: %d. Condition two is satisfied: %d.\n",fabs(meritDeriv)<=-c2*meritDerivZero,merit<meritZero+c1Wolfe*alpha*meritDerivZero);
                 this->com->fprintf(stderr,"alpha = %e, # zoom iter = %d\n",alpha, count);
 
                 return alpha;  // alpha satisfies Strong Wolfe conditions: exit loop
@@ -1178,11 +1181,17 @@ void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool ap
 
 //  } else {
   if (R==NULL) R = &F;
- 
-  mvpfd->evaluate(it, *this->X, *this->A, Q, *R);
-  
-  for (int iPod = 0; iPod < nPod; iPod++)
-    mvpfd->apply(pod[iPod], AJ[iPod]);
+
+  double t0 = this->timer->getTime();
+  mvp->evaluate(it, *this->X, *this->A, Q, *R);
+  this->timer->addJacEvaluateTime(t0);
+
+  if (AJ.numVectors()!=nPod) AJ.resize(nPod);  
+  for (int iPod = 0; iPod < nPod; iPod++) {
+    t0 = this->timer->getTime();
+    mvp->apply(pod[iPod], AJ[iPod]);
+    this->timer->addJacApplyTime(t0);
+  }
 
   //saveNewtonSystemVectors(totalTimeSteps);
  
@@ -1248,7 +1257,7 @@ template<int dim>
 void ImplicitRomTsDesc<dim>::rstVarImplicitRomTsDesc(IoData &ioData)
 {
 
-  mvpfd->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+  mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
 
 }
 

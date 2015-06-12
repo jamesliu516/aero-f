@@ -158,7 +158,7 @@ public:
                        DistTimeState<dim> *, bool=true);
 	void computeResidualRestrict(DistSVec<double,3> &, DistVec<double> &,
 			DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-			RestrictionMapping<dim> &, bool=true);
+		        const std::vector< std::vector<int> > &, bool=true);
 // Included (MB)
   void computeResidual(DistExactRiemannSolver<dim> *,
 		       DistSVec<double,3> &, DistVec<double> &,

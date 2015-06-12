@@ -41,7 +41,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   stateOutputFreqTime = iod.output.rom.stateOutputFreqTime;
   stateOutputFreqNewton = iod.output.rom.stateOutputFreqNewton;
   residualOutputFreqTime = iod.output.rom.residualOutputFreqTime;
-  residualOutputFreqNewton = iod.output.rom.residualOutputFreqNewton; 
+  residualOutputMaxNewton = iod.output.rom.residualOutputMaxNewton; 
   fdResiduals = (iod.output.rom.fdResiduals == ROMOutputData::FD_RESIDUALS_ON) ? true : false;
   fdResidualsLimit = (iod.output.rom.fdResidualsLimit == ROMOutputData::FD_RESIDUALS_LIMIT_ON) ? true : false;
 
@@ -3470,9 +3470,7 @@ int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, 
 
   if (residual && residualVectors) {
     if (timeStep%residualOutputFreqTime==0) { 
-      if (((residualOutputFreqNewton==0) && lastNewtonIt) || // special case: last newton iteration 
-          ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
-          (((residualOutputFreqNewton>0))&&(newtonIt%residualOutputFreqNewton==0))) {
+      if (residualOutputMaxNewton>=newtonIt) {
         // for FOM residuals only (residuals from PG are clustered during the online simulations)
 
         // if outputting krylov vects, limit number of residuals output per newton iteration to

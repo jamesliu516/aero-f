@@ -62,6 +62,7 @@ struct OneDimensionalInputData {
 struct InputData {
 
   enum OptimalPressureDimensionality {NON_DIMENSIONAL=0, DIMENSIONAL=1,NONE=2} optPressureDim;
+  enum UseMultiSolutionsGNAT {MULTI_SOLUTIONS_GNAT_FALSE=0, MULTI_SOLUTIONS_GNAT_TRUE=1} useMultiSolutionsGNAT;
 
   const char *prefix;
   const char *geometryprefix;
@@ -75,8 +76,11 @@ struct InputData {
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
-  const char *multisolutions;
+  const char *multiSolutions;
+  const char *multiSolutionsParams; // ROMs: path to a file listing file paths to solutions (not used) and their corresponding operating point (solutions are assumed to be in the same order as in the multiSolutions file)
+  const char *parameters;  // ROMs: operating point for the current simulation (interpolates multiSolutionsParams to find an IC);
   const char *positions;
+  const char *displacements;
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
@@ -362,9 +366,10 @@ struct ROMOutputData {
 
   const char *residualVector;
   int residualOutputFreqTime;
-  int residualOutputFreqNewton;
+  int residualOutputMaxNewton;
   enum FDResiduals {FD_RESIDUALS_OFF = 0, FD_RESIDUALS_ON = 1} fdResiduals;
   enum FDResidualsLimit {FD_RESIDUALS_LIMIT_OFF = 0, FD_RESIDUALS_LIMIT_ON = 1} fdResidualsLimit;
+  enum OutputOnlySpatialResidual {OUTPUT_ONLY_SPATIAL_RES_OFF = 0, OUTPUT_ONLY_SPATIAL_RES_ON = 1} outputOnlySpatialResidual;
 
   const char *krylovVector;
   int krylovOutputFreqTime;
@@ -456,6 +461,8 @@ struct ProblemData {
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
   enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
+
+  enum SolveWithMultipleICs {_MULTIPLE_ICS_FALSE_ = 0, _MULTIPLE_ICS_TRUE_ = 1} solveWithMultipleICs;
 
   ProblemData();
   ~ProblemData() {}
@@ -2202,7 +2209,9 @@ struct NonlinearRomFilesData {
   const char *exactUpdateInfoPrefix;
   const char *stateDistanceComparisonInfoName;
   const char *stateDistanceComparisonInfoExactUpdatesName;
+  const char *stateDistanceComparisonInfoExactUpdatesMultiICName;
   const char *basisNormalizedCenterProductsName;
+  const char *basisMultiUicProductsName;
   const char *projErrorName;
   const char *refStateName;
 
@@ -2256,6 +2265,7 @@ struct NonlinearRomFilesData {
   const char *sampledJacActionBasisName; //podFileJacHat;
   const char *sampledMeshName;          //mesh;
   const char *sampledSolutionName;      //solution;
+  const char *sampledMultiSolutionsName; // multiple solutions. Can start from one, or an arbitrary linear combination.
   const char *sampledRefStateName;
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
@@ -2270,6 +2280,7 @@ struct NonlinearRomFilesData {
   const char *surfaceStateBasisName;
   const char *surfaceRefStateName;
   const char *surfaceSolutionName;
+  const char *surfaceMultiSolutionsName;
   const char *surfaceWallDistName;
   const char *surfaceMeshName;
 
@@ -2327,7 +2338,7 @@ struct NonlinearRomOnlineData {
   enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
   enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
-  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3} lsSolver;
+  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3, PROBABILISTIC_SVD = 4, LSMR = 5} lsSolver;
 
   enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
   double weightingExponent;
@@ -2349,6 +2360,8 @@ struct NonlinearRomOnlineData {
   int maxDimension;
   double energy;
   double bufferEnergy;
+
+  int randMatDimension;
 
   double incrementCoordsTol;
 
@@ -2446,6 +2459,10 @@ struct DataCompressionData {
   enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
   enum Type {POD = 0, BALANCED_POD = 1} type;
   enum PODMethod {SCALAPACK_SVD = 0, PROBABILISTIC_SVD = 1, Eig = 2} podMethod;
+  int randMatDimension;
+  int nPowerIts;
+  enum CompareSVDMethods {COMPARE_SVD_FALSE = 0, COMPARE_SVD_TRUE = 1} compareSVDMethods;
+  enum TestProbabilisticSVD {TEST_PROBABILISTIC_SVD_FALSE = 0, TEST_PROBABILISTIC_SVD_TRUE = 1} testProbabilisticSVD;
   int maxVecStorage;
   enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
   double tolerance;
@@ -2453,6 +2470,7 @@ struct DataCompressionData {
   int minBasisSize;
   double singValTolerance;
   double maxEnergyRetained;
+  int initialCluster;
 
   DataCompressionData();
   ~DataCompressionData() {}
@@ -2639,8 +2657,18 @@ struct GNATConstructionData {
   int minDimensionJacAction;
   double energyJacAction;
 
-	enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
-		JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;
+  enum SelectSampledNodes {SELECT_SAMPLED_NODES_FALSE = 0, SELECT_SAMPLED_NODES_TRUE = 1} selectSampledNodes;
+  
+  enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0, JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;
+  enum GreedyLeastSquaresSolver {GREEDY_LS_PROBABILISTIC = 0, GREEDY_LS_SCALAPACK = 1, GREEDY_LS_LINPACK = 2} greedyLeastSquaresSolver;
+
+  enum PseudoInverseSolver {PSEUDO_INVERSE_SCALAPACK = 0, PSEUDO_INVERSE_LINPACK = 1} pseudoInverseSolver;
+  int pseudoInverseNodes;
+
+  double initialCluster; // for online matrix computations (restart)
+
+  int randMatDimension;
+  int nPowerIts;
 
   int maxDimensionROBGreedy;	// default: nRobNonlin
   int minDimensionROBGreedy;
@@ -2661,7 +2689,7 @@ struct GNATConstructionData {
   enum UseOldReducedSVecFunction {USE_OLD_FALSE = 0, USE_OLD_TRUE = 1} useOldReducedSVecFunction;
 
   enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
-  int pseudoInverseNodes;
+
   enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
   enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
 

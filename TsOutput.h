@@ -57,7 +57,7 @@ private:
   int stateOutputFreqTime;
   int stateOutputFreqNewton;
   int residualOutputFreqTime;
-  int residualOutputFreqNewton;
+  int residualOutputMaxNewton;
   bool fdResiduals;
   bool fdResidualsLimit;
 

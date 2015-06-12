@@ -43,7 +43,12 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   numFullNodes = domain.getNumGlobNode();  // # globalNodes in full mesh
   com->fprintf(stdout," ... Number of full nodes in domain is %d ...\n",numFullNodes);
 
-  for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
+  if ((ioData->romOffline.gnat.greedyLeastSquaresSolver == GNATConstructionData::GREEDY_LS_SCALAPACK) || 
+      (ioData->romOffline.gnat.pseudoInverseSolver == GNATConstructionData::PSEUDO_INVERSE_SCALAPACK)) {
+    for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
+  } else {
+    for(int i=0; i<2; ++i) parallelRom[i] = NULL;
+  }
 
   unionOfSampleNodes = -1;  // for readability
   globalSampleNodesForCluster.resize(0);
@@ -104,6 +109,8 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   }
 
   surfaceMeshConstruction = false;
+
+  cleanTempFiles=false;
 
 }
 
@@ -210,12 +217,18 @@ void GnatPreprocessing<dim>::initialize()
 template<int dim>
 void GnatPreprocessing<dim>::buildReducedModel() {
 
+  this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects
+
   double totalGnatOfflineTime = this->timer->getTime();
 
   if (ioData->romOffline.gnat.doPrepro) {
     this->readClusterCenters("centers"); // double checks the value of nClusters that was given in the input file
-    globalSampleNodesForCluster.resize(this->nClusters);
-   
+    globalSampleNodesUnion.clear();
+    globalSampleNodesForCluster.clear();
+ 
+    double sampledMeshConstructionTime = this->timer->getTime(); // only used if sampled mesh is built
+    double surfaceMeshConstructionTime = this->timer->getTime(); // only used if surface mesh is built
+      
       //======================================
       // PURPOSE
       //   select sample globalNodes for each cluster.  Store sample nodes (mask) separately
@@ -242,50 +255,54 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       //======================================
       // compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
       //======================================
-  
-    double sampledMeshConstructionTime = this->timer->getTime(); // only used if sampled mesh is built
-    double surfaceMeshConstructionTime = this->timer->getTime(); // only used if surface mesh is built
-  
-    int nTargetSampleNodesForApproxMetric;
-    int nAddedSamplesLoc = 0;
-    int nAddedSamplesGlob = 0;
-    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-      com->fprintf(stdout,"\n ... Selecting sample nodes for cluster %d ...\n", iCluster);
-  
-      initialize();
-  
-      setUpPodResJac(iCluster);
-  
-      setUpGreedy(iCluster);
-  
-      determineSampleNodes();  // use greedy algorithm to determine sample nodes
-  
-      globalSampleNodesForCluster[iCluster] = globalSampleNodes;     // store local sample nodes (the local mask)
+
+    if (ioData->romOffline.gnat.selectSampledNodes || ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates || surfaceMeshConstruction) {
+
+      globalSampleNodesForCluster.resize(this->nClusters);
+
+      int nTargetSampleNodesForApproxMetric;
+      int nAddedSamplesLoc = 0;
+      int nAddedSamplesGlob = 0;
+      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+        com->fprintf(stdout,"\n ... Selecting sample nodes for cluster %d ...\n", iCluster);
     
-      nTargetSampleNodesForApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*globalSampleNodes.size());
-      nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
-      for (int iNode=0; iNode<globalSampleNodes.size(); iNode++) { 
-        globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
-        nAddedSamplesLoc = globalSampleNodesUnionSet.size()-nAddedSamplesGlob;
-        if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetric)
-          globalSampleNodesUnionSetForApproxMetric.insert(globalSampleNodes[iNode]);
+        initialize();
+    
+        setUpPodResJac(iCluster);
+    
+        setUpGreedy(iCluster);
+    
+        determineSampleNodes();  // use greedy algorithm to determine sample nodes
+    
+        globalSampleNodesForCluster[iCluster] = globalSampleNodes;     // store local sample nodes (the local mask)
+      
+        nTargetSampleNodesForApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*globalSampleNodes.size());
+        nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
+        for (int iNode=0; iNode<globalSampleNodes.size(); iNode++) { 
+          globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
+          nAddedSamplesLoc = globalSampleNodesUnionSet.size()-nAddedSamplesGlob;
+          if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetric)
+            globalSampleNodesUnionSetForApproxMetric.insert(globalSampleNodes[iNode]);
+        }
+      
+      } 
+    
+      // place the union of the sample nodes into a vector
+      for (std::set<int>::iterator it=globalSampleNodesUnionSet.begin(); it!=globalSampleNodesUnionSet.end(); ++it) {
+        globalSampleNodesUnion.push_back(*it);
       }
+      globalSampleNodesUnionSet.clear();
     
-    } 
-  
-    // place the union of the sample nodes into a vector
-    for (std::set<int>::iterator it=globalSampleNodesUnionSet.begin(); it!=globalSampleNodesUnionSet.end(); ++it) {
-      globalSampleNodesUnion.push_back(*it);
+      for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetric.begin(); it!=globalSampleNodesUnionSetForApproxMetric.end(); ++it) {
+        globalSampleNodesUnionForApproxMetric.push_back(*it);
+      }
+      globalSampleNodesUnionSetForApproxMetric.clear();
+    
+ 
     }
-    globalSampleNodesUnionSet.clear();
-  
-    for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetric.begin(); it!=globalSampleNodesUnionSetForApproxMetric.end(); ++it) {
-      globalSampleNodesUnionForApproxMetric.push_back(*it);
-    }
-    globalSampleNodesUnionSet.clear();
-  
-    initialize(); 
-  
+
+    initialize();
+ 
     setSampleNodes(unionOfSampleNodes); // also calls buildRemainingMesh()
   
     if (surfaceMeshConstruction) {
@@ -296,16 +313,10 @@ void GnatPreprocessing<dim>::buildReducedModel() {
   
     if (thisCPU == 0) outputTopFile(unionOfSampleNodes);
   
-    double sampledVecsOutputTime = this->timer->getTime();
-    double surfaceVecsOutputTime = this->timer->getTime();
     outputInitialConditionReduced();
+    outputMultiSolutionsReduced();
     outputWallDistanceReduced();  // distributed info (parallel)
-    if (surfaceMeshConstruction) {
-      this->timer->addSampledOutputTime(sampledVecsOutputTime);
-    } else {
-      this->timer->addSurfaceOutputTime(surfaceVecsOutputTime); 
-    }
-  
+ 
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
   
       initialize();
@@ -315,10 +326,8 @@ void GnatPreprocessing<dim>::buildReducedModel() {
         com->fprintf(stdout," ... Writing surface quantities for cluster %d\n\n", iCluster);
    
         setSampleNodes(unionOfSampleNodes);
-        double surfaceOutputTime = this->timer->getTime();  
         outputLocalStateBasisReduced(iCluster);
         outputLocalReferenceStateReduced(iCluster);
-        this->timer->addSurfaceOutputTime(surfaceOutputTime);
   
       } else {
         com->fprintf(stdout,"\n-----------------------------------------------------\n");
@@ -326,13 +335,11 @@ void GnatPreprocessing<dim>::buildReducedModel() {
    
         int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
         setSampleNodes(sampleNodes);
-    
-        double sampledOutputTime = this->timer->getTime();  
-        if (thisCPU == 0) outputSampleNodes(iCluster);
+
+        if ((thisCPU == 0) && ioData->romOffline.gnat.selectSampledNodes) outputSampleNodes(iCluster);
         outputLocalStateBasisReduced(iCluster);
         outputLocalReferenceStateReduced(iCluster);
-        this->timer->addSampledOutputTime(sampledOutputTime);
-  
+ 
       }
     }
   
@@ -344,7 +351,7 @@ void GnatPreprocessing<dim>::buildReducedModel() {
   
     } else { // build and output online matrices
   
-      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+      for (int iCluster=ioData->romOffline.gnat.initialCluster; iCluster<(this->nClusters); ++iCluster) {
     
         com->fprintf(stdout,"\n-----------------------------------------------------\n");
         com->fprintf(stdout," ... Computing online GNAT matrices for cluster %d\n\n", iCluster);
@@ -376,9 +383,7 @@ void GnatPreprocessing<dim>::buildReducedModel() {
           assembleOnlineMatrices();   // handle online matrices so you can free up pseudo inverse matrix
         }
     
-        double sampledOutputTime = this->timer->getTime();  
         outputOnlineMatrices(iCluster);
-        this->timer->addSampledOutputTime(sampledOutputTime);
     
         if (podTpod) {
           for (int iVec=0; iVec<nPod[1]; ++iVec)
@@ -778,20 +783,16 @@ template<int dim>
 void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords() {
 
  // output the SetOfVec lowRankFactor
-   com->fprintf(stdout,"\n ... Writing low rank factor of approximated metric ...\n");
+  com->fprintf(stdout,"\n ... Writing low rank factor of approximated metric ...\n");
 
   char *filePath = NULL;
   this->determinePath(this->approxMetricLowRankName, -1, filePath);
 
-  FILE *outApproxMetric;
-  if (thisCPU == 0) outApproxMetric = fopen(filePath, "wt");
-
-  com->fprintf(outApproxMetric,"Vector ApproxMetric under load for FluidNodesRed\n");
-  com->fprintf(outApproxMetric,"%d\n", nReducedNodes);
+  std::string header("Vector ApproxMetric under load for FluidNodesRed");
 
   int percentComplete = 0;
   for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) {  // # rows in A and B
-    outputReducedSVec((*this->lowRankFactor)[iVec],outApproxMetric,double(iVec));
+    outputReducedSVec((*this->lowRankFactor)[iVec],filePath,double(iVec),iVec,this->lowRankFactor->numVectors(),header.c_str());
     if ((iVec+1)%((this->lowRankFactor->numVectors()/4)+1)==0) {
         percentComplete += 25;
         com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
@@ -802,7 +803,6 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords() {
     delete [] filePath;
     filePath = NULL;
   }
-  if (thisCPU == 0) fclose(outApproxMetric);
 
 }
 
@@ -857,9 +857,23 @@ void GnatPreprocessing<dim>::setSampleNodes(int iCluster) {
   globalSampleNodes.clear();
 
   if (iCluster<0) {
-    globalSampleNodes = globalSampleNodesUnion;
+    if (globalSampleNodesUnion.size()>0) {
+      globalSampleNodes = globalSampleNodesUnion;
+    } else { 
+      this->readSampleNodes(iCluster, "full", false);
+      globalSampleNodes = this->sampleNodes;
+      this->sampleNodes.clear();
+      reinitializeMapsForSampleNodes();
+      globalSampleNodesUnion = globalSampleNodes;
+    }
   } else {
-    globalSampleNodes = globalSampleNodesForCluster[iCluster];
+    if (globalSampleNodesForCluster.size()>0 && globalSampleNodesForCluster[iCluster].size()>0) {
+      globalSampleNodes = globalSampleNodesForCluster[iCluster];
+    } else {
+      this->readSampleNodes(iCluster, "full", false);
+      globalSampleNodes = this->sampleNodes;
+      this->sampleNodes.clear();
+    }
   }
 
   nSampleNodes = globalSampleNodes.size();
@@ -915,8 +929,8 @@ void GnatPreprocessing<dim>::setUpPodResJac(int iCluster) {
 
   this->readClusteredBasis(iCluster, "residual");
   nPod[0] = this->basis->numVectors(); 
-	pod[0].resize(nPod[0]);
-	for (int iVec=0; iVec<nPod[0]; ++iVec) {
+  pod[0].resize(nPod[0]);
+  for (int iVec=0; iVec<nPod[0]; ++iVec) {
     pod[0][iVec] = (*(this->basis))[iVec];
   }
   delete (this->basis);
@@ -1113,7 +1127,9 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
   //===============================================
     
   double globalMaxNorm = myMaxNorm;
+    com->fprintf(stdout," ... calling barrier\n");
   com->barrier();
+    com->fprintf(stdout," ... calling globalMax\n");
   com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
 
   // define variables to be summed globally
@@ -1134,11 +1150,14 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
     cpuHasMaxVal = 1;
     cpuNumWithMaxVal = thisCPU;
   }
+    com->fprintf(stdout," ... calling globalSum\n");
   com->globalSum(1, &cpuHasMaxVal);  // total CPUs with maximum value
   if (cpuHasMaxVal > 1) { 
+    com->fprintf(stdout," ... calling globalMin\n");
     com->globalMin(1, &cpuNumWithMaxVal);  // take CPU with smallest number that has max val
   }
 
+    com->fprintf(stdout," ... about to fill POD hat\n");
   if (thisCPU == cpuNumWithMaxVal) {  // if this CPU has the maximum value
 
     // save the global subdomain and local node indices (sum at the very end of
@@ -1170,6 +1189,7 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
   // make sure all cpus have the same copy
   
   com->barrier();
+    com->fprintf(stdout," ... calling global Sums\n");
   com->globalSum(1, &cpuTemp);
   com->globalSum(1, &locSubTemp);
   com->globalSum(1, &locNodeTemp);
@@ -1189,6 +1209,7 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
 
   // define maps for SAMPLE nodes
   
+    com->fprintf(stdout," ... defining maps\n");
   globalSampleNodeRankMap.insert(pair<int, int > (globalNodeTemp,
         handledNodes)); globalNodeToCpuMap.insert(pair<int, int >
         (globalNodeTemp, cpuTemp));
@@ -1263,10 +1284,15 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
     nRhs[iPodBasis] = nRhsGreedy[iPodBasis][greedyIt];
   assert(max(nRhs[0],nRhs[1]) > 0);    // must have at least one RHS
 
+  double totalLSTime = this->timer->getTime();
   if (doLeastSquares) {
     leastSquaresReconstruction();    // solve the least-squares reconstruction
   }
+  totalLSTime = this->timer->getTime() - totalLSTime;
+  com->barrier(); //debugging
+  com->fprintf(stdout," ... Total Least Squares Time = %e(s)\n", totalLSTime);
 
+  double totalFillTime = this->timer->getTime();
   for (int iFillNode = 0; iFillNode < nodesToHandle[greedyIt]; ++iFillNode) {  // fill up the appropriate number of nodes
 
     // initialize parameters
@@ -1275,6 +1301,7 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
 
     // loop over nodes, and add to set if it is the maximum
     // subdomains -> nodes
+    com->fprintf(stdout," ... entering subDFindMaxError\n");
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
       // get subdomain info for all RHS
@@ -1286,15 +1313,18 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
       subDFindMaxError(iSub, onlyInletOutletBC, myMaxNorm, locSub, locNode, globalNode);
       
     }
-
+    com->barrier(); //debugging
     // find global subdomain number and local node number for node with maximum norm
-
+    com->fprintf(stdout," ... entering findMaxAndFillPodHat\n");
     findMaxAndFillPodHat(myMaxNorm, locSub, locNode, globalNode);
 
 
     if (onlyInletOutletBC == true)  // only add one 
       onlyInletOutletBC = false;
   }
+  totalFillTime = this->timer->getTime() - totalFillTime;
+  com->fprintf(stdout," ... Total Fill Time = %e(s)\n", totalFillTime);
+
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)  
     handledVectors[iPodBasis] += nRhs[iPodBasis];
@@ -1306,8 +1336,9 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
 template<int dim>
 void GnatPreprocessing<dim>::initializeLeastSquares() {
 
-  // initialize least squares problems
+  // initialize scalapack for least squares problems
   // TODO: only allocate memory for required columns!
+  if (ioData->romOffline.gnat.greedyLeastSquaresSolver != GNATConstructionData::GREEDY_LS_SCALAPACK) return;
   if (initializeLeastSquaresDone == true) return;
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
@@ -1325,8 +1356,9 @@ void GnatPreprocessing<dim>::initializeLeastSquares() {
 template<int dim>
 void GnatPreprocessing<dim>::initializeLeastSquaresPseudoInv(int numRhs) {
 
-  // initialize least squares problems
+  // initialize scalapack for least squares problems
   // TODO: only allocate memory for required columns!
+  if (ioData->romOffline.gnat.pseudoInverseSolver != GNATConstructionData::PSEUDO_INVERSE_SCALAPACK) return;
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
     parallelRom[iPodBasis]->parallelLSMultiRHSClean();
@@ -1443,10 +1475,26 @@ void GnatPreprocessing<dim>::leastSquaresReconstruction() {
       lsCoeff[iPodBasis][iRhs] = new double [handledVectors[iPodBasis]];
     }
 
-    parallelLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
-
+    if (ioData->romOffline.gnat.greedyLeastSquaresSolver == GNATConstructionData::GREEDY_LS_SCALAPACK) {
+      double scalapackTime = this->timer->getTime();
+      parallelLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
+      scalapackTime = this->timer->getTime() - scalapackTime;
+      com->fprintf(stdout," ... ... Scalapack LS Time = %e(s)\n", scalapackTime);
+    } else if (ioData->romOffline.gnat.greedyLeastSquaresSolver == GNATConstructionData::GREEDY_LS_LINPACK) {
+      double linpackTime = this->timer->getTime();
+      serialLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
+      linpackTime = this->timer->getTime() - linpackTime;
+      com->fprintf(stdout," ... ... linpack LS Time = %e(s)\n", linpackTime);
+    } else {
+      double probTime = this->timer->getTime();
+      probabilisticLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
+      probTime = this->timer->getTime() - probTime;
+      com->fprintf(stdout," ... ... Probabilistic LS Time = %e(s)\n", probTime);
+    }
+ 
     // compute reconstruction error
 
+    double reconstructionTime = this->timer->getTime();
     for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs) { 
       error[iPodBasis][iRhs] = pod[iPodBasis][handledVectors[iPodBasis] + iRhs];  // NOTE: POD
       for (int jPod = 0; jPod < handledVectors[iPodBasis]; ++jPod) {
@@ -1461,7 +1509,8 @@ void GnatPreprocessing<dim>::leastSquaresReconstruction() {
       delete [] lsCoeff[iPodBasis];
       lsCoeff[iPodBasis] = NULL;
     }
-    
+    reconstructionTime = this->timer->getTime() - reconstructionTime;
+    com->fprintf(stdout," ... ... Reconstruction Time = %e(s)\n", reconstructionTime);
   }
 }
 
@@ -1521,11 +1570,161 @@ template<int dim> void GnatPreprocessing<dim>::subDFindMaxError(int iSub, bool
 //----------------------------------------------
 
 template<int dim>
+void GnatPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
+// The least squares system is actually *really* small.  Should be much faster in serial...
+
+// form LHS and RHS -> globalSumRoot
+
+  // communicate full vector to all ranks
+  int nLHS = handledVectors[iPodBasis];
+  int nRHS = nRhs[iPodBasis];
+  int sampledDOF = globalSampleNodes.size()*dim;
+  int arraySizeLHS = nLHS*sampledDOF;
+  int arraySizeRHS = nRHS*sampledDOF;
+
+  double* sampledLHS = new double[arraySizeLHS];
+  double* sampledRHS = new double[arraySizeRHS];
+
+  for (int iLHS = 0; iLHS < nLHS; ++iLHS) {
+    for (int iDOF = 0; iDOF < sampledDOF; ++iDOF) {
+      sampledLHS[iLHS*sampledDOF + iDOF] =  0.0;
+    }
+  }
+  for (int iRHS = 0; iRHS < nRHS; ++iRHS) {
+    for (int iDOF = 0; iDOF < sampledDOF; ++iDOF) {
+      sampledRHS[iRHS*sampledDOF + iDOF] =  0.0;
+    }
+  }
+
+  for (int iLHS = 0; iLHS < nLHS; ++iLHS) {
+    for (int iNode = 0; iNode < globalSampleNodes.size(); ++iNode) {
+      int currentGlobalNode = globalSampleNodes[iNode];
+      int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+      if (thisCPU == iCpu){
+        int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+        int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        SubDomainData<dim> locValue = podHat[iPodBasis][iLHS].subData(iSubDomain);
+        for (int iDim = 0; iDim < dim; ++iDim) {
+          sampledLHS[iLHS*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+        }
+      }
+    }
+  }
+  com->globalSumRoot(arraySizeLHS, sampledLHS);
+  if (thisCPU!=0) delete [] sampledLHS;
+
+  for (int iRHS = 0; iRHS < nRHS; ++iRHS) {
+    for (int iNode = 0; iNode < globalSampleNodes.size(); ++iNode) {
+      int currentGlobalNode = globalSampleNodes[iNode];
+      int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+      if (thisCPU == iCpu){
+        int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+        int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        SubDomainData<dim> locValue = error[iPodBasis][iRHS].subData(iSubDomain);
+        for (int iDim = 0; iDim < dim; ++iDim) {
+          sampledRHS[iRHS*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+        }
+      }
+    }
+  }
+  com->globalSumRoot(arraySizeRHS, sampledRHS);
+  if (thisCPU!=0) delete [] sampledRHS;
+
+  // cpu0 calls linpack's SVD routine and then computes least squares coeffs
+  if (thisCPU==0) {
+    double *yVec;     // allocated in linpackSVD sampledDOF*min(nLHS,sampledDOF)
+    double *singVals; // allocated in linpackSVD min(nLHS,sampledDOF)
+    double *zVec;     // allocated in linpackSVD nLHS*nLHS
+    this->linpackSVD(sampledLHS, sampledDOF, nLHS, yVec, singVals, zVec);
+    delete [] sampledLHS;  
+    int nVecsU = min(sampledDOF,nLHS);
+    std::vector< double > result;
+    result.resize(nVecsU, 0.0);
+    for (int iRHS=0; iRHS<nRHS; ++iRHS) {
+      for (int iVec=0; iVec<nVecsU; ++iVec) {
+        result[iVec] = 0.0;
+        for (int iDOF=0; iDOF<sampledDOF; ++iDOF) {
+          result[iVec] += yVec[iVec*sampledDOF + iDOF] * sampledRHS[iRHS*sampledDOF + iDOF];
+        }
+        result[iVec] = (singVals[iVec]>1e-15) ? result[iVec] / singVals[iVec] : 0;
+      }
+      for (int iLHS=0; iLHS<nLHS; ++iLHS) {
+        lsCoeff[iRHS][iLHS] = 0.0;
+        for (int iVec=0; iVec<nVecsU; ++iVec) {
+          lsCoeff[iRHS][iLHS] += zVec[iVec*nLHS + iLHS]*result[iVec];
+        }
+      }
+    }
+    delete [] yVec;
+    delete [] singVals;
+    delete [] zVec;
+    delete [] sampledRHS;
+  }
+
+  // communicate lsCoeff to all ranks
+  for (int iRHS=0; iRHS<nRHS; ++iRHS) {
+    com->broadcast(nLHS, lsCoeff[iRHS], 0);
+  }
+  com->barrier();
+
+}
+
+
+//----------------------------------------------
+
+template<int dim>
 void GnatPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 
   bool lsCoeffAllCPU = true; // all cpus need solution
   parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
       handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff, lsCoeffAllCPU);
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::probabilisticLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
+
+  // Solve LS using (very fast) probabilsitic SVD
+  //   System is:  podHat[iPodBasis][1:handledVectors[iPodBasis]] * lsCoeff = error[iPodBasis][1:nRhs[iPodBasis]]
+  //   Note that all CPUs need lsCoeff
+
+  // Strategy:
+  //   CPU0 generates random martrix, randMat, which is nVecs x k with k <= nVecs
+  //   Communicate randMat to all mpi ranks
+  //   tmpMat = podHat * randMat
+  //   for i = 1:q
+  //      tmpMat = podHat * (podHat' * tmpMat)
+  //   end
+  //   [Q,~] = qr(tmpMat)
+  //   tmpMat2 = Q' * podHat
+  //   [Utmp S V] = svd(tmpMat2) (in serial using lapack)
+  //   Communicate svd result to all mpi ranks
+  //   U = Q*Utmp
+  //   lsCoeff[iPodBasis] = V * inv(S) * U' * error[iPodBasis]
+
+  int nVecs = handledVectors[iPodBasis];
+  bool testSVD=true;
+  std::vector<std::vector<double> > lsCoeffVec;
+
+  VecSet< DistSVec<double, dim> > LHS( handledVectors[iPodBasis], this->domain.getNodeDistInfo());
+  for (int iVec=0; iVec<handledVectors[iPodBasis]; ++iVec) 
+    LHS[iVec] = podHat[iPodBasis][iVec];
+
+  VecSet< DistSVec<double, dim> > RHS( nRhs[iPodBasis], this->domain.getNodeDistInfo());
+  for (int iRhs=0; iRhs<nRhs[iPodBasis]; ++iRhs) 
+    RHS[iRhs] = error[iPodBasis][iRhs];
+
+  this->probabilisticLSMultiRHS(LHS, RHS, lsCoeffVec, ioData->romOffline.gnat.randMatDimension, ioData->romOffline.gnat.nPowerIts, testSVD);
+
+  for (int iRhs=0; iRhs<nRhs[iPodBasis]; ++iRhs) {
+    for (int iVec=0; iVec<nVecs; ++iVec) {
+      lsCoeff[iRhs][iVec] = lsCoeffVec[iRhs][iVec];
+    }
+  }
+
+  lsCoeffVec.clear();
 
 }
 
@@ -1685,29 +1884,48 @@ void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeig
 
           for (int iNodeToAdd = 0; iNodeToAdd < nNodesToAdd; ++iNodeToAdd) { 
             locNodeNum = *((*nodeToNode)[iLocNode]+iNodeToAdd);
-            globalNodes[iIslands].push_back(locToGlobNodeMap[locNodeNum]);
-            cpus[iIslands].push_back(thisCPU);
-            locSubDomains[iIslands].push_back(iSub);
-            localNodes[iIslands].push_back(locNodeNum);
-            for (int iXYZ = 0; iXYZ < 3 ; ++iXYZ) xyz[iXYZ] = 0.0; // KTCREMOVE
-            computeXYZ(iSub, locNodeNum, xyz);
-            for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
-              nodesXYZ[iXYZ][iIslands].push_back(xyz[iXYZ]);
+            bool newNode = true;
+            for (std::vector<int>::iterator it = globalNodes[iIslands].begin(); it != globalNodes[iIslands].end(); ++it) {
+              if (*it == locToGlobNodeMap[locNodeNum]) {
+                newNode=false;
+                break;
+              }
+            }
+            if (newNode) {
+              globalNodes[iIslands].push_back(locToGlobNodeMap[locNodeNum]);
+              cpus[iIslands].push_back(thisCPU);
+              locSubDomains[iIslands].push_back(iSub);
+              localNodes[iIslands].push_back(locNodeNum);
+              for (int iXYZ = 0; iXYZ < 3 ; ++iXYZ) xyz[iXYZ] = 0.0; // KTCREMOVE
+              computeXYZ(iSub, locNodeNum, xyz);
+              for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
+                nodesXYZ[iXYZ][iIslands].push_back(xyz[iXYZ]);
+              }
             }
           }
           for (int iEleToAdd = 0; iEleToAdd < nEleToAdd; ++iEleToAdd) { 
             // add global element
             locEleNum = *((*nodeToEle)[iLocNode]+iEleToAdd);
-            elements[iIslands].push_back(locToGlobElemMap[locEleNum]);
-            
-            // determine globalNodes connected to the element
-            for (int iNodesConn = 0; iNodesConn < 4; ++iNodesConn){
-              int locNodeNumTmp = *((*eleToNode)[locEleNum] + iNodesConn);
-              int globalNodeNumTmp = locToGlobNodeMap[locNodeNumTmp];
-              elemToNode[iNodesConn][iIslands].push_back(globalNodeNumTmp);
+            bool newElem = true;
+            for (std::vector<int>::iterator it = elements[iIslands].begin(); it != elements[iIslands].end(); ++it) {
+              if (*it == locToGlobElemMap[locEleNum]) {
+                newElem=false;
+                break;
+              }
+            }
+            if (newElem) {
+              elements[iIslands].push_back(locToGlobElemMap[locEleNum]);
+              
+              // determine globalNodes connected to the element
+              for (int iNodesConn = 0; iNodesConn < 4; ++iNodesConn){
+                int locNodeNumTmp = *((*eleToNode)[locEleNum] + iNodesConn);
+                int globalNodeNumTmp = locToGlobNodeMap[locNodeNumTmp];
+                elemToNode[iNodesConn][iIslands].push_back(globalNodeNumTmp);
+              }
             }
           }
         }
+
       }
     }
   }
@@ -1786,16 +2004,13 @@ void GnatPreprocessing<dim>::communicateAll() {
   domain.communicateMesh(localNodes, nSampleNodes, totalNodesCommunicated);
   for (int i = 0; i < 3; ++i)
     domain.communicateMesh(nodesXYZ[i], nSampleNodes, totalNodesCommunicated);
-
   domain.communicateMesh(elements, nSampleNodes, totalEleCommunicated);
   for (int i = 0; i < 4; ++i)
     domain.communicateMesh(elemToNode[i], nSampleNodes, totalEleCommunicated);
-
   for (int i = 0; i < nSampleNodes; ++i) { 
     totalNodesCommunicated[i] = globalNodes[i].size();
     totalEleCommunicated[i] = elements[i].size();
   }
-
 }
 
 //----------------------------------------------
@@ -1804,7 +2019,6 @@ template<int dim>
 void GnatPreprocessing<dim>::defineMaps() {
 
   // defines nodesXYZmap and elemToNodeMap
-
   int globalNodeNumTmp;
   StaticArray<double, 3> nodesXYZTmp;
   int globalEleNumTmp;
@@ -1812,12 +2026,9 @@ void GnatPreprocessing<dim>::defineMaps() {
   std::map<int,int>::const_iterator sampleNodeRank; 
 
   // first time, establish that no maps have been defined
-
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-
     // define nodesXYZmap
     for (int iNeighbor = 0; iNeighbor < globalNodes[iSampleNodes].size(); ++iNeighbor) {
-
       // do not re-define map for sample nodes (already defined as master) 
       globalNodeNumTmp = globalNodes[iSampleNodes][iNeighbor];
       sampleNodeRank = globalSampleNodeRankMap.find(globalNodeNumTmp);
@@ -2019,7 +2230,7 @@ void GnatPreprocessing<dim>::addFaceNodesElements(FaceSet&
 template<int dim>
 void GnatPreprocessing<dim>::addNodesOnFace(FaceSet&
     currentFaces, const int iFace, const int iSub, const int
-		*locToGlobNodeMap, int *locNodeNums){
+    *locToGlobNodeMap, int *locNodeNums){
   // output: locNodeNums
 
   int globalNodeNum;
@@ -2344,8 +2555,8 @@ void GnatPreprocessing<dim>::outputSampleNodesGeneral(const std::vector<int> &sa
   FILE *writingFile;
   if (thisCPU ==0) writingFile = fopen(outSampleNodeFile, "wt");
 
-  com->fprintf(writingFile, "%d", nSampleNodes);  // first print number of sample nodes
-  for (int i = 0; i < nSampleNodes; ++i) {
+  com->fprintf(writingFile, "%d", sampleNodes.size());  // first print number of sample nodes
+  for (int i = 0; i < sampleNodes.size(); ++i) {
     com->fprintf(writingFile, "\n");
     com->fprintf(writingFile, "%d %d", i+1, sampleNodes[i]+1);  
   }
@@ -2372,7 +2583,94 @@ void GnatPreprocessing<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computePseudoInverse(int iPodBasis) {
+void GnatPreprocessing<dim>::serialPseudoInverse(int iPodBasis) {
+// just call linpack's SVD routine 
+// inputs: vecset podHat[iPodBasis]
+// outputs: double** podHatPseudoInv[iPodBasis] ([iDof<nSampledDOF][iPod<nPod[iPodBasis]])
+ 
+  // parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs, nPod[iPodBasis], numRhs, podHatPseudoInvTmp, false);
+  int nVecs = nPod[iPodBasis];
+  int sampledDOF = nSampleNodes*dim;
+  int arraySize = nVecs*sampledDOF;
+  double* podHatArray = new double[arraySize];
+
+  for (int iVec = 0; iVec < nVecs; ++iVec) {
+    for (int iDOF = 0; iDOF < sampledDOF; ++iDOF) {
+      podHatArray[iVec*sampledDOF + iDOF] =  0.0;
+    }
+  }
+
+  for (int iVec = 0; iVec < nVecs; ++iVec) {
+    for (int iNode = 0; iNode < nSampleNodes; ++iNode) {
+      int currentGlobalNode = globalSampleNodes[iNode];
+      int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+      if (thisCPU == iCpu){
+        int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+        int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        SubDomainData<dim> locValue = podHat[iPodBasis][iVec].subData(iSubDomain);
+        for (int iDim = 0; iDim < dim; ++iDim) {
+          podHatArray[iVec*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+        }
+      }
+    }
+  }
+  com->globalSumRoot(arraySize, podHatArray);
+  if (thisCPU!=0) delete [] podHatArray;
+
+  // cpu0 calls linpack's SVD routine and then computes least squares coeffs
+  if (thisCPU==0) {
+
+    double *yVec;     // allocated in linpackSVD sampledDOF*min(nLHS,sampledDOF)
+    double *singVals; // allocated in linpackSVD min(nLHS,sampledDOF)
+    double *zVec;     // allocated in linpackSVD nLHS*nLHS
+    this->linpackSVD(podHatArray, sampledDOF, nVecs, yVec, singVals, zVec);
+    delete [] podHatArray;  
+    int nVecsU = min(sampledDOF,nVecs);
+    assert(nVecsU==nVecs);
+
+    //podHatPseudoInv[iPodBasis][iDOF][iVec]
+    podHatPseudoInv[iPodBasis] = new double * [sampledDOF] ;
+    for (int iDOF = 0; iDOF < sampledDOF; ++iDOF)  
+      podHatPseudoInv[iPodBasis][iDOF] = new double [nVecs] ;
+
+    double** tmpPodHatPseudoInv = new double * [sampledDOF] ; // temporary storage for computing podHatPseudoInv
+    for (int iDOF = 0; iDOF < sampledDOF; ++iDOF)
+      tmpPodHatPseudoInv[iDOF] = new double [nVecs] ;
+
+    for (int iDOF=0; iDOF<sampledDOF; ++iDOF) {
+      for (int iVec=0; iVec<nVecsU; ++iVec) {
+        tmpPodHatPseudoInv[iDOF][iVec] = (singVals[iVec]>1e-15) ? yVec[iVec*sampledDOF+iDOF] / singVals[iVec] : 0;
+      }
+    }
+
+    for (int iDOF=0; iDOF<sampledDOF; ++iDOF) {
+      for (int iVec=0; iVec<nVecs; ++iVec) {
+        podHatPseudoInv[iPodBasis][iDOF][iVec]=0.0;
+        for (int jVec=0; jVec<nVecsU; ++jVec) {
+          podHatPseudoInv[iPodBasis][iDOF][iVec] += zVec[jVec*nVecs + iVec]*tmpPodHatPseudoInv[iDOF][jVec];
+        }
+      }
+    }
+
+    delete [] yVec;
+    delete [] singVals;
+    delete [] zVec;
+    for (int iVec = 0; iVec < nVecs; ++iVec) delete [] tmpPodHatPseudoInv[iVec];
+    delete [] tmpPodHatPseudoInv; 
+  }
+
+  com->barrier();
+
+  if (thisCPU == 0 && iPodBasis == 0) {
+    podHatPseudoInv[1] = podHatPseudoInv[0];
+  }
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::parallelPseudoInverse(int iPodBasis) {
 
 //======================================
 // Purpose
@@ -2461,8 +2759,13 @@ void GnatPreprocessing<dim>::computePseudoInverse(int iPodBasis) {
 template<int dim>
 void GnatPreprocessing<dim>::computePseudoInverse() {
 
-  for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
-    computePseudoInverse(iPodBasis);
+  for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+    if (ioData->romOffline.gnat.pseudoInverseSolver == GNATConstructionData::PSEUDO_INVERSE_SCALAPACK) {
+      parallelPseudoInverse(iPodBasis);
+    } else if (ioData->romOffline.gnat.pseudoInverseSolver == GNATConstructionData::PSEUDO_INVERSE_LINPACK) {
+      serialPseudoInverse(iPodBasis);
+    }
+  }
   //checkConsistency();  // debugging check
 
   // podHat no longer needed
@@ -2661,108 +2964,200 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
     const std::map<int,int> &sampleNodeMap, const std::vector<int>
     &sampleNodeVec) {
 
-  if (thisCPU != 0)  return;  // only execute for cpu 0
+  double sampledOutputTime = this->timer->getTime();  
 
-  std::vector<bool> isSampleNodeVec(numNodes,false);
-  std::vector<int> sampleNodeRankVec(numNodes, -1);
-  for (int iNode = 0; iNode < numNodes; ++iNode) {
-    std::map<int,int>::const_iterator sampleNodeSetLoc = sampleNodeMap.find(iNode);
-    if ( sampleNodeSetLoc != sampleNodeMap.end()){
-      sampleNodeRankVec[iNode] = sampleNodeMap.find(iNode)->second;
-      isSampleNodeVec[iNode] = true;
-    }
-  }
-
-  // prepare files
-  char* gappyResPath = NULL;
-  char* gappyJacPath = NULL;
-  FILE* onlineMatrix = NULL;
-
-  this->determinePath(this->gappyResidualName, iCluster, gappyResPath);
-  this->determinePath(this->gappyJacActionName, iCluster, gappyJacPath);
-
-  int nPodJac = (nPod[1] == 0) ? nPod[0] : nPod[1];
-
-  for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {  
-    if (thisCPU ==0){
-      if (iPodBasis==0) {
-        onlineMatrix = fopen(gappyResPath, "wt");
-      } else {
-        onlineMatrix = fopen(gappyJacPath, "wt");
+  if (thisCPU ==0){
+  
+    // create isSampleNodeVec
+    std::vector<bool> isSampleNodeVec(numNodes,false);
+    std::vector<int> sampleNodeRankVec(numNodes, -1);
+    for (int iNode = 0; iNode < numNodes; ++iNode) {
+      std::map<int,int>::const_iterator sampleNodeSetLoc = sampleNodeMap.find(iNode);
+      if ( sampleNodeSetLoc != sampleNodeMap.end()){
+        sampleNodeRankVec[iNode] = sampleNodeMap.find(iNode)->second;
+        isSampleNodeVec[iNode] = true;
       }
     }
+  
+    // determine file names
+    char* gappyResPath = NULL;
+    char* gappyJacPath = NULL;
+    this->determinePath(this->gappyResidualName, iCluster, gappyResPath);
+    this->determinePath(this->gappyJacActionName, iCluster, gappyJacPath);
+  
+    int nPodJac = (nPod[1] == 0) ? nPod[0] : nPod[1];
+  
+    for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {  
+     
+      char* outFilePath = (iPodBasis==0) ? gappyResPath : gappyJacPath;
 
-    com->fprintf(onlineMatrix,"Vector abMatrix under load for FluidNodes\n");
-    com->fprintf(onlineMatrix,"%d\n", numNodes);
+      // clean up any temporary files that may be hanging around from a crashed simulation
+      if (cleanTempFiles) {
+        FILE *shell;
+        std::string rmCommandString("rm ");
+        rmCommandString += outFilePath;
+        rmCommandString += "_step_* ";
+        const char *rmCommandChar = rmCommandString.c_str();
+   
+        com->fprintf(stdout, "\n%s\n", rmCommandChar);
+        if (!(shell = popen(rmCommandChar, "r"))) {
+          com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+          exit(-1);
+        }
+   
+        char buff[512];
+        while (fgets(buff, sizeof(buff), shell)!=NULL){}
+        pclose(shell);
+      }
+    
 
-    for (int iPod = 0; iPod < nPodJac; ++iPod) {  // # rows in A and B
-      com->fprintf(onlineMatrix,"%d\n", iPod);
-      for (int iNode = 0; iNode < numNodes; ++iNode) {
+      std::string catCommandString("cat ");
+      std::string rmCommandString("rm ");
 
-        bool isSampleNode = isSampleNodeVec[iNode];
-        int sampleNodeRank = sampleNodeRankVec[iNode];
+      for (int iPod = 0; iPod < nPodJac; ++iPod) {  // # rows in A and B
 
-        if (dim==5) {
-          if (isSampleNode) {
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
-              onlineMatrices[iPodBasis][sampleNodeRank * dim][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 1][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 2][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 3][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 4][iPod]);
-          }
-          else // must output zeros if it is not a sample node
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0); 
-        } else if (dim==6) {
-          if (isSampleNode) {
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
-              onlineMatrices[iPodBasis][sampleNodeRank * dim][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 1][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 2][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 3][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 4][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 5][iPod]);
-          }
-          else // must output zeros if it is not a sample node
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0);  
-        } else if (dim==7) {
-          if (isSampleNode) {
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
-              onlineMatrices[iPodBasis][sampleNodeRank * dim][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 1][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 2][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 3][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 4][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 5][iPod],
-              onlineMatrices[iPodBasis][sampleNodeRank * dim + 6][iPod]);
-          }
-          else // must output zeros if it is not a sample node
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0,0.0);
-        } else { // general, but slow
-          for (int iDim = 0; iDim < dim; ++iDim) { 
+        double tmpTime = this->timer->getTime();
+
+        // name each temporary file (base file name + _step_ + step number)
+        std::string myOutFilePathString("");
+        myOutFilePathString += outFilePath;
+        myOutFilePathString += "_step_";
+        int requiredZeros = int(floor(log10(double(max(nPodJac-1,1)*10)))) - int(floor(log10(double(max(iPod,1)*10))));
+        for (int iZero=0; iZero<requiredZeros; ++iZero)
+          myOutFilePathString += "0";
+        myOutFilePathString += boost::lexical_cast<std::string>(iPod);
+        const char *myOutFilePath = myOutFilePathString.c_str();
+       
+        // add this file to the system commands (called after all temporary files are written)
+        catCommandString += myOutFilePathString;
+        catCommandString += " ";
+        rmCommandString += myOutFilePathString;
+        rmCommandString += " ";
+
+        // open and write temporary file
+        FILE* myOutFile = fopen(myOutFilePath, "wt");
+  
+        if (iPod == 0) {
+          com->fprintf(myOutFile,"Vector abMatrix under load for FluidNodes\n"); // header
+          com->fprintf(myOutFile,"%d\n",numNodes);
+        }
+        com->fprintf(myOutFile,"%d\n", iPod); // tag
+  
+        for (int iNode = 0; iNode < numNodes; ++iNode) {
+  
+          bool isSampleNode = isSampleNodeVec[iNode];
+          int sampleNodeRank = sampleNodeRankVec[iNode];
+  
+          if (dim==5) {
             if (isSampleNode) {
-              com->fprintf(onlineMatrix,"%8.15e ",
-                onlineMatrices[iPodBasis][sampleNodeRank * dim + iDim][iPod]);
+                fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
+                onlineMatrices[iPodBasis][sampleNodeRank*dim][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 1][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 2][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 3][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 4][iPod]);
             }
             else // must output zeros if it is not a sample node
-              com->fprintf(onlineMatrix,"%8.15e ", 0.0);
+                fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0); 
+          } else if (dim==6) {
+            if (isSampleNode) {
+                fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+                onlineMatrices[iPodBasis][sampleNodeRank*dim][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 1][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 2][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 3][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 4][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 5][iPod]);
+            }
+            else // must output zeros if it is not a sample node
+                fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0);  
+          } else if (dim==7) {
+            if (isSampleNode) {
+                fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+                onlineMatrices[iPodBasis][sampleNodeRank*dim][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 1][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 2][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 3][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 4][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 5][iPod],
+                onlineMatrices[iPodBasis][sampleNodeRank*dim + 6][iPod]);
+            }
+            else // must output zeros if it is not a sample node
+                fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0,0.0);
+          } else { // general, but slow
+            for (int iDim = 0; iDim < dim; ++iDim) { 
+              if (isSampleNode) {
+                fprintf(myOutFile,"%8.15e ",
+                onlineMatrices[iPodBasis][sampleNodeRank*dim+iDim][iPod]);
+              }
+              else // must output zeros if it is not a sample node
+                fprintf(myOutFile,"%8.15e ", 0.0);
+            }
+            fprintf(myOutFile,"\n");
           }
-          com->fprintf(onlineMatrix,"\n");
-        }
+        } // end iNode loop (rows)
+  
+        fclose(myOutFile);
+    
+        double writeTime = this->timer->getTime()-tmpTime;
+        com->fprintf(stderr,"... write time = %es\n", writeTime);
+  
+      } // end iPod loop (columns)
+  
+      // call cat on all the step files
+      FILE *shell;
+//      std::string catCommandString("cat ");
+//      catCommandString += outFilePath;
+//      catCommandString += "_step_* > ";
+      catCommandString += " > ";
+      catCommandString += outFilePath;
+      const char *catCommandChar = catCommandString.c_str();
+   
+      //com->fprintf(stdout, "\n%s\n", catCommandChar);
+      if (!(shell = popen(catCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
+        exit(-1);
       }
+   
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+    
+      // delete all temporary files (serial)
+//      std::string rmCommandString("rm ");
+//      rmCommandString += outFilePath;
+//      rmCommandString += "_step_* ";
+      const char *rmCommandChar = rmCommandString.c_str();
+    
+      //com->fprintf(stdout, "\n%s\n", rmCommandChar);
+      if (!(shell = popen(rmCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        exit(-1);
+      }
+    
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+     
+    } // end iPodBasis
+  
+    
+    if (gappyResPath) {
+       delete [] gappyResPath;
+       gappyResPath = NULL;
     }
-    if (thisCPU == 0) fclose(onlineMatrix);
+    if (gappyJacPath) {
+       delete [] gappyJacPath;
+       gappyJacPath = NULL;
+    }
+
   }
 
-  if (gappyResPath) {
-      delete [] gappyResPath;
-      gappyResPath = NULL;
-  }
-   if (gappyJacPath) {
-      delete [] gappyJacPath;
-      gappyJacPath = NULL;
-  }
- 
+  com->barrier(); 
+  this->timer->addSampledOutputTime(sampledOutputTime);
 }
 
 //----------------------------------------------
@@ -2779,17 +3174,13 @@ void GnatPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
     this->determinePath(this->sampledRefStateName, iCluster, sampledRefStatePath);
   }
 
-  FILE *sampledRefStateFile;
-  if (thisCPU ==0) sampledRefStateFile = fopen(sampledRefStatePath, "wt");
+  std::string header("Vector ReferenceState under load for FluidNodesRed");
 
-  com->fprintf(sampledRefStateFile,"Vector ReferenceState under load for FluidNodesRed\n");
-  com->fprintf(sampledRefStateFile,"%d\n", nReducedNodes);
-  
   // read in full reference state
   this->readClusteredReferenceState(iCluster,"state");
 
   // output
-  outputReducedSVec(*(this->Uref),sampledRefStateFile,this->Uref->norm());
+  outputReducedSVec(*(this->Uref),sampledRefStatePath,this->Uref->norm(),0,1,header.c_str());
 
   if (this->Uref) {
     delete this->Uref;
@@ -2800,7 +3191,6 @@ void GnatPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
     delete [] sampledRefStatePath;
     sampledRefStatePath = NULL;
   }
-  if (thisCPU == 0) fclose(sampledRefStateFile);
 
 }
 
@@ -2823,16 +3213,9 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
     } else {
       this->determinePath(this->sampledSolutionName, -1, sampledSolutionPath);
     }
+  
 
-  
-    FILE *outInitialCondition;
-    if (thisCPU ==0) outInitialCondition = fopen(sampledSolutionPath, "wt");
-  
-    com->fprintf(outInitialCondition,"Vector InitialCondition under load for FluidNodesRed\n");
-    com->fprintf(outInitialCondition,"%d\n", nReducedNodes);
-    
     // read in initial condition
-
 
     char *icFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.solutions) + 1];
     sprintf(icFile, "%s%s", ioData->input.prefix, ioData->input.solutions);
@@ -2849,7 +3232,8 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
     delete [] icFile;
 
     // output
-    outputReducedSVec(*initialCondition,outInitialCondition,initialCondition->norm());
+    std::string header("Vector InitialCondition under load for FluidNodesRed");
+    outputReducedSVec(*initialCondition,sampledSolutionPath,initialCondition->norm(),0,1,header.c_str());
 
     if (initialCondition) {
       delete initialCondition;
@@ -2860,7 +3244,6 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
       delete [] sampledSolutionPath;
       sampledSolutionPath = NULL;
     }
-    if (thisCPU == 0) fclose(outInitialCondition);
 
   }
 }
@@ -2886,23 +3269,17 @@ void GnatPreprocessing<dim>::outputClusterCentersReduced() {
   }
 
 
-  FILE *outSampledCenters;
-  if (thisCPU ==0) outSampledCenters = fopen(sampledCentersPath, "wt");
+  std::string header("Vector ClusterCenters under load for FluidNodesRed");
 
-  com->fprintf(outSampledCenters,"Vector ClusterCenters under load for FluidNodesRed\n");
-  com->fprintf(outSampledCenters,"%d\n", nReducedNodes);
-  
   // output
   for (int iCluster=0; iCluster < this->nClusters; ++iCluster) {  // # rows in A and B
-    outputReducedSVec((*this->clusterCenters)[iCluster],outSampledCenters,(*this->clusterCenters)[iCluster].norm());
+    outputReducedSVec((*this->clusterCenters)[iCluster],sampledCentersPath,(*this->clusterCenters)[iCluster].norm(),iCluster,this->nClusters,header.c_str());
   }
 
   if (sampledCentersPath) {
     delete [] sampledCentersPath;
     sampledCentersPath = NULL;
   }
-
-  if (thisCPU == 0) fclose(outSampledCenters);
 
 }
 
@@ -2937,15 +3314,11 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
       this->determinePath(this->sampledStateBasisName, iCluster, filePath);
     }
   
-    FILE *outPodState;
-    if (thisCPU == 0) outPodState = fopen(filePath, "wt");
-  
-    com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
-    com->fprintf(outPodState,"%d\n", nReducedNodes);
-  
+    std::string header("Vector PodState under load for FluidNodesRed");
+
     int percentComplete = 0;
     for (int iPod = 0; iPod < this->basis->numVectors(); ++iPod) {  // # rows in A and B
-      outputReducedSVec((*(this->basis))[iPod],outPodState,double(iPod));
+      outputReducedSVec((*(this->basis))[iPod],filePath,double(iPod),iPod,this->basis->numVectors(), header.c_str());
       if ((iPod+1)%((this->basis->numVectors()/4)+1)==0) {
           percentComplete += 25;
           com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
@@ -2957,8 +3330,6 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
       filePath = NULL;
     }
   
-    if (thisCPU == 0) fclose(outPodState);
-
     com->fprintf(stdout, " ... time to write basis (as recorded by CPU 0) = %e\n", this->timer->getTime()-t0);
 
   } else {
@@ -2980,74 +3351,143 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
-    &distSVec, FILE* outFile , double tag) {
+void GnatPreprocessing<dim>::outputMultiSolutionsReduced() {
+  //INPUTS
+  // nReducedNodes
+  // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
+  // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
 
-  // INPUTS: vector, output file name, vector index
-  // globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
+  if (ioData->input.multiSolutions[0] == 0) return;
 
-  if (ioData->romOffline.gnat.useOldReducedSVecFunction) {
-    com->barrier();
-    com->fprintf(outFile,"%e\n", tag);
-  
-    // save the reduced node number for the sample node
-    for (int j = 0; j < nReducedNodes; ++j) {
-      int currentGlobalNode = globalNodes[0][j];
-      int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
-      int iSubDomain, iLocalNode;
-      if (thisCPU == iCpu){
-        iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-        iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
-      }
-  
-      // find value for each dim
-      for (int iDim = 0; iDim < dim; ++iDim) {
-        double value = 0.0; // initialize value to zero
-        if (thisCPU == iCpu) {
-          SubDomainData<dim> locValue = distSVec.subData(iSubDomain);
-          value = locValue[iLocalNode][iDim];
-        }
-        com->globalSum(1, &value);
-        com->fprintf(outFile,"%8.15e ", value);
-      }
-      com->fprintf(outFile,"\n");
-    }  
+  com->fprintf(stdout," ... Writing multiple solutions in sample mesh coordinates ...\n");
+
+  // open file for reading
+  FILE *inFP = fopen(input->multiSolutions,"r");
+  if (!inFP)  {
+    com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", input->multiSolutions);
+    exit (-1);
+  }
+  int nData, _n;
+  _n = fscanf(inFP, "%d",&nData);
+
+
+  char *sampledMultiSolutionsPath = NULL;
+  if (surfaceMeshConstruction) {
+    this->determinePath(this->surfaceMultiSolutionsName, -1, sampledMultiSolutionsPath);
   } else {
+    this->determinePath(this->sampledMultiSolutionsName, -1, sampledMultiSolutionsPath);
+  }
 
-    double* sampledVec;
-    int sampledDOF = nReducedNodes*dim;
-    sampledVec = new double[sampledDOF];
-    for (int iDOF = 0; iDOF < sampledDOF; ++iDOF) {
-      sampledVec[iDOF] =  0.0;
-    }
+  char solnFile[500];
+  DistSVec<double,dim> solVec(domain.getNodeDistInfo());
+  std::string header("Vector MultiSoutions under load for FluidNodesRed");
 
-    for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
-      int currentGlobalNode = globalNodes[0][iNode];
-      int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
-      if (thisCPU == iCpu){
-        int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-        int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
-        SubDomainData<dim> locValue = distSVec.subData(iSubDomain);
-        for (int iDim = 0; iDim < dim; ++iDim) {
-          sampledVec[iNode*dim + iDim] = locValue[iLocalNode][iDim];
-        }
+  for (int iData=0; iData < nData; ++iData) {  // # rows in A and B
+    // read vector
+    _n = fscanf(inFP, "%s", solnFile);
+    com->fprintf(stderr,"     solnFile = %s\n",solnFile);
+    domain.readVectorFromFile(solnFile, 0, 0, solVec);
+    // output vector
+    outputReducedSVec(solVec,sampledMultiSolutionsPath,iData,iData,nData,header.c_str());
+  }
+
+  if (sampledMultiSolutionsPath) {
+    delete [] sampledMultiSolutionsPath;
+    sampledMultiSolutionsPath = NULL;
+  }
+
+}
+
+
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
+    &distSVec, char* outFilePath, double tag, int step, int nTotSteps, const char* header) {
+
+  double sampledOutputTime = this->timer->getTime();  
+
+  // communicate full vector to CPU0
+  double* sampledVec;
+  int sampledDOF = nReducedNodes*dim;
+  sampledVec = new double[sampledDOF];
+  for (int iDOF = 0; iDOF < sampledDOF; ++iDOF) {
+    sampledVec[iDOF] =  0.0;
+  }
+
+  for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
+    int currentGlobalNode = globalNodes[0][iNode];
+    int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+    if (thisCPU == iCpu){
+      int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+      int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+      SubDomainData<dim> locValue = distSVec.subData(iSubDomain);
+      for (int iDim = 0; iDim < dim; ++iDim) {
+        sampledVec[iNode*dim + iDim] = locValue[iLocalNode][iDim];
       }
     }
+  }
 
-    com->globalSumRoot(sampledDOF, sampledVec); 
+  com->globalSumRoot(sampledDOF, sampledVec); 
+  if (thisCPU != 0) delete [] sampledVec;
 
-    com->fprintf(outFile,"%e\n", tag);
+  // clean up any temporary files that may be hanging around from a crashed simulation
+  //if (cleanTempFiles) {
+    if (step==0 && thisCPU==0) {
+      FILE *shell;
+      std::string rmCommandString("rm ");
+      rmCommandString += outFilePath;
+      rmCommandString += "_step_* ";
+      const char *rmCommandChar = rmCommandString.c_str();
+    
+      com->fprintf(stdout, "\n%s\n", rmCommandChar);
+      if (!(shell = popen(rmCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        exit(-1);
+      }
+    
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){}
+      pclose(shell);
+    }
+    com->barrier();
+  //}
 
+  // name and open each temporary file (base file name + _step_ + step number)
+  int requiredZeros = 0;
+  double tmpTime = this->timer->getTime();
+
+  if (thisCPU == 0) {
+ 
+    std::string myOutFilePathString("");
+    myOutFilePathString += outFilePath;
+    if (nTotSteps>1) { // if only one step, then just write the final file directly
+      myOutFilePathString += "_step_";
+      requiredZeros = int(floor(log10(double(max(nTotSteps-1,1)*10)))) - int(floor(log10(double(max(step,1)*10))));
+      for (int iZero=0; iZero<requiredZeros; ++iZero)
+        myOutFilePathString += "0";
+      myOutFilePathString += boost::lexical_cast<std::string>(step);
+    }
+    const char *myOutFilePath = myOutFilePathString.c_str();
+
+    // write temporary file 
+    FILE* myOutFile = fopen(myOutFilePath, "wt");
+    if (step==0) {
+      com->fprintf(myOutFile,"%s\n", header);
+      com->fprintf(myOutFile,"%d\n", nReducedNodes);
+    }
+    com->fprintf(myOutFile,"%e\n", tag);
     for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
       if (dim==5) {
-        com->fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
+        fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
             sampledVec[iNode*dim],
             sampledVec[iNode*dim + 1],
             sampledVec[iNode*dim + 2],
             sampledVec[iNode*dim + 3],
             sampledVec[iNode*dim + 4]);
       } else if (dim==6) {
-        com->fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+        fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
             sampledVec[iNode*dim],
             sampledVec[iNode*dim + 1],
             sampledVec[iNode*dim + 2],
@@ -3055,7 +3495,7 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
             sampledVec[iNode*dim + 4],
             sampledVec[iNode*dim + 5]);
       } else if (dim==7) {
-        com->fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+        fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
             sampledVec[iNode*dim],
             sampledVec[iNode*dim + 1],
             sampledVec[iNode*dim + 2],
@@ -3065,14 +3505,71 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
             sampledVec[iNode*dim + 6]);
       } else { // general, but slow
         for (int iDim = 0; iDim < dim; ++iDim) {
-          com->fprintf(outFile,"%8.15e ", sampledVec[iNode*dim + iDim]);
+          fprintf(myOutFile,"%8.15e ", sampledVec[iNode*dim + iDim]);
         }
-        com->fprintf(outFile,"\n");
+        fprintf(myOutFile,"\n");
       }
     }
+    fclose(myOutFile);
     delete [] sampledVec;
   }
 
+  double writeTime = this->timer->getTime()-tmpTime;
+  com->fprintf(stderr,"... write time = %es\n", writeTime);
+
+  // create the final file after the final step
+  if ((step==(nTotSteps-1)) && nTotSteps>1) {
+    // call cat on step files
+    if (thisCPU == 0) {
+      FILE *shell;
+      std::string catCommandString("cat ");
+      catCommandString += outFilePath;
+      catCommandString += "_step_* > ";
+      catCommandString += outFilePath;
+      const char *catCommandChar = catCommandString.c_str();
+
+      com->fprintf(stdout, "\n%s\n", catCommandChar);
+      if (!(shell = popen(catCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
+        exit(-1);
+      }
+
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+    }
+
+    // delete all temporary files (serial)
+    if (thisCPU == 0) {
+      FILE *shell;
+      std::string rmCommandString("rm ");
+      rmCommandString += outFilePath;
+      rmCommandString += "_step_* ";
+      const char *rmCommandChar = rmCommandString.c_str();
+    
+      com->fprintf(stdout, "\n%s\n", rmCommandChar);
+      if (!(shell = popen(rmCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        exit(-1);
+      }
+    
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+    }
+  }
+
+  com->barrier();
+  if (surfaceMeshConstruction) {
+    this->timer->addSampledOutputTime(sampledOutputTime);
+  } else {     
+    this->timer->addSurfaceOutputTime(sampledOutputTime); 
+  }
+ 
 }
 
 //----------------------------------------------
@@ -3120,6 +3617,7 @@ void GnatPreprocessing<dim>::outputWallDistanceReduced() {
 template<int dim>
 void GnatPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
 
+// TODO
   com->fprintf(outFile,"%d\n", iVector);
 
   if (ioData->romOffline.gnat.useOldReducedSVecFunction) {
@@ -3317,4 +3815,77 @@ void GnatPreprocessing<dim>::formReducedSampleNodeMap()
   }
 }
 
+//----------------------------------------------
 
+
+template<int dim>
+void GnatPreprocessing<dim>::reinitializeMapsForSampleNodes() {
+
+  // Initializes maps when reading sample nodes from file (otherwise they should have been initialized during the greedy algorithm)
+  // note: I'm assuming that globalSampleNodes is properly defined before this function is called
+
+  assert( globalSampleNodes.size() > 0);
+  nSampleNodes = globalSampleNodes.size();
+
+  cpuSample.clear();
+  cpuSample.reserve(nSampleNodes);
+  locSubSample.clear();
+  locSubSample.reserve(nSampleNodes);
+  locNodeSample.clear();
+  locNodeSample.reserve(nSampleNodes);
+  
+
+  globalNodeToCpuMap.clear();
+  globalNodeToLocSubDomainsMap.clear();
+  globalNodeToLocalNodesMap.clear();
+  nodesXYZmap.clear();
+
+  com->barrier();
+  for (int iSampleNode = 0; iSampleNode < nSampleNodes; ++iSampleNode) {
+    int cpuTmp = 0;
+    int subDTmp = 0;
+    int locNodeTmp = 0;
+    int globalSampleNode = globalSampleNodes[iSampleNode];
+    double xyz [3];
+    for (int i=0; i<3; ++i)
+      xyz[i]=0.0;
+
+    SubDomainData<dim> locPodHat, locPodHatTmp;
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      bool foundNode = false;
+      int nLocNodes = nodeDistInfo.subSize(iSub);       // number of nodes in this subdomain
+      int *locToGlobNodeMap = subD[iSub]->getNodeMap();
+      bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub); // master nodes on subdomain
+      for (int iLocNode = 0; iLocNode < subD[iSub]->numNodes(); ++iLocNode) {   // all local globalNodes in subdomain
+        if (locToGlobNodeMap[iLocNode] == globalSampleNode && locMasterFlag[iLocNode]) {
+          cpuTmp = thisCPU;
+          subDTmp = iSub;
+          locNodeTmp = iLocNode;
+          computeXYZ(iSub, iLocNode, xyz);
+          foundNode = true;
+          break;
+        }
+      }
+      if (foundNode == true) {
+        break;
+      }
+    }
+
+    com->barrier();
+    com->globalSum(1,&cpuTmp);
+    com->globalSum(1,&subDTmp);
+    com->globalSum(1,&locNodeTmp);
+    com->globalSum(3, xyz);
+
+    cpuSample.push_back(cpuTmp);
+    locSubSample.push_back(subDTmp);
+    locNodeSample.push_back(locNodeTmp);
+
+    globalNodeToCpuMap.insert(pair<int, int > (globalSampleNode, cpuTmp));
+    globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalSampleNode, subDTmp));
+    globalNodeToLocalNodesMap.insert(pair<int, int > (globalSampleNode, locNodeTmp));
+    StaticArray<double, 3> XYZ(xyz);
+    nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalSampleNode, XYZ));
+  }
+
+}

@@ -249,9 +249,25 @@ void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int tim
 //------------------------------------------------------------------------------
 
 template<int dim>
+void ImplicitTsDesc<dim>::calculateSpatialResidual(DistSVec<double,dim> &Q, DistSVec<double,dim> &spatialRes) {
+
+  if(this->wallRecType==BcsWallData::CONSTANT) {
+    this->spaceOp->computeResidual(*this->X, *this->A, Q, spatialRes, this->timeState);
+  } else {
+    this->spaceOp->computeResidual(this->riemann1, *this->X, *this->A, Q, spatialRes, this->timeState);
+  }
+
+  this->spaceOp->applyBCsToResidual(Q, spatialRes);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void ImplicitTsDesc<dim>::incrementNewtonOutputTag()
 {
     ++(*(this->domain->getNewtonTag()));
 
 }
+
 
