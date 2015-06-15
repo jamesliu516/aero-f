@@ -218,6 +218,7 @@ com(_com), ioData(&_ioData), domain(_domain)
 
   // for fast distance calculation quantities / exact update quantitiess
   specifiedIC = false;
+  interpolatedMultiIC = false;
   uniformIC = NULL;
 
   rTol = ioData->romOnline.basisUpdateTolerance;
@@ -619,14 +620,19 @@ void NonlinearRom<dim>::closestCenterFast(int *index1) {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::checkForSpecifiedInitialCondition() {
+void NonlinearRom<dim>::checkInitialConditionScenario() {
 
-  if (specifiedIC || uniformIC) return;
+  if (specifiedIC || interpolatedMultiIC || uniformIC) return;
 
   if (strcmp(ioData->input.solutions,"")!=0) {
     com->fprintf(stdout, " ... Initial condition file is specified \n");
     specifiedIC = true;
-  } 
+  } else if (strcmp(ioData->input.multiSolutions,"")!=0 && strcmp(ioData->input.multiSolutionsParams,"")!=0) {
+    com->fprintf(stdout, " ... Interpolated initial condition \n");
+    interpolatedMultiIC = true;
+  } else {
+    com->fprintf(stdout, " ... No initial solution specified -- checking for uniform initial condition\n");
+  }
 
 }
 
@@ -636,9 +642,9 @@ void NonlinearRom<dim>::checkForSpecifiedInitialCondition() {
 template<int dim>
 void NonlinearRom<dim>::checkUniformInitialCondition(DistSVec<double, dim> &ic) {
 
-    checkForSpecifiedInitialCondition();
+    checkInitialConditionScenario();
 
-    if (specifiedIC || uniformIC) return;
+    if (specifiedIC || interpolatedMultiIC || uniformIC) return;
     
     // double check that the IC is indeed uniform
     double minIC[dim], maxIC[dim];
@@ -697,12 +703,12 @@ void NonlinearRom<dim>::initializeProjectionQuantities(DistSVec<double, dim> &ic
 
   // we always have basisBasisProducts basisUrefProducts precomputed (regardless of IC)
 
-  //TODO INTERP
-
-  checkForSpecifiedInitialCondition();
+  checkInitialConditionScenario();
 
   if (specifiedIC) {
     // do nothing; basisUicProducts and urefUicProducts should already be stored
+  } else if (interpolatedMultiIC) {
+    assert(false);
   } else {
     // we have urefComponentwiseSums and basisComponentwiseSums, but we need urefUicProducts and basisUicProducts 
     checkUniformInitialCondition(ic); // checks if IC is uniform, sets variable uniformIC
@@ -731,12 +737,12 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
 
   // we always have basisBasisProducts, basisUrefProducts, and basisUrefProducts precomputed (regardless of IC)
 
-  checkForSpecifiedInitialCondition();
-
-  //TODO INTERP
+  checkInitialConditionScenario();
 
   if (specifiedIC) {
     // do nothing; basisUicProducts and urefUicProducts should already be stored
+  } else if (interpolatedMultiIC) {
+    assert(false);
   } else {
     // we have urefComponentwiseSums and basisComponentwiseSums, but we need urefUicProducts and basisUicProducts 
     checkUniformInitialCondition(ic); // checks if IC is uniform, sets variable uniformIC
@@ -781,6 +787,8 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
           exit(-1);
         }
         this->uicNorm = tag;
+      } else if (interpolatedMultiIC) {
+       assert(false); 
       } else {
         if (nFullMeshNodes==0) {
            readCenterNorms();
@@ -835,7 +843,7 @@ void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic)
     std::vector<double> centerMinusICNorms;
     centerMinusICNorms.resize(nClusters);
   
-    checkForSpecifiedInitialCondition();
+    checkInitialConditionScenario();
   
     if (specifiedIC) { // preprocessing was performed for a specified IC 
   
@@ -844,7 +852,10 @@ void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic)
       for (int mCenter=0; mCenter<nClusters; ++mCenter) {
         centerMinusICNorms[mCenter] = centerNorms[mCenter][1]; 
       }
-  
+
+    } else if (interpolatedMultiIC) {
+      assert(false); 
+
     } else { // preprocesing was performed assuming a uniform initial condition for the online ROM
   
       // centerNorms is nClusters-by-(dim+1) with format:
@@ -1484,10 +1495,12 @@ void NonlinearRom<dim>::outputClusteredSnapshots(const char* snapType)  {
       snapshotsPath = NULL;
     }
 
-    com->fprintf(stdout, "\nFreeing memory for parallel SVD; read in snapshots as needed\n");
-  
-    if (snap) delete snap;
-    snap = NULL;
+    if ((nClusters>1) || (strcmp(sensitivitySnapsName, "")!=0) ||
+        (ioData->romOffline.rob.state.dataCompression.computePOD==DataCompressionData::COMPUTE_POD_FALSE)) {
+      com->fprintf(stdout, "\nFreeing memory for parallel SVD; read in snapshots as needed\n");
+      delete snap;
+      snap = NULL;
+    }                 
     if (clusterCenters) delete clusterCenters;
     clusterCenters = NULL;
     if (nearestSnapsToCenters) delete nearestSnapsToCenters;
@@ -1556,7 +1569,7 @@ void NonlinearRom<dim>::outputClusteredSnapshots(const char* snapType)  {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, const char *basisType, int first, int last) {
+void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, const char *basisType, int first, int last, bool snapshotsAlreadyStored) {
 
   int nTotSnaps;
   int normalizeSnaps;
@@ -1605,123 +1618,130 @@ void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, co
     exit (-1);
   }
 
-  if (snap) delete snap;
-  snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
+  if (snapshotsAlreadyStored) {
 
- 
-  // read in Snapshot Vectors
-  double tmp;
-  bool status = true; 
-  int snapCount = 0;
-  int snapIndex = first; 
-  DistSVec<double, dim>* tmpSnap = new DistSVec<double, dim>(domain.getNodeDistInfo());
+    com->fprintf(stdout, " ... global ROB requested: using previously stored state snapshots \n");
+    assert(snap!=NULL);
 
-  if (duplicateSnaps) { 
-    while (true) {
-      status = domain.readVectorFromFile(snapshotsPath, snapIndex, &tmp, *tmpSnap);
-      if (!status) {
-        if (snapCount<nTotSnaps) {
-          nTotSnaps = snapCount;
-          VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
-          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
-            (*snapNew)[iSnap] = (*snap)[iSnap];
-          }
-          delete snap;
-          snap = snapNew;
-          snapNew = NULL;
-        }
-        break;
-      }
-      if (snapCount==nTotSnaps) {
-        if (last>=0) break;
-        ++nTotSnaps;
-        VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
-        for (int iSnap=0; iSnap<(nTotSnaps-1); ++iSnap) {
-          (*snapNew)[iSnap] = (*snap)[iSnap];
-        }
-        delete snap;
-        snap = snapNew;
-        snapNew = NULL;
-      }
-      (*snap)[snapCount] = *tmpSnap;
-      ++snapCount;
-      ++snapIndex;
-    }
   } else {
-    FILE *asciiSnapshotsFile;
-    char snapFile[500];
-    int snapNum;
-    int asciiStatus = 2;
-    int binaryStatus;
 
-    asciiSnapshotsFile = fopen(snapshotsPath, "rt");
-    for (int iSnap=0; iSnap<first; ++iSnap) {
-      int asciiStatus = fscanf(asciiSnapshotsFile,"%s %d",snapFile,&snapNum);
-      if (asciiStatus < 2) {
-        com->fprintf(stdout, "***Error: Encountered error while reading snapshot file %s", snapshotsPath);
-        exit(-1);
-      }
-    }
-
-    while (true) {
-
-      int asciiStatus = fscanf(asciiSnapshotsFile,"%s %d",snapFile,&snapNum);
-      if (asciiStatus<2) {
-        if (snapCount<nTotSnaps) {
-          nTotSnaps = snapCount;
+    if (snap) delete snap;
+    snap = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
+  
+    // read in Snapshot Vectors
+    double tmp;
+    bool status = true; 
+    int snapCount = 0;
+    int snapIndex = first; 
+    DistSVec<double, dim>* tmpSnap = new DistSVec<double, dim>(domain.getNodeDistInfo());
+  
+    if (duplicateSnaps) { 
+      while (true) {
+        status = domain.readVectorFromFile(snapshotsPath, snapIndex, &tmp, *tmpSnap);
+        if (!status) {
+          if (snapCount<nTotSnaps) {
+            nTotSnaps = snapCount;
+            VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
+            for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+              (*snapNew)[iSnap] = (*snap)[iSnap];
+            }
+            delete snap;
+            snap = snapNew;
+            snapNew = NULL;
+          }
+          break;
+        }
+        if (snapCount==nTotSnaps) {
+          if (last>=0) break;
+          ++nTotSnaps;
           VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
-          for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+          for (int iSnap=0; iSnap<(nTotSnaps-1); ++iSnap) {
             (*snapNew)[iSnap] = (*snap)[iSnap];
           }
           delete snap;
           snap = snapNew;
           snapNew = NULL;
         }
-        break;
+        (*snap)[snapCount] = *tmpSnap;
+        ++snapCount;
+        ++snapIndex;
       }
-
-      delete [] snapshotsPath;
-      snapshotsPath = new char[500];
-      strcpy(snapshotsPath, snapFile);
-      
-      binaryStatus = domain.readVectorFromFile(snapshotsPath, snapNum, &tmp, *tmpSnap);
-      if (!binaryStatus) {
-        com->fprintf(stdout, "***Error: Encountered error while reading snapshot #%d from file %s", snapNum, snapshotsPath);
-        exit(-1);
-      }
-
-      if (snapCount==nTotSnaps) {
-        if (last>=0) break;
-        ++nTotSnaps;
-        VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
-        for (int iSnap=0; iSnap<(nTotSnaps-1); ++iSnap) {
-          (*snapNew)[iSnap] = (*snap)[iSnap];
-        }
-        delete snap;
-        snap = snapNew;
-        snapNew = NULL;
-      }
-      (*snap)[snapCount] = *tmpSnap;
-      if (strcmp(basisType,"state")==0 && !(strcmp(ioData->input.multiStateSnapRefSolution,"")==0)) {
-        binaryStatus = domain.readVectorFromFile(mapSnapToRef[std::string(snapshotsPath)].c_str(), 0, &tmp, *tmpSnap);
-        if (!binaryStatus) {
-          com->fprintf(stdout, "***Error: Encountered error while reading snapshot reference from file %s", snapshotsPath);
+    } else {
+      FILE *asciiSnapshotsFile;
+      char snapFile[500];
+      int snapNum;
+      int asciiStatus = 2;
+      int binaryStatus;
+  
+      asciiSnapshotsFile = fopen(snapshotsPath, "rt");
+      for (int iSnap=0; iSnap<first; ++iSnap) {
+        int asciiStatus = fscanf(asciiSnapshotsFile,"%s %d",snapFile,&snapNum);
+        if (asciiStatus < 2) {
+          com->fprintf(stdout, "***Error: Encountered error while reading snapshot file %s", snapshotsPath);
           exit(-1);
         }
-        (*snap)[snapCount] -= *tmpSnap;
-      } 
-      ++snapCount;
+      }
+  
+      while (true) {
+  
+        int asciiStatus = fscanf(asciiSnapshotsFile,"%s %d",snapFile,&snapNum);
+        if (asciiStatus<2) {
+          if (snapCount<nTotSnaps) {
+            nTotSnaps = snapCount;
+            VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
+            for (int iSnap=0; iSnap<nTotSnaps; ++iSnap) {
+              (*snapNew)[iSnap] = (*snap)[iSnap];
+            }
+            delete snap;
+            snap = snapNew;
+            snapNew = NULL;
+          }
+          break;
+        }
+  
+        delete [] snapshotsPath;
+        snapshotsPath = new char[500];
+        strcpy(snapshotsPath, snapFile);
+        
+        binaryStatus = domain.readVectorFromFile(snapshotsPath, snapNum, &tmp, *tmpSnap);
+        if (!binaryStatus) {
+          com->fprintf(stdout, "***Error: Encountered error while reading snapshot #%d from file %s", snapNum, snapshotsPath);
+          exit(-1);
+        }
+  
+        if (snapCount==nTotSnaps) {
+          if (last>=0) break;
+          ++nTotSnaps;
+          VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
+          for (int iSnap=0; iSnap<(nTotSnaps-1); ++iSnap) {
+            (*snapNew)[iSnap] = (*snap)[iSnap];
+          }
+          delete snap;
+          snap = snapNew;
+          snapNew = NULL;
+        }
+        (*snap)[snapCount] = *tmpSnap;
+        if (strcmp(basisType,"state")==0 && !(strcmp(ioData->input.multiStateSnapRefSolution,"")==0)) {
+          binaryStatus = domain.readVectorFromFile(mapSnapToRef[std::string(snapshotsPath)].c_str(), 0, &tmp, *tmpSnap);
+          if (!binaryStatus) {
+            com->fprintf(stdout, "***Error: Encountered error while reading snapshot reference from file %s", snapshotsPath);
+            exit(-1);
+          }
+          (*snap)[snapCount] -= *tmpSnap;
+        } 
+        ++snapCount;
+      }
+  
+      fclose(asciiSnapshotsFile);
+  
+  
     }
-
-    fclose(asciiSnapshotsFile);
-
-
-  }
-
-  delete tmpSnap;
-  tmpSnap = NULL;
-  delete [] snapshotsPath;
-  snapshotsPath = NULL;
+  
+    delete tmpSnap;
+    tmpSnap = NULL;
+    delete [] snapshotsPath;
+    snapshotsPath = NULL;
+  } // end read snapshots
 
   if (preprocess) {
     if (strcmp(basisType,"state")==0) { 
@@ -1733,10 +1753,10 @@ void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, co
           com->fprintf(stderr, "*** Warning: Incompatible commands -- ignoring reference solution \n");
         --nTotSnaps; //
         VecSet< DistSVec<double, dim> >* snapNew = new VecSet< DistSVec<double, dim> >(nTotSnaps, domain.getNodeDistInfo());
-        tmpSnap = new DistSVec<double, dim>(domain.getNodeDistInfo());
+        DistSVec<double, dim>* tmpSnap = new DistSVec<double, dim>(domain.getNodeDistInfo());
         outputClusteredReferenceState(iCluster, (*nearestSnapsToCenters)[iCluster]);
         com->barrier();
-        snapCount = 0;
+        int snapCount = 0;
         for (int iSnap=0; iSnap<=nTotSnaps; ++iSnap) {
           *tmpSnap = (*snap)[iSnap] - (*nearestSnapsToCenters)[iCluster];
           if ((*tmpSnap).norm() > 1e-6) { // one will be exactly zero; don't include this one
@@ -2278,17 +2298,17 @@ void NonlinearRom<dim>::readProjectionInfo() {
   // std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
   readClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
 
-  checkForSpecifiedInitialCondition();
-  //TODO INTERP checkForInterpolatedInitialCondition();
+  checkInitialConditionScenario();
 
   if (specifiedIC) {
     // Basis Uic Products
     // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
     readClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
- // } else if (interpolatedIC){
+  } else if (interpolatedMultiIC){
     // Uic was interpolated from multiple initial conditions, form basisUicProducts after interpolating
     // std::vector<std::vector<double> > basisMultiUicProducts;  // [iSolution][1:nPod] (clustered)
  //   readClusteredInfoASCII(-1, "basisMultiUicProducts", NULL, &this->basisMultiUicProducts);
+    assert(false);
   } else {
     // Basis Componentwise Sums
     // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
@@ -2316,9 +2336,7 @@ void NonlinearRom<dim>::readExactUpdateInfo() {
   // std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
   readClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
 
-  checkForSpecifiedInitialCondition();
-
-  //TODO INTERP checkForInterpolatedInitialCondition();
+  checkInitialConditionScenario();
 
   if (specifiedIC) {
 
@@ -2329,7 +2347,11 @@ void NonlinearRom<dim>::readExactUpdateInfo() {
     // Uref Uic Products
     // std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
     readClusteredInfoASCII(-1, "urefUicProducts", &this->urefUicProducts);
- 
+
+  } else if (interpolatedMultiIC) {
+
+    assert(false); 
+
   } else {
     // Uref Componentwise Sums
     // std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
@@ -3439,8 +3461,12 @@ void NonlinearRom<dim>::readCenterNorms() {
 
   assert(expectedNClusters == nClusters);
 
-  checkForSpecifiedInitialCondition();
-  if (!specifiedIC) {
+  checkInitialConditionScenario();
+  if (specifiedIC) {
+    assert(vecSize==2);
+  } else if (interpolatedMultiIC) {
+    assert(vecSize==1);
+  } else {
     assert(vecSize==(dim+1));
   }
 
@@ -3808,7 +3834,7 @@ void NonlinearRom<dim>::readMultiVecASCII(char* path, std::vector<double>* vec1,
 template<int dim>
 void NonlinearRom<dim>::readDistanceComparisonInfo(const char* updateType) {
 
-  checkForSpecifiedInitialCondition();
+  checkInitialConditionScenario();
  
   if (incrementalStateSnaps) {
 
@@ -3836,6 +3862,8 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(const char* updateType) {
     if (strcmp(updateType, "exactUpdates") == 0) {
       if (specifiedIC) {
         readClusteredInfoASCII(-1, "initialCondition", NULL, &initialConditionCentersDifProduct);
+      } else if (interpolatedMultiIC) {
+        assert(false);
       } else {
         // this will be constructed during initializeDistanceComparisons 
       }

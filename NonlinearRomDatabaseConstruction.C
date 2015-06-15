@@ -1931,7 +1931,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
 
     // read snapshots and preprocess
     if ((strcmp(basisType, "state")==0) && (this->snap!=NULL) && (this->nClusters)==1) {
-      this->com->fprintf(stdout, " ... global ROB requested: using previously stored state snapshots \n");
+      this->readClusteredSnapshots(iCluster, true, basisType, 0, (maxVecStorage-1), true);
     } else {
       this->readClusteredSnapshots(iCluster, true, basisType, 0, (maxVecStorage-1));  
     }

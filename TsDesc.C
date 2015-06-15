@@ -15,8 +15,8 @@
 #include <Timer.h>
 #include <alloca.h>
 #include <DistExactRiemannSolver.h>
-#include <RBFInterpND.h>
-#include <r8lib.h>
+//#include <RBFInterpND.h>
+//#include <r8lib.h>
 
 extern int interruptCode;
 
@@ -537,7 +537,8 @@ void TsDesc<dim>::parametricInitialConditionViaInterpolation(DistSVec<double,dim
   }
 
   this->formInterpolatedInitialCondition(U, weights);
-  
+  this->setInterpWeightsForMultiIC(weights);
+
  }
 
 //------------------------------------------------------------------------------
@@ -545,7 +546,6 @@ template<int dim>
 void TsDesc<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U, std::vector<double> &weights)  {
   // overloaded for ImplicitGnatTsDesc, which needs to handle this a bit differently
 
-  // U = weighted sum of solutions in primitive variables (to avoid negative pressure issues)
  
   FILE *inFP = fopen(input->multiSolutions,"r");
   if (!inFP)  {
@@ -557,18 +557,28 @@ void TsDesc<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U, std:
   char solnFile[500];
 
   DistSVec<double,dim> Utmp(domain->getNodeDistInfo());
-  DistSVec<double,dim> Vtmp(domain->getNodeDistInfo());
-  DistSVec<double,dim> V(domain->getNodeDistInfo());
+ // DistSVec<double,dim> Vtmp(domain->getNodeDistInfo());
+ // DistSVec<double,dim> V(domain->getNodeDistInfo());
 
-  V = 0.0;
+
+ // U = weighted sum of solutions in primitive variables (to avoid negative pressure issues)
+ // V = 0.0;
+ // for (int iData=0; iData<nData; ++iData) {
+ //   // add this vector's contribution to U
+ //   _n = fscanf(inFP, "%s", solnFile);
+ //   domain->readVectorFromFile(solnFile, 0, 0, Utmp);
+ //   varFcn->conservativeToPrimitive(Utmp, Vtmp);
+ //   V += weights[iData]*Vtmp;
+ // }
+ // varFcn->primitiveToConservative(V, *U);
+
+  *U = 0.0;
   for (int iData=0; iData<nData; ++iData) {
     // add this vector's contribution to U
     _n = fscanf(inFP, "%s", solnFile);
     domain->readVectorFromFile(solnFile, 0, 0, Utmp);
-    varFcn->conservativeToPrimitive(Utmp, Vtmp);
-    V += weights[iData]*Vtmp;
+    *U += weights[iData]*Utmp;
   }
-  varFcn->primitiveToConservative(V, *U);
   
   fclose(inFP);
 

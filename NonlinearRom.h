@@ -173,6 +173,7 @@ class NonlinearRom {
   // fast distance calculation quantities
   // 1: common to all GNAT update methods (no updates, exact updates, approx updates)
   bool specifiedIC;
+  bool interpolatedMultiIC;
   SVec<double, dim>* uniformIC;  // value of uniform initial condition at node 0 (should be representative)
   std::vector<std::vector<double> > centerNorms; // note: actually norm squared
   std::vector<std::vector<std::vector<std::vector<double> > > > stateBasisCentersDifProduct;  //[iCluster][mCenter][pCenter][:]
@@ -180,7 +181,7 @@ class NonlinearRom {
   std::vector<std::vector<std::vector<double> > > sensitivityBasisCentersDifProduct;          //[mCenter][pCenter][:]
   std::vector<std::vector<double> > distanceComparisons;  // this is "z_(m,p)" from Amsallem et al., INJME 2012, but with p<m
   void checkUniformInitialCondition(DistSVec<double, dim> &);
-  void checkForSpecifiedInitialCondition();
+  void checkInitialConditionScenario();
   // 2: unique to exact updates
   std::vector<std::vector<double> > initialConditionCentersDifProduct; 
   std::vector<std::vector<std::vector<double> > > refStateCentersDifProduct;
@@ -203,7 +204,7 @@ class NonlinearRom {
   // database IO functions
   void createDirectories();
   void outputClusteredSnapshots(const char*);
-  void readClusteredSnapshots(int, bool, const char*, int first = 0, int last = 0);
+  void readClusteredSnapshots(int, bool, const char*, int first = 0, int last = 0, bool snapshotsAlreadyStored = false);
   void outputClusteredBasis(int, int, const char*);  // readClusteredBasis is public
   void outputClusteredReferenceState(int, DistSVec<double, dim> &);  // automatically stores snapshot reference state
   void readClusteredReferenceState(int, const char*);  // read the reference state that was automatically stored for each cluster.

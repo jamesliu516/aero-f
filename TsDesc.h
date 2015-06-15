@@ -140,6 +140,7 @@ public:
   void setRestartIterationAndTime(int it, double t) { restart->etime = t; restart->iteration = it;}
   void parametricInitialConditionViaInterpolation(DistSVec<double,dim> *, IoData&);
   virtual void formInterpolatedInitialCondition(DistSVec<double,dim> *, std::vector<double> &);
+  virtual void setInterpWeightsForMultiIC(std::vector<double> ) {}
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
   virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }

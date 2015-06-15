@@ -89,6 +89,8 @@ protected:
   double c1;
   int maxItsLS; 
 
+  std::vector<double> interpWeightsForMultiIC;
+
   Vec<double> dUromNewtonIt;    // set to zero before each newton iteration
   Vec<double> dUromTimeIt;      // set to zero before each time iteration
   Vec<double> dUromCurrentROB;  // set to zero after each cluster switch
@@ -162,6 +164,7 @@ public:
   int solveNonLinearSystem(DistSVec<double, dim> &, const int _it);
   void rstVarImplicitRomTsDesc(IoData &);
   void checkLocalRomStatus(DistSVec<double, dim> &, const int);
+  void setInterpWeightsForMultiIC(std::vector<double> vec) {interpWeightsForMultiIC = vec;}
 };
 
 //------------------------------------------------------------------------------
