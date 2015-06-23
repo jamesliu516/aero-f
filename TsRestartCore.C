@@ -151,7 +151,10 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
 void TsRestart::writeRestartFileNames(const char* fn) {
 
   FILE* file = fopen(fn, "w");
-  
+  if (!file) { 
+    fprintf(stderr, "*** Error: could not open \'%s\'\n", fn);
+    exit(1);
+  }
   fprintf(file,"%s\n",solutions[0]);
   fprintf(file,"%s\n",positions[0]);
   fprintf(file,"%s\n",levelsets[0]);
