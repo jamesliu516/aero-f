@@ -2333,7 +2333,6 @@ struct NonlinearRomOnlineData {
   double integralLeakGain;
   double ffErrorTol;
   int controlNodeID; 
-  double reducedTimeStep;
 
   int minDimension;
   int maxDimension;
@@ -2358,7 +2357,6 @@ struct NonlinearRomOnlineData {
 
   NonlinearRomOnlineNonStateData krylov;
   NonlinearRomOnlineNonStateData sensitivity;
-  NonlinearRomOnlineNonStateData onlineResiduals;
 
   NonlinearRomOnlineData();
   ~NonlinearRomOnlineData() {}

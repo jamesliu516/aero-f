@@ -30,9 +30,6 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 
   this->rom->initializeClusteredOutputs();
 
-  dtInit = this->ioData->romOnline.reducedTimeStep;
-  dt = dtInit;
-
   A_Uinlet = NULL;    
   PhiT_A_Uinlet = NULL;
   PhiT_A_U = NULL;
@@ -108,7 +105,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 	rhs = -1.0 * From;
 
 	res = rhs*rhs;
-
+  /*
   this->com->fprintf(stdout, "||W*R(U)|| = %1.12e\n", this->F.norm());
   this->com->fprintf(stdout, "|| U || = %1.12e\n", U.norm());
   DistSVec<double, dim> romContribution(this->domain->getNodeDistInfo());
@@ -118,7 +115,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
   }
 
   this->com->fprintf(stdout, "||(W*J*Phi)' * W*R|| = %1.12e\n", res);
-
+  */
   double resReg = 0;
 
 	if (res < 0.0){
@@ -150,7 +147,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
       //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
       dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
     }
-    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %1.12e \n", dUromNewtonItNormSquared);
+    //this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %1.12e \n", dUromNewtonItNormSquared);
 
 	} else if (lsSolver == 3){	// Solve Levenberg-Marquardt regularized LS via ScaLAPACK SVD
 
@@ -239,7 +236,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
       //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
       dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
     }
-    this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
+    //this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %e \n", dUromNewtonItNormSquared);
 
 	} else if (lsSolver == 2) {  // regularized normal equations
 
@@ -286,13 +283,8 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     if (rhsNormInit<0) rhsNormInit = rhs.norm();
     if (it==0) {
       double rhsNormPrev = rhs.norm();
-      dt = dtInit * (rhsNormInit/rhsNormPrev) ;  
     }
     resReg = sqrt(rhs*rhs);
-    Vec<double> dUrom(this->dUromTimeIt);
-    dUrom /= dt;
-    if (false)
-      rhs -= dUrom; 
 
    // begin: output convergence information
     this->com->fprintf(stdout, " ... forming A * (U-Uinlet).^2\n");
@@ -330,7 +322,6 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     for (int iRow = 0; iRow < this->nPod; ++iRow) {
       for (int iCol = 0; iCol < this->nPod; ++iCol) {
         this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod] + (this->regWeight*(*PhiT_A_Phi)[iRow][iCol]);
-        if (iRow==iCol && false) this->jac[iRow][iCol] = this->jac[iRow][iCol] + 1.0/dt;
       }
     }
  
@@ -339,101 +330,6 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
   } 
   
 }
-
-
-//-----------------------------------------------------------------------------
-/*
-template<int dim>
-void ImplicitPGTsDesc<dim>::updateLeastSquaresWeightingVector() {
-
-  // form the weighting vector for the least-squares system
-
-  int numLocSub = this->domain->getNumLocSub();
- 
-  switch (this->ioData->romOnline.weightedLeastSquares) {
-    case (NonlinearRomOnlineData::WEIGHTED_LS_FALSE):
-      return;
-      break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL):
-      *(this->weightVec) = *(this->weightFRef);
-      break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_STATE):
-      *(this->weightVec) = *(this->weightURef);  
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double (*weight)[dim] = this->weightVec->subData(iSub);
-        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j)
-            weight[i][j] = weight[i][j] - (this->bcData->getInletConservativeState())[j];
-        }
-      }
-      break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_CV):
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double *cv = this->A->subData(iSub); // vector of control volumes
-        double (*weight)[dim] = this->weightVec->subData(iSub);
-        for (int i=0; i<this->A->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j)
-            weight[i][j] = cv[i];
-        }
-      }
-      break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_BOCOS):
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double *ffMask = this->farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
-        double (*weight)[dim] = this->weightVec->subData(iSub);
-        for (int i=0; i<this->farFieldMask->subSize(iSub); ++i) {
-          if (ffMask[i]>0) {
-            for (int j=0; j<dim; ++j)
-              weight[i][j] = this->ffWeight;
-          } else {
-            for (int j=0; j<dim; ++j)
-               weight[i][j] = 1.0;
-          }
-        }
-      }
-      break;
-    default:
-        this->com->fprintf(stderr, "*** Error: Unexpected least-squares weighting method\n");
-        exit(-1);
-      break;
-  } 
-
-  double weightExp = this->ioData->romOnline.weightingExponent;
-  double weightNorm = weightVec.norm();
-  weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
-
-  // weight residual
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    double (*weight)[dim] = weightVec.subData(iSub);
-    double (*f)[dim] = this->F.subData(iSub);
-    for (int i=0; i<weightVec.subSize(iSub); ++i) {
-      for (int j=0; j<dim; ++j) {
-        weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
-        f[i][j] = f[i][j] * weight[i][j];
-      }
-    }
-  }
-    
-  // weight AJ
-  for (int iVec=0; iVec<this->nPod; ++iVec) {
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double (*weight)[dim] = weightVec.subData(iSub);
-      double (*aj)[dim] = (this->AJ[iVec]).subData(iSub);
-      for (int i=0; i<weightVec.subSize(iSub); ++i) {
-        for (int j=0; j<dim; ++j)
-          aj[i][j] = aj[i][j] * weight[i][j];
-      }
-    }
-  }
-
-
-
-}*/
 
 //-----------------------------------------------------------------------------
 
