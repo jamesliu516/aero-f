@@ -4004,7 +4004,6 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   systemApproximation = SYSTEM_APPROXIMATION_NONE;
   lineSearch = LINE_SEARCH_FALSE;
   lsSolver = QR;
-  reducedTimeStep = 1e-10;
   basisUpdates = UPDATES_OFF;
   basisUpdateFreq = -1;
   basisUpdateTolerance = 1e-6;
@@ -4086,7 +4085,6 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldErrorTolerance", this, &NonlinearRomOnlineData::ffErrorTol);
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationThreshold", this, &NonlinearRomOnlineData::regThresh);
   new ClassInt<NonlinearRomOnlineData>(ca, "ControlNodeID", this, &NonlinearRomOnlineData::controlNodeID);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "ReducedTimeStep", this, &NonlinearRomOnlineData::reducedTimeStep);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMin", this, &NonlinearRomOnlineData::residualsCoordMin);
   new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMax", this, &NonlinearRomOnlineData::residualsCoordMax);
@@ -4099,7 +4097,6 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
-  onlineResiduals.setup("OnlineResiduals",ca);
 }
 
 //------------------------------------------------------------------------------

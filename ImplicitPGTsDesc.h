@@ -46,8 +46,6 @@ protected:
   double ffErrorTol;
   double minRes;
 
-  double dt;
-  double dtInit;
   double rhsNormInit;
 
   void setProblemSize(DistSVec<double, dim> &);

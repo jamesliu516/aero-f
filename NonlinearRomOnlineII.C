@@ -998,23 +998,6 @@ void NonlinearRomOnlineII<dim>::appendVectorToBasis(DistSVec<double,dim> &vec, i
 
   (*(this->basis))[robSize] = vec;
 
-  if (this->ioData->romOnline.onlineResiduals.gramSchmidt==NonlinearRomOnlineNonStateData::GRAMSCHMIDT_ON) {
-    for (int iVec = 0; iVec<robSize; iVec++) {
-      (*(this->basis))[robSize] -= (*(this->basis))[iVec] * ((*(this->basis))[iVec] * (*(this->basis))[robSize]);
-    }  
-    double norm = (*(this->basis))[robSize].norm();
-    if (norm>=1e-10) {
-      //this->com->fprintf(stdout, " ... norm = %e\n", norm);
-      (*(this->basis))[robSize] *= 1/norm;
-    } else {
-      this->com->fprintf(stderr, "*** Warning: vector is already contained in basis (norm=%e)\n",norm);
-      newRobSize = robSize;
-      this->basis->resize(newRobSize);
-      for (int iVec=0; iVec<newRobSize; ++iVec)
-        (*(this->basis))[iVec] = basisOld[iVec];
-    }
-  }
-
   this->com->fprintf(stdout, " ... using ROB with %d vectors\n", newRobSize);
 
 }
