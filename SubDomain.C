@@ -4789,7 +4789,6 @@ template<class Scalar, int dim>
 void SubDomain::writeVectorToFile(const char *prefix, int no,
 				  SVec<Scalar,dim> &U, Scalar* scale)
 {
-
   char name[MAXLINE];
   sprintf(name, "%s%s", prefix, suffix);
 #ifdef SYNCHRO_WRITE
@@ -4809,9 +4808,9 @@ void SubDomain::writeVectorToFile(const char *prefix, int no,
     Scalar* u = reinterpret_cast<Scalar*>(U.data());
     for (int i=0; i<U.size()*dim; ++i)
       v[i] = (*scale) * u[i];
-  }
-  else
+  } else {
     data = U.data();
+  }
 
   int count = 0;
   for (int i=0; i<numNodeRanges; ++i) {
@@ -7705,6 +7704,209 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 }
 
 //-----------------------------------------------------------------------------------------------
+//d2d
+template<int dim,int dimLS>
+void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim> &V, 
+					     PostFcn *postFcn, VarFcn *varFcn, 
+					     Vec<int> &fluidId, SVec<double,dimLS>* phi,
+					     double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+					     Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+					     double pInfty, 
+					     Vec<GhostPoint<dim>*> *ghostPoints,
+					     NodalGrad<dim, double> &ngrad)
+{
+
+  myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
+
+  int qOrder = 1;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double (*qloc)[3](quadrature_formula.qloc);
+  double *qweight(quadrature_formula.weight);
+
+  int iElem = -1;
+  int T[4];       //nodes in a tet.
+
+
+  Vec3D vectorIJ, gradP, flocal;
+  SVec<double,dim> gradX = ngrad.getX();
+  SVec<double,dim> gradY = ngrad.getY();
+  SVec<double,dim> gradZ = ngrad.getZ();
+  
+  CrackingSurface* cs = LSS.getCrackingSurface();
+
+  // if(cs) {
+  //   fprintf(stderr, "Warning: wall quantities cannot be computed on a cracked embedded surface.\n");
+  //   return;
+  // }
+
+  double Vext[dim]; 
+  int stNode[3];
+  Vec3D Xst[3];
+  Vec3D Xp;
+
+  int nq = 0;
+  
+  for(int nSt = 0; nSt < numStructElems; ++nSt) {
+
+    for (int j=0; j<3; ++j) {
+      stNode[j] = stElem[nSt][j];
+         Xst[j] = Xstruct[stNode[j]]; 
+    }
+    Vec3D normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+
+    for (int j=0; j<3; ++j){
+	Xp[j] = qloc[nq][0]*Xst[0][j] + qloc[nq][1]*Xst[1][j] + qloc[nq][2]*Xst[2][j];
+    }
+    
+    ElemForceCalcValid myObj;
+    Elem* E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+			     &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+    if (!E) 
+      continue;
+
+    if (cs && cs->getPhi(nSt, qloc[nq][0], qloc[nq][1]) < 0.0)
+      continue;
+ 
+    for (int i=0; i<4; i++) T[i] = (*E)[i];
+
+    Vec3D Xf[4]; 
+    for (int i=0; i<4; i++)
+      for(int j=0;j<3;++j) Xf[i][j] = X[T[i]][j];
+
+    // Compute barycentric coordinates
+    Vec3D bary;
+    E->computeBarycentricCoordinates(X,Xp,bary); 
+    if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0) {
+      E = 0;
+      continue;
+    }
+
+    Vec3D dbary[4];
+    dbary[0] = Vec3D(1.0-bary[0],bary[1],bary[2]);
+    dbary[1] = Vec3D(bary[0],1.0-bary[1],bary[2]);
+    dbary[2] = Vec3D(bary[0],bary[1],1.0-bary[2]);
+    dbary[3] = Vec3D(bary[0],bary[1],bary[2]);
+    
+    // Determine the side of the nodes of the tet on intersected edges
+    int norm[4] = { 0, 0, 0, 0 };
+    for (int e=0; e<6; ++e) {
+      int l = E->edgeNum(e);
+      if (LSS.edgeIntersectsStructure(0,l)) {
+	int i = E->edgeEnd(e,0);
+	int j = E->edgeEnd(e,1);
+	LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));
+	norm[i] = (lsResij.gradPhi*(Xstruct[lsResij.trNodes[0]]-Xf[i]) <= 0) ? -1 : 1;
+	LevelSetResult lsResji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]>=T[j]));
+	norm[j] = (lsResji.gradPhi*(Xstruct[lsResji.trNodes[0]]-Xf[j]) <= 0) ? -1 : 1;
+      }
+    }
+
+    // Check for the dual volume using barycentric coordinates) of the tet on the either side of the surface element
+    double mindist[2] = {FLT_MAX,FLT_MAX};
+    int node[2] = {-1,-1};
+    Vec3D nf[2] = {-normal,normal};
+    for (int i=0; i<4; i++) {
+      double dist = dbary[i].norm();
+      if (norm[i] < 0) {  
+	  
+	if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0. ) {
+	  mindist[0] = dist;
+	  node[0] = T[i];
+	}
+      } else if(norm[i] > 0) {
+	if( (LSS.isActive(0,T[i])|| (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0. ) {
+	  mindist[1] = dist;
+	  node[1] = T[i];
+	}
+      }
+    }
+
+    
+    // ---- For viscous simulation ----
+
+    // Gradient of the P1 basis functions
+    double dp1dxj[4][3]; 
+    for(int i=0;i<4;++i) {
+      for(int j=0;j<3;++j) { 
+	dp1dxj[i][j] = 0.0;
+      }
+    }
+
+    // not used, but required by postFcn->computeViscousForce(...)
+    double d2w[3]; 
+    d2w[0] = d2w[1] = d2w[2] = 0.0;
+    double *Vwall = 0;
+    double *Vface[3] = {0,0,0};
+      
+    double *vtet[2][4];
+    if(ghostPoints) {
+      E->computeGradientP1Function(X, dp1dxj);
+      for(int i=0; i<4; ++i) {
+	vtet[0][i] = V[T[i]];
+	vtet[1][i] = V[T[i]];
+      }
+      
+      GhostPoint<dim> *gp;
+      for(int i=0; i<4; ++i) {
+	gp = (*ghostPoints)[T[i]];
+	if (gp) {
+	  if (norm[i] <= 0.) vtet[1][i] = gp->getPrimitiveState();
+	  else               vtet[0][i] = gp->getPrimitiveState();
+	}
+      }
+    }
+        
+    double Cplocal = 0.0, Cflocal = 0.0;
+    for (int n = 0; n < 2; ++n) {
+
+      int i = node[n];
+      if (i < 0) continue;
+      double *v = V[i];
+
+      for(int m=0;m<3;++m) {
+	vectorIJ[m] = Xp[m] - X[i][m];
+      }
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = v[k] + gradX[i][k]*vectorIJ[0]+
+                         gradY[i][k]*vectorIJ[1]+
+                         gradZ[i][k]*vectorIJ[2];
+      }
+
+      double S = sqrt(nf[n]*nf[n]);
+
+      int fid;
+      double pp = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid?fluidId[i]:0, NULL);
+      Cplocal += pp;
+
+      // Viscous Simulation
+      if(ghostPoints) {
+	Vec3D t(1.0, 0.0, 0.0);
+	Vec3D F = postFcn->computeViscousForce(dp1dxj, nf[n], d2w, Vwall, Vface, vtet[n]);
+	Cflocal += 2.0 * t * F / S;
+      }
+
+      Qnty[stNode[0]][0] += S;
+      Qnty[stNode[1]][0] += S;
+      Qnty[stNode[2]][0] += S;
+
+      Qnty[stNode[0]][1] += Cplocal*S;
+      Qnty[stNode[1]][1] += Cplocal*S;
+      Qnty[stNode[2]][1] += Cplocal*S;
+
+      Qnty[stNode[0]][2] += Cflocal*S;
+      Qnty[stNode[1]][2] += Cflocal*S;
+      Qnty[stNode[2]][2] += Cflocal*S;
+
+    }	
+    
+  }
+
+}
+
+//-----------------------------------------------------------------------------------------------
+
 
 template<int dim>
 void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,

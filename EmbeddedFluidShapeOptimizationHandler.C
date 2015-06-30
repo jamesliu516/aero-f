@@ -942,18 +942,18 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities
     if (outFile) {
       this->com->fprintf(outFile,mesage);
       this->com->fprintf(outFile,"\n");
-      this->com->fprintf(outFile,"Fx= %16.13e \n",F[0]);
-      this->com->fprintf(outFile,"Fy= %16.13e \n",F[1]);
-      this->com->fprintf(outFile,"Fz= %16.13e \n",F[2]);
-      this->com->fprintf(outFile,"dFx/ds= %16.13e \n",dFds[0]);
-      this->com->fprintf(outFile,"dFy/ds= %16.13e \n",dFds[1]);
-      this->com->fprintf(outFile,"dFz/ds= %16.13e \n",dFds[2]);
-      this->com->fprintf(outFile,"Mx= %16.13e \n",M[0]);
-      this->com->fprintf(outFile,"My= %16.13e \n",M[1]);
-      this->com->fprintf(outFile,"Mz= %16.13e \n",M[2]);
-      this->com->fprintf(outFile,"dMx/ds= %16.13e \n",dMds[0]);
-      this->com->fprintf(outFile,"dMy/ds= %16.13e \n",dMds[1]);
-      this->com->fprintf(outFile,"dMz/ds= %16.13e \n",dMds[2]);
+      this->com->fprintf(outFile,"Fx= %24.13e \n",F[0]);
+      this->com->fprintf(outFile,"Fy= %24.13e \n",F[1]);
+      this->com->fprintf(outFile,"Fz= %24.13e \n",F[2]);
+      this->com->fprintf(outFile,"dFx/ds= %24.13e \n",dFds[0]);
+      this->com->fprintf(outFile,"dFy/ds= %24.13e \n",dFds[1]);
+      this->com->fprintf(outFile,"dFz/ds= %24.13e \n",dFds[2]);
+      this->com->fprintf(outFile,"Mx= %24.13e \n",M[0]);
+      this->com->fprintf(outFile,"My= %24.13e \n",M[1]);
+      this->com->fprintf(outFile,"Mz= %24.13e \n",M[2]);
+      this->com->fprintf(outFile,"dMx/ds= %24.13e \n",dMds[0]);
+      this->com->fprintf(outFile,"dMy/ds= %24.13e \n",dMds[1]);
+      this->com->fprintf(outFile,"dMz/ds= %24.13e \n",dMds[2]);
       this->com->fprintf(outFile,"\n");
       fclose(outFile);
     }
@@ -1281,8 +1281,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, *this->A);
   this->bcData->update(X);
 
-  //
-
+  //Dimensional
   dF *= this->refVal->force;
   dM *= this->refVal->energy;
 
@@ -1369,7 +1368,8 @@ bool EmbeddedFluidShapeOptimizationHandler<dim>::getdXdSb(int istep){
       found = true;
       for(int i=0; i<NumNodes; ++i){
         fgets(line, MAXrLINE, dFile);
-        sscanf(line, "%d %lf %lf %lf", &id, &dxdSb[i], &dydSb[i], &dzdSb[i]);
+        //sscanf(line, "%d %lf %lf %lf", &id, &dxdSb[i], &dydSb[i], &dzdSb[i]);
+	sscanf(line, "%lf %lf %lf", &dxdSb[i], &dydSb[i], &dzdSb[i]);
       }
       break;
 

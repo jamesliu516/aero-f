@@ -44,7 +44,7 @@ TetMeshMotionSolver::TetMeshMotionSolver
   epsAbsResNewton = data.newton.epsAbsRes;
   epsAbsIncNewton = data.newton.epsAbsInc;
   maxItsLS = data.newton.lineSearch.maxIts;
-  contractionLS = data.newton.lineSearch.rho;
+  contractionLS = data.newton.lineSearch.rho; 
   sufficDecreaseLS = data.newton.lineSearch.c1;
   if (strcmp(data.newton.output, "") == 0)
     outputNewton = 0;
