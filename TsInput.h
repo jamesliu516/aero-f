@@ -9,28 +9,29 @@ class IoData;
 
 struct TsInput {
   char *solutions;
+  char *multisolutions;
   char *positions;
   char *levelsets;
   char *podFile;
-  char *snapFile;
-  char *snapRefSolutionFile;
+//  char *snapFile;
+//  char *snapRefSolutionFile;
 
 // Gappy offline
-  char *podFileState;
-  char *podFileRes;
-  char *podFileJac;
-  char *podFileResHat;
-  char *podFileJacHat;
+//  char *podFileState;
+//  char *podFileRes;
+//  char *podFileJac;
+//  char *podFileResHat;
+//  char *podFileJacHat;
 
 // Gappy online
-  char *sampleNodes;
-  char *jacMatrix;
-  char *resMatrix;
-  char *staterom;
-  char *reducedfullnodemap;
-  char *mesh;
+//  char *sampleNodes;
+//  char *jacMatrix;
+//  char *resMatrix;
+//  char *staterom;
+//  char *reducedfullnodemap;
+//  char *mesh;
 
-	char *wallsurfacedisplac;
+  char *wallsurfacedisplac;
   char *shapederivatives;
 
   TsInput(IoData &);

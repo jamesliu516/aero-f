@@ -234,9 +234,11 @@ class PitchingMeshMotionHandler : public MeshMotionHandler {
 
   double alpha_in;
   double alpha_max;
+  double alpha_slope;
 
   double beta_in;
   double beta_max;
+  double beta_slope;
 
   double dt;
   double omega;
@@ -322,19 +324,53 @@ public:
 
 //------------------------------------------------------------------------------
 
-class AccForcedMeshMotionHandler : public DeformingMeshMotionHandler, 
-				   public RigidMeshMotionHandler {
+class AccPitchingMeshMotionHandler : public PitchingMeshMotionHandler, 
+                                     public RigidMeshMotionHandler {
 
 public:
 
-  AccForcedMeshMotionHandler(IoData &, VarFcn *, double *, Domain *);
-  ~AccForcedMeshMotionHandler() {}
+  AccPitchingMeshMotionHandler(IoData &, VarFcn *, double *, Domain *);
+  ~AccPitchingMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
+
+//------------------------------------------------------------------------------
+
+class AccHeavingMeshMotionHandler : public HeavingMeshMotionHandler, 
+				   public RigidMeshMotionHandler {
+
+public:
+
+  AccHeavingMeshMotionHandler(IoData &, VarFcn *, double *, Domain *);
+  ~AccHeavingMeshMotionHandler() {}
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+};
+
+
+//------------------------------------------------------------------------------
+
+class AccDeformingMeshMotionHandler : public DeformingMeshMotionHandler, 
+				   public RigidMeshMotionHandler {
+
+public:
+
+  AccDeformingMeshMotionHandler(IoData &, VarFcn *, double *, Domain *);
+  ~AccDeformingMeshMotionHandler() {}
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+};
+
 
 //------------------------------------------------------------------------------
 

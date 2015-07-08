@@ -24,6 +24,8 @@ KspSolver(KspData &data, MatVecProdOp *mvp, PrecOp *pc, IoOp *io)
 
   this->kspConvCriterion = new KspConvCriterion(data);
 
+  this->kspBinaryOutput = NULL;
+
   if (data.checkFinalRes == KspData::YES)
     this->checkFinalRes = true;
   else
@@ -52,6 +54,17 @@ KspSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::setup(int nlit, int nlmaxi
 {
 
   this->eps = this->kspConvCriterion->compute(nlit, nlmaxits, b.norm());
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
+void
+KspSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::setKspBinaryOutput(KspBinaryOutput<VecType>* kspBinOut)
+{
+
+  this->kspBinaryOutput = kspBinOut;
 
 }
 
@@ -347,6 +360,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
   int iter = 0;
   int exitLoop = 0;
 
+  int numOutputVecs = 0;
+
   if (!this->pcOp)
     typePrec = 0;
 
@@ -435,6 +450,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
     x += w;
 
+    numOutputVecs = j+1;
+
   } while (exitLoop == 0);
 
 
@@ -460,6 +477,16 @@ target);
   if (iter == this->maxits && l2res > target && outputConvergenceInfo) {
     this->ioOp->printf(1, "*** Warning: Gmres(%d) solver reached %d its", numVec, this->maxits);
     this->ioOp->printf(1, " (initial=%.2e, res=%.2e, target=%.2e, ratio = %.2e)\n", res0, l2res, target, l2res/target);
+  }
+
+  if (this->kspBinaryOutput) {
+    if (typePrec == 2) {  //apply preconditioner before outputting
+      for (int iVec=0; iVec<numOutputVecs; ++iVec) {
+        this->pcOp->apply(V[iVec], r);
+        V[iVec] = r;
+      }
+    }
+    this->kspBinaryOutput->writeKrylovVectors(V, y, numOutputVecs);
   }
 
   return iter;
@@ -902,6 +929,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecSet<VecType> &b
     }
 
   }
+
+  //if (this->kspBinaryOutput) this->kspBinaryOutput->writeKrylovVectors(V, y);
 
   return iter;
 

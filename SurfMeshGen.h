@@ -5,7 +5,7 @@
 template <int dim>
 class SurfMeshGen : public GnatPreprocessing<dim> {
 
-	void setUp() { ;}
+	void setUpGreedy() { ;}
 
 	void determineSampleNodes() { ;}
 

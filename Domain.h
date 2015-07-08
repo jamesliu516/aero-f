@@ -163,15 +163,26 @@ class Domain {
 
 	int numGlobNode;
 	void computeNumGlobNode();
-
-	int output_newton_step;	// for writing newton residual snapshots
+	
 
   Connectivity* mySubToSub;
-
+  
   GeoSource* pGeoSource;
 
   // For Multifluid interface tracking
   class TriangulatedInterface* multiFluidInterface;
+  
+  
+  // for outputting ROM snapshots from FOM
+  // TODO: move these to a more appropriate location (KMW)
+  int outputTimeIt;
+  int outputNewtonIt;
+  double outputNewtonTag;
+  int outputNewtonStateStep;
+  int outputNewtonResidualStep;
+  int outputKrylovStep;  
+  int numKrylovVecsOutputPrevNewtonIt;
+  int numResidualsOutputCurrentNewtonIt;
 
 public:
 
@@ -193,7 +204,17 @@ public:
  
   Connectivity* getSubToSub() { return mySubToSub; } 
   
-  int *getOutputNewtonStep() { return &output_newton_step; }	// allow functions to change it
+  // for outputting ROM snapshots from FOM
+  // TODO: move these to a more appropriate location (KMW)
+  int *getTimeIt() { return &outputTimeIt; }
+  int *getNewtonIt() { return &outputNewtonIt; }
+  double *getNewtonTag() { return &outputNewtonTag; } 
+  int *getNewtonStateStep() { return &outputNewtonStateStep; }
+  int *getNewtonResidualStep() { return &outputNewtonResidualStep; }
+  int *getKrylovStep() { return &outputKrylovStep; }
+  int *getNumKrylovVecsOutputPrevNewtonIt() { return &numKrylovVecsOutputPrevNewtonIt; }
+  int *getNumResidualsOutputCurrentNewtonIt() { return &numResidualsOutputCurrentNewtonIt; } 
+
   BCApplier* getMeshMotionBCs() const { return meshMotionBCs; } //HB
   CommPattern<double> *getVecPat() const { return vecPat; }
   CommPattern<bcomp> *getCompVecPat() const { return compVecPat; }
@@ -876,10 +897,13 @@ public:
   void assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn *varFcn);
 
   template<class Scalar, int dim>
+  bool readTagFromFile(const char *, int, double *, int *);
+
+  template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
-	template<int dim>
-	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int nBasesNeeded = 0, int *whichFiles = NULL); 	//KTC
+	//template<int dim>
+	//void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int nBasesNeeded = 0, int *whichFiles = NULL); 	//KTC
 
 	void computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes);
 	void computeConnectedNodes(const std::vector<std::vector<int> > &,
@@ -889,15 +913,14 @@ public:
 
 	template<typename Scalar> void makeUnique( std::vector <Scalar> *nodeOrEle, int length = 1);
 
-  template<int dim>
-  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps = false);
+  //template<int dim>
+  //void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps = false);
 
   void readInterpNode(const char *, int &, int *&, int *&); // for Gappy Pod
 
   void readInterpMatrix(const char *, int &, FullM &); // for Gappy Pod
 
-	void readSampleNodes(std::vector<int> &, int &,
-			const char *);
+  //void readSampleNodes(std::vector<int> &, int &, const char *);
 
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, Scalar* = 0);
@@ -1161,6 +1184,11 @@ public:
 
   // Assign ErrorHandler to subdomains
   void assignErrorHandler();
+
+  void setFarFieldMask(DistVec<double> &ffMask, DistVec<double> &neighborMask); // ffMask is one for farfield nodes,
+                                                                                // neighborMask is one for nodes that are one layer removed from the farfield
+  void setWallMask(DistVec<double> &wallMask, DistVec<double> &neighborMask); // wallMask is one for wall nodes,
+                                                                              // neighbor mask is one for nodes that are one layer removed from the wall
 
   template <int dim>
     void computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<double,dim> &U,DistVec<double>& res,

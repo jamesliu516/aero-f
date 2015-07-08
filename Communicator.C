@@ -440,6 +440,83 @@ void Communicator::globalSum(int len, Scalar *x)
 
 //------------------------------------------------------------------------------
 
+#ifdef USE_MPI
+template<class Scalar>
+void Communicator::globalOpRoot(int len, Scalar *x, MPI_Op op)
+{
+
+  if (numCPU < 2) return;
+
+  double t0;
+  if (timer) t0 = timer->getTime();
+
+  int root = 0;
+  int segSize = (len > 65536) ? 65536 : len;
+
+  Scalar *work;
+  bool delete_work = false;
+
+  if (segSize > 5000) {
+    delete_work =  true;
+    work = new Scalar[segSize];
+  } else
+    work = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar)*segSize));
+
+  for (int offset = 0; offset < len; offset += segSize) {
+    if (offset+segSize > len)
+      segSize = len-offset;
+    MPI_Reduce(x+offset, work, CommTrace<Scalar>::multiplicity*segSize, CommTrace<Scalar>::MPIType, op, root, comm);
+    // Should there be a barrier here?
+    for (int j = 0; j < segSize; ++j)
+      x[offset+j] = work[j];
+  }
+
+  if (delete_work) delete [] work;
+
+  if (timer) timer->addGlobalComTime(t0);
+
+}
+#endif
+
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+void Communicator::globalMinRoot(int len, Scalar *x)
+{
+
+#ifdef USE_MPI
+  globalOpRoot(len, x, MPI_MIN);
+#endif
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+void Communicator::globalMaxRoot(int len, Scalar *x)
+{
+
+#ifdef USE_MPI
+  globalOpRoot(len, x, MPI_MAX);
+#endif
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+void Communicator::globalSumRoot(int len, Scalar *x)
+{
+
+#ifdef USE_MPI
+  globalOpRoot(len, x, MPI_SUM);
+#endif
+
+}
+
+//------------------------------------------------------------------------------
+
 #ifdef MEM_TMPL_FUNC
 template <class T>
 template <class TB>
