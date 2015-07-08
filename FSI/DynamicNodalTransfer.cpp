@@ -712,8 +712,11 @@ pair<double*, int>
 EmbeddedStructure::getTargetData() 
 {
   //clear the force.
-  for (int i=0; i<nNodes; i++)
-    F[i][0] = F[i][1] = F[i][2] = 0.0;
+  for (int i=0; i<nNodes; i++) {
+    F[i][0] = 0.0;
+    F[i][1] = 0.0;
+    F[i][2] = 0.0;
+  }
 
   return pair<double*,int>((double*)F,nNodes);
 }
@@ -851,8 +854,11 @@ void
 EmbeddedStructure::clearForceVector()
 {
   //clear the force.
-  for (int i=0; i<nNodes; i++)
-    F[i][0] = F[i][1] = F[i][2] = 0.0;
+  for (int i=0; i<nNodes; i++) {
+    F[i][0] = 0.0;
+    F[i][1] = 0.0;
+    F[i][2] = 0.0;
+  }
 }
 
 //------------------------------------------------------------------------------

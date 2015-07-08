@@ -181,7 +181,7 @@ BinFileHandler::BinFileHandler(const char *name, const char *flag, double ver) :
     if (fileid == -1) ierr = 1;
   }
   else if (strcmp(flag, "ws") == 0) {
-    fileid = open(name, O_WRONLY | O_CREAT | O_TRUNC | O_SYNC, 0644);
+    fileid = open(name, O_WRONLY | O_CREAT | O_TRUNC | O_SYNC, 0644);    
     if (fileid == -1) ierr = 1;
   }
   else if (strcmp(flag, "w+") == 0) {
@@ -204,8 +204,8 @@ BinFileHandler::BinFileHandler(const char *name, const char *flag, double ver) :
     fprintf(stderr, "*** Error: wrong flag (%s) for \'%s\'\n", flag, name);
     exit(1);
   }
-
-  if (ierr) {
+  
+ if (ierr) {
     fprintf(stderr, "*** Error: unable to open \'%s\'\n", name); 
     exit(1);
   }

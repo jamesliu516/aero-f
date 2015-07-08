@@ -35,8 +35,7 @@ TsParameters::TsParameters(IoData &ioData)
   cflMin = ioData.ts.cfl.cflMin;  // not used... cflCoef1 is the real cflMin
   dualtimecfl = ioData.ts.cfl.dualtimecfl;
 
-  checksol = !(!ioData.ts.adaptivetime.checksol || !ioData.ts.cfl.checksol || !ioData.ts.checksol);
-  //checklinsolve = !(!ioData.ts.cfl.checklinsolve || !ioData.ts.adaptivetime.checksol);
+  checksol = !(!ioData.ts.cfl.checksol || !ioData.ts.checksol);
   checklinsolve = ioData.ts.cfl.checklinsolve;
   checkriemann = checksol;
   checklargevelocity = ioData.ts.checkvelocity;

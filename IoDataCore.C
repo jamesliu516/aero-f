@@ -3047,45 +3047,6 @@ void CFLData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
-AdaptiveTimeData::AdaptiveTimeData()
-{
-
-  checksol = 1;
-  checklinsolve = 1;
-  checkriemann = 1;
-  checklargevelocity = 1;
-  rapidpchangecutoff = 40;
-  checkpclipping = 0;
-
-}
-
-//------------------------------------------------------------------------------
-
-void AdaptiveTimeData::setup(const char *name, ClassAssigner *father)
-{
-
-  ClassAssigner *ca = new ClassAssigner(name, 23, father);
-
-  new ClassToken<AdaptiveTimeData>(ca, "UnphysicalSolution", this,
-                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checksol), 2,
-                          "Off", 0, "On", 1);
-  new ClassToken<AdaptiveTimeData>(ca, "LinearSolver", this,
-                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklinsolve), 2,
-                          "Off", 0, "On", 1); 
-  new ClassToken<AdaptiveTimeData>(ca, "RiemannSolver", this,
-                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkriemann), 2,
-                          "Off", 0, "On", 1);
-  new ClassToken<AdaptiveTimeData>(ca, "LargeVelocities", this,
-                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checklargevelocity), 2,
-                          "Off", 0, "On", 1);
-  new ClassToken<AdaptiveTimeData>(ca, "PressureClipping", this,
-                          reinterpret_cast<int AdaptiveTimeData::*>(&AdaptiveTimeData::checkpclipping), 2,
-                          "Off", 0, "On", 1);
-  new ClassInt<AdaptiveTimeData>(ca, "RapidPChangeCutoff", this, &AdaptiveTimeData::rapidpchangecutoff);
-}
-
-//------------------------------------------------------------------------------
-
 TsData::TsData()
 {
 
@@ -3198,7 +3159,6 @@ void TsData::setup(const char *name, ClassAssigner *father)
   implicit.setup("Implicit", ca);
   cfl.setup("CflLaw",ca);
   cfl.setup("CFLLaw",ca);
-  //adaptivetime.setup("AdaptiveTime",ca);
 
 }
 

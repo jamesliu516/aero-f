@@ -1705,24 +1705,6 @@ struct CFLData {
 
 //------------------------------------------------------------------------------
 
-struct AdaptiveTimeData {
-
-  int checksol;
-  int checklinsolve;
-  int checkriemann;
-  int checklargevelocity;
-  int rapidpchangecutoff;
-  int checkpclipping; 
-
-  AdaptiveTimeData();
-  ~AdaptiveTimeData() {}
-  
-  void setup(const char *, ClassAssigner * = 0);
-
-};
-
-//------------------------------------------------------------------------------
-
 struct TsData {
 
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
@@ -1770,7 +1752,6 @@ struct TsData {
   ExplicitData expl;
   ImplicitData implicit;
   CFLData cfl;
-  AdaptiveTimeData adaptivetime;
 
   TsData();
   ~TsData() {}
