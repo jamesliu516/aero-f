@@ -30,7 +30,12 @@ public:
   template <typename InputIterator>
   RestrictionMapping(Domain * domain, InputIterator globalIndexBegin, InputIterator globalIndexEnd);
 
+
+  void recomputeConnectedTopology();
+
 private:
+  Domain *dom;
+
   typedef std::map<int, int> NumberingMap;
 
   int localSubdomainCount_;

@@ -5311,6 +5311,174 @@ void SubDomain::constructLines(std::vector<std::vector<int>*>& pLines, int& numL
   }
   
 }
+
+//------------------------------------------------------------------------------
+
+void SubDomain::setFarFieldNodes()
+{
+
+  farFieldNodes.clear();
+
+  int i, j;
+
+  //find numFarFieldNodes and tag the nodes that are at inlet/outlet
+  Vec<bool> tagNodes(nodes.size());
+  tagNodes = false;
+  int numFarFieldNodes = 0;
+  for ( i=0; i<nodes.size(); i++){
+    if ( nodeType[i] == BC_OUTLET_MOVING || nodeType[i] == BC_INLET_MOVING ||
+         nodeType[i] == BC_OUTLET_FIXED  || nodeType[i] == BC_INLET_FIXED ){
+      farFieldNodes.push_back(i);
+      numFarFieldNodes++;
+    }
+  }
+
+  //check that we get the same number of far field nodes counting via nodes, faces, and tets
+  //via tets
+  Vec<bool> tcounted(nodes.size());
+  tcounted = false;
+  int tnumFarFieldNodes=0;
+  int n;
+  for( i=0; i<elems.size(); i++){
+    for( j=0; j<4; j++){
+      n=elems[i][j];
+      if (!tcounted[n] && (nodeType[n] ==BC_OUTLET_MOVING || nodeType[n] ==BC_INLET_MOVING ||
+			   nodeType[n] ==BC_OUTLET_FIXED ||nodeType[n] ==BC_INLET_FIXED )){
+        tcounted[n] = true;
+        tnumFarFieldNodes++;
+      }
+    }
+  }
+
+  //via faces
+  Vec<bool> fcounted(nodes.size());
+  fcounted = false;
+  int fnumFarFieldNodes=0;
+  for( i=0; i<faces.size(); i++){
+    for( j=0; j<3; j++){
+      n=faces[i][j];
+      if (!fcounted[n] && (nodeType[n] ==BC_OUTLET_MOVING || nodeType[n] ==BC_INLET_MOVING ||
+			   nodeType[n] ==BC_OUTLET_FIXED ||nodeType[n] ==BC_INLET_FIXED )){
+	fcounted[n] = true;
+	fnumFarFieldNodes++;
+      }
+    }
+  }
+
+  assert((numFarFieldNodes==fnumFarFieldNodes)&&(numFarFieldNodes==tnumFarFieldNodes)); 
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::setWallNodes()
+{
+
+  wallNodes.clear();
+
+  int i, j;
+
+  //find numWallNodes and tag the nodes that are at inlet/outlet
+  Vec<bool> tagNodes(nodes.size());
+  tagNodes = false;
+  int numWallNodes = 0;
+  for ( i=0; i<nodes.size(); i++){
+    if ( nodeType[i] == BC_ADIABATIC_WALL_MOVING || nodeType[i] == BC_ADIABATIC_WALL_FIXED ||
+         nodeType[i] == BC_SLIP_WALL_MOVING || nodeType[i] == BC_SLIP_WALL_FIXED ||
+         nodeType[i] == BC_ISOTHERMAL_WALL_MOVING || nodeType[i] == BC_ISOTHERMAL_WALL_FIXED ){
+      wallNodes.push_back(i);
+      numWallNodes++;
+    }
+  }
+
+  //check that we get the same number of far field nodes counting via nodes, faces, and tets
+  //via tets
+  Vec<bool> tcounted(nodes.size());
+  tcounted = false;
+  int tnumWallNodes=0;
+  int n;
+  for( i=0; i<elems.size(); i++){
+    for( j=0; j<4; j++){
+      n=elems[i][j];
+      if (!tcounted[n] && (nodeType[n] == BC_ADIABATIC_WALL_MOVING || nodeType[n] == BC_ADIABATIC_WALL_FIXED ||
+         nodeType[n] == BC_SLIP_WALL_MOVING || nodeType[n] == BC_SLIP_WALL_FIXED ||
+         nodeType[n] == BC_ISOTHERMAL_WALL_MOVING || nodeType[n] == BC_ISOTHERMAL_WALL_FIXED )){
+        tcounted[n] = true;
+        tnumWallNodes++;
+      }
+    }
+  }
+
+  //via faces
+  Vec<bool> fcounted(nodes.size());
+  fcounted = false;
+  int fnumWallNodes=0;
+  for( i=0; i<faces.size(); i++){
+    for( j=0; j<3; j++){
+      n=faces[i][j];
+      if (!fcounted[n] && (nodeType[n] == BC_ADIABATIC_WALL_MOVING || nodeType[n] == BC_ADIABATIC_WALL_FIXED ||
+         nodeType[n] == BC_SLIP_WALL_MOVING || nodeType[n] == BC_SLIP_WALL_FIXED ||
+         nodeType[n] == BC_ISOTHERMAL_WALL_MOVING || nodeType[n] == BC_ISOTHERMAL_WALL_FIXED )){
+	      fcounted[n] = true;
+	      fnumWallNodes++;
+      }
+    }
+  }
+
+  assert((numWallNodes==fnumWallNodes)&&(numWallNodes==tnumWallNodes)); 
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::setFarFieldMask(Vec<double>& ffMask, Vec<double>& neighborMask){
+
+  // Note: vectors are initialized to zero in DomainCore.C
+
+  const Connectivity &Node2Node = *getNodeToNode();
+
+  for (int iNode=0; iNode<farFieldNodes.size(); iNode++){
+    int ffNode = farFieldNodes[iNode];
+    ffMask[ffNode] = 1.0;
+    for(int jNode=0; jNode<Node2Node.num(ffNode); jNode++) {
+      int neighbor = Node2Node[ffNode][jNode];
+      if(neighbor==ffNode) {
+        continue;
+      } else {
+        neighborMask[neighbor] = 1.0;
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::setWallMask(Vec<double>& wallMask, Vec<double>& neighborMask){
+
+  // Note: vectors are initialized to zero in DomainCore.C
+
+  const Connectivity &Node2Node = *getNodeToNode();
+
+  for (int iNode=0; iNode<wallNodes.size(); iNode++){
+    int wallNode = wallNodes[iNode];
+    wallMask[wallNode] = 1.0;
+    for(int jNode=0; jNode<Node2Node.num(wallNode); jNode++) {
+      int neighbor = Node2Node[wallNode][jNode];
+      if(neighbor==wallNode) {
+        continue;
+      } else {
+        neighborMask[neighbor] = 1.0;
+      }
+    }
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
+
 void SubDomain::maskHHVector(Vec<double>& hh) {
 
   for (int i = 0; i < faces.size(); ++i) {
@@ -5350,3 +5518,4 @@ Elem* SubDomain::searchPoint(Vec3D Xp, SVec<double,3>& X) {
 
   return E;
 }
+

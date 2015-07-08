@@ -31,26 +31,27 @@ TsInput::TsInput(IoData &iod) {
   } else {
 
     solutions = absolutePath(iod.input.solutions, prefix);
+    multisolutions = absolutePath(iod.input.multisolutions, prefix);
     positions = absolutePath(iod.input.positions, prefix);
     levelsets = absolutePath(iod.input.levelsets, prefix);
   }
 
   podFile   = absolutePath(iod.input.podFile,   prefix);
-  snapFile  = absolutePath(iod.input.snapFile,  prefix);
-  snapRefSolutionFile = absolutePath(iod.input.snapRefSolutionFile, prefix);
-  podFileState = absolutePath(iod.input.podFileState, prefix);
-  podFileRes = absolutePath(iod.input.podFileRes, prefix);
-  podFileJac = absolutePath(iod.input.podFileJac, prefix);
-  podFileResHat = absolutePath(iod.input.podFileResHat, prefix);
-  podFileJacHat = absolutePath(iod.input.podFileJacHat, prefix);
-  sampleNodes = absolutePath(iod.input.sampleNodes, prefix);
-  jacMatrix = absolutePath(iod.input.jacMatrix, prefix);
-  resMatrix = absolutePath(iod.input.resMatrix, prefix);
-	wallsurfacedisplac = absolutePath(iod.input.wallsurfacedisplac, prefix);
+  //snapFile  = absolutePath(iod.input.snapFile,  prefix);
+  //snapRefSolutionFile = absolutePath(iod.input.snapRefSolutionFile, prefix);
+  //podFileState = absolutePath(iod.input.podFileState, prefix);
+  //podFileRes = absolutePath(iod.input.podFileRes, prefix);
+  //podFileJac = absolutePath(iod.input.podFileJac, prefix);
+  //podFileResHat = absolutePath(iod.input.podFileResHat, prefix);
+  //podFileJacHat = absolutePath(iod.input.podFileJacHat, prefix);
+  //sampleNodes = absolutePath(iod.input.sampleNodes, prefix);
+  //jacMatrix = absolutePath(iod.input.jacMatrix, prefix);
+  //resMatrix = absolutePath(iod.input.resMatrix, prefix);
+  wallsurfacedisplac = absolutePath(iod.input.wallsurfacedisplac, prefix);
   shapederivatives = absolutePath(iod.input.shapederivatives, prefix);
-  staterom = absolutePath(iod.input.staterom, prefix);
-  reducedfullnodemap = absolutePath(iod.input.reducedfullnodemap , prefix);
-  mesh = absolutePath(iod.input.mesh , prefix);
+  //staterom = absolutePath(iod.input.staterom, prefix);
+  //reducedfullnodemap = absolutePath(iod.input.reducedfullnodemap , prefix);
+  //mesh = absolutePath(iod.input.mesh , prefix);
 }
 
 //------------------------------------------------------------------------------
@@ -73,20 +74,20 @@ TsInput::~TsInput() {
   delete[] positions;
   delete[] levelsets;
   delete[] podFile;
-  delete[] snapFile;
-  delete[] snapRefSolutionFile;
-  delete[] podFileRes;
-  delete[] podFileJac;
-  delete[] podFileResHat;
-  delete[] podFileJacHat;
-  delete[] sampleNodes;
-  delete[] jacMatrix;
-  delete[] resMatrix;
-	delete[] wallsurfacedisplac;
+ // delete[] snapFile;
+ // delete[] snapRefSolutionFile;
+ // delete[] podFileRes;
+ // delete[] podFileJac;
+ // delete[] podFileResHat;
+ // delete[] podFileJacHat;
+ // delete[] sampleNodes;
+ // delete[] jacMatrix;
+ // delete[] resMatrix;
+  delete[] wallsurfacedisplac;
   delete[] shapederivatives; 
-  delete[] staterom;
-  delete[] reducedfullnodemap ;
-  delete[] mesh ;
+ // delete[] staterom;
+ // delete[] reducedfullnodemap ;
+ // delete[] mesh ;
 }
 
 //------------------------------------------------------------------------------

@@ -35,7 +35,9 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   fluidIdDummy = 0;
  
+  Uic = new DistSVec<double,dim>(getVecInfo());
   V = new DistSVec<double,dim>(getVecInfo());
+  F = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
   Rinlet = new DistSVec<double,dim>(getVecInfo());
   Rreal = new DistSVec<double,dim>(getVecInfo());
@@ -307,17 +309,31 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
     }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
-    if (ioData.problem.type[ProblemData::ACCELERATED])
-      _mmh = new AccForcedMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
-    else {
-      if (ioData.forced.type == ForcedData::HEAVING)
+    if (ioData.forced.type == ForcedData::HEAVING) {
+      if (ioData.problem.type[ProblemData::ACCELERATED]){
+        _mmh = new AccHeavingMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
+      } else {
         _mmh = new HeavingMeshMotionHandler(ioData, domain);
-      else if (ioData.forced.type == ForcedData::SPIRALING)
-        _mmh = new SpiralingMeshMotionHandler(ioData, domain);
-      else if (ioData.forced.type  == ForcedData::PITCHING)
+      }
+    } else if (ioData.forced.type  == ForcedData::PITCHING){
+      if (ioData.problem.type[ProblemData::ACCELERATED]){
+        _mmh = new AccPitchingMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
+      } else {
         _mmh = new PitchingMeshMotionHandler(ioData, domain);
-      else if (ioData.forced.type  == ForcedData::DEFORMING)
+      }
+    } else if (ioData.forced.type  == ForcedData::DEFORMING){
+      if (ioData.problem.type[ProblemData::ACCELERATED]){
+        _mmh = new AccDeformingMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
+      } else {
         _mmh = new DeformingMeshMotionHandler(ioData, domain);
+      }
+    } else if (ioData.forced.type == ForcedData::SPIRALING){
+      if (ioData.problem.type[ProblemData::ACCELERATED]){
+        com->fprintf(stderr,"***Error: Accelerated Spiraling is not currently a supported problem type\n");
+        exit(-1);
+      } else {
+        _mmh = new SpiralingMeshMotionHandler(ioData, domain);
+      }
     }
   }
   else if (ioData.problem.type[ProblemData::ACCELERATED])
@@ -359,11 +375,86 @@ double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,d
 
 //------------------------------------------------------------------------------
 template<int dim>
+void TsDesc<dim>::evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln)
+{
+  com->fprintf(stderr," ... In TsDesc<dim>::evaluateFluxAtMultipleSolutions ...\n");
+
+  FILE *inFP = fopen(input->multisolutions,"r");
+  if (!inFP)  {
+    com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", input->multisolutions);
+    exit (-1);
+  }
+  int nData, _n;
+  _n = fscanf(inFP, "%d",&nData);
+  com->fprintf(stdout, "Reading %d Solutions for Flux Evaluation\n",nData);
+
+  if (nData == 0) {
+     strcpy(best_soln,"");
+     return;
+  }
+
+  char solnFile1[500];
+  char** solnFile = new char*[nData];
+  for (int iData=0; iData < nData; ++iData)
+    solnFile[iData] = new char[500];
+  double* normF = new double[nData];
+  double tmp, bestSoFar;
+
+  for (int i=0; i < nData; ++i) {
+    _n = fscanf(inFP, "%s", solnFile1);
+    com->fprintf(stderr,"     solnFile = %s\n",solnFile1);
+    strcpy(solnFile[i],solnFile1);
+    domain->readVectorFromFile(solnFile[i], 0, 0, *Uic);
+
+    spaceOp->computeResidual(*X, *A, *Uic, *F, timeState);
+    spaceOp->applyBCsToResidual(*Uic, *F);
+    tmp = (*F).norm();
+    normF[i] = 0.5*tmp*tmp;
+    if (i == 0 || tmp < bestSoFar){
+       bestSoFar = tmp;
+       strcpy(best_soln,solnFile[i]);
+    }
+  }
+  fclose(inFP);
+
+  if (com->cpuNum() == 0) {
+    if (iod.output.transient.multiSolnFluxNorm[0] != 0){
+      int dsp = strlen(iod.output.transient.prefix)+1;
+      char* MultiSolnFluxNorm = new char[dsp + strlen(iod.output.transient.multiSolnFluxNorm)];
+      sprintf(MultiSolnFluxNorm,"%s%s",iod.output.transient.prefix,iod.output.transient.multiSolnFluxNorm);
+
+      FILE *fpMultiSolnFluxNorm = fopen(MultiSolnFluxNorm,"w");
+      if (!fpMultiSolnFluxNorm) {
+        fprintf(stderr,"*** Error: could not open \'%s'\n",MultiSolnFluxNorm);
+      }
+      fprintf(fpMultiSolnFluxNorm,"Solution FluxNorm Name\n");
+      for (int iData=0; iData < nData; ++iData)
+         fprintf(fpMultiSolnFluxNorm,"%d %e %s\n",iData,normF[iData],solnFile[iData]);
+      delete[] MultiSolnFluxNorm;
+
+       if (fpMultiSolnFluxNorm) fclose(fpMultiSolnFluxNorm);
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
+  char * name = new char[500];
 
   geoState->setup2(timeState->getData());
-  timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
+  com->fprintf(stderr," input->solutions = %s\n",input->solutions);
+  com->fprintf(stderr," input->multisolutions = %s\n",input->multisolutions);
+  if ( iod.input.solutions[0] == 0 && iod.input.multisolutions[0] != 0){
+     com->fprintf(stderr," INSIDE IF STATEMENT \n");
+     evaluateFluxAtMultipleSolutions(iod,name);
+  } else {
+     com->fprintf(stderr," INSIDE ELSE STATEMENT \n");
+     strcpy(name,input->solutions);
+  }
+  timeState->setup(name, *X, bcData->getInletBoundaryVector(), *U, iod);
+  //timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
@@ -396,7 +487,9 @@ template<int dim>
 double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U, double angle)
 {
   double t0 = timer->getTime();
+
   //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
+  com->barrier();
   this->data->allowstop = this->timeState->allowcflstop;
   timeState->unphysical = data->unphysical;
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
@@ -411,6 +504,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
     }
   }
   else { //if time step is repeated
+
     dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
   }
 
@@ -420,6 +514,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
+
   timer->addFluidSolutionTime(t0);
   timer->addTimeStepTime(t0);
 
@@ -686,7 +781,11 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
       output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     }
 
+    double fluxNorm = 0.5*(data->residual)*(data->residual);
+
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    output->writeMatchPressureToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, *A, U, timeState);
+    output->writeFluxNormToDisk(it, 0, 0, t, fluxNorm);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
@@ -715,8 +814,11 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
   double cpu = timer->getRunTime();
   double res = data->residual / restart->residual;
+  double fluxNorm = 0.5*(data->residual)*(data->residual);
 
   output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
+  output->writeMatchPressureToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, *A, U, timeState);
+  output->writeFluxNormToDisk(it, itSc, itNl, t, fluxNorm);
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
@@ -747,7 +849,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
       timer->print(domain->getStrTimer());
     }
 
-    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && ioData.problem.alltype != ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) {
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && 
+       ioData.problem.alltype != ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ &&
+       ioData.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       output->closeAsciiFiles();
     }
   }
@@ -868,7 +972,7 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
     spaceOp->computeResidual(*X, *A, U, *R, timeState);
   else //wallRecTyp == ExactRiemann
     spaceOp->computeResidual(riemann1, *X, *A, U, *R, timeState);
-    
+
   spaceOp->applyBCsToResidual(U, *R);
 
   double res = 0.0;
@@ -936,7 +1040,7 @@ void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
     else
       com->printf(2, "Spatial residual norm[%d] = %.12e\n", data->resType, data->residual);
     com->printf(2, "Time for one residual evaluation: %f s\n", trhs);
-  }
+  } 
 
   com->printf(2, "\n");
 
@@ -958,7 +1062,7 @@ bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
   if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2))
     restart->residual = data->residual;
 
-  if (data->residual == 0.0 || data->residual < data->eps * restart->residual) 
+  if (data->residual == 0.0 || data->residual < data->eps * restart->residual || data->residual < data->epsabs) 
     return true;
   else
     return false;
@@ -1119,24 +1223,13 @@ void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<doubl
 //----------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-                                              DistSVec<double,dim> *F1, DistSVec<double,dim> *F2,
-                                              VecSet< DistSVec<double,dim> > *F3)
-{
-
-  output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
-
-}
-
-//----------------------------------------------------------------------------
-
-template<int dim>
 void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
 {
   // Nothing to do here by default.
 }
 
 //----------------------------------------------------------------------------
+
 
 template<int dim>
 void TsDesc<dim>::updateFarfieldCoeffs(double dt)
@@ -1221,4 +1314,13 @@ void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file
   
 }
 
+//----------------------------------------------------------------------------
 
+template<int dim>
+void TsDesc<dim>::performPostProForState(DistSVec<double,dim> &outVec)
+{ // public function that performs post processing on a state vector. Used during Nonlinear ROM preprocessing
+  bool tmpLastIt = false;
+  int tmpIt = 0;
+  double tempT = 0.0;
+  output->writeBinaryVectorsToDisk(tmpLastIt, tmpIt, tempT, *X, *A, outVec, timeState);
+}

@@ -38,6 +38,7 @@ public:
   int maxIts;
   int resType;
   double eps;
+  double epsabs;
   double maxTime;
   double cfl;
   double residual;

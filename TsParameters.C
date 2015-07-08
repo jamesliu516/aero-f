@@ -32,7 +32,7 @@ TsParameters::TsParameters(IoData &ioData)
   cflCoef1 = ioData.ts.cfl.cflCoef1;
   cflCoef2 = ioData.ts.cfl.cflCoef2;
   cflMax = ioData.ts.cfl.cflMax;
-  cflMin = ioData.ts.cfl.cflMin;
+  cflMin = ioData.ts.cfl.cflMin;  // not used... cflCoef1 is the real cflMin
   dualtimecfl = ioData.ts.cfl.dualtimecfl;
 
   checksol = !(!ioData.ts.cfl.checksol || !ioData.ts.checksol);
@@ -54,6 +54,7 @@ TsParameters::TsParameters(IoData &ioData)
 
   maxIts = ioData.ts.maxIts;
   eps = ioData.ts.eps;
+  epsabs = ioData.ts.epsabs; 
   maxTime = ioData.ts.maxTime;
 
   forbidreduce = ioData.ts.cfl.forbidreduce;
@@ -161,13 +162,8 @@ void TsParameters::resolveErrors(){
 
 void TsParameters::computeCflNumber(int its, double res, double angle)
 {
-  // for backwards compatibility
-  if (cfllaw == CFLData::OLD){
-    cfl = min( max( max(cflCoef1, cflCoef2*its), cfl0/pow(res,ser) ), cflMax );
-    return;
-  }
-
   // First run automatic CFL checks
+
 
   if (unphysical){
     unphysical=false;
@@ -183,16 +179,16 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     }
     return;
   }
+
   if (badlinsolve){
     unphysical=false;
     badlinsolve=false;
-    cfl *= 0.5;
+    cfl *= 0.75;
     fixedunsteady_counter = 1;
     if(cfl_output) errorHandler->com->fprintf(cfl_output,"Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
     if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
     return;
   }
-
 
   if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
@@ -201,6 +197,12 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     fixedunsteady_counter = 1;
     errorHandler->com->printf(1,"Reducing CFL. Previous cfl=%e, new cfl=%e.\n",cflold,cfl);
     if (cfl < cfl0/10000. && allowstop) {std::printf("Cannot further reduce CFL number. Aborting.\n"); exit(-1);}
+    return;
+  }
+
+  // for backwards compatibility
+  if (cfllaw == CFLData::OLD){
+    cfl = min( max( max(cflCoef1, min(its*cflCoef2,cfl+cflCoef2)), cfl0/pow(res,ser) ), cflMax );
     return;
   }
 

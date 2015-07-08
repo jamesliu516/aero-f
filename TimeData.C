@@ -29,7 +29,12 @@ TimeData::TimeData(IoData &ioData)
   dt_n = ioData.restart.dt_nm1;
   dt_nm1 = ioData.restart.dt_nm1;
   dt_nm2 = ioData.restart.dt_nm2;
-  output_newton_step = ioData.restart.output_newton_step;
+  
+  outputNewtonTag = ioData.restart.outputNewtonTag;
+  outputNewtonStateStep = ioData.restart.outputNewtonStateStep;
+  outputNewtonResidualStep = ioData.restart.outputNewtonResidualStep;
+  outputKrylovStep = ioData.restart.outputKrylovStep;
+
 
   dtau_switch = 0.0;
   if (ioData.ts.dualtimestepping == TsData::ON) 
@@ -94,7 +99,11 @@ void TimeData::copy(TimeData& oth) {
   dt_n = oth.dt_n;
   dt_nm1 = oth.dt_nm1;
   dt_nm2 = oth.dt_nm2;
-  output_newton_step = oth.output_newton_step;
+
+  outputNewtonTag = oth.outputNewtonTag;
+  outputNewtonStateStep = oth.outputNewtonStateStep;
+  outputNewtonResidualStep = oth.outputNewtonResidualStep;
+  outputKrylovStep = oth.outputKrylovStep;
 
   tau_n = oth.tau_n;
   tau_nm1 = oth.tau_nm1;

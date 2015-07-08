@@ -4,6 +4,7 @@
 #include <IoData.h>
 #include <TsDesc.h>
 #include <KspPrec.h>
+#include <KspBinaryOutput.h>
 
 struct DistInfo;
 
@@ -51,6 +52,8 @@ protected:
     Communicator> *createKrylovSolver(const DistInfo &, KspData &, MatVecProd<dim,neq> *, 
 				      KspPrec<neq> *, Communicator *);
 
+  KspBinaryOutput<DistSVec<double, dim> > *kspBinaryOutput; 
+
 public:
   
   ImplicitTsDesc(IoData &, GeoSource &, Domain *);
@@ -76,6 +79,12 @@ public:
   int getMaxItsLineSearch() const { return maxItsLS; }
   double getContractionLineSearch() const { return contractionLS; }
   double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
+
+  void writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt,
+                                   DistSVec<double,dim> *state = NULL, DistSVec<double,dim> *residual = NULL);
+
+  void incrementNewtonOutputTag();
+  void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {if (kspBinaryOutput) kspBinaryOutput->setCurrentState(Q);}
 
 };
 
