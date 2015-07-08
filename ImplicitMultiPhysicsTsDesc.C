@@ -36,6 +36,19 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   maxItsLS = implicitData.newton.lineSearch.maxIts;
   contractionLS = implicitData.newton.lineSearch.rho;
   sufficDecreaseLS = implicitData.newton.lineSearch.c1;
+  if (strcmp(implicitData.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(implicitData.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(implicitData.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(implicitData.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", implicitData.newton.output);
+      exit(1);
+    }
+  }
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD)
@@ -214,25 +227,15 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
    
-    /* I AM HERE */
     if (this->lsMethod == 0)
       this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
     else
       this->PhiV = this->Phi;
-/*
-    int my_pid;// = getpid();
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_pid);
-    if (my_pid == 66) {
-    
-      std::cout << "phi[5302] = " << this->Phi(0)[5302][0] << std::endl;
-    } 
-*/
 
     //this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
     if(this->withCracking && this->withMixedLS) {
       //this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
       //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
-      //    this->com->fprintf(stderr,"calling updateFluidIdFS2!\n");
       DistSVec<bool,4> poll(this->domain->getNodeDistInfo());
       this->domain->updateFluidIdFS2Prep(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId), poll);
       this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV, poll);
@@ -275,6 +278,11 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     }
  
   }
+  else if(this->mmh && this->inSubCycling) {
+     // PJSA: reset after ErrorHandler::REDO_TIMESTEP is raised
+     U = this->timeState->getUn();
+     *this->fluidSelector.fluidId = *this->fluidSelector.fluidIdn;
+  }
 
   *this->fluidSelector.fluidIdn = *this->fluidSelector.fluidId;
 
@@ -296,21 +304,40 @@ template<int dim,int dimLS>
 int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 { 
   double t0 = this->timer->getTime();
-  DistSVec<double,dim> Ubc(this->getVecInfo());
-
+  DistVec<int> fluidId_copy(*this->fluidSelector.fluidId);
   commonPart(U);
 
   if (this->modifiedGhidaglia)
     embeddedU.hh() = *this->bcData->getBoundaryStateHH();
+
+ 
+  if (this->timeState->useNm1() && this->timeState->existsNm1() &&
+      this->phaseChangeType == 1) {
+    DistSVec<double,dim>& Unm1 = this->timeState->getUnm1();
   
+    this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
+    this->multiPhaseSpaceOp->extrapolatePhaseChange(*this->X, *this->A, this->multiFluidInterfaceOrder-1,
+ 					            Unm1, this->V0,
+						    *this->Weights,*this->VWeights,
+						    NULL, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdnm1,
+						    false);
+    this->varFcn->primitiveToConservative(this->V0,Unm1,this->fluidSelector.fluidId);
+  }
+    
+
+ 
   int its = this->ns->solve(U);
  
   this->errorHandler->reduceError();
   this->data->resolveErrors();
-  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
- 
+
   this->timer->addFluidSolutionTime(t0);
-   
+
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) {
+    *this->fluidSelector.fluidId = fluidId_copy;
+    return its;
+  }
+ 
   this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
   this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
     
@@ -500,7 +527,7 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<do
 
   int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
   
-  if(this->data->checklinsolve && lits==ksp->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1; 
+  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true; 
   
   dQ = this->embeddeddQ.real();
 //  this->embeddedU.ghost() += this->embeddeddQ.ghost();
@@ -586,7 +613,7 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<
   
   int lits = kspLS->solve(b, dQ);
 
-  if(this->data->checklinsolve && lits==kspLS->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1;
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
 
   //mvpLS->apply(dQ, fnew);
 

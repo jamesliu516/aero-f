@@ -541,6 +541,7 @@ f77src/roejac5waterdissprec.f
 f77src/roejac6.f
 f77src/roejac6jwl.f
 f77src/roejacwaterdissprim.f
+f77src/roeflux7.f
 f77src/torsionspring.f
 f77src/dgecp.f
 f77src/dgers.f)
@@ -663,3 +664,10 @@ MESSAGE("Extra link flags:         " ${EXTRALIB})
 MESSAGE("=================================================")
 MESSAGE("")
 
+if(REG_SRC_DIR)
+  enable_testing()
+  add_subdirectory(${REG_SRC_DIR} ${REG_SRC_DIR})
+else(REG_SRC_DIR)
+  MESSAGE("To active regression testing, set variable REG_SRC_DIR to location of test suite.")
+  MESSAGE("")
+endif(REG_SRC_DIR)

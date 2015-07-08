@@ -1574,7 +1574,7 @@ void FluidRomShapeOptimizationHandler<dim>::fsoComputeSensitivities(IoData &ioDa
   // - Derivative of Vector Quantities: VelocityVector, Displacement
   //
   //
-  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, *this->A, this->timeState);
+  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState, this->A);
 
 }
 

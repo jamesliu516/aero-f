@@ -27,6 +27,19 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   maxItsLS = ioData.ts.implicit.newton.lineSearch.maxIts;
   contractionLS = ioData.ts.implicit.newton.lineSearch.rho;
   sufficDecreaseLS = ioData.ts.implicit.newton.lineSearch.c1;
+  if (strcmp(ioData.ts.implicit.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(ioData.ts.implicit.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(ioData.ts.implicit.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(ioData.ts.implicit.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", ioData.ts.implicit.newton.output);
+      exit(1);
+    }
+  }
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);

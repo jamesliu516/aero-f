@@ -7,6 +7,7 @@
 #include <LowMachPrec.h>
 #include <LevelSet/LevelSetStructure.h>
 #include <ErrorHandler.h>
+#include <RefVal.h>
 
 struct FluidModelData;
 struct InitialConditions;
@@ -30,6 +31,7 @@ class DistTimeState {
 private:
 
   VarFcn *varFcn;
+  RefVal *refVal;
   FemEquationTerm *fet;
   DistSVec<double,dim> *V;
   DistSVec<double,dim> *Vn;
@@ -43,6 +45,8 @@ private:
 
   double gam;
   double pstiff;
+
+  double refTime;
 
   TimeLowMachPrec    tprec;
   SpatialLowMachPrec sprec; //only for computation of irey
@@ -83,6 +87,8 @@ private:
 
   bool isGFMPAR;
   int fvmers_3pbdf ;
+
+  int mf_phase_change_type;
 
   double dt_coeff;
   int dt_coeff_count;

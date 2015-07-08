@@ -300,8 +300,8 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
 					0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
 	  }
 
-	  std::cout << "[ " << x[i][0] << " " << x[i][1] << " " << x[i][2] << " ]: ( " << U.subData(iSub)[i][0] <<
-	    " , " << U.subData(iSub)[i][4] << " )" << std::endl;
+	  //std::cout << "[ " << x[i][0] << " " << x[i][1] << " " << x[i][2] << " ]: ( " << U.subData(iSub)[i][0] <<
+	  //  " , " << U.subData(iSub)[i][4] << " )" << std::endl;
 	  
 	  fid[i] = B.pgData->burnedEOS;
 	}

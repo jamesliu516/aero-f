@@ -64,14 +64,17 @@ class ExactRiemannSolver{
 			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
   
   // for structure-fluid "half-Riemann" problem
-  void computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
+  int computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
                                  VarFcn *vf, double *Wstar, int nodej, int Id = 0);
+
   void computeFSIRiemannJacobian(double *Vi, double *Vstar, double *nphi, 
                                  VarFcn *vf, double *Wstar, int nodej, double* dWdW,int Id = 0);
+
   void computeFSIRiemannSolution(int tag, double *Vi, double *Vstar, double *nphi, 
                                  VarFcn *vf, double *Wstar, int nodej); //TODO:not needed!
 
-
+  void computeFSIRiemannderivative(double *Vi, double *Vstar, double *nphi, 
+				   VarFcn *vf, double *Wstar, int nodej, double* dWdn, int Id = 0);
   void reset(int it);
   void resetInterfacialW(int edgeNum);
 	

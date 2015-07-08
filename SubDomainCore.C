@@ -134,8 +134,8 @@ SubDomain::~SubDomain()
   if (NodeToSubD) delete NodeToSubD;
   if (NodeToElem) delete NodeToElem;
   if (ElemToElem) delete ElemToElem;
-  delete nodeToNodeMaskJacobian;
-  delete nodeToNodeMaskILU;
+  //if (nodeToNodeMaskJacobian) delete nodeToNodeMaskJacobian;
+  //if (nodeToNodeMaskILU) delete nodeToNodeMaskILU;
   delete &nodes;
   delete &faces;
   delete &elems;  
@@ -144,8 +144,8 @@ SubDomain::~SubDomain()
       delete[] dGradP[i];
       delete[] gradP[i];
     }
-  delete[] rotOwn;
-  delete mmsBCs;
+  if (rotOwn) delete[] rotOwn;
+  if (mmsBCs) delete mmsBCs;
 //  if (triaSurf) delete triaSurf;
 //
   myTree->destruct();
@@ -959,10 +959,12 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
+//d2d*
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
 						   LevelSetStructure *LSS, bool includeSweptNodes)
 {
+
   R = 0.0;
   count = 0;
 
@@ -976,7 +978,6 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
     if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
 
     if (!includeSweptNodes && LSS && 
@@ -1022,9 +1023,10 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 // with option to take into account of Riemann solution at interface
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
-												   Vec<int> &countWstarij, Vec<int> &countWstarji,
-												   LevelSetStructure *LSS)
+						   Vec<int> &countWstarij, Vec<int> &countWstarji,
+						   LevelSetStructure *LSS)
 {
+
   R = 0.0;
   count = 0;
 
@@ -1127,7 +1129,8 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<double,6> &R)
 
 //------------------------------------------------------------------------------
 void SubDomain::computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
-					  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init)
+								    SVec<double,3> &X, SVec<int,1> &count, 
+								    SVec<double,10> &R, Vec<int> &init)
 {
   R = 0.0;
   count = 0;
@@ -1455,12 +1458,65 @@ void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &wii,
   wij = 0.0;
   wji = 0.0;
 
-  for (int i=0; i<elems.size(); ++i)
+  for (int i=0; i<elems.size(); ++i){
     elems[i].computeWeightsGalerkin(X, wii, wij, wji);
+  }
 
 }
 
 //------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+
+void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, const Vec<int> &fluidId,
+				       SVec<double,3> &wii,
+				       SVec<double,3> &wij, 
+				       SVec<double,3> &wji,
+				       LevelSetStructure *LSS, bool includeSweptNodes)
+{
+
+  wii = 0.0;
+  wij = 0.0;
+  wji = 0.0;
+
+  //d2d
+  bool e_flag = false;
+
+  for (int i=0; i<elems.size(); ++i){
+
+    for (int j=0; j<6; j++){
+
+      int le = elems[i].edgeNum(j);
+      int Nj = elems[i].nodeNum( elems[i].edgeEnd(j,0) );
+      int Nk = elems[i].nodeNum( elems[i].edgeEnd(j,1) );
+
+
+      if( ((!LSS) && (fluidId[Nj] != fluidId[Nk])) ||
+            (LSS  && (!LSS->isActive(0.0, Nj) || !LSS->isActive(0.0, Nk))) ||
+   	    (LSS  && LSS->edgeIntersectsStructure(0.0, le)) ){
+	e_flag = true;
+	break;
+      }
+
+      if (!includeSweptNodes && LSS && 
+	  (LSS->isSwept(0.0,Nj) || LSS->isSwept(0.0,Nk)) ){
+	e_flag = true;
+	break;
+      }
+
+    }
+
+    if(!e_flag){
+      elems[i].computeWeightsGalerkin(X, wii, wij, wji);
+    }
+
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
 
 // Included (MB)
 void SubDomain::computeDerivativeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,3> &dwii, SVec<double,3> &dwij, SVec<double,3> &dwji)

@@ -80,7 +80,9 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   double eps = probDesc->getEpsNewton();
   double epsAbsRes = probDesc->getEpsAbsResNewton();
   double epsAbsInc = probDesc->getEpsAbsIncNewton();
-
+  FILE *output = probDesc->getOutputNewton();
+  bool finalRes = true; // if true, then a final residual evaluation will be done
+                        // when maxIts is reached before terminating the loop.
   double res0, res2=0.0;
 
   double rho; //contraction factor for backtracking
@@ -88,15 +90,15 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   double restrial, res2trial=0.0;
   double alpha;
   int maxItsLS;
-  
+
   if (probDesc->getLineSearch()) {
    rho = probDesc->getContractionLineSearch();
    c1 = probDesc->getSufficientDecreaseLineSearch();
    maxItsLS = probDesc->getMaxItsLineSearch(); 
   }
   int it, itLS;
-
-  for (it=0; it<maxIts; ++it) {
+  bool converged = false;
+  for (it=0; finalRes||it<maxIts; ++it) {
 
     *(probDesc->getNewtonIt()) = it;
     *(probDesc->getNumResidualsOutputCurrentNewtonIt()) = 0;
@@ -120,20 +122,21 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       res0 = res;
     }
 
-//    probDesc->printf(1,"Newton residual = %e, target = %e\n",res,target);
-    if (res == 0.0 || res <= target) break;
-    if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
+    if(output) probDesc->fprintf(output,"Newton residual = %e, target = %e\n",res,target);
+    if (res == 0.0 || res <= target) { converged = true; break; }
+    if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) { converged = true; break; } // alternative stopping criterion
+    if (it == maxIts) break;
 
     rhs = -1.0 * F;
     
     probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);  // save states and residuals for rom
 
     probDesc->recomputeFunction(Q, rhs);
+
     probDesc->computeJacobian(it, Q, F);
 
     // apply preconditioner if available
     probDesc->setOperators(Q);
-
     // set up krylov snapshots for ROM if applicable
     probDesc->setCurrentStateForKspBinaryOutput(Q);
 
@@ -202,7 +205,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   if (fsIt > 0 && probDesc->checkFailSafe(Q) == 1)
     probDesc->resetFixesTag();
 
-  if (it == maxIts && maxIts != 1) {
+  if (!converged && maxIts != 1) {
     probDesc->printf(1, "*** Warning: Newton solver reached %d its", maxIts);
     probDesc->printf(1, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);    
   }

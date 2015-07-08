@@ -63,10 +63,13 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec3D *Xs0;
     Vec3D *Xs_n;
     Vec3D *Xs_np1;
+    Vec3D *dXdSb;
+
     Vec<Vec3D> *solidX;   //pointer to Xs
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
     Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
+    Vec<Vec3D> *solidXdS; //pointer to dXdSb
 
     int *faceID;
     double *porosity;
@@ -117,6 +120,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     void setPorosity();
     void makerotationownership();
     void updatebc();
+    void setdXdSb(int, double*, double*, double*);
+    void updateXb(double);
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
@@ -137,6 +142,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     Vec<Vec3D> &getStructPosition_np1() { return *solidXnp1; }
+    Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
+
     DistVec<ClosestPoint> * getClosestPointsPointer() {return NULL;}
     DistVec<ClosestPoint> & getClosestPoints() {
       fprintf(stderr,"ERROR: closest point not stored in IntersectorFRG.\n");exit(-1);
@@ -227,8 +234,18 @@ class IntersectorFRG : public LevelSetStructure {
     bool isNearInterface(double t, int n) const                  {return false;}
     bool withCracking() const                                    {return false;}
 
-    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j);
+    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0);
+
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {/* pure virtual in LevelSet */}
+
+ private:
+    void derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+			    Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+			    Vec3D &dnds);
+
+    double derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+	  		     Vec3D dxA, Vec3D dxB, Vec3D dxC,
+			     Vec3D X1, Vec3D X2);
 
 };
 

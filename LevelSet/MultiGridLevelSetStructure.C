@@ -82,7 +82,7 @@ computeEdgeCrossing(SVec<double,3>& nodeNormals) {
 }
 
 LevelSetResult MultiGridLevelSetStructure::
-getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) {
+getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr, double *Xg) {
   if (!edge_intersects[l]) {
     int (*ptr)[2] = edges.getPtr();
     int i=i_less_j ? ptr[l][0] : ptr[l][1],
@@ -309,6 +309,8 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
   *distance=0.0;
 
 }
+
+
 
 LevelSetStructure &
 DistMultiGridLevelSetStructure::

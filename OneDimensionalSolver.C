@@ -84,7 +84,7 @@ OneDimensional::OneDimensional(int np,double* mesh,IoData &ioData, Domain *domai
   recFcnLS = createRecFcnLS(ioData);
 
   if (ioData.ts.type != TsData::EXPLICIT) {
-    fprintf(stderr,"Only explcit integration available for the 1D solver!\n");
+    fprintf(stderr,"Only explicit integration available for the 1D solver!\n");
     exit(1);
   }
 
@@ -626,9 +626,9 @@ void OneDimensional::totalTimeIntegration(){
       int shockSensorNode2 = shockSensorNode3 - 1 ;
       int shockSensorNode1 = shockSensorNode2 - 1 ;
       // Obtain the x-velocity at the shock sensor nodes:
-      double velocityAtShockSensorNode1 = abs(V[shockSensorNode1][1]) ;
-      double velocityAtShockSensorNode2 = abs(V[shockSensorNode2][1]) ;
-      double velocityAtShockSensorNode3 = abs(V[shockSensorNode3][1]) ;
+      double velocityAtShockSensorNode1 = std::abs(V[shockSensorNode1][1]) ;
+      double velocityAtShockSensorNode2 = std::abs(V[shockSensorNode2][1]) ;
+      double velocityAtShockSensorNode3 = std::abs(V[shockSensorNode3][1]) ;
       // Calculate the shock sensor value (this is similar to how a flux limiter works):
       double shockSensorValue = 1.0 ;
       if (velocityAtShockSensorNode1 > 0.0 && velocityAtShockSensorNode2 > 0.0 && velocityAtShockSensorNode3 > 0.0 ) {
@@ -2089,7 +2089,7 @@ void OneDimensional::outputProbes(double time,int iteration) {
 	exit(-1);
       }
 
-      fprintf(out,"%e ",time*refVal.time);
+      fprintf(out,"%d %e ",iteration,time*refVal.time);
       for (j = 0; j < nodal_output.numNodes; ++j) {
         if (nodal_output.locations[i].v[0] >= 0.0) {
           switch ((PostFcn::ScalarType)i) {

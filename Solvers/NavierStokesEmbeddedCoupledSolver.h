@@ -8,6 +8,8 @@
 #include <MultiGridEmbeddedTsDesc.h>
 #include <ImplicitEmbeddedCoupledTsDesc.h>
 #include <MultiGridSolver.h>
+#include <EmbeddedFluidShapeOptimizationHandler.h>
+
 template<int dim>
 void startNavierStokesEmbeddedCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
@@ -17,7 +19,13 @@ void startNavierStokesEmbeddedCoupledSolver(IoData &ioData, GeoSource &geoSource
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
-  if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
+  if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
+    EmbeddedFluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+    TsSolver<EmbeddedFluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+    tsSolver.fsoSolve(ioData);
+  }
+
+  else if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
     
     if (ioData.ts.type == TsData::IMPLICIT) {
       

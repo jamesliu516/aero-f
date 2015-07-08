@@ -38,6 +38,12 @@ class ForceGenerator {
   public:
     virtual void getForcesAndMoments(map<int,int> &surfMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            Vec3D* Fi, Vec3D* Mi) = 0;
+
+    virtual void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
+						 DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+						 DistSVec<double,3> &X, double dS[3],
+						 Vec3D *Fi, Vec3D *Mi) = 0;
+
 };
 
 //------------------------------------------------------------------------------
@@ -176,6 +182,15 @@ public:
   void computeDerivativeOfForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,3> &,
                                                                            DistSVec<double,dim> &, DistSVec<double,dim> &, double [3],
                                                                            Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+
+  void computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
+					 DistSVec<double,dim> &U, 
+					 DistSVec<double,dim> &dU, 
+					 DistVec<int> *fluidId,
+					 double dS[3],
+					 Vec3D *dFi, Vec3D *dMi, 
+					 Vec3D *dFv, Vec3D *dMv, 
+					 int hydro=0, VecSet< DistSVec<double,3> > *mX=0, Vec<double> *genCF=0);
 
   void computeDerivativeOfNodalForce(DistSVec<double,3> &, DistSVec<double,3> &,
                                                                 DistSVec<double,dim> &, DistSVec<double,dim> &,

@@ -163,7 +163,7 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
         this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
         exit(1);
       }
-      com->fprintf(stderr," *** mesh has been moved.\n");
+      com->fprintf(stderr," ... mesh has been moved.\n");
 
 /*      double tag = 0.0;
       for(int i=0; i<1; ++i) {
@@ -205,7 +205,6 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
 
 //------------------------------------------------------------------------------
 
-
 template<int dim>
 void TsDesc<dim>::printf(int verbose, const char *format, ...)
 {
@@ -215,6 +214,22 @@ void TsDesc<dim>::printf(int verbose, const char *format, ...)
     va_start(args, format);
     vfprintf(stdout, format, args);
     ::fflush(stdout);
+    va_end(args);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::fprintf(FILE *fp, const char *format, ...)
+{
+
+  if (com->cpuNum() == 0) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(fp, format, args);
+    ::fflush(fp);
     va_end(args);
   }
 
@@ -474,6 +489,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   double t0 = timer->getTime();
 
   //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
+  com->barrier();
   this->data->allowstop = this->timeState->allowcflstop;
   timeState->unphysical = data->unphysical;
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
@@ -488,6 +504,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
     }
   }
   else { //if time step is repeated
+
     dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
   }
 
@@ -497,6 +514,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
+
   timer->addFluidSolutionTime(t0);
   timer->addTimeStepTime(t0);
 
@@ -506,9 +524,17 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::getNumParam(int &numParam)
+void TsDesc<dim>::getNumParam(int &numParam, int &actvar, double &steadyTol)
 {
-  if (mmh) mmh->getNumParam(numParam);
+  if (mmh) mmh->getNumParam(numParam, actvar, steadyTol);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::sendNumParam(int numParam)
+{
+  if (mmh) mmh->sendNumParam(numParam);
 }
 
 //------------------------------------------------------------------------------
@@ -823,8 +849,8 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
       timer->print(domain->getStrTimer());
     }
 
-    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ &&
-       ioData.problem.alltype != ProblemData::_FSI_SHAPE_OPTIMIZATION_ &&
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && 
+       ioData.problem.alltype != ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ &&
        ioData.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       output->closeAsciiFiles();
     }
@@ -860,8 +886,9 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 
-  if(mmh && mmh->getAlgNum() == 1)
+  if(mmh && mmh->getAlgNum() == 1) {
     output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
+  }
 
   timer->setRunTime();
   if (com->getMaxVerbose() >= 2)

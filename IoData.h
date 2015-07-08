@@ -436,12 +436,12 @@ struct ProblemData {
                 _ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
                 _UNSTEADY_LINEARIZED_ = 15, _NONLINEAR_ROM_OFFLINE_ = 16,
                 _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-                _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+                _INTERPOLATION_ = 20, _NONLINEAR_EIGENRESIDUAL_ = 21,
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
-                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _FSI_SHAPE_OPTIMIZATION_ = 35,
-                _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _NONLINEAR_EIGENRESIDUAL_ = 38, _ACC_UNSTEADY_NONLINEAR_ROM_ = 39,
+                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 35,
+                _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _NONLINEAR_EIGENRESIDUAL2_ = 38, _ACC_UNSTEADY_NONLINEAR_ROM_ = 39,
                 _STEADY_NONLINEAR_ROM_ = 40, _FORCED_NONLINEAR_ROM_ = 41, _ROM_SHAPE_OPTIMIZATION_ = 42} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
@@ -1627,6 +1627,7 @@ struct NewtonData {
   double epsAbsRes, epsAbsInc;
   GenericKrylov ksp;
   LineSearchData lineSearch;
+  const char *output;
 
   NewtonData();
   ~NewtonData() {}
@@ -1669,15 +1670,14 @@ struct CFLData {
   double cfl0;
   double cflCoef1;
   double cflCoef2;
-  double cflCoef3;
   double cflMax;
   double cflMin;
   double dualtimecfl;
 
   // cfl control parameters
-  int checksol;
-  int checklinsolve;
-  int forbidreduce;
+  enum Checksol {CHECK_SOL_OFF = 0, CHECK_SOL_ON = 1} checksol;
+  enum Checklinsolve {CHECK_LIN_SOLVE_OFF = 0, CHECK_LIN_SOLVE_ON = 1} checklinsolve;
+  enum Forbidreduce {FORBID_REDUCE_OFF = 0, FORBID_REDUCE_ON = 1} forbidreduce;
 
   // residual based parameters
   double ser;
@@ -1692,7 +1692,9 @@ struct CFLData {
   double dft_growth;
 
   // for unsteady problems
-  int useSteadyStrategy;
+  enum UseSteadyStrategy {USE_STEADY_STRATEGY_OFF = 0, USE_STEADY_STRATEGY_ON = 1} useSteadyStrategy;
+
+  const char *output;
 
   CFLData();
   ~CFLData() {}
@@ -1747,7 +1749,6 @@ struct TsData {
   double cfl0;
   double cflCoef1;
   double cflCoef2;
-  double cflCoef3;
   double cflMax;
   double cflMin;
   double ser;
@@ -1821,6 +1822,7 @@ struct SensitivityAnalysis {
 
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
+  enum AdaptiveEpsFSI {OFF_ADAPTIVEEPSFSI = 0, ON_ADAPTIVEEPSFSI = 1} adaptiveEpsFSI;
 
   double machref;
   double alpharef;
@@ -2807,6 +2809,8 @@ struct EmbeddedFramework {
   MultiInitialConditionsData embedIC;
   
   int nLevelset; //number of level-sets. Currently only consider bubbles.
+
+  int qOrder; // order of quadrature rule used for EMBEDDED_SURFACE forceAlg
   
   //Debug variables
   enum CrackingWithLevelSet {OFF = 0, ON = 1} crackingWithLevelset;

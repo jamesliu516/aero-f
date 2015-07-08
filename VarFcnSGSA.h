@@ -161,7 +161,8 @@ public:
     return dV[4]*pow(opmach, gam*invgam1) + (V[4]+Pstiff)*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
   }
   void rstVar(IoData &iod) {
-    dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.bc.inlet.pressure*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
+//    dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.bc.inlet.pressure*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
+    dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach));
     rV(iod);
   }
 

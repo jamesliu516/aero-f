@@ -296,7 +296,7 @@ double **SparseGrid::generateSubGrid(const int newSubGrid,
       }
     }
     else{
-      nPointsDim[i] = static_cast<int>(pow(2.0,multiIndex[newSubGrid][i]-1)+0.1);
+      nPointsDim[i] = 1<<(multiIndex[newSubGrid][i]-1); //static_cast<int>(pow(2.0,multiIndex[newSubGrid][i]-1)+0.1);
       coordDim[i] = new double[nPointsDim[i]];
       for(int j=0; j<nPointsDim[i]; j++)
         coordDim[i][j] = (2.0*j+1.0)/(2.0*nPointsDim[i]);
@@ -523,7 +523,7 @@ void SparseGrid::singleInterpolation(const double *coord, double *output) const{
       else if(multiIndex[subGrid][idim] < 3)
         nPointsDim[idim] = 2;
       else
-        nPointsDim[idim] = static_cast<int>(pow(2.0,multiIndex[subGrid][idim]-1)+0.1);
+        nPointsDim[idim] = 1<<(multiIndex[subGrid][idim]-1); // static_cast<int>(pow(2.0,multiIndex[subGrid][idim]-1)+0.1);
   
       nCumulatedPointsDim[idim] = nPointsDim[idim];
       nPointsSubGrid *= nPointsDim[idim];
@@ -548,7 +548,7 @@ void SparseGrid::singleInterpolation(const double *coord, double *output) const{
         basisFnVal = 0.0;
         break;
       }else{
-        double scale = pow(2.0,multiIndex[subGrid][idim]);
+        double scale = 1<<multiIndex[subGrid][idim]; // pow(2.0,multiIndex[subGrid][idim]);
         int xp = static_cast<int>(floor(coord[idim] * scale / 2.0));
         basisFnVal *= (1.0 - scale*fabs(coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale));
         surplusLocalCoord[idim] = xp;
@@ -584,8 +584,6 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
 
   messages(8);
 
-  //std::cout << " coord = " << coord[0] << " " << coord[1] << std::endl;
-
   for(int subGrid=0; subGrid<nSubGrids; subGrid++){
 
     // compute subGrid data structures
@@ -599,7 +597,7 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
       else if(multiIndex[subGrid][idim] < 3)
         nPointsDim[idim] = 2;
       else
-        nPointsDim[idim] = static_cast<int>(pow(2.0,multiIndex[subGrid][idim]-1)+0.1);
+        nPointsDim[idim] = 1<<(multiIndex[subGrid][idim]-1); //static_cast<int>(pow(2.0,multiIndex[subGrid][idim]-1)+0.1);
 
       nCumulatedPointsDim[idim] = nPointsDim[idim];
       nPointsSubGrid *= nPointsDim[idim];
@@ -634,7 +632,7 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
         basisFnVal = 0.0;
         break;
       }else{
-        double scale = pow(2.0,multiIndex[subGrid][idim]);
+        double scale = 1<<multiIndex[subGrid][idim]; //pow(2.0,multiIndex[subGrid][idim]);
         int xp = static_cast<int>(floor(coord[idim] * scale / 2.0));
         basisStored[idim] = (1.0 - scale*fabs(coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale));
 	if (basisStored[idim] == 0.0)
@@ -673,9 +671,7 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
 	    if (map[idim2])
 	      output[iout*dim + idim] += basisFnVal/basisStored[idim2]*basisFnGrad[idim2];
 	  }
-	  //std::cout << "Hello" << std::endl;
           output[iout*dim+idim] *= surplus[contributingSurplus][iout];
-	  //std::cout << "output[iout*dim + idim] = output[" << iout*dim + idim << "] = " << output[iout*dim + idim] << std::endl;
         }
       }
     }
@@ -1288,7 +1284,7 @@ void SparseGrid::messages(const int flag, const int arg) const{
   	fprintf(stdout, "##############################################################\n");
   }
   
-  if(flag==1 && verbose>0){
+  if(flag==1 || verbose>0){
 
   if(flag==1){
     fprintf(stdout, "###########################################\n");

@@ -208,11 +208,12 @@ int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
     exit(-1);
   }
   double lssign = levelSetSign[IDi][IDj];
+  double nphilss[3];
   for (int k=0; k < 3; ++k) {
-    nphi[k]*=lssign;
+    nphilss[k] = nphi[k]*lssign;
   }
   fluidIdToSet[i] = fluidIdToSet[j] = lsdim;
-  return lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
+  return lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphilss,interfacialWi[edgeNum],interfacialWj[edgeNum],
 					      Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
 					      dx,iteration,isHigherOrder);
 
@@ -232,21 +233,22 @@ void ExactRiemannSolver<dim>::computeRiemannJacobian(double *Vi, double *Vj,
     exit(-1);
   }
   double lssign = levelSetSign[IDi][IDj];
+  double nphilss[3];
   for (int k=0; k < 3; ++k) {
-    nphi[k]*=lssign;
+    nphilss[k] = nphi[k]*lssign;
   }
-  lriemann[riemannId]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphi,
+  lriemann[riemannId]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphilss,
           Wi,Wj,
           dx,iteration, dWidUi, dWidUj,dWjdUi, dWjdUj);
 }
 
 //------------------------------------------------------------------------------
 template<int dim>
-void ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vstar,
+int ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vstar,
       double *nphi, VarFcn *vf, double *Wstar, int nodej, int Id)
 
 {
-  fsiRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
+  return fsiRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
          Wstar,rupdate[nodej],weight[nodej],iteration, Id);
 }
 //------------------------------------------------------------------------------
@@ -257,6 +259,14 @@ void ExactRiemannSolver<dim>::computeFSIRiemannJacobian(double *Vi, double *Vsta
 {
   fsiRiemann->computeRiemannJacobian(Vi,Vstar,nphi,vf,
          Wstar,rupdate[nodej],weight[nodej],iteration, dWdW,Id);
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ExactRiemannSolver<dim>::computeFSIRiemannderivative(double *Vi, double *Vstar,
+      double *nphi, VarFcn *vf, double *Wstar, int nodej, double* dWstardn, int Id)
+
+{
+  fsiRiemann->computeRiemannderivative(Vi, Vstar, nphi, vf, Wstar, dWstardn, Id);
 }
 //------------------------------------------------------------------------------
 template<int dim>

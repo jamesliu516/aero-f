@@ -54,6 +54,7 @@ protected:
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton, epsAbsIncNewton;
+  FILE *outputNewton;
   int maxItsLS;
   double contractionLS, sufficDecreaseLS;
 
@@ -89,6 +90,7 @@ public:
   void applyProjector(DistSVec<double,3> &X);
  
   void printf(int, const char *, ...);
+  void fprintf(FILE *, const char *, ...);
   virtual void computeFunction(int, DistSVec<double,3> &, DistSVec<double,3> &);
   void recomputeFunction(DistSVec<double,3> &, DistSVec<double,3> &) {}
   double recomputeResidual(DistSVec<double,3> &, DistSVec<double,3> &) { return 0.0; }
@@ -103,6 +105,7 @@ public:
   double getEpsNewton() const { return epsNewton; }
   double getEpsAbsResNewton() const { return epsAbsResNewton; }
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
+  FILE* getOutputNewton() const { return outputNewton; }
   int getLineSearch() const { return (maxItsLS>0); }
   int getMaxItsLineSearch() const { return maxItsLS; }
   double getContractionLineSearch() const { return contractionLS; }
@@ -134,25 +137,6 @@ public:
   EmbeddedALETetMeshMotionSolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
   ~EmbeddedALETetMeshMotionSolver(){};
   int solve(DistSVec<double,3> &, DistSVec<double,3> &);
-};
-
-//------------------------------------------------------------------------------
-
-class TetMeshSensitivitySolver : public TetMeshMotionSolver {
-
-protected:
-
- DistSVec<double,3> *currentPosition;
- NewtonSolver<TetMeshSensitivitySolver> *nss;
-
-public:
-
-  TetMeshSensitivitySolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
-  ~TetMeshSensitivitySolver();
-  int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &);
-
-  void computeFunction(int, DistSVec<double,3> &, DistSVec<double,3> &);
-  void setup(DistSVec<double,3> &X);
 };
 
 //------------------------------------------------------------------------------

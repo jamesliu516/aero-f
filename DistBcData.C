@@ -26,9 +26,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
   this->boundaryStateHH = 0;
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+  if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     this->dXdot = new DistSVec<double,3>(nodeDistInfo);
     this->dTemp = new DistVec<double>(nodeDistInfo);
@@ -78,9 +77,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 #pragma omp parallel for
   for (int iSub=0; iSub<this->numLocSub; ++iSub)
 // Included (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-        ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-        ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+    if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
         ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
@@ -179,9 +177,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+  if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     (*dXdot) = 0.0;
     (*dTemp) = 0.0;
@@ -820,17 +817,23 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
   double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   double Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
   double dPstiff = -iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)) * dM;
+//double dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach)) * dM;
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
   double pressurein  = iod.bc.inlet.pressure + rhoin*this->gravity*this->depth;
+//double dpressurein = iod.bc.inlet.pressure * (-2.0 / (iod.bc.inlet.mach)) * dM;
   double dpressurein = -2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach) * dM;
   double pressureout = iod.bc.outlet.pressure + rhoout*this->gravity*this->depth;
+//double dpressureout = iod.bc.outlet.pressure * (-2.0 / (iod.bc.outlet.mach)) * dM;
   double dpressureout = -2.0 / (gam * iod.bc.outlet.mach * iod.bc.outlet.mach * iod.bc.outlet.mach) * dM;
 
   double velin2 = gam * (pressurein + Pstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;
   double dvelin2 = (gam * dPstiff * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * pressurein * iod.bc.inlet.mach / rhoin - 2.0 / (rhoin*iod.bc.inlet.mach)) * dM;
+//double dvelin2 = (gam * (dpressurein + dPstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * (pressurein+Pstiff) * iod.bc.inlet.mach / rhoin) * dM;
+
   double velout2 = gam * (pressureout + Pstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout;
   double dvelout2 = (gam * dPstiff * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * pressureout * iod.bc.outlet.mach / rhoout  - 2.0 / (rhoout*iod.bc.outlet.mach)) * dM;
+//  double dvelout2 = (gam * (dpressureout + dPstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * (pressureout+Pstiff) * iod.bc.outlet.mach / rhoout) * dM;
   double velin = sqrt(velin2);
   double dvelin = dvelin2/(2*velin);
   double velout = sqrt(velout2);
@@ -1929,9 +1932,8 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
     vec2Pat = new CommPattern<double>(dom->getSubTopo(), this->com, CommPattern<double>::CopyOnSend);
 
 // Included (MB)
-    if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-        iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-        iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+    if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+        iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
         iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
       dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
     }
@@ -2162,9 +2164,8 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
   vec3Pat = dom->getVec3DPat();
 
 // Included (MB)
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+  if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     dtmp = new DistSVec<double,3>(dom->getNodeDistInfo());
   }

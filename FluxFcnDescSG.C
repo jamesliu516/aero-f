@@ -1,5 +1,5 @@
 #include <FluxFcnDescSG.h>
-
+#include <AutoDiff/roeturkeljac5.h>
 #include <LinkF77.h>
 
 #include <cstdlib>
@@ -37,6 +37,8 @@ extern "C" {
                          const double&, const double&, const int&);
   void F77NAME(roeflux6)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*);
+  void F77NAME(roeflux7)(const int&, const double&, const double&, double*,
+                         const double&, double*, double*, double*);
   void F77NAME(roejac2)(const int&, const double&, const double&, 
 			const double&, double*,
 			const double&, double*, double*, double*, double*,
@@ -87,13 +89,19 @@ extern "C" {
 //------------------------------------------------------------------------------
 
 void FluxFcnSGFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
-                                     double *VL, double *VR, double *flux, bool useLimiter)
+                                       double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux5)(0, gamma, vf->getGamma(), vf->getPressureConstant(),
-                    normal, normalVel, VL, VL, VR, VR, flux,
-                    sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner and numerical viscosity
+    F77NAME(roeflux5)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1) { // original implementation of the roe flux with numerical viscosity
+    F77NAME(roeflux6)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -110,9 +118,19 @@ void FluxFcnSGFDJacRoeEuler3D::computeDerivative(double irey, double dIrey, doub
 //------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnSGApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
-                                       double *VL, double *VR, double *flux, bool useLimiter)
+                                         double *VL, double *VR, double *flux, bool useLimiter)
 {
-  F77NAME(roeflux5)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner, numerical viscosity and galerkin advection operator
+    F77NAME(roeflux5)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1 || rshift) { // original implementation of the roe flux with numerical viscosity and galerkin advection operator
+    F77NAME(roeflux6)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -141,14 +159,12 @@ void roejacappr3Dgas(int type, double gamma, VarFcnBase *vf, double vfgam, doubl
   const int dimm2 = dim-2;
   const int dim2 = dim*dim;
 
-
   double dfdVL[dim2], dfdVR[dim2];
   double dfdUL[dim2], dfdUR[dim2];
   double n[3] = {normal[0], normal[1], normal[2]};
 
-
-  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL,1, betaRef, k1, cmach, shockreducer, irey, length, prec);
-  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, shockreducer, irey, length, prec);
+  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL, 1, betaRef, k1, cmach, shockreducer, irey, length, prec);
+  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR, 2, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
   if (type == 1 || type == 2) {
     vf->postMultiplyBydUdV(VL, dfdUL, dfdVL);
@@ -233,22 +249,29 @@ void roejacappr3Dgas(int type, double gamma, VarFcnBase *vf, double vfgam, doubl
 //------------------------------------------------------------------------------
 
 void FluxFcnSGApprJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
-                                                double *VL, double *VR,
-                                                double *jacL, double *jacR, bool useLimiter)
+                                                  double *VL, double *VR, double *jacL, double *jacR, bool useLimiter)
 {
-
-  roejacappr3Dgas<5>(0, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length, useLimiter ? sprec.getPrecTag() : 0);
-
+  roejacappr3Dgas<5>(0, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR,
+                     irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length,
+                     useLimiter ? sprec.getPrecTag() : 0);
 }
 
 //------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnSGExactJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
-                                        double *VL, double *VR, double *flux, bool useLimiter)
+                                          double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux6)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner and numerical viscosity
+    F77NAME(roeflux5)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1) { // original implementation of the roe flux with numerical viscosity
+    F77NAME(roeflux6)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(0, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -268,8 +291,10 @@ void FluxFcnSGExactJacRoeEuler3D::computeDerivative(double irey, double dIrey, d
 template<int dim>
 inline
 void roejacexact3D(int type, double gamma, VarFcnBase *vf, FluxFcnBase::Type localTypeJac, double* normal, 
-		   double normalVel, double* VL, double* VR, double* jacL, double* jacR)
+		   double normalVel, double* VL, double* VR, double* jacL, double* jacR, double irey, double betaRef,
+                   double k1, double cmach, double shockreducer, double length, int prec)
 {
+
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
   const int dim2 = dim*dim;
@@ -277,9 +302,18 @@ void roejacexact3D(int type, double gamma, VarFcnBase *vf, FluxFcnBase::Type loc
   double dfdVL[dim2], dfdVR[dim2];
   double n[3] = {normal[0], normal[1], normal[2]};
   
-  F77NAME(roejac5)(type, gamma, vf->getGamma(), vf->getPressureConstant(), n, normalVel, VL, VR, dfdVL);
-  n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
-  F77NAME(roejac5)(type, gamma, vf->getGamma(), vf->getPressureConstant(), n, -normalVel, VR, VL, dfdVR);
+  if(prec) {
+    roeturkeljac5(type, gamma, vf->getGamma(), vf->getPressureConstant(), n, normalVel, VL, VR, dfdVL,
+                  betaRef, k1, cmach, shockreducer, irey, length, prec);
+    n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
+    roeturkeljac5(type, gamma, vf->getGamma(), vf->getPressureConstant(), n, -normalVel, VR, VL, dfdVR,
+                  betaRef, k1, cmach, shockreducer, irey, length, prec);
+  }
+  else {
+    F77NAME(roejac5)(type, gamma, vf->getGamma(), vf->getPressureConstant(), n, normalVel, VL, VR, dfdVL);
+    n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
+    F77NAME(roejac5)(type, gamma, vf->getGamma(), vf->getPressureConstant(), n, -normalVel, VR, VL, dfdVR);
+  }
 
   int k;
   for (k=0; k<dim2; ++k)
@@ -287,7 +321,7 @@ void roejacexact3D(int type, double gamma, VarFcnBase *vf, FluxFcnBase::Type loc
 
   if (type == 1 || type == 2) {
     double f1;
-    F77NAME(roeflux1)(gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, &f1,1.0,1.0,0.0,0.0,0);
+    F77NAME(roeflux1)(gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, &f1, betaRef, k1, cmach, irey, prec);
 
     if (type == 1) {
       if (f1 >= 0.0) {
@@ -361,12 +395,10 @@ void roejacexact3D(int type, double gamma, VarFcnBase *vf, FluxFcnBase::Type loc
 //------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnSGExactJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
-                                                 double *VL, double *VR,
-                                                 double *jacL, double *jacR, bool useLimiter)
+                                                   double *VL, double *VR, double *jacL, double *jacR, bool useLimiter)
 {
-
-  roejacexact3D<5>(0, gamma, vf, typeJac, normal, normalVel, VL, VR, jacL, jacR);
-
+  roejacexact3D<5>(0, gamma, vf, typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(),
+                   sprec.getCutOffMach(), sprec.getShockParameter(), length, useLimiter ? sprec.getPrecTag() : 0);
 }
 
 //-----------------------------------------------------------------------
@@ -1678,11 +1710,19 @@ void FluxFcnSGMassFlowOutflowEuler3D::computeDerivative
 //turbulence
 
 void FluxFcnSGFDJacRoeSA3D::compute(double length, double irey, double *normal, double normalVel,
-                                  double *VL, double *VR, double *flux, bool useLimiter)
+                                    double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux5)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner and numerical viscosity
+    F77NAME(roeflux5)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1) { // original implementation of the roe flux with numerical viscosity
+    F77NAME(roeflux6)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(1, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1699,11 +1739,19 @@ void FluxFcnSGFDJacRoeSA3D::computeDerivative(double irey, double dIrey, double 
 //------------------------------------------------------------------------------
 
 void FluxFcnSGApprJacRoeSA3D::compute(double length, double irey, double *normal, double normalVel,
-                                    double *VL, double *VR, double *flux, bool useLimiter)
+                                      double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux5)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner, numerical viscosity and galerkin advective operator
+    F77NAME(roeflux5)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1 || rshift) { // original implementation of the roe flux with numerical viscosity and galerkin advection operator
+    F77NAME(roeflux6)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(1, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1720,22 +1768,29 @@ void FluxFcnSGApprJacRoeSA3D::computeDerivative(double irey, double dIrey, doubl
 //------------------------------------------------------------------------------
 
 void FluxFcnSGApprJacRoeSA3D::computeJacobians(double length, double irey, double *normal, double normalVel,
-                                             double *VL, double *VR,
-                                             double *jacL, double *jacR, bool useLimiter)
+                                               double *VL, double *VR, double *jacL, double *jacR, bool useLimiter)
 {
-
-  roejacappr3Dgas<6>(1, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length, useLimiter ? sprec.getPrecTag() : 0);
-
+  roejacappr3Dgas<6>(1, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR,
+                     irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length,
+                     useLimiter ? sprec.getPrecTag() : 0);
 }
 
 //------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnSGExactJacRoeSA3D::compute(double length, double irey, double *normal, double normalVel,
-                                     double *VL, double *VR, double *flux, bool useLimiter)
+                                       double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux6)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner and numerical viscosity
+    F77NAME(roeflux5)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1) { // original implementation of the roe flux with numerical viscosity
+    F77NAME(roeflux6)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(1, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1752,12 +1807,10 @@ void FluxFcnSGExactJacRoeSA3D::computeDerivative(double irey, double dIrey, doub
 //------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnSGExactJacRoeSA3D::computeJacobians(double length, double irey, double *normal, double normalVel,
-                                              double *VL, double *VR,
-                                              double *jacL, double *jacR, bool useLimiter)
+                                                double *VL, double *VR, double *jacL, double *jacR, bool useLimiter)
 {
-
-  roejacexact3D<6>(1, gamma, vf, typeJac, normal, normalVel, VL, VR, jacL, jacR);
-
+  roejacexact3D<6>(1, gamma, vf, typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(),
+                   sprec.getCutOffMach(), sprec.getShockParameter(), length, useLimiter ? sprec.getPrecTag() : 0);
 }
 
 //------------------------------------------------------------------------------
@@ -2401,11 +2454,19 @@ void FluxFcnSGMassFlowOutflowSAturb3D::computeJacobian(double length, double ire
 //------------------------------------------------------------------------------
 
 void FluxFcnSGFDJacRoeKE3D::compute(double length, double irey, double *normal, double normalVel,
-                                  double *VL, double *VR, double *flux, bool useLimiter)
+                                    double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner with numerical viscosity
+    F77NAME(roeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1) { // original implementation of the roe flux with numerical viscosity
+    F77NAME(roeflux6)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(2, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2422,11 +2483,19 @@ void FluxFcnSGFDJacRoeKE3D::computeDerivative(double irey, double dIrey, double 
 //------------------------------------------------------------------------------
 
 void FluxFcnSGApprJacRoeKE3D::compute(double length, double irey, double *normal, double normalVel,
-                                    double *VL, double *VR, double *flux, bool useLimiter)
+                                      double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner, numerical viscosity and galerkin advective operator
+    F77NAME(roeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1 || rshift) { // original implementation of the roe flux with numerical viscosity and galerkin advection operator
+    F77NAME(roeflux6)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(2, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2443,22 +2512,29 @@ void FluxFcnSGApprJacRoeKE3D::computeDerivative(double irey, double dIrey, doubl
 //------------------------------------------------------------------------------
 
 void FluxFcnSGApprJacRoeKE3D::computeJacobians(double length, double irey, double *normal, double normalVel,
-                                             double *VL, double *VR,
-                                             double *jacL, double *jacR, bool useLimiter)
+                                               double *VL, double *VR, double *jacL, double *jacR, bool useLimiter)
 {
-
-  roejacappr3Dgas<7>(2, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length, useLimiter ? sprec.getPrecTag() : 0);
-
+  roejacappr3Dgas<7>(2, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR,
+                     irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length,
+                     useLimiter ? sprec.getPrecTag() : 0);
 }
 
 //------------------------------------------------------------------------------
 
 void FluxFcnSGExactJacRoeKE3D::compute(double length, double irey, double *normal, double normalVel,
-                                     double *VL, double *VR, double *flux, bool useLimiter)
+                                       double *VL, double *VR, double *flux, bool useLimiter)
 {
-
-  F77NAME(roeflux6)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
-
+  int prec = useLimiter ? sprec.getPrecTag() : 0;
+  if(prec) { // roe flux with spatial low mach preconditioner and numerical viscosity
+    F77NAME(roeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux,
+                      sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, prec);
+  }
+  else if(gamma != 1) { // original implementation of the roe flux with numerical viscosity
+    F77NAME(roeflux6)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux);
+  }
+  else { // faster implementation of the roe flux
+    F77NAME(roeflux7)(2, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2476,12 +2552,10 @@ void FluxFcnSGExactJacRoeKE3D::computeDerivative(double irey, double dIrey, doub
 //------------------------------------------------------------------------------
 
 void FluxFcnSGExactJacRoeKE3D::computeJacobians(double length, double irey, double *normal, double normalVel,
-                                              double *VL, double *VR,
-                                              double *jacL, double *jacR, bool useLimiter)
+                                                double *VL, double *VR, double *jacL, double *jacR, bool useLimiter)
 {
-
-  roejacexact3D<7>(2, gamma, vf, typeJac, normal, normalVel, VL, VR, jacL, jacR);
-
+  roejacexact3D<7>(2, gamma, vf, typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(),
+                   sprec.getCutOffMach(), sprec.getShockParameter(), length, useLimiter ? sprec.getPrecTag() : 0);
 }
 
 //------------------------------------------------------------------------------

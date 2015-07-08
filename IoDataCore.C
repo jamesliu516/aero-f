@@ -758,13 +758,13 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "NonlinearROMOffline", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
-     "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
+     "NonlinearEigenResidual", 21, "SparseGridGeneration", 22,
+     "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "ShapeOptimization", 34, "FSIShapeOptimization", 35, "AeroelasticAnalysis", 36, 
-     "GAMConstruction", 37, "NonlinearEigenResidual", 38, "AcceleratedUnsteadyNonlinearROM", 39,
+     "Aeroacoustic", 33, "SteadySensitivityAnalysis", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36, 
+     "GAMConstruction", 37, "NonlinearEigenResidual2", 38, "AcceleratedUnsteadyNonlinearROM", 39,
      "SteadyNonlinearROM", 40, "ForcedNonlinearROM", 41, "RomShapeOptimization", 42);
 
   new ClassToken<ProblemData>
@@ -976,8 +976,8 @@ Assigner *BoundaryData::getAssigner()  {
 
   new ClassDouble<BoundaryData>(ca, "Porosity", this, &BoundaryData::porosity);
 
-  new ClassArray<BoundaryData>(ca, "InletVariables", this, &BoundaryData::inVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
-  new ClassArray<BoundaryData>(ca, "OutletVariables", this, &BoundaryData::outVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
+  new ClassArray<BoundaryData>(ca, "InletVariableSet", this, &BoundaryData::inVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
+  new ClassArray<BoundaryData>(ca, "OutletVariableSet", this, &BoundaryData::outVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
 
   return ca;
 }
@@ -2980,12 +2980,13 @@ CFLData::CFLData()
 
   cfl0 = 5.0;
   cflCoef1 = 0.0;
+  cflCoef2 = 0.0;
   cflMax = 100000.0;
   cflMin = 1.0;
   dualtimecfl = 100.0;
 
-  checksol = 1;
-  checklinsolve = 1;
+  checksol = CHECK_SOL_ON;
+  checklinsolve = CHECK_LIN_SOLVE_OFF;
 
   ser = 0.7;
 
@@ -2996,9 +2997,11 @@ CFLData::CFLData()
   dft_freqcutoff = 3;
   dft_growth = 1.4;
 
-  forbidreduce = 0;
+  forbidreduce = FORBID_REDUCE_OFF;
 
-  useSteadyStrategy = 0;
+  useSteadyStrategy = USE_STEADY_STRATEGY_OFF;
+
+  output = "";
 
 }
 
@@ -3011,7 +3014,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<CFLData>(ca, "Strategy", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
-                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Old", 5); 
+                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Standard", 5); 
   new ClassToken<CFLData>(ca, "CheckSolution", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
                           "Off", 0, "On", 1);
@@ -3039,6 +3042,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
   new ClassInt<CFLData>(ca, "FrequencyCutoff", this, &CFLData::dft_freqcutoff);
   new ClassDouble<CFLData>(ca, "DFTGrowth", this, &CFLData::dft_growth);
 
+  new ClassStr<CFLData>(ca, "Output", this, &CFLData::output);
 }
 
 //------------------------------------------------------------------------------
@@ -3113,7 +3117,6 @@ TsData::TsData()
   cfl0 = -1.0;
   cflCoef1 = -1.0;
   cflCoef2 = -1.0;
-  cflCoef3 = -1.0;
   cflMax = -1.0;
   cflMin = -1.0;
   ser = -1.0; 
@@ -3180,7 +3183,6 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
   new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
-  new ClassDouble<TsData>(ca, "Cfl3", this, &TsData::cflCoef3);  // undocumented -- coefficient for quadratic CFL law
   new ClassDouble<TsData>(ca, "CflMax", this, &TsData::cflMax);
   new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
@@ -3251,6 +3253,7 @@ SensitivityAnalysis::SensitivityAnalysis()
   si = 0;
   sf = -1;
   fsiFlag = false;
+  adaptiveEpsFSI = OFF_ADAPTIVEEPSFSI;
 
   // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
@@ -3284,6 +3287,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityBeta", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensBeta), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "AdaptiveEpsFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveEpsFSI), 2, "Off", 0, "On", 1);
   new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableInitial", this, &SensitivityAnalysis::si);
   new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableFinal", this, &SensitivityAnalysis::sf);
 
@@ -4652,7 +4656,7 @@ LinearizedData::LinearizedData()
   eps = 1e-4;
   eps2 = 5.0;
   epsEV = 1e-4;
-  maxItEV = 20;
+  maxItEV = 10;
   tolerance = 1e-8;
   strModesFile = "";
   modeNumber = 1;
@@ -4720,34 +4724,34 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
   new ClassDouble<LinearizedData>(ca, "Eps", this, &LinearizedData::eps);
   new ClassDouble<LinearizedData>(ca, "Eps2", this, &LinearizedData::eps2);
-  new ClassDouble<LinearizedData>(ca, "EpsEV", this, &LinearizedData::epsEV);
+  new ClassDouble<LinearizedData>(ca, "ToleranceEigenAeroelastic", this, &LinearizedData::epsEV);
   new ClassDouble<LinearizedData>(ca, "Tolerance", this, &LinearizedData::tolerance);
   new ClassStr<LinearizedData>(ca, "StrModes", this, &LinearizedData::strModesFile);
   new ClassInt<LinearizedData>(ca, "ExcMode", this, &LinearizedData::modeNumber);
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
-  new ClassInt<LinearizedData>(ca, "MaxItEV", this, &LinearizedData::maxItEV);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency1ReducedFrequency", this, &LinearizedData::gamFreq1);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency2ReducedFrequency", this, &LinearizedData::gamFreq2);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency3ReducedFrequency", this, &LinearizedData::gamFreq3);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency4ReducedFrequency", this, &LinearizedData::gamFreq4);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency5ReducedFrequency", this, &LinearizedData::gamFreq5);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency6ReducedFrequency", this, &LinearizedData::gamFreq6);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency7ReducedFrequency", this, &LinearizedData::gamFreq7);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency8ReducedFrequency", this, &LinearizedData::gamFreq8);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency9ReducedFrequency", this, &LinearizedData::gamFreq9);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency10ReducedFrequency", this, &LinearizedData::gamFreq10);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency11ReducedFrequency", this, &LinearizedData::gamFreq11);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency12ReducedFrequency", this, &LinearizedData::gamFreq12);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency13ReducedFrequency", this, &LinearizedData::gamFreq13);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency14ReducedFrequency", this, &LinearizedData::gamFreq14);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency15ReducedFrequency", this, &LinearizedData::gamFreq15);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency16ReducedFrequency", this, &LinearizedData::gamFreq16); 
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency17ReducedFrequency", this, &LinearizedData::gamFreq17);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency18ReducedFrequency", this, &LinearizedData::gamFreq18);  
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency19ReducedFrequency", this, &LinearizedData::gamFreq19);
-  new ClassDouble<LinearizedData>(ca, "GAMFrequency20ReducedFrequency", this, &LinearizedData::gamFreq20);
+  new ClassInt<LinearizedData>(ca, "MaxItsEigenAeroelastic", this, &LinearizedData::maxItEV);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency1", this, &LinearizedData::gamFreq1);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency2", this, &LinearizedData::gamFreq2);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency3", this, &LinearizedData::gamFreq3);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency4", this, &LinearizedData::gamFreq4);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency5", this, &LinearizedData::gamFreq5);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency6", this, &LinearizedData::gamFreq6);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency7", this, &LinearizedData::gamFreq7);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency8", this, &LinearizedData::gamFreq8);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency9", this, &LinearizedData::gamFreq9);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency10", this, &LinearizedData::gamFreq10);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency11", this, &LinearizedData::gamFreq11);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency12", this, &LinearizedData::gamFreq12);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency13", this, &LinearizedData::gamFreq13);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency14", this, &LinearizedData::gamFreq14);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency15", this, &LinearizedData::gamFreq15);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency16", this, &LinearizedData::gamFreq16); 
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency17", this, &LinearizedData::gamFreq17);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency18", this, &LinearizedData::gamFreq18);  
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency19", this, &LinearizedData::gamFreq19);
+  new ClassDouble<LinearizedData>(ca, "GAMReducedFrequency20", this, &LinearizedData::gamFreq20);
   pade.setup("Pade", ca);
 
 }
@@ -5099,6 +5103,8 @@ EmbeddedFramework::EmbeddedFramework() {
 
   interfaceThickness = 1e-8;
 
+  qOrder = 3;
+
   testCase = 0;
 
   interfaceLimiter = LIMITERNONE;
@@ -5127,6 +5133,8 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);
   
   new ClassDouble<EmbeddedFramework>(ca, "StabilizingAlpha", this, &EmbeddedFramework::stabil_alpha);
+
+  new ClassInt<EmbeddedFramework>(ca, "QuadratureOrder", this, &EmbeddedFramework::qOrder);
 
   //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
@@ -5520,7 +5528,7 @@ void IoData::resetInputValues()
     problem.type[ProblemData::ACCELERATED] = true;
 
   if (problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_ ||
@@ -5553,7 +5561,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
       problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
       problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
-      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_)
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_ || 
+      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL2_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   if (problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_ ||
@@ -5574,21 +5583,14 @@ void IoData::resetInputValues()
   // part 2
 
   // Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+  if (problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) 
   {
 
     //
     // Check that the code is running within the "correct" limits
     //
-
-    if(sa.sensFSI == SensitivityAnalysis::ON_SENSITIVITYFSI && sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
-    {
-      sa.sensMesh = SensitivityAnalysis::OFF_SENSITIVITYMESH;
-      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.SensitivityMesh has been turned off -----\n");
-    } 
 
     if (sa.method == SensitivityAnalysis::ADJOINT)
     {
@@ -5689,7 +5691,7 @@ void IoData::resetInputValues()
     }
 
 
-  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_)
+  } // END if (problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ || problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ || problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_)
 
   //
   // Check parameters for the matrix-vector product in implicit simulations.
@@ -5748,23 +5750,22 @@ void IoData::resetInputValues()
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
+#ifndef USE_EIGEN3
     if (problem.prec != ProblemData::PRECONDITIONED) {
+#endif
     // The overwriting is silent because ffjacobian is a "slave" flag.
       ts.implicit.ffjacobian = ImplicitData::EXACT;
+#ifndef USE_EIGEN3
     }
     else {
       com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented when using low Mach preconditioner. Using approximate Jacobian for inviscid flux term and exact Jacobian for other terms, if present.\n");
-    } 
+    }
+#endif
   }
 
   //
   // Part 3
   //
- 
-  if(!problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
-    ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
-    ts.cfl.checklinsolve = 0;
-  }
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||
@@ -6023,6 +6024,11 @@ int IoData::checkInputValues()
   error += checkInputValuesAllEquationsOfState();
   checkCFLBackwardsCompatibility();
 
+  if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
+    ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
+    ts.cfl.checklinsolve = CFLData::CHECK_LIN_SOLVE_OFF;
+  }
+
   // no need for all input values for Sparse Grid generation
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
     //eqs.fluidModel  =  mf.fluidModel;
@@ -6200,14 +6206,13 @@ int IoData::checkCFLBackwardsCompatibility(){
     ts.cfl.strategy = CFLData::OLD;
     //com->fprintf(stderr, "cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",ts.cfl0,ts.cflCoef1,ts.cflCoef2,ts.cflMax,ts.cflMin,ts.ser,ts.dualtimecfl);
 
-    ts.cfl.cfl0 = ts.cfl0;
-    ts.cfl.cflCoef1 = ts.cflCoef1;
-    ts.cfl.cflCoef2 = ts.cflCoef2;
-    ts.cfl.cflCoef3 = ts.cflCoef3;
-    ts.cfl.cflMax = ts.cflMax;
-    ts.cfl.cflMin = ts.cflMin;
-    ts.cfl.ser = ts.ser;
-    ts.cfl.dualtimecfl = ts.dualtimecfl;
+    ts.cfl.cfl0 = (ts.cfl0 != -1.0) ? ts.cfl0 : ts.cfl.cfl0;
+    ts.cfl.cflCoef1 = (ts.cflCoef1 != -1.0) ? ts.cflCoef1 : ts.cfl.cflCoef1;
+    ts.cfl.cflCoef2 = (ts.cflCoef2 != -1.0) ? ts.cflCoef2 : ts.cfl.cflCoef2;
+    ts.cfl.cflMax = (ts.cflMax != -1.0) ? ts.cflMax : ts.cfl.cflMax;
+    ts.cfl.cflMin = (ts.cflMin != -1.0) ? ts.cflMin : ts.cfl.cflMin;
+    ts.cfl.ser = (ts.ser != -1.0) ? ts.ser : ts.cfl.ser;
+    ts.cfl.dualtimecfl = (ts.dualtimecfl != -1.0) ? ts.dualtimecfl : ts.cfl.dualtimecfl;
  
   }
 

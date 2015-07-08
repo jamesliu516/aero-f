@@ -6,9 +6,8 @@ GeoData::GeoData(IoData &ioData)
 {
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+  if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
     
     if (ioData.ts.type != TsData::IMPLICIT)

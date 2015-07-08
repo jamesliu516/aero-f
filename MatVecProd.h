@@ -48,7 +48,7 @@ public:
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
   virtual void apply(DistVec<double> &, DistVec<double> &) { };
 
-  virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) { }
+  virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) {}
   
   virtual void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
@@ -69,7 +69,6 @@ public:
 
   // Structure to enable fluid-structure interaction computations
   struct _fsi {
-
     DistLevelSetStructure* LSS;
     DistVec<int>* fluidId;
     DistExactRiemannSolver<dim>* riemann;
@@ -153,7 +152,9 @@ public:
 		DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<dim> &);
-  void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
+
+  void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &); //!!!
+
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
 
@@ -275,6 +276,8 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
   DistSVec<double,dim> aji;
   DistSVec<double,dim> bij;
   DistSVec<double,dim> bji;
+  DistSVec<double,dim> betaij;
+  DistSVec<double,dim> betaji;
 
   DistTimeState<dim> *timeState;
   SpaceOperator<dim> *spaceOp;
@@ -343,6 +346,7 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
       , MatVecProdFD<dd, dd> *RFD
       , DistSVec<Scalar2, dd> *vProd
     );
+
     void ApplyT
     (
       SpaceOperator<dd> *spaceOp
@@ -404,8 +408,9 @@ public:
 
   void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
 
-  void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &);
+  void apply(DistSVec<double,neq>        &, DistSVec<double,neq> &);
+  void apply(DistSVec<bcomp,neq>         &, DistSVec<bcomp,neq> &);
+  void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
 
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y);

@@ -39,7 +39,7 @@ public:
     for (int ii=0; ii<dim; ++ii) {
       c[j][ii] = 0.0;
       for (int kk=0; kk<dim; ++kk)
-	c[j][ii] = a[k][dim*ii+kk] * b[i][kk];
+	c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
     }
   }
 
@@ -694,6 +694,7 @@ public:
   template<class Scalar2>
   static void applyAndAddToVector(Scalar (*a)[25], int k, Scalar2 (*b)[5], int i, 
 				  Scalar2 (*c)[5], int j) {
+
     DENSEMATRIXTIMESVECTOR5(+=, a[k], b[i], c[j]);
   }
 

@@ -87,7 +87,6 @@ template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 				 DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
-
   X = &x;
   ctrlVol = &cv;
   Qeps = q;
@@ -456,7 +455,6 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
                              Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
 
   if (p.hasHHBoundaryTerm()) {
-
     *hhEps = 0.0;
     spaceOp->getDomain()->
       computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
@@ -536,6 +534,7 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
     prod.real() = (0.5/eps) * (Fepstmp - Ftmp);
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -757,7 +756,7 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
     A[iSub] = this->subDomain[iSub]->template createMaskMatVecProd<Scalar,neq>();
 
     size += double(A[iSub]->numNonZeroBlocks()*neq*neq*sizeof(Scalar)) / (1024.*1024.);
- 
+
   }
 
   areHHTermsActive = false;
@@ -968,6 +967,8 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 
 }
 
+//------------------------------------------------------------------------------
+
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmbeddedVec<double,neq> &prod)
 {
@@ -1049,6 +1050,7 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
   A(0),
   aij(domain->getEdgeDistInfo()), aji(domain->getEdgeDistInfo()),
   bij(domain->getEdgeDistInfo()), bji(domain->getEdgeDistInfo()),
+  betaij(domain->getEdgeDistInfo()), betaji(domain->getEdgeDistInfo()),
   timeState(ts),
   spaceOp(0),
   fluxFcn(0),
@@ -1096,7 +1098,7 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
     A[iSub] = this->subDomain[iSub]->template createMaskMatVecProd<Scalar,dim>(nsFlag);
 
     size += double(A[iSub]->numNonZeroBlocks()*dim*dim*sizeof(Scalar)) / (1024.*1024.);
- 
+
   }
 
   this->com->globalSum(1, &size);
@@ -1213,7 +1215,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistV
 
 // Included (MB)
   evaluateInviscid(it, x, cv, q, f);
-  evaluateViscous(it, x, cv, q, f);
+  evaluateViscous( it, x, cv, q, f);
 
 // Original
 /*
@@ -1250,12 +1252,19 @@ void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &
   ctrlVol = &cv;
   Q = &q;
 
-  spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
+  if (!this->isFSI){
+    spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
+  }else{
+    spaceOp->computeH2(*X, *ctrlVol, *Q, this->fsi.LSS, *(this->fsi.fluidId), 
+		       this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+		       this->fsi.ghostPoints, *this, aij, aji, bij, bji, betaij, betaji);
+  }
 
   if (timeState)
     timeState->addToH2(*ctrlVol, *Q, *this);
 
   spaceOp->applyBCsToH2Jacobian(*Q, *this);
+
 
 }
 
@@ -1385,9 +1394,29 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
   }
 */
 
+  //std::cout << "$$$$$ IN MatVecProc H2 applyXXXX\n";
+
   Multiplier<dim,neq,Scalar,double> Operator;
   Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,
                  R, RFD, vProd);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, DistEmbeddedVec<double,dim> &prod)
+{
+
+  //std::cout << "$$$$$ IN MatVecProc EMB H2 applyXXXX \n";
+
+  spaceOp->applyH2(*X, *ctrlVol, *Q, 
+		   this->fsi.LSS, *(this->fsi.fluidId), 
+		   this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
+		   this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+		   this->fsi.ghostPoints, 
+		   *this, aij, aji, bij, bji, betaij, betaji,
+		   p.real(), prod.real());
 
 }
 
@@ -1484,6 +1513,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
 {
 
   spaceOp->applyH2(X, ctrlVol, U, H2, aij, aji, bij, bji, p, prod);
+  
 
   if (R)
   {
@@ -1506,6 +1536,8 @@ template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<bcomp,neq> &p,
                 DistSVec<bcomp,neq> &prod)
 {
+
+  //std::cout << "$$$$$ IN MatVecProc H2 C applyapply\n";
 
   Multiplier<dim,neq,Scalar,bcomp> Operator;
   Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,

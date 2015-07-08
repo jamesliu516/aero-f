@@ -100,7 +100,8 @@ public:
 
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &);
-
+  
+  // $dd embedded
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
                DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true, DistLevelSetStructure* =0,
@@ -112,14 +113,14 @@ public:
 
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &, DistVec<int> &, 
-		       DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &,
-			   DistVec<int> &, DistVec<int> &, bool linFSI = true, DistLevelSetStructure* =0);
+	       DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &,
+	       DistVec<int> &, DistVec<int> &, bool linFSI = true, DistLevelSetStructure* =0);
 
   void compute(int config, DistSVec<double,3> &X, DistSVec<double,dim> &Psi);
 
   template<class Scalar2>
   void computeT(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &,
-       DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
+		DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
   template<class Scalar2>
   void limit(RecFcn *, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &,

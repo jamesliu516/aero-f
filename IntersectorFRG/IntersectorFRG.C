@@ -626,6 +626,8 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
                         true : false;
 
+  with_sensitivity = false;
+
   //initialize the following to 0(NULL)
   globPhysInterface = 0;
   triNorms = 0;
@@ -698,6 +700,10 @@ DistIntersectorFRG::~DistIntersectorFRG()
       delete intersector[i];
     }
   delete[] intersector;
+
+  if(dXdSb)    delete[] dXdSb;
+  if(solidXdS) delete solidXdS;
+
 }
 
 //----------------------------------------------------------------------------
@@ -807,6 +813,9 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
   solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
+     dXdSb = new Vec3D[numStNodes];
+  solidXdS = new Vec<Vec3D>(numStNodes, dXdSb);
+
   faceID = new int[numStElems];
 
   surfaceID = new int[numStNodes];
@@ -830,6 +839,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
     Xs_np1[k] = Xs[k];
     Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
     surfaceID[k] = 0;
+    dXdSb[k]     = 0;
   }
 
   stElem = new int[numStElems][3];
@@ -926,12 +936,16 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
   solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
+     dXdSb = new Vec3D[numStNodes];
+  solidXdS = new Vec<Vec3D>(numStNodes, dXdSb);
+
   for (int k=0; k<numStNodes; k++) {
     Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
     Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
+    dXdSb[k]   = 0;
   }
 
   // elem set
@@ -1021,6 +1035,35 @@ void DistIntersectorFRG::setPorosity() {
     }
   }
 }
+
+//----------------------------------------------------------------------------
+void DistIntersectorFRG::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
+  
+  if(N != numStNodes) {
+    fprintf(stderr, "Error num nodes: %d %d\n", N,  numStNodes);
+    exit(-1);
+  }
+
+  with_sensitivity = true;
+  //dXdSb = new Vec3D[numStNodes];
+
+  double Normx=0.0, Normy=0.0, Normz=0.0;
+
+  for(int i=0; i<N; ++i){
+    dXdSb[i][0] = dxdS[i];
+    dXdSb[i][1] = dydS[i];
+    dXdSb[i][2] = dzdS[i];
+
+    Normx += fabs(dxdS[i]);
+    Normy += fabs(dydS[i]);
+    Normz += fabs(dzdS[i]);
+  }
+
+  if(Normx==0 && Normy==0 && Normz==0)
+    com->fprintf(stderr, "!!! WARNING: No surface Sensitivity Perturbation\n\n");
+
+}
+
 //----------------------------------------------------------------------------
 void DistIntersectorFRG::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
@@ -1148,6 +1191,10 @@ DistIntersectorFRG::initializePhysBAM() { //NOTE: In PhysBAM array index starts 
   // Construct TRIANGULATED_SURFACE.
   if(globPhysInterface) delete globPhysInterface;
   globPhysInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle);
+
+  with_sensitivity = false;
+  solidXdS = 0;
+
 }
 
 //----------------------------------------------------------------------------
@@ -1479,7 +1526,9 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       int error = intersector[iSub]->findIntersections((*X)(iSub), true);
-      while(error) {
+      int nCalls = 0;
+      while(error && nCalls<100) {
+        nCalls++;
         com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
         intersector[iSub]->CrossingEdgeRes.clear();
         intersector[iSub]->ReverseCrossingEdgeRes.clear();
@@ -1694,7 +1743,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
   while(1) { //get out only when all nodes are decided
     //1. check if all the nodes (globally) are determined
     total = 0;
-#pragma omp parallel for
+#pragma omp parallel for reduction(+: total)
     for(int iSub=0; iSub<numLocSub; iSub++)
       total += nUndecided[iSub];
     com->globalSum(1,&total);
@@ -2523,7 +2572,7 @@ void IntersectorFRG::addToPackage(int iNode, int trID)
 //----------------------------------------------------------------------------
 
 LevelSetResult
-IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) {
+IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr, double *Xg) {
   if (!edge_intersects[l]) {
     int (*ptr)[2] = edges.getPtr();
     int i=i_less_j ? ptr[l][0] : ptr[l][1],
@@ -2576,9 +2625,34 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) {
                 + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
   lsRes.porosity = distIntersector.porosity[trueTriangleID];
 
-  if(!distIntersector.interpolatedNormal)
+  if(!distIntersector.interpolatedNormal) {
+
     lsRes.gradPhi = distIntersector.getSurfaceNorm(trueTriangleID);
-  else { //use nodal normals.
+
+    if(distIntersector.with_sensitivity && Xr != 0 && Xg != 0){
+      Vec3D *XX  = (distIntersector.getStructPosition()).data();
+
+      Vec3D dNdS;  
+      derivativeOFnormal(XX[lsRes.trNodes[0]], 
+			 XX[lsRes.trNodes[1]], 
+			 XX[lsRes.trNodes[2]],
+			 distIntersector.dXdSb[lsRes.trNodes[0]],
+			 distIntersector.dXdSb[lsRes.trNodes[1]],
+			 distIntersector.dXdSb[lsRes.trNodes[2]], dNdS);
+      lsRes.dnds = dNdS;
+
+      double dads;
+      dads = derivativeOFalpha(XX[lsRes.trNodes[0]], 
+                               XX[lsRes.trNodes[1]], 
+       			       XX[lsRes.trNodes[2]],
+       			       distIntersector.dXdSb[lsRes.trNodes[0]],
+			       distIntersector.dXdSb[lsRes.trNodes[1]],
+			       distIntersector.dXdSb[lsRes.trNodes[2]],
+			       Xr, Xg);
+      lsRes.dads = dads;
+    }
+
+  } else { //use nodal normals.
     Vec3D ns0 = distIntersector.getNodalNorm(lsRes.trNodes[0]);
     Vec3D ns1 = distIntersector.getNodalNorm(lsRes.trNodes[1]);
     Vec3D ns2 = distIntersector.getNodalNorm(lsRes.trNodes[2]);
@@ -2631,4 +2705,82 @@ double IntersectorFRG::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
   return fabs((pt-X1)*normal);
 }
 
+//----------------------------------------------------------------------------
+void IntersectorFRG::derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+		   		        Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+				        Vec3D &dnds){
 
+  Vec3D V1, V2, Vp, dV1, dV2, dVp; 
+  double sp, dsp;
+
+  V1 = (xC - xA);
+  V2 = (xB - xA);
+    
+  dV1 = dxC - dxA;
+  dV2 = dxB - dxA;
+
+  Vp = -(V1^V2);
+
+  dVp = -(dV1^V2) - (V1^dV2);
+
+  double d = Vp*Vp;
+
+  double tmp = dVp*Vp;
+
+  dnds = (1.0/sqrt(d)) * (dVp) - (Vp*tmp)/pow(d, 3.0/2.0);
+
+}
+
+//----------------------------------------------------------------------------
+
+double IntersectorFRG::derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+		  		         Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+					 Vec3D  X1, Vec3D  X2){
+
+  Vec3D  u =  xB -  xA;
+  Vec3D du = dxB - dxA;
+
+  Vec3D  v =  xC -  xA;
+  Vec3D dv = dxC - dxA;
+
+  Vec3D  n = u ^ v;
+  Vec3D dn = (du ^ v) + (u ^ dv);
+ 
+  Vec3D d = X1 - X2;
+
+  Vec3D  w = X2 - xA;
+  Vec3D dw =    -dxA;
+
+  double tmp1 = (dn*w) + (n*dw);
+  double tmp2 = n*d;
+  double tmp3 = n*w;
+  double tmp4 = dn*d;
+  
+  double dalpha_ds = -(tmp1/tmp2) + tmp3*tmp4/(tmp2*tmp2);
+
+  return dalpha_ds;
+
+}
+
+//----------------------------------------------------------------------------
+
+void 
+DistIntersectorFRG::updateXb(double epsilon){
+
+  for(int i=0; i<numStNodes; ++i){
+
+    for(int j=0; j<3; ++j){
+      //Xs0[i][j]
+      Xs[i][j]     = Xs0[i][j] + dXdSb[i][j]*epsilon;
+      Xs_n[i][j]   = Xs[i][j];
+      Xs_np1[i][j] = Xs_n[i][j];
+      Xsdot[i][j]  = 0.0;
+    }
+  }
+
+  initializePhysBAM();
+  updatebc();
+
+}
+
+//----------------------------------------------------------------------------

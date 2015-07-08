@@ -46,6 +46,19 @@ TetMeshMotionSolver::TetMeshMotionSolver
   maxItsLS = data.newton.lineSearch.maxIts;
   contractionLS = data.newton.lineSearch.rho;
   sufficDecreaseLS = data.newton.lineSearch.c1;
+  if (strcmp(data.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(data.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(data.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(data.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", data.newton.output);
+      exit(1);
+    }
+  }
 
   timer = domain->getTimer();
 
@@ -154,6 +167,7 @@ void TetMeshMotionSolver::setup(DistSVec<double,3> &X)
   if(cs) cs->setup(X);
 
 }
+
 //------------------------------------------------------------------------------
 
 void TetMeshMotionSolver::printf(int verbose, const char *format, ...)
@@ -163,6 +177,19 @@ void TetMeshMotionSolver::printf(int verbose, const char *format, ...)
     va_start(args, format);
     vfprintf(stdout, format, args);
     ::fflush(stdout);
+    va_end(args);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void TetMeshMotionSolver::fprintf(FILE *fp, const char *format, ...)
+{
+  if (com->cpuNum() == 0) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(fp, format, args);
+    ::fflush(fp);
     va_end(args);
   }
 }
@@ -275,6 +302,20 @@ EmbeddedALETetMeshMotionSolver::EmbeddedALETetMeshMotionSolver
   maxItsLS = data.newton.lineSearch.maxIts;
   contractionLS = data.newton.lineSearch.rho;
   sufficDecreaseLS = data.newton.lineSearch.c1;
+  if (strcmp(data.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(data.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(data.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(data.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", data.newton.output);
+      exit(1);
+    }
+  }
+
 
   timer = domain->getTimer();
 
@@ -332,149 +373,4 @@ int EmbeddedALETetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<doubl
   return 0;
 }
 
-//------------------------------------------------------------------------------
-
-TetMeshSensitivitySolver::TetMeshSensitivitySolver
-(
-  DefoMeshMotionData &data, MatchNodeSet **matchNodes, 
-  Domain *dom, MemoryPool *mp
-) 
-: TetMeshMotionSolver(dom)
-{
-
-  com = domain->getCommunicator();
-
-  KspData &kspData = data.newton.ksp;
-  PcData &pcData = data.newton.ksp.pc;
-
-  typeElement = data.element;
-  maxItsNewton = data.newton.maxIts;
-  if (data.element == DefoMeshMotionData::TORSIONAL_SPRINGS || data.element == DefoMeshMotionData::BALL_VERTEX)
-    maxItsNewton = 1;
-  epsNewton = data.newton.eps;
-  epsAbsResNewton = data.newton.epsAbsRes;
-  epsAbsIncNewton = data.newton.epsAbsInc;
-  maxItsLS = data.newton.lineSearch.maxIts;
-  contractionLS = data.newton.lineSearch.rho;
-  sufficDecreaseLS = data.newton.lineSearch.c1;
-
-  timer = domain->getTimer();
-
-  F0 = new DistSVec<double,3>(domain->getNodeDistInfo());
-//  currentPosition = new DistSVec<double,3>(domain->getNodeDistInfo());
-
-  if (data.type == DefoMeshMotionData::COROTATIONAL)
-    cs = new CorotSolver(data, matchNodes, domain);
-  else
-    cs = 0;
-
-  //int **ndType = domain->getNodeType();
-  int **ndType = 0;
-
-  meshMotionBCs = domain->getMeshMotionBCs(); //HB
-
-  if (meshMotionBCs)   {
-    meshMotionBCs->setDofType(matchNodes);
-
-  }
-
-  mvp = new StiffMat<double,3>(domain, ndType, mp, meshMotionBCs);
-
-  if (pcData.type == PcData::IDENTITY)
-    pc = new IdentityPrec<3>(meshMotionBCs);
-  else if (pcData.type == PcData::JACOBI)
-    //pc = new JacobiPrec<PrecScalar,3>(DiagMat<PrecScalar,3>::DIAGONAL, domain, ndType, meshMotionBCs);
-    pc = new JacobiPrec<PrecScalar,3>(DiagMat<PrecScalar,3>::DENSE, domain, ndType, meshMotionBCs);
-
-  else if (pcData.type == PcData::AS || pcData.type == PcData::RAS || pcData.type == PcData::ASH || pcData.type == PcData::AAS)
-    pc = new IluPrec<PrecScalar,3>(pcData, domain, ndType);
-
-  if (kspData.type == KspData::RICHARDSON)
-    ksp = new RichardsonSolver<DistSVec<double,3>, StiffMat<double,3>, KspPrec<3>, Communicator>
-      (domain->getNodeDistInfo(), kspData, mvp, pc, com);
-  else if (kspData.type == KspData::CG)
-    ksp = new CgSolver<DistSVec<double,3>, StiffMat<double,3>, KspPrec<3>, Communicator>
-      (domain->getNodeDistInfo(), kspData, mvp, pc, com);
-  else if (kspData.type == KspData::GMRES)
-    ksp = new GmresSolver<DistSVec<double,3>, StiffMat<double,3>, KspPrec<3>, Communicator>
-      (domain->getNodeDistInfo(), kspData, mvp, pc, com);
-  ns = 0;
-  nss = new NewtonSolver<TetMeshSensitivitySolver>(this);
-
-  volStiff = data.volStiff;
-
-}  
-
-//------------------------------------------------------------------------------
-
-TetMeshSensitivitySolver::~TetMeshSensitivitySolver() 
-{
-//  if(currentPosition) delete currentPosition;
-  if(nss) delete nss;
-} 
-
-//------------------------------------------------------------------------------
-
-/*
-  bdXds = boundary displacement sensitivity
-  dXds = displacement sensitivity
-*/
-int TetMeshSensitivitySolver::solveSensitivity(DistSVec<double,3> &bdXds, DistSVec<double,3> &dXds)  {
-
-  // HB: dX <- P.dX where P is the projector onto  the sliding type of constraints
-  // WARNING: assume the homogeneous Dirichlet BCs have already been applied to dX
-  //com->fprintf(stdout, "Received 'unprojected' incr disp = %e\n",dX.norm());
-
-  applyProjector(bdXds); 
-
-  //com->fprintf(stdout, "Received 'projected' incr disp = %e\n",dX.norm());
-
-  dX0 = &bdXds;
-
-  com->sync();
-  nss->solve(dXds);
-  com->sync();
-
-  return 0;
-}
-
-//------------------------------------------------------------------------------
-
-void TetMeshSensitivitySolver::setup(DistSVec<double,3> &X)
-{
-  *currentPosition = X;
-}
-
-//------------------------------------------------------------------------------
-
-void TetMeshSensitivitySolver::computeFunction(int it, DistSVec<double,3> &X, 
-                                               DistSVec<double,3> &F) 
-{
-
-  DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
-
-  if(it == 0 && (typeElement == DefoMeshMotionData::NON_LINEAR_FE 
-     || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) {
-    X += *dX0; 
-  }
-
-  domain->computeStiffAndForce(typeElement, *currentPosition, F, *mvp, _pc, volStiff);
-
-  if (it == 0 && !(typeElement == DefoMeshMotionData::NON_LINEAR_FE 
-      || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) { // compute F0 <- F0 + [Kib*dXb,0] & X <- X + [0,dXb]
-      mvp->BCs = 0;
-      mvp->apply(*dX0, *F0);
-      mvp->BCs = meshMotionBCs;
-      F += *F0;
-      X += *dX0;
-    }
-
-  if(meshMotionBCs) {
-//		meshMotionBCs->applyD(F);
-//		com->fprintf(stderr,"F*F in TetMeshMotionSolver::computeFunction after applyD in final PJSA FIX is %e.\n", F*F);
-//		meshMotionBCs->applyP(F);
-		meshMotionBCs->applyPD(F);
-	}
-
-}
 //------------------------------------------------------------------------------

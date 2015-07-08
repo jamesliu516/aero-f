@@ -387,7 +387,7 @@ void SparseMat<Scalar,dim>::numericILU(int *marker)
 
     for (k=ia[i]; k<ia[i+1]; ++k) 
       marker[ ja[k] ] = -1;
-    
+
     ierr = invertDenseMatrix<Scalar,dim>(a[ ju[i] ]);
 
     if (ierr) {

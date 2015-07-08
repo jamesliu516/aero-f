@@ -136,7 +136,13 @@ C      Shock wave
 *
  10   CONTINUE
 *
-        WRITE(6,*)'Divergence in Newton-Raphson iteration', PM, PL, PR
+      WRITE(*,*) 'Newton-Raphson reached max num. iterations ', NRITER
+      WRITE(*,*) 'without converging to the desired tolerance', TOLPRE
+      WRITE(*,*) PM, PL, PR
+      WRITE(*,*) 'INPUT RIEMANN (DL,UL,PL,DR,UR,PR)'
+      WRITE(*,*) DL,UL,PL,DR,UR,PR
+      WRITE(*,*) 'OUTPUT (PM,UM,RIL,RIR)'
+      WRITE(*,*) PM,UM,RIL,RIR
 *
         errcod = 1
  20   CONTINUE
@@ -157,6 +163,6 @@ C      Shock wave
 
       IF (RIL.LT.rcutl) RIL = rcutl
       IF (RIR.LT.rcutr) RIR = rcutr
-
+      
 
       END

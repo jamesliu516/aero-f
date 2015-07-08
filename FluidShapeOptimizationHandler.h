@@ -38,6 +38,7 @@ private:
   MatVecProd<dim,dim> *mvp;
   KspPrec<dim> *pc;
   KspSolver<DistSVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
+  double steadyTol;
 
 private:
 
@@ -73,6 +74,7 @@ private:
   DistSVec<double,3> *Z;
   DistSVec<double,3> *load;
   DistSVec<double,3> *dLoad;
+  DistSVec<double,3> *dLoadref;
 
   DistSVec<double,dim> Flux;
   DistSVec<double,dim> FluxFD;
@@ -90,6 +92,7 @@ private:
   DistSVec<double,3> dX;
 
   FILE* outFile;
+  void setDFSPAR(IoData &);  
   
 public:
 
@@ -139,11 +142,12 @@ public:
   void fsoSetUpLinearSolver(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void fsoLinearSolver(IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &, bool=false);
   int fsoHandler(IoData &, DistSVec<double,dim> &);
+  int fsoAeroelasticHandler(IoData &, DistSVec<double,dim> &);
   void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, bool=false);
   void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void fsoComputeAndSendForceSensitivities(IoData &, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
-  void fso_on_sensitivityFSI(IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_aeroelasticSensitivityFSI(IoData &ioData, DistSVec<double,dim> &U);
   void fso_on_sensitivityMesh(IoData &ioData, DistSVec<double,dim> &U);
   void fso_on_sensitivityMach(IoData &ioData, DistSVec<double,dim> &U);
   void fso_on_sensitivityAlpha(IoData &ioData, DistSVec<double,dim> &U);

@@ -84,7 +84,7 @@ class FluxFcnSGExactJacRoeEuler3D : public FluxFcnExactJacRoeEuler3D {
 public:
 
   FluxFcnSGExactJacRoeEuler3D(double gg, IoData &ioData, VarFcnSGEuler *varFcnSGEuler, Type tp = CONSERVATIVE) : 
-    FluxFcnExactJacRoeEuler3D(gg, varFcnSGEuler, tp) {}
+    FluxFcnExactJacRoeEuler3D(ioData, gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGExactJacRoeEuler3D() { vf = 0; }
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
@@ -673,7 +673,7 @@ class FluxFcnSGExactJacRoeSA3D : public FluxFcnExactJacRoeSA3D {
 public:
 
   FluxFcnSGExactJacRoeSA3D(double gg, IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
-    FluxFcnExactJacRoeSA3D(gg, varFcnSGSA, tp) {}
+    FluxFcnExactJacRoeSA3D(ioData, gg, varFcnSGSA, tp) {}
   ~FluxFcnSGExactJacRoeSA3D() { vf = 0; }
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
@@ -1374,7 +1374,7 @@ class FluxFcnSGExactJacRoeKE3D : public FluxFcnExactJacRoeKE3D {
 
 public:
   FluxFcnSGExactJacRoeKE3D(double gg, IoData &ioData, VarFcnSGKE *varFcnSGKE, Type tp = CONSERVATIVE) :
-    FluxFcnExactJacRoeKE3D(gg, varFcnSGKE, tp) {}
+    FluxFcnExactJacRoeKE3D(ioData, gg, varFcnSGKE, tp) {}
   ~FluxFcnSGExactJacRoeKE3D() { vf = 0; }
 
   void compute(double, double, double *, double, double *, double *, double *, bool);

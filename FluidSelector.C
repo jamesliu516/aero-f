@@ -171,7 +171,7 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
     for(int i=0; i<subPhiV.size(); i++) {
       int Id = LSS.fluidModel(0.0,i);
       bool swept = LSS.isSwept(0.0,i);
-      if(subId[i]==2) fprintf(stderr,"my subId = %d, swept = %d, Id = %d.\n", subId[i], swept, Id);
+      //if(subId[i]==2) fprintf(stderr,"my subId = %d, swept = %d, Id = %d.\n", subId[i], swept, Id);
 
       if(Id==0) { // not isolated by structure. need to consider level-set
         if(swept) {
@@ -182,7 +182,7 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
 				     programmedBurn->isBurnedEOS(k+1,burnTag)) ) {
 		if (programmedBurn->nodeInside(burnTag,iSub,i) ||
                     programmedBurn->isFinished(burnTag)) {
-                  fprintf(stderr,"Inside updateFluidIdFS, I am here!\n");
+                  //fprintf(stderr,"Inside updateFluidIdFS, I am here!\n");
 		  subId[i] = programmedBurn->getBurnedEOS(burnTag);}
 		else
 		  subId[i] = programmedBurn->getUnburnedEOS(burnTag);
@@ -200,8 +200,8 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
     }
 
 
-    for(int i=0; i<subPhiV.size(); i++) {
-      if(subId[i]==2) fprintf(stderr,"In FluidSelector::updateFluidIdFS(...), found Id = 2!\n");}
+    //for(int i=0; i<subPhiV.size(); i++) {
+    //  if(subId[i]==2) fprintf(stderr,"In FluidSelector::updateFluidIdFS(...), found Id = 2!\n");}
   }
 }
 
@@ -376,7 +376,7 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) ||
                 programmedBurn->isFinished(burnTag)) {
 	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
-              fprintf(stderr,"I am here... \n");
+              //fprintf(stderr,"I am here... \n");
             }
 	    else {
 	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
