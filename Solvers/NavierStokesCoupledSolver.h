@@ -10,6 +10,7 @@
 #include <ImplicitPGTsDesc.h>
 //#include <ImplicitGalerkinTsDesc.h>
 #include <ImplicitGnatTsDesc.h>
+#include <ImplicitCollocationTsDesc.h>
 #include <ImplicitRomPostproTsDesc.h>
 #include <MultiGridSolver.h>
 #include <MultiGridCoupledTsDesc.h>
@@ -55,14 +56,19 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
            (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
            (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ||
            (ioData.problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)) {
-    if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 0) { 
+    if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) { 
         ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
     }
-			else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 1) {
+    else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
         ImplicitGnatTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitGnatTsDesc<dim> > tsSolver(&tsDesc);
+        tsSolver.solve(ioData);
+    }
+    else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
+        ImplicitCollocationTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        TsSolver<ImplicitCollocationTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
     }
 			/*else if (ioData.rom.projection == 1 && ioData.rom.systemApproximation == 0) {

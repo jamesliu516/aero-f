@@ -118,24 +118,27 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->jacActionSingValsName, "svals", jacActionBasisPrefix, jacActionSingValsName);
 
   // GNAT quantities
-  determineFileName(romFiles->sampledNodesName, "sampledNodes", romFiles->gnatPrefix, sampledNodesName);
-  determineFileName(romFiles->sampledNodesFullCoordsName, "sampledNodesFullCoords", romFiles->gnatPrefix, sampledNodesFullCoordsName);
-  determineFileName(romFiles->sampledCentersName, "sampledCenters", romFiles->gnatPrefix, sampledCentersName);
-  determineFileName(romFiles->sampledStateBasisName, "sampledStateROB", romFiles->gnatPrefix, sampledStateBasisName);
-  determineFileName(romFiles->sampledSensitivityBasisName, "sampledSensitivityROB", romFiles->gnatPrefix, sampledSensitivityBasisName);
-  determineFileName(romFiles->sampledKrylovBasisName, "sampledKrylovROB", romFiles->gnatPrefix, sampledKrylovBasisName);
+  determineFileName(romFiles->sampledNodesName, "sampledNodes", romFiles->gappyPrefix, sampledNodesName);
+  determineFileName(romFiles->sampledNodesFullCoordsName, "sampledNodesFullCoords", romFiles->gappyPrefix, sampledNodesFullCoordsName);
+  determineFileName(romFiles->sampledCentersName, "sampledCenters", romFiles->gappyPrefix, sampledCentersName);
+  determineFileName(romFiles->sampledStateBasisName, "sampledStateROB", romFiles->gappyPrefix, sampledStateBasisName);
+  determineFileName(romFiles->sampledSensitivityBasisName, "sampledSensitivityROB", romFiles->gappyPrefix, sampledSensitivityBasisName);
+  determineFileName(romFiles->sampledKrylovBasisName, "sampledKrylovROB", romFiles->gappyPrefix, sampledKrylovBasisName);
   determineFileName(romFiles->basisMultiUicProductsName, "basisMultiUicProducts", stateBasisPrefix, basisMultiUicProductsName);
-  determineFileName(romFiles->sampledResidualBasisName, "sampledResROB", romFiles->gnatPrefix, sampledResidualBasisName);
-  determineFileName(romFiles->sampledJacActionBasisName, "sampledJacROB", romFiles->gnatPrefix, sampledJacActionBasisName);
-  determineFileName(romFiles->sampledMeshName, "top", romFiles->gnatPrefix, sampledMeshName);
-  determineFileName(romFiles->sampledSolutionName, "sampledSolution", romFiles->gnatPrefix, sampledSolutionName);
-  determineFileName(romFiles->sampledMultiSolutionsName, "sampledMultiSolutions", romFiles->gnatPrefix, sampledMultiSolutionsName);
-  determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gnatPrefix, sampledRefStateName);
-  determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gnatPrefix, sampledWallDistName);
-  determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gnatPrefix, gappyJacActionName);
-  determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gnatPrefix, gappyResidualName);
-  determineFileName(romFiles->approxMetricLowRankName, "approxMetric", romFiles->gnatPrefix, approxMetricLowRankName);
-  determineFileName(romFiles->approxMetricLowRankFullCoordsName, "approxMetricFullCoords", romFiles->gnatPrefix, approxMetricLowRankFullCoordsName);
+  determineFileName(romFiles->sampledResidualBasisName, "sampledResROB", romFiles->gappyPrefix, sampledResidualBasisName);
+  determineFileName(romFiles->sampledJacActionBasisName, "sampledJacROB", romFiles->gappyPrefix, sampledJacActionBasisName);
+  determineFileName(romFiles->sampledMeshName, "top", romFiles->gappyPrefix, sampledMeshName);
+  determineFileName(romFiles->sampledSolutionName, "sampledSolution", romFiles->gappyPrefix, sampledSolutionName);
+  determineFileName(romFiles->sampledMultiSolutionsName, "sampledMultiSolutions", romFiles->gappyPrefix, sampledMultiSolutionsName);
+  determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gappyPrefix, sampledRefStateName);
+  determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gappyPrefix, sampledWallDistName);
+  determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gappyPrefix, gappyJacActionName);
+  determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gappyPrefix, gappyResidualName);
+  determineFileName(romFiles->approxMetricNonlinearLowRankName, "approxMetricState", romFiles->gappyPrefix, approxMetricNonlinearLowRankName);
+  determineFileName(romFiles->approxMetricStateLowRankName, "approxMetricState", romFiles->gappyPrefix, approxMetricStateLowRankName);
+  determineFileName(romFiles->approxMetricStateLowRankName, "approxMetricNonlinear", romFiles->gappyPrefix, approxMetricNonlinearLowRankName);
+  determineFileName(romFiles->approxMetricStateLowRankFullCoordsName, "approxMetricStateFullCoords", romFiles->gappyPrefix, approxMetricStateLowRankFullCoordsName);
+  determineFileName(romFiles->approxMetricNonlinearLowRankFullCoordsName, "approxMetricNonlinearFullCoords", romFiles->gappyPrefix, approxMetricNonlinearLowRankFullCoordsName);
 
   // Surface quantities 
   determineFileName(romFiles->surfaceCentersName, "surfaceCenters", romFiles->surfacePrefix, surfaceCentersName);
@@ -145,7 +148,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->surfaceMultiSolutionsName, "surfaceMultiSolutions", romFiles->surfacePrefix, surfaceMultiSolutionsName);
   determineFileName(romFiles->surfaceWallDistName, "surfaceWallDist", romFiles->surfacePrefix, surfaceWallDistName);
   determineFileName(romFiles->surfaceMeshName, "top", romFiles->surfacePrefix, surfaceMeshName);
-  determineFileName(romFiles->approxMetricLowRankSurfaceCoordsName, "approxMetricSurfaceCoords", romFiles->surfacePrefix, approxMetricLowRankSurfaceCoordsName);
+  determineFileName(romFiles->approxMetricStateLowRankSurfaceCoordsName, "approxMetricStateSurfaceCoords", romFiles->surfacePrefix, approxMetricStateLowRankSurfaceCoordsName);
 
   basis = NULL;
   snap = NULL; // snap(nTotSnaps, domain.getNodeDistInfo())
@@ -187,7 +190,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   }
 
   if (strcmp(ioData->output.rom.reducedCoords,"")==0) {
-    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT)
+    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION)
       com->fprintf(stderr, "\n*** Warning: Reduced coordinates output file not specified\n\n");
   } else {
     char *fullReducedCoordsName = new char[strlen(ioData->output.rom.prefix) + 1 + strlen(ioData->output.rom.reducedCoords) + 1];
@@ -280,9 +283,11 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledWallDistName;
   delete [] gappyJacActionName;
   delete [] gappyResidualName;
-  delete [] approxMetricLowRankName;
-  delete [] approxMetricLowRankFullCoordsName;
-  delete [] approxMetricLowRankSurfaceCoordsName;
+  delete [] approxMetricNonlinearLowRankName;
+  delete [] approxMetricStateLowRankName;
+  delete [] approxMetricStateLowRankFullCoordsName;
+  delete [] approxMetricNonlinearLowRankFullCoordsName;
+  delete [] approxMetricStateLowRankSurfaceCoordsName;
   delete [] surfaceCentersName;
   delete [] surfaceStateBasisName;
   delete [] surfaceRefStateName;
@@ -374,7 +379,7 @@ NonlinearRom<dim>::~NonlinearRom()
 //---------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::freeMemoryForGnatPrepro() {
+void NonlinearRom<dim>::freeMemoryForGappyPrepro() {
 
   if (basis) {
     delete basis;
@@ -769,44 +774,41 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
   Uic = new DistSVec<double, dim>(domain.getNodeDistInfo());
   *Uic = ic;  // TODO: this is stored in two places for steady GNAT simulations with exact updates
 
-  switch (ioData->romOnline.systemApproximation) {
-    case (NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE):
-      this->uicNorm = Uic->norm();
-      break;
-    case (NonlinearRomOnlineData::GNAT):
-      if (specifiedIC) {
-        double tag = 0.0;
-        int numVecs = 0;
-        int step = 0;
-        char *solutionPath = new char[strlen(ioData->input.prefix) + strlen(ioData->input.solutions) + 1];
-        sprintf(solutionPath, "%s%s", ioData->input.prefix, ioData->input.solutions);
-        bool status = domain.readTagFromFile<double, dim>(solutionPath, step, &tag, &numVecs);  // if file DNE, returns false, tag=0, and numSteps=0
-        delete [] solutionPath;
-        if (!status) {
-          com->fprintf(stderr, "\nCould not open file %s\n", solutionPath);
-          exit(-1);
-        }
-        this->uicNorm = tag;
-      } else if (interpolatedMultiIC) {
-       assert(false); 
-      } else {
-        if (nFullMeshNodes==0) {
-           readCenterNorms();
-           if (nFullMeshNodes==0) {
-             com->fprintf(stderr, "\n*** Error: Number of full mesh nodes = 0?  (Remember to preprocess for exact updates!)\n");
-             exit(-1);
-           }
-        }
-        this->uicNorm = 0.0;
-        for (int iDim = 0; iDim<dim; ++iDim)
-          this->uicNorm += pow((*uniformIC)[0][iDim],2);
-        this->uicNorm *= double(nFullMeshNodes); 
-        this->uicNorm = pow(this->uicNorm,0.5);
+  if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) {
+    this->uicNorm = Uic->norm();
+  } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
+    if (specifiedIC) {
+      double tag = 0.0;
+      int numVecs = 0;
+      int step = 0;
+      char *solutionPath = new char[strlen(ioData->input.prefix) + strlen(ioData->input.solutions) + 1];
+      sprintf(solutionPath, "%s%s", ioData->input.prefix, ioData->input.solutions);
+      bool status = domain.readTagFromFile<double, dim>(solutionPath, step, &tag, &numVecs);  // if file DNE, returns false, tag=0, and numSteps=0
+      delete [] solutionPath;
+      if (!status) {
+        com->fprintf(stderr, "\nCould not open file %s\n", solutionPath);
+        exit(-1);
       }
-      break;
-    default:
-      com->fprintf(stderr, "*** Error: Unexpected system approximation method\n");
-      exit(-1);
+      this->uicNorm = tag;
+    } else if (interpolatedMultiIC) {
+     assert(false); 
+    } else {
+      if (nFullMeshNodes==0) {
+         readCenterNorms();
+         if (nFullMeshNodes==0) {
+           com->fprintf(stderr, "\n*** Error: Number of full mesh nodes = 0?  (Remember to preprocess for exact updates!)\n");
+           exit(-1);
+         }
+      }
+      this->uicNorm = 0.0;
+      for (int iDim = 0; iDim<dim; ++iDim)
+        this->uicNorm += pow((*uniformIC)[0][iDim],2);
+      this->uicNorm *= double(nFullMeshNodes); 
+      this->uicNorm = pow(this->uicNorm,0.5);
+    }
+  } else {
+    com->fprintf(stderr, "*** Error: Unexpected system approximation method\n");
+    exit(-1);
   }
 
   exactUpdatesAlpha.clear();          // [jVec]
@@ -1105,6 +1107,12 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   } else if (strcmp(snapType,"approxMetricState")==0) {
     vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.approxMetricStateSnapFile) + 1];
     sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.approxMetricStateSnapFile);
+  } else if (strcmp(snapType,"approxMetricNonlinear")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.approxMetricNonlinearSnapFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.approxMetricNonlinearSnapFile);
+  } else if (strcmp(snapType,"greedyData")==0) {
+    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.greedyDataFile) + 1];
+    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.greedyDataFile);
 //  } else if (strcmp(snapType,"residual")==0) {
 //    vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.residualSnapFile) + 1];
 //    sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.residualSnapFile);
@@ -1621,7 +1629,7 @@ void NonlinearRom<dim>::readClusteredSnapshots(int iCluster, bool preprocess, co
   if (snapshotsAlreadyStored) {
 
     com->fprintf(stdout, " ... global ROB requested: using previously stored state snapshots \n");
-    assert(snap!=NULL);
+    nTotSnaps = snap->numVectors();
 
   } else {
 
@@ -2057,31 +2065,31 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
       }
     } else { 
       if (strcmp(basisType,"state")==0) {
-        maxDimension = ioData->romOffline.gnat.maxDimensionState;
-        minDimension = ioData->romOffline.gnat.minDimensionState;
-        energyTol = ioData->romOffline.gnat.energyState;
+        maxDimension = ioData->romOffline.gappy.maxDimensionState;
+        minDimension = ioData->romOffline.gappy.minDimensionState;
+        energyTol = ioData->romOffline.gappy.energyState;
       } else if (strcmp(basisType,"sensitivity")==0) {
-        maxDimension = ioData->romOffline.gnat.maxDimensionSensitivity;
-        minDimension = ioData->romOffline.gnat.minDimensionSensitivity;
-        energyTol = ioData->romOffline.gnat.energySensitivity;
+        maxDimension = ioData->romOffline.gappy.maxDimensionSensitivity;
+        minDimension = ioData->romOffline.gappy.minDimensionSensitivity;
+        energyTol = ioData->romOffline.gappy.energySensitivity;
       } else if (strcmp(basisType,"krylov")==0) {
-        maxDimension = ioData->romOffline.gnat.maxDimensionKrylov;
-        minDimension = ioData->romOffline.gnat.minDimensionKrylov;
-        energyTol = ioData->romOffline.gnat.energyKrylov;
+        maxDimension = ioData->romOffline.gappy.maxDimensionKrylov;
+        minDimension = ioData->romOffline.gappy.minDimensionKrylov;
+        energyTol = ioData->romOffline.gappy.energyKrylov;
       } else if (strcmp(basisType,"residual")==0) {
-        maxDimension = ioData->romOffline.gnat.maxDimensionResidual;
-        minDimension = ioData->romOffline.gnat.minDimensionResidual;
-        energyTol = ioData->romOffline.gnat.energyResidual;
+        maxDimension = ioData->romOffline.gappy.maxDimensionResidual;
+        minDimension = ioData->romOffline.gappy.minDimensionResidual;
+        energyTol = ioData->romOffline.gappy.energyResidual;
       } else if (strcmp(basisType,"jacAction")==0) {
-        if (ioData->romOffline.gnat.maxDimensionJacAction <= 0) {
+        if (ioData->romOffline.gappy.maxDimensionJacAction <= 0) {
           com->fprintf(stdout, "*** Warning: JacAction greedy parameters not specified; using Residual parameters\n");
-          maxDimension = ioData->romOffline.gnat.maxDimensionResidual;
-          minDimension = ioData->romOffline.gnat.minDimensionResidual;
-          energyTol = ioData->romOffline.gnat.energyResidual;
+          maxDimension = ioData->romOffline.gappy.maxDimensionResidual;
+          minDimension = ioData->romOffline.gappy.minDimensionResidual;
+          energyTol = ioData->romOffline.gappy.energyResidual;
         } else {
-          maxDimension = ioData->romOffline.gnat.maxDimensionJacAction;
-          minDimension = ioData->romOffline.gnat.minDimensionJacAction;
-          energyTol = ioData->romOffline.gnat.energyJacAction;
+          maxDimension = ioData->romOffline.gappy.maxDimensionJacAction;
+          minDimension = ioData->romOffline.gappy.minDimensionJacAction;
+          energyTol = ioData->romOffline.gappy.energyJacAction;
         }
       }
     }
@@ -2273,7 +2281,7 @@ void NonlinearRom<dim>::readNonClusteredUpdateInfo(const char* sampledOrFull) {
       readExactUpdateInfo();
       break;
     case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
-      readApproxMetricLowRankFactor(sampledOrFull); 
+      readApproxMetricStateLowRankFactor(sampledOrFull); 
       break;
     default:
       com->fprintf(stderr, "*** Error: Unexpected ROB updates method\n");
@@ -2996,22 +3004,29 @@ void NonlinearRom<dim>::readClusteredGappyMatrix(int iCluster, const char* matri
 //------------------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::readApproxMetricLowRankFactor(const char* sampledOrFull) {
+void NonlinearRom<dim>::readApproxMetricNonlinearLowRankFactor(int iCluster) {
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::readApproxMetricStateLowRankFactor(const char* sampledOrFull) {
 
   char *approxMetricPath;
 
   if (strcmp(sampledOrFull,"sampled")==0) {
-    determinePath(approxMetricLowRankName,-1,approxMetricPath);
+    determinePath(approxMetricStateLowRankName,-1,approxMetricPath);
     if (!clusterCenters) readClusterCenters("sampledCenters"); 
   } else if (strcmp(sampledOrFull,"full")==0) {
-    if (ioData->problem.alltype==ProblemData::_NONLINEAR_ROM_POST_ && strcmp(approxMetricLowRankSurfaceCoordsName,"")!=0) {
-      determinePath(approxMetricLowRankSurfaceCoordsName,-1,approxMetricPath);
+    if (ioData->problem.alltype==ProblemData::_NONLINEAR_ROM_POST_ && strcmp(approxMetricStateLowRankSurfaceCoordsName,"")!=0) {
+      determinePath(approxMetricStateLowRankSurfaceCoordsName,-1,approxMetricPath);
     } else {
-      determinePath(approxMetricLowRankFullCoordsName,-1,approxMetricPath);
+      determinePath(approxMetricStateLowRankFullCoordsName,-1,approxMetricPath);
     }
     if (!clusterCenters) readClusterCenters("centers");
   } else {
-    com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricLowRankFactor\n");
+    com->fprintf(stderr, "*** Error: please specify reduced mesh or full mesh in readApproxMetricStateLowRankFactor\n");
     exit (-1);
   }
   
@@ -3120,17 +3135,21 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
     }
   }
 
-  if (ioData->romOnline.systemApproximation==NonlinearRomOnlineData::GNAT){
+  if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT){
     allSampleNodes = new std::vector<int>*[nClusters];
     allRestrictionMappings = new RestrictionMapping<dim>*[nClusters];
     allResMat = new VecSet< DistSVec<double, dim> >*[nClusters];
     if (numResJacMat==2) allJacMat = new VecSet< DistSVec<double, dim> >*[nClusters];
+  } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION ) {
+    allSampleNodes = new std::vector<int>*[nClusters];
+    allRestrictionMappings = new RestrictionMapping<dim>*[nClusters];
+    allResMat = NULL;
+    allJacMat = NULL;
   }
 
 // read and store online info for each cluster
 
-  switch (ioData->romOnline.systemApproximation) {
-    case (NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE):
+  if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) {
       for (int iCluster=0; iCluster<nClusters; ++iCluster) {
 
         // read state ROB and sVals
@@ -3194,8 +3213,7 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         sVals = NULL;
       }
             
-      break;
-    case (NonlinearRomOnlineData::GNAT):
+    } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
       for (int iCluster=0; iCluster<nClusters; ++iCluster) {
         // read sample nodes
         readClusteredSampleNodes(iCluster, "sampled", false); // resets restriction map
@@ -3203,22 +3221,24 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         *(allSampleNodes[iCluster]) = sampleNodes;
         allRestrictionMappings[iCluster] = restrictionMapping; // sets pointer to dynamically allocated memory
          
-        // read gappy POD matrix for residual
-        readClusteredGappyMatrix(iCluster, "resMatrix");
-        allResMat[iCluster] = new VecSet< DistSVec<double, dim> >(resMat->numVectors(), restrictionMapping->restrictedDistInfo());
-        for (int iVec=0; iVec<resMat->numVectors(); ++iVec)
-          (*(allResMat[iCluster]))[iVec] = (*resMat)[iVec];
-        delete resMat;
-        resMat = NULL;
+        if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
+          // read gappy POD matrix for residual
+          readClusteredGappyMatrix(iCluster, "resMatrix");
+          allResMat[iCluster] = new VecSet< DistSVec<double, dim> >(resMat->numVectors(), restrictionMapping->restrictedDistInfo());
+          for (int iVec=0; iVec<resMat->numVectors(); ++iVec)
+            (*(allResMat[iCluster]))[iVec] = (*resMat)[iVec];
+          delete resMat;
+          resMat = NULL;
 
-        // read gappy POD matrix for jacobian
-        if (numResJacMat==2) {
-          readClusteredGappyMatrix(iCluster, "jacMatrix");
-          allJacMat[iCluster] = new VecSet< DistSVec<double, dim> >(jacMat->numVectors(), restrictionMapping->restrictedDistInfo());
-          for (int iVec=0; iVec<jacMat->numVectors(); ++iVec)
-            (*(allJacMat[iCluster]))[iVec] = (*jacMat)[iVec];
-          delete jacMat;
-          jacMat = NULL;
+          // read gappy POD matrix for jacobian
+          if (numResJacMat==2) {
+            readClusteredGappyMatrix(iCluster, "jacMatrix");
+            allJacMat[iCluster] = new VecSet< DistSVec<double, dim> >(jacMat->numVectors(), restrictionMapping->restrictedDistInfo());
+            for (int iVec=0; iVec<jacMat->numVectors(); ++iVec)
+              (*(allJacMat[iCluster]))[iVec] = (*jacMat)[iVec];
+            delete jacMat;
+            jacMat = NULL;
+          }
         }
 
         // read sampled state ROB and sVals
@@ -3281,9 +3301,7 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         delete sVals;
         sVals = NULL;
       }
-
-      break;
-    default:
+  } else {
       com->fprintf(stderr, "*** Error:  Unexpected system approximation type\n");
       exit(-1);
   }
@@ -3879,7 +3897,7 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(const char* updateType) {
 
     readCenterNorms();
 
-    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
+    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION ) {
       this->readClusterCenters("sampledCenters");
     } else {
       this->readClusterCenters("centers");
@@ -4420,7 +4438,7 @@ void NonlinearRom<dim>::truncateBufferedBasis() {
 
 //------------------------------------------------------------------------------
 template<int dim>
-void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
+void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) {
 
   if (strcmp(ioData->input.metis,"")==0 || strcmp(ioData->input.sower,"")==0) {
     com->fprintf(stdout, " ... consider specifying the METIS and SOWER executables to save yourself some work\n");
@@ -4466,10 +4484,10 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
     decompositionPathString += boost::lexical_cast<std::string>(ioData->input.nParts);
 
     // initial call to "sower -fluid"
-    std::string gnatPrefixPathString(databasePrefix);
-    gnatPrefixPathString += databaseName;
-    gnatPrefixPathString += "/";
-    gnatPrefixPathString += romFiles->gnatPrefix;
+    std::string gappyPrefixPathString(databasePrefix);
+    gappyPrefixPathString += databaseName;
+    gappyPrefixPathString += "/";
+    gappyPrefixPathString += romFiles->gappyPrefix;
     
     std::vector<int> cpuMaps;
     int nCores = 1;
@@ -4490,7 +4508,7 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
       sowerCommandString += boost::lexical_cast<std::string>(*it);
     }
     sowerCommandString += " -output ";
-    sowerCommandString += gnatPrefixPathString;
+    sowerCommandString += gappyPrefixPathString;
     sowerCommandString += " -cluster ";
     sowerCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
     const char *sowerCommandChar = sowerCommandString.c_str();
@@ -4508,10 +4526,10 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
     }
     pclose(shell);
 
-    std::string meshPathString(gnatPrefixPathString);
+    std::string meshPathString(gappyPrefixPathString);
     meshPathString += ".msh";
 
-    std::string connectivityPathString(gnatPrefixPathString);
+    std::string connectivityPathString(gappyPrefixPathString);
     connectivityPathString += ".con";
   
     delete [] topFilePath;
@@ -4533,10 +4551,10 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
     callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);
     delete [] sampledWallDistPath;
   
-    char *approxMetricLowRankPath = NULL;
-    determinePath(approxMetricLowRankName, -1, approxMetricLowRankPath);
-    callSowerSplit(meshPathString, connectivityPathString, approxMetricLowRankPath);
-    delete [] approxMetricLowRankPath;
+    char *approxMetricStateLowRankPath = NULL;
+    determinePath(approxMetricStateLowRankName, -1, approxMetricStateLowRankPath);
+    callSowerSplit(meshPathString, connectivityPathString, approxMetricStateLowRankPath);
+    delete [] approxMetricStateLowRankPath;
   
     for (int iCluster=0; iCluster<nClusters; ++iCluster) {
       char *gappyResidualPath = NULL;

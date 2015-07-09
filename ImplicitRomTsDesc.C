@@ -53,6 +53,10 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
       rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
       systemApprox=true;
       break;
+    case (NonlinearRomOnlineData::COLLOCATION):
+      rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
+      systemApprox=true;
+      break;
     default:
       this->com->fprintf(stderr, "*** Error:  Unexpected system approximation type\n");
       exit (-1);
@@ -417,7 +421,7 @@ void ImplicitRomTsDesc<dim>::loadCluster(int closestCluster, bool clusterSwitch,
   dUromCurrentROB = 0.0;
   setProblemSize(U);  // defined in derived classes
   // TODO also set new reference residual if the weighting changes
-  if (clusterSwitch && !unsteady) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
+  if (clusterSwitch && !unsteady) setReferenceResidual(); // for steady gappy simulations (reference residual is restricted to currently active nodes)
 
 }
 
@@ -713,7 +717,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
       for (int itLS=0; itLS<maxItsLS; ++itLS) {
         if (itLS>0) alpha *= rho;
         double testMerit = meritFunction(it, U, dUfull, this->F, alpha);
-        //this->com->fprintf(stderr, "*** baselineMerit=%e, baslineMerit*coeff=%e, testMerit=%e\n", baselineMerit, sqrt(1-2.0*alpha*c1)*baselineMerit, testMerit);
+        this->com->fprintf(stderr, "*** baselineMerit=%e, baslineMerit*coeff=%e, testMerit=%e\n", baselineMerit, sqrt(1-2.0*alpha*c1)*baselineMerit, testMerit);
         if (testMerit < sqrt(1-2.0*alpha*c1)*baselineMerit) {// || dQ.norm() <= epsAbsInc)
           dUromNewtonIt *= alpha;
           break;
@@ -747,6 +751,9 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
         exit(-1);
       }
     }
+
+    this->com->fprintf(stdout, " ... step length = %e\n", dUromNewtonIt.norm());
+ 
     breakloopNow = breakloop2(breakloop);
     if (breakloopNow) break;
   }	// end Newton loop

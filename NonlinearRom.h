@@ -116,9 +116,11 @@ class NonlinearRom {
   char* sampledWallDistName;
   char* gappyJacActionName;
   char* gappyResidualName;
-  char* approxMetricLowRankName;
-  char* approxMetricLowRankFullCoordsName;
-  char* approxMetricLowRankSurfaceCoordsName;
+  char* approxMetricStateLowRankName;
+  char* approxMetricNonlinearLowRankName;
+  char* approxMetricStateLowRankFullCoordsName;
+  char* approxMetricNonlinearLowRankFullCoordsName;
+  char* approxMetricStateLowRankSurfaceCoordsName;
 
   // Surface quantities 
   char* surfaceCentersName;
@@ -234,9 +236,9 @@ class NonlinearRom {
                          std::vector<std::vector<std::vector<std::vector<double> > > >* vec4 = NULL);
 
 
-  // for local GNAT preprocessing
-  void freeMemoryForGnatPrepro();
-  void partitionAndSowerForGnat(bool);
+  // for local gappy preprocessing
+  void freeMemoryForGappyPrepro();
+  void partitionAndSowerForGappy(bool);
   void callSowerSplit(std::string, std::string, char*);
 
   // for local GNAT online simulations
@@ -320,7 +322,8 @@ class NonlinearRom {
   void readClusterCenters(const char*);
   void readAllClusteredOnlineQuantities();
   void readAllClusteredOfflineQuantities();
-  void readApproxMetricLowRankFactor(const char *);
+  void readApproxMetricStateLowRankFactor(const char *); // not clustered
+  void readApproxMetricNonlinearLowRankFactor(int iCluster); // clustered
   void readDistanceComparisonInfo(const char*); 
   void writeClusteredBinaryVectors(int iCluster, DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL,
                                    DistSVec<double,dim> *U3 = NULL, char* originalSnapshotFile = NULL, int originalSnapshotNumber = 0);

@@ -252,7 +252,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         dtLeft = 0.0;
       }
       else{
-        if (dU && dUPrev && dUPrev->norm() != 0) angle = ((*dU) * (*dUPrev))/(dU->norm()*dUPrev->norm());
+        if (dU && dUPrev && (dUPrev->norm()*dU->norm() > 1e-16)) angle = ((*dU) * (*dUPrev))/(dU->norm()*dUPrev->norm());
         else angle = -2.0;
         dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
       }
