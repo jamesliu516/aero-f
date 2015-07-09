@@ -134,7 +134,7 @@ protected:
   virtual void setProblemSize(DistSVec<double, dim> &) {};
   virtual void deleteRestrictedQuantities() {};
 
-	double *projVectorTmp; // temporary vector for projectVector
+  double *projVectorTmp; // temporary vector for projectVector
 
   bool updateFreq;
   bool clusterSwitch;

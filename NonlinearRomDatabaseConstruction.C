@@ -1912,7 +1912,7 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
     exit (-1);
   }
 
-  if (podMethod==DataCompressionData::PROBABILISTIC_SVD) maxBasisSize=randMatDimension;
+  if (podMethod==DataCompressionData::PROBABILISTIC_SVD) maxBasisSize=min(randMatDimension, maxBasisSize);
 
   // read cluster centers
   this->readClusterCenters("centers");

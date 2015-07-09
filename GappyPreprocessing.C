@@ -1,11 +1,11 @@
-#include <GnatPreprocessing.h>
+#include <GappyPreprocessing.h>
 #include <TsDesc.h>
 #ifdef DO_MODAL
 #include <arpack++/include/ardsmat.h>
 #include <arpack++/include/ardssym.h>
 #endif
 template<int dim>
-GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, Domain
+GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData, Domain
     &dom, DistGeoState *_geoState) :
   NonlinearRom<dim>(_com, _ioData, dom), 
   domain(dom), com(_com), ioData(&_ioData), 
@@ -27,24 +27,27 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   geoState(_geoState), X(_geoState->getXn())
 {
 
+  gappyIO = &(ioData->romOffline.gappy);
+  approxMetricData = NULL;
+
   // create temporary objects to build postOp, which is needed for surfaces
 
-  twoLayers = ioData->romOffline.gnat.layers == 2;
+  twoLayers = gappyIO->layers == 2;
   geoSourceTmp = new GeoSource(*ioData);
   tsDescTmp = new TsDesc<dim>(*ioData, *geoSourceTmp, &domain);
   bcDataTmp = tsDescTmp->createBcData(*ioData);
   varFcnTmp = new VarFcn(*ioData);
   postOp = new PostOperator<dim>(*ioData, varFcnTmp, bcDataTmp, geoState, &domain);
   input = new TsInput(_ioData);
-  includeLiftFaces = ioData->romOffline.gnat.includeLiftFaces;
+  includeLiftFaces = gappyIO->includeLiftFaces;
 
   globalNodes = NULL;
 
   numFullNodes = domain.getNumGlobNode();  // # globalNodes in full mesh
   com->fprintf(stdout," ... Number of full nodes in domain is %d ...\n",numFullNodes);
 
-  if ((ioData->romOffline.gnat.greedyLeastSquaresSolver == GNATConstructionData::GREEDY_LS_SCALAPACK) || 
-      (ioData->romOffline.gnat.pseudoInverseSolver == GNATConstructionData::PSEUDO_INVERSE_SCALAPACK)) {
+  if ((gappyIO->greedyLeastSquaresSolver == GappyConstructionData::GREEDY_LS_SCALAPACK) || 
+      (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_SCALAPACK)) {
     for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
   } else {
     for(int i=0; i<2; ++i) parallelRom[i] = NULL;
@@ -53,21 +56,51 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   unionOfSampleNodes = -1;  // for readability
   globalSampleNodesForCluster.resize(0);
   globalSampleNodesUnion.resize(0);
-  globalSampleNodesUnionForApproxMetric.resize(0);
+  globalSampleNodesUnionForApproxMetricState.resize(0);
   globalSampleNodesUnionSet.clear();
-  globalSampleNodesUnionSetForApproxMetric.clear();
+  globalSampleNodesUnionSetForApproxMetricState.clear();
 
-  ffWeight = ioData->romOffline.gnat.farFieldWeight;
-  wallWeight = ioData->romOffline.gnat.wallWeight;
-  
-  if (ffWeight != 1.0) {
+  ffWeight = gappyIO->farFieldWeight;
+  wallWeight = gappyIO->wallWeight;
+ 
+ /* d2wall = NULL;
+  surfaceMask = NULL;
+  targetRegionMask = NULL;
+  if (gappyIO->minFractionOfSampledNodesOnSurfaceInTargetRegion > 0 ||
+      gappyIO->minFractionOfSampledNodesInTargetRegion > 0) {
+    if (ioData->input.d2wall[0] != 0) {
+      d2wall = geoState->getd2wall();
+      setUpSampledNodeTargetRegionMasks();    
+    } else {
+      com->fprintf(stdout,"*** ERROR: wall-biased sampled node selection has been requested, "
+                          "but no WallDistance vector was supplied in the input file\n");
+      exit(-1);     
+    }
+  }*/
+
+  targetRegionMask = NULL;
+  if (gappyIO->minFractionOfSampledNodesOnSurfaceInTargetRegion > 0 || gappyIO->minFractionOfSampledNodesInTargetRegion > 0) {
+      setUpSampledNodeTargetRegionMask();    
+  }
+
+  wallMask = NULL;
+  wallNeighborsMask = NULL;
+  if ( ffWeight != 1.0 || gappyIO->minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) {
     wallMask = new DistVec<double>(domain.getNodeDistInfo());
     wallNeighborsMask = new DistVec<double>(domain.getNodeDistInfo());
+    domain.setWallMask(*wallMask, *wallNeighborsMask);
+    if (ffWeight == 1.0) {
+      delete wallNeighborsMask;
+      wallNeighborsMask = NULL;
+      com->fprintf(stdout," ... wallMask norm = %e\n", wallMask->norm());
+    }
+  }
+ 
+  if (ffWeight != 1.0) {
     farFieldMask = new DistVec<double>(domain.getNodeDistInfo());
     farFieldNeighborsMask = new DistVec<double>(domain.getNodeDistInfo());
     weightVec = new DistSVec<double, dim>(domain.getNodeDistInfo());
     domain.setFarFieldMask(*farFieldMask, *farFieldNeighborsMask);
-    domain.setWallMask(*wallMask, *wallNeighborsMask);
     int numLocSub = domain.getNumLocSub();
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -88,8 +121,6 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
       }
     }
   } else {
-    wallMask = NULL;
-    wallNeighborsMask = NULL;
     farFieldMask = NULL;
     farFieldNeighborsMask = NULL;
     weightVec = NULL;
@@ -112,18 +143,21 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
 
   cleanTempFiles=false;
 
+ 
 }
 
 //----------------------------------------------
 
 template<int dim>
-GnatPreprocessing<dim>::~GnatPreprocessing() 
+GappyPreprocessing<dim>::~GappyPreprocessing() 
 {
+
   if (wallMask) delete wallMask;
   if (farFieldMask) delete farFieldMask;
   if (wallNeighborsMask) delete wallNeighborsMask;
   if (farFieldNeighborsMask) delete farFieldNeighborsMask;
   if (weightVec) delete weightVec;
+  if (targetRegionMask) delete targetRegionMask;
   if (input) delete input;
   if (postOp) delete postOp;
   if (varFcnTmp) delete varFcnTmp;
@@ -140,7 +174,7 @@ GnatPreprocessing<dim>::~GnatPreprocessing()
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::initialize() 
+void GappyPreprocessing<dim>::initialize() 
 {
   // clear VecSets and reset counters/flags
   podRes.resize(0);
@@ -215,13 +249,13 @@ void GnatPreprocessing<dim>::initialize()
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::buildReducedModel() {
+void GappyPreprocessing<dim>::buildReducedModel() {
 
-  this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects
+  this->freeMemoryForGappyPrepro();// clear unnecessary NonlinearRom.C objects
 
-  double totalGnatOfflineTime = this->timer->getTime();
+  double totalGappyOfflineTime = this->timer->getTime();
 
-  if (ioData->romOffline.gnat.doPrepro) {
+  if (gappyIO->doPrepro) {
     this->readClusterCenters("centers"); // double checks the value of nClusters that was given in the input file
     globalSampleNodesUnion.clear();
     globalSampleNodesForCluster.clear();
@@ -256,11 +290,11 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       // compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
       //======================================
 
-    if (ioData->romOffline.gnat.selectSampledNodes || ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates || surfaceMeshConstruction) {
+    if (gappyIO->selectSampledNodes || ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates || surfaceMeshConstruction) {
 
       globalSampleNodesForCluster.resize(this->nClusters);
 
-      int nTargetSampleNodesForApproxMetric;
+      int nTargetSampleNodesForApproxMetricState;
       int nAddedSamplesLoc = 0;
       int nAddedSamplesGlob = 0;
       for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
@@ -268,7 +302,8 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     
         initialize();
     
-        setUpPodResJac(iCluster);
+        bool breakloop=false;  // if using specified snapshots (not clustered)
+        readGreedyData(iCluster,breakloop);
     
         setUpGreedy(iCluster);
     
@@ -276,13 +311,20 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     
         globalSampleNodesForCluster[iCluster] = globalSampleNodes;     // store local sample nodes (the local mask)
       
-        nTargetSampleNodesForApproxMetric = floor(ioData->romOffline.rob.basisUpdates.approximatedMetric.sampledMeshFraction*globalSampleNodes.size());
+        nTargetSampleNodesForApproxMetricState = floor(ioData->romOffline.rob.basisUpdates.approxMetricState.sampledMeshFraction*int(globalSampleNodes.size()));
         nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
-        for (int iNode=0; iNode<globalSampleNodes.size(); iNode++) { 
+        for (int iNode=0; iNode<int(globalSampleNodes.size()); iNode++) { 
           globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
-          nAddedSamplesLoc = globalSampleNodesUnionSet.size()-nAddedSamplesGlob;
-          if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetric)
-            globalSampleNodesUnionSetForApproxMetric.insert(globalSampleNodes[iNode]);
+          nAddedSamplesLoc = int(globalSampleNodesUnionSet.size())-nAddedSamplesGlob;
+          if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetricState)
+            globalSampleNodesUnionSetForApproxMetricState.insert(globalSampleNodes[iNode]);
+        }
+
+        if (breakloop) {
+          for (int jCluster=iCluster; jCluster<(this->nClusters); ++jCluster) {
+            globalSampleNodesForCluster[jCluster] = globalSampleNodes;
+          }
+          break; 
         }
       
       } 
@@ -293,10 +335,10 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       }
       globalSampleNodesUnionSet.clear();
     
-      for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetric.begin(); it!=globalSampleNodesUnionSetForApproxMetric.end(); ++it) {
-        globalSampleNodesUnionForApproxMetric.push_back(*it);
+      for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetricState.begin(); it!=globalSampleNodesUnionSetForApproxMetricState.end(); ++it) {
+        globalSampleNodesUnionForApproxMetricState.push_back(*it);
       }
-      globalSampleNodesUnionSetForApproxMetric.clear();
+      globalSampleNodesUnionSetForApproxMetricState.clear();
     
  
     }
@@ -333,143 +375,175 @@ void GnatPreprocessing<dim>::buildReducedModel() {
         com->fprintf(stdout,"\n-----------------------------------------------------\n");
         com->fprintf(stdout," ... Writing sampled quantities for cluster %d\n\n", iCluster);
    
-        int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
+        int sampleNodes = (gappyIO->useUnionOfSampledNodes==GappyConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
         setSampleNodes(sampleNodes);
 
-        if ((thisCPU == 0) && ioData->romOffline.gnat.selectSampledNodes) outputSampleNodes(iCluster);
+        if ((thisCPU == 0) && gappyIO->selectSampledNodes) outputSampleNodes(iCluster);
         outputLocalStateBasisReduced(iCluster);
         outputLocalReferenceStateReduced(iCluster);
  
       }
     }
   
-    this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects 
+    this->freeMemoryForGappyPrepro();// clear unnecessary NonlinearRom.C objects 
   
     if (surfaceMeshConstruction) {
   
       com->fprintf(stdout," \n... Finished with Surface Mesh Construction\n");
   
     } else { // build and output online matrices
+
+      if (gappyIO->doPreproGNAT) {  
+        for (int iCluster=gappyIO->initialCluster; iCluster<(this->nClusters); ++iCluster) {
+      
+          com->fprintf(stdout,"\n-----------------------------------------------------\n");
+          com->fprintf(stdout," ... Computing online GNAT matrices for cluster %d\n\n", iCluster);
+      
+          initialize();                  // deallocate for everything but the sampled nodes (local and union)
+      
+          int sampleNodes = (gappyIO->useUnionOfSampledNodes==GappyConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
+          setSampleNodes(sampleNodes);   // use local sampled nodes
+      
+          setUpPodResJac(iCluster);      // read in Res/Jac bases
+       
+          setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
+      
+          formMaskedNonlinearROBs();
+      
+          initializeLeastSquares();
+       
+          double pseudoInvTime = this->timer->getTime();
+          computePseudoInverse();        // only requires sample nodes and masked nonlinear ROBs
+          this->timer->addPseudoInvTime(pseudoInvTime);
+      
+          // STRATEGY:
+          // - put zeros in the pod[0], pod[1] for any node that is not part of the local mask
+          // - don't evaluate rhat and jphihat for nodes that are not part of the local mask
+      
+          // TRICK: adding zero rows to matrices has no effect on the qr decomposition
+      
+          if (thisCPU == 0) {
+            assembleOnlineMatrices();   // handle online matrices so you can free up pseudo inverse matrix
+          }
+      
+          outputOnlineMatrices(iCluster);
+      
+          if (podTpod) {
+            for (int iVec=0; iVec<nPod[1]; ++iVec)
+              delete [] podTpod[iVec];
+            delete podTpod;
+            podTpod = NULL;
+          }
+      
+          if (RTranspose) {
+            for (int iVec=0; iVec<nPod[1]; ++iVec)
+              (*RTranspose)[iVec].clear();
+            (*RTranspose).clear();
+            delete RTranspose;
+            RTranspose = NULL;
+            delete Qmat;
+            Qmat = NULL;
+          }
+      
+        }
+      } // end GNAT online matrix preprocessing
+
+      if (gappyIO->doPreproApproxMetricNonlinear) {
+        initialize();
+        this->freeMemoryForGappyPrepro();
+
+        // TODO if reading snaps from an ascii file, only compute correlation matrix once.
+
+        // TODO if union == true and reading snaps from ascii file, only need to do this once
+
+        for (int iCluster=gappyIO->initialCluster; iCluster<(this->nClusters); ++iCluster) { 
+          com->fprintf(stdout,"\nPreprocessing for approximate gappy solver\n");
+          double approxMetricTime = this->timer->getTime(); 
   
-      for (int iCluster=ioData->romOffline.gnat.initialCluster; iCluster<(this->nClusters); ++iCluster) {
-    
-        com->fprintf(stdout,"\n-----------------------------------------------------\n");
-        com->fprintf(stdout," ... Computing online GNAT matrices for cluster %d\n\n", iCluster);
-    
-        initialize();                  // deallocate for everything but the sampled nodes (local and union)
-    
-        int sampleNodes = (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_TRUE) ? unionOfSampleNodes : iCluster; 
-        setSampleNodes(sampleNodes);   // use local sampled nodes
-    
-        setUpPodResJac(iCluster);      // read in Res/Jac bases
+          constructApproximatedMetric("nonlinear", iCluster);
+  
+          if (gappyIO->testApproxMetric) {
+            testInnerProduct("approxMetricNonlinear");
+            testInnerProduct("nonlinear");
+          }
+          this->timer->addApproxMetricPreproTime(approxMetricTime);
+        }
+      } // end Approx Metric Nonlinear preprocessing
      
-        setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
-    
-        formMaskedNonlinearROBs();
-    
-        initializeLeastSquares();
-     
-        double pseudoInvTime = this->timer->getTime();
-        computePseudoInverse();        // only requires sample nodes and masked nonlinear ROBs
-        this->timer->addPseudoInvTime(pseudoInvTime);
-    
-        // STRATEGY:
-        // - put zeros in the pod[0], pod[1] for any node that is not part of the local mask
-        // - don't evaluate rhat and jphihat for nodes that are not part of the local mask
-    
-        // TRICK: adding zero rows to matrices has no effect on the qr decomposition
-    
-        if (thisCPU == 0) {
-          assembleOnlineMatrices();   // handle online matrices so you can free up pseudo inverse matrix
-        }
-    
-        outputOnlineMatrices(iCluster);
-    
-        if (podTpod) {
-          for (int iVec=0; iVec<nPod[1]; ++iVec)
-            delete [] podTpod[iVec];
-          delete podTpod;
-          podTpod = NULL;
-        }
-    
-        if (RTranspose) {
-          for (int iVec=0; iVec<nPod[1]; ++iVec)
-            (*RTranspose)[iVec].clear();
-          (*RTranspose).clear();
-          delete RTranspose;
-          RTranspose = NULL;
-          delete Qmat;
-          Qmat = NULL;
-        }
-    
-      }
-  
-  
-      if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
-        this->freeMemoryForGnatPrepro();// clear unnecessary NonlinearRom.C objects
-        initialize(); 
-   
-        if (!surfaceMeshConstruction) {
+    }
+
+    if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
+      this->freeMemoryForGappyPrepro();// clear unnecessary NonlinearRom.C objects
+      initialize(); 
+ 
+      if (!surfaceMeshConstruction) {
         com->fprintf(stdout,"\nPreprocessing for approximate basis updates\n");
         double approxUpdatesPreproTime = this->timer->getTime(); 
-    
+  
         outputClusterCentersReduced();
-    
-        constructApproximatedMetric();
-    
-        if (ioData->romOffline.gnat.testApproxMetric) {
-          com->fprintf(stdout," \n Computing approximated metric errors on training data\n");
+  
+        constructApproximatedMetric("state");
+  
+        if (gappyIO->testApproxMetric) {
           testInnerProduct("approxMetricState");
-          com->fprintf(stdout," \n Computing approximated metric errors on training+validation data\n");
           testInnerProduct("state");
         }
-        this->timer->addApproxUpdatesPreproTime(approxUpdatesPreproTime);
-        } else {
-          this->readApproxMetricLowRankFactor("full");
-          outputApproxMetricLowRankFactorFullCoords();
-        }
+        this->timer->addApproxMetricPreproTime(approxUpdatesPreproTime);
+      } else {
+        com->fprintf(stdout,"\nOutputting approximated metric in surface coordinates\n");
+        this->readApproxMetricStateLowRankFactor("full");
+        outputApproxMetricLowRankFactorFullCoords("state");
       }
-    
-      com->fprintf(stdout," \n ... Finished with GNAT preprocessing calculations ...\n");
     }
-  }
 
-  this->freeMemoryForGnatPrepro();
+  } // end if(gappyIO->doPrepro)
 
-  if (ioData->romOffline.gnat.sowerInputs) this->partitionAndSowerForGnat(surfaceMeshConstruction);
+  com->fprintf(stdout," \n ... Finished with preprocessing calculations ...\n");
 
-  this->timer->addTotalGnatOfflineTime(totalGnatOfflineTime);
+  this->freeMemoryForGappyPrepro();
+
+  if (gappyIO->sowerInputs) this->partitionAndSowerForGappy(surfaceMeshConstruction);
+
+  this->timer->addTotalGappyOfflineTime(totalGappyOfflineTime);
 
 } 
 
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::constructApproximatedMetric() {
+void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int iCluster) {
   // the notations follow the paper "Fast Local Reduced Bais Updates Based on Approximated Metric"
 
-  com->fprintf(stdout,"\nComputing approximated metric for fast reduced basis updates\n");
+  if (strcmp(type,"state")==0) {
+    com->fprintf(stdout,"\nComputing approximate metric for inner products of gappy state vectors\n");
+    approxMetricData = &(ioData->romOffline.rob.basisUpdates.approxMetricState);
+    this->readSnapshotFiles("approxMetricState", 0);
+  } else if (strcmp(type,"nonlinear")==0) {
+    com->fprintf(stdout,"\nComputing approximate metric for inner products of gappy nonlinear quantities (cluster %d)\n", iCluster);
+    approxMetricData = &(ioData->romOffline.gappy.approxMetricNonlinear);
+    this->readSnapshotFiles("approxMetricNonlinear", 0);
+  }
+
   // Step 1: compute an EVD of the correlation matrix X'*X and truncate the EVD based on the decay of EV
   computeCorrelationMatrixEVD();
 
   // Step 2: compute the pseudo-inverse of the masked snapshots Y
-  computePseudoInverseMaskedSnapshots();
+  computePseudoInverseMaskedSnapshots(type, iCluster);
 
   // Step 3: compute the low rank factor G of the approximated metric
   computeApproximatedMetricLowRankFactor();
 
   // Step 4: output low rank factor
-  outputApproxMetricLowRankFactorReducedCoords();
-  outputApproxMetricLowRankFactorFullCoords();
+  outputApproxMetricLowRankFactorReducedCoords(type, iCluster);
+  outputApproxMetricLowRankFactorFullCoords(type, iCluster);
 }
 
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
+void GappyPreprocessing<dim>::computeCorrelationMatrixEVD() {
 
 #ifdef DO_MODAL
-  this->readSnapshotFiles("approxMetricState", 0);
   numSnapsForApproxMetric = this->snap->numVectors();
   com->fprintf(stderr, " ... Forming correlation matrix using %d snapshots\n",numSnapsForApproxMetric);
   // allocate for upper half of sym. eigprob
@@ -478,7 +552,7 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
     for (int j = 0; j <= i; j++)
       rVals[(i+1)*i/2 + j] = ((*this->snap)[j]) * ((*this->snap)[i]);
 
-  double tolerance = ioData->romOffline.rob.basisUpdates.approximatedMetric.tolerance;
+  double tolerance = approxMetricData->tolerance;
 
   ARdsSymMatrix<double> corr(numSnapsForApproxMetric, rVals, 'U');
 
@@ -519,7 +593,7 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
     totalEnergy += corrEigProb.Eigenvalue(nconv-i-1);  
   }
 
-  double energyRetained = totalEnergy*ioData->romOffline.rob.basisUpdates.approximatedMetric.lowRankEnergy;
+  double energyRetained = totalEnergy*approxMetricData->lowRankEnergy;
   totalEnergy = 0.0;
   numEigen = 0;
   while (totalEnergy < energyRetained && numEigen< nconv-1) {
@@ -539,7 +613,7 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
       lowRankModes[j][k] = corrEigProb.Eigenvector(nconv-j-1, k)*pow(lowRankApproxMetricEigenvalues[j],0.5);//scale by the square root of the eigenvalues
 
   //Test eigenvalue decomposition
-  if (ioData->romOffline.gnat.testApproxMetric) {
+  if (gappyIO->testApproxMetric) {
     maxErr = 0.0;
     avgErr = 0.0;
     for (int i = 0; i < numSnapsForApproxMetric; i++) {
@@ -561,7 +635,8 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
   delete [] rVals;
 
 #else
-  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
+  com->fprintf(stderr, "*** ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
+  com->barrier();
   exit(-1);
 #endif
 
@@ -570,9 +645,9 @@ void GnatPreprocessing<dim>::computeCorrelationMatrixEVD() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computePseudoInverseMaskedSnapshots() {
+void GappyPreprocessing<dim>::computePseudoInverseMaskedSnapshots(const char* type, int iCluster) {
 
-  computeMaskedSnapshots();
+  computeMaskedSnapshots(type, iCluster);
 
   computePseudoInverseTranspose();
 
@@ -581,7 +656,7 @@ void GnatPreprocessing<dim>::computePseudoInverseMaskedSnapshots() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeMaskedSnapshots() {
+void GappyPreprocessing<dim>::computeMaskedSnapshots(const char* type, int iCluster) {
 
   //initialize
   int nCols = this->snap->numVectors();
@@ -590,9 +665,9 @@ void GnatPreprocessing<dim>::computeMaskedSnapshots() {
     snapHatApproxMetric[iCol] = 0.0;
   
   // fill
-  int nNodesApproxMetric = globalSampleNodesUnionForApproxMetric.size();
+  int nNodesApproxMetric = globalSampleNodesUnionForApproxMetricState.size();
   for (int iNode=0; iNode < nNodesApproxMetric; ++iNode) {
-    int currentNode = globalSampleNodesUnionForApproxMetric[iNode];
+    int currentNode = globalSampleNodesUnionForApproxMetricState[iNode];
     int locSub = globalNodeToLocSubDomainsMap.find(currentNode)->second;
     int locNode = globalNodeToLocalNodesMap.find(currentNode)->second;
     int currentCpu = globalNodeToCpuMap.find(currentNode)->second;
@@ -611,14 +686,14 @@ void GnatPreprocessing<dim>::computeMaskedSnapshots() {
     com->barrier();
   }
 
-  this->freeMemoryForGnatPrepro();
+  this->freeMemoryForGappyPrepro();
 
 }
 
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
+void GappyPreprocessing<dim>::computePseudoInverseTranspose() {
 
   // svd of the masked snapHatApproxMetricshots USV'
   int nSnaps = snapHatApproxMetric.numVectors();
@@ -655,7 +730,7 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
   for (int i=0; i <nSnaps; ++i)
     totalEnergy += singValsTmp[i];
 
-  double truncatedEnergy = totalEnergy*ioData->romOffline.rob.basisUpdates.approximatedMetric.lowRankEnergy;
+  double truncatedEnergy = totalEnergy*approxMetricData->lowRankEnergy;
   double energy = singValsTmp[0];
   int nSnapsRetained = 0;
   while (energy < truncatedEnergy && nSnapsRetained < nSnaps-1) {
@@ -678,7 +753,7 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
 
   // check the pseudo inverse
 
-  if (ioData->romOffline.gnat.testApproxMetric) {
+  if (gappyIO->testApproxMetric) {
     double *rVals = new double[nSnaps*(nSnaps+1)/2];
     for (int i = 0; i < nSnaps; i++)
       for (int j = 0; j <= i; j++)
@@ -714,8 +789,7 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
-
+void GappyPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
 
  // compute the SetOfVec lowRankFactor
   if (this->lowRankFactor) delete (this->lowRankFactor); 
@@ -742,18 +816,26 @@ void GnatPreprocessing<dim>::computeApproximatedMetricLowRankFactor() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords() {
+void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords(const char* type, int iCluster) {
 
  // output the SetOfVec lowRankFactor
    com->fprintf(stdout,"\n ... Writing Low Rank Factor of Approximated Metric in Full Mesh Coordinates...\n");
 
   char *filePath = NULL;
-  if (surfaceMeshConstruction) {
-    this->determinePath(this->approxMetricLowRankSurfaceCoordsName, -1, filePath);
+  if (strcmp(type,"state")==0) {
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->approxMetricStateLowRankSurfaceCoordsName, -1, filePath);
+    } else {
+      this->determinePath(this->approxMetricStateLowRankFullCoordsName, -1, filePath);
+    }
+  } else if (strcmp(type,"nonlinear")==0) {
+    this->determinePath(this->approxMetricNonlinearLowRankFullCoordsName, iCluster, filePath);
   } else {
-    this->determinePath(this->approxMetricLowRankFullCoordsName, -1, filePath);
+    com->fprintf(stderr,"*** Error: unexpected type in outputApproxMetricLowRankFactorFullCoords\n");
+    com->barrier();
+    exit(-1);
   }
-  
+
   FILE *outApproxMetric;
   if (thisCPU == 0) outApproxMetric = fopen(filePath, "wt");
 
@@ -773,20 +855,26 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords() {
   if (thisCPU == 0) fclose(outApproxMetric);
   delete [] lowRankApproxMetricEigenvalues;
 
-
-
 }
 
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords() {
+void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords(const char* type, int iCluster) {
 
  // output the SetOfVec lowRankFactor
   com->fprintf(stdout,"\n ... Writing low rank factor of approximated metric ...\n");
 
   char *filePath = NULL;
-  this->determinePath(this->approxMetricLowRankName, -1, filePath);
+  if (strcmp(type,"state")==0) {
+    this->determinePath(this->approxMetricStateLowRankName, -1, filePath);
+  } else if (strcmp(type,"nonlinear")==0) {
+    this->determinePath(this->approxMetricNonlinearLowRankName, iCluster, filePath);
+  } else {
+    com->fprintf(stderr,"*** Error: unexpected type in outputApproxMetricLowRankFactorReducedCoords\n");
+    com->barrier();
+    exit(-1);
+  } 
 
   std::string header("Vector ApproxMetric under load for FluidNodesRed");
 
@@ -809,11 +897,21 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::testInnerProduct(char *snapshotType) {
+void GappyPreprocessing<dim>::testInnerProduct(char *snapshotType) {
+
+  if (strcmp(snapshotType,"approxMetricState")==0) {
+    com->fprintf(stdout," \n Computing state approximate metric errors on training data\n");
+  } else if (strcmp(snapshotType,"state")==0) {
+    com->fprintf(stdout," \n Computing state approximate metric errors on training+validation data\n");
+  } else {
+    com->fprintf(stderr,"*** Error: unexpected snapshotType in testInnerProduct\n");
+    com->barrier();
+    exit(-1);
+  }
 
   this->readSnapshotFiles(snapshotType, 0);
 
-  this->readApproxMetricLowRankFactor("full");
+  this->readApproxMetricStateLowRankFactor("full");
 
   std::vector<std::vector<double> > lowRankTimesSnaps;
   lowRankTimesSnaps.resize(numSnapsForApproxMetric);
@@ -852,12 +950,12 @@ void GnatPreprocessing<dim>::testInnerProduct(char *snapshotType) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::setSampleNodes(int iCluster) {
+void GappyPreprocessing<dim>::setSampleNodes(int iCluster) {
 
   globalSampleNodes.clear();
 
   if (iCluster<0) {
-    if (globalSampleNodesUnion.size()>0) {
+    if (int(globalSampleNodesUnion.size())>0) {
       globalSampleNodes = globalSampleNodesUnion;
     } else { 
       this->readSampleNodes(iCluster, "full", false);
@@ -867,7 +965,7 @@ void GnatPreprocessing<dim>::setSampleNodes(int iCluster) {
       globalSampleNodesUnion = globalSampleNodes;
     }
   } else {
-    if (globalSampleNodesForCluster.size()>0 && globalSampleNodesForCluster[iCluster].size()>0) {
+    if (int(globalSampleNodesForCluster.size())>0 && int(globalSampleNodesForCluster[iCluster].size())>0) {
       globalSampleNodes = globalSampleNodesForCluster[iCluster];
     } else {
       this->readSampleNodes(iCluster, "full", false);
@@ -901,7 +999,57 @@ void GnatPreprocessing<dim>::setSampleNodes(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::setUpPodResJac(int iCluster) {
+void GappyPreprocessing<dim>::readGreedyData(int iCluster, bool& breakloop) {
+
+  if (gappyIO->greedyData == GappyConstructionData::UNSPECIFIED_GREEDY  ||
+      gappyIO->greedyData == GappyConstructionData::RESIDUAL_ROB_GREEDY ||
+      gappyIO->greedyData == GappyConstructionData::JACOBIAN_ROB_GREEDY ||
+      gappyIO->greedyData == GappyConstructionData::RESIDUAL_AND_JACOBIAN_ROBS_GREEDY) {
+    setUpPodResJac(iCluster);
+  } else {
+
+    nPodBasis = 1;
+    errorBasis[0] = 0;
+    errorBasis[1] = 0;
+    
+    if (gappyIO->greedyData == GappyConstructionData::STATE_ROB_GREEDY) {
+      com->fprintf(stdout, " ... Using state ROB for sample mesh construction ...\n");
+      this->readClusteredBasis(iCluster, "state");
+      nPod[0] = this->basis->numVectors(); 
+      pod[0].resize(nPod[0]);
+      for (int iVec=0; iVec<nPod[0]; ++iVec) {
+        pod[0][iVec] = (*(this->basis))[iVec];
+      }
+      delete (this->basis);
+      this->basis = NULL;
+    }
+    else if (gappyIO->greedyData == GappyConstructionData::SPECIFIED_SNAPS_GREEDY) {
+      com->fprintf(stdout, " ... Reading specified snapshots for sample mesh construction ...\n");
+      this->readSnapshotFiles("greedyData",true);
+      nPod[0] = this->snap->numVectors();
+      pod[0].resize(nPod[0]);
+      for (int iVec=0; iVec<nPod[0]; ++iVec) {
+        pod[0][iVec] = (*(this->snap))[iVec];
+      }
+      delete (this->snap);
+      this->snap = NULL; 
+      breakloop=true;
+    }
+ 
+    nPod[1] = nPod[0]; 
+    pod.a[1] = &podRes;
+    podHat.a[1] = &podHatRes;
+    error.a[1] = &errorRes;  
+    nPodMax = nPod[0];
+     
+ }
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GappyPreprocessing<dim>::setUpPodResJac(int iCluster) {
 
   // use one basis if 1) same file name, or 2) jacAction basis unspecified
 
@@ -911,16 +1059,16 @@ void GnatPreprocessing<dim>::setUpPodResJac(int iCluster) {
   else 
     nPodBasis = 2;
   
-  if (ioData->romOffline.gnat.robGreedy == GNATConstructionData::UNSPECIFIED_GREEDY ||
-      ioData->romOffline.gnat.robGreedy == GNATConstructionData::BOTH_GREEDY) {
+  if (gappyIO->greedyData == GappyConstructionData::UNSPECIFIED_GREEDY ||
+      gappyIO->greedyData == GappyConstructionData::RESIDUAL_AND_JACOBIAN_ROBS_GREEDY) {
     errorBasis[0] = 0;
     errorBasis[1] = nPodBasis-1;
   }
-  else if (ioData->romOffline.gnat.robGreedy == GNATConstructionData::RESIDUAL_GREEDY) {
+  else if (gappyIO->greedyData == GappyConstructionData::RESIDUAL_ROB_GREEDY) {
     errorBasis[0] = 0;
     errorBasis[1] = 0;
   }
-  else if (ioData->romOffline.gnat.robGreedy == GNATConstructionData::JACOBIAN_GREEDY) {
+  else if (gappyIO->greedyData == GappyConstructionData::JACOBIAN_ROB_GREEDY) {
     errorBasis[0] = 1;
     errorBasis[1] = 1;
   }
@@ -959,7 +1107,7 @@ void GnatPreprocessing<dim>::setUpPodResJac(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::setUpBasisBasisProducts() {
+void GappyPreprocessing<dim>::setUpBasisBasisProducts() {
 
 // compute pod[1]^Tpod[i] (so you can delete these from memory sooner)
 
@@ -974,6 +1122,7 @@ void GnatPreprocessing<dim>::setUpBasisBasisProducts() {
     } else {
       // compute Q^T * W * pod[0]  (stored as podTpod)
       com->fprintf(stderr, "*** Error: preprocessing for weighted GNAT with distinct R and J bases is not currently supported... ");
+      com->barrier(); 
       exit(-1);
       //computeQTWeightedPod();
     }
@@ -984,7 +1133,7 @@ void GnatPreprocessing<dim>::setUpBasisBasisProducts() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeQROfWeightedPhiJ() {
+void GappyPreprocessing<dim>::computeQROfWeightedPhiJ() {
 
   // compute tmpVecSet = W * PhiJi
   if (Qmat) delete Qmat;
@@ -1015,7 +1164,7 @@ void GnatPreprocessing<dim>::computeQROfWeightedPhiJ() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::setUpGreedy(int iCluster) {
+void GappyPreprocessing<dim>::setUpGreedy(int iCluster) {
 
   //==================================================================
   // PURPOSE: compute number of POD basis vectors (nRhsMax) and globalNodes and handled by each
@@ -1023,71 +1172,73 @@ void GnatPreprocessing<dim>::setUpGreedy(int iCluster) {
   // OUTPUTS
   //   nRhsMax, nGreedyIt, nodesToHandle
   // STRATEGY:
-  // nothing special happens when nSampleNodes < nPodGreedy < nSampleNodes * dim 
-  //   1) require nPodGreedy < nSampleNodes * dim to avoid underdetermined system
-  //   2) if nSampleNodes > nPodGreedy, need to treat more globalNodes per iteration
+  // nothing special happens when nSampleNodes < dimGreedy < nSampleNodes * dim 
+  //   1) require dimGreedy < nSampleNodes * dim to avoid underdetermined system
+  //   2) if nSampleNodes > dimGreedy, need to treat more globalNodes per iteration
   //   (nRhsMax is 1)
   //==================================================================
   
-  if (ioData->romOffline.gnat.robGreedyFactor > 1.0)
+  if (gappyIO->dimGreedyAlgorithmFactor > 1.0)
     com->fprintf(stderr,"*** Warning: Greedy Factor cannot be larger than 1\n");
 
-  int maxDimROBGreedy = (ioData->romOffline.gnat.maxDimensionROBGreedy == -1) ? nPodMax : min(nPodMax,ioData->romOffline.gnat.maxDimensionROBGreedy);
-  nPodGreedy = min(maxDimROBGreedy,
-                   max(static_cast<int>(ceil(nPodMax*(ioData->romOffline.gnat.robGreedyFactor))), ioData->romOffline.gnat.minDimensionROBGreedy));
+  int maxDimGreedyAlgorithm = (gappyIO->maxDimGreedyAlgorithm == -1) ? nPodMax : min(nPodMax,gappyIO->maxDimGreedyAlgorithm);
+  dimGreedy = min(maxDimGreedyAlgorithm,
+                   max(static_cast<int>(ceil(nPodMax*(gappyIO->dimGreedyAlgorithmFactor))), gappyIO->minDimGreedyAlgorithm));
 
-  double sampleNodeFactor =  ioData->romOffline.gnat.sampledNodesFactor;
+  double sampleNodeFactor =  gappyIO->sampledNodesFactor;
 
   if (sampleNodeFactor == -1.0) {
     sampleNodeFactor = 2.0;
   } else if ((sampleNodeFactor<1.0) &&
-             (ioData->romOffline.gnat.useUnionOfSampledNodes==GNATConstructionData::UNION_FALSE)) {
+             (gappyIO->useUnionOfSampledNodes==GappyConstructionData::UNION_FALSE)) {
     com->fprintf(stderr,"*** Warning: Sampled Node Factor must be greater than or equal to 1\n");
     sampleNodeFactor = 1.0;
   }
 
   nSampleNodes = static_cast<int>(ceil(double(nPodMax * sampleNodeFactor)/double(dim)));  // this will give interpolation or the smallest possible least squares
 
-  if (ioData->romOffline.gnat.maxSampledNodes <= 0) {
+  if (gappyIO->maxSampledNodes <= 0) {
     com->fprintf(stderr,"*** Error: Maximum number of sampled nodes must be specified (and greater than zero)\n");
+    com->barrier();
     exit(-1);
   }
 
-  nSampleNodes =  min(ioData->romOffline.gnat.maxSampledNodes,max(nSampleNodes,ioData->romOffline.gnat.minSampledNodes));
+  nSampleNodes =  min(gappyIO->maxSampledNodes,max(nSampleNodes,gappyIO->minSampledNodes));
 
-  if (nSampleNodes * dim < nPodGreedy) {  
+  if (nSampleNodes * dim < dimGreedy) {  
     int nSampleNodesOld = nSampleNodes; 
-    nSampleNodes = static_cast<int>(ceil(double(nPodGreedy)/double(dim))); 
+    nSampleNodes = static_cast<int>(ceil(double(dimGreedy)/double(dim))); 
     com->fprintf(stderr,"Warning: not enough sample nodes! Increasing number of sample nodes from %d to %d",nSampleNodesOld,nSampleNodes);
   }
 
-  nRhsMax = static_cast<int>(ceil(double(nPodGreedy)/double(nSampleNodes))); // nSampleNodes * nRhsMax >= max(nPod[0],nPod[1])
+  nRhsMax = static_cast<int>(ceil(double(dimGreedy)/double(nSampleNodes))); // nSampleNodes * nRhsMax >= max(nPod[0],nPod[1])
 
   // the following should always hold because of the above fix (safeguard)
   
   if (nRhsMax > dim) {
     com->fprintf(stderr,"*** Error: nRhsMax > dim. More nodes should have been added.\n");
+    com->barrier();
     exit(-1);
   }
 
   //==================================================================
-  // 2) if nSampleNodes > nPodGreedy, need to treat more nodes per iteration
+  // 2) if nSampleNodes > dimGreedy, need to treat more nodes per iteration
   // strategy: fill more nodes at the earlier iterations because POD basis vectors are optimally ordered
   //==================================================================
 
-  nGreedyIt = min(nPodGreedy, nSampleNodes);  // number of greedy iterations (at most nPodGreedy; if nSampleNodes > nPodGreedy need to take care of more nodes per iteration)
+  nGreedyIt = min(dimGreedy, nSampleNodes);  // number of greedy iterations (at most dimGreedy; if nSampleNodes > dimGreedy need to take care of more nodes per iteration)
   nodesToHandle = new int[nGreedyIt];  // number of nodes for each greedy iteration
 
   for (int iGreedyIt = 0; iGreedyIt < nGreedyIt; ++iGreedyIt)  {
-    nodesToHandle[iGreedyIt] = (nSampleNodes * nRhsMax) / nPodGreedy;
-    if (iGreedyIt < nSampleNodes % nPodGreedy && nRhsMax ==1)  // only in the dangerous case with nRhsMax = 1
+    nodesToHandle[iGreedyIt] = (nSampleNodes * nRhsMax) / dimGreedy;
+    if (iGreedyIt < nSampleNodes % dimGreedy && nRhsMax ==1)  // only in the dangerous case with nRhsMax = 1
       ++nodesToHandle[iGreedyIt];
   }
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
     nRhsGreedy[iPodBasis] = new int [nGreedyIt];
-    int nRhsMin = min(nPod[iPodBasis],nPodGreedy) / nGreedyIt;
-    int nRhsExtra = min(nPod[iPodBasis],nPodGreedy) % nGreedyIt;
+    int nRhsMin = min(nPod[iPodBasis],dimGreedy) / nGreedyIt;
+    int nRhsExtra = min(nPod[iPodBasis],dimGreedy) % nGreedyIt;
     for (int iGreedyIt = 0; iGreedyIt < nGreedyIt; ++iGreedyIt) {
       nRhsGreedy[iPodBasis][iGreedyIt] = nRhsMin;
       if (iGreedyIt < nRhsExtra) ++nRhsGreedy[iPodBasis][iGreedyIt];
@@ -1114,7 +1265,7 @@ void GnatPreprocessing<dim>::setUpGreedy(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
+void GappyPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
     locSub, const int locNode, const int globalNode) {
 
   //===============================================
@@ -1127,12 +1278,11 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
   //===============================================
     
   double globalMaxNorm = myMaxNorm;
-    com->fprintf(stdout," ... calling barrier\n");
   com->barrier();
-    com->fprintf(stdout," ... calling globalMax\n");
   com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
 
   // define variables to be summed globally
+  //com->fprintf(stdout," ... max error val = %e\n", globalMaxNorm);
 
   int cpuTemp = 0;
   int locSubTemp = 0;
@@ -1150,14 +1300,12 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
     cpuHasMaxVal = 1;
     cpuNumWithMaxVal = thisCPU;
   }
-    com->fprintf(stdout," ... calling globalSum\n");
   com->globalSum(1, &cpuHasMaxVal);  // total CPUs with maximum value
   if (cpuHasMaxVal > 1) { 
-    com->fprintf(stdout," ... calling globalMin\n");
     com->globalMin(1, &cpuNumWithMaxVal);  // take CPU with smallest number that has max val
   }
 
-    com->fprintf(stdout," ... about to fill POD hat\n");
+  //com->fprintf(stdout," ... cpu has max val = %d\n", cpuHasMaxVal);
   if (thisCPU == cpuNumWithMaxVal) {  // if this CPU has the maximum value
 
     // save the global subdomain and local node indices (sum at the very end of
@@ -1189,7 +1337,6 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
   // make sure all cpus have the same copy
   
   com->barrier();
-    com->fprintf(stdout," ... calling global Sums\n");
   com->globalSum(1, &cpuTemp);
   com->globalSum(1, &locSubTemp);
   com->globalSum(1, &locNodeTemp);
@@ -1208,8 +1355,6 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
   globalSampleNodes.push_back(globalNodeTemp);
 
   // define maps for SAMPLE nodes
-  
-    com->fprintf(stdout," ... defining maps\n");
   globalSampleNodeRankMap.insert(pair<int, int > (globalNodeTemp,
         handledNodes)); globalNodeToCpuMap.insert(pair<int, int >
         (globalNodeTemp, cpuTemp));
@@ -1226,7 +1371,7 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::determineSampleNodes() {
+void GappyPreprocessing<dim>::determineSampleNodes() {
 
   for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt)  {
     com->fprintf(stdout," ... Greedy iteration %d ...\n", greedyIt);
@@ -1262,7 +1407,7 @@ void GnatPreprocessing<dim>::determineSampleNodes() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
+void GappyPreprocessing<dim>::greedyIteration(int greedyIt) {
 
   // Differences for 1st iteration compared with other greedy iterations:
   // 1) no least squares problem is solved (just take the maximum entry)
@@ -1292,6 +1437,9 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
   com->barrier(); //debugging
   com->fprintf(stdout," ... Total Least Squares Time = %e(s)\n", totalLSTime);
 
+  maskError();
+  com->barrier();
+
   double totalFillTime = this->timer->getTime();
   for (int iFillNode = 0; iFillNode < nodesToHandle[greedyIt]; ++iFillNode) {  // fill up the appropriate number of nodes
 
@@ -1301,7 +1449,6 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
 
     // loop over nodes, and add to set if it is the maximum
     // subdomains -> nodes
-    com->fprintf(stdout," ... entering subDFindMaxError\n");
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
       // get subdomain info for all RHS
@@ -1315,9 +1462,7 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
     }
     com->barrier(); //debugging
     // find global subdomain number and local node number for node with maximum norm
-    com->fprintf(stdout," ... entering findMaxAndFillPodHat\n");
     findMaxAndFillPodHat(myMaxNorm, locSub, locNode, globalNode);
-
 
     if (onlyInletOutletBC == true)  // only add one 
       onlyInletOutletBC = false;
@@ -1334,16 +1479,16 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::initializeLeastSquares() {
+void GappyPreprocessing<dim>::initializeLeastSquares() {
 
   // initialize scalapack for least squares problems
   // TODO: only allocate memory for required columns!
-  if (ioData->romOffline.gnat.greedyLeastSquaresSolver != GNATConstructionData::GREEDY_LS_SCALAPACK) return;
+  if (gappyIO->greedyLeastSquaresSolver != GappyConstructionData::GREEDY_LS_SCALAPACK) return;
   if (initializeLeastSquaresDone == true) return;
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
     parallelRom[iPodBasis]->parallelLSMultiRHSClean();
-    parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis], nPodGreedy);
+    parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis], dimGreedy);
   }
 
   initializeLeastSquaresDone = true;
@@ -1354,11 +1499,11 @@ void GnatPreprocessing<dim>::initializeLeastSquares() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::initializeLeastSquaresPseudoInv(int numRhs) {
+void GappyPreprocessing<dim>::initializeLeastSquaresPseudoInv(int numRhs) {
 
   // initialize scalapack for least squares problems
   // TODO: only allocate memory for required columns!
-  if (ioData->romOffline.gnat.pseudoInverseSolver != GNATConstructionData::PSEUDO_INVERSE_SCALAPACK) return;
+  if (gappyIO->pseudoInverseSolver != GappyConstructionData::PSEUDO_INVERSE_SCALAPACK) return;
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
     parallelRom[iPodBasis]->parallelLSMultiRHSClean();
@@ -1370,7 +1515,7 @@ void GnatPreprocessing<dim>::initializeLeastSquaresPseudoInv(int numRhs) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::makeNodeMaxIfUnique(double nodeError, double
+void GappyPreprocessing<dim>::makeNodeMaxIfUnique(double nodeError, double
     &myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int
     &globalNode) {
 
@@ -1413,7 +1558,7 @@ void GnatPreprocessing<dim>::makeNodeMaxIfUnique(double nodeError, double
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError) {
+void GappyPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError) {
 
   // PURPOSE: compute the sum of squares of node error for all RHS, both bases
   //   at the locNodeNum node
@@ -1439,7 +1584,7 @@ void GnatPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeNu
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::getSubDomainError(int iSub) {
+void GappyPreprocessing<dim>::getSubDomainError(int iSub) {
 
   // INPUT 
   //   Passed: iSub
@@ -1459,7 +1604,7 @@ void GnatPreprocessing<dim>::getSubDomainError(int iSub) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::leastSquaresReconstruction() {
+void GappyPreprocessing<dim>::leastSquaresReconstruction() {
 
   // PURPOSE: compute least squares reconstruction error of the pod basis
   // vectors
@@ -1475,12 +1620,12 @@ void GnatPreprocessing<dim>::leastSquaresReconstruction() {
       lsCoeff[iPodBasis][iRhs] = new double [handledVectors[iPodBasis]];
     }
 
-    if (ioData->romOffline.gnat.greedyLeastSquaresSolver == GNATConstructionData::GREEDY_LS_SCALAPACK) {
+    if (gappyIO->greedyLeastSquaresSolver == GappyConstructionData::GREEDY_LS_SCALAPACK) {
       double scalapackTime = this->timer->getTime();
       parallelLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
       scalapackTime = this->timer->getTime() - scalapackTime;
       com->fprintf(stdout," ... ... Scalapack LS Time = %e(s)\n", scalapackTime);
-    } else if (ioData->romOffline.gnat.greedyLeastSquaresSolver == GNATConstructionData::GREEDY_LS_LINPACK) {
+    } else if (gappyIO->greedyLeastSquaresSolver == GappyConstructionData::GREEDY_LS_LINPACK) {
       double linpackTime = this->timer->getTime();
       serialLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
       linpackTime = this->timer->getTime() - linpackTime;
@@ -1516,7 +1661,7 @@ void GnatPreprocessing<dim>::leastSquaresReconstruction() {
 
 //----------------------------------------------
 
-template<int dim> void GnatPreprocessing<dim>::subDFindMaxError(int iSub, bool
+template<int dim> void GappyPreprocessing<dim>::subDFindMaxError(int iSub, bool
     onlyInletOutletBC, double &myMaxNorm, int &locSub, int &locNode, int
     &globalNode) {
 
@@ -1570,7 +1715,7 @@ template<int dim> void GnatPreprocessing<dim>::subDFindMaxError(int iSub, bool
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
+void GappyPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 // The least squares system is actually *really* small.  Should be much faster in serial...
 
 // form LHS and RHS -> globalSumRoot
@@ -1578,7 +1723,7 @@ void GnatPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff
   // communicate full vector to all ranks
   int nLHS = handledVectors[iPodBasis];
   int nRHS = nRhs[iPodBasis];
-  int sampledDOF = globalSampleNodes.size()*dim;
+  int sampledDOF = int(globalSampleNodes.size())*dim;
   int arraySizeLHS = nLHS*sampledDOF;
   int arraySizeRHS = nRHS*sampledDOF;
 
@@ -1597,7 +1742,7 @@ void GnatPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff
   }
 
   for (int iLHS = 0; iLHS < nLHS; ++iLHS) {
-    for (int iNode = 0; iNode < globalSampleNodes.size(); ++iNode) {
+    for (int iNode = 0; iNode < int(globalSampleNodes.size()); ++iNode) {
       int currentGlobalNode = globalSampleNodes[iNode];
       int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
       if (thisCPU == iCpu){
@@ -1614,7 +1759,7 @@ void GnatPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff
   if (thisCPU!=0) delete [] sampledLHS;
 
   for (int iRHS = 0; iRHS < nRHS; ++iRHS) {
-    for (int iNode = 0; iNode < globalSampleNodes.size(); ++iNode) {
+    for (int iNode = 0; iNode < int(globalSampleNodes.size()); ++iNode) {
       int currentGlobalNode = globalSampleNodes[iNode];
       int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
       if (thisCPU == iCpu){
@@ -1673,7 +1818,7 @@ void GnatPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
+void GappyPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 
   bool lsCoeffAllCPU = true; // all cpus need solution
   parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
@@ -1684,7 +1829,7 @@ void GnatPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoe
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::probabilisticLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
+void GappyPreprocessing<dim>::probabilisticLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 
   // Solve LS using (very fast) probabilsitic SVD
   //   System is:  podHat[iPodBasis][1:handledVectors[iPodBasis]] * lsCoeff = error[iPodBasis][1:nRhs[iPodBasis]]
@@ -1716,7 +1861,7 @@ void GnatPreprocessing<dim>::probabilisticLSMultiRHSGap(int iPodBasis, double **
   for (int iRhs=0; iRhs<nRhs[iPodBasis]; ++iRhs) 
     RHS[iRhs] = error[iPodBasis][iRhs];
 
-  this->probabilisticLSMultiRHS(LHS, RHS, lsCoeffVec, ioData->romOffline.gnat.randMatDimension, ioData->romOffline.gnat.nPowerIts, testSVD);
+  this->probabilisticLSMultiRHS(LHS, RHS, lsCoeffVec, gappyIO->randMatDimension, gappyIO->nPowerIts, testSVD);
 
   for (int iRhs=0; iRhs<nRhs[iPodBasis]; ++iRhs) {
     for (int iVec=0; iVec<nVecs; ++iVec) {
@@ -1731,7 +1876,7 @@ void GnatPreprocessing<dim>::probabilisticLSMultiRHSGap(int iPodBasis, double **
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::buildRemainingMesh() {
+void GappyPreprocessing<dim>::buildRemainingMesh() {
 
   // globalNodes[iIsland][0] is the sample node itself 
   // globalNodes[iIsland][iNode] is the iNode neighbor of iIsland.
@@ -1814,7 +1959,7 @@ void GnatPreprocessing<dim>::buildRemainingMesh() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::addSampleNodesAndNeighbors() {
+void GappyPreprocessing<dim>::addSampleNodesAndNeighbors() {
 
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
     com->fprintf(stdout," ... Adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
@@ -1841,7 +1986,7 @@ void GnatPreprocessing<dim>::addSampleNodesAndNeighbors() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh) {
+void GappyPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh) {
 
   // add all global neighbor globalNodes/elements in the iIslands row of and elements to the iIsland node set
   
@@ -1934,7 +2079,7 @@ void GnatPreprocessing<dim>::addNeighbors(int iIslands, int startingNodeWithNeig
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeBCFaces(bool liftContribution) {
+void GappyPreprocessing<dim>::computeBCFaces(bool liftContribution) {
 
   // PURPOSE: determine which faces of the sample mesh are on the boundary
   // INPUT: liftContribution (true: adding faces contributing to lift; false:
@@ -1996,7 +2141,7 @@ void GnatPreprocessing<dim>::computeBCFaces(bool liftContribution) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::communicateAll() {
+void GappyPreprocessing<dim>::communicateAll() {
 
   domain.communicateMesh(globalNodes, nSampleNodes, totalNodesCommunicated);
   domain.communicateMesh(cpus, nSampleNodes, totalNodesCommunicated);
@@ -2016,7 +2161,7 @@ void GnatPreprocessing<dim>::communicateAll() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::defineMaps() {
+void GappyPreprocessing<dim>::defineMaps() {
 
   // defines nodesXYZmap and elemToNodeMap
   int globalNodeNumTmp;
@@ -2028,7 +2173,7 @@ void GnatPreprocessing<dim>::defineMaps() {
   // first time, establish that no maps have been defined
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
     // define nodesXYZmap
-    for (int iNeighbor = 0; iNeighbor < globalNodes[iSampleNodes].size(); ++iNeighbor) {
+    for (int iNeighbor = 0; iNeighbor < int(globalNodes[iSampleNodes].size()); ++iNeighbor) {
       // do not re-define map for sample nodes (already defined as master) 
       globalNodeNumTmp = globalNodes[iSampleNodes][iNeighbor];
       sampleNodeRank = globalSampleNodeRankMap.find(globalNodeNumTmp);
@@ -2048,7 +2193,7 @@ void GnatPreprocessing<dim>::defineMaps() {
 
     // define elemToNodeMap
 
-    for (int iEle = 0; iEle < elements[iSampleNodes].size(); ++iEle) {
+    for (int iEle = 0; iEle < int(elements[iSampleNodes].size()); ++iEle) {
       globalEleNumTmp = elements[iSampleNodes][iEle];
       for (int iNodesConn = 0 ; iNodesConn  < 4; ++iNodesConn)
         elemToNodeTmp[iNodesConn] = elemToNode[iNodesConn][iSampleNodes][iEle];
@@ -2095,7 +2240,7 @@ void GnatPreprocessing<dim>::defineMaps() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::communicateBCFaces(){
+void GappyPreprocessing<dim>::communicateBCFaces(){
   
   int BC_CODE_EXTREME = max(BC_MAX_CODE, -BC_MIN_CODE)+1;
 
@@ -2111,7 +2256,7 @@ void GnatPreprocessing<dim>::communicateBCFaces(){
 //----------------------------------------------
 
 template<int dim>
-bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap){
+bool GappyPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap){
 
   // PURPOSE: determine wheteher or not currentFace is in the sample mesh
   // OUTPUT: faceInMesh = true if the face is in the sample mesh
@@ -2129,7 +2274,7 @@ bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iF
   for (int iNodeFace = 0; iNodeFace < currentFaces[iFace].numNodes(); ++iNodeFace) { // globalNodes on face
     // check to see if the iNodeFace is in iIsland
     for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-      for (int iReducedMeshNode = 0; iReducedMeshNode < globalNodes[iSampleNodes].size(); ++iReducedMeshNode) { // globalNodes on island
+      for (int iReducedMeshNode = 0; iReducedMeshNode < int(globalNodes[iSampleNodes].size()); ++iReducedMeshNode) { // globalNodes on island
         if (globalNodeNum[iNodeFace] == globalNodes[iSampleNodes][iReducedMeshNode]){ 
           nodeSomewhereInMesh[iNodeFace] = true;
           break;
@@ -2149,7 +2294,7 @@ bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iF
   StaticArray <int, 4> globalNodesInElem;
   if (faceSomewhereInMesh) {  // if the face is in the island
     for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-      for (int iEle = 0; iEle < elements[iSampleNodes].size();++iEle) {  // check all elements
+      for (int iEle = 0; iEle < int(elements[iSampleNodes].size());++iEle) {  // check all elements
         faceInElement = true;
         int globalEleNum = elements[iSampleNodes][iEle];
         globalNodesInElem = elemToNodeMap.find(globalEleNum)->second;
@@ -2192,7 +2337,7 @@ bool GnatPreprocessing<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iF
 //----------------------------------------------
 
 template<int dim>
-bool GnatPreprocessing<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
+bool GappyPreprocessing<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
     iSub, const int iFace){
   
   bool includeFace;
@@ -2211,7 +2356,7 @@ bool GnatPreprocessing<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::addFaceNodesElements(FaceSet&
+void GappyPreprocessing<dim>::addFaceNodesElements(FaceSet&
     currentFaces, const int iFace, const int iSub, const int
     *locToGlobNodeMap){
 
@@ -2228,7 +2373,7 @@ void GnatPreprocessing<dim>::addFaceNodesElements(FaceSet&
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::addNodesOnFace(FaceSet&
+void GappyPreprocessing<dim>::addNodesOnFace(FaceSet&
     currentFaces, const int iFace, const int iSub, const int
     *locToGlobNodeMap, int *locNodeNums){
   // output: locNodeNums
@@ -2258,7 +2403,7 @@ void GnatPreprocessing<dim>::addNodesOnFace(FaceSet&
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::addElementOfFace(FaceSet&
+void GappyPreprocessing<dim>::addElementOfFace(FaceSet&
     currentFaces, const int iFace, const int iSub, const int
     *locToGlobNodeMap, const int *locNodeNums){
 
@@ -2296,11 +2441,11 @@ void GnatPreprocessing<dim>::addElementOfFace(FaceSet&
           locEleNums.begin(), locEleNums.end(),
           std::back_inserter(intersection));
       locEleNums.clear();
-      for (int iIntersect = 0; iIntersect < intersection.size(); ++iIntersect)
+      for (int iIntersect = 0; iIntersect < int(intersection.size()); ++iIntersect)
         locEleNums.insert(intersection[iIntersect]);
     }
   }
-  assert(locEleNums.size() == 1);  // must only have one element in common
+  assert(int(locEleNums.size()) == 1);  // must only have one element in common
   // find most common element (shared by all nodes)
   locEleNum = *(locEleNums.begin());
   elements[0].push_back(locToGlobElemMap[locEleNum]);
@@ -2348,7 +2493,7 @@ void GnatPreprocessing<dim>::addElementOfFace(FaceSet&
 //----------------------------------------------
 
 template<int dim>
-bool GnatPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFace, const int iSub, const int *locToGlobNodeMap ){
+bool GappyPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFace, const int iSub, const int *locToGlobNodeMap ){
 
   bool faceContributesToLift;
   map<int, int> surfOutMap = postOp->getSurfMap();
@@ -2379,7 +2524,7 @@ bool GnatPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const in
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
+void GappyPreprocessing<dim>::outputTopFile(int iCluster) {
 
   com->fprintf(stdout," ... Writing TOP file ...\n");
 
@@ -2423,7 +2568,7 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
 
   com->fprintf(reducedMesh,"Elements FluidMeshRed using FluidNodesRed\n");
 
-  for (int iEle = 0; iEle < elements[0].size(); ++iEle) {
+  for (int iEle = 0; iEle < int(elements[0].size()); ++iEle) {
     globalEleNum = elements[0][iEle];
     globalNodesTmp = elemToNodeMap.find(globalEleNum)->second;
     for (int k = 0; k < 4; ++k) {
@@ -2460,21 +2605,21 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
   boundaryConditionsMap.insert(pair<int, std::string > (BC_MASSFLOW_OUTLET_FIXED, "MassFlowOutletFixed"));    // guessing
   boundaryConditionsMap.insert(pair<int, std::string > (BC_SYMMETRY, "Symmetry"));
 
-  if (boundaryConditionsMap.size() != (BC_MAX_CODE-BC_MIN_CODE+1)) {
+  if (int(boundaryConditionsMap.size()) != (BC_MAX_CODE-BC_MIN_CODE+1)) {
     this->com->fprintf(stderr,"*** Error: new boundary conditions have been added -- the GNAT preprocessing code needs to be updated\n");
-    sleep(1);
+    com->barrier();
     exit(-1);  
   }
 
   for (int iSign = 0; iSign < 2; ++iSign) {
     for (int iBCtype = 0; iBCtype <= max(BC_MAX_CODE, -BC_MIN_CODE); ++iBCtype) {
       int maxID = 0;
-      if (bcFaceSurfID[iSign][iBCtype].size() > 0) {
+      if (int(bcFaceSurfID[iSign][iBCtype].size()) > 0) {
         std::vector<int>::iterator maxIDit = max_element(bcFaceSurfID[iSign][iBCtype].begin(),bcFaceSurfID[iSign][iBCtype].end());
         maxID = *maxIDit;
         if (maxID == 0) {
           this->com->fprintf(stderr,"*** Error: The GNAT preprocessing code apparently assumes that mesh surfaces are labeled with unique, non-zero numerical identifiers (for example: StickMoving_1, StickMoving_2)\n\n\n");
-          sleep(1);
+          com->barrier();
           exit(-1);
         }
       }
@@ -2482,7 +2627,7 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
       for (int iID = 0; iID < maxID; ++iID) {
         bool firstTime = true;
         int faceCounter = 0;
-        for (int iFace = 0; iFace < bcFaces[iSign][0][iBCtype].size() ; ++iFace) {
+        for (int iFace = 0; iFace < int(bcFaces[iSign][0][iBCtype].size()) ; ++iFace) {
           int currentID = bcFaceSurfID[iSign][iBCtype][iFace];
           if (currentID == iID + 1) {  // face is in the current set
             if (firstTime) {  // only output the first time (and only if size > 0)
@@ -2531,7 +2676,7 @@ void GnatPreprocessing<dim>::outputTopFile(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputSampleNodes(int iCluster) {
+void GappyPreprocessing<dim>::outputSampleNodes(int iCluster) {
 
   // output sample nodes (local mask) in sample mesh node numbering system
   char *sampledNodesPath = NULL;
@@ -2550,13 +2695,13 @@ void GnatPreprocessing<dim>::outputSampleNodes(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *outSampleNodeFile) {
+void GappyPreprocessing<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *outSampleNodeFile) {
 
   FILE *writingFile;
   if (thisCPU ==0) writingFile = fopen(outSampleNodeFile, "wt");
 
   com->fprintf(writingFile, "%d", sampleNodes.size());  // first print number of sample nodes
-  for (int i = 0; i < sampleNodes.size(); ++i) {
+  for (int i = 0; i < int(sampleNodes.size()); ++i) {
     com->fprintf(writingFile, "\n");
     com->fprintf(writingFile, "%d %d", i+1, sampleNodes[i]+1);  
   }
@@ -2570,7 +2715,7 @@ void GnatPreprocessing<dim>::outputSampleNodesGeneral(const std::vector<int> &sa
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
+void GappyPreprocessing<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 
   // input: iSub, iLocNode
   // output: x,y,z coordinates of the iLocNode located on iSub
@@ -2583,7 +2728,7 @@ void GnatPreprocessing<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::serialPseudoInverse(int iPodBasis) {
+void GappyPreprocessing<dim>::serialPseudoInverse(int iPodBasis) {
 // just call linpack's SVD routine 
 // inputs: vecset podHat[iPodBasis]
 // outputs: double** podHatPseudoInv[iPodBasis] ([iDof<nSampledDOF][iPod<nPod[iPodBasis]])
@@ -2670,7 +2815,7 @@ void GnatPreprocessing<dim>::serialPseudoInverse(int iPodBasis) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::parallelPseudoInverse(int iPodBasis) {
+void GappyPreprocessing<dim>::parallelPseudoInverse(int iPodBasis) {
 
 //======================================
 // Purpose
@@ -2686,7 +2831,7 @@ void GnatPreprocessing<dim>::parallelPseudoInverse(int iPodBasis) {
 
   // generate pseudoInvRhs in chunks
 
-  int nNodesAtATime = ioData->romOffline.gnat.pseudoInverseNodes;  
+  int nNodesAtATime = gappyIO->pseudoInverseNodes;  
   bool lastTime = false;
   nNodesAtATime = min(nSampleNodes,nNodesAtATime);  // fix if needed
   int numRhs = nNodesAtATime * dim;
@@ -2757,12 +2902,12 @@ void GnatPreprocessing<dim>::parallelPseudoInverse(int iPodBasis) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computePseudoInverse() {
+void GappyPreprocessing<dim>::computePseudoInverse() {
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-    if (ioData->romOffline.gnat.pseudoInverseSolver == GNATConstructionData::PSEUDO_INVERSE_SCALAPACK) {
+    if (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_SCALAPACK) {
       parallelPseudoInverse(iPodBasis);
-    } else if (ioData->romOffline.gnat.pseudoInverseSolver == GNATConstructionData::PSEUDO_INVERSE_LINPACK) {
+    } else if (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_LINPACK) {
       serialPseudoInverse(iPodBasis);
     }
   }
@@ -2778,7 +2923,7 @@ void GnatPreprocessing<dim>::computePseudoInverse() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::computePodTPod() {
+void GappyPreprocessing<dim>::computePodTPod() {
 
   // podTpod is nPod[1] x nPod[0] array
   //
@@ -2805,7 +2950,7 @@ void GnatPreprocessing<dim>::computePodTPod() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::assembleOnlineMatrices() {
+void GappyPreprocessing<dim>::assembleOnlineMatrices() {
 
   // Purpose: assemble matrices that are used online
   // Inputs: podHatPseudoInv, podTpod
@@ -2884,7 +3029,7 @@ void GnatPreprocessing<dim>::assembleOnlineMatrices() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputOnlineMatrices(int iCluster) {
+void GappyPreprocessing<dim>::outputOnlineMatrices(int iCluster) {
 
   // output matrices A and B in ASCII form as VecSet< DistSVec> with the
   // DistSVec defined on the sample mesh. Each column in this VecSet
@@ -2960,7 +3105,7 @@ void GnatPreprocessing<dim>::outputOnlineMatrices(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNodes,
+void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNodes,
     const std::map<int,int> &sampleNodeMap, const std::vector<int>
     &sampleNodeVec) {
 
@@ -3002,6 +3147,7 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
         com->fprintf(stdout, "\n%s\n", rmCommandChar);
         if (!(shell = popen(rmCommandChar, "r"))) {
           com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+          com->barrier();
           exit(-1);
         }
    
@@ -3116,6 +3262,7 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
       //com->fprintf(stdout, "\n%s\n", catCommandChar);
       if (!(shell = popen(catCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
+        com->barrier();
         exit(-1);
       }
    
@@ -3134,6 +3281,7 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
       //com->fprintf(stdout, "\n%s\n", rmCommandChar);
       if (!(shell = popen(rmCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        com->barrier();
         exit(-1);
       }
     
@@ -3163,7 +3311,7 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
+void GappyPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
 
   com->fprintf(stdout,"\n ... Writing reference state for local state basis %d in sample mesh coordinates ...\n", iCluster);
 
@@ -3197,7 +3345,7 @@ void GnatPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputInitialConditionReduced() {
+void GappyPreprocessing<dim>::outputInitialConditionReduced() {
   //INPUTS
   // ioData, nReducedNodes, domain
   // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
@@ -3226,6 +3374,7 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
 
     if (!status) {
       com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", icFile);
+      com->barrier();
       exit(-1);
     }
 
@@ -3251,7 +3400,7 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputClusterCentersReduced() {
+void GappyPreprocessing<dim>::outputClusterCentersReduced() {
   //INPUTS
   // nReducedNodes
   // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
@@ -3287,14 +3436,14 @@ void GnatPreprocessing<dim>::outputClusterCentersReduced() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
+void GappyPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
   //INPUTS
   // ioData, nReducedNodes, domain
   // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
   // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
 
 
-  if (ioData->romOffline.gnat.outputReducedBases) {
+  if (gappyIO->outputReducedBases) {
   
     com->fprintf(stdout, " ... Reading local state ROB ...\n");
     this->readClusteredBasis(iCluster, "state");
@@ -3351,7 +3500,7 @@ void GnatPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputMultiSolutionsReduced() {
+void GappyPreprocessing<dim>::outputMultiSolutionsReduced() {
   //INPUTS
   // nReducedNodes
   // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
@@ -3365,6 +3514,7 @@ void GnatPreprocessing<dim>::outputMultiSolutionsReduced() {
   FILE *inFP = fopen(input->multiSolutions,"r");
   if (!inFP)  {
     com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", input->multiSolutions);
+    com->barrier();
     exit (-1);
   }
   int nData, _n;
@@ -3403,7 +3553,7 @@ void GnatPreprocessing<dim>::outputMultiSolutionsReduced() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
+void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
     &distSVec, char* outFilePath, double tag, int step, int nTotSteps, const char* header) {
 
   double sampledOutputTime = this->timer->getTime();  
@@ -3444,6 +3594,7 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
       com->fprintf(stdout, "\n%s\n", rmCommandChar);
       if (!(shell = popen(rmCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        com->barrier();
         exit(-1);
       }
     
@@ -3531,6 +3682,7 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
       com->fprintf(stdout, "\n%s\n", catCommandChar);
       if (!(shell = popen(catCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
+        com->barrier();
         exit(-1);
       }
 
@@ -3552,6 +3704,7 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
       com->fprintf(stdout, "\n%s\n", rmCommandChar);
       if (!(shell = popen(rmCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        com->barrier();
         exit(-1);
       }
     
@@ -3575,7 +3728,7 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputWallDistanceReduced() {
+void GappyPreprocessing<dim>::outputWallDistanceReduced() {
   // INPUTS: geoState, ioData, nReducedNodes
   // needed by outputReducedVec: globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
@@ -3615,12 +3768,12 @@ void GnatPreprocessing<dim>::outputWallDistanceReduced() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
+void GappyPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
 
 // TODO
   com->fprintf(outFile,"%d\n", iVector);
 
-  if (ioData->romOffline.gnat.useOldReducedSVecFunction) {
+  if (gappyIO->useOldReducedSVecFunction) {
 
     for (int j = 0; j < nReducedNodes; ++j) {
       double value = 0.0; // initialize value to zero
@@ -3673,7 +3826,7 @@ void GnatPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FI
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::outputReducedToFullNodes() {
+void GappyPreprocessing<dim>::outputReducedToFullNodes() {
 /*
   int sp = strlen(ioData->output.rom.prefix);
 
@@ -3696,7 +3849,7 @@ void GnatPreprocessing<dim>::outputReducedToFullNodes() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::checkConsistency() {
+void GappyPreprocessing<dim>::checkConsistency() {
 
   // PURPOSE: debugging
 
@@ -3755,7 +3908,7 @@ void GnatPreprocessing<dim>::checkConsistency() {
 //----------------------------------------------
 
 template<int dim>
-void GnatPreprocessing<dim>::formMaskedNonlinearROBs()
+void GappyPreprocessing<dim>::formMaskedNonlinearROBs()
 {
   // initialize (from setUpGreedy())
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
@@ -3796,7 +3949,7 @@ void GnatPreprocessing<dim>::formMaskedNonlinearROBs()
 
 
 template<int dim>
-void GnatPreprocessing<dim>::formReducedSampleNodeMap()
+void GappyPreprocessing<dim>::formReducedSampleNodeMap()
 {
   reducedSampleNodeRankMap.clear();
 
@@ -3819,12 +3972,12 @@ void GnatPreprocessing<dim>::formReducedSampleNodeMap()
 
 
 template<int dim>
-void GnatPreprocessing<dim>::reinitializeMapsForSampleNodes() {
+void GappyPreprocessing<dim>::reinitializeMapsForSampleNodes() {
 
   // Initializes maps when reading sample nodes from file (otherwise they should have been initialized during the greedy algorithm)
   // note: I'm assuming that globalSampleNodes is properly defined before this function is called
 
-  assert( globalSampleNodes.size() > 0);
+  assert( int(globalSampleNodes.size()) > 0);
   nSampleNodes = globalSampleNodes.size();
 
   cpuSample.clear();
@@ -3886,6 +4039,243 @@ void GnatPreprocessing<dim>::reinitializeMapsForSampleNodes() {
     globalNodeToLocalNodesMap.insert(pair<int, int > (globalSampleNode, locNodeTmp));
     StaticArray<double, 3> XYZ(xyz);
     nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalSampleNode, XYZ));
+  }
+
+}
+
+
+//----------------------------------------------
+
+
+template<int dim>
+void GappyPreprocessing<dim>::setUpSampledNodeTargetRegionMask() {
+
+  // if there's a wall function then no nodes sit exactly on the wall
+  //double d2WallMin = (ioData->bc.wall.delta>0.0) ? ioData->bc.wall.delta : 0.0;
+  //  set up surface mask
+  //surfaceMask = new DistVec<double>( domain.getNodeDistInfo() );
+  //*surfaceMask = 0.0;
+  //for (int iSub=0; iSub<numLocSub; ++iSub) {
+  //  double *d2w = d2wall->subData(iSub);
+  //  double *mask = surfaceMask->subData(iSub);
+  //  for (int i=0; i<d2wall->subSize(iSub); ++i) {
+  //    if (d2w[i]<=(d2WallMin+1e-10))  mask[i] = 1.0;
+  //  }
+  //}
+  //com->fprintf(stdout," ... surfaceMask norm = %e\n", surfaceMask->norm());
+
+
+  // form target region mask
+
+  double spheres[20][4];
+  double boxes[20][2][3];
+  double cones[20][2][4];
+  int nspheres = 0, nboxes = 0, ncones = 0;
+
+  for (int j=0; j<gappyIO->sampledMeshTargetRegion.num; ++j) {
+    if (gappyIO->sampledMeshTargetRegion.spheres[j]->r > 0.0) {
+      spheres[nspheres][0] = gappyIO->sampledMeshTargetRegion.spheres[j]->x0;
+      spheres[nspheres][1] = gappyIO->sampledMeshTargetRegion.spheres[j]->y0;
+      spheres[nspheres][2] = gappyIO->sampledMeshTargetRegion.spheres[j]->z0;
+      spheres[nspheres][3] = gappyIO->sampledMeshTargetRegion.spheres[j]->r;
+      ++nspheres;
+      if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::X) {
+        spheres[nspheres][0] = - gappyIO->sampledMeshTargetRegion.spheres[j]->x0;
+        spheres[nspheres][1] = gappyIO->sampledMeshTargetRegion.spheres[j]->y0;
+        spheres[nspheres][2] = gappyIO->sampledMeshTargetRegion.spheres[j]->z0;
+        spheres[nspheres][3] = gappyIO->sampledMeshTargetRegion.spheres[j]->r;
+        ++nspheres;
+      }
+      else if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::Y) {
+        spheres[nspheres][0] = gappyIO->sampledMeshTargetRegion.spheres[j]->x0;
+        spheres[nspheres][1] = - gappyIO->sampledMeshTargetRegion.spheres[j]->y0;
+        spheres[nspheres][2] = gappyIO->sampledMeshTargetRegion.spheres[j]->z0;
+        spheres[nspheres][3] = gappyIO->sampledMeshTargetRegion.spheres[j]->r;
+        ++nspheres;
+      }
+      else if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::Z) {
+        spheres[nspheres][0] = gappyIO->sampledMeshTargetRegion.spheres[j]->x0;
+        spheres[nspheres][1] = gappyIO->sampledMeshTargetRegion.spheres[j]->y0;
+        spheres[nspheres][2] = - gappyIO->sampledMeshTargetRegion.spheres[j]->z0;
+        spheres[nspheres][3] = gappyIO->sampledMeshTargetRegion.spheres[j]->r;
+        ++nspheres;
+      }
+    }
+    if (gappyIO->sampledMeshTargetRegion.boxes[j]->x0 < gappyIO->sampledMeshTargetRegion.boxes[j]->x1) {
+      boxes[nboxes][0][0] = gappyIO->sampledMeshTargetRegion.boxes[j]->x0;
+      boxes[nboxes][0][1] = gappyIO->sampledMeshTargetRegion.boxes[j]->y0;
+      boxes[nboxes][0][2] = gappyIO->sampledMeshTargetRegion.boxes[j]->z0;
+      boxes[nboxes][1][0] = gappyIO->sampledMeshTargetRegion.boxes[j]->x1;
+      boxes[nboxes][1][1] = gappyIO->sampledMeshTargetRegion.boxes[j]->y1;
+      boxes[nboxes][1][2] = gappyIO->sampledMeshTargetRegion.boxes[j]->z1;
+      ++nboxes;
+      if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::X) {
+        boxes[nboxes][0][0] = -gappyIO->sampledMeshTargetRegion.boxes[j]->x1;
+        boxes[nboxes][0][1] = gappyIO->sampledMeshTargetRegion.boxes[j]->y0;
+        boxes[nboxes][0][2] = gappyIO->sampledMeshTargetRegion.boxes[j]->z0;
+        boxes[nboxes][1][0] = -gappyIO->sampledMeshTargetRegion.boxes[j]->x0;
+        boxes[nboxes][1][1] = gappyIO->sampledMeshTargetRegion.boxes[j]->y1;
+        boxes[nboxes][1][2] = gappyIO->sampledMeshTargetRegion.boxes[j]->z1;
+        ++nboxes;
+      }
+      if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::Y) {
+        boxes[nboxes][0][0] = gappyIO->sampledMeshTargetRegion.boxes[j]->x0;
+        boxes[nboxes][0][1] = -gappyIO->sampledMeshTargetRegion.boxes[j]->y1;
+        boxes[nboxes][0][2] = gappyIO->sampledMeshTargetRegion.boxes[j]->z0;
+        boxes[nboxes][1][0] = gappyIO->sampledMeshTargetRegion.boxes[j]->x1;
+        boxes[nboxes][1][1] = -gappyIO->sampledMeshTargetRegion.boxes[j]->y0;
+        boxes[nboxes][1][2] = gappyIO->sampledMeshTargetRegion.boxes[j]->z1;
+        ++nboxes;
+      }
+     if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::Z) {
+        boxes[nboxes][0][0] = gappyIO->sampledMeshTargetRegion.boxes[j]->x0;
+        boxes[nboxes][0][1] = gappyIO->sampledMeshTargetRegion.boxes[j]->y0;
+        boxes[nboxes][0][2] = -gappyIO->sampledMeshTargetRegion.boxes[j]->z1;
+        boxes[nboxes][1][0] = gappyIO->sampledMeshTargetRegion.boxes[j]->x1;
+        boxes[nboxes][1][1] = gappyIO->sampledMeshTargetRegion.boxes[j]->y1;
+        boxes[nboxes][1][2] = -gappyIO->sampledMeshTargetRegion.boxes[j]->z0;
+        ++nboxes;
+      }
+    }
+    if (gappyIO->sampledMeshTargetRegion.cones[j]->r0 >= 0.0 && gappyIO->sampledMeshTargetRegion.cones[j]->r1 >= 0.0) {
+      cones[ncones][0][0] = gappyIO->sampledMeshTargetRegion.cones[j]->x0;
+      cones[ncones][0][1] = gappyIO->sampledMeshTargetRegion.cones[j]->y0;
+      cones[ncones][0][2] = gappyIO->sampledMeshTargetRegion.cones[j]->z0;
+      cones[ncones][0][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r0;
+      cones[ncones][1][0] = gappyIO->sampledMeshTargetRegion.cones[j]->x1;
+      cones[ncones][1][1] = gappyIO->sampledMeshTargetRegion.cones[j]->y1;
+      cones[ncones][1][2] = gappyIO->sampledMeshTargetRegion.cones[j]->z1;
+      cones[ncones][1][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r1;
+      ++ncones;
+      if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::X) {
+        cones[ncones][0][0] = -gappyIO->sampledMeshTargetRegion.cones[j]->x0;
+        cones[ncones][0][1] = gappyIO->sampledMeshTargetRegion.cones[j]->y0;
+        cones[ncones][0][2] = gappyIO->sampledMeshTargetRegion.cones[j]->z0;
+        cones[ncones][0][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r0;
+        cones[ncones][1][0] = -gappyIO->sampledMeshTargetRegion.cones[j]->x1;
+        cones[ncones][1][1] = gappyIO->sampledMeshTargetRegion.cones[j]->y1;
+        cones[ncones][1][2] = gappyIO->sampledMeshTargetRegion.cones[j]->z1;
+        cones[ncones][1][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r1;
+        ++ncones;
+      }
+      if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::Y) {
+        cones[ncones][0][0] = gappyIO->sampledMeshTargetRegion.cones[j]->x0;
+        cones[ncones][0][1] = -gappyIO->sampledMeshTargetRegion.cones[j]->y0;
+        cones[ncones][0][2] = gappyIO->sampledMeshTargetRegion.cones[j]->z0;
+        cones[ncones][0][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r0;
+        cones[ncones][1][0] = gappyIO->sampledMeshTargetRegion.cones[j]->x1;
+        cones[ncones][1][1] = -gappyIO->sampledMeshTargetRegion.cones[j]->y1;
+        cones[ncones][1][2] = gappyIO->sampledMeshTargetRegion.cones[j]->z1;
+        cones[ncones][1][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r1;
+        ++ncones;
+      }
+      if (gappyIO->sampledMeshTargetRegion.symmetry == SchemeFixData::Z) {
+        cones[ncones][0][0] = gappyIO->sampledMeshTargetRegion.cones[j]->x0;
+        cones[ncones][0][1] = gappyIO->sampledMeshTargetRegion.cones[j]->y0;
+        cones[ncones][0][2] = -gappyIO->sampledMeshTargetRegion.cones[j]->z0;
+        cones[ncones][0][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r0;
+        cones[ncones][1][0] = gappyIO->sampledMeshTargetRegion.cones[j]->x1;
+        cones[ncones][1][1] = gappyIO->sampledMeshTargetRegion.cones[j]->y1;
+        cones[ncones][1][2] = -gappyIO->sampledMeshTargetRegion.cones[j]->z1;
+        cones[ncones][1][3] = gappyIO->sampledMeshTargetRegion.cones[j]->r1;
+        ++ncones;
+      }
+    }
+  }
+
+  if (nspheres > 0 || nboxes > 0 || ncones > 0) {
+    targetRegionMask = new DistVec<double>( domain.getNodeDistInfo() );
+    *targetRegionMask = 0.0;
+
+    for (int j=0; j<nspheres; ++j)
+      com->fprintf(stdout," ... target sampled mesh region includes the sphere [center: (%g, %g, %g), radius: %g]\n",
+                  spheres[j][0], spheres[j][1], spheres[j][2], spheres[j][3]);
+    for (int j=0; j<nboxes; ++j)
+      com->fprintf(stdout," ... target sampled mesh region includes the box [corner1: (%g, %g, %g), corner2: (%g, %g, %g)]\n",
+                  boxes[j][0][0], boxes[j][0][1], boxes[j][0][2],
+                  boxes[j][1][0], boxes[j][1][1], boxes[j][1][2]);
+
+    for (int j=0; j<ncones; ++j)
+      com->fprintf(stdout," ... target sampled mesh region includes the cone [center1: (%g, %g, %g), radius1: %g; center2: (%g, %g, %g), radius2: %g]\n",
+                  cones[j][0][0], cones[j][0][1], cones[j][0][2], cones[j][0][3],
+                  cones[j][1][0], cones[j][1][1], cones[j][1][2], cones[j][1][3]);
+
+
+    DistSVec<double,3> X0(domain.getNodeDistInfo());
+    domain.getReferenceMeshPosition(X0);
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      double* mask = targetRegionMask->subData(iSub);
+      double (*x0)[3] = X0.subData(iSub);
+      for (int i=0; i<targetRegionMask->subSize(iSub); ++i) {
+        for (int j=0; j<nspheres; ++j) {
+          double r = sqrt( (x0[i][0] - spheres[j][0])*(x0[i][0] - spheres[j][0]) +
+                           (x0[i][1] - spheres[j][1])*(x0[i][1] - spheres[j][1]) +
+                           (x0[i][2] - spheres[j][2])*(x0[i][2] - spheres[j][2]) );
+          if (r <= spheres[j][3])
+            mask[i] = 1.0;
+        }
+        for (int j=0; j<nboxes; ++j) {
+          if ((x0[i][0] >= boxes[j][0][0]) && (x0[i][0] <= boxes[j][1][0]) &&
+              (x0[i][1] >= boxes[j][0][1]) && (x0[i][1] <= boxes[j][1][1]) &&
+              (x0[i][2] >= boxes[j][0][2]) && (x0[i][2] <= boxes[j][1][2]))
+            mask[i] = true;
+        }
+        for (int j=0; j<ncones; ++j)  {
+          Vec3D dr(cones[j][1][0]-cones[j][0][0], cones[j][1][1]-cones[j][0][1], cones[j][1][2]-cones[j][0][2]);
+          double height = dr.norm();
+          dr /= height;
+          Vec3D xp;
+          Vec3D pr0(x0[i][0]-cones[j][0][0], x0[i][1]-cones[j][0][1], x0[i][2]-cones[j][0][2]);
+          double h = pr0*dr;
+          if (h >= 0.0 && h <= height)  {
+            xp = pr0 - (h*dr);
+            double r = cones[j][0][3] + (cones[j][1][3]-cones[j][0][3]) * h / height;
+            if (xp.norm() < r)
+              mask[i] = true;
+          }
+        }
+      }
+    }
+    com->fprintf(stdout," ... targetRegionMask = %e\n", targetRegionMask->norm());
+  }
+
+
+  
+}
+
+//----------------------------------------------
+
+
+template<int dim>
+void GappyPreprocessing<dim>::maskError() {
+
+  if (onlyInletOutletBC) return; 
+
+  int minLocSampledNodesOnSurfaceInTargetRegion = int(ceil(double(nSampleNodes)*gappyIO->minFractionOfSampledNodesOnSurfaceInTargetRegion));
+  int minLocSampledNodesInTargetRegion = int(ceil(double(nSampleNodes)*gappyIO->minFractionOfSampledNodesInTargetRegion));
+
+  if (int(globalSampleNodes.size()) < minLocSampledNodesOnSurfaceInTargetRegion) {
+    com->fprintf(stdout," ... only considering surface nodes in target region ...\n");
+    for (int iPodBasis = 0; iPodBasis < nPodBasis ; ++iPodBasis) {
+      for (int iRhs = 0; iRhs < nRhs[iPodBasis] ; ++iRhs){
+        //com->fprintf(stdout," ... error vec norm = %e\n", error[iPodBasis][iRhs].norm());
+        //com->fprintf(stdout," ... surface mask ...\n");
+        error[iPodBasis][iRhs] *= *wallMask;
+        //com->fprintf(stdout," ... error vec norm = %e\n", error[iPodBasis][iRhs].norm());
+        //com->fprintf(stdout," ... target region mask ...\n");
+        if (targetRegionMask) error[iPodBasis][iRhs] *= *targetRegionMask;
+        //com->fprintf(stdout," ... error vec norm = %e\n\n", error[iPodBasis][iRhs].norm());
+      }
+    }
+  } else if (int(globalSampleNodes.size()) < minLocSampledNodesInTargetRegion) {
+    com->fprintf(stdout," ... only considering target region ...\n");
+    for (int iPodBasis = 0; iPodBasis < nPodBasis ; ++iPodBasis) {
+      for (int iRhs = 0; iRhs < nRhs[iPodBasis] ; ++iRhs){
+        if (targetRegionMask) error[iPodBasis][iRhs] *= *targetRegionMask;
+      }
+    }
   }
 
 }

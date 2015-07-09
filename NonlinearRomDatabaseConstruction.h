@@ -46,7 +46,7 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   void productOfBasisAndCenterDifferences(int, const char*);
   void productOfVectorAndCenterDifferences(int, const char*);
 
-  // gnat basis updates preprocessing
+  // preprocessing for basis updates for gappy simulations
   void preprocessForExactBasisUpdates();
 
   // IO functions that are independent of database structure

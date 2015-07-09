@@ -1001,10 +1001,10 @@ double Timer::addMDSTime(double t0) {
 
 //------------------------------------------------------------------------------
                 
-double Timer::addApproxUpdatesPreproTime(double t0) {
+double Timer::addApproxMetricPreproTime(double t0) {
                 
   double t = getTime() - t0;
-  data[approxUpdatesPrepro] += t;
+  data[approxMetricPrepro] += t;
 
   return t;
 
@@ -1068,10 +1068,10 @@ double Timer::addPseudoInvTime(double t0) {
 
 //------------------------------------------------------------------------------
                 
-double Timer::addTotalGnatOfflineTime(double t0) {
+double Timer::addTotalGappyOfflineTime(double t0) {
                 
   double t = getTime() - t0;
-  data[gnatOffline] += t;
+  data[gappyOffline] += t;
 
   return t;
 
@@ -1275,10 +1275,10 @@ void Timer::print(Timer *str, FILE *fp)
                tmin[projError], tmax[projError], tavg[projError]);
     com->fprintf(fp, "  Multi-Dimensional Scaling   : %10.2f %10.2f %10.2f         -\n",
                tmin[mds], tmax[mds], tavg[mds]);
-    com->fprintf(fp, "  Offline GNAT Prepro         : %10.2f %10.2f %10.2f         -\n",
-               tmin[gnatOffline], tmax[gnatOffline], tavg[gnatOffline]);
-    com->fprintf(fp, "    Fast Approx Updates Prepro: %10.2f %10.2f %10.2f         -\n",
-               tmin[approxUpdatesPrepro], tmax[approxUpdatesPrepro], tavg[approxUpdatesPrepro]);
+    com->fprintf(fp, "  Offline Gappy Prepro        : %10.2f %10.2f %10.2f         -\n",
+               tmin[gappyOffline], tmax[gappyOffline], tavg[gappyOffline]);
+    com->fprintf(fp, "    Approx Metric Prepro      : %10.2f %10.2f %10.2f         -\n",
+               tmin[approxMetricPrepro], tmax[approxMetricPrepro], tavg[approxMetricPrepro]);
     com->fprintf(fp, "    Sampled Mesh Construction : %10.2f %10.2f %10.2f         -\n",
                tmin[sampledMeshConstruction], tmax[sampledMeshConstruction], tavg[sampledMeshConstruction]);
     com->fprintf(fp, "    Sampled Quantity Output   : %10.2f %10.2f %10.2f         -\n",
@@ -1297,7 +1297,7 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "  Snapshot Linear Solver      : %10.2f %10.2f %10.2f %9d\n",
                tmin[snapsLinSolv], tmax[snapsLinSolv], tavg[snapsLinSolv], counter[snapsLinSolv]);
     if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
-      com->fprintf(fp, "  Pade Reconstruction       : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Pade Reconstruction         : %10.2f %10.2f %10.2f %9d\n",
                tmin[padeReconstr], tmax[padeReconstr], tavg[padeReconstr], counter[padeReconstr]);
     }
     com->fprintf(fp, "  Correlation Matrix          : %10.2f %10.2f %10.2f %9d\n",
