@@ -1582,9 +1582,9 @@ void GnatPreprocessing<dim>::buildRemainingMesh() {
 
   // from now on, use maps and not these vectors
 
-  cpuSample.erase(cpuSample.begin(),cpuSample.end());
-  locSubSample.erase(locSubSample.begin(),locSubSample.end());
-  locNodeSample.erase(locNodeSample.begin(),locNodeSample.end());
+  cpuSample.clear();
+  locSubSample.clear();
+  locNodeSample.clear();
 
   // remove redundant entries from the globalNodes and elements
 

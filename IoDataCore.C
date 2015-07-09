@@ -5984,9 +5984,11 @@ int IoData::checkInputValues()
   error += checkInputValuesAllEquationsOfState();
   checkCFLBackwardsCompatibility();
 
-  if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
-    ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
-    ts.cfl.checklinsolve = CFLData::CHECK_LIN_SOLVE_OFF;
+  if (ts.cfl.strategy!=CFLData::OLD) {
+    if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
+      ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
+      ts.cfl.checklinsolve = CFLData::CHECK_LIN_SOLVE_OFF;
+    }
   }
 
   // no need for all input values for Sparse Grid generation
