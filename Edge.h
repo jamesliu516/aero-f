@@ -165,7 +165,7 @@ public:
                               SVec<double,dim>&, Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
-                              NodalGrad<dimLS>&,
+                              NodalGrad<dimLS>&, EdgeGrad<dimLS>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
@@ -176,7 +176,7 @@ public:
                               LevelSetStructure&, bool, Vec<int> &, int, SVec<double,3>*, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
-                              NodalGrad<dimLS>&,
+                              NodalGrad<dimLS>&, EdgeGrad<dimLS>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
@@ -200,7 +200,9 @@ public:
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                               SVec<double,dim>&,Vec<int>& fluidId, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
+                               SVec<double,dim>&,Vec<int>& fluidId, 
+  			       NodalGrad<dim>&,   EdgeGrad<dim>*,
+			       NodalGrad<dimLS>&, EdgeGrad<dimLS>*,
                                SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0, int order = 1);
 
   template<int dim, class Scalar, int neq>
@@ -284,6 +286,15 @@ public:
   void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&, SVec<double,3>&,
 			       SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
 			       SVec<double,dim>&);
+  
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
+					   GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
+					   bool linRecAtInterface, Vec<int> &fluidId, 
+					   ExactRiemannSolver<dim>& riemann, int Nriemann,
+					   SVec<double,3> *Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+					   double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes);
+    
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
                               SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,

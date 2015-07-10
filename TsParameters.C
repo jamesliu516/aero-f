@@ -31,13 +31,12 @@ TsParameters::TsParameters(IoData &ioData)
   cfl0 = ioData.ts.cfl.cfl0;
   cflCoef1 = ioData.ts.cfl.cflCoef1;
   cflCoef2 = ioData.ts.cfl.cflCoef2;
-  cflCoef3 = ioData.ts.cfl.cflCoef3;  // undocumented -- coefficient for quadratic CFL law
   cflMax = ioData.ts.cfl.cflMax;
-  cflMin = ioData.ts.cfl.cflMin;
+  cflMin = ioData.ts.cfl.cflMin;  // not used... cflCoef1 is the real cflMin
   dualtimecfl = ioData.ts.cfl.dualtimecfl;
 
-  checksol = !(!ioData.ts.adaptivetime.checksol || !ioData.ts.cfl.checksol || !ioData.ts.checksol);
-  checklinsolve = !(!ioData.ts.cfl.checklinsolve || !ioData.ts.adaptivetime.checksol);
+  checksol = !(!ioData.ts.cfl.checksol || !ioData.ts.checksol);
+  checklinsolve = ioData.ts.cfl.checklinsolve;
   checkriemann = checksol;
   checklargevelocity = ioData.ts.checkvelocity;
   checkpclipping = ioData.ts.checkpressure;
@@ -55,7 +54,7 @@ TsParameters::TsParameters(IoData &ioData)
 
   maxIts = ioData.ts.maxIts;
   eps = ioData.ts.eps;
-  epsabs = ioData.ts.epsabs;
+  epsabs = ioData.ts.epsabs; 
   maxTime = ioData.ts.maxTime;
 
   forbidreduce = ioData.ts.cfl.forbidreduce;
@@ -72,9 +71,24 @@ TsParameters::TsParameters(IoData &ioData)
   for (int i=0; i<dft_history; i++) dft[i]=0.0;
 
   unphysical = false;
+  badlinsolve = false;
   allowstop = true;
 
   errorHandler = NULL;
+
+  if (strcmp(ioData.ts.cfl.output, "") == 0)
+    cfl_output = 0;
+  else if (strcmp(ioData.ts.cfl.output, "stdout") == 0)
+    cfl_output = stdout;
+  else if (strcmp(ioData.ts.cfl.output, "stderr") == 0)
+    cfl_output = stderr;
+  else {
+    cfl_output = fopen(ioData.ts.cfl.output, "w");
+    if (!cfl_output) {
+      fprintf(stderr, "*** Error: could not open \'%s\'\n", ioData.ts.cfl.output);
+      exit(1);
+    }
+  }
 
 }
 
@@ -86,6 +100,7 @@ TsParameters::~TsParameters()
   if (output) delete [] output;
   if (reshistory) delete [] reshistory;
   if (dft) delete [] dft;
+  if (cfl_output) fclose(cfl_output);
 }
 
 //------------------------------------------------------------------------------
@@ -93,7 +108,7 @@ TsParameters::~TsParameters()
 //Figure out what to do with errors (related to time step)
 void TsParameters::resolveErrors(){
 
-  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]){ 
+  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]){
     errorHandler->com -> printf(1,"Detected saturated linear solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
   }
@@ -147,22 +162,47 @@ void TsParameters::resolveErrors(){
 
 void TsParameters::computeCflNumber(int its, double res, double angle)
 {
+  // First run automatic CFL checks
 
-  // for backwards compatibility
-  if (cfllaw == CFLData::OLD){
-    cfl = min( max( max(cflCoef1, max(cflCoef2*its, cflCoef3*its*its)), cfl0/pow(res,ser) ), cflMax);
+
+  if (unphysical){
+    unphysical=false;
+    badlinsolve=false;
+    cfl *= 0.5;
+    fixedunsteady_counter = 1;
+    //std::printf("Reduction params: cfl0=%f, cfl=%f\n",cfl0,cfl);
+    if(cfl_output) errorHandler->com->fprintf(cfl_output,"Unphysicality detected. Reducing CFL number to %f.\n",cfl);
+    if (cfl < cfl0/10000. && allowstop ) {
+      std::printf("Could not resolve unphysicality by reducing CFL number. Aborting.\n"); 
+      std::printf("Params: cfl0=%f, cfl=%f\n",cfl0,cfl);
+      exit(-1);
+    }
     return;
   }
 
-  if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]){
-    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]=0;
+  if (badlinsolve){
+    unphysical=false;
+    badlinsolve=false;
+    cfl *= 0.75;
+    fixedunsteady_counter = 1;
+    if(cfl_output) errorHandler->com->fprintf(cfl_output,"Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
+    if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
+    return;
+  }
 
+  if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
     double cflold=cfl;
     cfl *= 0.5;
     fixedunsteady_counter = 1;
     errorHandler->com->printf(1,"Reducing CFL. Previous cfl=%e, new cfl=%e.\n",cflold,cfl);
-    //std::printf("Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
     if (cfl < cfl0/10000. && allowstop) {std::printf("Cannot further reduce CFL number. Aborting.\n"); exit(-1);}
+    return;
+  }
+
+  // for backwards compatibility
+  if (cfllaw == CFLData::OLD){
+    cfl = min( max( max(cflCoef1, min(its*cflCoef2,cfl+cflCoef2)), cfl0/pow(res,ser) ), cflMax );
     return;
   }
 
@@ -179,14 +219,14 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     cfl = cfl_prev;
     cfl *= pow(reshistory[1]/reshistory[0],ser);
     cfl_res = cfl;
-    //std::printf("CFL residual strategy: old residual: %e, new residual: %e, CFL proposal: %e\n",reshistory[1],reshistory[0],cfl_res);
+    if(cfl_output) errorHandler->com->fprintf(cfl_output,"CFL residual strategy: old residual: %e, new residual: %e, CFL proposal: %e\n",reshistory[1],reshistory[0],cfl_res);
   }
   if (cfllaw == CFLData::DIRECTION || cfllaw == CFLData::HYBRID){
     // compute direction strategy proposal
     cfl = cfl_prev;
     if (angle != -2.0) cfl *= pow(angle_growth,angle-angle_zero);
     cfl_dir = cfl;
-    //std::printf("CFL direction strategy: angle: %e, CFL proposal: %e\n",angle,cfl_dir);
+    if(cfl_output) errorHandler->com->fprintf(cfl_output,"CFL direction strategy: angle: %e, CFL proposal: %e\n",angle,cfl_dir);
   }
   if (cfllaw == CFLData::DFT || cfllaw == CFLData::HYBRID){
     // compute dft strategy proposal
@@ -229,8 +269,8 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
 	exit(-1);
       }
 
-      cfl *= pow(dft_growth, 1-2*hf_ratio);
-      //errorHandler->com ->fprintf(stdout,"CFL DFT strategy: e_ac: %e, e_hf: %e, CFL proposal: %e\n",e_ac,e_hf,cfl);
+      if(its != 0) cfl *= pow(dft_growth, 1-2*hf_ratio);
+      if(cfl_output) errorHandler->com->fprintf(cfl_output,"CFL DFT strategy: e_ac: %e, e_hf: %e, CFL proposal: %e\n",e_ac,e_hf,cfl);
     }
     cfl_dft = cfl;
   }
@@ -239,7 +279,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
     if (hf_ratio > 0.66) cfl = cfl_dft;
     else if (angle < angle_zero) cfl = cfl_dir;
     else cfl = max(cfl_dir, cfl_res);
-    //std::printf("CFL Hybrid strategy: dft_proposal: %e, direction proposal: %e, residual proposal: %e, chosen cfl: %e\n",cfl_dft,cfl_dir,cfl_res,cfl);
+    if(cfl_output) errorHandler->com->fprintf(cfl_output,"CFL Hybrid strategy: dft_proposal: %e, direction proposal: %e, residual proposal: %e, chosen cfl: %e\n",cfl_dft,cfl_dir,cfl_res,cfl);
   }
   if (cfllaw == CFLData::FIXEDUNSTEADY){
     // compute fixed unsteady cfl law
@@ -255,7 +295,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
 
   cfl = (min(max(cfl, cflCoef1),cflMax));
   if (forbidreduce && cfl<cfl_prev) cfl = cfl_prev;
-  //std::printf("CFL number chosen: %e. Forbidreduce: %i. cfl_prev=%e\n",cfl,forbidreduce,cfl_prev);
+  if(cfl_output) errorHandler->com->fprintf(cfl_output,"CFL number chosen: %e. Forbidreduce: %i. cfl_prev=%e\n",cfl,forbidreduce,cfl_prev);
   return;
 }
 

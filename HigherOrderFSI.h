@@ -41,6 +41,12 @@ class HigherOrderFSI {
 		    Vec<int>& fluidId, double* r);
 
    template <int dim>
+     void estimateRderivative(int l, int vertex, 
+			      int i, SVec<double,dim>& V, 
+			      NodalGrad<dim>& dVdx, SVec<double,3>& X,
+			      Vec<int>& fluidId, double* dV, double* dV_g);
+
+   template <int dim>
      double computeAlpha(int nodeId, const double* currentV,
 			 const double* neighborV);
 
@@ -53,6 +59,27 @@ class HigherOrderFSI {
 		   double* Vsurrogate,const double* W, SVec<double,3>& X,
 		   double alpha,double length,
 		   Vec<int>& fluidId, double* beta) ;
+
+   template <int dim>
+     void RcnExtrap(int l, int vertex, int i, 
+		    double length, double alphaij, 
+		    SVec<double,dim>& p,
+		    double* ddpij,
+		    SVec<double,3>& X, Vec<int>& fluidId,
+		    double* beta,
+		    double* dVsdV, 
+		    double *dVpij, double *dVpji);
+
+   
+   template <int dim>
+     void derivativeofHOFSI(int l, int vertex, int i, 
+			    SVec<double,dim>& V, 
+			    double*  Vf,    double*  Vs,
+			    double* dVf_ds, double* dVs_ds,
+			    SVec<double,3>& X,
+			    double alphaij, double dalphaij_ds,
+			    double length, Vec<int>& fluidId, double* beta,
+			    double* dVfluid_ds, double* dVstar_ds);
 
    V6NodeData (*getV6Data() const) [2] { return v6data; }
 

@@ -261,7 +261,6 @@ void RecFcn::linearDerivative(double dVi, double dddVij, double dVj, double dddV
 inline
 double RecFcn::computeVanAlbadaFcn(double eps, double a, double b)
 {
-
   double a2 = a * a;
   double b2 = b * b;
 

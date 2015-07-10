@@ -74,10 +74,11 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
 {
   //Vec3D p(0,0,0);
   //DebugTools::PrintFluidId("Printing Id 1: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
+  DistVec<int> fluidId_copy(*this->fluidSelector.fluidId);
 
-  if(this->mmh && !this->inSubCycling) {
+  if(this->mmh && (!this->inSubCycling || this->inRedoTimestep)) {
     // get structural time-step and recompute FS intersections.
-    recomputeIntersections();
+    if(!this->inSubCycling) recomputeIntersections();
 
     //DebugTools::PrintFluidId("Printing Id 2: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
 
@@ -95,6 +96,17 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
 //  populateGhostPointsForNavierStokes(U);
   // evolve the fluid equation using FE, RK2, or RK4
   solveNLNavierStokes(U);
+
+  this->errorHandler->reduceError();
+  this->data->resolveErrors();
+  if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) {
+    *this->fluidSelector.fluidId = fluidId_copy;
+    this->inRedoTimestep = true;
+    return;
+  }
+  else {
+    this->inRedoTimestep = false;
+  }
 
   //DebugTools::PrintFluidId("Printing Id 5: ", *(this->fluidSelector.fluidId), *(this->X), p, this->com->cpuNum());
 

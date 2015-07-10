@@ -16,6 +16,7 @@ NewtonData<GenericKrylov>::NewtonData()
   JacSkip = 1;
   epsAbsRes = std::numeric_limits<double>::epsilon();
   epsAbsInc = std::numeric_limits<double>::epsilon();
+  output = "";
 }
 
 //------------------------------------------------------------------------------
@@ -31,10 +32,10 @@ void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
      "Off", 0, "On", 1, "AlwaysOn", 2);
   new ClassInt<NewtonData>(ca, "MaxIts", this, &NewtonData::maxIts);
   new ClassDouble<NewtonData>(ca, "Eps", this, &NewtonData::eps);
-	new ClassInt<NewtonData>(ca, "JacobianFrequency", this, &NewtonData::JacSkip);
-  //new ClassDouble<NewtonData>(ca, "EpsRelRes", this, &NewtonData::eps);
+  new ClassInt<NewtonData>(ca, "JacobianFrequency", this, &NewtonData::JacSkip);
   new ClassDouble<NewtonData>(ca, "EpsAbsRes", this, &NewtonData::epsAbsRes);
   new ClassDouble<NewtonData>(ca, "EpsAbsInc", this, &NewtonData::epsAbsInc);
+  new ClassStr<NewtonData>(ca, "Output", this, &NewtonData::output);
 
   ksp.setup("LinearSolver", ca);
   lineSearch.setup("LineSearch",ca);

@@ -608,7 +608,7 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 			double pref, double gamma,
 			double Pinf, double Pcg,
                         double rhocg, double Pcw,
-                        double rhocw) {
+                        double rhocw, int &ierr) {
 
   double Q,f,m,n,dQ,df,g,dg,db;
   double ag = sqrt(gamma/Rg*(Pg+Pinf));
@@ -617,10 +617,15 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
   Riw = pow((Pi-pref)/alpha,1.0/beta);
   double dpdrho = alpha*beta*pow(Riw,beta-1.0);
 
-  double Pmin = std::max<double>(Pcg,Pcw);
+  double Pmin = std::max<double>(  Pcg,   Pcw);
+  double Rmin = std::max<double>(rhocg, rhocw);
+
+  const int max_ite = 1000;
+
+  ierr = 0;
 
   int k = 0;
-  while (++k < 1000) {
+  while (++k < max_ite) {
 
     // Gas relations
     if (Pi > Pg) {
@@ -642,9 +647,9 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     if (Pi > Pw) {
 
       g = max(1.0e-8,sqrt( alpha*(pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Rw) ));
-      dg = 0.5/g*(alpha*( beta*pow(Riw,beta-1.0))*(Riw-Rw)/(Riw*Rw) + 
+      dg = 0.5/g*(alpha*( beta*pow(Riw,beta-1.0)*(Riw-Rw)/(Riw*Rw) + 
 		  (pow(Riw,beta)-pow(Rw,beta))/(Riw*Rw) - 
-		  (pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Riw*Rw));
+		  (pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Riw*Rw) )); // PJSA
     } else {
 
       g = 2.0*aw/(beta-1.0)*( pow(Riw/Rw, (beta-1.0)*0.5) - 1.0);
@@ -671,12 +676,15 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 
   }
 
-  if (k == 1000) {
-    std::cout << "No convergence in Newton iteration for gas-tait ERS" << std::endl;
-    std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
-    std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
-    std::cout << "Pi = " << Pi << " Riw = " << Riw << " b = " << b << " db = " << db << std::endl;
-    
+  if (k >= max_ite) {
+    std::cout << "*** Warning " << std::endl;
+    std::cout << "Newton for gas-tait ERS reached max num. iterations " << max_ite << std::endl;
+    std::cout << "without converging to the desired tolerance " << 1.0e-6 << std::endl;
+    std::cout << "Input gas:  Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
+    std::cout << "Input Tait: Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
+    std::cout << "Output    : Pi = " << Pi << " Riw = " << Riw << " b = " << b << " db = " << db << std::endl;    
+    std::cout << "*** " << std::endl;
+    ierr = 1;
   }
 
   Ui = (0.5*(Uw+Ug)+0.5*(f-g));
@@ -688,6 +696,14 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     Rig = Rg*pow( (Pi+Pinf)/(Pg+Pinf), 1.0/gamma);
   }
   Rig = std::max<double>(rhocg, Rig);
+
+  /*if( Pi <= Pmin || Rig <= Rmin || Riw <= Rmin ){
+    std::cout << "*** ERROR ERS SGTait: detected too small density or pressure " << std::endl;
+    std::cout << " Rig, Riw, Pi " << std::endl;
+    std::cout << Rig << " " << Riw << " " << Pi << std::endl;
+    ierr = 1;
+  }*/
+
 }
 
 inline
@@ -698,6 +714,7 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
           double *rupdatei, double *rupdatej, double &weighti, double &weightj,
           double dx[3], int it,bool isHigherOrder)
 {
+
   int dim = 5;
 
   double alpha   = vf_->getAlphaWater(fluid2);
@@ -715,6 +732,8 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  int err = 0;
 
   if (IDi==fluid2) {
     if(IDj!=fluid1) {
@@ -738,7 +757,7 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 		pref,gam,
 		Pinf, vf_->getVarFcnBase(IDj)->pmin,
                 vf_->getVarFcnBase(IDj)->rhomin, vf_->getVarFcnBase(IDi)->pmin,
-		vf_->getVarFcnBase(IDi)->rhomin);
+		vf_->getVarFcnBase(IDi)->rhomin, err);
 
     Wi[0]  = R_ir;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -779,7 +798,7 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 		pref,gam,
 		Pinf , vf_->getVarFcnBase(IDi)->pmin,
                 vf_->getVarFcnBase(IDi)->rhomin, vf_->getVarFcnBase(IDj)->pmin,
-		vf_->getVarFcnBase(IDj)->rhomin);
+		vf_->getVarFcnBase(IDj)->rhomin, err);
 
     //std::cout << "P_i = " << P_i << " " << R_il << " " << R_ir << std::endl;
 
@@ -794,9 +813,9 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
     if (vf_->isBurnable(IDj))
-      Wj[4]  = Vj[4] + 1.0/cp*(-0.5*(P_i+P_w)*(1.0/R_il-1.0/R_w));
+      Wj[4]  = Vj[4] + 1.0/cp*(-0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w)); // PJSA
     else
-      Wj[4]  = Vj[4] + 1.0/cp*(P_i/R_il-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_il-1.0/R_w));
+      Wj[4]  = Vj[4] + 1.0/cp*(P_i/R_ir-P_w/R_w - 0.5*(P_i+P_w)*(1.0/R_ir-1.0/R_w)); // PJSA
     /*vf_->computeTemperature(Wj, IDi);*/      Wj[dim+4]  = Wj[4];
 
   }
@@ -816,7 +835,7 @@ int LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1 && !isHigherOrder)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
-  return 0;
+  return err;
 }
 //----------------------------------------------------------------------------
 
@@ -832,6 +851,8 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
   double alpha   = vf_->getAlphaWater(fluid2);
   double beta    = vf_->getBetaWater(fluid2);
   double pref    = vf_->getPrefWater(fluid2);
+  double cp      = vf_->specificHeatCstPressure(fluid2);
+  bool   isBurnable = vf_->isBurnable(fluid2);
   double gam     = vf_->getGamma(fluid1);
   double Pinf    = vf_->getPressureConstant(fluid1);
 
@@ -859,7 +880,8 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 
     ImplicitRiemann::computeGasTaitJacobian(Wj[4], gam, Pinf, P_g, R_g, alpha,
 					    beta, pref, P_w, R_w, 
-					    dWjdWj3, dWjdWi3, dWidWi3, dWidWj3);
+					    dWjdWj3, dWjdWi3, dWidWi3, dWidWj3,
+                                            cp, isBurnable); // PJSA
 
   }else{
     // cell j is tait
@@ -871,9 +893,10 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 
     //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
 
-    ImplicitRiemann::computeGasTaitJacobian(Wi[4], gam, 0.0, P_g, R_g, alpha,
+    ImplicitRiemann::computeGasTaitJacobian(Wi[4], gam, Pinf, P_g, R_g, alpha, // PJSA
 					    beta, pref, P_w, R_w, 
-					    dWidWi3, dWidWj3, dWjdWj3, dWjdWi3);
+					    dWidWi3, dWidWj3, dWjdWj3, dWjdWi3,
+                                            cp, isBurnable); // PJSA
   }
 
   this->oneDtoThreeD(dWidWi3, dWidWj3,
@@ -1323,7 +1346,8 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
   int MaxIts = 100;
   int it = 0;
 
-  double pcut = std::max<double>(pcl,pcr);
+  double pcut = std::max<double>(  pcl,   pcr);
+  double rcut = std::max<double>(rhocl, rhocr);
 
   double vl  = 1.0/rhol;
   double vr  = 1.0/rhor;
@@ -1427,9 +1451,16 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
     pi    = 0.5*(pil+pir);
     pi = std::max<double>(pcut, pi);
   }else{
-    fprintf(stdout, "riemann solver did not converge\n");
+    fprintf(stdout, "***WARNING: ERS for JWL-JWL did not converge in %d iterations to the desired tolerance %e \n", it, eps);
     err = 1;
   }
+
+  /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+    std::cout << "*** ERROR ERS JJ: detected too small density or pressure " << std::endl;
+    std::cout << " rL, rR, Pi " << std::endl;
+    std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
+    err = 1;
+  }*/ 
 
 }
 //----------------------------------------------------------------------------
@@ -1664,13 +1695,14 @@ void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell i is fluid1
     // cell j is fluid2
 
+    int err = 1;
     if (riemannComputationType_==MultiFluidData::TABULATION2) {
       double dVdv[2];
-      rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
-      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0]  );
-    } else {
-      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, NULL);
+      err = rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
+      if(!err) ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0]  );
     }
+    if(err)
+      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, NULL);
   
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
@@ -1695,14 +1727,14 @@ void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
 
     //std::cout << "ji" << std::endl << std::endl ;
 
+    int err = 1;
     if (riemannComputationType_==MultiFluidData::TABULATION2) {
       double dVdv[2];
-      rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
-      ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0]  );
+      err = rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
+      if(!err) ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0]  );
     }
-    else {
+    if(err)
       ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, NULL );
-    }
     
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
@@ -1753,6 +1785,8 @@ void LocalRiemannGfmparGasJWL::eriemanngj_selector(
                                double pcl,double pcr, double rhocl,double rhocr)
 {
 
+  err = 0;
+
   if(riemannComputationType_==MultiFluidData::TABULATION5){
     double *in  = new double[5]; in[0]=rhol;in[1]=pl;in[2]=rhor;in[3]=pr;in[4]=ur-ul;
     double *res = new double[2]; res[0]=0.0;res[1]=0.0;
@@ -1784,10 +1818,21 @@ void LocalRiemannGfmparGasJWL::eriemanngj_selector(
 
     ui = 0.5*(uil+uir);
     pi = 0.5*(pil+pir);
+
     pi = std::max<double>(pi, std::max<double>(pcl,pcr));
     rhoil = std::max<double>(rhoil, rhocl);
     rhoir = std::max<double>(rhoir, rhocr);
-    // not checking for vacuum!
+
+  /*double pcut = std::max<double>(  pcl,   pcr);
+    double rcut = std::max<double>(rhocl, rhocr);
+
+    if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+      std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
+      std::cout << " rL, rR, Pi " << std::endl;
+      std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
+      err = 1;
+    }*/ 
+
   }
   else
     eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor, err,pcl,pcr,rhocl,rhocr);
@@ -1824,7 +1869,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double relaxationFactorGas = relaxFactorJwl;//1.0; //0.85; // must be between 0 and 1
   int count = 0;
 
-  double pcut = std::max<double>(pcl,pcr);
+  double pcut = std::max<double>(  pcl,   pcr);
+  double rcut = std::max<double>(rhocl, rhocr);
 
   double vl  = 1.0/rhol;
   double vr  = 1.0/rhor;
@@ -2092,14 +2138,24 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
     fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
     fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
-    err = 1;
   }
 
-  if(convergence) return true;
-  else            return false;
+  /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+    std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
+    std::cout << " rL, rR, Pi " << std::endl;
+    std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
+    err = 1;
+  }*/
+
+  if(convergence) {    
+    return true;
+  } else {
+    return false;
+  }
 
 
 }
+
 //----------------------------------------------------------------------------
 inline
 bool LocalRiemannGfmparGasJWL::vacuum(const double rhol, const double ul, const double pl,
@@ -2608,6 +2664,8 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_selector(
                                double pcl,double pcr, double rhocl,double rhocr)
 {
 
+  err = 0;
+
   if(riemannComputationType_==MultiFluidData::TABULATION5){
     double *in  = new double[5]; in[0]=rhol;in[1]=pl;in[2]=rhor;in[3]=pr;in[4]=ur-ul;
     double *res = new double[2]; res[0]=0.0;res[1]=0.0;
@@ -2642,6 +2700,17 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_selector(
     rhoil = std::max<double>(rhoil, rhocl);
     rhoir = std::max<double>(rhoir, rhocr);
     // not checking for vacuum!
+
+  /*double pcut = std::max<double>(  pcl,   pcr);
+    double rcut = std::max<double>(rhocl, rhocr);
+
+    if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+      std::cout << "*** ERROR ERS GJ: detected too small density or pressure " << std::endl;
+      std::cout << " rL, rR, Pi " << std::endl;
+      std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl;
+      err = 1;
+    }*/
+
   }
   else
     eriemanntj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor, err,pcl,pcr,rhocl,rhocr);
@@ -2678,7 +2747,8 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
   double relaxationFactorGas = relaxFactorJwl; //0.85; // must be between 0 and 1
   int count = 0;
 
-  double pcut = std::max<double>(pcl,pcr);
+  double pcut = std::max<double>(  pcl,   pcr);
+  double rcut = std::max<double>(rhocl, rhocr);
 
   double vl  = 1.0/rhol;
   double vr  = 1.0/rhor;
@@ -2924,7 +2994,7 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
     pir   = vacuumValues[5];
     ui    = 0.5*(uil+uir);
     pi    = 0.5*(pil+pir);*/
-    //err = 1;
+    err = 1;
     if(verbose>-1) fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
   }
   
@@ -2938,6 +3008,13 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
     fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
     fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
   }
+
+  /*if(pi <= pcut || rhoil <= rcut || rhoir <= rcut){
+    std::cout << "*** ERROR ERS WJ: detected too small density or pressure " << std::endl;
+    std::cout << " rL, rR, Pi " << std::endl;
+    std::cout << rhoil << " " << rhoir << " " << " " << pi << std::endl; 
+    err = 1;
+  }*/
 
   if(convergence) return true;
   else            return false;
@@ -3048,6 +3125,10 @@ public:
                             double *Wstar, double *rupdatei,
                             double &weighti, int it, double* WstardU,int Id = 0);
 
+  void computeRiemannderivative(double *Vi, double *Vstar,
+				double *nphi, VarFcn *vf,
+				double *Wstar, double* dWstardn, int Id);
+
   // Multi-Phase Riemann solvers (implemented here just to stop compiler's complaining...)
   int computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
@@ -3073,15 +3154,15 @@ private:
   double mach;
 
   int eriemannfs(double rhol, double ul, double pl,
-                  double &rhoi, double ui, double &pi,
-                  VarFcn *vf, int Id,int& err,double pc, double rc,
-                  bool prec, double mach); //note: ui shouldn't be changed. so the value (instead of reference) is used.
+		 double &rhoi, double ui, double &pi,
+		 VarFcn *vf, int Id,int& err,double pc, double rc,
+ 		 bool prec, double mach); //note: ui shouldn't be changed. so the value (instead of reference) is used.
 
   void eriemannfs_grad(double rho, double u, double p,
                        double &rhoi, double ui, double &pi,
                        VarFcn *vf, double* dWdWi,int Id,
-                       bool prec, double mach); //Caution: "ui" will not be modified!
-  
+                       bool prec, double mach, double& drdus); //Caution: "ui" will not be modified!
+    
   void eriemannfs_tait(double rhol, double ul, double pl,
                   double &rhoi, double ui, double &pi,
                   VarFcn *vf, int Id,int& err,double pc, double rc); //note: ui shouldn't be changed. so the value (instead of reference) is used.
@@ -3124,15 +3205,20 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   if (Vi[0] < rc)
     Vi[0] = rc;
 
+  ////
+  if (Vi[4] < pc)
+    Vi[4] = pc;
+  ////
+
   R_1 = Vi[0];
 
   U_1 = vni;
   P_1  = vf->getPressure(Vi,Id);
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
   double U_ti[3] = {Vstar[0] - U_i*nphi[0], Vstar[1] - U_i*nphi[1], Vstar[2] - U_i*nphi[2]};
+
 /*
   double normv = Vi[1]*Vi[1]+Vi[2]*Vi[2]+Vi[3]*Vi[3];
-
   // Attempt at stabilization of structure normal.
   U_1 += stabil_alpha*sqrt(normv - U_1*U_1);
 */
@@ -3258,6 +3344,7 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
   double dWdW[9]={1,0,0,0,1,0,0,0,1};
+  double dummy;
 
   R_1 = Vi[0];
   U_1 = vni;
@@ -3273,7 +3360,7 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   switch (vf->getType(Id)) {
   case VarFcnBase::STIFFENEDGAS:
   case VarFcnBase::PERFECTGAS:
-    eriemannfs_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id, prec, mach); //caution: U_i will not be modified!
+    eriemannfs_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id, prec, mach, dummy); //caution: U_i will not be modified!
     break;
   case VarFcnBase::TAIT:
     eriemannfs_tait_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id);
@@ -3317,6 +3404,78 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   dWstardU[4] = dWdW[2];
   dWstardU[dim*4] = dWdW[6]; 
 }
+//------------------------------------------------------------------------------
+
+template<int dim>
+inline
+void LocalRiemannFluidStructure<dim>::computeRiemannderivative(double *Vi, double *Vstar,
+							       double *nphi, VarFcn *vf,
+							       double *Wstar, double* dWstardn, int Id) {
+
+  // Compute the derivative of the WStar w.r.t the normal vector (nphi) //
+  // Works only for with perfect gas and no low-Mach preconditioner!!!!!!
+  
+  double P_1, U_1, R_1; // pass to 1D-FSI Riemann solver
+  double P_i, U_i, R_i; // solution given by 1D-FSI Riemann solver
+  double drdus, dpdus;
+
+  double vni = Vi[1]*nphi[0] + Vi[2]*nphi[1] + Vi[3]*nphi[2];
+
+  double dWdW[9]={1,0,0,0,1,0,0,0,1};
+
+  R_i = Wstar[0];
+  P_i = Wstar[4];
+
+  R_1 = Vi[0];
+  U_1 = vni;
+  P_1 = vf->getPressure(Vi,Id);
+
+  U_i = Vstar[0]*nphi[0] + Vstar[1]*nphi[1] + Vstar[2]*nphi[2];
+  P_i = vf->getPressure(Wstar, Id);
+
+  switch (vf->getType(Id)) {
+  case VarFcnBase::STIFFENEDGAS:
+  case VarFcnBase::PERFECTGAS:
+    eriemannfs_grad(R_1, U_1, P_1, 
+		    R_i, U_i, P_i, vf, dWdW, Id, prec, mach, drdus);
+    break;
+    case VarFcnBase::TAIT: 
+      fprintf(stderr, " ***ERROR: Tait EOS -> dW*/dn not implementted\n");
+      exit(-1);
+    //eriemannfs_tait_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id); 
+    //break;
+  }
+
+  dpdus = -dWdW[7];
+ 
+  memset(dWstardn, 0, sizeof(double)*dim*3);
+  
+  for (int i=0; i<3; ++i) {
+    dWstardn[i]     = dWdW[1]*Vi[(i+1)] + drdus*Vstar[i];  // drho* / dnn_Wall
+    dWstardn[i+4*3] = dWdW[7]*Vi[(i+1)] + dpdus*Vstar[i];  // dP*   / dnn_Wall
+  } 
+
+  double unn = (Vstar[0] - Vi[1])*nphi[0] 
+             + (Vstar[1] - Vi[2])*nphi[1] 
+             + (Vstar[2] - Vi[3])*nphi[2];
+
+  dWstardn[3]  = (Vstar[0] - Vi[1])*nphi[0] + unn; // du* / dnx_Wall
+  dWstardn[7]  = (Vstar[1] - Vi[2])*nphi[1] + unn; // dv* / dny_Wall
+  dWstardn[11] = (Vstar[2] - Vi[3])*nphi[2] + unn; // dw* / dnz_Wall
+  
+  dWstardn[4]  = (Vstar[1] - Vi[2])*nphi[0]; // du* / dny_Wall
+  dWstardn[5]  = (Vstar[2] - Vi[3])*nphi[0]; // du* / dnz_Wall
+
+  dWstardn[6]  = (Vstar[0] - Vi[1])*nphi[1]; // dv* / dnx_Wall
+  dWstardn[8]  = (Vstar[2] - Vi[3])*nphi[1]; // dv* / dnz_Wall
+
+  dWstardn[9]  = (Vstar[0] - Vi[1])*nphi[2]; // dw* / dnx_Wall
+  dWstardn[10] = (Vstar[1] - Vi[2])*nphi[2]; // dw* / dny_Wall
+
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 inline
@@ -3367,13 +3526,13 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(int tag, double *Vi
 }
 
 //------------------------------------------------------------------------------
-
+//Caution: "ui" will not be modified!
 template<int dim>
 inline
 int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
                                             VarFcn *vf, int Id,int& err, 
-                                            double pc, double rhoc, bool prec, double beta) //Caution: "ui" will not be modified!
+                                            double pc, double rhoc, bool prec, double beta) 
 {
   // assume structure on the left of the fluid
   // using the notation of Toro's paper
@@ -3439,8 +3598,15 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
   }
 
-  pi = std::max<double>(pi, pc);
-  rhoi = std::max<double>(rhoi,rhoc);
+    pi = std::max<double>(  pi,   pc);
+  rhoi = std::max<double>(rhoi, rhoc);
+
+  /*if(pi <= pc || rhoi <= rhoc){
+    std::cout << "*** ERROR FS-ERS: detected too small density or pressure " << std::endl;
+    std::cout << " ri, Pi " << std::endl;
+    std::cout << rhoi << " " << pi << std::endl; 
+    err = 1;
+  }*/ 
 
   return err;
 }
@@ -3448,9 +3614,9 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
 template<int dim>
 inline
 void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, double p,
-                                                 double &rhoi, double ui, double &pi,
-                                                 VarFcn *vf, double* dWidWi,int Id,
-                                                 bool prec, double beta) //Caution: "ui" will not be modified!
+						      double &rhoi, double ui, double &pi,
+						      VarFcn *vf, double* dWidWi,int Id,
+						      bool prec, double beta, double &drdus) //Caution: "ui" will not be modified!
 {
 
   // assume structure on the left of the fluid
@@ -3496,6 +3662,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[2] = mu*(1.0/pbar*dWidWi[8]-(pi+pref)/(pbar*pbar));
       dWidWi[1] = mu*dWidWi[7]/pbar;
       dWidWi[0] = rhoi/rho+mu/pbar*dWidWi[6];
+
+      drdus = -(mu/pbar)*dWidWi[7]; //**
+
     }
     else {
 
@@ -3505,9 +3674,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       double q = lambda-beta*beta*ui;
   
       // dpi/dp
-      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+gamma*a*a*beta*beta/sqrtX); // PJSA
       // dpidrho
-      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-a*a*beta*beta*gamma/(rho*sqrtX))/(q*q)); // PJSA
       // dpidu
       dWidWi[7] = beta*beta*rho*a*a/q;
       
@@ -3517,6 +3686,8 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
       dWidWi[1] = dpp*dWidWi[7];
       dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
+
+      //drdus = ?
 
     }
   }
@@ -3542,12 +3713,16 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
 //
 //    dWidWi[6] = dtdrho/2.0-(dtdu*dtdu*dtdu+8.0*tmp*dtdu)/sqrt(32.0*dtdu*dtdu+256.0*tmp)/(gamma+1.0)/(rho*rho);
       
+      q = 1/q; // PJSA
       double s = q*pstarbar/pbar+1.0;
       double deriv = 1.0/(pbar*s)-(pstarbar/pbar+q)/(s*s)*(q/pbar);
       double deriv2 = -pstarbar/(pbar*pbar*s)+(pstarbar/pbar+q)*(q*pstarbar/(pbar*pbar))/(s*s);
       dWidWi[0] = rhoi/rho+rho*deriv*dWidWi[6];
       dWidWi[1] = rho*deriv*dWidWi[7];
       dWidWi[2] = rho*(deriv*dWidWi[8]+deriv2);
+
+      drdus = -(rho*deriv)*dWidWi[7]; //**
+
     } else {
 
       double X = 4.0*a*a*beta*beta + ui*ui*pow(beta*beta-1.0,2.0);
@@ -3556,9 +3731,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       double q = lambda-beta*beta*ui;
   
       // dpi/dp
-      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+2.0*a*a*beta*beta/sqrtX);
+      dWidWi[8] = 1.0+beta*beta*(u-ui)/(q*q)*(gamma*q+gamma*a*a*beta*beta/sqrtX); // PJSA
       // dpidrho
-      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-2.0*a*a*beta*beta*gamma/(rho*sqrtX)));
+      dWidWi[6] = beta*beta*(u-ui)*(a*a/q + (p+pref)*(-gamma/rho*q-a*a*beta*beta*gamma/(rho*sqrtX))/(q*q)); // PJSA
       // dpidu
       dWidWi[7] = beta*beta*rho*a*a/q;
       
@@ -3568,6 +3743,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
       dWidWi[2] = dpp*dWidWi[8] - rhoi/gamma/(p+pref);
       dWidWi[1] = dpp*dWidWi[7];
       dWidWi[0] = dpp*dWidWi[6] + pow((pi+pref)/(p+pref), 1.0/gamma);
+
+      //drdus = ?
+
     }
   }
 }
@@ -3581,12 +3759,16 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
 {
   // assume structure on the left of the fluid
   // using the notation of Toro's paper
-
+ 
   err = 0;
+
+  int max_ite = 100;
+
   double a = vf->getAlphaWater(Id);
   double b = vf->getBetaWater(Id);
   double pref  = vf->getPrefWater(Id);
   double Udummy[5],Vdummy[5]={0,0,0,0,0};
+
   if(u==ui){ // contact
     rhoi = rho;
     pi   = p;
@@ -3612,7 +3794,7 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
     pi = a*pow(rhoi,b)+pref;
     pi = std::max<double>(pi,pc);
     if (pi == pc)
-      rhoi = pow((pi-pref)/a,1.0/b);
+    rhoi = pow((pi-pref)/a,1.0/b);
     rhoi = std::max<double>(rhoi,rhoc);
   }
   else{ // shock
@@ -3641,12 +3823,23 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait(double rho, double u, doub
       rhoi = std::max<double>(rhoi,rhoc);    
 
       ++i;
-    } while (i < 100);      
-    if (i == 100) {
+    } while (i < max_ite);
+
+    if (i >= max_ite) {
       err = 1;
-      fprintf(stderr,"%d %lf %lf %lf %lf %lf %lf %lf\n",i,rho,u,p,rhoi,ui,pi,fabs(u-ui+V));
+      // fprintf(stderr,"%d %lf %lf %lf %lf %lf %lf %lf\n",i,rho,u,p,rhoi,ui,pi,fabs(u-ui+V));
+      std::cout << "*** Warning FS-ERS Tait: Newton reached max num. iterations " << max_ite  << std::endl;
+      std::cout << "without converging to the desired tolerance " << 1.0e-6 << std::endl;
     }
   }
+
+  /*if(pi <= pc || rhoi <= rhoc){
+    std::cout << "*** ERROR FS-ERS Tait: detected too small density or pressure " << std::endl;
+    std::cout << " ri, Pi " << std::endl;
+    std::cout << rhoi << " " << pi << std::endl; 
+    err = 1;
+  }*/
+
 }
 
 template<int dim>

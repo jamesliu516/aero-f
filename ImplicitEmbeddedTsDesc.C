@@ -36,6 +36,19 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   maxItsLS = implicitData.newton.lineSearch.maxIts;
   contractionLS = implicitData.newton.lineSearch.rho;
   sufficDecreaseLS = implicitData.newton.lineSearch.c1;
+  if (strcmp(implicitData.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(implicitData.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(implicitData.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(implicitData.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", implicitData.newton.output);
+      exit(1);
+    }
+  }
 
   //initialize emmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) 
@@ -100,7 +113,7 @@ KspPrec<neq> *ImplicitEmbeddedTsDesc<dim>::createPreconditioner(PcData &pcdata, 
 	   pcdata.type == PcData::ASH ||
 	   pcdata.type == PcData::AAS)
     _pc = new IluPrec<double,neq>(pcdata, dom);
-  
+
   return _pc;
   
 }
@@ -328,6 +341,7 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
 
 //  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
+
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
 

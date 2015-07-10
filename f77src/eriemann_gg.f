@@ -68,6 +68,7 @@ C     Compute sound speeds
       CL = DSQRT(gamL*PLL/DL)
       CR = DSQRT(gamR*PRR/DR)
       IF(gamR*PRR/DR.lt.0.0 .or. gamL*PLL/DL.lt.0.0)THEN
+         WRITE(*,*) 'Negative sound speeds'
          WRITE(*,*) 'CR, CL = ', gamR*PRR/DR, gamL*PLL/DL
       ENDIF
       
@@ -146,14 +147,17 @@ C     Shock wave
 
  10   CONTINUE
 *     
-      WRITE(6,*)'Divergence in Newton-Raphson iteration'
-      WRITE(6,*) PM, PL, PR
+      WRITE(*,*) ' *** Warning: '
+      WRITE(*,*) 'Newton-Raphson reached max num. iterations ', NRITER
+      WRITE(*,*) 'without converging to the desired tolerance', TOLPRE
+      WRITE(*,*) PM, PL, PR
       WRITE(*,*) 'INPUT RIEMANN (DL,UL,PL,DR,UR,PR)'
       WRITE(*,*) DL,UL,PL,DR,UR,PR
       WRITE(*,*) 'PARAMETERS (GAML,PREFL,GAMR,PREFR)'
       WRITE(*,*) GAML,PREFL,GAMR,PREFR
       WRITE(*,*) 'OUTPUT (PM,UM,RIL,RIR)'
       WRITE(*,*) PM,UM,RIL,RIR
+      WRITE(*,*) ' *** '
       errcod = 1
 *     
  20   CONTINUE

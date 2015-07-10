@@ -58,8 +58,6 @@ protected:
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
   DistSVec<double, dim>* weightVec;     // weighting vector for least squares system
-  //DistSVec<double, dim>* weightURef;	  // reference state used for weighting least squares system
-  //DistSVec<double, dim>* weightFRef;	  // reference residual used for weighting least squares system
 
   DistVec<double>* farFieldMask;          // one for far field nodes, zero otherwise
   DistVec<double>* farFieldNeighborsMask; // one for neighbors of ff nodes, zero otherwise
@@ -96,10 +94,6 @@ protected:
   Vec<double> dUromCurrentROB;  // set to zero after each cluster switch
   Vec<double> UromCurrentROB;   // for projection only: initialized at each cluster switch
 
-  // dUromAccum, 
-
-  //Vec<double> *dUnormAccum;	// accumulated contributions
-
   double target, res0;	// for Newton convergence
 
   virtual void computeAJ(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL);
@@ -124,11 +118,9 @@ protected:
   void loadCluster(int, bool, DistSVec<double, dim> &);
 
   virtual void updateLeastSquaresWeightingVector();
-	//void savedUnormAccum();
-	//virtual void writeStateRomToDisk(int it, double cpu);
-	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
-	virtual bool breakloop1(const bool);
-	virtual bool breakloop2(const bool);
+  virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
+  virtual bool breakloop1(const bool);
+  virtual bool breakloop2(const bool);
 
   virtual void setReferenceResidual() {};
   virtual void setProblemSize(DistSVec<double, dim> &) {};

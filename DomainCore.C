@@ -873,16 +873,6 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
   if (ierr) {
     com->fprintf(stderr, "*** Error: %d negative volume%s\n", ierr, ierr>1? "s":"");
-#ifdef YDEBUG
-  if(ierr) {
-    const char* output = "elementvolumecheck";
-    ofstream out(output, ios::out);
-    if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
-    out << ierr << endl;
-    out.close();
-    exit(-1);
-  }
-#endif
 
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub)
@@ -890,6 +880,15 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
 //    exit(1);
   }
+
+#ifdef YDEBUG
+  const char* output = "elementvolumecheck";
+  ofstream out(output, ios::out);
+  if(!out) { cerr << "Error: cannot open file" << output << endl;  exit(-1); }
+  out << ierr << endl;
+  out.close();
+  //exit(-1);
+#endif
 
   return ierr;
 }
@@ -1306,6 +1305,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
+//d2d
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
                                         DistSVec<double,6> &R, DistLevelSetStructure *distLSS,
 					bool includeSweptNodes)
@@ -1317,7 +1317,10 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) { 
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0, includeSweptNodes);
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), 
+							(*count)(iSub), R(iSub), 
+							distLSS ? &((*distLSS)(iSub)) : 0, 
+							includeSweptNodes);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
@@ -1341,8 +1344,8 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 // with option to take into account of Riemann solution at interface
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
                                         DistSVec<double,6> &R, DistVec<int> &countWstarij,
-										DistVec<int> &countWstarji, 
-										DistLevelSetStructure *distLSS)
+					DistVec<int> &countWstarji, 
+					DistLevelSetStructure *distLSS)
 {
 
   int iSub;
@@ -1421,6 +1424,26 @@ void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &w
 }
 
 //------------------------------------------------------------------------------
+
+//d2d
+void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, const DistVec<int> &fluidId,
+				    DistSVec<double,3> &wii,
+				    DistSVec<double,3> &wij, 
+				    DistSVec<double,3> &wji,
+                                    DistLevelSetStructure *distLSS,
+				    bool includeSweptNodes)
+{
+
+  #pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->computeWeightsGalerkin(X(iSub), fluidId(iSub), 
+					    wii(iSub), wij(iSub), wji(iSub), 
+					    distLSS ? &((*distLSS)(iSub)) : 0, includeSweptNodes);
+  
+}
+
+//------------------------------------------------------------------------------
+
 
 // Included (MB)
 void Domain::computeDerivativeOfWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,3> &dwii,

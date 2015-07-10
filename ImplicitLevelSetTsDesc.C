@@ -39,7 +39,19 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   maxItsLS = implicitData.newton.lineSearch.maxIts;
   contractionLS = implicitData.newton.lineSearch.rho;
   sufficDecreaseLS = implicitData.newton.lineSearch.c1;
-
+  if (strcmp(implicitData.newton.output, "") == 0)
+    outputNewton = 0;
+  else if (strcmp(implicitData.newton.output, "stdout") == 0)
+    outputNewton = stdout;
+  else if (strcmp(implicitData.newton.output, "stderr") == 0)
+    outputNewton = stderr;
+  else {
+    outputNewton = fopen(implicitData.newton.output, "w");
+    if (!outputNewton) {
+      this->com->fprintf(stderr, "*** Error: could not open \'%s\'\n", implicitData.newton.output);
+      exit(1);
+    }
+  }
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD)
@@ -467,7 +479,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<double
 
   int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
 
-  if(this->data->checklinsolve && lits==kspLS->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS]+=1;
+  if(this->data->checklinsolve && lits==kspLS->maxits) this->data->badlinsolve=true;
  
   dQ = this->embeddeddQ.real();
 //  this->embeddedU.ghost() += this->embeddeddQ.ghost();

@@ -100,6 +100,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata, Communicator *com
   cracking = cs;
   gotNewCracking = false;
 
+  with_sensitivity = false;
+
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
@@ -147,10 +149,14 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(solidX0) delete solidX0;
   if(solidXn) delete solidXn;
   if(solidXnp1) delete solidXnp1;
+  if(solidXdS) delete solidXdS;
   if(faceID) delete[] faceID;
   if(surfaceID) delete[] surfaceID;
   if(porosity) delete[] porosity;
   if(rotOwn) delete[] rotOwn;
+
+  if(dXdSb) delete[] dXdSb;
+
 }
 
 //----------------------------------------------------------------------------
@@ -260,6 +266,9 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
   solidXnp1 = new Vec<Vec3D>(numStNodes, Xs_np1);
 
+     dXdSb = new Vec3D[numStNodes];
+  solidXdS = new Vec<Vec3D>(numStNodes, dXdSb);
+
   faceID = new int[numStElems];
 
   surfaceID = new int[numStNodes];
@@ -283,6 +292,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
     Xs_np1[k] = Xs[k];
     Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
     surfaceID[k] = 0;
+    dXdSb[k]     = 0; //init
   }
 
   stElem = new int[numStElems][3];
@@ -385,13 +395,17 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
   solidXn = new Vec<Vec3D>(totStNodes, Xs_n);
   solidXnp1 = new Vec<Vec3D>(totStNodes, Xs_np1);
 
+     dXdSb = new Vec3D[numStNodes];
+  solidXdS = new Vec<Vec3D>(numStNodes, dXdSb);
+
   for (int k=0; k<numStNodes; k++) {
     Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
 //    if(k<5) fprintf(stderr,"(%d) %d %e %e %e\n", com->cpuNum(), k+1, Xs[k][0], Xs[k][1], Xs[k][2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
-    Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
+    Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);    
+    dXdSb[k]  = 0; //init
   }
 
   // elem set
@@ -482,6 +496,35 @@ void DistIntersectorPhysBAM::setPorosity() {
     }
   }
 }
+
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
+
+  if(N != numStNodes) {
+    fprintf(stderr, "Error num nodes: %d and %d\n", N,  numStNodes);
+    exit(-1);
+  }
+
+  with_sensitivity = true;
+  //dXdSb = new Vec3D[numStNodes];
+
+  double Normx=0.0, Normy=0.0, Normz=0.0;
+
+  for(int i=0; i<N; ++i){
+    dXdSb[i][0] = dxdS[i];
+    dXdSb[i][1] = dydS[i];
+    dXdSb[i][2] = dzdS[i];
+
+    Normx += fabs(dxdS[i]);
+    Normy += fabs(dydS[i]);
+    Normz += fabs(dzdS[i]);
+  }
+
+  if(Normx==0 && Normy==0 && Normz==0)
+    com->fprintf(stderr, "!!! WARNING: No surface Sensitivity Perturbation\n\n");
+
+}
+
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::makerotationownership() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
@@ -609,6 +652,9 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
   com->fprintf(stderr,"Setting interface thickness to %e.\n", interface_thickness);
   physInterface->SetThickness(interface_thickness);
+
+  with_sensitivity = false;
+
 }
 
 //----------------------------------------------------------------------------
@@ -665,6 +711,7 @@ bool DistIntersectorPhysBAM::checkTriangulatedSurface()
 
 void
 DistIntersectorPhysBAM::buildSolidNormals() {
+
   if(!triNorms) triNorms = new Vec3D[totStElems];
   if(!triSize)  triSize = new double[totStElems];
   if(interpolatedNormal) {
@@ -708,15 +755,21 @@ DistIntersectorPhysBAM::buildSolidNormals() {
       nodalNormal[n2] += triNorms[iTriangle];
       nodalNormal[n3] += triNorms[iTriangle];
     }
-
+    
     double nrm = triNorms[iTriangle].norm();
     if(nrm > nrmMax) {
       nrmMax = nrm;
       trMaxNorm = iTriangle;
     }
     // normalize the normal.
-    if(nrm > 0.0)
-       triNorms[iTriangle] /= nrm;
+    if(nrm > 0.0){
+      triNorms[iTriangle] /= nrm;
+
+      //fprintf(stdout, "%i: [%i %i %i] ~ %+15.5e, %+15.5e, %+15.5e\n", 
+      //iTriangle, n1, n2, n3, 
+      //triNorms[iTriangle][0],triNorms[iTriangle][1],triNorms[iTriangle][2]); 
+
+    }
     else
        fprintf(stderr,"ERROR: Tri %d: (%d(%e,%e,%e), %d(%e,%e,%e), %d(%e,%e,%e)\n", iTriangle+1, n1, x1,y1,z1, n2, dx2,dy2,dz2, n3, dx3,dy3,dz3);
   }
@@ -728,6 +781,7 @@ DistIntersectorPhysBAM::buildSolidNormals() {
 }
 
 //----------------------------------------------------------------------------
+
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
@@ -1198,13 +1252,13 @@ void IntersectorPhysBAM::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int T
 //----------------------------------------------------------------------------
 
 IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X, Vec<int> &stat0, Vec<ClosestPoint> &clo,
-                      Vec<bool>& occ_node0, DistIntersectorPhysBAM &distInt) :
-    LevelSetStructure((*distInt.status)(sub.getLocSubNum()),(*distInt.distance)(sub.getLocSubNum()),
-                      (*distInt.is_swept)(sub.getLocSubNum()), (*distInt.is_active)(sub.getLocSubNum()),
-                      (*distInt.is_occluded)(sub.getLocSubNum()), (*distInt.edge_intersects)(sub.getLocSubNum())),
-    subD(sub),edges(sub.getEdges()),distIntersector(distInt),package(0),
-    nodeToSubD(*sub.getNodeToSubD()), status0(stat0), closest(clo),
-    occluded_node0(occ_node0),locIndex(sub.getLocSubNum()),globIndex(sub.getGlobSubNum())
+				       Vec<bool>& occ_node0, DistIntersectorPhysBAM &distInt) :
+  LevelSetStructure((*distInt.status)(sub.getLocSubNum()),(*distInt.distance)(sub.getLocSubNum()),
+		    (*distInt.is_swept)(sub.getLocSubNum()), (*distInt.is_active)(sub.getLocSubNum()),
+		    (*distInt.is_occluded)(sub.getLocSubNum()), (*distInt.edge_intersects)(sub.getLocSubNum())),
+  subD(sub),edges(sub.getEdges()),distIntersector(distInt),package(0),
+  nodeToSubD(*sub.getNodeToSubD()), status0(stat0), closest(clo),
+  occluded_node0(occ_node0),locIndex(sub.getLocSubNum()),globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
 
@@ -1329,7 +1383,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
   for (int l=0; l<edges.size(); l++) {
     int p = ptr[l][0], q = ptr[l][1];
     if(tId[p] && tId[q])
-        edgeRes.Append(TRIPLE<VECTOR<int,3>,IntersectionResult<double>,IntersectionResult<double> >(VECTOR<int,3>(forward_mapping(p+1),forward_mapping(q+1),l),
+      edgeRes.Append(TRIPLE<VECTOR<int,3>,IntersectionResult<double>,IntersectionResult<double> >(VECTOR<int,3>(forward_mapping(p+1),forward_mapping(q+1),l),
                                                                                                     IntersectionResult<double>(),IntersectionResult<double>()));}
 
   distIntersector.getInterface().Intersect(locIndex+1,xyz,occludedNode,edgeRes);
@@ -1423,36 +1477,72 @@ int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Comm
 //----------------------------------------------------------------------------
 
 LevelSetResult
-IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) {
+IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr, double *Xg) {
+
   if (!edge_intersects[l]) {
+
     int (*ptr)[2] = edges.getPtr();
     int i=i_less_j ? ptr[l][0] : ptr[l][1],
         j=i_less_j ? ptr[l][1] : ptr[l][0];
+
     fprintf(stderr,"%02d There is no intersection between node %d(status:%d,occluded=%d) and %d(status:%d,occluded=%d) along edge %d! Abort...\n",
                    globIndex,locToGlobNodeMap[i]+1, status[i],is_occluded[i], locToGlobNodeMap[j]+1, status[j],is_occluded[j],l);
+
     PHYSBAM_MPI_UTILITIES::dump_stack_trace();
-    exit(-1);}
+
+    exit(-1);
+  }
 
   const IntersectionResult<double>& result = i_less_j ? CrossingEdgeRes[l] : ReverseCrossingEdgeRes[l];
-  double alpha0 = result.alpha;
+  
+  double alpha0      = result.alpha;
   int trueTriangleID = result.triangleID-1;
 
   LevelSetResult lsRes;
-  lsRes.alpha = alpha0;
-  lsRes.xi[0] = result.zeta[0];
-  lsRes.xi[1] = result.zeta[1];
-  lsRes.xi[2] = 1-result.zeta[0]-result.zeta[1];
+  lsRes.alpha      = alpha0;
+
+  lsRes.xi[0]      = result.zeta[0];
+  lsRes.xi[1]      = result.zeta[1];
+  lsRes.xi[2]      = 1-result.zeta[0]-result.zeta[1];
+
   lsRes.trNodes[0] = distIntersector.stElem[trueTriangleID][0];
   lsRes.trNodes[1] = distIntersector.stElem[trueTriangleID][1];
   lsRes.trNodes[2] = distIntersector.stElem[trueTriangleID][2];
-  lsRes.normVel = lsRes.xi[0]*distIntersector.Xsdot[lsRes.trNodes[0]]
-                + lsRes.xi[1]*distIntersector.Xsdot[lsRes.trNodes[1]]
-                + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
-  lsRes.porosity = distIntersector.porosity[trueTriangleID];
 
-  if(!distIntersector.interpolatedNormal)
+  lsRes.normVel    = lsRes.xi[0]*distIntersector.Xsdot[lsRes.trNodes[0]]
+                   + lsRes.xi[1]*distIntersector.Xsdot[lsRes.trNodes[1]]
+                   + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
+
+  lsRes.porosity   = distIntersector.porosity[trueTriangleID];
+
+  if(!distIntersector.interpolatedNormal){
+
     lsRes.gradPhi = distIntersector.getSurfaceNorm(trueTriangleID);
-  else { //use nodal normals.
+
+    if(distIntersector.with_sensitivity && Xr != 0 && Xg != 0){
+      Vec3D *XX  = (distIntersector.getStructPosition()).data();
+      
+      Vec3D dNdS;  
+      derivativeOFnormal(XX[lsRes.trNodes[0]], 
+			 XX[lsRes.trNodes[1]], 
+			 XX[lsRes.trNodes[2]],
+			 distIntersector.dXdSb[lsRes.trNodes[0]],
+			 distIntersector.dXdSb[lsRes.trNodes[1]],
+			 distIntersector.dXdSb[lsRes.trNodes[2]], dNdS);
+      lsRes.dnds = dNdS;
+
+      double dads;
+      dads = derivativeOFalpha(XX[lsRes.trNodes[0]], 
+                               XX[lsRes.trNodes[1]], 
+       			       XX[lsRes.trNodes[2]],
+       			       distIntersector.dXdSb[lsRes.trNodes[0]],
+			       distIntersector.dXdSb[lsRes.trNodes[1]],
+			       distIntersector.dXdSb[lsRes.trNodes[2]],
+			       Xr, Xg);
+      lsRes.dads = dads;
+    }
+
+  } else { //use nodal normals.    
     Vec3D ns0 = distIntersector.getNodalNorm(lsRes.trNodes[0]);
     Vec3D ns1 = distIntersector.getNodalNorm(lsRes.trNodes[1]);
     Vec3D ns2 = distIntersector.getNodalNorm(lsRes.trNodes[2]);
@@ -1460,11 +1550,6 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) 
     lsRes.gradPhi /= lsRes.gradPhi.norm();
   }
 
-/*  if(trueTriangleID+1 == 1 || trueTriangleID+1 == 2 || trueTriangleID+1 == 319 || trueTriangleID+1 == 320 ||
-     trueTriangleID+1 == 641 || trueTriangleID+1 == 642 || trueTriangleID+1 == 643 || trueTriangleID+1 == 644) {
-    fprintf(stderr,"Intersection(%d,%d): triangle %d, alpha = %e, xi = (%e,%e), phi = %e, normal = (%e,%e,%e)\n", 
-                    ni+1,nj+1,trueTriangleID+1, lsRes.alpha, lsRes.xi[0], lsRes.xi[1], distIntersector.cracking->getPhi(trueTriangleID, lsRes.xi[0],lsRes.xi[1]),lsRes.gradPhi[0], lsRes.gradPhi[1], lsRes.gradPhi[2]); 
-  }*/
 
   return lsRes;
 }
@@ -1620,7 +1705,7 @@ double IntersectorPhysBAM::project(Vec3D x0, int tria, double& xi1, double& xi2)
   int iA = triNodes[tria][0];
   int iB = triNodes[tria][1];
   int iC = triNodes[tria][2];
-  Vec3D xA = structX[iA];
+   Vec3D xA = structX[iA];
   Vec3D xB = structX[iB];
   Vec3D xC = structX[iC];
 
@@ -1640,5 +1725,119 @@ double IntersectorPhysBAM::project(Vec3D x0, int tria, double& xi1, double& xi2)
 
   return dist;
 }
+
+//----------------------------------------------------------------------------
+void IntersectorPhysBAM::derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+					    Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+					    Vec3D &dnds){
+
+  Vec3D V1, V2, Vp, dV1, dV2, dVp; 
+  double sp, dsp;
+
+  V1 = (xC - xA);
+  V2 = (xB - xA);
+    
+  dV1 = dxC - dxA;
+  dV2 = dxB - dxA;
+
+  Vp = -(V1^V2);
+
+  dVp = -(dV1^V2) - (V1^dV2);
+
+  double d = Vp*Vp;
+
+  double tmp = dVp*Vp;
+
+  dnds = (1.0/sqrt(d)) * (dVp) - (Vp*tmp)/pow(d, 3.0/2.0);
+
+}
+
+//----------------------------------------------------------------------------
+
+void DistIntersectorPhysBAM::updateXb(double epsilon){
+
+  for(int i=0; i<numStNodes; ++i){
+
+    for(int j=0; j<3; ++j){
+      //Xs0[i][j]
+      Xs[i][j]     = Xs0[i][j] + dXdSb[i][j]*epsilon;
+      Xs_n[i][j]   = Xs[i][j];
+      Xs_np1[i][j] = Xs_n[i][j];
+      Xsdot[i][j]  = 0.0;
+    }
+  }
+
+  initializePhysBAM();
+  updatebc();
+
+}
+
+//----------------------------------------------------------------------------
+
+double IntersectorPhysBAM::derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+					    Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+					    Vec3D  X1, Vec3D  X2){
+
+  Vec3D  u =  xB -  xA;
+  Vec3D du = dxB - dxA;
+
+  Vec3D  v =  xC -  xA;
+  Vec3D dv = dxC - dxA;
+
+  Vec3D  n = u ^ v;
+  Vec3D dn = (du ^ v) + (u ^ dv);
+ 
+  Vec3D d = X1 - X2;
+
+  Vec3D  w = X2 - xA;
+  Vec3D dw =    -dxA;
+
+  double tmp1 = (dn*w) + (n*dw);
+  double tmp2 = n*d;
+  double tmp3 = n*w;
+  double tmp4 = dn*d;
+  
+  double dalpha_ds = -(tmp1/tmp2) + tmp3*tmp4/(tmp2*tmp2);
+
+  return dalpha_ds;
+
+}
+
+//----------------------------------------------------------------------------
+
+// double
+// IntersectorPhysBAM::testAlpha(Vec3D Xi, Vec3D Xj, int n0, int n1, int n2){
+//   Vec3D *XX  = (distIntersector.getStructPosition()).data(); 
+//   Vec3D u = XX[n1] - XX[n0];
+//   Vec3D v = XX[n2] - XX[n0];
+//   Vec3D n = u ^ v;
+//   Vec3D d = Xi - Xj;
+//   Vec3D w = Xj - XX[n0];
+//   double a = -n*w;
+//   double b =  n*d;
+//   double g = a/b;
+//   return g; 
+//}
+//----------------------------------------------------------------------------
+
+double 
+IntersectorPhysBAM::testAlpha(Vec3D Xi, Vec3D Xj, Vec3D X0, Vec3D X1, Vec3D X2){
+
+   Vec3D u = X1 - X0;
+   Vec3D v = X2 - X0;
+   Vec3D n = u ^ v;
+
+   Vec3D d = Xi - Xj;
+   Vec3D w = Xj - X0;
+
+   double a = -n*w;
+   double b =  n*d;
+
+   double g = a/b;
+
+   return g;
+
+ }
+
 
 //----------------------------------------------------------------------------

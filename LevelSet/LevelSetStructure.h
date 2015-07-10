@@ -15,27 +15,33 @@ template <class Scalar> class DistVec;
 
 /** Structure used to return levelset information */
 struct LevelSetResult {
-   double alpha;
-   double xi[3];
-   int trNodes[3];
-   Vec3D gradPhi;
-   Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
-   double porosity;
+  double alpha;
+  double xi[3];
+  int trNodes[3];
+  Vec3D gradPhi;
+  Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
+  double porosity;
+  Vec3D dnds;
+  double dads;
 
-   LevelSetResult() {
-     alpha = xi[0] = xi[1] = -1.0;
-     trNodes[0] = trNodes[1] = trNodes[2] = -1;
-     gradPhi = normVel = 0.0;
-     porosity = 0.0;
+  LevelSetResult() {
+    alpha = xi[0] = xi[1] = -1.0;
+    trNodes[0] = trNodes[1] = trNodes[2] = -1;
+    gradPhi = normVel = dnds = 0.0;
+    porosity = 0.0;
+    dads = 0.0;
    }
+  
    LevelSetResult(double gpx, double gpy, double gpz,
                   double nvx, double nvy, double nvz) :
 		  gradPhi(gpx, gpy, gpz), normVel(nvx, nvy, nvz) {
-		     gradPhi *= 1.0/gradPhi.norm();
-                     alpha = -1.0;
-                     xi[0] = xi[1] = xi[2] = -1.0;
-                     trNodes[0] = trNodes[1] = trNodes[2] = -1;
-                     porosity = 0.0;
+		    gradPhi *= 1.0/gradPhi.norm();
+		    alpha = -1.0;
+		    xi[0] = xi[1] = xi[2] = -1.0;
+		    trNodes[0] = trNodes[1] = trNodes[2] = -1;
+		    porosity = 0.0;
+		    dnds = 0.0;
+		    dads = 0.0;
 		   }
 
    class iterator {
@@ -87,7 +93,7 @@ class LevelSetStructure {
      * If ni, nj is not an edge of the fluid mesh, result is undefined.
      * */
     virtual LevelSetResult
-       getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j) = 0;
+      getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0) = 0;
     virtual bool withCracking() const = 0;
     virtual bool isNearInterface(double t, int n) const = 0;
 
@@ -113,6 +119,7 @@ class LevelSetStructure {
     virtual int numOfFluids() = 0; 
 
     virtual void findNodesNearInterface(SVec<double,3>&, SVec<double,3>&, SVec<double,3>&) = 0;
+
 };
 
 class DistLevelSetStructure {
@@ -126,6 +133,7 @@ class DistLevelSetStructure {
   protected:
     int numLocSub;
     int numFluid;
+    bool with_sensitivity;
 
   public:
     DistLevelSetStructure()
@@ -161,10 +169,15 @@ class DistLevelSetStructure {
     virtual Vec<Vec3D> &getStructPosition_0() = 0;
     virtual Vec<Vec3D> &getStructPosition_n() = 0;
     virtual Vec<Vec3D> &getStructPosition_np1() = 0;
+    virtual Vec<Vec3D> &getStructDerivative() = 0;
+
     virtual int getNumStructNodes() = 0;
     virtual int getNumStructElems() = 0;
     virtual int (*getStructElems())[3] = 0;
     virtual int getSurfaceID(int) = 0;
+
+    virtual void updateXb(double) = 0;
+    virtual void setdXdSb(int, double*, double*, double*) = 0;
 };
 
 #endif

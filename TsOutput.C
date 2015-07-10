@@ -575,9 +575,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.velocitynorm);
   }
 
-  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_ || 
-      iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ||
+  if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
       iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
@@ -863,7 +862,7 @@ TsOutput<dim>::~TsOutput()
   if(modeFile) delete [] modeFile;
   if(mX) delete mX;
 
-  if (switchOpt) //STEADY_SENSITIVITY_ANALYSIS
+  if (switchOpt) 
     {
       delete[] dMatchPressure;
       delete[] dForces;
@@ -1664,16 +1663,20 @@ void TsOutput<dim>::closeAsciiFiles()
 {
 
   for (int iSurf = 0; iSurf < postOp->getNumSurf(); iSurf++)  {
+
     if (fpForces[iSurf]) fclose(fpForces[iSurf]);
     if (fpHydroDynamicForces[iSurf]) fclose(fpHydroDynamicForces[iSurf]);
     if (fpHydroStaticForces[iSurf]) fclose(fpHydroStaticForces[iSurf]);
     if (fpLift[iSurf]) { fclose(fpLift[iSurf]); fpLift[iSurf] = 0; }
     if (fpTavForces[iSurf]) fclose(fpTavForces[iSurf]);
     if (fpTavLift[iSurf]) fclose(fpTavLift[iSurf]);
+
   } 
+
   for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
+
 
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatchPressure) fclose(fpMatchPressure);
@@ -1683,6 +1686,7 @@ void TsOutput<dim>::closeAsciiFiles()
   if (fpCpuTiming) fclose(fpCpuTiming);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
+
 }
 
 //------------------------------------------------------------------------------
@@ -2982,7 +2986,11 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
 // Included (MB)
 template<int dim>
-void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU,  DistVec<double> &A, DistTimeState<dim> *timeState)
+void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], 
+							 DistSVec<double,3> &X, DistSVec<double,3> &dX, 
+							 DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+							 DistTimeState<dim> *timeState,
+							 DistVec<double>* A) 
 {
   int    step = it-1;
   double tag  = (double)actvar;
@@ -3000,7 +3008,7 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, dou
 
       //Match Properties
       if (static_cast<PostFcn::ScalarDerivativeType>(i) == PostFcn::DERIVATIVE_PRESSURE)
-        writeDerivativeOfMatchPressureToDisk(it,actvar,Qs1,X,U,A,timeState);
+        writeDerivativeOfMatchPressureToDisk(it,actvar,Qs1,X,U,*A,timeState);
     }
   }
   for (i=0; i<PostFcn::DVSIZE; ++i) {

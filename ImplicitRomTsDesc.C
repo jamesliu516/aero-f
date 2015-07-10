@@ -78,12 +78,6 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   dUromTimeIt = 0.0;
   dUromCurrentROB = 0.0;
  
-  //dUnormAccum = new Vec<double> [2];
-  //for (int i = 0 ; i < 2; ++i) { 
-  //  dUnormAccum[i].resize(nPod);	// before any time step, it is zero
-  //  dUnormAccum[i] = 0.0;	// before any time step, it is zero
-  //}
-
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
   mvp->exportMemory(&mp);
@@ -100,18 +94,6 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   } else {
     weightVec = NULL;
   }
-
-/*  if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_STATE) {
-    weightURef = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-  } else {
-    weightURef = NULL;
-  }
-
-  if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL) {
-    weightFRef = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-  } else {
-    weightFRef = NULL;
-  }*/
 
   interiorWeight = 1.0;
   ffWeight = this->ioData->romOnline.ffWeight;
@@ -178,35 +160,11 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 template<int dim>
 ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 {
-
-	// output net dUnormAccum
-/*	for (int iPod = 0; iPod < nPod; ++iPod)
-		dUnormAccum[1][iPod] = sqrt(dUnormAccum[1][iPod]);	// to complete 2-norm definition
-
-	const char *dUnormAccumFile = ioData->output.rom.dUnormAccum;
-	if (strcmp(dUnormAccumFile, "") != 0)  {
-		char *outdUnormAccumFile = new char[strlen(ioData->output.rom.prefix) +
-			strlen(dUnormAccumFile)+1];
-		if (this->com->cpuNum() ==0) sprintf(outdUnormAccumFile, "%s%s",
-				ioData->output.rom.prefix, dUnormAccumFile);
-		FILE *writingFile;
-		if (this->com->cpuNum() ==0) writingFile = fopen(outdUnormAccumFile, "wt");
-		this->com->fprintf(writingFile, "PodCoefficient NetContribution(1norm) NetContribution(2norm)\n");
-		for (int i = 0; i < nPod; ++i) { 
-			this->com->fprintf(writingFile, "%d %e %e \n", i + 1, dUnormAccum[0][i],dUnormAccum[1][i]);
-		}
-		delete [] outdUnormAccumFile;
-	}*/
-
-	//delete [] dUnormAccum;
-
   if (Uinit && residualsFile) printRomResiduals(*Uinit);
   if (this->com->cpuNum()==0 && residualsFile) fclose(residualsFile);
 
   if (tag) delete tag;
   if (weightVec) delete weightVec;
-  //if (weightURef) delete weightURef;
-  //if (weightFRef) delete weightFRef;
   if (farFieldMask) delete farFieldMask;
   if (farFieldNeighborsMask) delete farFieldNeighborsMask;
   if (wallMask) delete wallMask;
@@ -666,29 +624,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   for (it = 0; it < maxItsNewton; it++)  {
 
-   // TODO remove all of the U / R weighting machinery
-   // if (it==0) {
-   //   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_STATE)
-   //     *weightURef = U;
-   //
-   //   if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL)
-   //     *weightFRef = this->F;
-   // }
     computeFullResidual(it, U, false);
-
-    if (this->ioData->romOnline.onlineResiduals.include 
-        && (it%(this->ioData->romOnline.onlineResiduals.newtonFreq)==0)
-        && (totalTimeSteps%(this->ioData->romOnline.onlineResiduals.timeFreq)==0)) {
-      //TODO: spatial only!
-      // we want the actual flux, so inv(control volumes) * spatial residual
-
-      if (it==0) {
-        rom->appendVectorToBasis(this->F, nPod);
-      } else {
-        rom->appendVectorToBasis(this->F);
-      }
-      setProblemSize(U);
-    }
 
     double tAJ = this->timer->getTime();
     computeAJ(it, U, true);	// skipped some times for Broyden
@@ -1299,20 +1235,6 @@ void ImplicitRomTsDesc<dim>::updateLeastSquaresWeightingVector() {
     case (NonlinearRomOnlineData::WEIGHTED_LS_FALSE):
       return;
       break;
-/*    case (NonlinearRomOnlineData::WEIGHTED_LS_RESIDUAL):
-      *(this->weightVec) = *(this->weightFRef);
-      break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_STATE):
-      *(this->weightVec) = *(this->weightURef);  
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double (*weight)[dim] = this->weightVec->subData(iSub);
-        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j)
-            weight[i][j] = weight[i][j] - (this->bcData->getInletConservativeState())[j];
-        }
-      }
-      break;*/
     case (NonlinearRomOnlineData::WEIGHTED_LS_CV):
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {

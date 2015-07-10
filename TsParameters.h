@@ -1,6 +1,7 @@
 #ifndef _TS_PARAMETERS_H_
 #define _TS_PARAMETERS_H_
 
+#include <cstdio>
 #include <ErrorHandler.h>
 
 class IoData;
@@ -14,7 +15,6 @@ class TsParameters {
   double cfl0;
   double cflCoef1;
   double cflCoef2;
-  double cflCoef3;
   double cflMax;
   double cflMin;
   double ser;
@@ -30,6 +30,8 @@ class TsParameters {
   complex<double>* dft;
 
   ErrorHandler* errorHandler;
+
+  FILE *cfl_output;
 
 public:
 
@@ -54,6 +56,7 @@ public:
   int checkrhoclipping;
 
   bool unphysical;
+  bool badlinsolve;
   bool allowstop;
   int forbidreduce;
 

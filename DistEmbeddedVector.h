@@ -3,6 +3,7 @@
 
 #include <DistVector.h>
 #include <set>
+#include <cmath>
 //------------------------------------------------------------------------------
 
 template<class T, class Scalar>
@@ -896,7 +897,7 @@ DistEmbeddedVec<Scalar,dim>::getAbs(const DistEmbeddedVec<bcomp,dim> &y)
     int locOffset = dim * distInfo.subOffsetReg[iSub];
     int locLen = dim * distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) vv[locOffset+i] = abs(yy[locOffset+i]);
+    for (int i = 0; i < locLen; ++i) vv[locOffset+i] = std::abs(yy[locOffset+i]);
 
   }
 

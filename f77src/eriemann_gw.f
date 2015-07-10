@@ -31,7 +31,7 @@ C     Declaration of variables:
       REAL*8 FL, FR, FLD, FRD, UDIFF
       REAL*8 POLD, RHOOLD, PRATIO, CHANGE
       REAL*8 AK, BK, QRT, PR1, PR2, DRP
-      REAL*8 TOLPRE
+      REAL*8 TOLPRE, VTOL
       REAL*8 DEBUG
 
 C     TOLPRE is precision tolerance for convergence of newton-raphson
@@ -220,13 +220,16 @@ C     Shock wave
 *     
  10   CONTINUE
 *     
-      WRITE(6,*)'Divergence in Newton-Raphson iteration'
+      WRITE(*,*) ' *** Warning: '
+      WRITE(*,*) 'Newton-Raphson reached max num. iterations ', NRITER
+      WRITE(*,*) 'without converging to the desired tolerance', TOLPRE
       WRITE(6,*) PM, PL, PR
       WRITE(*,*) 'INPUT RIEMANN (DL,UL,PL,DR,UR,PR)'
       WRITE(*,*) DL,UL,PL,DR,UR,PR
       WRITE(*,*) 'OUTPUT (PM,UM,RIL,RIR)'
       WRITE(*,*) PM,UM,RIL,RIR
       WRITE(*,*) 'ALPHA,PREF = ', ALPHA,PREF
+      WRITE(*,*) ' *** '
 *     
  20   CONTINUE
 
@@ -280,7 +283,5 @@ c         IF(PM.LE.MIN(PL,PR) .AND. UL.LE.UM .AND. UM.LE.UR)THEN
             WRITE(6,*) 'ERROR TYPE 4'
          ENDIF
       ENDIF
-
-            
 
       END

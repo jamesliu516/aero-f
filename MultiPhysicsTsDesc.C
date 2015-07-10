@@ -12,6 +12,7 @@
 #endif
 
 #include <cmath>
+#include <limits>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -74,7 +75,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Pscale = ioData.ref.rv.pressure;
   intersector_freq = ioData.implosion.intersector_freq;
   if(ioData.implosion.type==ImplosionSetup::LINEAR)
-    tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+    tmax = (Prate == 0) ? std::numeric_limits<double>::max() : (ioData.bc.inlet.pressure - Pinit)/Prate;
   else if(ioData.implosion.type==ImplosionSetup::SMOOTHSTEP) {
     tmax = ioData.implosion.tmax;
     if(tmax<=0.0) {
@@ -91,6 +92,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   // miscellaneous
   globIt = -1;
   inSubCycling = false;
+  inRedoTimestep = false;
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
     vfar[i] =Vin[i]; //for phase-change update only
@@ -190,9 +192,10 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
 
-  if(orderOfAccuracy==1) //first-order everywhere...
+  if(orderOfAccuracy==1) { //first-order everywhere...
     linRecAtInterface = false;
     viscSecOrder = false;
+  }
 
   //for phase-change update
   Weights = 0;
@@ -815,6 +818,17 @@ void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(map<int,int> & surfOutMa
 }
 
 //-------------------------------------------------------------------------------
+template <int dim, int dimLS>
+void MultiPhysicsTsDesc<dim,dimLS>::getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
+								    DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+								    DistSVec<double,3> &X, double dS[3],
+								    Vec3D *dFi, Vec3D *dMi) 
+{
+  
+  fprintf(stderr, "ERROR: MultiPhys getderivativeOfForcesAndMoments not implemented \n");
+
+}
+//-------------------------------------------------------------------------------
 template<int dim, int dimLS>
 bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U)
 {
@@ -823,7 +837,6 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
   if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
-//    this->com->fprintf(stdout, "max pressure reached\n"); 
     return true;
   }
 
@@ -886,7 +899,10 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(int it, double dt, double t
     }
   }
 
-  double pnow = currentPressure(t);;
+  // Population of spaceOp->V for the force computation
+  this->spaceOp->conservativeToPrimitive(U, this->fluidSelector.fluidId); // PJSA
+
+  double pnow = currentPressure(t);
   this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
   this->domain->IncreasePressure(pnow, this->varFcn, U, *(this->fluidSelector.fluidId));
 

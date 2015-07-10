@@ -21,3 +21,4 @@ syntax: regexp
 Project/*
 Release/*
 Debug/*
+CMakeFiles/*

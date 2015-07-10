@@ -2493,22 +2493,22 @@ void KirchhoffIntegrator::cart2sph_x
   ro = sqrt(xo*xo + yo*yo + zo*zo);
   to = (ro == 0.0) ? 0.0 : acos(zo/ro);
   
-  if ((abs(xo) < 1.0e-15 * ro) && (abs(yo) < 1.0e-15 * ro))
+  if ((std::abs(xo) < 1.0e-15 * ro) && (std::abs(yo) < 1.0e-15 * ro))
   {
     po = 0.0;
   }
-  else if (abs(xo) < 1.0e-15 * ro)
+  else if (std::abs(xo) < 1.0e-15 * ro)
   {
     po = (yo < 0.0) ? M_PI * 1.5 : M_PI * 0.5;
   }
-  else if (abs(yo) < 1.0e-15 * ro)
+  else if (std::abs(yo) < 1.0e-15 * ro)
   {
     po = (xo < 0.0) ? M_PI : 0.0;
   }
   else
   {
     double angle = xo/(ro * sin(to));
-    if (abs(angle) >= 1.0)
+    if (std::abs(angle) >= 1.0)
     {
       angle = (angle > 0.0) ? 0.0 : M_PI;
     }
@@ -2547,22 +2547,22 @@ void KirchhoffIntegrator::cart2sph_y
     to = acos(zo/ro);
   }
   
-  if ((abs(xo) < 1.0e-15 * ro) && (abs(yo) < 1.0e-15 * ro))
+  if ((std::abs(xo) < 1.0e-15 * ro) && (std::abs(yo) < 1.0e-15 * ro))
   {
     po = 0.0;
   }
-  else if (abs(xo) < 1.0e-15 * ro)
+  else if (std::abs(xo) < 1.0e-15 * ro)
   {
     po = (yo < 0.0) ? -M_PI * 0.5 : M_PI * 0.5;
   }
-  else if (abs(yo) < 1.0e-15 * ro)
+  else if (std::abs(yo) < 1.0e-15 * ro)
   {
     po = (xo < 0.0) ? M_PI : 0.0;
   }
   else
   {
     double angle = yo/(ro * sin(to));
-    if (abs(angle) >= 1.0)
+    if (std::abs(angle) >= 1.0)
     {
       angle = (angle > 0.0) ? 0.5*M_PI : 1.5*M_PI;
     }

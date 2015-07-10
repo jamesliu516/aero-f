@@ -395,8 +395,6 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
   //com->fprintf(stderr, " ... Starting Struct Solver\n");
 
   mms = new TetMeshMotionSolver(ioData.dmesh, matchNodes, domain, mp);
-  if (ioData.problem.alltype == ProblemData::_FSI_SHAPE_OPTIMIZATION_ ) mms1 = new TetMeshSensitivitySolver(ioData.dmesh, matchNodes, domain, mp);
-  else mms1 = 0;
 
   it0 = ioData.restart.iteration;
 
@@ -426,7 +424,6 @@ AeroMeshMotionHandler::~AeroMeshMotionHandler()
   if (Favg) delete Favg;
   if (strExc) delete strExc;
   if (mms) delete mms;
-  if (mms1) delete mms1;
 }
 
 //------------------------------------------------------------------------------
@@ -438,9 +435,16 @@ void AeroMeshMotionHandler::sendForceSensitivity(DistSVec<double,3> *dFdS)
 
 //------------------------------------------------------------------------------
 
-void AeroMeshMotionHandler::getNumParam(int &numParam)
+void AeroMeshMotionHandler::getNumParam(int &numParam, int &actvar, double &steadyTol)
 {
-  strExc->getNumParam(numParam);
+  strExc->getNumParam(numParam, actvar, steadyTol);
+}
+
+//------------------------------------------------------------------------------
+
+void AeroMeshMotionHandler::sendNumParam(int numParam)
+{
+  strExc->sendNumParam(numParam);
 }
 
 //------------------------------------------------------------------------------
@@ -493,8 +497,8 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
         strExc->sendForce(F);
         if (steady) {
     	  strExc->negotiateStopping(lastIt);
-	  if (*lastIt) 
-	    return 0.0;
+        if (*lastIt) 
+          return 0.0;
         }
       }
       strExc->getDisplacement(X0, X, Xdot, dX, false);
@@ -712,7 +716,6 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
       if(i > 0) rscale /= 2;
       X = X0;
       dX *= rscale;    
-      com->fprintf(stderr, "Modal Displacement at Interface  norm %e for freq: %f\n", dX.norm(), f[im]);
       mms->solve(dX, X);
 
       // verify mesh integrity
@@ -732,6 +735,7 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
         break;
       } else com->fprintf(stderr, " ... WARNING: negative volume element is detected. attempt to increase mppFactor to %e\n", mppFactor/(rscale/2));
     }
+
 #ifdef YDEBUG
     if(ierr > 0) {
       const char* output = "elementvolumecheck";
@@ -742,6 +746,7 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
       exit(-1);
     }
 #endif
+
   }
   return 1;
 

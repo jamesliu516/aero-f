@@ -295,7 +295,6 @@ void RecFcnConstant<5>::precompute(double* Vi, double* ddVij, double* Vj, double
 }
 
 //------------------------------------------------------------------------------
-
 // Included (MB)
 template<>
 inline
@@ -652,10 +651,8 @@ inline
 void RecFcnVanAlbada<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
 				   double* Vij, double* Vji)
 {
-
   for (int k=0; k<dim; ++k)
     vanalbada(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k]);
-
 }
 
 //------------------------------------------------------------------------------
@@ -664,10 +661,8 @@ inline
 void RecFcnVanAlbada<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
                                   double* Vij, double* Vji, double phii, double phij)
 {
-
   for (int k=0; k<dim; ++k)
     interface(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k], phii, phij);
-
 }
 
 //------------------------------------------------------------------------------

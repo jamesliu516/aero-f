@@ -120,11 +120,14 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
 
+  probDesc->fsaPrintTextOnScreen("NO NO NO NO\n");
   probDesc->fsaPrintTextOnScreen("**********************************\n");
   probDesc->fsaPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
   probDesc->fsaPrintTextOnScreen("**********************************\n");
-  
+  probDesc->fsaPrintTextOnScreen("NO NO NO NO\n");
   probDesc->fsaHandler(ioData, U);
+
+  probDesc->fsaPrintTextOnScreen(" *** fsaSolver done *** \n");
 
   return 0;
 
@@ -170,7 +173,7 @@ int TsSolver<ProblemDescriptor>::fsisoSolve(IoData &ioData)
   resolve(U, ioData);
 
   ioData.sa.fsiFlag = true;
-  probDesc->fsoHandler(ioData, U);
+  probDesc->fsoAeroelasticHandler(ioData, U);
   probDesc->printf(0," ***** fsisoSolve is done ********\n");
 
   return 0;
@@ -217,10 +220,11 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   // For an embedded viscous simulation with turbulence model, compute the distance to the wall
   probDesc->computeDistanceToWall(ioData);
 
-  if (lastIt)
+  if (lastIt) 
     probDesc->outputPositionVectorToDisk(U);
 
   while (!lastIt) {
+
     probDesc->resetOutputToStructure(U);
     int stat = 0;
     int itSc = 0;
@@ -237,6 +241,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     
     bool repeat;
     do { // Subcycling
+
       (*UPrev) = U;
 
       repeat = false;
@@ -278,6 +283,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           *dUPrev = *dU;
           *dU = -1.0*U;
         }
+
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->clearError(ErrorHandler::ALL);
         probDesc->checkLocalRomStatus(U, it);
         stat = probDesc->solveNonLinearSystem(U, it);

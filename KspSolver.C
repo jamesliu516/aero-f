@@ -367,17 +367,19 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
   do {
 
+    //std::cout << "IN KSPSOLVER GMRES SOLVE ---- PRE  MVP APPLY\n";
     this->mvpOp->apply(x, w);
     r = b - w;
+    //std::cout << "IN KSPSOLVER GMRES SOLVE ++++ POST MVP APPLY\n";
 
     if (typePrec == 1) { this->pcOp->apply(r, w); r = w; }
-
+    
     beta = r.norm();
 
     if (iter == 0) {
       target = this->eps * (res0 = b.norm()); // beta;
       if (this->output) this->ioOp->fprintf(this->output, "Gmres(%d) iterations:\n", numVec);
-      if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e (%e)\n", 0, beta, target, this->eps);
+      if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e (%e)  \n", 0, beta, target, this->eps);
     } 
     else
       if (this->output) this->ioOp->fprintf(this->output, "  --- restart ---\n");
@@ -399,21 +401,23 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
       case 2: { this->pcOp->apply(V[j], r); this->mvpOp->apply(r, w); } break;
       }
 
+
+
       for (int i=0; i<=j; ++i) {
-	// For complex vectors, w has to not be conjugated in the definition
+        // For complex vectors, w has to not be conjugated in the definition
         // of the dot product
-	H[i][j] = w * V[i];
-	w -= H[i][j] * V[i];
+        H[i][j] = w * V[i];
+        w -= H[i][j] * V[i];
       }
 
       H[j+1][j] = w.norm();
     
       if (H[j+1][j] == 0.0) {
 
-	applyPreviousRotations(j, H, cs);
-	applyNewRotation(j, H, cs, g);
+        applyPreviousRotations(j, H, cs);
+        applyNewRotation(j, H, cs, g);
 
-	++iter; exitLoop = 1; break;
+        ++iter; exitLoop = 1; break;
 
       }
       
@@ -426,7 +430,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
       ++iter;
 
-      if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e \n", iter, l2res, target);
+      if (this->output)
+	this->ioOp->fprintf(this->output, "  %d %e %e \n", iter, l2res, target);
 
       if (l2res <= target || iter >= this->maxits || 
           l2res <= this->absoluteEps) { exitLoop = 1; break; }
@@ -492,6 +497,7 @@ template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class Scal
 int
 GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solveLS(VecType &b, VecType &x)
 {
+
   int typePrec = 2;
   double beta, l2res, target;
 
@@ -738,17 +744,12 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::
 applyNewRotation(int j, GenFullM<ScalarT> &H, GenFullM<ScalarT> &cs, Vec<ScalarT> &g)
 {
 
-  double coef = 1.0 / sqrt( sqNorm(H[j][j]) + sqNorm(H[j+1][j]) );
-
-
-  //cs[j][0] = H[j+1][j] * coef; // sin
-  //cs[j][1] = H[j][j] * coef;   // cos
-
   if (sqNorm(H[j][j]) == 0.0)  {
     cs[j][1] = 0.0;   // cos
     cs[j][0] = 1.0;   // sin
   }
   else  {
+    double coef = 1.0 / sqrt( sqNorm(H[j][j]) + sqNorm(H[j+1][j]) );
     cs[j][1] = sqrt(sqNorm(H[j][j])) * coef;  //cos
     cs[j][0] = cs[j][1] * H[j+1][j]/H[j][j];  //sin
   }
@@ -789,6 +790,7 @@ int
 GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecSet<VecType> &b, 
             VecSet<VecType> &x)
 {
+
   int typePrec = 2;
 
   double beta, l2res, target;

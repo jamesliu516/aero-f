@@ -145,29 +145,31 @@ void ModalSolver<dim>::solve()  {
      computeDampingRatios();
    }
 #ifdef USE_EIGEN3
-   else if (ioData->problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_) {
+   else if (ioData->problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_ || ioData->problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL2_) {
      double sReal, sImag;
+     bool isFirstErrorIndicator = (ioData->problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_) ? true:false;
      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rightEigenVector(nStrMode,1), leftEigenVector(nStrMode,1), residual(nStrMode,1);
      rightEigenVector.setZero();    leftEigenVector.setZero();    residual.setZero();
      char eigFile [100];  int iEV;
      sprintf(eigFile, "%s%s", ioData->input.prefix, ioData->input.reducedEigState);
      domain.readEigenValuesAndVectors(eigFile, sReal, sImag, iEV);
-     computeEigenvectorsAndResidual(sReal,sImag,iEV,rightEigenVector,leftEigenVector,residual);
-//     computeNonlinearEigenResidual(sReal, sImag, rightEigenVector, leftEigenVector, residual);
-     double residualnorm = residual.norm(); ///(leftEigenVector.adjoint()*rightEigenVector).norm();
-     double resDenominator = computeResidualDenominator(sReal, sImag, rightEigenVector, leftEigenVector);
-     com->fprintf(stderr,"residualnorm is %e\n", residualnorm); 
-     com->fprintf(stderr,"resDenominator is %e\n", resDenominator); 
-     com->fprintf(stderr,"errorEstimate is %e\n", residualnorm/resDenominator); 
-     const char* output = "errorIndicator1";
-     ofstream out(output, ios::out);
-     if(!out) {
-       cerr << "Error: cannot open file" << output << endl;
-       exit(-1);
-     } 
-     out << residualnorm/resDenominator << endl;
-     out.close();
-//     delete [] rEigenVector;
+     computeEigenvectorsAndResidual(sReal,sImag,iEV,rightEigenVector,leftEigenVector,residual,isFirstErrorIndicator);
+     if (isFirstErrorIndicator) {
+       double residualnorm = residual.norm(); 
+       double resDenominator = computeResidualDenominator(sReal, sImag, rightEigenVector, leftEigenVector);
+       com->fprintf(stderr,"residualnorm is %e\n", residualnorm); 
+       com->fprintf(stderr,"resDenominator is %e\n", resDenominator); 
+       com->fprintf(stderr,"errorEstimate is %e\n", residualnorm/resDenominator); 
+       const char* output = "errorIndicator1";
+       ofstream out(output, ios::out);
+       if(!out) {
+         cerr << "Error: cannot open file" << output << endl;
+         exit(-1);
+       } 
+       out << residualnorm/resDenominator << endl;
+       out.close();
+//       delete [] rEigenVector;
+     }
    }
 #endif
    else if (ioData->problem.alltype == ProblemData::_GAM_CONSTRUCTION_) {
@@ -3406,7 +3408,7 @@ void ModalSolver<dim>::computeDampingRatios()
       }
       sEVnew = sortEV[iEV];
       evList[iEV] = sEVnew;
-      if (abs(sEVnew.imag()) <= 1.0e-16) {
+      if (std::abs(sEVnew.imag()) <= 1.0e-16) {
         com->fprintf(stderr, "***WARNING: sImag is zero\n");
         break;
       }
@@ -3417,7 +3419,7 @@ void ModalSolver<dim>::computeDampingRatios()
 //output damp ratio and eigenvalues
   com->fprintf(stderr, "\nWrite solution to '%s'\n\n", outFile);
  
-  com->fprintf(outEV, "EV-ID RealPart ImagPart DampingRatio Converged\n");
+  com->fprintf(outEV, "ModeIDnumber RealPartEigenvalue ImaginaryPartEigenvalue DampingRatio ConvergenceToSpecifiedPrecision (1 = yes, 0 = no)\n");
   
   for (int iEV = 0; iEV < nStrMode; ++iEV) {
     absLambda = sqrt (pow (evList[iEV].real(), 2.0) + pow (evList[iEV].imag(), 2.0));
@@ -3447,7 +3449,8 @@ template<int dim>
 void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag, int iEV, 
                                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &revector,
                                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &levector,
-                                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual)
+                                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual,
+                                                      bool isFirstErrorIndicator)
 {
   iEV--;  // subtract 1 because iEV starts with zero
   Vec<bcomp> sortEV_Eigen(2*nStrMode);
@@ -3540,10 +3543,10 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
    for(int i=0; i<nStrMode; ++i) {
      dRatios(i,0) = -sortEV[i].real()/std::norm(sortEV[i]);
    }
-   double minDRatio = dRatios.minCoeff();
+   double minDRatio = -sEVnew.real()/sqrt(sEVnew.real()*sEVnew.real() + sEVnew.imag()*sEVnew.imag());
    double minDRatio_candidate = -sReal/sqrt(sReal*sReal+sImag*sImag);
 
-   double errorIndicator2 = std::abs((minDRatio - minDRatio_candidate)/minDRatio); 
+   double errorIndicator2 = std::fabs(minDRatio - minDRatio_candidate); 
 //   double errorIndicator2 = (sqrt (pow ((sEVnew.real()- sReal), 2.0)) + pow ((sEVnew.imag() - sImag), 2.0)) / (sqrt (pow (sEVnew.real(), 2.0) + pow (sEVnew.imag(), 2.0)));
    com->fprintf(stderr, "error indicator 2 = %e\n", errorIndicator2);   
 
@@ -3559,7 +3562,7 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
 // find imaginary part of an eigenvalue that is closest to sImag
 /*  double cur_dist;  double dist=10000000;  
   for (int i = 0; i < 2*nStrMode; ++i) {
-    cur_dist = abs(sortEV_Eigen[i].imag() - sImag);
+    cur_dist = std::abs(sortEV_Eigen[i].imag() - sImag);
     if (cur_dist < dist) { 
       dist = cur_dist;
       Index = i;
@@ -3568,57 +3571,50 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
   com->fprintf(stderr, "closest distance = %e\n", dist);
   com->fprintf(stderr, "sortEV_Eigen[%d] = %e + i %e\n", Index, sortEV_Eigen[Index].real(), sortEV_Eigen[Index].imag());
 */
-  eigenvector = eigSolv.eigenvectors().col(ipos3[Index]);
-// eigenvector = eigSolv.eigenvectors().col(Index);
-  com->fprintf(stderr, "Eigenvalue ... %e + i %e\n", sReal, sImag);
-//  for(int i=0; i<nStrMode; ++i) com->fprintf(stderr, "%e %e\n", eigenvector(i,0).real(), eigenvector(i,0).imag());
-  for(int i=0; i<nStrMode; ++i) revector(i,0) = eigenvector(i,0);
 
-  for (int i = 0; i < 2*nStrMode; i++) {
-    for (int j = 0; j < 2*nStrMode; j++) {
-      evProb(j,i) = eigMatA[j][i];
+  if(isFirstErrorIndicator) {
+    eigenvector = eigSolv.eigenvectors().col(ipos3[Index]);
+    com->fprintf(stderr, "Eigenvalue ... %e + i %e\n", sReal, sImag);
+    for(int i=0; i<nStrMode; ++i) revector(i,0) = eigenvector(i,0);
+
+    for (int i = 0; i < 2*nStrMode; i++) {
+      for (int j = 0; j < 2*nStrMode; j++) {
+        evProb(j,i) = eigMatA[j][i];
+      }
     }
-  }
-  Eigen::EigenSolver<MatrixXd> leigSolv(evProb);
+    Eigen::EigenSolver<MatrixXd> leigSolv(evProb);
 
-  for (int i = 0; i < 2*nStrMode; ++i) {
-    sortEV_Eigen[i] = leigSolv.eigenvalues()[i];
-  }
+    for (int i = 0; i < 2*nStrMode; ++i) {
+      sortEV_Eigen[i] = leigSolv.eigenvalues()[i];
+    }
  
 // find imaginary part of an eigenvalue that is closest to sImag
 //  dist=10000000;  
-  double cur_dist;  double dist=10000000;  
-  for (int i = 0; i < 2*nStrMode; ++i) {
-    cur_dist = abs(sortEV_Eigen[i].imag() - sEVnew.imag());
-    if (cur_dist < dist) { 
-      dist = cur_dist;
-      Index = i;
+    double cur_dist;  double dist=10000000;  
+    for (int i = 0; i < 2*nStrMode; ++i) {
+      cur_dist = std::abs(sortEV_Eigen[i].imag() - sEVnew.imag());
+      if (cur_dist < dist) { 
+        dist = cur_dist;
+        Index = i;
+      }
     }
-  }
-  eigenvector = leigSolv.eigenvectors().col(Index);
-  for(int i=0; i<nStrMode; ++i) levector(i,0) = eigenvector(i,0);
+    eigenvector = leigSolv.eigenvectors().col(Index);
+    for(int i=0; i<nStrMode; ++i) levector(i,0) = eigenvector(i,0);
 
 // compute residual
-  complex<double> lambda(sReal,sImag);
-//  Vec<bcomp> GAMrEigenVector(nStrMode);
-//  Eigen::Matrix<complex<double>, Eigen::Dynamic, Eigen::Dynamic> GAMrEigenVector(nStrMode,1);
+    complex<double> lambda(sReal,sImag);
 
-  for (int jj = 0; jj < nStrMode; jj++) {
-    residual(jj,0) = (K[jj] + lambda*lambda)*revector(jj,0);
+    for (int jj = 0; jj < nStrMode; jj++) {
+      residual(jj,0) = (K[jj] + lambda*lambda)*revector(jj,0);
+    }
+
+    residual += Qmatrix*revector;
   }
-
-  residual += Qmatrix*revector;
-//  multiplyQ(sReal, sImag, revector.data(), GAMrEigenVector);
-//  for(int jj=0; jj<nStrMode; ++jj) {
-//    residual(jj,0) += GAMrEigenVector[jj];
-//  }
-
 }
 //------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::computeNonlinearEigenResidual(double sReal, double sImag, 
                                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
-                                                     Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector, 
                                                      Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual) 
 {
   complex<double> lambda(sReal,sImag);
@@ -3891,7 +3887,7 @@ void ModalSolver<dim>::multiply_dQdLambda(double sReal, double sImag, complex<do
 
   rhs = 0.0;
   for (int iMode = 0; iMode < nStrMode; iMode++)  {
-    rhs += reigvector[iMode]*(sCompl*DE[iMode] + oneReal*DX[iMode]);
+    rhs += -reigvector[iMode]*(sCompl*DE[iMode] + oneReal*DX[iMode]);
   }
    
   if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
@@ -3915,7 +3911,7 @@ void ModalSolver<dim>::multiply_dQdLambda(double sReal, double sImag, complex<do
 //loop over modes
   sCompl *= invT;
    
-  // solve for [sA+H]^(-1) * [s(E+C)+G]
+  // solve for [sA+H]^(-1) * [s(E+C)+G] * reigvector
   delW = 0.0;
   t0 = modalTimer->getTime();
 
