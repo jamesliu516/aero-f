@@ -627,14 +627,12 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 template<int dim>
 void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-						 DistSVec<double,dim> &U,
-						 DistSVec<double,dim> &R,
-						 DistTimeState<dim> *timeState,
-						 RestrictionMapping<dim> & restrictionMapping, bool compatF3D)
+		DistSVec<double,dim> &U,
+		DistSVec<double,dim> &R,
+		DistTimeState<dim> *timeState,
+		const std::vector<std::vector<int> >& sampledLocNodes, bool compatF3D)
 {
 
-	std::vector<std::vector<int> > sampledLocNodes =
-		restrictionMapping.getRestrictedToOriginLocNode() ;
 
 	R = 0.0;
 	varFcn->conservativeToPrimitive(U, *V);

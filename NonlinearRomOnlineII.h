@@ -18,7 +18,7 @@ class NonlinearRomOnlineII : public NonlinearRom<dim> {
   bool updateBasisSimple(int, DistSVec<double, dim> &);
   bool updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>*);
   bool updateBasisFastApprox(int, DistSVec<double, dim> &);
-  void projectSwitchStateOntoAffineSubspace(int, DistSVec<double, dim> &);
+  void projectSwitchStateOntoAffineSubspace(int, int, DistSVec<double, dim> &, Vec<double> &);
 
   void appendNonStateDataToBasis(int, const char *, bool relProjError = false); 
   void readClusteredOnlineQuantities(int);

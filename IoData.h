@@ -62,6 +62,7 @@ struct OneDimensionalInputData {
 struct InputData {
 
   enum OptimalPressureDimensionality {NON_DIMENSIONAL=0, DIMENSIONAL=1,NONE=2} optPressureDim;
+  enum UseMultiSolutionsGappy {MULTI_SOLUTIONS_GAPPY_FALSE=0, MULTI_SOLUTIONS_GAPPY_TRUE=1} useMultiSolutionsGappy;
 
   const char *prefix;
   const char *geometryprefix;
@@ -75,8 +76,11 @@ struct InputData {
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
-  const char *multisolutions;
+  const char *multiSolutions;
+  const char *multiSolutionsParams; // ROMs: path to a file listing file paths to solutions (not used) and their corresponding operating point (solutions are assumed to be in the same order as in the multiSolutions file)
+  const char *parameters;  // ROMs: operating point for the current simulation (interpolates multiSolutionsParams to find an IC);
   const char *positions;
+  const char *displacements;
   const char *embeddedpositions;
   const char *levelsets;
   const char *cracking;
@@ -91,10 +95,10 @@ struct InputData {
   // Added by Alex Main (September 2013)
   //
   const char *restart_file_package;
+
   const char *podFile;
   const char *optimalPressureFile;
   const char *optimalPressureDim;
-  //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
   const char *stateSnapFile;
   const char *stateSnapRefSolution;
   const char *multiStateSnapRefSolution;
@@ -102,12 +106,19 @@ struct InputData {
   const char *krylovSnapFile;
   const char *sensitivitySnapFile;
   const char *approxMetricStateSnapFile;
+  const char *approxMetricNonlinearSnapFile;
+  const char *greedyDataFile;
   const char *projErrorSnapFile;
   const char *initialClusterCentersFile;
   const char *reducedCoords;
   const char *strModesFile;
   const char *embeddedSurface;
   const char *oneDimensionalSolution;
+
+  // Paths to external executables.  Currently only hooked up for Gappy preprocessing, but could be used for general simulations.
+  const char *sower;
+  const char *metis;
+  int nParts;
 
   //const char *stateVecFile;//CBM
 
@@ -353,12 +364,14 @@ struct ROMOutputData {
   const char *stateVector;
   int stateOutputFreqTime;
   int stateOutputFreqNewton;
+  enum AvgStateIncrements {AVG_STATE_INCREMENTS_OFF = 0, AVG_STATE_INCREMENTS_ON = 1} avgStateIncrements;
 
   const char *residualVector;
   int residualOutputFreqTime;
-  int residualOutputFreqNewton;
+  int residualOutputMaxNewton;
   enum FDResiduals {FD_RESIDUALS_OFF = 0, FD_RESIDUALS_ON = 1} fdResiduals;
   enum FDResidualsLimit {FD_RESIDUALS_LIMIT_OFF = 0, FD_RESIDUALS_LIMIT_ON = 1} fdResidualsLimit;
+  enum OutputOnlySpatialResidual {OUTPUT_ONLY_SPATIAL_RES_OFF = 0, OUTPUT_ONLY_SPATIAL_RES_ON = 1} outputOnlySpatialResidual;
 
   const char *krylovVector;
   int krylovOutputFreqTime;
@@ -438,11 +451,10 @@ struct ProblemData {
                 _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
                 _INTERPOLATION_ = 20, _NONLINEAR_EIGENRESIDUAL_ = 21,
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
-                _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_PREPROCESSING_STEP_1_ = 28,
-                _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
-                _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 35,
-                _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _NONLINEAR_EIGENRESIDUAL2_ = 38, _ACC_UNSTEADY_NONLINEAR_ROM_ = 39,
-                _STEADY_NONLINEAR_ROM_ = 40, _FORCED_NONLINEAR_ROM_ = 41, _ROM_SHAPE_OPTIMIZATION_ = 42} alltype;
+                _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_POST_ = 28, _POD_CONSTRUCTION_ = 29, 
+                _ROB_INNER_PRODUCT_ = 30, _AERO_ACOUSTIC_ = 31, _SHAPE_OPTIMIZATION_ = 32, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 33,
+                _AEROELASTIC_ANALYSIS_ = 34, _GAM_CONSTRUCTION_ = 35, _NONLINEAR_EIGENRESIDUAL2_ = 36, _ACC_UNSTEADY_NONLINEAR_ROM_ = 37,
+                _STEADY_NONLINEAR_ROM_ = 38, _FORCED_NONLINEAR_ROM_ = 39, _ROM_SHAPE_OPTIMIZATION_ = 40} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -450,6 +462,8 @@ struct ProblemData {
   enum SolveFluid {OFF = 0, ON = 1} solvefluid;
   enum SolutionMethod { TIMESTEPPING = 0, MULTIGRID = 1} solutionMethod;
   int verbose;
+
+  enum SolveWithMultipleICs {_MULTIPLE_ICS_FALSE_ = 0, _MULTIPLE_ICS_TRUE_ = 1} solveWithMultipleICs;
 
   ProblemData();
   ~ProblemData() {}
@@ -2159,7 +2173,7 @@ struct NonlinearRomFilesData {
   // If a prefix and a name are both given, the name overrides the prefix. 
 
   enum DuplicateSnapshots {DUPLICATE_SNAPSHOTS_FALSE = 0, DUPLICATE_SNAPSHOTS_TRUE = 1} duplicateSnapshots;
- 
+
   // State snapshot clusters
   const char *statePrefix;
   const char *stateSnapsName;
@@ -2179,6 +2193,9 @@ struct NonlinearRomFilesData {
   const char *exactUpdateInfoPrefix;
   const char *stateDistanceComparisonInfoName;
   const char *stateDistanceComparisonInfoExactUpdatesName;
+  const char *stateDistanceComparisonInfoExactUpdatesMultiICName;
+  const char *basisNormalizedCenterProductsName;
+  const char *basisMultiUicProductsName;
   const char *projErrorName;
   const char *refStateName;
 
@@ -2220,8 +2237,8 @@ struct NonlinearRomFilesData {
   const char *jacActionBasisName;
   const char *jacActionSingValsName;
 
-  // GNAT quantities
-  const char *gnatPrefix;
+  // Gappy quantities
+  const char *gappyPrefix;
   const char *sampledNodesName;         //sampleNodes;
   const char *sampledNodesFullCoordsName; // sampled nodes in full mesh coordinates
   const char *sampledCentersName;
@@ -2232,13 +2249,16 @@ struct NonlinearRomFilesData {
   const char *sampledJacActionBasisName; //podFileJacHat;
   const char *sampledMeshName;          //mesh;
   const char *sampledSolutionName;      //solution;
+  const char *sampledMultiSolutionsName; // multiple solutions. Can start from one, or an arbitrary linear combination.
   const char *sampledRefStateName;
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
   const char *gappyResidualName;             //resMatrix in sampled coords;
-  const char *approxMetricLowRankName; // approximated metric in reduced mesh coordinates
-  const char *approxMetricLowRankFullCoordsName; // approximated metric in full mesh coordinates
-  const char *approxMetricLowRankSurfaceCoordsName;
+  const char *approxMetricStateLowRankName; // approximated metric in reduced mesh coordinates
+  const char *approxMetricNonlinearLowRankName;
+  const char *approxMetricStateLowRankFullCoordsName; // approximated metric in full mesh coordinates
+  const char *approxMetricNonlinearLowRankFullCoordsName;
+  const char *approxMetricStateLowRankSurfaceCoordsName;
   
   // Surface quantities
   const char *surfacePrefix;
@@ -2246,6 +2266,7 @@ struct NonlinearRomFilesData {
   const char *surfaceStateBasisName;
   const char *surfaceRefStateName;
   const char *surfaceSolutionName;
+  const char *surfaceMultiSolutionsName;
   const char *surfaceWallDistName;
   const char *surfaceMeshName;
 
@@ -2260,6 +2281,9 @@ struct NonlinearRomFilesData {
 
 struct NonlinearRomFileSystemData {
 
+  enum AvgIncrementalStates {AVG_INCREMENTAL_STATES_FALSE = 0, AVG_INCREMENTAL_STATES_TRUE = 1} avgIncrementalStates;
+  enum DistanceMetric {DIST_EUCLIDEAN = 0, DIST_ANGLE = 1 } distanceMetric;
+ 
   int nClusters;
 
   NonlinearRomDirectoriesData directories;
@@ -2297,10 +2321,10 @@ struct NonlinearRomOnlineNonStateData {
 
 struct NonlinearRomOnlineData {
 
-	enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
-	enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1} systemApproximation;
+  enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
+  enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1, COLLOCATION = 2, APPROX_METRIC_NL = 3} systemApproximation;
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
-	enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3} lsSolver;
+  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3, PROBABILISTIC_SVD = 4, LSMR = 5} lsSolver;
 
   enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
   double weightingExponent;
@@ -2322,6 +2346,10 @@ struct NonlinearRomOnlineData {
   double energy;
   double bufferEnergy;
 
+  int randMatDimension;
+
+  double incrementCoordsTol;
+
   double residualsCoordMin;
   double residualsCoordMax;
   int residualsCoordRes;
@@ -2331,6 +2359,7 @@ struct NonlinearRomOnlineData {
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;
+  int tryAllFreq;
   double basisUpdateTolerance;
 
   enum ProjectSwitchStateOntoAffineSubspace {PROJECT_OFF = 0, PROJECT_ON = 1} projectSwitchStateOntoAffineSubspace;
@@ -2382,7 +2411,6 @@ struct RelativeProjectionErrorData {
 struct StateSnapshotsData {
 
   enum NormalizeSnaps {NORMALIZE_FALSE = 0, NORMALIZE_TRUE = 1} normalizeSnaps;
-  enum IncrementalSnaps {INCREMENTAL_FALSE = 0, INCREMENTAL_TRUE = 1} incrementalSnaps;
   enum SubtractClusterCenters {SUBTRACT_CENTERS_FALSE = 0, SUBTRACT_CENTERS_TRUE = 1} subtractCenters;
   enum SubtractNearestSnapshotToCenter {SUBTRACT_NEAREST_FALSE = 0, SUBTRACT_NEAREST_TRUE = 1} subtractNearestSnapsToCenters;
   enum SubtractRefState {SUBTRACT_REF_STATE_FALSE = 0, SUBTRACT_REF_STATE_TRUE = 1} subtractRefState;
@@ -2415,6 +2443,10 @@ struct DataCompressionData {
   enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
   enum Type {POD = 0, BALANCED_POD = 1} type;
   enum PODMethod {SCALAPACK_SVD = 0, PROBABILISTIC_SVD = 1, Eig = 2} podMethod;
+  int randMatDimension;
+  int nPowerIts;
+  enum CompareSVDMethods {COMPARE_SVD_FALSE = 0, COMPARE_SVD_TRUE = 1} compareSVDMethods;
+  enum TestProbabilisticSVD {TEST_PROBABILISTIC_SVD_FALSE = 0, TEST_PROBABILISTIC_SVD_TRUE = 1} testProbabilisticSVD;
   int maxVecStorage;
   enum EnergyOnly {ENERGY_ONLY_FALSE = 0, ENERGY_ONLY_TRUE = 1} energyOnly;
   double tolerance;
@@ -2422,6 +2454,7 @@ struct DataCompressionData {
   int minBasisSize;
   double singValTolerance;
   double maxEnergyRetained;
+  int initialCluster;
 
   DataCompressionData();
   ~DataCompressionData() {}
@@ -2516,7 +2549,7 @@ struct ClusteringData {
   enum UseExistingClusters {USE_EXISTING_CLUSTERS_FALSE = 0, USE_EXISTING_CLUSTERS_TRUE = 1} useExistingClusters;
   enum ComputeMDS {COMPUTE_MDS_FALSE = 0, COMPUTE_MDS_TRUE = 1} computeMDS;
   enum ClusterFilesSeparately {CLUSTER_FILES_SEPARATELY_FALSE = 0, CLUSTER_FILES_SEPARATELY_TRUE = 1} clusterFilesSeparately;
-  enum ClusterIncrements {CLUSTER_INCREMENTS_FALSE = 0, CLUSTER_INCREMENTS_TRUE = 1} clusterIncrements;
+  double snapshotNormTolerance;
 
   ClusteringData();
   ~ClusteringData() {}
@@ -2544,10 +2577,11 @@ struct ApproximatedMetricData {
 struct BasisUpdatesData {
 
   enum PreprocessForNoUpdates {NO_UPDATES_FALSE = 0, NO_UPDATES_TRUE = 1} preprocessForNoUpdates;
+  enum PreprocessForProjections {PROJECTIONS_FALSE = 0, PROJECTIONS_TRUE = 1} preprocessForProjections;
   enum PreprocessForSimpleUpdates {SIMPLE_UPDATES_FALSE = 0, SIMPLE_UPDATES_TRUE = 1} preprocessForSimpleUpdates;
   enum PreprocessForExactUpdates {EXACT_UPDATES_FALSE = 0, EXACT_UPDATES_TRUE = 1} preprocessForExactUpdates;
   enum PreprocessForApproxUpdates {APPROX_UPDATES_FALSE = 0, APPROX_UPDATES_TRUE = 1} preprocessForApproxUpdates;
-  ApproximatedMetricData approximatedMetric;
+  ApproximatedMetricData approxMetricState;
 
 
   BasisUpdatesData();
@@ -2582,9 +2616,12 @@ struct ROBConstructionData {
 
 //------------------------------------------------------------------------------
 
-struct GNATConstructionData {
+struct GappyConstructionData {
 
-	// optional: to document
+  enum DoPrepro {DO_PREPRO_FALSE = 0, DO_PREPRO_TRUE = 1} doPrepro;
+  enum SowerInputs {SOWER_INPUTS_FALSE = 0, SOWER_INPUTS_TRUE = 1} sowerInputs;
+  enum DoPreproGNAT {DO_PREPRO_GNAT_FALSE = 0, DO_PREPRO_GNAT_TRUE = 1} doPreproGNAT;
+  enum DoPreproApproxMetricNonlinear {DO_PREPRO_APPROX_METRIC_NL_FALSE = 0, DO_PREPRO_APPROX_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinear;
 
   int maxDimensionState;
   int minDimensionState;
@@ -2606,12 +2643,23 @@ struct GNATConstructionData {
   int minDimensionJacAction;
   double energyJacAction;
 
-	enum ROBGreedy {UNSPECIFIED_GREEDY = -1, RESIDUAL_GREEDY = 0,
-		JACOBIAN_GREEDY  = 1, BOTH_GREEDY = 2} robGreedy;
+  enum SelectSampledNodes {SELECT_SAMPLED_NODES_FALSE = 0, SELECT_SAMPLED_NODES_TRUE = 1} selectSampledNodes;
+  
+  enum greedyData {UNSPECIFIED_GREEDY = -1, STATE_ROB_GREEDY = 0, RESIDUAL_ROB_GREEDY = 1,
+                   JACOBIAN_ROB_GREEDY = 2, RESIDUAL_AND_JACOBIAN_ROBS_GREEDY = 3, SPECIFIED_SNAPS_GREEDY = 4} greedyData;
+  enum GreedyLeastSquaresSolver {GREEDY_LS_PROBABILISTIC = 0, GREEDY_LS_SCALAPACK = 1, GREEDY_LS_LINPACK = 2} greedyLeastSquaresSolver;
 
-  int maxDimensionROBGreedy;	// default: nRobNonlin
-  int minDimensionROBGreedy;
-  double robGreedyFactor;
+  enum PseudoInverseSolver {PSEUDO_INVERSE_SCALAPACK = 0, PSEUDO_INVERSE_LINPACK = 1} pseudoInverseSolver;
+  int pseudoInverseNodes;
+
+  double initialCluster; // for online matrix computations (restart)
+
+  int randMatDimension;
+  int nPowerIts;
+
+  int maxDimGreedyAlgorithm;	
+  int minDimGreedyAlgorithm;
+  double dimGreedyAlgorithmFactor;
 
   int maxSampledNodes;
   int minSampledNodes;
@@ -2621,6 +2669,13 @@ struct GNATConstructionData {
   enum IncludeLiftFaces {NONE_LIFTFACE = 0,
 		SPECIFIED_LIFTFACE  = 1, ALL_LIFTFACE = 2} includeLiftFaces;
 
+  double minFractionOfSampledNodesOnSurfaceInTargetRegion;
+  double minFractionOfSampledNodesInTargetRegion;
+  SchemeFixData sampledMeshTargetRegion;  // use fix regions to specify target areas for sampled mesh construction
+
+  enum ConstructApproxMetricNonlinear {CONSTRUCT_APPROX_METRIC_NL_FALSE = 0, CONSTRUCT_APPROX_METRIC_NL_TRUE = 1} constructApproxMetricNonlinear; 
+  ApproximatedMetricData approxMetricNonlinear;
+
   enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;
 
   enum UseUnionOfSampledNodes {UNION_FALSE = 0, UNION_TRUE = 1} useUnionOfSampledNodes;
@@ -2628,15 +2683,15 @@ struct GNATConstructionData {
   enum UseOldReducedSVecFunction {USE_OLD_FALSE = 0, USE_OLD_TRUE = 1} useOldReducedSVecFunction;
 
   enum SampledMeshUsed {SAMPLED_MESH_NOT_USED = 0, SAMPLED_MESH_USED = 1} sampledMeshUsed;
-  int pseudoInverseNodes;
+
   enum OutputReducedBases {OUTPUT_REDUCED_BASES_FALSE = 0, OUTPUT_REDUCED_BASES_TRUE = 1} outputReducedBases;
   enum TestApproxMetric {TEST_APPROX_METRIC_FALSE = 0, TEST_APPROX_METRIC_TRUE = 1} testApproxMetric;
 
   double farFieldWeight;
   double wallWeight;
 
-  GNATConstructionData();
-  ~GNATConstructionData() {}
+  GappyConstructionData();
+  ~GappyConstructionData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -2646,8 +2701,8 @@ struct GNATConstructionData {
 
 struct NonlinearRomOfflineData {
 
-  GNATConstructionData gnat;
   ROBConstructionData rob;
+  GappyConstructionData gappy;
 
   NonlinearRomOfflineData();
   ~NonlinearRomOfflineData() {}

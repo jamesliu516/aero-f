@@ -15,7 +15,7 @@ class Domain;
 class Communicator;
 
 template<class Scalar, int dim> class DistSVec;
-template<int dim, int neq> class MatVecProdFD;
+template<int dim, int neq> class MatVecProd;
 
 
 //------------------------------------------------------------------------------
@@ -25,14 +25,14 @@ class ImplicitRomTsDesc : public TsDesc<dim> {
 
 protected:
 
-	IoData *ioData;
+  IoData *ioData;
 
   int maxItsNewton;
   double epsNewton;
   double epsAbsResNewton;
   double epsAbsIncNewton;
 
-  MatVecProdFD<dim,dim> *mvpfd;
+  MatVecProd<dim,dim> *mvp;
 
   DistSVec<bool,2> *tag;
 
@@ -43,12 +43,16 @@ protected:
   int currentCluster;
 
   int basisUpdateFreq;  
+  int tryAllFreq;
 
   FullM jac;
   
   int nPod;
   
   bool unsteady;
+  bool systemApprox;
+  bool useIncrements;
+  bool tryingAllClusters;
 
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
@@ -83,9 +87,12 @@ protected:
   double c1;
   int maxItsLS; 
 
+  std::vector<double> interpWeightsForMultiIC;
+
   Vec<double> dUromNewtonIt;    // set to zero before each newton iteration
   Vec<double> dUromTimeIt;      // set to zero before each time iteration
   Vec<double> dUromCurrentROB;  // set to zero after each cluster switch
+  Vec<double> UromCurrentROB;   // for projection only: initialized at each cluster switch
 
   double target, res0;	// for Newton convergence
 
@@ -96,7 +103,6 @@ protected:
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
 	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &, const int &totalTimeSteps = 0) = 0;
 	// each ROM has a different way of solving the Newton system
-  virtual void updateGlobalTimeSteps(const int _it) {};	// broyden needs to know global time steps
   int solveLinearSystem(int, Vec<double> &, Vec<double> &);
   virtual double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double); 
   double meritFunctionDeriv(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double);
@@ -108,7 +114,9 @@ protected:
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
-  virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int);
+
+  void loadCluster(int, bool, DistSVec<double, dim> &);
+
   virtual void updateLeastSquaresWeightingVector();
   virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
   virtual bool breakloop1(const bool);
@@ -118,7 +126,7 @@ protected:
   virtual void setProblemSize(DistSVec<double, dim> &) {};
   virtual void deleteRestrictedQuantities() {};
 
-	double *projVectorTmp; // temporary vector for projectVector
+  double *projVectorTmp; // temporary vector for projectVector
 
   bool updateFreq;
   bool clusterSwitch;
@@ -128,6 +136,10 @@ protected:
                                  // stored to recalculate reference residual after 
                                  // cluster switch (new sampled mesh for GNAT) or after
                                  // changing the residual weighting 
+
+  DistSVec<double, dim>* Uprev;  // solution at the beginning of the previous time step (needed for model II incremental bases) 
+
+  void tryAllClusters(DistSVec<double, dim>&, const int totalTimeSteps, int*);
 
   void printRomResiduals(DistSVec<double, dim> &U);
   FILE *residualsFile;
@@ -143,6 +155,8 @@ public:
 
   int solveNonLinearSystem(DistSVec<double, dim> &, const int _it);
   void rstVarImplicitRomTsDesc(IoData &);
+  void checkLocalRomStatus(DistSVec<double, dim> &, const int);
+  void setInterpWeightsForMultiIC(std::vector<double> vec) {interpWeightsForMultiIC = vec;}
 };
 
 //------------------------------------------------------------------------------

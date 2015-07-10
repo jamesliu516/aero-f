@@ -41,7 +41,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   stateOutputFreqTime = iod.output.rom.stateOutputFreqTime;
   stateOutputFreqNewton = iod.output.rom.stateOutputFreqNewton;
   residualOutputFreqTime = iod.output.rom.residualOutputFreqTime;
-  residualOutputFreqNewton = iod.output.rom.residualOutputFreqNewton; 
+  residualOutputMaxNewton = iod.output.rom.residualOutputMaxNewton; 
   fdResiduals = (iod.output.rom.fdResiduals == ROMOutputData::FD_RESIDUALS_ON) ? true : false;
   fdResidualsLimit = (iod.output.rom.fdResidualsLimit == ROMOutputData::FD_RESIDUALS_LIMIT_ON) ? true : false;
 
@@ -3445,12 +3445,14 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 
 
 template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
+int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
                                                   DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
 { // Outputs state and residual snapshots (from the FOM newton solver) for building a nonlinear ROM.
   // The logic tests ensure that every state from a given timestep is ouput (if requested), but that 
   // no state snapshot is stored twice. (Need to be careful because the initial state of any given 
   // timestep is the converged state from the previous timestep)
+
+  int status = 0;
 
   timeStep = timeStep - 1; //need the counting to start at 0, not 1
 
@@ -3469,28 +3471,30 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep,
           // output FOM state 
           domain->writeVectorToFile(stateVectors, step, tag, *state);
           ++(*(domain->getNewtonStateStep()));
+          ++status;
         }
     }
   }
 
   if (residual && residualVectors) {
     if (timeStep%residualOutputFreqTime==0) { 
-      if (((residualOutputFreqNewton==0) && lastNewtonIt) || // special case: last newton iteration 
-          ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
-          (((residualOutputFreqNewton>0))&&(newtonIt%residualOutputFreqNewton==0))) {
+      if (residualOutputMaxNewton>=newtonIt) {
         // for FOM residuals only (residuals from PG are clustered during the online simulations)
 
         // if outputting krylov vects, limit number of residuals output per newton iteration to
         // number of krylov vecs output at previous it 
         if ((fdResiduals && fdResidualsLimit) && (*(domain->getNumKrylovVecsOutputPrevNewtonIt())>0) && 
-            (*(domain->getNumResidualsOutputCurrentNewtonIt()) >= *(domain->getNumKrylovVecsOutputPrevNewtonIt())))  return; 
+            (*(domain->getNumResidualsOutputCurrentNewtonIt()) >= *(domain->getNumKrylovVecsOutputPrevNewtonIt())))  return status;
 
         domain->writeVectorToFile(residualVectors, *(domain->getNewtonResidualStep()), *(domain->getNewtonTag()), *residual);
         ++(*(domain->getNewtonResidualStep()));
         ++(*(domain->getNumResidualsOutputCurrentNewtonIt()));
+        status = (status==1) ? 3 : 2;
       }
     }
   }
+
+  return status;
 
 }
 

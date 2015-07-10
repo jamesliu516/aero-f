@@ -93,6 +93,8 @@ public:
   void setup1(const char *, DistSVec<double,3> *, DistVec<double> *);
   void setup2(TimeData &);
   void setup3(const char *, DistSVec<double,3> *, DistVec<double> *);
+  void setupInitialDisplacement(const char *, DistSVec<double,3> *, DistVec<double> *);
+
   void compute(TimeData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &);
   void interpolate(double, double, DistSVec<double,3> &, DistSVec<double,3> &);
   void update(DistSVec<double,3> &, DistVec<double> &);

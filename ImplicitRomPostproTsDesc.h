@@ -17,12 +17,12 @@ protected:
 	virtual void computeAJ(int it, DistSVec<double, dim> &Q);
   DistSVec<double, dim> Uinitial;	// solution increment at EACH NEWTON ITERATION in full coordinates
 	virtual void postProStep(DistSVec<double,dim> &, int);	// by default, do not do post processing
-  void checkLocalRomStatus(DistSVec<double, dim> &, const int);
   
   double dt;
 
 public:
 
+  void checkLocalRomStatus(DistSVec<double, dim> &, const int);
   double computeTimeStep(int, double*, DistSVec<double,dim> &, double);
   bool monitorConvergence(int, DistSVec<double,dim> &);
  

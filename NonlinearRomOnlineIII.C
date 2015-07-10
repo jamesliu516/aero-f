@@ -24,8 +24,9 @@ NonlinearRomOnlineIII<dim>::NonlinearRomOnlineIII(Communicator* _com, IoData& _i
   // this->ioData->example, this->com->example, this->domain.example
 
   readClosestCenterInfoModelIII();
-
-  this->determineNumResJacMat();
+  
+  if (this->ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT)
+    this->determineNumResJacMat();
 
   if (this->ioData->romOnline.storeAllClusters==NonlinearRomOnlineData::STORE_ALL_CLUSTERS_TRUE)
     this->readAllClusteredOnlineQuantities(); // all ROBs, sVals, and update info
@@ -50,7 +51,11 @@ void NonlinearRomOnlineIII<dim>::readClosestCenterInfoModelIII() {
   if (this->ioData->romOnline.distanceComparisons) {
     switch (this->ioData->romOnline.basisUpdates) {
       case (NonlinearRomOnlineData::UPDATES_OFF):
-        this->readDistanceComparisonInfo("noUpdates");
+        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+          this->readDistanceComparisonInfo("project");
+        } else {
+          this->readDistanceComparisonInfo("noUpdates");
+        }
         break;
       case (NonlinearRomOnlineData::UPDATES_SIMPLE):
         this->com->fprintf(stderr, "*** Error: fast distance caluclations are incompatible with simple ROB updates (use Exact)\n");
@@ -84,14 +89,13 @@ template<int dim>
 void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
 
     // read in sample nodes
-    this->readClusteredSampleNodes(iCluster);
+    this->readClusteredSampleNodes(iCluster, "sampled");
 
-    // read in gappy POD matrix for residual
-    this->readClusteredGappyMatrix(iCluster, "resMatrix");
-
-    // read in gappy POD matrix for Jacobian
-    if (this->numResJacMat==2) this->readClusteredGappyMatrix(iCluster, "jacMatrix");
-
+    if (this->ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
+      this->readClusteredGappyMatrix(iCluster, "resMatrix");  // read in gappy POD matrix for residual
+      if (this->numResJacMat==2) this->readClusteredGappyMatrix(iCluster, "jacMatrix"); // read in gappy POD matrix for Jacobian
+    }
+ 
     // read in sampled state ROB
     this->readClusteredBasis(iCluster, "sampledState");
 
@@ -175,6 +179,12 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
   int robSize = this->basis->numVectors();
   int kSize = robSize+1;
 
+  // use Kahan summation to minimize roundoff error.  Volatile should prevent intel compiler from using unsafe (associative) optimizations here.
+  volatile double compensation;
+  volatile double temp1;
+  volatile double temp2;
+  double totalCompensation = 0.0;
+
   // update alpha_switch, beta_switch, and n_switch
   // kVec is used for the dimension of the previous rob, jVec for current, iVec for cluster i
   assert((this->exactUpdatesAlpha.size() == 0) || (this->exactUpdatesAlpha.size() == coords->size()) );
@@ -183,16 +193,29 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
   }
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     assert((this->exactUpdatesBeta[iCluster].size() == 0) || (this->exactUpdatesBeta[iCluster].size() == coords->size()));
-    for (int kVec=0; kVec<this->exactUpdatesBeta[iCluster].size(); ++kVec)
-      this->exactUpdatesBetaSwitch[iCluster] += this->exactUpdatesBeta[iCluster][kVec]*(*coords)[kVec];
+    compensation = 0.0;
+    for (int kVec=0; kVec<this->exactUpdatesBeta[iCluster].size(); ++kVec) {
+        temp1 = this->exactUpdatesBeta[iCluster][kVec]*(*coords)[kVec] - compensation;
+        temp2 = this->exactUpdatesBetaSwitch[iCluster] + temp1;
+        compensation = (temp2 - this->exactUpdatesBetaSwitch[iCluster]) - temp1;
+        totalCompensation += compensation;
+        this->exactUpdatesBetaSwitch[iCluster] = temp2;
+        //this->exactUpdatesBetaSwitch[iCluster] += this->exactUpdatesBeta[iCluster][kVec]*(*coords)[kVec];
+    }
 
     assert((this->exactUpdatesN[iCluster].size() == 0) || (this->exactUpdatesN[iCluster][0].size() == coords->size()));
+    compensation = 0.0;
     for (int iVec=0; iVec<this->exactUpdatesN[iCluster].size(); ++iVec) {
       if (this->exactUpdatesNSwitch[iCluster].size()==0) {
         this->exactUpdatesNSwitch[iCluster].resize(this->exactUpdatesN[iCluster].size(),0.0);
       }
       for (int kVec=0; kVec<this->exactUpdatesN[iCluster][iVec].size(); ++kVec) {
-        this->exactUpdatesNSwitch[iCluster][iVec] += this->exactUpdatesN[iCluster][iVec][kVec]*(*coords)[kVec];
+          temp1 = this->exactUpdatesN[iCluster][iVec][kVec]*(*coords)[kVec] - compensation;
+          temp2 = this->exactUpdatesNSwitch[iCluster][iVec] + temp1;
+          compensation = (temp2 - this->exactUpdatesNSwitch[iCluster][iVec]) - temp1;
+          totalCompensation += compensation;
+          this->exactUpdatesNSwitch[iCluster][iVec] = temp2;
+      //    this->exactUpdatesNSwitch[iCluster][iVec] += this->exactUpdatesN[iCluster][iVec][kVec]*(*coords)[kVec];     
       }
     }
   }
@@ -209,14 +232,17 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
   }
   betaA[currentCluster] += 1.0;
 
+  std::vector<double> sumVec;
+
   std::vector<double> m;
   m.resize(robSize,0.0);
   assert(this->basisUicProducts[currentCluster].size() >= robSize); // preprocessing might have used fewer vectors
+
   for (int jVec=0; jVec<robSize; ++jVec) {
-    m[jVec] += alphaA*(this->basisUicProducts[currentCluster][jVec]);
+    sumVec.push_back( alphaA*(this->basisUicProducts[currentCluster][jVec]) );
     for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
       assert(this->basisUrefProducts[currentCluster][iCluster].size() >= robSize);  // again, checking preprocessing
-      m[jVec] += betaA[iCluster]*(this->basisUrefProducts[currentCluster][iCluster][jVec]);
+      sumVec.push_back( betaA[iCluster]*(this->basisUrefProducts[currentCluster][iCluster][jVec]) );
       if (iCluster < currentCluster) {
         assert(this->basisBasisProducts[currentCluster][iCluster].size() >= robSize);
         assert(this->basisBasisProducts[currentCluster][iCluster][0].size() >= nA[iCluster].size());
@@ -226,32 +252,25 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
       }
       for (int iVec=0; iVec<nA[iCluster].size(); ++iVec) {
         if (iCluster < currentCluster) {
-          m[jVec] += (this->basisBasisProducts[currentCluster][iCluster][jVec][iVec])*nA[iCluster][iVec];
+          sumVec.push_back( (this->basisBasisProducts[currentCluster][iCluster][jVec][iVec])*nA[iCluster][iVec] );
         } else if (iCluster > currentCluster) { // basisBasis products is lower triangular, so swap iCluster and currentCluster and take transpose
-          m[jVec] += (this->basisBasisProducts[iCluster][currentCluster][iVec][jVec])*nA[iCluster][iVec];
+          sumVec.push_back( (this->basisBasisProducts[iCluster][currentCluster][iVec][jVec])*nA[iCluster][iVec] );
         } else {// iCluster == currentCluster, basisBasisProducts are assumed to be identity
-          if (jVec == iVec) m[jVec] += nA[currentCluster][jVec];
+          if (jVec == iVec) sumVec.push_back( nA[currentCluster][jVec] );
         }
       }
     }
-  }
-
-  // construct r
-  double r = pow(alphaA * this->uicNorm, 2);
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
-
-  for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
-    for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
-      if (iCluster >= pCluster) {
-        r += betaA[iCluster]*betaA[pCluster]*this->urefUrefProducts[iCluster][pCluster];
-      } else {
-        r += betaA[iCluster]*betaA[pCluster]*this->urefUrefProducts[pCluster][iCluster];
-      }
+    
+    compensation = 0.0;
+    for (int iEntry=0; iEntry<sumVec.size(); ++iEntry) {
+       temp1 = sumVec[iEntry] - compensation;
+       temp2 = m[jVec] + temp1;
+       compensation = (temp2 - m[jVec]) - temp1;
+       totalCompensation += compensation;
+       m[jVec] = temp2;
     }
+    sumVec.clear();
   }
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
 
   std::vector<std::vector<double> > nATmp = nA; //nATmp = nA[iCluser] - delta_(iCluster,currentCluster)*m
   if (nATmp[currentCluster].size()>0) {
@@ -265,60 +284,73 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
     }
   }
 
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
+  // construct r
+  sumVec.clear();
+  sumVec.push_back( pow(alphaA * this->uicNorm, 2) );
+
+  for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
+    for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
+      if (iCluster >= pCluster) {
+        sumVec.push_back( betaA[iCluster]*betaA[pCluster]*this->urefUrefProducts[iCluster][pCluster] );
+      } else {
+        sumVec.push_back( betaA[iCluster]*betaA[pCluster]*this->urefUrefProducts[pCluster][iCluster] );
+      }
+    }
+  }
 
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
       for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {
-        r += 2*betaA[pCluster]*this->basisUrefProducts[iCluster][pCluster][iVec]*nATmp[iCluster][iVec];
+        sumVec.push_back( 2*betaA[pCluster]*this->basisUrefProducts[iCluster][pCluster][iVec]*nATmp[iCluster][iVec] );
       }
     }
   }
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
 
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
-      double tmp;
       if (iCluster > pCluster) {
         for (int pVec=0; pVec<nATmp[pCluster].size(); ++pVec) {
-          tmp = 0.0;
           for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {
-            tmp += nATmp[iCluster][iVec] * this->basisBasisProducts[iCluster][pCluster][iVec][pVec];
+            sumVec.push_back( nATmp[iCluster][iVec] * nATmp[pCluster][pVec] * this->basisBasisProducts[iCluster][pCluster][iVec][pVec] );
           }
-          r += tmp*nATmp[pCluster][pVec];
         }
       } else if (iCluster < pCluster) {
         for (int pVec=0; pVec<nATmp[pCluster].size(); ++pVec) {
-          tmp = 0.0;
           for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {
-            tmp += nATmp[iCluster][iVec] * this->basisBasisProducts[pCluster][iCluster][pVec][iVec];
+            sumVec.push_back( nATmp[iCluster][iVec] * nATmp[pCluster][pVec] * this->basisBasisProducts[pCluster][iCluster][pVec][iVec] );
           }
-          r += tmp*nATmp[pCluster][pVec];
         }
       } else { // iCluster = pCluster
         for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {
-          r += pow(nATmp[iCluster][iVec],2);
+          sumVec.push_back( pow(nATmp[iCluster][iVec],2) );
         }
       }
     }
   }
 
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
-
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
-    r += 2.0*alphaA*betaA[iCluster]*this->urefUicProducts[iCluster];
+    sumVec.push_back( 2.0*alphaA*betaA[iCluster]*this->urefUicProducts[iCluster] );
   }
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
 
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {
-      r += 2.0*alphaA*nATmp[iCluster][iVec]*this->basisUicProducts[iCluster][iVec];
+      sumVec.push_back( 2.0*alphaA*nATmp[iCluster][iVec]*this->basisUicProducts[iCluster][iVec] );
     }
   }
 
+  double r = 0.0;
+  compensation = 0.0;
+  for (int iEntry=0; iEntry<sumVec.size(); ++iEntry) {
+     temp1 = sumVec[iEntry] - compensation;
+     temp2 = r + temp1;
+     compensation = (temp2 - r) - temp1;
+     totalCompensation += compensation;
+     r = temp2;
+  }
+  this->com->fprintf(stdout,"entries required to build r = %d\n", sumVec.size());
+  sumVec.clear();
   this->com->fprintf(stdout,"r = %1.12e\n", r);
+  this->com->fprintf(stdout,"totalCompensation = %1.12e\n", totalCompensation);
 
   if ( r < pow(this->rTol,2.0) ) { // no need to update basis -- just need to update alpha, beta, and N
     this->com->fprintf(stdout, " ... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
@@ -342,8 +374,6 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
 
     r = pow(r, 0.5);
 
-    this->com->fprintf(stdout,"DOUBLECHECK\n");
-    this->com->fprintf(stdout,"r= %1.12e\n", r);
     for (int iVec = 0; iVec<robSize; ++iVec) {
       this->com->fprintf(stdout,"m[%d] = %1.12e\n",iVec, m[iVec]);
     }
@@ -680,10 +710,58 @@ void NonlinearRomOnlineIII<dim>::appendNonStateDataToBasis(int cluster, const ch
 //-------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineIII<dim>::projectSwitchStateOntoAffineSubspace(int iCluster, DistSVec<double, dim> &U) {
+void NonlinearRomOnlineIII<dim>::projectSwitchStateOntoAffineSubspace(int currentCluster, int prevCluster, 
+                                                                      DistSVec<double, dim> &U, Vec<double> &UromCurrentROB) {
 
-  this->com->fprintf(stdout, " ... projecting switch state onto affine subspace is not yet supported\n");
+  this->com->fprintf(stdout, " ... projecting switch state onto affine subspace\n");
 
-  // approx metric!
+  // if first iteration
+  // currentReducedCoords = basisUicProducts[currentCluster] - basisUrefProducts[currentCluster,currentCluster];
+  //
+  // (if starting with an interpolated Uic, basisUicProducts[currentCluster] is formed in TsDesc.C)
+  //
+  // otherwise
+  // currentReducedCoords = basisUrefProducts[currentCluster,prevCluster] - basisUrefProducts[currentCluster,currentCluster]
+  //                      + basisBasisProducts[currentCluster,prevCluster,:,:] * prevReducedCoords;
+  //                      
+  // newState = currentReference + currentROB * currentReducedCoords;
+
+  int nPodVecs = this->basis->numVectors();
+  int nPodVecsPrev = UromCurrentROB.size();
+
+  if (prevCluster==-1) {
+    UromCurrentROB.resize(nPodVecs);
+    for (int iVec = 0; iVec < nPodVecs; iVec++)
+      UromCurrentROB[iVec] = this->basisUicProducts[currentCluster][iVec] - this->basisUrefProducts[currentCluster][currentCluster][iVec];
+  } else if (currentCluster==prevCluster) {
+    // do nothing -- (should never enter here, just being overly cautious because basisBasisProducts isn't defined for this case...)
+  } else {
+    Vec<double> UromPrevROB(UromCurrentROB);
+    UromCurrentROB.resize(nPodVecs);
+    for (int iVec = 0; iVec < nPodVecs; iVec++) {
+      UromCurrentROB[iVec] = -1.0* this->basisUrefProducts[currentCluster][currentCluster][iVec];
+      //if (prevCluster<currentCluster) {
+        UromCurrentROB[iVec] += this->basisUrefProducts[currentCluster][prevCluster][iVec];
+      //} else {
+      //  UromCurrentROB[iVec] -= this->basisUrefProducts[prevCluster][currentCluster][iVec];
+      //}
+      if (prevCluster<currentCluster) {
+        for (int jVec = 0; jVec < nPodVecsPrev; jVec++) {
+          UromCurrentROB[iVec] += this->basisBasisProducts[currentCluster][prevCluster][iVec][jVec] * UromPrevROB[jVec];
+        }                  
+      } else {
+        for (int jVec = 0; jVec < nPodVecsPrev; jVec++) {
+          UromCurrentROB[iVec] += this->basisBasisProducts[prevCluster][currentCluster][jVec][iVec] * UromPrevROB[jVec];
+        }
+      }
+    }
+  }
+
+  this->readClusteredUpdateInfo(currentCluster, "sampledstate");
+  U = *(this->Uref);
+  for (int iVec = 0; iVec < nPodVecs; iVec++)
+    U += UromCurrentROB[iVec] * (*(this->basis))[iVec];
+
+  return;
 }
 

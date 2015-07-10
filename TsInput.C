@@ -31,8 +31,9 @@ TsInput::TsInput(IoData &iod) {
   } else {
 
     solutions = absolutePath(iod.input.solutions, prefix);
-    multisolutions = absolutePath(iod.input.multisolutions, prefix);
+    multiSolutions = absolutePath(iod.input.multiSolutions, prefix);
     positions = absolutePath(iod.input.positions, prefix);
+    displacements = absolutePath(iod.input.displacements, prefix);
     levelsets = absolutePath(iod.input.levelsets, prefix);
   }
 
@@ -72,6 +73,7 @@ TsInput::absolutePath(const std::string & rawPath, const std::string & prefix) {
 TsInput::~TsInput() {
   delete[] solutions;
   delete[] positions;
+  delete[] displacements;
   delete[] levelsets;
   delete[] podFile;
  // delete[] snapFile;

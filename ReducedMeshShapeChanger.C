@@ -1,9 +1,9 @@
 #include <ReducedMeshShapeChanger.h>
-#include <GnatPreprocessing.h>
+#include <GappyPreprocessing.h>
 
 template<int dim>
 ReducedMeshShapeChanger<dim>::ReducedMeshShapeChanger(Communicator *_com, IoData &_ioData, Domain &dom, DistGeoState *_geoState) : 
-GnatPreprocessing<dim>(_com, _ioData, dom, _geoState) {
+GappyPreprocessing<dim>(_com, _ioData, dom, _geoState) {
 
 	this->globalNodes = new std::vector <int> [1];
 }
