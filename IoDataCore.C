@@ -1116,8 +1116,8 @@ FluidModelData::FluidModelData()
 {
 
   fluid = PERFECT_GAS;
-  rhomin = -1.e9;
-  pmin = -1.e9;
+  rhomin = -1.e9; // note: if these defaults are changed then doVerification()
+  pmin = -1.e9;   //       in VarFcnBase.h must also be changed.
 
 }
 
@@ -2961,7 +2961,7 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 CFLData::CFLData()
 {
 
-  strategy = HYBRID;
+  strategy = DEFAULT;
 
   cfl0 = 5.0;
   cflCoef1 = 0.0;
@@ -2969,10 +2969,6 @@ CFLData::CFLData()
   cflMax = 10000.0;
   cflMin = 1.0;
   dualtimecfl = 100.0;
-
-  checksol = 1;
-  checklinsolve = 1;
-
   ser = 0.7;
 
   angle_growth = 2.0;
@@ -2981,10 +2977,6 @@ CFLData::CFLData()
   dft_history = 8;
   dft_freqcutoff = 3;
   dft_growth = 1.4;
-
-  forbidreduce = 0;
-
-  useSteadyStrategy = 0;
 
   output = "";
 
@@ -2999,19 +2991,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<CFLData>(ca, "Strategy", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
-                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Standard", 5); 
-  new ClassToken<CFLData>(ca, "CheckSolution", this,
-                          reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
-                          "Off", 0, "On", 1);
-  new ClassToken<CFLData>(ca, "CheckLinearSolver", this,
-                          reinterpret_cast<int CFLData::*>(&CFLData::checklinsolve), 2,
-                          "Off", 0, "On", 1);
-  new ClassToken<CFLData>(ca, "ForbidReductions", this,
-                         reinterpret_cast<int CFLData::*>(&CFLData::forbidreduce), 2,
-                         "Off", 0, "On", 1);
-  new ClassToken<CFLData>(ca, "UseSteadyStrategy", this,
-                         reinterpret_cast<int CFLData::*>(&CFLData::useSteadyStrategy), 2,
-                         "Off", 0, "On", 1);
+                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "Fixed", 4, "Standard", 5); 
     
   new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
   new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
@@ -3054,6 +3034,7 @@ TsData::TsData()
   checkvelocity = 1;
   checkpressure = 1;
   checkdensity = 1;
+  checklinsolve = -1;
   deltapressurethreshold = 40;
   deltadensitythreshold = 40;
 
@@ -3104,6 +3085,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "CheckDensity", this,
                          reinterpret_cast<int TsData::*>(&TsData::checkdensity), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckLinearSolver", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checklinsolve), 2,
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
                          reinterpret_cast<int TsData::*>(&TsData::typeClipping), 4,
@@ -4945,10 +4929,12 @@ void IoData::resetInputValues()
   // Part 3
   //
  
-  if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
-    com->fprintf(stderr, "*** Warning: Using fixed unsteady CFL strategy for unsteady problem. To force a strategy designed for steady problems, set UseSteadyStrategy to On.\n");
-    ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
-    ts.cfl.checklinsolve = 0;
+  if(ts.cfl.strategy == CFLData::DEFAULT) {
+    ts.cfl.strategy = (problem.type[ProblemData::UNSTEADY]) ? CFLData::FIXEDUNSTEADY : CFLData::HYBRID;
+  }
+
+  if(ts.checklinsolve == -1) {
+    ts.checklinsolve = (problem.type[ProblemData::UNSTEADY]) ? 0 : 1;
   }
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||

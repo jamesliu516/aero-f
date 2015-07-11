@@ -35,8 +35,8 @@ TsParameters::TsParameters(IoData &ioData)
   cflMin = ioData.ts.cfl.cflMin;
   dualtimecfl = ioData.ts.cfl.dualtimecfl;
 
-  checksol = !(!ioData.ts.cfl.checksol || !ioData.ts.checksol);
-  checklinsolve = ioData.ts.cfl.checklinsolve;
+  checksol = ioData.ts.checksol;
+  checklinsolve = ioData.ts.checklinsolve;
   checkriemann = checksol;
   checklargevelocity = ioData.ts.checkvelocity;
   checkpclipping = ioData.ts.checkpressure;
@@ -56,8 +56,6 @@ TsParameters::TsParameters(IoData &ioData)
   eps = ioData.ts.eps;
   maxTime = ioData.ts.maxTime;
 
-  forbidreduce = ioData.ts.cfl.forbidreduce;
-
   output = new char[strlen(ioData.ts.output) + 1];
   sprintf(output, "%s", ioData.ts.output);
 
@@ -69,8 +67,6 @@ TsParameters::TsParameters(IoData &ioData)
   dft = new complex<double>[dft_history];
   for (int i=0; i<dft_history; i++) dft[i]=0.0;
 
-  unphysical = false;
-  badlinsolve = false;
   allowstop = true;
 
   errorHandler = NULL;
@@ -107,52 +103,51 @@ TsParameters::~TsParameters()
 //Figure out what to do with errors (related to time step)
 void TsParameters::resolveErrors(){
 
-  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]){
+  if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]) {
     errorHandler->com -> printf(1,"Detected saturated linear solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
   }
 
-  if (checksol && errorHandler->globalErrors[ErrorHandler::UNPHYSICAL]){
+  if (checksol && errorHandler->globalErrors[ErrorHandler::UNPHYSICAL]) {
     errorHandler->com -> printf(1,"Detected unphysical solution. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
   
-  if (checkriemann && errorHandler->globalErrors[ErrorHandler::BAD_RIEMANN]){
+  if (checkriemann && errorHandler->globalErrors[ErrorHandler::BAD_RIEMANN]) {
     errorHandler->com -> printf(1,"Detected error in Riemann solver. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
-  if (checkpclipping && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]){
+  if (checkpclipping && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]) {
     errorHandler->com -> printf(1,"Detected pressure clipping. Reducing error. If the problem is expected to produce cavitation, set CheckPressure to Off.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
-  if (checkrhoclipping && errorHandler->globalErrors[ErrorHandler::DENSITY_CLIPPING]){
+  if (checkrhoclipping && errorHandler->globalErrors[ErrorHandler::DENSITY_CLIPPING]) {
     errorHandler->com -> printf(1,"Detected density clipping. Reducing error. If the problem is expected to produce cavitation, set CheckDensity to Off.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
-  if (checklargevelocity && errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]){
+  if (checklargevelocity && errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]) {
     errorHandler->com -> printf(1,"Detected abnormally large velocities. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
-  if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE] >= rapidpchangecutoff){
+  if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE] >= rapidpchangecutoff) {
     errorHandler->com -> printf(1,"Detected multiple rapidly changing pressures. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
-    //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
 
-  if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY] >= rapiddchangecutoff){
+  if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY] >= rapiddchangecutoff) {
     errorHandler->com -> printf(1,"Detected multiple rapidly changing density. Reducing time step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
-    //errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
   }
+
   errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME] = errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP];
 
 }
@@ -168,39 +163,13 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
   }
 
   // First run automatic CFL checks
-
-  if (unphysical){
-    unphysical=false;
-    badlinsolve=false;
-    cfl *= 0.5;
-    fixedunsteady_counter = 1;
-    //std::printf("Reduction params: cfl0=%f, cfl=%f\n",cfl0,cfl);
-    if(cfl_output) errorHandler->com->fprintf(cfl_output,"Unphysicality detected. Reducing CFL number to %f.\n",cfl);
-    if (cfl < cfl0/10000. && allowstop ) {
-      std::printf("Could not resolve unphysicality by reducing CFL number. Aborting.\n"); 
-      std::printf("Params: cfl0=%f, cfl=%f\n",cfl0,cfl);
-      exit(-1);
-    }
-    return;
-  }
-  if (badlinsolve){
-    unphysical=false;
-    badlinsolve=false;
-    cfl *= 0.5;
-    fixedunsteady_counter = 1;
-    if(cfl_output) errorHandler->com->fprintf(cfl_output,"Saturated linear solver detected. Reducing CFL number to %f.\n",cfl);
-    if (cfl < cfl0/10000. && allowstop) {std::printf("Linear solver does not converge for any feasible CFL number. Aborting.\n"); exit(-1);}
-    return;
-  }
-
-
-  if (errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]){
-    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]=0;
-    double cflold=cfl;
+  if(errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP]) {
+    errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] = 0;
+    double cflold = cfl;
     cfl *= 0.5;
     fixedunsteady_counter = 1;
     errorHandler->com->printf(1,"Reducing CFL. Previous cfl=%e, new cfl=%e.\n",cflold,cfl);
-    if (cfl < cfl0/10000. && allowstop) {std::printf("Cannot further reduce CFL number. Aborting.\n"); exit(-1);}
+    if(cfl < cfl0/1000. && allowstop) {std::printf("Cannot further reduce CFL number. Aborting.\n"); exit(-1);}
     return;
   }
 
@@ -292,8 +261,7 @@ void TsParameters::computeCflNumber(int its, double res, double angle)
   }
 
   cfl = (min(max(cfl, cflCoef1),cflMax));
-  if (forbidreduce && cfl<cfl_prev) cfl = cfl_prev;
-  if(cfl_output) errorHandler->com->fprintf(cfl_output,"CFL number chosen: %e. Forbidreduce: %i. cfl_prev=%e\n",cfl,forbidreduce,cfl_prev);
+  if(cfl_output) errorHandler->com->fprintf(cfl_output,"CFL number chosen: %e. cfl_prev=%e\n",cfl,cfl_prev);
   return;
 }
 

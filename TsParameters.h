@@ -54,10 +54,7 @@ public:
   int checkpclipping;
   int checkrhoclipping;
 
-  bool unphysical;
-  bool badlinsolve;
   bool allowstop;
-  int forbidreduce;
 
 public:
 
