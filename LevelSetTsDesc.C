@@ -171,7 +171,6 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 {
   double t0 = this->timer->getTime();
   this->data->allowstop = this->timeState->allowcflstop;
-  this->timeState->unphysical = this->data->unphysical;
 
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
 
@@ -263,12 +262,6 @@ int LevelSetTsDesc<dim,dimLS>::checkSolution(DistSVec<double,dim> &U)
 {
 
   int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, *fluidSelector.fluidId, *fluidSelector.fluidIdn);
-
-  if (ierr != 0 && this->data->checksol){
-    this->data->unphysical = true;
-    return ierr;
-  }
-  ierr = max(0,ierr);
 
   return ierr;
 
