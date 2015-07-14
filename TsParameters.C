@@ -55,6 +55,7 @@ TsParameters::TsParameters(IoData &ioData)
   maxIts = ioData.ts.maxIts;
   eps = ioData.ts.eps;
   maxTime = ioData.ts.maxTime;
+  dt_imposed = ioData.ts.timestep;
 
   output = new char[strlen(ioData.ts.output) + 1];
   sprintf(output, "%s", ioData.ts.output);
@@ -101,55 +102,74 @@ TsParameters::~TsParameters()
 //------------------------------------------------------------------------------
 
 //Figure out what to do with errors (related to time step)
-void TsParameters::resolveErrors(){
+void TsParameters::resolveErrors()
+{
+  if(cfllaw == CFLData::OLD && dt_imposed < 0) return; // for backwards compatilibity
 
   if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]) {
-    errorHandler->com -> printf(1,"Detected saturated linear solver. Reducing time step.\n");
+    errorHandler->com->printf(1,"Detected saturated linear solver. Reducing time-step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::SATURATED_LS] = 0;
+    errorHandler->localErrors[ErrorHandler::SATURATED_LS] = 0;
   }
 
   if (checksol && errorHandler->globalErrors[ErrorHandler::UNPHYSICAL]) {
-    errorHandler->com -> printf(1,"Detected unphysical solution. Reducing time step.\n");
+    errorHandler->com->printf(1,"Detected unphysical solution. Reducing time-step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::UNPHYSICAL] = 0;
+    errorHandler->localErrors[ErrorHandler::UNPHYSICAL] = 0;
   }
   
   if (checkriemann && errorHandler->globalErrors[ErrorHandler::BAD_RIEMANN]) {
-    errorHandler->com -> printf(1,"Detected error in Riemann solver. Reducing time step.\n");
+    errorHandler->com->printf(1,"Detected error in Riemann solver. Reducing time-step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::BAD_RIEMANN] = 0;
+    errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] = 0;
   }
 
   if (checkpclipping && errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING]) {
-    errorHandler->com -> printf(1,"Detected pressure clipping. Reducing error. If the problem is expected to produce cavitation, set CheckPressure to Off.\n");
+    errorHandler->com->printf(1,"Detected pressure clipping. Reducing time-step. "
+    "If the problem is expected to produce cavitation, set CheckPressure to Off.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::PRESSURE_CLIPPING] = 0;
+    errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] = 0;
   }
 
   if (checkrhoclipping && errorHandler->globalErrors[ErrorHandler::DENSITY_CLIPPING]) {
-    errorHandler->com -> printf(1,"Detected density clipping. Reducing error. If the problem is expected to produce cavitation, set CheckDensity to Off.\n");
+    errorHandler->com->printf(1,"Detected density clipping. Reducing time-step. "
+    "If the problem is expected to produce cavitation, set CheckDensity to Off.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::DENSITY_CLIPPING] = 0;
+    errorHandler->localErrors[ErrorHandler::DENSITY_CLIPPING] = 0;
   }
 
   if (checklargevelocity && errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY]) {
-    errorHandler->com -> printf(1,"Detected abnormally large velocities. Reducing time step.\n");
+    errorHandler->com->printf(1,"Detected abnormally large velocities. Reducing time-step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
     errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::LARGE_VELOCITY] = 0;
+    errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] = 0;
   }
 
   if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE] >= rapidpchangecutoff) {
-    errorHandler->com -> printf(1,"Detected multiple rapidly changing pressures. Reducing time step.\n");
+    errorHandler->com->printf(1,"Detected multiple rapidly changing pressures. Reducing time-step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE] = 0;
+    errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_PRESSURE] = 0;
   }
 
   if (rapidpchangecutoff && errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY] >= rapiddchangecutoff) {
-    errorHandler->com -> printf(1,"Detected multiple rapidly changing density. Reducing time step.\n");
+    errorHandler->com->printf(1,"Detected multiple rapidly changing density. Reducing time-step.\n");
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP] += 1;
+    errorHandler->globalErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY] = 0;
+    errorHandler->localErrors[ErrorHandler::RAPIDLY_CHANGING_DENSITY] = 0;
   }
 
   errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME] = errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP];
-
 }
 
 //------------------------------------------------------------------------------
