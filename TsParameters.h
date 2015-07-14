@@ -39,6 +39,7 @@ public:
   int resType;
   double eps;
   double maxTime;
+  double dt_imposed;
   double cfl;
   double residual;
   double dualtimecfl;

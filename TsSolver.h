@@ -246,14 +246,10 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
         if(probDesc->getTsParams()) probDesc->getTsParams()->resolveErrors();
 
-        //probDesc->getErrorHandler()->printError();
-
-        // stat = -10 signals that the time iteration must be redone!
-        // Regardless of what happens elsewhere, this should work.
-        if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]){ // || stat == -10 // must redo iteration with a different CFL number, undo everything we have done so far 
-          probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]=0;
+        if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]) { // must redo iteration with a different CFL number,
+                                                                                      // undo everything we have done so far 
+          probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP] = 0;
           probDesc->printf(1,"Repeating time-step.\n");
-	  probDesc->printf(1, "WARNING: Alex modified this... hopefully to fix a bug.\n");
           //probDesc->setFailSafe(true);
           U = (*UPrev); // Reset U to its previous state
           repeat = true;

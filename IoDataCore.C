@@ -6723,8 +6723,8 @@ void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialCondit
 
 void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
 
-  fluidModel.rhomin /= ref.rv.density;
-  fluidModel.pmin /= ref.rv.pressure;
+  if(fluidModel.rhomin != -1.e9) fluidModel.rhomin /= ref.rv.density;
+  if(fluidModel.pmin != -1.e9) fluidModel.pmin /= ref.rv.pressure;
 
   if(fluidModel.fluid == FluidModelData::PERFECT_GAS ||
      fluidModel.fluid == FluidModelData::STIFFENED_GAS){
