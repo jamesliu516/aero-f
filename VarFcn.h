@@ -24,7 +24,6 @@ using std::cout;
 using std::endl;
 
 
-//#define NDEBUG // if commented, assert statements are evaluated
 //--------------------------------------------------------------------------
 //
 // This class is mostly a collection of VarFcn used during the simulation

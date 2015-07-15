@@ -5468,37 +5468,42 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
 template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 {
-
+  bool vflag;
   int ierr = 0;
-  int numclipping = 0;
   int pclipping = 0;
   int rhoclipping = 0;
-  int temp= 0;
+  int temp;
   double V[dim];
   double rho,p;
 
-  if(varFcn->doVerification())
-    for(int i=0; i<U.size(); i++){
+  for(int i=0; i<U.size(); i++) {
+    if(vflag = varFcn->doVerification()) {
       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1,U[i],V);
       rhoclipping += temp % 2;
       pclipping += temp/2;
-      numclipping += temp%2 + temp/2;
     }
-  else {
-    for (int i=0; i<U.size(); ++i) {
+    else {
       varFcn->conservativeToPrimitive(U[i], V);
-      rho = varFcn->getDensity(V);
-      p = varFcn->checkPressure(V);
-      if (rho <= 0.0) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
-      	        rho, locToGlobNodeMap[i] + 1);
-        ++ierr;
-      }
-      if (p <= 0.0) {
-        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
-                p, locToGlobNodeMap[i] + 1, rho);
-        ++ierr;
-      }
+    }
+    // Even if doVerification returns true, no we still check for negative density and pressure in
+    // case CheckSolution is used. However, by convention we don't print the error message to stderr.
+    rho = varFcn->getDensity(V);
+    p = varFcn->checkPressure(V);
+    if(rho <= 0.0) {
+      if(!vflag) fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
+                         rho, locToGlobNodeMap[i] + 1);
+      ++ierr;
+    }
+    if(p <= 0.0) {
+      if(!vflag) fprintf(stderr, "*** Error: negative pressure (%e) for node %d\n",
+                         p, locToGlobNodeMap[i] + 1);
+      ++ierr;
+    }
+    // Check for abnormally large velocities, which may be the result of an instability
+    if (fabs(V[1]) > 1e6 || fabs(V[2]) > 1e6 || fabs(V[3]) > 1e6) {
+      errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",V[1],V[2],V[3],locToGlobNodeMap[i] + 1);
     }
   }
 
@@ -5513,47 +5518,42 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &fluidId)
 {
+  bool vflag;
   int ierr = 0;
-  int numclipping = 0;
   int pclipping = 0;
   int rhoclipping = 0;
-  int temp= 0;
+  int temp;
   double V[dim];
   double rho,p;
 
-
-  if(varFcn->doVerification())
-    for(int i=0; i<U.size(); i++){
-       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
-       rhoclipping += temp % 2;
-       pclipping += temp/2;
-       numclipping += temp%2 + temp/2;
+  for(int i=0; i<U.size(); i++) {
+    if(vflag = varFcn->doVerification()) {
+      temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+      rhoclipping += temp % 2;
+      pclipping += temp/2;
     }   
-  else {
-    for (int i=0; i<U.size(); ++i) {
+    else {
       varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
-      rho = varFcn->getDensity(V, fluidId[i]);
-      p = varFcn->checkPressure(V, fluidId[i]);
-      if (rho <= 0.0) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
-                rho, locToGlobNodeMap[i] + 1);
-        ++ierr;
-      }
-      if (p <= 0.0) {
-        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
-                p, locToGlobNodeMap[i] + 1, rho);
-        ++ierr;
-      }
     }
-  }
-
-  // Check for abnormally large velocities, which may be the result of an instability
-  for (int i=0; i<U.size(); ++i) {
-
-    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6){
+    // Even if doVerification returns true, now we still check for negative density and pressure in
+    // case CheckSolution is used. However, by convention we don't print the error message to stderr.
+    rho = varFcn->getDensity(V, fluidId[i]);
+    p = varFcn->checkPressure(V, fluidId[i]);
+    if (rho <= 0.0) {
+      if(!vflag) fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidId=%d\n",
+                         rho, locToGlobNodeMap[i] + 1, fluidId[i]);
+      ++ierr;
+    }
+    if (p <= 0.0) {
+      if(!vflag) fprintf(stderr, "*** Error: negative pressure (%e) for node %d with fluidId=%d\n",
+                         p, locToGlobNodeMap[i] + 1, fluidId[i]);
+      ++ierr;
+    }
+    // Check for abnormally large velocities, which may be the result of an instability
+    if (fabs(V[1]) > 1e6 || fabs(V[2]) > 1e6 || fabs(V[3]) > 1e6) {
       errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
-      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
-                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d with fluidId=%d."
+                     " This may be a symptom of an instability\n",V[1],V[2],V[3],locToGlobNodeMap[i]+1,fluidId[i]);
     }
   }
 
@@ -5570,71 +5570,49 @@ template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U,
                              Vec<int> &fluidId, Vec<int> &fluidIdn)
 {
+  bool vflag;
   int ierr = 0;
-  int numclipping= 0;
   int pclipping = 0;
   int rhoclipping = 0;
-  int temp= 0;
+  int temp;
   double V[dim];
-  double rho, p;
-/*
-  double *conservation = new double[5];
-  for(int k=0; k<5; k++) conservation[k]=0.0;
-  for(int i=0; i<U.size(); i++)
-    for(int k=0; k<5; k++)
-      conservation[k] += ctrlVol[i]*U[i][k];
-  //fprintf(stdout, "conservation = %e %e %e %e %e\n", conservation[0],conservation[1],conservation[2],conservation[3],conservation[4]);
-  delete [] conservation;
-*/
-  if (!(varFcn->doVerification())){
-    for (int i=0; i<U.size(); ++i) {
+  double rho,p;
 
-      if (!(U[i][0] > 0.0)) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d (%d - %d)\n",
-              U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
-        ++ierr;
-      }
-
-      varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
-      p = varFcn->checkPressure(V, fluidId[i]);
-      if (p < 0.0) {
-        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (%d - %d)\n",
-              p, locToGlobNodeMap[i] + 1,fluidId[i], fluidIdn[i]);
-       ++ierr;
-      }
-    }
-  }
-  else{
-    for (int i=0; i<U.size(); ++i) {
-
+  for(int i=0; i<U.size(); i++) {
+    if(vflag = varFcn->doVerification()) {
       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
       rhoclipping += temp % 2;
       pclipping += temp/2;
-      numclipping += temp%2 + temp/2;
-
-      if (!(U[i][0] > 0.0)) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
-              U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
-        ++ierr;
-      }
-
+    }   
+    else {
+      varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
     }
-    //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
-  }
-
-  // Check for abnormally large velocities, which may be the result of an instability
-  for (int i=0; i<U.size(); ++i) {
-
-    if (fabs(U[i][1]/U[i][0]) > 1e6 || fabs(U[i][2]/U[i][0]) > 1e6 || fabs(U[i][3]/U[i][0]) > 1e6){
+    // Even if doVerification returns true, now we still check for negative density and pressure in
+    // case CheckSolution is used. However, by convention we don't print the error message to stderr.
+    rho = varFcn->getDensity(V, fluidId[i]);
+    p = varFcn->checkPressure(V, fluidId[i]);
+    if (rho <= 0.0) {
+      if(!vflag) fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
+                         rho, locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
+      ++ierr;
+    }
+    if (p <= 0.0) {
+      if(!vflag) fprintf(stderr, "*** Error: negative pressure (%e) for node %d with fluidID=%d (previously %d)\n",
+                         p, locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
+      ++ierr;
+    }
+    // Check for abnormally large velocities, which may be the result of an instability
+    if (fabs(V[1]) > 1e6 || fabs(V[2]) > 1e6 || fabs(V[3]) > 1e6) {
       errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
-      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
-                     " This may be a symptom of an instability\n",U[i][2]/U[i][0],U[i][1]/U[i][0], U[i][3]/U[i][0],locToGlobNodeMap[i] + 1);
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d with fluidID=%d (previously %d)."
+                     " This may be a symptom of an instability\n",V[1],V[2],V[3],locToGlobNodeMap[i]+1,fluidId[i],fluidIdn[i]);
     }
   }
 
   errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += pclipping;
   errorHandler->localErrors[ErrorHandler::DENSITY_CLIPPING] += rhoclipping;
   errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
+
   return ierr;
 }
 
@@ -5767,10 +5745,13 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
 			    VarFcn* varFcn, double* Uin, bool* flag, SVec<double,dim>& U,
 			    int* cmin, int* pmin, double* vmin)
 {
-
   int ierr = 0;
-
+  int pclipping = 0;
+  int rhoclipping = 0;
+  int temp;
+  bool vflag;
   double V[dim];
+  double rho,p;
   varFcn->conservativeToPrimitive(U[0], V);
 
   int k;
@@ -5781,19 +5762,30 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
   }
 
   for (int i=0; i<U.size(); ++i) {
-    varFcn->conservativeToPrimitive(U[i], V);
-    double rho = varFcn->getDensity(V);
-    double p = varFcn->checkPressure(V);
-
+    if(vflag = varFcn->doVerification()) {
+      temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1,U[i],V);
+      rhoclipping += temp % 2;
+      pclipping += temp/2;
+    }
+    else {
+      varFcn->conservativeToPrimitive(U[i], V);
+    }
+    rho = varFcn->getDensity(V);
+    p = varFcn->checkPressure(V);
     if (rho <= 0.0) {
-      fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
-	      rho, locToGlobNodeMap[i] + 1);
+      if(!vflag) fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
+	                 rho, locToGlobNodeMap[i] + 1);
       ++ierr;
     }
     if (p <= 0.0) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d\n",
-	      p, locToGlobNodeMap[i] + 1);
+      if(!vflag) fprintf(stderr, "*** Error: negative pressure (%e) for node %d\n",
+	                 p, locToGlobNodeMap[i] + 1);
       ++ierr;
+    }
+    if (fabs(V[1]) > 1e6 || fabs(V[2]) > 1e6 || fabs(V[3]) > 1e6) {
+      errorHandler->localErrors[ErrorHandler::LARGE_VELOCITY] += 1;
+      fprintf(stderr,"*** Warning: Abnormally large velocity: [%lf, %lf, %lf] detected at node %d."
+                     " This may be a symptom of an instability\n",V[1],V[2],V[3],locToGlobNodeMap[i] + 1);
     }
 
     if ((wtype == BcsWallData::WALL_FUNCTION) ||
@@ -5822,9 +5814,10 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
     }
   }
 
+  errorHandler->localErrors[ErrorHandler::PRESSURE_CLIPPING] += pclipping;
+  errorHandler->localErrors[ErrorHandler::DENSITY_CLIPPING] += rhoclipping;
   errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += ierr;
   return ierr;
-
 }
 
 //------------------------------------------------------------------------------

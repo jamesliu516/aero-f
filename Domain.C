@@ -3661,13 +3661,11 @@ void Domain::fixSolution2(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<doub
 
   int verboseFlag = com->getMaxVerbose();
 
-//#pragma omp parallel for reduction(+: ierr)
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     if (fluidId) {
       subDomain[iSub]->fixSolution2(varFcn, U(iSub), dU(iSub), &((*fluidId)(iSub)), verboseFlag);
     } else {
-  
       subDomain[iSub]->fixSolution2(varFcn,U(iSub),dU(iSub),NULL,verboseFlag);
     }
   }
@@ -3686,10 +3684,13 @@ int Domain::checkSolution(VarFcn *varFcn, DistVec<double> &ctrlVol,
 #pragma omp parallel for reduction(+: ierr)
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     ierr += subDomain[iSub]->checkSolution(varFcn, ctrlVol(iSub), U(iSub), fluidId(iSub), fluidIdn(iSub));
+
   com->globalSum(1, &ierr);
+
   return ierr;
 
 }
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>

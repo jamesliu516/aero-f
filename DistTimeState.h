@@ -102,7 +102,6 @@ private:
   bool checkForRapidlyChangingValues;
 
 public:
-  bool unphysical;
   bool allowcflstop;
   bool allowdtstop;
 
