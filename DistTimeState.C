@@ -160,7 +160,6 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
   mf_phase_change_type = (ioData.mf.typePhaseChange != MultiFluidData::EXTRAPOLATION);
 
   *dtau = 1.0;
-  unphysical = false;
   dt_coeff = 1.0;
   dt_coeff_count = 0;
   allowcflstop = true;
@@ -754,11 +753,12 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
 
   double dt_glob;
   updateDtCoeff();
-  if (data->dt_imposed > 0.0){
+  if (data->dt_imposed > 0.0) {
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  } else{
+  }
+  else {
     dt_glob = dt->min();
     allowdtstop = false;
   }
@@ -832,7 +832,7 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
   }
   else{ 
     allowdtstop = false;
-    dt_glob = max ( dtMin, (factor * data->dt_nm1));
+    dt_glob = max(dtMin, (factor * data->dt_nm1));
   }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
@@ -860,22 +860,21 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::updateDtCoeff(){
+void DistTimeState<dim>::updateDtCoeff()
+{
 
-  //std::printf("DT Coefficient: %f \n", dt_coeff);
-  if(errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]){
+  if(errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME]) {
     errorHandler->globalErrors[ErrorHandler::REDUCE_TIMESTEP_TIME] = 0;
-    //unphysical = false;
     dt_coeff_count=0;
     dt_coeff /= 2.0;
-    if(dt_coeff<0.0001 && allowdtstop){
+    if(dt_coeff<0.001 && allowdtstop) {
       printf("Could not resolve unphysicality by reducing timestep. Aborting.");
       exit(-1);
     }
   }
   dt_coeff_count++;
   
-  if(dt_coeff_count>4){
+  if(dt_coeff_count>4) {
     dt_coeff *= 2.0;
     dt_coeff=min(dt_coeff,1.0);
     dt_coeff_count = 2;
