@@ -214,7 +214,7 @@ double ImplicitGnatTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, 
 
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + stepLength*dQ;
-  computeFullResidual(it,newQ,&F);
+  computeFullResidual(it,newQ,true,&F);
 
   double merit = 0.0;
   merit += ResRestrict->norm();	// merit function = 1/2 * (norm of full-order residual)^2
