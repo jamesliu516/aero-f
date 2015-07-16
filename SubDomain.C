@@ -5477,7 +5477,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
   double rho,p;
 
   for(int i=0; i<U.size(); i++) {
-    if(vflag = varFcn->doVerification()) {
+    if((vflag = varFcn->doVerification())) {
       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1,U[i],V);
       rhoclipping += temp % 2;
       pclipping += temp/2;
@@ -5527,7 +5527,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   double rho,p;
 
   for(int i=0; i<U.size(); i++) {
-    if(vflag = varFcn->doVerification()) {
+    if((vflag = varFcn->doVerification())) {
       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
       rhoclipping += temp % 2;
       pclipping += temp/2;
@@ -5579,7 +5579,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   double rho,p;
 
   for(int i=0; i<U.size(); i++) {
-    if(vflag = varFcn->doVerification()) {
+    if((vflag = varFcn->doVerification())) {
       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
       rhoclipping += temp % 2;
       pclipping += temp/2;
@@ -5762,7 +5762,7 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
   }
 
   for (int i=0; i<U.size(); ++i) {
-    if(vflag = varFcn->doVerification()) {
+    if((vflag = varFcn->doVerification())) {
       temp = varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1,U[i],V);
       rhoclipping += temp % 2;
       pclipping += temp/2;

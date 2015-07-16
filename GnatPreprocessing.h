@@ -6,6 +6,7 @@ class Domain;
 #include <Communicator.h>
 #include <DistVector.h>
 #include <VectorSet.h>
+#include <TsDesc.h>
 #include <ParallelRom.h>
 #include <TsDesc.h>
 #include <set>
@@ -13,6 +14,8 @@ class Domain;
 #include <algorithm>
 #include <iterator>
 #include <NonlinearRom.h>
+
+#define EXP_NLROMOFFLINE
 
 template <int dim>
 class ArrayVecDist {
@@ -137,6 +140,10 @@ protected:
 	SetOfVec podHatRes, podHatJac;
 	ArrayVecDist<dim> error;	// error vectors
 	SetOfVec errorRes, errorJac;
+#ifdef EXP_NLROMOFFLINE
+        ArrayVecDist<dim> errorHat;
+        SetOfVec errorHatRes, errorHatJac;
+#endif
 
 	int nPodState;
 
@@ -310,5 +317,4 @@ public:
 	virtual void buildReducedModel();	// build all offline info (do everything)
 
 };
-#include "GnatPreprocessing.C"
 #endif

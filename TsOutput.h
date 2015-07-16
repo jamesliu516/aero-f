@@ -19,6 +19,7 @@ class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
 class Timer;
+class DistLevelSetStructure;
 
 template<int dimLS> class LevelSet;
 template<int dim> class PostOperator;

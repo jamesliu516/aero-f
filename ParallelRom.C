@@ -1,5 +1,6 @@
 #include <LinkF77.h>
 #include <ParallelRom.h>
+#include <GnatPreprocessing.h>
 
 extern "C"      {
 
@@ -78,7 +79,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
     double *S, FullM &Vtrue, int nSnaps, bool computeV) {
 
 #ifdef DO_SCALAPACK
-   int numLocSub = domain.getNumLocSub();
+ int numLocSub = domain.getNumLocSub();
 
  // specify the block size (in terms of nodes)
  // ***blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
@@ -281,6 +282,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
  int nprow = nTotCpus;  // number of processor rows
  int npcol = 1;  // number of processor columns
  int globNumRows = dim * A[0].nonOverlapSize();
+ if(!A[0].getMasterFlag(0)) com->globalSum(1, &globNumRows);
 
   //===============================
   // Step 3 - depends on # cols in A and # cols in B
@@ -295,7 +297,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 //      this->com->barrier();
 //      sleep(1);
 
- F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);  
+ F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock, locLLD, thisCPU, desc_a, desc_b);  
 
 #else
  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
@@ -335,8 +337,9 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
   // check for any changes in the dimensions of the least squares problem
   //===============================
   
-  if (n != desc_a[3] || nRhs != desc_b[3])
+  if (n != desc_a[3] || nRhs != desc_b[3] || dim*A[0].nonOverlapSize() != desc_a[2]) { // PJSA added last condition
     parallelLSMultiRHSInit(A, B, n);  // (re)-initialization needed
+  }
 
   // KTC: can make this more elegant if needed
   
@@ -479,7 +482,11 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
  // distribution info
 
  int numLocSub = domain.getNumLocSub();
+#ifdef EXP_NLROMOFFLINE
+ DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
+#else
  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum(); 
 
@@ -498,7 +505,7 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node with no sending
- DistVec<int> cpuDestination(domain.getNodeDistInfo());
+ DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 
  int *totalSentNodes = new int[nTotCpus];  // how many nodes have been sent to previous cpus
@@ -538,8 +545,8 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
                // create buffer
                double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
                bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-               for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {  // loop over master nodes
-                 if (locMasterFlag[iNode]) {
+               for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {  // loop over master nodes
+                 if (!locMasterFlag || locMasterFlag[iNode]) {
                    if (masterNodeCount == nSendNodes+totalSentNodes[iCpu])  break;  // only send nSendNodes starting at totalSentNodes (other cpus have received the first 0 to totalSentNodes-1 nodes!)
                    masterNodeCount++;
                    if (masterNodeCount-1 >= totalSentNodes[iCpu])  {
@@ -595,8 +602,8 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
        for (int iSub = 0; iSub < numLocSub; ++iSub) {
          double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
          bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-         for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
-           if (locMasterFlag[iNode]) {
+         for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+           if (!locMasterFlag || locMasterFlag[iNode]) {
              //if not already sent
              if (masterNodeCount >= totalSentNodes[iCpu])  {
                for (int j = 0; j < dim; ++j)
@@ -624,7 +631,11 @@ template<class VecContainer>
 void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps) {
 
  int numLocSub = domain.getNumLocSub();
+#ifdef EXP_NLROMOFFLINE
+ DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
+#else
  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum();
 
@@ -634,7 +645,7 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
  int locLLD = dim * cpuNodes[thisCPU];
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
- DistVec<int> cpuDestination(domain.getNodeDistInfo());
+ DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 
  int *totalSentNodes = new int[nTotCpus];
@@ -677,7 +688,6 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
            index = 0;
            for (int iSub = 0; iSub < numLocSub; ++iSub) {
              // create buffer
-             bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
              for (int iNode = 0; iNode < cpuNodes[iCpu]; ++iNode)  {
                if (index == nSendNodes+totalSentNodes[iCpu])  break;
                index++;
@@ -703,8 +713,8 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
            for (int iSub = 0; iSub < numLocSub; ++iSub) {
              double (*locU)[dim] = Utrue[iSnap].subData(iSub);
              bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-             for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
-               if (locMasterFlag[iNode]) {
+             for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+               if (!locMasterFlag || locMasterFlag[iNode]) {
                  if (k>=nRecNodes && k <nSendNodes+nRecNodes) {
                    for (int j = 0; j < dim; ++j)
                      locU[iNode][j] = recData[(k-nRecNodes)*dim+j+iSnap*nSendNodes*dim];
@@ -736,8 +746,8 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
        for (int iSub = 0; iSub < numLocSub; ++iSub) {
          double (*locU)[dim] = Utrue[iSnap].subData(iSub);
          bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-         for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
-           if (locMasterFlag[iNode]) {
+         for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+           if (!locMasterFlag || locMasterFlag[iNode]) {
              //if not already sent
              if (index >= nRecNodes)  {
                for (int j = 0; j < dim; ++j)
@@ -774,8 +784,6 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 
   // distribution info
 
-  int numLocSub = domain.getNumLocSub();
-  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
   nTotCpus = com->size();
   thisCPU = com->cpuNum();
 
@@ -849,7 +857,12 @@ void ParallelRom<dim>::setTransfer() {
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
- DistVec<int> cpuDestination(domain.getNodeDistInfo());
+#ifdef EXP_NLROMOFFLINE
+ DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
+#else
+ DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+#endif
+ DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 
  subDomain = domain.getSubDomain();
@@ -867,8 +880,8 @@ void ParallelRom<dim>::setTransfer() {
  #pragma omp parallel for
  for (int iSub = 0; iSub < numLocSub; ++iSub) {
    bool *locMasterFlag = cpuDestination.getMasterFlag(iSub);
-   for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); iNode++)  {
-     if (locMasterFlag[iNode])
+   for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; iNode++) {
+     if (!locMasterFlag || locMasterFlag[iNode])
        cpuMasterNodes[thisCPU]++;  // add if it is a master node
    }
  }
