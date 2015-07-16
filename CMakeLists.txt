@@ -221,6 +221,7 @@ ADD_LIBRARY(FluidBase
              GeoData.C 
              GeoSource.C 
              GeoState.C 
+             GnatPreprocessingCore.C
              HeatTransferHandlerCore.C 
              ImplicitRiemann.C
              InletNodeCore.C 
@@ -247,6 +248,7 @@ ADD_LIBRARY(FluidBase
              ModalSolver.C
              NonlinearRomOfflineSolver.C 
              Node.C 
+             ParallelRomCore.C
              PostFcn.C 
              ProgrammedBurnCore.C
              RefVal.C 

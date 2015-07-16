@@ -1,5 +1,4 @@
 #include <GnatPreprocessing.h>
-#include <TsDesc.h>
 #ifdef DO_MODAL
 #include <arpack++/include/ardsmat.h>
 #include <arpack++/include/ardssym.h>
@@ -13,11 +12,19 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   debugging(true), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true),
   podRes(0, dom.getNodeDistInfo() ),
   podJac(0, dom.getNodeDistInfo() ),
+#ifdef EXP_NLROMOFFLINE
+  podHatRes(0, dom.getSampledNodeDistInfo() ),
+  podHatJac(0, dom.getSampledNodeDistInfo() ),
+  errorHatRes(0, dom.getSampledNodeDistInfo() ),
+  errorHatJac(0, dom.getSampledNodeDistInfo() ),
+  pseudoInvRhs(0, dom.getSampledNodeDistInfo() ),
+#else
   podHatRes(0, dom.getNodeDistInfo() ),
   podHatJac(0, dom.getNodeDistInfo() ),
+  pseudoInvRhs(0, dom.getNodeDistInfo() ),
+#endif
   errorRes(0, dom.getNodeDistInfo() ),
   errorJac(0, dom.getNodeDistInfo() ),
-  pseudoInvRhs(0, dom.getNodeDistInfo() ),
   pseudoInverseMaskedSnapsTrans(0, dom.getNodeDistInfo() ),
   snapHatApproxMetric(0, dom.getNodeDistInfo() ),
   handledNodes(0), nPodBasis(0),
@@ -142,6 +149,10 @@ void GnatPreprocessing<dim>::initialize()
   podHatJac.resize(0);
   errorRes.resize(0);
   errorJac.resize(0);
+#ifdef EXP_NLROMOFFLINE
+  errorHatRes.resize(0);
+  errorHatJac.resize(0);
+#endif
   pseudoInvRhs.resize(0);
   pseudoInverseMaskedSnapsTrans.resize(0);
   snapHatApproxMetric.resize(0);
@@ -161,6 +172,10 @@ void GnatPreprocessing<dim>::initialize()
   podHat.a[1] = &podHatJac;
   error.a[0] = &errorRes;  // make pod point to res and jac
   error.a[1] = &errorJac;
+#ifdef EXP_NLROMOFFLINE
+  errorHat.a[0] = &errorHatRes;
+  errorHat.a[0] = &errorHatJac;
+#endif
 
   //if (globalNodes) delete [] globalNodes;
   //globalNodes = NULL;    // defined for union of sampled meshes (don't delete)
@@ -283,6 +298,10 @@ void GnatPreprocessing<dim>::buildReducedModel() {
   }
   globalSampleNodesUnionSet.clear();
 
+#ifdef EXP_NLROMOFFLINE
+  domain.makeSampledNodeDistInfo(globalSampleNodesUnion, globalNodeToCpuMap, globalNodeToLocSubDomainsMap);
+#endif
+
   initialize(); 
 
   setSampleNodes(unionOfSampleNodes); // also calls buildRemainingMesh()
@@ -354,11 +373,11 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       setSampleNodes(sampleNodes);   // use local sampled nodes
   
       setUpPodResJac(iCluster);      // read in Res/Jac bases
-   
+ 
       setUpBasisBasisProducts();     // computes ROB[1]T*ROB[0] and ROB[0]T*ROB[0] if necessary
-  
+
       formMaskedNonlinearROBs();
-  
+
       initializeLeastSquares();
    
       double pseudoInvTime = this->timer->getTime();
@@ -378,7 +397,7 @@ void GnatPreprocessing<dim>::buildReducedModel() {
       double sampledOutputTime = this->timer->getTime();  
       outputOnlineMatrices(iCluster);
       this->timer->addSampledOutputTime(sampledOutputTime);
-  
+
       if (podTpod) {
         for (int iVec=0; iVec<nPod[1]; ++iVec)
           delete [] podTpod[iVec];
@@ -762,8 +781,6 @@ void GnatPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords() {
   if (thisCPU == 0) fclose(outApproxMetric);
   delete [] lowRankApproxMetricEigenvalues;
 
-
-
 }
 
 //----------------------------------------------
@@ -1081,6 +1098,10 @@ void GnatPreprocessing<dim>::setUpGreedy(int iCluster) {
     for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0;
     error[iPodBasis].resize(nRhsMax);
     for (int i = 0; i < nRhsMax; ++i) error[iPodBasis][i] = pod[iPodBasis][i];  // for the first iteration, just pick out largest element
+#ifdef EXP_NLROMOFFLINE
+    errorHat[iPodBasis].resize(nRhsMax);
+    for (int i = 0; i < nRhsMax; ++i) errorHat[iPodBasis][i] = 0.0;
+#endif
   }
 
   //===============================================
@@ -1144,7 +1165,7 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
     globalNodeTemp = globalNode;
     assert(locSubTemp!=-1 && locNodeTemp !=-1 && globalNodeTemp != -1);
     computeXYZ(locSub, locNode, xyz);
-
+#ifndef EXP_NLROMOFFLINE
     // fill out sampled matrices (all columns for the current rows)
 
     SubDomainData<dim> locPod, locPodHat;
@@ -1159,6 +1180,7 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
         }
       }
     }
+#endif
   }
 
   // make sure all cpus have the same copy
@@ -1194,6 +1216,36 @@ void GnatPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const 
 
   ++handledNodes;
 
+#ifdef EXP_NLROMOFFLINE
+  if (thisCPU == cpuNumWithMaxVal) {  // if this CPU has the maximum value
+    SetOfVec podHatRes_copy(podHatRes), podHatJac_copy(podHatJac);
+    ArrayVecDist<dim> podHat_copy; podHat_copy.a[0] = &podHatRes_copy; podHat_copy.a[1] = &podHatJac_copy;
+
+    domain.makeSampledNodeDistInfo(cpuSample, locSubSample);
+
+    podHatRes.resize(podHatRes.numVectors());
+    podHatJac.resize(podHatJac.numVectors());
+    errorHatRes.resize(errorHatRes.numVectors());
+    errorHatJac.resize(errorHatJac.numVectors());
+
+    SubDomainData<dim> locPod, locPodHat, locPodHat_copy;
+
+    for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+      for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
+        locPod = pod[iPodBasis][iPod].subData(locSub);  // cannot access iDim entry
+        locPodHat = podHat[iPodBasis][iPod].subData(locSub);
+        locPodHat_copy = podHat_copy[iPodBasis][iPod].subData(locSub);
+        int locSampledNode = podHat[iPodBasis][iPod].subSize(locSub)-1;
+        for (int iDim = 0; iDim < dim ; ++iDim) {
+          for(int j=0; j<locSampledNode; ++j) {
+            locPodHat[j][iDim] = locPodHat_copy[j][iDim];
+          }
+          locPodHat[locSampledNode][iDim] = locPod[locNode][iDim];
+        }
+      }
+    }
+  }
+#endif
 }
 
 //----------------------------------------------
@@ -1221,6 +1273,9 @@ void GnatPreprocessing<dim>::determineSampleNodes() {
     // pod no longer needed
     pod[iPodBasis].resize(0);
     error[iPodBasis].resize(0);
+#ifdef EXP_NLROMOFFLINE
+    errorHat[iPodBasis].resize(0);
+#endif
   }
 
   if (debugging){
@@ -1276,7 +1331,7 @@ void GnatPreprocessing<dim>::greedyIteration(int greedyIt) {
       getSubDomainError(iSub);
 
       // find maximum error on the subdomain
-      
+
       subDFindMaxError(iSub, onlyInletOutletBC, myMaxNorm, locSub, locNode, globalNode);
       
     }
@@ -1305,7 +1360,11 @@ void GnatPreprocessing<dim>::initializeLeastSquares() {
   if (initializeLeastSquaresDone == true) return;
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+#ifdef EXP_NLROMOFFLINE
+    parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], errorHat[iPodBasis], nPodGreedy);
+#else
     parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis], nPodGreedy);
+#endif
   }
 
   initializeLeastSquaresDone = true;
@@ -1385,7 +1444,7 @@ void GnatPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeNu
 
    nodeError = 0.0; // initialize normed error to zero
 
-   if (locMasterFlag[locNodeNum]) {   // use subdomain node number
+   if (!locMasterFlag || locMasterFlag[locNodeNum]) {   // use subdomain node number
      for (int iPodBasis = errorBasis[0]; iPodBasis  <= errorBasis[1] ; ++iPodBasis)
        for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs){  // add components of error from all vectors on this node
          for (int k = 0; k < dim ; ++k){  // add contributions from residual and jacobian reconstruction errors where possible
@@ -1431,7 +1490,11 @@ void GnatPreprocessing<dim>::leastSquaresReconstruction() {
     lsCoeff[iPodBasis] = new double * [ nRhs[iPodBasis] ];
     for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs)  {
       // temporarily fill the error vector with the RHS (solving nRhs[iPodBasis] problems)
+#ifdef EXP_NLROMOFFLINE
+      errorHat[iPodBasis][iRhs] = podHat[iPodBasis][handledVectors[iPodBasis] + iRhs];  // NOTE: PODHAT
+#else
       error[iPodBasis][iRhs] = podHat[iPodBasis][handledVectors[iPodBasis] + iRhs];  // NOTE: PODHAT
+#endif
       lsCoeff[iPodBasis][iRhs] = new double [handledVectors[iPodBasis]];
     }
 
@@ -1516,8 +1579,13 @@ template<int dim>
 void GnatPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 
   bool lsCoeffAllCPU = true; // all cpus need solution
+#ifdef EXP_NLROMOFFLINE
+  parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],errorHat[iPodBasis],
+      handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff, lsCoeffAllCPU);
+#else
   parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
       handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff, lsCoeffAllCPU);
+#endif
 
 }
 
@@ -2403,13 +2471,19 @@ void GnatPreprocessing<dim>::computePseudoInverse(int iPodBasis) {
   double **podHatPseudoInvTmp;
 
   int iVector = 0;
+  std::vector<int> locSampleNodeCount(numLocSub, 0);
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
     // compute unit vectors
     int currentGlobalNode = globalSampleNodes[iSampleNodes];
     int currentCPU = globalNodeToCpuMap.find(currentGlobalNode)->second;
     if (thisCPU == currentCPU) {
       int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+#ifdef EXP_NLROMOFFLINE
+      int iLocalNode = locSampleNodeCount[iSubDomain];
+      locSampleNodeCount[iSubDomain]++;
+#else
       int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+#endif
       for (int iDim = 0; iDim < dim; ++iDim) {
         SubDomainData<dim> locValue = pseudoInvRhs[iVector+iDim].subData(iSubDomain);
         locValue[iLocalNode][iDim] = 1.0;
@@ -2657,12 +2731,9 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
 
   std::vector<bool> isSampleNodeVec(numNodes,false);
   std::vector<int> sampleNodeRankVec(numNodes, -1);
-  for (int iNode = 0; iNode < numNodes; ++iNode) {
-    std::map<int,int>::const_iterator sampleNodeSetLoc = sampleNodeMap.find(iNode);
-    if ( sampleNodeSetLoc != sampleNodeMap.end()){
-      sampleNodeRankVec[iNode] = sampleNodeMap.find(iNode)->second;
-      isSampleNodeVec[iNode] = true;
-    }
+  for(std::map<int,int>::const_iterator it = sampleNodeMap.begin(); it != sampleNodeMap.end(); ++it) {
+    sampleNodeRankVec[it->first] = it->second;
+    isSampleNodeVec[it->first] = true;
   }
 
   // prepare files
@@ -2684,11 +2755,11 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
       }
     }
 
-    com->fprintf(onlineMatrix,"Vector abMatrix under load for FluidNodes\n");
-    com->fprintf(onlineMatrix,"%d\n", numNodes);
+    fprintf(onlineMatrix,"Vector abMatrix under load for FluidNodes\n");
+    fprintf(onlineMatrix,"%d\n", numNodes);
 
     for (int iPod = 0; iPod < nPodJac; ++iPod) {  // # rows in A and B
-      com->fprintf(onlineMatrix,"%d\n", iPod);
+      fprintf(onlineMatrix,"%d\n", iPod);
       for (int iNode = 0; iNode < numNodes; ++iNode) {
 
         bool isSampleNode = isSampleNodeVec[iNode];
@@ -2696,7 +2767,7 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
 
         if (dim==5) {
           if (isSampleNode) {
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
+            fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
               onlineMatrices[iPodBasis][sampleNodeRank * dim][iPod],
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 1][iPod],
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 2][iPod],
@@ -2704,10 +2775,10 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 4][iPod]);
           }
           else // must output zeros if it is not a sample node
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0); 
+            fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0); 
         } else if (dim==6) {
           if (isSampleNode) {
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+            fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
               onlineMatrices[iPodBasis][sampleNodeRank * dim][iPod],
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 1][iPod],
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 2][iPod],
@@ -2716,10 +2787,10 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 5][iPod]);
           }
           else // must output zeros if it is not a sample node
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0);  
+            fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0);  
         } else if (dim==7) {
           if (isSampleNode) {
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+            fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
               onlineMatrices[iPodBasis][sampleNodeRank * dim][iPod],
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 1][iPod],
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 2][iPod],
@@ -2729,17 +2800,17 @@ void GnatPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNo
               onlineMatrices[iPodBasis][sampleNodeRank * dim + 6][iPod]);
           }
           else // must output zeros if it is not a sample node
-            com->fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0,0.0);
+            fprintf(onlineMatrix,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",0.0,0.0,0.0,0.0,0.0,0.0,0.0);
         } else { // general, but slow
           for (int iDim = 0; iDim < dim; ++iDim) { 
             if (isSampleNode) {
-              com->fprintf(onlineMatrix,"%8.15e ",
+              fprintf(onlineMatrix,"%8.15e ",
                 onlineMatrices[iPodBasis][sampleNodeRank * dim + iDim][iPod]);
             }
             else // must output zeros if it is not a sample node
-              com->fprintf(onlineMatrix,"%8.15e ", 0.0);
+              fprintf(onlineMatrix,"%8.15e ", 0.0);
           }
-          com->fprintf(onlineMatrix,"\n");
+          fprintf(onlineMatrix,"\n");
         }
       }
     }
@@ -3028,26 +3099,27 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
 
     com->globalSumRoot(sampledDOF, sampledVec); 
 
-    com->fprintf(outFile,"%e\n", tag);
+    if(com->cpuNum() == 0) {
+      fprintf(outFile,"%e\n", tag);
 
-    for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
-      if (dim==5) {
-        com->fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
+      for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
+        if (dim==5) {
+          fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
             sampledVec[iNode*dim],
             sampledVec[iNode*dim + 1],
             sampledVec[iNode*dim + 2],
             sampledVec[iNode*dim + 3],
             sampledVec[iNode*dim + 4]);
-      } else if (dim==6) {
-        com->fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+        } else if (dim==6) {
+          fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
             sampledVec[iNode*dim],
             sampledVec[iNode*dim + 1],
             sampledVec[iNode*dim + 2],
             sampledVec[iNode*dim + 3],
             sampledVec[iNode*dim + 4],
             sampledVec[iNode*dim + 5]);
-      } else if (dim==7) {
-        com->fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
+        } else if (dim==7) {
+          fprintf(outFile,"%8.15e %8.15e %8.15e %8.15e %8.15e %8.15e %8.15e\n",
             sampledVec[iNode*dim],
             sampledVec[iNode*dim + 1],
             sampledVec[iNode*dim + 2],
@@ -3055,11 +3127,12 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
             sampledVec[iNode*dim + 4],
             sampledVec[iNode*dim + 5],
             sampledVec[iNode*dim + 6]);
-      } else { // general, but slow
-        for (int iDim = 0; iDim < dim; ++iDim) {
-          com->fprintf(outFile,"%8.15e ", sampledVec[iNode*dim + iDim]);
+        } else { // general, but slow
+          for (int iDim = 0; iDim < dim; ++iDim) {
+            fprintf(outFile,"%8.15e ", sampledVec[iNode*dim + iDim]);
+          }
+          fprintf(outFile,"\n");
         }
-        com->fprintf(outFile,"\n");
       }
     }
     delete [] sampledVec;
@@ -3154,8 +3227,10 @@ void GnatPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FI
 
     com->globalSumRoot(nReducedNodes, sampledVec);
 
-    for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
-      com->fprintf(outFile,"%8.15e\n", sampledVec[iNode]);
+    if(com->cpuNum() == 0) {
+      for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
+        fprintf(outFile,"%8.15e\n", sampledVec[iNode]);
+      }
     }
 
     delete [] sampledVec;
@@ -3193,6 +3268,9 @@ template<int dim>
 void GnatPreprocessing<dim>::checkConsistency() {
 
   // PURPOSE: debugging
+#ifdef EXP_NLROMOFFLINE
+  if(com->cpuNum() == 0) std::cerr << " *** WARNING: GnatPreprocessing::checkConsistency is not up-to-date\n";
+#endif
 
   int numRhs = nSampleNodes * dim;  // number of RHS treated
   double **consistency = new double * [numRhs];
@@ -3258,20 +3336,29 @@ void GnatPreprocessing<dim>::formMaskedNonlinearROBs()
   }
 
   // fill (from findMaxAndFillPodHat())
+  std::vector<int> locSampleNodeCount(numLocSub, 0);
   for (int iSampleNode=0; iSampleNode<nSampleNodes; ++iSampleNode) {
     int currentSampleNode = globalSampleNodes[iSampleNode];
     int locSub = globalNodeToLocSubDomainsMap.find(currentSampleNode)->second;
     int locNode = globalNodeToLocalNodesMap.find(currentSampleNode)->second;
     int currentCpu = globalNodeToCpuMap.find(currentSampleNode)->second;
     if (thisCPU == currentCpu) {
+#ifdef EXP_NLROMOFFLINE
+      int locSampleNode = locSampleNodeCount[locSub];
+      locSampleNodeCount[locSub]++;
+#endif
       // fill out sampled matrices (all columns for the current rows)
       SubDomainData<dim> locPod, locPodHat;
       for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-        for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
+        for (int iPod = 0; iPod < nPod[iPodBasis]; ++iPod) {
           locPod = pod[iPodBasis][iPod].subData(locSub);  // cannot access iDim entry
           locPodHat = podHat[iPodBasis][iPod].subData(locSub);
           for (int iDim = 0; iDim < dim ; ++iDim) {
+#ifdef EXP_NLROMOFFLINE
+            locPodHat[locSampleNode][iDim] = locPod[locNode][iDim];
+#else
             locPodHat[locNode][iDim] = locPod[locNode][iDim];
+#endif
               // zeros everywhere except at sample nodes
           }
         }

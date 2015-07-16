@@ -39,7 +39,7 @@ struct ErrorHandler{
 
   void printError(int type=ALL){
     char str[200];
-    sprintf(str,"");
+    //sprintf(str,"");
     if(type==ALL) for(int i=0; i<SIZE; i++) {sprintf(str,"%s%i, ",str,globalErrors[i]);}
     if(type==SOLVER) for(int i=0; i<solverErrors->size(); i++) {sprintf(str,"%s%i, ",str,globalErrors[solverErrors->at(i)]);}
     std::printf("%s\n",str);
