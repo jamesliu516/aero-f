@@ -185,9 +185,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     // verify that the solution is physical
     if (probDesc->checkSolution(Q)) {
-      if (probDesc->getTsParams()->checksol){
+      if (probDesc->getTsParams()->checksol) {
         //probDesc->getErrorHandler()->localErrors[ErrorHandler::REDO_TIMESTEP] += 1;
-        //probDesc->getTsParams()->unphysical = true; 
         probDesc->checkFailSafe(Q);
         Q = rhs;
         --it;

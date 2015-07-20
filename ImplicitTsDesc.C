@@ -86,8 +86,7 @@ int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, const int
   this->data->resolveErrors();
   if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
 
-  //if(its==-10) return its; // need to recompute CFL and redo iteration
-  if(its<0){  //failSafe
+  if(its<0) { // failSafe
     U = this->timeState->getUn();
     return its;
   }

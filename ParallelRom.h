@@ -2,6 +2,11 @@
 #define _PARALLEL_ROM_H_
 
 //#include <Elem.h>	// use ElemSet
+class Domain;
+class Communicator;
+class SubDomain;
+template<typename Scalar> class GenFullM;
+typedef GenFullM<double> FullM;
 
 template <int dim>
 class ParallelRom {
@@ -47,5 +52,4 @@ class ParallelRom {
 			const VecContainer2 &B, int n, int nRhs, double **lsSol, bool=true); // least-squares
 			// via QR with multiple RHS
 };
-#include "ParallelRom.C"
 #endif

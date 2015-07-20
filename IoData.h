@@ -1678,7 +1678,7 @@ struct ImplicitData {
 
 struct CFLData {
 
-  enum Strategy {RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3, FIXEDUNSTEADY = 4, OLD = 5} strategy;
+  enum Strategy {DEFAULT = -1, RESIDUAL = 0, DIRECTION = 1, DFT = 2, HYBRID = 3, FIXEDUNSTEADY = 4, OLD = 5} strategy;
 
   // global cfl parameters
   double cfl0;
@@ -1687,11 +1687,6 @@ struct CFLData {
   double cflMax;
   double cflMin;
   double dualtimecfl;
-
-  // cfl control parameters
-  enum Checksol {CHECK_SOL_OFF = 0, CHECK_SOL_ON = 1} checksol;
-  enum Checklinsolve {CHECK_LIN_SOLVE_OFF = 0, CHECK_LIN_SOLVE_ON = 1} checklinsolve;
-  enum Forbidreduce {FORBID_REDUCE_OFF = 0, FORBID_REDUCE_ON = 1} forbidreduce;
 
   // residual based parameters
   double ser;
@@ -1704,9 +1699,6 @@ struct CFLData {
   int dft_history;
   int dft_freqcutoff;
   double dft_growth;
-
-  // for unsteady problems
-  enum UseSteadyStrategy {USE_STEADY_STRATEGY_OFF = 0, USE_STEADY_STRATEGY_ON = 1} useSteadyStrategy;
 
   const char *output;
 
@@ -1754,6 +1746,7 @@ struct TsData {
   int checkvelocity;
   int checkpressure;
   int checkdensity;
+  int checklinsolve;
   int deltapressurethreshold;
   int deltadensitythreshold;
 
