@@ -40,6 +40,7 @@ public:
   double eps;
   double epsabs;
   double maxTime;
+  double dt_imposed;
   double cfl;
   double residual;
   double dualtimecfl;
@@ -55,10 +56,7 @@ public:
   int checkpclipping;
   int checkrhoclipping;
 
-  bool unphysical;
-  bool badlinsolve;
   bool allowstop;
-  int forbidreduce;
 
 public:
 

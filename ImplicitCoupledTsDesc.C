@@ -223,8 +223,6 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
 						  DistSVec<double,dim> &dQ)
 {
 
-  //std::cout << " ********** IMP COUP TsDesc :: SOLVE LIN SYST >> PC\n";
-
   double t0 = this->timer->getTime();
 
   dQ = 0.0;
@@ -235,7 +233,7 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
 
   int lits = ksp->solve(b, dQ);
 
-  if (lits == ksp->maxits && this->data->checklinsolve) this->data->badlinsolve=true;
+  if (lits == ksp->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS] += 1;
 
   this->timer->addKspTime(t0);
 

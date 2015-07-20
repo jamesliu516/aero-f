@@ -1,5 +1,4 @@
 #include <GappyPreprocessing.h>
-#include <TsDesc.h>
 #ifdef DO_MODAL
 #include <arpack++/include/ardsmat.h>
 #include <arpack++/include/ardssym.h>
@@ -13,11 +12,13 @@ GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData,
   debugging(true), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true),
   podRes(0, dom.getNodeDistInfo() ),
   podJac(0, dom.getNodeDistInfo() ),
-  podHatRes(0, dom.getNodeDistInfo() ),
-  podHatJac(0, dom.getNodeDistInfo() ),
+  podHatRes(0, dom.getSampledNodeDistInfo() ),
+  podHatJac(0, dom.getSampledNodeDistInfo() ),
+  errorHatRes(0, dom.getSampledNodeDistInfo() ),
+  errorHatJac(0, dom.getSampledNodeDistInfo() ),
+  pseudoInvRhs(0, dom.getSampledNodeDistInfo() ),
   errorRes(0, dom.getNodeDistInfo() ),
   errorJac(0, dom.getNodeDistInfo() ),
-  pseudoInvRhs(0, dom.getNodeDistInfo() ),
   pseudoInverseMaskedSnapsTrans(0, dom.getNodeDistInfo() ),
   snapHatApproxMetric(0, dom.getNodeDistInfo() ),
   handledNodes(0), nPodBasis(0),
@@ -183,6 +184,8 @@ void GappyPreprocessing<dim>::initialize()
   podHatJac.resize(0);
   errorRes.resize(0);
   errorJac.resize(0);
+  errorHatRes.resize(0);
+  errorHatJac.resize(0);
   pseudoInvRhs.resize(0);
   pseudoInverseMaskedSnapsTrans.resize(0);
   snapHatApproxMetric.resize(0);
@@ -202,6 +205,9 @@ void GappyPreprocessing<dim>::initialize()
   podHat.a[1] = &podHatJac;
   error.a[0] = &errorRes;  // make pod point to res and jac
   error.a[1] = &errorJac;
+  errorHat.a[0] = &errorHatRes;
+  errorHat.a[0] = &errorHatJac;
+
 
   //if (globalNodes) delete [] globalNodes;
   //globalNodes = NULL;    // defined for union of sampled meshes (don't delete)
@@ -342,6 +348,8 @@ void GappyPreprocessing<dim>::buildReducedModel() {
     
  
     }
+
+    domain.makeSampledNodeDistInfo(globalSampleNodesUnion, globalNodeToCpuMap, globalNodeToLocSubDomainsMap);
 
     initialize();
  
@@ -1249,10 +1257,15 @@ void GappyPreprocessing<dim>::setUpGreedy(int iCluster) {
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
     podHat[iPodBasis].resize(nPod[iPodBasis]);
-    for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0;
+    for (int i = 0; i < nPod[iPodBasis]; ++i)
+      podHat[iPodBasis][i] = 0.0;
     error[iPodBasis].resize(nRhsMax);
-    for (int i = 0; i < nRhsMax; ++i) error[iPodBasis][i] = pod[iPodBasis][i];  // for the first iteration, just pick out largest element
-  }
+    for (int i = 0; i < nRhsMax; ++i) //first iteration, just pick out largest element
+      error[iPodBasis][i] = pod[iPodBasis][i];
+    errorHat[iPodBasis].resize(nRhsMax);
+    for (int i = 0; i < nRhsMax; ++i)
+      errorHat[iPodBasis][i] = 0.0;
+   }
 
   //===============================================
   // initialize the least squares problems
@@ -1318,20 +1331,6 @@ void GappyPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const
     assert(locSubTemp!=-1 && locNodeTemp !=-1 && globalNodeTemp != -1);
     computeXYZ(locSub, locNode, xyz);
 
-    // fill out sampled matrices (all columns for the current rows)
-
-    SubDomainData<dim> locPod, locPodHat;
-
-    for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-      for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
-        locPod = pod[iPodBasis][iPod].subData(locSub);  // cannot access iDim entry
-        locPodHat = podHat[iPodBasis][iPod].subData(locSub);
-        for (int iDim = 0; iDim < dim ; ++iDim) {
-          locPodHat[locNode][iDim] = locPod[locNode][iDim];
-            // zeros everywhere except at sample nodes
-        }
-      }
-    }
   }
 
   // make sure all cpus have the same copy
@@ -1366,6 +1365,35 @@ void GappyPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const
 
   ++handledNodes;
 
+  if (thisCPU == cpuNumWithMaxVal) {  // if this CPU has the maximum value
+    SetOfVec podHatRes_copy(podHatRes), podHatJac_copy(podHatJac);
+    VecSetArray<dim> podHat_copy; podHat_copy.a[0] = &podHatRes_copy; podHat_copy.a[1] = &podHatJac_copy;
+
+    domain.makeSampledNodeDistInfo(cpuSample, locSubSample);
+
+    podHatRes.resize(podHatRes.numVectors());
+    podHatJac.resize(podHatJac.numVectors());
+    errorHatRes.resize(errorHatRes.numVectors());
+    errorHatJac.resize(errorHatJac.numVectors());
+
+    SubDomainData<dim> locPod, locPodHat, locPodHat_copy;
+
+    for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+      for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
+        locPod = pod[iPodBasis][iPod].subData(locSub);  // cannot access iDim entry
+        locPodHat = podHat[iPodBasis][iPod].subData(locSub);
+        locPodHat_copy = podHat_copy[iPodBasis][iPod].subData(locSub);
+        int locSampledNode = podHat[iPodBasis][iPod].subSize(locSub)-1;
+        for (int iDim = 0; iDim < dim ; ++iDim) {
+          for(int j=0; j<locSampledNode; ++j) {
+            locPodHat[j][iDim] = locPodHat_copy[j][iDim];
+          }
+          locPodHat[locSampledNode][iDim] = locPod[locNode][iDim];
+        }
+      }
+    }
+  }
+
 }
 
 //----------------------------------------------
@@ -1393,6 +1421,7 @@ void GappyPreprocessing<dim>::determineSampleNodes() {
     // pod no longer needed
     pod[iPodBasis].resize(0);
     error[iPodBasis].resize(0);
+    errorHat[iPodBasis].resize(0);
   }
 
   if (debugging){
@@ -1488,7 +1517,7 @@ void GappyPreprocessing<dim>::initializeLeastSquares() {
 
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
     parallelRom[iPodBasis]->parallelLSMultiRHSClean();
-    parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis], dimGreedy);
+    parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], errorHat[iPodBasis], dimGreedy);
   }
 
   initializeLeastSquaresDone = true;
@@ -1570,7 +1599,7 @@ void GappyPreprocessing<dim>::computeNodeError(bool *locMasterFlag, int locNodeN
 
    nodeError = 0.0; // initialize normed error to zero
 
-   if (locMasterFlag[locNodeNum]) {   // use subdomain node number
+   if (!locMasterFlag || locMasterFlag[locNodeNum]) {
      for (int iPodBasis = errorBasis[0]; iPodBasis  <= errorBasis[1] ; ++iPodBasis)
        for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs){  // add components of error from all vectors on this node
          for (int k = 0; k < dim ; ++k){  // add contributions from residual and jacobian reconstruction errors where possible
@@ -1616,7 +1645,7 @@ void GappyPreprocessing<dim>::leastSquaresReconstruction() {
     lsCoeff[iPodBasis] = new double * [ nRhs[iPodBasis] ];
     for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs)  {
       // temporarily fill the error vector with the RHS (solving nRhs[iPodBasis] problems)
-      error[iPodBasis][iRhs] = podHat[iPodBasis][handledVectors[iPodBasis] + iRhs];  // NOTE: PODHAT
+      errorHat[iPodBasis][iRhs] = podHat[iPodBasis][handledVectors[iPodBasis] + iRhs];
       lsCoeff[iPodBasis][iRhs] = new double [handledVectors[iPodBasis]];
     }
 
@@ -1627,14 +1656,20 @@ void GappyPreprocessing<dim>::leastSquaresReconstruction() {
       com->fprintf(stdout," ... ... Scalapack LS Time = %e(s)\n", scalapackTime);
     } else if (gappyIO->greedyLeastSquaresSolver == GappyConstructionData::GREEDY_LS_LINPACK) {
       double linpackTime = this->timer->getTime();
-      serialLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
-      linpackTime = this->timer->getTime() - linpackTime;
-      com->fprintf(stdout," ... ... linpack LS Time = %e(s)\n", linpackTime);
+      //serialLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
+      //linpackTime = this->timer->getTime() - linpackTime;
+      //com->fprintf(stdout," ... ... linpack LS Time = %e(s)\n", linpackTime);
+      com->fprintf(stderr," ... ... Serial LS has not been checked with Phil's additions\n");
+      sleep(1);
+      exit(-1);
     } else {
-      double probTime = this->timer->getTime();
-      probabilisticLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
-      probTime = this->timer->getTime() - probTime;
-      com->fprintf(stdout," ... ... Probabilistic LS Time = %e(s)\n", probTime);
+      //double probTime = this->timer->getTime();
+      //probabilisticLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
+      //probTime = this->timer->getTime() - probTime;
+      //com->fprintf(stdout," ... ... probabilistic LS Time = %e(s)\n", probTime);
+      com->fprintf(stderr," ... ... Probabilistic LS has not been checked with Phil's additions\n");
+      sleep(1);
+      exit(-1);
     }
  
     // compute reconstruction error
@@ -1821,7 +1856,7 @@ template<int dim>
 void GappyPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 
   bool lsCoeffAllCPU = true; // all cpus need solution
-  parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
+  parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],errorHat[iPodBasis],
       handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff, lsCoeffAllCPU);
 
 }
@@ -2854,13 +2889,16 @@ void GappyPreprocessing<dim>::parallelPseudoInverse(int iPodBasis) {
   double **podHatPseudoInvTmp;
 
   int iVector = 0;
+  std::vector<int> locSampleNodeCount(numLocSub, 0);
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
     // compute unit vectors
     int currentGlobalNode = globalSampleNodes[iSampleNodes];
     int currentCPU = globalNodeToCpuMap.find(currentGlobalNode)->second;
     if (thisCPU == currentCPU) {
       int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-      int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+      int iLocalNode = locSampleNodeCount[iSubDomain];
+      locSampleNodeCount[iSubDomain]++;
+      //int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
       for (int iDim = 0; iDim < dim; ++iDim) {
         SubDomainData<dim> locValue = pseudoInvRhs[iVector+iDim].subData(iSubDomain);
         locValue[iLocalNode][iDim] = 1.0;
@@ -2908,7 +2946,10 @@ void GappyPreprocessing<dim>::computePseudoInverse() {
     if (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_SCALAPACK) {
       parallelPseudoInverse(iPodBasis);
     } else if (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_LINPACK) {
-      serialPseudoInverse(iPodBasis);
+      //serialPseudoInverse(iPodBasis);
+      com->fprintf(stdout,"*** Error: serial pseudo-inverse has not been checked with Phil's changes\n");
+      sleep(1);
+      exit(-1);
     }
   }
   //checkConsistency();  // debugging check
@@ -3116,12 +3157,9 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
     // create isSampleNodeVec
     std::vector<bool> isSampleNodeVec(numNodes,false);
     std::vector<int> sampleNodeRankVec(numNodes, -1);
-    for (int iNode = 0; iNode < numNodes; ++iNode) {
-      std::map<int,int>::const_iterator sampleNodeSetLoc = sampleNodeMap.find(iNode);
-      if ( sampleNodeSetLoc != sampleNodeMap.end()){
-        sampleNodeRankVec[iNode] = sampleNodeMap.find(iNode)->second;
-        isSampleNodeVec[iNode] = true;
-      }
+    for(std::map<int,int>::const_iterator it = sampleNodeMap.begin(); it != sampleNodeMap.end(); ++it) {
+      sampleNodeRankVec[it->first] = it->second;
+      isSampleNodeVec[it->first] = true;
     }
   
     // determine file names
@@ -3144,10 +3182,10 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
         rmCommandString += "_step_* ";
         const char *rmCommandChar = rmCommandString.c_str();
    
-        com->fprintf(stdout, "\n%s\n", rmCommandChar);
+        //fprintf(stdout, "\n%s\n", rmCommandChar);
         if (!(shell = popen(rmCommandChar, "r"))) {
           com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
-          com->barrier();
+          sleep(1);
           exit(-1);
         }
    
@@ -3184,10 +3222,10 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
         FILE* myOutFile = fopen(myOutFilePath, "wt");
   
         if (iPod == 0) {
-          com->fprintf(myOutFile,"Vector abMatrix under load for FluidNodes\n"); // header
-          com->fprintf(myOutFile,"%d\n",numNodes);
+          fprintf(myOutFile,"Vector abMatrix under load for FluidNodes\n"); // header
+          fprintf(myOutFile,"%d\n",numNodes);
         }
-        com->fprintf(myOutFile,"%d\n", iPod); // tag
+        fprintf(myOutFile,"%d\n", iPod); // tag
   
         for (int iNode = 0; iNode < numNodes; ++iNode) {
   
@@ -3246,7 +3284,7 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
         fclose(myOutFile);
     
         double writeTime = this->timer->getTime()-tmpTime;
-        com->fprintf(stderr,"... write time = %es\n", writeTime);
+        fprintf(stderr,"... write time = %es\n", writeTime);
   
       } // end iPod loop (columns)
   
@@ -3259,16 +3297,16 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
       catCommandString += outFilePath;
       const char *catCommandChar = catCommandString.c_str();
    
-      //com->fprintf(stdout, "\n%s\n", catCommandChar);
+      //fprintf(stdout, "\n%s\n", catCommandChar);
       if (!(shell = popen(catCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
-        com->barrier();
+        sleep(1);
         exit(-1);
       }
    
       char buff[512];
       while (fgets(buff, sizeof(buff), shell)!=NULL){
-        com->fprintf(stdout, "%s", buff);
+        fprintf(stdout, "%s", buff);
       }
       pclose(shell);
     
@@ -3281,12 +3319,12 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
       //com->fprintf(stdout, "\n%s\n", rmCommandChar);
       if (!(shell = popen(rmCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
-        com->barrier();
+        sleep(1);
         exit(-1);
       }
     
       while (fgets(buff, sizeof(buff), shell)!=NULL){
-        com->fprintf(stdout, "%s", buff);
+        fprintf(stdout, "%s", buff);
       }
       pclose(shell);
      
@@ -3591,7 +3629,7 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
       rmCommandString += "_step_* ";
       const char *rmCommandChar = rmCommandString.c_str();
     
-      com->fprintf(stdout, "\n%s\n", rmCommandChar);
+      //fprintf(stdout, "\n%s\n", rmCommandChar);
       if (!(shell = popen(rmCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
         com->barrier();
@@ -3625,10 +3663,10 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
     // write temporary file 
     FILE* myOutFile = fopen(myOutFilePath, "wt");
     if (step==0) {
-      com->fprintf(myOutFile,"%s\n", header);
-      com->fprintf(myOutFile,"%d\n", nReducedNodes);
+      fprintf(myOutFile,"%s\n", header);
+      fprintf(myOutFile,"%d\n", nReducedNodes);
     }
-    com->fprintf(myOutFile,"%e\n", tag);
+    fprintf(myOutFile,"%e\n", tag);
     for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
       if (dim==5) {
         fprintf(myOutFile,"%8.15e %8.15e %8.15e %8.15e %8.15e\n",
@@ -3679,10 +3717,10 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
       catCommandString += outFilePath;
       const char *catCommandChar = catCommandString.c_str();
 
-      com->fprintf(stdout, "\n%s\n", catCommandChar);
+      //fprintf(stdout, "\n%s\n", catCommandChar);
       if (!(shell = popen(catCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
-        com->barrier();
+        sleep(1);
         exit(-1);
       }
 
@@ -3701,16 +3739,16 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
       rmCommandString += "_step_* ";
       const char *rmCommandChar = rmCommandString.c_str();
     
-      com->fprintf(stdout, "\n%s\n", rmCommandChar);
+      //fprintf(stdout, "\n%s\n", rmCommandChar);
       if (!(shell = popen(rmCommandChar, "r"))) {
         com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
-        com->barrier();
+        sleep(1);
         exit(-1);
       }
     
       char buff[512];
       while (fgets(buff, sizeof(buff), shell)!=NULL){
-        com->fprintf(stdout, "%s", buff);
+        fprintf(stdout, "%s", buff);
       }
       pclose(shell);
     }
@@ -3753,8 +3791,8 @@ void GappyPreprocessing<dim>::outputWallDistanceReduced() {
   FILE *outWallDist;
   if (thisCPU ==0) outWallDist = fopen(wallDistPath, "wt");
 
-  com->fprintf(outWallDist,"Scalar walldist under load for FluidNodesRed\n");
-  com->fprintf(outWallDist,"%d\n", nReducedNodes);
+  if (thisCPU == 0) fprintf(outWallDist,"Scalar walldist under load for FluidNodesRed\n");
+  if (thisCPU == 0) fprintf(outWallDist,"%d\n", nReducedNodes);
   outputReducedVec(d2wallOutput,outWallDist,0);
 
   if (wallDistPath) {
@@ -3814,7 +3852,7 @@ void GappyPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, F
     com->globalSumRoot(nReducedNodes, sampledVec);
 
     for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
-      com->fprintf(outFile,"%8.15e\n", sampledVec[iNode]);
+      if (thisCPU == 0) fprintf(outFile,"%8.15e\n", sampledVec[iNode]);
     }
 
     delete [] sampledVec;
@@ -3852,6 +3890,8 @@ template<int dim>
 void GappyPreprocessing<dim>::checkConsistency() {
 
   // PURPOSE: debugging
+
+  if(com->cpuNum() == 0) std::cerr << " *** WARNING: GnatPreprocessing::checkConsistency is not up-to-date\n";
 
   int numRhs = nSampleNodes * dim;  // number of RHS treated
   double **consistency = new double * [numRhs];
@@ -3917,12 +3957,15 @@ void GappyPreprocessing<dim>::formMaskedNonlinearROBs()
   }
 
   // fill (from findMaxAndFillPodHat())
+  std::vector<int> locSampleNodeCount(numLocSub, 0);
   for (int iSampleNode=0; iSampleNode<nSampleNodes; ++iSampleNode) {
     int currentSampleNode = globalSampleNodes[iSampleNode];
     int locSub = globalNodeToLocSubDomainsMap.find(currentSampleNode)->second;
     int locNode = globalNodeToLocalNodesMap.find(currentSampleNode)->second;
     int currentCpu = globalNodeToCpuMap.find(currentSampleNode)->second;
     if (thisCPU == currentCpu) {
+      int locSampleNode = locSampleNodeCount[locSub];
+      locSampleNodeCount[locSub]++;
       // fill out sampled matrices (all columns for the current rows)
       SubDomainData<dim> locPod, locPodHat;
       for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
@@ -3930,8 +3973,8 @@ void GappyPreprocessing<dim>::formMaskedNonlinearROBs()
           locPod = pod[iPodBasis][iPod].subData(locSub);  // cannot access iDim entry
           locPodHat = podHat[iPodBasis][iPod].subData(locSub);
           for (int iDim = 0; iDim < dim ; ++iDim) {
-            locPodHat[locNode][iDim] = locPod[locNode][iDim];
-              // zeros everywhere except at sample nodes
+            locPodHat[locSampleNode][iDim] = locPod[locNode][iDim];
+            // zeros everywhere except at sample nodes
           }
         }
       }

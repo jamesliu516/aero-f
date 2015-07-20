@@ -111,6 +111,7 @@ class Domain {
   DistInfo *faceNormDistInfo;
   DistInfo *inletNodeDistInfo;
   DistInfo *kirchhoffNodeDistInfo;
+  DistInfo *sampledNodeDistInfo;
 
   CommPattern<double> *vecPat;
   CommPattern<double> *phiVecPat;
@@ -249,6 +250,7 @@ public:
   DistInfo &getFaceNormDistInfo() const { return *faceNormDistInfo; }
   DistInfo &getInletNodeDistInfo() const { return *inletNodeDistInfo; }
   DistInfo &getKirchhoffNodeDistInfo() const { return *kirchhoffNodeDistInfo; }
+  DistInfo &getSampledNodeDistInfo() const { return *sampledNodeDistInfo; }
 
   ErrorHandler *getErrorHandler() const {return errorHandler;}
 
@@ -257,6 +259,9 @@ public:
   void attachTriangulatedInterface(TriangulatedInterface*);
 
   void getGeometry(GeoSource &, IoData&);
+  void makeSampledNodeDistInfo(const std::vector<int> &cpuSample, const std::vector<int> &locSubSample);
+  void makeSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
+                               const std::map<int, int> &globalNodeToLocSubDomainsMap);
   void createRhsPat(int, IoData&);
   void createVecPat(int, IoData * = 0);
   void createPhiVecPat(int, IoData * = 0);

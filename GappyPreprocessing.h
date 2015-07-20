@@ -140,6 +140,8 @@ protected:
 	SetOfVec podHatRes, podHatJac;
 	VecSetArray<dim> error;	// error vectors
 	SetOfVec errorRes, errorJac;
+        VecSetArray<dim> errorHat;
+        SetOfVec errorHatRes, errorHatJac;
 
 	int nPodState;
 
@@ -321,5 +323,4 @@ public:
 	virtual void buildReducedModel();	// build all offline info (do everything)
 
 };
-#include "GappyPreprocessing.C"
 #endif

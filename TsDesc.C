@@ -654,10 +654,8 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 {
   double t0 = timer->getTime();
 
-  //com->fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   com->barrier();
   this->data->allowstop = this->timeState->allowcflstop;
-  timeState->unphysical = data->unphysical;
   data->computeCflNumber(it - 1, data->residual / restart->residual, angle);
   int numSubCycles = 1;
 
@@ -898,11 +896,6 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
       clipSolution<dim,2>(clippingType, wallType, varFcn, bcData->getInletConservativeState(), U);
   else
     ierr = domain->checkSolution(varFcn, U);
-
-  //if (ierr != 0 && data->checksol) data->unphysical = true;
-  //ierr = max(ierr,0);
-
-  if (ierr) this->errorHandler->localErrors[ErrorHandler::UNPHYSICAL] += 1;
 
   return ierr;
 

@@ -1167,8 +1167,8 @@ FluidModelData::FluidModelData()
 {
 
   fluid = PERFECT_GAS;
-  rhomin = -1.e9;
-  pmin = -1.e9;
+  rhomin = -1.e9; // note: if these defaults are changed then doVerification()
+  pmin = -1.e9;   //       in VarFcnBase.h must also be changed.
 
 }
 
@@ -3012,7 +3012,7 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 CFLData::CFLData()
 {
 
-  strategy = HYBRID;
+  strategy = DEFAULT;
 
   cfl0 = 5.0;
   cflCoef1 = 0.0;
@@ -3020,10 +3020,6 @@ CFLData::CFLData()
   cflMax = 100000.0;
   cflMin = 1.0;
   dualtimecfl = 100.0;
-
-  checksol = CHECK_SOL_ON;
-  checklinsolve = CHECK_LIN_SOLVE_OFF;
-
   ser = 0.7;
 
   angle_growth = 2.0;
@@ -3032,10 +3028,6 @@ CFLData::CFLData()
   dft_history = 8;
   dft_freqcutoff = 3;
   dft_growth = 1.4;
-
-  forbidreduce = FORBID_REDUCE_OFF;
-
-  useSteadyStrategy = USE_STEADY_STRATEGY_OFF;
 
   output = "";
 
@@ -3050,19 +3042,7 @@ void CFLData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<CFLData>(ca, "Strategy", this,
                           reinterpret_cast<int CFLData::*>(&CFLData::strategy), 6,
-                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "FixedUnsteady", 4, "Standard", 5); 
-  new ClassToken<CFLData>(ca, "CheckSolution", this,
-                          reinterpret_cast<int CFLData::*>(&CFLData::checksol), 2,
-                          "Off", 0, "On", 1);
-  new ClassToken<CFLData>(ca, "CheckLinearSolver", this,
-                          reinterpret_cast<int CFLData::*>(&CFLData::checklinsolve), 2,
-                          "Off", 0, "On", 1);
-  new ClassToken<CFLData>(ca, "ForbidReductions", this,
-                         reinterpret_cast<int CFLData::*>(&CFLData::forbidreduce), 2,
-                         "Off", 0, "On", 1);
-  new ClassToken<CFLData>(ca, "UseSteadyStrategy", this,
-                         reinterpret_cast<int CFLData::*>(&CFLData::useSteadyStrategy), 2,
-                         "Off", 0, "On", 1);
+                          "Residual", 0, "Direction", 1, "DFT", 2, "Hybrid", 3, "Fixed", 4, "Standard", 5); 
     
   new ClassDouble<CFLData>(ca, "Cfl0", this, &CFLData::cfl0);
   new ClassDouble<CFLData>(ca, "Cfl1", this, &CFLData::cflCoef1);
@@ -3106,6 +3086,7 @@ TsData::TsData()
   checkvelocity = 1;
   checkpressure = 1;
   checkdensity = 1;
+  checklinsolve = -1;
   deltapressurethreshold = 40;
   deltadensitythreshold = 40;
 
@@ -3156,6 +3137,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "CheckDensity", this,
                          reinterpret_cast<int TsData::*>(&TsData::checkdensity), 2,
+                         "Off", 0, "On", 1);
+  new ClassToken<TsData>(ca, "CheckLinearSolver", this,
+                         reinterpret_cast<int TsData::*>(&TsData::checklinsolve), 2,
                          "Off", 0, "On", 1);
   new ClassToken<TsData>(ca, "Clipping", this,
                          reinterpret_cast<int TsData::*>(&TsData::typeClipping), 4,
@@ -5848,6 +5832,14 @@ void IoData::resetInputValues()
   // Part 3
   //
 
+  if(ts.cfl.strategy == CFLData::DEFAULT) {
+    ts.cfl.strategy = (problem.type[ProblemData::UNSTEADY]) ? CFLData::FIXEDUNSTEADY : CFLData::HYBRID;
+  }
+
+  if(ts.checklinsolve == -1) {
+    ts.checklinsolve = (problem.type[ProblemData::UNSTEADY]) ? 0 : 1;
+  }
+
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_AEROELASTIC_)
@@ -6105,13 +6097,6 @@ int IoData::checkInputValues()
   error += checkInputValuesAllEquationsOfState();
   checkCFLBackwardsCompatibility();
 
-  if (ts.cfl.strategy!=CFLData::OLD) {
-    if(problem.type[ProblemData::UNSTEADY] && !ts.cfl.useSteadyStrategy && ts.cfl.strategy!=CFLData::FIXEDUNSTEADY){
-      ts.cfl.strategy = CFLData::FIXEDUNSTEADY;
-      ts.cfl.checklinsolve = CFLData::CHECK_LIN_SOLVE_OFF;
-    }
-  }
-
   // no need for all input values for Sparse Grid generation
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
     //eqs.fluidModel  =  mf.fluidModel;
@@ -6283,9 +6268,8 @@ int IoData::checkInputValuesAllEquationsOfState(){
 int IoData::checkCFLBackwardsCompatibility(){
 
   if(ts.cfl0 != -1.0 || ts.cflCoef1 != -1.0 || ts.cflCoef2 != -1.0 || ts.cflMax != -1.0 || ts.cflMin != -1.0 || ts.ser != -1.0){
-    com->fprintf(stderr, "*** Warning: Using CFL values under Time and old CFL law for backwards compatibility. The program will run, but correct execution requires all CFL parameters to be under CFLLaw.\n");
+    com->fprintf(stderr, "*** Warning: Using the old CFL law with the parameters specified under Time (backwards compatiblity mode)\n");
     ts.cfl.strategy = CFLData::OLD;
-    //com->fprintf(stderr, "cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",ts.cfl0,ts.cflCoef1,ts.cflCoef2,ts.cflMax,ts.cflMin,ts.ser,ts.dualtimecfl);
 
     ts.cfl.cfl0 = (ts.cfl0 != -1.0) ? ts.cfl0 : ts.cfl.cfl0;
     ts.cfl.cflCoef1 = (ts.cflCoef1 != -1.0) ? ts.cflCoef1 : ts.cfl.cflCoef1;
@@ -6295,6 +6279,8 @@ int IoData::checkCFLBackwardsCompatibility(){
     ts.cfl.ser = (ts.ser != -1.0) ? ts.ser : ts.cfl.ser;
     ts.cfl.dualtimecfl = (ts.dualtimecfl != -1.0) ? ts.dualtimecfl : ts.cfl.dualtimecfl;
  
+    com->fprintf(stderr, "*** Warning: cfl0=%f, cflCoef1=%f, cflCoef2=%f, cflMax=%f, cflMin=%f, ser=%f, dualtimecfl=%f\n",
+                        ts.cfl.cfl0,ts.cfl.cflCoef1,ts.cfl.cflCoef2,ts.cfl.cflMax,ts.cfl.cflMin,ts.cfl.ser,ts.cfl.dualtimecfl);
   }
 
   return 0;
@@ -7689,8 +7675,8 @@ void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialCondit
 
 void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
 
-  fluidModel.rhomin /= ref.rv.density;
-  fluidModel.pmin /= ref.rv.pressure;
+  if(fluidModel.rhomin != -1.e9) fluidModel.rhomin /= ref.rv.density;
+  if(fluidModel.pmin != -1.e9) fluidModel.pmin /= ref.rv.pressure;
 
   if(fluidModel.fluid == FluidModelData::PERFECT_GAS ||
      fluidModel.fluid == FluidModelData::STIFFENED_GAS){
