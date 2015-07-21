@@ -102,7 +102,7 @@ public:
 
   //----- General Functions -----//
   virtual int getType() const{ return type; }
-  virtual bool doVerification() const{ return (rhomin>=0.0||pmin>=0.0); }
+  virtual bool doVerification() const{ return (rhomin!=-1.e9||pmin!=-1.e9); }
 
   virtual double getDensity(double *V)   const{ return V[0]; }
   virtual Vec3D  getVelocity(double *V)  const{ return Vec3D(V[1], V[2], V[3]); }

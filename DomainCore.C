@@ -52,6 +52,7 @@ Domain::Domain()
   inletNodeDistInfo = 0;
 
   kirchhoffNodeDistInfo = (DistInfo*) 0;
+  sampledNodeDistInfo = (DistInfo*) 0;
 
   vecPat = 0;
   phiVecPat = 0;
@@ -130,7 +131,15 @@ Domain::Domain()
 
   numGlobNode = 0;	// only compute if needed
   
-  output_newton_step = 0;
+  // for outputting ROM snapshots from FOM
+  outputTimeIt = 0;
+  outputNewtonIt = 0;
+  outputNewtonTag = 0.0;
+  outputNewtonStateStep = 0; 
+  outputNewtonResidualStep = 0;
+  outputKrylovStep = 0;
+  numKrylovVecsOutputPrevNewtonIt = 0;
+  numResidualsOutputCurrentNewtonIt = 0; 
 
   multiFluidInterface = NULL; 
 }
@@ -138,11 +147,13 @@ Domain::Domain()
 //------------------------------------------------------------------------------
 
 Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType(0), nodeFaceType(0), offWallNode(0),
-    nodeDistInfo(0), edgeDistInfo(0), edgeDistInfoMF(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0), kirchhoffNodeDistInfo(0),
+    nodeDistInfo(0), edgeDistInfo(0), edgeDistInfoMF(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0), kirchhoffNodeDistInfo(0), sampledNodeDistInfo(0),
     vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0), bool4Pat(0),
     weightPat(0), weightPhaseChangePat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
     inletCountPat(0), inletRhsPat(0), Delta(0), CsDelSq(0), PrT(0), WCsDelSq(0), WPrT(0), tag(0), tagBar(0),
-    weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), output_newton_step(0)
+    weightDerivativePat(0), strTimer(0), heatTimer(0), meshMotionBCs(0), numGlobNode(0), outputTimeIt(0),
+    outputNewtonIt(0), outputNewtonTag(0.0), outputNewtonStateStep(0), outputNewtonResidualStep(0), outputKrylovStep(0),
+    numKrylovVecsOutputPrevNewtonIt(0), numResidualsOutputCurrentNewtonIt(0)
 {
   timer = new Timer(com);
   multiFluidInterface = NULL; 
@@ -208,6 +219,7 @@ Domain::~Domain()
   if (faceNormDistInfo) delete faceNormDistInfo;
   if (inletNodeDistInfo) delete inletNodeDistInfo;
   if (kirchhoffNodeDistInfo) delete kirchhoffNodeDistInfo;
+  if (sampledNodeDistInfo) delete sampledNodeDistInfo;
 
   //communication Structures
   int numCpu = globCom->size();
@@ -319,6 +331,10 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     kirchhoffNodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   }
 
+  if (ioData.problem.type[ProblemData::NLROMOFFLINE]) {
+    sampledNodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
+  }
+
   if (!(ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
         ioData.schemes.bc.type != BoundarySchemeData::STEGER_WARMING &&
         ioData.schemes.bc.type != BoundarySchemeData::GHIDAGLIA &&
@@ -338,6 +354,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->markLenFaceNorms(*faceNormDistInfo);
     if (kirchhoffNodeDistInfo)
       subDomain[iSub]->markLenKirchhoffNodes(ioData, *kirchhoffNodeDistInfo);
+    if (sampledNodeDistInfo)
+      sampledNodeDistInfo->subLen[iSub] = 0;
     subDomain[iSub]->setChannelNums(*subTopo);
     subDomain[iSub]->setComLenNodes(1, *volPat);
     subDomain[iSub]->setComLenNodes(1, *levelPat); // New Comm Pattern
@@ -363,6 +381,9 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   if (kirchhoffNodeDistInfo)
     kirchhoffNodeDistInfo->finalize(false);
 
+  if (sampledNodeDistInfo)
+    sampledNodeDistInfo->finalize(false);
+
   volPat->finalize();
   levelPat->finalize();
   bool2Pat->finalize();
@@ -383,6 +404,41 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   for (iSub = 0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->makeMasterFlag(*nodeDistInfo);
 
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::makeSampledNodeDistInfo(const std::vector<int> &cpuSample, const std::vector<int> &locSubSample)
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    sampledNodeDistInfo->subLen[iSub] = 0;
+  }
+
+  for (int i = 0; i < cpuSample.size(); ++i) {
+    if(cpuSample[i] == com->cpuNum()) {
+      sampledNodeDistInfo->subLen[locSubSample[i]]++;
+    }
+  }
+
+  sampledNodeDistInfo->finalize(false);
+}
+
+void Domain::makeSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
+                                     const std::map<int, int> &globalNodeToLocSubDomainsMap)
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    sampledNodeDistInfo->subLen[iSub] = 0;
+  }
+
+  for (std::vector<int>::const_iterator it = globalSampleNodesUnion.begin(); it != globalSampleNodesUnion.end(); ++it) {
+    if(globalNodeToCpuMap.find(*it)->second == com->cpuNum()) {
+      sampledNodeDistInfo->subLen[globalNodeToLocSubDomainsMap.find(*it)->second]++;
+    }
+  }
+
+  sampledNodeDistInfo->finalize(false);
 }
 
 //------------------------------------------------------------------------------
@@ -692,7 +748,19 @@ void Domain::setInletNodes(IoData &ioData)
     }
     inletVec3DPat->finalize();
     inletCountPat->finalize();
-    
+  }
+
+  if ((ioData.romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) // model II online
+      || (ioData.romOffline.gnat.farFieldWeight != 1.0 || ioData.romOffline.gnat.wallWeight != 1.0)) { // gnat prepro
+    // If weighting the boundary conditions, create node lists for far field nodes and wall nodes.
+    // Note that the far field node list is identical to the inletNodes information, but it was 
+    // necessary to duplicate this because when the inletNodes object is defined it triggers the
+    // code to use extrapolation at the boundary.  
+#pragma omp parallel for
+    for (iSub = 0; iSub<numLocSub; ++iSub) {
+      subDomain[iSub]->setFarFieldNodes();
+      subDomain[iSub]->setWallNodes();
+    }
   }
 }
 
@@ -2255,28 +2323,6 @@ void Domain::computeNumGlobNode() {
 	com->globalSum(1, &numGlobNode);
 }
 
-void Domain::readSampleNodes(std::vector<int> &sampleNodes, int &nSampleNodes,
-		const char *sampleNodeFileName) {
-
-	// INPUT: sample node file name
-	// OUTPUT: nSampleNodes, sampleNodes
-
-	FILE *sampleNodeFile = fopen(sampleNodeFileName, "r");
-	int nSampleNodesTmp, count;
-	count = fscanf(sampleNodeFile, "%d",&nSampleNodesTmp);	// first entry is the number of sample nodes
-
-	if (nSampleNodes == 0) {
-		nSampleNodes = nSampleNodesTmp;
-	}
-	sampleNodes.reserve(nSampleNodes);	// know it will be nSampleNodes long (efficiency)
-
-	int index, currentSampleNode;
-	for (int i = 0; i < nSampleNodes; ++i){
-		count = fscanf(sampleNodeFile, "%d",&index);
-		count = fscanf(sampleNodeFile, "%d",&currentSampleNode);
-		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
-	}
-}
 
 void Domain::computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes) {
 
@@ -2379,3 +2425,26 @@ void Domain::attachTriangulatedInterface(TriangulatedInterface* T) {
   }
 
 }
+
+void Domain::setFarFieldMask(DistVec<double>& ffMask, DistVec<double>& neighborMask) {
+
+  ffMask = 0.0;
+  neighborMask = 0.0;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->setFarFieldMask(ffMask(iSub), neighborMask(iSub)); // sets ffMask to 1.0 at far field nodes
+
+}
+
+void Domain::setWallMask(DistVec<double>& wallMask, DistVec<double>& neighborMask) {
+
+  wallMask = 0.0;
+  neighborMask = 0.0;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->setWallMask(wallMask(iSub), neighborMask(iSub)); // sets wallMask to 1.0 at far field nodes
+
+}
+

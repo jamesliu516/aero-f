@@ -200,7 +200,8 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
   double t0 = this->timer->getTime();  
 
   this->embeddeddQ = 0.0;
-  this->embeddedB.ghost() = 0.0;
+  //this->embeddedB.ghost() = 0.0;
+  this->embeddedB = 0.0;
   this->embeddedB.real() = b;
   
   if (this->modifiedGhidaglia)
@@ -208,10 +209,10 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
   
   ksp->setup(it, this->maxItsNewton, this->embeddedB);
   
-  int lits = ksp->solve(this->embeddedB, this->embeddeddQ); //!!!!!!!
+  int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
 
-  if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
- 
+  if(lits==ksp->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS] += 1;
+
   dQ = this->embeddeddQ.real();
   this->embeddedU.ghost() += this->embeddeddQ.ghost();
   if (this->modifiedGhidaglia) {

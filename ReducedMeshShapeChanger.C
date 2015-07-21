@@ -21,17 +21,17 @@ template<int dim>
 void ReducedMeshShapeChanger<dim>::buildReducedModel() {
 
 	// read in full nodes
-	readReducedNodes(this->input->reducedfullnodemap );
+//	readReducedNodes(this->input->reducedfullnodemap );
 
-	fillXYZ();	// compute xyz coordinates
+//	fillXYZ();	// compute xyz coordinates
 
-	if (this->thisCPU == 0) {
-		readWriteTopFile(this->input->mesh);
-	}
+//	if (this->thisCPU == 0) {
+//		readWriteTopFile(this->input->mesh);
+//	}
 	// read in TOP file while writing out new top file
 	// write out dwall file
 
-	this->outputWallDistanceReduced();
+//	this->outputWallDistanceReduced();
 }
 
 template<int dim>
@@ -40,21 +40,21 @@ void ReducedMeshShapeChanger<dim>::readReducedNodes(const char *reducedNodeFileN
 	// INPUT: reduced node file name
 	// OUTPUT: this->nReducedNodes,this->globalNodes[0]
 
-	FILE *reducedNodeFile = fopen(reducedNodeFileName, "r");
+//	FILE *reducedNodeFile = fopen(reducedNodeFileName, "r");
 
-	int currentReducedNode;
-	this->nReducedNodes = 0;
+//	int currentReducedNode;
+//	this->nReducedNodes = 0;
 
-	while (fscanf(reducedNodeFile, "%d",&currentReducedNode) != EOF) {
-		(this->globalNodes)[0].push_back(currentReducedNode-1);	// reads in the reduced node plus one
-		++(this->nReducedNodes);
-	}
+//	while (fscanf(reducedNodeFile, "%d",&currentReducedNode) != EOF) {
+//		(this->globalNodes)[0].push_back(currentReducedNode-1);	// reads in the reduced node plus one
+//		++(this->nReducedNodes);
+//	}
 
 }
 
 template<int dim>
 void ReducedMeshShapeChanger<dim>::fillXYZ()  {
-
+/*
 	// initialize
 	xyz = new double * [this->nReducedNodes];
 	int * cpus = new int [this->nReducedNodes];
@@ -102,12 +102,12 @@ void ReducedMeshShapeChanger<dim>::fillXYZ()  {
 		this->globalNodeToLocSubDomainsMap.insert(pair<int, int > (this->globalNodes[0][iReducedNode], subdomains[iReducedNode]));
 		this->globalNodeToLocalNodesMap.insert(pair<int, int > (this->globalNodes[0][iReducedNode], localnodes[iReducedNode]));
 	}
-
+*/
 }
 
 template<int dim>
 void ReducedMeshShapeChanger<dim>::readWriteTopFile(const char *inputTopFileName)  {
-
+/*
 	ifstream inputTopFile (inputTopFileName);	// old reduced mesh top file
 
 	// new reduced mesh top file
@@ -134,5 +134,5 @@ void ReducedMeshShapeChanger<dim>::readWriteTopFile(const char *inputTopFileName
 		getline(inputTopFile, line);
 		outputTopFile << endl << line;
 	}
-
+*/
 }

@@ -867,8 +867,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver
 
   }
 
-  //if(this->data->checklinsolve && lits==ksp->maxits) this->data->badlinsolve=true;
- 
   dUdS = this->embeddeddQ.real();
   //this->embeddedU.ghost() += this->embeddeddQ.ghost();
 

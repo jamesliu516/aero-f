@@ -737,8 +737,7 @@ template<int dim, class Scalar, int neq>
 void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 					  Vec<double> &ctrlVol, Vec<double> &d2wall, 
 					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                          Vec<GhostPoint<dim>*>* ghostPoints,LevelSetStructure *LSS)
-	//				  VarFcn* vf)
+                                          Vec<GhostPoint<dim>*>* ghostPoints, LevelSetStructure *LSS)
 {
   // In the case of an embedded simulation, check if the tetrahedra is actually active
   bool isTetInactive=true,isAtTheInterface=false;
@@ -874,6 +873,8 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
       }
       Aij = A.getElem_ij(edgeNum(e));
       Aji = A.getElem_ji(edgeNum(e));
+
+      if(!Aij || !Aji) continue;
 
       double cij = 1.0 / ctrlVol[ nodeNum(i) ];
       double cji = 1.0 / ctrlVol[ nodeNum(j) ];

@@ -219,7 +219,7 @@ void ElemSet::computeConnectedElems(const std::vector<int> &locSampleNodes)
 {
 
 	sampleMesh = true;
-
+  elemsConnectedToSampleNode.clear();
 	int nSampleNode = locSampleNodes.size();
   for(int l=0; l<numElems; l++){
 		bool connectedElement = false;

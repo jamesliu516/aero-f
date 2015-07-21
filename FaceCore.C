@@ -27,6 +27,7 @@ using std::swap;
 Face::Face()
 {
   higherOrderMF = NULL;
+  //ffWeight = 1.0;  //for nonlinear ROM simulations requiring additional weighting for far field BCs
 }
 
 //------------------------------------------------------------------------------
@@ -360,7 +361,7 @@ void FaceSet::computeConnectedFaces(const std::vector<int> &locSampleNodes)
 {
 
 	sampleMesh = true;
-
+  facesConnectedToSampleNode.clear();
 	int nSampleNode = locSampleNodes.size();
   for(int l=0; l<numFaces; ++l) {
 		bool connectedFace = false;

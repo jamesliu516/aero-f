@@ -383,6 +383,8 @@ protected:
   int surface_id;
   int normNum;
 
+  //double ffWeight; // allows user to weight the farfield fluxes (for nonlinear ROM simulations)
+
   //for farfield flux
   Vec3D faceCenter;
 
@@ -436,6 +438,7 @@ public:
   int getSurfaceID() { return surface_id; }
   int getElementNumber() const { return elemNum; }
 
+  //void setFarFieldBCWeight(double weight) {ffWeight = weight;};
   void setup(int, int *, int, int surface_id = 0);
   void setType(int *);
   void setType(int t) { code = t; }
@@ -1030,6 +1033,8 @@ public:
   int sizeNorms() const { return numFaceNorms; }
 
   int read(BinFileHandler &, int, int (*)[2], int *);
+
+  
 
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,

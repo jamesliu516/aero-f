@@ -96,6 +96,8 @@ public:
   int getMaxItsLineSearch() const { return maxItsLS; }
   double getContractionLineSearch() const { return contractionLS; }
   double getSufficientDecreaseLineSearch() const { return sufficDecreaseLS; }
+  
+  void setCurrentStateForKspBinaryOutput(DistSVec<double,dim> &Q) {}
 };
 
 
