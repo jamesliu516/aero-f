@@ -238,7 +238,7 @@ Eigenvalues(ARFLOAT* &EigValp, bool ivec, bool ischur)
       this->ValuesOK = false;
     }
     else {                             // Copying eigenvalues.
-      copy(this->nconv,this->EigValR,1,this->EigValp,1);
+      copy(this->nconv,this->EigValR,1,EigValp,1);
     }
   }
   else {                               // Eigenvalues are not available.
@@ -271,7 +271,7 @@ EigenValVectors(ARFLOAT* &EigVecp, ARFLOAT* &EigValp, bool ischur)
 
   if (this->ValuesOK) {                  // Eigenvalues are already available .
     this->nconv = Eigenvalues(EigValp, false);
-    this->nconv = Eigenvectors(EigVecp, ischur);
+    this->nconv = this->Eigenvectors(EigVecp, ischur);
   }
   else {                           // Eigenvalues and vectors are not available.
     try {

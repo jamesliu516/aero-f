@@ -23,6 +23,7 @@ template<int dim> class SpaceOperator;
 template<int dim, int dimLS> class MultiPhaseSpaceOperator;
 template<int dim> class DistExactRiemannSolver;
 template<class Scalar, int dim> class DistEmbeddedVec;
+template<int dim> class TsOutput;
 
 //------------------------------------------------------------------------------
 
@@ -89,7 +90,9 @@ public:
     isFSI = true;
     fsi = f;
   }
- 
+
+  virtual void setTsOutput(TsOutput<dim>* outputPointer) {} 
+
 protected:
   
   // Boolean; set to true if we are using a structure
@@ -127,15 +130,14 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
   double fdeps;
 
   DistVec<double>* hhRes,*hhEps,*hhVal;
-
+  
+  // for outputting residuals computed during FD
+  TsOutput<dim>* output;
+  void setTsOutput(TsOutput<dim>* outputPointer) {output = outputPointer;}
  
 public:
 
-private:
-
   double computeEpsilon(DistSVec<double,neq> &, DistSVec<double,neq> &);
-
-public:
 
 // Included (MB)
   MatVecProdFD(ImplicitData &, DistTimeState<dim> *, DistGeoState *, 

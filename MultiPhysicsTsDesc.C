@@ -574,10 +574,6 @@ int MultiPhysicsTsDesc<dim,dimLS>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, *fluidSelector.fluidId, *fluidSelector.fluidIdn);
                              // fluidIdn is only used for screen output when an error is found
-
-  //if (ierr != 0 && this->data->checksol) this->data->unphysical = true;
-  ierr = max(ierr,0);
-
   return ierr;
 }
 
@@ -600,10 +596,14 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *last
   this->timer->setSetupTime();
   this->output->cleanProbesFile();
 
+  double fluxNorm = 0.5*(this->data->residual)*(this->data->residual);
+
   if (it == 0) {
     this->multiPhaseSpaceOp->computeGradP(*this->X, *this->A, U); /*really used???*/
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+    this->output->writeMatchPressureToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, *this->A, U, this->timeState, fluidSelector.fluidId);
+    this->output->writeFluxNormToDisk(it, 0, 0, t, fluxNorm);
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
@@ -629,8 +629,11 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
 
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
+  double fluxNorm = 0.5*(this->data->residual)*(this->data->residual);
 
   this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+  this->output->writeMatchPressureToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, *this->A, U, this->timeState, fluidSelector.fluidId);
+  this->output->writeFluxNormToDisk(it, itSc, itNl, t, fluxNorm);
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);

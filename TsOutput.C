@@ -29,45 +29,40 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   TavL = 0;
   Qs = 0;
   Qv = 0;
-  output_newton_step = domain->getOutputNewtonStep();
+  Qs_match     = 0;
+  Qs_match_opt = 0;
+  
   for (i=0; i<PostFcn::AVSSIZE; ++i) AvQs[i] = 0;
   for (i=0; i<PostFcn::AVVSIZE; ++i) AvQv[i] = 0;
 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
 
+  stateOutputFreqTime = iod.output.rom.stateOutputFreqTime;
+  stateOutputFreqNewton = iod.output.rom.stateOutputFreqNewton;
+  residualOutputFreqTime = iod.output.rom.residualOutputFreqTime;
+  residualOutputFreqNewton = iod.output.rom.residualOutputFreqNewton; 
+  fdResiduals = (iod.output.rom.fdResiduals == ROMOutputData::FD_RESIDUALS_ON) ? true : false;
+  fdResidualsLimit = (iod.output.rom.fdResidualsLimit == ROMOutputData::FD_RESIDUALS_LIMIT_ON) ? true : false;
+
   int sp = strlen(iod.output.transient.prefix) + 1;
   int spn = strlen(iod.output.transient.probes.prefix) + 1;
   int sprom = strlen(iod.output.rom.prefix) + 1;
 
-  if (iod.output.transient.solutions[0] != 0) {
-    solutions = new char[sp + strlen(iod.output.transient.solutions)];
-    sprintf(solutions, "%s%s", iod.output.transient.prefix, iod.output.transient.solutions);
-  }
-  else
-    solutions = 0;
+  if (iod.input.optimalPressureFile[0]!=0) {
+    const char* optPressureName = iod.input.optimalPressureFile;
+    fullOptPressureName = new char[strlen(iod.input.prefix) + strlen(optPressureName) + 1];
+    sprintf(fullOptPressureName, "%s%s", iod.input.prefix, optPressureName);
 
-  // GAPPY POD STUFF (CBM+KTC)
-  if (iod.output.rom.newtonresiduals[0] != 0) {
-    newtonresiduals = new char[sprom + strlen(iod.output.rom.newtonresiduals)];
-    sprintf(newtonresiduals, "%s%s", iod.output.rom.prefix, iod.output.rom.newtonresiduals);
-  }
-  else
-    newtonresiduals = 0;
+    if ((iod.input.optPressureDim == InputData::NON_DIMENSIONAL) || (iod.input.optPressureDim == InputData::NONE && iod.problem.mode==ProblemData::NON_DIMENSIONAL))
+      optPressureDimensional=false;
+    else
+      optPressureDimensional=true;
 
-  if (iod.output.rom.jacobiandeltastate[0] != 0) {
-    jacobiandeltastate = new char[sprom + strlen(iod.output.rom.jacobiandeltastate)];
-    sprintf(jacobiandeltastate, "%s%s", iod.output.rom.prefix, iod.output.rom.jacobiandeltastate);
+    if (!Qs_match_opt) Qs_match_opt = new DistSVec<double,1>(domain->getNodeDistInfo());
+    com->fprintf(stdout, "\nReading optimal pressure distribution from %s\n", fullOptPressureName);
+    domain->readVectorFromFile(fullOptPressureName,0,0,*Qs_match_opt);
   }
-  else
-    jacobiandeltastate = 0;
-
-  if (iod.output.rom.reducedjac[0] != 0) {
-    reducedjac = new char[sprom + strlen(iod.output.rom.reducedjac)];
-    sprintf(reducedjac, "%s%s", iod.output.rom.prefix, iod.output.rom.reducedjac);
-  }
-  else
-    reducedjac = 0;
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
@@ -426,6 +421,20 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     lift = 0;
 
+  if (iod.output.transient.matchpressure[0] != 0){
+    matchpressure = new char[sp + strlen(iod.output.transient.matchpressure)];
+    sprintf(matchpressure, "%s%s", iod.output.transient.prefix, iod.output.transient.matchpressure);
+  }
+  else
+    matchpressure = 0;
+
+  if (iod.output.transient.fluxnorm[0] != 0){
+    fluxnorm = new char[sp + strlen(iod.output.transient.fluxnorm)];
+    sprintf(fluxnorm, "%s%s", iod.output.transient.prefix, iod.output.transient.fluxnorm);
+  }
+  else
+    fluxnorm = 0;
+
   if (iod.output.transient.tavlift[0] != 0){
     tavlift = new char[sp + strlen(iod.output.transient.tavlift)];
     sprintf(tavlift, "%s%s", iod.output.transient.prefix, iod.output.transient.tavlift);
@@ -461,20 +470,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
-      if (iod.output.rom.staterom[0] != 0) {
-    staterom = new char[sprom + strlen(iod.output.rom.staterom)];
-    sprintf(staterom, "%s%s", iod.output.rom.prefix, iod.output.rom.staterom);
-  }
-  else
-    staterom = 0;
-
-  if (iod.output.rom.error[0] != 0) {
-    error = new char[sprom + strlen(iod.output.rom.error)];
-    sprintf(error, "%s%s", iod.output.rom.prefix, iod.output.rom.error);
-  }
-  else
-    error = 0;
-    
   if (iod.output.transient.materialVolumes[0] != 0) {
     material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
     sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
@@ -503,6 +498,22 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     conservation = 0;
 
+  // for ROMs (only active for implicit time stepping)
+  if (iod.output.rom.stateVector[0] != 0) {
+    stateVectors = new char[sprom + strlen(iod.output.rom.stateVector)];
+    sprintf(stateVectors, "%s%s", iod.output.rom.prefix, iod.output.rom.stateVector);
+  }
+  else
+    stateVectors = 0;
+
+  // for ROMs (only active for implicit time stepping)
+  if (iod.output.rom.residualVector[0] != 0) {
+    residualVectors = new char[sprom + strlen(iod.output.rom.residualVector)];
+    sprintf(residualVectors, "%s%s", iod.output.rom.prefix, iod.output.rom.residualVector);
+  }
+  else
+    residualVectors = 0;
+
   it0 = iod.restart.iteration;
   //std::cout << "it0 = " << it0 << std::endl;
   numFluidPhases = iod.eqs.numPhase;
@@ -515,12 +526,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[1] = iod.output.transient.y0;
   x0[2] = iod.output.transient.z0;
 
+  fpCpuTiming = 0;
   fpResiduals = 0;
-  fpStateRom = 0;
+  fpMatchPressure = 0;
+  fpFluxNorm      = 0;
   fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
-  fpError = 0;
   fpEmbeddedSurface = 0;
   fpCpuTiming = 0;
 
@@ -564,7 +576,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
 
   if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) {
+      iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -644,6 +657,16 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s", 
             iod.output.transient.prefix, iod.output.transient.dDisplacement);
   }
+  if (iod.output.transient.dMatchPressure[0] != 0 && iod.input.optimalPressureFile) {
+    dMatchPressure = new char[dsp + strlen(iod.output.transient.dMatchPressure)];
+    sprintf(dMatchPressure, "%s%s", iod.output.transient.prefix, iod.output.transient.dMatchPressure);
+  }
+  else
+    dMatchPressure = 0;
+
+  fpdMatchPressure = 0;
+
+
   if (iod.output.transient.dLiftDrag[0] != 0) {
     dLiftDrag = new char[dsp + strlen(iod.output.transient.dLiftDrag)];
     sprintf(dLiftDrag, "%s%s", iod.output.transient.prefix, iod.output.transient.dLiftDrag);
@@ -652,6 +675,15 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     dLiftDrag = 0;
 
   fpdLiftDrag = 0;
+
+  if (iod.output.rom.dFluxNorm[0] != 0) {
+    dFluxNorm = new char[sprom+ strlen(iod.output.rom.dFluxNorm)];
+    sprintf(dFluxNorm, "%s%s", iod.output.rom.prefix, iod.output.rom.dFluxNorm);
+  }
+  else
+    dFluxNorm = 0;
+
+  fpdFluxNorm = 0;
 
   if (iod.output.transient.dForces[0] != 0) {
     dForces = new char[dsp + strlen(iod.output.transient.dForces)];
@@ -664,10 +696,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   switchOpt = true;
   }
-  else if (iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ ||
-           iod.problem.alltype != ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) {
+  else {
     switchOpt = false;
   }
+
 
   // Initialize nodal output structures
   Probes& myProbes = iod.output.transient.probes;
@@ -679,7 +711,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   nodal_output.locations.resize(Probes::MAXNODES);
 
   nodal_output.step = 0;
-                
+
+			      
   for (i = 0; i < Probes::MAXNODES; ++i) {
     nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX/iod.ref.rv.length,
                                       myProbes.myNodes[i].locationY/iod.ref.rv.length,
@@ -692,15 +725,21 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       int flag = -1;
       int locid = -1;
       int lis = -1;
+//      bool abortOmp = false;
 #pragma omp parallel for
       for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
-        locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id-1 );
-//        fprintf(stdout,"locid = %i\n",locid);
-        if (locid >= 0) {
-          lis = iSub;
-          flag = com->cpuNum();
-          break;
-        }
+        //#pragma omp flush (abortOmp)
+        //if (!abortOmp) {
+          locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id-1 );
+//          fprintf(stdout,"locid = %i\n",locid);
+          if (locid >= 0) {
+            lis = iSub;
+            flag = com->cpuNum();
+           // abortOmp = true;
+           // #pragma omp flush (abortOmp)
+            break;
+          }
+        //}
       }
 
       com->globalMax(1,&flag);
@@ -722,6 +761,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   com->fprintf(stdout,"[Probe] Number of probing nodes is %d\n",i);
 
   nodal_output.numNodes = i;
+  
 
   if (iod.output.transient.probes.density[0] != 0) {
     nodal_scalars[PostFcn::DENSITY] = new char[spn + strlen(iod.output.transient.probes.density)];
@@ -812,6 +852,8 @@ TsOutput<dim>::~TsOutput()
   for (int i=0; i<PostFcn::AVVSIZE; ++i) {
     if(AvQv[i]) delete AvQv[i];
   }
+  if (Qs_match) delete Qs_match;
+  if (Qs_match_opt) delete Qs_match_opt;
   if (Qs) delete Qs;
   if (Qv) delete Qv;
   if(TavF) delete [] TavF;
@@ -822,8 +864,10 @@ TsOutput<dim>::~TsOutput()
 
   if (switchOpt) 
     {
+      delete[] dMatchPressure;
       delete[] dForces;
       delete[] dLiftDrag;
+      delete[] dFluxNorm;
       
       int i;
       for (i=0; i<PostFcn::DSSIZE; ++i) {
@@ -847,11 +891,11 @@ TsOutput<dim>::~TsOutput()
 
   delete[] heatfluxes;
   delete[] residuals;
+  delete[] matchpressure;
+  delete[] fluxnorm;
   delete[] material_volumes;
   delete[] embeddedsurface;
   delete[] cputiming;
-  delete[] staterom;
-  delete[] error;
   delete[] conservation;
 
   delete[] lift;
@@ -1088,6 +1132,24 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(fpdForces, "Step Variable Fx Fy Fz Mx My Mz sboom dFx dFy dFz dMx dMy dMz dSboom \n");
 
       fflush(fpdForces);
+    }
+    if (dMatchPressure) {
+      fpdMatchPressure = fopen(dMatchPressure, "w");
+      if (!fpdMatchPressure) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dMatchPressure);
+        exit(1);
+      }
+      fprintf(fpdMatchPressure, "Step Variable 0.5*||P-P_opt||_2^2 d[0.5*||P-P_opt||_2^2]\n");
+      fflush(fpdMatchPressure);
+    }
+    if (dFluxNorm) {
+      fpdFluxNorm = fopen(dFluxNorm, "w");
+      if (!fpdFluxNorm) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dFluxNorm);
+        exit(1);
+      }
+      fprintf(fpdFluxNorm, "Step Variable normF dnormF\n");
+      fflush(fpdFluxNorm);
     }
     if (dLiftDrag) {
       fpdLiftDrag = fopen(dLiftDrag, "w");
@@ -1497,35 +1559,35 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpResiduals);
   }
-  
-  if (staterom) {
+
+  if (matchpressure) {
     if (it0 != 0) 
-      fpStateRom = backupAsciiFile(staterom);
-    if (it0 == 0 || fpStateRom == 0) {
-      fpStateRom = fopen(staterom, "w");
-      if (!fpStateRom) {
-        fprintf(stderr, "*** Error: could not open \'%s\'\n", staterom);
+      fpMatchPressure = backupAsciiFile(matchpressure);
+    if (it0 == 0 || fpMatchPressure == 0) {
+      fpMatchPressure = fopen(matchpressure, "w");
+      if (!fpMatchPressure) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", matchpressure);
         exit(1);
       }
-      fprintf(fpStateRom, "# TimeIteration ElapsedTime StatePodCoords \n");
+      fprintf(fpMatchPressure, "#TimeIteration Time SubCycles NewtonSteps 0.5||P-P^*||_2^2/||P^*||_2^2\n");
     }
-    fflush(fpStateRom);
+    fflush(fpMatchPressure);
   }
 
-  if (error) {
+   if (fluxnorm) {
     if (it0 != 0) 
-      fpError = backupAsciiFile(error);
-    if (it0 == 0 || fpError == 0) {
-      fpError = fopen(error, "w");
-      if (!fpError) {
-        fprintf(stderr, "*** Error: could not open \'%s\'\n", error);
+      fpFluxNorm = backupAsciiFile(fluxnorm);
+    if (it0 == 0 || fpFluxNorm == 0) {
+      fpFluxNorm = fopen(fluxnorm, "w");
+      if (!fpFluxNorm) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", fluxnorm);
         exit(1);
       }
-      fprintf(fpError, "# TimeIteration ElapsedTime RelativeError AbsoluteError \n");
+      fprintf(fpFluxNorm, "#TimeIteration Time SubCycles NewtonSteps 0.5||R||_2^2\n");
     }
-    fflush(fpError);
+    fflush(fpFluxNorm);
   }
-
+ 
   if (material_volumes) {
     if (it0 != 0)
       fpMatVolumes = backupAsciiFile(material_volumes);
@@ -1617,11 +1679,11 @@ void TsOutput<dim>::closeAsciiFiles()
 
 
   if (fpResiduals) fclose(fpResiduals);
+  if (fpMatchPressure) fclose(fpMatchPressure);
+  if (fpFluxNorm) fclose(fpFluxNorm);
   if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
   if (fpCpuTiming) fclose(fpCpuTiming);
-  if (fpStateRom) fclose(fpStateRom);
-  if (fpError) fclose(fpError);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
 
@@ -1899,6 +1961,21 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
 //------------------------------------------------------------------------------
 
+// Included (MZ)
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfFluxNormToDisk(int it, int actvar, double normF, double dnormF)
+{
+
+  if (fpdFluxNorm) {
+    fprintf(fpdFluxNorm, "%d %d %16.13e %16.13e \n", it, actvar, normF, dnormF);
+    fflush(fpdFluxNorm);
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
 // Included (YC)
 template<int dim>
 void TsOutput<dim>::writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & L, Vec3D & dL)
@@ -1925,6 +2002,46 @@ void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F,
 
 }
 
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfMatchPressureToDisk(int it, int actvar, DistSVec<double,1> &dPds, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<double> &A, DistTimeState<dim> *timeState)
+{
+
+  if (!Qs_match)     Qs_match     = new DistVec<double>(domain->getNodeDistInfo());
+  if (!Qs_match_opt) Qs_match_opt = new DistSVec<double,1>(domain->getNodeDistInfo());
+
+  com->fprintf(stdout, "\nReading optimal pressure distribution from %s\n", fullOptPressureName);
+  //domain->readVectorFromFile(fullPressureName,0,0,*Qs_match);
+  domain->readVectorFromFile(fullOptPressureName,0,0,*Qs_match_opt);
+  postOp->computeScalarQuantity(PostFcn::PRESSURE, X, U, A, *Qs_match, timeState);
+  DistSVec<double,1> Qs1(Qs_match->info(), reinterpret_cast<double (*)[1]>(Qs_match->data()));
+  //DistSVec<double,1> Qs2(Qs_match_opt->info(), reinterpret_cast<double (*)[1]>(Qs_match_opt->data()));
+  if (optPressureDimensional)
+    Qs1-=((*Qs_match_opt)*(1/sscale[2]));
+  else
+    Qs1-=(*Qs_match_opt);
+  //Qs1-=*Qs_match_opt;
+
+  double normPdiff, dnormPdiff;
+  normPdiff  = 0.5*(Qs1*Qs1);
+  dnormPdiff = Qs1*dPds;
+
+  normPdiff*=(sscale[2]*sscale[2]);
+  dnormPdiff*=(sscale[2]*sscale[2]);
+  //normPdiff  = 0.5*((*Qs_match)*(*Qs_match));
+  //dnormPdiff = (*Qs_match)*dPds;
+
+  com->fprintf(stderr,"normPdiff = %20.16e\n",normPdiff);
+  com->fprintf(stderr,"dnormPdiff = %20.16e\n",dnormPdiff);
+
+  if (fpdMatchPressure) {
+    fprintf(fpdMatchPressure, "%d %d %16.13e %16.13e\n", it, actvar,normPdiff,dnormPdiff);
+    fflush(fpdMatchPressure);
+  }
+
+}
 
 //------------------------------------------------------------------------------
 
@@ -2119,7 +2236,8 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
 
 }
 //------------------------------------------------------------------------------
-                                                                                                                                                                                                     
+
+
 template<int dim>
 void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
@@ -2269,7 +2387,55 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
     com->printf(0, "It %5d: Res = %e, Cfl = %e, Elapsed Time = %.2e s\n", it, res, cfl, cpu);
 
 }
+//------------------------------------------------------------------------------
 
+template<int dim>
+void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+                                     double* e, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U,
+                                     DistTimeState<dim> * timeState, DistVec<int> *fluidId)
+{
+
+  if (iod.output.transient.matchpressure[0] == 0) return;
+
+  double time = refVal->time * t;
+
+  if (!Qs_match)     Qs_match     = new DistVec<double>(domain->getNodeDistInfo());
+
+  postOp->computeScalarQuantity(PostFcn::PRESSURE, X, U, A, *Qs_match, timeState);
+  DistSVec<double,1> Qs1(Qs_match->info(), reinterpret_cast<double (*)[1]>(Qs_match->data()));
+
+  if (optPressureDimensional)
+    Qs1-=((*Qs_match_opt)*(1/sscale[2]));
+  else
+    Qs1-=(*Qs_match_opt);
+
+  double normPdiff;
+  normPdiff  = 0.5*(Qs1*Qs1);
+  normPdiff*=(sscale[2]*sscale[2]);
+
+  if (com->cpuNum() != 0) return;
+  if (fpMatchPressure) {
+    fprintf(fpMatchPressure, "%d %e %d %d %e \n",it, time, itSc, itNl, normPdiff);
+    fflush(fpMatchPressure);
+  }
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeFluxNormToDisk(int it, int itSc, int itNl, double t, double normFlux)
+{
+
+  double time = refVal->time * t;
+
+  if (com->cpuNum() != 0) return;
+
+  if (fpFluxNorm) {
+    fprintf(fpFluxNorm, "%d %e %d %d %e \n",it, time, itSc, itNl, normFlux);
+    fflush(fpFluxNorm);
+  }
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -2369,43 +2535,6 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
-                                                DistSVec<double,dim> *U1, DistSVec<double,dim> *U2,
-                                                VecSet< DistSVec<double,dim> > *U3)
-{
-
-  double tag = 0.0; // do not tag for now
-
-  if (newtonresiduals && U1)  { // for both pg residuals and fom residuals
-    DistSVec<double,dim> soltn(*U1);
-    if (refVal->mode == RefVal::DIMENSIONAL)
-      domain->scaleSolution(soltn, refVal);
-    domain->writeVectorToFile(newtonresiduals, *output_newton_step, tag, *U1);  //TODO: output_newton_step should accumulate over restarts
-  }
-
-  if (jacobiandeltastate && U2)  {
-    DistSVec<double,dim> soltn(*U2);
-    if (refVal->mode == RefVal::DIMENSIONAL)
-      domain->scaleSolution(soltn, refVal);
-    domain->writeVectorToFile(jacobiandeltastate, *output_newton_step, tag, *U2); //TODO: output_newton_step should accumulate over restarts
-  }
-
-  if (reducedjac && U3)  {  // entire JPhi
-    for (int i = 0; i < U3->numVectors(); ++i) {
-      DistSVec<double,dim> soltn((*U3)[i]);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-
-      domain->writeVectorToFile(reducedjac, *output_newton_step, tag, soltn); //TODO: output_newton_step should accumulate over restarts
-    }
-  }
-
-  ++(*output_newton_step);
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
 void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag, 
                       DistSVec<double,3> &X, DistSVec<double,dim> &U){
 
@@ -2443,13 +2572,6 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     else
       tag = t * refVal->time;
 
-    if (solutions)  {
-      DistSVec<double,dim> soltn(U);
-      if (refVal->mode == RefVal::DIMENSIONAL) {
-        domain->scaleSolution(soltn, refVal);
-      }
-      domain->writeVectorToFile(solutions, step, tag, soltn);
-    }
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {
@@ -2508,8 +2630,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     else
       tag = t * refVal->time;
 
-    if (solutions)
-      domain->writeVectorToFile(solutions, step, tag, U);
+    //if (stateVector) // MOR not supported for embedded framework
+    //  domain->writeVectorToFile(stateVector, step, tag, U);
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {
@@ -2651,8 +2773,6 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
     else
       tag = t * refVal->time;
     
-    // if (solutions)
-    // domain->writeVectorToFile(solutions, step, tag, U);
     
     int i;
     const char* mode = nodal_output.step ? "a" : "w";
@@ -2869,7 +2989,8 @@ template<int dim>
 void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], 
 							 DistSVec<double,3> &X, DistSVec<double,3> &dX, 
 							 DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
-							 DistTimeState<dim> *timeState)
+							 DistTimeState<dim> *timeState,
+							 DistVec<double>* A) 
 {
   int    step = it-1;
   double tag  = (double)actvar;
@@ -2884,6 +3005,10 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, dou
       postOp->computeDerivativeOfScalarQuantity(static_cast<PostFcn::ScalarDerivativeType>(i), dS, X, dX, U, dU, *Qs, timeState);
       DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
       domain->writeVectorToFile(dScalars[i], step, tag, Qs1, &(dSscale[i]));
+
+      //Match Properties
+      if (static_cast<PostFcn::ScalarDerivativeType>(i) == PostFcn::DERIVATIVE_PRESSURE)
+        writeDerivativeOfMatchPressureToDisk(it,actvar,Qs1,X,U,*A,timeState);
     }
   }
   for (i=0; i<PostFcn::DVSIZE; ++i) {
@@ -3318,36 +3443,56 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 
 //------------------------------------------------------------------------------
 
+
 template<int dim>
-void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<double> &UromTotal)
-{
+void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
+                                                  DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
+{ // Outputs state and residual snapshots (from the FOM newton solver) for building a nonlinear ROM.
+  // The logic tests ensure that every state from a given timestep is ouput (if requested), but that 
+  // no state snapshot is stored twice. (Need to be careful because the initial state of any given 
+  // timestep is the converged state from the previous timestep)
 
-  if (com->cpuNum() != 0) return;
+  timeStep = timeStep - 1; //need the counting to start at 0, not 1
 
-  if (fpStateRom) {
-    fprintf(fpStateRom, "%d %e", it, cpu);
-    for (int iPod = 0; iPod < nPod; ++iPod) {
-      fprintf(fpStateRom, " %23.15e", UromTotal[iPod]); // write out with high precision
+  if (state && stateVectors) {
+    double tag = *(domain->getNewtonTag());
+    double prevTag = -1;
+    int step = *(domain->getNewtonStateStep());  
+    int prevStep = step-1;
+    int dummy;
+    if (prevStep>=0) domain->readTagFromFile<double,dim>(stateVectors, prevStep, &prevTag, &dummy);
+    if ((newtonIt==0) && (step!=0) && (prevTag==tag)) { //do nothing
+    } else if (timeStep%stateOutputFreqTime==0) { 
+        if (((stateOutputFreqNewton==0)&&lastNewtonIt) ||  // special case: last newton iteration
+            ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
+            ((stateOutputFreqNewton>0)&&(newtonIt%stateOutputFreqNewton==0))) {
+          // output FOM state 
+          domain->writeVectorToFile(stateVectors, step, tag, *state);
+          ++(*(domain->getNewtonStateStep()));
+        }
     }
-    fprintf(fpStateRom, "\n");
-    fflush(fpStateRom);
+  }
+
+  if (residual && residualVectors) {
+    if (timeStep%residualOutputFreqTime==0) { 
+      if (((residualOutputFreqNewton==0) && lastNewtonIt) || // special case: last newton iteration 
+          ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
+          (((residualOutputFreqNewton>0))&&(newtonIt%residualOutputFreqNewton==0))) {
+        // for FOM residuals only (residuals from PG are clustered during the online simulations)
+
+        // if outputting krylov vects, limit number of residuals output per newton iteration to
+        // number of krylov vecs output at previous it 
+        if ((fdResiduals && fdResidualsLimit) && (*(domain->getNumKrylovVecsOutputPrevNewtonIt())>0) && 
+            (*(domain->getNumResidualsOutputCurrentNewtonIt()) >= *(domain->getNumKrylovVecsOutputPrevNewtonIt())))  return; 
+
+        domain->writeVectorToFile(residualVectors, *(domain->getNewtonResidualStep()), *(domain->getNewtonTag()), *residual);
+        ++(*(domain->getNewtonResidualStep()));
+        ++(*(domain->getNumResidualsOutputCurrentNewtonIt()));
+      }
+    }
   }
 
 }
 
-template<int dim>
-void TsOutput<dim>::writeErrorToDisk(const int it, const double cpu, const int nErr, const double *error)
-{
 
-  if (com->cpuNum() != 0) return;
-
-  if (fpError) {
-    fprintf(fpError, "%d %e", it, cpu);
-    for (int iErr = 0; iErr < nErr; ++iErr) {
-      fprintf(fpError, " %23.15e", error[iErr]);  // write out with high precision
-    }
-    fprintf(fpError, "\n");
-    fflush(fpError);
-  }
-
-}
+//------------------------------------------------------------------------------

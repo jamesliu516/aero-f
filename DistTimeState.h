@@ -102,7 +102,6 @@ private:
   bool checkForRapidlyChangingValues;
 
 public:
-  bool unphysical;
   bool allowcflstop;
   bool allowdtstop;
 
@@ -259,7 +258,10 @@ public:
 
   DistVec<double>* getDerivativeOfInvReynolds(DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double);
 
-	int getOutputNewtonStep() const;
+	double getNewtonTag() const;
+  int getNewtonStateStep() const;
+  int getNewtonResidualStep() const;
+  int getKrylovStep() const;
 
   DistVec<int> * getFirstOrderNodeSet() const { return firstOrderNodes; }
 };

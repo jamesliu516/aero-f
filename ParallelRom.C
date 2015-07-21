@@ -1,5 +1,6 @@
 #include <LinkF77.h>
 #include <ParallelRom.h>
+#include <GnatPreprocessing.h>
 
 extern "C"      {
 
@@ -21,9 +22,9 @@ template<int dim>
 ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com) : 
 domain(_domain), com(_com), subDomain(_domain.getSubDomain()), maxCpuBlocks(0), nTotCpus(_com->size()), thisCPU(_com->cpuNum())
 {
+  locSendReceive = new int[nTotCpus];
   cpuNodes = new int[nTotCpus];
   cpuMasterNodes = new int[nTotCpus];
-  locSendReceive = new int[nTotCpus];
   for (int i = 0; i < 9; ++i) {
     desc_a[i] = -1;
     desc_b[i] = -1;
@@ -36,7 +37,6 @@ ParallelRom<dim>::~ParallelRom()
 
   delete [] cpuNodes;
   delete [] cpuMasterNodes;
-  delete [] locSendReceive;
   
 }
 
@@ -79,7 +79,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
     double *S, FullM &Vtrue, int nSnaps, bool computeV) {
 
 #ifdef DO_SCALAPACK
-   int numLocSub = domain.getNumLocSub();
+ int numLocSub = domain.getNumLocSub();
 
  // specify the block size (in terms of nodes)
  // ***blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
@@ -265,7 +265,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
   // inputs: nA
   // outputs: rowsPerBlock, cpuMasterNodes, cpuNodes (number of nodes in scalapack block cyclic decomp), maxCpuBlocks
   int nA = (_nA == 0) ? A.numVectors() : _nA;
-    
+   
   scalapackCpuDecomp(nA); 
 
  //===============================
@@ -275,14 +275,15 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
  int locLLD = max(1,dim * cpuNodes[thisCPU]);  // number of rows in domain!
  int maxLLD = locLLD;  // find the maximum over all LLD
  com->globalMax(1, &maxLLD); 
- 
+
  // define process (cpu) grid: nTotCpus x 1 (fit all data from a single node on a processor)
  // NOTE: can have NB_A > N_A! Your block size can be bigger than the number of rows
  
  int nprow = nTotCpus;  // number of processor rows
  int npcol = 1;  // number of processor columns
  int globNumRows = dim * A[0].nonOverlapSize();
-  
+ if(!A[0].getMasterFlag(0)) com->globalSum(1, &globNumRows);
+
   //===============================
   // Step 3 - depends on # cols in A and # cols in B
   //===============================
@@ -292,7 +293,12 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
   
   int nB = B.numVectors();
 #ifdef DO_SCALAPACK
-  F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);  
+//      this->com->fprintf(stdout," *** nprowi %d, npcol %d, globNumRows %d, nA %d, nB %d, rowsPerBlock %d, rowsPerBlock %d,locLLD %d, thisCPU %d\n",nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU);
+//      this->com->barrier();
+//      sleep(1);
+
+ F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock, locLLD, thisCPU, desc_a, desc_b);  
+
 #else
  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
@@ -331,8 +337,9 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
   // check for any changes in the dimensions of the least squares problem
   //===============================
   
-  if (n != desc_a[3] || nRhs != desc_b[3])
+  if (n != desc_a[3] || nRhs != desc_b[3] || dim*A[0].nonOverlapSize() != desc_a[2]) { // PJSA added last condition
     parallelLSMultiRHSInit(A, B, n);  // (re)-initialization needed
+  }
 
   // KTC: can make this more elegant if needed
   
@@ -361,7 +368,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
  // this goes from physical node-based decomposition to the computationally balanced decomposition
  //   Note that A and B use the same decomposition
  //===============================
-
+ if (locSendReceive) delete [] locSendReceive;
  locSendReceive = new int[com->size()];  // how many nodes the current cpu sends to other cpu (not needed after this 
 
  // input: B, cpuMasterNodes, cpuNodes, nB
@@ -443,6 +450,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
  com->barrier();
 
  delete[] locSendReceive;
+ locSendReceive=NULL;
  delete[] subMatB;
  //===============================
  // clean up
@@ -474,7 +482,11 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
  // distribution info
 
  int numLocSub = domain.getNumLocSub();
+#ifdef EXP_NLROMOFFLINE
+ DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
+#else
  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum(); 
 
@@ -487,12 +499,13 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
  double *buffer;  // buffer is filled in for all nodes first, then columns [node1col1, node2col1, ...]^T
 
  // send/receive for each cpu (if positive, it has received, if negative, it has sent)
+ if (!locSendReceive) locSendReceive = new int[nTotCpus];
  for (int iCpu = 0; iCpu < nTotCpus; iCpu++)
    locSendReceive[iCpu] = 0;
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node with no sending
- DistVec<int> cpuDestination(domain.getNodeDistInfo());
+ DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 
  int *totalSentNodes = new int[nTotCpus];  // how many nodes have been sent to previous cpus
@@ -532,8 +545,8 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
                // create buffer
                double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
                bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-               for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {  // loop over master nodes
-                 if (locMasterFlag[iNode]) {
+               for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {  // loop over master nodes
+                 if (!locMasterFlag || locMasterFlag[iNode]) {
                    if (masterNodeCount == nSendNodes+totalSentNodes[iCpu])  break;  // only send nSendNodes starting at totalSentNodes (other cpus have received the first 0 to totalSentNodes-1 nodes!)
                    masterNodeCount++;
                    if (masterNodeCount-1 >= totalSentNodes[iCpu])  {
@@ -589,8 +602,8 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
        for (int iSub = 0; iSub < numLocSub; ++iSub) {
          double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
          bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-         for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
-           if (locMasterFlag[iNode]) {
+         for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+           if (!locMasterFlag || locMasterFlag[iNode]) {
              //if not already sent
              if (masterNodeCount >= totalSentNodes[iCpu])  {
                for (int j = 0; j < dim; ++j)
@@ -618,7 +631,11 @@ template<class VecContainer>
 void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps) {
 
  int numLocSub = domain.getNumLocSub();
+#ifdef EXP_NLROMOFFLINE
+ DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
+#else
  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum();
 
@@ -628,7 +645,7 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
  int locLLD = dim * cpuNodes[thisCPU];
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
- DistVec<int> cpuDestination(domain.getNodeDistInfo());
+ DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 
  int *totalSentNodes = new int[nTotCpus];
@@ -671,7 +688,6 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
            index = 0;
            for (int iSub = 0; iSub < numLocSub; ++iSub) {
              // create buffer
-             bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
              for (int iNode = 0; iNode < cpuNodes[iCpu]; ++iNode)  {
                if (index == nSendNodes+totalSentNodes[iCpu])  break;
                index++;
@@ -685,20 +701,20 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          totalSentNodes[iCpu] = index;
          // send data in buffer
          //fprintf(stderr, "*** CPU #%d sending back to CPU #%d: %d nodes = %d entries\n", thisCPU, jCpu, nSendNodes, buffLen);
-         com->sendTo(jCpu, 10*thisCPU*nTotCpus+jCpu, buffer, buffLen);
+         com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen); //KMW: removed 10* because tag was too large for MPICH!
        }
        com->barrier();
        // receive data and populate submatrix
        if (thisCPU==jCpu) {
-         com->recFrom(iCpu, 10*iCpu*nTotCpus+thisCPU, recData, buffLen);
+         com->recFrom(iCpu, iCpu*nTotCpus+thisCPU, recData, buffLen); //kmw removed 10* because tag was too large!
          for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
            index = 0;
            int k=0;
            for (int iSub = 0; iSub < numLocSub; ++iSub) {
              double (*locU)[dim] = Utrue[iSnap].subData(iSub);
              bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-             for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
-               if (locMasterFlag[iNode]) {
+             for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+               if (!locMasterFlag || locMasterFlag[iNode]) {
                  if (k>=nRecNodes && k <nSendNodes+nRecNodes) {
                    for (int j = 0; j < dim; ++j)
                      locU[iNode][j] = recData[(k-nRecNodes)*dim+j+iSnap*nSendNodes*dim];
@@ -717,6 +733,7 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          delete[] buffer;
      }
      com->barrier();
+     com->waitForAllReq(); // KMW
    }
  }
  //Completing the rest of the matrices
@@ -729,8 +746,8 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
        for (int iSub = 0; iSub < numLocSub; ++iSub) {
          double (*locU)[dim] = Utrue[iSnap].subData(iSub);
          bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-         for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
-           if (locMasterFlag[iNode]) {
+         for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+           if (!locMasterFlag || locMasterFlag[iNode]) {
              //if not already sent
              if (index >= nRecNodes)  {
                for (int j = 0; j < dim; ++j)
@@ -767,8 +784,6 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 
   // distribution info
 
-  int numLocSub = domain.getNumLocSub();
-  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
   nTotCpus = com->size();
   thisCPU = com->cpuNum();
 
@@ -842,7 +857,12 @@ void ParallelRom<dim>::setTransfer() {
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
- DistVec<int> cpuDestination(domain.getNodeDistInfo());
+#ifdef EXP_NLROMOFFLINE
+ DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
+#else
+ DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+#endif
+ DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 
  subDomain = domain.getSubDomain();
@@ -860,12 +880,12 @@ void ParallelRom<dim>::setTransfer() {
  #pragma omp parallel for
  for (int iSub = 0; iSub < numLocSub; ++iSub) {
    bool *locMasterFlag = cpuDestination.getMasterFlag(iSub);
-   for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); iNode++)  {
-     if (locMasterFlag[iNode])
+   for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; iNode++) {
+     if (!locMasterFlag || locMasterFlag[iNode])
        cpuMasterNodes[thisCPU]++;  // add if it is a master node
    }
  }
- 
+
  // maxDomainSize = maximum number of master nodes on a cpu
  int maxDomainSize = cpuMasterNodes[thisCPU];
  com->globalMax(1, &maxDomainSize);
@@ -888,7 +908,8 @@ void ParallelRom<dim>::setTransfer() {
  int notMaxBlockCpus= nTotCpus*maxCpuBlocks-numBlocks;  // number of cpus without the full number of blocks
  for (int iCpu=0; iCpu < nTotCpus; ++iCpu)
    cpuBlocks[iCpu] = maxCpuBlocks;
- for (int i=1; i<=notMaxBlockCpus; ++i)  // correct number of blocks: the last cpus overestimated this
+
+for (int i=1; i<=notMaxBlockCpus; ++i)  // correct number of blocks: the last cpus overestimated this
    cpuBlocks[nTotCpus-i] -= 1;
  int lastCpu;
  if (nNodeLastBlock>0) {  // this should ALWAYS hold
@@ -905,7 +926,7 @@ void ParallelRom<dim>::setTransfer() {
    cpuNodes[iCpu] = cpuBlocks[iCpu]*nodesPerBlock;  // blocks * number of nodes per block assuming full blocks
  if (nNodeLastBlock < nodesPerBlock)  // last block is not full
    cpuNodes[lastCpu] += (nNodeLastBlock-nodesPerBlock);  // subtract off the missing nodes in not full block
- 
+
  delete[] cpuBlocks;
 
 }

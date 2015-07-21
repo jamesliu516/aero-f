@@ -18,7 +18,10 @@ class Timer {
 		romConstr, romTimeInteg, comm, localCom, globalCom, interCom, rmaCom, io,
 		binread, binwrite, levelSet, lsNodalWeightsAndGrad, lsFvTerm,
 		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
-		eulerFSI, embedforce, walldistance, lsreinitialization, NUMTIMINGS
+		eulerFSI, embedforce, walldistance, lsreinitialization, readSnapshotFile,
+		clustering, pod, distCalcsPrepro, exactUpdatesPrepro, projError, mds, 	
+		approxUpdatesPrepro, surfaceMeshConstruction, surfaceOutput, sampledMeshConstruction, sampledOutput, pseudoInv,
+                gnatOffline, romOffline, NUMTIMINGS
   };
 
   int numTimings;
@@ -104,6 +107,23 @@ public:
   double addEmbedPhaseChangeTime(double);
   double removeIntersAndPhaseChange(double);
   double addWallDistanceTime(double);
+
+  // Nonlinear ROM Offline Timer Functions
+  double addReadSnapshotFileTime(double);
+  double addClusteringTime(double);
+  double addPODTime(double);
+  double addDistCalcsPreproTime(double);
+  double addExactUpdatesPreproTime(double);
+  double addProjErrorTime(double);
+  double addMDSTime(double);
+  double addApproxUpdatesPreproTime(double);
+  double addSampledMeshConstructionTime(double);
+  double addSampledOutputTime(double);
+  double addSurfaceMeshConstructionTime(double);
+  double addSurfaceOutputTime(double);
+  double addPseudoInvTime(double);
+  double addTotalGnatOfflineTime(double);
+  double addTotalOfflineTime(double);
 
   void print(Timer *, FILE * = stdout);
 

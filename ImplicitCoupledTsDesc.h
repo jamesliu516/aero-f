@@ -27,6 +27,13 @@ protected:
   MatVecProd<dim,dim> *mvpfd1;
 #endif
 
+  template<int neq>
+  KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, KspPrec<neq>,
+    Communicator> *createKrylovSolver(const DistInfo &, KspData &, MatVecProd<dim,neq> *,
+              KspPrec<neq> *, Communicator *);
+
+
+
 public:
 
   ImplicitCoupledTsDesc(IoData &, GeoSource &, Domain *);

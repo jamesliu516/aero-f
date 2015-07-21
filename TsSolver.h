@@ -192,7 +192,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-     
+    
+    *(probDesc->getTimeIt()) = it;
+ 
     bool solveOrNot = true;
     
     bool repeat;
@@ -213,7 +215,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         dtLeft = 0.0;
       }
       else{
-        if (dU && dUPrev && dUPrev->norm() != 0) angle = ((*dU) * (*dUPrev))/(dU->norm()*dUPrev->norm());
+        if (dU && dUPrev && (dUPrev->norm()*dU->norm() > 1e-16)) angle = ((*dU) * (*dUPrev))/(dU->norm()*dUPrev->norm());
         else angle = -2.0;
         dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
       }
@@ -246,14 +248,10 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
         if(probDesc->getTsParams()) probDesc->getTsParams()->resolveErrors();
 
-        //probDesc->getErrorHandler()->printError();
-
-        // stat = -10 signals that the time iteration must be redone!
-        // Regardless of what happens elsewhere, this should work.
-        if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]){ // || stat == -10 // must redo iteration with a different CFL number, undo everything we have done so far 
-          probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]=0;
+        if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]) { // must redo iteration with a different CFL number,
+                                                                                      // undo everything we have done so far 
+          probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP] = 0;
           probDesc->printf(1,"Repeating time-step.\n");
-	  probDesc->printf(1, "WARNING: Alex modified this... hopefully to fix a bug.\n");
           //probDesc->setFailSafe(true);
           U = (*UPrev); // Reset U to its previous state
           repeat = true;

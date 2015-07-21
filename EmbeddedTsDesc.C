@@ -491,7 +491,6 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
   this->com->barrier();
   double t0 = this->timer->getTime();
-  this->timeState->unphysical = this->data->unphysical;
   this->data->allowstop = this->timeState->allowcflstop; 
   int numSubCycles = 1;
   double dt=0.0;
@@ -499,16 +498,18 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 //  if(TsDesc<dim>::failSafeFlag == false){
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
-      if(numFluid==1)
+      if(numFluid==1) {
         dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->X, *this->A, U);
-      else {//numFLuid>1
+      } else {//numFLuid>1
         dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->A, U, nodeTag);
       }
     }
-    else  //time step size with error estimation
+    else { //time step size with error estimation
       dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
+   }
+ 
 //  }
 //  else    //if time step is repeated
 //    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
@@ -519,7 +520,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
                       dt*this->refVal->time, numSubCycles);
-
+ 
   this->timer->addFluidSolutionTime(t0);
   this->timer->addTimeStepTime(t0);
 
@@ -656,12 +657,6 @@ int EmbeddedTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
   }
 
-  if (ierr != 0 && this->data->checksol) {
-    this->data->unphysical = true;
-    return ierr;
-  }
-  ierr = max(ierr,0);
-
   return ierr;
 }
 
@@ -681,12 +676,15 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
   this->output->cleanProbesFile();
+  double fluxNorm = 0.5*(this->data->residual)*(this->data->residual);
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
+    this->output->writeMatchPressureToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, *this->A, U, this->timeState, &nodeTag);
+    this->output->writeFluxNormToDisk(it, 0, 0, t, fluxNorm);
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
@@ -712,8 +710,11 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
+  double fluxNorm = 0.5*(this->data->residual)*(this->data->residual);
 
   this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeMatchPressureToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, *this->A, U, this->timeState, &nodeTag);
+  this->output->writeFluxNormToDisk(it, itSc, itNl, t, fluxNorm);
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);

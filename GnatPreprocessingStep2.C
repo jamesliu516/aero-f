@@ -5,15 +5,17 @@ template<int dim>
 GnatPreprocessingStep2<dim>::GnatPreprocessingStep2(Communicator *_com, IoData
 		&_ioData, Domain &dom, DistGeoState *_geoState) : GnatPreprocessing<dim>(_com,
 			_ioData, dom, _geoState), podHatTmp(0, dom.getNodeDistInfo() ) { 
-
+/*
 			if (this->ioData->gnat.sampleMeshUsed == GNATData::SAMPLE_MESH_NOT_USED)
 				backupPlan = true;
 			else
 				backupPlan = false;
 
+kyle, this will require fixing:
+
 			this->outputOnlineMatricesFull = true;
 			this->outputOnlineMatricesSample = false;	// already using sample mesh, so output in `full' coordinates
-
+*/
 }
 
 template<int dim>
@@ -23,7 +25,7 @@ void GnatPreprocessingStep2<dim>::setUpGreedy() {
 
 template<int dim>
 void GnatPreprocessingStep2<dim>::readInPodResJac() {
-
+/*
 	for (int iPodBasis = 0; iPodBasis < this->nPodBasis; ++iPodBasis){
 		this->podHat[iPodBasis].resize(this->nPod[iPodBasis]);
 		for (int i = 0; i < this->nPod[iPodBasis]; ++i) this->podHat[iPodBasis][i] = 0.0;
@@ -44,12 +46,13 @@ void GnatPreprocessingStep2<dim>::readInPodResJac() {
 			podHatTmp[iPod] = 0.0;
 		}
 	}
+*/
 }
 
 template<int dim>
 void GnatPreprocessingStep2<dim>::computePodTPod() {
 	// read in PodTPod
-
+/*
 	const char *onlineMatExtension = {".PodJacTPodRes"};
 	FILE *onlineMatrix;
 	int sp = strlen(this->ioData->output.rom.prefix);
@@ -67,13 +70,14 @@ void GnatPreprocessingStep2<dim>::computePodTPod() {
 			}
 	}
 	delete [] onlineMatrixFile;
+*/
 }
 
 template<int dim>
 void GnatPreprocessingStep2<dim>::determineSampleNodes() {
 
 	// set globalSampleNodes, nSampleNodes
-
+/*
 	this->com->barrier();
 	this->nSampleNodes = 0;
 	this->domain.readSampleNodes(this->globalSampleNodes, this->nSampleNodes,
@@ -127,6 +131,7 @@ void GnatPreprocessingStep2<dim>::determineSampleNodes() {
 
 	if (backupPlan) 
 		this->podHat.a[0] = &podHatTmp;	// set podHatTmp to be the right one
+*/
 }
 
 template<int dim>

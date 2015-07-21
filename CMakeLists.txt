@@ -221,6 +221,7 @@ ADD_LIBRARY(FluidBase
              GeoData.C 
              GeoSource.C 
              GeoState.C 
+             GnatPreprocessingCore.C
              HeatTransferHandlerCore.C 
              ImplicitRiemann.C
              InletNodeCore.C 
@@ -244,8 +245,10 @@ ADD_LIBRARY(FluidBase
              MultiGridCoupledTsDesc.C
              MultiGridSegTsDesc.C
              MultiGridEmbeddedTsDesc.C
-             ModalSolver.C 
+             ModalSolver.C
+             NonlinearRomOfflineSolver.C 
              Node.C 
+             ParallelRomCore.C
              PostFcn.C 
              ProgrammedBurnCore.C
              RefVal.C 
@@ -617,6 +620,7 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 add_definitions(-DTEMPLATE_FIX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
+message( ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
 IF(NOT USE_SCALAPACK)
   TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
 ELSE(NOT USE_SCALAPACK)
