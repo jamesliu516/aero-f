@@ -444,13 +444,13 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
   char * name = new char[500];
 
   geoState->setup2(timeState->getData());
-  com->fprintf(stderr," input->solutions = %s\n",input->solutions);
-  com->fprintf(stderr," input->multisolutions = %s\n",input->multisolutions);
+//  com->fprintf(stderr," input->solutions = %s\n",input->solutions);
+//  com->fprintf(stderr," input->multisolutions = %s\n",input->multisolutions);
   if ( iod.input.solutions[0] == 0 && iod.input.multisolutions[0] != 0){
-     com->fprintf(stderr," INSIDE IF STATEMENT \n");
+//     com->fprintf(stderr," INSIDE IF STATEMENT \n");
      evaluateFluxAtMultipleSolutions(iod,name);
   } else {
-     com->fprintf(stderr," INSIDE ELSE STATEMENT \n");
+//     com->fprintf(stderr," INSIDE ELSE STATEMENT \n");
      strcpy(name,input->solutions);
   }
   timeState->setup(name, *X, bcData->getInletBoundaryVector(), *U, iod);
