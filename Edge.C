@@ -25,6 +25,7 @@ using std::min;
 #include "FluidSelector.h"
 #include "DenseMatrixOps.h"
 #include "FemEquationTermDesc.h"
+#include <Eigen/Core>
 
 //------------------------------------------------------------------------------
 
@@ -195,9 +196,9 @@ void EdgeSet::computeTimeStep2(FemEquationTerm *fet, VarFcn *varFcn, GeoState &g
 // Included (MB)
 template<int dim>
 void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
-                              SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
-			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach,
-                              TimeLowMachPrec &tprec)
+                                          SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
+                                          Vec<double> &dIdti, Vec<double> &dIdtv, double dMach,
+                                          TimeLowMachPrec &tprec)
 {
 
   double Vmid[dim], dVmid[dim];
@@ -1404,13 +1405,84 @@ int EdgeSet::computeFiniteVolumeTermRestrict(int* locToGlobNodeMap, Vec<double>
 }
 
 //------------------------------------------------------------------------------
+// Included (YC)
+template<int dim>
+void EdgeSet::computeDerivativeOfFiniteVolumeTerm(
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddx,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddy,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddz,
+                                        RectangularSparseMat<double,3,dim> *dFluxdX,
+                                        RectangularSparseMat<double,3,dim> *dFluxdEdgeNorm,
+                                        ElemSet& elems, GeoState& geoState, SVec<double,3>& dX,
+                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, 
+                                        SVec<double,dim>& dddx,
+                                        SVec<double,dim>& dddy,
+                                        SVec<double,dim>& dddz,
+                                        Vec<Vec3D>& dNormal,
+                                        SVec<double,dim>& dFluxes)
+{
+
+//  Vec<Vec3D>& dNormal = geoState.getdEdgeNormal();
+//  SVec<double,dim>& dddx = ngrad.getXderivative();
+//  SVec<double,dim>& dddy = ngrad.getYderivative();
+//  SVec<double,dim>& dddz = ngrad.getZderivative();
+
+  SVec<double,dim> dummy(dFluxes), dummy2(dFluxes), dummy3(dddy);
+  dFluxdX->apply(dX, dFluxes);
+  dFluxdddx->apply(dddx, dummy);
+  dFluxes += dummy;
+  dFluxdddy->apply(dddy, dummy);
+  dFluxes += dummy;
+  dFluxdddz->apply(dddz, dummy);
+  dFluxes += dummy;
+  dFluxdEdgeNorm->apply(dNormal,dummy);
+  dFluxes += dummy;
+
+}
+
+//------------------------------------------------------------------------------
+// Included (YC)
+template<int dim>
+void EdgeSet::computeTransposeDerivativeOfFiniteVolumeTerm(
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddx,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddy,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddz,
+                                        RectangularSparseMat<double,3,dim> *dFluxdX,
+                                        RectangularSparseMat<double,3,dim> *dFluxdEdgeNorm,
+                                        SVec<double,dim>& dFluxes,
+                                        NodalGrad<dim>& ngrad,
+                                        EdgeGrad<dim>* egrad, 
+                                        ElemSet& elems, 
+                                        GeoState& geoState, 
+                                        SVec<double,3>& dX,
+                                        SVec<double,dim>& dddx,
+                                        SVec<double,dim>& dddy,
+                                        SVec<double,dim>& dddz,
+                                        Vec<Vec3D>& dNormal)
+{
+
+//  Vec<Vec3D>& dNormal = geoState.getdEdgeNormal();
+
+//  SVec<double,dim>& dddx = ngrad.getXderivative();
+//  SVec<double,dim>& dddy = ngrad.getYderivative();
+//  SVec<double,dim>& dddz = ngrad.getZderivative();
+
+  dFluxdX->applyTranspose(dFluxes, dX);
+  dFluxdddx->applyTranspose(dFluxes, dddx);
+  dFluxdddy->applyTranspose(dFluxes, dddy);
+  dFluxdddz->applyTranspose(dFluxes, dddz);
+  dFluxdEdgeNorm->applyTranspose(dFluxes, dNormal);
+
+}
+
+//------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>
 void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
-						  ElemSet& elems, GeoState& geoState, SVec<double,3>& X, SVec<double,3>& dX,
-						  SVec<double,dim>& V, SVec<double,dim>& dV, NodalGrad<dim>& ngrad,
-						  EdgeGrad<dim>* egrad, double dMach, SVec<double,dim>& dFluxes)
+                                        ElemSet& elems, GeoState& geoState, SVec<double,3>& X, SVec<double,3>& dX,
+                                        SVec<double,dim>& V, SVec<double,dim>& dV, NodalGrad<dim>& ngrad,
+                                        EdgeGrad<dim>* egrad, double dMach, SVec<double,dim>& dFluxes)
 {
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -1422,13 +1494,12 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double>
   SVec<double,dim>& dVdy = ngrad.getY();
   SVec<double,dim>& dVdz = ngrad.getZ();
 
-  SVec<double,dim>& ddVdx = ngrad.getXderivative();
-  SVec<double,dim>& ddVdy = ngrad.getYderivative();
-  SVec<double,dim>& ddVdz = ngrad.getZderivative();
-  
-  double ddVij[dim], dddVij[dim], ddVji[dim], dddVji[dim], Vi[2*dim], dVi[2*dim], Vj[2*dim], dVj[2*dim], flux[dim], dFlux[dim];
+  SVec<double,dim>& dddx = ngrad.getXderivative();
+  SVec<double,dim>& dddy = ngrad.getYderivative();
+  SVec<double,dim>& dddz = ngrad.getZderivative();
 
-//  double ddVijp[dim], ddVjip[dim], ddVijm[dim], ddVjim[dim], Vip[2*dim], Vim[2*dim], Vjp[2*dim], Vjm[2*dim];
+  double ddVij[dim], dddVij[dim], ddVji[dim], dddVji[dim], Vi[2*dim], dVi[2*dim], Vj[2*dim], dVj[2*dim], flux[dim], dFlux[dim]; 
+//  double dFLUX[dim], dFLUX2[dim], dVi2[2*dim], dVj2[2*dim];
 
   double edgeirey, dedgeirey;
 
@@ -1440,20 +1511,31 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double>
     int j = ptr[l][1];
 
     if (egrad)
-      egrad->computeDerivative(l, i, j, elems, X, dX, V, dV, dVdx, dVdy, dVdz, ddVdx, ddVdy, ddVdz, dddVij, dddVji);
+      egrad->computeDerivative(l, i, j, elems, X, dX, V, dV, dVdx, dVdy, dVdz, dddx, dddy, dddz, dddVij, dddVji);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
       for (int k=0; k<dim; ++k) {
          ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
          ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-         dddVij[k] = ddx[0]*dVdx[i][k] + dx[0]*ddVdx[i][k] + ddx[1]*dVdy[i][k] + dx[1]*ddVdy[i][k] + ddx[2]*dVdz[i][k] + dx[2]*ddVdz[i][k];
-         dddVji[k] = ddx[0]*dVdx[j][k] + dx[0]*ddVdx[j][k] + ddx[1]*dVdy[j][k] + dx[1]*ddVdy[j][k] + ddx[2]*dVdz[j][k] + dx[2]*ddVdz[j][k];
+         dddVij[k] = ddx[0]*dVdx[i][k] + dx[0]*dddx[i][k] + ddx[1]*dVdy[i][k] + dx[1]*dddy[i][k] + ddx[2]*dVdz[i][k] + dx[2]*dddz[i][k]; 
+         dddVji[k] = ddx[0]*dVdx[j][k] + dx[0]*dddx[j][k] + ddx[1]*dVdy[j][k] + dx[1]*dddy[j][k] + ddx[2]*dVdz[j][k] + dx[2]*dddz[j][k]; 
+
+
+
+
+//         dddVij[k] = ddx[0]*dVdx[i][k]; 
+//         dddVij[k] += ddx[1]*dVdy[i][k];
+//         dddVij[k] += ddx[2]*dVdz[i][k];
+//         dddVij[k] += dx[0]*dddx[i][k] + dx[1]*dddy[i][k] + dx[2]*dddz[i][k];
+//         dddVji[k] = ddx[0]*dVdx[j][k];
+//         dddVji[k] += ddx[1]*dVdy[j][k];
+//         dddVji[k] += ddx[2]*dVdz[j][k];
+//         dddVji[k] += dx[0]*dddx[j][k] + dx[1]*dddy[j][k] + dx[2]*dddz[j][k];
       }
+
     }
-
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-
     recFcn->computeDerivative(V[i], dV[i], ddVij, dddVij, V[j], dV[j], ddVji, dddVji, dVi, dVj);
 
     edgeirey = 0.5*(irey[i]+irey[j]);
@@ -1476,8 +1558,154 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double>
     }
 
   }
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void EdgeSet::computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
+              ElemSet& elems, GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+              EdgeGrad<dim>* egrad, double dMach,
+              RectangularSparseMat<double,3,dim> &dFluxdEdgeNorm,
+              RectangularSparseMat<double,3,dim> &dFluxdX,
+              RectangularSparseMat<double,dim,dim> &dFluxdddx,
+              RectangularSparseMat<double,dim,dim> &dFluxdddy,
+              RectangularSparseMat<double,dim,dim> &dFluxdddz)
+{
+
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+//  Vec<Vec3D>& dNormal = geoState.getdEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+//  Vec<double>& dNormalVel = geoState.getdEdgeNormalVel();
+
+
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
+
+  SVec<double,dim>& dddx = ngrad.getXderivative();
+  SVec<double,dim>& dddy = ngrad.getYderivative();
+  SVec<double,dim>& dddz = ngrad.getZderivative();
+
+  double ddVij[dim], dddVij[dim], ddVji[dim], dddVij2[dim], ddVji2[dim], dddVji[dim], Vi[2*dim], dVi[2*dim], Vj[2*dim], dVj[2*dim], flux[dim], dFlux[dim]; 
+  double dVi2[2*dim], dVj2[2*dim];
+
+  double edgeirey, dedgeirey;
+
+  for (int l=0; l<numEdges; ++l) {
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    if (egrad) {
+      fprintf(stderr," ... in EdgeSet::computeDerivativeOfFiniteVolumeTerm 001\n");
+    } else {
+      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+      for (int k=0; k<dim; ++k) {
+         ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+         ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+      }
+
+    }
+    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+
+///////////////////////////////////////////////////////////////////////
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    double ddxdX[3][6] = {0},
+           dddVijddx[dim][3] = {0} , dddVjiddx[dim][3] = {0},
+           dddVijdX[dim][6] = {0} , dddVjidX[dim][6] = {0},
+           dddVijdddx[dim] = {0}, dddVijdddy[dim] = {0}, dddVijdddz[dim] = {0},
+           dddVjidddx[dim] = {0}, dddVjidddy[dim] = {0}, dddVjidddz[dim] = {0};
+    ddxdX[0][3] = 1.0;       ddxdX[0][0] = -1.0;
+    ddxdX[1][4] = 1.0;       ddxdX[1][1] = -1.0;
+    ddxdX[2][5] = 1.0;       ddxdX[2][2] = -1.0;
+    for (int k=0; k<dim; ++k) {
+       dddVijddx[k][0] = dVdx[i][k];  dddVijddx[k][1] = dVdy[i][k];  dddVijddx[k][2] = dVdz[i][k];
+       dddVjiddx[k][0] = dVdx[j][k];  dddVjiddx[k][1] = dVdy[j][k];  dddVjiddx[k][2] = dVdz[j][k];
+       dddVijdX[k][0] = -dVdx[i][k];  dddVijdX[k][1] = -dVdy[i][k];  dddVijdX[k][2] = -dVdz[i][k];  dddVijdX[k][3] = dVdx[i][k];  dddVijdX[k][4] = dVdy[i][k];  dddVijdX[k][5] = dVdz[i][k];
+       dddVjidX[k][0] = -dVdx[j][k];  dddVjidX[k][1] = -dVdy[j][k];  dddVjidX[k][2] = -dVdz[j][k];  dddVjidX[k][3] = dVdx[j][k];  dddVjidX[k][4] = dVdy[j][k];  dddVjidX[k][5] = dVdz[j][k];
+       dddVijdddx[k] = dx[0];     dddVijdddy[k] = dx[1];     dddVijdddz[k] = dx[2];
+       dddVjidddx[k] = dx[0];     dddVjidddy[k] = dx[1];     dddVjidddz[k] = dx[2];
+    }
+    double dVijdVi[dim]={0}, dVijdVj[dim] = {0}, dVijdddVij[dim] = {0}, dVjidVi[dim] = {0}, dVjidVj[dim] = {0}, dVjidddVji[dim] = {0};
+    recFcn->computeDerivativeOperators(V[i], ddVij, V[j], ddVji, dVijdVi, dVijdVj, dVijdddVij, dVjidVi, dVjidVj, dVjidddVji);
+
+
+///////////////////////////////////////////////////////////////////////
+
+    edgeirey = 0.5*(irey[i]+irey[j]);
+    dedgeirey = 0.5*(dIrey[i]+dIrey[j]);
+
+    int k;
+    for (k=0; k<dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
+
+    double dFluxdNormalSingle[7][3]={0}, dFluxdNormalVel[7]={0};
+    double dFluxdVL[7][7]={0}, dFluxdVR[7][7]={0};
+
+    fluxFcn[BC_INTERNAL]->compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(normal[l], normalVel[l], Vi, Vj, dMach, flux,
+                                                                                 dFluxdNormalSingle, dFluxdNormalVel, dFluxdVL, dFluxdVR);
+
+    double dFluxdNormal[dim][3]={0};
+    for(int k=0; k<dim; ++k) {
+      for(int p=0; p<3; ++p) {
+        dFluxdNormal[k][p] = dFluxdNormalSingle[k][p];
+      }
+    }
+    dFluxdEdgeNorm.addContrib(i, l, dFluxdNormal[0]);
+    for(int k=0; k<dim; ++k)
+      for(int p=0; p<3; ++p)
+        dFluxdNormal[k][p] *= -1.0;
+    dFluxdEdgeNorm.addContrib(j, l, dFluxdNormal[0]);
+
+
+    double dFluxdXarray[2*dim][6]={0}, dFluxdddxarray[2*dim][2*dim]={0}, dFluxdddyarray[2*dim][2*dim]={0}, dFluxdddzarray[2*dim][2*dim]={0};
+    double coefi, coefj, dummy1, dummy3, dummy4, dummy5, dummy6, dummy7, dummy8;
+    for(int k=0; k<dim; ++k)
+      for(int p=0; p<dim; ++p) {
+        coefi = dFluxdVL[k][p]*dVijdddVij[p];
+        coefj = dFluxdVR[k][p]*dVjidddVji[p];
+        for(int q=0; q<6; ++q) {
+          dummy1 = (coefi*dddVijdX[p][q] + coefj*dddVjidX[p][q]);
+          dFluxdXarray[k][q] += dummy1;
+          dFluxdXarray[k+dim][q] -= dummy1;
+        }
+        dummy3 = coefi*dddVijdddx[p];
+        dummy4 = coefi*dddVijdddy[p];
+        dummy5 = coefi*dddVijdddz[p];
+        dummy6 = coefj*dddVjidddx[p];
+        dummy7 = coefj*dddVjidddy[p];
+        dummy8 = coefj*dddVjidddz[p];
+        dFluxdddxarray[k][p] += dummy3;
+        dFluxdddyarray[k][p] += dummy4;
+        dFluxdddzarray[k][p] += dummy5;
+        dFluxdddxarray[k][p+dim] += dummy6;
+        dFluxdddyarray[k][p+dim] += dummy7;
+        dFluxdddzarray[k][p+dim] += dummy8;
+        dFluxdddxarray[k+dim][p] -= dummy3;
+        dFluxdddyarray[k+dim][p] -= dummy4;
+        dFluxdddzarray[k+dim][p] -= dummy5;
+        dFluxdddxarray[k+dim][p+dim] -= dummy6;
+        dFluxdddyarray[k+dim][p+dim] -= dummy7;
+        dFluxdddzarray[k+dim][p+dim] -= dummy8;
+      }
+
+    int ndList[2] = {i,j};
+    dFluxdX.addContrib(2, ndList, dFluxdXarray[0]);
+    dFluxdddx.addContrib(2, ndList, dFluxdddxarray[0]);
+    dFluxdddy.addContrib(2, ndList, dFluxdddyarray[0]);
+    dFluxdddz.addContrib(2, ndList, dFluxdddzarray[0]);    
+
+  }
 
 }
+
 //------------------------------------------------------------------------------
 template<int dim>
 void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,

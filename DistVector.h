@@ -36,6 +36,7 @@ public:
   template<class T>
   DistVec<Scalar> &operator*=(const T);
 
+  DistVec<Scalar> &operator=(const Scalar&);
   DistVec<Scalar> &operator=(const DistVec<Scalar> &);
   DistVec<Scalar> &operator+=(const DistVec<Scalar> &);
   DistVec<Scalar> &operator-=(const DistVec<Scalar> &);
@@ -191,6 +192,29 @@ template<class T>
 inline
 DistVec<Scalar> &
 DistVec<Scalar>::operator=(const T y)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < distInfo.numLocThreads; ++iSub) {
+
+    int locOffset = distInfo.subOffsetReg[iSub];
+    int locLen = distInfo.subLenReg[iSub];
+
+    for (int i = 0; i < locLen; ++i) 
+      this->v[locOffset+i] = y;
+
+  }
+
+  return *this;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
+DistVec<Scalar> &
+DistVec<Scalar>::operator=(const Scalar& y)
 {
 
 #pragma omp parallel for
@@ -379,8 +403,8 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
       Scalar locres = 0;
 
       for (int i = 0; i < locLen; ++i)
-	if (distInfo.masterFlag[locOffset+i])
-	  locres += this->v[locOffset+i] * x.v[locOffset+i];
+        if (distInfo.masterFlag[locOffset+i])
+          locres += this->v[locOffset+i] * x.v[locOffset+i];
 
 #ifdef MPI_OMP_REDUCTION
       res += locres;
@@ -406,7 +430,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
       Scalar locres = 0;
 
       for (int i = 0; i < locLen; ++i)
-	locres += this->v[locOffset+i] * x.v[locOffset+i];
+        locres += this->v[locOffset+i] * x.v[locOffset+i];
 
 #ifdef MPI_OMP_REDUCTION
       res += locres;
@@ -1237,7 +1261,6 @@ DistSVec<Scalar,dim>::operator=(const DistVec<Scalar> &y)
 
 }
 
-
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -1347,9 +1370,9 @@ DistSVec<Scalar,dim>::operator*(const DistSVec<Scalar,dim> &x)
       Scalar locres = 0;
 
       for (int i = 0; i < locLen; ++i)
-	if (distInfo.masterFlag[locOffset+i])
-	  for (int j = 0; j < dim; ++j)
-	    locres += DotTerm(this->v[locOffset+i][j],x.v[locOffset+i][j]);
+        if (distInfo.masterFlag[locOffset+i])
+          for (int j = 0; j < dim; ++j)
+            locres += DotTerm(this->v[locOffset+i][j],x.v[locOffset+i][j]);
 
 #ifdef MPI_OMP_REDUCTION
       res += locres;
@@ -1360,6 +1383,7 @@ DistSVec<Scalar,dim>::operator*(const DistSVec<Scalar,dim> &x)
     }
 
   } 
+
   else {
 
 #ifdef MPI_OMP_REDUCTION
@@ -1375,8 +1399,8 @@ DistSVec<Scalar,dim>::operator*(const DistSVec<Scalar,dim> &x)
       Scalar locres = 0;
 
       for (int i = 0; i < locLen; ++i)
-	for (int j = 0; j < dim; ++j)
-	  locres += DotTerm(this->v[locOffset+i][j], x.v[locOffset+i][j]);
+        for (int j = 0; j < dim; ++j)
+          locres += DotTerm(this->v[locOffset+i][j], x.v[locOffset+i][j]);
       
 #ifdef MPI_OMP_REDUCTION
       res += locres;

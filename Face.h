@@ -66,6 +66,7 @@ template<class Scalar, int dim> class SVec;
 template<class VecType> class VecSet;
 template<class VecType, class VT2> class SubVecSet;
 template<int dim> class ExactRiemannSolver;
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 class FaceTria;
 
@@ -727,6 +728,7 @@ public:
   virtual void computeNormalAndDerivative(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D&) = 0;
 
   virtual void computeDerivativeOfNormal(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &, double &, double &) = 0;
+  virtual void computeDerivativeOperatorsOfNormal(int, SVec<double,3> &, RectangularSparseMat<double,3,3> &) = 0;
 
   // Get face total normal derivative from Vec<Vec3D>
   virtual Vec3D getdNormal(Vec<Vec3D> &) = 0;
@@ -745,6 +747,14 @@ public:
 				      Vec<Vec3D> &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
 				      SVec<double,dim> &V, double *Ub,
 				      double *dUb, SVec<double,dim> &dFluxes);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfFiniteVolumeTerm(
+              int, FluxFcn **fluxFcn, Vec<Vec3D> &normals,
+				      Vec<double> normalVel, SVec<double,dim> &V, double *Ub,
+				      RectangularSparseMat<double,3,dim> &dFluxdFaceNormal,
+              RectangularSparseMat<double,1,dim> &dFluxdFaceNormalVel,
+              RectangularSparseMat<double,dim,dim> &dFluxdUb);
 
   template<int dim1, int dim2>
   void computeDerivativeOfNodeBcValue(SVec<double,3> &X, SVec<double,3> &dX, double *Uface, double *dUface, SVec<double,dim2> &dUnode);
@@ -1092,6 +1102,28 @@ public:
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
                                            SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+                                           RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+                                           RectangularSparseMat<double,dim,dim> *dFluxdUb,
+                                           BcData<dim> &, GeoState &, 
+                                           Vec<Vec3D>&, Vec<double>&, SVec<double,dim> &);
+
+  template<int dim>
+  void computeTransposeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+                                                    RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+                                                    RectangularSparseMat<double,dim,dim> *dFluxdUb,
+                                                    BcData<dim> &, GeoState &, SVec<double,dim> &,
+                                                    Vec<Vec3D>&, Vec<double>&);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
+              GeoState &geoState, SVec<double,dim> &V,
+              RectangularSparseMat<double,3,dim> &dFluxdFaceNormal,
+              RectangularSparseMat<double,1,dim> &dFluxdFaceNormalVel,
+              RectangularSparseMat<double,dim,dim> &dFluxdUb);
+
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, GeoState &,
                                        SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, 

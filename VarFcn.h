@@ -93,6 +93,9 @@ public:
   template<int dim>
   void conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,dim> &dU, SVec<double,dim> &V, SVec<double,dim> &dV, Vec<int> *tag = 0);
   template<int dim>
+  void computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
+                                         RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, int tag=0); 
+  template<int dim>
   void primitiveToConservativeDerivative(SVec<double,dim> &V, SVec<double,dim> &dV, SVec<double,dim> &U, SVec<double,dim> &dU, Vec<int> *tag = 0);
   template<int dim>
   void computeTemperature(SVec<double,dim> &V, Vec<double> &T, Vec<int> *tag = 0);
@@ -137,6 +140,8 @@ public:
   double getVelocityY(double *V, int tag=0) const{ check(tag); return varFcn[tag]->getVelocityY(V); }
   double getVelocityZ(double *V, int tag=0) const{ check(tag); return varFcn[tag]->getVelocityZ(V); }
   double getPressure(double *V, int tag=0)  const{ check(tag); return varFcn[tag]->getPressure(V); }
+
+  void computedPdV(double *dPdV, int tag=0)  const{ check(tag); varFcn[tag]->computedPdV(dPdV); }
 
   void setDensity(const double density, double *V, int tag=0) { check(tag); return varFcn[tag]->setDensity(density,V); }
   void setPressure(const double p, double *V, int tag=0)  { check(tag); return varFcn[tag]->setPressure(p,V); }
@@ -480,6 +485,34 @@ void VarFcn::conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void VarFcn::computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
+                                                               RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, int tag)
+{
+
+  int numLocSub = U.numLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*u)[dim] = U.subData(iSub);
+    double (*v)[dim] = V.subData(iSub);
+    if(tag){
+      int *loctag = tag->subData(iSub);
+      fprintf(stderr, " ... subSize is %d\n", U.subSize(iSub));
+      for (int i=0; i<U.subSize(iSub); ++i) {
+        varFcn[loctag[i]]->computeConservativeToPrimitiveDerivativeOperators(u[i], v[i], dVdU, dVdPstiff);
+        fprintf(stderr, " ... loctag[i] is %d\n", loctag[i]);
+      }
+    }else{
+      for (int i=0; i<U.subSize(iSub); ++i)
+        varFcn[0]->computeConservativeToPrimitiveDerivativeOperators(dVdU, dVdPstiff);
     }
   }
 

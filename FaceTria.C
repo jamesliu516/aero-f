@@ -209,13 +209,12 @@ void FaceTria::computeForceTransmitted(ElemSet &elems, PostFcn *postFcn, SVec<do
 
 //------------------------------------------------------------------------------
 
-
 template<int dim>
 inline
 void FaceTria::computeDerivativeOfForceTransmitted(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall,
                                     double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
                                     double dS[3], double *pin, Vec3D &dFi0, Vec3D &dFi1, Vec3D &dFi2, Vec3D &dFv, 
-			            double* gradP[3], double* dGradP[3], int hydro)
+                                    double* gradP[3], double* dGradP[3], int hydro)
 {
 
   Vec3D n;
@@ -223,6 +222,8 @@ void FaceTria::computeDerivativeOfForceTransmitted(ElemSet &elems, PostFcn *post
 
   computeNormalAndDerivative(X, dX, n, dn);
   Elem& elem = elems[elemNum];
+  double dndX[3][3][3] = {0};
+  compute_dndX(X, dndX);
 
   double dp1dxj[4][3], ddp1dxj[4][3];
   if (postFcn->doesFaceNeedGradientP1Function()) {
@@ -232,15 +233,18 @@ void FaceTria::computeDerivativeOfForceTransmitted(ElemSet &elems, PostFcn *post
 
   double d2w[3] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], d2wall[nodeNum(2)]};
   double *Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
-  double *Vtet[4] = {V[elem[0]], V[elem[1]],
-		     V[elem[2]], V[elem[3]]};
+  double *Vtet[4] = {V[elem[0]], V[elem[1]], V[elem[2]], V[elem[3]]};
   double *Xface[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
   double *dVface[3] = {dV[nodeNum(0)], dV[nodeNum(1)], dV[nodeNum(2)]};
-  double *dVtet[4] = {dV[elem[0]], dV[elem[1]],
-		     dV[elem[2]], dV[elem[3]]};
+  double dVfacedV[3][dim] = {0};
+  for(int i=0; i<3; ++i) for(int j=0; j<dim; ++j) dVfacedV[i][j] = 1.0;
+  double *dVtet[4] = {dV[elem[0]], dV[elem[1]], dV[elem[2]], dV[elem[3]]};
   double *dXface[3] = {dX[nodeNum(0)], dX[nodeNum(1)], dX[nodeNum(2)]};
+  double dXfacedX[3][3] = {0};
+  for(int i=0; i<3; i++) for(int j=0; j<3; ++j) dXfacedX[i][j] = 1.0;
 
-  double dPdx[3][3], ddPdx[3][3];
+
+  double dPdx[3][3], ddPdx[3][3], ddPdxdGradP[3][3] = {0};
   for(int i=0; i<3; i++) // i represents node
   {
     dPdx[i][0] = gradP[0][nodeNum(i)];
@@ -249,9 +253,187 @@ void FaceTria::computeDerivativeOfForceTransmitted(ElemSet &elems, PostFcn *post
     ddPdx[i][0] = dGradP[0][nodeNum(i)];
     ddPdx[i][1] = dGradP[1][nodeNum(i)];
     ddPdx[i][2] = dGradP[2][nodeNum(i)];
+    for(int j=0; j<3; ++j)
+      ddPdxdGradP[i][j] = 1.0;
   }
 
+//  Vec3D dFi00(dFi0), dFi11(dFi1), dFi22(dFi2), dFvv(dFv), diff0, diff1, diff2, diffv;
   postFcn->computeDerivativeOfForceTransmitted(dp1dxj, ddp1dxj, Xface, dXface, n, dn, d2w, Vwall, dVwall, Vface, dVface, Vtet, dVtet, dS, pin, dFi0, dFi1, dFi2, dFv, dPdx, ddPdx, hydro);
+
+  double dFi0dn[3] = {0}, dFi0dS[3][3] = {0}, dFi0dVface[3][3][5] = {0}, dFi0ddPdx[3][3][3] = {0}, dFi0dXface[3][3][3] = {0};
+  double dFi1dn[3] = {0}, dFi1dS[3][3] = {0}, dFi1dVface[3][3][5] = {0}, dFi1ddPdx[3][3][3] = {0}, dFi1dXface[3][3][3] = {0};
+  double dFi2dn[3] = {0}, dFi2dS[3][3] = {0}, dFi2dVface[3][3][5] = {0}, dFi2ddPdx[3][3][3] = {0}, dFi2dXface[3][3][3] = {0};
+
+  postFcn->computeDerivativeOperatorsOfForceTransmitted(Xface, n, Vface, pin, dPdx, hydro, 
+                                                        dFi0dn, dFi0dS, dFi0dVface, dFi0ddPdx, dFi0dXface,
+                                                        dFi1dn, dFi1dS, dFi1dVface, dFi1ddPdx, dFi1dXface,
+                                                        dFi2dn, dFi2dS, dFi2dVface, dFi2ddPdx, dFi2dXface);
+/*
+ dFi00 = 0.0;
+ for(int l=0; l<3; ++l) {
+//   dFi00[l] += dFi0dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi00[l] += dFi0dS[l][j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi00[l] += dFi0dVface[l][j][k]*dVfacedV[j][k]*dV[nodeNum(j)][k];
+     for(int k=0; k<3; ++k) {
+       dFi00[l] += dFi0ddPdx[l][j][k]*ddPdxdGradP[j][k]*dGradP[k][nodeNum(j)] + dFi0dXface[l][j][k]*dXfacedX[j][k]*dX[nodeNum(j)][k];
+       dFi00[l] += dFi0dn[l]*dndX[j][l][k]*dX[nodeNum(j)][k];
+     }
+   }
+ }
+
+ dFi11 = 0.0;
+ for(int l=0; l<3; ++l) {
+//   dFi11[l] += dFi1dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi11[l] += dFi1dS[l][j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi11[l] += dFi1dVface[l][j][k]*dVfacedV[j][k]*dV[nodeNum(j)][k];
+     for(int k=0; k<3; ++k) {
+       dFi11[l] += dFi1ddPdx[l][j][k]*ddPdxdGradP[j][k]*dGradP[k][nodeNum(j)] + dFi1dXface[l][j][k]*dXfacedX[j][k]*dX[nodeNum(j)][k];
+       dFi11[l] += dFi1dn[l]*dndX[j][l][k]*dX[nodeNum(j)][k];
+     }
+   }
+ }
+
+ dFi22 = 0.0;
+ for(int l=0; l<3; ++l) {
+//   dFi22[l] += dFi2dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi22[l] += dFi2dS[l][j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi22[l] += dFi2dVface[l][j][k]*dVfacedV[j][k]*dV[nodeNum(j)][k];
+     for(int k=0; k<3; ++k) {
+       dFi22[l] += dFi2ddPdx[l][j][k]*ddPdxdGradP[j][k]*dGradP[k][nodeNum(j)] + dFi2dXface[l][j][k]*dXfacedX[j][k]*dX[nodeNum(j)][k];
+       dFi22[l] += dFi2dn[l]*dndX[j][l][k]*dX[nodeNum(j)][k];
+     }
+   }
+ }
+
+  dFvv = 0.0;
+  diff0 = dFi0 - dFi00;
+  diff1 = dFi1 - dFi11;  
+  diff2 = dFi2 - dFi22;
+  diffv = dFv - dFvv;
+  double diff0norm = diff0.norm();
+  double diff1norm = diff1.norm();
+  double diff2norm = diff2.norm();
+  double diffvnorm = diffv.norm();
+  double dFi0norm = dFi0.norm();
+  double dFi1norm = dFi1.norm();
+  double dFi2norm = dFi2.norm();
+  double dFvnorm = dFv.norm();
+  
+  if(dFi0norm != 0) {
+    double reldiff = diff0norm/dFi0norm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFi0 is %e\n", diff0norm/dFi0norm);
+  } else {
+    if(diff0norm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFi0 is %e\n", diff0norm);
+  }
+
+  if(dFi1norm != 0) {
+    double reldiff = diff1norm/dFi1norm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFi1 is %e\n", diff1norm/dFi1norm);
+  } else {
+    if(diff1norm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFi1 is %e\n", diff1norm);
+  }
+
+  if(dFi2norm != 0) {
+    double reldiff = diff2norm/dFi2norm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFi2 is %e\n", diff2norm/dFi2norm);
+  } else {
+    if(diff2norm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFi2 is %e\n", diff2norm);
+  }
+
+  if(dFvnorm != 0) {
+    double reldiff = diffvnorm/dFvnorm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFv is %e\n", diffvnorm/dFvnorm);
+  } else {
+    if(diffvnorm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFv is %e\n", diffvnorm);
+  }
+*/
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+inline
+void FaceTria::computeDerivativeOperatorsOfForceTransmitted(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, 
+                                                            double *pin, double* gradP[3], int hydro,
+                                                            double dFi0dV[3][3][dim], double dFi0dGradP[3][3][3], double dFi0dX[3][3][3],
+                                                            double dFi0dn[3], double dFi0dS[3][3],
+                                                            double dFi1dV[3][3][dim], double dFi1dGradP[3][3][3], double dFi1dX[3][3][3],
+                                                            double dFi1dn[3], double dFi1dS[3][3],
+                                                            double dFi2dV[3][3][dim], double dFi2dGradP[3][3][3], double dFi2dX[3][3][3],
+                                                            double dFi2dn[3], double dFi2dS[3][3])
+{
+
+  Vec3D n;
+  double dndX[3][3][3] = {0};
+  computeNormal(X, n);
+  compute_dndX(X, dndX);
+
+  double *Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
+  double *Xface[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
+  double dVfacedV[3][dim] = {0}, dXfacedX[3][3] = {0};
+  for(int i=0; i<3; ++i) for(int j=0; j<dim; ++j) dVfacedV[i][j] = 1.0;
+  for(int i=0; i<3; i++) for(int j=0; j<3; ++j) dXfacedX[i][j] = 1.0;
+
+
+  double dPdx[3][3], ddPdx[3][3], ddPdxdGradP[3][3] = {0};
+  for(int i=0; i<3; i++) // i represents node
+  {
+    dPdx[i][0] = gradP[0][nodeNum(i)];
+    dPdx[i][1] = gradP[1][nodeNum(i)];
+    dPdx[i][2] = gradP[2][nodeNum(i)];
+    for(int j=0; j<3; ++j)
+      ddPdxdGradP[i][j] = 1.0;
+  }
+
+  double dFi0dVface[3][3][5] = {0}, dFi0ddPdx[3][3][3] = {0}, dFi0dXface[3][3][3] = {0};
+  double dFi1dVface[3][3][5] = {0}, dFi1ddPdx[3][3][3] = {0}, dFi1dXface[3][3][3] = {0};
+  double dFi2dVface[3][3][5] = {0}, dFi2ddPdx[3][3][3] = {0}, dFi2dXface[3][3][3] = {0};
+
+  postFcn->computeDerivativeOperatorsOfForceTransmitted(Xface, n, Vface, pin, dPdx, hydro, 
+                                                        dFi0dn, dFi0dS, dFi0dVface, dFi0ddPdx, dFi0dXface,
+                                                        dFi1dn, dFi1dS, dFi1dVface, dFi1ddPdx, dFi1dXface,
+                                                        dFi2dn, dFi2dS, dFi2dVface, dFi2ddPdx, dFi2dXface);
+ for(int l=0; l<3; ++l) {
+   for(int j=0; j<3; ++j) {
+     for(int k=0; k<dim; ++k) {
+       dFi0dV[j][l][k] = dFi0dVface[l][j][k]*dVfacedV[j][k];
+     }
+     for(int k=0; k<3; ++k) {
+       dFi0dGradP[j][l][k] = dFi0ddPdx[l][j][k]*ddPdxdGradP[j][k];
+       dFi0dX[j][l][k] = dFi0dXface[l][j][k]*dXfacedX[j][k] +  dFi0dn[l]*dndX[j][l][k];
+     }
+   }
+ }
+
+ for(int l=0; l<3; ++l) {
+   for(int j=0; j<3; ++j) {
+     for(int k=0; k<dim; ++k) {
+       dFi1dV[j][l][k] = dFi1dVface[l][j][k]*dVfacedV[j][k];
+     }
+     for(int k=0; k<3; ++k) {
+       dFi1dGradP[j][l][k] = dFi1ddPdx[l][j][k]*ddPdxdGradP[j][k];
+       dFi1dX[j][l][k] = dFi1dXface[l][j][k]*dXfacedX[j][k] + dFi1dn[l]*dndX[j][l][k];
+     }
+   }
+ }
+
+ for(int l=0; l<3; ++l) {
+   for(int j=0; j<3; ++j) {
+     for(int k=0; k<dim; ++k) {
+       dFi2dV[j][l][k] = dFi2dVface[l][j][k]*dVfacedV[j][k];
+     }
+     for(int k=0; k<3; ++k) {
+       dFi2dGradP[j][l][k] = dFi2ddPdx[l][j][k]*ddPdxdGradP[j][k];
+       dFi2dX[j][l][k] = dFi2dXface[l][j][k]*dXfacedX[j][k] + dFi2dn[l]*dndX[j][l][k];
+     }
+   }
+ }
 
 }
 
@@ -297,22 +479,196 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
     || code == BC_SLIP_WALL_MOVING || code == BC_POROUS_WALL_MOVING) {
 
     Vec3D dFi0, dFi1, dFi2, dFv;
+//    Vec3D dFi00(dFi0), dFi11(dFi1), dFi22(dFi2), dFvv(dFv), diff0, diff1, diff2, diffv;
     computeDerivativeOfForceTransmitted(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, 0, dFi0, dFi1, dFi2, dFv, gradP, dGradP);
+/*
+    double dFi0dn[3] = {0}, dFi0dS[3][3] = {0}, dFi0dV[3][3][dim] = {0}, dFi0dGradP[3][3][3] = {0}, dFi0dX[3][3][3] = {0};
+    double dFi1dn[3] = {0}, dFi1dS[3][3] = {0}, dFi1dV[3][3][dim] = {0}, dFi1dGradP[3][3][3] = {0}, dFi1dX[3][3][3] = {0};
+    double dFi2dn[3] = {0}, dFi2dS[3][3] = {0}, dFi2dV[3][3][dim] = {0}, dFi2dGradP[3][3][3] = {0}, dFi2dX[3][3][3] = {0};
 
-    Vec3D dFtot[3];
-    dFtot[0] = dFi0 + third*dFv; 
-    dFtot[1] = dFi1 + third*dFv;
-    dFtot[2] = dFi2 + third*dFv;
+    computeDerivativeOperatorsOfForceTransmitted(postFcn, X, V, 0, gradP, 0,
+                                                 dFi0dV, dFi0dGradP, dFi0dX, dFi0dn, dFi0dS,
+                                                 dFi1dV, dFi1dGradP, dFi1dX, dFi1dn, dFi1dS,
+                                                 dFi2dV, dFi2dGradP, dFi2dX, dFi2dn, dFi2dS);
 
-    for (int j=0; j<3; ++j) {
-      dF[ nodeNum(j) ][0] += dFtot[j][0];
-      dF[ nodeNum(j) ][1] += dFtot[j][1];
-      dF[ nodeNum(j) ][2] += dFtot[j][2];
-    }
+ dFi00 = 0.0;
+ for(int l=0; l<3; ++l) {
+   for(int j=0; j<3; ++j) {
+     dFi00[l] += dFi0dS[l][j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi00[l] += dFi0dV[j][l][k]*dV[nodeNum(j)][k];
+     for(int k=0; k<3; ++k)
+       dFi00[l] += dFi0dGradP[j][l][k]*dGradP[k][nodeNum(j)] + dFi0dX[j][l][k]*dX[nodeNum(j)][k];
+   }
+ }
+
+ dFi11 = 0.0;
+ for(int l=0; l<3; ++l) {
+   for(int j=0; j<3; ++j) {
+     dFi11[l] += dFi1dS[l][j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi11[l] += dFi1dV[j][l][k]*dV[nodeNum(j)][k];
+     for(int k=0; k<3; ++k)
+       dFi11[l] += dFi1dGradP[j][l][k]*dGradP[k][nodeNum(j)] + dFi1dX[j][l][k]*dX[nodeNum(j)][k];
+   }
+ }
+
+ dFi22 = 0.0;
+ for(int l=0; l<3; ++l) {
+   for(int j=0; j<3; ++j) {
+     dFi22[l] += dFi2dS[l][j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi22[l] += dFi2dV[j][l][k]*dV[nodeNum(j)][k];
+     for(int k=0; k<3; ++k)
+       dFi22[l] += dFi2dGradP[j][l][k]*dGradP[k][nodeNum(j)] + dFi2dX[j][l][k]*dX[nodeNum(j)][k];
+   }
+ }
+
+  dFvv = 0.0;
+  diff0 = dFi0 - dFi00;
+  diff1 = dFi1 - dFi11;  
+  diff2 = dFi2 - dFi22;
+  diffv = dFv - dFvv;
+  double diff0norm = diff0.norm();
+  double diff1norm = diff1.norm();
+  double diff2norm = diff2.norm();
+  double diffvnorm = diffv.norm();
+  double dFi0norm = dFi0.norm();
+  double dFi1norm = dFi1.norm();
+  double dFi2norm = dFi2.norm();
+  double dFvnorm = dFv.norm();
+  
+  if(dFi0norm != 0) {
+    double reldiff = diff0norm/dFi0norm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFi0 is %e\n", diff0norm/dFi0norm);
+  } else {
+    if(diff0norm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFi0 is %e\n", diff0norm);
+  }
+
+  if(dFi1norm != 0) {
+    double reldiff = diff1norm/dFi1norm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFi1 is %e\n", diff1norm/dFi1norm);
+  } else {
+    if(diff1norm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFi1 is %e\n", diff1norm);
+  }
+
+  if(dFi2norm != 0) {
+    double reldiff = diff2norm/dFi2norm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFi2 is %e\n", diff2norm/dFi2norm);
+  } else {
+    if(diff2norm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFi2 is %e\n", diff2norm);
+  }
+
+  if(dFvnorm != 0) {
+    double reldiff = diffvnorm/dFvnorm;
+    if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFv is %e\n", diffvnorm/dFvnorm);
+  } else {
+    if(diffvnorm > 1.0e-12) fprintf(stderr, " ... abs. diff for dFv is %e\n", diffvnorm);
+  }
+*/
+
+   Vec3D dFtot[3];
+   dFtot[0] = dFi0 + third*dFv; 
+   dFtot[1] = dFi1 + third*dFv;
+   dFtot[2] = dFi2 + third*dFv;
+
+   for (int j=0; j<3; ++j) {
+     dF[ nodeNum(j) ][0] += dFtot[j][0];
+     dF[ nodeNum(j) ][1] += dFtot[j][1];
+     dF[ nodeNum(j) ][2] += dFtot[j][2];
+   }
+/*
+   dF[ nodeNum(0) ][0] += dFi0[0] + third*dFv[0];
+   dF[ nodeNum(0) ][1] += dFi0[1] + third*dFv[1]; 
+   dF[ nodeNum(0) ][2] += dFi0[2] + third*dFv[2];
+   dF[ nodeNum(1) ][0] += dFi1[0] + third*dFv[0];
+   dF[ nodeNum(1) ][1] += dFi1[1] + third*dFv[1];
+   dF[ nodeNum(1) ][2] += dFi1[2] + third*dFv[2];
+   dF[ nodeNum(2) ][0] += dFi2[0] + third*dFv[0]; 
+   dF[ nodeNum(2) ][1] += dFi2[1] + third*dFv[1];
+   dF[ nodeNum(2) ][2] += dFi2[2] + third*dFv[2];
+
+   dFdX.addContrib(nodeNum(0), nodeNum(0), dFi0dX[0]);
+   dFdX.addContrib(nodeNum(0), nodeNum(1), dFi0dX[1]);
+   dFdX.addContrib(nodeNum(0), nodeNum(2), dFi0dX[2]);
+*/
 
   }
 
 }
+
+//------------------------------------------------------------------------------
+// Included (YC)
+template<int dim>
+void FaceTria::computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, 
+                          SVec<double,dim> &V, double pin, double* gradP[3], 
+                          RectangularSparseMat<double,3,3> &dForcedX,
+                          RectangularSparseMat<double,3,3> &dForcedGradP,
+                          RectangularSparseMat<double,dim,3> &dForcedV,
+                          RectangularSparseMat<double,3,3> &dForcedS
+                         )
+{
+
+  if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING
+    || code == BC_SLIP_WALL_MOVING || code == BC_POROUS_WALL_MOVING) {
+
+    double dFi0dn[3] = {0}, dFi0dS[3][3] = {0}, dFi0dV[3][3][dim] = {0}, dFi0dGradP[3][3][3] = {0}, dFi0dX[3][3][3] = {0};
+    double dFi1dn[3] = {0}, dFi1dS[3][3] = {0}, dFi1dV[3][3][dim] = {0}, dFi1dGradP[3][3][3] = {0}, dFi1dX[3][3][3] = {0};
+    double dFi2dn[3] = {0}, dFi2dS[3][3] = {0}, dFi2dV[3][3][dim] = {0}, dFi2dGradP[3][3][3] = {0}, dFi2dX[3][3][3] = {0};
+
+    computeDerivativeOperatorsOfForceTransmitted(postFcn, X, V, 0, gradP, 0,
+                                                 dFi0dV, dFi0dGradP, dFi0dX, dFi0dn, dFi0dS,
+                                                 dFi1dV, dFi1dGradP, dFi1dX, dFi1dn, dFi1dS,
+                                                 dFi2dV, dFi2dGradP, dFi2dX, dFi2dn, dFi2dS);
+
+   dF[ nodeNum(0) ][0] += dFi0[0] + third*dFv[0];
+   dF[ nodeNum(0) ][1] += dFi0[1] + third*dFv[1]; 
+   dF[ nodeNum(0) ][2] += dFi0[2] + third*dFv[2];
+   dF[ nodeNum(1) ][0] += dFi1[0] + third*dFv[0];
+   dF[ nodeNum(1) ][1] += dFi1[1] + third*dFv[1];
+   dF[ nodeNum(1) ][2] += dFi1[2] + third*dFv[2];
+   dF[ nodeNum(2) ][0] += dFi2[0] + third*dFv[0]; 
+   dF[ nodeNum(2) ][1] += dFi2[1] + third*dFv[1];
+   dF[ nodeNum(2) ][2] += dFi2[2] + third*dFv[2];
+
+   dForcedX.addContrib(nodeNum(0), nodeNum(0), dFi0dX[0]);
+   dForcedX.addContrib(nodeNum(0), nodeNum(1), dFi0dX[1]);
+   dForcedX.addContrib(nodeNum(0), nodeNum(2), dFi0dX[2]);
+   dForcedX.addContrib(nodeNum(1), nodeNum(0), dFi1dX[0]);
+   dForcedX.addContrib(nodeNum(1), nodeNum(1), dFi1dX[1]);
+   dForcedX.addContrib(nodeNum(1), nodeNum(2), dFi1dX[2]);
+   dForcedX.addContrib(nodeNum(2), nodeNum(0), dFi2dX[0]);
+   dForcedX.addContrib(nodeNum(2), nodeNum(1), dFi2dX[1]);
+   dForcedX.addContrib(nodeNum(2), nodeNum(2), dFi2dX[2]);
+
+   dForcedGradP.addContrib(nodeNum(0), nodeNum(0), dFi0dGradP[0]);
+   dForcedGradP.addContrib(nodeNum(0), nodeNum(1), dFi0dGradP[1]);
+   dForcedGradP.addContrib(nodeNum(0), nodeNum(2), dFi0dGradP[2]);
+   dForcedGradP.addContrib(nodeNum(1), nodeNum(0), dFi1dGradP[0]);
+   dForcedGradP.addContrib(nodeNum(1), nodeNum(1), dFi1dGradP[1]);
+   dForcedGradP.addContrib(nodeNum(1), nodeNum(2), dFi1dGradP[2]);
+   dForcedGradP.addContrib(nodeNum(2), nodeNum(0), dFi2dGradP[0]);
+   dForcedGradP.addContrib(nodeNum(2), nodeNum(1), dFi2dGradP[1]);
+   dForcedGradP.addContrib(nodeNum(2), nodeNum(2), dFi2dGradP[2]);
+
+   dForcedV.addContrib(nodeNum(0), nodeNum(0), dFi0dV[0]);
+   dForcedV.addContrib(nodeNum(0), nodeNum(1), dFi0dV[1]);
+   dForcedV.addContrib(nodeNum(0), nodeNum(2), dFi0dV[2]);
+   dForcedV.addContrib(nodeNum(1), nodeNum(0), dFi1dV[0]);
+   dForcedV.addContrib(nodeNum(1), nodeNum(1), dFi1dV[1]);
+   dForcedV.addContrib(nodeNum(1), nodeNum(2), dFi1dV[2]);
+   dForcedV.addContrib(nodeNum(2), nodeNum(0), dFi2dV[0]);
+   dForcedV.addContrib(nodeNum(2), nodeNum(1), dFi2dV[1]);
+   dForcedV.addContrib(nodeNum(2), nodeNum(2), dFi2dV[2]);
+
+   dForcedS.addContrib(nodeNum(0), 0, dFi0dS[0]); 
+   dForcedS.addContrib(nodeNum(1), 0, dFi1dS[0]); 
+   dForcedS.addContrib(nodeNum(2), 0, dFi2dS[0]); 
+
+  }
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>

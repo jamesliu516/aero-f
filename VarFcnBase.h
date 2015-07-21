@@ -9,6 +9,8 @@
 typedef std::complex<double> bcomp;
 #include <iostream>
 
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
+
 //--------------------------------------------------------------------------
 // This class is the base class for the VarFcnEOS classes where EOS can be
 // a stiffened gas, a Tait EOS or a JWL EOS.
@@ -93,6 +95,9 @@ public:
   virtual void conservativeToPrimitiveDerivative(double *U, double *dU, double *V, double *dV) {
     fprintf(stderr, "*** Error:  conservativeToPrimitiveDerivative Function not defined\n");
     exit(1); }
+  virtual void computeConservativeToPrimitiveDerivativeOperators(RectangularSparseMat<double,5,5> &dVdU, RectangularSparseMat<double,1,5> &dVdPstiff) {
+    fprintf(stderr, "*** Error:  computeConservativeToPrimitiveDerivative Function not defined\n");
+    exit(1); }
 
 
   //----- General Functions -----//
@@ -105,6 +110,10 @@ public:
   virtual double getVelocityY(double *V) const{ return V[2]; }
   virtual double getVelocityZ(double *V) const{ return V[3]; }
   virtual double getPressure(double *V)  const{ return V[4]; }
+  virtual void computedPdV(double *dPdV)  const{ 
+    for(int i=0; i<5; ++i) dPdV[i] = 0.0;
+    dPdV[4] = 1.0;    
+  }
 
   virtual void setDensity(const double density, double *V) { V[0] = density; }
   virtual void setPressure(const double p, double *V)  { V[4] = p;   }

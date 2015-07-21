@@ -1,6 +1,8 @@
 #ifndef _DENSE_MATRIX_OPS_H_
 #define _DENSE_MATRIX_OPS_H_
 
+#include <Vector3D.h>
+
 #include <cstdio>
 #include <cstdlib>
 
@@ -24,9 +26,9 @@ public:
 
     for (int jj=0; jj<dim; ++jj) {
       for (int ii=0; ii<dim; ++ii) {
-	c[j][dim*ii+jj] = 0.0;
-	for (int kk=0; kk<dim; ++kk) 
-	  c[j][dim*ii+jj] += a[k][dim*ii+kk] * b[i][dim*kk+jj];
+        c[j][dim*ii+jj] = 0.0;
+        for (int kk=0; kk<dim; ++kk) 
+          c[j][dim*ii+jj] += a[k][dim*ii+kk] * b[i][dim*kk+jj];
       }
     }
   }
@@ -39,7 +41,7 @@ public:
     for (int ii=0; ii<dim; ++ii) {
       c[j][ii] = 0.0;
       for (int kk=0; kk<dim; ++kk)
-	c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
+        c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
     }
   }
 
@@ -72,7 +74,7 @@ public:
 
     for (int ii=0; ii<dim; ++ii)
       for (int kk=0; kk<dim; ++kk)
-	c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
+        c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
   }
 
   template<class Scalar2>
@@ -82,7 +84,7 @@ public:
 
     for (int ii=0; ii<dim; ++ii)
       for (int kk=0; kk<dim; ++kk)
-	c[j][ii] -= a[k][dim*ii+kk] * b[i][kk];
+        c[j][ii] -= a[k][dim*ii+kk] * b[i][kk];
   }
 
   template<class Scalar2>
@@ -118,7 +120,7 @@ dim);
 
     for (int i=0; i<dim; ++i)
       for (int j=0; j<dim; ++j)
-	b[dim*i + j] = a[i + dim*j];
+        b[dim*i + j] = a[i + dim*j];
   }
 
 
@@ -1174,5 +1176,111 @@ int invertDenseMatrix(Scalar *a)
 }
 
 //------------------------------------------------------------------------------
+// warning: b and c must be different
+
+template <class Scalar, int dim, int dim2, int dim3>
+class RectangularDenseMatrixOp {
+
+public:
+
+  template<class Scalar2>
+  static void applyAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 (*b)[dim], int i, 
+				  Scalar2 (*c)[dim2], int j) {
+//    fprintf(stderr, "*** Warning: applyAndAddToVector routine is not optimized for %d\n", dim);
+
+    for (int ii=0; ii<dim2; ++ii)
+      for (int kk=0; kk<dim; ++kk)
+        c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
+  }
+
+  template<class Scalar2>
+  static void applyTransposeAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 (*b)[dim2], int i, 
+				  Scalar2 (*c)[dim], int j) {
+//    fprintf(stderr, "*** Warning: applyTransposeAndAddToVector routine is not optimized for %d\n", dim2);
+
+    for (int ii=0; ii<dim2; ++ii)
+      for (int kk=0; kk<dim; ++kk)
+        c[j][kk] += a[k][dim*ii+kk] * b[i][ii];
+  }
+
+  template<class Scalar2>
+  static void applyTransposeAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 (*b)[dim2], int i, 
+				  Scalar2 *c, int j) {
+//    fprintf(stderr, "*** Warning: applyTransposeAndAddToVector routine is not optimized for %d\n", dim2);
+
+    for (int ii=0; ii<dim2; ++ii)
+      c[j] += a[k][dim*ii] * b[i][ii];
+  }
+
+  template<class Scalar2>
+  static void applyAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 (*b)[dim], int i, 
+				  Vec3D *c, int j) {
+//    fprintf(stderr, "*** Warning: applyAndAddToVector routine is not optimized for %d\n", dim);
+
+    for (int ii=0; ii<dim2; ++ii)
+      for (int kk=0; kk<dim; ++kk)
+        c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
+  }
+
+  template<class Scalar2>
+  static void applyAndAddToVector(Scalar (*a)[dim3], int k, Vec3D *b, int i, Scalar2 (*c)[dim2], int j) { 
+//    fprintf(stderr, "*** Warning: applyAndAddToVector routine is not optimized for %d\n", dim);
+
+    for (int ii=0; ii<dim2; ++ii)
+      for (int kk=0; kk<dim; ++kk)
+        c[j][ii] += a[k][dim*ii+kk] * b[i][kk];
+  }
+
+  template<class Scalar2>
+  static void applyAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 *b, int i, Scalar2 (*c)[dim2], int j) { 
+//    fprintf(stderr, "*** Warning: applyAndAddToVector routine is not optimized for %d\n", dim);
+
+    for (int ii=0; ii<dim2; ++ii)
+      c[j][ii] += a[k][dim*ii] * b[i];
+  }
+
+  template<class Scalar2>
+  static void applyTransposeAndAddToVector(Scalar (*a)[dim3], int k, Vec3D *b, int i, 
+				  Scalar2 (*c)[dim], int j) {
+//    fprintf(stderr, "*** Warning: applyTransposeAndAddToVector routine is not optimized for %d\n", dim2);
+
+    for (int ii=0; ii<dim2; ++ii)
+      for (int kk=0; kk<dim; ++kk)
+        c[j][kk] += a[k][dim*ii+kk] * b[i][ii];
+//    fprintf(stderr, " ... in applyTransposeAndAddToVector, dim(5)=%d, dim2(3)=%d \n",dim, dim2);
+//    exit(-1);
+  }
+
+  template<class Scalar2>
+  static void applyTransposeAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 (*b)[dim2], int i, 
+				  Vec3D *c, int j) {
+//    fprintf(stderr, "*** Warning: applyTransposeAndAddToVector routine is not optimized for %d\n", dim2);
+
+    for (int ii=0; ii<dim2; ++ii)
+      for (int kk=0; kk<dim; ++kk)
+        c[j][kk] += a[k][dim*ii+kk] * b[i][ii];
+//    fprintf(stderr, " ... in applyTransposeAndAddToVector, dim(5)=%d, dim2(3)=%d \n",dim, dim2);
+//    exit(-1);
+  }
+
+  template<class Scalar2>
+  static void applyAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 (*b)[dim], int i, 
+				  Scalar2 *c, int j) {
+//    fprintf(stderr, "*** Warning: applyAndAddToVector routine is not optimized for %d\n", dim);
+
+      for (int kk=0; kk<dim; ++kk)
+        c[j] += a[k][kk] * b[i][kk];
+  }
+
+  template<class Scalar2>
+  static void applyTransposeAndAddToVector(Scalar (*a)[dim3], int k, Scalar2 *b, int i, 
+				  Scalar2 (*c)[dim], int j) {
+//    fprintf(stderr, "*** Warning: applyTransposeAndAddToVector routine is not optimized for %d\n", dim2);
+
+      for (int kk=0; kk<dim; ++kk)
+        c[j][kk] += a[k][kk] * b[i];
+  }
+
+};
 
 #endif

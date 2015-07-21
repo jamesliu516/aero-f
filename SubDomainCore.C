@@ -7,6 +7,7 @@
 #include <Vector.h>
 #include <Vector3D.h>
 #include <SparseMatrix.h>
+#include <RectangularSparseMatrix.h>
 #include <Connectivity.h>
 #include <Communicator.h>
 #include <BinFileHandler.h>
@@ -19,6 +20,11 @@
 #include <cmath>
 #include <cstring>
 #include <alloca.h>
+#ifdef USE_EIGEN3
+#include <Eigen/Sparse>
+typedef Eigen::SparseMatrix<double> SpMat;
+#endif
+
 
 #ifdef OLD_STL
 #include <defalloc.h>
@@ -306,6 +312,306 @@ Connectivity *SubDomain::createEdgeBasedConnectivity()
   Connectivity *nodeToNode = new Connectivity(numNodes, ia, ja);
 
   return nodeToNode;
+
+}
+
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createNodeToConstantConnectivity()
+{
+
+  int numNodes = nodes.size();
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * numNodes));
+
+  int i;
+  for (i=0; i<numNodes; ++i) numNeigh[i] = 1;
+
+
+  int l;
+  int nnz = 0;
+  for (i=0; i<numNodes; ++i) nnz += numNeigh[i];
+
+  if (nnz != numNodes) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[numNodes+1];
+
+  ia[0] = 0;
+
+  for (i=0; i<numNodes; ++i) ia[i+1] = ia[i] + numNeigh[i];
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (i=0; i<numNodes; ++i) {
+    ja[ia[i]] = 0;
+    numNeigh[i] = 1;
+  }
+
+  for (i=0; i<numNodes; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  Connectivity *nodeToConstant = new Connectivity(numNodes, ia, ja);
+
+  return nodeToConstant;
+
+}
+
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createElementBasedEdgeToNodeConnectivity()
+{
+
+
+  int numEdges = edges.size();
+  std::set<int> *numNeigh = new std::set<int>[numEdges];
+
+  int edgenum;
+  int nodenum0, nodenum1, nodenum2, nudenum3;
+
+  int i, l;
+  for (i=0; i<elems.size(); ++i) {
+    for (l=0; l<6; ++l) {
+      edgenum = elems[i].edgeNum(l);
+      numNeigh[edgenum].insert(elems[i].nodeNum(0));
+      numNeigh[edgenum].insert(elems[i].nodeNum(1));
+      numNeigh[edgenum].insert(elems[i].nodeNum(2));
+      numNeigh[edgenum].insert(elems[i].nodeNum(3));
+    }
+  }
+
+  // construction of ia
+  int *ia = new int[numEdges+1];
+
+  ia[0] = 0;
+
+  for (l=0; l<numEdges; ++l) ia[l+1] = ia[l] + numNeigh[l].size();
+
+  // construction of ja
+
+  int nnz = ia[numEdges];
+  int *ja = new int[nnz];
+
+  int k=0;
+  for (l=0; l<numEdges; ++l) {
+    for (std::set<int>::iterator it=numNeigh[l].begin(); it!=numNeigh[l].end(); ++it) {
+      ja[k] = *it;
+      k++;
+    }
+  }
+
+
+  for (l=0; l<numEdges; ++l)
+#ifdef OLD_STL
+    sort(ja+ia[l], ja+ia[l+1]);
+#else
+    stable_sort(ja+ia[l], ja+ia[l+1]);
+#endif
+
+  Connectivity *edgeToNode = new Connectivity(numEdges, ia, ja);
+  delete [] numNeigh;
+
+  return edgeToNode;
+
+}
+
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createElementBasedNodeToEdgeConnectivity()
+{
+
+  int numNodes = nodes.size();
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * numNodes));
+
+  int i;
+  for (i=0; i<numNodes; ++i) numNeigh[i] = 0;
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  int l;
+  for (l=0; l<edges.size(); ++l) {
+    ++numNeigh[ edgePtr[l][0] ];
+    ++numNeigh[ edgePtr[l][1] ];
+  }
+
+  int nnz = 0;
+  for (i=0; i<numNodes; ++i) nnz += numNeigh[i];
+
+  if (nnz != 2*edges.size()) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[numNodes+1];
+
+  ia[0] = 0;
+
+  for (i=0; i<numNodes; ++i) ia[i+1] = ia[i] + numNeigh[i];
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (i=0; i<numNodes; ++i) {
+    numNeigh[i] = 0;
+  }
+
+  for (l=0; l<edges.size(); ++l) {
+
+    int i1 = edgePtr[l][0];
+    int i2 = edgePtr[l][1];
+
+    ja[ ia[i1] + numNeigh[i1] ] = l;
+    ++numNeigh[i1];
+
+    ja[ ia[i2] + numNeigh[i2] ] = l;
+    ++numNeigh[i2];
+
+  }
+
+  for (i=0; i<numNodes; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  Connectivity *nodeToEdge = new Connectivity(numNodes, ia, ja);
+
+  return nodeToEdge;
+
+}
+
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createNodeToFaceConnectivity()
+{
+
+  int numFaces = faces.size();
+  int numNodes = nodes.size();
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * numNodes));
+
+  int i;
+  for (i=0; i<numNodes; ++i) numNeigh[i] = 0;
+
+  int l;
+  for (l=0; l<numFaces; ++l) {
+    ++numNeigh[ faces[l][0] ];
+    ++numNeigh[ faces[l][1] ];
+    ++numNeigh[ faces[l][2] ];
+  }
+
+  int nnz = 0;
+  for (i=0; i<numNodes; ++i) nnz += numNeigh[i];
+
+  if (nnz != 3*faces.size()) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[numNodes+1];
+
+  ia[0] = 0;
+
+  for (i=0; i<numNodes; ++i) ia[i+1] = ia[i] + numNeigh[i];
+
+  // construction of ja
+  int *ja = new int[nnz];
+
+  for (i=0; i<numNodes; ++i) {
+    numNeigh[i] = 0;
+  }
+
+  for (l=0; l<faces.size(); ++l) {
+
+    int i1 = faces[l][0];
+    int i2 = faces[l][1];
+    int i3 = faces[l][2];
+
+    ja[ ia[i1] + numNeigh[i1] ] = l;
+    ++numNeigh[i1];
+
+    ja[ ia[i2] + numNeigh[i2] ] = l;
+    ++numNeigh[i2];
+
+    ja[ ia[i3] + numNeigh[i3] ] = l;
+    ++numNeigh[i3];
+  }
+
+  for (l=0; l<numNodes; ++l)
+#ifdef OLD_STL
+    sort(ja+ia[l], ja+ia[l+1]);
+#else
+    stable_sort(ja+ia[l], ja+ia[l+1]);
+#endif
+
+  Connectivity *nodeToFace = new Connectivity(numNodes, ia, ja);
+
+  return nodeToFace;
+
+}
+
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createFaceToNodeConnectivity()
+{
+
+  int numFaces = faces.size();
+
+  int nnz = 3*numFaces;
+
+  if (nnz != 3*faces.size()) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[numFaces+1];
+
+  ia[0] = 0;
+
+  int l;
+  for (l=0; l<numFaces; ++l) ia[l+1] = ia[l] + 3;
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (l=0; l<faces.size(); ++l) {
+
+    ja[ ia[l] ] = faces[l][0];
+    ja[ ia[l] + 1 ] = faces[l][1];
+    ja[ ia[l] + 2 ] = faces[l][2];
+
+  }
+
+  for (l=0; l<numFaces; ++l)
+#ifdef OLD_STL
+    sort(ja+ia[l], ja+ia[l+1]);
+#else
+    stable_sort(ja+ia[l], ja+ia[l+1]);
+#endif
+
+  Connectivity *faceToNode = new Connectivity(numFaces, ia, ja);
+
+  return faceToNode;
 
 }
 
@@ -614,13 +920,68 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
 
 // Included (MB)
 int SubDomain::computeDerivativeOfControlVolumes(int numInvElem, double lscale,
-				     SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &dCtrlVol)
+                                                 SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &dCtrlVol)
 {
 
   dCtrlVol = 0.0;
+//  Vec<double> dctrlvol(dCtrlVol);
+  
+//  if(isSparse) {
+//    dCtrlVoldX.apply(dX, dctrlvol);
+//    return 0;
+//  }
 
   for (int i=0; i<elems.size(); ++i) {
     double dVolume = elems[i].computeDerivativeOfControlVolumes(X, dX, dCtrlVol);
+  }
+/*
+  Vec<double> diff = dctrlvol - dCtrlVol;
+  double dCtrlVolnorm = dCtrlVol.norm();
+  if(dCtrlVolnorm != 0) fprintf(stderr, " ... rel diff for dCtrlVol is %e\n",diff.norm()/dCtrlVolnorm);
+  else fprintf(stderr, " ... abs diff for dCtrlVol is %e\n",diff.norm());
+*/
+  return 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+int SubDomain::computeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1> &dCtrlVoldX,
+                                                 SVec<double,3> &dX, Vec<double> &dCtrlVol)
+{
+
+  dCtrlVol = 0.0;
+  
+  dCtrlVoldX.apply(dX, dCtrlVol);
+//  fprintf(stderr, " ... norm of dCtrlVol is %e\n", dCtrlVol.norm());
+  return 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+int SubDomain::computeTransposeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1> &dCtrlVoldX,
+                                                          Vec<double> &dCtrlVol, SVec<double,3> &dX)
+{
+ 
+  SVec<double,3> dummy(dX);
+  dummy = 0.0; 
+  dCtrlVoldX.applyTranspose(dCtrlVol, dummy);
+  dX += dummy;
+  return 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+int SubDomain::computeDerivativeOperatorsOfControlVolumes(SVec<double,3> &X, RectangularSparseMat<double,3,1> &dCtrlVoldX)
+{
+
+  for (int i=0; i<elems.size(); ++i) {
+    elems[i].computeDerivativeOperatorsOfControlVolumes(X, dCtrlVoldX);
   }
 
   return 0;
@@ -710,19 +1071,86 @@ void SubDomain::propagateInfoAlongEdges(Vec<double>& tag)
 
 // Included (MB)
 void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX,
-                                 Vec<Vec3D> &edgeNorm, Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel,
-				 Vec<Vec3D> &faceNorm, Vec<Vec3D> &dFaceNorm, Vec<double> &faceNormVel, Vec<double> &dFaceNormVel)
+                                           Vec<Vec3D> &edgeNorm, Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel,
+                                           Vec<Vec3D> &faceNorm, Vec<Vec3D> &dFaceNorm, Vec<double> &faceNormVel, Vec<double> &dFaceNormVel)
 {
 
   dEdgeNorm = 0.0;
   dEdgeNormVel = 0.0;
 
+//  if(isSparse) {
+//    dEdgeNormdX.apply(dX, dEdgeNorm);
+//    dFaceNormdX.apply(dX, dFaceNorm);
+//    return;
+//  }
+
   int i;
   for (i=0; i<elems.size(); ++i)
     elems[i].computeDerivativeOfEdgeNormals(X, dX, edgeNorm, dEdgeNorm, edgeNormVel, dEdgeNormVel);
 
+
   for (i=0; i<faces.size(); ++i)
     faces[i].computeDerivativeOfNormal(X, dX, faceNorm[i], dFaceNorm[i], faceNormVel[i], dFaceNormVel[i]);
+/*
+  Vec<Vec3D> diff = dfacenorm - dFaceNorm;
+  fprintf(stderr, " ... dfacenorm = %e, dFaceNorm = %e\n", dfacenorm.norm(), dFaceNorm.norm());
+  if(dEdgeNorm.norm() !=0 ) fprintf(stderr, " ... rel diff of dFaceNorm is %e\n", diff.norm()/dFaceNorm.norm()); 
+  else fprintf(stderr, " ... abs diff of dEdgeNorm is %e\n", diff.norm()); 
+*/
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void SubDomain::computeDerivativeOfNormals(RectangularSparseMat<double,3,3> &dEdgeNormdX,
+                                           RectangularSparseMat<double,3,3> &dFaceNormdX,
+                                           SVec<double,3> &dX,
+                                           Vec<Vec3D> &dEdgeNorm, 
+                                           Vec<Vec3D> &dFaceNorm)
+{
+
+  dEdgeNorm = 0.0;
+
+  dEdgeNormdX.apply(dX, dEdgeNorm);
+  dFaceNormdX.apply(dX, dFaceNorm);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void SubDomain::computeTransposeDerivativeOfNormals(RectangularSparseMat<double,3,3> &dEdgeNormdX,
+                                                    RectangularSparseMat<double,3,3> &dFaceNormdX,
+                                                    Vec<Vec3D> &dEdgeNorm, 
+                                                    Vec<Vec3D> &dFaceNorm,
+                                                    SVec<double,3> &dX)
+{
+
+  SVec<double,3> dummy(dX);
+  dummy = 0.0;
+  dEdgeNormdX.applyTranspose(dEdgeNorm, dummy);
+  dX += dummy;
+  dummy = 0.0;
+  dFaceNormdX.applyTranspose(dFaceNorm, dummy);
+  dX += dummy;
+  return;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void SubDomain::computeDerivativeOperatorsOfNormals(SVec<double,3> &X, 
+                                                    RectangularSparseMat<double,3,3> &dEdgeNormdX, 
+                                                    RectangularSparseMat<double,3,3> &dFaceNormdX)
+{
+
+  int i;
+  for (i=0; i<elems.size(); ++i)
+    elems[i].computeDerivativeOperatorsOfEdgeNormals(X, dEdgeNormdX);
+
+  for (i=0; i<faces.size(); ++i)
+    faces[i].computeDerivativeOperatorsOfNormal(i, X, dFaceNormdX);
 
 }
 
@@ -876,10 +1304,152 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<doubl
 
 //------------------------------------------------------------------------------
 
+// Included (YC)
+void SubDomain::computeDerivativeTransposeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<double,6> &dR, SVec<double,6> &R, SVec<double,3> &dX)
+{
+
+  R = 0.0;
+  dX = 0.0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    double dx[3];
+    dx[0] = X[j][0] - X[i][0];
+    dx[1] = X[j][1] - X[i][1];
+    dx[2] = X[j][2] - X[i][2];
+
+    double dr[6];
+    dr[0] = dR[j][0] + dR[i][0];
+    dr[1] = dR[j][1] + dR[i][1];
+    dr[2] = dR[j][2] + dR[i][2];
+    dr[3] = dR[j][3] + dR[i][3];
+    dr[4] = dR[j][4] + dR[i][4];
+    dr[5] = dR[j][5] + dR[i][5];
+
+    double dxdx = dx[0] * dx[0];
+    double dydy = dx[1] * dx[1];
+    double dzdz = dx[2] * dx[2];
+    double dxdy = dx[0] * dx[1];
+    double dxdz = dx[0] * dx[2];
+    double dydz = dx[1] * dx[2];
+
+    R[i][0] += dxdx;
+    R[j][0] += dxdx;
+
+    R[i][1] += dxdy;
+    R[j][1] += dxdy;
+
+    R[i][2] += dxdz;
+    R[j][2] += dxdz;
+
+    R[i][3] += dydy;
+    R[j][3] += dydy;
+
+    R[i][4] += dydz;
+    R[j][4] += dydz;
+
+    R[i][5] += dzdz;
+    R[j][5] += dzdz;
+
+    dX[j][0] += 2*dx[0]*dr[0] + dx[1]*dr[1] + dx[2]*dr[2];  
+    dX[i][0] += -(2*dx[0]*dr[0] + dx[1]*dr[1] + dx[2]*dr[2]); 
+
+    dX[j][1] += dx[0]*dr[1] + 2*dx[1]*dr[3] + dx[2]*dr[4];  
+    dX[i][1] += -(dx[0]*dr[1] + 2*dx[1]*dr[3] + dx[2]*dr[4]);
+
+    dX[j][2] += dx[0]*dr[2] + dx[1]*dr[4] + 2*dx[2]*dr[5];  
+    dX[i][2] += -(dx[0]*dr[2] + dx[1]*dr[4] + 2*dx[2]*dr[5]);
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+// Include (YC)
+void SubDomain::compute_dRdX(SVec<double,3> &X, RectangularSparseMat<double,3,6> &dRdX)
+{
+
+  // size of dRdX must be (6*numNodes, 3*numNodes)
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    double dx[3];
+    dx[0] = X[j][0] - X[i][0];
+    dx[1] = X[j][1] - X[i][1];
+    dx[2] = X[j][2] - X[i][2];
+
+    double C[2*6][2*3] = {0};
+    C[6][0] = C[0][0] = -2*dx[0];      C[6][3] = C[0][3] = 2*dx[0];
+    C[7][0] = C[1][0] = -dx[1];        C[7][3] = C[1][3] = dx[1];
+    C[7][1] = C[1][1] = -dx[0];        C[7][4] = C[1][4] = dx[0];
+    C[8][0] = C[2][0] = -dx[2];        C[8][3] = C[2][3] = dx[2];
+    C[8][2] = C[2][2] = -dx[0];        C[8][5] = C[2][5] = dx[0];
+    C[9][1] = C[3][1] = -2*dx[1];      C[9][4] = C[3][4] = 2*dx[1];
+    C[10][1] = C[4][1] = -dx[2];       C[10][4] = C[4][4] = dx[2];
+    C[10][2] = C[4][2] = -dx[1];       C[10][5] = C[4][5] = dx[1];
+    C[11][2] = C[5][2] = -2*dx[2];     C[11][5] = C[5][5] = 2*dx[2];
+
+    int ndList[2] = {i, j};
+    dRdX.addContrib(2, ndList, C[0]);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+// Included (YC)
+void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(RectangularSparseMat<double,3,6> &dRdX, SVec<double,3> &dX, SVec<double,6> &dR)
+{
+
+  dR = 0.0;
+  dRdX.apply(dX, dR);
+
+}
+
+//------------------------------------------------------------------------------
+// Included (YC)
+void SubDomain::computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(RectangularSparseMat<double,3,6> &dRdX, SVec<double,6> &dR, SVec<double,3> &dX)
+{
+
+  SVec<double,3> dummy(dX);
+  dummy = 0.0;
+  dRdX.applyTranspose(dR, dummy);
+  dX += dummy;
+
+}
+
+//------------------------------------------------------------------------------
 // Included (MB)
+// YC: if you intend to modified this routine, 
+// you should also modify SubDomain::computeDerivativeTransposeOfWeightsLeastSquaresEdgePart accordingly
+// and                    SubDomain::compute_dRdX
 void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,6> &R, SVec<double,6> &dR)
 {
 
+//  SVec<double,6> dr(dR), ur(dR);
+//  ur = 0.0; 
+/*
+  if(isSparse) {
+    dR = 0.0;
+    dRdX.apply(dX, dR, 0);
+    return;
+  }
+*/
   R = 0.0;
   dR = 0.0;
 
@@ -954,7 +1524,13 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
     dR[j][5] += ddzdz;
 
   }
-
+/*
+  ur = dR - dr;
+  double urnorm = ur.norm();
+  double dRnorm = dR.norm();
+  if(dRnorm != 0) fprintf(stderr," ... norm(dR-dR2)/norm(dR2) = %e\n", urnorm/dRnorm);
+  else fprintf(stderr," ... norm(dR-dR2) = %e\n", urnorm);
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -1023,8 +1599,8 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 // with option to take into account of Riemann solution at interface
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
-						   Vec<int> &countWstarij, Vec<int> &countWstarji,
-						   LevelSetStructure *LSS)
+												   Vec<int> &countWstarij, Vec<int> &countWstarji,
+												   LevelSetStructure *LSS)
 {
 
   R = 0.0;
@@ -1358,14 +1934,138 @@ void SubDomain::computeWeightsLeastSquaresNodePartForFF(
   }
 }
 
+
+
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void SubDomain::computeDerivativeTransposeOfWeightsLeastSquaresNodePart(SVec<double,6> &R, SVec<double,6> &dR)
+{
+  for (int i=0; i<dR.size(); ++i) {
+
+    double r11  = sqrt(R[i][0]);
+    double or11 = 1.0 / r11;
+    double r12  = R[i][1] * or11;
+    double o12 = -R[i][1]*or11*or11/(2.0*r11);
+    double o13 = - R[i][2]*or11*or11/(2.0*r11);
+    double r13  = or11*R[i][2];
+    double r22  = sqrt(R[i][3] - r12*r12);
+    double o22 = -2.0*r12;
+    double oo22 = 1.0/(2.0*r22);
+    double r23  = (R[i][4] - r12*r13) / r22;
+    double o23 = 2.0*oo22;
+    double k23 = -o23*r23*oo22;
+    double l23 = -o23*r12*or11;
+    double q23 = -(o23*r13*or11+o23*r23*oo22*o22*or11);
+    double p23 = -(o23*r13*o12+o23*r12*o13+o23*r23*oo22*o22*o12);
+    double r33  = sqrt(R[i][5] - (r13*r13 + r23*r23));
+    double o33 = 1.0/(2.0*r33);
+    double p33 = -2.0*o33*r23;
+    double k33 = p33*o23;
+    double w33 = p33*k23;
+    double u33 = p33*l23 - 2.0*o33*r13*or11;
+    double m33 = p33*q23;
+    double c33 = p33*p23 - 2.0*o33*r13*o13;
+
+    double dr0 = dR[i][0];
+    double dr1 = dR[i][1];
+    double dr2 = dR[i][2];
+    double dr3 = dR[i][3];
+    double dr4 = dR[i][4];
+    double dr5 = dR[i][5];
+
+    dR[i][0] = 1.0/(2.0*r11)*dr0 + o12*dr1 + o13*dr2 + oo22*o22*o12*dr3 + p23*dr4 + c33*dr5;
+    dR[i][1] = or11*dr1 + oo22*o22*or11*dr3 + q23*dr4 + m33*dr5; 
+    dR[i][2] = or11*dr2 + l23*dr4 + u33*dr5; 
+    dR[i][3] = oo22*dr3 + k23*dr4 + w33*dr5; 
+    dR[i][4] = o23*dr4 + k33*dr5; 
+    dR[i][5] = o33*dr5;
+
+  }
+}
+
+//------------------------------------------------------------------------------
+// Included (YC)
+void SubDomain::compute_dRdR(SVec<double,6> &R, RectangularSparseMat<double,6,6> &dRdR)
+{
+  for (int i=0; i<R.size(); ++i) {
+
+    double r11  = sqrt(R[i][0]);
+    double or11 = 1.0 / r11;
+    double r12  = R[i][1] * or11;
+    double o12 = -R[i][1]*or11*or11/(2.0*r11);
+    double o13 = - R[i][2]*or11*or11/(2.0*r11);
+    double r13  = or11*R[i][2];
+    double r22  = sqrt(R[i][3] - r12*r12);
+    double o22 = -2.0*r12;
+    double oo22 = 1.0/(2.0*r22);
+    double r23  = (R[i][4] - r12*r13) / r22;
+    double o23 = 2.0*oo22;
+    double k23 = -o23*r23*oo22;
+    double l23 = -o23*r12*or11;
+    double q23 = -(o23*r13*or11+o23*r23*oo22*o22*or11);
+    double p23 = -(o23*r13*o12+o23*r12*o13+o23*r23*oo22*o22*o12);
+    double r33  = sqrt(R[i][5] - (r13*r13 + r23*r23));
+    double o33 = 1.0/(2.0*r33);
+    double p33 = -2.0*o33*r23;
+    double k33 = p33*o23;
+    double w33 = p33*k23;
+    double u33 = p33*l23 - 2.0*o33*r13*or11;
+    double m33 = p33*q23;
+    double c33 = p33*p23 - 2.0*o33*r13*o13;
+    double o00 = 1.0/(2.0*r11); 
+    double o14 = oo22*o22*o12;
+    double or22 = oo22*o22*or11;
+
+    double C[6][6] = {0};
+    C[0][0] = o00;
+    C[1][0] = o12;  C[1][1] = or11;
+    C[2][0] = o13;                   C[2][2] = or11;
+    C[3][0] = o14;  C[3][1] = or22;                   C[3][3] = oo22;
+    C[4][0] = p23;  C[4][1] = q23;   C[4][2] = l23;   C[4][3] = k23;  C[4][4] = o23;
+    C[5][0] = c33;  C[5][1] = m33;   C[5][2] = u33;   C[5][3] = w33;  C[5][4] = k33;  C[5][5] = o33;
+
+    int ndList[1] = {i};
+    dRdR.addContrib(1, ndList, C[0]);
+  }
+}
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(RectangularSparseMat<double,6,6> &dRdR, SVec<double,6> &dR)
+{
+
+  SVec<double,6> dr(dR); 
+  dRdR.apply(dr, dR);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void SubDomain::computeTransposeDerivativeOfWeightsLeastSquaresNodePart(RectangularSparseMat<double,6,6> &dRdR, SVec<double,6> &dR)
+{
+
+  SVec<double,6> dr(dR); 
+  dRdR.applyTranspose(dr, dR);
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)
 void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R, SVec<double,6> &dR)
 {
-
+/*
+  SVec<double,6> dr(dR); //, dr2(dR), ur(dR);
+  if(isSparse) {
+    dRdR.apply(dr, dR, 0);
+//    fprintf(stderr," ... norm of dr is %e\n", dr2.norm());
+//    fprintf(stderr," ... norm of dR is %e\n", dR.norm());
+    return;
+  }
+*/
   for (int i=0; i<dR.size(); ++i) {
-
     double r11  = sqrt(R[i][0]);
     double dr11  = 1.0/(2.0*r11)*dR[i][0];
     double or11 = 1.0 / r11;
@@ -1389,6 +2089,8 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R
     dR[i][5] = dr33;
 
   }
+//  ur = dR - dr2;
+//  fprintf(stderr," ... norm(dR-dR2)/norm(dR2) = %e\n", ur.norm()/dR.norm());
 
 }
 
@@ -1530,6 +2232,21 @@ void SubDomain::computeDerivativeOfWeightsGalerkin(SVec<double,3> &X, SVec<doubl
     elems[i].computeDerivativeOfWeightsGalerkin(X, dX, dwii, dwij, dwji);
 
 }
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void SubDomain::computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &dwii, SVec<double,3> &dwij, SVec<double,3> &dwji, SVec<double,3> &dX)
+{
+
+  dX = 0.0;
+
+  for (int i=0; i<elems.size(); ++i) {
+    elems[i].computeDerivativeTransposeOfWeightsGalerkin(X, dwii, dwij, dwji, dX);
+  }
+
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -3009,9 +3726,7 @@ void SubDomain::markLenKirchhoffNodes(IoData &iod, DistInfo &distInfo)
 
 }
 
-
 //------------------------------------------------------------------------------
-
 
 void SubDomain::makeMasterFlag(DistInfo &distInfo)
 {
@@ -3048,6 +3763,54 @@ void SubDomain::makeMasterFlag(DistInfo &distInfo)
   if (weight)
     for (i = 0; i < numNodes; ++i)
       weight[i] = sqrt(1.0 / weight[i]);
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::makeEdgeMasterFlag(DistInfo &distInfo, CommPattern<int> &edgeNumPat)
+{
+
+  int iSub, iEdge;
+
+  // We receive the neighbor's list of edges and then also build the edgeMasterFlag
+
+  bool *edgeMasterFlag = distInfo.getMasterFlag(locSubNum); 
+  if(!edgeMasterFlag) return;
+
+  for (iEdge = 0; iEdge < edges.size(); ++iEdge) edgeMasterFlag[iEdge] = true;
+
+  for (iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<int> sInfo = edgeNumPat.recData(rcvChannel[iSub]);
+
+    int nIndex = 0;
+    int myIndex = 0;
+
+    for (iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
+
+      int glLeft  = sharedEdges[iSub][iEdge].glLeft;
+      int glRight = sharedEdges[iSub][iEdge].glRight;
+
+      while (2*nIndex < sInfo.len && (sInfo.data[2*nIndex] < glLeft || (sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] < glRight)))
+        nIndex++;
+
+      if (2*nIndex < sInfo.len &&
+	      (sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] == glRight)) 
+      {
+        sharedEdges[iSub][myIndex] = sharedEdges[iSub][iEdge];
+        myIndex++;
+      }
+
+    }
+
+    numSharedEdges[iSub] = myIndex;
+
+    if (neighb[iSub] < globSubNum) // I cannot be the master of these edges
+      for (iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge)
+        edgeMasterFlag[ sharedEdges[iSub][iEdge].edgeNum ] = false;
+
+  }
 
 }
 
@@ -3196,15 +3959,15 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
       int glLeft  = sharedEdges[iSub][iEdge].glLeft;
       int glRight = sharedEdges[iSub][iEdge].glRight;
 
-      while (2*nIndex < sInfo.len &&
-	     (sInfo.data[2*nIndex] < glLeft ||
+      while (2*nIndex < sInfo.len && (sInfo.data[2*nIndex] < glLeft ||
 	      (sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] < glRight)))
-	nIndex++;
+        nIndex++;
 
       if (2*nIndex < sInfo.len &&
-	  (sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] == glRight)) {
-	sharedEdges[iSub][myIndex] = sharedEdges[iSub][iEdge];
-	myIndex++;
+	      (sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] == glRight)) 
+      {
+        sharedEdges[iSub][myIndex] = sharedEdges[iSub][iEdge];
+        myIndex++;
       }
 
     }
@@ -3213,7 +3976,7 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
 
     if (neighb[iSub] < globSubNum) // I cannot be the master of these edges
       for (iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge)
-	edgeMasterFlag[ sharedEdges[iSub][iEdge].edgeNum ] = false;
+        edgeMasterFlag[ sharedEdges[iSub][iEdge].edgeNum ] = false;
 
   }
 

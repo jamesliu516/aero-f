@@ -139,9 +139,7 @@ int TetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<double,3> &X)  {
   // WARNING: assume the homogeneous Dirichlet BCs have already been applied to dX
   //com->fprintf(stdout, "Received 'unprojected' incr disp = %e\n",dX.norm());
 
-  com->printf(5,"TetMeshMotionSolver::solve 1");
   applyProjector(dX); 
-  com->printf(5,"TetMeshMotionSolver::solve 2");
 
   //com->fprintf(stdout, "Received 'projected' incr disp = %e\n",dX.norm());
 
@@ -152,10 +150,8 @@ int TetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<double,3> &X)  {
   //it is assumed that in most practical cases (to date) there would be only one sliding plane,
   //and this sliding plane would also be the symmetry plane so that the plane normal wouldn't be
   // affected by the rotation of the fluid mesh around the symmetry plane normal ...
-  com->printf(5,"TetMeshMotionSolver::solve 3");
 
   ns->solve(X);
-  com->printf(5,"TetMeshMotionSolver::solve 4");
 
   return 0;
 }

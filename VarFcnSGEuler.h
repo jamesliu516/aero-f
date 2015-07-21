@@ -2,6 +2,7 @@
 #define _VAR_FCN_SGEULER_H
 
 #include <VarFcnBase.h>
+//#include <RectangularSparseMatrix.h>
 #include <fstream>
 
 #ifdef AEROF_MPI_DEBUG
@@ -73,7 +74,10 @@ public:
   void primitiveToConservative(double *V, double *U);
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *);
   void primitiveToConservativeDerivative(double *, double *, double *, double *);
-  
+ 
+  template<int dim> 
+  void computeConservativeToPrimitiveDerivativeOperators(double*, double* ,RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff);
+
   void extrapolatePrimitive(double un, double c, double *Vb, double *Vinter, double *V);
   void extrapolateCharacteristic(double n[3], double un, double c, double *Vb, double *dV);
   void primitiveToCharacteristicVariations(double n[3], double *V, double *dV, double *dW);
@@ -216,6 +220,10 @@ public:
   double getPressure(double *V)               const {return V[4];}
   double getDerivativeOfPressureConstant()    const {return dPstiff;}
 
+  void computedPdV(double *dPdV)              const { 
+    for(int i=0; i<5; ++i) dPdV[i] = 0.0;
+    dPdV[4] = 1.0;
+  } 
 };
 
 //------------------------------------------------------------------------------
@@ -298,6 +306,45 @@ void VarFcnSGEuler::conservativeToPrimitiveDerivative(double *U, double *dU, dou
   double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
 
   dV[4] = (gam-1.0) * (dU[4] - 0.5 * dU[0] * vel2  - 0.5 * U[0] * dvel2) - gam*dPstiff;
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+inline
+void VarFcnSGEuler::computeConservativeToPrimitiveDerivativeOperators(double *U, double *V, RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff)
+{
+
+  double dVdUarray[5][5] = {0};
+  dVdUarray[0][0] = 1.0;
+  double invRho = 1.0 / V[0];
+  dVdUarray[1][0] = -invRho*V[1];    dVdUarray[1][1] = invRho;
+  dVdUarray[2][0] = -invRho*V[2];    dVdUarray[2][2] = invRho;
+  dVdUarray[3][0] = -invRho*V[3];    dVdUarray[3][3] = invRho;
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+  double cf01 = gam-1.0;
+  double cf02 = -0.5*cf01*U[0]*2.0*V[1];
+  double cf03 = -0.5*cf01*U[0]*2.0*V[2];
+  double cf04 = -0.5*cf01*U[0]*2.0*V[3];
+  double cf05 = -0.5*cf01*vel2 - cf02*invRho*V[1] - cf03*invRho*V[2] - cf04*invRho*V[3];
+  dV[4] = cf05*dU[0] 
+        + cf02*invRho*dU[1] 
+        + cf03*invRho*dU[2] 
+        + cf04*invRho*dU[3] 
+        + cf01*dU[4] 
+        - gam*dPstiff;
+
+  dVdUarray[4][0] = cf05;
+  dVdUarray[4][1] = cf02*invRho; 
+  dVdUarray[4][2] = cf03*invRho;
+  dVdUarray[4][3] = cf03*invRho;
+  dVdUarray[4][4] = cf01;
+
+  double dVdPstiff[5] = {0};
+  dVdPstiff[4] = -gam;
+
+  ndList[1] = {};
+  dVdU.addContrib(1, ndList, dVdUarray[0]);
+  dVdPstiff.addContrib(1, ndList, dVdPstiff[0]);
 
 }
 //------------------------------------------------------------------------------

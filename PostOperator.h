@@ -195,6 +195,11 @@ public:
   void computeDerivativeOfNodalForce(DistSVec<double,3> &, DistSVec<double,3> &,
                                                                 DistSVec<double,dim> &, DistSVec<double,dim> &,
                                                                 DistVec<double> &, double [3], DistSVec<double,3> &);
+  void computeDerivativeOperatorsOfNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<double> &Pin, 
+                                              RectangularSparseMat<double,3,3> &dForcedX,
+                                              RectangularSparseMat<double,3,3> &dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> &dForcedV,
+                                              RectangularSparseMat<double,3,3> &dForcedS);
 								
   void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}								
 

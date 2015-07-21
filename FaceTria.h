@@ -3,6 +3,8 @@
 
 #include <Face.h>
 
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
+
 //------------------------------------------------------------------------------
 
 class FaceTria : public FaceDummy {
@@ -166,12 +168,32 @@ public:
                                            Vec<double> &, double *, double *, SVec<double,dim> &,
                                            SVec<double,dim> &, double [3], double *, Vec3D &, Vec3D &, 
                                            Vec3D &, Vec3D &, double* gradP[3], double* dGradP[3], int = 0);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfForceTransmitted(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V,
+                                                    double *pin, double* gradP[3], int hydro,
+                                                    double dFi0dV[3][3][dim], double dFi0dGradP[3][3][3], double dFi0dX[3][3][3],
+                                                    double dFi0dn[3], double dFi0dS[3][3],
+                                                    double dFi1dV[3][3][dim], double dFi1dGradP[3][3][3], double dFi1dX[3][3][3],
+                                                    double dFi1dn[3], double dFi1dS[3][3],
+                                                    double dFi2dV[3][3][dim], double dFi2dGradP[3][3][3], double dFi2dX[3][3][3],
+                                                    double dFi2dn[3], double dFi2dS[3][3]);
+
   template<int dim>
   void computeDerivativeOfNodalForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
                                      Vec<double> &, double *, double *,
                                      SVec<double,dim> &, SVec<double,dim> &,
                                      double, double [3], SVec<double,3> &, 
                                      double * gradP[3], double* dGradP[3]);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, 
+                          SVec<double,dim> &V, double pin, double* gradP[3], 
+                          RectangularSparseMat<double,3,3> &dForcedX,
+                          RectangularSparseMat<double,3,3> &dForcedGradP,
+                          RectangularSparseMat<double,dim,3> &dForcedV,
+                          RectangularSparseMat<double,3,3> &dForcedS);
+
   template<int dim>
   void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, SVec<double,3>&, Vec<double>&, 
                                          double*, double*, SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&);
@@ -195,6 +217,8 @@ public:
   void computeNormalAndDerivative(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &);
 
   void computeDerivativeOfNormal(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &, double &, double &);
+  void computeDerivativeOperatorsOfNormal(int, SVec<double,3> &, RectangularSparseMat<double,3,3> &);
+  void compute_dndX(SVec<double,3> &, double dndX[3][3][3]);
 
 };
 

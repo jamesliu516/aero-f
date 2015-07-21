@@ -226,6 +226,35 @@ void PostOperator<dim>::computeDerivativeOfNodalForce(DistSVec<double,3> &X, Dis
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void PostOperator<dim>::computeDerivativeOperatorsOfNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
+                                                               DistVec<double> &Pin, 
+                                                               RectangularSparseMat<double,3,3> &dForcedX,
+                                                               RectangularSparseMat<double,3,3> &dForcedGradP,
+                                                               RectangularSparseMat<double,dim,3> &dForcedV,
+                                                               RectangularSparseMat<double,3,3> &dForcedS)
+{
+
+//Remark: Error mesage for pointers
+  if (dV == 0) {
+    com->fprintf(stderr, "*** Error: PostOperator::Variable dV does not exist!\n");
+    exit(1);
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+    varFcn->conservativeToPrimitiveDerivative(U(iSub), dU(iSub), (*V)(iSub), (*dV)(iSub));
+    subDomain[iSub]->computeDerivativeOperatorsOfNodalForce(postFcn, X(iSub), (*V)(iSub), Pin(iSub), 
+                                                            dForcedX(iSub), dForcedGradP(iSub),
+                                                            dForcedV(iSub), dForcedS(iSub));
+  }
+
+}
+
+//------------------------------------------------------------------------------
 // the nodal heat power is *** NOT *** assembled
 
 template<int dim>
