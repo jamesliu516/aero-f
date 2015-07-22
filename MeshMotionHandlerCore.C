@@ -1893,6 +1893,7 @@ double RigidRollMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, DynamicNodalTransfer *dnTran,
   DistLevelSetStructure *distlss) : MeshMotionHandler(iod, dom)
 {
+  steady = !iod.problem.type[ProblemData::UNSTEADY];
   dynNodalTransfer = dnTran;
   distLSS = distlss;
   dts = 0.0;
@@ -1953,7 +1954,7 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the
                                       // structure in the mesh solution
 
-  return dts;
+  return (steady) ? 0 : dts;
 }
 
 //------------------------------------------------------------------------------
@@ -2151,6 +2152,14 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
 
   if(it==0 && dynNodalTransfer->isCoupled() )
     dts *= 0.5;
+
+  if(it > it0 && steady) {
+    dynNodalTransfer->getStructExc()->negotiateStopping(lastIt);  // [F] receive iSteady from structure
+    com->printf(4," ... [F] received iSteady from structure\n");
+    if (*lastIt) {
+      return;
+    }
+  }
 
   // get displacement
   if(it==it0 || !*lastIt) {
