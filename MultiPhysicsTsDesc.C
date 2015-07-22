@@ -736,6 +736,10 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& 
   double res = 0.0;
   if(this->numFluid==1)
     res = this->multiPhaseSpaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
+  else {
+    this->com->fprintf(stderr,"WARNING: MultiPhysicsTsDesc::computeResidualNorm is not implemented for numFluid > 1\n");
+    res = 1.0;
+  }
 
   return sqrt(res);
 }

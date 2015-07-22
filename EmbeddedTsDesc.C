@@ -862,6 +862,10 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   double res = 0.0;
   if(this->numFluid==1)
     res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
+  else {
+    this->com->fprintf(stderr,"WARNING: EmbeddedTsDesc::computeResidualNorm is not implemented for numFluid > 1\n");
+    res = 1.0;
+  }
 
   return sqrt(res);
 }
