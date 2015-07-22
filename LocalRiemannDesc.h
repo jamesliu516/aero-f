@@ -1358,10 +1358,10 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
   double omp1ooml = (omegal+1.0)/omegal;
   double omp1oomr = (omegar+1.0)/omegar;
   double frhol = vf_->computeFrho(1.0/vl,fluid2);
-  double frhor = vf_->computeFrho(1.0/vr,fluid2);
+  double frhor = vf_->computeFrho(1.0/vr,fluid1);
   double frhoil = frhol;
   double frhoir = frhor;
-  double frhopil = vf_->computeFrhop(1.0/vl,fluid1);
+  double frhopil = vf_->computeFrhop(1.0/vl,fluid2);
   double frhopir = vf_->computeFrhop(1.0/vr,fluid1);
 //check vacuum ?
 
