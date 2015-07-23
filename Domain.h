@@ -112,6 +112,7 @@ class Domain {
   DistInfo *inletNodeDistInfo;
   DistInfo *kirchhoffNodeDistInfo;
   DistInfo *sampledNodeDistInfo;
+  DistInfo *oldSampledNodeDistInfo;
 
   CommPattern<double> *vecPat;
   CommPattern<double> *phiVecPat;
@@ -251,6 +252,7 @@ public:
   DistInfo &getInletNodeDistInfo() const { return *inletNodeDistInfo; }
   DistInfo &getKirchhoffNodeDistInfo() const { return *kirchhoffNodeDistInfo; }
   DistInfo &getSampledNodeDistInfo() const { return *sampledNodeDistInfo; }
+  DistInfo &getOldSampledNodeDistInfo() const { return *oldSampledNodeDistInfo; }
 
   ErrorHandler *getErrorHandler() const {return errorHandler;}
 
@@ -261,6 +263,9 @@ public:
   void getGeometry(GeoSource &, IoData&);
   void makeSampledNodeDistInfo(const std::vector<int> &cpuSample, const std::vector<int> &locSubSample);
   void makeSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
+                               const std::map<int, int> &globalNodeToLocSubDomainsMap);
+  void makeOldSampledNodeDistInfo(const std::vector<int> &cpuSample, const std::vector<int> &locSubSample);
+  void makeOldSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
                                const std::map<int, int> &globalNodeToLocSubDomainsMap);
   void createRhsPat(int, IoData&);
   void createVecPat(int, IoData * = 0);

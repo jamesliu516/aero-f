@@ -16,6 +16,7 @@ extern "C"      {
 
   void F77NAME(pdgels)(char &, int &, int &, int &, double *, int &, int &, int *,
                        double *, int &, int &, int *, double *, int &, int & );
+  void F77NAME(blacs_gridexit)(int &);
 };
 
 template<int dim> 
@@ -34,7 +35,7 @@ domain(_domain), com(_com), subDomain(_domain.getSubDomain()), maxCpuBlocks(0), 
 template<int dim> 
 ParallelRom<dim>::~ParallelRom() 
 {
-
+  parallelLSMultiRHSClean();
   delete [] cpuNodes;
   delete [] cpuMasterNodes;
   
@@ -178,13 +179,12 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK AND DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
-
  com->barrier();
 
  if (computeV) {
+   Vtrue.setNewSize(nSnaps,0.0);
    for (int i = 0; i < nSnaps; i++){
      for (int j = 0; j < nSnaps; j++) {
-       Vtrue[i][j] = 0.0;
        if (thisCPU==0)
          Vtrue[i][j] = V[nSnaps*i+j];
      }
@@ -192,8 +192,9 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
    delete [] V;
    com->globalSum(nSnaps*nSnaps, Vtrue.data());
  }
- 
+
  //Permute back matrix U
+
  com->barrier();
  for (int i = 0; i < nSnaps; ++i)
    Utrue[i] = 0.0;
@@ -308,6 +309,23 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 
 //----------------------------------
 
+
+template<int dim>
+void ParallelRom<dim>::parallelLSMultiRHSClean() {
+#ifdef DO_SCALAPACK
+  if (desc_a[1] != -1) {
+    F77NAME(blacs_gridexit)(desc_a[1]);
+    desc_a[1] = -1; 
+  }
+  //if (desc_b[1] != -1) {
+  //  F77NAME(blacs_gridexit)(desc_b[1]);
+  //  desc_b[1] = -1;
+  //}
+#endif /* DO_SCALAPACK */
+}
+
+//----------------------------------
+
 template<int dim>
 template<class VecContainer1, class VecContainer2> 
 void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
@@ -338,6 +356,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
   //===============================
   
   if (n != desc_a[3] || nRhs != desc_b[3] || dim*A[0].nonOverlapSize() != desc_a[2]) { // PJSA added last condition
+    parallelLSMultiRHSClean();
     parallelLSMultiRHSInit(A, B, n);  // (re)-initialization needed
   }
 
@@ -482,11 +501,7 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
  // distribution info
 
  int numLocSub = domain.getNumLocSub();
-#ifdef EXP_NLROMOFFLINE
  DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
-#else
- DistInfo &nodeDistInfo = domain.getNodeDistInfo();
-#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum(); 
 
@@ -520,8 +535,8 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
 
  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu) {
    totalSentNodes[iCpu] = 0;
-   if (cpuMasterNodesCopy[iCpu] - cpuNodes[iCpu] > 0){  // if more master nodes than needed, iCpu is rich and must send to the poor!
-     for (int jCpu = 0; jCpu < nTotCpus; ++jCpu){
+   if (cpuMasterNodesCopy[iCpu] - cpuNodes[iCpu] > 0) {  // if more master nodes than needed, iCpu is rich and must send to the poor!
+     for (int jCpu = 0; jCpu < nTotCpus; ++jCpu) {
        if ( cpuMasterNodesCopy[jCpu] - cpuNodes[jCpu] < 0) {  // if fewer master nodes than needed, jCpu is poor and must receive some nodes from the rich
          nSendNodes = min(cpuMasterNodesCopy[iCpu] - cpuNodes[iCpu],-(cpuMasterNodesCopy[jCpu] - cpuNodes[jCpu]));  // either get all nodes from iCpu or fill all missing nodes for jCpu (whichever happens first)
          //send from iCpu to jCpu
@@ -561,14 +576,16 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
 
            // send data in buffer
            //fprintf(stderr, "*** CPU #%d sending to CPU #%d: %d nodes = %d entries\n", thisCPU, jCpu, nSendNodes, buffLen);
-           com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen);
+           //com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen);
+           com->sendTo(jCpu, jCpu, buffer, buffLen);
            com->waitForAllReq();
          }//endstuff
 
          // receive data and populate submatrix
 
          if (thisCPU==jCpu) {
-           com->recFrom(iCpu, iCpu*nTotCpus+thisCPU, recData, buffLen);
+          // com->recFrom(iCpu, iCpu*nTotCpus+thisCPU, recData, buffLen);
+           com->recFrom(iCpu, thisCPU, recData, buffLen);
            for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
              for (int k = nRecNodes; k < nSendNodes+nRecNodes; ++k)  {
                for (int j = 0; j < dim; ++j)
@@ -631,11 +648,7 @@ template<class VecContainer>
 void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps) {
 
  int numLocSub = domain.getNumLocSub();
-#ifdef EXP_NLROMOFFLINE
  DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
-#else
- DistInfo &nodeDistInfo = domain.getNodeDistInfo();
-#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum();
 
@@ -659,6 +672,7 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
      nSendNodes = 0;
      buffLen = 0;
      transf = 0;
+
      if (thisCPU==iCpu) {
        if (locSendReceive[jCpu] > 0) {
          nSendNodes = locSendReceive[jCpu];
@@ -673,13 +687,14 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          transf = 1;
        }
      }
-     com->barrier();
-     com->globalSum(1, &transf);
-     if (transf > 1) {
+     //com->barrier();
+     //com->globalSum(1, &transf);
+     //if (transf > 1) {
+     if (transf == 1) {
        // create array for received data
        if (thisCPU==jCpu)
          recData = new double[buffLen];
-       com->barrier();
+       //com->barrier();
        //create buffer
        if (thisCPU==iCpu) {
          buffer = new double[buffLen];
@@ -701,12 +716,14 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          totalSentNodes[iCpu] = index;
          // send data in buffer
          //fprintf(stderr, "*** CPU #%d sending back to CPU #%d: %d nodes = %d entries\n", thisCPU, jCpu, nSendNodes, buffLen);
-         com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen); //KMW: removed 10* because tag was too large for MPICH!
+         //com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen); //KMW this tag is too large for Cray MPICH with nCpus>1400
+         com->sendTo(jCpu, jCpu, buffer, buffLen);
+         com->waitForAllReq();
        }
-       com->barrier();
        // receive data and populate submatrix
        if (thisCPU==jCpu) {
-         com->recFrom(iCpu, iCpu*nTotCpus+thisCPU, recData, buffLen); //kmw removed 10* because tag was too large!
+         //com->recFrom(iCpu, iCpu*nTotCpus+thisCPU, recData, buffLen);  // this tag is too large for Cray MPICH with nCpus>1400.  
+         com->recFrom(iCpu, thisCPU, recData, buffLen); 
          for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
            index = 0;
            int k=0;
@@ -728,14 +745,14 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
          delete[] recData;
 
        }
-       com->barrier();
+      // com->barrier();
        if (thisCPU==iCpu)
          delete[] buffer;
      }
      com->barrier();
-     com->waitForAllReq(); // KMW
    }
  }
+
  //Completing the rest of the matrices
  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu) {
    if (thisCPU == iCpu) {
@@ -857,11 +874,7 @@ void ParallelRom<dim>::setTransfer() {
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
-#ifdef EXP_NLROMOFFLINE
  DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
-#else
- DistInfo &nodeDistInfo = domain.getNodeDistInfo();
-#endif
  DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 

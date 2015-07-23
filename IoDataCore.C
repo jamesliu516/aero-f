@@ -4154,7 +4154,7 @@ GNATConstructionData::GNATConstructionData()
   useOldReducedSVecFunction = USE_OLD_FALSE;
 
   sampledMeshUsed = SAMPLED_MESH_USED;
-  pseudoInverseNodes = 20;
+  pseudoInverseNodes = 10000;
   outputReducedBases = OUTPUT_REDUCED_BASES_TRUE;
   testApproxMetric = TEST_APPROX_METRIC_FALSE;
 }
