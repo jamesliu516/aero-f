@@ -206,7 +206,7 @@ void GappyPreprocessing<dim>::initialize()
   error.a[0] = &errorRes;  // make pod point to res and jac
   error.a[1] = &errorJac;
   errorHat.a[0] = &errorHatRes;
-  errorHat.a[0] = &errorHatJac;
+  errorHat.a[1] = &errorHatJac;
 
 
   //if (globalNodes) delete [] globalNodes;
@@ -1048,6 +1048,7 @@ void GappyPreprocessing<dim>::readGreedyData(int iCluster, bool& breakloop) {
     pod.a[1] = &podRes;
     podHat.a[1] = &podHatRes;
     error.a[1] = &errorRes;  
+    errorHat.a[1] = &errorHatRes;
     nPodMax = nPod[0];
      
  }
@@ -1105,7 +1106,8 @@ void GappyPreprocessing<dim>::setUpPodResJac(int iCluster) {
     nPod[1] = nPod[0]; 
     pod.a[1] = &podRes;
     podHat.a[1] = &podHatRes;  // make pod point to res and jac
-    error.a[1] = &errorRes;  
+    error.a[1] = &errorRes;
+    errorHat.a[1] = &errorHatRes; 
   }
 
   nPodMax = max(nPod[0],nPod[1]);
@@ -1366,32 +1368,49 @@ void GappyPreprocessing<dim>::findMaxAndFillPodHat(const double myMaxNorm, const
   ++handledNodes;
 
   if (thisCPU == cpuNumWithMaxVal) {  // if this CPU has the maximum value
-    SetOfVec podHatRes_copy(podHatRes), podHatJac_copy(podHatJac);
-    VecSetArray<dim> podHat_copy; podHat_copy.a[0] = &podHatRes_copy; podHat_copy.a[1] = &podHatJac_copy;
+    SetOfVec podHatRes_copy(podHatRes.numVectors(), domain.getOldSampledNodeDistInfo());
+    SetOfVec podHatJac_copy((nPodBasis==2)?errorHatJac.numVectors():0, domain.getOldSampledNodeDistInfo());
+    for (int iPod = 0 ; iPod < podHatRes.numVectors(); ++iPod) { 
+      podHatRes_copy[iPod] = podHatRes[iPod];
+    }
+    if (nPodBasis==2) {
+      for (int iPod = 0 ; iPod < podHatJac.numVectors(); ++iPod) {
+        podHatJac_copy[iPod] = podHatJac[iPod];
+      }
+    }
+
+    VecSetArray<dim> podHat_copy; 
+    podHat_copy.a[0] = &podHatRes_copy;
+    podHat_copy.a[1] = (nPodBasis==2) ? &podHatJac_copy : &podHatRes_copy;
 
     domain.makeSampledNodeDistInfo(cpuSample, locSubSample);
 
     podHatRes.resize(podHatRes.numVectors());
-    podHatJac.resize(podHatJac.numVectors());
     errorHatRes.resize(errorHatRes.numVectors());
-    errorHatJac.resize(errorHatJac.numVectors());
+    if (nPodBasis==2) podHatJac.resize(podHatJac.numVectors());
+    if (nPodBasis==2) errorHatJac.resize(errorHatJac.numVectors());
 
     SubDomainData<dim> locPod, locPodHat, locPodHat_copy;
 
     for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
       for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
-        locPod = pod[iPodBasis][iPod].subData(locSub);  // cannot access iDim entry
-        locPodHat = podHat[iPodBasis][iPod].subData(locSub);
-        locPodHat_copy = podHat_copy[iPodBasis][iPod].subData(locSub);
-        int locSampledNode = podHat[iPodBasis][iPod].subSize(locSub)-1;
-        for (int iDim = 0; iDim < dim ; ++iDim) {
-          for(int j=0; j<locSampledNode; ++j) {
-            locPodHat[j][iDim] = locPodHat_copy[j][iDim];
+        for (int iSub = 0; iSub<numLocSub; ++iSub) {
+          int locSampledNode = (iSub==locSub) ? podHat[iPodBasis][iPod].subSize(iSub) - 1 : podHat[iPodBasis][iPod].subSize(iSub);
+          locPod = pod[iPodBasis][iPod].subData(iSub); 
+          locPodHat = podHat[iPodBasis][iPod].subData(iSub);
+          locPodHat_copy = podHat_copy[iPodBasis][iPod].subData(iSub);
+          for (int iDim = 0; iDim < dim ; ++iDim) {
+            for(int j=0; j<locSampledNode; ++j) {
+              locPodHat[j][iDim] = locPodHat_copy[j][iDim];
+            }
+            if (iSub==locSub) {
+              locPodHat[locSampledNode][iDim] = locPod[locNode][iDim];
+            }
           }
-          locPodHat[locSampledNode][iDim] = locPod[locNode][iDim];
         }
       }
     }
+    domain.makeOldSampledNodeDistInfo(cpuSample, locSubSample);
   }
 
 }
@@ -1656,12 +1675,9 @@ void GappyPreprocessing<dim>::leastSquaresReconstruction() {
       com->fprintf(stdout," ... ... Scalapack LS Time = %e(s)\n", scalapackTime);
     } else if (gappyIO->greedyLeastSquaresSolver == GappyConstructionData::GREEDY_LS_LINPACK) {
       double linpackTime = this->timer->getTime();
-      //serialLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
-      //linpackTime = this->timer->getTime() - linpackTime;
-      //com->fprintf(stdout," ... ... linpack LS Time = %e(s)\n", linpackTime);
-      com->fprintf(stderr," ... ... Serial LS has not been checked with Phil's additions\n");
-      sleep(1);
-      exit(-1);
+      serialLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
+      linpackTime = this->timer->getTime() - linpackTime;
+      com->fprintf(stdout," ... ... linpack LS Time = %e(s)\n", linpackTime);
     } else {
       //double probTime = this->timer->getTime();
       //probabilisticLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
@@ -1751,9 +1767,6 @@ template<int dim> void GappyPreprocessing<dim>::subDFindMaxError(int iSub, bool
 
 template<int dim>
 void GappyPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
-// The least squares system is actually *really* small.  Should be much faster in serial...
-
-// form LHS and RHS -> globalSumRoot
 
   // communicate full vector to all ranks
   int nLHS = handledVectors[iPodBasis];
@@ -1777,15 +1790,19 @@ void GappyPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoef
   }
 
   for (int iLHS = 0; iLHS < nLHS; ++iLHS) {
+    std::vector<int> locSampleNodeCount(numLocSub, 0);
     for (int iNode = 0; iNode < int(globalSampleNodes.size()); ++iNode) {
       int currentGlobalNode = globalSampleNodes[iNode];
       int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
       if (thisCPU == iCpu){
         int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-        int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        //int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        int locSampleNode = locSampleNodeCount[iSubDomain];
+        ++locSampleNodeCount[iSubDomain];
         SubDomainData<dim> locValue = podHat[iPodBasis][iLHS].subData(iSubDomain);
         for (int iDim = 0; iDim < dim; ++iDim) {
-          sampledLHS[iLHS*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+          //sampledLHS[iLHS*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+          sampledLHS[iLHS*sampledDOF + iNode*dim + iDim] = locValue[locSampleNode][iDim];
         }
       }
     }
@@ -1794,15 +1811,20 @@ void GappyPreprocessing<dim>::serialLSMultiRHSGap(int iPodBasis, double **lsCoef
   if (thisCPU!=0) delete [] sampledLHS;
 
   for (int iRHS = 0; iRHS < nRHS; ++iRHS) {
+    std::vector<int> locSampleNodeCount(numLocSub, 0);
     for (int iNode = 0; iNode < int(globalSampleNodes.size()); ++iNode) {
       int currentGlobalNode = globalSampleNodes[iNode];
       int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
       if (thisCPU == iCpu){
         int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-        int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
-        SubDomainData<dim> locValue = error[iPodBasis][iRHS].subData(iSubDomain);
+        //int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        //SubDomainData<dim> locValue = error[iPodBasis][iRHS].subData(iSubDomain);
+        int locSampleNode = locSampleNodeCount[iSubDomain];
+        ++locSampleNodeCount[iSubDomain];
+        SubDomainData<dim> locValue = errorHat[iPodBasis][iRHS].subData(iSubDomain);
         for (int iDim = 0; iDim < dim; ++iDim) {
-          sampledRHS[iRHS*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+          //sampledRHS[iRHS*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+          sampledRHS[iRHS*sampledDOF + iNode*dim + iDim] = locValue[locSampleNode][iDim];
         }
       }
     }
@@ -2781,15 +2803,19 @@ void GappyPreprocessing<dim>::serialPseudoInverse(int iPodBasis) {
   }
 
   for (int iVec = 0; iVec < nVecs; ++iVec) {
+    std::vector<int> locSampleNodeCount(numLocSub, 0);
     for (int iNode = 0; iNode < nSampleNodes; ++iNode) {
       int currentGlobalNode = globalSampleNodes[iNode];
       int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
       if (thisCPU == iCpu){
         int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-        int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        //int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+        int locSampleNode = locSampleNodeCount[iSubDomain];
+        ++locSampleNodeCount[iSubDomain];
         SubDomainData<dim> locValue = podHat[iPodBasis][iVec].subData(iSubDomain);
         for (int iDim = 0; iDim < dim; ++iDim) {
-          podHatArray[iVec*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+          //podHatArray[iVec*sampledDOF + iNode*dim + iDim] = locValue[iLocalNode][iDim];
+          podHatArray[iVec*sampledDOF + iNode*dim + iDim] = locValue[locSampleNode][iDim];
         }
       }
     }
@@ -2946,10 +2972,7 @@ void GappyPreprocessing<dim>::computePseudoInverse() {
     if (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_SCALAPACK) {
       parallelPseudoInverse(iPodBasis);
     } else if (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_LINPACK) {
-      //serialPseudoInverse(iPodBasis);
-      com->fprintf(stdout,"*** Error: serial pseudo-inverse has not been checked with Phil's changes\n");
-      sleep(1);
-      exit(-1);
+      serialPseudoInverse(iPodBasis);
     }
   }
   //checkConsistency();  // debugging check
@@ -3756,9 +3779,9 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
 
   com->barrier();
   if (surfaceMeshConstruction) {
-    this->timer->addSampledOutputTime(sampledOutputTime);
-  } else {     
     this->timer->addSurfaceOutputTime(sampledOutputTime); 
+  } else {     
+    this->timer->addSampledOutputTime(sampledOutputTime);
   }
  
 }

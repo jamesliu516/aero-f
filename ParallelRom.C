@@ -501,11 +501,7 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
  // distribution info
 
  int numLocSub = domain.getNumLocSub();
-#ifdef EXP_NLROMOFFLINE
  DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
-#else
- DistInfo &nodeDistInfo = domain.getNodeDistInfo();
-#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum(); 
 
@@ -652,11 +648,7 @@ template<class VecContainer>
 void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps) {
 
  int numLocSub = domain.getNumLocSub();
-#ifdef EXP_NLROMOFFLINE
  DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
-#else
- DistInfo &nodeDistInfo = domain.getNodeDistInfo();
-#endif
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum();
 
@@ -882,11 +874,7 @@ void ParallelRom<dim>::setTransfer() {
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
-#ifdef EXP_NLROMOFFLINE
  DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
-#else
- DistInfo &nodeDistInfo = domain.getNodeDistInfo();
-#endif
  DistVec<int> cpuDestination(nodeDistInfo);
  cpuDestination = -1;
 
