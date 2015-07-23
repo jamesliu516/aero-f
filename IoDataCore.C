@@ -4203,7 +4203,7 @@ GappyConstructionData::GappyConstructionData()
   energyJacAction = 1.0;
 
   greedyData = UNSPECIFIED_GREEDY;
-  greedyLeastSquaresSolver = GREEDY_LS_LINPACK;
+  greedyLeastSquaresSolver = GREEDY_LS_SCALAPACK;
 
   randMatDimension = 200;
   nPowerIts = 0;
@@ -4237,7 +4237,7 @@ GappyConstructionData::GappyConstructionData()
 
   sampledMeshUsed = SAMPLED_MESH_USED;
 
-  pseudoInverseSolver = PSEUDO_INVERSE_LINPACK;
+  pseudoInverseSolver = PSEUDO_INVERSE_SCALAPACK;
   pseudoInverseNodes = 20;
 
   testApproxMetric = TEST_APPROX_METRIC_FALSE;
