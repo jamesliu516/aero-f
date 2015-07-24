@@ -4237,8 +4237,8 @@ GappyConstructionData::GappyConstructionData()
 
   sampledMeshUsed = SAMPLED_MESH_USED;
 
+  pseudoInverseNodes = 10000;
   pseudoInverseSolver = PSEUDO_INVERSE_SCALAPACK;
-  pseudoInverseNodes = 20;
 
   testApproxMetric = TEST_APPROX_METRIC_FALSE;
 }
