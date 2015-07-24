@@ -1318,7 +1318,7 @@ void LocalRiemannGfmparJWLJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell i is fluid2
     // cell j is fluid1
 
-    ImplicitRiemann::computeJwlJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+    ImplicitRiemann::computeJwlJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
 
   }
 
