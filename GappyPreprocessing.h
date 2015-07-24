@@ -6,7 +6,6 @@ class Domain;
 #include <Communicator.h>
 #include <DistVector.h>
 #include <VectorSet.h>
-#include <TsDesc.h>
 #include <ParallelRom.h>
 #include <TsDesc.h>
 #include <set>
@@ -16,7 +15,7 @@ class Domain;
 #include <NonlinearRom.h>
 
 template <int dim>
-class ArrayVecDist {
+class VecSetArray {
 	public:
 		// use a to access pointer to vecset, use [] to access the vecset itself
 		VecSet< DistSVec<double,dim> > *(a[2]);	// B[0] = *(a[0])
@@ -81,9 +80,11 @@ class StaticArray {	//used for the value of a map
 };
 
 template <int dim>
-class GnatPreprocessing : public NonlinearRom<dim> {
+class GappyPreprocessing : public NonlinearRom<dim> {
 
 protected:
+        GappyConstructionData* gappyIO;
+        ApproximatedMetricData* approxMetricData;
 
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	bool debugging; 	// debugging flag
@@ -113,6 +114,7 @@ protected:
   DistVec<double>* farFieldNeighborsMask;
   DistVec<double>* wallNeighborsMask;
   DistSVec<double, dim>* weightVec;
+  DistVec<double>* targetRegionMask;
 
 	GeoSource *geoSourceTmp;
 	TsDesc<dim> *tsDescTmp;
@@ -124,7 +126,7 @@ protected:
 	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
-	int nPodGreedy; // number of basis vectors used for greedy
+	int dimGreedy; // number of basis vectors used for greedy
 
 	std::vector<int> cpuSample, locSubSample, locNodeSample;
 	std::vector<int> globalSampleNodes, reducedSampleNodes;
@@ -132,13 +134,13 @@ protected:
 		//key: node #, value: rank of sample node (position in _SampleNodeSet)
 
 	int nPodBasis;	// # of unique pod bases for residual/jac (either 1 or 2)
-	ArrayVecDist<dim> pod;	// pod bases for residual and jacobian
+	VecSetArray<dim> pod;	// pod bases for residual and jacobian
 	SetOfVec podRes, podJac;
-	ArrayVecDist<dim> podHat;	// restricted pod bases 
+	VecSetArray<dim> podHat;	// restricted pod bases 
 	SetOfVec podHatRes, podHatJac;
-	ArrayVecDist<dim> error;	// error vectors
+	VecSetArray<dim> error;	// error vectors
 	SetOfVec errorRes, errorJac;
-        ArrayVecDist<dim> errorHat;
+        VecSetArray<dim> errorHat;
         SetOfVec errorHatRes, errorHatJac;
 
 	int nPodState;
@@ -152,12 +154,15 @@ protected:
 	VecSubDomainData<dim> locError;
 
 	void parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff);
+        void serialLSMultiRHSGap(int iPodBasis, double **lsCoeff);
+        void probabilisticLSMultiRHSGap(int iPodBasis, double **lsCoeff);
 	bool onlyInletOutletBC;
 
 	// greedy functions
 
 	virtual void determineSampleNodes();
 	void greedyIteration(int greedyIt);
+        void readGreedyData(int iCluster, bool& breakloop);
 	virtual void setUpGreedy(int iCluster);
 	void computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError);
 	void findMaxAndFillPodHat(const double myMaxNorm, const int locSub, const int locNode, const int globalNode);
@@ -165,6 +170,8 @@ protected:
 	void getSubDomainError(int iSub);	// computes locError for iSub subdomain
 	void leastSquaresReconstruction();
 	void subDFindMaxError(int iSub, bool onlyInletBC, double &myMaxNorm, int &locSub, int &locNode, int &globalNode);	// computes locError for iSub subdomain
+        void maskError();
+        void setUpSampledNodeTargetRegionMask();
 
 	// least squares parameters
 	
@@ -172,7 +179,7 @@ protected:
 
 	// distribution info
 
-	int numLocSub, nTotCpus, thisCPU;
+	int numLocSub, nTotCpus, thisCPU; 
 	DistInfo &nodeDistInfo;
 	SubDomain** subD; 
 	
@@ -209,6 +216,7 @@ protected:
 
   // also create a pointer of vectors to handle the faces that might be
   // boundary conditions
+  bool cleanTempFiles;
 
   void computeXYZ(int iSub, int iLocNode, double *xyz);
   virtual void buildRemainingMesh();
@@ -239,7 +247,8 @@ protected:
   // pseudo-inverse functions
   double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
   virtual void computePseudoInverse();
-  void computePseudoInverse(int iPodBasis);
+  void parallelPseudoInverse(int iPodBasis);
+  void serialPseudoInverse(int iPodBasis);
   //void computePseudoInverseRHS();
   void checkConsistency();
   SetOfVec pseudoInvRhs;
@@ -265,11 +274,12 @@ protected:
   virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
   virtual void outputInitialConditionReduced();
+  virtual void outputMultiSolutionsReduced();
   virtual void outputClusterCentersReduced();
   virtual void outputLocalStateBasisReduced(int);
   virtual void outputLocalReferenceStateReduced(int);
   virtual void outputWallDistanceReduced();
-  void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , double tag);
+  void outputReducedSVec(const DistSVec<double,dim> &distSVec, char* outFilePath , double tag, int step, int nTotSteps, const char *);
   void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 	//void determineFileName(const char *fileNameInput, const char
 	//		*currentExtension, const char *(&fileNameBase), const char
@@ -277,19 +287,18 @@ protected:
 
   int unionOfSampleNodes; // = -1 (makes the code a bit easier to read)
   std::set<int> globalSampleNodesUnionSet; // union of sample nodes from each cluster
-  std::set<int> globalSampleNodesUnionSetForApproxMetric; // union of sample nodes from each cluster for approximated metric
+  std::set<int> globalSampleNodesUnionSetForApproxMetricState; // union of sample nodes from each cluster for approximated metric
   std::vector<int> globalSampleNodesUnion; // union of sample nodes from each cluster (as a vector)
-std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes from each cluster for approx metric (as a vector)
+std::vector<int> globalSampleNodesUnionForApproxMetricState; // union of sample nodes from each cluster for approx metric (as a vector)
   std::vector<std::vector<int> > globalSampleNodesForCluster; // stores sampled nodes for each of the clusters   
-  void constructApproximatedMetric();
+  void constructApproximatedMetric(const char* type, int iCluster = -1);
   void computeCorrelationMatrixEVD();
-  void computePseudoInverseMaskedSnapshots();
-  void computeApproximatedMetricMask();
-  void computeMaskedSnapshots();
+  void computePseudoInverseMaskedSnapshots(const char* type, int iCluster = -1);
+  void computeMaskedSnapshots(const char* type, int iCluster = -1);
   void computePseudoInverseTranspose();
   void computeApproximatedMetricLowRankFactor();
-  void outputApproxMetricLowRankFactorFullCoords();
-  void outputApproxMetricLowRankFactorReducedCoords();
+  void outputApproxMetricLowRankFactorFullCoords(const char* type, int iCluster = -1);
+  void outputApproxMetricLowRankFactorReducedCoords(const char* type, int iCluster = -1);
   void testInnerProduct(char *);
   double** lowRankModes;
   double* lowRankApproxMetricEigenvalues;
@@ -300,6 +309,7 @@ std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes
   SetOfVec snapHatApproxMetric;
   void setSampleNodes(int);
   void formMaskedNonlinearROBs();
+  void reinitializeMapsForSampleNodes();
   //void outputMaskedNonlinearROBs(int, const std::map<int,int> &, const std::vector<int> &);
   //void readMaskedNonlinearROBs( );
   void initializeLeastSquaresPseudoInv(int);
@@ -308,8 +318,8 @@ std::vector<int> globalSampleNodesUnionForApproxMetric; // union of sample nodes
   bool surfaceMeshConstruction;
 
 public:
-	GnatPreprocessing(Communicator *, IoData &, Domain &, DistGeoState *);
-	~GnatPreprocessing();
+	GappyPreprocessing(Communicator *, IoData &, Domain &, DistGeoState *);
+	~GappyPreprocessing();
 	virtual void buildReducedModel();	// build all offline info (do everything)
 
 };

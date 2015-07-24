@@ -16,7 +16,10 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double \
     **lsSol, int nRhs, int subMatLLD, bool lsCoeffAllCPU);\
 \
 template \
-void ParallelRom<dim>::setTransfer();
+void ParallelRom<dim>::setTransfer();\
+\
+template \
+void ParallelRom<dim>::parallelLSMultiRHSClean();
 
 #define INSTANTIATION_HELPER_2(dim, VecContainer)\
 template \

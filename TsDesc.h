@@ -138,6 +138,10 @@ public:
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln);
+  void setRestartIterationAndTime(int it, double t) { restart->etime = t; restart->iteration = it;}
+  void parametricInitialConditionViaInterpolation(DistSVec<double,dim> *, IoData&);
+  virtual void formInterpolatedInitialCondition(DistSVec<double,dim> *, std::vector<double> &);
+  virtual void setInterpWeightsForMultiIC(std::vector<double> ) {}
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
   virtual double computeTimeStep(int a, double *b, DistSVec<double,dim> &c){ return computeTimeStep(a,b,c,-2); }
@@ -212,11 +216,17 @@ public:
   void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
   void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &);
 
+  virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int) {}
   virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual
   virtual void incrementNewtonOutputTag() {}
   int *getTimeIt() { return domain->getTimeIt(); }
   int *getNewtonIt() { return domain->getNewtonIt(); }
   int *getNumResidualsOutputCurrentNewtonIt() { return domain->getNumResidualsOutputCurrentNewtonIt(); }
+  void readICFromDisk(char *, int, int, DistSVec<double,dim> &);
+  bool outputOnlySpatialResidualBool;
+  bool outputOnlySpatialResidual() {return outputOnlySpatialResidualBool;}
+  virtual void calculateSpatialResidual(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
+
 };
 
 //------------------------------------------------------------------------------

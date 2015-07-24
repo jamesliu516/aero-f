@@ -5031,8 +5031,9 @@ void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
 
 		// fill in the array with all global entries
 		nodeOrEle[iArraySize].clear();
+                nodeOrEle[iArraySize].resize(totalNodeOrEle,0.0);
 		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
-			nodeOrEle[iArraySize].push_back(nodeOrEleArray[iNeighbor]);
+			nodeOrEle[iArraySize][iNeighbor]=nodeOrEleArray[iNeighbor];
 
 		delete [] nodeOrEleArray;
 		

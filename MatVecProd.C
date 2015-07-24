@@ -172,7 +172,7 @@ void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
   Qeps = q;
 
   if (recFcnCon) {
-    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
 
     if (timeState)
       timeState->add_dAW_dtRestrict(it, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
@@ -285,7 +285,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
-  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+  if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   if (fdOrder == 1) {
 
@@ -326,7 +326,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
     prod = (0.5/eps) * (Fepstmp - Ftmp);
 
-    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+    if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 
@@ -375,12 +375,12 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 //------------------------------------------------------------------------------
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
-		DistSVec<double,neq> &prod, RestrictionMapping<dim> & restrictionMapping)
+		DistSVec<double,neq> &prod, RestrictionMapping<neq> & restrictionMapping)
 {
 	std::vector<std::vector<int> > sampledLocNodes =
 		restrictionMapping.getRestrictedToOriginLocNode() ;
 
-  DistSVec<double, dim> pRestricted(restrictionMapping.restrictedDistInfo());
+  DistSVec<double, neq> pRestricted(restrictionMapping.restrictedDistInfo());
   restrictionMapping.restriction(p,pRestricted);
 
   double eps = computeEpsilon(Q, pRestricted);
@@ -390,7 +390,7 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
 
   Qepstmp.pad(Qeps);
 
-  spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+  spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
 
   if (timeState)
     timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
@@ -410,7 +410,7 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
     
     Qepstmp.pad(Qeps);
 
-    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
 
     if (timeState)
       timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
@@ -564,7 +564,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
   Feps.strip(Fepstmp);
 
-  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+  if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
  
   if (fdOrder == 1) {
 
@@ -605,7 +605,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
     prod += (0.5/eps) * (Fepstmp - Ftmp);
 
-    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+    if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 
@@ -630,7 +630,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
   Feps.strip(Fepstmp);
   
-  if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+  if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   if (fdOrder == 1) {
 
@@ -659,7 +659,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
     prod += (0.5/eps) * (Fepstmp - Ftmp);
 
-    if (output) output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+    if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   }
 
@@ -903,6 +903,17 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::evaluateRestrict(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                            DistSVec<double,dim> &Q, DistSVec<double,dim> &F, 
+                                            RestrictionMapping<dim> & restrictionMapping) {
+  //TODO
+  MatVecProdH1<dim,Scalar,neq>::evaluate(it, X, ctrlVol, Q, F);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluate(DistExactRiemannSolver<dim> &riemann,
                                             int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                             DistSVec<double,dim> &Q, DistSVec<double,dim> &F)
@@ -968,6 +979,16 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::applyRestrict(DistSVec<double,neq> &p, DistSVec<double,neq> &prod,
+                                         RestrictionMapping<neq> & restrictionMapping)
+{ //TODO
+  MatVecProdH1<dim,Scalar,neq>::apply(p, prod);
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmbeddedVec<double,neq> &prod)
@@ -1242,6 +1263,19 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistV
 
 //------------------------------------------------------------------------------
 
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::evaluateRestrict(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                            DistSVec<double,dim> &Q, DistSVec<double,dim> &F, 
+                                            RestrictionMapping<dim> & restrictionMapping) {
+
+  // TODO
+  MatVecProdH2<dim,Scalar,neq>::evaluate(it, X, ctrlVol, Q, F);
+
+}
+
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
@@ -1400,6 +1434,16 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
   Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,
                  R, RFD, vProd);
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::applyRestrict(DistSVec<double,neq> &p, DistSVec<double,neq> &prod,
+                                         RestrictionMapping<neq> & restrictionMapping)
+{
+  //TODO
+  MatVecProdH2<dim,Scalar,neq>::apply(p, prod);
 }
 
 //------------------------------------------------------------------------------

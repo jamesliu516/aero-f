@@ -1,9 +1,9 @@
 #ifndef _SURF_MESH_GEN_H_
 #define _SURF_MESH_GEN_H_
 
-#include <GnatPreprocessing.h>
+#include <GappyPreprocessing.h>
 template <int dim>
-class SurfMeshGen : public GnatPreprocessing<dim> {
+class SurfMeshGen : public GappyPreprocessing<dim> {
 
 	void setUpGreedy() { ;}
 

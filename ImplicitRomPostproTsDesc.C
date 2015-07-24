@@ -62,9 +62,8 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
 
   // checks whether the local ROM needs to be modified
 
-  int tmp, _n, closestCluster, nCoords; 
+  int tmp, _n, closestCluster, nCoords, prevCluster; 
   char switchStr[50], updateStr[50];
-
 
   _n = fscanf(reducedCoordsFile, "%d %s %s %d %d %d %d %d", &tmp, switchStr, updateStr, &closestCluster, &nCoords, &tmp, &tmp, &tmp);
   if (_n == EOF) {
@@ -77,42 +76,7 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
   this->clusterSwitch = (strcmp(switchStr,"switch")==0) ? true : false;
   this->updatePerformed = (strcmp(updateStr,"update")==0) ? true : false;
 
-  if ((this->rom->nClusters > 1) || (this->basisUpdateFreq>0) || (this->currentCluster == -1))  {
-
-    if (this->currentCluster == -1) { // first iteration
-      if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT)
-        this->rom->initializeFastExactUpdatesQuantities(U);
-    }
-
-    if (this->rom->nClusters > 1) this->com->fprintf(stdout, " ... using basis number %d\n", closestCluster);
-
-    if (this->updatePerformed || this->clusterSwitch) {
-      if (this->clusterSwitch) {
-        this->currentCluster = closestCluster;
-        this->rom->readClusteredOnlineQuantities(this->currentCluster);  // read state basis, update info
-        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF)
-          this->rom->projectSwitchStateOntoAffineSubspace(this->currentCluster, U);
-      }
-
-      if (this->updatePerformed) this->rom->updateBasis(this->currentCluster, U);
-      //if (this->ioData->romOnline.krylov.include) rom->appendNonStateDataToBasis(currentCluster,"krylov");
-      //if (this->ioData->romOnline.sensitivity.include) rom->appendNonStateDataToBasis(currentCluster,"sensitivity");
-      if (this->ioData->romOnline.bufferEnergy!=0.0) this->rom->truncateBufferedBasis();
-      this->nPod = this->rom->basis->numVectors();
-      this->pod.resize(this->nPod);
-      for (int iVec=0; iVec<this->nPod; ++iVec) {
-        this->pod[iVec] = (*(this->rom->basis))[iVec];
-      }
-
-      //AJ.resize(nPod);
-      this->dUromTimeIt.resize(this->nPod);
-      //setProblemSize(U);  // defined in derived classes
-      //if (clusterSwitch) setReferenceResidual(); // for steady gnat (reference residual is restricted to currently active nodes)
-
-      this->dUromCurrentROB.resize(this->nPod);
-      this->dUromCurrentROB = 0.0;
-    }
-  }
+  if (this->updatePerformed || this->clusterSwitch) this->loadCluster(closestCluster, this->clusterSwitch, U);
 
   if (this->nPod != nCoords) {
     this->com->fprintf(stderr, "*** Error: dimension of reduced coordinates (%d) does not match dimension of state ROB (%d)\n"

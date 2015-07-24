@@ -120,6 +120,11 @@ public:
   int fixSolution(DistSVec<double,3> &X, DistSVec<double,3> &dX) { return 0; }
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,3> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0) {}
+
+  void checkLocalRomStatus(DistSVec<double, 3> &, const int) {}
+  void calculateSpatialResidual(DistSVec<double, 3> &, DistSVec<double,3> &) {}
+  bool outputOnlySpatialResidual() {return false;}
+
   void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,3> *, DistSVec<double,3> *) {}
   void incrementNewtonOutputTag() {}
   int *getTimeIt() { return domain->getTimeIt(); }

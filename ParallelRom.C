@@ -1,6 +1,6 @@
 #include <LinkF77.h>
 #include <ParallelRom.h>
-#include <GnatPreprocessing.h>
+#include <GappyPreprocessing.h>
 
 extern "C"      {
 

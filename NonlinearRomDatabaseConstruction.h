@@ -24,9 +24,11 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   // private functions
   double calcResidual(VecSet< DistSVec<double, dim> > &, VecSet< DistSVec<double, dim> > &);
   void localPod(const char*);
-  void SVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, int, bool computeV=true);
-  void scalapackSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &, int, bool computeV=true);
-  void probabilisticSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, double *S, FullM &V, int, bool computeV=true);
+  void SVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>& , FullM &, int, int, int, bool computeV=true, bool testProbSVD=false);
+  void scalapackSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>&, FullM &, bool computeV=true);
+  void probabilisticSVDWrapper(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>&, FullM &, int, int, bool testSVD=false);
+
+  void testProbabilisticSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>&, FullM &, int, int, int, bool);
   void initializeClusterCenters();
   void kmeans();
   void kmeansWithBounds();
@@ -39,10 +41,12 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   DistSVec<double, dim>* initialCondition;
   void readInitialCondition();
   void preprocessForDistanceComparisons();
+  void preprocessForDistanceComparisonsStandard();
+  void preprocessForDistanceComparisonsIncrements();
   void productOfBasisAndCenterDifferences(int, const char*);
   void productOfVectorAndCenterDifferences(int, const char*);
 
-  // gnat basis updates preprocessing
+  // preprocessing for basis updates for gappy simulations
   void preprocessForExactBasisUpdates();
 
   // IO functions that are independent of database structure
