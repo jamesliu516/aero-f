@@ -515,6 +515,22 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residualVectors = 0;
 
+  // If we want to output the pressure coeff. in the embedded framework d2d
+  if ( (iod.problem.framework==ProblemData::EMBEDDED ||
+	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
+       iod.output.transient.pressurecoefficient[0] != 0) {
+    embeddedsurfaceCp = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
+    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.pressurecoefficient); 
+  }  else
+    embeddedsurfaceCp = 0;
+
+  // If we want to output the skin friction coeff. in the embedded framework d2d
+  if ( (iod.problem.framework==ProblemData::EMBEDDED ||
+	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
+       iod.output.transient.sfric[0] != 0) {
+    embeddedsurfaceCf = new char[sp + strlen(iod.output.transient.sfric)];
+    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.sfric); 
+  }  else
     embeddedsurfaceCf = 0;
 
   it0 = iod.restart.iteration;
@@ -2437,33 +2453,7 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-                                     double* e, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U,
-                                     DistTimeState<dim> * timeState, DistVec<int> *fluidId)
-{
-
-template<int dim>
-void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-                                     double* e, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U,
-                                     DistTimeState<dim> * timeState, DistVec<int> *fluidId)
-{
-
-  if (iod.output.transient.matchpressure[0] == 0) return;
-
-  double time = refVal->time * t;
-
-  if (!Qs_match)     Qs_match     = new DistVec<double>(domain->getNodeDistInfo());
-
-  postOp->computeScalarQuantity(PostFcn::PRESSURE, X, U, A, *Qs_match, timeState);
-  DistSVec<double,1> Qs1(Qs_match->info(), reinterpret_cast<double (*)[1]>(Qs_match->data()));
-
-  if (optPressureDimensional)
-    Qs1-=((*Qs_match_opt)*(1/sscale[2]));
-  else
-    Qs1-=(*Qs_match_opt);
-
-template<int dim>
-void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                      double* e, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U,
                                      DistTimeState<dim> * timeState, DistVec<int> *fluidId)
 {
@@ -2493,22 +2483,16 @@ void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, i
   }
 
 }
+
 //------------------------------------------------------------------------------
 
 template<int dim>
 void TsOutput<dim>::writeFluxNormToDisk(int it, int itSc, int itNl, double t, double normFlux)
 {
 
-  double time = refVal->time * t;
+ double time = refVal->time * t;
 
   if (com->cpuNum() != 0) return;
-
-  if (fpFluxNorm) {
-    fprintf(fpFluxNorm, "%d %e %d %d %e \n",it, time, itSc, itNl, normFlux);
-    fflush(fpFluxNorm);
-  }
-
-}
 
   if (fpFluxNorm) {
     fprintf(fpFluxNorm, "%d %e %d %d %e \n",it, time, itSc, itNl, normFlux);
@@ -2521,7 +2505,7 @@ void TsOutput<dim>::writeFluxNormToDisk(int it, int itSc, int itNl, double t, do
 template<int dim>
 void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double> &A, DistVec<int> *fluidId)
 {
-  if(!material_volumes)
+ if(!material_volumes)
     return;
 
   int myLength = numFluidPhases + 1/*ghost*/;
@@ -2529,18 +2513,18 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
   for(int i=0; i<myLength; i++)
     Vol[i] = 0.0;
 
-  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol
+  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol                                                                                                                  
 
   if (com->cpuNum() !=0 ) return;
 
   double length3 = length*length*length;
   for(int i=0; i<myLength; i++)
-    Vol[i] *= length3; //dimensionalize
+    Vol[i] *= length3; //dimensionalize                                                                                                                                                   
 
   fprintf(fpMatVolumes, "%d %e ", it, (refVal->time)*t);
   for(int i=0; i<numFluidPhases+1; i++)
     fprintf(fpMatVolumes, "%e ", Vol[i]);
-  
+
   double totVol = 0.0;
   for(int i=0; i<myLength; i++)
     totVol += Vol[i];
@@ -2548,6 +2532,7 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
   fprintf(fpMatVolumes, "%e\n", totVol);
 
   fflush(fpMatVolumes);
+
 }
 
 //------------------------------------------------------------------------------
@@ -3060,8 +3045,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     else
       tag = t * refVal->time;
 
-    if (solutions)
-      domain->writeVectorToFile(solutions, step, tag, U);
+    if (dSolutions)
+      domain->writeVectorToFile(dSolutions, step, tag, U);
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {
