@@ -319,6 +319,7 @@ void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems,
     }
 
   } else if (v6data[l][0].tet == -1 || v6data[l][1].tet == -1) {
+    
     for (int k=0; k<dim; ++k) {
       ddVij[k] = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
       ddVji[k] = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
