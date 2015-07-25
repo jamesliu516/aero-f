@@ -21,6 +21,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
   myIoData = &ioData;
 
   typeGradient = ioData.schemes.ns.gradient;
+
   failSafeNewton = ioData.ts.implicit.newton.failsafe;
 
   numLocSub = domain->getNumLocSub();
