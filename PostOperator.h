@@ -147,6 +147,17 @@ public:
   //                           DistSVec<double,dim> &, DistVec<double> &,
   //                           DistSVec<double,1> &, DistVec<int> &);
 
+   template<int dimLS>
+  void computeEMBScalarQuantity(DistSVec<double,3>& X,
+				DistSVec<double,dim>& U,
+				DistVec<double>& A,
+				double** EmbQs,
+				DistTimeState<dim> *timeState,
+				DistVec<int>& fluidId, 
+				DistSVec<double,dimLS> *Phi, 
+				DistLevelSetStructure *distLSS,
+				DistVec<GhostPoint<dim>*> *ghostPoints);
+
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistSVec<double,3> &);
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,

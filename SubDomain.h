@@ -1402,6 +1402,17 @@ public:
 				    Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, 
 				    VarFcn *vf, Vec<int>* fid);
 
+  // d2d
+  template<int dim,int dimLS>
+  void computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim> &V,
+                         	    PostFcn *postFcn, VarFcn *varFcn,
+				    Vec<int> &fluidId, SVec<double,dimLS>* phi,
+				    double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+				    Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+				    double pInfty,
+				    Vec<GhostPoint<dim>*> *ghostPoints,
+				    NodalGrad<dim, double> &ngrad);
+
   template<int dim>
   void computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
 					      double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 
