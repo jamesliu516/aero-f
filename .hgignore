@@ -22,3 +22,8 @@ Project/*
 Release/*
 Debug/*
 CMakeFiles/*
+
+
+CMake/Modules/CMakeTestFortran.f
+EmbeddedFluidSensitivityAnalysisHandler.C
+EmbeddedFluidSensitivityAnalysisHandler.h
