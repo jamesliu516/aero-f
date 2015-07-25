@@ -249,6 +249,7 @@ template<int dim, int neq>
 void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
 {
 
+
   double eps = computeEpsilon(Q, p);
 
 // Included (MB)
@@ -418,6 +419,7 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
 
 template<int dim, int neq>
 void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) {
+
 
   double eps = computeEpsilon(Q, p.real());
 
