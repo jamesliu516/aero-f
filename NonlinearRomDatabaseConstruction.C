@@ -1858,7 +1858,7 @@ void NonlinearRomDatabaseConstruction<dim>::scalapackSVD(VecSet< DistSVec<double
     exit(-1);
   #endif
 
-  ParallelRom<dim> parallelRom( this->domain, this->com);
+  ParallelRom<dim> parallelRom( this->domain, this->com, this->domain.getNodeDistInfo());
   parallelRom.parallelSVD(*snapshots, Utrue, singularValues, Vtrue, numSnaps, computeV);
 
 }

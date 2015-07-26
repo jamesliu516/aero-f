@@ -20,8 +20,8 @@ extern "C"      {
 };
 
 template<int dim> 
-ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com) : 
-domain(_domain), com(_com), subDomain(_domain.getSubDomain()), maxCpuBlocks(0), nTotCpus(_com->size()), thisCPU(_com->cpuNum())
+ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com, const DistInfo &dI) : 
+domain(_domain), com(_com), subDomain(_domain.getSubDomain()), maxCpuBlocks(0), nTotCpus(_com->size()), thisCPU(_com->cpuNum()), distInfo(dI)
 {
   locSendReceive = new int[nTotCpus];
   cpuNodes = new int[nTotCpus];
@@ -501,7 +501,6 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
  // distribution info
 
  int numLocSub = domain.getNumLocSub();
- DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum(); 
 
@@ -520,7 +519,7 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node with no sending
- DistVec<int> cpuDestination(nodeDistInfo);
+ DistVec<int> cpuDestination(distInfo);
  cpuDestination = -1;
 
  int *totalSentNodes = new int[nTotCpus];  // how many nodes have been sent to previous cpus
@@ -559,8 +558,8 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
              for (int iSub = 0; iSub < numLocSub; ++iSub) {  // loop over subdomains
                // create buffer
                double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
-               bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-               for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {  // loop over master nodes
+               bool *locMasterFlag = distInfo.getMasterFlag(iSub);
+               for (int iNode = 0; iNode < distInfo.subLen[iSub]; ++iNode) {  // loop over master nodes
                  if (!locMasterFlag || locMasterFlag[iNode]) {
                    if (masterNodeCount == nSendNodes+totalSentNodes[iCpu])  break;  // only send nSendNodes starting at totalSentNodes (other cpus have received the first 0 to totalSentNodes-1 nodes!)
                    masterNodeCount++;
@@ -618,8 +617,8 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
        masterNodeCount = 0;
        for (int iSub = 0; iSub < numLocSub; ++iSub) {
          double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
-         bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-         for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+         bool *locMasterFlag = distInfo.getMasterFlag(iSub);
+         for (int iNode = 0; iNode < distInfo.subLen[iSub]; ++iNode) {
            if (!locMasterFlag || locMasterFlag[iNode]) {
              //if not already sent
              if (masterNodeCount >= totalSentNodes[iCpu])  {
@@ -648,7 +647,6 @@ template<class VecContainer>
 void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps) {
 
  int numLocSub = domain.getNumLocSub();
- DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
  nTotCpus = com->size(); 
  thisCPU = com->cpuNum();
 
@@ -658,7 +656,7 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
  int locLLD = dim * cpuNodes[thisCPU];
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
- DistVec<int> cpuDestination(nodeDistInfo);
+ DistVec<int> cpuDestination(distInfo);
  cpuDestination = -1;
 
  int *totalSentNodes = new int[nTotCpus];
@@ -729,8 +727,8 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
            int k=0;
            for (int iSub = 0; iSub < numLocSub; ++iSub) {
              double (*locU)[dim] = Utrue[iSnap].subData(iSub);
-             bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-             for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+             bool *locMasterFlag = distInfo.getMasterFlag(iSub);
+             for (int iNode = 0; iNode < distInfo.subLen[iSub]; ++iNode) {
                if (!locMasterFlag || locMasterFlag[iNode]) {
                  if (k>=nRecNodes && k <nSendNodes+nRecNodes) {
                    for (int j = 0; j < dim; ++j)
@@ -762,8 +760,8 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
        index = 0;
        for (int iSub = 0; iSub < numLocSub; ++iSub) {
          double (*locU)[dim] = Utrue[iSnap].subData(iSub);
-         bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
-         for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; ++iNode) {
+         bool *locMasterFlag = distInfo.getMasterFlag(iSub);
+         for (int iNode = 0; iNode < distInfo.subLen[iSub]; ++iNode) {
            if (!locMasterFlag || locMasterFlag[iNode]) {
              //if not already sent
              if (index >= nRecNodes)  {
@@ -874,8 +872,7 @@ void ParallelRom<dim>::setTransfer() {
 
  // loop over all domain nodes and compute the cpu to send to
  // -1 indicates that it's a slave node and no sending
- DistInfo &nodeDistInfo = domain.getSampledNodeDistInfo();
- DistVec<int> cpuDestination(nodeDistInfo);
+ DistVec<int> cpuDestination(distInfo);
  cpuDestination = -1;
 
  subDomain = domain.getSubDomain();
@@ -893,7 +890,7 @@ void ParallelRom<dim>::setTransfer() {
  #pragma omp parallel for
  for (int iSub = 0; iSub < numLocSub; ++iSub) {
    bool *locMasterFlag = cpuDestination.getMasterFlag(iSub);
-   for (int iNode = 0; iNode < nodeDistInfo.subLen[iSub]; iNode++) {
+   for (int iNode = 0; iNode < distInfo.subLen[iSub]; iNode++) {
      if (!locMasterFlag || locMasterFlag[iNode])
        cpuMasterNodes[thisCPU]++;  // add if it is a master node
    }

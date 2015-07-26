@@ -44,7 +44,7 @@ GnatPreprocessing<dim>::GnatPreprocessing(Communicator *_com, IoData &_ioData, D
   numFullNodes = domain.getNumGlobNode();  // # globalNodes in full mesh
   com->fprintf(stdout," ... Number of full nodes in domain is %d ...\n",numFullNodes);
 
-  for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
+  for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com,dom.getSampledNodeDistInfo());
 
   unionOfSampleNodes = -1;  // for readability
   globalSampleNodesForCluster.resize(0);
@@ -624,7 +624,7 @@ void GnatPreprocessing<dim>::computePseudoInverseTranspose() {
   FullM VtrueTmp(nSnaps);
   int nKeep = nSnaps;
 
-  ParallelRom<dim> parallelRom( this->domain, this->com);
+  ParallelRom<dim> parallelRom( this->domain, this->com, this->domain.getNodeDistInfo());
   parallelRom.parallelSVD(snapHatApproxMetric, UTrueTmp, singValsTmp.data(), VtrueTmp, nSnaps, true);
 
   // check the svd
