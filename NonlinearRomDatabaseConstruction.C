@@ -2172,7 +2172,7 @@ void NonlinearRomDatabaseConstruction<dim>::scalapackSVD(VecSet< DistSVec<double
   int nVecs=snapshots->numVectors();
   double* singularValuesArray = new double[nVecs];
 
-  ParallelRom<dim> parallelRom( this->domain, this->com);
+  ParallelRom<dim> parallelRom( this->domain, this->com, this->domain.getNodeDistInfo());
   parallelRom.parallelSVD(*snapshots, Utrue, singularValuesArray, Vtrue, nVecs, computeV);
 
   this->com->broadcast(nVecs, singularValuesArray, 0);

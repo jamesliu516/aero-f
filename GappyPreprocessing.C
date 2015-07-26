@@ -49,7 +49,7 @@ GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData,
 
   if ((gappyIO->greedyLeastSquaresSolver == GappyConstructionData::GREEDY_LS_SCALAPACK) || 
       (gappyIO->pseudoInverseSolver == GappyConstructionData::PSEUDO_INVERSE_SCALAPACK)) {
-    for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
+    for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com,dom.getSampledNodeDistInfo());
   } else {
     for(int i=0; i<2; ++i) parallelRom[i] = NULL;
   }
@@ -710,7 +710,7 @@ void GappyPreprocessing<dim>::computePseudoInverseTranspose() {
   FullM VtrueTmp(nSnaps);
   int nKeep = nSnaps;
 
-  ParallelRom<dim> parallelRom( this->domain, this->com);
+  ParallelRom<dim> parallelRom( this->domain, this->com, this->domain.getNodeDistInfo());
   parallelRom.parallelSVD(snapHatApproxMetric, UTrueTmp, singValsTmp.data(), VtrueTmp, nSnaps, true);
 
   // check the svd
@@ -3307,7 +3307,7 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
         fclose(myOutFile);
     
         double writeTime = this->timer->getTime()-tmpTime;
-        fprintf(stderr,"... write time = %es\n", writeTime);
+        //fprintf(stderr,"... write time = %es\n", writeTime);
   
       } // end iPod loop (columns)
   
@@ -3727,7 +3727,7 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
   }
 
   double writeTime = this->timer->getTime()-tmpTime;
-  com->fprintf(stderr,"... write time = %es\n", writeTime);
+  //com->fprintf(stderr,"... write time = %es\n", writeTime);
 
   // create the final file after the final step
   if ((step==(nTotSteps-1)) && nTotSteps>1) {
