@@ -3,7 +3,7 @@
 
 #define INSTANTIATION_HELPER_1(dim)\
 template \
-ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com);\
+ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com, const DistInfo& dI);\
 \
 template \
 ParallelRom<dim>::~ParallelRom();\

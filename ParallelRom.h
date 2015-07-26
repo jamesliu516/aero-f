@@ -1,6 +1,6 @@
 #ifndef _PARALLEL_ROM_H_
 #define _PARALLEL_ROM_H_
-
+#include <DistInfo.h>
 //#include <Elem.h>	// use ElemSet
 class Domain;
 class Communicator;
@@ -15,6 +15,7 @@ class ParallelRom {
 	Domain &domain;
 	Communicator *com; 
 	SubDomain **subDomain;
+	const DistInfo &distInfo;
 	int nTotCpus;
 	int thisCPU;
 
@@ -37,7 +38,7 @@ class ParallelRom {
 	void setTransfer();
 
 	public:
-	ParallelRom(Domain &, Communicator *);
+	ParallelRom(Domain &, Communicator *, const DistInfo&);
 	~ParallelRom();
 
 	// Parallel operations
