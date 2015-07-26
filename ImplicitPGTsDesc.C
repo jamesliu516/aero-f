@@ -21,7 +21,7 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
 
   lsSolver = this->ioData->romOnline.lsSolver;
   if ((lsSolver==NonlinearRomOnlineData::QR) || (lsSolver==NonlinearRomOnlineData::LEVENBERG_MARQUARDT_SVD)) {
-    parallelRom = new ParallelRom<dim>(*dom,this->com);
+    parallelRom = new ParallelRom<dim>(*dom,this->com,dom->getNodeDistInfo());
   } else if ((lsSolver==NonlinearRomOnlineData::NORMAL_EQUATIONS) || (lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS)){  // normal equations
     jactmp = new double [this->nPod * this->nPod];
     this->jac.setNewSize(this->nPod,this->nPod);
