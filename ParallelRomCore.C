@@ -3,7 +3,7 @@
 
 #define INSTANTIATION_HELPER_1(dim)\
 template \
-ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com);\
+ParallelRom<dim>::ParallelRom(Domain & _domain, Communicator *_com, const DistInfo& dI);\
 \
 template \
 ParallelRom<dim>::~ParallelRom();\
@@ -23,7 +23,10 @@ template \
 void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSnaps);\
 \
 template \
-void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps);
+void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps);\
+\
+template \
+void ParallelRom<dim>::parallelLSMultiRHSClean();
 
 #define INSTANTIATION_HELPER_3(dim, VecContainer1, VecContainer2)\
 template \

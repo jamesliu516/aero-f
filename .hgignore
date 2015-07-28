@@ -22,3 +22,5 @@ Project/*
 Release/*
 Debug/*
 CMakeFiles/*
+CMake/*
+

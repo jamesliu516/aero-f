@@ -1869,7 +1869,7 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   FullM VtrueDummy(1);	// do not need VtrueDummy
 
   double t0 = modalTimer->getTime();
-  ParallelRom<dim> parallelRom(domain,com);
+  ParallelRom<dim> parallelRom(domain,com,domain.getNodeDistInfo());
   parallelRom.parallelSVD(snaps, Utrue, singVals.data(), VtrueDummy, nSnaps, false);
 
   if (ioData->ts.form == TsData::DESCRIPTOR) {
@@ -2190,7 +2190,7 @@ void ModalSolver<dim>::interpolatePOD()  {
 	for (int iData=0; iData < nData; ++iData) {
 		if (iData!=iDataMin) {
 			//compute SVD
-			ParallelRom<dim> parallelRom(domain,com); 
+			ParallelRom<dim> parallelRom(domain,com,domain.getNodeDistInfo()); 
 			parallelRom.parallelSVD(*projMap[iData],U,Sigma,V,numPod);//call SVD here 
 
 			com->barrier();
@@ -2259,7 +2259,7 @@ void ModalSolver<dim>::interpolatePOD()  {
 	VecSet<DistSVec<double, dim> > UInterp(numPod, domain.getNodeDistInfo());
 	double *SigInterp = new double[numPod];
 	FullM VInterp(numPod);
-	ParallelRom<dim> parallelRom(domain,com);
+	ParallelRom<dim> parallelRom(domain,com,domain.getNodeDistInfo());
 	parallelRom.parallelSVD(logMapInterp,UInterp,SigInterp,VInterp,numPod);//call SVD here
 
 	//compute podRefVInterp

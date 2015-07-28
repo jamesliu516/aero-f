@@ -213,6 +213,8 @@ DistEdgeGrad<dim>::DistEdgeGrad(IoData& iod, Domain* domain)
   if (tag && failSafeNewton==1) {
     backuptag = new DistVec<bool>(domain->getNodeDistInfo());
     *backuptag = *tag;
+  } else {
+    backuptag = 0;
   }
 
 }
@@ -222,17 +224,21 @@ DistEdgeGrad<dim>::DistEdgeGrad(IoData& iod, Domain* domain)
 template<int dim>
 DistEdgeGrad<dim>::~DistEdgeGrad()
 {
+
   if (subEdgeGrad) {
+
 #pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub)
+    for (int iSub = 0; iSub < numLocSub; ++iSub){
+
       if (subEdgeGrad[iSub])
 	delete subEdgeGrad[iSub];
-    delete [] subEdgeGrad;
+
+      delete [] subEdgeGrad;
+    }
   }
 
   if (tag) delete(tag);
   if (backuptag) delete(backuptag);
-
 }
 
 //------------------------------------------------------------------------------

@@ -4154,7 +4154,7 @@ GNATConstructionData::GNATConstructionData()
   useOldReducedSVecFunction = USE_OLD_FALSE;
 
   sampledMeshUsed = SAMPLED_MESH_USED;
-  pseudoInverseNodes = 20;
+  pseudoInverseNodes = 10000;
   outputReducedBases = OUTPUT_REDUCED_BASES_TRUE;
   testApproxMetric = TEST_APPROX_METRIC_FALSE;
 }
@@ -5307,7 +5307,6 @@ void IoData::setupCmdFileVariables()
   implosion.setup("ImplosionSetup");
   mg.setup("MultiGrid");
   surfKI.setup(com, "AcousticPressure");
-
   // for nonlinear ROM (KMW)
   romDatabase.setup("NonlinearRomFileSystem");
 	romOffline.setup("NonlinearRomOffline");
@@ -5611,6 +5610,8 @@ void IoData::resetInputValues()
       ts.implicit.mvp = ImplicitData::FD;
     }
 
+    if(embed.structNormal == 1)
+      embed.structNormal == 0; //NodeBased(1) --> ElementBased(0)
 
     if (ts.implicit.ffjacobian != ImplicitData::EXACT) {
       // The overwriting is silent because the feature is not documented.
@@ -5665,34 +5666,108 @@ void IoData::resetInputValues()
     }
   } // END of if (problem.prec == ProblemData::PRECONDITIONED && ...
 
-  if (schemes.ns.flux != SchemeData::ROE)
-  {
-    if (ts.implicit.mvp == ImplicitData::H2)
-    {
+  if (schemes.ns.flux != SchemeData::ROE)  {
+
+    if (ts.implicit.mvp == ImplicitData::H2) {
       com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product only supported with Roe flux.\n");
-      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
       ts.implicit.mvp = ImplicitData::FD;
-      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
     }
+
     if (eqs.fluidModel.fluid != FluidModelData::PERFECT_GAS && 
-        eqs.fluidModel.fluid != FluidModelData::STIFFENED_GAS)
-    {
+        eqs.fluidModel.fluid != FluidModelData::STIFFENED_GAS) {
       com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
       schemes.ns.flux = SchemeData::ROE;
     }
-    if(!eqs.fluidModelMap.dataMap.empty())
-    {
+
+    if(!eqs.fluidModelMap.dataMap.empty()) {
       map<int, FluidModelData *>::iterator it;
       for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
         if (it->second->fluid != FluidModelData::PERFECT_GAS &&
-            it->second->fluid != FluidModelData::STIFFENED_GAS)
-        {
+            it->second->fluid != FluidModelData::STIFFENED_GAS) {
           com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
           schemes.ns.flux = SchemeData::ROE;
         }    
       }
     }
   } // END of if (schemes.ns.flux != SchemeData::ROE)
+
+
+  if (ts.implicit.mvp == ImplicitData::H2){
+
+    if (eqs.fluidModel.fluid != FluidModelData::PERFECT_GAS && 
+        eqs.fluidModel.fluid != FluidModelData::STIFFENED_GAS){
+
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian implemented only for Perfect or Stiffened Gas. \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+
+    }
+
+    if(!eqs.fluidModelMap.dataMap.empty()){
+      map<int, FluidModelData *>::iterator it;
+
+      for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
+	if (it->second->fluid != FluidModelData::PERFECT_GAS &&
+            it->second->fluid != FluidModelData::STIFFENED_GAS) {
+
+	  ts.implicit.mvp     = ImplicitData::FD;
+	  ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+	  com->fprintf(stderr, "*** Warning: Exact Jacobian implemented only for Perfect or Stiffened Gas \n");
+	  com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+
+	}
+      }
+    }
+  }
+
+
+
+  if(ts.implicit.mvp == ImplicitData::H2) {
+    if( mf.prec == 1) {
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for multi-fluid LowMach preconditioner \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+    }    
+  }
+
+  if (ts.implicit.mvp == ImplicitData::H2) {
+
+    if( schemes.ns.limiter == SchemeData::BARTH    ||
+        schemes.ns.limiter == SchemeData::VENKAT   ||
+	schemes.ns.limiter == SchemeData::P_SENSOR ) {
+
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for Barth, Venkat or Pressure sensor limiters \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+       
+    }
+
+  }
+
+  if (ts.implicit.mvp == ImplicitData::H2) {
+    
+    if(schemes.ns.gradient    == SchemeData::NON_NODAL ||
+       schemes.ns.dissipation == SchemeData::SIXTH_ORDER ) {
+
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for NonNodal Gradient or sixth order dissipation \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");       
+    }
+
+  }
+
+
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
@@ -5702,9 +5777,14 @@ void IoData::resetInputValues()
     // The overwriting is silent because ffjacobian is a "slave" flag.
       ts.implicit.ffjacobian = ImplicitData::EXACT;
 #ifndef USE_EIGEN3
-    }
-    else {
-      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented when using low Mach preconditioner. Using approximate Jacobian for inviscid flux term and exact Jacobian for other terms, if present.\n");
+    } else {
+      
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented when using low Mach preconditioner \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+
     }
 #endif
   }
@@ -6141,6 +6221,18 @@ int IoData::checkInputValuesAllEquationsOfState(){
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;
+  
+
+  if( ts.implicit.mvp == ImplicitData::H2) {
+
+    if( eqs.numPhase >1 ) {
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for the multi-fluids case \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+    } 
+ 
+  }
 
   return error;
 

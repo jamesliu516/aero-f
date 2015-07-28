@@ -691,7 +691,7 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
     this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, &nodeTag);
     this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
     this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag, this->distLSS, ghostPoints);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
@@ -724,7 +724,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
     this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition(), distLSS->getStructPosition_0());
   else
     this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag, this->distLSS, ghostPoints); //d2d
   this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,nodeTag, this->distLSS, ghostPoints);
   this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
@@ -862,6 +862,10 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   double res = 0.0;
   if(this->numFluid==1)
     res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
+  else {
+    this->com->fprintf(stderr,"WARNING: EmbeddedTsDesc::computeResidualNorm is not implemented for numFluid > 1\n");
+    res = 1.0;
+  }
 
   return sqrt(res);
 }

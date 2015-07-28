@@ -15,8 +15,6 @@ class Domain;
 #include <iterator>
 #include <NonlinearRom.h>
 
-#define EXP_NLROMOFFLINE
-
 template <int dim>
 class ArrayVecDist {
 	public:
@@ -140,10 +138,8 @@ protected:
 	SetOfVec podHatRes, podHatJac;
 	ArrayVecDist<dim> error;	// error vectors
 	SetOfVec errorRes, errorJac;
-#ifdef EXP_NLROMOFFLINE
         ArrayVecDist<dim> errorHat;
         SetOfVec errorHatRes, errorHatJac;
-#endif
 
 	int nPodState;
 

@@ -8,7 +8,7 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
   pc = ImplicitRomTsDesc<dim>::template 
   createPreconditioner<PrecScalar,dim>(this->ioData->ts.implicit.newton.ksp.ns.pc, this->domain);
 
-  parallelRom = new ParallelRom<dim>(*dom,this->com);
+  parallelRom = new ParallelRom<dim>(*dom,this->com, dom->getNodeDistInfo());
 
   // TODO necessary?
   currentProblemSize = this->nPod;

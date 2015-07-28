@@ -1372,6 +1372,75 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
 template<int dim>
 template<int dimLS>
+void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
+						 DistSVec<double,dim>& U,
+						 DistVec<double>& A,
+						 double** EmbQs,
+						 DistTimeState<dim> *timeState,
+						 DistVec<int>& fluidId, 
+						 DistSVec<double,dimLS> *Phi, 
+						 DistLevelSetStructure *distLSS,
+						 DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+
+  int iSub;
+
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);
+
+  DistNodalGrad<dim, double> * ngrad = spaceOp->getDistNodalGrad(*V);
+
+  int numStructNodes  = distLSS->getNumStructNodes();
+  int numStructElems  = distLSS->getNumStructElems();
+  int   (*stElem)[3]  = distLSS->getStructElems();
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
+
+  typedef double my_array[3];
+  my_array **subEmbQ = new my_array * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new my_array[numStructNodes];
+
+  Vec<GhostPoint<dim>*> *gp = 0;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+
+    for (int is=0; is<numStructNodes; is++) {
+      subEmbQ[iSub][is][0] = 0.0;
+      subEmbQ[iSub][is][1] = 0.0;
+      subEmbQ[iSub][is][2] = 0.0;
+    }
+
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+
+    if (Phi){
+      subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn, 
+ 						   fluidId(iSub), &((*Phi)(iSub)),
+     						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
+						   (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
+    } else {
+      subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn, 
+ 						   fluidId(iSub), (SVec<double,1>*)0,
+						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
+     					           (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
+    }
+  
+    for (int is=0; is<numStructNodes; is++) {
+      if( subEmbQ[iSub][is][0] ) {
+	EmbQs[is][0] = subEmbQ[iSub][is][0];
+	EmbQs[is][1] = subEmbQ[iSub][is][1]/subEmbQ[iSub][is][0]; //Cp
+	EmbQs[is][2] = subEmbQ[iSub][is][2]/subEmbQ[iSub][is][0]; //Cf
+      }
+    } 
+    
+  }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];
+  delete [] subEmbQ;
+  
+}
+// -----------------------------------------------------------------------------------------------------------------------------
+
+template<int dim>
+template<int dimLS>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 					      DistSVec<double,3>& X,
 					      DistSVec<double,dim>& U,
@@ -1651,16 +1720,15 @@ void PostOperator<dim>::computeDerivativeOfVectorQuantity(PostFcn::VectorDerivat
 {
 
   int iSub;
-
   if (type == PostFcn::DERIVATIVE_VELOCITY_VECTOR) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      double (*u)[dim] = U.subData(iSub);
+      double (*u)[dim]  =  U.subData(iSub);
       double (*du)[dim] = dU.subData(iSub);
-      double (*dq)[3] = dQ.subData(iSub);
+      double (*dq)[3]   = dQ.subData(iSub);
 
       for (int i=0; i<dQ.subSize(iSub); ++i) {
-	double v[dim];
+	double  v[dim];
         double dv[dim];
 	varFcn->conservativeToPrimitive(u[i], v);
 	varFcn->conservativeToPrimitiveDerivative(u[i], du[i], v, dv);

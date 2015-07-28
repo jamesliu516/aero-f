@@ -196,6 +196,8 @@ public:
 
 	bool isCoupled() const { return structure.coupled; }
 
+        StructExc* getStructExc() { return structure.structExc; }
+
 };
 
 #endif /* DYNAMICNODALTRANSFER_H_ */
