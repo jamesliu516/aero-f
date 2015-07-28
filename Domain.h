@@ -1055,14 +1055,15 @@ public:
 
   template<int dim, class Scalar>
   void computeDerivativeOfGradientsLeastSquares(dRdXoperators<dim> &,
-            DistSVec<double,3> &, DistSVec<double,6> &, 
+            DistSVec<double,3> &, DistSVec<double,6> &, DistSVec<double,dim> &, 
             DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
 
   template<int dim, class Scalar>
   void computeTransposeDerivativeOfGradientsLeastSquares(dRdXoperators<dim> &,
             DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
             DistSVec<double,3> &,
-            DistSVec<double,6> &);
+            DistSVec<double,6> &,
+            DistSVec<double,dim> &);
 
   template<int dim, class Scalar>
   void computeDerivativeOperatorsOfGradientsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &, DistSVec<Scalar,dim> &, dRdXoperators<dim> &);
@@ -1196,6 +1197,15 @@ public:
                             DistSVec<double,dim> &dddy,
                             DistSVec<double,dim> &dddz,
                             DistSVec<double,3> &dGradP);
+
+  template<int dim>
+  void getTransposeDerivativeOfGradP(RectangularSparseMat<double,dim,3> **dGradPdddx,
+                                     RectangularSparseMat<double,dim,3> **dGradPdddy,
+                                     RectangularSparseMat<double,dim,3> **dGradPdddz,
+                                     DistSVec<double,3> &dGradP,
+                                     DistSVec<double,dim> &dddx,
+                                     DistSVec<double,dim> &dddy,
+                                     DistSVec<double,dim> &dddz);
 
   void updateNodeTag(DistSVec<double,3> &, DistLevelSetStructure *, DistVec<int> &, DistVec<int> &);
 

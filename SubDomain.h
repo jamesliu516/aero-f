@@ -182,6 +182,7 @@ class SubDomain {
 // Included (MB*)
   int numOffDiagEntries;
   double *dGradP[3];
+  SVec<double,3> *dGradPSVec;
 
   bool sampleMesh;
   int numSampledNodes;
@@ -1358,7 +1359,10 @@ public:
                                                          RectangularSparseMat<double,3,dim> &, 
                                                          RectangularSparseMat<double,6,dim> &, 
                                                          RectangularSparseMat<double,6,dim> &, 
-                                                         RectangularSparseMat<double,6,dim> &); 
+                                                         RectangularSparseMat<double,6,dim> &,
+                                                         RectangularSparseMat<double,dim,dim> &, 
+                                                         RectangularSparseMat<double,dim,dim> &, 
+                                                         RectangularSparseMat<double,dim,dim> &); 
 
   template<int dim, class Scalar>
   void computeDerivativeOfGradientsLeastSquares(
@@ -1375,8 +1379,12 @@ public:
             RectangularSparseMat<double,6,dim> *dddxdR,
             RectangularSparseMat<double,6,dim> *dddydR,
             RectangularSparseMat<double,6,dim> *dddzdR,
+            RectangularSparseMat<double,dim,dim> *dddxdV,
+            RectangularSparseMat<double,dim,dim> *dddydV,
+            RectangularSparseMat<double,dim,dim> *dddzdV,
             SVec<double,3> &,
             SVec<double,6> &,
+            SVec<double,dim> &,
             SVec<Scalar,dim> &,
             SVec<Scalar,dim> &, 
             SVec<Scalar,dim> &);
@@ -1389,11 +1397,15 @@ public:
             RectangularSparseMat<double,6,dim> *dddxdR,
             RectangularSparseMat<double,6,dim> *dddydR,
             RectangularSparseMat<double,6,dim> *dddzdR,
+            RectangularSparseMat<double,dim,dim> *dddxdV,
+            RectangularSparseMat<double,dim,dim> *dddydV,
+            RectangularSparseMat<double,dim,dim> *dddzdV,
             SVec<Scalar,dim> &,
             SVec<Scalar,dim> &, 
             SVec<Scalar,dim> &,
             SVec<double,3> &,
-            SVec<double,6> &);
+            SVec<double,6> &,
+            SVec<double,dim> &);
 
   template<int dim, class Scalar>
   void computeDerivativeOfGradientsGalerkin(Vec<double> &, Vec<double> &, SVec<double,3> &, SVec<double,3> &,
@@ -1476,8 +1488,25 @@ public:
 
   template<int dim>
   void computeDerivativeOfNodalForce(PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
-                                     SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, double [3],
-                                     SVec<double,3> &);
+                                     SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, double [3], SVec<double,3> &);
+
+  template<int dim>
+  void computeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> *dForcedX,
+                                     RectangularSparseMat<double,3,3> *dForcedGradP,
+                                     RectangularSparseMat<double,dim,3> *dForcedV,
+                                     RectangularSparseMat<double,3,3> *dForcedS,
+                                     SVec<double,3> &dX, SVec<double,dim> &dV,
+                                     double dS[3], SVec<double,3> &dF,
+                                     SVec<double,3> &, SVec<double,3> &); 
+
+  template<int dim>
+  void computeTransposeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> *dForcedX,
+                                              RectangularSparseMat<double,3,3> *dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> *dForcedV,
+                                              RectangularSparseMat<double,3,3> *dForcedS,
+                                              SVec<double,3> &dF, SVec<double,3> &dGradPSVec,
+                                              SVec<double,3> &dX, SVec<double,dim> &dV,
+                                              SVec<double,3> dSSVec);                                   
 
   template<int dim>
   void computeDerivativeOperatorsOfNodalForce(PostFcn *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &, 
@@ -1552,6 +1581,15 @@ public:
                             SVec<double,dim>& ddVdy,
                             SVec<double,dim>& ddVdz,
                             SVec<double,3>& dGradPSVec);
+
+  template<int dim>
+  void getTransposeDerivativeOfGradP(RectangularSparseMat<double,dim,3> &dGradPdddx,
+                                     RectangularSparseMat<double,dim,3> &dGradPdddy,
+                                     RectangularSparseMat<double,dim,3> &dGradPdddz,
+                                     SVec<double,3>& dGradPSVec,
+                                     SVec<double,dim>& ddVdx,
+                                     SVec<double,dim>& ddVdy,
+                                     SVec<double,dim>& ddVdz);
 
   template<int dim>
   void computeDerivativeOperatorOfGradP(RectangularSparseMat<double,dim,3> &dGradPdddx,

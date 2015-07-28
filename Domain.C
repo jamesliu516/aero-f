@@ -223,13 +223,13 @@ void Domain::computeDerivativeOfGradientsLeastSquares(DistSVec<double,3> &X, Dis
                                                               dddx(iSub), dddy(iSub), dddz(iSub));
   }
 
-  timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, dddx);
   assemble(vPat, dddy);
   assemble(vPat, dddz);
 
+  timer->addNodalGradTime(t0);
 }
 
 //------------------------------------------------------------------------------
@@ -237,7 +237,8 @@ void Domain::computeDerivativeOfGradientsLeastSquares(DistSVec<double,3> &X, Dis
 // Included (YC)
 template<int dim, class Scalar>
 void Domain::computeDerivativeOfGradientsLeastSquares(dRdXoperators<dim> &dRdXop, DistSVec<double,3> &dX,
-                                                      DistSVec<double,6> &dR, DistSVec<Scalar,dim> &dddx,
+                                                      DistSVec<double,6> &dR, DistSVec<double,dim> &dV,
+                                                      DistSVec<Scalar,dim> &dddx,
                                                       DistSVec<Scalar,dim> &dddy, DistSVec<Scalar,dim> &dddz)
 {
 
@@ -248,12 +249,13 @@ void Domain::computeDerivativeOfGradientsLeastSquares(dRdXoperators<dim> &dRdXop
     SVec<Scalar,dim> dummy(dddx(iSub));
     subDomain[iSub]->computeDerivativeOfGradientsLeastSquares(dRdXop.dddxdX[iSub], dRdXop.dddydX[iSub], dRdXop.dddzdX[iSub],
                                                               dRdXop.dddxdR[iSub], dRdXop.dddydR[iSub], dRdXop.dddzdR[iSub],
-                                                              dX(iSub), dR(iSub), dddx(iSub), dddy(iSub), dddz(iSub));
+                                                              dRdXop.dddxdV[iSub], dRdXop.dddydV[iSub], dRdXop.dddzdV[iSub],
+                                                              dX(iSub), dR(iSub), dV(iSub), dddx(iSub), dddy(iSub), dddz(iSub));
   }
 
   timer->addNodalGradTime(t0);
 
-  CommPattern<Scalar> *vPat = getCommPat(dddx);
+  CommPattern<Scalar> *vPat = getCommPat(dV);
   assemble(vPat, dddx);
   assemble(vPat, dddy);
   assemble(vPat, dddz);
@@ -265,12 +267,12 @@ void Domain::computeDerivativeOfGradientsLeastSquares(dRdXoperators<dim> &dRdXop
 // Included (YC)
 template<int dim, class Scalar>
 void Domain::computeTransposeDerivativeOfGradientsLeastSquares(dRdXoperators<dim> &dRdXop, 
-//                                                               DistSVec<Scalar,dim> &var, 
                                                                DistSVec<Scalar,dim> &dddx,
                                                                DistSVec<Scalar,dim> &dddy, 
                                                                DistSVec<Scalar,dim> &dddz,
                                                                DistSVec<double,3> &dX,
-                                                               DistSVec<double,6> &dR)
+                                                               DistSVec<double,6> &dR,
+                                                               DistSVec<double,dim> &dV)
 {
 
   double t0 = timer->getTime();
@@ -279,11 +281,14 @@ void Domain::computeTransposeDerivativeOfGradientsLeastSquares(dRdXoperators<dim
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeTransposeDerivativeOfGradientsLeastSquares(dRdXop.dddxdX[iSub], dRdXop.dddydX[iSub], dRdXop.dddzdX[iSub],
                                                                        dRdXop.dddxdR[iSub], dRdXop.dddydR[iSub], dRdXop.dddzdR[iSub],
-                                                                       dddx(iSub), dddy(iSub), dddz(iSub), dX(iSub), dR(iSub));
+                                                                       dRdXop.dddxdV[iSub], dRdXop.dddydV[iSub], dRdXop.dddzdV[iSub],
+                                                                       dddx(iSub), dddy(iSub), dddz(iSub), dX(iSub), dR(iSub), dV(iSub));
   }
 
-  assemble(weightDerivativePat, dR);
-  assemble(vec3DPat, dX);
+//  assemble(weightDerivativePat, dR);
+//  assemble(vec3DPat, dX);
+//  CommPattern<Scalar> *vPat = getCommPat(dddx);
+//  assemble(vPat, dV);  
 
   timer->addNodalGradTime(t0);
 
@@ -302,7 +307,9 @@ void Domain::computeDerivativeOperatorsOfGradientsLeastSquares(DistSVec<double,3
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeDerivativeOperatorsOfGradientsLeastSquares(X(iSub), R(iSub), var(iSub), 
-						  *dRdXop.dddxdX[iSub], *dRdXop.dddydX[iSub], *dRdXop.dddzdX[iSub], *dRdXop.dddxdR[iSub], *dRdXop.dddydR[iSub], *dRdXop.dddzdR[iSub]);
+                                  *dRdXop.dddxdX[iSub], *dRdXop.dddydX[iSub], *dRdXop.dddzdX[iSub], 
+                                  *dRdXop.dddxdR[iSub], *dRdXop.dddydR[iSub], *dRdXop.dddzdR[iSub],
+                                  *dRdXop.dddxdV[iSub], *dRdXop.dddydV[iSub], *dRdXop.dddzdV[iSub]);
 
   timer->addNodalGradTime(t0);
 
@@ -4692,6 +4699,33 @@ void Domain::getDerivativeOfGradP(RectangularSparseMat<double,dim,3> **dGradPddd
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
     subDomain[iSub]->getDerivativeOfGradP(*dGradPdddx[iSub], *dGradPdddy[iSub], *dGradPdddz[iSub], dddx(iSub), dddy(iSub), dddz(iSub), dGradP(iSub));
+
+// dGradP is not assembled originally
+//  assemble(vec3DPat, dGradP);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void Domain::getTransposeDerivativeOfGradP(RectangularSparseMat<double,dim,3> **dGradPdddx,
+                                           RectangularSparseMat<double,dim,3> **dGradPdddy,
+                                           RectangularSparseMat<double,dim,3> **dGradPdddz,
+                                           DistSVec<double,3> &dGradP,
+                                           DistSVec<double,dim> &dddx,
+                                           DistSVec<double,dim> &dddy,
+                                           DistSVec<double,dim> &dddz)
+{
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->getTransposeDerivativeOfGradP(*dGradPdddx[iSub], *dGradPdddy[iSub], *dGradPdddz[iSub], dGradP(iSub), dddx(iSub), dddy(iSub), dddz(iSub));
+
+  CommPattern<double> *vPat = getCommPat(dddx);
+  assemble(vPat, dddx);
+  assemble(vPat, dddy);
+  assemble(vPat, dddz);
 
 }
 

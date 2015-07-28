@@ -95,8 +95,9 @@ public:
   virtual void conservativeToPrimitiveDerivative(double *U, double *dU, double *V, double *dV) {
     fprintf(stderr, "*** Error:  conservativeToPrimitiveDerivative Function not defined\n");
     exit(1); }
-  virtual void computeConservativeToPrimitiveDerivativeOperators(RectangularSparseMat<double,5,5> &dVdU, RectangularSparseMat<double,1,5> &dVdPstiff) {
-    fprintf(stderr, "*** Error:  computeConservativeToPrimitiveDerivative Function not defined\n");
+  virtual void computeConservativeToPrimitiveDerivativeOperators(double*, double*,
+                                                                 double dVdU[5][5], double dVdPstiff[5]) {
+    fprintf(stderr, "*** Error:  computeComputeConservativeToPrimitiveDerivativeOperators5 Function not defined\n");
     exit(1); }
 
 

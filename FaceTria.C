@@ -475,13 +475,15 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
 			     double pin, double dS[3], SVec<double,3> &dF, double* gradP[3], double* dGradP[3])
 {
 
+  SVec<double,3> dF2(dF), diff2(dF);
+
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING
     || code == BC_SLIP_WALL_MOVING || code == BC_POROUS_WALL_MOVING) {
 
     Vec3D dFi0, dFi1, dFi2, dFv;
-//    Vec3D dFi00(dFi0), dFi11(dFi1), dFi22(dFi2), dFvv(dFv), diff0, diff1, diff2, diffv;
+    Vec3D dFi00(dFi0), dFi11(dFi1), dFi22(dFi2), dFvv(dFv), diff0, diff1, diff2, diffv;
     computeDerivativeOfForceTransmitted(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, 0, dFi0, dFi1, dFi2, dFv, gradP, dGradP);
-/*
+
     double dFi0dn[3] = {0}, dFi0dS[3][3] = {0}, dFi0dV[3][3][dim] = {0}, dFi0dGradP[3][3][3] = {0}, dFi0dX[3][3][3] = {0};
     double dFi1dn[3] = {0}, dFi1dS[3][3] = {0}, dFi1dV[3][3][dim] = {0}, dFi1dGradP[3][3][3] = {0}, dFi1dX[3][3][3] = {0};
     double dFi2dn[3] = {0}, dFi2dS[3][3] = {0}, dFi2dV[3][3][dim] = {0}, dFi2dGradP[3][3][3] = {0}, dFi2dX[3][3][3] = {0};
@@ -495,10 +497,12 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
  for(int l=0; l<3; ++l) {
    for(int j=0; j<3; ++j) {
      dFi00[l] += dFi0dS[l][j]*dS[j];
-     for(int k=0; k<5; ++k)
+     for(int k=0; k<dim; ++k)
        dFi00[l] += dFi0dV[j][l][k]*dV[nodeNum(j)][k];
-     for(int k=0; k<3; ++k)
+     for(int k=0; k<3; ++k) {
        dFi00[l] += dFi0dGradP[j][l][k]*dGradP[k][nodeNum(j)] + dFi0dX[j][l][k]*dX[nodeNum(j)][k];
+//       dFi00[l] += dFi0dX[j][l][k]*dX[nodeNum(j)][k];
+     }
    }
  }
 
@@ -506,10 +510,12 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
  for(int l=0; l<3; ++l) {
    for(int j=0; j<3; ++j) {
      dFi11[l] += dFi1dS[l][j]*dS[j];
-     for(int k=0; k<5; ++k)
+     for(int k=0; k<dim; ++k)
        dFi11[l] += dFi1dV[j][l][k]*dV[nodeNum(j)][k];
-     for(int k=0; k<3; ++k)
+     for(int k=0; k<3; ++k) {
        dFi11[l] += dFi1dGradP[j][l][k]*dGradP[k][nodeNum(j)] + dFi1dX[j][l][k]*dX[nodeNum(j)][k];
+//       dFi11[l] += dFi1dX[j][l][k]*dX[nodeNum(j)][k];
+     }
    }
  }
 
@@ -517,10 +523,12 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
  for(int l=0; l<3; ++l) {
    for(int j=0; j<3; ++j) {
      dFi22[l] += dFi2dS[l][j]*dS[j];
-     for(int k=0; k<5; ++k)
+     for(int k=0; k<dim; ++k)
        dFi22[l] += dFi2dV[j][l][k]*dV[nodeNum(j)][k];
-     for(int k=0; k<3; ++k)
+     for(int k=0; k<3; ++k) {
        dFi22[l] += dFi2dGradP[j][l][k]*dGradP[k][nodeNum(j)] + dFi2dX[j][l][k]*dX[nodeNum(j)][k];
+//       dFi22[l] += dFi2dX[j][l][k]*dX[nodeNum(j)][k];
+     }
    }
  }
 
@@ -537,7 +545,7 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
   double dFi1norm = dFi1.norm();
   double dFi2norm = dFi2.norm();
   double dFvnorm = dFv.norm();
-  
+/*  
   if(dFi0norm != 0) {
     double reldiff = diff0norm/dFi0norm;
     if(reldiff > 1.0e-12) fprintf(stderr, " ... rel. diff for dFi0 is %e\n", diff0norm/dFi0norm);
@@ -571,29 +579,32 @@ void FaceTria::computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, S
    dFtot[0] = dFi0 + third*dFv; 
    dFtot[1] = dFi1 + third*dFv;
    dFtot[2] = dFi2 + third*dFv;
-
+/*
    for (int j=0; j<3; ++j) {
      dF[ nodeNum(j) ][0] += dFtot[j][0];
      dF[ nodeNum(j) ][1] += dFtot[j][1];
      dF[ nodeNum(j) ][2] += dFtot[j][2];
    }
-/*
-   dF[ nodeNum(0) ][0] += dFi0[0] + third*dFv[0];
-   dF[ nodeNum(0) ][1] += dFi0[1] + third*dFv[1]; 
-   dF[ nodeNum(0) ][2] += dFi0[2] + third*dFv[2];
-   dF[ nodeNum(1) ][0] += dFi1[0] + third*dFv[0];
-   dF[ nodeNum(1) ][1] += dFi1[1] + third*dFv[1];
-   dF[ nodeNum(1) ][2] += dFi1[2] + third*dFv[2];
-   dF[ nodeNum(2) ][0] += dFi2[0] + third*dFv[0]; 
-   dF[ nodeNum(2) ][1] += dFi2[1] + third*dFv[1];
-   dF[ nodeNum(2) ][2] += dFi2[2] + third*dFv[2];
-
-   dFdX.addContrib(nodeNum(0), nodeNum(0), dFi0dX[0]);
-   dFdX.addContrib(nodeNum(0), nodeNum(1), dFi0dX[1]);
-   dFdX.addContrib(nodeNum(0), nodeNum(2), dFi0dX[2]);
 */
+   dF[ nodeNum(0) ][0] += dFi00[0] + third*dFvv[0];
+   dF[ nodeNum(0) ][1] += dFi00[1] + third*dFvv[1]; 
+   dF[ nodeNum(0) ][2] += dFi00[2] + third*dFvv[2];
+   dF[ nodeNum(1) ][0] += dFi11[0] + third*dFvv[0];
+   dF[ nodeNum(1) ][1] += dFi11[1] + third*dFvv[1];
+   dF[ nodeNum(1) ][2] += dFi11[2] + third*dFvv[2];
+   dF[ nodeNum(2) ][0] += dFi22[0] + third*dFvv[0]; 
+   dF[ nodeNum(2) ][1] += dFi22[1] + third*dFvv[1];
+   dF[ nodeNum(2) ][2] += dFi22[2] + third*dFvv[2];
 
   }
+/*
+  diff2 = dF2 - dF;
+  double diff2norm = diff2.norm();
+  double dF2norm = dF2.norm();
+  double dFnorm = dF.norm();
+  if(dFnorm != 0) fprintf(stderr, " ... rel. diff = %e\n", diff2norm/dFnorm);
+  else fprintf(stderr, " ... abs. diff = %e\n", diff2norm);
+*/
 
 }
 
@@ -620,7 +631,7 @@ void FaceTria::computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<dou
                                                  dFi0dV, dFi0dGradP, dFi0dX, dFi0dn, dFi0dS,
                                                  dFi1dV, dFi1dGradP, dFi1dX, dFi1dn, dFi1dS,
                                                  dFi2dV, dFi2dGradP, dFi2dX, dFi2dn, dFi2dS);
-
+/*
    dF[ nodeNum(0) ][0] += dFi0[0] + third*dFv[0];
    dF[ nodeNum(0) ][1] += dFi0[1] + third*dFv[1]; 
    dF[ nodeNum(0) ][2] += dFi0[2] + third*dFv[2];
@@ -630,36 +641,36 @@ void FaceTria::computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<dou
    dF[ nodeNum(2) ][0] += dFi2[0] + third*dFv[0]; 
    dF[ nodeNum(2) ][1] += dFi2[1] + third*dFv[1];
    dF[ nodeNum(2) ][2] += dFi2[2] + third*dFv[2];
+*/
+   dForcedX.addContrib(nodeNum(0), nodeNum(0), dFi0dX[0][0]);
+   dForcedX.addContrib(nodeNum(0), nodeNum(1), dFi0dX[1][0]);
+   dForcedX.addContrib(nodeNum(0), nodeNum(2), dFi0dX[2][0]);
+   dForcedX.addContrib(nodeNum(1), nodeNum(0), dFi1dX[0][0]);
+   dForcedX.addContrib(nodeNum(1), nodeNum(1), dFi1dX[1][0]);
+   dForcedX.addContrib(nodeNum(1), nodeNum(2), dFi1dX[2][0]);
+   dForcedX.addContrib(nodeNum(2), nodeNum(0), dFi2dX[0][0]);
+   dForcedX.addContrib(nodeNum(2), nodeNum(1), dFi2dX[1][0]);
+   dForcedX.addContrib(nodeNum(2), nodeNum(2), dFi2dX[2][0]);
 
-   dForcedX.addContrib(nodeNum(0), nodeNum(0), dFi0dX[0]);
-   dForcedX.addContrib(nodeNum(0), nodeNum(1), dFi0dX[1]);
-   dForcedX.addContrib(nodeNum(0), nodeNum(2), dFi0dX[2]);
-   dForcedX.addContrib(nodeNum(1), nodeNum(0), dFi1dX[0]);
-   dForcedX.addContrib(nodeNum(1), nodeNum(1), dFi1dX[1]);
-   dForcedX.addContrib(nodeNum(1), nodeNum(2), dFi1dX[2]);
-   dForcedX.addContrib(nodeNum(2), nodeNum(0), dFi2dX[0]);
-   dForcedX.addContrib(nodeNum(2), nodeNum(1), dFi2dX[1]);
-   dForcedX.addContrib(nodeNum(2), nodeNum(2), dFi2dX[2]);
+   dForcedGradP.addContrib(nodeNum(0), nodeNum(0), dFi0dGradP[0][0]);
+   dForcedGradP.addContrib(nodeNum(0), nodeNum(1), dFi0dGradP[1][0]);
+   dForcedGradP.addContrib(nodeNum(0), nodeNum(2), dFi0dGradP[2][0]);
+   dForcedGradP.addContrib(nodeNum(1), nodeNum(0), dFi1dGradP[0][0]);
+   dForcedGradP.addContrib(nodeNum(1), nodeNum(1), dFi1dGradP[1][0]);
+   dForcedGradP.addContrib(nodeNum(1), nodeNum(2), dFi1dGradP[2][0]);
+   dForcedGradP.addContrib(nodeNum(2), nodeNum(0), dFi2dGradP[0][0]);
+   dForcedGradP.addContrib(nodeNum(2), nodeNum(1), dFi2dGradP[1][0]);
+   dForcedGradP.addContrib(nodeNum(2), nodeNum(2), dFi2dGradP[2][0]);
 
-   dForcedGradP.addContrib(nodeNum(0), nodeNum(0), dFi0dGradP[0]);
-   dForcedGradP.addContrib(nodeNum(0), nodeNum(1), dFi0dGradP[1]);
-   dForcedGradP.addContrib(nodeNum(0), nodeNum(2), dFi0dGradP[2]);
-   dForcedGradP.addContrib(nodeNum(1), nodeNum(0), dFi1dGradP[0]);
-   dForcedGradP.addContrib(nodeNum(1), nodeNum(1), dFi1dGradP[1]);
-   dForcedGradP.addContrib(nodeNum(1), nodeNum(2), dFi1dGradP[2]);
-   dForcedGradP.addContrib(nodeNum(2), nodeNum(0), dFi2dGradP[0]);
-   dForcedGradP.addContrib(nodeNum(2), nodeNum(1), dFi2dGradP[1]);
-   dForcedGradP.addContrib(nodeNum(2), nodeNum(2), dFi2dGradP[2]);
-
-   dForcedV.addContrib(nodeNum(0), nodeNum(0), dFi0dV[0]);
-   dForcedV.addContrib(nodeNum(0), nodeNum(1), dFi0dV[1]);
-   dForcedV.addContrib(nodeNum(0), nodeNum(2), dFi0dV[2]);
-   dForcedV.addContrib(nodeNum(1), nodeNum(0), dFi1dV[0]);
-   dForcedV.addContrib(nodeNum(1), nodeNum(1), dFi1dV[1]);
-   dForcedV.addContrib(nodeNum(1), nodeNum(2), dFi1dV[2]);
-   dForcedV.addContrib(nodeNum(2), nodeNum(0), dFi2dV[0]);
-   dForcedV.addContrib(nodeNum(2), nodeNum(1), dFi2dV[1]);
-   dForcedV.addContrib(nodeNum(2), nodeNum(2), dFi2dV[2]);
+   dForcedV.addContrib(nodeNum(0), nodeNum(0), dFi0dV[0][0]);
+   dForcedV.addContrib(nodeNum(0), nodeNum(1), dFi0dV[1][0]);
+   dForcedV.addContrib(nodeNum(0), nodeNum(2), dFi0dV[2][0]);
+   dForcedV.addContrib(nodeNum(1), nodeNum(0), dFi1dV[0][0]);
+   dForcedV.addContrib(nodeNum(1), nodeNum(1), dFi1dV[1][0]);
+   dForcedV.addContrib(nodeNum(1), nodeNum(2), dFi1dV[2][0]);
+   dForcedV.addContrib(nodeNum(2), nodeNum(0), dFi2dV[0][0]);
+   dForcedV.addContrib(nodeNum(2), nodeNum(1), dFi2dV[1][0]);
+   dForcedV.addContrib(nodeNum(2), nodeNum(2), dFi2dV[2][0]);
 
    dForcedS.addContrib(nodeNum(0), 0, dFi0dS[0]); 
    dForcedS.addContrib(nodeNum(1), 0, dFi1dS[0]); 
