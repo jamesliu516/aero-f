@@ -149,6 +149,12 @@ public:
                                              double, double [3], SVec<double,3> &, 
                                              double* gradP[3], double* dGradP[3]) = 0;
 
+  virtual void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
+                                                      RectangularSparseMat<double,3,3> &dForcedX,
+                                                      RectangularSparseMat<double,3,3> &dForcedGradP,
+                                                      RectangularSparseMat<double,dim,3> &dForcedV,
+                                                      RectangularSparseMat<double,3,3> &dForcedS) = 0;
+
   virtual void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, 
                                                  SVec<double,3>&, Vec<double>&, 
 			                         double*, double*, SVec<double,dim>&, 
@@ -282,6 +288,14 @@ public:
 			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
 			     double pin, double dS[3], SVec<double,3> &dF, double* gradP[3], double* dGradP[3]) {
     t->computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, pin, dS, dF, gradP, dGradP);
+  }
+
+  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
+                                              RectangularSparseMat<double,3,3> &dForcedX,
+                                              RectangularSparseMat<double,3,3> &dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> &dForcedV,
+                                              RectangularSparseMat<double,3,3> &dForcedS) {
+    t->computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
   }
 
   void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, 
@@ -783,6 +797,19 @@ public:
   }
 
   template<int dim>
+  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double *gradP[3],
+                                              RectangularSparseMat<double,3,3> &dForcedX,
+                                              RectangularSparseMat<double,3,3> &dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> &dForcedV,
+                                              RectangularSparseMat<double,3,3> &dForcedS) {
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
+  }
+
+  template<int dim>
   void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, SVec<double,3>& dX, 
 				 Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
 
@@ -964,6 +991,16 @@ public:
 			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
 			     double pin, double dS[3], SVec<double,3> &dF, double* gradP[3], double* dGradP[3]) {
     fprintf(stderr, "Error: undefined function (computeDerivativeOfNodalForce) for this face type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X,
+                          SVec<double,dim> &V, double pin, double* gradP[3],
+                          RectangularSparseMat<double,3,3> &dForcedX,
+                          RectangularSparseMat<double,3,3> &dForcedGradP,
+                          RectangularSparseMat<double,dim,3> &dForcedV,
+                          RectangularSparseMat<double,3,3> &dForcedS) {
+    fprintf(stderr, "Error: undefined function (computeDerivativeOperatorsOfNodalForce) for this face type\n"); exit(1);
   }
 
   template<int dim>

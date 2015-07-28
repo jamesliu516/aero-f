@@ -856,13 +856,15 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
 template<int dim>
 void SpaceOperator<dim>::computeDerivativeOperators
 (
-  DistSVec<double,3> &X
-  , DistVec<double> &ctrlVol
-  , DistSVec<double,dim> &U
-  , double dMach
-  , DistSVec<double,dim> &R
-  , DistTimeState<dim> *timeState
-  , dRdXoperators<dim> *dRdXop
+  DistSVec<double,3> &X,
+  DistVec<double> &ctrlVol,
+  DistSVec<double,dim> &U,
+  double dMach,
+  DistSVec<double,dim> &R,
+  DistVec<double> &Pin,
+  DistTimeState<dim> *timeState,
+  PostOperator<dim> *postOp,
+  dRdXoperators<dim> *dRdXop
 )
 {
 
@@ -890,6 +892,9 @@ void SpaceOperator<dim>::computeDerivativeOperators
     *irey, *direy, fluxFcn, recFcn, *bcData, *geoState, 
     X, *V, *ngrad, egrad, dMach, *dRdXop
   );
+
+  postOp->computeDerivativeOperatorsOfNodalForce(X, U, Pin, dRdXop->dForcedX, dRdXop->dForcedGradP, 
+                                                 dRdXop->dForcedV, dRdXop->dForcedS, dRdXop->dVdU, dRdXop->dVdPstiff); 
 
 }
 
@@ -1066,9 +1071,15 @@ void SpaceOperator<dim>::computeDerivativeOfResidual
 {
 
   dResidual = 0.0;
+//Remark: Error mesage for pointers
+  if (dV == 0) {
+    fprintf(stderr, "*** Error: Variable dV does not exist!\n");
+    exit(1);
+  }
 
+  *dV = 0.0;
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
-    ngrad->computeDerivative(dRdXop, geoState->getConfigSA(), dX, dCtrlVol, dR, dddx, dddy, dddz);
+    ngrad->computeDerivative(dRdXop, geoState->getConfigSA(), dX, dCtrlVol, *dV, dR, dddx, dddy, dddz);
 
 /******** individual check ****************************************
     DistSVec<double,3> dX2(dX);  
@@ -1189,7 +1200,7 @@ void SpaceOperator<dim>::computeTransposeDerivativeOfResidual(dRdXoperators<dim>
   domain->computeTransposeDerivativeOfFiniteVolumeTerm(*dRdXop, *bcData, *geoState, dResidual, *ngrad, egrad, dX, dddx, dddy, dddz, dNormal, dn, dndot);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  
-    ngrad->computeTransposeDerivative(dRdXop, geoState->getConfigSA(), dddx, dddy, dddz, dR, dCtrlVol, dX);
+    ngrad->computeTransposeDerivative(dRdXop, geoState->getConfigSA(), dddx, dddy, dddz, dR, dCtrlVol, *dV, dX);
 
 }
 
@@ -2672,24 +2683,104 @@ void SpaceOperator<dim>::computeDerivativeOfGradP
 }
 
 //------------------------------------------------------------------------------
-
+// included(YS)
 template<int dim>
 void SpaceOperator<dim>::computeDerivativeOfGradP
 (
   dRdXoperators<dim> *dRdXop,
-  DistSVec<double,3> &dX, DistVec<double> &dCtrlVol,
+  DistSVec<double,3> &dX, DistVec<double> &dCtrlVol, DistSVec<double,dim> &dU,
   DistSVec<double,dim> &dddx, DistSVec<double,dim> &dddy,
   DistSVec<double,dim> &dddz, DistSVec<double,6> &dR,
   DistSVec<double,3> &dGradP
 )
 {
 
+  varFcn->conservativeToPrimitiveDerivative(dRdXop->dVdU, dRdXop->dVdPstiff, dU, *dV);
+/*
+  DistSVec<double, dim> dU2(dU), dV2(*dV);
+  dU2 = 0.0;   dV2 = 0.0;
+  varFcn->conservativeToPrimitiveDerivative(dRdXop->dVdU, dRdXop->dVdPstiff, dU, dV2);
+  double aa = dV2*(*dV);
+  varFcn->conservativeToPrimitiveTransposeDerivative(dRdXop->dVdU, dRdXop->dVdPstiff, *dV, dU2);
+  double bb = dU2*dU;
+  double diffnorm = sqrt((aa-bb)*(aa-bb));
+  if( aa !=0 ) fprintf(stderr, " ... 1. rel. diff = %e\n", diffnorm/std::abs(aa));
+  else fprintf(stderr, " ... 1. abs. diff = %e\n", diffnorm);
+*/
+
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
-    ngrad->computeDerivative(dRdXop, geoState->getConfigSA(), dX, dCtrlVol, dR, dddx, dddy, dddz);    
+    ngrad->computeDerivative(dRdXop, geoState->getConfigSA(), dX, dCtrlVol, *dV, dR, dddx, dddy, dddz);  
+/*
+    DistSVec<double,dim> dddx2(dddx), dddy2(dddy), dddz2(dddz);
+    DistSVec<double,6> dR2(dR);
+    DistSVec<double,3> dX2(dX);
+    DistVec<double> dCtrlVol2(dCtrlVol);
+    dddx2 = 0;  dddy2 = 0;  dddz2 = 0;  dR2 = 0;  dX2 = 0;  dV2 = 0;  dCtrlVol2 = 0;
+   
+    ngrad->computeDerivative(dRdXop, geoState->getConfigSA(), dX, dCtrlVol, *dV, dR, dddx2, dddy2, dddz2);  
+    aa = dddx2*dddx + dddy2*dddy + dddz2*dddz;
+
+    ngrad->computeTransposeDerivative(dRdXop, geoState->getConfigSA(), dddx, dddy, dddz, dR2, dCtrlVol2, dV2, dX2);    
+    bb = dR2*dR + dCtrlVol2*dCtrlVol + dV2*(*dV) + dX2*dX;
+    diffnorm = sqrt((aa-bb)*(aa-bb));
+    if( aa !=0 ) fprintf(stderr, " ... 2. rel. diff = %e\n", diffnorm/std::abs(aa));
+    else fprintf(stderr, " ... 2. abs. diff = %e\n", diffnorm);
+*/
 //    ngrad->limitDerivative(recFcn, X, dX, ctrlVol, dCtrlVol, *V, *dV);
   }
 
   domain->getDerivativeOfGradP(dRdXop->dGradPdddx, dRdXop->dGradPdddy, dRdXop->dGradPdddz, dddx, dddy, dddz, dGradP);
+/*
+  DistSVec<double,dim> dddx2(dddx), dddy2(dddy), dddz2(dddz);
+  DistSVec<double,3> dGradP2(dGradP);
+  dddx2 = 0.0;  dddy2 = 0.0;  dddz2 = 0.0;  dGradP2 = 0.0;
+  domain->getDerivativeOfGradP(dRdXop->dGradPdddx, dRdXop->dGradPdddy, dRdXop->dGradPdddz, dddx, dddy, dddz, dGradP2);
+  aa = dGradP2*dGradP;
+
+  domain->getTransposeDerivativeOfGradP(dRdXop->dGradPdddx, dRdXop->dGradPdddy, dRdXop->dGradPdddz, dGradP, dddx2, dddy2, dddz2);
+  bb = dddx2*dddx + dddy2*dddy + dddz2*dddz;
+  diffnorm = sqrt((aa-bb)*(aa-bb));
+  if( aa !=0 ) fprintf(stderr, " ... 3. rel. diff = %e\n", diffnorm/std::abs(aa));
+  else fprintf(stderr, " ... 3. abs. diff = %e\n", diffnorm);
+*/
+}
+
+//------------------------------------------------------------------------------
+// included(YS)
+template<int dim>
+void SpaceOperator<dim>::computeTransposeDerivativeOfGradP
+(
+  dRdXoperators<dim> *dRdXop,
+  DistSVec<double,3> &dGradP,
+  DistSVec<double,dim> &dddx, 
+  DistSVec<double,dim> &dddy, 
+  DistSVec<double,dim> &dddz,
+  DistSVec<double,6> &dR,
+  DistVec<double> &dCtrlVol, 
+  DistSVec<double,3> &dX, 
+  DistSVec<double,dim> &dU
+)
+{
+
+  DistSVec<double,3> dX2(dX);
+  DistSVec<double,dim> dU2(dU);
+  dX2 = 0.0;   dU2 = 0.0;   *dV = 0.0;
+  domain->getTransposeDerivativeOfGradP(dRdXop->dGradPdddx, dRdXop->dGradPdddy, dRdXop->dGradPdddz, dGradP, dddx, dddy, dddz);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    ngrad->computeTransposeDerivative(dRdXop, geoState->getConfigSA(), dddx, dddy, dddz, dR, dCtrlVol, *dV, dX2);    
+//    ngrad->limitDerivative(recFcn, X, dX, ctrlVol, dCtrlVol, *V, *dV);
+  }
+
+  varFcn->conservativeToPrimitiveTransposeDerivative(dRdXop->dVdU, dRdXop->dVdPstiff, *dV, dU2);
+  dU += dU2;
+  dX += dX2;
+
+
+  CommPattern<double> *vPat = domain->getCommPat(dU);
+  CommPattern<double> *vec3DPat = domain->getCommPat(dX);
+  domain->assemble(vPat, dU);
+  domain->assemble(vec3DPat, dX);
 
 }
 

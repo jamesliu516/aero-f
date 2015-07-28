@@ -1738,6 +1738,8 @@ void Domain::computeTransposeDerivativeOfWeightsLeastSquares(
     subDomain[iSub]->computeTransposeDerivativeOfWeightsLeastSquaresNodePart(*dRdR[iSub], dR(iSub));
   }
 
+  assemble(weightDerivativePat, dR);
+
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dR(iSub), dX(iSub));

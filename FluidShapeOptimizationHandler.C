@@ -763,7 +763,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(boo
   M = Mi[0] + Mv[0];
 
   dRdXoperators<dim> *dRdXop = dRdX->getdRdXop(); 
-  this->spaceOp->computeDerivativeOfGradP(dRdXop, dX, dAdS, dddx, dddy, dddz, dR, dGradP);
+  this->spaceOp->computeDerivativeOfGradP(dRdXop, dX, dAdS, dU, dddx, dddy, dddz, dR, dGradP);
 
   this->postOp->computeDerivativeOfForceAndMoment(x0, X, dX, U, dU, DFSPAR, dFi, dMi, dFv, dMv);
 
@@ -973,22 +973,165 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(bool i
 
   load=0.0;
   dLoad=0.0;
-
+//  DistSVec<double,3> dLoad2(dLoad), diff(dLoad);
   this->spaceOp->computeGradP(X, *this->A, U);
-
   this->postOp->computeNodalForce(X, U, Pin, load);
 
   dRdXoperators<dim> *dRdXop = dRdX->getdRdXop(); 
-  if(isSparse) this->spaceOp->computeDerivativeOfGradP(dRdXop, dX, dAdS, dddx, dddy, dddz, dR, dGradP);
+  if(isSparse) 
+    this->spaceOp->computeDerivativeOfGradP(dRdXop, dX, dAdS, dU, dddx, dddy, dddz, dR, dGradP);
   else this->spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU);
+/*/////////////// checking spaceOp->computeDerivativeOfGradP & spaceOp->computeTransposeDerivativeOfGradP
+ //
+ //
+  DistSVec<double,3> dGradP2(dGradP), dX2(dX);
+  DistSVec<double,dim> dddx2(dddx), dddy2(dddy), dddz2(dddz), dU2(dU);
+  DistSVec<double,6> dR2(dR);
+  DistVec<double> dAdS2(dAdS);
+  dGradP2 = 0;  dX2 = 0;  dddx2 = 0;  dddy2 = 0;  dddz2 = 0;  dU2 = 0;  dR2 = 0;  dAdS2 = 0;
+  this->spaceOp->computeDerivativeOfGradP(dRdXop, dX, dAdS, dU, dddx2, dddy2, dddz2, dR2, dGradP2); 
+  double aa = dGradP2*dGradP; // + dR2*dR;
+
+  dddx2 = 0;  dddy2 = 0;   dddz2 = 0;
+  this->spaceOp->computeTransposeDerivativeOfGradP(dRdXop, dGradP, dddx2, dddy2, dddz2, dR, dAdS2, dX2, dU2);
+  double bb = dAdS2*dAdS + dX2*dX + dU2*dU; 
+
+  double diffnorm = sqrt((aa-bb)*(aa-bb));
+  if(aa != 0) this->com->fprintf(stderr, " ... rel. diff is %e\n", diffnorm/std::abs(aa));
+  else this->com->fprintf(stderr, " ... abs. diff is %e\n", diffnorm);
+*/
+
+  //TODO: must treat dS2 better in case that dS is not zero.
+  double dS2[3] = {0}; 
+
+  if(isSparse) this->postOp->computeDerivativeOfNodalForce(dRdXop->dForcedX, dRdXop->dForcedGradP, dRdXop->dForcedV, dRdXop->dForcedS,
+                                                           dRdXop->dVdU, dX, dGradP, dU, DFSPAR, dLoad); 
+  else this->postOp->computeDerivativeOfNodalForce(X, dX, U, dU, Pin, DFSPAR, dLoad);
+
+/* ////////////////// checking computeDerivativeOfNodalForce && computeTransposeDerivativeOfNodalForce
+ //
+ //
+  DistSVec<double,dim> dU2(dU);
+  DistSVec<double,3> dGradP2(dGradP), dX2(dX), dLoad2(dLoad);
+  DistVec<double> dAdS2(dAdS);
+  dGradP2 = 0.0;  dX2 = 0.0;  dU2 = 0.0;  dAdS2 = 0.0;  dLoad2 = 0.0;
  
-  this->postOp->computeDerivativeOfNodalForce(X, dX, U, dU, Pin, DFSPAR, dLoad);
+  this->postOp->computeDerivativeOfNodalForce(dRdXop->dForcedX, dRdXop->dForcedGradP, dRdXop->dForcedV, dRdXop->dForcedS,
+                                              dRdXop->dVdU, dX, dGradP, dU, DFSPAR, dLoad2);
+  double aa = dLoad2*dLoad; 
+
+  this->postOp->computeTransposeDerivativeOfNodalForce(dRdXop->dForcedX,
+                                                       dRdXop->dForcedGradP,
+                                                       dRdXop->dForcedV,
+                                                       dRdXop->dForcedS,
+                                                       dRdXop->dVdU,
+                                                       dLoad, dX2, dGradP2, 
+                                                       dU2, dS2);
+  
+  double bb = dU2*dU + dX2*dX + dAdS2*dAdS + dGradP2*dGradP;
+  double diffnorm = sqrt((aa-bb)*(aa-bb));
+  if( aa != 0.0 ) this->com->fprintf(stderr, " ... final rel. diff = %e\n", diffnorm/sqrt(aa*aa));
+  else this->com->fprintf(stderr, " ... final abs. diff = %e\n", diffnorm);
+
+  this->com->fprintf(stderr, " ... dS2[0] = %e, dS2[1] = %e, dS2[2] = %e\n", dS2[0], dS2[1], dS2[2]);
+*/
+
+
+
+/* //////////////////// checking spaceOp->computeDerivativeOfGradP & spaceOp->computeTransposeDerivativeOfGradP
+ ////////////////////// checking computeDerivativeOfNodalForce && computeTransposeDerivativeOfNodalForce 
+ //
+ //
+  DistSVec<double,dim> dU2(dU);
+  DistSVec<double,3> dGradP2(dGradP), dX2(dX), dLoad2(dLoad);
+  DistVec<double> dAdS2(dAdS);
+ 
+  dGradP2 = 0.0;  dLoad2 = 0.0;  dddx = 0.0; dddy = 0.0;  dddz = 0.0;  dR = 0.0;
+  this->spaceOp->computeDerivativeOfGradP(dRdXop, dX, dAdS, dU, dddx, dddy, dddz, dR, dGradP2);
+  this->postOp->computeDerivativeOfNodalForce(dRdXop->dForcedX, dRdXop->dForcedGradP, dRdXop->dForcedV, dRdXop->dForcedS,
+                                              dRdXop->dVdU, dX, dGradP2, dU, DFSPAR, dLoad2);
+  double aa = dLoad2*dLoad; 
+
+  dddx = 0.0; dddy = 0.0;  dddz = 0.0;  dR = 0.0;   dGradP2 = 0.0;    dU2 = 0.0;   dX2 = 0.0;   dAdS2 = 0.0; 
+  this->postOp->computeTransposeDerivativeOfNodalForce(dRdXop->dForcedX,
+                                                       dRdXop->dForcedGradP,
+                                                       dRdXop->dForcedV,
+                                                       dRdXop->dForcedS,
+                                                       dRdXop->dVdU,
+                                                       dLoad, dX2, dGradP2, 
+                                                       dU2, dS2);
+  
+  this->spaceOp->computeTransposeDerivativeOfGradP(dRdXop, dGradP2, dddx, dddy, dddz, dR, dAdS2, dX2, dU2); 
+  double bb = dU2*dU + dX2*dX + dAdS2*dAdS;
+  double diffnorm = sqrt((aa-bb)*(aa-bb));
+  if( aa != 0.0 ) this->com->fprintf(stderr, " ... final rel. diff = %e\n", diffnorm/sqrt(aa*aa));
+  else this->com->fprintf(stderr, " ... final abs. diff = %e\n", diffnorm);
+
+  this->com->fprintf(stderr, " ... dS2[0] = %e, dS2[1] = %e, dS2[2] = %e\n", dS2[0], dS2[1], dS2[2]);
+*/
+
+
+/*
+  diff = dLoad2 - dLoad;
+  double diffnorm = diff.norm();
+  double dLoadnorm = dLoad.norm();
+  double dLoad2norm = dLoad2.norm();
+  if(dLoadnorm != 0) this->com->fprintf(stderr, " ... rel. diff is %e, dLoadnorm = %e, dLoad2norm = %e\n", diffnorm/dLoadnorm, dLoadnorm, dLoad2norm);
+  else this->com->fprintf(stderr, " ... abs. diff is %e\n", diffnorm);
+*/
 
   if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
     dLoad *= 2.0 * this->refVal->length*this->refVal->length / surface;
   }
   else {
     dLoad += (dForce / this->refVal->force) * load;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fsoGetTransposeDerivativeOfLoadAnalytical(IoData &ioData, 
+                                     DistSVec<double,3> &dLoad, DistSVec<double,3> &dX, DistSVec<double,dim> &dU)
+{
+
+  double gamma = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
+
+  double velocity = ioData.ref.mach * sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
+  double dVelocity= sqrt(gamma * ioData.ref.pressure / ioData.ref.density)*DFSPAR[0];
+  double dForce=2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
+
+  dX = 0.0;
+  dU = 0.0;
+
+  dRdXoperators<dim> *dRdXop = dRdX->getdRdXop(); 
+
+  //TODO: must treat DFSPAR2 better in case that it is not zero.
+  double DFSPAR2[3] = {0}; 
+
+  DistSVec<double,dim> dU2(dU);
+  DistSVec<double,3> dGradP2(dGradP), dX2(dX), dLoad2(dLoad);
+  DistVec<double> dAdS2(dAdS);
+
+  dddx = 0.0; dddy = 0.0;  dddz = 0.0;  dR = 0.0;   dGradP = 0.0;    dAdS2 = 0.0; 
+  this->postOp->computeTransposeDerivativeOfNodalForce(dRdXop->dForcedX,
+                                                       dRdXop->dForcedGradP,
+                                                       dRdXop->dForcedV,
+                                                       dRdXop->dForcedS,
+                                                       dRdXop->dVdU,
+                                                       dLoad, dX, dGradP2, 
+                                                       dU, DFSPAR2);
+  
+  this->spaceOp->computeTransposeDerivativeOfGradP(dRdXop, dGradP2, dddx, dddy, dddz, dR, dAdS2, dX, dU); 
+
+  if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
+    dX *= 2.0 * this->refVal->length*this->refVal->length / surface;
+    dU *= 2.0 * this->refVal->length*this->refVal->length / surface;
+  }
+  else {
+      //TODO: needs to add the term below if Mach number is used as a sensitivity variable.
+//    dLoad += (dForce / this->refVal->force) * load;
   }
 
 }
@@ -1590,7 +1733,7 @@ int FluidShapeOptimizationHandler<dim>::fsoAeroelasticHandler(IoData &ioData, Di
   if(ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) { totalNumParamTypes++; }
   if(ioData.sa.sensBeta == SensitivityAnalysis::ON_SENSITIVITYBETA) { totalNumParamTypes++; }
 
-  dRdX->constructOperators(*this->X, *this->A, U, DFSPAR[0], Flux, this->timeState);
+  dRdX->constructOperators(*this->X, *this->A, U, DFSPAR[0], Flux, Pin, this->timeState, this->postOp);
 
   for(int iparam=0; iparam<totalNumParamTypes; ++iparam) {
     int numParam;

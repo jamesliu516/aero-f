@@ -97,6 +97,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
     for (j = 0; j < locNodes->size(); j++)
       gradP[i][j] = 0.0;
   }
+  dGradPSVec = new SVec<double,3>(locNodes->size()); 
 
 
 // Included (MB*)
@@ -156,6 +157,7 @@ SubDomain::~SubDomain()
 //
   myTree->destruct();
   delete myTree;
+  if(dGradPSVec) delete dGradPSVec;
 
 }
 

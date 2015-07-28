@@ -842,8 +842,10 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(int configSA, DistSVec<double
 
 // Included (YC)
 template<int dim, class Scalar>
-void DistNodalGrad<dim, Scalar>::computeDerivative(dRdXoperators<dim> *dRdXop, int configSA, DistSVec<double,3> &dX, DistVec<double> &dCtrlVol,
-                                                   DistSVec<double,6>& dR2, DistSVec<double,dim>& dddx2, DistSVec<double,dim>& dddy2, DistSVec<double,dim>& dddz2)
+void DistNodalGrad<dim, Scalar>::computeDerivative(dRdXoperators<dim> *dRdXop, int configSA, DistSVec<double,3> &dX, 
+                                                   DistVec<double> &dCtrlVol, DistSVec<double,dim> &dV2, 
+                                                   DistSVec<double,6>& dR2, DistSVec<double,dim>& dddx2, 
+                                                   DistSVec<double,dim>& dddy2, DistSVec<double,dim>& dddz2)
 {
 
 //Remark: Error mesage for pointers
@@ -866,7 +868,7 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(dRdXoperators<dim> *dRdXop, i
   }
 
   if (typeGradient == SchemeData::LEAST_SQUARES) {
-    domain->computeDerivativeOfGradientsLeastSquares(*dRdXop, dX, dR2, dddx2, dddy2, dddz2);
+    domain->computeDerivativeOfGradientsLeastSquares(*dRdXop, dX, dR2, dV2, dddx2, dddy2, dddz2);
     Communicator* com = domain->getCommunicator();
 //    dddx2 = *dddx;    dddy2 = *dddy;    dddz2 = *dddz;
 /*    
@@ -903,6 +905,7 @@ void DistNodalGrad<dim, Scalar>::computeTransposeDerivative(dRdXoperators<dim> *
                                                             DistSVec<double,dim> &dddz2, 
                                                             DistSVec<double,6> &dR2,
 				                                                    DistVec<double> &dCtrlVol,
+                                                            DistSVec<double,dim> &dV2,
                                                             DistSVec<double,3> &dX)
 {
 
@@ -923,7 +926,7 @@ void DistNodalGrad<dim, Scalar>::computeTransposeDerivative(dRdXoperators<dim> *
 //  *dR = 0.0;
   if (typeGradient == SchemeData::LEAST_SQUARES) {
     Communicator* com = domain->getCommunicator();
-    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, dddx2, dddy2, dddz2, dX, dR2);
+    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, dddx2, dddy2, dddz2, dX, dR2, dV2);
 //    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, *dddx, *dddy, *dddz, dX, dR2);
   } else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL) {
 //    domain->computeDerivativeOfGradientsGalerkin(ctrlVol, dCtrlVol, *wii, *wij, *wji, *dwii, *dwij, *dwji, V, dV, *dddx, *dddy, *dddz);

@@ -80,6 +80,12 @@ public:
   template<int dim>
   void conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistVec<int> *tag = 0);
   template<int dim>
+  void conservativeToPrimitiveDerivative(RectangularSparseMat<double,dim,dim> **dVdU, RectangularSparseMat<double,1,dim> **dVdPstiff,
+                                         DistSVec<double,dim> &dU, DistSVec<double,dim> &dV, DistVec<int> *tag = 0);
+  template<int dim>
+  void conservativeToPrimitiveTransposeDerivative(RectangularSparseMat<double,dim,dim> **dVdU, RectangularSparseMat<double,1,dim> **dVdPstiff,
+                                                  DistSVec<double,dim> &dV, DistSVec<double,dim> &dU, DistVec<int> *tag = 0);
+  template<int dim>
   void primitiveToConservativeDerivative(DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistVec<int> *tag = 0);
   template<int dim>
   void computeTemperature(DistSVec<double,dim> &V, DistVec<double> &T, DistVec<int> *tag = 0);
@@ -91,6 +97,11 @@ public:
   void primitiveToConservative(SVec<double,dim> &V, SVec<double,dim> &U, Vec<int> *tag = 0);
   template<int dim>
   void conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,dim> &dU, SVec<double,dim> &V, SVec<double,dim> &dV, Vec<int> *tag = 0);
+  template<int dim>
+  void computeConservativeToPrimitiveDerivativeOperators(SVec<double,dim> &U, SVec<double,dim> &V, 
+                                                         RectangularSparseMat<double,dim,dim> &dVdU, 
+                                                         RectangularSparseMat<double,1,dim> &dVdPstiff, 
+                                                         Vec<int> *tag = 0);
   template<int dim>
   void computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
                                          RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, int tag=0); 
@@ -466,6 +477,33 @@ void VarFcn::conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void VarFcn::computeConservativeToPrimitiveDerivativeOperators(SVec<double,dim> &U, SVec<double,dim> &V, 
+                                                               RectangularSparseMat<double,dim,dim> &dVdU, 
+                                                               RectangularSparseMat<double,1,dim> &dVdPstiff, 
+                                                               Vec<int> *tag)
+{
+
+ if (tag){
+    for (int i=0; i<U.size(); ++i) {
+      double dVdUarray[5][5] = {0}, dVdPstiffarray[5] = {0};
+      varFcn[(*tag)[i]]->computeConservativeToPrimitiveDerivativeOperators(U[i], V[i], dVdUarray, dVdPstiffarray);
+      dVdU.addContrib(i,i,dVdUarray[0]);
+      dVdPstiff.addContrib(i,0,dVdPstiffarray);
+    }
+  }else{
+    for (int i=0; i<U.size(); ++i){
+      double dVdUarray[5][5] = {0}, dVdPstiffarray[5] = {0};
+      varFcn[0]->computeConservativeToPrimitiveDerivativeOperators(U[i], V[i], dVdUarray, dVdPstiffarray);
+      dVdU.addContrib(i,i,dVdUarray[0]);
+      dVdPstiff.addContrib(i,0,dVdPstiffarray);
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void VarFcn::conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistVec<int> *tag)
 {
 
@@ -492,6 +530,38 @@ void VarFcn::conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec
 //------------------------------------------------------------------------------
 
 template<int dim>
+void VarFcn::conservativeToPrimitiveDerivative(RectangularSparseMat<double,dim,dim> **dVdU, RectangularSparseMat<double,1,dim> **dVdPstiff,
+                                               DistSVec<double,dim> &dU, DistSVec<double,dim> &dV, DistVec<int> *tag)
+{
+
+  int numLocSub = dU.numLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    dVdU[iSub]->apply(dU(iSub), dV(iSub));
+    //TODO: may need to add dVdPstiff apply
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void VarFcn::conservativeToPrimitiveTransposeDerivative(RectangularSparseMat<double,dim,dim> **dVdU, RectangularSparseMat<double,1,dim> **dVdPstiff,
+                                                        DistSVec<double,dim> &dV, DistSVec<double,dim> &dU, DistVec<int> *tag)
+{
+
+  int numLocSub = dU.numLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    dVdU[iSub]->applyTranspose(dV(iSub), dU(iSub));
+    //TODO: may need to add dVdPstiff apply
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void VarFcn::computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
                                                                RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, int tag)
 {
@@ -506,12 +576,12 @@ void VarFcn::computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,d
       int *loctag = tag->subData(iSub);
       fprintf(stderr, " ... subSize is %d\n", U.subSize(iSub));
       for (int i=0; i<U.subSize(iSub); ++i) {
-        varFcn[loctag[i]]->computeConservativeToPrimitiveDerivativeOperators(u[i], v[i], dVdU, dVdPstiff);
+        varFcn[loctag[i]]->computeConservativeToPrimitiveDerivativeOperators(i, u[i], v[i], dVdU, dVdPstiff);
         fprintf(stderr, " ... loctag[i] is %d\n", loctag[i]);
       }
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
-        varFcn[0]->computeConservativeToPrimitiveDerivativeOperators(dVdU, dVdPstiff);
+        varFcn[0]->computeConservativeToPrimitiveDerivativeOperators(i, u[i], v[i], dVdU, dVdPstiff);
     }
   }
 

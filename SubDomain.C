@@ -714,8 +714,12 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
                RectangularSparseMat<double,6,dim> *dddxdR,
                RectangularSparseMat<double,6,dim> *dddydR,
                RectangularSparseMat<double,6,dim> *dddzdR,
+               RectangularSparseMat<double,dim,dim> *dddxdV,
+               RectangularSparseMat<double,dim,dim> *dddydV,
+               RectangularSparseMat<double,dim,dim> *dddzdV,
                SVec<double,3> &dX,
                SVec<double,6> &dR,
+               SVec<double,dim> &dV,
                SVec<Scalar,dim> &dddx,
                SVec<Scalar,dim> &dddy, 
                SVec<Scalar,dim> &dddz)
@@ -725,23 +729,29 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
   dddy = (Scalar) 0.0;
   dddz = (Scalar) 0.0;
 
-  SVec<Scalar,dim> xxx(dddx), dddx2(dddx), uux(dddx);
-  SVec<Scalar,dim> yyy(dddy), dddy2(dddy), uuy(dddy);
-  SVec<Scalar,dim> zzz(dddz), dddz2(dddz), uuz(dddz);
+  SVec<Scalar,dim> xxx(dddx), xxx2(dddx), dddx2(dddx), uux(dddx);
+  SVec<Scalar,dim> yyy(dddy), yyy2(dddy), dddy2(dddy), uuy(dddy);
+  SVec<Scalar,dim> zzz(dddz), zzz2(dddz), dddz2(dddz), uuz(dddz);
 
 
   xxx = (Scalar) 0;    yyy = (Scalar) 0;   zzz = (Scalar) 0;
+  xxx2 = (Scalar) 0;   yyy2 = (Scalar) 0;  zzz2 = (Scalar) 0;
   dddx2 = (Scalar) 0;  dddy2 = (Scalar) 0; dddz2 = (Scalar) 0;
 
   dddxdX->apply(dX, xxx);
   dddydX->apply(dX, yyy);
   dddzdX->apply(dX, zzz);
 
+  dddxdV->apply(dV, xxx2);
+  dddydV->apply(dV, yyy2);
+  dddzdV->apply(dV, zzz2);
+
   dddxdR->apply(dR, dddx);
   dddydR->apply(dR, dddy);
   dddzdR->apply(dR, dddz);
 
   dddx += xxx;    dddy += yyy;    dddz += zzz;
+  dddx += xxx2;   dddy += yyy2;   dddz += zzz2;
 
 }
 
@@ -755,15 +765,20 @@ void SubDomain::computeTransposeDerivativeOfGradientsLeastSquares(
                RectangularSparseMat<double,6,dim> *dddxdR,
                RectangularSparseMat<double,6,dim> *dddydR,
                RectangularSparseMat<double,6,dim> *dddzdR,
+               RectangularSparseMat<double,dim,dim> *dddxdV,
+               RectangularSparseMat<double,dim,dim> *dddydV,
+               RectangularSparseMat<double,dim,dim> *dddzdV,
                SVec<Scalar,dim> &dddx,
                SVec<Scalar,dim> &dddy, 
                SVec<Scalar,dim> &dddz,
                SVec<double,3> &dX,
-               SVec<double,6> &dR)
+               SVec<double,6> &dR,
+               SVec<double,dim> &dV)
 {
 
   SVec<Scalar,3> dummyX(dX);
   SVec<Scalar,6> dummyR(dR);
+  SVec<Scalar,dim> dummyV(dV);
 
   dummyX = 0.0;
   dddxdX->applyTranspose(dddx, dummyX);
@@ -775,12 +790,19 @@ void SubDomain::computeTransposeDerivativeOfGradientsLeastSquares(
   dddzdX->applyTranspose(dddz, dummyX);
   dX += dummyX;
 
-  dddxdR->applyTranspose(dddx, dR);
-//  dR += dummyR;
+  dddxdR->applyTranspose(dddx, dummyR);
+  dR += dummyR;
   dddydR->applyTranspose(dddy, dummyR);
   dR += dummyR;
   dddzdR->applyTranspose(dddz, dummyR);
   dR += dummyR;
+
+  dddxdV->applyTranspose(dddx, dummyV);
+  dV += dummyV;
+  dddydV->applyTranspose(dddy, dummyV);
+  dV += dummyV;
+  dddzdV->applyTranspose(dddz, dummyV);
+  dV += dummyV;
 
 }
 
@@ -935,7 +957,10 @@ void SubDomain::computeDerivativeOperatorsOfGradientsLeastSquares(SVec<double,3>
                                                                   RectangularSparseMat<double,3,dim> &dddzdX,
                                                                   RectangularSparseMat<double,6,dim> &dddxdR,
                                                                   RectangularSparseMat<double,6,dim> &dddydR,
-                                                                  RectangularSparseMat<double,6,dim> &dddzdR)
+                                                                  RectangularSparseMat<double,6,dim> &dddzdR,
+                                                                  RectangularSparseMat<double,dim,dim> &dddxdV,
+                                                                  RectangularSparseMat<double,dim,dim> &dddydV,
+                                                                  RectangularSparseMat<double,dim,dim> &dddzdV)
    
 {
 
@@ -979,6 +1004,26 @@ void SubDomain::computeDerivativeOperatorsOfGradientsLeastSquares(SVec<double,3>
     difference2 = sqrt(difference2);
     fprintf(stderr," ... rel. difference2 is %e\n", difference2/sqrt(dWjnorm));
 */
+    double dddxdVarray[2*dim][2*dim] = {0}, dddydVarray[2*dim][2*dim] = {0}, dddzdVarray[2*dim][2*dim] = {0};
+
+    for (int k=0; k<dim; ++k) {
+/*
+      deltaVar = var[j][k] - var[i][k];
+      dDeltaVar = dvar[j][k] - dvar[i][k];
+      dddx[i][k] += Wi[0] * dvar[j][k] - Wi[0] * dvar[i][k];
+      dddy[i][k] += Wi[1] * dvar[j][k] - Wi[1] * dvar[i][k];
+      dddz[i][k] += Wi[2] * dvar[j][k] - Wi[2] * dvar[i][k];
+      dddx[j][k] -= Wj[0] * dvar[j][k] - Wj[0] * dvar[i][k];
+      dddy[j][k] -= Wj[1] * dvar[j][k] - Wj[1] * dvar[i][k];
+      dddz[j][k] -= Wj[2] * dvar[j][k] - Wj[2] * dvar[i][k];
+*/      
+      dddxdVarray[k][k] = -Wi[0];      dddxdVarray[k][dim+k] = Wi[0];
+      dddydVarray[k][k] = -Wi[1];      dddydVarray[k][dim+k] = Wi[1];
+      dddzdVarray[k][k] = -Wi[2];      dddzdVarray[k][dim+k] = Wi[2];
+      dddxdVarray[dim+k][k] = Wj[0];   dddxdVarray[dim+k][dim+k] = -Wj[0];
+      dddydVarray[dim+k][k] = Wj[1];   dddydVarray[dim+k][dim+k] = -Wj[1];
+      dddzdVarray[dim+k][k] = Wj[2];   dddzdVarray[dim+k][dim+k] = -Wj[2];
+    }
 
 
     double ddddW[2*dim][2] = {0};
@@ -1025,7 +1070,10 @@ void SubDomain::computeDerivativeOperatorsOfGradientsLeastSquares(SVec<double,3>
           dQzdR[k][m+6] += ddddW[k][n] * dW2dR[n][m+6];
         }
 
-    int ndList[2] = { i, j};
+    int ndList[2] = {i, j};
+    dddxdV.addContrib(2,ndList,dddxdVarray[0]);
+    dddydV.addContrib(2,ndList,dddydVarray[0]);
+    dddzdV.addContrib(2,ndList,dddzdVarray[0]);
     dddxdX.addContrib(2,ndList,dQxdX[0]);
     dddydX.addContrib(2,ndList,dQydX[0]);
     dddzdX.addContrib(2,ndList,dQzdX[0]);
@@ -5972,6 +6020,7 @@ void SubDomain::computeDerivativeOfNodalForce(PostFcn *postFcn, BcData<dim> &bcD
 {
 
   dF = 0.0;
+
   Vec<double> &d2wall = geoState.getDistanceToWall();
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
   SVec<double,dim> &dVwall = bcData.getdFaceStateVector();
@@ -5980,6 +6029,73 @@ void SubDomain::computeDerivativeOfNodalForce(PostFcn *postFcn, BcData<dim> &bcD
 
   for (int i=0; i<faces.size(); ++i)
     faces[i].computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, Pin[i], dS, dF, gradP, dGradP);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> *dForcedX,
+                                              RectangularSparseMat<double,3,3> *dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> *dForcedV,
+                                              RectangularSparseMat<double,3,3> *dForcedS,
+                                              SVec<double,3> &dX, SVec<double,dim> &dV, 
+                                              double dS[3], SVec<double,3> &dF,
+                                              SVec<double,3> &dSSVec, SVec<double,3> &dGradPSVec)
+{
+
+  dF = 0.0;
+  SVec<double,3> dummy(dF);
+  dForcedX->apply(dX, dummy);
+  dF += dummy;
+
+  for (int i=0;i<nodes.size();i++) {
+    dGradPSVec[i][0] = dGradP[0][i];
+    dGradPSVec[i][1] = dGradP[1][i];
+    dGradPSVec[i][2] = dGradP[2][i];
+  }
+
+  dForcedGradP->apply(dGradPSVec, dummy);
+  dF += dummy;
+  dForcedV->apply(dV, dummy);
+  dF += dummy;
+
+  dSSVec[0][0] = dS[0];
+  dSSVec[0][1] = dS[1];
+  dSSVec[0][2] = dS[2];
+
+  dForcedS->apply(dSSVec, dummy);
+  dF += dummy;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeTransposeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> *dForcedX,
+                                              RectangularSparseMat<double,3,3> *dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> *dForcedV,
+                                              RectangularSparseMat<double,3,3> *dForcedS,
+                                              SVec<double,3> &dF, SVec<double,3> &dGradPSVec, 
+                                              SVec<double,3> &dX, SVec<double,dim> &dV, SVec<double,3> dSSVec)
+{
+  SVec<double,3> dummydX(dX); 
+  dForcedX->applyTranspose(dF, dummydX);
+  dX += dummydX;
+
+  SVec<double,3> dummydGradPSVec(dGradPSVec); 
+  dForcedGradP->applyTranspose(dF, dummydGradPSVec);
+  dGradPSVec += dummydGradPSVec;
+
+  SVec<double,dim> dummydV(dV);
+  dForcedV->applyTranspose(dF, dummydV);
+  dV += dummydV;
+
+  SVec<double,3> dummydSSVec(dSSVec);
+  dForcedS->applyTranspose(dF, dummydSSVec);
+  dSSVec += dummydSSVec;
 
 }
 
@@ -8095,6 +8211,9 @@ void SubDomain::getDerivativeOfGradP(NodalGrad<dim>& ngrad)
     dGradP[0][i] = ddVdx[i][4];
     dGradP[1][i] = ddVdy[i][4];
     dGradP[2][i] = ddVdz[i][4];
+    (*dGradPSVec)[i][0] = ddVdx[i][4];
+    (*dGradPSVec)[i][1] = ddVdy[i][4];
+    (*dGradPSVec)[i][2] = ddVdz[i][4];
   }
 
 }
@@ -8122,6 +8241,26 @@ void SubDomain::getDerivativeOfGradP(RectangularSparseMat<double,dim,3> &dGradPd
   for(int i=0; i<3; ++i)
     for(int j=0; j<numNodes(); ++j)
       dGradP[i][j] = dGradPSVec[j][i];
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::getTransposeDerivativeOfGradP(RectangularSparseMat<double,dim,3> &dGradPdddx, 
+                                              RectangularSparseMat<double,dim,3> &dGradPdddy, 
+                                              RectangularSparseMat<double,dim,3> &dGradPdddz, 
+                                              SVec<double,3>& dGradPSVec,
+                                              SVec<double,dim>& ddVdx, 
+                                              SVec<double,dim>& ddVdy, 
+                                              SVec<double,dim>& ddVdz)
+{
+
+  SVec<double,3> dummy(dGradPSVec);
+  dGradPdddx.applyTranspose(dGradPSVec, ddVdx);
+  dGradPdddy.applyTranspose(dGradPSVec, ddVdy);
+  dGradPdddz.applyTranspose(dGradPSVec, ddVdz);
+
 }
 
 //------------------------------------------------------------------------------

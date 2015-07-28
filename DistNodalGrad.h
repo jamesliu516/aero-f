@@ -140,12 +140,12 @@ public:
   template<class Scalar2>
   void computeDerivative(int, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
-  void computeDerivative(dRdXoperators<dim> *, int, DistSVec<double,3> &, DistVec<double> &,
+  void computeDerivative(dRdXoperators<dim> *, int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, 
                          DistSVec<double,6> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void computeTransposeDerivative(dRdXoperators<dim> *, int, 
                                   DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
-                                  DistSVec<double,6> &, DistVec<double> &, DistSVec<double,3> &);
+                                  DistSVec<double,6> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,3> &);
 
 // Included (YC)
   void computeDerivativeOfWeightsOperators(DistSVec<double,3> &, dRdXoperators<dim> &);

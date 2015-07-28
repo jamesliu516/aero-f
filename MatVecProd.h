@@ -23,6 +23,7 @@ template<int dim> class SpaceOperator;
 template<int dim, int dimLS> class MultiPhaseSpaceOperator;
 template<int dim> class DistExactRiemannSolver;
 template<class Scalar, int dim> class DistEmbeddedVec;
+template<int dim> class PostOperator;
 template<int dim> class TsOutput;
 
 //------------------------------------------------------------------------------
@@ -36,7 +37,7 @@ public:
   virtual ~MatVecProd() {}
 
   virtual void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
-                                  double, DistSVec<double,dim> &, DistTimeState<dim> *) = 0;
+                                  double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) = 0;
   virtual dRdXoperators<dim> *getdRdXop() = 0;
   virtual void exportMemory(MemoryPool *mp) {}
 
@@ -148,7 +149,7 @@ public:
   void attachHH(DistEmbeddedVec<double,dim>& v);
 
   void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
-                                  double, DistSVec<double,dim> &, DistTimeState<dim> *) {}
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
   dRdXoperators<dim> *getdRdXop() { return 0;}
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -225,7 +226,7 @@ public:
   DistMat<Scalar,neq> &operator= (const Scalar);
 
   void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
-                                  double, DistSVec<double,dim> &, DistTimeState<dim> *) {}
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
 
   dRdXoperators<dim> *getdRdXop() { return 0; }
 
@@ -419,7 +420,7 @@ public:
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
   void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
-                                  double, DistSVec<double,dim> &, DistTimeState<dim> *) {}
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
   dRdXoperators<dim> *getdRdXop() { return 0; }
 /*
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
@@ -693,6 +694,9 @@ struct dRdXoperators
   RectangularSparseMat<double,3,dim> **dddxdX;
   RectangularSparseMat<double,3,dim> **dddydX;
   RectangularSparseMat<double,3,dim> **dddzdX;
+  RectangularSparseMat<double,dim,dim> **dddxdV;
+  RectangularSparseMat<double,dim,dim> **dddydV;
+  RectangularSparseMat<double,dim,dim> **dddzdV;
   RectangularSparseMat<double,6,dim> **dddxdR;
   RectangularSparseMat<double,6,dim> **dddydR;
   RectangularSparseMat<double,6,dim> **dddzdR;
@@ -711,6 +715,8 @@ struct dRdXoperators
   RectangularSparseMat<double,3,3> **dForcedX;
   RectangularSparseMat<double,3,3> **dForcedGradP;
   RectangularSparseMat<double,3,3> **dForcedS;
+  RectangularSparseMat<double,1,dim> **dVdPstiff;
+  RectangularSparseMat<double,dim,dim> **dVdU;
 
   // Constructor
   dRdXoperators() { dRdX = 0; dRdR = 0; dddxdX = 0; dddydX = 0; dddzdX = 0; dddxdR = 0; 
@@ -718,8 +724,26 @@ struct dRdXoperators
                     dFluxdddx = 0;  dFluxdddy = 0;  dFluxdddz = 0;  dFluxdEdgeNorm = 0;  dFluxdX = 0; 
                     dFluxdFaceNormal = 0;  dFluxdFaceNormalVel = 0;  dFluxdUb = 0;
                     dGradPdddx = 0;  dGradPdddy = 0;  dGradPdddz = 0; 
-                    dForcedV = 0;    dForcedX = 0;   dForcedGradP = 0;   dForcedS = 0; }
+                    dForcedV = 0;    dForcedX = 0;   dForcedGradP = 0;   dForcedS = 0; 
+                    dVdPstiff = 0;   dVdU = 0;    
+                    dddxdV = 0;  dddydV = 0;   dddzdV = 0;  }
   ~dRdXoperators() {
+
+    if (dVdPstiff) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dVdPstiff[iSub]) delete dVdPstiff[iSub];
+
+      delete [] dVdPstiff;
+    }
+
+    if (dVdU) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dVdU[iSub]) delete dVdU[iSub];
+
+      delete [] dVdU;
+    }
 
     if (dForcedS) {
 #pragma omp parallel for
@@ -791,6 +815,30 @@ struct dRdXoperators
         if (dRdR[iSub]) delete dRdR[iSub];
 
       delete [] dRdR;
+    }
+
+    if (dddxdV) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddxdV[iSub]) delete dddxdV[iSub];
+
+      delete [] dddxdV;
+    }
+
+    if (dddydV) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddydV[iSub]) delete dddydV[iSub];
+
+      delete [] dddydV;
+    }
+
+    if (dddzdV) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddzdV[iSub]) delete dddzdV[iSub];
+
+      delete [] dddzdV;
     }
 
     if (dddxdX) {
@@ -947,6 +995,9 @@ struct dRdXoperators
     dddxdX = new RectangularSparseMat<double,3,dim>*[numLocSub];
     dddydX = new RectangularSparseMat<double,3,dim>*[numLocSub];
     dddzdX = new RectangularSparseMat<double,3,dim>*[numLocSub];
+    dddxdV = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dddydV = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dddzdV = new RectangularSparseMat<double,dim,dim>*[numLocSub];
     dddxdR = new RectangularSparseMat<double,6,dim>*[numLocSub];
     dddydR = new RectangularSparseMat<double,6,dim>*[numLocSub];
     dddzdR = new RectangularSparseMat<double,6,dim>*[numLocSub];
@@ -965,6 +1016,8 @@ struct dRdXoperators
     dForcedX = new RectangularSparseMat<double,3,3>*[numLocSub];
     dForcedV = new RectangularSparseMat<double,dim,3>*[numLocSub];
     dForcedS = new RectangularSparseMat<double,3,3>*[numLocSub];
+    dVdU = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dVdPstiff = new RectangularSparseMat<double,1,dim>*[numLocSub];
   }
 
 };
@@ -1069,7 +1122,7 @@ public:
   void initializeOperators(double);
   dRdXoperators<dim> *getdRdXop() {return dRdXop;}
   void constructOperators(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
-                          double dMach, DistSVec<double,dim> &R, DistTimeState<dim> *timeState);
+                          double dMach, DistSVec<double,dim> &R, DistVec<double> &, DistTimeState<dim> *timeState, PostOperator<dim> *);
 /*
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);

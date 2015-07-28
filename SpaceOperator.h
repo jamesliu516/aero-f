@@ -339,7 +339,8 @@ public:
   void rstFluxFcn(IoData &);
 
   // Included (YC)
-  void computeDerivativeOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistTimeState<dim> * = 0, dRdXoperators<dim> * =0);
+  void computeDerivativeOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistVec<double> &,
+                                  DistTimeState<dim> * = 0, PostOperator<dim> * = 0, dRdXoperators<dim> * =0);
 
   // Included (MB)
   void computeDerivativeOfResidual(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &,
@@ -437,10 +438,25 @@ public:
   void computeDerivativeOfGradP
   (
     dRdXoperators<dim> *dRdXop,
-    DistSVec<double,3> &dX, DistVec<double> &dCtrlVol,
+    DistSVec<double,3> &dX, DistVec<double> &dCtrlVol, DistSVec<double,dim> &dU,
     DistSVec<double,dim> &dddx, DistSVec<double,dim> &dddy,
     DistSVec<double,dim> &dddz, DistSVec<double,6> &dR,
     DistSVec<double,3> &dGradP
+  );
+
+  // Included (YC)
+  /// \note This routine is called from FluidSensitivityAnalysis.
+  void computeTransposeDerivativeOfGradP
+  (
+    dRdXoperators<dim> *dRdXop,
+    DistSVec<double,3> &dGradP,
+    DistSVec<double,dim> &dddx,
+    DistSVec<double,dim> &dddy, 
+    DistSVec<double,dim> &dddz,
+    DistSVec<double,6> &dR,
+    DistVec<double> &dCtrlVol,
+    DistSVec<double,3> &dX,
+    DistSVec<double,dim> &dU
   );
 
   // Included (MB)

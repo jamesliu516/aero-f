@@ -2553,6 +2553,9 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     dRdXop->dddxdX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,dim>();
     dRdXop->dddydX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,dim>();
     dRdXop->dddzdX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,dim>();
+    dRdXop->dddxdV[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
+    dRdXop->dddydV[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
+    dRdXop->dddzdV[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
     dRdXop->dddxdR[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<6,dim>();
     dRdXop->dddydR[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<6,dim>();
     dRdXop->dddzdR[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<6,dim>();
@@ -2567,6 +2570,8 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     dRdXop->dForcedX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,3>();
     dRdXop->dForcedV[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,3>();
     dRdXop->dForcedS[iSub] = subDomain[iSub]->template create_ConstantBaseddRdXoperators<3,3>();
+    dRdXop->dVdU[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
+    dRdXop->dVdPstiff[iSub] = subDomain[iSub]->template create_ConstantBaseddRdXoperators<1,dim>();
     size += double(dRdXop->dCtrlVoldX[iSub]->numNonZeroBlocks()*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dEdgeNormdX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dFaceNormdX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
@@ -2578,6 +2583,9 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     size += double(dRdXop->dddxdX[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dddydX[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dddzdX[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dddxdV[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dddydV[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dddzdV[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dddxdR[iSub]->numNonZeroBlocks()*6*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dddydR[iSub]->numNonZeroBlocks()*6*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dddzdR[iSub]->numNonZeroBlocks()*6*dim*sizeof(double)) / (1024.*1024.);
@@ -2593,6 +2601,8 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     size += double(dRdXop->dForcedX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dForcedV[iSub]->numNonZeroBlocks()*dim*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dForcedS[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dVdU[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dVdPstiff[iSub]->numNonZeroBlocks()*dim*sizeof(double)) / (1024.*1024.);
   }
 
   com->globalSum(1, &size);
@@ -2657,6 +2667,9 @@ void MatVecProd_dRdX<dim,Scalar,neq>::initializeOperators(double x)
     *dRdXop->dddxdX[iSub] = x;
     *dRdXop->dddydX[iSub] = x;
     *dRdXop->dddzdX[iSub] = x;
+    *dRdXop->dddxdV[iSub] = x;
+    *dRdXop->dddydV[iSub] = x;
+    *dRdXop->dddzdV[iSub] = x;
     *dRdXop->dddxdR[iSub] = x;
     *dRdXop->dddydR[iSub] = x;
     *dRdXop->dddzdR[iSub] = x;
@@ -2675,6 +2688,8 @@ void MatVecProd_dRdX<dim,Scalar,neq>::initializeOperators(double x)
     *dRdXop->dFluxdFaceNormal[iSub] = x;
     *dRdXop->dFluxdFaceNormalVel[iSub] = x;
     *dRdXop->dFluxdUb[iSub] = x;
+    *dRdXop->dVdU[iSub] = x;
+    *dRdXop->dVdPstiff[iSub] = x;
   }
 
 }
@@ -2686,11 +2701,13 @@ void MatVecProd_dRdX<dim,Scalar,neq>::constructOperators(DistSVec<double,3> &X,
                                                          DistSVec<double,dim> &U,
                                                          double dMach,
                                                          DistSVec<double,dim> &R,
-                                                         DistTimeState<dim> *timeState)
+                                                         DistVec<double> &Pin,
+                                                         DistTimeState<dim> *timeState,
+                                                         PostOperator<dim> *postOp)
 {
   com->printf(5," ... in MatVecProd_dRdX<dim,Scalar,neq>::constructOperators\n");
   initializeOperators(0.0);
-  spaceOp->computeDerivativeOperators(X, ctrlVol, U, dMach, R, timeState, dRdXop); 
+  spaceOp->computeDerivativeOperators(X, ctrlVol, U, dMach, R, Pin, timeState, postOp, dRdXop); 
 }
 
 //------------------------------------------------------------------------------
