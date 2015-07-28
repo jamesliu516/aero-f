@@ -13,6 +13,7 @@ struct Vec3D;
 
 template<class Scalar> class DistVec;
 template<class Scalar, int dim> class DistSVec;
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 //------------------------------------------------------------------------------
 
@@ -113,7 +114,16 @@ public:
   void resetConfigSA() { data.configSA = 0; }
   int getConfigSA() const { return data.configSA; }
   void computeDerivatives(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &);
+  void computeDerivatives(RectangularSparseMat<double,3,3> **, RectangularSparseMat<double,3,3> **, RectangularSparseMat<double,3,1> **,
+                          DistSVec<double,3> &, DistVec<double> &, DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<double>&);
+  void computeTransposeDerivatives(RectangularSparseMat<double,3,3> **, RectangularSparseMat<double,3,3> **, RectangularSparseMat<double,3,1> **,
+                                   DistVec<double>&, DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<double>&, DistSVec<double,3> &);
+  void computeDerivativeOperators(DistSVec<double,3> &, RectangularSparseMat<double,3,3> **, RectangularSparseMat<double,3,3> **, RectangularSparseMat<double,3,1> **); 
   void reset(DistSVec<double,3> &);
+
+  DistVec<Vec3D> &getdEdgeNormal() const { return *dEdgeNorm; }
+  DistVec<double> &getdEdgeNormalVel() const { return *dEdgeNormVel; }
+  
 
 };
 

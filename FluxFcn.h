@@ -108,6 +108,15 @@ public:
     ff_[tag]->computeDerivative(ire,dIre,n,dn,nv,dnv,vl,dvl,vr,dvr,dmach,f,df);
   }
 
+  void compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(double *n, double nv, double *vl, double *vr,
+                                                              double dmach, double *f, double dfdn[7][3],
+                                                              double *fdnv, double dfdvl[7][7], double dfdvr[7][7], int tag=0) 
+  {
+    assert(numPhases_==1);
+    check(tag);
+    ff_[tag]->compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(n, nv, vl, vr, dmach, f, dfdn, fdnv, dfdvl, dfdvr);
+  }
+
   void computeDerivative
   (
     double ire, double dIre, double *n, double *dn, double nv, double dnv, 
@@ -119,6 +128,15 @@ public:
     check(tag);
     ff_[tag]->computeDerivative(ire,dIre,n,dn,nv,dnv,v,ub,dub,f,df);
   }
+
+  void computeDerivativeOperators(double ire, double dIre, double *n, double nv, double *v, double *ub,
+                                  double dfdn[7][3], double dfdsig[7][1], double dfdub[7][7], int tag=0)
+  {
+    assert(numPhases_==1);
+    check(tag);
+    ff_[tag]->computeDerivativeOperators(n, nv, v, ub, dfdn, dfdsig, dfdub);
+  }
+
 
   FluxFcnBase* getFluxFcnBase(int tag = 0) const { check(tag); return ff_[tag]; }
 

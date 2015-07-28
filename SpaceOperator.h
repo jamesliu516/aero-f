@@ -35,6 +35,7 @@ template<int dim> class DistTimeState;
 template<class Scalar, int dim> class DistSVec;
 template<class Scalar, int dim> class DistMat;
 template<int dim> class DistExactRiemannSolver;
+template<int dim> struct dRdXoperators;
 
 #ifndef _DNDGRAD_TMPL_
 #define _DNDGRAD_TMPL_
@@ -273,6 +274,12 @@ public:
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<class Scalar, int neq>
+  void computeH2transpose(DistSVec<double,3> &, DistVec<double> &,
+                          DistSVec<double,dim> &, DistMat<Scalar,neq> &,
+                          DistSVec<double,dim> &, DistSVec<double,dim> &,
+                          DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<class Scalar, int neq>
   void computeH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 		 DistSVec<double,dim> &U, 
 		 DistLevelSetStructure *distLSS,
@@ -293,6 +300,12 @@ public:
                DistSVec<double,dim> &, DistSVec<double,dim> &,
                DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
   
+  template<class Scalar1, class Scalar2>
+  void applyH2transposeNew(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
+                           DistMat<Scalar1,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
+                           DistSVec<double,dim> &, DistSVec<double,dim> &,
+                           DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
+
   template<class Scalar1, class Scalar2>
   void applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 	       DistSVec<double,dim> &U,   
@@ -325,10 +338,20 @@ public:
   // Included (MB)
   void rstFluxFcn(IoData &);
 
+  // Included (YC)
+  void computeDerivativeOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistVec<double> &,
+                                  DistTimeState<dim> * = 0, PostOperator<dim> * = 0, dRdXoperators<dim> * =0);
 
   // Included (MB)
   void computeDerivativeOfResidual(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &,
                                DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0);
+
+  void computeDerivativeOfResidual(dRdXoperators<dim> *, DistSVec<double,3> &, DistVec<double> &, DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<double>&, 
+                                   DistSVec<double,dim> &, DistSVec<double,6> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void computeTransposeDerivativeOfResidual(dRdXoperators<dim> *, DistSVec<double,dim> &, DistVec<double> &, DistSVec<double,3> &,
+                                            DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<Vec3D>&,
+                                            DistVec<Vec3D>&, DistVec<double>&, DistSVec<double,6>& );
 
   void computeDerivativeOfResidual(DistSVec<double,3> &X,
 				   DistVec<double> &ctrlVol,
@@ -410,6 +433,31 @@ public:
     DistSVec<double,dim> &U, DistSVec<double,dim> &dU
   );
 
+  // Included (YC)
+  /// \note This routine is called from FluidSensitivityAnalysis.
+  void computeDerivativeOfGradP
+  (
+    dRdXoperators<dim> *dRdXop,
+    DistSVec<double,3> &dX, DistVec<double> &dCtrlVol, DistSVec<double,dim> &dU,
+    DistSVec<double,dim> &dddx, DistSVec<double,dim> &dddy,
+    DistSVec<double,dim> &dddz, DistSVec<double,6> &dR,
+    DistSVec<double,3> &dGradP
+  );
+
+  // Included (YC)
+  /// \note This routine is called from FluidSensitivityAnalysis.
+  void computeTransposeDerivativeOfGradP
+  (
+    dRdXoperators<dim> *dRdXop,
+    DistSVec<double,3> &dGradP,
+    DistSVec<double,dim> &dddx,
+    DistSVec<double,dim> &dddy, 
+    DistSVec<double,dim> &dddz,
+    DistSVec<double,6> &dR,
+    DistVec<double> &dCtrlVol,
+    DistSVec<double,3> &dX,
+    DistSVec<double,dim> &dU
+  );
 
   // Included (MB)
   /// \note This routine is redundant. It is never called.

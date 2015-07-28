@@ -2,6 +2,7 @@
 #define _VAR_FCN_SGEULER_H
 
 #include <VarFcnBase.h>
+//#include <RectangularSparseMatrix.h>
 #include <fstream>
 
 #ifdef AEROF_MPI_DEBUG
@@ -73,7 +74,11 @@ public:
   void primitiveToConservative(double *V, double *U);
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *);
   void primitiveToConservativeDerivative(double *, double *, double *, double *);
-  
+ 
+  void computeConservativeToPrimitiveDerivativeOperators(double*, double*, 
+                                                         double dVdU[5][5], 
+                                                         double dVdPstiff[5]);
+
   void extrapolatePrimitive(double un, double c, double *Vb, double *Vinter, double *V);
   void extrapolateCharacteristic(double n[3], double un, double c, double *Vb, double *dV);
   void primitiveToCharacteristicVariations(double n[3], double *V, double *dV, double *dW);
@@ -216,6 +221,10 @@ public:
   double getPressure(double *V)               const {return V[4];}
   double getDerivativeOfPressureConstant()    const {return dPstiff;}
 
+  void computedPdV(double *dPdV)              const { 
+    for(int i=0; i<5; ++i) dPdV[i] = 0.0;
+    dPdV[4] = 1.0;
+  } 
 };
 
 //------------------------------------------------------------------------------
@@ -298,6 +307,43 @@ void VarFcnSGEuler::conservativeToPrimitiveDerivative(double *U, double *dU, dou
   double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
 
   dV[4] = (gam-1.0) * (dU[4] - 0.5 * dU[0] * vel2  - 0.5 * U[0] * dvel2) - gam*dPstiff;
+
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnSGEuler::computeConservativeToPrimitiveDerivativeOperators(double *U, double *V, double dVdU[5][5], double dVdPstiff[5])
+{
+
+//  dV[0] = dU[0];
+
+  double invRho = 1.0 / V[0];
+
+//  dV[1] =  invRho*dU[1]  - invRho*V[1]*dU[0];
+//  dV[2] =  invRho*dU[2]  - invRho*V[2]*dU[0];
+//  dV[3] =  invRho*dU[3]  - invRho*V[3]*dU[0]; 
+
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+
+//  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
+  double cf01 = gam-1.0;
+  double cf02 = -0.5*cf01*vel2;
+  double cf03 = -2.0*0.5*cf01*U[0]*V[1];
+  double cf04 = -2.0*0.5*cf01*U[0]*V[2];
+  double cf05 = -2.0*0.5*cf01*U[0]*V[3];
+//  dV[4] = cf01*dU[4] + cf03*invRho*dU[1]  + cf04*invRho*dU[2] + cf05*invRho*dU[3]  + (cf02 - cf05*invRho*V[3]- cf03*invRho*V[1] - cf04*invRho*V[2])*dU[0];
+
+
+  dVdU[0][0] = 1.0;
+  dVdU[1][0] = -invRho*V[1];    dVdU[1][1] = invRho;
+  dVdU[2][0] = -invRho*V[2];    dVdU[2][2] = invRho;
+  dVdU[3][0] = -invRho*V[3];    dVdU[3][3] = invRho;
+  dVdU[4][0] = cf02 - cf05*invRho*V[3]- cf03*invRho*V[1] - cf04*invRho*V[2];
+  dVdU[4][1] = cf03*invRho; 
+  dVdU[4][2] = cf04*invRho;
+  dVdU[4][3] = cf05*invRho;
+  dVdU[4][4] = cf01;
+
+  dVdPstiff[4] = -gam;
 
 }
 //------------------------------------------------------------------------------

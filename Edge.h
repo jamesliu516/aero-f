@@ -284,8 +284,39 @@ public:
 // Included (MB)
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&, SVec<double,3>&,
-			       SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
-			       SVec<double,dim>&);
+                                           SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
+                                           SVec<double,dim>&);
+  
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,dim,dim> *,
+                                           RectangularSparseMat<double,dim,dim> *dFluxdddy,
+                                           RectangularSparseMat<double,dim,dim> *dFluxdddz,
+                                           RectangularSparseMat<double,3,dim> *dFluxdX,
+                                           RectangularSparseMat<double,3,dim> *dFluxdEdgeNorm,
+                                           ElemSet&, GeoState&, SVec<double,3>&, 
+                                           NodalGrad<dim>&, EdgeGrad<dim>*, 
+                                           SVec<double,dim>& dddx,
+                                           SVec<double,dim>& dddy,
+                                           SVec<double,dim>& dddz,
+                                           Vec<Vec3D>& dNormal,
+                                           SVec<double,dim>&);
+  
+  template<int dim>
+  void computeTransposeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,dim,dim> *,
+                                           RectangularSparseMat<double,dim,dim> *dFluxdddy,
+                                           RectangularSparseMat<double,dim,dim> *dFluxdddz,
+                                           RectangularSparseMat<double,3,dim> *dFluxdX,
+                                           RectangularSparseMat<double,3,dim> *dFluxdEdgeNorm,
+                                           SVec<double,dim>& dFluxes,
+                                           NodalGrad<dim>& ngrad,
+                                           EdgeGrad<dim>* egrad,
+                                           ElemSet& elems,
+                                           GeoState& geoState,
+                                           SVec<double,3>& dX,
+                                           SVec<double,dim>& dddx,
+                                           SVec<double,dim>& dddy,
+                                           SVec<double,dim>& dddz,
+                                           Vec<Vec3D>& dNormal);                          
   
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -294,7 +325,17 @@ public:
 					   ExactRiemannSolver<dim>& riemann, int Nriemann,
 					   SVec<double,3> *Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 					   double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes);
-    
+   
+  template<int dim>
+  void computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
+              ElemSet& elems, GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+              EdgeGrad<dim>* egrad, double dMach, 
+              RectangularSparseMat<double,3,dim> &dFluxdEdgeNorm,
+              RectangularSparseMat<double,3,dim> &dFluxdX,
+              RectangularSparseMat<double,dim,dim> &dFluxdddx,
+              RectangularSparseMat<double,dim,dim> &dFluxdddy,
+              RectangularSparseMat<double,dim,dim> &dFluxdddz);
+ 
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
                               SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,

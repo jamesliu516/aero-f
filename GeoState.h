@@ -40,7 +40,7 @@ public:
 // Included (MB)
   GeoState(const GeoData &, Vec<double> &, Vec<double> &, Vec<double> &,
            Vec<double> &,
-	   Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&,
+           Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&,
            Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, SVec<double,3> &, SVec<double,3> &);
 
   GeoState(const GeoData &, Vec<double> &, Vec<double> &, Vec<double> &,

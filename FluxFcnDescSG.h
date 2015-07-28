@@ -30,6 +30,10 @@ public:
     , bool useLimiter = false
   );
 
+//  virtual void compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(double *n, double nv, double *vl, double *vr,
+//                                                              double dmach, double *f, double *dfdn,
+//                                                              double *fdnv, double *dfdvl, double *dfdvr);
+ 
   //--- Sensitivity Analysis Function
   virtual void computeDerivative
   (
@@ -40,6 +44,14 @@ public:
     std::cout << "\n !!! FluxFcnSGFDJacRoeEuler3D::computeDerivative (11 arg.) is not implemented !!!\n\n";
     exit(1);
   }
+
+  virtual void computeDerivativeOperators(double *n, double nv, double *v,
+                                          double *ub, double dfdn[7][3], double dfdv[7][1], double dfdub[7][7])
+  {
+    std::cout << "\n !!! FluxFcnSGFDJacRoeEuler3D::computeDerivativeOperators is not implemented !!!\n\n";
+    exit(1);
+  }
+
 };
 
 //------------------------------------------------------------------------------
@@ -64,6 +76,10 @@ public:
     , bool useLimiter = false
   );
 
+//  virtual void compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(double *n, double nv, double *vl, double *vr,
+//                                                              double dmach, double *f, double *dfdn,
+//                                                              double *fdnv, double *dfdvl, double *dfdvr);
+ 
   //--- Sensitivity Analysis Function
   virtual void computeDerivative
   (
@@ -72,6 +88,13 @@ public:
   )
   {
     std::cout << "\n !!! FluxFcnSGApprJacRoeEuler3D::computeDerivative (11 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
+  virtual void computeDerivativeOperators(double *n, double nv, double *v,
+                                          double *ub, double dfdn[7][3], double dfdv[7][1], double dfdub[7][7])
+  {
+    std::cout << "\n !!! FluxFcnSGApprJacRoeEuler3D::computeDerivativeOperators is not implemented !!!\n\n";
     exit(1);
   }
 
@@ -99,6 +122,10 @@ public:
     , bool useLimiter = false
   );
 
+  virtual void compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(double *n, double nv, double *vl, double *vr,
+                                                              double dmach, double *f, double (*)[3],
+                                                              double *, double (*)[7], double (*)[7]); 
+
   //--- Sensitivity Analysis Function
   virtual void computeDerivative
   (
@@ -109,6 +136,14 @@ public:
     std::cout << "\n !!! FluxFcnSGExactJacRoeEuler3D::computeDerivative (11 arg.) is not implemented !!!\n\n";
     exit(1);
   }
+
+  virtual void computeDerivativeOperators(double *n, double nv, double *v,
+                                          double *ub, double dfdn[7][3], double dfdv[7][1], double dfdub[7][7])
+  {
+    std::cout << "\n !!! FluxFcnSGExactJacRoeEuler3D::computeDerivativeOperators is not implemented !!!\n\n";
+    exit(1);
+  }
+
 
 };
 
@@ -192,6 +227,7 @@ public:
     , bool useLimiter = false
   );
 
+ 
   //--- Sensitivity Analysis Function
   virtual void computeDerivative
   (
@@ -202,6 +238,14 @@ public:
     std::cout << "\n !!! FluxFcnSGVanLeerEuler3D::computeDerivative (11 arg.) is not implemented !!!\n\n";
     exit(1);
   }
+
+  virtual void computeDerivativeOperators(double *n, double nv, double *v,
+                                          double *ub, double dfdn[7][3], double dfdv[7][1], double dfdub[7][7])
+  {
+    std::cout << "\n !!! FluxFcnSGVanLeerEuler3D::computeDerivativeOperators is not implemented !!!\n\n";
+    exit(1);
+  }
+
 };
 
 //------------------------------------------------------------------------------
@@ -236,6 +280,13 @@ public:
     double ire, double dIre, double *n, double *dn, double nv, double dnv,
     double *v, double *ub, double *dub, double *f, double *df
   );
+
+  virtual void computeDerivativeOperators
+  (
+    double *normal, double normalVel, double *V,
+    double *Ub, double dFluxdNormal[7][3], double dFluxdNormalVel[7][1], double dFluxdUb[7][7]
+  );
+
 
 };
 //------------------------------------------------------------------------------
@@ -471,6 +522,12 @@ public:
   (
     double ire, double dIre, double *n, double *dn, double nv, double dnv,
     double *v, double *ub, double *dub, double *f, double *df
+  );
+
+  virtual void computeDerivativeOperators
+  (
+    double*, double, double*, double*,  
+    double [7][3], double[7][1], double [7][7]
   );
 
 };

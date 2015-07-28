@@ -4,6 +4,7 @@
 #include <Face.h>
 #include <Vector3D.h>
 #include <Vector.h>
+#include <RectangularSparseMatrix.h>
 #include <BinFileHandler.h>
 #include <AutoDiff/Taylor.h>
 
@@ -67,6 +68,66 @@ double ElemTet::computeDerivativeOfVolume(SVec<double,3> &X, SVec<double,3> &dX 
 
 //------------------------------------------------------------------------------
 
+// Included (YC)
+void ElemTet::computeDerivativeOperatorsOfVolume(SVec<double,3> &X, 
+                                                 double dVolumedX0[][3], 
+                                                 double dVolumedX1[][3],
+                                                 double dVolumedX2[][3],
+                                                 double dVolumedX3[][3])
+{
+
+  Vec3D x[4] = { X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)], X[nodeNum(3)] };
+//  Vec3D dx[4] = { dX[nodeNum(0)], dX[nodeNum(1)], dX[nodeNum(2)], dX[nodeNum(3)] };
+
+  Vec3D v1 = x[1] - x[0];
+  Vec3D v2 = x[2] - x[0];
+  Vec3D v3 = x[3] - x[0];
+  Vec3D v12 = v1 ^ v2;
+/*
+  double dVolume = sixth * [ v12[0]*dx[3][0] - v12[0]*dx[0][0] + v12[1]*dx[3][1] - v12[1]*dx[0][1] + v12[2]*dx[3][2] - v12[2]*dx[0][2] ]
+                 + sixth * v3 * ( ((dx[1] - dx[0]) ^ v2) + (v1 ^ (dx[2] - dx[0])) );
+
+  (dx[1] - dx[0]) ^ v2 = [ v2[2]*dx[1][1] - v2[2]*dx[0][1] - v2[1]*dx[1][2] + v2[1]*dx[0][2] ]
+                         [ v2[0]*dx[1][2] - v2[0]*dx[0][2] - v2[2]*dx[1][0] + v2[2]*dx[0][0] ]
+                         [ v2[1]*dx[1][0] - v2[1]*dx[0][0] - v2[0]*dx[1][1] + v2[0]*dx[0][1] ]
+  v1 ^ (dx[2] - dx[0]) = [ v1[1]*dx[2][2] - v1[1]*dx[0][2] - v1[2]*dx[2][1] + v1[2]*dx[0][1] ]
+                         [ v1[2]*dx[2][0] - v1[2]*dx[0][0] - v1[0]*dx[2][2] + v1[0]*dx[0][2] ]
+                         [ v1[0]*dx[2][1] - v1[0]*dx[0][1] - v1[1]*dx[2][0] + v1[1]*dx[0][0] ]
+
+  sum = [ (v1[2]-v2[2])*dx[0][1] + (v2[1]-v1[1])*dx[0][2] + v2[2]*dx[1][1] - v2[1]*dx[1][2] - v1[2]*dx[2][1] + v1[1]*dx[2][2] ] 
+        [ (v2[2]-v1[2])*dx[0][0] + (v1[0]-v2[0])*dx[0][2] - v2[2]*dx[1][0] + v2[0]*dx[1][2] + v1[2]*dx[2][0] - v1[0]*dx[2][2] ]
+        [ (v1[1]-v2[1])*dx[0][0] + (v2[0]-v1[0])*dx[0][1] + v2[1]*dx[1][0] - v2[0]*dx[1][1] - v1[1]*dx[2][0] + v1[0]*dx[2][1] ]
+
+  dVolume = sixth*[ v3[1]*(v2[2]-v1[2]) + v3[2]*(v1[1]-v2[1]) - v12[0] ]T[ dx[0][0] ]
+                  [ v3[2]*(v2[0]-v1[0]) + v3[0]*(v1[2]-v2[2]) - v12[1] ] [ dx[0][1] ]
+                  [ v3[0]*(v2[1]-v1[1]) + v3[1]*(v1[0]-v2[0]) - v12[2] ] [ dx[0][2] ]
+                  [ v3[2]*v2[1] - v3[1]*v2[2]                          ] [ dx[1][0] ]
+                  [ v3[0]*v2[2] - v3[2]*v2[0]                          ] [ dx[1][1] ]
+                  [ v3[1]*v2[0] - v3[0]*v2[1]                          ] [ dx[1][2] ] 
+                  [ v3[1]*v1[2] - v3[2]*v1[1]                          ] [ dx[2][0] ]
+                  [ v3[2]*v1[0] - v3[0]*v1[2]                          ] [ dx[2][1] ]
+                  [ v3[0]*v1[1] - v3[1]*v1[0]                          ] [ dx[2][2] ]
+                  [ v12[0]                                             ] [ dx[3][0] ]
+                  [ v12[1]                                             ] [ dx[3][1] ]
+                  [ v12[2]                                             ] [ dx[3][2] ]
+*/
+  dVolumedX0[0][0] = 0.25 * sixth * ( v3[1]*(v2[2]-v1[2]) + v3[2]*(v1[1]-v2[1]) - v12[0] );
+  dVolumedX0[0][1] = 0.25 * sixth * ( v3[2]*(v2[0]-v1[0]) + v3[0]*(v1[2]-v2[2]) - v12[1] ); 
+  dVolumedX0[0][2] = 0.25 * sixth * ( v3[0]*(v2[1]-v1[1]) + v3[1]*(v1[0]-v2[0]) - v12[2] );
+  dVolumedX0[1][0] = 0.25 * sixth * ( v3[2]*v2[1] - v3[1]*v2[2] );
+  dVolumedX0[1][1] = 0.25 * sixth * ( v3[0]*v2[2] - v3[2]*v2[0] );
+  dVolumedX0[1][2] = 0.25 * sixth * ( v3[1]*v2[0] - v3[0]*v2[1] );
+  dVolumedX0[2][0] = 0.25 * sixth * ( v3[1]*v1[2] - v3[2]*v1[1] ); 
+  dVolumedX0[2][1] = 0.25 * sixth * ( v3[2]*v1[0] - v3[0]*v1[2] );
+  dVolumedX0[2][2] = 0.25 * sixth * ( v3[0]*v1[1] - v3[1]*v1[0] );
+  dVolumedX0[3][0] = 0.25 * sixth * ( v12[0] ); 
+  dVolumedX0[3][1] = 0.25 * sixth * ( v12[1] );
+  dVolumedX0[3][2] = 0.25 * sixth * ( v12[2] );
+  
+}
+
+//------------------------------------------------------------------------------
+
 double ElemTet::computeControlVolumes(SVec<double,3> &X, Vec<double> &ctrlVol)
 {
 
@@ -91,6 +152,24 @@ double ElemTet::computeDerivativeOfControlVolumes(SVec<double,3> &X, SVec<double
     dCtrlVol[ nodeNum(j) ] += 0.25 * dVolume;
 
   return dVolume;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void ElemTet::computeDerivativeOperatorsOfControlVolumes(SVec<double,3> &X, RectangularSparseMat<double,3,1> &dCtrlVoldX)
+{
+
+  double dVolumedX0[1][3] = {0}, dVolumedX1[1][3] = {0}, dVolumedX2[1][3] = {0}, dVolumedX3[1][3] = {0};
+  computeDerivativeOperatorsOfVolume(X, dVolumedX0, dVolumedX1, dVolumedX2, dVolumedX3);
+
+  for (int j=0; j<4; ++j) {
+    dCtrlVoldX.addContrib(nodeNum(j),nodeNum(0), dVolumedX0[0]);
+    dCtrlVoldX.addContrib(nodeNum(j),nodeNum(1), dVolumedX1[0]);
+    dCtrlVoldX.addContrib(nodeNum(j),nodeNum(2), dVolumedX2[0]);
+    dCtrlVoldX.addContrib(nodeNum(j),nodeNum(3), dVolumedX3[0]);
+  }
 
 }
 
@@ -287,7 +366,7 @@ void ElemTet::computeEdgeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
 
 // Included (MB)
 void ElemTet::computeDerivativeOfEdgeNormals(SVec<double,3> &X, SVec<double,3> &dX, Vec<Vec3D> &edgeNorm,
-                                Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel)
+                                             Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel)
 {
 
   Vec3D x_n[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ],
@@ -410,6 +489,195 @@ void ElemTet::computeDerivativeOfEdgeNormals(SVec<double,3> &X, SVec<double,3> &
 //  edgeNormVel = 0.0;
   dEdgeNormVel= 0.0;
 */
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void ElemTet::computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &X, RectangularSparseMat<double,3,3> &dEdgeNormdX)
+{
+
+  Vec3D x_n[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ], X[ nodeNum(3) ]};
+  Vec3D x_np1[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ], X[ nodeNum(3) ]};
+
+  double df_ndx_n[12][12] = {0}, df_np1dx_np1[12][12] = {0}, dg_ndx_n[3][12] = {0}, dg_np1dx_np1[3][12] = {0};
+  for(int k=0; k<3; ++k) {
+    df_ndx_n[k][k] = third;
+    df_ndx_n[k][3+k] = third;
+    df_ndx_n[k][6+k] = third;
+    df_ndx_n[3+k][k] = third;
+    df_ndx_n[3+k][3+k] = third;
+    df_ndx_n[3+k][9+k] = third;
+    df_ndx_n[6+k][k] = third;
+    df_ndx_n[6+k][6+k] = third;
+    df_ndx_n[6+k][9+k] = third;
+    df_ndx_n[9+k][3+k] = third;
+    df_ndx_n[9+k][6+k] = third;
+    df_ndx_n[9+k][9+k] = third;
+    df_np1dx_np1[k][k] = third;
+    df_np1dx_np1[k][3+k] = third;
+    df_np1dx_np1[k][6+k] = third;
+    df_np1dx_np1[3+k][k] = third;
+    df_np1dx_np1[3+k][3+k] = third;
+    df_np1dx_np1[3+k][9+k] = third;
+    df_np1dx_np1[6+k][k] = third;
+    df_np1dx_np1[6+k][6+k] = third;
+    df_np1dx_np1[6+k][9+k] = third;
+    df_np1dx_np1[9+k][3+k] = third;
+    df_np1dx_np1[9+k][6+k] = third;
+    df_np1dx_np1[9+k][9+k] = third;
+    dg_ndx_n[k][k] = 0.25; 
+    dg_ndx_n[k][3+k] = 0.25; 
+    dg_ndx_n[k][6+k] = 0.25; 
+    dg_ndx_n[k][9+k] = 0.25; 
+    dg_np1dx_np1[k][k] = 0.25; 
+    dg_np1dx_np1[k][3+k] = 0.25; 
+    dg_np1dx_np1[k][6+k] = 0.25; 
+    dg_np1dx_np1[k][9+k] = 0.25; 
+  }
+
+  Vec3D f_n[4];
+  f_n[0] = third * (x_n[0] + x_n[1] + x_n[2]);
+  f_n[1] = third * (x_n[0] + x_n[1] + x_n[3]);
+  f_n[2] = third * (x_n[0] + x_n[2] + x_n[3]);
+  f_n[3] = third * (x_n[1] + x_n[2] + x_n[3]);
+
+  Vec3D g_n = 0.25 * (x_n[0] + x_n[1] + x_n[2] + x_n[3]);
+
+  Vec3D f_np1[4];
+  f_np1[0] = third * (x_np1[0] + x_np1[1] + x_np1[2]);
+  f_np1[1] = third * (x_np1[0] + x_np1[1] + x_np1[3]);
+  f_np1[2] = third * (x_np1[0] + x_np1[2] + x_np1[3]);
+  f_np1[3] = third * (x_np1[1] + x_np1[2] + x_np1[3]);
+
+  Vec3D g_np1 = 0.25 * (x_np1[0] + x_np1[1] + x_np1[2] + x_np1[3]);
+
+  for (int l=0; l<6; ++l) {
+    Vec3D xg0_n = f_n[ edgeFace(l,0) ] - g_n;
+    Vec3D xg1_n = f_n[ edgeFace(l,1) ] - g_n;
+    Vec3D xg0_np1 = f_np1[ edgeFace(l,0) ] - g_np1;
+    Vec3D xg1_np1 = f_np1[ edgeFace(l,1) ] - g_np1;
+
+//    Vec3D dxg0_n = df_n[ edgeFace(l,0) ] - dg_n;
+//    Vec3D dxg1_n = df_n[ edgeFace(l,1) ] - dg_n;
+//    Vec3D dxg0_np1 = df_np1[ edgeFace(l,0) ] - dg_np1;
+//    Vec3D dxg1_np1 = df_np1[ edgeFace(l,1) ] - dg_np1;
+
+    double dxg0_ndf_n[3][12] = {0}, dxg1_ndf_n[3][12] = {0}, dxg0_np1df_np1[3][12] = {0}, dxg1_np1df_np1[3][12] = {0};
+    double dxg0_ndg_n[3][3] = {0}, dxg1_ndg_n[3][3] = {0}, dxg0_np1dg_np1[3][3] = {0}, dxg1_np1dg_np1[3][3] = {0};
+    for(int k=0; k<3; ++k) {
+      dxg0_ndf_n[k][3*edgeFace(l,0)+k] = 1.0;
+      dxg1_ndf_n[k][3*edgeFace(l,1)+k] = 1.0;
+      dxg0_ndg_n[k][k] = -1.0;
+      dxg1_ndg_n[k][k] = -1.0;
+      dxg0_np1df_np1[k][3*edgeFace(l,0)+k] = 1.0;
+      dxg1_np1df_np1[k][3*edgeFace(l,1)+k] = 1.0;
+      dxg0_np1dg_np1[k][k] = -1.0;
+      dxg1_np1dg_np1[k][k] = -1.0;
+    }
+    double dndxg1_np1[3][3] = {0}, dndxg0_np1[3][3] = {0}, dndxg1_n[3][3] = {0}, dndxg0_n[3][3] = {0};
+    dndxg1_np1[0][1] =  0.5*xg0_np1[2] + 0.25*xg0_n[2];
+    dndxg1_np1[0][2] = -0.5*xg0_np1[1] - 0.25*xg0_n[1];
+    dndxg1_np1[1][0] = -0.5*xg0_np1[2] - 0.25*xg0_n[2];
+    dndxg1_np1[1][2] =  0.5*xg0_np1[0] + 0.25*xg0_n[0];
+    dndxg1_np1[2][0] =  0.5*xg0_np1[1] + 0.25*xg0_n[1];
+    dndxg1_np1[2][1] = -0.5*xg0_np1[0] - 0.25*xg0_n[0];
+
+    dndxg0_np1[0][1] = -0.5*xg1_np1[2] - 0.25*xg1_n[2];
+    dndxg0_np1[0][2] =  0.5*xg1_np1[1] + 0.25*xg1_n[1];
+    dndxg0_np1[1][0] =  0.5*xg1_np1[2] + 0.25*xg1_n[2];
+    dndxg0_np1[1][2] = -0.5*xg1_np1[0] - 0.25*xg1_n[0];
+    dndxg0_np1[2][0] = -0.5*xg1_np1[1] - 0.25*xg1_n[1];
+    dndxg0_np1[2][1] =  0.5*xg1_np1[0] + 0.25*xg1_n[0];
+    
+    dndxg1_n[0][1] =  0.5*xg0_n[2] + 0.25*xg0_np1[2];
+    dndxg1_n[0][2] = -0.5*xg0_n[1] - 0.25*xg0_np1[1];
+    dndxg1_n[1][0] = -0.5*xg0_n[2] - 0.25*xg0_np1[2];
+    dndxg1_n[1][2] =  0.5*xg0_n[0] + 0.25*xg0_np1[0];
+    dndxg1_n[2][0] =  0.5*xg0_n[1] + 0.25*xg0_np1[1];
+    dndxg1_n[2][1] = -0.5*xg0_n[0] - 0.25*xg0_np1[0];
+    
+    dndxg0_n[0][1] = -0.5*xg1_n[2] - 0.25*xg1_np1[2];
+    dndxg0_n[0][2] =  0.5*xg1_n[1] + 0.25*xg1_np1[1];
+    dndxg0_n[1][0] =  0.5*xg1_n[2] + 0.25*xg1_np1[2];
+    dndxg0_n[1][2] = -0.5*xg1_n[0] - 0.25*xg1_np1[0];
+    dndxg0_n[2][0] = -0.5*xg1_n[1] - 0.25*xg1_np1[1];
+    dndxg0_n[2][1] =  0.5*xg1_n[0] + 0.25*xg1_np1[0];
+    
+
+//    Vec3D dn = 0.5 * ((dxg1_np1 ^ xg0_np1) + (xg1_np1 ^ dxg0_np1) + (dxg1_n ^ xg0_n) + (xg1_n ^ dxg0_n)) +
+//      0.25 * ((dxg1_np1 ^ xg0_n) + (xg1_np1 ^ dxg0_n) + (dxg1_n ^ xg0_np1) + (xg1_n ^ dxg0_np1));
+
+    double dndX0[3][3] = {0}, dndX1[3][3] = {0}, dndX2[3][3] = {0}, dndX3[3][3] = {0};
+    if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
+      for(int k=0; k<3; ++k) 
+        for(int n=0; n<3; ++n) 
+          for(int m=0; m<3; ++m) {
+            for(int o=0; o<12; ++o) { 
+              dndX0[k][n] += ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][n]; 
+              dndX1[k][n] += ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][3+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][3+n];
+              dndX2[k][n] += ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][6+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][6+n];
+              dndX3[k][n] += ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][9+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][9+n];
+            }
+            for(int o=0; o<3; ++o) {
+              dndX0[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][n]; 
+              dndX1[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][3+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][3+n]; 
+              dndX2[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][6+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][6+n]; 
+              dndX3[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][9+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][9+n]; 
+            }
+          }  
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(0),dndX0[0]);
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(1),dndX1[0]);
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(2),dndX2[0]);
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(3),dndX3[0]);
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(0) = %d\n", l, l, edgeNum(l), nodeNum(0));
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(1) = %d\n", l, l, edgeNum(l), nodeNum(1));
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(2) = %d\n", l, l, edgeNum(l), nodeNum(2));
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(3) = %d\n", l, l, edgeNum(l), nodeNum(3));
+    }
+    else {
+      for(int k=0; k<3; ++k) 
+        for(int n=0; n<3; ++n) 
+          for(int m=0; m<3; ++m) { 
+            for(int o=0; o<12; ++o) { 
+              dndX0[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][n]; 
+              dndX1[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][3+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][3+n];
+              dndX2[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][6+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][6+n];
+              dndX3[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][9+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][9+n];
+            }
+            for(int o=0; o<3; ++o) {
+              dndX0[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][n]; 
+              dndX1[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][3+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][3+n]; 
+              dndX2[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][6+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][6+n]; 
+              dndX3[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][9+n]
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][9+n]; 
+            }
+          }
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(0),dndX0[0]);
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(1),dndX1[0]);
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(2),dndX2[0]);
+      dEdgeNormdX.addContrib(edgeNum(l),nodeNum(3),dndX3[0]);
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(0) = %d\n", l, l, edgeNum(l), nodeNum(0));
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(1) = %d\n", l, l, edgeNum(l), nodeNum(1));
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(2) = %d\n", l, l, edgeNum(l), nodeNum(2));
+//      fprintf(stderr," ... in diEdgeNormdX, l = %d, edgeNum(%d) = %d, nodeNum(3) = %d\n", l, l, edgeNum(l), nodeNum(3));
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -681,6 +949,57 @@ void ElemTet::computeDerivativeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,
     dwij[ edgeNum(k) ][2] += ddp1dxj[j][2];
 
   }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void ElemTet::computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &dwii, SVec<double,3> &dwij, 
+                                                          SVec<double,3> &dwji, SVec<double,3> &dX)
+{
+
+  int i, j, k;
+
+  double dp1dxj[4][3], ddp1dxj[4][3];
+
+  double vol = computeGradientP1Function(X, dp1dxj);
+  double dvol = 0.0;
+  for (k=0; k<4; ++k) 
+    for (i=0; i<3; ++i) 
+      ddp1dxj[k][i] = 0.0;
+
+  for (k=0; k<6; ++k) {
+
+    if (nodeNum( edgeEnd(k,0) ) < nodeNum( edgeEnd(k,1) )) {
+      i = edgeEnd(k,0);
+      j = edgeEnd(k,1);
+    }
+    else {
+      i = edgeEnd(k,1);
+      j = edgeEnd(k,0);
+    }
+
+    ddp1dxj[i][0] += dwji[ edgeNum(k) ][0];
+    ddp1dxj[j][0] += dwij[ edgeNum(k) ][0];
+
+    ddp1dxj[i][1] += dwji[ edgeNum(k) ][1];
+    ddp1dxj[j][1] += dwij[ edgeNum(k) ][1];
+
+    ddp1dxj[i][2] += dwji[ edgeNum(k) ][2];
+    ddp1dxj[j][2] += dwij[ edgeNum(k) ][2];
+
+  }
+
+  for (k=0; k<4; ++k) {
+
+    ddp1dxj[k][0] += dwii[ nodeNum(k) ][0];
+    ddp1dxj[k][1] += dwii[ nodeNum(k) ][1];
+    ddp1dxj[k][2] += dwii[ nodeNum(k) ][2];
+
+  }
+
+  computeDerivativeTransposeOfGradientP1Function(X, vol, dp1dxj, ddp1dxj, dX);
 
 }
 
@@ -1792,7 +2111,124 @@ double ElemTet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D
 
 //------------------------------------------------------------------------------
 
+// Included (YC)
+inline
+void ElemTet::computeDerivativeTransposeOfGradientP1Function(SVec<double,3> &nodes, double vol, double NGrad[4][3], double dNGrad[4][3], SVec<double,3> &dNodes)
+{
+
+  double jac[3][3], dJac[3][3];
+
+  //Jacobian
+  // J_ij = dx_i/dxi_j
+  jac[0][0] = nodes[ nodeNum(1) ][0] - nodes[ nodeNum(0) ][0];
+  jac[0][1] = nodes[ nodeNum(2) ][0] - nodes[ nodeNum(0) ][0];
+  jac[0][2] = nodes[ nodeNum(3) ][0] - nodes[ nodeNum(0) ][0];
+  jac[1][0] = nodes[ nodeNum(1) ][1] - nodes[ nodeNum(0) ][1];
+  jac[1][1] = nodes[ nodeNum(2) ][1] - nodes[ nodeNum(0) ][1];
+  jac[1][2] = nodes[ nodeNum(3) ][1] - nodes[ nodeNum(0) ][1];
+  jac[2][0] = nodes[ nodeNum(1) ][2] - nodes[ nodeNum(0) ][2];
+  jac[2][1] = nodes[ nodeNum(2) ][2] - nodes[ nodeNum(0) ][2];
+  jac[2][2] = nodes[ nodeNum(3) ][2] - nodes[ nodeNum(0) ][2];
+
+  // compute determinant of jac and derivative of the jac
+  double dOmega = jac[0][0] * (jac[1][1] * jac[2][2] - jac[1][2] * jac[2][1]) +
+                  jac[1][0] * (jac[0][2] * jac[2][1] - jac[0][1] * jac[2][2]) +
+                  jac[2][0] * (jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1]);
+
+  double r10 = -jac[1][1] * jac[2][2] + jac[1][2] * jac[2][1];
+  double r11 = jac[0][1] * jac[2][2] - jac[0][2] * jac[2][1];
+  double r12 = jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1];
+  double r20 = -jac[1][0] * jac[2][2] + jac[1][2] * jac[2][0];
+  double r21 = jac[0][0] * jac[2][2] - jac[0][2] * jac[2][0];
+  double r22 = jac[0][0] * jac[1][2] - jac[0][2] * jac[1][0];
+  double r30 = jac[1][0] * jac[2][1] - jac[1][1] * jac[2][0];
+  double r31 = jac[0][0] * jac[2][1] - jac[0][1] * jac[2][0];
+  double r32 = jac[0][0] * jac[1][1] - jac[0][1] * jac[1][0];
+
+  double p10 =  r10 * vol/(dOmega*dOmega);
+  double p11 =  r11 * vol/(dOmega*dOmega);
+  double p12 = -r12 * vol/(dOmega*dOmega);
+  double p20 = -r20 * vol/(dOmega*dOmega);
+  double p21 = -r21 * vol/(dOmega*dOmega);
+  double p22 =  r22 * vol/(dOmega*dOmega);
+  double p30 = -r30 * vol/(dOmega*dOmega);
+  double p31 =  r31 * vol/(dOmega*dOmega);
+  double p32 = -r32 * vol/(dOmega*dOmega);
+  double q00 = (-p10-p20-p30+NGrad[0][0]*sixth);
+  double q01 = (-p11-p21-p31+NGrad[0][1]*sixth);
+  double q02 = (-p12-p22-p32+NGrad[0][2]*sixth);
+  double q10 =  p10+NGrad[1][0]*sixth; 
+  double q11 =  p11+NGrad[1][1]*sixth;
+  double q12 =  p12+NGrad[1][2]*sixth;
+  double q20 =  p20+NGrad[2][0]*sixth;
+  double q21 =  p21+NGrad[2][1]*sixth;
+  double q22 =  p22+NGrad[2][2]*sixth;
+  double q30 =  p30+NGrad[3][0]*sixth;
+  double q31 =  p31+NGrad[3][1]*sixth; 
+  double q32 =  p32+NGrad[3][2]*sixth;
+
+  double t17 = -vol/dOmega;
+  double dnngrad = q00*dNGrad[0][0]+q01*dNGrad[0][1]+q02*dNGrad[0][2] 
+                 + q10*dNGrad[1][0]+q11*dNGrad[1][1]+q12*dNGrad[1][2]
+                 + q20*dNGrad[2][0]+q21*dNGrad[2][1]+q22*dNGrad[2][2]
+                 + q30*dNGrad[3][0]+q31*dNGrad[3][1]+q32*dNGrad[3][2];
+
+  dJac[0][0] = -r10*dnngrad + t17*(-jac[2][2]*(dNGrad[2][1]-dNGrad[0][1])
+                                   +jac[1][2]*(dNGrad[2][2]-dNGrad[0][2])
+                                   +jac[2][1]*(dNGrad[3][1]-dNGrad[0][1])
+                                   -jac[1][1]*(dNGrad[3][2]-dNGrad[0][2]));
+  dJac[0][1] =  r20*dnngrad + t17*( jac[2][2]*(dNGrad[1][1]-dNGrad[0][1])
+                                   -jac[1][2]*(dNGrad[1][2]-dNGrad[0][2])
+                                   -jac[2][0]*(dNGrad[3][1]-dNGrad[0][1])
+                                   +jac[1][0]*(dNGrad[3][2]-dNGrad[0][2]));
+  dJac[0][2] =  r30*dnngrad + t17*(-jac[2][1]*(dNGrad[1][1]-dNGrad[0][1])
+                                   +jac[1][1]*(dNGrad[1][2]-dNGrad[0][2])
+                                   +jac[2][0]*(dNGrad[2][1]-dNGrad[0][1])
+                                   -jac[1][0]*(dNGrad[2][2]-dNGrad[0][2]));
+  dJac[1][0] = -r11*dnngrad + t17*( jac[2][2]*(dNGrad[2][0]-dNGrad[0][0])
+                                   -jac[2][1]*(dNGrad[3][0]-dNGrad[0][0])
+                                   -jac[0][2]*(dNGrad[2][2]-dNGrad[0][2])
+                                   +jac[0][1]*(dNGrad[3][2]-dNGrad[0][2]));
+  dJac[1][1] =  r21*dnngrad + t17*(-jac[2][2]*(dNGrad[1][0]-dNGrad[0][0])
+                                   +jac[0][2]*(dNGrad[1][2]-dNGrad[0][2])
+                                   +jac[2][0]*(dNGrad[3][0]-dNGrad[0][0])
+                                   -jac[0][0]*(dNGrad[3][2]-dNGrad[0][2]));
+  dJac[1][2] = -r31*dnngrad + t17*( jac[2][1]*(dNGrad[1][0]-dNGrad[0][0])
+                                   -jac[0][1]*(dNGrad[1][2]-dNGrad[0][2])
+                                   +jac[0][0]*(dNGrad[2][2]-dNGrad[0][2])
+                                   -jac[2][0]*(dNGrad[2][0]-dNGrad[0][0]));
+  dJac[2][0] =  r12*dnngrad + t17*(-jac[1][2]*(dNGrad[2][0]-dNGrad[0][0])
+                                   +jac[0][2]*(dNGrad[2][1]-dNGrad[0][1])
+                                   +jac[1][1]*(dNGrad[3][0]-dNGrad[0][0])
+                                   -jac[0][1]*(dNGrad[3][1]-dNGrad[0][1]));
+  dJac[2][1] = -r22*dnngrad + t17*( jac[1][2]*(dNGrad[1][0]-dNGrad[0][0])
+                                   -jac[0][2]*(dNGrad[1][1]-dNGrad[0][1])
+                                   -jac[1][0]*(dNGrad[3][0]-dNGrad[0][0])
+                                   +jac[0][0]*(dNGrad[3][1]-dNGrad[0][1]));
+  dJac[2][2] =  r32*dnngrad + t17*(-jac[1][1]*(dNGrad[1][0]-dNGrad[0][0])
+                                   +jac[0][1]*(dNGrad[1][1]-dNGrad[0][1])
+                                   +jac[1][0]*(dNGrad[2][0]-dNGrad[0][0])
+                                   -jac[0][0]*(dNGrad[2][1]-dNGrad[0][1]));
+
+  dNodes[ nodeNum(0) ][0] = -(dJac[0][0] + dJac[0][1] + dJac[0][2]);
+  dNodes[ nodeNum(0) ][1] = -(dJac[1][0] + dJac[1][1] + dJac[1][2]);
+  dNodes[ nodeNum(0) ][2] = -(dJac[2][0] + dJac[2][1] + dJac[2][2]);
+  dNodes[ nodeNum(1) ][0] = dJac[0][0];
+  dNodes[ nodeNum(2) ][0] = dJac[0][1];
+  dNodes[ nodeNum(3) ][0] = dJac[0][2];
+  dNodes[ nodeNum(1) ][1] = dJac[1][0];
+  dNodes[ nodeNum(2) ][1] = dJac[1][1];
+  dNodes[ nodeNum(3) ][1] = dJac[1][2];
+  dNodes[ nodeNum(1) ][2] = dJac[2][0];
+  dNodes[ nodeNum(2) ][2] = dJac[2][1];
+  dNodes[ nodeNum(3) ][2] = dJac[2][2];
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
+// YC: If you modify ElemTet::computeDerivativeOfGradientP1Function, you must modify ElemTet::computeDerivativeTransposeOfGradientP1Function accordingly
 inline
 double ElemTet::computeDerivativeOfGradientP1Function(SVec<double,3> &nodes, SVec<double,3> &dNodes, double dNGrad[4][3])
 {

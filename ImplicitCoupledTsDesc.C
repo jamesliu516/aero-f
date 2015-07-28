@@ -225,6 +225,65 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
 
   double t0 = this->timer->getTime();
 
+////////////////////////////////////////
+/*
+  DistSVec<double,dim> w(this->domain->getNodeDistInfo()),p(this->domain->getNodeDistInfo()),q(this->domain->getNodeDistInfo()),z(this->domain->getNodeDistInfo());
+  DistSVec<double,dim> one(this->domain->getNodeDistInfo());
+  DistSVec<double,dim> bp(this->domain->getNodeDistInfo());
+  one = 1.0;
+  bp = b;
+
+  double direcTime(0), adjoinTime(0);
+  for(int i=0; i<100; ++i) {
+    double s_seconds(0), e_seconds(0);
+    s_seconds = this->timer->getTime();
+    mvp->apply(one,q);
+    double r = q*q;
+    e_seconds = this->timer->getTime();
+    direcTime += (e_seconds-s_seconds);
+    double qq = q*q;
+
+    s_seconds = this->timer->getTime();
+    mvp->applyTranspose(q,z);
+    e_seconds = this->timer->getTime();
+    adjoinTime += (e_seconds-s_seconds);
+    double m = z*one;
+    double zz = z*z;
+    if (this->com->cpuNum() == 0) {
+      fprintf(stderr,"q norm is %20.15e and z norm is %20.15e\n", qq, zz);
+      fprintf(stderr,"r = %20.15e,\tm= %20.15e, and rel.error is %20.15e", r, m, (r-m)/r);
+      if(abs((r-m)/r)>1.0e-6) fprintf(stderr,"WARNING!\n");
+      else fprintf(stderr,"\n");
+    }
+    one = (1.0/q.norm())*q;
+  }
+  if(this->com->cpuNum() == 0) {
+    fprintf(stderr,"direct Time is %9.6f and adjoint Time is %9.6f\n", direcTime, adjoinTime);
+    exit(-1);
+  }
+
+  if(this->com->cpuNum() == 0) { fprintf(stderr,"\n\ncheckint xAx and xA'x\n"); }
+  for(int i=0; i<10; ++i) {
+    mvp->apply(bp,w);
+    double a = bp*w;
+
+    mvp->applyTranspose(bp,p);
+    double v = bp*p;
+
+    double ww = w*w;
+    double pp = p*p;
+    if (this->com->cpuNum() == 0) {
+      fprintf(stderr,"w norm is %20.15e and p norm is %20.15e\n", ww, pp);
+      fprintf(stderr,"a = %20.15e\tv= %20.15e, and rel.error is %20.15e", a, v, (a-v)/a);
+      if(abs((a-v)/a)>1.0e-6) fprintf(stderr,"WARNING!\n");
+      else fprintf(stderr,"\n");
+    }
+    bp = (1.0/p.norm())*p;
+
+  }
+*/
+/////////////////////////////////////////
+
   dQ = 0.0;
 
   ksp->setup(it, this->maxItsNewton, b);

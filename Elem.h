@@ -79,6 +79,7 @@ class LevelSetStructure;
 struct Vec3D;
 
 template<class Scalar, int dim> class GenMat;
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 class ElemTet;
 
@@ -527,14 +528,19 @@ public:
   
 // Included (MB)
   virtual double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &) = 0;
+  virtual void computeDerivativeOperatorsOfVolume(SVec<double,3> &, double [][3], double [][3], double [][3], double [][3]) = 0;
 
   virtual double computeDerivativeOfControlVolumes(SVec<double,3> &, SVec<double,3> &, Vec<double> &) = 0;
+  virtual void computeDerivativeOperatorsOfControlVolumes(SVec<double,3> &, RectangularSparseMat<double,3,1> &) = 0;
 
   virtual void computeDerivativeOfEdgeNormals(SVec<double,3> &, SVec<double,3> &, Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &) = 0;
+  virtual void computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &, RectangularSparseMat<double,3,3> &) = 0;
 
   virtual void computeDerivativeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &) = 0;
+  virtual void computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &) = 0;
 
   virtual double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]) = 0;
+  virtual void computeDerivativeTransposeOfGradientP1Function(SVec<double,3> &, double, double [4][3], double [4][3], SVec<double,3> &) = 0;
 
   virtual void computeBarycentricCoordinates(SVec<double,3>&, const Vec3D& , double [3]) = 0;
 

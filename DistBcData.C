@@ -474,9 +474,10 @@ void DistBcDataEuler<dim>::updateFarFieldSA(DistSVec<double,3> &X, DistSVec<doub
 // it does not matter what kind of simulation is done.
 // we only need to know which fluid is assumed to be at the
 //    boundary.
-  if (this->boundaryFluid == this->GAS)
+  if (this->boundaryFluid == this->GAS) {
+    fprintf(stderr, " ... boundary fluid is GAS!\n");
     updateFarFieldGasSA(X, dX, dMach);
-  else if(this->boundaryFluid == this->TAIT || this->boundaryFluid == this->JWL) {
+  } else if(this->boundaryFluid == this->TAIT || this->boundaryFluid == this->JWL) {
     fprintf(stderr, "*** Error: Function updateFarFieldSA (at DistBcData.C) does not support this option!\n");
     exit(1);
   }
@@ -1887,6 +1888,8 @@ void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X, Dist
     this->dUout[6] = 0.0;
     this->finalizeSA(X,dX,dM);
   }
+//  double dUfacenorm = this->dUface->norm();
+//  if(dUfacenorm != 0) fprintf(stderr, " *********** norm of dUface is %e\n", dUfacenorm);
 
 }
 

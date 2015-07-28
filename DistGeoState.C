@@ -9,6 +9,7 @@
 #include <Vector3D.h>
 #include <DistVector.h>
 #include <Communicator.h>
+#include <RectangularSparseMatrix.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -112,6 +113,7 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
     dFaceNorm = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
     dEdgeNormVel = new DistVec<double>(domain->getEdgeDistInfo());
     dFaceNormVel = new DistVec<double>(domain->getFaceNormDistInfo());
+    *dFaceNormVel = 0.0;
   }
   else {
     optFlag = 0;
@@ -516,13 +518,13 @@ void DistGeoState::setup2(TimeData &timeData)
 // Included (MB)
       if (optFlag)
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
-				       (*ctrlVol_nm2)(iSub),
+                                       (*ctrlVol_nm2)(iSub),
                                        (*d2wall)(iSub),
-				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
-				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
-				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub),
-				       (*dEdgeNorm)(iSub), (*dFaceNorm)(iSub),
-				       (*dEdgeNormVel)(iSub), (*dFaceNormVel)(iSub),
+                                       (*edgeNorm)(iSub), (*faceNorm)(iSub),
+                                       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
+                                       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub),
+                                       (*dEdgeNorm)(iSub), (*dFaceNorm)(iSub),
+                                       (*dEdgeNormVel)(iSub), (*dFaceNormVel)(iSub),
                                        (*Xsa)(iSub), (*dXsa)(iSub));
       else
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
@@ -642,8 +644,8 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
 
 // Included (MB)
 void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> &dX, 
-				      DistSVec<double,3> &Xsdot, DistSVec<double,3> &dXsdot, 
-				      DistVec<double> &dCtrlVol)
+                                      DistSVec<double,3> &Xsdot, DistSVec<double,3> &dXsdot, 
+                                      DistVec<double> &dCtrlVol)
 {
 
 //Remark: Error mesage for pointers
@@ -679,7 +681,7 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
 
   if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
     domain->computeDerivativeOfNormals(*Xsa, *dXsa, *edgeNorm, *dEdgeNorm, *edgeNormVel, 
-				       *dEdgeNormVel, *faceNorm, *dFaceNorm, *faceNormVel, *dFaceNormVel);
+                                       *dEdgeNormVel, *faceNorm, *dFaceNorm, *faceNormVel, *dFaceNormVel);
   }
   else {
     fprintf(stderr, "*******************************************************************\n");
@@ -692,6 +694,191 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
 
   dCtrlVol = 0.0;
   domain->computeDerivativeOfControlVolumes(lscale, *Xsa, *dXsa, dCtrlVol);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void DistGeoState::computeDerivatives(RectangularSparseMat<double,3,3> **dEdgeNormdX,
+                                      RectangularSparseMat<double,3,3> **dFaceNormdX,
+                                      RectangularSparseMat<double,3,1> **dCtrlVoldX,
+                                      DistSVec<double,3> &dX, 
+                                      DistVec<double> &dCtrlVol,
+                                      DistVec<Vec3D>& dNormal,
+                                      DistVec<Vec3D>& dn, 
+                                      DistVec<double>& dndot)
+{
+
+//Remark: Error mesage for pointers
+  if (dXsa == 0) {
+    fprintf(stderr, "*** Error: Variable dXsa does not exist!\n");
+    exit(1);
+  }
+  if (dEdgeNorm == 0) {
+    fprintf(stderr, "*** Error: Variable dEdgeNorm does not exist!\n");
+    exit(1);
+  }
+  if (dFaceNorm == 0) {
+    fprintf(stderr, "*** Error: Variable dFaceNorm does not exist!\n");
+    exit(1);
+  }
+  if (dEdgeNormVel == 0) {
+    fprintf(stderr, "*** Error: Variable dEdgeNormVel does not exist!\n");
+    exit(1);
+  }
+  if (dFaceNormVel == 0) {
+    fprintf(stderr, "*** Error: Variable dFaceNormVel does not exist!\n");
+    exit(1);
+  }
+
+  data.configSA += 1;
+
+  *dXsa=dX;
+
+  if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
+    domain->computeDerivativeOfNormals(dEdgeNormdX, dFaceNormdX, *dXsa, dNormal, *dEdgeNormVel, dn, dndot);
+//    dNormal = *dEdgeNorm;   dn = *dFaceNorm;   dndot = *dFaceNormVel;
+/*    
+    DistSVec<double,3> dX2(dX);
+    DistVec<Vec3D> dEdgeNorm2(*dEdgeNorm), dFaceNorm2(*dFaceNorm);
+    DistVec<double> dEdgeNormVel2(*dEdgeNormVel), dFaceNormVel2(*dFaceNormVel);
+    dX2 = 0.0;
+    dEdgeNorm2 = 0.0;     dFaceNorm2 = 0.0;
+    dEdgeNormVel2 = 0.0;  dFaceNormVel2 = 0.0;
+
+    domain->computeDerivativeOfNormals(dEdgeNormdX, dFaceNormdX, *dXsa, dEdgeNorm2, dEdgeNormVel2, dFaceNorm2, dFaceNormVel2);
+    DistSVec<double,3> dEdgeNorm3(dEdgeNorm2.info()), dFaceNorm3(dFaceNorm2.info());
+    DistSVec<double,3> dEdgeNorm4(dEdgeNorm2.info()), dFaceNorm4(dFaceNorm2.info());
+//    fprintf(stderr, " .... %d      %d     \n", dEdgeNorm3.info().getMasterFlag(0)[0], dFaceNorm3.info().getMasterFlag(0)[0]);
+    for(int iSub=0; iSub < dEdgeNorm2.info().numLocThreads; iSub++) {
+      for(int i=0; i<dEdgeNorm2[iSub]->size(); ++i)
+        for(int j=0; j<3; ++j) {
+          dEdgeNorm3(iSub)[i][j] = dEdgeNorm2(iSub)[i][j]; 
+          dEdgeNorm4(iSub)[i][j] = (*dEdgeNorm)(iSub)[i][j]; 
+        }
+      for(int i=0; i<dFaceNorm2[iSub]->size(); ++i)
+        for(int j=0; j<3; ++j) {
+          dFaceNorm3(iSub)[i][j] = dFaceNorm2(iSub)[i][j]; 
+          dFaceNorm4(iSub)[i][j] = (*dFaceNorm)(iSub)[i][j]; 
+        }
+//      fprintf(stderr, " norm of dEdgeNorm3 = %e, norm of dEdgeNorm2 = %e\n", dEdgeNorm3(iSub).norm(), dEdgeNorm2(iSub).norm());
+      fprintf(stderr, " norm of dFaceNorm3 = %e, norm of dFaceNorm2 = %e\n", dFaceNorm3(iSub).norm(), dFaceNorm2(iSub).norm());
+    }
+
+//    fprintf(stderr, " norm of dEdgeNormVel2 is %e\n", dEdgeNormVel2.norm());
+//    fprintf(stderr, " norm of dFaceNormVel2 is %e\n", dFaceNormVel2.norm());
+    double aa = dEdgeNorm3*dEdgeNorm4 + dFaceNorm3*dFaceNorm4; // + dEdgeNormVel2*(*dEdgeNormVel) + dFaceNormVel2*(*dFaceNormVel);
+
+
+    domain->computeTransposeDerivativeOfNormals(dEdgeNormdX, dFaceNormdX, *dEdgeNorm, *dFaceNorm, dX2);
+    double bb = dX2*dX;
+    double diff = sqrt((aa-bb)*(aa-bb));
+    if(aa != 0.0) fprintf(stderr, " ... rel. diff = %e\n", diff/abs(aa));
+    else fprintf(stderr, " ... abs. diff = %e\n", diff);
+*/
+  }
+  else {
+    fprintf(stderr, "*******************************************************************\n");
+    fprintf(stderr, "*** Warning: The normal and the derivative can not be computed, ***\n");
+    fprintf(stderr, "*** please check the function type chosen in the class domain!  ***\n");
+    fprintf(stderr, "********************************************************************\n");
+    fprintf(stderr, "%d %d\n", data.typeNormals, DGCLData::IMPLICIT_FIRST_ORDER_GCL);
+    exit(1);
+  }
+
+  domain->computeDerivativeOfControlVolumes(dCtrlVoldX, *dXsa, dCtrlVol);
+/*
+  DistSVec<double,3> dX2(*dXsa);
+  DistVec<double> dCtrlVol2(dCtrlVol);
+  dX2 = 0.0;   dCtrlVol2 = 0.0;
+
+  domain->computeDerivativeOfControlVolumes(dCtrlVoldX, *dXsa, dCtrlVol2);
+  double aa = dCtrlVol2*dCtrlVol;
+
+  domain->computeTransposeDerivativeOfControlVolumes(dCtrlVoldX, dCtrlVol, dX2);
+  double bb = dX2*(*dXsa);
+  double diff = sqrt((aa-bb)*(aa-bb));
+  if(aa != 0.0) fprintf(stderr, " ... rel. diff = %e\n", diff/abs(aa));
+  else fprintf(stderr, " ... abs. diff = %e\n", diff);
+*/
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void DistGeoState::computeTransposeDerivatives(RectangularSparseMat<double,3,3> **dEdgeNormdX,
+                                               RectangularSparseMat<double,3,3> **dFaceNormdX,
+                                               RectangularSparseMat<double,3,1> **dCtrlVoldX,
+                                               DistVec<double>& dCtrlVol,
+                                               DistVec<Vec3D>& dNormal,
+                                               DistVec<Vec3D>& dn,
+                                               DistVec<double>& dndot,
+                                               DistSVec<double,3>& dX) 
+{
+
+//Remark: Error mesage for pointers
+  if (dXsa == 0) {
+    fprintf(stderr, "*** Error: Variable dXsa does not exist!\n");
+    exit(1);
+  }
+/*  if (dEdgeNorm == 0) {
+    fprintf(stderr, "*** Error: Variable dEdgeNorm does not exist!\n");
+    exit(1);
+  }
+  if (dFaceNorm == 0) {
+    fprintf(stderr, "*** Error: Variable dFaceNorm does not exist!\n");
+    exit(1);
+  }
+*/
+  data.configSA += 1;
+
+  domain->computeTransposeDerivativeOfControlVolumes(dCtrlVoldX, dCtrlVol, dX);
+
+  if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
+    domain->computeTransposeDerivativeOfNormals(dEdgeNormdX, dFaceNormdX, dNormal, dn, dX);
+  }
+  else {
+    fprintf(stderr, "*******************************************************************\n");
+    fprintf(stderr, "*** Warning: The normal and the derivative can not be computed, ***\n");
+    fprintf(stderr, "*** please check the function type chosen in the class domain!  ***\n");
+    fprintf(stderr, "********************************************************************\n");
+    fprintf(stderr, "%d %d\n", data.typeNormals, DGCLData::IMPLICIT_FIRST_ORDER_GCL);
+    exit(1);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void DistGeoState::computeDerivativeOperators(DistSVec<double,3> &X, 
+                                              RectangularSparseMat<double,3,3> **dEdgeNormdX,
+                                              RectangularSparseMat<double,3,3> **dFaceNormdX,
+                                              RectangularSparseMat<double,3,1> **dCtrlVoldX)
+{
+
+//Remark: Error mesage for pointers
+  if (Xsa == 0) {
+    fprintf(stderr, "*** Error: Variable Xsa does not exist!\n");
+    exit(1);
+  }
+
+  *Xsa=X;
+
+  if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
+    domain->computeDerivativeOperatorsOfNormals(*Xsa, dEdgeNormdX, dFaceNormdX); 
+  }
+  else {
+    fprintf(stderr, "*******************************************************************\n");
+    fprintf(stderr, "*** Warning: The normal and the derivative can not be computed, ***\n");
+    fprintf(stderr, "*** please check the function type chosen in the class domain!  ***\n");
+    fprintf(stderr, "********************************************************************\n");
+    fprintf(stderr, "%d %d\n", data.typeNormals, DGCLData::IMPLICIT_FIRST_ORDER_GCL);
+    exit(1);
+  }
+
+  domain->computeDerivativeOperatorsOfControlVolumes(lscale, *Xsa, dCtrlVoldX);
 
 }
 

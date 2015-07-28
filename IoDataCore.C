@@ -750,7 +750,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 39,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 42,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -758,14 +758,14 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "NonlinearROMOffline", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
-     "NonlinearEigenResidual", 21, "SparseGridGeneration", 22,
+     "NonlinearEigenErrorIndicator", 21, "SparseGridGeneration", 22,
      "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
      "Aeroacoustic", 33, "SteadySensitivityAnalysis", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36, 
-     "GAMConstruction", 37, "NonlinearEigenResidual2", 38, "AcceleratedUnsteadyNonlinearROM", 39,
-     "SteadyNonlinearROM", 40, "ForcedNonlinearROM", 41, "RomShapeOptimization", 42);
+     "GAMConstruction", 37, "AcceleratedUnsteadyNonlinearROM", 38,
+     "SteadyNonlinearROM", 39, "ForcedNonlinearROM", 40, "RomShapeOptimization", 41);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3220,7 +3220,7 @@ SensitivityAnalysis::SensitivityAnalysis()
 void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 21, father);
+  ClassAssigner *ca = new ClassAssigner(name, 22, father);
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "FiniteDifference", 0, "Approximate", 1, "Exact", 2, "ApproximateFiniteDifference", 3);
   new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
@@ -4609,6 +4609,7 @@ LinearizedData::LinearizedData()
   numStrModes = 0;
   refLength = 1;
   freqStep = 0;
+  errorIndicator  = OIBEI;
 
   gamFreq[0] = -1.0;
   gamFreq[1] = -1.0;
@@ -4663,6 +4664,8 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
   new ClassToken<LinearizedData> (ca, "InitialCondition", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::initCond), 2, "Displacement", 0, "Velocity", 1);
   new ClassToken<LinearizedData> (ca, "GramSchmidt", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::doGramSchmidt), 2, "False", 0, "True", 1);
+  new ClassToken<LinearizedData> (ca, "ErrorIndicator", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::errorIndicator), 5, 
+                                      "OIBEI", 0, "RBEI1", 1, "RBEI2", 2, "RBEI3", 3, "RBEI4", 4);
   new ClassDouble<LinearizedData>(ca, "Amplification", this, &LinearizedData::amplification);
   new ClassDouble<LinearizedData>(ca, "Frequency", this, &LinearizedData::frequency);
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
@@ -5504,8 +5507,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
       problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
       problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
-      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_ || 
-      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL2_) 
+      problem.alltype == ProblemData::_NONLINEAR_EIGEN_ERROR_INDICATOR_ ) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   if (problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_ ||

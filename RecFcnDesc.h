@@ -23,6 +23,7 @@ public:
                                                double *, double *, double *, double *);
 
   void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void computeDerivativeOperators(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*) {}
 
 };
 
@@ -46,6 +47,7 @@ public:
                                                double *, double *, double *, double *);
 
   void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void computeDerivativeOperators(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*) {}
 
 };
 
@@ -69,6 +71,7 @@ public:
                                                double *, double *, double *, double *);
 
   void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void computeDerivativeOperators(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
 
 };
 
@@ -165,6 +168,7 @@ public:
   void precomputeDerivative(double *, double *, double *, double *, double *, double *, double *, double *,
                                                double *, double *, double *, double *);
   void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void computeDerivativeOperators(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*) {}
 
 };
 
@@ -187,6 +191,7 @@ public:
   void precomputeDerivative(double *, double *, double *, double *, double *, double *, double *, double *,
                                                double *, double *, double *, double *);
   void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void computeDerivativeOperators(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*) {}
 
 };
 
@@ -209,7 +214,7 @@ public:
   void precomputeDerivative(double *, double *, double *, double *, double *, double *, double *, double *,
                                                double *, double *, double *, double *);
   void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
-
+  void computeDerivativeOperators(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*) {}
 };
 
 //------------------------------------------------------------------------------
@@ -676,6 +681,20 @@ void RecFcnVanAlbada<dim>::computeDerivative(double* Vi, double* dVi, double* dd
 
   for (int k=0; k<dim; ++k)
     vanalbadaDerivative(Vi[k], dVi[k], ddVij[k], dddVij[k], Vj[k], dVj[k], ddVji[k], dddVji[k], dVij[k], dVji[k]);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+inline
+void RecFcnVanAlbada<dim>::computeDerivativeOperators(double* Vi, double* ddVij, double* Vj, double* ddVji, 
+                                                      double* dVijdVi, double* dVijdVj, double* dVijdddVij, double* dVjidVi, double* dVjidVj, double *dVjidddVji)
+{
+
+  for (int k=0; k<dim; ++k)
+    vanalbadaDerivativeOperators(Vi[k], ddVij[k], Vj[k], ddVji[k], dVijdVi[k], dVijdVj[k], dVijdddVij[k], dVjidVi[k], dVjidVj[k], dVjidddVji[k]);
 
 }
 
