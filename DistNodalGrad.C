@@ -1161,12 +1161,10 @@ void DistNodalGrad<dim, Scalar>::limitDerivative(RecFcn *recFcn, DistSVec<double
       exit(1);
     }
 
-    com->fprintf(stderr, " ... DistNodalGrad::limitDerivative  01 \n");
     domain->computeDerivativeOfMultiDimLimiter(ltdmd, X, dX, ctrlVol, dCtrlVol, V, dV, *ddx, *ddy, *ddz,
                                                *dddx, *dddy, *dddz, *Vmin, *dVmin, *Vmax, *dVmax, *phi, *dphi);
   }
 
-  com->fprintf(stderr, " ... DistNodalGrad::limitDerivative  02 \n");
   RecFcnLtdSensor* ltdsensor = dynamic_cast<RecFcnLtdSensor*>(recFcn);
   if (ltdsensor) {
     fprintf(stderr, "*** Error: The derivative of the function computePressure does not exist!\n");
@@ -1174,7 +1172,6 @@ void DistNodalGrad<dim, Scalar>::limitDerivative(RecFcn *recFcn, DistSVec<double
   }
 
   if (tag) {
-    com->fprintf(stderr, " ... DistNodalGrad::limitDerivative  03 \n");
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
       bool *loctag = tag->subData(iSub);
