@@ -1317,7 +1317,7 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   // Computing the derivatives of the boundary fluxes
   //
 // TODO:: uncomment this!
-//  this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
+  this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
 
   //
   // Computing the partial derivative of the flux with respect to the variables
@@ -1671,7 +1671,7 @@ int FluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistSVec<doub
   this->computeTimeStep(1, &dtLeft, U);
   this->computeMeshMetrics();
   this->updateStateVectors(U);
-  bool isSparse = true;
+  bool isSparse = false;
 
   fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
@@ -1748,7 +1748,7 @@ int FluidShapeOptimizationHandler<dim>::fsoAeroelasticHandler(IoData &ioData, Di
   // Start basic timer
   double MyLocalTimer = -this->timer->getTime();
  
-  bool isSparse = true;
+  bool isSparse = false;
   double dtLeft = 0.0;
   this->computeTimeStep(1, &dtLeft, U);
   this->computeMeshMetrics();
