@@ -1038,7 +1038,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(bool i
 
 
 
-///* //////////////////// checking spaceOp->computeDerivativeOfGradP & spaceOp->computeTransposeDerivativeOfGradP
+/* //////////////////// checking spaceOp->computeDerivativeOfGradP & spaceOp->computeTransposeDerivativeOfGradP
  ////////////////////// checking computeDerivativeOfNodalForce && computeTransposeDerivativeOfNodalForce 
  //
  //
@@ -1068,7 +1068,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(bool i
   else this->com->fprintf(stderr, " ... final abs. diff = %e\n", diffnorm);
 
   this->com->fprintf(stderr, " ... dS2[0] = %e, dS2[1] = %e, dS2[2] = %e\n", dS2[0], dS2[1], dS2[2]);
-//*/
+*/
 
 
 /*
@@ -1327,7 +1327,7 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   else this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
 
-///*  checking   BOTH   geoState->computeDerivatives   &&   spaceOp->computeDerivativeOfResidual
+/*  checking   BOTH   geoState->computeDerivatives   &&   spaceOp->computeDerivativeOfResidual
 //
     DistSVec<double,3> dXdS2(dXdS);  
     DistSVec<double,dim> dFdS2(dFdS);
@@ -1347,7 +1347,7 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
     double diff = sqrt((aa-bb)*(aa-bb));
     if(aa != 0) this->com->fprintf(stderr, " ... dFlux/dX relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
     else this->com->fprintf(stderr, " ... dFlux/dX absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
-//*/
+*/
 
 /*  checking   spaceOp->computeDerivativeOfResidual
     DistSVec<double,3> dXdS2(dXdS);  
