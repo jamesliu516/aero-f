@@ -1761,7 +1761,7 @@ int FluidShapeOptimizationHandler<dim>::fsoAeroelasticHandler(IoData &ioData, Di
   if(ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) { totalNumParamTypes++; }
   if(ioData.sa.sensBeta == SensitivityAnalysis::ON_SENSITIVITYBETA) { totalNumParamTypes++; }
 
-  dRdX->constructOperators(*this->X, *this->A, U, DFSPAR[0], Flux, Pin, this->timeState, this->postOp);
+  if(isSparse)  dRdX->constructOperators(*this->X, *this->A, U, DFSPAR[0], Flux, Pin, this->timeState, this->postOp);
 
   for(int iparam=0; iparam<totalNumParamTypes; ++iparam) {
     int numParam;
