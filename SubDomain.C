@@ -7886,7 +7886,8 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
       double S = sqrt(nf[n]*nf[n]);
 
       int fid;
-      double pp = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid?fluidId[i]:0, NULL);
+      fid = fluidId[i]?fluidId[i]:0;	
+      double pp = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid, NULL);
       Cplocal += pp;
 
       // Viscous Simulation
