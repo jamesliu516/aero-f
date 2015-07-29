@@ -5537,12 +5537,6 @@ void IoData::resetInputValues()
     // Check that the code is running within the "correct" limits
     //
 
-    if (sa.method == SensitivityAnalysis::ADJOINT)
-    {
-      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.Method has to be set to Direct -----\n");
-      exit(1);
-    }
-
     if (dmesh.type != DefoMeshMotionData::BASIC) 
     {
       com->fprintf(stderr, " ----- SA >> MeshMotion.Type has to be set to Basic -----\n");

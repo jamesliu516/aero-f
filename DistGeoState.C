@@ -705,9 +705,9 @@ void DistGeoState::computeDerivatives(RectangularSparseMat<double,3,3> **dEdgeNo
                                       RectangularSparseMat<double,3,1> **dCtrlVoldX,
                                       DistSVec<double,3> &dX, 
                                       DistVec<double> &dCtrlVol,
-                                      DistVec<Vec3D>& dNormal,
-                                      DistVec<Vec3D>& dn, 
-                                      DistVec<double>& dndot)
+                                      DistVec<Vec3D>& dEdgeNormal,
+                                      DistVec<Vec3D>& dFaceNormal, 
+                                      DistVec<double>& dFaceNormalVel)
 {
 
 //Remark: Error mesage for pointers
@@ -737,8 +737,8 @@ void DistGeoState::computeDerivatives(RectangularSparseMat<double,3,3> **dEdgeNo
   *dXsa=dX;
 
   if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
-    domain->computeDerivativeOfNormals(dEdgeNormdX, dFaceNormdX, *dXsa, dNormal, *dEdgeNormVel, dn, dndot);
-//    dNormal = *dEdgeNorm;   dn = *dFaceNorm;   dndot = *dFaceNormVel;
+    domain->computeDerivativeOfNormals(dEdgeNormdX, dFaceNormdX, *dXsa, dEdgeNormal, *dEdgeNormVel, dFaceNormal, dFaceNormalVel);
+//    dEdgeNormal = *dEdgeNorm;   dFaceNormal = *dFaceNorm;   dFaceNormalVel = *dFaceNormVel;
 /*    
     DistSVec<double,3> dX2(dX);
     DistVec<Vec3D> dEdgeNorm2(*dEdgeNorm), dFaceNorm2(*dFaceNorm);

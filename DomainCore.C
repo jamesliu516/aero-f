@@ -1065,7 +1065,6 @@ int Domain::computeTransposeDerivativeOfControlVolumes(RectangularSparseMat<doub
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeTransposeDerivativeOfControlVolumes(*dCtrlVoldX[iSub], dCtrlVol(iSub), dX(iSub));
   }
-//  assemble(vec3DPat, dX);
 
   return 0;
 
@@ -1773,7 +1772,7 @@ void Domain::computeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,
 void Domain::computeTransposeDerivativeOfWeightsLeastSquares( 
                                                     RectangularSparseMat<double,3,6> **dRdX, 
                                                     RectangularSparseMat<double,6,6> **dRdR, 
-                                                    DistSVec<double,6> &dR, DistSVec<double,3> &dX)
+                                                    DistSVec<double,6> &dR, DistSVec<double,3> &dX2)
 {
 
   int iSub;
@@ -1791,10 +1790,10 @@ void Domain::computeTransposeDerivativeOfWeightsLeastSquares(
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dR(iSub), dX(iSub));
+    subDomain[iSub]->computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dR(iSub), dX2(iSub));
   }
 
-//  assemble(vec3DPat, dX);
+//  assemble(vec3DPat, dX2);
   timer->addNodalWeightsTime(t0);
 
 }
@@ -1806,7 +1805,7 @@ void Domain::computeTransposeDerivativeOfWeightsLeastSquares(
 void Domain::computeDerivativeOperatorsOfWeightsLeastSquares(DistSVec<double,3> &X, RectangularSparseMat<double,3,6> **dRdX, RectangularSparseMat<double,6,6> **dRdR)
 {
 
-  com->printf(4," ... in Domain::computeDerivativeOperatorsOfWeightsLeastSquares 01 \n");
+//  com->printf(4," ... in Domain::computeDerivativeOperatorsOfWeightsLeastSquares 01 \n");
   int iSub;
 
   DistSVec<double,6> R(getNodeDistInfo());

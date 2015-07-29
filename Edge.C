@@ -1418,24 +1418,20 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(
                                         SVec<double,dim>& dddx,
                                         SVec<double,dim>& dddy,
                                         SVec<double,dim>& dddz,
-                                        Vec<Vec3D>& dNormal,
+                                        Vec<Vec3D>& dEdgeNormal,
                                         SVec<double,dim>& dFluxes)
 {
 
-//  Vec<Vec3D>& dNormal = geoState.getdEdgeNormal();
-//  SVec<double,dim>& dddx = ngrad.getXderivative();
-//  SVec<double,dim>& dddy = ngrad.getYderivative();
-//  SVec<double,dim>& dddz = ngrad.getZderivative();
-
-  SVec<double,dim> dummy(dFluxes), dummy2(dFluxes), dummy3(dddy);
-  dFluxdX->apply(dX, dFluxes);
+  SVec<double,dim> dummy(dFluxes); 
+  dFluxdX->apply(dX, dummy);
+  dFluxes += dummy;
   dFluxdddx->apply(dddx, dummy);
   dFluxes += dummy;
   dFluxdddy->apply(dddy, dummy);
   dFluxes += dummy;
   dFluxdddz->apply(dddz, dummy);
   dFluxes += dummy;
-  dFluxdEdgeNorm->apply(dNormal,dummy);
+  dFluxdEdgeNorm->apply(dEdgeNormal,dummy);
   dFluxes += dummy;
 
 }
@@ -1454,24 +1450,27 @@ void EdgeSet::computeTransposeDerivativeOfFiniteVolumeTerm(
                                         EdgeGrad<dim>* egrad, 
                                         ElemSet& elems, 
                                         GeoState& geoState, 
-                                        SVec<double,3>& dX,
-                                        SVec<double,dim>& dddx,
-                                        SVec<double,dim>& dddy,
-                                        SVec<double,dim>& dddz,
-                                        Vec<Vec3D>& dNormal)
+                                        SVec<double,3>& dX2,
+                                        SVec<double,dim>& dddx2,
+                                        SVec<double,dim>& dddy2,
+                                        SVec<double,dim>& dddz2,
+                                        Vec<Vec3D>& dEdgeNormal2)
 {
 
-//  Vec<Vec3D>& dNormal = geoState.getdEdgeNormal();
+  SVec<double,3> dXdummy(dX2);
+  SVec<double,dim> dddxdummy(dddx2), dddydummy(dddy2), dddzdummy(dddz2);
+  Vec<Vec3D> dEdgeNormaldummy(dEdgeNormal2);
 
-//  SVec<double,dim>& dddx = ngrad.getXderivative();
-//  SVec<double,dim>& dddy = ngrad.getYderivative();
-//  SVec<double,dim>& dddz = ngrad.getZderivative();
-
-  dFluxdX->applyTranspose(dFluxes, dX);
-  dFluxdddx->applyTranspose(dFluxes, dddx);
-  dFluxdddy->applyTranspose(dFluxes, dddy);
-  dFluxdddz->applyTranspose(dFluxes, dddz);
-  dFluxdEdgeNorm->applyTranspose(dFluxes, dNormal);
+  dFluxdX->applyTranspose(dFluxes, dXdummy);
+  dX2 += dXdummy;
+  dFluxdddx->applyTranspose(dFluxes, dddxdummy);
+  dddx2 += dddxdummy;
+  dFluxdddy->applyTranspose(dFluxes, dddydummy);
+  dddy2 += dddydummy;
+  dFluxdddz->applyTranspose(dFluxes, dddzdummy);
+  dddz2 += dddzdummy;
+  dFluxdEdgeNorm->applyTranspose(dFluxes, dEdgeNormaldummy);
+  dEdgeNormal2 += dEdgeNormaldummy;
 
 }
 

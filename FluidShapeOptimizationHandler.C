@@ -1038,7 +1038,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(bool i
 
 
 
-/* //////////////////// checking spaceOp->computeDerivativeOfGradP & spaceOp->computeTransposeDerivativeOfGradP
+///* //////////////////// checking spaceOp->computeDerivativeOfGradP & spaceOp->computeTransposeDerivativeOfGradP
  ////////////////////// checking computeDerivativeOfNodalForce && computeTransposeDerivativeOfNodalForce 
  //
  //
@@ -1068,7 +1068,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(bool i
   else this->com->fprintf(stderr, " ... final abs. diff = %e\n", diffnorm);
 
   this->com->fprintf(stderr, " ... dS2[0] = %e, dS2[1] = %e, dS2[2] = %e\n", dS2[0], dS2[1], dS2[2]);
-*/
+//*/
 
 
 /*
@@ -1327,7 +1327,8 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   else this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
 
 
-///*  checking   geoState->computeDerivatives   &   spaceOp->computeDerivativeOfResidual
+///*  checking   BOTH   geoState->computeDerivatives   &&   spaceOp->computeDerivativeOfResidual
+//
     DistSVec<double,3> dXdS2(dXdS);  
     DistSVec<double,dim> dFdS2(dFdS);
     DistVec<double> dFaceNormVel2(dFaceNormVel), dAdS2(dAdS);
@@ -1344,8 +1345,8 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
 
     double bb = dXdS2*dXdS; 
     double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0) this->com->fprintf(stderr, " ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
-    else this->com->fprintf(stderr, " ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
+    if(aa != 0) this->com->fprintf(stderr, " ... dFlux/dX relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
+    else this->com->fprintf(stderr, " ... dFlux/dX absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
 //*/
 
 /*  checking   spaceOp->computeDerivativeOfResidual
@@ -1379,8 +1380,8 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
 
     double bb = dXdS2*dXdS + dAdS2*dAdS + dEdgeNormSVec*dEdgeNorm2SVec + dFaceNormSVec*dFaceNorm2SVec + dFaceNormVel2*dFaceNormVel; 
     double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0) this->com->fprintf(stderr, " ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
-    else this->com->fprintf(stderr, " ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
+    if(aa != 0) this->com->fprintf(stderr, " ... computeTransposeDerivativeOfResidual ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
+    else this->com->fprintf(stderr, " ... computeTransposeDerivativeOfResidual ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
 */
 
 /*  checking   geoState->computeDerivatives  
@@ -1428,6 +1429,33 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
   if(dFdSnorm != 0) this->com->fprintf(stderr, "... rel. error = %e\n", diffnorm/dFdSnorm);
   else this->com->fprintf(stderr, "... abs. error = %e\n", diffnorm);
 */
+
+  this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
+  if(DFSPAR[1] || DFSPAR[2]) dFdS *= 0.0174532925;  // convert radian to degree
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FluidShapeOptimizationHandler<dim>::fsoAnalyticalTranspose
+(DistSVec<double,dim> &dFdS, DistSVec<double,3> &dXdS)
+{
+
+  dEdgeNorm = 0.0;  dFaceNorm = 0.0;  dddx = 0.0;  dddy = 0.0;  dddz = 0.0;  dFaceNormVel = 0.0;  dR = 0.0;
+  dRdXoperators<dim> *dRdXop = dRdX->getdRdXop();
+  this->spaceOp->computeTransposeDerivativeOfResidual(dRdXop, dFdS, dAdS, dXdS, dddx, dddy, dddz, dEdgeNormi, dFaceNorm, dFaceNormVel, dR);
+
+  //
+  // Computing the derivatives of the boundary fluxes
+  //
+// TODO:: uncomment this!
+//  this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
+
+  //
+  // Computing the partial derivative of the flux with respect to the variables
+  //
+
+  this->geoState->computeTransposeDerivatives(dRdXop->dEdgeNormdX, dRdXop->dFaceNormdX, dRdXop->dCtrlVoldX, dAdS, dEdgeNorm, dFaceNorm, dFaceNormVel, dXdS); 
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
   if(DFSPAR[1] || DFSPAR[2]) dFdS *= 0.0174532925;  // convert radian to degree
@@ -1921,8 +1949,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityMesh(bool isSparse, I
       // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
 
-      if (dXdSb.norm() == 0.0)
-      {
+      if (dXdSb.norm() == 0.0) {
         this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
         if(!ioData.sa.fsiFlag) exit(1);
       }
@@ -1935,17 +1962,12 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityMesh(bool isSparse, I
       dXdS -= *this->X;
 
       // Check that the mesh perturbation is propagated
-      if (dXdS.norm() == 0.0)
-      {
-        this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Sensitivity Perturbation !!!\n\n");
-      }
+      if (dXdS.norm() == 0.0) this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Sensitivity Perturbation !!!\n\n");
 
       fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, false, isSparse);
-  
       fsoComputeSensitivities(isSparse, ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
 
       dXdSb = 0.0;
-
       step = step + 1;
     }
 
