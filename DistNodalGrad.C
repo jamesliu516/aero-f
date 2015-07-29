@@ -843,56 +843,39 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(int configSA, DistSVec<double
 
 // Included (YC)
 template<int dim, class Scalar>
-void DistNodalGrad<dim, Scalar>::computeDerivative(dRdXoperators<dim> *dRdXop, int configSA, DistSVec<double,3> &dX, 
-                                                   DistVec<double> &dCtrlVol, DistSVec<double,dim> &dV2, 
-                                                   DistSVec<double,6>& dR2, DistSVec<double,dim>& dddx2, 
-                                                   DistSVec<double,dim>& dddy2, DistSVec<double,dim>& dddz2)
+void DistNodalGrad<dim, Scalar>::computeDerivative(dRdXoperators<dim> *dRdXop, DistSVec<double,3> &dX, 
+                                                   DistVec<double> &dCtrlVol, DistSVec<double,dim> &dV_r, 
+                                                   DistSVec<double,6>& dR_r, DistSVec<double,dim>& dddx_r, 
+                                                   DistSVec<double,dim>& dddy_r, DistSVec<double,dim>& dddz_r)
 {
 
-//Remark: Error mesage for pointers
-  if (dddx == 0) {
-    fprintf(stderr, "*** Error: Variable dddx does not exist!\n");
-    exit(1);
-  }
-  if (dddy == 0) {
-    fprintf(stderr, "*** Error: Variable dddy does not exist!\n");
-    exit(1);
-  }
-  if (dddz == 0) {
-    fprintf(stderr, "*** Error: Variable dddz does not exist!\n");
-    exit(1);
-  }
-
-  if (configSA != lastConfigSA) {
-    computeDerivativeOfWeights(*dRdXop, dX, dR2);
-    lastConfigSA = configSA;
-  }
+    computeDerivativeOfWeights(*dRdXop, dX, dR_r);
 
   if (typeGradient == SchemeData::LEAST_SQUARES) {
-    domain->computeDerivativeOfGradientsLeastSquares(*dRdXop, dX, dR2, dV2, dddx2, dddy2, dddz2);
+    domain->computeDerivativeOfGradientsLeastSquares(*dRdXop, dX, dR_r, dV_r, dddx_r, dddy_r, dddz_r);
     Communicator* com = domain->getCommunicator();
-//    dddx2 = *dddx;    dddy2 = *dddy;    dddz2 = *dddz;
-/*    
-    DistSVec<double,dim> dddx2(*dddx), dddy2(*dddy), dddz2(*dddz);
+/************************    
+    DistSVec<double,dim> dddx2(dddx_r), dddy2(dddy_r), dddz2(dddz_r), dV2(dV_r);
     DistSVec<double,3> dX2(dX);
-    DistSVec<double,6> dR2(*dR);
+    DistSVec<double,6> dR2(dR_r);
 
     dX2 = 0.0;
-//    dR2 = 0.0;
+    dR2 = 0.0;
+    dV2 = 0.0;
     dddx2 = 0.0;
     dddy2 = 0.0;
     dddz2 = 0.0;
 
-    domain->computeDerivativeOfGradientsLeastSquares(*dRdXop, dX, *dR, dddx2, dddy2, dddz2);
-    double aa = (*dddx)*dddx2 + (*dddy)*dddy2 + (*dddz)*dddz2;
-    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, *dddx, *dddy, *dddz, dX2, dR2);
-    double bb = dX2*(dX)+dR2*(*dR);
+    domain->computeDerivativeOfGradientsLeastSquares(*dRdXop, dX, dR_r, dV_r, dddx2, dddy2, dddz2);
+    double aa = (dddx_r)*dddx2 + (dddy_r)*dddy2 + (dddz_r)*dddz2;
+    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, dddx_r, dddy_r, dddz_r, dX2, dR2, dV2);
+    double bb = dX2*(dX)+dR2*(dR_r)+dV2*(dV_r);
     double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0.0) com->fprintf(stderr, " ... rel. diff = %e\n", diff/abs(aa));
-    else com->fprintf(stderr, " ... abs. diff = %e\n", diff);
+    if(aa != 0.0) com->fprintf(stderr, " ... domain->computeTransposeDerivativeOfGradientsLeastSquares ... rel. diff = %e\n", diff/abs(aa));
+    else com->fprintf(stderr, " ... domain->computeTransposeDerivativeOfGradientsLeastSquares ... abs. diff = %e\n", diff);
 */
   } else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL) {
-//    domain->computeDerivativeOfGradientsGalerkin(ctrlVol, dCtrlVol, *wii, *wij, *wji, *dwii, *dwij, *dwji, V, dV, *dddx, *dddy, *dddz);
+//    domain->computeDerivativeOfGradientsGalerkin(ctrlVol, dCtrlVol, *wii, *wij, *wji, *dwii, *dwij, *dwji, V, dV, dddx_r, dddy_r, dddz_r);
   }
 }
 
@@ -900,43 +883,24 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(dRdXoperators<dim> *dRdXop, i
 
 // Included (YC)
 template<int dim, class Scalar>
-void DistNodalGrad<dim, Scalar>::computeTransposeDerivative(dRdXoperators<dim> *dRdXop, int configSA, 
+void DistNodalGrad<dim, Scalar>::computeTransposeDerivative(dRdXoperators<dim> *dRdXop,  
                                                             DistSVec<double,dim> &dddx2, 
                                                             DistSVec<double,dim> &dddy2, 
                                                             DistSVec<double,dim> &dddz2, 
                                                             DistSVec<double,6> &dR2,
-				                                                    DistVec<double> &dCtrlVol,
+				                                                    DistVec<double> &dCtrlVol2,
                                                             DistSVec<double,dim> &dV2,
-                                                            DistSVec<double,3> &dX)
+                                                            DistSVec<double,3> &dX2)
 {
 
-//Remark: Error mesage for pointers
-  if (dddx == 0) {
-    fprintf(stderr, "*** Error: Variable dddx does not exist!\n");
-    exit(1);
-  }
-  if (dddy == 0) {
-    fprintf(stderr, "*** Error: Variable dddy does not exist!\n");
-    exit(1);
-  }
-  if (dddz == 0) {
-    fprintf(stderr, "*** Error: Variable dddz does not exist!\n");
-    exit(1);
-  }
-
-//  *dR = 0.0;
   if (typeGradient == SchemeData::LEAST_SQUARES) {
     Communicator* com = domain->getCommunicator();
-    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, dddx2, dddy2, dddz2, dX, dR2, dV2);
-//    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, *dddx, *dddy, *dddz, dX, dR2);
+    domain->computeTransposeDerivativeOfGradientsLeastSquares(*dRdXop, dddx2, dddy2, dddz2, dX2, dR2, dV2);
   } else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL) {
-//    domain->computeDerivativeOfGradientsGalerkin(ctrlVol, dCtrlVol, *wii, *wij, *wji, *dwii, *dwij, *dwji, V, dV, *dddx, *dddy, *dddz);
+//    domain->computeDerivativeOfGradientsGalerkin(ctrlVol, dCtrlVol2, *wii, *wij, *wji, *dwii, *dwij, *dwji, V, dV2, dddx2, dddy2, dddz2);
   }
 
-  if (configSA != lastConfigSA) {
-    computeTransposeDerivativeOfWeights(*dRdXop, dR2, dX);
-    lastConfigSA = configSA;
-  }
+  computeTransposeDerivativeOfWeights(*dRdXop, dR2, dX2);
 }
 
 //------------------------------------------------------------------------------
@@ -944,7 +908,7 @@ void DistNodalGrad<dim, Scalar>::computeTransposeDerivative(dRdXoperators<dim> *
 // Included (YC)
 template<int dim, class Scalar>
 template<class Scalar2>
-void DistNodalGrad<dim, Scalar>::computeDerivativeOperators(int configSA, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
+void DistNodalGrad<dim, Scalar>::computeDerivativeOperators(DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
                                                             DistSVec<Scalar2,dim> &V, dRdXoperators<dim> &dRdXop)
 {
 

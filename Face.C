@@ -1298,30 +1298,26 @@ void FaceSet::computeDerivativeOfFiniteVolumeTerm(
               RectangularSparseMat<double,dim,dim> *dFluxdUb,
               BcData<dim> &bcData,
 				      GeoState &geoState, 
-              Vec<Vec3D>& dn,
-              Vec<double>& dndot,
+              Vec<Vec3D>& dFaceNormal,
+              Vec<double>& dFaceNormalVel,
 				      SVec<double,dim> &dFluxes)
 {
 
-//  Vec<Vec3D> &dn = geoState.getdFaceNormal();
-//  Vec<double> &dndot = geoState.getdFaceNormalVel();
-//  SVec<double,dim> &dUb = bcData.getdFaceStateVector();
-
   SVec<double,dim> dummy(dFluxes);
 
-  dn *= 1.0/3.0;
-  dndot *= 1.0/3.0;
+  dFaceNormal *= 1.0/3.0;
+  dFaceNormalVel *= 1.0/3.0;
   dummy = 0.0;
-  dFluxdFaceNormal->apply(dn, dummy); 
+  dFluxdFaceNormal->apply(dFaceNormal, dummy); 
   dFluxes += dummy;
-  dFluxdFaceNormalVel->apply(dndot, dummy);
+  dFluxdFaceNormalVel->apply(dFaceNormalVel, dummy);
   dFluxes += dummy;
 /*  dummy = 0.0;
   dFluxdUb->apply(dUb, dummy);  //TODO: assumed dUb is zero
   dFluxes += dummy; 
 */
-  dn *= 3.0;
-  dndot *= 3.0;
+  dFaceNormal *= 3.0;
+  dFaceNormalVel *= 3.0;
 
 }
 
@@ -1335,24 +1331,30 @@ void FaceSet::computeTransposeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<
                                                            BcData<dim> &bcData,
                                                            GeoState &geoState,
                                                            SVec<double,dim> &dFluxes,
-                                                           Vec<Vec3D>& dn2,
-                                                           Vec<double>& dndot2)
+                                                           Vec<Vec3D>& dFaceNormal2,
+                                                           Vec<double>& dFaceNormalVel2)
 {
 
 //  Vec<Vec3D> &dn = geoState.getdFaceNormal();
 //  Vec<double> &dndot = geoState.getdFaceNormalVel();
 //  SVec<double,dim> &dUb = bcData.getdFaceStateVector();
 
+  Vec<Vec3D> dFaceNormal2dummy(dFaceNormal2);
+  Vec<double> dFaceNormalVel2dummy(dFaceNormalVel2); 
+
   dFluxes *= 1.0/3.0;
-  dFluxdFaceNormal->applyTranspose(dFluxes, dn2); 
-  dFluxdFaceNormalVel->applyTranspose(dFluxes, dndot2);
+  dFluxdFaceNormal->applyTranspose(dFluxes, dFaceNormal2dummy); 
+  dFaceNormal2 += dFaceNormal2dummy;
+// TODO: uncomment dFaceNormalVel2 part
+  dFluxdFaceNormalVel->applyTranspose(dFluxes, dFaceNormalVel2dummy);
+  dFaceNormalVel2 += dFaceNormalVel2dummy;
   dFluxes *= 3.0;
 // TODO: assumed dUb is zero
 //  dFluxdUb->applyTranspose(dFluxes, dUb);
 //  fprintf(stderr, " ... norm of dUb is %e\n", dUb.norm());
 
-//  dn2 = dn;
-//  dndot2 = dndot;
+//  dFaceNormal2 = dn;
+//  dFaceNormalVel2 = dndot;
 
 }
 

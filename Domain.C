@@ -270,9 +270,9 @@ void Domain::computeTransposeDerivativeOfGradientsLeastSquares(dRdXoperators<dim
                                                                DistSVec<Scalar,dim> &dddx,
                                                                DistSVec<Scalar,dim> &dddy, 
                                                                DistSVec<Scalar,dim> &dddz,
-                                                               DistSVec<double,3> &dX,
-                                                               DistSVec<double,6> &dR,
-                                                               DistSVec<double,dim> &dV)
+                                                               DistSVec<double,3> &dX2,
+                                                               DistSVec<double,6> &dR2,
+                                                               DistSVec<double,dim> &dV2)
 {
 
   double t0 = timer->getTime();
@@ -282,13 +282,12 @@ void Domain::computeTransposeDerivativeOfGradientsLeastSquares(dRdXoperators<dim
     subDomain[iSub]->computeTransposeDerivativeOfGradientsLeastSquares(dRdXop.dddxdX[iSub], dRdXop.dddydX[iSub], dRdXop.dddzdX[iSub],
                                                                        dRdXop.dddxdR[iSub], dRdXop.dddydR[iSub], dRdXop.dddzdR[iSub],
                                                                        dRdXop.dddxdV[iSub], dRdXop.dddydV[iSub], dRdXop.dddzdV[iSub],
-                                                                       dddx(iSub), dddy(iSub), dddz(iSub), dX(iSub), dR(iSub), dV(iSub));
+                                                                       dddx(iSub), dddy(iSub), dddz(iSub), dX2(iSub), dR2(iSub), dV2(iSub));
   }
 
-//  assemble(weightDerivativePat, dR);
-//  assemble(vec3DPat, dX);
+//  assemble(vec3DPat, dX2);
 //  CommPattern<Scalar> *vPat = getCommPat(dddx);
-//  assemble(vPat, dV);  
+//  assemble(vPat, dV2);  
 
   timer->addNodalGradTime(t0);
 
@@ -972,16 +971,16 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dRdXop,
              DistSVec<double,dim>& dddx,
              DistSVec<double,dim>& dddy, 
              DistSVec<double,dim>& dddz,
-             DistVec<Vec3D>& dNormal,
-             DistVec<Vec3D>& dn,
-             DistVec<double>& dndot,
+             DistVec<Vec3D>& dEdgeNormal,
+             DistVec<Vec3D>& dFaceNormal,
+             DistVec<double>& dFaceNormalVel,
              DistSVec<double,dim>& dF)
 {
 
   double t0 = timer->getTime();
 
   int iSub;
-  com->fprintf(stderr, " computeDerivativeOfFiniteVolumeTerm received dddx, dddy, dddz norms are %e %e %e\n", dddx.norm(), dddy.norm(), dddz.norm());
+//  com->fprintf(stderr, " computeDerivativeOfFiniteVolumeTerm received dddx, dddy, dddz norms are %e %e %e\n", dddx.norm(), dddy.norm(), dddz.norm());
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
@@ -990,42 +989,42 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dRdXop,
                                                          dRdXop.dFluxdFaceNormal[iSub], dRdXop.dFluxdFaceNormalVel[iSub], dRdXop.dFluxdUb[iSub],
                                                          bcData(iSub), geoState(iSub),
 		                                                     dX(iSub), ngrad(iSub), legrad, 
-                                                         dddx(iSub), dddy(iSub), dddz(iSub), dNormal(iSub), dn(iSub), dndot(iSub), dF(iSub));
+                                                         dddx(iSub), dddy(iSub), dddz(iSub), dEdgeNormal(iSub), dFaceNormal(iSub), dFaceNormalVel(iSub), dF(iSub));
 /*
     SVec<double,3> dX2(dX(iSub));  
     SVec<double,dim> dF2(dF(iSub)), dddx2(dddx(iSub)), dddy2(dddy(iSub)), dddz2(dddz(iSub));
-    Vec<double> dndot2(dndot(iSub));
-    Vec<Vec3D> dNormal2(dNormal(iSub)), dn2(dn(iSub));
+    Vec<double> dFaceNormalVel2(dFaceNormalVel(iSub));
+    Vec<Vec3D> dEdgeNormal2(dEdgeNormal(iSub)), dFaceNormal2(dFaceNormal(iSub));
     dX2 = 0.0;    dF2 = 0.0; 
     subDomain[iSub]->computeDerivativeOfFiniteVolumeTerm(dRdXop.dFluxdddx[iSub], dRdXop.dFluxdddy[iSub], dRdXop.dFluxdddz[iSub],
                                                          dRdXop.dFluxdEdgeNorm[iSub], dRdXop.dFluxdX[iSub],
                                                          dRdXop.dFluxdFaceNormal[iSub], dRdXop.dFluxdFaceNormalVel[iSub], dRdXop.dFluxdUb[iSub],
                                                          bcData(iSub), geoState(iSub),
 		                                                     dX(iSub), ngrad(iSub), legrad, 
-                                                         dddx(iSub), dddy(iSub), dddz(iSub), dNormal(iSub), dn(iSub), dndot(iSub), dF2);
+                                                         dddx(iSub), dddy(iSub), dddz(iSub), dEdgeNormal(iSub), dFaceNormal(iSub), dFaceNormalVel(iSub), dF2);
     double aa = dF2*dF(iSub);
-    dddx2 = 0.0;   dddy2 = 0.0;   dddz2 = 0.0;   dNormal2 = 0.0;   dn2 = 0.0;   dndot2 = 0.0;
+    dddx2 = 0.0;   dddy2 = 0.0;   dddz2 = 0.0;   dEdgeNormal2 = 0.0;   dFaceNormal2 = 0.0;   dFaceNormalVel2 = 0.0;
 
     subDomain[iSub]->computeTransposeDerivativeOfFiniteVolumeTerm(dRdXop.dFluxdddx[iSub], dRdXop.dFluxdddy[iSub], dRdXop.dFluxdddz[iSub],
                                                          dRdXop.dFluxdEdgeNorm[iSub], dRdXop.dFluxdX[iSub],
                                                          dRdXop.dFluxdFaceNormal[iSub], dRdXop.dFluxdFaceNormalVel[iSub], dRdXop.dFluxdUb[iSub],
                                                          bcData(iSub), geoState(iSub), dF(iSub), ngrad(iSub), legrad, dX2, 
-                                                         dddx2, dddy2, dddz2, dNormal2, dn2, dndot2);
+                                                         dddx2, dddy2, dddz2, dEdgeNormal2, dFaceNormal2, dFaceNormalVel2);
 
-    SVec<double,3> dNormalSVec(dNormal(iSub).size()), dNormal2SVec(dNormal2.size());
-    SVec<double,3> dnSVec(dn.size()), dn2SVec(dn.size());
-    for(int i=0; i<dNormal2.size(); ++i)
+    SVec<double,3> dEdgeNormalSVec(dEdgeNormal(iSub).size()), dEdgeNormal2SVec(dEdgeNormal2.size());
+    SVec<double,3> dFaceNormalSVec(dFaceNormal.size()), dFaceNormal2SVec(dFaceNormal.size());
+    for(int i=0; i<dEdgeNormal2.size(); ++i)
       for(int j=0; j<3; ++j) { 
-        dNormalSVec[i][j] = dNormal(iSub)[i][j];
-        dNormal2SVec[i][j] = dNormal2[i][j];
+        dEdgeNormalSVec[i][j] = dEdgeNormal(iSub)[i][j];
+        dEdgeNormal2SVec[i][j] = dEdgeNormal2[i][j];
       }
-    for(int i=0; i<dn2.size(); ++i)
+    for(int i=0; i<dFaceNormal2.size(); ++i)
       for(int j=0; j<3; ++j) { 
-        dnSVec[i][j] = dn(iSub)[i][j];
-        dn2SVec[i][j] = dn2[i][j];
+        dFaceNormalSVec[i][j] = dFaceNormal(iSub)[i][j];
+        dFaceNormal2SVec[i][j] = dFaceNormal2[i][j];
       }
 
-    double bb = dX2*dX(iSub) + dddx2*dddx(iSub) + dddy2*dddy(iSub) + dddz2*dddz(iSub) + dNormal2SVec*dNormalSVec + dn2SVec*dnSVec + dndot2*dndot(iSub);
+    double bb = dX2*dX(iSub) + dddx2*dddx(iSub) + dddy2*dddy(iSub) + dddz2*dddz(iSub) + dEdgeNormal2SVec*dEdgeNormalSVec + dFaceNormal2SVec*dFaceNormalSVec + dFaceNormalVel2*dFaceNormalVel(iSub);
     double diff = sqrt((aa-bb)*(aa-bb));
     if(aa != 0) fprintf(stderr, " ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
     else fprintf(stderr, " ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
@@ -1045,13 +1044,13 @@ void Domain::computeTransposeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dR
 						 DistBcData<dim>& bcData, DistGeoState& geoState,
 						 DistSVec<double,dim>& dF, 
 						 DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
-						 DistSVec<double,3>& dX,
-             DistSVec<double,dim>& dddx,
-             DistSVec<double,dim>& dddy,
-             DistSVec<double,dim>& dddz,
-             DistVec<Vec3D>& dNormal,
-             DistVec<Vec3D>& dn,
-             DistVec<double>& dndot)
+						 DistSVec<double,3>& dX2,
+             DistSVec<double,dim>& dddx2,
+             DistSVec<double,dim>& dddy2,
+             DistSVec<double,dim>& dddz2,
+             DistVec<Vec3D>& dEdgeNormal2,
+             DistVec<Vec3D>& dFaceNormal2,
+             DistVec<double>& dFaceNormalVel2)
 {
 
   double t0 = timer->getTime();
@@ -1064,31 +1063,27 @@ void Domain::computeTransposeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dR
                                                                   dRdXop.dFluxdEdgeNorm[iSub], dRdXop.dFluxdX[iSub],
                                                                   dRdXop.dFluxdFaceNormal[iSub], dRdXop.dFluxdFaceNormalVel[iSub], dRdXop.dFluxdUb[iSub],
                                                                   bcData(iSub), geoState(iSub), dF(iSub),
-                                                                  ngrad(iSub), legrad, dX(iSub), dddx(iSub), dddy(iSub), dddz(iSub), dNormal(iSub), dn(iSub), dndot(iSub));
+                                                                  ngrad(iSub), legrad, dX2(iSub), dddx2(iSub), dddy2(iSub), dddz2(iSub), dEdgeNormal2(iSub), dFaceNormal2(iSub), dFaceNormalVel2(iSub));
 
 
   }
 
-//  DistSVec<double,dim> &dddx = ngrad.getXderivative();
-//  DistSVec<double,dim> &dddy = ngrad.getXderivative();
-//  DistSVec<double,dim> &dddz = ngrad.getXderivative();
-//  DistVec<Vec3D> &dEdgeNorm = geoState.getdEdgeNormal();
   DistVec<double> &dEdgeNormVel = geoState.getdEdgeNormalVel();
-  dEdgeNormVel = 0.0;
-  assemble(vecPat, dddx);
-  assemble(vecPat, dddy);
-  assemble(vecPat, dddz);
-//  assemble(vec3DPat, dX);
+  DistVec<double> dEdgeNormVel2(dEdgeNormVel);
+  dEdgeNormVel2 = 0.0;
+  assemble(vecPat, dddx2);
+  assemble(vecPat, dddy2);
+  assemble(vecPat, dddz2);
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) 
-    subDomain[iSub]->sndNormals(*edgePat, dNormal.subData(iSub), dEdgeNormVel.subData(iSub));
+    subDomain[iSub]->sndNormals(*edgePat, dEdgeNormal2.subData(iSub), dEdgeNormVel2.subData(iSub));
 
   edgePat->exchange();
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->rcvNormals(*edgePat, dNormal.subData(iSub), dEdgeNormVel.subData(iSub));
+    subDomain[iSub]->rcvNormals(*edgePat, dEdgeNormal2.subData(iSub), dEdgeNormVel2.subData(iSub));
 
   timer->addFiniteVolumeTermTime(t0);
 

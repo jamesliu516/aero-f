@@ -729,14 +729,12 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
   dddy = (Scalar) 0.0;
   dddz = (Scalar) 0.0;
 
-  SVec<Scalar,dim> xxx(dddx), xxx2(dddx), dddx2(dddx), uux(dddx);
-  SVec<Scalar,dim> yyy(dddy), yyy2(dddy), dddy2(dddy), uuy(dddy);
-  SVec<Scalar,dim> zzz(dddz), zzz2(dddz), dddz2(dddz), uuz(dddz);
-
+  SVec<Scalar,dim> xxx(dddx), xxx2(dddx); 
+  SVec<Scalar,dim> yyy(dddy), yyy2(dddy); 
+  SVec<Scalar,dim> zzz(dddz), zzz2(dddz); 
 
   xxx = (Scalar) 0;    yyy = (Scalar) 0;   zzz = (Scalar) 0;
   xxx2 = (Scalar) 0;   yyy2 = (Scalar) 0;  zzz2 = (Scalar) 0;
-  dddx2 = (Scalar) 0;  dddy2 = (Scalar) 0; dddz2 = (Scalar) 0;
 
   dddxdX->apply(dX, xxx);
   dddydX->apply(dX, yyy);
@@ -771,38 +769,39 @@ void SubDomain::computeTransposeDerivativeOfGradientsLeastSquares(
                SVec<Scalar,dim> &dddx,
                SVec<Scalar,dim> &dddy, 
                SVec<Scalar,dim> &dddz,
-               SVec<double,3> &dX,
-               SVec<double,6> &dR,
-               SVec<double,dim> &dV)
+               SVec<double,3> &dX2,
+               SVec<double,6> &dR2,
+               SVec<double,dim> &dV2)
 {
 
-  SVec<Scalar,3> dummyX(dX);
-  SVec<Scalar,6> dummyR(dR);
-  SVec<Scalar,dim> dummyV(dV);
+  SVec<Scalar,3> dummyX(dX2);
+  SVec<Scalar,6> dummyR(dR2);
+  SVec<Scalar,dim> dummyV(dV2);
 
   dummyX = 0.0;
   dddxdX->applyTranspose(dddx, dummyX);
-  dX += dummyX;
+  dX2 += dummyX;
   dummyX = 0.0;
   dddydX->applyTranspose(dddy, dummyX);
-  dX += dummyX;
+  dX2 += dummyX;
   dummyX = 0.0;
   dddzdX->applyTranspose(dddz, dummyX);
-  dX += dummyX;
+  dX2 += dummyX;
 
   dddxdR->applyTranspose(dddx, dummyR);
-  dR += dummyR;
+  dR2 += dummyR;
   dddydR->applyTranspose(dddy, dummyR);
-  dR += dummyR;
+  dR2 += dummyR;
   dddzdR->applyTranspose(dddz, dummyR);
-  dR += dummyR;
+  dR2 += dummyR;
 
+// TODO: uncomment below
   dddxdV->applyTranspose(dddx, dummyV);
-  dV += dummyV;
+  dV2 += dummyV;
   dddydV->applyTranspose(dddy, dummyV);
-  dV += dummyV;
+  dV2 += dummyV;
   dddzdV->applyTranspose(dddz, dummyV);
-  dV += dummyV;
+  dV2 += dummyV;
 
 }
 
@@ -1659,20 +1658,19 @@ void SubDomain::computeTransposeDerivativeOfFiniteVolumeTerm(
                                         BcData<dim>& bcData, GeoState& geoState,
                                         SVec<double,dim>& dFluxes, 
                                         NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, 
-                                        SVec<double,3>& dX,
-                                        SVec<double,dim>& dddx,
-                                        SVec<double,dim>& dddy,
-                                        SVec<double,dim>& dddz,
-                                        Vec<Vec3D>& dNormal,
-                                        Vec<Vec3D>& dn,
-                                        Vec<double>& dndot)
+                                        SVec<double,3>& dX2,
+                                        SVec<double,dim>& dddx2,
+                                        SVec<double,dim>& dddy2,
+                                        SVec<double,dim>& dddz2,
+                                        Vec<Vec3D>& dEdgeNormal2,
+                                        Vec<Vec3D>& dFaceNormal2,
+                                        Vec<double>& dFaceNormalVel2)
 {
 
-  dX = 0.0;
-  faces.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb, bcData, geoState, dFluxes, dn, dndot);
+  faces.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb, bcData, geoState, dFluxes, dFaceNormal2, dFaceNormalVel2);
 
   edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                                     dFluxes, ngrad, egrad, elems, geoState, dX, dddx, dddy, dddz, dNormal);
+                                                     dFluxes, ngrad, egrad, elems, geoState, dX2, dddx2, dddy2, dddz2, dEdgeNormal2);
 
 }
 
@@ -9041,7 +9039,7 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
 
       double S = sqrt(nf[n]*nf[n]);
 
-      int fid;
+      int fid(0);
       double pp = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid?fluidId[i]:0, NULL);
       Cplocal += pp;
 

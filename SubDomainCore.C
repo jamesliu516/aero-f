@@ -970,6 +970,7 @@ int SubDomain::computeTransposeDerivativeOfControlVolumes(RectangularSparseMat<d
  
   SVec<double,3> dummy(dX);
   dummy = 0.0; 
+//TODO: uncomment below
   dCtrlVoldX.applyTranspose(dCtrlVol, dummy);
   dX += dummy;
   return 0;
