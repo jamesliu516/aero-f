@@ -115,7 +115,6 @@ void FluxFcnSGFDJacRoeEuler3D::computeDerivative(double irey, double dIrey, doub
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
-  fprintf(stderr," ... in FluxFcnSGFDJacRoeEuler3D::computeDerivative 001\n");
   F77NAME(gxroeflux5)(0, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, sprec.getMinMach(), 0.0*dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, useLimiter ? sprec.getPrecTag() : 0);
 
 }
@@ -145,7 +144,6 @@ void FluxFcnSGApprJacRoeEuler3D::computeDerivative(double irey, double dIrey, do
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
-  fprintf(stderr," ... in FluxFcnSGApprJacRoeEuler3D::computeDerivative 001\n");
   F77NAME(gxroeflux5)(0, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, sprec.getMinMach(), 0.0*dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, useLimiter ? sprec.getPrecTag() : 0);
 
 }
@@ -744,7 +742,6 @@ void FluxFcnSGVanLeerEuler3D::computeDerivative(double irey, double dIrey, doubl
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
-  fprintf(stderr," ... in FluxFcnSGVanLeerEuler3D::computeDerivative 001\n");
   //compute the split fluxes
   double fPlus[5], fMinus[5];
   evalFlux(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, fPlus, 1);
@@ -961,7 +958,6 @@ void FluxFcnSGPorousWallEuler3D::computeDerivative
 {
 
 // not implemented 
-  fprintf(stderr," ... in FluxFcnSGPorousWallEuler3D::computeDerivative 001\n");
 
 }
 
@@ -1035,7 +1031,6 @@ void FluxFcnSGInflowEuler3D::computeDerivative
 {
 
   
-  fprintf(stderr," ... in FluxFcnSGInflowEuler3D::computeDerivative 001\n");
   F77NAME(gxboundflux5)(0, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -1692,7 +1687,6 @@ void FluxFcnSGInternalInflowEuler3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGInternalInflowEuler3D::computeDerivative 001\n");
   influx3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -1729,7 +1723,6 @@ void FluxFcnSGDirectStateInflowEuler3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGDirectStateInflowEuler3D::computeDerivative 001\n");
   directstateflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -1755,7 +1748,6 @@ void FluxFcnSGMassFlowInflowEuler3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGMassFlowInflowEuler3D::computeDerivative 001\n");
   massflowflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -1780,7 +1772,6 @@ void FluxFcnSGInternalOutflowEuler3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGInternalOutflowEuler3D::computeDerivative 001\n");
   influx3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -1817,7 +1808,6 @@ void FluxFcnSGDirectStateOutflowEuler3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGDirectStateOutflowEuler3D::computeDerivative 001\n");
   directstateflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -1843,7 +1833,6 @@ void FluxFcnSGMassFlowOutflowEuler3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGMassFlowOutflowEuler3D::computeDerivative 001\n");
   massflowflux3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -1874,7 +1863,6 @@ void FluxFcnSGFDJacRoeSA3D::computeDerivative(double irey, double dIrey, double 
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
-  fprintf(stderr," ... in FluxFcnSGFDJacRoeSA3D::computeDerivative 001\n");
   F77NAME(gxroeflux5)(1, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, sprec.getMinMach(), 0.0*dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, useLimiter ? sprec.getPrecTag() : 0);
 
 }
@@ -1904,7 +1892,6 @@ void FluxFcnSGApprJacRoeSA3D::computeDerivative(double irey, double dIrey, doubl
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
-  fprintf(stderr," ... in FluxFcnSGApprJacRoeSA3D::computeDerivative 001\n");
   F77NAME(gxroeflux5)(1, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, sprec.getMinMach(), 0.0*dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, useLimiter ? sprec.getPrecTag() : 0);
 
 }
@@ -1943,7 +1930,6 @@ void FluxFcnSGExactJacRoeSA3D::compute(double length, double irey, double *norma
 void FluxFcnSGExactJacRoeSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
-  fprintf(stderr," ... in FluxFcnSGExactJacRoeSA3D::computeDerivative 001\n");
   F77NAME(gxroeflux6)(1, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux);
 
 }
@@ -2045,7 +2031,6 @@ void FluxFcnSGWallSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGWallSA3D::computeDerivative 001\n");
   dFlux[0] = 0.0;
   dFlux[1] = V[4] * dNormal[0];
   dFlux[2] = V[4] * dNormal[1];
@@ -2195,7 +2180,6 @@ void FluxFcnSGPorousWallSA3D::computeDerivative
 )
 {
 // not implemented
-  fprintf(stderr," ... in FluxFcnSGPorousWallSA3D::computeDerivative 001\n");
 }
 
 //------------------------------------------------------------------------------
@@ -2229,7 +2213,6 @@ void FluxFcnSGOutflowSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGOutflowSA3D::computeDerivative 001\n");
   F77NAME(gxboundflux5)(1, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -2255,7 +2238,6 @@ void FluxFcnSGInternalInflowSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGInternalInflowSA3D::computeDerivative 001\n");
   influx3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -2292,7 +2274,6 @@ void FluxFcnSGDirectStateInflowSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGDirectStateInflowSA3D::computeDerivative 001\n");
   directstateflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -2318,7 +2299,6 @@ void FluxFcnSGMassFlowInflowSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGMassFlowInflowSA3D::computeDerivative 001\n");
   massflowflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -2345,7 +2325,6 @@ void FluxFcnSGInternalOutflowSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGInternalOutflowSA3D::computeDerivative 001\n");
   influx3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -2382,7 +2361,6 @@ void FluxFcnSGDirectStateOutflowSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGDirectStateOutflowSA3D::computeDerivative 001\n");
   directstateflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -2408,7 +2386,6 @@ void FluxFcnSGMassFlowOutflowSA3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGMassFlowOutflowSA3D::computeDerivative 001\n");
   massflowflux3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -2628,7 +2605,6 @@ void FluxFcnSGFDJacRoeKE3D::compute(double length, double irey, double *normal, 
 void FluxFcnSGFDJacRoeKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
-  fprintf(stderr," ... in FluxFcnSGFDJacRoeKE3D::computeDerivative 001\n");
   F77NAME(gxroeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, sprec.getMinMach(), 0.0*dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, useLimiter ? sprec.getPrecTag() : 0);
 
 }
@@ -2658,7 +2634,6 @@ void FluxFcnSGApprJacRoeKE3D::computeDerivative(double irey, double dIrey, doubl
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
-  fprintf(stderr," ... in FluxFcnSGApprJacRoeKE3D::computeDerivative 001\n");
   F77NAME(gxroeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, sprec.getMinMach(), 0.0*dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, useLimiter ? sprec.getPrecTag() : 0);
 
 }
@@ -2699,7 +2674,6 @@ void FluxFcnSGExactJacRoeKE3D::computeDerivative(double irey, double dIrey, doub
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
-  fprintf(stderr," ... in FluxFcnSGExactJacRoeKE3D::computeDerivative 001\n");
   F77NAME(gxroeflux6)(2, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux);
 
 }
@@ -2802,7 +2776,6 @@ void FluxFcnSGWallKE3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGWallKE3D::computeDerivative 001\n");
   dFlux[0] = 0.0;
   dFlux[1] = V[4] * dNormal[0];
   dFlux[2] = V[4] * dNormal[1];
@@ -2970,7 +2943,6 @@ void FluxFcnSGPorousWallKE3D::computeDerivative
 )
 {
 // not implemented
-  fprintf(stderr," ... in FluxFcnSGPorousWallKE3D::computeDerivative 001\n");
 }
 
 //------------------------------------------------------------------------------
@@ -3005,7 +2977,6 @@ void FluxFcnSGOutflowKE3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGOutflowKE3D::computeDerivative 001\n");
   F77NAME(gxboundflux5)(2, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -3031,7 +3002,6 @@ void FluxFcnSGDirectStateInflowKE3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGDirectStateInflowKE3D::computeDerivative 001\n");
   directstateflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -3057,7 +3027,6 @@ void FluxFcnSGMassFlowInflowKE3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGMassFlowInflowKE3D::computeDerivative 001\n");
   massflowflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -3083,7 +3052,6 @@ void FluxFcnSGDirectStateOutflowKE3D::computeDerivative
 )
 {
 
-  fprintf(stderr," ... in FluxFcnSGDirectStateOutflowKE3D::computeDerivative 001\n");
   directstateflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -3109,7 +3077,6 @@ void FluxFcnSGMassFlowOutflowKE3D::computeDerivative
 )
 {
  
-  fprintf(stderr," ... in FluxFcnSGMassFlowOutflowKE3D::computeDerivative 001\n");
   massflowflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
