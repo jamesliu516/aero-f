@@ -4,10 +4,10 @@
 #include <IoData.h>
 #include <PostFcn.h>
 #include <Node.h>
+#include <InletNode.h>
 #include <Edge.h>
 #include <Face.h>
 #include <Elem.h>
-#include <InletNode.h>
 #include <DiagMatrix.h>
 #include <DistInfo.h>
 #include <BCond.h>
