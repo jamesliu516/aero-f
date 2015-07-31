@@ -104,7 +104,7 @@ public:
                                                          Vec<int> *tag = 0);
   template<int dim>
   void computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
-                                         RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, int tag=0); 
+                                         RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, DistVec<int> *tag=0); 
   template<int dim>
   void primitiveToConservativeDerivative(SVec<double,dim> &V, SVec<double,dim> &dV, SVec<double,dim> &U, SVec<double,dim> &dU, Vec<int> *tag = 0);
   template<int dim>
@@ -563,7 +563,7 @@ void VarFcn::conservativeToPrimitiveTransposeDerivative(RectangularSparseMat<dou
 
 template<int dim>
 void VarFcn::computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
-                                                               RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, int tag)
+                            RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, DistVec<int> *tag)
 {
 
   int numLocSub = U.numLocSub();

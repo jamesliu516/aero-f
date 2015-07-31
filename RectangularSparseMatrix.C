@@ -573,7 +573,6 @@ void RectangularSparseMat<Scalar,dim,dim2>::convert2fortran()
   int i;
   for (i=0; i<nnz; ++i) ja[i] += fortran;
   for (i=0; i<n+1; ++i) ia[i] += fortran;
-  for (i=0; i<n; ++i) ju[i] += fortran;
 
 }
 
@@ -589,7 +588,6 @@ void RectangularSparseMat<Scalar,dim,dim2>::convert2cplusplus()
   int i;
   for (i=0; i<nnz; ++i) ja[i] -= fortran;
   for (i=0; i<n+1; ++i) ia[i] -= fortran;
-  for (i=0; i<n; ++i) ju[i] -= fortran;
 
   fortran = 0;
 
