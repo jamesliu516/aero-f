@@ -1117,7 +1117,7 @@ public:
 
   ~MatVecProd_dRdX();
 
-  GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
+//  GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
   void initializeOperators(double);
   dRdXoperators<dim> *getdRdXop() {return dRdXop;}
