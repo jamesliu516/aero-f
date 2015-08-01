@@ -9,7 +9,6 @@
 typedef std::complex<double> bcomp;
 #include <iostream>
 
-template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 //--------------------------------------------------------------------------
 // This class is the base class for the VarFcnEOS classes where EOS can be

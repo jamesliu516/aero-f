@@ -2231,3 +2231,182 @@ void OneDimensional::output2DVTK() {
   out.close();
   
 }
+
+
+
+template <int dimp,int dimLS2>
+void OneDimensional::read1DSolution(IoData& iod, DistSVec<double,dimp>& Up, 
+			     DistSVec<double,dimLS2>* Phi,
+			     FluidSelector* fluidSelector,
+			     VarFcn* varFcn,
+			     DistSVec<double,3>& X,
+			     Domain& dom,
+			     ReadMode mode,
+			     bool spherical) 
+{
+    // read 1D solution
+    DistSVec<double,dimp> ut(Up);
+    for (map<int, OneDimensionalInputData *>::iterator itr = iod.input.oneDimensionalInput.dataMap.begin();
+            itr != iod.input.oneDimensionalInput.dataMap.end(); ++itr) {
+      
+      std::fstream input;
+      int sp = strlen(iod.input.prefix) + 1;
+      char *filename = new char[sp + strlen(itr->second->file)+5];
+      sprintf(filename, "%s%s", iod.input.prefix, itr->second->file);
+      input.open(filename, fstream::in);
+      //cout << filename << endl;
+      if (!input.is_open()) {
+        cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
+        exit(1);
+      }
+      
+      input.ignore(256,'\n');
+      input.ignore(2,' ');
+      int numPoints = 0;
+      input >> numPoints;
+      //cout << " Num 1d points = " << numPoints << endl;
+      double* x_1D = new double[numPoints];
+      double* v_1D = new double[numPoints*5];// rho, u, p, phi, T
+      int* fids = new int[numPoints];
+      
+      double rad = 0;
+      for(int i=0; i<numPoints; i++) {
+        input >> x_1D[i] >> v_1D[i*5] >> v_1D[i*5+1] >> v_1D[i*5+2] >> v_1D[i*5+3]>> fids[i] >> v_1D[i*5+4];
+
+        fids[i] = std::min<int>(fids[i], varFcn->size()-1);
+        x_1D[i]    /= iod.ref.rv.length;
+        v_1D[i*5] /= iod.ref.rv.density;
+        v_1D[i*5+1] /= iod.ref.rv.velocity;
+        v_1D[i*5+2] /= iod.ref.rv.pressure;
+        //v_1D[i][3] /= iod.ref.rv.length;
+        v_1D[i*5+4] /= iod.ref.rv.temperature;
+        //std::cout << v_1D[i*5+2] << std::endl;
+        if (rad == 0 && fids[i] == 0) {
+          rad = (x_1D[i-1]*v_1D[i*5+3]-x_1D[i]*v_1D[(i-1)*5+3])/(v_1D[i*5+3]-v_1D[(i-1)*5+3]);
+        }
+      }
+      
+      input.close();
+
+      int lsdim = 0;
+      
+      // interpolation assuming 1D solution is centered on bubble_coord0
+      double bubble_x0 = itr->second->x0;
+      double bubble_y0 = itr->second->y0;
+      double bubble_z0 = itr->second->z0;
+      double max_distance = x_1D[numPoints-1]; 
+      double localRadius;
+      ut = 1.0;
+#pragma omp parallel for
+      for (int iSub=0; iSub<Up.numLocSub(); ++iSub) {
+        SVec<double,dimp> &u(Up(iSub));
+        SVec<double, 3> &x(X(iSub));
+        for(int i=0; i<u.size(); i++) {
+          localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+          for (int k = 0; k < dim; ++k)
+            ut.subData(iSub)[i][k] = 0.0;
+	      }
+
+        Veval veval(varFcn,itr->second,fluidSelector,x_1D,v_1D,fids,&x,numPoints,bubble_x0,bubble_y0,bubble_z0,spherical);
+
+        double localRadius; int np;
+        double localAlpha, velocity_r;
+        double localV[5];
+        if (mode == ModeU) {
+          for(int i=0; i<u.size(); i++) {
+            double v[5];
+            localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	    //if (localRadius < 1.0) {
+	      //varFcn->conservativeToPrimitive(ut(iSub)[i],v,1);
+	    //  std::cout << "2: " << localRadius << " " << ut(iSub)[i][4] << std::endl;
+	    //} 
+          }
+          dom.getSubDomain()[iSub]->integrateFunction(&veval, x, ut(iSub), &Veval::Eval, 4);
+          for(int i=0; i<u.size(); i++) {
+            double v[5];
+            localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	    /*if (localRadius < 1.0) {
+	      varFcn->conservativeToPrimitive(ut(iSub)[i],v,1);
+	      //std::cout << "2: " << localRadius << " " << ut(iSub)[i][4] << std::endl;
+	      }*/
+          }
+          dom.getSubDomain()[iSub]->sndData(*dom.getVecPat(), ut.subData(iSub) );
+        } else {
+          int lsdim=0;
+          for(int i=0; i<u.size(); i++) {
+
+            localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	 
+            int fid_new = fids[0];
+            if (itr->second->fluidRemap.dataMap.find(fids[0]) != itr->second->fluidRemap.dataMap.end())
+              fid_new = itr->second->fluidRemap.dataMap.find(fids[0])->second->newID;
+              lsdim = fluidSelector->getLevelSetDim(0,fid_new);
+              if (fluidSelector) {
+                (*Phi)(iSub)[i][lsdim] = rad-localRadius;
+              }
+          }
+        }
+      }
+      
+      if (mode == ModeU) {
+        dom.getVecPat()->exchange();
+#pragma omp parallel for
+        for (int iSub=0; iSub<Up.numLocSub(); ++iSub) {
+          dom.getSubDomain()[iSub]->addRcvData(*dom.getVecPat(), ut.subData(iSub));
+        }
+    
+        DistVec<double> A(Up.info());
+        dom.getCommunicator()->barrier();
+        dom.computeControlVolumes(1.0, X, A);
+	
+#pragma omp parallel for
+        for (int iSub=0; iSub<Up.numLocSub(); ++iSub) {
+          SVec<double,dimp> &u(Up(iSub));
+          SVec<double,dimp> &utl(ut(iSub));
+          SVec<double, 3> &x(X(iSub));
+          for(int i=0; i<u.size(); i++) {
+            assert(A(iSub)[i] > 0 && utl[i][0] > 0);
+	    
+            localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	    
+            if (localRadius < max_distance || !spherical) {
+              double v[5];
+              for (int k = 0; k <dimp; ++k)
+                v[k] = utl[i][k] / A(iSub)[i];
+
+              if (spherical)
+                varFcn->primitiveToConservative(v,u[i],localRadius < rad ? 1 : 0);
+		
+	      
+	      /*if (localRadius*iod.ref.rv.length < 0.5) {
+		double v[5];
+		varFcn->conservativeToPrimitive(u[i],v,1);
+		std::cout << localRadius << " " <<v[4]*iod.ref.rv.pressure << std::endl;
+		}*/ 
+            }
+          }
+        }
+      }
+    }
+}
+
+
+
+template 
+void OneDimensional::read1DSolution<5,1>(IoData& , DistSVec<double,5>& , DistSVec<double,1>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<5,2>(IoData& , DistSVec<double,5>& , DistSVec<double,2>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<5,3>(IoData& , DistSVec<double,5>& , DistSVec<double,3>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<6,1>(IoData& , DistSVec<double,6>& , DistSVec<double,1>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<6,2>(IoData& , DistSVec<double,6>& , DistSVec<double,2>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<6,3>(IoData& , DistSVec<double,6>& , DistSVec<double,3>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<7,1>(IoData& , DistSVec<double,7>& , DistSVec<double,1>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<7,2>(IoData& , DistSVec<double,7>& , DistSVec<double,2>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );
+template 
+void OneDimensional::read1DSolution<7,3>(IoData& , DistSVec<double,7>& , DistSVec<double,3>* , FluidSelector* , VarFcn* , DistSVec<double,3>& , Domain& , ReadMode , bool );

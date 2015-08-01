@@ -1443,7 +1443,7 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalyticalTranspose
 
   dEdgeNorm = 0.0;  dFaceNorm = 0.0;  dddx = 0.0;  dddy = 0.0;  dddz = 0.0;  dFaceNormVel = 0.0;  dR = 0.0;
   dRdXoperators<dim> *dRdXop = dRdX->getdRdXop();
-  this->spaceOp->computeTransposeDerivativeOfResidual(dRdXop, dFdS, dAdS, dXdS, dddx, dddy, dddz, dEdgeNormi, dFaceNorm, dFaceNormVel, dR);
+  this->spaceOp->computeTransposeDerivativeOfResidual(dRdXop, dFdS, dAdS, dXdS, dddx, dddy, dddz, dEdgeNorm, dFaceNorm, dFaceNormVel, dR);
 
   //
   // Computing the derivatives of the boundary fluxes
@@ -1457,8 +1457,8 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalyticalTranspose
 
   this->geoState->computeTransposeDerivatives(dRdXop->dEdgeNormdX, dRdXop->dFaceNormdX, dRdXop->dCtrlVoldX, dAdS, dEdgeNorm, dFaceNorm, dFaceNormVel, dXdS); 
 
-  this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
-  if(DFSPAR[1] || DFSPAR[2]) dFdS *= 0.0174532925;  // convert radian to degree
+//  this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
+//  if(DFSPAR[1] || DFSPAR[2]) dFdS *= 0.0174532925;  // convert radian to degree
 }
 
 //------------------------------------------------------------------------------

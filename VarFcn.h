@@ -11,6 +11,7 @@
 #include <VarFcnTait.h>
 #include <VarFcnTaitSA.h>
 #include <VarFcnTaitKE.h>
+//#include <RectangularSparseMatrix.h>
 
 #include <cassert>
 #include <cmath>
@@ -23,6 +24,7 @@ typedef std::complex<double> bcomp;
 using std::cout;
 using std::endl;
 
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 //--------------------------------------------------------------------------
 //

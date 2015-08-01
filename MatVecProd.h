@@ -7,7 +7,6 @@
 #include <DistMatrix.h>
 #include <complex>
 #include <RestrictionMapping.h>
-#include <RectangularSparseMatrix.h>
 
 typedef std::complex<double> bcomp;
 

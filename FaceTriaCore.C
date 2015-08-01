@@ -6,7 +6,6 @@
 #include <Vector3D.h>
 #include <Vector.h>
 #include <BinFileHandler.h>
-#include <RectangularSparseMatrix.h>
 
 #include <cstdlib>
 #include <cstdio>

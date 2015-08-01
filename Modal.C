@@ -3816,7 +3816,7 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
   for(int i=0; i<2*nStrMode; ++i) {
     com->fprintf(stderr, " ... revector(%d,0) = (%e,%e)\n",i,revector(i,0).real(),revector(i,0).imag());
   }
-
+/*
   if(isFirstErrorIndicator) {
     eigenvector = eigSolv.eigenvectors().col(ipos3[Index]);
     com->fprintf(stderr, "Eigenvalue ... %e + i %e\n", sReal, sImag);
@@ -3865,6 +3865,7 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
     residual += Qmatrix*reduced_revector;
 
   }
+*/
 }
 //------------------------------------------------------------------------------
 #ifdef USE_EIGEN3

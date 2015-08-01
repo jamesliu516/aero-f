@@ -4,7 +4,6 @@
 #include <Face.h>
 #include <Vector3D.h>
 #include <Vector.h>
-#include <RectangularSparseMatrix.h>
 #include <BinFileHandler.h>
 #include <AutoDiff/Taylor.h>
 
