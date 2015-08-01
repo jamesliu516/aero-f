@@ -26,6 +26,10 @@ using std::min;
 #include "DenseMatrixOps.h"
 #include "FemEquationTermDesc.h"
 #include <Eigen/Core>
+#include <ProgrammedBurn.h>
+#include <HigherOrderMultiFluid.h>
+#include <HigherOrderFSI.h>
+#include <ErrorHandler.h>
 
 //------------------------------------------------------------------------------
 

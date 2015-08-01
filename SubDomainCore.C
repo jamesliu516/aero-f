@@ -7,7 +7,6 @@
 #include <Vector.h>
 #include <Vector3D.h>
 #include <SparseMatrix.h>
-#include <RectangularSparseMatrix.h>
 #include <Connectivity.h>
 #include <Communicator.h>
 #include <BinFileHandler.h>

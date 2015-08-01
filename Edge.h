@@ -19,11 +19,11 @@ using std::pair;
 // Included (MB)
 #include <cstdio>
 
-#include <ProgrammedBurn.h>
-#include <HigherOrderMultiFluid.h>
-#include <HigherOrderFSI.h>
-#include <ErrorHandler.h>
-#include <LevelSet/LevelSetStructure.h>
+//#include <ProgrammedBurn.h>
+//#include <HigherOrderMultiFluid.h>
+//#include <HigherOrderFSI.h>
+//#include <ErrorHandler.h>
+//#include <LevelSet/LevelSetStructure.h>
 
 class FluidSelector;
 class VarFcn;
@@ -34,6 +34,10 @@ class GeoState;
 class FemEquationTerm;
 class TimeLowMachPrec;
 class LevelSetStructure;
+class ProgrammedBurn;
+class HigherOrderMultiFluid;
+class HigherOrderFSI;
+class ErrorHandler;
 
 struct V6NodeData;
 struct Vec3D;
@@ -48,6 +52,7 @@ template<int dim> class ExactRiemannSolver;
 template<class Scalar> class Vec;
 template<class Scalar, int dim> class SVec;
 template<class Scalar, int dim> class GenMat;
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 //------------------------------------------------------------------------------
 

@@ -2,7 +2,6 @@
 #define _VAR_FCN_SGEULER_H
 
 #include <VarFcnBase.h>
-//#include <RectangularSparseMatrix.h>
 #include <fstream>
 
 #ifdef AEROF_MPI_DEBUG

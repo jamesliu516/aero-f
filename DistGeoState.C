@@ -9,7 +9,6 @@
 #include <Vector3D.h>
 #include <DistVector.h>
 #include <Communicator.h>
-#include <RectangularSparseMatrix.h>
 
 #include <cstdio>
 #include <cstdlib>

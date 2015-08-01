@@ -83,7 +83,6 @@ template<class Scalar, int dim> class SVec;
 template<class Scalar, int dim> class MvpMat;
 template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
-template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 template <class T> class RTree;
 

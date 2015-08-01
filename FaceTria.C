@@ -10,7 +10,7 @@
 #include <Vector.h>
 #include <GenMatrix.h>
 #include <VectorSet.h>
-//#include <RectangularSparseMatrix.h>
+#include <RectangularSparseMatrix.h>
 
 #include <cmath>
 

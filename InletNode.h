@@ -3,7 +3,7 @@
 
 //libraries
 #include <Node.h>
-#include <Elem.h>
+//#include <Elem.h>
 #include <Vector.h>
 #include <Vector3D.h>
 
@@ -11,10 +11,13 @@
 //friends (class, structure, template class)
 
 template<int dim> class Extrapolation;
+template<int dim> class BcData;
+
 class VarFcn;
 class Connectivity;
-
-
+class ElemSet;
+class GeoState;
+class IoData;
 
 //------------------------------------------------------------------------------
 

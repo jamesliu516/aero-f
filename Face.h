@@ -66,7 +66,6 @@ template<class Scalar, int dim> class SVec;
 template<class VecType> class VecSet;
 template<class VecType, class VT2> class SubVecSet;
 template<int dim> class ExactRiemannSolver;
-template<class Scalar, int dim, int dim2> class RectangularSparseMat;
 
 class FaceTria;
 
