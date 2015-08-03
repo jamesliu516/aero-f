@@ -721,8 +721,24 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else {
     switchOpt = false;
-  }
+    dSolutions = 0;
+    dMatchPressure = 0;
+    fpdMatchPressure = 0;
+    dLiftDrag = 0;
+    fpdLiftDrag = 0;
+    dFluxNorm = 0;
+    fpdFluxNorm = 0;
+    dForces = 0;
+    fpdForces = 0;
 
+    int i;
+    for (i=0; i<PostFcn::DSSIZE; ++i) {
+      dScalars[i] = 0;
+    }
+    for (i=0; i<PostFcn::DVSIZE; ++i) {
+      dVectors[i] = 0;
+    }
+  }
 
   // Initialize nodal output structures
   Probes& myProbes = iod.output.transient.probes;
