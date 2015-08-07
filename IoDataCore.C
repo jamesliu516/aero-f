@@ -2302,8 +2302,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
                                &MultiFluidData::interfaceOmitCells);
 
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
-                                 "LevelSet",0,"Fluid",1);
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),3,
+                                 "LevelSet",0,"Fluid",1,"LegacyFluid",2);
 
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)

@@ -60,7 +60,7 @@ class EdgeSet {
 
 public:
 
-  enum MultifluidRiemannNormal { MF_RIEMANN_NORMAL_MESH, MF_RIEMANN_NORMAL_REAL };
+  enum MultifluidRiemannNormal { MF_RIEMANN_NORMAL_MESH, MF_RIEMANN_NORMAL_REAL, MF_RIEMANN_NORMAL_LEGACYMESH };
 
 private:
 

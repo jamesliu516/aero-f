@@ -194,6 +194,28 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
 }
 //------------------------------------------------------------------------------
 template<int dim>
+int ExactRiemannSolver<dim>::fluid1(int IDi, int IDj)
+{
+  int riemannId = levelSetMap[IDi][IDj];
+  if(riemannId<0) {
+    fprintf(stderr,"ERROR: There is no Riemann solver for IDi = %d and IDj = %d!\n", IDi, IDj);
+    exit(-1);
+  }
+  return (levelSetSign[IDi][IDj] > 0) ? lriemann[riemannId]->fluid1 : lriemann[riemannId]->fluid2;
+}
+//------------------------------------------------------------------------------
+template<int dim>
+int ExactRiemannSolver<dim>::fluid2(int IDi, int IDj)
+{
+  int riemannId = levelSetMap[IDi][IDj];
+  if(riemannId<0) {
+    fprintf(stderr,"ERROR: There is no Riemann solver for IDi = %d and IDj = %d!\n", IDi, IDj);
+    exit(-1);
+  }
+  return (levelSetSign[IDi][IDj] > 0) ? lriemann[riemannId]->fluid2 : lriemann[riemannId]->fluid1;
+}
+//------------------------------------------------------------------------------
+template<int dim>
 int ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 						    int IDi, int IDj, double *nphi, VarFcn *vf,
 						    double *Wi, double *Wj, int i, int j, int edgeNum,

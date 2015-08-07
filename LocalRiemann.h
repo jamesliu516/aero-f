@@ -14,6 +14,7 @@ class LocalRiemann {
 
 protected:
   VarFcn *vf_;
+public:
   int fluid1, fluid2;  //             fluid1 ~ phi>0           fluid2 ~ phi<0
                        //          ~ "outside" ~ "right"    ~ "inside" ~ "left"
                        // GasGas            Gas1                    Gas2
@@ -22,7 +23,7 @@ protected:
                        // JWLJWL            JWL1                    JWL2
                        // GasJWL            Gas                     JWL
                        // FluidStruct       Gas                     N/A
-public:
+
   LocalRiemann()           { vf_ = 0; fluid1 = 0; fluid2 = 1;}
   LocalRiemann(VarFcn *vf, int tag1, int tag2) { vf_ = vf; fluid1 = tag1; fluid2 = tag2;}
   virtual ~LocalRiemann()  { vf_ = 0; }
