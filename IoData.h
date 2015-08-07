@@ -1210,7 +1210,7 @@ struct MultiFluidData {
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3,
                         TRIANGULATED = 4} levelSetMethod;
 
-  enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
+  enum RiemannNormal {REAL = 0, MESH = 1, LEGACYMESH = 2 } riemannNormal;
 
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
 

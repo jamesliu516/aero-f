@@ -2126,7 +2126,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxes[j][k] -= flux[k];
       }
 
-
       riemann.resetInterfacialW(l);
     }
     else{ // interface
@@ -2170,7 +2169,25 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             gradphi[2] = resij.gradPhi[2];
             
           }
-        } else {
+        }
+        else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
+
+          //double toto = dx[0]*normal[l][0] + dx[1]*normal[l][1] + dx[2]*normal[l][2];
+          //if(toto < 0) std::cerr << "toto = " << toto << std::endl; // note: toto is always +ve
+          if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
+            for(int k=0; k<3; k++) gradphi[k] = normal[l][k];
+            //if((fluidId[i] == 0 && phi[i][lsdim] > 0) || (fluidId[i] == 1 && phi[i][lsdim] < 0))
+            //  std::cerr << "#1 fluidId[i] = " << fluidId[i] << ", phi[i] = " << phi[i][lsdim] i
+            //  << ", fluidId[j] = " << fluidId[j] << ", phi[j] = " << phi[j][lsdim] << std::endl;
+          }
+          else {
+            for(int k=0; k<3; k++) gradphi[k] = -normal[l][k];
+            //if((fluidId[i] == 0 && phi[i][lsdim] > 0) || (fluidId[i] == 1 && phi[i][lsdim] < 0))
+            //  std::cerr << "#2 fluidId[i] = " << fluidId[i] << ", phi[i] = " << phi[i][lsdim]i
+            //  << ", fluidId[j] = " << fluidId[j] << ", phi[j] = " << phi[j][lsdim] << std::endl;
+          }
+        }
+        else {
 
   	  gphii[0] = -dPdx[i][lsdim];
 	  gphii[1] = -dPdy[i][lsdim];
@@ -2190,7 +2207,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    for (int k=0; k<3; k++)
 	      gradphi[k] = -gradphi[k];
           }
-          
         }
 	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
 	for (int k=0; k<3; k++)
@@ -2835,7 +2851,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  gphij[2] = -dPdz[j][lsdim];
 	  for (int k=0; k<3; k++)
 	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-        } else {
+        }
+        else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
+          if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
+            for(int k=0; k<3; k++) gradphi[k] = normal[l][k];
+          }
+          else {
+            for(int k=0; k<3; k++) gradphi[k] = -normal[l][k];
+          }
+        }
+        else {
   	  gphii[0] = -dPdx[i][lsdim];
 	  gphii[1] = -dPdy[i][lsdim];
 	  gphii[2] = -dPdz[i][lsdim];
@@ -2854,7 +2879,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	    for (int k=0; k<3; k++)
 	      gradphi[k] = -gradphi[k];
           }
-          
         }
 
 	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -4325,7 +4349,16 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         gphij[2] = -dPdz[j][lsdim];
         for (int k=0; k<3; k++)
           gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-      } else {
+      }
+      else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
+        if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
+          for(int k=0; k<3; k++) gradphi[k] = normal[l][k];
+        }
+        else {
+          for(int k=0; k<3; k++) gradphi[k] = -normal[l][k];
+        }
+      }
+      else {
         gphii[0] = -dPdx[i][lsdim];
         gphii[1] = -dPdy[i][lsdim];
         gphii[2] = -dPdz[i][lsdim];
@@ -4506,7 +4539,16 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 	gphij[2] = -dPdz[j][lsdim];
 	for (int k=0; k<3; k++)
 	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-      } else {
+      }
+      else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
+        if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
+          for(int k=0; k<3; k++) gradphi[k] = normal[l][k];
+        }
+        else {
+          for(int k=0; k<3; k++) gradphi[k] = -normal[l][k];
+        }
+      }
+      else {
   	gphii[0] = -dPdx[i][lsdim];
 	gphii[1] = -dPdy[i][lsdim];
 	gphii[2] = -dPdz[i][lsdim];
@@ -4523,7 +4565,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 	  for (int k=0; k<3; k++)
 	    gradphi[k] = -gradphi[k];
         }
-          
       }
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
       for (k=0; k<3; k++)
@@ -5168,7 +5209,16 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
 	  gphij[2] = -dPdz[j][lsdim];
 	  for (int k=0; k<3; k++)
 	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-        } else {
+        }
+        else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
+          if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
+            for(int k=0; k<3; k++) gradphi[k] = normal[l][k];
+          }
+          else {
+            for(int k=0; k<3; k++) gradphi[k] = -normal[l][k];
+          }
+        }
+        else {
     	  gphii[0] = -dPdx[i][lsdim];
 	  gphii[1] = -dPdy[i][lsdim];
 	  gphii[2] = -dPdz[i][lsdim];

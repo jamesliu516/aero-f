@@ -2908,6 +2908,11 @@ MultiPhaseSpaceOperator<dim,dimLS>::MultiPhaseSpaceOperator(IoData &ioData, VarF
       dom->getSubDomain()[iSub]->getEdges().setMultiFluidRiemannNormal(EdgeSet::MF_RIEMANN_NORMAL_MESH);
     }
   }
+  else if (ioData.mf.riemannNormal == MultiFluidData::LEGACYMESH) {
+    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+      dom->getSubDomain()[iSub]->getEdges().setMultiFluidRiemannNormal(EdgeSet::MF_RIEMANN_NORMAL_LEGACYMESH);
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
