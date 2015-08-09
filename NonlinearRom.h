@@ -121,6 +121,9 @@ class NonlinearRom {
   char* approxMetricStateLowRankFullCoordsName;
   char* approxMetricNonlinearLowRankFullCoordsName;
   char* approxMetricStateLowRankSurfaceCoordsName;
+  char* approxMetricNonlinearCVXName;
+  char* correlationMatrixName;
+  char* sampledApproxMetricNonlinearSnapsName;
 
   // Surface quantities 
   char* surfaceCentersName;
@@ -255,6 +258,7 @@ class NonlinearRom {
   std::vector<int>** allSampleNodes;
   VecSet<DistSVec<double, dim> >** allResMat;
   VecSet<DistSVec<double, dim> >** allJacMat;
+  VecSet<DistSVec<double, dim> >** allMetrics;
   VecSet<DistSVec<double, dim> >** allStateBases;
   VecSet<DistSVec<double, dim> >** allKrylovBases;
   VecSet<DistSVec<double, dim> >* sensitivityBasis;
@@ -281,6 +285,7 @@ class NonlinearRom {
   int nFullMeshNodes;
   int nLowRankFactors;
   VecSet< DistSVec<double, dim> >* basis;
+  VecSet< DistSVec<double, dim> >* metric;
 
   // When duplicateSnaps is set to true the clustered snapshots are written to the file system, which effectively
   // doubles the required storage.  When false, only a small text file is written.
@@ -324,6 +329,7 @@ class NonlinearRom {
   void readAllClusteredOfflineQuantities();
   void readApproxMetricStateLowRankFactor(const char *); // not clustered
   void readApproxMetricNonlinearLowRankFactor(int iCluster); // clustered
+  void readClusteredNonlinearMetric(int iCluster); // CVX metric
   void readDistanceComparisonInfo(const char*); 
   void writeClusteredBinaryVectors(int iCluster, DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL,
                                    DistSVec<double,dim> *U3 = NULL, char* originalSnapshotFile = NULL, int originalSnapshotNumber = 0);

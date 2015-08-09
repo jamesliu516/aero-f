@@ -44,6 +44,8 @@ GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData,
 
   globalNodes = NULL;
 
+  lowRankApproxMetricEigenvalues = NULL;
+
   numFullNodes = domain.getNumGlobNode();  // # globalNodes in full mesh
   com->fprintf(stdout," ... Number of full nodes in domain is %d ...\n",numFullNodes);
 
@@ -303,50 +305,51 @@ void GappyPreprocessing<dim>::buildReducedModel() {
       int nTargetSampleNodesForApproxMetricState;
       int nAddedSamplesLoc = 0;
       int nAddedSamplesGlob = 0;
-      for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-        com->fprintf(stdout,"\n ... Selecting sample nodes for cluster %d ...\n", iCluster);
+      if (!surfaceMeshConstruction) {
+        for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+          com->fprintf(stdout,"\n ... Selecting sample nodes for cluster %d ...\n", iCluster);
     
-        initialize();
+          initialize();
     
-        bool breakloop=false;  // if using specified snapshots (not clustered)
-        readGreedyData(iCluster,breakloop);
+          bool breakloop=false;  // if using specified snapshots (not clustered)
+          readGreedyData(iCluster,breakloop);
     
-        setUpGreedy(iCluster);
+          setUpGreedy(iCluster);
     
-        determineSampleNodes();  // use greedy algorithm to determine sample nodes
+          determineSampleNodes();  // use greedy algorithm to determine sample nodes
     
-        globalSampleNodesForCluster[iCluster] = globalSampleNodes;     // store local sample nodes (the local mask)
-      
-        nTargetSampleNodesForApproxMetricState = floor(ioData->romOffline.rob.basisUpdates.approxMetricState.sampledMeshFraction*int(globalSampleNodes.size()));
-        nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
-        for (int iNode=0; iNode<int(globalSampleNodes.size()); iNode++) { 
-          globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
-          nAddedSamplesLoc = int(globalSampleNodesUnionSet.size())-nAddedSamplesGlob;
-          if (nAddedSamplesLoc<nTargetSampleNodesForApproxMetricState)
-            globalSampleNodesUnionSetForApproxMetricState.insert(globalSampleNodes[iNode]);
-        }
-
-        if (breakloop) {
-          for (int jCluster=iCluster; jCluster<(this->nClusters); ++jCluster) {
-            globalSampleNodesForCluster[jCluster] = globalSampleNodes;
+          globalSampleNodesForCluster[iCluster] = globalSampleNodes;  // store local sample nodes (the local mask)
+        
+          nTargetSampleNodesForApproxMetricState = floor(ioData->romOffline.rob.basisUpdates.approxMetricState.sampledMeshFraction*double(globalSampleNodes.size()));
+          nAddedSamplesGlob = globalSampleNodesUnionSet.size();   
+          for (int iNode=0; iNode<int(globalSampleNodes.size()); iNode++) { 
+            globalSampleNodesUnionSet.insert(globalSampleNodes[iNode]);  // add local sample nodes union
+            nAddedSamplesLoc = int(globalSampleNodesUnionSet.size())-nAddedSamplesGlob;
+            if (nAddedSamplesLoc<=nTargetSampleNodesForApproxMetricState)
+              globalSampleNodesUnionSetForApproxMetricState.insert(globalSampleNodes[iNode]);
           }
-          break; 
+
+          if (breakloop) {
+            for (int jCluster=iCluster; jCluster<(this->nClusters); ++jCluster) {
+              globalSampleNodesForCluster[jCluster] = globalSampleNodes;
+            }
+            break; 
+          }
+        
+        } 
+    
+        // place the union of the sample nodes into a vector
+        for (std::set<int>::iterator it=globalSampleNodesUnionSet.begin(); it!=globalSampleNodesUnionSet.end(); ++it) {
+          globalSampleNodesUnion.push_back(*it);
         }
-      
-      } 
+        globalSampleNodesUnionSet.clear();
     
-      // place the union of the sample nodes into a vector
-      for (std::set<int>::iterator it=globalSampleNodesUnionSet.begin(); it!=globalSampleNodesUnionSet.end(); ++it) {
-        globalSampleNodesUnion.push_back(*it);
+        for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetricState.begin(); it!=globalSampleNodesUnionSetForApproxMetricState.end(); ++it) {
+          globalSampleNodesUnionForApproxMetricState.push_back(*it);
+        }
+        globalSampleNodesUnionSetForApproxMetricState.clear();
+     
       }
-      globalSampleNodesUnionSet.clear();
-    
-      for (std::set<int>::iterator it=globalSampleNodesUnionSetForApproxMetricState.begin(); it!=globalSampleNodesUnionSetForApproxMetricState.end(); ++it) {
-        globalSampleNodesUnionForApproxMetricState.push_back(*it);
-      }
-      globalSampleNodesUnionSetForApproxMetricState.clear();
-    
- 
     }
 
     domain.makeSampledNodeDistInfo(globalSampleNodesUnion, globalNodeToCpuMap, globalNodeToLocSubDomainsMap);
@@ -456,29 +459,31 @@ void GappyPreprocessing<dim>::buildReducedModel() {
         }
       } // end GNAT online matrix preprocessing
 
-      if (gappyIO->doPreproApproxMetricNonlinear) {
+      if (gappyIO->doPreproApproxMetricNonlinear || gappyIO->doPreproApproxMetricNonlinearCVX) {
         initialize();
         this->freeMemoryForGappyPrepro();
 
-        // TODO if reading snaps from an ascii file, only compute correlation matrix once.
-
         // TODO if union == true and reading snaps from ascii file, only need to do this once
-
-        for (int iCluster=gappyIO->initialCluster; iCluster<(this->nClusters); ++iCluster) { 
+        std::vector<std::vector<double> >* corrMat = NULL;
+        for (int iCluster=gappyIO->initialCluster; iCluster<(this->nClusters); ++iCluster) {
+          setSampleNodes(iCluster); 
           com->fprintf(stdout,"\nPreprocessing for approximate gappy solver\n");
           double approxMetricTime = this->timer->getTime(); 
   
-          constructApproximatedMetric("nonlinear", iCluster);
-  
-          if (gappyIO->testApproxMetric) {
-            testInnerProduct("approxMetricNonlinear");
-            testInnerProduct("nonlinear");
-          }
+          constructApproximatedMetric("nonlinear",iCluster,corrMat);
+
+          //if (gappyIO->testApproxMetric) {
+          //  testInnerProduct("approxMetricNonlinear");
+          //  testInnerProduct("nonlinear");
+          //}
           this->timer->addApproxMetricPreproTime(approxMetricTime);
         }
+        if (corrMat) delete corrMat;
       } // end Approx Metric Nonlinear preprocessing
      
     }
+
+    setSampleNodes(unionOfSampleNodes);
 
     if (this->ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates) {
       this->freeMemoryForGappyPrepro();// clear unnecessary NonlinearRom.C objects
@@ -504,6 +509,8 @@ void GappyPreprocessing<dim>::buildReducedModel() {
       }
     }
 
+    if (surfaceMeshConstruction) outputClusterCentersReduced();
+
   } // end if(gappyIO->doPrepro)
 
   com->fprintf(stdout," \n ... Finished with preprocessing calculations ...\n");
@@ -519,7 +526,7 @@ void GappyPreprocessing<dim>::buildReducedModel() {
 //----------------------------------------------
 
 template<int dim>
-void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int iCluster) {
+void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int iCluster, std::vector<std::vector<double> >* corrMat) {
   // the notations follow the paper "Fast Local Reduced Bais Updates Based on Approximated Metric"
 
   if (strcmp(type,"state")==0) {
@@ -529,27 +536,46 @@ void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int 
   } else if (strcmp(type,"nonlinear")==0) {
     com->fprintf(stdout,"\nComputing approximate metric for inner products of gappy nonlinear quantities (cluster %d)\n", iCluster);
     approxMetricData = &(ioData->romOffline.gappy.approxMetricNonlinear);
-    this->readSnapshotFiles("approxMetricNonlinear", 0);
+    if (strcmp(this->ioData->input.approxMetricNonlinearSnapFile,"")!=0) {
+      this->readSnapshotFiles("approxMetricNonlinear", 0);
+    } else {
+      this->readClusteredSnapshots(iCluster, true, "residual", 0, -1);
+    }
+    if (corrMat==NULL) {
+      corrMat = new std::vector<std::vector<double> >;
+      corrMat->resize(this->snap->numVectors());
+      for (int iSnap=0; iSnap<this->snap->numVectors(); ++iSnap) {
+        (*corrMat)[iSnap].resize(iSnap+1,0.0); //lower triangular
+        for (int jSnap=0; jSnap<=iSnap; ++jSnap) {
+          (*corrMat)[iSnap][jSnap] = (*this->snap)[iSnap] * (*this->snap)[jSnap];
+        }
+      }
+      if (gappyIO->doPreproApproxMetricNonlinearCVX) this->outputClusteredInfoASCII(-1, "correlationMatrix", NULL, corrMat);
+    }
   }
 
   // Step 1: compute an EVD of the correlation matrix X'*X and truncate the EVD based on the decay of EV
-  computeCorrelationMatrixEVD();
+  if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0))
+    computeCorrelationMatrixEVD(corrMat);
 
   // Step 2: compute the pseudo-inverse of the masked snapshots Y
   computePseudoInverseMaskedSnapshots(type, iCluster);
 
   // Step 3: compute the low rank factor G of the approximated metric
-  computeApproximatedMetricLowRankFactor();
+  if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0))
+    computeApproximatedMetricLowRankFactor();
 
   // Step 4: output low rank factor
-  outputApproxMetricLowRankFactorReducedCoords(type, iCluster);
-  outputApproxMetricLowRankFactorFullCoords(type, iCluster);
+  if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0)) {
+    outputApproxMetricLowRankFactorReducedCoords(type, iCluster);
+    outputApproxMetricLowRankFactorFullCoords(type, iCluster);
+  }
 }
 
 //----------------------------------------------
 
 template<int dim>
-void GappyPreprocessing<dim>::computeCorrelationMatrixEVD() {
+void GappyPreprocessing<dim>::computeCorrelationMatrixEVD(std::vector<std::vector<double> >* corrMat) {
 
 #ifdef DO_MODAL
   numSnapsForApproxMetric = this->snap->numVectors();
@@ -558,7 +584,7 @@ void GappyPreprocessing<dim>::computeCorrelationMatrixEVD() {
   double *rVals = new double[numSnapsForApproxMetric*(numSnapsForApproxMetric+1)/2];
   for (int i = 0; i < numSnapsForApproxMetric; i++)
     for (int j = 0; j <= i; j++)
-      rVals[(i+1)*i/2 + j] = ((*this->snap)[j]) * ((*this->snap)[i]);
+      rVals[(i+1)*i/2 + j] = (corrMat) ? (*corrMat)[i][j] : ((*this->snap)[j]) * ((*this->snap)[i]);
 
   double tolerance = approxMetricData->tolerance;
 
@@ -657,7 +683,72 @@ void GappyPreprocessing<dim>::computePseudoInverseMaskedSnapshots(const char* ty
 
   computeMaskedSnapshots(type, iCluster);
 
-  computePseudoInverseTranspose();
+  if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0))
+    computePseudoInverseTranspose();
+
+  if (gappyIO->doPreproApproxMetricNonlinearCVX && strcmp(type,"nonlinear")==0)
+    computeApproxMetricNonlinearCVX(iCluster);
+
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
+
+
+  if (strcmp(this->ioData->input.matlab,"")==0) {
+    this->com->fprintf(stderr, "*** Error: no MATLAB executable provided\n");
+    sleep(1);
+    exit(-1);
+  }
+
+  if (this->com->cpuNum() == 0) {
+    // form all file names
+    char *sampledApproxMetricNonlinearSnapsPath = NULL;
+    this->determinePath(this->sampledApproxMetricNonlinearSnapsName, iCluster, sampledApproxMetricNonlinearSnapsPath);
+    char *correlationMatrixPath = NULL;
+    this->determinePath(this->correlationMatrixName, -1, correlationMatrixPath);
+    char *sampledNodesPath = NULL;
+    this->determinePath(this->sampledNodesName, iCluster, sampledNodesPath);
+    char *metricPath = NULL;
+    this->determinePath(this->approxMetricNonlinearCVXName, iCluster, metricPath);
+
+    // call matlab
+    FILE *shell;
+    std::string matlabCommandString(this->ioData->input.matlab);
+    matlabCommandString += " -nodesktop -nosplash -r \"";
+    matlabCommandString += string(this->ioData->input.matlabFunction);
+    matlabCommandString += "('";
+    matlabCommandString += string(sampledApproxMetricNonlinearSnapsPath);
+    matlabCommandString += "','";
+    matlabCommandString += string(correlationMatrixPath);
+    matlabCommandString += "','";
+    matlabCommandString += string(sampledNodesPath);
+    matlabCommandString += "','";
+    matlabCommandString += string(metricPath);
+    matlabCommandString += "'); quit\"";
+    const char *matlabCommandChar = matlabCommandString.c_str();
+
+    delete [] sampledApproxMetricNonlinearSnapsPath;
+    delete [] correlationMatrixPath;
+    delete [] sampledNodesPath;
+    delete [] metricPath;
+
+    fprintf(stdout, "\n%s\n", matlabCommandChar);
+    if (!(shell = popen(matlabCommandChar, "r"))) {
+      fprintf(stderr, " *** Error: attempt to use external MATLAB executable (%s) failed!\n", this->ioData->input.matlab);
+      exit(-1);
+    } else {
+      fprintf(stdout, "\n ... Calling external MATLAB executable (%s) ...\n", this->ioData->input.matlab);
+    }
+
+    char buff[512];
+    while (fgets(buff, sizeof(buff), shell)!=NULL){
+      fprintf(stdout, "%s", buff);
+    }
+    pclose(shell);
+  }
 
 }
 
@@ -673,9 +764,18 @@ void GappyPreprocessing<dim>::computeMaskedSnapshots(const char* type, int iClus
     snapHatApproxMetric[iCol] = 0.0;
   
   // fill
-  int nNodesApproxMetric = globalSampleNodesUnionForApproxMetricState.size();
+  std::vector<int> approxMask; 
+  if (strcmp(type,"state")==0) {
+    approxMask = globalSampleNodesUnionForApproxMetricState;
+  } else if (strcmp(type,"nonlinear")==0) {
+    approxMask = globalSampleNodes;
+  } else { 
+    exit(-1);
+  }
+
+  int nNodesApproxMetric = approxMask.size();
   for (int iNode=0; iNode < nNodesApproxMetric; ++iNode) {
-    int currentNode = globalSampleNodesUnionForApproxMetricState[iNode];
+    int currentNode = approxMask[iNode];
     int locSub = globalNodeToLocSubDomainsMap.find(currentNode)->second;
     int locNode = globalNodeToLocalNodesMap.find(currentNode)->second;
     int currentCpu = globalNodeToCpuMap.find(currentNode)->second;
@@ -695,6 +795,9 @@ void GappyPreprocessing<dim>::computeMaskedSnapshots(const char* type, int iClus
   }
 
   this->freeMemoryForGappyPrepro();
+
+  if (strcmp(type,"nonlinear")==0 && gappyIO->doPreproApproxMetricNonlinearCVX)
+    outputApproxSnapsReduced(iCluster);
 
 }
 
@@ -844,14 +947,12 @@ void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords(const ch
     exit(-1);
   }
 
-  FILE *outApproxMetric;
-  if (thisCPU == 0) outApproxMetric = fopen(filePath, "wt");
-
-  com->fprintf(outApproxMetric,"Vector ApproxMetric under load for FluidNodesRed\n");
-  com->fprintf(outApproxMetric,"%d\n", nReducedNodes);
-  
   for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) {  
-     domain.writeVectorToFile(filePath,iVec,lowRankApproxMetricEigenvalues[iVec],(*this->lowRankFactor)[iVec]);
+     if (lowRankApproxMetricEigenvalues) {
+       domain.writeVectorToFile(filePath,iVec,lowRankApproxMetricEigenvalues[iVec],(*this->lowRankFactor)[iVec]);
+     } else {
+       domain.writeVectorToFile(filePath,iVec,0.0,(*this->lowRankFactor)[iVec]);
+     }
   } 
     
   if (filePath) {
@@ -860,8 +961,10 @@ void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords(const ch
   }
   delete this->lowRankFactor;
   this->lowRankFactor = NULL;
-  if (thisCPU == 0) fclose(outApproxMetric);
-  delete [] lowRankApproxMetricEigenvalues;
+  if (lowRankApproxMetricEigenvalues) {
+    delete [] lowRankApproxMetricEigenvalues;
+    lowRankApproxMetricEigenvalues = NULL;
+  }
 
 }
 
@@ -905,7 +1008,7 @@ void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords(const
 //----------------------------------------------
 
 template<int dim>
-void GappyPreprocessing<dim>::testInnerProduct(char *snapshotType) {
+void GappyPreprocessing<dim>::testInnerProduct(const char *snapshotType) {
 
   if (strcmp(snapshotType,"approxMetricState")==0) {
     com->fprintf(stdout," \n Computing state approximate metric errors on training data\n");
@@ -962,38 +1065,40 @@ void GappyPreprocessing<dim>::setSampleNodes(int iCluster) {
 
   globalSampleNodes.clear();
 
-  if (iCluster<0) {
-    if (int(globalSampleNodesUnion.size())>0) {
-      globalSampleNodes = globalSampleNodesUnion;
-    } else { 
-      this->readSampleNodes(iCluster, "full", false);
-      globalSampleNodes = this->sampleNodes;
-      this->sampleNodes.clear();
-      reinitializeMapsForSampleNodes();
-      globalSampleNodesUnion = globalSampleNodes;
-    }
-  } else {
-    if (int(globalSampleNodesForCluster.size())>0 && int(globalSampleNodesForCluster[iCluster].size())>0) {
-      globalSampleNodes = globalSampleNodesForCluster[iCluster];
-    } else {
-      this->readSampleNodes(iCluster, "full", false);
-      globalSampleNodes = this->sampleNodes;
-      this->sampleNodes.clear();
-    }
-  }
-
-  nSampleNodes = globalSampleNodes.size();
-
-  globalSampleNodeRankMap.clear();
-
-  for (int iSampleNode = 0; iSampleNode < nSampleNodes; ++iSampleNode) {
-    int globalSampleNode = globalSampleNodes[iSampleNode];
-    globalSampleNodeRankMap.insert(pair<int, int > (globalSampleNode, iSampleNode));
-  }
-
   // for surface mesh construction
-  if (surfaceMeshConstruction) nSampleNodes = 1; // should be zero previously
+  if (surfaceMeshConstruction) {
+    nSampleNodes = 1; // should be zero previously
+  } else {
+    if (iCluster<0) {
+      if (int(globalSampleNodesUnion.size())>0) {
+        globalSampleNodes = globalSampleNodesUnion;
+      } else { 
+        this->readSampleNodes(iCluster, "full", false);
+        globalSampleNodes = this->sampleNodes;
+        this->sampleNodes.clear();
+        reinitializeMapsForSampleNodes();
+        globalSampleNodesUnion = globalSampleNodes;
+      }
+    } else {
+      if (int(globalSampleNodesForCluster.size())>0 && int(globalSampleNodesForCluster[iCluster].size())>0) {
+        globalSampleNodes = globalSampleNodesForCluster[iCluster];
+      } else {
+        this->readSampleNodes(iCluster, "full", false);
+        globalSampleNodes = this->sampleNodes;
+        this->sampleNodes.clear();
+      }
+    }
 
+    nSampleNodes = globalSampleNodes.size();
+
+    globalSampleNodeRankMap.clear();
+
+    for (int iSampleNode = 0; iSampleNode < nSampleNodes; ++iSampleNode) {
+      int globalSampleNode = globalSampleNodes[iSampleNode];
+      globalSampleNodeRankMap.insert(pair<int, int > (globalSampleNode, iSampleNode));
+    }
+  }
+ 
   if (!globalNodes && iCluster==unionOfSampleNodes) {
     buildRemainingMesh();
   }
@@ -3457,6 +3562,35 @@ void GappyPreprocessing<dim>::outputInitialConditionReduced() {
 
   }
 }
+//----------------------------------------------
+
+template<int dim>
+void GappyPreprocessing<dim>::outputApproxSnapsReduced(int iCluster) {
+  //INPUTS
+  // nReducedNodes, snapHat
+  // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
+  // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
+
+  com->fprintf(stdout," ... Writing approximate snapshots in sample mesh coordinates ...\n");
+
+  char *sampledApproxSnapsPath = NULL;
+  this->determinePath(this->sampledApproxMetricNonlinearSnapsName, iCluster, sampledApproxSnapsPath);
+
+  std::string header("Vector SampledApproxMertricSnaps under load for FluidNodesRed");
+
+  // output
+  for (int iSnap=0; iSnap<snapHatApproxMetric.numVectors(); ++iSnap) {  // # rows in A and B
+    outputReducedSVec(snapHatApproxMetric[iSnap],sampledApproxSnapsPath,snapHatApproxMetric[iSnap].norm(),
+                      iSnap,snapHatApproxMetric.numVectors(),header.c_str());
+  }
+
+  if (sampledApproxSnapsPath) {
+    delete [] sampledApproxSnapsPath;
+    sampledApproxSnapsPath = NULL;
+  }
+
+}
+
 
 //----------------------------------------------
 
@@ -3974,6 +4108,7 @@ template<int dim>
 void GappyPreprocessing<dim>::formMaskedNonlinearROBs()
 {
   // initialize (from setUpGreedy())
+  //domain.makeSampledNodeDistInfo(cpuSample, locSubSample);
   for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
     podHat[iPodBasis].resize(nPod[iPodBasis]);
     for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0;
@@ -3989,7 +4124,6 @@ void GappyPreprocessing<dim>::formMaskedNonlinearROBs()
     if (thisCPU == currentCpu) {
       int locSampleNode = locSampleNodeCount[locSub];
       locSampleNodeCount[locSub]++;
-      // fill out sampled matrices (all columns for the current rows)
       SubDomainData<dim> locPod, locPodHat;
       for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
         for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
@@ -3997,7 +4131,6 @@ void GappyPreprocessing<dim>::formMaskedNonlinearROBs()
           locPodHat = podHat[iPodBasis][iPod].subData(locSub);
           for (int iDim = 0; iDim < dim ; ++iDim) {
             locPodHat[locSampleNode][iDim] = locPod[locNode][iDim];
-            // zeros everywhere except at sample nodes
           }
         }
       }
@@ -4107,6 +4240,8 @@ void GappyPreprocessing<dim>::reinitializeMapsForSampleNodes() {
     nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalSampleNode, XYZ));
   }
 
+  domain.makeSampledNodeDistInfo(cpuSample, locSubSample);
+  domain.makeOldSampledNodeDistInfo(cpuSample, locSubSample);
 }
 
 

@@ -273,6 +273,7 @@ protected:
 	std::vector<int> &sampleNodeVec);
   virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
+  virtual void outputApproxSnapsReduced(int iCluster);
   virtual void outputInitialConditionReduced();
   virtual void outputMultiSolutionsReduced();
   virtual void outputClusterCentersReduced();
@@ -289,17 +290,18 @@ protected:
   std::set<int> globalSampleNodesUnionSet; // union of sample nodes from each cluster
   std::set<int> globalSampleNodesUnionSetForApproxMetricState; // union of sample nodes from each cluster for approximated metric
   std::vector<int> globalSampleNodesUnion; // union of sample nodes from each cluster (as a vector)
-std::vector<int> globalSampleNodesUnionForApproxMetricState; // union of sample nodes from each cluster for approx metric (as a vector)
+  std::vector<int> globalSampleNodesUnionForApproxMetricState; // union of sample nodes from each cluster for approx metric (as a vector)
   std::vector<std::vector<int> > globalSampleNodesForCluster; // stores sampled nodes for each of the clusters   
-  void constructApproximatedMetric(const char* type, int iCluster = -1);
-  void computeCorrelationMatrixEVD();
+  void constructApproximatedMetric(const char* type, int iCluster = -1, std::vector<std::vector<double> >* corrMat=NULL);
+  void computeCorrelationMatrixEVD(std::vector<std::vector<double> >* corrMat=NULL);
   void computePseudoInverseMaskedSnapshots(const char* type, int iCluster = -1);
   void computeMaskedSnapshots(const char* type, int iCluster = -1);
   void computePseudoInverseTranspose();
   void computeApproximatedMetricLowRankFactor();
+  void computeApproxMetricNonlinearCVX(int iCluster);
   void outputApproxMetricLowRankFactorFullCoords(const char* type, int iCluster = -1);
   void outputApproxMetricLowRankFactorReducedCoords(const char* type, int iCluster = -1);
-  void testInnerProduct(char *);
+  void testInnerProduct(const char *);
   double** lowRankModes;
   double* lowRankApproxMetricEigenvalues;
   int numEigen;

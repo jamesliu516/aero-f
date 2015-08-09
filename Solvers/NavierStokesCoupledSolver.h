@@ -11,6 +11,7 @@
 //#include <ImplicitGalerkinTsDesc.h>
 #include <ImplicitGnatTsDesc.h>
 #include <ImplicitCollocationTsDesc.h>
+#include <ImplicitMetricTsDesc.h>
 #include <ImplicitRomPostproTsDesc.h>
 #include <MultiGridSolver.h>
 #include <MultiGridCoupledTsDesc.h>
@@ -57,6 +58,11 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
     else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
         ImplicitCollocationTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitCollocationTsDesc<dim> > tsSolver(&tsDesc);
+        tsSolver.solve(ioData);
+    }
+    else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
+        ImplicitMetricTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        TsSolver<ImplicitMetricTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
     }
 			/*else if (ioData.rom.projection == 1 && ioData.rom.systemApproximation == 0) {

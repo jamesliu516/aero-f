@@ -134,6 +134,8 @@ InputData::InputData()
   sower = "";
   metis = "";
   nParts = 0;
+  matlab = "";
+  matlabFunction = "";
 
   exactInterfaceLocation = "";
 
@@ -209,6 +211,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "PathToSowerExecutable", this, &InputData::sower);
   new ClassStr<InputData>(ca, "PathToMetisExecutable", this, &InputData::metis);
   new ClassInt<InputData>(ca, "NumberOfPartitions", this, &InputData::nParts);
+
+  new ClassStr<InputData>(ca, "PathToMatlabExecutable", this, &InputData::matlab); // for rapid prototyping with CVX
+  new ClassStr<InputData>(ca, "PathToMatlabFunction", this, &InputData::matlabFunction); // for rapid prototyping with CVX
 
 }
 
@@ -3882,6 +3887,9 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   approxMetricStateLowRankFullCoordsName = "";
   approxMetricNonlinearLowRankFullCoordsName = "";
   approxMetricStateLowRankSurfaceCoordsName = "";
+  approxMetricNonlinearCVXName = "";
+  correlationMatrixName = "";
+  sampledApproxMetricNonlinearSnapsName = "";
 
   // Surface quantities
   surfacePrefix = "";
@@ -3989,6 +3997,9 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricStateLowRankMatrixFullCoords", this, &NonlinearRomFilesData::approxMetricStateLowRankFullCoordsName);
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricNonlinearLowRankMatrixFullCoords", this, &NonlinearRomFilesData::approxMetricNonlinearLowRankFullCoordsName);
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricStateLowRankMatrixSurfaceCoords", this, &NonlinearRomFilesData::approxMetricStateLowRankSurfaceCoordsName);
+  new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricNonlinearCVX", this, &NonlinearRomFilesData::approxMetricNonlinearCVXName);
+  new ClassStr<NonlinearRomFilesData>(ca, "CorrelationMatrix", this, &NonlinearRomFilesData::correlationMatrixName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledApproxMetricNonlinearSnaps", this, &NonlinearRomFilesData::sampledApproxMetricNonlinearSnapsName);
 
   // Surface quantities
   new ClassStr<NonlinearRomFilesData>(ca, "SurfacePrefix", this, &NonlinearRomFilesData::surfacePrefix);
@@ -4180,6 +4191,7 @@ GappyConstructionData::GappyConstructionData()
   outputReducedBases = OUTPUT_REDUCED_BASES_TRUE;
   doPreproGNAT = DO_PREPRO_GNAT_FALSE;
   doPreproApproxMetricNonlinear = DO_PREPRO_APPROX_METRIC_NL_FALSE;
+  doPreproApproxMetricNonlinearCVX = DO_PREPRO_CVX_METRIC_NL_FALSE;
   sowerInputs = SOWER_INPUTS_FALSE;
 
   maxDimensionState = -1;
@@ -4253,10 +4265,12 @@ void GappyConstructionData::setup(const char *name, ClassAssigner *father) {
       GappyConstructionData::*>(&GappyConstructionData::doPrepro), 2, "False", 0, "True", 1);
   new ClassToken<GappyConstructionData>(ca, "SowerGappyInputs", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::sowerInputs), 2, "False", 0, "True", 1);
- new ClassToken<GappyConstructionData>(ca, "PerformGNATPrepro", this, reinterpret_cast<int
+  new ClassToken<GappyConstructionData>(ca, "PerformGNATPrepro", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::doPreproGNAT), 2, "False", 0, "True", 1);
- new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPrepro", this, reinterpret_cast<int
+  new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPrepro", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinear), 2, "False", 0, "True", 1);
+  new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPreproCVX", this, reinterpret_cast<int
+      GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinearCVX), 2, "False", 0, "True", 1);
 
   new ClassInt<GappyConstructionData>(ca, "MaxDimensionStateROB", this, &GappyConstructionData::maxDimensionState);	// default: full size
   new ClassInt<GappyConstructionData>(ca, "MinDimensionStateROB", this, &GappyConstructionData::minDimensionState); // default: 0
@@ -4286,8 +4300,6 @@ void GappyConstructionData::setup(const char *name, ClassAssigner *father) {
 
   sampledMeshTargetRegion.setup("SampledMeshTargetRegion", ca);
 
-  new ClassToken<GappyConstructionData>(ca, "ConstructApproxMetricNonlinear", this, reinterpret_cast<int
-      GappyConstructionData::*>(&GappyConstructionData::constructApproxMetricNonlinear), 2, "False", 0, "True", 1); 
   approxMetricNonlinear.setup("ApproxMetricNonlinear",ca);
 
   new ClassToken<GappyConstructionData> (ca, "SelectSampledNodes", this, reinterpret_cast<int

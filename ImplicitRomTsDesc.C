@@ -57,6 +57,10 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
       rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
       systemApprox=true;
       break;
+    case (NonlinearRomOnlineData::APPROX_METRIC_NL):
+      rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
+      systemApprox=true;
+      break;
     default:
       this->com->fprintf(stderr, "*** Error:  Unexpected system approximation type\n");
       exit (-1);
@@ -65,15 +69,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   currentCluster = -1;
 
   // nPod = 0 ?
-  nPod = ioData->romOnline.maxDimension;
+  nPod = (ioData->romOnline.maxDimension > 0) ? ioData->romOnline.maxDimension : 0;
 
-  // necessary? 
-  pod.resize(nPod);
-  AJ.resize(nPod);
-  dUromNewtonIt.resize(nPod);
-  dUromTimeIt.resize(nPod);
-  dUromCurrentROB.resize(nPod);
-  UromCurrentROB.resize(0);
   dUromNewtonIt = 0.0;
   dUromTimeIt = 0.0;
   dUromCurrentROB = 0.0;
@@ -336,7 +333,12 @@ void ImplicitRomTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U, const
 
     if (updateFreq || clusterSwitch) loadCluster(closestCluster, clusterSwitch, U);
 
+  } else { // single basis, no updateFreq
+    updateFreq = false;
+    clusterSwitch = false;
+    updatePerformed = false;
   }
+
   dUromTimeIt = 0.0;
 
 }
@@ -708,7 +710,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }
 
-  if (it==0) {
+  if (it==0 && (ioData->problem.alltype != ProblemData::_NONLINEAR_ROM_POST_)) {
     this->com->fprintf(stderr, "*** Warning: ROM converged on first iteration");
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }

@@ -119,6 +119,8 @@ struct InputData {
   const char *sower;
   const char *metis;
   int nParts;
+  const char *matlab;
+  const char *matlabFunction;
 
   //const char *stateVecFile;//CBM
 
@@ -2252,6 +2254,9 @@ struct NonlinearRomFilesData {
   const char *approxMetricStateLowRankFullCoordsName; // approximated metric in full mesh coordinates
   const char *approxMetricNonlinearLowRankFullCoordsName;
   const char *approxMetricStateLowRankSurfaceCoordsName;
+  const char *approxMetricNonlinearCVXName; // ascii file
+  const char *correlationMatrixName;
+  const char *sampledApproxMetricNonlinearSnapsName;
   
   // Surface quantities
   const char *surfacePrefix;
@@ -2615,6 +2620,7 @@ struct GappyConstructionData {
   enum SowerInputs {SOWER_INPUTS_FALSE = 0, SOWER_INPUTS_TRUE = 1} sowerInputs;
   enum DoPreproGNAT {DO_PREPRO_GNAT_FALSE = 0, DO_PREPRO_GNAT_TRUE = 1} doPreproGNAT;
   enum DoPreproApproxMetricNonlinear {DO_PREPRO_APPROX_METRIC_NL_FALSE = 0, DO_PREPRO_APPROX_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinear;
+  enum DoPreproApproxMetricNonlinearCVX {DO_PREPRO_CVX_METRIC_NL_FALSE = 0, DO_PREPRO_CVX_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinearCVX;
 
   int maxDimensionState;
   int minDimensionState;
@@ -2666,7 +2672,6 @@ struct GappyConstructionData {
   double minFractionOfSampledNodesInTargetRegion;
   SchemeFixData sampledMeshTargetRegion;  // use fix regions to specify target areas for sampled mesh construction
 
-  enum ConstructApproxMetricNonlinear {CONSTRUCT_APPROX_METRIC_NL_FALSE = 0, CONSTRUCT_APPROX_METRIC_NL_TRUE = 1} constructApproxMetricNonlinear; 
   ApproximatedMetricData approxMetricNonlinear;
 
   enum ComputeGappyRes {NO_GAPPYRES = 0, YES_GAPPYRES  = 1} computeGappyRes;

@@ -15,10 +15,10 @@ template \
 void GappyPreprocessing<dim>::buildReducedModel();\
 \
 template \
-void GappyPreprocessing<dim>::constructApproximatedMetric(const char *, int);\
+void GappyPreprocessing<dim>::constructApproximatedMetric(const char *, int, std::vector<std::vector<double> >* corrMat);\
 \
 template \
-void GappyPreprocessing<dim>::computeCorrelationMatrixEVD();\
+void GappyPreprocessing<dim>::computeCorrelationMatrixEVD(std::vector<std::vector<double> >* corrMat);\
 \
 template \
 void GappyPreprocessing<dim>::computePseudoInverseMaskedSnapshots(const char *, int);\
@@ -39,7 +39,7 @@ template \
 void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords(const char*, int);\
 \
 template \
-void GappyPreprocessing<dim>::testInnerProduct(char *snapshotType);\
+void GappyPreprocessing<dim>::testInnerProduct(const char *snapshotType);\
 \
 template \
 void GappyPreprocessing<dim>::setSampleNodes(int iCluster);\
@@ -223,7 +223,13 @@ template \
 void GappyPreprocessing<dim>::maskError();\
 \
 template \
-void GappyPreprocessing<dim>::setUpSampledNodeTargetRegionMask();
+void GappyPreprocessing<dim>::setUpSampledNodeTargetRegionMask();\
+\
+template \
+void GappyPreprocessing<dim>::outputApproxSnapsReduced(int iCluster);\
+\
+template \
+void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster);
 
 INSTANTIATION_HELPER(5);
 INSTANTIATION_HELPER(6);
