@@ -134,11 +134,13 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gappyPrefix, sampledWallDistName);
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gappyPrefix, gappyJacActionName);
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gappyPrefix, gappyResidualName);
-  determineFileName(romFiles->approxMetricNonlinearLowRankName, "approxMetricState", romFiles->gappyPrefix, approxMetricNonlinearLowRankName);
   determineFileName(romFiles->approxMetricStateLowRankName, "approxMetricState", romFiles->gappyPrefix, approxMetricStateLowRankName);
-  determineFileName(romFiles->approxMetricStateLowRankName, "approxMetricNonlinear", romFiles->gappyPrefix, approxMetricNonlinearLowRankName);
   determineFileName(romFiles->approxMetricStateLowRankFullCoordsName, "approxMetricStateFullCoords", romFiles->gappyPrefix, approxMetricStateLowRankFullCoordsName);
+  determineFileName(romFiles->approxMetricNonlinearLowRankName, "approxMetricNonlinear", romFiles->gappyPrefix, approxMetricNonlinearLowRankName);
   determineFileName(romFiles->approxMetricNonlinearLowRankFullCoordsName, "approxMetricNonlinearFullCoords", romFiles->gappyPrefix, approxMetricNonlinearLowRankFullCoordsName);
+  determineFileName(romFiles->approxMetricNonlinearCVXName, "approxMetricNonlinearCVX", romFiles->gappyPrefix, approxMetricNonlinearCVXName);
+  determineFileName(romFiles->correlationMatrixName, "correlationMatrix", romFiles->gappyPrefix, correlationMatrixName);
+  determineFileName(romFiles->sampledApproxMetricNonlinearSnapsName, "sampledApproxMetricNLSnaps", romFiles->gappyPrefix, sampledApproxMetricNonlinearSnapsName);
 
   // Surface quantities 
   determineFileName(romFiles->surfaceCentersName, "surfaceCenters", romFiles->surfacePrefix, surfaceCentersName);
@@ -173,6 +175,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   numResJacMat = 0;
   resMat = NULL;
   jacMat = NULL;
+  metric = NULL;
   restrictionMapping = NULL;
   cumulativeSnapWeights.clear();
 
@@ -190,7 +193,9 @@ com(_com), ioData(&_ioData), domain(_domain)
   }
 
   if (strcmp(ioData->output.rom.reducedCoords,"")==0) {
-    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION)
+    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT 
+        || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION 
+        || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL)
       com->fprintf(stderr, "\n*** Warning: Reduced coordinates output file not specified\n\n");
   } else {
     char *fullReducedCoordsName = new char[strlen(ioData->output.rom.prefix) + 1 + strlen(ioData->output.rom.reducedCoords) + 1];
@@ -208,6 +213,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   allSampleNodes = NULL;
   allResMat = NULL;
   allJacMat = NULL;
+  allMetrics = NULL;
   allStateBases = NULL;
   allKrylovBases = NULL;
   sensitivityBasis = NULL;
@@ -288,6 +294,9 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] approxMetricStateLowRankFullCoordsName;
   delete [] approxMetricNonlinearLowRankFullCoordsName;
   delete [] approxMetricStateLowRankSurfaceCoordsName;
+  delete [] approxMetricNonlinearCVXName;
+  delete [] correlationMatrixName;
+  delete [] sampledApproxMetricNonlinearSnapsName;
   delete [] surfaceCentersName;
   delete [] surfaceStateBasisName;
   delete [] surfaceRefStateName;
@@ -337,6 +346,7 @@ NonlinearRom<dim>::~NonlinearRom()
 
   if (resMat) delete resMat;
   if (jacMat) delete jacMat;
+  if (metric) delete metric;
 
   if (com->cpuNum() == 0) {
     if (clustUsageFile) fclose(clustUsageFile);
@@ -348,6 +358,7 @@ NonlinearRom<dim>::~NonlinearRom()
       if (allSampleNodes) delete allSampleNodes[iCluster];
       if (allResMat) delete allResMat[iCluster];
       if (allJacMat) delete allJacMat[iCluster];
+      if (allMetrics) delete allMetrics[iCluster];
       if (allStateBases) delete allStateBases[iCluster];
       if (allStateSVals) delete allStateSVals[iCluster];
       if (allKrylovBases) delete allKrylovBases[iCluster];
@@ -358,6 +369,7 @@ NonlinearRom<dim>::~NonlinearRom()
     if (allSampleNodes) delete [] allSampleNodes;
     if (allResMat) delete [] allResMat;
     if (allJacMat) delete [] allJacMat;
+    if (allMetrics) delete [] allMetrics;
     if (allStateBases) delete [] allStateBases;
     if (allStateSVals) delete [] allStateSVals;
     if (allKrylovBases) delete [] allKrylovBases;
@@ -776,7 +788,9 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
 
   if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) {
     this->uicNorm = Uic->norm();
-  } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
+  } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT 
+             || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION
+             || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
     if (specifiedIC) {
       double tag = 0.0;
       int numVecs = 0;
@@ -2922,7 +2936,64 @@ void NonlinearRom<dim>::deleteRestrictedQuantities() {
     jacMat = NULL;
   }
 
+  if (metric) {
+    delete metric;
+    metric = NULL;
+  }
+
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRom<dim>::readClusteredNonlinearMetric(int iCluster) {
+
+  if (storedAllOnlineQuantities || storedAllOfflineQuantities) {
+      com->fprintf(stdout, " ... loading nonlinear approximate metric for cluster %d\n", iCluster);
+      if (metric) delete metric;
+      int numVecs = (allMetrics[iCluster])->numVectors();
+      metric = new VecSet<DistSVec<double, dim> >(numVecs, restrictionMapping->restrictedDistInfo());
+      for (int iVec=0; iVec<numVecs; ++iVec) 
+        (*metric)[iVec] = (*(allMetrics[iCluster]))[iVec];
+    return;
+  }
+
+  char* metricPath = 0;
+  if (metric) {
+    delete metric;
+    metric = NULL;
+  }
+  determinePath(approxMetricNonlinearCVXName, iCluster, metricPath);
+  com->fprintf(stdout, "\nReading nonlinear approximate metric for cluster %d\n", iCluster);
+
+  double tag = 0.0;
+  int numVecs = 0;
+  int step = 0;
+  bool status = domain.readTagFromFile<double, dim>(metricPath, step, &tag, &numVecs);  // if file DNE, returns false, tag=0, and numSteps=0
+
+  if (!status) {
+    com->fprintf(stderr, "\nCould not open file %s\n", metricPath);
+    exit(-1);
+  }
+
+  VecSet<DistSVec<double, dim> > fullDistInfoMetric(numVecs, domain.getNodeDistInfo());
+
+  for (int iVec=0; iVec<numVecs; ++iVec) {
+    status = domain.readVectorFromFile(metricPath, iVec, &tag, fullDistInfoMetric[iVec]);
+  }
+
+  delete [] metricPath;
+
+  // restrictionMapping is set during readClusteredSampleNodes
+  metric = new VecSet<DistSVec<double, dim> >(numVecs, restrictionMapping->restrictedDistInfo());
+
+  for (int i = 0; i < numVecs; ++i) {
+    restrictionMapping->restriction(fullDistInfoMetric[i],(*metric)[i]);
+  }
+
+}
+
+
 
 //------------------------------------------------------------------------------
 
@@ -3140,11 +3211,19 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
     allRestrictionMappings = new RestrictionMapping<dim>*[nClusters];
     allResMat = new VecSet< DistSVec<double, dim> >*[nClusters];
     if (numResJacMat==2) allJacMat = new VecSet< DistSVec<double, dim> >*[nClusters];
+    allMetrics = NULL;
   } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION ) {
     allSampleNodes = new std::vector<int>*[nClusters];
     allRestrictionMappings = new RestrictionMapping<dim>*[nClusters];
     allResMat = NULL;
     allJacMat = NULL;
+    allMetrics = NULL;
+  } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL ) {
+    allSampleNodes = new std::vector<int>*[nClusters];
+    allRestrictionMappings = new RestrictionMapping<dim>*[nClusters];
+    allResMat = NULL;
+    allJacMat = NULL;
+    allMetrics = new VecSet< DistSVec<double, dim> >*[nClusters];
   }
 
 // read and store online info for each cluster
@@ -3213,7 +3292,9 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
         sVals = NULL;
       }
             
-    } else if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
+    } else if (   ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT 
+               || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION 
+               || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
       for (int iCluster=0; iCluster<nClusters; ++iCluster) {
         // read sample nodes
         readClusteredSampleNodes(iCluster, "sampled", false); // resets restriction map
@@ -3239,6 +3320,16 @@ void NonlinearRom<dim>::readAllClusteredOnlineQuantities() {
             delete jacMat;
             jacMat = NULL;
           }
+        }
+
+        if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
+          // read metric
+          readClusteredNonlinearMetric(iCluster);
+          allMetrics[iCluster] = new VecSet< DistSVec<double, dim> >(metric->numVectors(), restrictionMapping->restrictedDistInfo());
+          for (int iVec=0; iVec<metric->numVectors(); ++iVec)
+            (*(allMetrics[iCluster]))[iVec] = (*metric)[iVec];
+          delete metric;
+          metric = NULL;
         }
 
         // read sampled state ROB and sVals
@@ -3588,6 +3679,9 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, const char* type,
   } else if (strcmp(type, "basisComponentwiseSums") == 0) {               
     determinePath(basisComponentwiseSumsName, -1, infoPath);
     assert(vec3);
+  } else if (strcmp(type, "correlationMatrix") == 0) {
+    determinePath(correlationMatrixName, -1, infoPath);
+    assert(vec2);
   } else {
     exit(-1);
   }
@@ -3897,7 +3991,9 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(const char* updateType) {
 
     readCenterNorms();
 
-    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION ) {
+    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT 
+        || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION
+        || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL ) {
       this->readClusterCenters("sampledCenters");
     } else {
       this->readClusterCenters("centers");
@@ -4445,140 +4541,259 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
     return; 
   }
 
-  if (surfaceMeshConstruction) {
-      com->fprintf(stderr, " *** Error: Kyle, you still need to hook up the automated sowering for the surface mesh!\n");
-      exit(-1);
-  }
-  
   if (com->cpuNum() == 0) {
+    if (surfaceMeshConstruction) {
 
-    char *topFilePath = NULL;
-    determinePath(sampledMeshName, -1, topFilePath);
+      char *topFilePath = NULL;
+      determinePath(surfaceMeshName, -1, topFilePath);
 
-    // call metis
-    FILE *shell;
-    std::string metisCommandString(ioData->input.metis);
-    metisCommandString += " ";
-    metisCommandString += topFilePath;
-    metisCommandString += " ";
-    metisCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
-    const char *metisCommandChar = metisCommandString.c_str();
+      // call metis
+      FILE *shell;
+      std::string metisCommandString(ioData->input.metis);
+      metisCommandString += " ";
+      metisCommandString += topFilePath;
+      metisCommandString += " ";
+      metisCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
+      const char *metisCommandChar = metisCommandString.c_str();
 
-    com->fprintf(stdout, "\n%s\n", metisCommandChar);
-    if (!(shell = popen(metisCommandChar, "r"))) {
-      com->fprintf(stderr, " *** Error: attempt to use external METIS executable (%s) failed!\n", ioData->input.metis);
-      exit(-1);
-    } else {
-      com->fprintf(stdout, "\n ... Calling external METIS executable (%s) ...\n", ioData->input.metis);
-    }
+      com->fprintf(stdout, "\n%s\n", metisCommandChar);
+      if (!(shell = popen(metisCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use external METIS executable (%s) failed!\n", ioData->input.metis);
+        exit(-1);
+      } else {
+        com->fprintf(stdout, "\n ... Calling external METIS executable (%s) ...\n", ioData->input.metis);
+      }
 
-    char buff[512];
-    while (fgets(buff, sizeof(buff), shell)!=NULL){
-      com->fprintf(stdout, "%s", buff);
-    }
-    pclose(shell);
-    sleep(10);
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
 
-    std::string decompositionPathString(topFilePath);
-    decompositionPathString += ".dec.";
-    decompositionPathString += boost::lexical_cast<std::string>(ioData->input.nParts);
+      std::string decompositionPathString(topFilePath);
+      decompositionPathString += ".dec.";
+      decompositionPathString += boost::lexical_cast<std::string>(ioData->input.nParts);
 
-    // initial call to "sower -fluid"
-    std::string gappyPrefixPathString(databasePrefix);
-    gappyPrefixPathString += databaseName;
-    gappyPrefixPathString += "/";
-    gappyPrefixPathString += romFiles->gappyPrefix;
+      // initial call to "sower -fluid"
+      std::string surfacePrefixPathString(databasePrefix);
+      surfacePrefixPathString += databaseName;
+      surfacePrefixPathString += "/";
+      surfacePrefixPathString += romFiles->surfacePrefix;
+      
+      std::vector<int> cpuMaps;
+      int nCores = 1;
+      while (nCores < ioData->input.nParts) {
+        cpuMaps.push_back(nCores);
+        nCores *= 2;
+      }
+      cpuMaps.push_back(ioData->input.nParts);
+
+      std::string sowerCommandString = ioData->input.sower;
+      sowerCommandString += " -fluid -mesh ";
+      sowerCommandString += topFilePath;
+      sowerCommandString += " -dec ";
+      sowerCommandString += decompositionPathString;
+      std::vector<int>::iterator it;
+      for (it = cpuMaps.begin(); it != cpuMaps.end(); ++it) { 
+        sowerCommandString += " -cpu ";
+        sowerCommandString += boost::lexical_cast<std::string>(*it);
+      }
+      sowerCommandString += " -output ";
+      sowerCommandString += surfacePrefixPathString;
+      sowerCommandString += " -cluster ";
+      sowerCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
+      const char *sowerCommandChar = sowerCommandString.c_str();
+
+      com->fprintf(stdout, "\n%s\n", sowerCommandChar);
+      if (!(shell = popen(sowerCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use external SOWER executable (%s) failed!\n", ioData->input.sower);
+        exit(-1);
+      } else {
+        com->fprintf(stdout, "\n ... Calling external SOWER executable (%s) ...\n", ioData->input.sower);
+      }
+
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+
+      std::string meshPathString(surfacePrefixPathString);
+      meshPathString += ".msh";
+
+      std::string connectivityPathString(surfacePrefixPathString);
+      connectivityPathString += ".con";
     
-    std::vector<int> cpuMaps;
-    int nCores = 1;
-    while (nCores < ioData->input.nParts) {
-      cpuMaps.push_back(nCores);
-      nCores *= 2;
-    }
-    cpuMaps.push_back(ioData->input.nParts);
+      delete [] topFilePath;
 
-    std::string sowerCommandString = ioData->input.sower;
-    sowerCommandString += " -fluid -mesh ";
-    sowerCommandString += topFilePath;
-    sowerCommandString += " -dec ";
-    sowerCommandString += decompositionPathString;
-    std::vector<int>::iterator it;
-    for (it = cpuMaps.begin(); it != cpuMaps.end(); ++it) { 
-      sowerCommandString += " -cpu ";
-      sowerCommandString += boost::lexical_cast<std::string>(*it);
-    }
-    sowerCommandString += " -output ";
-    sowerCommandString += gappyPrefixPathString;
-    sowerCommandString += " -cluster ";
-    sowerCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
-    const char *sowerCommandChar = sowerCommandString.c_str();
+      // now for all of the "sower -fluid -split" calls
+    
+      char *surfaceCentersPath = NULL;
+      determinePath(surfaceCentersName, -1, surfaceCentersPath);
+      callSowerSplit(meshPathString, connectivityPathString, surfaceCentersPath);
+      delete [] surfaceCentersPath;
+    
+      char *surfaceSolutionPath = NULL;
+      determinePath(surfaceSolutionName, -1, surfaceSolutionPath);
+      callSowerSplit(meshPathString, connectivityPathString, surfaceSolutionPath);
+      delete [] surfaceSolutionPath;
+    
+      char *surfaceWallDistPath = NULL;
+      determinePath(surfaceWallDistName, -1, surfaceWallDistPath);
+      callSowerSplit(meshPathString, connectivityPathString, surfaceWallDistPath);
+      delete [] surfaceWallDistPath;
 
-    com->fprintf(stdout, "\n%s\n", sowerCommandChar);
-    if (!(shell = popen(sowerCommandChar, "r"))) {
-      com->fprintf(stderr, " *** Error: attempt to use external SOWER executable (%s) failed!\n", ioData->input.sower);
-      exit(-1);
+      char *approxMetricStateLowRankSurfaceCoordsPath = NULL;
+      determinePath(approxMetricStateLowRankSurfaceCoordsName, -1, approxMetricStateLowRankSurfaceCoordsPath);
+      callSowerSplit(meshPathString, connectivityPathString, approxMetricStateLowRankSurfaceCoordsPath);
+      delete [] approxMetricStateLowRankSurfaceCoordsPath;   
+ 
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+    
+        char *surfaceStateBasisPath = NULL;
+        determinePath(surfaceStateBasisName, iCluster, surfaceStateBasisPath);
+        callSowerSplit(meshPathString, connectivityPathString, surfaceStateBasisPath);
+        delete [] surfaceStateBasisPath;
+    
+        char *surfaceRefStatePath = NULL;
+        determinePath(surfaceRefStateName, iCluster, surfaceRefStatePath);
+        callSowerSplit(meshPathString, connectivityPathString, surfaceRefStatePath);
+        delete [] surfaceRefStatePath;
+      }
+
     } else {
-      com->fprintf(stdout, "\n ... Calling external SOWER executable (%s) ...\n", ioData->input.sower);
+   
+      char *topFilePath = NULL;
+      determinePath(sampledMeshName, -1, topFilePath);
+
+      // call metis
+      FILE *shell;
+      std::string metisCommandString(ioData->input.metis);
+      metisCommandString += " ";
+      metisCommandString += topFilePath;
+      metisCommandString += " ";
+      metisCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
+      const char *metisCommandChar = metisCommandString.c_str();
+
+      com->fprintf(stdout, "\n%s\n", metisCommandChar);
+      if (!(shell = popen(metisCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use external METIS executable (%s) failed!\n", ioData->input.metis);
+        exit(-1);
+      } else {
+        com->fprintf(stdout, "\n ... Calling external METIS executable (%s) ...\n", ioData->input.metis);
+      }
+
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+
+      std::string decompositionPathString(topFilePath);
+      decompositionPathString += ".dec.";
+      decompositionPathString += boost::lexical_cast<std::string>(ioData->input.nParts);
+
+      // initial call to "sower -fluid"
+      std::string gappyPrefixPathString(databasePrefix);
+      gappyPrefixPathString += databaseName;
+      gappyPrefixPathString += "/";
+      gappyPrefixPathString += romFiles->gappyPrefix;
+      
+      std::vector<int> cpuMaps;
+      int nCores = 1;
+      while (nCores < ioData->input.nParts) {
+        cpuMaps.push_back(nCores);
+        nCores *= 2;
+      }
+      cpuMaps.push_back(ioData->input.nParts);
+
+      std::string sowerCommandString = ioData->input.sower;
+      sowerCommandString += " -fluid -mesh ";
+      sowerCommandString += topFilePath;
+      sowerCommandString += " -dec ";
+      sowerCommandString += decompositionPathString;
+      std::vector<int>::iterator it;
+      for (it = cpuMaps.begin(); it != cpuMaps.end(); ++it) { 
+        sowerCommandString += " -cpu ";
+        sowerCommandString += boost::lexical_cast<std::string>(*it);
+      }
+      sowerCommandString += " -output ";
+      sowerCommandString += gappyPrefixPathString;
+      sowerCommandString += " -cluster ";
+      sowerCommandString += boost::lexical_cast<std::string>(ioData->input.nParts);
+      const char *sowerCommandChar = sowerCommandString.c_str();
+
+      com->fprintf(stdout, "\n%s\n", sowerCommandChar);
+      if (!(shell = popen(sowerCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use external SOWER executable (%s) failed!\n", ioData->input.sower);
+        exit(-1);
+      } else {
+        com->fprintf(stdout, "\n ... Calling external SOWER executable (%s) ...\n", ioData->input.sower);
+      }
+
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+
+      std::string meshPathString(gappyPrefixPathString);
+      meshPathString += ".msh";
+
+      std::string connectivityPathString(gappyPrefixPathString);
+      connectivityPathString += ".con";
+    
+      delete [] topFilePath;
+
+      // now for all of the "sower -fluid -split" calls
+    
+      char *sampledCentersPath = NULL;
+      determinePath(sampledCentersName, -1, sampledCentersPath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledCentersPath);
+      delete [] sampledCentersPath;
+    
+      char *sampledSolutionPath = NULL;
+      determinePath(sampledSolutionName, -1, sampledSolutionPath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledSolutionPath);
+      delete [] sampledSolutionPath;
+    
+      char *sampledWallDistPath = NULL;
+      determinePath(sampledWallDistName, -1, sampledWallDistPath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);
+      delete [] sampledWallDistPath;
+    
+      char *approxMetricStateLowRankPath = NULL;
+      determinePath(approxMetricStateLowRankName, -1, approxMetricStateLowRankPath);
+      callSowerSplit(meshPathString, connectivityPathString, approxMetricStateLowRankPath);
+      delete [] approxMetricStateLowRankPath;
+
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+        char *gappyResidualPath = NULL;
+        determinePath(gappyResidualName, iCluster, gappyResidualPath);
+        callSowerSplit(meshPathString, connectivityPathString, gappyResidualPath);
+        delete [] gappyResidualPath;
+    
+        char *gappyJacActionPath = NULL;
+        determinePath(gappyJacActionName, iCluster, gappyJacActionPath);
+        callSowerSplit(meshPathString, connectivityPathString, gappyJacActionPath);
+        delete [] gappyJacActionPath;
+    
+        char *sampledStateBasisPath = NULL;
+        determinePath(sampledStateBasisName, iCluster, sampledStateBasisPath);
+        callSowerSplit(meshPathString, connectivityPathString, sampledStateBasisPath);
+        delete [] sampledStateBasisPath;
+    
+        char *sampledRefStatePath = NULL;
+        determinePath(sampledRefStateName, iCluster, sampledRefStatePath);
+        callSowerSplit(meshPathString, connectivityPathString, sampledRefStatePath);
+        delete [] sampledRefStatePath;
+
+        char *approxMetricNonlinearCVXPath = NULL;
+        determinePath(approxMetricNonlinearCVXName, iCluster, approxMetricNonlinearCVXPath);
+        callSowerSplit(meshPathString, connectivityPathString, approxMetricNonlinearCVXPath);
+        delete [] approxMetricNonlinearCVXPath;
+   
+      }
+
     }
-
-    while (fgets(buff, sizeof(buff), shell)!=NULL){
-      com->fprintf(stdout, "%s", buff);
-    }
-    pclose(shell);
-
-    std::string meshPathString(gappyPrefixPathString);
-    meshPathString += ".msh";
-
-    std::string connectivityPathString(gappyPrefixPathString);
-    connectivityPathString += ".con";
-  
-    delete [] topFilePath;
-
-    // now for all of the "sower -fluid -split" calls
-  
-    char *sampledCentersPath = NULL;
-    determinePath(sampledCentersName, -1, sampledCentersPath);
-    callSowerSplit(meshPathString, connectivityPathString, sampledCentersPath);
-    delete [] sampledCentersPath;
-  
-    char *sampledSolutionPath = NULL;
-    determinePath(sampledSolutionName, -1, sampledSolutionPath);
-    callSowerSplit(meshPathString, connectivityPathString, sampledSolutionPath);
-    delete [] sampledSolutionPath;
-  
-    char *sampledWallDistPath = NULL;
-    determinePath(sampledWallDistName, -1, sampledWallDistPath);
-    callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);
-    delete [] sampledWallDistPath;
-  
-    char *approxMetricStateLowRankPath = NULL;
-    determinePath(approxMetricStateLowRankName, -1, approxMetricStateLowRankPath);
-    callSowerSplit(meshPathString, connectivityPathString, approxMetricStateLowRankPath);
-    delete [] approxMetricStateLowRankPath;
-  
-    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
-      char *gappyResidualPath = NULL;
-      determinePath(gappyResidualName, iCluster, gappyResidualPath);
-      callSowerSplit(meshPathString, connectivityPathString, gappyResidualPath);
-      delete [] gappyResidualPath;
-  
-      char *gappyJacActionPath = NULL;
-      determinePath(gappyJacActionName, iCluster, gappyJacActionPath);
-      callSowerSplit(meshPathString, connectivityPathString, gappyJacActionPath);
-      delete [] gappyJacActionPath;
-  
-      char *sampledStateBasisPath = NULL;
-      determinePath(sampledStateBasisName, iCluster, sampledStateBasisPath);
-      callSowerSplit(meshPathString, connectivityPathString, sampledStateBasisPath);
-      delete [] sampledStateBasisPath;
-  
-      char *sampledRefStatePath = NULL;
-      determinePath(sampledRefStateName, iCluster, sampledRefStatePath);
-      callSowerSplit(meshPathString, connectivityPathString, sampledRefStatePath);
-      delete [] sampledRefStatePath;
-  
-    }
-
   }
   
   com->barrier();

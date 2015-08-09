@@ -6,7 +6,7 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-ImplicitCollocationTsDesc<dim>::ImplicitCollocationTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
+ImplicitMetricTsDesc<dim>::ImplicitMetricTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   ImplicitGappyTsDesc<dim>(ioData, geoSource, dom)
 	//, leastSquaresSolver(this->com, this->com->size(), 1)// all cpus along rows
 {
@@ -18,28 +18,48 @@ ImplicitCollocationTsDesc<dim>::ImplicitCollocationTsDesc(IoData &ioData, GeoSou
 //------------------------------------------------------------------------------
 
 template<int dim>
-ImplicitCollocationTsDesc<dim>::~ImplicitCollocationTsDesc() {}
+ImplicitMetricTsDesc<dim>::~ImplicitMetricTsDesc() {}
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitCollocationTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
+void ImplicitMetricTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
 
   // Form the normal equations
   double t0 = this->timer->getTime();
 
-  this->projectVector(*this->AJRestrict, *this->ResRestrict, From);     // different from PG
+  DistSVec<double, dim> weightedResRestrict(*this->ResRestrict);
+  if (this->rom->metric->numVectors() == 1) {
+    weightedResRestrict *= (*this->rom->metric)[0];
+  } else {
+    this->com->fprintf(stderr, "... the metric has %d vectors...\n", this->rom->metric->numVectors());
+    this->com->fprintf(stderr, "... this hasn't been coded yet ...\n");
+    sleep(1);
+    exit(-1);
+  }
+  this->projectVector(*this->AJRestrict, weightedResRestrict, From);     // different from PG
   rhs = -1.0 * From;
   
   res = rhs*rhs;
   
   if (res < 0.0){
-    this->com->fprintf(stderr, "*** negative residual: %e\n", res);
+    fprintf(stderr, "*** negative residual: %e\n", res);
     exit(1);
   }
   res = sqrt(res);
  
-  transMatMatProd(*this->AJRestrict,*this->AJRestrict,this->jactmp);
+  VecSet< DistSVec<double, dim> > weightedAJRestrict(*this->AJRestrict);
+  if (this->rom->metric->numVectors() == 1) {
+    for (int iVec=0; iVec<weightedAJRestrict.numVectors(); ++iVec)
+      weightedAJRestrict[iVec] *= (*this->rom->metric)[0];
+  } else {
+    this->com->fprintf(stderr, "... the metric has %d vectors...\n", this->rom->metric->numVectors());
+    this->com->fprintf(stderr, "... this hasn't been coded yet ...\n");
+    sleep(1);
+    exit(-1);
+  }
+
+  transMatMatProd(*this->AJRestrict,weightedAJRestrict,this->jactmp);
   for (int iRow = 0; iRow < this->nPod; ++iRow) {
     for (int iCol = 0; iCol < this->nPod; ++iCol) { // different from PG
       this->jac[iRow][iCol] = this->jactmp[iRow + iCol * this->pod.numVectors()];
@@ -68,7 +88,7 @@ void ImplicitCollocationTsDesc<dim>::solveNewtonSystem(const int &it, double &re
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitCollocationTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
+void ImplicitMetricTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
 
   this->jac.setNewSize(this->nPod,this->nPod);
   From.resize(this->nPod);

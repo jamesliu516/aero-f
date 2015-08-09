@@ -95,6 +95,10 @@ void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
       this->readClusteredGappyMatrix(iCluster, "resMatrix");  // read in gappy POD matrix for residual
       if (this->numResJacMat==2) this->readClusteredGappyMatrix(iCluster, "jacMatrix"); // read in gappy POD matrix for Jacobian
     }
+
+    if (this->ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
+      this->readClusteredNonlinearMetric(iCluster);
+    }
  
     // read in sampled state ROB
     this->readClusteredBasis(iCluster, "sampledState");
