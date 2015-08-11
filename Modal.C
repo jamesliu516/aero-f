@@ -3104,19 +3104,16 @@ void ModalSolver<dim>::ROBInnerProducts()
   }
 
   //R matrix from Modified Gram Schmidt output file
-  if (ioData->output.transient.rMatrixFile[0] == 0)  {
-    com->fprintf(stderr, "*** ERROR: R matrix Output File not specified\n");
-    exit (-1);
+  FILE *outFPR;
+  if (ioData->output.transient.rMatrixFile[0] != 0)  {
+    int spR = strlen(ioData->output.transient.prefix);
+    char *outputFileR = new char[spR + strlen(ioData->output.transient.rMatrixFile)+1];
+    sprintf(outputFileR, "%s%s", ioData->output.transient.prefix, ioData->output.transient.rMatrixFile);
+    outFPR = fopen(outputFileR, "w");
+    if (!outFPR)  {     com->fprintf(stderr, "*** Warning: No output file: %s\n", outputFileR);
+      exit (-1);
+    }
   }
-
-  int spR = strlen(ioData->output.transient.prefix);
-  char *outputFileR = new char[spR + strlen(ioData->output.transient.rMatrixFile)+1];
-  sprintf(outputFileR, "%s%s", ioData->output.transient.prefix, ioData->output.transient.rMatrixFile);
-  FILE *outFPR = fopen(outputFileR, "w");
-  if (!outFPR)  {     com->fprintf(stderr, "*** Warning: No output file: %s\n", outputFileR);
-    exit (-1);
-  }
-
 
 
 
@@ -3183,16 +3180,18 @@ void ModalSolver<dim>::ROBInnerProducts()
        if (ioData->linearizedData.doGramSchmidt == LinearizedData::TRUE_GS) {
          modifiedGramSchmidt(*rob[iData],Rmatrix,numPod);
          // write R matrix in output file
-         if (!outputedRmatrix[iROB1]) {
-           outputedRmatrix[iROB1] = 1;
-           com->fprintf(outFPR, "%d\n", iROB1);
-           for (int iPod=0; iPod <numPod; ++iPod){
-             for (int jPod=0; jPod <numPod; ++jPod)
-               com->fprintf(outFPR, "%.16e ", Rmatrix[iPod*numPod+jPod]);
-             com->fprintf(outFPR, "\n");
-           }
+         if (ioData->output.transient.rMatrixFile[0] != 0)  {
+           if (!outputedRmatrix[iROB1]) {
+             outputedRmatrix[iROB1] = 1;
+             com->fprintf(outFPR, "%d\n", iROB1);
+             for (int iPod=0; iPod <numPod; ++iPod){
+               for (int jPod=0; jPod <numPod; ++jPod)
+                 com->fprintf(outFPR, "%.16e ", Rmatrix[iPod*numPod+jPod]);
+               com->fprintf(outFPR, "\n");
+             }
+           }  
          } 
-       }
+       } 
      }
    }
  
