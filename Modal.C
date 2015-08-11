@@ -2786,7 +2786,7 @@ void ModalSolver<dim>::ROBInnerProductSchedule(int** cache, int n, int Nmax, int
 
   if (Nmax >= n){
    //Fill the second column with 1:n (only need 1 cache since it can fit everything)
-   for (int j = 1; j < n; ++j)
+   for (int j = 0; j < n; ++j)
      cache[1][j] = j+1;
    return;
   }
@@ -3029,7 +3029,7 @@ void ModalSolver<dim>::ROBInnerProducts()
   fscanf(inFP, "%d",&nLoadMax);
 
   if (nLoadMax>=nROB)
-    nLoadMax = nROB-1;
+    nLoadMax = nROB;
  
   char **ROBFile = new char *[nROB];
   for (int iROB = 0; iROB < nROB; ++iROB) {
