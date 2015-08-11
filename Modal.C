@@ -849,6 +849,24 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
       delWRom[i] = podVecs[i] * delWFull;
   }
 
+  //ROM Initial Condition Output
+  FILE *romICFP;
+  if (ioData->output.transient.romInitialConditionFile[0] != 0)  {
+    int sp = strlen(ioData->output.transient.prefix);
+    char *romICFile = new char[sp + strlen(ioData->output.transient.romInitialConditionFile)+1];
+    sprintf(romICFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.romInitialConditionFile);
+    romICFP = fopen(romICFile, "w");
+    com->barrier();
+    com->fprintf(romICFP,"%d\n",nPodVecs+2*nStrMode);
+    for (i=0; i < nPodVecs; ++i)
+      com->fprintf(romICFP,"%.16e\n", delWRom[i]);
+    for (i=0; i < nStrMode; ++i)
+      com->fprintf(romICFP,"%.16e\n", delY[i]);
+    for (i=0; i < nStrMode; ++i)
+      com->fprintf(romICFP,"%.16e\n", delU[i]);
+    fclose(romICFP);
+  }
+
 #ifndef NDEBUG
   com->fprintf(stderr, " ... Initial Condition for Fluid ROM:\n");
   com->fprintf(stderr," q0 = [");

@@ -251,6 +251,7 @@ struct TransientData {
   const char *rMatrixFile;
   const char *romFile;
   const char *gendispFile;
+  const char *romInitialConditionFile;
   const char *philevel;
   const char *philevel2;
   const char *controlvolume;

@@ -382,6 +382,7 @@ TransientData::TransientData()
   robProductFile = "";
   rMatrixFile = "";  
   gendispFile = "";
+  romInitialConditionFile = "";
   philevel = "";
   philevel2 = "";
   controlvolume = "";
@@ -509,6 +510,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
   new ClassStr<TransientData>(ca, "RMatrices", this, &TransientData::rMatrixFile);
   new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
+  new ClassStr<TransientData>(ca, "ROMInitialCondition", this, &TransientData::romInitialConditionFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "Philevel2", this, &TransientData::philevel2);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
