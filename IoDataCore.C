@@ -4020,7 +4020,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   systemApproximation = SYSTEM_APPROXIMATION_NONE;
   lineSearch = LINE_SEARCH_FALSE;
   lsSolver = QR;
-  randMatDimension = 200;
+  randMatDimension = -1;
   basisUpdates = UPDATES_OFF;
   basisUpdateFreq = -1;
   tryAllFreq = -1;
@@ -4631,7 +4631,7 @@ DataCompressionData::DataCompressionData()
   computePOD = COMPUTE_POD_FALSE;  
   type = POD;
   podMethod = SCALAPACK_SVD;
-  randMatDimension = 500;
+  randMatDimension = -1;
   nPowerIts = 0;
   compareSVDMethods = COMPARE_SVD_FALSE; // compare probabilistic and scalapack for various basis sizes
   maxVecStorage = 0;
