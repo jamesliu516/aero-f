@@ -121,6 +121,8 @@ struct InputData {
   int nParts;
   const char *matlab;
   const char *matlabFunction;
+  const char *embarassinglyParallelMatlabFunction;
+  const char *matlabCommandFile;
 
   //const char *stateVecFile;//CBM
 
@@ -2652,6 +2654,8 @@ struct GappyConstructionData {
   int pseudoInverseNodes;
 
   double initialCluster; // for online matrix computations (restart)
+
+  int maxClusteredSnapshotsCVX;
 
   int randMatDimension;
   int nPowerIts;

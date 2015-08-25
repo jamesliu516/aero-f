@@ -538,19 +538,35 @@ void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int 
     approxMetricData = &(ioData->romOffline.gappy.approxMetricNonlinear);
     if (strcmp(this->ioData->input.approxMetricNonlinearSnapFile,"")!=0) {
       this->readSnapshotFiles("approxMetricNonlinear", 0);
+      if (corrMat==NULL) {
+        corrMat = new std::vector<std::vector<double> >;
+        corrMat->resize(this->snap->numVectors());
+        for (int iSnap=0; iSnap<this->snap->numVectors(); ++iSnap) {
+          (*corrMat)[iSnap].resize(iSnap+1,0.0); //lower triangular
+          for (int jSnap=0; jSnap<=iSnap; ++jSnap) {
+            (*corrMat)[iSnap][jSnap] = -1; //(*this->snap)[iSnap] * (*this->snap)[jSnap];
+          }
+          (*corrMat)[iSnap][iSnap] = (*this->snap)[iSnap] * (*this->snap)[iSnap];
+        }
+        if (gappyIO->doPreproApproxMetricNonlinearCVX) {
+          for (int jCluster=0; jCluster<this->nClusters; ++jCluster)
+            this->outputClusteredInfoASCII(jCluster, "correlationMatrix", NULL, corrMat);
+        }
+      }
     } else {
-      this->readClusteredSnapshots(iCluster, true, "residual", 0, -1);
-    }
-    if (corrMat==NULL) {
+      this->readClusteredSnapshots(iCluster, true, "residual", 0, ioData->romOffline.gappy.maxClusteredSnapshotsCVX);
+      if (corrMat) delete corrMat;
       corrMat = new std::vector<std::vector<double> >;
       corrMat->resize(this->snap->numVectors());
       for (int iSnap=0; iSnap<this->snap->numVectors(); ++iSnap) {
         (*corrMat)[iSnap].resize(iSnap+1,0.0); //lower triangular
         for (int jSnap=0; jSnap<=iSnap; ++jSnap) {
-          (*corrMat)[iSnap][jSnap] = (*this->snap)[iSnap] * (*this->snap)[jSnap];
+          (*corrMat)[iSnap][jSnap] = -1; //(*this->snap)[iSnap] * (*this->snap)[jSnap];
         }
+        (*corrMat)[iSnap][iSnap] = (*this->snap)[iSnap] * (*this->snap)[iSnap];
       }
-      if (gappyIO->doPreproApproxMetricNonlinearCVX) this->outputClusteredInfoASCII(-1, "correlationMatrix", NULL, corrMat);
+      if (gappyIO->doPreproApproxMetricNonlinearCVX)
+        this->outputClusteredInfoASCII(iCluster, "correlationMatrix", NULL, corrMat);
     }
   }
 
@@ -681,13 +697,20 @@ void GappyPreprocessing<dim>::computeCorrelationMatrixEVD(std::vector<std::vecto
 template<int dim>
 void GappyPreprocessing<dim>::computePseudoInverseMaskedSnapshots(const char* type, int iCluster) {
 
-  computeMaskedSnapshots(type, iCluster);
 
-  if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0))
-    computePseudoInverseTranspose();
 
-  if (gappyIO->doPreproApproxMetricNonlinearCVX && strcmp(type,"nonlinear")==0)
+  if (strcmp(type,"nonlinear")==0 && gappyIO->doPreproApproxMetricNonlinearCVX) {
+    outputApproxSnapsReduced(iCluster);
+    this->freeMemoryForGappyPrepro();
     computeApproxMetricNonlinearCVX(iCluster);
+  } else if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0)) {
+    computeMaskedSnapshots(type, iCluster);
+    computePseudoInverseTranspose();
+  } else {
+    this->com->fprintf(stderr, "*** Error in computePseudoInverseMaskedSnapshots\n");
+    sleep(1);
+    exit(-1);
+  }
 
 }
 
@@ -703,12 +726,11 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
     exit(-1);
   }
 
-  if (this->com->cpuNum() == 0) {
     // form all file names
     char *sampledApproxMetricNonlinearSnapsPath = NULL;
     this->determinePath(this->sampledApproxMetricNonlinearSnapsName, iCluster, sampledApproxMetricNonlinearSnapsPath);
     char *correlationMatrixPath = NULL;
-    this->determinePath(this->correlationMatrixName, -1, correlationMatrixPath);
+    this->determinePath(this->correlationMatrixName, iCluster, correlationMatrixPath);
     char *sampledNodesPath = NULL;
     this->determinePath(this->sampledNodesName, iCluster, sampledNodesPath);
     char *metricPath = NULL;
@@ -717,8 +739,12 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
     // call matlab
     FILE *shell;
     std::string matlabCommandString(this->ioData->input.matlab);
-    matlabCommandString += " -nodesktop -nosplash -r \"";
-    matlabCommandString += string(this->ioData->input.matlabFunction);
+    matlabCommandString += " -nodisplay -nodesktop -nosplash -r \"";
+    if (strcmp(this->ioData->input.embarassinglyParallelMatlabFunction,"")!=0) {
+      matlabCommandString += string(this->ioData->input.embarassinglyParallelMatlabFunction);
+    } else if (strcmp(this->ioData->input.matlabFunction,"")!=0) {
+      matlabCommandString += string(this->ioData->input.matlabFunction);
+    }
     matlabCommandString += "('";
     matlabCommandString += string(sampledApproxMetricNonlinearSnapsPath);
     matlabCommandString += "','";
@@ -727,7 +753,17 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
     matlabCommandString += string(sampledNodesPath);
     matlabCommandString += "','";
     matlabCommandString += string(metricPath);
-    matlabCommandString += "'); quit\"";
+    matlabCommandString += "'";
+    if (strcmp(this->ioData->input.embarassinglyParallelMatlabFunction,"")!=0) {
+      matlabCommandString += ",";
+      char buffer [100];
+      int status = sprintf(buffer, "%d", thisCPU);
+      matlabCommandString += string(buffer);
+      matlabCommandString += ","; 
+      status = sprintf(buffer, "%d", nTotCpus);
+      matlabCommandString += string(buffer);
+    }
+    matlabCommandString += "); quit\"";
     const char *matlabCommandChar = matlabCommandString.c_str();
 
     delete [] sampledApproxMetricNonlinearSnapsPath;
@@ -735,19 +771,51 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
     delete [] sampledNodesPath;
     delete [] metricPath;
 
-    fprintf(stdout, "\n%s\n", matlabCommandChar);
+  if (strcmp(this->ioData->input.embarassinglyParallelMatlabFunction,"")!=0) {
+    this->com->fprintf(stdout, "\n%s\n", matlabCommandChar);
     if (!(shell = popen(matlabCommandChar, "r"))) {
-      fprintf(stderr, " *** Error: attempt to use external MATLAB executable (%s) failed!\n", this->ioData->input.matlab);
+      fprintf(stderr, " *** Error: attempt to use external MATLAB executable (%s) failed! (CPU%d)\n", this->ioData->input.matlab, thisCPU);
       exit(-1);
     } else {
-      fprintf(stdout, "\n ... Calling external MATLAB executable (%s) ...\n", this->ioData->input.matlab);
+      this->com->fprintf(stdout, "\n ... All ranks are calling external MATLAB executable (%s) ...\n", this->ioData->input.matlab);
     }
 
     char buff[512];
-    while (fgets(buff, sizeof(buff), shell)!=NULL){
-      fprintf(stdout, "%s", buff);
-    }
+    while (fgets(buff, sizeof(buff), shell)!=NULL){}
     pclose(shell);
+
+  } else if (strcmp(this->ioData->input.matlabFunction,"")!=0) {
+    if (this->com->cpuNum() == 0) {
+      if (strcmp(this->ioData->input.matlabCommandFile,"")==0) {
+        fprintf(stdout, "\n%s\n", matlabCommandChar);
+        if (!(shell = popen(matlabCommandChar, "r"))) {
+          fprintf(stderr, " *** Error: attempt to use external MATLAB executable (%s) failed!\n",
+                         this->ioData->input.matlab);
+          exit(-1);
+        } else {
+          fprintf(stdout, "\n ... CPU0 is calling external MATLAB executable (%s) ...\n",
+                         this->ioData->input.matlab);
+        }
+
+        char buff[512];
+        while (fgets(buff, sizeof(buff), shell)!=NULL){
+          fprintf(stdout, "%s", buff);
+        }
+        pclose(shell);
+      } else {
+        // just append the command to file (assume that this will be run later)
+        FILE *matlabCommandFile = 0;
+        if (iCluster==0)
+          matlabCommandFile = fopen(this->ioData->input.matlabCommandFile, "wt");
+        else 
+          matlabCommandFile = fopen(this->ioData->input.matlabCommandFile, "at");
+        com->fprintf(matlabCommandFile,"%s\n\n", matlabCommandChar);
+        fclose(matlabCommandFile);
+      }
+    }
+  } else {
+    fprintf(stderr, "*** Error: no matlab function specified \n");
+    exit(-1); 
   }
 
 }
@@ -796,8 +864,6 @@ void GappyPreprocessing<dim>::computeMaskedSnapshots(const char* type, int iClus
 
   this->freeMemoryForGappyPrepro();
 
-  if (strcmp(type,"nonlinear")==0 && gappyIO->doPreproApproxMetricNonlinearCVX)
-    outputApproxSnapsReduced(iCluster);
 
 }
 
@@ -3573,15 +3639,35 @@ void GappyPreprocessing<dim>::outputApproxSnapsReduced(int iCluster) {
 
   com->fprintf(stdout," ... Writing approximate snapshots in sample mesh coordinates ...\n");
 
+
+  // create mask
+  DistVec<double> mask(domain.getNodeDistInfo());
+  mask = 0.0;
+  for (int iSampleNode=0; iSampleNode<nSampleNodes; ++iSampleNode) {
+    int currentSampleNode = globalSampleNodes[iSampleNode];
+    int locSub = globalNodeToLocSubDomainsMap.find(currentSampleNode)->second;
+    int locNode = globalNodeToLocalNodesMap.find(currentSampleNode)->second;
+    int currentCpu = globalNodeToCpuMap.find(currentSampleNode)->second;
+    if (thisCPU == currentCpu) {
+      double* locMask = mask.subData(locSub);
+      locMask[locNode] = 1.0;
+    }
+  }
+  com->barrier();
+  com->fprintf(stdout," ... norm of mask squared = %e \n", mask*mask);
+
   char *sampledApproxSnapsPath = NULL;
   this->determinePath(this->sampledApproxMetricNonlinearSnapsName, iCluster, sampledApproxSnapsPath);
 
   std::string header("Vector SampledApproxMertricSnaps under load for FluidNodesRed");
 
   // output
-  for (int iSnap=0; iSnap<snapHatApproxMetric.numVectors(); ++iSnap) {  // # rows in A and B
-    outputReducedSVec(snapHatApproxMetric[iSnap],sampledApproxSnapsPath,snapHatApproxMetric[iSnap].norm(),
-                      iSnap,snapHatApproxMetric.numVectors(),header.c_str());
+  DistSVec<double,dim> maskedVec(domain.getNodeDistInfo());
+  for (int iSnap=0; iSnap<this->snap->numVectors(); ++iSnap) {  // # rows in A and B
+    maskedVec = (*this->snap)[iSnap];
+    maskedVec *= mask;
+    outputReducedSVec(maskedVec,sampledApproxSnapsPath,(*this->snap)[iSnap].norm(),
+                      iSnap,this->snap->numVectors(),header.c_str());
   }
 
   if (sampledApproxSnapsPath) {

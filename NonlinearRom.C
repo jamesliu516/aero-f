@@ -3680,7 +3680,7 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, const char* type,
     determinePath(basisComponentwiseSumsName, -1, infoPath);
     assert(vec3);
   } else if (strcmp(type, "correlationMatrix") == 0) {
-    determinePath(correlationMatrixName, -1, infoPath);
+    determinePath(correlationMatrixName, iCluster, infoPath);
     assert(vec2);
   } else {
     exit(-1);

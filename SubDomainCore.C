@@ -5335,6 +5335,7 @@ void SubDomain::setFarFieldNodes()
 
   //check that we get the same number of far field nodes counting via nodes, faces, and tets
   //via tets
+  /*
   Vec<bool> tcounted(nodes.size());
   tcounted = false;
   int tnumFarFieldNodes=0;
@@ -5366,7 +5367,7 @@ void SubDomain::setFarFieldNodes()
   }
 
   assert((numFarFieldNodes==fnumFarFieldNodes)&&(numFarFieldNodes==tnumFarFieldNodes)); 
-
+  */
 }
 
 //------------------------------------------------------------------------------
@@ -5393,6 +5394,7 @@ void SubDomain::setWallNodes()
 
   //check that we get the same number of far field nodes counting via nodes, faces, and tets
   //via tets
+  /*
   Vec<bool> tcounted(nodes.size());
   tcounted = false;
   int tnumWallNodes=0;
@@ -5425,7 +5427,7 @@ void SubDomain::setWallNodes()
     }
   }
 
-  assert((numWallNodes==fnumWallNodes)&&(numWallNodes==tnumWallNodes)); 
+  assert((numWallNodes==fnumWallNodes)&&(numWallNodes==tnumWallNodes));  */
 
 }
 
