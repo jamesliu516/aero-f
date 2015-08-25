@@ -136,6 +136,8 @@ InputData::InputData()
   nParts = 0;
   matlab = "";
   matlabFunction = "";
+  embarassinglyParallelMatlabFunction = "";
+  matlabCommandFile = "";
 
   exactInterfaceLocation = "";
 
@@ -213,7 +215,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassInt<InputData>(ca, "NumberOfPartitions", this, &InputData::nParts);
 
   new ClassStr<InputData>(ca, "PathToMatlabExecutable", this, &InputData::matlab); // for rapid prototyping with CVX
-  new ClassStr<InputData>(ca, "PathToMatlabFunction", this, &InputData::matlabFunction); // for rapid prototyping with CVX
+  new ClassStr<InputData>(ca, "MatlabFunction", this, &InputData::matlabFunction); // for rapid prototyping with CVX
+  new ClassStr<InputData>(ca, "EmbarassinglyParallelMatlabFunction", this, &InputData::embarassinglyParallelMatlabFunction); // for rapid prototyping with CVX
+  new ClassStr<InputData>(ca, "WriteMatlabCommandsTo", this, &InputData::matlabCommandFile); // for rapid prototyping with CVX (on a different machine)
 
 }
 
@@ -4253,6 +4257,7 @@ GappyConstructionData::GappyConstructionData()
   pseudoInverseSolver = PSEUDO_INVERSE_SCALAPACK;
 
   testApproxMetric = TEST_APPROX_METRIC_FALSE;
+  maxClusteredSnapshotsCVX = -1;
 }
 
 //------------------------------------------------------------------------------
@@ -4301,6 +4306,8 @@ void GappyConstructionData::setup(const char *name, ClassAssigner *father) {
   sampledMeshTargetRegion.setup("SampledMeshTargetRegion", ca);
 
   approxMetricNonlinear.setup("ApproxMetricNonlinear",ca);
+
+  new ClassInt<GappyConstructionData>(ca, "MaxClusteredSnapshotsUsedByCVX", this, &GappyConstructionData::maxClusteredSnapshotsCVX);
 
   new ClassToken<GappyConstructionData> (ca, "SelectSampledNodes", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::selectSampledNodes), 2, "False", 0, "True", 1);
