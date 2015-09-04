@@ -763,7 +763,7 @@ void OneDimensional::singleTimeIntegration(double dt){
 	      //std::cout << fabs(V[j][k]-lastPhaseChangeValue[j][k]) << " " <<
               //  std::max<double>(1e-8,fabs(V[j][k]-V[l][k])) << std::endl;
               //alpha = std::min<double>(alpha,fabs(2.0*V[j][1]-V[l][1])/lastPhaseChangeValue[j][1]);
-              std::cout << "alpha = " << alpha << std::endl;
+              //std::cout << "alpha = " << alpha << std::endl;
               if (typePhaseChange == MultiFluidData::EXTRAPOLATION) {
   	        V[i][k] = alpha*((X[i][0]-X[j][0])/(X[l][0]-X[j][0])*V[l][k]+
 		  (X[i][0]-X[l][0])/(X[j][0]-X[l][0])*V[j][k]) + 
