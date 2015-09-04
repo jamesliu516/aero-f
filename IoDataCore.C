@@ -2281,13 +2281,13 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "InterfaceTreatment", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
                                  "FirstOrder", 0, "SecondOrder", 1);
-  new ClassToken<MultiFluidData>(ca, "InterfaceExtrapolation", this,
+  new ClassToken<MultiFluidData>(ca, "ExtrapolationOrder", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
                                  "FirstOrder", 0, "SecondOrder", 1);
   
   new ClassToken<MultiFluidData>(ca, "InterfaceLimiter", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceLimiter),2,
-                                 "None", 0, "Alex1", 1);
+                                 "Off", 0, "On", 1);
 
   new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),5,
@@ -5033,6 +5033,7 @@ EmbeddedFramework::EmbeddedFramework() {
   eosChange = NODAL_STATE;
   forceAlg = RECONSTRUCTED_SURFACE;
   riemannNormal = STRUCTURE;
+  typePhaseChange = EXTRAPOLATION;
   phaseChangeAlg = AVERAGE;
   interfaceAlg = MID_EDGE;
 
@@ -5074,8 +5075,12 @@ void EmbeddedFramework::setup(const char *name) {
                                       "ReconstructedSurface", 0, "ControlVolumeFace", 1, "EmbeddedSurface", 2);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
-  new ClassToken<EmbeddedFramework> (ca, "PhaseChangeAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2, "Average", 0, "LeastSquares", 1);
-  new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2, "MidEdge", 0, "Intersection", 1);
+  new ClassToken<EmbeddedFramework> (ca, "PhaseChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::typePhaseChange), 1,
+                                     "Extrapolation", 0);
+  new ClassToken<EmbeddedFramework> (ca, "ExtrapolationOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2,
+                                     "FirstOrder", 0, "SecondOrder", 1);
+  new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2,
+                                     "MidEdge", 0, "Intersection", 1);
   embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
@@ -5102,7 +5107,7 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassToken<EmbeddedFramework>(ca, "InterfaceLimiter", this,
                                     reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceLimiter),2,
-                                    "None", 0, "Alex1", 1);
+                                    "Off", 0, "On", 1);
 
 
   // Low mach preconditioning of the exact Riemann problem.
