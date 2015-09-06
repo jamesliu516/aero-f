@@ -25,7 +25,6 @@ using std::min;
 #include "FluidSelector.h"
 #include "DenseMatrixOps.h"
 #include "FemEquationTermDesc.h"
-#include <Eigen/Core>
 #include <ProgrammedBurn.h>
 #include <HigherOrderMultiFluid.h>
 #include <HigherOrderFSI.h>
