@@ -1206,7 +1206,7 @@ struct MultiFluidData {
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
-  enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
+  enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1, AUTO=2} interfaceExtrapolation;
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3,
                         TRIANGULATED = 4} levelSetMethod;
@@ -2765,7 +2765,7 @@ struct EmbeddedFramework {
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
   enum TypePhaseChange {EXTRAPOLATION = 0} typePhaseChange;
-  enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
+  enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1, AUTO = 2} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
 
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;

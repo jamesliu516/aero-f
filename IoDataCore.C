@@ -2202,7 +2202,7 @@ MultiFluidData::MultiFluidData()
 
   method = GHOSTFLUID_FOR_POOR;
   problem = BUBBLE; //hidden
-  typePhaseChange = RIEMANN_SOLUTION; //hidden
+  typePhaseChange = EXTRAPOLATION;
   riemannComputation = RK2;
   localtime  = GLOBAL; //hidden
   typeTracking = LINEAR; //hidden
@@ -2221,7 +2221,7 @@ MultiFluidData::MultiFluidData()
   jwlRelaxationFactor = 1.0;
 
   interfaceTreatment = FIRSTORDER;
-  interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
+  interfaceExtrapolation = AUTO;
   interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
   interfaceOmitCells = 0;
@@ -2244,8 +2244,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
                                 "Bubble", 0, "ShockTube", 1);
   new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
-                                 "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 2,
+                                 "RiemannSolution", 1, "Extrapolation", 2);
   new ClassToken<MultiFluidData>(ca, "RiemannComputation", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 4,
                                  "FirstOrder", 0, "SecondOrder", 1, "TabulationRiemannInvariant", 2,
@@ -2278,9 +2278,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
              "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
 
-  new ClassToken<MultiFluidData>(ca, "InterfaceTreatment", this,
+  new ClassToken<MultiFluidData>(ca, "InterfaceAlgorithm", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
-                                 "FirstOrder", 0, "SecondOrder", 1);
+                                 "MidEdge", 0, "Intersection", 1);
   new ClassToken<MultiFluidData>(ca, "ExtrapolationOrder", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
                                  "FirstOrder", 0, "SecondOrder", 1);
@@ -5028,13 +5028,13 @@ void InitialConditions::setup(const char *name, ClassAssigner *father) {
 
 EmbeddedFramework::EmbeddedFramework() {
 
-  intersectorName = PHYSBAM;
+  intersectorName = FRG;
   structNormal = ELEMENT_BASED;
   eosChange = NODAL_STATE;
-  forceAlg = RECONSTRUCTED_SURFACE;
+  forceAlg = EMBEDDED_SURFACE;
   riemannNormal = STRUCTURE;
   typePhaseChange = EXTRAPOLATION;
-  phaseChangeAlg = AVERAGE;
+  phaseChangeAlg = AUTO;
   interfaceAlg = MID_EDGE;
 
   prec = NON_PRECONDITIONED;
@@ -5955,6 +5955,16 @@ void IoData::resetInputValues()
     linearizedData.gamFreq[17] = linearizedData.gamFreq18;
     linearizedData.gamFreq[18] = linearizedData.gamFreq19;
     linearizedData.gamFreq[19] = linearizedData.gamFreq20;
+  }
+
+  if(embed.typePhaseChange == EmbeddedFramework::EXTRAPOLATION && embed.phaseChangeAlg == EmbeddedFramework::AUTO) {
+    embed.phaseChangeAlg = (embed.interfaceAlg == EmbeddedFramework::INTERSECTION) ?
+                           EmbeddedFramework::LEAST_SQUARES : EmbeddedFramework::AVERAGE;
+  }
+
+  if(mf.typePhaseChange == MultiFluidData::EXTRAPOLATION && mf.interfaceExtrapolation == MultiFluidData::AUTO) {
+    mf.interfaceExtrapolation = (mf.interfaceTreatment == MultiFluidData::SECONDORDER) ?
+                                MultiFluidData::EXTRAPOLATIONSECONDORDER : MultiFluidData::EXTRAPOLATIONFIRSTORDER;
   }
 
 }
