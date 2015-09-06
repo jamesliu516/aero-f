@@ -5611,9 +5611,6 @@ void IoData::resetInputValues()
       ts.implicit.mvp = ImplicitData::FD;
     }
 
-    if(embed.structNormal == 1)
-      embed.structNormal == 0; //NodeBased(1) --> ElementBased(0)
-
     if (ts.implicit.ffjacobian != ImplicitData::EXACT) {
       // The overwriting is silent because the feature is not documented.
       //com->fprintf(stderr, " ----- SA >> Time.Implicit.FluxJacobian set to Exact -----\n");

@@ -48,7 +48,7 @@ public:
     eps3 = e*e*e;
 
   }
-  ~RecFcn() {}
+  virtual ~RecFcn() {}
 
   void preconstant(double&, double&, double&, double&);
 
